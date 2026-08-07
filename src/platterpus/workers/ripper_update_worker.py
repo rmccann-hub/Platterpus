@@ -24,6 +24,7 @@ import logging
 from PySide6.QtCore import QObject, Signal, Slot
 
 from platterpus.deps.ripper_manifest import CHANNEL_STABLE, CancellableFetcher
+from platterpus.deps.ripper_offer import OFFER_NOT_DETERMINED, RipperOffer
 
 log = logging.getLogger(__name__)
 
@@ -73,10 +74,27 @@ class RipperUpdateWorker(QObject):
             )
         except Exception:  # noqa: BLE001 — a worker must always finish
             log.exception("ripper update check crashed")
-            # Build the "not determined" answer from the same function rather than
-            # hand-assembling one here: two ways to express the same verdict is two
-            # things to drift, and this path is the one nobody looks at.
-            from platterpus.deps.ripper_offer import evaluate_offer as _evaluate
-
-            offer = _evaluate(None, self.channel)
+            # **The recovery must not call the thing that just failed.**
+            #
+            # This branch originally rebuilt the verdict by calling `evaluate_offer`
+            # again — reasoning that one expression of "not determined" beats two.
+            # That reasoning is right in general and wrong here: if `evaluate_offer`
+            # is what raised, the recovery raises too, `run()` propagates, and
+            # `finished` is never emitted. A worker that never finishes is a thread
+            # `stop_thread` cannot join, so closing the window waits out the whole
+            # shutdown budget and then abandons it (CLAUDE.md rule 9).
+            #
+            # So the fallback is assembled here, from constants, with no call that
+            # can fail. `tests/test_ripper_update_worker.py` pins it by making
+            # `evaluate_offer` raise.
+            offer = RipperOffer(
+                verdict=OFFER_NOT_DETERMINED,
+                channel=self.channel,
+                release=None,
+                detail=(
+                    "Couldn't check for a newer cyanrip build — the check itself "
+                    "failed. Your installed ripper is unchanged, and this is not "
+                    "evidence that it is out of date. The details are in the log."
+                ),
+            )
         self.finished.emit(offer)

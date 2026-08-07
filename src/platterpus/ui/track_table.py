@@ -695,6 +695,31 @@ class TrackTable(QWidget):
         """True when every track is ticked (the whole-disc case)."""
         return self._model.selected_count() == len(self._model.tracks())
 
+    def set_all_selected(self, selected: bool) -> None:
+        """Tick or untick every track's Rip? box.
+
+        A delegation, like :meth:`tracks` and :meth:`selected_track_numbers` above.
+        Added 2026-08-07 because the widget exposed every *read* of the selection
+        and none of the *writes*: the right-click menu reached
+        ``self._model.set_all_selected`` directly, so nothing outside the widget
+        could change the selection at all. The ``select-tracks`` script verb was
+        written against the widget — the obvious surface — and would have raised
+        ``AttributeError`` on the first real disc, recorded as ERROR by the
+        runner's fault guard. Caught before it shipped by
+        ``tests/test_uiscript_rip_verbs.py``'s floor, which checks every name a
+        verb calls against the real class rather than against its own stub.
+        """
+        self._model.set_all_selected(selected)
+
+    def set_only_selected(self, track_numbers: Sequence[int]) -> None:
+        """Tick exactly ``track_numbers`` and untick everything else.
+
+        The write behind "Rip only these" — and behind ``select-tracks 1,3,5-7``,
+        which is what reaches cyanrip's ``-l``. See :meth:`set_all_selected` for
+        why these two delegations did not exist until now.
+        """
+        self._model.set_only_selected(track_numbers)
+
     def _highlighted_track_numbers(self) -> list[int]:
         """1-based track numbers of the rows the user has highlighted (selected
         in the view), for the right-click actions. Row index == number - 1."""
