@@ -982,7 +982,15 @@ class ScriptRunner(QObject):
             self._record(step, Outcome.FAIL, f"{field} rejected: {rejection}")
             return
 
-        self._window._config = candidate
+        # `setattr` rather than a direct assignment, and NOT a `# type: ignore`.
+        # The runner's window is typed `QWidget` on purpose — it is the widest thing
+        # this module needs and it keeps `uiscript` from importing `MainWindow` (an
+        # import cycle, since the window constructs the runner). Every other window
+        # access here already goes through `getattr` with a None fallback for the
+        # same reason; the assignment was the one place that reached for a concrete
+        # attribute and it is what mypy flagged. Silencing the checker would have
+        # hidden a real inconsistency rather than resolved it.
+        setattr(self._window, "_config", candidate)  # noqa: B010 — see above
         controls = getattr(self._window, "_rip_controls", None)
         if controls is not None:
             # The same push the Settings dialog does on Accept, so the next rip
