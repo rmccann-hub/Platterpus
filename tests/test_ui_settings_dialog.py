@@ -668,11 +668,15 @@ def test_composite_row_fields_have_accessible_names(qapp: QApplication) -> None:
         for b in dialog.findChildren(QPushButton)
         if b.text() == "Browse…"
     ]
-    # Four Browse rows: output dir, working dir, library folder, metaflac path.
-    assert len(browse_names) == 4
+    # Five Browse rows: output dir, working dir, library folder, metaflac path,
+    # and the unattended test script. The count is asserted rather than a lower
+    # bound so a new composite row cannot be added without someone reading this
+    # test and confirming its field got a name too.
+    assert len(browse_names) == 5
     # All named, all distinct — a screen reader can tell them apart.
     assert all(browse_names)
     assert len(set(browse_names)) == len(browse_names)
+    assert dialog._test_script_edit.accessibleName() == "Test script"
 
 
 def test_validation_banner_announces_once_per_distinct_text(
@@ -768,6 +772,9 @@ def test_every_documented_setting_has_a_tooltip(qapp: QApplication) -> None:
         "output_format": "_format_combo",
         "mp3_vbr_quality": "_mp3_quality_spin",
         "rip_goal": "_goal_combo",
+        "test_script_path": "_test_script_edit",
+        "test_script_autorun": "_test_autorun_check",
+        "test_script_allow_unsafe": "_test_unsafe_check",
     }
     # Guide-documented fields that share another setting's single control (no
     # dedicated widget of their own). Empty since secure_rerip_dynamic got its

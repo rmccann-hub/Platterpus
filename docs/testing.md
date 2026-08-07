@@ -1347,6 +1347,94 @@ that in code and a test asserts the placeholder is *recognised* while still *fai
 label check — because implementing the exemption as "the checker accepts parenthesised
 strings" would have quietly exempted every badly-named label too.
 
+### 5.ag — An implemented capability is not a capability either (added 2026-08-06)
+
+§5.p is about a capability the docs claimed and the code lacked. This is the step
+before it: the code had the capability and **nothing could reach it**.
+
+`src/platterpus/uiscript/` — the unattended-batch scripting subsystem the
+maintainer asked for by name — shipped complete: a parser that never raises, a
+closed vocabulary table, a `QTimer` runner, a transcript renderer, and 59 passing
+tests. It shipped with **no menu item, no dialog and no CLI flag**. The whole
+detection is one command:
+
+```sh
+grep -rn 'uiscript' src/ --exclude-dir=uiscript      # -> nothing
+```
+
+Two things make this worse than an ordinary gap. First, the **tests were green**,
+because a subsystem's own tests import it directly — they measure the subsystem,
+never its reachability. Second, the **changelog announced it**, so every later
+reader (including the next session) had a written statement that the feature
+existed, and no reason to check.
+
+The same sweep found the second instance immediately: `rig_session.sh`, the
+unattended hardware harness, lived in `scripts/` — present in the git repository
+and in nothing that ships. The person who runs it has an AppImage, and the rig
+sheet's instruction was, verbatim, `bash ~/path/to/Platterpus/scripts/rig_session.sh`.
+It had a smoke test asserting the script's *content* and nothing asserting a
+built Platterpus could find it.
+
+**What to do about it, concretely:**
+
+- **For a new package**, assert an import from outside it. If nothing outside
+  imports it, it is not wired.
+- **For a shipped data file**, assert against the *packaging metadata*, not the
+  filesystem — `tests/test_rig_session_reachable.py` reads
+  `pyproject.toml`'s `[tool.setuptools.package-data]`, because a file that exists
+  in a checkout and is absent from the wheel is exactly the failure, and a
+  filesystem check cannot tell those apart.
+- **For a user-facing route**, assert it appears where the user would look —
+  `--help` text, a menu action, a Settings row.
+- **Give the assertion a floor.** `assert "--rig-session" in help_text` passes
+  against an empty string under a broken capture, so assert the capture is
+  non-trivial first.
+
+**The generalisation, and it is the useful part:** this project's checks are good
+at asking *"is this correct?"* and had nothing asking *"can anyone get to it?"*
+Both a documented capability and an implemented one can be unreachable, and
+unreachable is indistinguishable from absent to the only person who matters.
+
+### 5.ah — A gate that picks its subject by chance is not a gate (added 2026-08-06)
+
+§5.aa is *a gate in the wrong place*. This is a gate in the right place, asking
+the right question, **of a document chosen by directory iteration order**.
+
+`tests/test_fork_source.py::test_the_pin_is_the_one_the_newest_closed_handshake_round_verified`
+stops the setup wizard building a cyanrip commit no closed handshake round
+approved — one of the load-bearing checks in the whole seam. It read:
+
+```python
+verified = sorted(dir.glob("round-*.md"),
+                  key=lambda p: int(re.search(r"round-(\d+)", p.name).group(1)))
+newest = verified[-1]
+```
+
+Every `round-07-lap-NN.md` file yields the same key, `7`. Python's sort is
+stable, so the tie is broken by `Path.glob`'s order, which is `os.scandir`'s,
+which is the filesystem's. **"The newest verification" was whichever lap the
+directory happened to list last.** It named the right commit for eight
+consecutive laps and then a ninth was added and it did not — and the only reason
+anyone looked is that CI went red.
+
+Three things to take from it:
+
+- **A non-total sort key makes "the newest" a coin flip.** The shared
+  `sort_key` in `scripts/handshake.py` already existed, is `(round, lap, stem)`,
+  and says in its own docstring that a non-total key *"makes 'the newest file'
+  depend on directory iteration order, which is the class of thing that decides a
+  release gate differently on two machines."* The test imported that module for
+  something else and then hand-rolled its own ordering anyway. **Sharing a
+  definition only helps if the caller uses it.**
+- **Read the test's name as a specification.** It said *newest CLOSED round*; the
+  code said *newest file*. Those differ exactly when a round is open — which is
+  the only time the check matters, because an open round's laps are not
+  approvals. The name was right and had been right the whole time.
+- **A check that has been green for months is not thereby correct.** This one had
+  never once evaluated the document it claimed to. Give a gate a companion test
+  that asserts *which subject it examined*, not only what it concluded — the
+  conclusion can be right for a reason that will not survive the next file.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at
@@ -1413,4 +1501,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.4b13.*
+*Last updated for Platterpus v0.6.4b15.*

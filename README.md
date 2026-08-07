@@ -637,6 +637,23 @@ forwards every argument straight to the app):
 # attention, so it is usable from a script.
 ./platterpus-x86_64.AppImage --audit-rips ~/Music/rips/
 
+# Run a batch of UI tests without a person in front of the machine. FILE holds
+# one step per line (open a dialog, check what is on screen, take a screenshot,
+# run the ripper and assert its exit code); the app opens its test console with
+# the file loaded and starts it immediately. The window is real and on screen —
+# this is "no person needed", not "no display needed". A failing step is recorded
+# and the batch keeps going, so you always come back to a complete transcript.
+# Settings has the same thing as a saved setting, with an option to run it on
+# every launch.
+./platterpus-x86_64.AppImage --run-script ~/my-tests.txt
+
+# Run the unattended hardware-session harness into a folder, then exit. One
+# artifact per step, and it never stops on a failure — a failing step is data.
+# Covers: both versions, --doctor, the ripper's own -x and -j probes (which a rip
+# never sends), pre-gap screening, --audit-rips, an ETA sweep, log sizes, a fresh
+# ripper clone + build, handshake status and preflight. Send the whole folder.
+./platterpus-x86_64.AppImage --rig-session ~/rig-session-output
+
 # Compare two rips of the SAME disc track-by-track (which tracks are byte-for-
 # byte identical, which differ, and which rip is the better master). Points at
 # the .platterpus.json report each rip writes beside the FLACs.
@@ -930,4 +947,4 @@ See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
 
 ---
 
-*Last updated for Platterpus v0.6.4b14.*
+*Last updated for Platterpus v0.6.4b15.*

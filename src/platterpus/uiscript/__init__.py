@@ -39,7 +39,7 @@ fact.
    dialog at all, since timers are still delivered inside a nested event loop.
 
 3. **A failing step does not stop the batch.** Same rule as
-   ``scripts/rig_session.sh``: *a failing step is data*. The whole point is an
+   ``platterpus/rig_session.sh``: *a failing step is data*. The whole point is an
    unattended run, and a batch that halts on its first surprise wastes the
    session. Steps record PASS / FAIL / ERROR and the run continues; only an
    explicit ``abort`` or a runner-level fault ends it early.

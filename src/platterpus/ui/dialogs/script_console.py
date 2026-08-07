@@ -1,0 +1,346 @@
+"""Tools → Run test script… — the console that makes the batch runner reachable.
+
+**The gap this closes.** :mod:`platterpus.uiscript` was built to the maintainer's
+own specification — *"give me a debug testing option where i can copy and paste
+command code into it so i dont need to be present but tests get executed anyway
+in my absense"* — and shipped **entirely unwired**: a parser, a vocabulary, a
+runner, a transcript renderer and a test file, with no menu item, no dialog and
+no CLI flag anywhere in the application. `grep` for the package outside itself
+returned nothing. A capability nobody can invoke is not a capability
+(``docs/testing.md`` §5.p, the rule this is the second instance of), and the
+version that made it *look* delivered is the changelog entry that announced it.
+
+So this file is small on purpose. It adds no behaviour: it is the surface.
+
+**Why it is modeless.** A script drives the main window and opens other dialogs.
+An application-modal console would sit in front of the very thing it is meant to
+operate, and the ``open`` verb's dialogs would stack behind it. ``show()`` keeps
+the app usable and the runner's ``QTimer`` ticks the same either way.
+
+**Why the transcript widget is PlainText.** It carries the ripper's own output
+verbatim, and Qt's default ``AutoText`` *interprets* anything that looks like
+markup. A cyanrip line containing ``<`` would be swallowed as an unknown tag and
+the reader would never learn text went missing — ``CLAUDE.md``'s inbound-seam
+rule, applied at the one widget that displays dependency output here.
+
+**Why nothing here blocks.** The one verb that runs a subprocess does it on a
+helper thread (:class:`platterpus.uiscript.runner._CyanripJob`); this dialog only
+ever appends text in response to a signal. Every button slot is a few
+microseconds of work — no ``subprocess``, no network, no ``exec()`` of anything
+that does either. That is the recurring trap CLAUDE.md names for dialogs.
+"""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+from platterpus.ui.dialogs.centering import CenteredDialog
+from platterpus.uiscript.report import Outcome, RunReport, StepRecord, render
+from platterpus.uiscript.runner import ScriptRunner
+from platterpus.uiscript.script import parse
+from platterpus.uiscript.verbs import verb_reference
+
+log = logging.getLogger(__name__)
+
+#: Shown in an empty console. A first-time reader should be able to press Run
+#: without reading anything else and get a transcript that proves the feature
+#: works — which is also the smallest possible smoke test of the wiring.
+STARTER_SCRIPT: str = """\
+# Lines starting with # are comments. Press Run.
+log starting a self-check
+snapshot before-anything
+open settings
+expect-dialog "Settings"
+screenshot settings-open
+cancel
+expect-dialog none
+log finished
+"""
+
+
+class ScriptConsoleDialog(CenteredDialog):
+    """Paste a batch, run it against the live window, read the transcript."""
+
+    def __init__(
+        self,
+        window: QWidget,
+        *,
+        script_path: str = "",
+        allow_unsafe: bool = False,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent or window)
+        self.setWindowTitle("Run test script")
+        self.setModal(False)
+        self.resize(760, 640)
+
+        #: The window the script drives. Held so `Run` can build a runner against
+        #: the real main window rather than against this dialog.
+        self._target: QWidget = window
+        #: Where `Load` and `Save` start, and what the Settings field named.
+        self._script_path: str = script_path
+
+        layout = QVBoxLayout(self)
+        intro = QLabel(
+            "Type or paste a batch of steps and press Run. Each step runs one "
+            "at a time against the real window, so a script can open a dialog, "
+            "check what is on screen, take a screenshot and dismiss it — the "
+            "same actions a person would take, without a person.\n\n"
+            "A failing step does NOT stop the batch: it is recorded and the run "
+            "continues, because the point is to come back to a complete "
+            "transcript.",
+            self,
+        )
+        intro.setWordWrap(True)
+        intro.setTextFormat(Qt.TextFormat.PlainText)
+        layout.addWidget(intro)
+
+        self._editor: QPlainTextEdit = QPlainTextEdit(self)
+        self._editor.setPlainText(STARTER_SCRIPT)
+        self._editor.setFont(_mono())
+        self._editor.setAccessibleName("Test script")
+        layout.addWidget(self._editor, stretch=3)
+
+        self._unsafe_check: QCheckBox = QCheckBox(
+            "Allow the unsafe verbs (eval, call) in this run", self
+        )
+        self._unsafe_check.setChecked(allow_unsafe)
+        self._unsafe_check.setToolTip(
+            "Off by default. The vocabulary is otherwise a closed list of named "
+            "actions with nothing that can run arbitrary code. A run that used "
+            "these says so at the top of its own transcript."
+        )
+        layout.addWidget(self._unsafe_check)
+
+        buttons = QHBoxLayout()
+        self._run_button: QPushButton = QPushButton("&Run", self)
+        self._run_button.setDefault(True)
+        self._run_button.clicked.connect(self._on_run)
+        buttons.addWidget(self._run_button)
+
+        self._stop_button: QPushButton = QPushButton("&Stop", self)
+        self._stop_button.setEnabled(False)
+        self._stop_button.clicked.connect(self._on_stop)
+        buttons.addWidget(self._stop_button)
+
+        load_button = QPushButton("&Load…", self)
+        load_button.clicked.connect(self._on_load)
+        buttons.addWidget(load_button)
+
+        save_button = QPushButton("Sa&ve transcript…", self)
+        save_button.clicked.connect(self._on_save_transcript)
+        buttons.addWidget(save_button)
+
+        help_button = QPushButton("&Commands", self)
+        help_button.clicked.connect(self._on_show_reference)
+        buttons.addWidget(help_button)
+
+        buttons.addStretch(1)
+        close_button = QPushButton("&Close", self)
+        close_button.clicked.connect(self.reject)
+        buttons.addWidget(close_button)
+        layout.addLayout(buttons)
+
+        transcript_label = QLabel("Transcript", self)
+        transcript_label.setTextFormat(Qt.TextFormat.PlainText)
+        layout.addWidget(transcript_label)
+
+        self._transcript: QPlainTextEdit = QPlainTextEdit(self)
+        self._transcript.setReadOnly(True)
+        self._transcript.setFont(_mono())
+        self._transcript.setAccessibleName("Transcript")
+        # PLAIN TEXT, deliberately — see the module docstring. This widget shows
+        # the ripper's own output and MusicBrainz-sourced titles.
+        self._transcript.setPlaceholderText("The run's results appear here.")
+        layout.addWidget(self._transcript, stretch=2)
+
+        #: The runner for the current/last run. Recreated per run so a report
+        #: from a previous run can never be appended to.
+        self._runner: ScriptRunner | None = None
+
+        if script_path:
+            # A saved path is a statement of intent: load it, but say so in the
+            # transcript rather than silently replacing what the user sees.
+            self._load_path(Path(script_path).expanduser(), announce=True)
+
+    # --- Public surface, used by the autorun path ----------------------------
+
+    def run_now(self) -> None:
+        """Start the batch that is currently in the editor. Idempotent-ish.
+
+        Public so `--run-script` and the autorun-on-launch path drive the *same*
+        code the Run button does. A second description of "how a script starts"
+        would be the drift this project keeps naming.
+        """
+        self._on_run()
+
+    def load_file(self, path: Path) -> None:
+        """Load a script file into the editor, reporting a failure visibly.
+
+        Public because `--run-script` needs it and reaching into `_load_path`
+        from `app.py` would make the console's internals part of the CLI's
+        contract.
+        """
+        self._load_path(path, announce=True)
+
+    def script_text(self) -> str:
+        return self._editor.toPlainText()
+
+    def set_script_text(self, text: str) -> None:
+        self._editor.setPlainText(text)
+
+    def transcript_text(self) -> str:
+        return self._transcript.toPlainText()
+
+    @property
+    def runner(self) -> ScriptRunner | None:
+        return self._runner
+
+    # --- Slots ---------------------------------------------------------------
+
+    def _on_run(self) -> None:
+        if self._runner is not None and self._runner.running:
+            log.info("script console: Run pressed while a run was in progress")
+            return
+        source = self._editor.toPlainText()
+        steps = parse(source)
+        # A parse problem is NOT a refusal to run. Bad lines become steps that
+        # carry their own error and are reported at their line number; the other
+        # lines still run. That is the parser's contract and the console must not
+        # second-guess it — a batch left overnight is worth more with 58 of 60
+        # steps done than with none.
+        bad = [s for s in steps if not s.ok]
+        self._transcript.clear()
+        self._append(f"{len(steps)} step(s) parsed; {len(bad)} will report an error.")
+        runner = ScriptRunner(self._target, parent=self)
+        runner.step_recorded.connect(self._on_step)
+        runner.finished.connect(self._on_finished)
+        self._runner = runner
+        self._run_button.setEnabled(False)
+        self._stop_button.setEnabled(True)
+        runner.start(
+            steps,
+            unsafe_allowed=self._unsafe_check.isChecked(),
+            source=source,
+        )
+
+    def _on_stop(self) -> None:
+        if self._runner is not None:
+            self._runner.stop("stopped from the console")
+
+    def _on_step(self, record: object) -> None:
+        # Typed `object` because Qt's queued connections force it; narrowed here
+        # rather than trusted (CLAUDE.md typing rule).
+        if not isinstance(record, StepRecord):
+            log.warning("script console got a non-StepRecord payload: %r", type(record))
+            return
+        marker = "ok  " if record.outcome is Outcome.PASS else record.outcome.value
+        line = f"L{record.line_no:>3} {marker:<8} {record.source}"
+        if record.detail:
+            line += "\n" + "\n".join(
+                f"          {part}" for part in record.detail.splitlines()
+            )
+        self._append(line)
+
+    def _on_finished(self, report: object) -> None:
+        self._run_button.setEnabled(True)
+        self._stop_button.setEnabled(False)
+        if not isinstance(report, RunReport):
+            log.warning("script console got a non-RunReport payload: %r", type(report))
+            return
+        # The full render, not a summary line: this is the thing the maintainer
+        # pastes back, and a verdict without the steps under it is half a report.
+        self._transcript.setPlainText(render(report))
+
+    def _on_load(self) -> None:
+        start = self._script_path or str(Path.home())
+        chosen, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open a test script",
+            start,
+            "Scripts (*.txt *.pscript);;All files (*)",
+        )
+        if chosen:
+            self._load_path(Path(chosen), announce=True)
+
+    def _load_path(self, path: Path, *, announce: bool) -> None:
+        """Read a script file into the editor, reporting failure visibly.
+
+        A path that cannot be read is stated in the transcript AND logged. The
+        alternative — an empty editor — is the silent-failure shape: it looks
+        exactly like a script file that happened to be empty.
+        """
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            log.warning("script console could not read %s: %s", path, exc)
+            self._append(f"could not read {path}: {exc}")
+            return
+        self._editor.setPlainText(text)
+        self._script_path = str(path)
+        if announce:
+            self._append(f"loaded {path} ({len(text.splitlines())} lines)")
+
+    def _on_save_transcript(self) -> None:
+        text = self._transcript.toPlainText()
+        if not text.strip():
+            self._append("nothing to save yet — run a script first.")
+            return
+        chosen, _ = QFileDialog.getSaveFileName(
+            self, "Save the transcript", str(Path.home() / "platterpus-transcript.txt")
+        )
+        if not chosen:
+            return
+        try:
+            Path(chosen).write_text(text, encoding="utf-8")
+        except OSError as exc:
+            log.warning("script console could not write %s: %s", chosen, exc)
+            QMessageBox.warning(self, "Could not save", f"{chosen}\n\n{exc}")
+            return
+        self._append(f"transcript saved to {chosen}")
+
+    def _on_show_reference(self) -> None:
+        box = QMessageBox(self)
+        box.setWindowTitle("Script commands")
+        box.setTextFormat(Qt.TextFormat.PlainText)
+        box.setText(verb_reference())
+        box.exec()
+
+    def _append(self, text: str) -> None:
+        self._transcript.appendPlainText(text)
+
+    # --- Teardown ------------------------------------------------------------
+
+    def closeEvent(self, event: object) -> None:  # noqa: N802 — Qt override
+        """Stop a run before the window that hosts its timer goes away.
+
+        The runner is parented to this dialog, so closing without stopping would
+        destroy a live ``QTimer`` mid-run — and, worse for the person reading the
+        result, leave a transcript with no verdict. ``stop()`` also kills any
+        ripper call still in flight.
+        """
+        if self._runner is not None and self._runner.running:
+            self._runner.stop("the console was closed")
+        super().closeEvent(event)  # type: ignore[arg-type]  # Qt's QCloseEvent, typed loosely at this seam
+
+
+def _mono() -> QFont:
+    """A fixed-pitch font, so a transcript's columns line up when pasted."""
+    font = QFont("monospace")
+    font.setStyleHint(QFont.StyleHint.TypeWriter)
+    return font

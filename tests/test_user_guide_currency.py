@@ -64,6 +64,12 @@ _GUIDE_KEYWORDS: dict[str, str] = {
     "output_format": "Output format",
     "mp3_vbr_quality": "MP3 VBR quality",
     "rip_goal": "Goal",
+    # Unattended testing. Documented, not exempted: it is a visible Settings row
+    # with a Browse button, and a setting a user can see and cannot look up is
+    # exactly the noise this classification exists to prevent.
+    "test_script_path": "Test script",
+    "test_script_autorun": "Run it automatically when Platterpus starts",
+    "test_script_allow_unsafe": "unsafe script verbs",
 }
 
 # Fields deliberately NOT in the end-user guide, each with the reason. These are

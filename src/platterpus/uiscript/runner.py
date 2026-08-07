@@ -28,8 +28,10 @@ that stops without a verdict reads exactly like one that passed.
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -62,6 +64,43 @@ CYANRIP_VERB_TIMEOUT_S: float = 300.0
 
 #: Cap on captured tool output carried into a single transcript record.
 MAX_TOOL_OUTPUT_CHARS: int = 8000
+
+#: Grace on top of `CYANRIP_VERB_TIMEOUT_S` before the runner stops waiting for
+#: its own helper thread. `run_capture` enforces the timeout itself and kills the
+#: child, so this only fires when the child is **unreapable** — wedged in a drive
+#: ioctl, where even SIGKILL does not land (`CLAUDE.md`, Qt threading rules). The
+#: runner then reports an unreapable child and moves on rather than waiting
+#: forever, which is the whole difference between a bounded run and a hung one.
+CYANRIP_VERB_GRACE_S: float = 20.0
+
+
+@dataclass
+class _CyanripJob:
+    """A `cyanrip` verb running on a helper thread, watched by the tick.
+
+    **Why a thread at all.** ``run_capture`` can take up to five minutes, and
+    ``CLAUDE.md``'s never-block rule has no case exemption: five minutes of a
+    dead window is exactly the "Not Responding" the maintainer reports on sight.
+    The first version of this verb ran it inline and justified it in a comment —
+    the shape this project has an explicit rule against (*a comment where a check
+    belongs is not a fix*).
+
+    **Why not a QThread.** Nothing here needs a Qt event loop; a daemon thread
+    reporting back through a value the tick polls is the lighter of the two
+    options ``CLAUDE.md`` permits, and it carries none of the ownership
+    obligations a ``QThread`` slot would (``tests/test_qthread_ownership.py``).
+
+    **Publication.** The worker writes ``result``/``error`` and *then* sets
+    ``done``; the tick reads them only after seeing ``done``. That ordering is
+    the whole synchronisation — no lock, and no field read before it is written.
+    """
+
+    step: Step
+    argv: list[str]
+    started: float
+    done: threading.Event
+    result: tuple[int, str] | None = None
+    error: str = ""
 
 
 class ScriptRunner(QObject):
@@ -97,6 +136,10 @@ class ScriptRunner(QObject):
         self._last_cyanrip_exit: int | None = None
         self._last_cyanrip_output: str = ""
         self._last_cyanrip_argv: list[str] = []
+        #: The `cyanrip` verb currently running on a helper thread, if any. While
+        #: this is set the tick services it instead of advancing, which is what
+        #: keeps a five-minute ripper call off the GUI thread.
+        self._pending_cyanrip: _CyanripJob | None = None
         self._timer: QTimer = QTimer(self)
         self._timer.setInterval(TICK_MS)
         self._timer.timeout.connect(self._tick)
@@ -128,6 +171,7 @@ class ScriptRunner(QObject):
         self._unsafe_allowed = unsafe_allowed
         self._artifact_dir = None
         self._deadline = None
+        self._pending_cyanrip = None
         self._report = RunReport(
             started_at=datetime.now(UTC).isoformat(timespec="seconds"),
             app_version=__version__,
@@ -149,6 +193,27 @@ class ScriptRunner(QObject):
         if not self.running:
             return
         self._timer.stop()
+        # A ripper call still in flight must be KILLED, not merely forgotten: a
+        # `cancel()` that only drops a reference is the false promise CLAUDE.md
+        # names. The helper thread is a daemon, so once its child dies the thread
+        # ends; if the child is unreapable the thread is abandoned deliberately,
+        # which is safe precisely because it is not a QThread.
+        if self._pending_cyanrip is not None:
+            from platterpus.adapters.rip_backend import cancel_info_probe
+
+            log.info("ui script stopping with a cyanrip call in flight; killing it")
+            cancel_info_probe()
+            self._report.steps.append(
+                StepRecord(
+                    self._pending_cyanrip.step.line_no,
+                    self._pending_cyanrip.step.source,
+                    Outcome.ERROR,
+                    "stopped while this command was still running; the child was "
+                    "sent a kill. Its exit code is null, not 0.",
+                    time.monotonic() - self._pending_cyanrip.started,
+                )
+            )
+            self._pending_cyanrip = None
         for step in self._steps[self._index :]:
             self._report.steps.append(
                 StepRecord(step.line_no, step.source, Outcome.SKIPPED)
@@ -167,6 +232,12 @@ class ScriptRunner(QObject):
         aborts. Any failure becomes an ERROR record instead.
         """
         try:
+            # An in-flight ripper call outranks everything: it holds this step
+            # open, and advancing past it would record the NEXT step's outcome
+            # against a command that had not finished.
+            if self._pending_cyanrip is not None:
+                self._service_cyanrip()
+                return
             if self._deadline is not None:
                 self._service_deadline()
                 return
@@ -424,7 +495,7 @@ class ScriptRunner(QObject):
     # --- Verbs: cyanrip, for real --------------------------------------------
 
     def _do_cyanrip(self, step: Step) -> None:
-        """Invoke the host-exported ripper through the app's own seam.
+        """Start the host-exported ripper on a helper thread; the tick collects it.
 
         Deliberately :func:`~platterpus.adapters.rip_backend.run_capture` and not
         a fresh ``subprocess`` call: that is the seam the application's own
@@ -437,10 +508,11 @@ class ScriptRunner(QObject):
         (``CLAUDE.md`` — diagnostic completeness), and because the maintainer
         asked that inputs be recorded beside errors.
 
-        Blocking is acceptable *here specifically* and nowhere else in this file:
-        `run_capture` is bounded by its own timeout and the alternative — a
-        second async path with its own worker — would be a parallel
-        implementation of the thing being tested.
+        **It does not block.** ``run_capture`` can take five minutes; running it
+        on the GUI thread froze the window for exactly that long. The call is
+        unchanged — the *same* function, the *same* arguments — it simply happens
+        on a daemon thread while the tick keeps returning to the event loop. See
+        :class:`_CyanripJob`.
         """
         from platterpus.adapters.rip_backend import RipError, run_capture
         from platterpus.paths import CYANRIP_BINARY_DEFAULT
@@ -459,34 +531,91 @@ class ScriptRunner(QObject):
             return
         argv = [str(CYANRIP_BINARY_DEFAULT), *args]
         self._last_cyanrip_argv = argv
-        started = time.monotonic()
-        try:
-            code, output = run_capture(
-                "cyanrip",
-                str(CYANRIP_BINARY_DEFAULT),
-                args,
-                timeout=CYANRIP_VERB_TIMEOUT_S,
-                stdin_devnull=True,  # cyanrip reads stdin; it must be closed
+        job = _CyanripJob(
+            step=step,
+            argv=argv,
+            started=time.monotonic(),
+            done=threading.Event(),
+        )
+
+        def _work() -> None:
+            # Everything this closure touches is either local or a field of
+            # `job`; it never touches Qt, a widget, or the report. That is the
+            # rule the GUI-thread boundary is made of.
+            try:
+                job.result = run_capture(
+                    "cyanrip",
+                    str(CYANRIP_BINARY_DEFAULT),
+                    args,
+                    timeout=CYANRIP_VERB_TIMEOUT_S,
+                    stdin_devnull=True,  # cyanrip reads stdin; it must be closed
+                )
+            except RipError as exc:
+                job.error = str(exc)
+            except Exception as exc:  # noqa: BLE001 — a helper thread must not die silently
+                job.error = f"unexpected {type(exc).__name__}: {exc}"
+            finally:
+                # LAST, always: the tick reads the fields above only after this.
+                job.done.set()
+
+        self._pending_cyanrip = job
+        thread = threading.Thread(target=_work, name="uiscript-cyanrip", daemon=True)
+        thread.start()
+
+    def _service_cyanrip(self) -> None:
+        """Poll the pending `cyanrip` job; record it once, when it finishes.
+
+        Called from the tick instead of executing a step, so the batch pauses
+        here without the event loop pausing with it.
+        """
+        job = self._pending_cyanrip
+        assert job is not None
+        elapsed = time.monotonic() - job.started
+        if not job.done.is_set():
+            if elapsed <= CYANRIP_VERB_TIMEOUT_S + CYANRIP_VERB_GRACE_S:
+                return
+            # `run_capture` enforces its own timeout and kills the child, so
+            # reaching here means the child could not be reaped — the drive-ioctl
+            # case where SIGKILL does not land. Ask for the kill anyway, report an
+            # unreapable child (tri-state: the exit code is null, never 0), and
+            # abandon the thread rather than waiting on it forever.
+            from platterpus.adapters.rip_backend import cancel_info_probe
+
+            cancel_info_probe()
+            self._pending_cyanrip = None
+            self._last_cyanrip_exit = None
+            self._last_cyanrip_output = ""
+            self._record(
+                job.step,
+                Outcome.ERROR,
+                f"argv: {' '.join(job.argv)}\nexit: null (never reaped)\n"
+                f"the ripper did not return after {elapsed:.0f}s and did not "
+                "respond to a kill — the child is unreapable (a reader wedged in "
+                "a drive ioctl is in uninterruptible sleep). The batch continues.",
+                elapsed=elapsed,
             )
-        except RipError as exc:
+            return
+        self._pending_cyanrip = None
+        if job.result is None:
             # Tri-state, always: nothing was reaped, so the exit code is None and
             # must never be written as 0.
             self._last_cyanrip_exit = None
-            self._last_cyanrip_output = str(exc)
+            self._last_cyanrip_output = job.error
             self._record(
-                step,
+                job.step,
                 Outcome.ERROR,
-                f"argv: {' '.join(argv)}\nexit: null (never reaped)\n{exc}",
-                elapsed=time.monotonic() - started,
+                f"argv: {' '.join(job.argv)}\nexit: null (never reaped)\n{job.error}",
+                elapsed=elapsed,
             )
             return
+        code, output = job.result
         self._last_cyanrip_exit = code
         self._last_cyanrip_output = output
         self._record(
-            step,
+            job.step,
             Outcome.PASS,
-            f"argv: {' '.join(argv)}\nexit: {code}\n{_bounded_output(output)}",
-            elapsed=time.monotonic() - started,
+            f"argv: {' '.join(job.argv)}\nexit: {code}\n{_bounded_output(output)}",
+            elapsed=elapsed,
         )
 
     def _do_expect_cyanrip(self, step: Step) -> None:

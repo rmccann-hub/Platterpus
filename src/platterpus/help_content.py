@@ -359,6 +359,40 @@ without it, ripping is unaffected — only this verdict stays unmeasured.)
   `platterpus-rip-failure.platterpus.json` and it embeds the ripper's own output
   plus this session's full debug log — it is the single most useful thing to send.
 
+## Running tests without being there
+
+Platterpus can drive its own interface. **Tools → Run test script…** opens a
+console where you type (or load) a batch of steps — open a dialog, check what is
+on screen, take a screenshot, run the ripper and assert its exit code — and each
+step runs against the real window, one at a time, the way a person would. Press
+**Commands** in that console for the full list of steps.
+
+Two things make it usable when you are not at the machine:
+
+- **Test script** (Settings) — the batch the console loads by default. Point it
+  at a file you keep in your own editor; it is re-read every time it runs, so
+  editing it needs no restart.
+- **Run it automatically when Platterpus starts** (Settings) — with this on *and*
+  a script set, launching Platterpus **is** the test run. Both have to be set on
+  purpose; neither does anything alone.
+
+A failing step does **not** stop the batch. Every step records pass, fail or
+error and the run continues, so you come back to a complete transcript rather
+than to one line about the first surprise. Save it with **Save transcript…**, or
+copy it out of the window.
+
+There is also **`--run-script FILE`** to run one batch for a single launch
+without changing your settings, and **`--rig-session FOLDER`**, which runs the
+whole unattended hardware-session harness — both versions, `--doctor`, the
+ripper's own `-x` and `-j` probes (a rip never sends those), pre-gap screening,
+a library audit and the handshake status — writing one artifact per step into
+FOLDER. Neither needs a source checkout; they work from the AppImage.
+
+**Allow the unsafe script verbs** (Settings) is off by default and should stay
+that way: everything else in the vocabulary is a fixed list of named actions with
+nothing that can run arbitrary code. A run that used the escape hatch says so at
+the top of its own transcript.
+
 ## Checking your rips afterwards
 
 Every rip writes a `.platterpus.json` beside the audio, and since v0.6.1 that

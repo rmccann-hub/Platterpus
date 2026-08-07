@@ -232,6 +232,7 @@ def validate_config(config: Config) -> list[ValidationIssue]:
         "integration_declined_path",
         config.integration_declined_path,
     )
+    run("test_script_path", _validate_test_script_path, config.test_script_path)
     run(
         "schema_version",
         _validate_plain_int,
@@ -239,6 +240,52 @@ def validate_config(config: Config) -> list[ValidationIssue]:
         config.schema_version,
     )
     return issues
+
+
+def _validate_test_script_path(value: object) -> list[ValidationIssue]:
+    """The optional unattended-test script: valid *format*, and it must exist.
+
+    Empty means "no saved script" and is the default — the feature is simply off,
+    so an empty value is not an error. A **non-empty** value is a promise that a
+    batch will run from it, and the whole point of the feature is that nobody is
+    watching when it does: a path that silently resolves to nothing produces a
+    launch that looks identical to one where every test passed. So a set path is
+    held to existing, being a regular file, and being readable, and the failure is
+    reported *in the dialog while the user is typing it* rather than discovered
+    by an empty transcript the next morning.
+
+    Deliberately NOT checked here: whether the file parses. The script parser is
+    the authority on that, it never raises, and a syntax error renders as a
+    reported step at the line that caused it — which is more useful than a
+    Settings error that says "line 12 is wrong" and refuses to save.
+    """
+    if not isinstance(value, str):  # type before content, as everywhere here
+        return [
+            ValidationIssue("test_script_path", "The test script path must be text.")
+        ]
+    # RAW value, before strip(): str.strip() eats the C0 information separators,
+    # so a leading control character would pass a check on the stripped text and
+    # still reach `open()`. Same trap the tool-path validator closes.
+    if _has_control_char(value):
+        return [
+            ValidationIssue(
+                "test_script_path",
+                "Test script path may not contain control characters.",
+            )
+        ]
+    text = value.strip()
+    if not text:
+        return []
+    path = Path(text).expanduser()
+    if not path.exists():
+        return [ValidationIssue("test_script_path", f"No file at: {text}")]
+    if path.is_dir():
+        return [
+            ValidationIssue("test_script_path", f"{text} is a folder, not a script.")
+        ]
+    if not os.access(path, os.R_OK):
+        return [ValidationIssue("test_script_path", f"{text} cannot be read.")]
+    return []
 
 
 def _validate_library_dir(value: object) -> list[ValidationIssue]:
@@ -276,6 +323,8 @@ _BOOL_FIELDS: tuple[str, ...] = (
     "recompress_flac_after_rip",
     "write_eac_log_after_rip",
     "save_additional_art",
+    "test_script_autorun",
+    "test_script_allow_unsafe",
 )
 
 
@@ -308,6 +357,7 @@ def validated_field_names() -> frozenset[str]:
             "integration_declined_path",
             "library_dir",
             "schema_version",
+            "test_script_path",
         }
         | set(_BOOL_FIELDS)
     )
@@ -423,7 +473,9 @@ def describe_resets(records: Sequence[ResetRecord]) -> str:
 # --- CLI path arguments ------------------------------------------------------
 
 
-def resolve_input_directory(label: str, value: Path) -> tuple[Path | None, str]:
+def resolve_input_directory(
+    label: str, value: Path, *, must_exist: bool = True
+) -> tuple[Path | None, str]:
     """Validate a folder given on the command line; return ``(resolved, error)``.
 
     ``argparse``'s ``type=Path`` only *constructs* a Path — it validates nothing —
@@ -442,12 +494,24 @@ def resolve_input_directory(label: str, value: Path) -> tuple[Path | None, str]:
     path always starts with ``/``), and is what the caller should use from then
     on. Returns ``(None, message)`` on failure — the CLI prints the message and
     exits non-zero; never raises.
+
+    ``must_exist=False`` is for an **output** folder the caller is about to
+    create (``--rig-session``'s artifact directory). The argument-injection half
+    of the check still applies — that is the half that matters for a path handed
+    to a subprocess — but "it isn't there yet" stops being an error. A path that
+    exists and is a *file* is still refused either way: that is a mistake, not a
+    folder waiting to be made.
     """
     try:
         resolved = value.expanduser().resolve()
     except (OSError, RuntimeError) as exc:  # RuntimeError: symlink loop
         log.error("%s %r could not be resolved: %s", label, str(value), exc)
         return None, f"{label} could not be resolved: {value} ({exc})"
+    if not must_exist:
+        if resolved.exists() and not resolved.is_dir():
+            log.error("%s exists and is not a folder: %s", label, resolved)
+            return None, f"{label} is not a folder: {resolved}"
+        return resolved, ""
     if not resolved.exists():
         log.error("%s does not exist: %s", label, resolved)
         return None, f"{label} does not exist: {resolved}"

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import signal
 import sys
 import threading
@@ -275,6 +276,69 @@ def _install_excepthook() -> None:
     threading.excepthook = thread_hook
 
 
+def rig_session_script() -> Path:
+    """Absolute path of the shipped rig-session harness.
+
+    One function, so the CLI, the tests and any future caller all name the same
+    file. The script sits beside this module inside the package precisely so this
+    resolves identically from a checkout, a pipx install and the AppImage.
+    """
+    return Path(__file__).resolve().parent / "rig_session.sh"
+
+
+def _run_rig_session(output_dir: Path) -> int:
+    """Run the rig-session harness into ``output_dir`` and return its exit code.
+
+    Deliberately thin. The harness itself is the authority on what a rig session
+    does — porting its fourteen steps into Python here would be a second
+    description of the same procedure, and the two would disagree the first time
+    one changed. What this adds is *reachability*: resolving the script inside
+    the package, telling the harness which app binary to interrogate, and
+    streaming its output to the terminal.
+    """
+    import subprocess
+
+    from platterpus import settings_validation
+
+    script = rig_session_script()
+    if not script.is_file():
+        # A packaging failure, not a user error — say which, and say where we
+        # looked, because "it didn't run" with no path is undiagnosable.
+        print(f"error: the rig-session harness is missing from this build: {script}")
+        return 2
+    # The output dir is CLI input and gets the same boundary treatment as every
+    # other path flag: `type=Path` constructs, it does not check. A relative dir
+    # beginning with "-" would reach the shell script as an option.
+    resolved, error = settings_validation.resolve_input_directory(
+        "--rig-session output dir", output_dir, must_exist=False
+    )
+    if resolved is None:
+        print(f"error: {error}")
+        return 2
+    # Which app binary the harness should ask for `--version` and `--doctor`.
+    # Inside an AppImage that is the AppImage itself ($APPIMAGE, set by the
+    # runtime); otherwise it is whatever launched us. Passing it explicitly beats
+    # the harness's own default, which guesses a path in ~/Applications.
+    app_binary = os.environ.get("APPIMAGE") or sys.argv[0]
+    argv = ["bash", str(script), str(resolved), app_binary]
+    log.info("rig session starting: %s", " ".join(argv))
+    print(f"Running the rig-session harness into {resolved}")
+    print(f"  harness: {script}")
+    print(f"  app:     {app_binary}")
+    try:
+        # Streamed, not captured: a rig session takes minutes and the person
+        # running it wants to see it progress. The harness writes every step's
+        # artifact to disk anyway, so nothing depends on this terminal output.
+        completed = subprocess.run(argv, check=False)  # noqa: S603 — argv list, no shell
+    except OSError as exc:
+        print(f"error: could not run the harness: {exc}")
+        log.exception("rig session could not start")
+        return 2
+    print(f"\nrig session finished with exit code {completed.returncode}")
+    print(f"Send the whole folder: {resolved}")
+    return completed.returncode
+
+
 def main(argv: list[str] | None = None) -> int:
     """Process entry point.
 
@@ -315,6 +379,28 @@ def main(argv: list[str] | None = None) -> int:
         "runs; this is the no-GUI front end for them. Optionally takes a fork "
         "COMMIT to build instead of the pinned one, so a pin that moves mid-round "
         "is reachable without waiting for a Platterpus release",
+    )
+    parser.add_argument(
+        "--run-script",
+        metavar="FILE",
+        type=Path,
+        default=None,
+        help="launch the GUI, open the test-script console with FILE loaded, and "
+        "run it immediately — the unattended-testing path. The window is real and "
+        "on screen (the script drives it), so this needs a display; it is 'no "
+        "person needed', not 'no display needed'. Overrides the saved script path "
+        "for this launch only",
+    )
+    parser.add_argument(
+        "--rig-session",
+        metavar="OUTPUT-DIR",
+        type=Path,
+        default=None,
+        help="run the unattended rig-session harness into OUTPUT-DIR and exit: "
+        "app and ripper versions, --doctor, the ripper's own -x and -j (which a "
+        "rip never sends), pre-gap screening, --audit-rips, handshake status and "
+        "preflight — one artifact per step, never stopping on a failure. Works "
+        "from the AppImage, so a hardware session needs no source checkout",
     )
     parser.add_argument(
         "--ctdb-calibrate",
@@ -492,6 +578,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"The full command output is in the log: {LOG_PATH}")
         return 1
 
+    # Rig-session mode: the unattended hardware-session harness. A terminal
+    # diagnostic like --doctor, so it runs before QApplication and exits.
+    #
+    # The harness is a shell script SHIPPED INSIDE THE PACKAGE, and this flag
+    # exists because of where it used to live. It sat in `scripts/`, reachable
+    # only from a source checkout — while the person who runs it has an AppImage
+    # and the rig sheet told him to run `bash ~/path/to/Platterpus/scripts/…`.
+    # A test nobody can start is not a test.
+    if args.rig_session is not None:
+        return _run_rig_session(args.rig_session)
+
     # CTDB calibrate mode: a no-GUI, no-disc CTDB verify + CRC-trim sweep over an
     # already-ripped folder (KDD-16 hardware validation from the AppImage). Like
     # --doctor, it's a terminal diagnostic that runs before QApplication.
@@ -648,6 +745,32 @@ def main(argv: list[str] | None = None) -> int:
             window.refresh_drives()
         except Exception:  # noqa: BLE001 — last-resort guard
             log.exception("initial drive refresh failed; continuing anyway")
+
+        # Unattended testing. `--run-script FILE` wins over the saved config,
+        # because a flag typed for one launch is a more specific statement of
+        # intent than a setting saved weeks ago; the config pair only fires when
+        # BOTH a path and the autorun flag were set deliberately.
+        #
+        # Guarded like the two probes above: a broken script must leave a usable
+        # window, not a failed startup. And it goes through the window's own
+        # `open_script_console`, so the menu, the flag and the config setting all
+        # reach the batch by one route.
+        _script = args.run_script
+        _autorun = _script is not None or (
+            cfg.test_script_autorun and bool(cfg.test_script_path)
+        )
+        if _autorun:
+            try:
+                console = window.open_script_console(autorun=False)
+                if _script is not None:
+                    console.load_file(Path(_script).expanduser())
+                log.info(
+                    "unattended test script starting (%s)",
+                    "--run-script" if _script is not None else "config autorun",
+                )
+                console.run_now()
+            except Exception:  # noqa: BLE001 — last-resort guard
+                log.exception("the unattended test script could not be started")
     except Exception as exc:  # noqa: BLE001 — fatal-startup guard
         log.exception("fatal error during startup")
         _show_fatal_dialog("Platterpus — startup failed", exc)

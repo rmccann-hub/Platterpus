@@ -534,6 +534,31 @@ class RipProgress(QWidget):
         self._log_view.setMinimumHeight(64)
         self._tabs.addTab(self._log_view, _TAB_LABEL_LOG)
 
+        # FOLLOW THE TAIL, and do it explicitly rather than relying on Qt.
+        #
+        # Real-user report (2026-08-06): the status line read *"Re-ripping track 5
+        # to secure it… 97%"* while this pane's visible lines said *"Ripping and
+        # encoding track 12, progress - 7.22%"* — and the maintainer reasonably
+        # asked which one to believe. The artifact settles it: the album pass left
+        # track 12 at 19:04:09 and the securing re-rip of track 5 ran 19:13→19:33,
+        # so the status was current and **the pane was showing the past**.
+        #
+        # Measured cause, not inferred: `appendPlainText` only auto-scrolls a
+        # widget Qt is actually laying out. With this view sitting in a
+        # NON-CURRENT tab — which is where it sits for most of a rip, because the
+        # user is watching the track grid — 3000 appends leave the scrollbar at
+        # `value=0` against `maximum=2999`. The content is all there; the viewport
+        # never moved. Switching to the tab then lands wherever Qt's deferred
+        # layout puts it, which is why the symptom looks arbitrary.
+        #
+        # So: track whether the user is "following", and pin the view ourselves —
+        # on every append, and again whenever the tab becomes visible. Scrolling
+        # up deliberately still pauses the follow (it is a console; reading back
+        # is the point) and scrolling to the bottom resumes it.
+        self._log_follow: bool = True
+        self._log_view.verticalScrollBar().valueChanged.connect(self._on_log_scrolled)
+        self._tabs.currentChanged.connect(self._on_tab_changed)
+
         # --- Post-rip output buttons ---
         # Three complementary outputs land beside the FLACs every rip (the
         # "two outputs every time" principle, docs/ux-design-principles #2):
@@ -723,8 +748,54 @@ class RipProgress(QWidget):
             self._announced_stall_text = ""
 
     def append_log_line(self, line: str) -> None:
-        """Append one line of whipper output to the streaming log view."""
+        """Append one line of ripper output to the streaming log view.
+
+        Pins the view to the newest line unless the user has scrolled up. See the
+        long note where `_log_follow` is created: Qt does not auto-scroll a widget
+        in a non-current tab, which is where this one spends most of a rip, and
+        the result was a pane showing output from twenty minutes earlier while the
+        status line was current.
+        """
         self._log_view.appendPlainText(line)
+        if self._log_follow:
+            self._scroll_log_to_end()
+
+    def _scroll_log_to_end(self) -> None:
+        """Move the log view to its newest line.
+
+        `setValue(maximum())` rather than `ensureCursorVisible()`: the cursor is
+        already at the end after `appendPlainText`, and `ensureCursorVisible` is a
+        no-op on a widget Qt has not laid out — which is exactly the case this
+        exists for. Setting the scrollbar works whether or not the viewport has
+        been realised, and re-running it on tab-show corrects the value once Qt
+        finally computes a real maximum.
+        """
+        bar = self._log_view.verticalScrollBar()
+        bar.setValue(bar.maximum())
+
+    def _on_log_scrolled(self, value: int) -> None:
+        """Follow the tail only while the user is *at* the tail.
+
+        Called for our own `setValue` too, which is harmless: that call sets the
+        value to the maximum, so it re-affirms following rather than cancelling
+        it. A user dragging up sets a lower value and pauses the follow, which is
+        the behaviour a console should have — a log that yanks itself back to the
+        bottom while you are reading is worse than one that does not follow.
+        """
+        bar = self._log_view.verticalScrollBar()
+        self._log_follow = value >= bar.maximum()
+
+    def _on_tab_changed(self, index: int) -> None:
+        """Re-pin the log when its tab becomes visible.
+
+        The whole point of the fix. While the tab was hidden Qt reported a
+        scrollbar maximum that did not reflect the appended content, so the
+        `setValue` in `_scroll_log_to_end` had nothing to move to. Once the tab is
+        current Qt lays the document out for real, and *this* is the first moment
+        a correct maximum exists.
+        """
+        if index == _TAB_LOG and self._log_follow:
+            self._scroll_log_to_end()
 
     def set_progress(self, overall: float, task: float) -> None:
         """Update both progress bars.
