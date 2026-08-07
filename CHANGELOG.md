@@ -84,6 +84,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   one line short of the bottom depending on how lines wrap. The state that actually
   distinguishes the two implementations is the one *while the tab is hidden*, which is also
   the state that matters. Both halves of the fix are now revert-proven.
+- **A release gate was choosing its subject by directory iteration order.**
+  `test_the_pin_is_the_one_the_newest_closed_handshake_round_verified` is the guard that
+  stops the setup wizard building a cyanrip commit no closed handshake round approved. Its
+  name says *the newest CLOSED round*; its body took the last element of a sort keyed on the
+  round number alone. Every `round-07-lap-NN.md` shares that key, Python's sort is stable, and
+  the tie fell to **whatever the filesystem yielded last** — so the guard had been naming the
+  right commit by luck for eight laps. Adding a ninth changed the answer and CI went red,
+  which is the only reason anyone looked.
+
+  Two fixes. It now orders with the **shared** `sort_key` (`(round, lap, stem)` — total by
+  construction, the single definition both projects agreed on), and it asks the question its
+  name asks: `FORK_PIN` is the *production* pin, approved by a **closed** round, so an open
+  round's laps are not eligible to stand in for an approval. A companion test pins that
+  subject explicitly, because otherwise the check could drift back to "newest file of any
+  round" and still pass on days when the two agree.
 - **The scripted `cyanrip` verb no longer freezes the window for up to five minutes.** It ran
   `run_capture` inline on the GUI thread with a 300-second timeout, and justified the block in
   its own docstring as acceptable *"here specifically"* — the shape `CLAUDE.md` refuses (*a

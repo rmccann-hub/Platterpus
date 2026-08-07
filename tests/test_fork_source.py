@@ -54,18 +54,84 @@ def test_the_pin_is_the_one_the_newest_closed_handshake_round_verified() -> None
     If the constant and the document disagree, one of them is wrong and the
     disagreement IS the bug report — exactly the reasoning the fork and we agreed
     on for two independent expressions of one contract.
+
+    **This test was passing for the wrong reason and lap 35 exposed it**
+    (2026-08-06). Its name says *the newest CLOSED round*; its body used to take
+    the last element of a sort keyed on ``int(round)`` alone. Every
+    ``round-07-lap-NN.md`` file therefore shares one key, Python's sort is stable,
+    and the tie was broken by **directory iteration order** — so "the newest
+    verification" was whichever round-7 lap the filesystem happened to yield last.
+    It named ``2f950c8`` by luck for eight laps, and adding a ninth changed the
+    answer. `docs/testing.md` §5.aa: a gate whose subject is chosen by chance is
+    not a gate.
+
+    Two fixes, and the second is the substantive one:
+
+    * order with the **shared** :func:`sort_key` — `(round, lap, stem)`, total by
+      construction, the single definition of "newer" both projects agreed on;
+    * ask the question the name asks. ``FORK_PIN`` is the *production* pin, which
+      is approved by a **closed** round. The newest file overall is a lap of the
+      round currently OPEN, and an open round's laps are not approvals — that is
+      the whole point of the bilateral-GO rule. The test-pin half is a separate
+      check (:func:`test_the_wizard_target_is_named_in_the_handshake_record`), and
+      conflating them is what let an open round's file stand in for an approval.
     """
-    verified = sorted(
-        (REPO_ROOT / "docs" / "handshake" / "verified").glob("round-*.md"),
-        key=lambda p: int(re.search(r"round-(\d+)", p.name).group(1)),  # type: ignore[union-attr]
-    )
+    handshake = _handshake()
+    verified_dir = REPO_ROOT / "docs" / "handshake" / "verified"
+    verified = sorted(verified_dir.glob("round-*.md"), key=handshake.sort_key)
     assert verified, "no verification files — cannot check the pin against the record"
-    newest = verified[-1]
+
+    # Which rounds are CLOSED, read off the tooling rather than re-derived here.
+    closed_rounds = {
+        int(match.group(1))
+        for line in handshake.round_status()
+        if (match := re.match(r"round-(\d+):.*-> CLOSED", line))
+    }
+    assert closed_rounds, (
+        "no closed handshake round — the production pin cannot have been approved"
+    )
+    newest_closed = max(closed_rounds)
+    candidates = [
+        path for path in verified if handshake.sort_key(path)[0] == newest_closed
+    ]
+    assert candidates, (
+        f"round {newest_closed} reports CLOSED but has no verification file"
+    )
+    newest = candidates[-1]
     text = newest.read_text(encoding="utf-8")
     assert fork_source.FORK_PIN in text, (
-        f"{newest.name} does not mention pin {fork_source.FORK_PIN!r}; the wizard "
-        f"would build a commit no closed round approved"
+        f"{newest.name} — the newest CLOSED round's verification — does not mention "
+        f"pin {fork_source.FORK_PIN!r}; the wizard would build a commit no closed "
+        f"round approved"
     )
+
+
+def test_the_pin_check_reads_a_closed_round_not_whatever_sorts_last() -> None:
+    """The non-triviality floor for the test above.
+
+    Without this, the check could quietly go back to "the newest file of any
+    round" and still pass, because today the two happen to agree often enough.
+    Assert the *subject* explicitly: the round it examines must be CLOSED, and it
+    must not be the round that is currently open.
+    """
+    handshake = _handshake()
+    statuses = handshake.round_status()
+    closed = {
+        int(m.group(1))
+        for line in statuses
+        if (m := re.match(r"round-(\d+):.*CLOSED", line))
+    }
+    open_rounds = {
+        int(m.group(1))
+        for line in statuses
+        if (m := re.match(r"round-(\d+):.*-> OPEN", line))
+    }
+    assert closed, "expected at least one closed round"
+    assert max(closed) not in open_rounds
+    # And the constants are two different things, deliberately: the production pin
+    # is what a release installs, the test pin is what an open round nominates.
+    # If they were ever equal, a round could approve itself.
+    assert fork_source.FORK_PIN != fork_source.FORK_TEST_PIN
 
 
 def test_the_expected_build_tag_is_derived_not_typed() -> None:

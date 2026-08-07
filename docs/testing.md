@@ -1395,6 +1395,46 @@ at asking *"is this correct?"* and had nothing asking *"can anyone get to it?"*
 Both a documented capability and an implemented one can be unreachable, and
 unreachable is indistinguishable from absent to the only person who matters.
 
+### 5.ah — A gate that picks its subject by chance is not a gate (added 2026-08-06)
+
+§5.aa is *a gate in the wrong place*. This is a gate in the right place, asking
+the right question, **of a document chosen by directory iteration order**.
+
+`tests/test_fork_source.py::test_the_pin_is_the_one_the_newest_closed_handshake_round_verified`
+stops the setup wizard building a cyanrip commit no closed handshake round
+approved — one of the load-bearing checks in the whole seam. It read:
+
+```python
+verified = sorted(dir.glob("round-*.md"),
+                  key=lambda p: int(re.search(r"round-(\d+)", p.name).group(1)))
+newest = verified[-1]
+```
+
+Every `round-07-lap-NN.md` file yields the same key, `7`. Python's sort is
+stable, so the tie is broken by `Path.glob`'s order, which is `os.scandir`'s,
+which is the filesystem's. **"The newest verification" was whichever lap the
+directory happened to list last.** It named the right commit for eight
+consecutive laps and then a ninth was added and it did not — and the only reason
+anyone looked is that CI went red.
+
+Three things to take from it:
+
+- **A non-total sort key makes "the newest" a coin flip.** The shared
+  `sort_key` in `scripts/handshake.py` already existed, is `(round, lap, stem)`,
+  and says in its own docstring that a non-total key *"makes 'the newest file'
+  depend on directory iteration order, which is the class of thing that decides a
+  release gate differently on two machines."* The test imported that module for
+  something else and then hand-rolled its own ordering anyway. **Sharing a
+  definition only helps if the caller uses it.**
+- **Read the test's name as a specification.** It said *newest CLOSED round*; the
+  code said *newest file*. Those differ exactly when a round is open — which is
+  the only time the check matters, because an open round's laps are not
+  approvals. The name was right and had been right the whole time.
+- **A check that has been green for months is not thereby correct.** This one had
+  never once evaluated the document it claimed to. Give a gate a companion test
+  that asserts *which subject it examined*, not only what it concluded — the
+  conclusion can be right for a reason that will not survive the next file.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at
