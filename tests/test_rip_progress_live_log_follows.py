@@ -6,14 +6,27 @@ re-ripping track 5, but log says track 12."* The status line read
 `Re-ripping track 5 to secure it… 97%`; the Live log pane's visible lines read
 `Ripping and encoding track 12, progress - 7.22%`.
 
-**Settled from the artifact, not from reasoning about it** (`CLAUDE.md` — answer
-it from the artifact, and name which one). The rip's `.platterpus.json` carries
-the session's debug lines: the album pass left track 12 at `19:04:09` with
-`progress - 99.96%`, and the securing re-rip of track 5 ran `19:13:13 → 19:33:35`
-emitting `Ripping and encoding track 5, progress - …` throughout. The status was
-**current**; the pane was showing output from nine minutes earlier. Both surfaces
-read the same `log_line` signal, and the pane's copy is if anything *fresher*
-relative to its own throttle — so the discrepancy could not come from the stream.
+**Settled from the artifact, and the two lines are timestamped** (`CLAUDE.md` —
+answer it from the artifact, and name which one). The rip's `.platterpus.json`
+carries the session's debug stream, so both halves of the screenshot can be
+located in it to the second:
+
+* the status line, `Re-ripping track 5 … 97%`, matches
+  `19:21:20,084  cyanrip │ Ripping track 5, progress - 96.39%`;
+* the pane's visible tail, `track 12, progress - 7.22% … 7.44%`, was emitted at
+  `18:59:35,904 … 18:59:36,434`.
+
+**The pane was 21 minutes 44 seconds stale.** The status was current. Both
+surfaces read the same `log_line` signal and the pane's copy is if anything
+*fresher* relative to its own throttle, so the discrepancy could not come from
+the stream — which is what pointed at the viewport.
+
+(The screenshot's stamp reads `21:20` because it is cropped on the left — the
+same crop that renders "Overall" as "erall". The status format is `%H:%M:%S`, so
+the full stamp is `19:21:20`. Worth recording: a first pass at this treated the
+apparent `21:20` as a *different, later* rip and nearly discarded the maintainer's
+report as unmatchable to the artifacts. He said he took the screenshots during
+the rip; he was right, and the disagreement was in the crop.)
 
 **The cause was measured before it was fixed.** `QPlainTextEdit.appendPlainText`
 auto-scrolls only a widget Qt is laying out. In a **non-current tab** — where

@@ -11,6 +11,14 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+- **I nearly discarded a correct bug report over a cropped screenshot (2026-08-06).** Mid-rip, the maintainer: *"its odd it says its re-ripping track 5, but log says track 12."* The status line said `Re-ripping track 5 to secure it… 97%`; the Live log pane said `Ripping and encoding track 12, progress - 7.22%`.
+
+  The debug stream inside the rip's own JSON located both to the second — status at `19:21:20,084` (`Ripping track 5, progress - 96.39%`), pane tail at `18:59:35,904 … 18:59:36,434`. **The pane was 21 minutes 44 seconds stale.** Cause measured before fixing: `appendPlainText` only auto-scrolls a widget Qt is laying out, and in a **non-current tab** — where the Live log sits while the user watches the track grid — 400 appends leave the scrollbar at `value=0` against `maximum=399`.
+
+  The part worth keeping is the near-miss. The screenshot's visible stamp read `21:20`, and the rip ran 18:14–19:33, so I concluded it was a *different, later* run and told him I could not settle it from the artifacts he had sent. He replied that he had taken the shots during the rip. He was right: the image is cropped on the left — the same crop that renders "Overall" as "erall" — and the format is `%H:%M:%S`, so the stamp is `19:21:20`. **A timestamp read off a cropped image is not a measurement**, and I had used one to contradict a first-hand report. Graduated into `docs/testing.md` §5.u's territory: *answer it from the artifact* — a screenshot is a photograph of a surface, not the surface.
+
+  Second lesson, from the fix rather than the report: **the first regression test passed against the broken code.** It asserted the scroll position *after* switching to the tab, where Qt lands at or one line short of the bottom depending on how lines wrap — `382/382` for the test's line length, `381/382` for shorter ones. Rewritten to assert the hidden-tab state, which is what actually distinguishes the implementations and is also the state the pane is in for most of a rip. Caught only because the revert was actually applied and the run actually re-checked (`CLAUDE.md` — and it took a `__pycache__` clear before the revert was really being executed).
+
 - **Asked "is `-Z` on before the rip?", the honest answer was "yes, and that is not what it means" (2026-08-06).** The maintainer, before a hardware rip that closes a handshake round: *"If Platterpus drives the rip, the app builds the argv, so `-j` and `-Z` are its call — worth checking they're on before you start rather than discovering afterwards."* Measured rather than recalled:
 
   - **`-j`: never sent.** One hit in the whole source tree, in a *set of no-rip verbs*. Not in the argv builder at all. The rig harness invokes it directly against the binary, which is the only place that record comes from.

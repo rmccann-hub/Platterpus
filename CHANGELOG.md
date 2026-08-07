@@ -65,6 +65,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   status read `Re-ripping track 5 to secure it… 97%`; the pane's visible lines read
   `Ripping and encoding track 12, progress - 7.22%`.
 
+  Both halves are timestamped in the rip's own debug stream, so the staleness is measured
+  rather than argued: the status matched `19:21:20,084 Ripping track 5, progress - 96.39%`,
+  while the pane's visible tail was emitted at `18:59:35,904 … 18:59:36,434`. **The pane was
+  21 minutes 44 seconds behind.**
+
   Measured cause: `QPlainTextEdit.appendPlainText` only auto-scrolls a widget Qt is actually
   laying out. In a **non-current tab** — where this view sits for most of a rip, because the
   user is watching the track grid — 400 appends leave the scrollbar at `value=0` against
