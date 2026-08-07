@@ -20,6 +20,43 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## What v1.0.0 needs, named before anyone is tempted to declare it (2026-08-07)
+
+**S-17 applied to our own versioning.** Round 7 took 38 laps because its evidence
+was *"a rip"* — not a thing anyone can be finished with. The maintainer declined
+1.0 for a precise reason and it should not be left in a chat log:
+
+> *"we've only had my hardware and a small amount of albums yet."*
+
+`v0.6.4` is honest about what it is. `v1.0.0` is a claim of stability, and the
+evidence for it does not exist yet. Naming it now means nobody has to argue about
+the finish line later — and if any row turns out to be the wrong bar, that is a
+decision to take deliberately rather than by drift.
+
+- [ ] **More than one drive.** Every hardware result this project has is from one
+  Pioneer BDR-209D 1.51 at offset +667. A read-offset bug, a speed-lock quirk or
+  a cache behaviour that is drive-specific is invisible in a sample of one, and
+  the offset path is the single most correctness-critical thing we do.
+- [ ] **More than one machine.** Bazzite + KDE Plasma 6 is the primary target and
+  the only one anyone has run. Fedora/Arch/Ubuntu are claimed in the README and
+  unverified by a person.
+- [ ] **A disc sample with the awkward cases in it, not just more of the same.**
+  Currently: a handful of pressed, AccurateRip-listed, single-disc albums. Missing
+  and each one exercises different code: a **CD-R** or an obscure pressing (not in
+  AccurateRip — the "no consensus to converge toward" path), a **multi-disc set**
+  (`-c`, DISCNUMBER/totaldiscs), a **various-artists compilation** (per-track
+  artist naming), a **genuinely damaged disc** (the read-speed ladder and the
+  unresolved-track flagging, never once exercised), a disc with **CD-TEXT**, and a
+  **pre-emphasis** disc.
+- [ ] **The never-exercised list, which is joint with the fork and has not moved
+  in four rounds:** `-x` on a real drive, C2 error reporting, `-f`, damaged media,
+  CD-TEXT from a physical disc, a diagnosed abort, a non-zero `Read stalls:`.
+  Nobody on either project has touched any of them, on any build.
+
+**Not a blocker for any of it:** none of these makes `0.6.4` unsafe, and by S-14
+none of them holds a release. They are what a **1.0** would be claiming stability
+around, which is a different question from whether today's build is good.
+
 ## Open, from the b15 reachability sweep (2026-08-06)
 
 - [ ] **Sweep the rest of `src/` for unreachable subsystems.** Two were found in one
