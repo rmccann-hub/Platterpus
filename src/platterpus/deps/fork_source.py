@@ -108,7 +108,28 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: have one, from the J1 rip. That was true when it compiled and is false now.
 #: Shipping a stable Platterpus whose every archival record carries that sentence
 #: is the worse of the two errors.
-FORK_PIN: Final[str] = "422d12a"
+#:
+#: **Corrected `422d12a` → `ddf7ac3` on 2026-08-07, hours after v0.6.4 shipped.**
+#: The fork withdrew `422d12a` as the build to fetch: it **fails 2 of its own 33
+#: tests**, because it bumps the version to `+platterpus.5` while its in-tree
+#: golden reference and provider contract still describe `beta.8`. Verified here
+#: rather than accepted — at `422d12a` the reference banner reads
+#: `0.9.4-rc1+platterpus.5-beta.8 (platterpus-fork-g92ceeed)` against a
+#: `+platterpus.5` build; at `ddf7ac3` both agree.
+#:
+#: **The binary is fine either way** — `422d12a` produces a correct program with
+#: the right version and the right `Handshake:` line, and no rip made with it is
+#: suspect. The failure is only visible to someone who *builds from source and
+#: runs the suite*, which — because our wizard builds from source — is every one
+#: of our users. That is why it is a correction and not a footnote.
+#:
+#: `git diff 104f6d4 ddf7ac3 -- 'src/*.c' 'src/*.h'` is empty, so this is still
+#: the approved code; `HANDSHAKE-PIN` has not moved and stays `104f6d4`.
+#:
+#: **The rule both projects took from it:** choose the released commit *after* the
+#: derived artifacts agree, never at the version bump. Bump-then-regenerate
+#: guarantees one commit exists whose own suite fails.
+FORK_PIN: Final[str] = "ddf7ac3"
 
 #: What the built binary must print. cyanrip's banner is
 #: ``cyanrip <version> (<PROJECT_FORK_ID>-g<short sha>)`` (fork
@@ -282,6 +303,11 @@ FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 #: still have built: it was the pin for thirteen laps and it is what the 2026-08-04 rig
 #: session actually ran, so every artifact we hold from real hardware came from it.
 SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = (
+    # Withdrawn as the fetch target hours after v0.6.4 shipped — it fails 2 of
+    # its own 33 tests (version bumped, derived artifacts not yet regenerated).
+    # Listed so a rig that already built it still receives `--consumer`: the
+    # BINARY is correct, only the source tree's self-tests disagree.
+    "422d12a",
     "f750890",
     "d9c7124",
     "9003e6f",

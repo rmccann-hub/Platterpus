@@ -20,6 +20,50 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Ripper install: find the newest build automatically, and let the user pick its channel (2026-08-07)
+
+**The maintainer's ask, verbatim:** *"in the future it should be automatic that it
+looks for the most recent version, and give an option between a full release and a
+beta/alpha."*
+
+Prompted by having to hand-correct the pin twice in one day — `9048082` → `422d12a`
+→ `ddf7ac3` — each time by editing a constant and cutting a release. The pattern is
+real and the ask is right.
+
+**The constraint that shapes the design, stated first because it is the whole
+difficulty:** the pin is not a convenience, it is the handshake's subject. A round
+approves a *named commit* for a *named app version*, `handshake_approval.py`
+verifies every rip against it, and the deviation policy forbids moving it while a
+round is open. **An installer that silently fetched "the newest" would defeat the
+protocol both projects spent 41 laps building.** So the automation cannot be "keep
+up to date"; it has to be "notice, and offer."
+
+- [ ] **Detect that a newer fork build exists, and say so.** Not install it. The
+  dependency screen and the wizard already name the installed build tag; they
+  should also be able to say *"the fork's `platterpus-fork` branch is now at
+  `<sha>` (`<version>`), which no round has approved."* Read the branch head via
+  the GitHub API and the version out of `meson.build` at that commit — **there are
+  no tags to read**: the fork's git proxy refuses tag pushes, which is why the
+  commit sha is the only resolvable release identifier (see `fork_source.FORK_PIN`).
+- [ ] **`--install-ripper latest` / `latest-beta`**, resolving the newest commit on
+  the branch instead of requiring a sha typed by hand. The flag already takes an
+  arbitrary commit (`target_for_commit`), so this is a resolver in front of an
+  existing seam, not a new install path.
+- [ ] **A channel choice that mirrors the app's own.** Platterpus already has
+  `update_channel` = `stable`|`beta` with an explicit warning before a pre-release.
+  The ripper should read the same way, and for the same reason: *being handed a
+  tester build is a different thing from being handed an update.* Reuse the
+  vocabulary rather than inventing a second one.
+- [ ] **Every non-approved install must be visible in the artifact, not just at
+  install time.** This half already works — a rip on an unapproved build reports
+  `ripper_handshake_approval: unapproved`, and `not_determined` for an unrecognised
+  tag — and it is what makes the rest safe to offer. Confirm it still holds for a
+  build resolved automatically, since that is a path it has never taken.
+
+**Do not** make any of this the default. The default stays: install what a closed
+round approved. The automation's job is to stop the *maintainer* hand-editing a
+constant, not to move users onto unverified builds.
+
 ## What v1.0.0 needs, named before anyone is tempted to declare it (2026-08-07)
 
 **S-17 applied to our own versioning.** Round 7 took 38 laps because its evidence
@@ -1768,4 +1812,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.4.*
+*Last updated for Platterpus v0.6.5.*
