@@ -12,7 +12,43 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 
-## [Unreleased]
+## [0.6.4] — 2026-08-07
+
+**Round 7 of the cyanrip handshake closed** — the first jointly-verified pair this project
+has ever shipped, and the first release the handshake gate has ever allowed. The cyanrip pin
+moves to the round-7 release `422d12a` (`0.9.4-rc1+platterpus.5`), and the `bN` suffix is
+gone.
+
+### Changed
+- **The cyanrip pin moves to `422d12a`, the round-7 release** — not to `104f6d4`, the commit
+  the round approved, and the difference is deliberate and recorded in
+  `docs/handshake/verified/round-07-lap-40.md` §A. cyanrip bakes its handshake state in at
+  build time, and `104f6d4` was built while the round was open, so every log it writes says
+  `round 7 lap 33 OPEN, verdict HOLD -- NOT a released build` — we have one, from the J1 rip.
+  That was true when it compiled and is false now; shipping a stable Platterpus whose every
+  archival record carried it would be the worse of the two errors. Verified rather than
+  inferred before taking it: their release golden reference parses clean through our
+  production parser, and **all twelve `EAC CRC32`/`Accurip` lines are byte-identical** to the
+  `104f6d4` reference we already hold.
+- **The setup wizard builds the release again** (`WIZARD_TARGET` back to `PRODUCTION_TARGET`).
+  It had pointed at the round-7 test pin since the beta line began.
+
+### Fixed
+- **The new pin was not in the `--consumer` accept-list, and nothing would have crashed.**
+  `BUILD_TAGS_ACCEPTING_CONSUMER_FLAG` deliberately excluded `FORK_PIN`, with a comment
+  explaining that the pinned r2 build predates the flag. That was correct and became false
+  the instant the pin moved to a build which does accept it. Every rip on the new pin would
+  simply have stopped recording who drove it — the provenance line the whole seam exists to
+  carry — with no error anywhere. Caught by moving the pin and reading what the constant said
+  rather than trusting that it still applied.
+- **Two conformance rows were asserting a property of the empty set.** C19 and C20 ran against
+  the *real* record to check that a stable release is refused while a round is open. Round 7
+  closing left them with nothing open to refuse. They now run against a fixture — which is
+  exactly what the previous author left in the failure message for this moment: *"re-point it
+  at a fixture if the record has closed."* A companion row asserts the other half against the
+  real record: the gate says **yes**, which is a fact about the project and not about a
+  fixture. `scripts/handshake.py` grew `--handshake-dir` to make that testable, exposing a
+  root `round_status()` already accepted.
 
 ### Fixed
 - **The auto-fix addendum claimed a re-read "improved" the audio when it had confirmed it.**
@@ -4864,7 +4900,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.4b12.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.4.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7106,7 +7142,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b15...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4...HEAD
+[0.6.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b15...v0.6.4
 [0.6.4b15]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b14...v0.6.4b15
 [0.6.4b14]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b13...v0.6.4b14
 [0.6.4b13]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b11...v0.6.4b13
@@ -7192,4 +7229,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b15.*
+*Last updated for Platterpus v0.6.4.*

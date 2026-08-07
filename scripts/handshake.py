@@ -1587,6 +1587,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     group.add_argument("--status", action="store_true", help="report the round state")
     parser.add_argument(
+        "--handshake-dir",
+        metavar="DIR",
+        default=None,
+        help="read the round record from DIR instead of docs/handshake. Exposes "
+        "what `round_status()` already accepted: the gate's own conformance rows "
+        "(C19/C20) need a record with an OPEN round, and once every real round is "
+        "closed the only honest way to assert a refusal is against a fixture "
+        "rather than against the empty set",
+    )
+    parser.add_argument(
         "--prerelease",
         action="store_true",
         help="with --release-gate: permit a PRE-RELEASE while a round is open. A "
@@ -1604,10 +1614,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.emit is not None:
         sys.stdout.write(emit_outbound(args.emit))
         return 0
+    record_root = Path(args.handshake_dir) if args.handshake_dir else None
     if args.status:
-        for line in round_status():
+        status_lines = round_status(record_root)
+        for line in status_lines:
             sys.stdout.write(line + "\n")
-        return 1 if any(ln.endswith("OPEN") for ln in round_status()) else 0
+        return 1 if any(ln.endswith("OPEN") for ln in status_lines) else 0
     if args.release_gate:
         # A PRE-RELEASE is permitted while a round is open. A stable release is not.
         #
@@ -1629,7 +1641,7 @@ def main(argv: list[str] | None = None) -> int:
         # Loud, not silent: the open rounds are printed either way, so a pre-release
         # never looks like a clean record.
         if args.prerelease:
-            lines = round_status()
+            lines = round_status(record_root)
             open_rounds = [ln for ln in lines if ln.endswith("OPEN")]
             if open_rounds:
                 sys.stderr.write(
@@ -1655,7 +1667,7 @@ def main(argv: list[str] | None = None) -> int:
         # was opened. That is the wrong place twice over: it blocked ordinary
         # work, and it did not block a release, because `release.yml` never
         # called it. This subcommand exists so the workflow can.
-        lines = round_status()
+        lines = round_status(record_root)
         open_rounds = [ln for ln in lines if ln.endswith("OPEN")]
         if not open_rounds:
             sys.stdout.write("handshake: every round is closed — release allowed\n")

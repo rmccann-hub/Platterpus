@@ -446,25 +446,66 @@ def test_C18_a_test_pin_with_no_agreed_pin_at_all_is_refused(hs: ModuleType) -> 
 # --- C19 / C20: what a release CLAIMS, not whether one happens -----------------
 
 
+def _record_with_one_open_round(root: Path) -> Path:
+    """A minimal handshake record whose single round is OPEN, for C19/C20.
+
+    **Why a fixture now, and the previous version of this file said so.** C19 and
+    C20 used to run against the *real* record, with a floor asserting a round was
+    open so the check could not silently become a property of the empty set. On
+    2026-08-07 round 7 closed, that floor fired exactly as designed, and this is
+    the "re-point it at a fixture" the message asked for.
+
+    The fixture is deliberately the smallest thing the gate can read: one outbound
+    file, one inbound reply, and one verification whose verdict is `**HOLD**`. A
+    HOLD is what makes the round open — not the absence of a file — because a
+    presence-only check reporting CLOSED is the defect §5 of the shared protocol
+    exists to prevent.
+    """
+    for sub in ("outbound", "inbound", "verified"):
+        (root / sub).mkdir(parents=True, exist_ok=True)
+    (root / "outbound" / "round-99.md").write_text("sent\n", encoding="utf-8")
+    (root / "inbound" / "round-99.md").write_text("returned\n", encoding="utf-8")
+    (root / "verified" / "round-99.md").write_text(
+        "HANDSHAKE-VERDICT: HOLD\n\n**HOLD on deadbee** — the round is still open.\n",
+        encoding="utf-8",
+    )
+    return root
+
+
 def test_C19_a_stable_release_is_refused_while_any_round_is_open(
-    hs: ModuleType,
+    hs: ModuleType, tmp_path: Path
 ) -> None:
     """C19 — *"a stable release requested with any round open → refuse."*
 
-    Run against the **real record**, not a fixture: round 7 is open with a
-    bilateral HOLD as this is written, so the gate has something to refuse. The
-    floor below keeps that from becoming a silent skip if the record ever changes.
+    Against a **fixture**, since 2026-08-07: round 7 closed, every round in the
+    real record is CLOSED, and this row would otherwise be asserting a property of
+    the empty set. The previous version anticipated that and left the instruction
+    in its own failure message; this is that instruction carried out.
     """
-    open_rounds = [ln for ln in hs.round_status() if ln.endswith("OPEN")]
-    assert open_rounds, (
-        "no round is open in the real record, so this row is asserting a property "
-        "of an empty set — re-point it at a fixture if the record has closed"
+    root = _record_with_one_open_round(tmp_path / "handshake")
+    open_rounds = [ln for ln in hs.round_status(root) if ln.endswith("OPEN")]
+    assert open_rounds, "the fixture does not present an open round"
+    assert hs.main(["--release-gate", "--handshake-dir", str(root)]) == 1, (
+        "a stable release passed with a round open"
     )
-    assert hs.main(["--release-gate"]) == 1, "a stable release passed with a round open"
+
+
+def test_C19_the_real_record_is_currently_closed_and_a_release_is_allowed(
+    hs: ModuleType,
+) -> None:
+    """The companion the fixture cannot give: the gate says YES when it should.
+
+    A refusal test alone passes against a gate that refuses everything. This is
+    the other half, and it is run against the real record on purpose — it is the
+    statement that Platterpus may cut a stable release right now, which is a fact
+    about the project and not about a fixture.
+    """
+    assert [ln for ln in hs.round_status() if ln.endswith("OPEN")] == []
+    assert hs.main(["--release-gate"]) == 0
 
 
 def test_C20_a_prerelease_is_allowed_and_prints_every_open_round(
-    hs: ModuleType, capsys: pytest.CaptureFixture[str]
+    hs: ModuleType, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     """C20 — *"a pre-release requested with a round open → allow, and print every
     open round first."*
@@ -474,14 +515,17 @@ def test_C20_a_prerelease_is_allowed_and_prints_every_open_round(
     claims no joint verification, and a claim nobody is shown is not a claim. So
     the gate must both return success *and* name what is open.
     """
-    assert hs.main(["--release-gate", "--prerelease"]) == 0
+    root = _record_with_one_open_round(tmp_path / "handshake")
+    assert (
+        hs.main(["--release-gate", "--prerelease", "--handshake-dir", str(root)]) == 0
+    )
     # **stderr, deliberately.** The gate's warnings go to stderr so that piping its
     # stdout into a release script cannot swallow them, and so they still reach a
     # log when stdout is captured. Asserted on the stream it actually uses rather
     # than changing the gate to suit the test.
     captured = capsys.readouterr()
     printed = captured.err
-    for line in [ln for ln in hs.round_status() if ln.endswith("OPEN")]:
+    for line in [ln for ln in hs.round_status(root) if ln.endswith("OPEN")]:
         round_name = line.split(":")[0]
         assert round_name in printed, (
             f"{round_name} is open and the pre-release gate did not name it: {printed}"
