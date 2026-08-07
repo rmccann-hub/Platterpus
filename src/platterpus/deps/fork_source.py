@@ -131,6 +131,59 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: guarantees one commit exists whose own suite fails.
 FORK_PIN: Final[str] = "ddf7ac3"
 
+#: **Which numbered fork release each commit we know about is**, read out of the
+#: fork's ``release-manifest.json`` — never guessed, never derived from the version.
+#:
+#: **Why a map keyed by commit rather than one integer beside the pin.** The pin and
+#: its release number are two facts that must move together, and "two constants that
+#: must agree" is the drift this file has already been bitten by twice (the build
+#: step and the verify step naming separate constants; the ``--consumer`` accept-set
+#: excluding the pin). Keying by commit makes the pairing un-splittable: moving
+#: :data:`FORK_PIN` without recording its sequence leaves the new pin *absent* from
+#: this map, :func:`release_seq_for_commit` returns ``None``, and the update check
+#: reports "not determined" rather than comparing against a stale number.
+#: ``tests/test_ripper_manifest.py`` fails outright in that state, so the omission is
+#: caught at commit time rather than by a user being offered a downgrade.
+#:
+#: **Why we cannot compute this.** The fork's version string is upstream's plus
+#: SemVer *build metadata* (``+platterpus.N``), which the spec says MUST be ignored
+#: for precedence — so no comparison of version strings can order two fork builds,
+#: and the ``N`` in the metadata is a *release* number that does not advance per
+#: commit. ``release_seq`` is the fork's own monotonic counter and the only ordering
+#: key that exists. See :mod:`platterpus.deps.ripper_manifest`.
+#:
+#: Only builds whose sequence the manifest has actually stated appear here. A test
+#: pin that was never a numbered release is deliberately absent: it has no sequence,
+#: and inventing one would order it against releases it was never part of.
+FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
+    # Round 7's release, and the first commit whose derived artifacts agree with its
+    # own version — see the FORK_PIN note above for why `422d12a` was withdrawn.
+    "ddf7ac3": 11,
+}
+
+
+def release_seq_for_commit(commit: str) -> int | None:
+    """Which numbered fork release ``commit`` is, or ``None`` if we do not know.
+
+    **Tri-state, and ``None`` is a real answer**: a build we cannot place in the
+    release sequence cannot be compared against one we can, so the update check must
+    report "not determined" rather than assume it is older (which would offer an
+    upgrade to someone already ahead) or newer (which would suppress a real one).
+
+    Tolerant of a ``-dirty`` suffix and of case, like :func:`accepts_consumer_flag`:
+    a dirty build of a listed commit is still that release for ordering purposes,
+    even though its *artifacts* carry the usual dirty-tree caveat.
+    """
+    key = (commit or "").strip().casefold()
+    if key.endswith("-dirty"):
+        key = key[: -len("-dirty")]
+    return FORK_RELEASE_SEQ_BY_PIN.get(key)
+
+
+#: The release sequence of the build this Platterpus pins. ``None`` would mean the
+#: pin moved without its sequence being recorded, which the test suite refuses.
+FORK_PIN_RELEASE_SEQ: Final[int | None] = release_seq_for_commit(FORK_PIN)
+
 #: What the built binary must print. cyanrip's banner is
 #: ``cyanrip <version> (<PROJECT_FORK_ID>-g<short sha>)`` (fork
 #: ``src/cyanrip_log.c``), and ``meson``'s ``vcs_tag`` fills the sha from

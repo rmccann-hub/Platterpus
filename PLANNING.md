@@ -212,6 +212,8 @@ Platterpus/
         │
         ├── deps/                        # dependency self-management subsystem (brief P0 #11)
         │   ├── fork_source.py           # where the Platterpus cyanrip fork comes from + how to build it
+        │   ├── ripper_manifest.py       # parse the fork's published release manifest (is a newer ripper out?)
+        │   ├── ripper_offer.py          # what a newer ripper would COST — notice and offer, never auto-install
         │   ├── build_notes.py           # per-dependency build qualifiers — WHICH build, not how new
         │   ├── __init__.py
         │   ├── manager.py               # DependencyManager — single orchestrator
@@ -276,6 +278,7 @@ Platterpus/
             ├── drive_list_worker.py     # drives list_drives() off-thread (cold-container probe)
             ├── disc_info_worker.py      # drives disc_info() off-thread
             ├── dependency_worker.py     # drives the launch-time dependency probe off-thread
+            ├── ripper_update_worker.py  # asks the cyanrip fork's manifest whether a newer ripper build exists
             ├── update_worker.py         # drives the release check + the download/verify/install off-thread
             ├── ctdb_worker.py           # drives CTDB verify for a finished rip off-thread (KDD-14)
             ├── flac_verify_worker.py    # drives the post-rip `flac --test` integrity check off-thread
@@ -316,6 +319,8 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`rip_audit.py`** — the engine behind `platterpus --audit-rips`: audit a whole library of finished rips with no disc and no re-rip. Written after the v0.6.1 hardware test plan turned out to be a checklist of things to open and read by hand. Each check states why it has nothing to say when it has nothing to say, and `run_checks` carries a floor so a silently-mute check is impossible rather than discouraged.
 - **`report_types.py`** — the `.platterpus.json` shape, as `TypedDict`s: the single source of truth for what `rip_report` writes and `rip_compare` reads (schema v9). Derived from what the code actually emits, which is why it is types rather than prose (Critical rule #10 — no untyped dict as a pseudo-struct).
 - **`report_artifacts.py`** — embeds a rip's companion **text** files (the ripper log, the EAC-style log, the cue) inside the JSON report, so the one file a user uploads when something looks wrong actually carries the evidence. Text only — Critical rule #8 forbids audio anywhere near the repo, and a report is not an exception.
+- **`ripper_manifest.py`** — parses the cyanrip fork's published `release-manifest.json` ("is a newer *ripper* build out?"). Three rules the fork asked for, each a real defect avoided: order by the monotonic `release_seq` and **never** by the version string (the fork's version is upstream's plus SemVer *build metadata*, which the spec says must be ignored for precedence — a version comparison would see equality forever and never offer an upgrade); read the channel from the manifest and **never** sniff the string for "beta" (we spell a pre-release `b1`, they spell it `-beta.1`); and refuse a `schema` we do not implement rather than guessing at its fields. Also an **argv chokepoint**, not merely a parser: the `commit` field becomes a `git checkout` argument inside the container, so it is refused unless it is a bare lowercase hex sha. Never raises; `None` means *not determined*, never "up to date". Carries `CancellableFetcher`, whose `cancel()` closes the socket so a blocked read is genuinely interruptible.
+- **`ripper_offer.py`** — composes the manifest with *our* record to decide what to tell the user. **Notice and offer; nothing here installs anything**, because taking a build no closed round has approved makes every subsequent rip report `ripper_handshake_approval: unapproved` — correct, and not something an updater may do silently to a library of archival records. Distinguishes "not determined" (unreachable manifest, or an installed build outside the numbered release sequence, e.g. a mid-round test pin) from "up to date", and states the consequence in the offer itself.
 - **`update_check.py`** — "is a newer release published?" against the GitHub releases API (self-update, KDD-17b). Delivery is handled by `update_install.py`.
 - **`update_install.py`** — download → checksum-verify → atomic self-install of an AppImage update (KDD-17b amendment), off-thread via `workers/update_worker.py`.
 - **`drive_access.py`** — pure-stdlib `diagnose_drive_access()` classifying the no-drive case as `no_device` / `permission` (gives the `usermod -aG` fix) / `ok`. Probes are injectable for testing.
@@ -463,6 +468,7 @@ module's `QThread` keep working) and connects its own result slots first.
 - **`host_setup_worker.py`** — `HostSetupWorker(QObject)` moved to a `QThread`. Runs any `StepEngine` (a Protocol in `deps/step_engine.py` that both `HostSetup` and `HostTeardown` satisfy — one worker drives setup and uninstall) off the GUI thread, relaying per-step `StepResult`s as signals; supports cancel at step boundaries.
 - **`drive_list_worker.py` / `disc_info_worker.py`** — run `list_drives()` / `disc_info()` off-thread (both shell out to the backend, slow on a cold container); emit `finished`/`failed`.
 - **`dependency_worker.py`** — runs `DependencyManager.check_all()` (the launch-time probe) off-thread; emits `finished(report)`.
+- **`ripper_update_worker.py`** — `RipperUpdateWorker`: fetches the cyanrip fork's release manifest off-thread and emits a `RipperOffer`. Always emits an offer, never `None` — "couldn't determine" is a verdict this subsystem carries explicitly rather than something every caller has to re-derive from a null. Its `cancel()` is real, not a flag: it closes the socket via `ripper_manifest.CancellableFetcher`, which is the only thing that can break a thread blocked in `read()`.
 - **`update_worker.py`** — `UpdateCheckWorker` (release lookup) + `UpdateInstallWorker` (download/verify/install with progress) off-thread.
 - **`ctdb_worker.py`** — runs CTDB verify for a finished rip off-thread on a daemon thread (KDD-14 Phase 1; it can outlive any sane `wait()`, see architecture.md §3.2).
 - **`flac_verify_worker.py`** — runs the post-rip `flac --test` integrity check off-thread (same daemon-thread + `wait_for` pattern as `ctdb_worker`, so it never tests a FLAC mid-metaflac-rewrite); reports a `FlacVerifyResult` via a queued signal.
@@ -1132,4 +1138,4 @@ Three consequences, now standing:
 
 ---
 
-*Last updated for Platterpus v0.6.4.*
+*Last updated for Platterpus v0.6.5.*

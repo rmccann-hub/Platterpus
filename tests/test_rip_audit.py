@@ -81,6 +81,14 @@ def _healthy(**over: object) -> dict:
                 "-t 1=title=One:isrc=GBAAM0000001 "
                 "-t 2=title=Two:isrc=GBAAM0000002 -a album=Healthy"
             ),
+            # The binary's OWN compiled-in statement of the round it came from,
+            # plus our verdict on the same build. `handshake_note` cross-checks the
+            # two, so a fixture carrying only one of them would leave that check
+            # unable to reach the agreement it exists to confirm. The *closed*
+            # shape is used deliberately: it is the one the round-7 release is the
+            # first build ever to emit.
+            "ripper_handshake_note": "round 7 lap 38 closed, verdict GO",
+            "ripper_handshake_approval": "approved",
         },
         "outcome": {
             "status": "success",
@@ -113,18 +121,35 @@ def _healthy(**over: object) -> dict:
         # accepts only measured pre-gaps, and a fixture that omits the state
         # leaves that check saying "not determined" — which drops `worst` to
         # `note` and fails every all-OK test below.
+        # `copy_crc` and the `accuraterip` block are here for the same reason
+        # everything else in this fixture is: `checksum_inventory` counts them and
+        # states a denominator, so a fixture without them would leave that check
+        # WARNING on a rip this file calls healthy — and a grade that can never be
+        # clean tells the user nothing.
         "tracks": [
             {
                 "pregap_source": "TOC",
                 "number": 1,
                 "pregap_state": "known",
                 "pregap_length_frames": 150,
+                "copy_crc": "A1B2C3D4",
+                "accuraterip": {
+                    "v1": {"crc_validated": True},
+                    "v2": {"crc_validated": True},
+                    "offset_450": {"crc_validated": True},
+                },
             },
             {
                 "pregap_source": "TOC",
                 "number": 2,
                 "pregap_state": "known",
                 "pregap_length_frames": 0,
+                "copy_crc": "E5F60718",
+                "accuraterip": {
+                    "v1": {"crc_validated": True},
+                    "v2": {"crc_validated": True},
+                    "offset_450": {"crc_validated": True},
+                },
             },
         ],
         "artifacts": {
