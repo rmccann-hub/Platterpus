@@ -20,7 +20,44 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Open, from the b15 reachability sweep (2026-08-06)
+
+- [ ] **Sweep the rest of `src/` for unreachable subsystems.** Two were found in one
+  afternoon by asking *"does anything outside this package import it?"* — `uiscript/`
+  (no menu item, no flag) and `rig_session.sh` (in `scripts/`, so absent from every
+  built artifact). Neither was caught by a green suite, because a subsystem's own
+  tests import it directly. Run the same question over every package and data file:
+  `grep -rn '<pkg>' src/ --exclude-dir=<pkg>`, and for data, check
+  `[tool.setuptools.package-data]` rather than the filesystem. Rule: `docs/testing.md`
+  §5.ag.
+
+- [ ] **Decide the `[Debugging]`-on-the-Goal-row question.** Still the maintainer's
+  call and still unanswered: should the Goal label mention state the preset does not
+  own (debug logging on, a test script set to autorun)? It means deciding which fields
+  a label may speak for. Not an oversight — a design question held open deliberately.
+
+- [ ] **Consider surfacing the `[plan]` block in the UI, not only the log.** It goes to
+  the live log pane today, which is right during a rip but is not where someone decides
+  whether to *start* one. A one-line summary beside the Start button ("Test & Copy: off
+  — only AccurateRip misses re-read") would put it at the decision point. Deferred, not
+  dropped: it needs a place in the layout that does not push the track grid around.
+
 ## Open, from round 7 laps 32-33
+
+- [ ] **Implement `HANDSHAKE-CONCURRENT-WITH` when writing lap 35.** The rip laps are written
+  blind and exchanged simultaneously, so lap 36 does *not* reply to lap 35 and a reader who
+  assumes it does will conclude the fork ignored our findings. One optional header field naming
+  the other half of the pair. **No version bump**: by the rule both sides agreed in lap 32/33, a
+  change that alters what a gate must *refuse* bumps the version; an optional field does not — and
+  v2 gates ignore unknown fields, which is what lets a proposal ship before the other side
+  implements it (their §6a reasoning, third application).
+
+  Verified rather than assumed, before proposing it: **a blind lap cannot close a round.**
+  `close_blockers` requires `HANDSHAKE-PEER-VERDICT: GO`, and a blind lap can only transcribe the
+  peer's *previous* verdict (HOLD → refused) or omit it (→ refused). And `round_status` reads each
+  side's latest lap from its own directory, so a duplicated lap number cannot confuse the gate
+  either. The collision risk is a human misreading the record, not a gate mis-deciding it.
+
 
 - [ ] **Round 8 lap 1 — raise `PROTOCOL_VERSION` to 3, then bump the shared file.**
   Two steps in that order, agreed with the fork (their lap 32 §F/J1, our lap 33 §F/J1).
@@ -1694,4 +1731,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.4b14.*
+*Last updated for Platterpus v0.6.4b15.*

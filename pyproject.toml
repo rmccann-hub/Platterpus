@@ -88,7 +88,13 @@ where = ["src"]
 # is present identically from a source checkout, a pipx install, and the AppImage
 # (no loose data-file wiring — same reasoning as help_content living in-code).
 [tool.setuptools.package-data]
-platterpus = ["resources/*.svg"]
+# `rig_session.sh` ships INSIDE the package for the same reason the icon does:
+# so `--rig-session` works identically from a source checkout, a pipx install and
+# the AppImage. It used to live in `scripts/`, which meant a hardware session
+# needed a source clone at the right commit to run the harness — and the rig
+# sheet's instruction was literally `bash ~/path/to/Platterpus/scripts/…`, a
+# placeholder nobody could paste. One file, two ways to reach it.
+platterpus = ["resources/*.svg", "rig_session.sh"]
 
 # Single source of truth for the version: the build reads __version__ from the
 # package itself, so `pyproject.toml` never duplicates it. Everything else

@@ -400,6 +400,52 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("Logging:", self._debug_logging_check)
 
+        # --- Unattended testing (the maintainer's "testing script field") ---
+        # A path, not a text box full of script: the batch outlives one paste into
+        # one dialog, and the whole point is that it runs when nobody is here.
+        # Tools → Run test script… loads this file; `--run-script` overrides it for
+        # one launch. The validator refuses a path that is not a readable file, so
+        # a typo is a visible error here rather than an empty transcript tomorrow.
+        self._test_script_edit, test_script_row = self._build_file_row(
+            config.test_script_path, "Test script"
+        )
+        self._test_script_edit.setPlaceholderText("(none — the console starts blank)")
+        self._test_script_edit.setToolTip(
+            "A Platterpus test script — the batch that Tools → Run test script… "
+            "loads by default. Leave empty for none.\n\nEach line is one step "
+            "(open a dialog, check what is on screen, take a screenshot, run the "
+            "ripper and assert its exit code). A failing step is recorded and the "
+            "batch keeps going, so an unattended run always comes back with a "
+            "complete transcript. Press Commands in the console for the full list."
+        )
+        form.addRow("Test script:", test_script_row)
+
+        self._test_autorun_check: QCheckBox = QCheckBox(
+            "Run it automatically when Platterpus starts", self
+        )
+        self._test_autorun_check.setChecked(config.test_script_autorun)
+        self._test_autorun_check.setToolTip(
+            "Off by default, and it does nothing without a script above — BOTH "
+            "have to be set deliberately, because an app that runs a script at "
+            "launch because a file said so is a surprising thing to ship.\n\nWith "
+            "it on, launching Platterpus *is* the test run: the console opens and "
+            "the batch starts, so a session needs nobody in front of it."
+        )
+        form.addRow("", self._test_autorun_check)
+
+        self._test_unsafe_check: QCheckBox = QCheckBox(
+            "Allow the unsafe script verbs (eval, call)", self
+        )
+        self._test_unsafe_check.setChecked(config.test_script_allow_unsafe)
+        self._test_unsafe_check.setToolTip(
+            "Off by default. The script vocabulary is otherwise a closed list of "
+            "named actions — there is no 'click anything' and nothing that runs "
+            "arbitrary code. This is the escape hatch; a run that used it says so "
+            "at the top of its own transcript, so the evidence is never silently "
+            "of a different kind."
+        )
+        form.addRow("", self._test_unsafe_check)
+
         # --- EAC bit-perfect parity gaps (KDD-13) ---
         # Cover art: "" = don't fetch. With cyanrip the GUI fetches the front
         # cover from the Cover Art Archive after the rip and embeds it.
@@ -873,6 +919,9 @@ class SettingsDialog(CenteredDialog):
             output_format=self._format_combo.currentData(),
             rip_goal=self._goal_combo.currentData(),
             mp3_vbr_quality=self._mp3_quality_spin.value(),
+            test_script_path=self._test_script_edit.text().strip(),
+            test_script_autorun=self._test_autorun_check.isChecked(),
+            test_script_allow_unsafe=self._test_unsafe_check.isChecked(),
             # Preserve fields the dialog doesn't model, so saving Settings
             # never silently resets them (these one-time "already offered"
             # flags being reset is what re-triggered the first-run prompts).

@@ -810,6 +810,79 @@ took its minimum from **208 px to 575 px** with real post-rip values.
   failing on any un-wrapped label holding a long dynamic string, so a new label
   cannot reintroduce this silently. No window needs to be shown for either.
 
+### 3.10 Unattended testing: the script console, and why a subsystem needs a surface
+
+**The rule this section exists to state:** *a subsystem is not shipped until
+something in the application can reach it.* `docs/testing.md` §5.p says a
+documented capability is not a capability; this is the same rule one step
+earlier — an **implemented** capability is not a capability either.
+
+`src/platterpus/uiscript/` was built to a maintainer request, with a parser that
+never raises, a closed verb vocabulary, a `QTimer`-driven runner, a transcript
+renderer and its own test file. It shipped with **no menu item, no dialog and no
+CLI flag**: `grep -rn 'uiscript' src/ --exclude-dir=uiscript` returned nothing.
+The changelog announced it, so from the outside it looked delivered. The check
+that would have caught it is one line — *does anything import this?* — and it is
+worth running on any package added as "the subsystem for X".
+
+**The shape now, and the seam to extend.**
+
+```
+uiscript/script.py    parse(text) -> [Step]        pure, never raises
+uiscript/verbs.py     VERBS, OPENABLE, reference   the single vocabulary table
+uiscript/runner.py    ScriptRunner(window)          one step per event-loop tick
+uiscript/report.py    RunReport -> text / dict      the transcript
+ui/dialogs/script_console.py                        the SURFACE (menu, buttons)
+```
+
+Three entry points, **one method**: the Tools menu item, `--run-script FILE`, and
+the config's `test_script_autorun` all call
+`MainWindow.open_script_console(autorun=...)`. Adding a fourth (a D-Bus hook, a
+hotkey) means calling that method, never re-describing how a batch starts.
+
+**Adding a verb** is a table row in `verbs.py` plus a `_do_<name>` handler on
+`ScriptRunner` — and the two are swept against each other, in *both* directions,
+by `tests/test_uiscript.py`: a verb flagged `implemented` must have a handler, and
+a handler must not exist for a verb flagged otherwise. That sweep exists because
+13 of 25 verbs once parsed, arity-checked, passed the unsafe gate and then failed
+at **run** time, which for an unattended batch means dying mid-run against a
+reference that promised the command would work.
+
+**Two hard constraints on any new verb:**
+
+1. **Nothing blocks the tick.** The runner lives on the GUI thread and its whole
+   design (§3.2) is that a modal dialog's nested event loop still delivers timer
+   events. A verb that needs a subprocess starts it on a daemon thread and lets
+   the tick poll — see `_CyanripJob`, and note that the first version of the
+   `cyanrip` verb did *not* do this and argued for the exemption in a docstring.
+2. **Any route to the ripper re-establishes the argv chokepoint by delegating to
+   it.** `sanitise_cyanrip_args` calls into the same refusal
+   `assert_metadata_lookup_disabled` raises, byte-for-byte, and a test asserts the
+   text is identical. A second copy of a safety check is a second thing to drift
+   (Critical rule #12, the outbound half).
+
+### 3.11 Say what you are about to do, not only what you did
+
+`rip_plan.describe_rip_plan` emits a `[plan]` block before a rip spawns anything.
+It is worth understanding as a *pattern*, because the failure it addresses recurs
+wherever this app decides something on the user's behalf:
+
+- The app builds the ripper's argv, so the flags are **our** decision.
+- The only record of that decision was the finished artifact — post-mortem.
+- One setting had two modes hiding inside one on/off (`-Z` on at 2, but *dynamic*:
+  pass 1 carries no `-Z`), so "on" was true and uninformative.
+
+The plan is a **pure function of the parameters** and deliberately *not* a second
+argv builder. It describes the builder's inputs and the one decision the worker
+makes above it, naming the flag each becomes. That gives two independent records
+of the same choice — the plan and the log's `Invoked as:` — and a disagreement
+between them is a finding you can only notice because both exist. It also states
+the flags we never send (`-j`, `-x`) **positively**, because "absent from the
+plan" and "we never send it" look identical to a reader.
+
+Reach for this whenever a surface would otherwise only be able to report a choice
+after the cost of acting on it has been paid.
+
 ## 4. Extension points — how to add things
 
 > The goal: a contributor who has never spoken to the author can add a
@@ -1383,4 +1456,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.6.4b13.*
+*Last updated for Platterpus v0.6.4b15.*

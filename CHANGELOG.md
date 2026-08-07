@@ -11,6 +11,114 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+
+## [0.6.4b15] — 2026-08-06
+
+### Added
+- **Every rip now says what it is about to do, before it does it.** A `[plan]` block goes to
+  the log *and* the on-screen live log as the first thing a rip emits, naming every cyanrip
+  flag the settings become — and, where a setting has two modes hiding inside one on/off, which
+  mode. The maintainer's ask, verbatim: *"the app builds the argv, so `-j` and `-Z` are its
+  call — worth checking they're on before you start rather than discovering afterwards."*
+
+  Until now the only record of what a rip ran was the finished artifact: `Invoked as:` in
+  cyanrip's log, `ripper_argv` in our JSON. Both are post-mortem, which is the wrong end of a
+  70-minute rip. The concrete case is not a bug and is genuinely surprising: **`-Z` is on by
+  default at 2, and runs in *dynamic* mode by default** — pass 1 reads the whole disc with **no
+  `-Z` at all**, and only tracks that miss AccurateRip are re-read with it. On a disc that fully
+  matches AccurateRip, `-Z` is never applied. Settings said "on"; nothing said which "on".
+  The plan now spells it out and names the checkbox that changes it.
+
+  It also states the two flags we **never** send — `-j` and `-x` — positively, because "absent
+  from the plan" and "we never send it" look identical to a reader. `rip_plan.py` is a pure
+  function and deliberately **not** a second argv builder: it describes the *inputs* to the one
+  builder plus the one decision the worker makes above it, so the plan and the artifact are two
+  independent records of the same choice and a disagreement between them is a finding.
+- **Tools → Run test script… — the batch console the scripting subsystem never had.** The
+  `uiscript` package (parser, closed vocabulary, `QTimer` runner, transcript renderer, its own
+  test file) shipped in b12 **entirely unwired**: no menu item, no dialog, no CLI flag. `grep`
+  for the package anywhere outside itself returned nothing. So the maintainer's own ask — *"give
+  me a debug testing option where i can copy and paste command code into it so i dont need to be
+  present but tests get executed anyway in my absense"* — existed as a library nobody could
+  invoke, with a changelog entry announcing it. That is `docs/testing.md` §5.p (*a documented
+  capability is not a capability*) for the second time, and the fix is a surface, not behaviour.
+- **A saved test script, and an option to run it at launch** (Settings → *Test script* /
+  *Run it automatically when Platterpus starts*). A path rather than a text box, because a batch
+  meant to run in your absence outlives one paste into one dialog — it is editable in your own
+  editor and re-read on every run. Both the path and the autorun flag must be set deliberately;
+  neither does anything alone. `--run-script FILE` does the same for a single launch. The path
+  is validated where it is typed (exists, is a file, is readable), because a silently-missing
+  script produces a launch indistinguishable from one where every test passed.
+- **`--rig-session FOLDER` — the unattended hardware harness, reachable from the AppImage.** The
+  harness itself is unchanged; where it lived was the bug. It sat in `scripts/`, which exists
+  only in the git repository, while the person who runs it has an AppImage — and the rig sheet's
+  instruction was literally `bash ~/path/to/Platterpus/scripts/rig_session.sh ~/rig-b11`, a
+  placeholder path in a copy-pasteable block. It now ships inside the package (declared as
+  package data, with a test that reads `pyproject.toml` to prove it, because a file present in a
+  checkout and absent from the wheel is exactly the failure mode). Fourteen steps, one artifact
+  each, never stopping on a failure — including the fork's `-x` and `-j`, the only place those
+  records come from since a rip never sends either.
+
+### Fixed
+- **The Live log pane showed the past while the status line showed the present.** Real-user
+  report, mid-rip: *"its odd it says its re-ripping track 5, but log says track 12."* The
+  status read `Re-ripping track 5 to secure it… 97%`; the pane's visible lines read
+  `Ripping and encoding track 12, progress - 7.22%`.
+
+  Both halves are timestamped in the rip's own debug stream, so the staleness is measured
+  rather than argued: the status matched `19:21:20,084 Ripping track 5, progress - 96.39%`,
+  while the pane's visible tail was emitted at `18:59:35,904 … 18:59:36,434`. **The pane was
+  21 minutes 44 seconds behind.**
+
+  Measured cause: `QPlainTextEdit.appendPlainText` only auto-scrolls a widget Qt is actually
+  laying out. In a **non-current tab** — where this view sits for most of a rip, because the
+  user is watching the track grid — 400 appends leave the scrollbar at `value=0` against
+  `maximum=399`. The content is all there; the viewport never moves, and whatever is on
+  screen when you open the tab is whatever Qt's deferred layout restores. The pane now
+  follows the tail itself, and re-pins when its tab becomes current; scrolling up still
+  pauses the follow (it is a console — reading back is the point) and returning to the
+  bottom resumes it.
+
+  **The first version of the regression test passed against the broken code** and was
+  rewritten: it asserted the position *after* switching tabs, where Qt happens to land at or
+  one line short of the bottom depending on how lines wrap. The state that actually
+  distinguishes the two implementations is the one *while the tab is hidden*, which is also
+  the state that matters. Both halves of the fix are now revert-proven.
+- **A release gate was choosing its subject by directory iteration order.**
+  `test_the_pin_is_the_one_the_newest_closed_handshake_round_verified` is the guard that
+  stops the setup wizard building a cyanrip commit no closed handshake round approved. Its
+  name says *the newest CLOSED round*; its body took the last element of a sort keyed on the
+  round number alone. Every `round-07-lap-NN.md` shares that key, Python's sort is stable, and
+  the tie fell to **whatever the filesystem yielded last** — so the guard had been naming the
+  right commit by luck for eight laps. Adding a ninth changed the answer and CI went red,
+  which is the only reason anyone looked.
+
+  Two fixes. It now orders with the **shared** `sort_key` (`(round, lap, stem)` — total by
+  construction, the single definition both projects agreed on), and it asks the question its
+  name asks: `FORK_PIN` is the *production* pin, approved by a **closed** round, so an open
+  round's laps are not eligible to stand in for an approval. A companion test pins that
+  subject explicitly, because otherwise the check could drift back to "newest file of any
+  round" and still pass on days when the two agree.
+- **The scripted `cyanrip` verb no longer freezes the window for up to five minutes.** It ran
+  `run_capture` inline on the GUI thread with a 300-second timeout, and justified the block in
+  its own docstring as acceptable *"here specifically"* — the shape `CLAUDE.md` refuses (*a
+  comment where a check belongs is not a fix*). It is the same call with the same arguments,
+  now on a daemon thread the tick polls; `stop()` kills an in-flight child rather than
+  forgetting it, and a child that cannot be reaped is reported as such (exit code `null`, never
+  `0`) instead of stranding the batch. Proven by revert: the two tests that assert the tick
+  returns while the command is still running, and that a never-returning command is reported
+  rather than waited on, both fail against the inline version.
+
+### Changed
+- **The fork's round-7 lap 33 and its beta.8 golden reference are filed.** Taken from their
+  repository at `104f6d4` rather than from an upload — same file, better provenance, and the
+  commit it came from is recorded. Their reference parses cleanly through our production parser
+  (3 tracks, all `ripped successfully`, every copy CRC present, generating build read as
+  `platterpus-fork-g92ceeed`). Their lap asks nothing new; it reports a source-tarball build that
+  could not name itself, now fixed, and a version gate they added to their own golden reference
+  after finding it had none.
+
+
 ## [0.6.4b14] — 2026-08-06
 
 ### Changed
@@ -6944,7 +7052,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b14...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b15...HEAD
+[0.6.4b15]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b14...v0.6.4b15
 [0.6.4b14]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b13...v0.6.4b14
 [0.6.4b13]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b11...v0.6.4b13
 [0.6.4b11]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b10...v0.6.4b11
@@ -7029,4 +7138,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b14.*
+*Last updated for Platterpus v0.6.4b15.*

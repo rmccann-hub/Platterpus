@@ -54,6 +54,7 @@ from platterpus.rip_addendum import (
     read_log_with_addendum,
     write_addendum,
 )
+from platterpus.rip_plan import describe_rip_plan
 from platterpus.ripper_message_inventory import ALL_FORMATS
 from platterpus.ripper_messages import build_matcher
 from platterpus.safe_int import int_or_none
@@ -1557,6 +1558,32 @@ class RipWorker(QObject):
         reporting. Emits ``finished`` on every normal path; ``start_rip`` wraps
         this so an unexpected escape still emits it (BUG-2).
         """
+        # BEFORE anything spawns: say what this rip is about to do. The app builds
+        # the ripper's argv, so which flags a rip carries is our decision — and
+        # until now the only way to learn it was to read the finished artifact
+        # (`Invoked as:` in cyanrip's log, `ripper_argv` in our JSON). Both are
+        # post-mortem, which is the wrong end of a 70-minute rip to discover that
+        # `-Z` ran in dynamic mode when you wanted it on every track. Pure
+        # function, no I/O, so it cannot fail the rip; see `rip_plan`.
+        for planned in describe_rip_plan(
+            secure_rerip_matches=self._params.secure_rerip_matches,
+            secure_rerip_dynamic=self._params.secure_rerip_dynamic,
+            rerip_offset_variant=self._params.rerip_offset_variant,
+            max_retries=self._params.max_retries,
+            read_speed_mode=self._params.read_speed_mode,
+            read_speed=self._params.read_speed,
+            force_overread=self._params.force_overread,
+            read_offset_override=self._params.read_offset_override,
+            only_tracks=self._params.only_tracks,
+            disc_track_total=self._params.disc_track_total,
+            cover_art=self._params.cover_art,
+        ):
+            # Both surfaces: the app's log file (so a returned bug report carries
+            # it) and the on-screen live log (so the person at the drive can read
+            # it while the disc is still spinning up).
+            log.info("%s", planned)
+            self.log_line.emit(planned)
+
         # Stamp the wall-clock start once (album-ETA baseline spans all passes).
         self._started_monotonic = time.monotonic()
         # Real (epoch) start, used to scope log discovery to THIS rip: the output

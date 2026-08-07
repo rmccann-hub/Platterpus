@@ -707,6 +707,14 @@ class MainWindow(
             self._rip_worker is not None,
         )
 
+        # The test-script console holds a QTimer-driven runner and, possibly, a
+        # ripper subprocess. Close it FIRST: its own closeEvent stops the run and
+        # kills any in-flight child, so the teardown below is not racing a script
+        # that is still opening dialogs on the window being destroyed.
+        if self._script_console is not None:
+            self._script_console.close()
+            self._script_console = None
+
         # One budget for the whole close, not one per worker — see the docstring.
         deadline = ShutdownDeadline()
 
@@ -813,6 +821,13 @@ class MainWindow(
 
         diagnose_action = tools_menu.addAction("Diagnose drive &access…")
         diagnose_action.triggered.connect(self._show_drive_access_diagnosis)
+
+        # The unattended-test console. The scripting subsystem it opens has
+        # existed, fully tested, since v0.6.4b12 — with nothing in the
+        # application able to reach it. This one line is what makes it a feature
+        # rather than a package (docs/testing.md §5.p).
+        script_action = tools_menu.addAction("Run &test script…")
+        script_action.triggered.connect(self.open_script_console)
         # The dependency check lives only on the Settings dialog's
         # "Check dependencies" button (it also runs automatically at
         # launch) — no duplicate Tools-menu entry.

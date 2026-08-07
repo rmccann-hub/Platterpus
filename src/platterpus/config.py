@@ -342,6 +342,31 @@ class Config:
     # pre-release names it as one (ui/main_window_update.py).
     update_channel: str = "stable"
 
+    # --- Unattended testing (Tools → Run test script…) ---
+    # Path to a Platterpus UI script (`docs/architecture.md` §3.9) that Tools →
+    # Run test script… loads by default, and that `--run-script` runs headlessly.
+    # Empty means "no saved script" — the console then starts blank.
+    #
+    # WHY A PATH AND NOT THE SCRIPT TEXT. The maintainer's ask was for a batch he
+    # could leave running *in his absence*, which means the script outlives one
+    # paste into one dialog. A path is editable in his own editor, survives a
+    # config rewrite, and can be version-controlled beside the rig sheet; a blob
+    # inside `config.toml` is none of those. The file is read at run time, so
+    # editing it needs no restart.
+    test_script_path: str = ""
+    # Run `test_script_path` automatically once the main window is up.
+    #
+    # OFF BY DEFAULT, and it stays off for anyone who never sets a path: a build
+    # that runs a script at launch because a config file said so is a surprising
+    # thing to ship, so BOTH the path and this flag must be set deliberately.
+    # With it on, launching the app *is* the test run — which is what "so I don't
+    # need to be present" requires.
+    test_script_autorun: bool = False
+    # Allow the script vocabulary's UNSAFE verbs (`eval`, `call`) when the
+    # console or `--run-script` runs. Off by default and re-asked every time the
+    # console opens; a run that used them says so loudly in its own transcript.
+    test_script_allow_unsafe: bool = False
+
     # --- Schema bookkeeping ---
     schema_version: int = SCHEMA_VERSION
 

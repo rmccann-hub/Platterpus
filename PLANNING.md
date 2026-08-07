@@ -168,6 +168,7 @@ Platterpus/
         ├── tool_paths.py                # resolve an external tool off PATH (~/.local/bin distrobox exports)
         ├── read_speed_ladder.py         # adaptive read-speed ladder decision logic (pure, never-raises)
         ├── rip_report.py                # machine-readable `.platterpus.json` rip report (pure, never-raises)
+        ├── rip_plan.py                  # what a rip is ABOUT to do, in words, before anything spawns (pure)
         ├── rip_timing.py                # wall-clock rip timing + realtime multiplier (cyanrip ETA ignored)
         ├── checksums.py                 # per-file SHA256 integrity digests (embedded in the JSON report)
         ├── cue_validate.py              # parse + validate the ripper's .cue (pure, never-raises; the inbound half of the seam)
@@ -263,7 +264,8 @@ Platterpus/
         │       ├── pending_installs.py  # tier (b) queued installs dialog
         │       ├── manual_install.py    # tier (c) copyable search string dialog
         │       ├── file_viewer.py       # in-app read-only .log/.json viewer (no Open-With chooser)
-        │       └── diagnostics_dialog.py # Help → Copy diagnostics: one selectable block for a bug report
+        │       ├── diagnostics_dialog.py # Help → Copy diagnostics: one selectable block for a bug report
+        │       └── script_console.py    # Tools → Run test script: the surface that makes uiscript reachable
         │
         └── workers/                     # long-running operations off the GUI thread
             ├── __init__.py              # start_worker_thread() — the shared one-shot QThread lifecycle wiring
@@ -333,6 +335,7 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`tool_paths.py`** — one search order for every external binary: `PATH`, then `~/.local/bin` (where `distrobox-export` puts the container's tools), then the usual system directories, then the bare name. A GUI launched from a desktop icon does not inherit a login shell's `PATH`, so without this the wizard could report a tool installed while the dependency probe reported it missing.
 - **`verdict.py`** — the single, pure, Qt-free AccurateRip "is this rip trustworthy?" whole-disc verdict, so every surface (results-pane banner, JSON report) shares one definition; builds on `parsers/rip_log.track_accuraterip_verified` (confidence ≥ 1).
 - **`read_speed_ladder.py`** — the pure decision logic for the adaptive read-speed ladder: start fast, slow down / re-read harder (down to cyanrip `-Z`) only when a disc needs it — quality only goes up. No Qt, no subprocess, never raises.
+- **`rip_plan.py`** — renders, in plain words, what a rip is **about to** do, emitted to the log and the on-screen live log before anything spawns. The app builds the ripper's argv, so which flags a rip carries is our decision — and until this existed the only way to learn it was the finished artifact (`Invoked as:` in cyanrip's log, `ripper_argv` in the JSON), which is the wrong end of a 70-minute rip. The case that prompted it: `-Z` is on by default at 2 *and* runs in **dynamic** mode by default, so pass 1 carries no `-Z` at all and only AccurateRip misses are re-read — correct for a healthy disc, wrong for a session whose purpose is to exercise the secure-re-read path, and nowhere stated beforehand. Deliberately **not** a second argv builder: it describes the *inputs* to the one builder and the one decision the worker makes above it, naming the flag each becomes so the plan can be diffed against the artifact afterwards.
 - **`rip_report.py`** — builds the machine-readable `<name>.platterpus.json` rip report (drive/rip settings, per-track CRCs + AccurateRip, the shared verdict, CTDB, checksums, embedded log). Pure and never-raises; reuses `verdict`.
 - **`rip_timing.py`** — wall-clock rip timing: actual elapsed + a realtime multiplier (elapsed ÷ audio length). cyanrip's own ETA is deliberately not recorded — it's computed per read-pass and badly misleads on marginal `-Z` discs.
 - **`checksums.py`** — per-file SHA256 digests, the "has anything changed since the rip?" integrity record; embedded in the JSON report (not a separate `.sha256` sidecar, per the one-debug-file rule).
@@ -440,6 +443,7 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`dialogs/auto_center.py`** — an application-wide event filter that centres *every* first-shown dialog — including the plain `QMessageBox`/`QFileDialog` static calls that can't subclass `CenteredDialog` — over the main window.
 - **`dialogs/pending_installs.py`** — `PendingInstallsDialog(QDialog)`. Tier (b) UI: per-item checkboxes, "Install selected" button, per-item progress feedback. Backed by `QueuedInstaller`.
 - **`dialogs/manual_install.py`** — `ManualInstallDialog(QDialog)`. Tier (c) UI: shows missing item, minimum version, why it can't auto-install, copyable search string in a read-only `QLineEdit`. Primary action: Copy. Secondary: Close.
+- **`dialogs/script_console.py`** — **Tools → Run test script…**: paste or load a batch, run it against the live window, read the transcript. It adds no behaviour — `uiscript/` already had the parser, vocabulary, runner and renderer, with tests — it adds the **surface**, which that subsystem shipped without: `grep` for the package outside itself returned nothing, so the maintainer's own ask (*"a debug testing option where i can copy and paste command code into it so i dont need to be present"*) existed as a library nobody could invoke. Modeless on purpose (a modal console would sit in front of the window it drives), and its transcript widget is `PlainText` because it carries the ripper's own output. The same method backs the menu item, `--run-script` and the config's autorun, so there is one description of how a batch starts.
 - **`dialogs/diagnostics_dialog.py`** — **Help → Copy diagnostics**: the version *pair*, the live environment, and **every diagnostic the collector recorded this session**, in one read-only selectable box with a Copy button. Added because an audit found the UI had **no** export, bundle or copy-diagnostics action at all — the only clipboard call in the whole tree copied a package search string — and the per-rip `.platterpus.json`, which *is* the richer bundle, exists only for a rip and is reachable only from the rip pane. So a setup failure, a dependency-check crash, a failed update or a drive probe had no copyable surface. `build_diagnostics_text()` is **pure and never raises** (a diagnostics view that cannot open fails exactly when the user is already reporting a failure) and is deliberately separate from the widget, so a future `--diagnostics` CLI flag renders the same text rather than a second version of it. Reads the same collector the report reads, so the pasted text and the JSON cannot disagree; states its own truncation; and renders the tri-state exit code as *"none (no child was reaped)"* rather than `0`.
 - **`dialogs/file_viewer.py`** — in-app read-only viewer for a rip's `.log` / `.platterpus.json`, so viewing a log never falls into KDE's "Open With" chooser (zero-terminal bar); "Open externally…" still defers to the OS.
 
@@ -1128,4 +1132,4 @@ Three consequences, now standing:
 
 ---
 
-*Last updated for Platterpus v0.6.4b13.*
+*Last updated for Platterpus v0.6.4b15.*
