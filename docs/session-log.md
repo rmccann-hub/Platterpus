@@ -11,6 +11,20 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+- **Round 7 closed after 38 laps, and the mechanism that closed it was a pre-commitment (2026-08-07).** Bilateral GO. The fork's lap 38 honoured *"our lap 38 is a GO unless your lap 37 shows a regression in `104f6d4` itself"*; our lap 37 had made the reciprocal commitment. Lap 37 **did** find something real — the paranoia invariant fails under `-Z` — and it was not a regression in the pin, so under S-14 it went to round 8 and the round closed. Without the pre-commitment it would have been lap 39 of a HOLD.
+
+  Counted, because the fork counted it and we had the same numbers and had not looked: **38 laps, 10 test pins, 8 pre-releases, 0 releases**, against 1/1/0 for each of rounds 5 and 6. Nothing in round 7 was bad work — it found a memory disclosure into an archival record, four segfaults, a gate that graded a crash as a clean refusal, and a subsystem with no way to open it. **The round failed anyway because it had no closing condition that could not be extended.** S-13…S-17 and pre-commit now live in `CLAUDE.md`; S-17 (*a round names its artifact before it opens*) was ours and they adopted it as better than their own S-13.
+
+  Their §A is the diagnosis worth keeping. We measured *that* the invariant fails; they found *why*: `repeat_ripping:` at line 702, the snapshot at 717, a scan bounded from 717 that found the `goto` inside its range and **inferred the label was too**. Locating the jump and inferring the label — inside a paragraph that was itself correcting an over-claim. They retracted by **appending, not editing**, which is the never-edit-a-sent-file rule applied somewhere it was not required.
+
+- **Taking the released commit instead of the approved one, and writing down why (2026-08-07).** Round 7 approved `104f6d4`; the fork then released `422d12a` from the same source. We install the **release**, and the reasoning is the kind that has to be in the record rather than in a constant: cyanrip bakes its handshake state in at build time, so `104f6d4` — built while the round was open — writes `round 7 lap 33 OPEN, verdict HOLD -- NOT a released build` into **every log**. True when it compiled, false now. A stable Platterpus whose every archival record said that would be the worse error.
+
+  Verified rather than accepted: their release golden reference parses clean through our production parser (3 tracks, pre-gap states `known/known/unknown` — the unreadable sub-channel renders as *not determined*, never *none*), and **all twelve `EAC CRC32`/`Accurip` lines are byte-identical** to the `104f6d4` reference we hold. We cannot diff their `src/`; we can diff what a rip of the same image produces.
+
+  **Moving the pin then exposed a silent regression of our own.** `BUILD_TAGS_ACCEPTING_CONSUMER_FLAG` excluded `FORK_PIN` on purpose, with a comment explaining that the pinned r2 build predates `--consumer`. Correct when written; false the instant the pin moved to a build that accepts it. Nothing would have crashed — every rip on the new pin would just have stopped recording who drove it. **A comment that justifies an exclusion is scoped to the value it was written for**, and moving that value silently invalidates the justification while leaving the words looking sound.
+
+  And two conformance rows had been quietly waiting for this day: C19/C20 asserted a stable release is refused *while a round is open*, against the real record, with a floor that fired the moment everything closed — and a failure message from a previous session reading *"re-point it at a fixture if the record has closed."* It is the only time in this project a check has left instructions for its own obsolescence, and it was right to.
+
 - **I nearly discarded a correct bug report over a cropped screenshot (2026-08-06).** Mid-rip, the maintainer: *"its odd it says its re-ripping track 5, but log says track 12."* The status line said `Re-ripping track 5 to secure it… 97%`; the Live log pane said `Ripping and encoding track 12, progress - 7.22%`.
 
   The debug stream inside the rip's own JSON located both to the second — status at `19:21:20,084` (`Ripping track 5, progress - 96.39%`), pane tail at `18:59:35,904 … 18:59:36,434`. **The pane was 21 minutes 44 seconds stale.** Cause measured before fixing: `appendPlainText` only auto-scrolls a widget Qt is laying out, and in a **non-current tab** — where the Live log sits while the user watches the track grid — 400 appends leave the scrollbar at `value=0` against `maximum=399`.
@@ -1216,4 +1230,4 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
-*Last updated for Platterpus v0.6.4b15.*
+*Last updated for Platterpus v0.6.4.*

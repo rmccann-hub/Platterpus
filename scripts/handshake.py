@@ -35,6 +35,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import hashlib
 import re
 import sys
 from collections.abc import Iterable
@@ -1210,6 +1211,57 @@ def _round_of(path: Path) -> int:
     return round_number(path) or 0
 
 
+#: The files our half of the seam is actually made of — the argv we send and the
+#: text we parse back. `HANDSHAKE-SOURCE-ANCHOR` is a hash over exactly these, so
+#: a `file:line` citation in a lap stays checkable against a named tree.
+#:
+#: **Mirrors the fork's definition rather than inventing one.** Theirs covers
+#: `src/*.c` and `src/*.h` — *their* source. Ours covers ours.
+SOURCE_ANCHOR_FILES: tuple[str, ...] = (
+    "src/platterpus/adapters/cyanrip_backend.py",
+    "src/platterpus/cyanrip_cli.py",
+    "src/platterpus/cue_validate.py",
+    "src/platterpus/parsers/cyanrip_info.py",
+    "src/platterpus/parsers/cyanrip_log.py",
+    "src/platterpus/parsers/rip_log.py",
+    "src/platterpus/ripper_messages.py",
+)
+
+
+def source_anchor(root: Path | None = None) -> str:
+    """The 16-hex `HANDSHAKE-SOURCE-ANCHOR` for our seam source.
+
+    **This exists because the field was hand-typed and was wrong.** Round 7's
+    laps carried `sha256/16 = 7dc313815850eb60`, which is character-for-character
+    the first 16 hex of the `seam-commands` hash declared two lines below it in
+    the same header. The anchor was a copy of a *shared file's* hash — a file
+    neither project owns — so it pinned nothing about our source, in every lap
+    that declared it. The fork found it; we confirmed it by recomputing.
+
+    The lesson is the mechanism, not the typo: **a field whose value is typed by
+    hand beside a similar-looking value will eventually be the other one.** It is
+    computed now, and `tests/test_handshake_source_anchor.py` refuses a lap whose
+    declared anchor is any shared file's prefix.
+
+    Hashes `path\0content\0` per file in sorted order, so a rename is a change
+    and two files cannot swap contents unnoticed. A missing file hashes as absent
+    rather than raising — this is called while rendering a document, and a
+    traceback there is worse than a value that visibly differs.
+    """
+    base = root or _REPO_ROOT
+    digest = hashlib.sha256()
+    for rel in sorted(SOURCE_ANCHOR_FILES):
+        digest.update(rel.encode("utf-8"))
+        digest.update(b"\0")
+        path = base / rel
+        try:
+            digest.update(path.read_bytes())
+        except OSError:
+            digest.update(b"<absent>")
+        digest.update(b"\0")
+    return digest.hexdigest()[:16]
+
+
 def sort_key(path: Path) -> tuple[int, int, str]:
     """**The** ordering for handshake files: ``(round, lap, stem)``.
 
@@ -1535,6 +1587,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     group.add_argument("--status", action="store_true", help="report the round state")
     parser.add_argument(
+        "--handshake-dir",
+        metavar="DIR",
+        default=None,
+        help="read the round record from DIR instead of docs/handshake. Exposes "
+        "what `round_status()` already accepted: the gate's own conformance rows "
+        "(C19/C20) need a record with an OPEN round, and once every real round is "
+        "closed the only honest way to assert a refusal is against a fixture "
+        "rather than against the empty set",
+    )
+    parser.add_argument(
         "--prerelease",
         action="store_true",
         help="with --release-gate: permit a PRE-RELEASE while a round is open. A "
@@ -1552,10 +1614,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.emit is not None:
         sys.stdout.write(emit_outbound(args.emit))
         return 0
+    record_root = Path(args.handshake_dir) if args.handshake_dir else None
     if args.status:
-        for line in round_status():
+        status_lines = round_status(record_root)
+        for line in status_lines:
             sys.stdout.write(line + "\n")
-        return 1 if any(ln.endswith("OPEN") for ln in round_status()) else 0
+        return 1 if any(ln.endswith("OPEN") for ln in status_lines) else 0
     if args.release_gate:
         # A PRE-RELEASE is permitted while a round is open. A stable release is not.
         #
@@ -1577,7 +1641,7 @@ def main(argv: list[str] | None = None) -> int:
         # Loud, not silent: the open rounds are printed either way, so a pre-release
         # never looks like a clean record.
         if args.prerelease:
-            lines = round_status()
+            lines = round_status(record_root)
             open_rounds = [ln for ln in lines if ln.endswith("OPEN")]
             if open_rounds:
                 sys.stderr.write(
@@ -1603,7 +1667,7 @@ def main(argv: list[str] | None = None) -> int:
         # was opened. That is the wrong place twice over: it blocked ordinary
         # work, and it did not block a release, because `release.yml` never
         # called it. This subcommand exists so the workflow can.
-        lines = round_status()
+        lines = round_status(record_root)
         open_rounds = [ln for ln in lines if ln.endswith("OPEN")]
         if not open_rounds:
             sys.stdout.write("handshake: every round is closed — release allowed\n")
