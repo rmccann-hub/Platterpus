@@ -11,6 +11,32 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The offset-variant footnote counted the first pass, not the tracks actually shipped.**
+  Found on the first disc ever to take the auto-fix path on a released build (the Police
+  re-rip, 2026-08-07). Tracks 3 and 5 both missed AccurateRip on the whole-disc pass and
+  were re-ripped; track 3's re-read matched exactly, track 5's still matched only the
+  +450 offset-variant pressing. So the truth afterwards is **one** partially-accurate
+  track — which the verdict banner said, while the footnote directly beneath it said
+  **"2 of 14"**. Both went into the same `.platterpus.json` and onto the same results
+  pane, and the stale one reads as the more specific.
+
+  `partially_accurate_summary` was a sentence rendered while *parsing* the whole-disc
+  log and never recomputed once the addendum superseded those tracks' AccurateRip
+  results. `accuraterip_counts` documents itself as the single source "so the banner,
+  the JSON, and the reconciliation line can never disagree on the tally" — this field
+  was the one bypassing it. It now counts through that function, in both the report and
+  the results pane. `partially_accurate_reported` is deliberately left alone: it is the
+  ripper's own fraction, verbatim, and being exactly that is its whole job.
+
+  Two notes on how the fix was checked, because both mattered. The first regression test
+  passed against a revert — it called the helper directly, and the helper was never what
+  broke; it now goes through the real `build_report`. And the first fix *removed* the
+  footnote entirely for logs that carry no ripper fraction (whipper-era and partial
+  parses); the existing UI tests caught that, and it now falls back to the parser's
+  sentence rather than going silent. Suppressing a right answer is not an improvement
+  over correcting a wrong one.
+
 ## [0.6.6] — 2026-08-07
 
 ### Fixed

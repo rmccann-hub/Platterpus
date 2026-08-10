@@ -1297,7 +1297,17 @@ def loudness_summary_line(rip_log: object) -> str:
                 bits.append(f"true peak {peak} dBFS")
             if bits:
                 parts.append("Album loudness: " + ", ".join(bits))
-        partial = getattr(rip_log, "partially_accurate_summary", "") or ""
+        # Recomputed from the final per-track results, NOT read off the parse.
+        #
+        # This footnote sits directly under the verdict banner, and the banner
+        # counts via `accuraterip_counts` while the parse-time string describes the
+        # whole-disc pass. After an auto-fix re-rip those two disagree: on the
+        # Police disc (2026-08-07) the banner said "the other 1" and this line said
+        # "2 of 14", on the same screen. Same fact, two numbers, and the stale one
+        # reads as the more specific.
+        from platterpus.rip_report import _final_partial_summary
+
+        partial = _final_partial_summary(rip_log) or ""
         if isinstance(partial, str) and partial.strip():
             parts.append(partial.strip())
     except Exception:  # noqa: BLE001 — a results-pane footnote must never crash
