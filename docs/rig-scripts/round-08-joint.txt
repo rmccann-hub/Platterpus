@@ -1,0 +1,215 @@
+# =============================================================================
+# ROUND 8 JOINT TEST SCRIPT  —  Platterpus + the cyanrip fork
+# =============================================================================
+#
+# THIS IS THE ONLY FILE EITHER SIDE SENDS. Not a document about tests. The tests.
+#
+#   How to run it:   ./platterpus-x86_64.AppImage --run-script round-08-joint.txt
+#   Where it lands:  docs/rig-scripts/round-08-joint.txt  in rmccann-hub/Platterpus
+#                    ^ ONE place. Nowhere else, by either side.
+#
+# CYANRIP: add your tests in SECTION C. Change nothing above or below it. Send
+# this same file back with C filled in — no prose, no companion note, no second
+# document. If a test needs explaining, the explanation is a `log` line inside
+# the test, where whoever reads the transcript will actually be standing.
+#
+# THE ONE RULE THAT MAKES THIS WORK: a failing step does NOT stop the batch.
+# Only `abort` does. So write tests that fail loudly and keep going — a run that
+# stops at the first problem hides every problem behind it, and on real hardware
+# a disc pass costs an hour you do not get back.
+#
+# -----------------------------------------------------------------------------
+# THE WHOLE LANGUAGE. There is no other syntax; this is all of it.
+# -----------------------------------------------------------------------------
+#
+#   log <text>                 write a line into the transcript
+#   wait <seconds>             pause, bounded at 600
+#   abort [why]                stop the batch — the ONLY thing that does
+#   screenshot <name>          PNG of every visible window
+#   snapshot <name>            text dump of the window state
+#
+#   rescan                     re-probe the drive, as the toolbar button does
+#   album <text>               set the album title
+#   album-artist <text>        set the album artist
+#   select-tracks <spec>       "1,3,5-7" — this becomes cyanrip's -l
+#   expect-tracks <count>      ASSERT the track count. See the floor note below.
+#   rip                        start the rip, as the button does
+#   wait-for-rip <seconds>     block until it finishes, bounded at 3 hours
+#   cancel-rip                 cancel a running rip
+#
+#   set <field> <value>        any Settings field, BY ITS config.toml NAME
+#   expect <field> <value>     assert a field equals a value
+#   expect-contains <f> <v>    assert a field contains a value
+#
+#   open <dialog>              about | dependencies | diagnostics | drive
+#                              | guide | settings | setup
+#   ok                         accept the top dialog
+#   cancel                     dismiss the top dialog
+#   expect-dialog <text>       assert a dialog is showing, containing <text>
+#
+#   cyanrip <args…>            RUN THE REAL RIPPER. Exit code, exact argv and
+#                              complete output all land in the transcript.
+#   expect-cyanrip <text>      assert the last cyanrip output contains <text>
+#   expect-exit <code>         assert the last cyanrip exit code
+#
+#   rig-check [album-folder]   the seam check: compose a real rip's argv, read it
+#                              back out of cyanrip's own -j record, classify the
+#                              build, parse the album's log
+#
+# `#` starts a comment. Blank lines are free. Arguments are the rest of the line.
+#
+# -----------------------------------------------------------------------------
+# FOUR THINGS THAT WILL BITE YOU IF NOBODY SAYS THEM
+# -----------------------------------------------------------------------------
+#
+# 1. A `cyanrip` RIP INVOCATION MUST CARRY `-N`, and the script refuses it
+#    otherwise. Not pedantry: without `-N` cyanrip runs its own MusicBrainz
+#    lookup and can block on an interactive prompt with no terminal attached, so
+#    an unattended batch hangs forever. Probe flags are exempt because they never
+#    reach the metadata path: --version, -v, --help, -h, -x, --cache-probe, -j
+#
+# 2. NO ARGUMENT MAY CONTAIN A NEWLINE OR NUL, and the script refuses it. This is
+#    not shell injection — no shell is ever used. It is LOG FORGERY: cyanrip
+#    writes its argv into an archival log, and a newline could fabricate a line
+#    in a document whose entire purpose is being trustworthy evidence.
+#    Also bounded: 64 arguments, 4000 characters each.
+#
+# 3. A TEST THAT CAN PASS BY FINDING NOTHING IS DECORATION. `expect-cyanrip`
+#    against output that never arrived fails, which is right — but a test whose
+#    only assertion is "it did not crash" passes on a binary that does nothing.
+#    Give it a floor: assert a COUNT, or assert two things that must agree.
+#
+# 4. AN ASSERTION THAT CAN PASS FOR THE WRONG REASON IS WORSE THAN ONE THAT
+#    FAILS, because a failure gets investigated and a pass gets cited. Match on
+#    the value, not just the label — `expect-cyanrip Cache probe:` proves the
+#    line was printed and nothing about what it said.
+#
+# =============================================================================
+
+
+# =============================================================================
+# SECTION A — SETUP.  PLATTERPUS OWNS THIS. Do not edit.
+# =============================================================================
+
+log ROUND 8 JOINT SCRIPT — starting
+log Put the disc in the drive before running this.
+
+# Identity first, so every failure below is attributable to a named pair of
+# builds. A transcript that cannot say which binaries produced it is not
+# evidence, and two logs of one disc from two builds are not interchangeable.
+cyanrip --version
+expect-exit 0
+expect-cyanrip platterpus-fork
+log ^ if that failed you are on stock upstream, not the fork. Everything below is void.
+
+# The seam check with no album folder: the argv half only. It composes a real
+# rip's argv through the REAL builder, runs it against a device that cannot open,
+# and reads `invocation` back out of cyanrip's own -j record — which compares
+# what the binary RECEIVED against what we COMPOSED. No disc is spent.
+rig-check
+
+open dependencies
+screenshot A-dependencies
+cancel
+
+
+# =============================================================================
+# SECTION B — PLATTERPUS'S TESTS.  WE OWN THIS. cyanrip: do not edit.
+# =============================================================================
+
+log SECTION B — Platterpus tests
+
+# B1. The disc pipeline, and a floor under it. `expect-tracks` is the floor:
+#     without it, a rip that identified NOTHING reports success exactly like a
+#     real one, and the transcript reads clean either way.
+rescan
+wait 20
+expect-tracks 14
+
+# B2. Dynamic secure re-rip is the DEFAULT and it means the album pass carries
+#     NO -Z; only AccurateRip-failing tracks get -Z on the refix pass. Asserted
+#     rather than assumed, because the fork read a -Z-free album pass as a
+#     dropped flag in their round-8 §2.1 and it is our design.
+expect secure_rerip_dynamic True
+expect secure_rerip_matches 2
+
+# B3. Per-track selection becomes cyanrip's -l as a COMMA LIST, never a range.
+select-tracks 1,3,5-7
+
+# B4. A distinct album title per pass. A session that overwrites its own evidence
+#     has destroyed the thing it was run to produce.
+album Every Breath You Take (round 8 joint, pass 1)
+album-artist The Police
+
+snapshot B-before-rip
+
+
+# =============================================================================
+# SECTION C — CYANRIP'S TESTS.  YOU OWN THIS. WE WILL NOT EDIT IT.
+# =============================================================================
+#
+# Add whatever you want between the two markers. Delete the examples. The three
+# verbs you need are `cyanrip`, `expect-cyanrip` and `expect-exit`; everything
+# above is available to you too if you want a rip driven around your test.
+#
+# Things only YOU can test, which is why this section exists:
+#   - `-x` / `--cache-probe` on a real drive. As of 2026-08-07 this had never
+#     executed on real hardware, by anyone. Whatever it prints is the first data
+#     point in existence — INCLUDING an absurd number, which is a finding.
+#     A HANG IS ALSO A RESULT: the verb is bounded and reports the stall.
+#   - your 10 new fatal messages from round 8 §D2 — we can only test that our
+#     matcher catches them, never that your binary emits them.
+#   - the malformed-argv shapes from your lap 32 (`-c /`, `-p =`) that segfaulted.
+#   - anything where the question is "what does the ripper do", not "what does
+#     the app do with what the ripper did".
+#
+# WARNING, because this one costs 23 minutes: `-x` is the CACHE PROBE.
+# `-O` is OVERREAD, and `-O` is confirmed to hang the BDR-209D for ~23 minutes.
+# They are one keystroke apart. Do not reach for `-O` on this rig.
+
+# >>> CYANRIP TESTS BEGIN >>>
+
+log SECTION C — cyanrip tests
+
+# --- EXAMPLE, DELETE IT: the cache probe on a real drive -----------------------
+cyanrip -x
+expect-exit 0
+expect-cyanrip Cache probe:
+# ^ NOTE what is wrong with that last line, and do not copy the mistake: it
+#   asserts the LABEL was printed and nothing about the VALUE. It passes if the
+#   probe reports zero, or a negative, or a number larger than the disc. Assert
+#   the value you actually expect, or assert two figures that must agree.
+
+# --- EXAMPLE, DELETE IT: a fatal message you added in round 8 ------------------
+# cyanrip -N -d /dev/sr0 -l 999
+# expect-cyanrip Invalid track
+# ^ a rip invocation, so it carries -N. Without it the script refuses the line.
+
+# <<< CYANRIP TESTS END <<<
+
+
+# =============================================================================
+# SECTION D — THE RIP, AND THE SEAM CHECK OVER IT.  PLATTERPUS OWNS THIS.
+# =============================================================================
+
+log SECTION D — the rip
+
+rip
+wait-for-rip 7200
+
+screenshot D-after-rip
+snapshot D-after-rip
+
+# The seam check again, this time WITH the album folder, so it also parses the
+# log this rip just produced and reads its `Handshake:` note. Both note shapes
+# must be read correctly — `closed` and `OPEN` — and a note it cannot classify
+# says `unrecognised` rather than defaulting to either. An open round silently
+# reported as closed would clear a release gate.
+#
+# Replace the path with the folder the rip actually wrote. If you leave it off,
+# the log checks report SKIP — and SKIP means DID NOT RUN, which is the honest
+# answer but not the one this round needs.
+rig-check ~/Music/The Police/Every Breath You Take (round 8 joint, pass 1)
+
+log ROUND 8 JOINT SCRIPT — complete. Send the transcript directory, nothing else.
+log Transcript: ~/.local/share/platterpus/uiscript/<timestamp>/

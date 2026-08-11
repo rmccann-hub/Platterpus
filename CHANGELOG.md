@@ -11,6 +11,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.9] — 2026-08-11
+
+### Fixed
+- **The `rig-check` script verb rejected every real album folder.** Declared as
+  taking at most one argument, while its handler was already calling
+  `step.joined()` — so the verb's advertised arity contradicted its own
+  implementation, and a path like `~/Music/The Police/Every Breath You Take`
+  failed at PARSE time with an arity complaint, never reaching the handler.
+  Every test had used a `tmp_path` with no spaces in it, which is exactly the
+  gap a stand-in tidier than the real thing leaves invisible; it surfaced the
+  first time a script named an actual album. Now rest-of-line, like `album`,
+  which takes the tail for the same reason: a verb whose argument is human text
+  takes the text.
+
+### Added
+- **`docs/rig-scripts/round-08-joint.txt`** — the joint round-8 test script, and
+  the only file either project sends. Platterpus owns sections A, B and D;
+  section C is fenced for the cyanrip fork to fill with tests only they can run
+  (`-x` on a real drive, their new fatal messages, the malformed-argv shapes that
+  segfaulted). It carries the entire verb vocabulary and the four rules that bite
+  — `-N` required on rip invocations, no newline/NUL in arguments, no test that
+  can pass by finding nothing, no assertion that can pass for the wrong reason —
+  so it needs no companion document to be usable.
+
 ## [0.6.8] — 2026-08-11
 
 ### Changed
@@ -5129,7 +5153,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.8.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.9.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7371,7 +7395,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.8...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.9...HEAD
+[0.6.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.8...v0.6.9
 [0.6.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.7...v0.6.8
 [0.6.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.5...v0.6.6
@@ -7462,4 +7487,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.8.*
+*Last updated for Platterpus v0.6.9.*

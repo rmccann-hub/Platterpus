@@ -193,7 +193,26 @@ class TestScriptVerb:
         assert verb.implemented, "an advertised verb with no handler dies mid-run"
         # 0 args: the album folder is optional, because SKIP is an honest answer.
         assert verb.min_args == 0
-        assert verb.max_args == 1
+        # Rest-of-line, not one token. See the arity test below for why.
+        assert verb.max_args is None
+
+    def test_an_album_path_with_spaces_parses_without_quoting(self) -> None:
+        """A real album folder has spaces, and the verb must take it unquoted.
+
+        Declared as ``max_args=1`` this verb rejected every genuine path with an
+        arity complaint — while its handler was already calling ``step.joined()``,
+        so the advertised arity contradicted the implementation. Nobody caught it
+        writing the verb because every test used a tmp_path with no spaces; it
+        surfaced the first time a script named a real album.
+
+        The regression is pinned on the PARSER, not on the handler, because the
+        failure happened at parse time: the step never reached the handler at all.
+        """
+        from platterpus.uiscript.script import parse
+
+        step = parse("rig-check ~/Music/The Police/Every Breath You Take (pass 1)")[0]
+        assert step.error == "", step.error
+        assert step.joined() == "~/Music/The Police/Every Breath You Take (pass 1)"
 
     def test_the_runner_has_a_handler_for_it(self) -> None:
         """`tests/test_uiscript.py` sweeps this too; asserted here as well so a
@@ -265,3 +284,58 @@ class TestCliFlag:
         helptext = capsys.readouterr().out
         for flag in ("--rig-check", "--rig-check-album", "--rig-check-device"):
             assert flag in helptext, f"{flag} is the fork's interface; it moved"
+
+
+class TestShippedScripts:
+    """Every script we SHIP must parse. This is the deliverable's own gate.
+
+    A test file that fails to load is the worst possible thing to hand another
+    project: they run it, see nothing happen, and the round costs a lap. The
+    round-8 joint script is sent to the cyanrip fork, so it is held here rather
+    than trusted — and this check is what found `rig-check`'s arity bug, which
+    reading the file would not have.
+    """
+
+    SCRIPTS = sorted(
+        (Path(__file__).resolve().parent.parent / "docs/rig-scripts").glob("*.txt")
+    )
+
+    def test_there_are_scripts_to_check(self) -> None:
+        """The floor. Without it, a glob that matched nothing would pass silently
+        and this whole class would be decoration."""
+        assert len(self.SCRIPTS) >= 2, f"only found {self.SCRIPTS}"
+
+    @pytest.mark.parametrize("script", SCRIPTS, ids=lambda p: p.name)
+    def test_every_shipped_script_parses_with_no_errors(self, script: Path) -> None:
+        from platterpus.uiscript.script import parse
+
+        steps = parse(script.read_text(encoding="utf-8"))
+        broken = [
+            f"line {s.line_no}: {s.source!r} -> {s.error}" for s in steps if s.error
+        ]
+        assert not broken, f"{script.name} does not load:\n" + "\n".join(broken)
+        # A second floor: a file of pure comments parses cleanly and tests nothing.
+        assert len(steps) >= 5, f"{script.name} parsed to {len(steps)} steps"
+
+    @pytest.mark.parametrize("script", SCRIPTS, ids=lambda p: p.name)
+    def test_every_shipped_cyanrip_line_survives_the_sanitiser(
+        self, script: Path
+    ) -> None:
+        """A shipped script must not contain a cyanrip line the runner refuses.
+
+        Checked against the REAL `sanitise_cyanrip_args`, not a restatement of its
+        rules — a second copy of a safety check is a second thing to drift, and
+        this is the check that would catch a rip invocation missing `-N` (which
+        would hang an unattended batch on an interactive prompt forever).
+        """
+        from platterpus.uiscript.script import parse, sanitise_cyanrip_args
+
+        refused = [
+            f"line {s.line_no}: {' '.join(s.args)!r} -> {reason}"
+            for s in parse(script.read_text(encoding="utf-8"))
+            if s.verb == "cyanrip"
+            and (reason := sanitise_cyanrip_args(list(s.args))) is not None
+        ]
+        assert not refused, f"{script.name} carries refused argv:\n" + "\n".join(
+            refused
+        )
