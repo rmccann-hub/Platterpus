@@ -31,7 +31,7 @@ import logging
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -72,6 +72,12 @@ MAX_TOOL_OUTPUT_CHARS: int = 8000
 #: runner then reports an unreapable child and moves on rather than waiting
 #: forever, which is the whole difference between a bounded run and a hung one.
 CYANRIP_VERB_GRACE_S: float = 20.0
+
+#: Outer bound on the `rig-check` verb. Its two ripper probes are each bounded at
+#: `platterpus.rig_check.PROBE_TIMEOUT_S`, so this only fires when one of them is
+#: unreapable — same case, same reasoning, as `CYANRIP_VERB_GRACE_S`. Generous
+#: enough to cover both probes plus a cold container exec, and still finite.
+RIG_CHECK_VERB_TIMEOUT_S: float = 360.0
 
 
 def _coerce_setting(current: object, raw: str) -> tuple[object, str]:
@@ -206,6 +212,33 @@ class _CyanripJob:
     error: str = ""
 
 
+@dataclass
+class _RigCheckJob:
+    """A `rig-check` verb running on a helper thread, watched by the tick.
+
+    Same shape and same reasoning as :class:`_CyanripJob` — the seam check runs
+    the ripper twice (``-v``, then a ``-j`` probe), so it is subprocess work and
+    the never-block rule applies with no case exemption.
+
+    It is a *separate* job type rather than a reuse of ``_CyanripJob`` because
+    the two carry different results: a cyanrip call yields ``(exit, output)``
+    that ``expect-cyanrip`` / ``expect-exit`` then assert against, and letting a
+    rig check overwrite ``_last_cyanrip_exit`` would silently change what a
+    following assertion was talking about.
+    """
+
+    step: Step
+    out_dir: Path
+    album_dir: Path | None
+    started: float
+    done: threading.Event
+    #: Exit code of the check: 0 when nothing FAILed. ``None`` means the worker
+    #: died before producing one — tri-state, never written as 0.
+    code: int | None = None
+    lines: list[str] = field(default_factory=list)
+    error: str = ""
+
+
 class ScriptRunner(QObject):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.
 
@@ -243,6 +276,7 @@ class ScriptRunner(QObject):
         #: this is set the tick services it instead of advancing, which is what
         #: keeps a five-minute ripper call off the GUI thread.
         self._pending_cyanrip: _CyanripJob | None = None
+        self._pending_rig_check: _RigCheckJob | None = None
         self._timer: QTimer = QTimer(self)
         self._timer.setInterval(TICK_MS)
         self._timer.timeout.connect(self._tick)
@@ -317,6 +351,25 @@ class ScriptRunner(QObject):
                 )
             )
             self._pending_cyanrip = None
+        # A seam check in flight is recorded as stopped rather than dropped. Its
+        # probes are bounded and its thread is a daemon, so abandoning it is safe;
+        # what is NOT safe is letting the transcript end with no row for a step
+        # that started, because a run that stopped mid-check and a run that never
+        # reached the check read identically.
+        if self._pending_rig_check is not None:
+            job = self._pending_rig_check
+            log.info("ui script stopping with a rig check in flight; abandoning it")
+            self._report.steps.append(
+                StepRecord(
+                    job.step.line_no,
+                    job.step.source,
+                    Outcome.ERROR,
+                    "stopped while the seam check was still running; its exit code "
+                    f"is null, not 0. Partial output is under {job.out_dir}.",
+                    time.monotonic() - job.started,
+                )
+            )
+            self._pending_rig_check = None
         for step in self._steps[self._index :]:
             self._report.steps.append(
                 StepRecord(step.line_no, step.source, Outcome.SKIPPED)
@@ -340,6 +393,9 @@ class ScriptRunner(QObject):
             # against a command that had not finished.
             if self._pending_cyanrip is not None:
                 self._service_cyanrip()
+                return
+            if self._pending_rig_check is not None:
+                self._service_rig_check()
                 return
             if self._deadline is not None:
                 self._service_deadline()
@@ -720,6 +776,113 @@ class ScriptRunner(QObject):
             f"argv: {' '.join(job.argv)}\nexit: {code}\n{_bounded_output(output)}",
             elapsed=elapsed,
         )
+
+    def _do_rig_check(self, step: Step) -> None:
+        """Run the cyanrip seam check on a helper thread; the tick collects it.
+
+        **Why this verb exists at all.** The check is also a terminal flag
+        (``--rig-check``), which the fork's own script calls so both projects'
+        evidence lands in one ``MANIFEST.txt``. That is a machine-to-machine
+        interface. This verb is the *person's* one: the script language is where
+        this project's tests are written, and a capability the language cannot
+        reach is a capability that lives somewhere the tests do not. Both call
+        :func:`platterpus.rig_check.run_rig_check` — neither reimplements it, so
+        the two surfaces cannot disagree about what the check found.
+
+        The album folder is optional and is **not** guessed from the window: the
+        log-reading checks report ``SKIP`` without it, and SKIP means *did not
+        run*, which is the honest answer. Auditing the wrong album still produces
+        a clean-looking report, so a folder the script names is worth more than a
+        folder something inferred.
+        """
+        from platterpus.rig_check import run_rig_check
+
+        directory = self._ensure_artifact_dir()
+        if directory is None:
+            self._record(step, Outcome.ERROR, "cannot create the artifact directory")
+            return
+        album: Path | None = None
+        if step.args:
+            album = Path(step.joined()).expanduser()
+            if not album.is_dir():
+                self._record(
+                    step,
+                    Outcome.FAIL,
+                    f"album folder does not exist: {album}. Refusing rather than "
+                    "running the log checks as SKIP — a folder named and missing "
+                    "is a mistake, not an omission.",
+                )
+                return
+        job = _RigCheckJob(
+            step=step,
+            out_dir=directory / "rig-check",
+            album_dir=album,
+            started=time.monotonic(),
+            done=threading.Event(),
+        )
+
+        def _work() -> None:
+            # Same boundary rule as `_do_cyanrip`: this closure touches nothing
+            # Qt, no widget and no report — only locals and fields of `job`.
+            try:
+                job.code = run_rig_check(
+                    job.out_dir,
+                    album_dir=job.album_dir,
+                    sink=job.lines.append,
+                )
+            except Exception as exc:  # noqa: BLE001 — a helper thread must not die silently
+                job.error = f"unexpected {type(exc).__name__}: {exc}"
+            finally:
+                # LAST, always — the tick reads the fields above only after this.
+                job.done.set()
+
+        self._pending_rig_check = job
+        thread = threading.Thread(target=_work, name="uiscript-rig-check", daemon=True)
+        thread.start()
+
+    def _service_rig_check(self) -> None:
+        """Poll the pending `rig-check` job; record it once, when it finishes.
+
+        The check runs the ripper twice, and each probe is bounded inside
+        :mod:`platterpus.rig_check`; the outer bound here is the same shape as
+        the cyanrip verb's, so a wedged drive ioctl cannot hold the batch open
+        forever. An abandoned daemon thread is safe — it is not a ``QThread``.
+        """
+        job = self._pending_rig_check
+        assert job is not None
+        elapsed = time.monotonic() - job.started
+        if not job.done.is_set():
+            if elapsed <= RIG_CHECK_VERB_TIMEOUT_S:
+                return
+            self._pending_rig_check = None
+            self._record(
+                job.step,
+                Outcome.ERROR,
+                f"the seam check did not return after {elapsed:.0f}s — a probe is "
+                "wedged (a reader in a drive ioctl is in uninterruptible sleep). "
+                f"Whatever it wrote is under {job.out_dir}. The batch continues.\n"
+                + "\n".join(job.lines),
+                elapsed=elapsed,
+            )
+            return
+        self._pending_rig_check = None
+        if job.code is None:
+            # Tri-state: no exit code was produced, so it is null and never 0.
+            self._record(
+                job.step,
+                Outcome.ERROR,
+                f"exit: null (the check did not finish)\n{job.error}\n"
+                + "\n".join(job.lines),
+                elapsed=elapsed,
+            )
+            return
+        body = f"exit: {job.code}\nmanifest under {job.out_dir}\n" + "\n".join(
+            job.lines
+        )
+        # FAIL, not ERROR: a non-zero code means a check ran and found something
+        # wrong, which is a result. ERROR is reserved for the check not running.
+        outcome = Outcome.PASS if job.code == 0 else Outcome.FAIL
+        self._record(job.step, outcome, body, elapsed=elapsed)
 
     def _do_expect_cyanrip(self, step: Step) -> None:
         wanted = step.joined()

@@ -451,6 +451,56 @@ def build_debug_log(lines: list[str], *, truncated: bool = False) -> dict:
     }
 
 
+def _final_partial_summary(rip_log: object) -> str | None:
+    """The offset-variant sentence, counted from the **final** per-track results.
+
+    The parser renders this sentence while reading the whole-disc log, which is
+    correct for that log and wrong for the report: the auto-fix re-rips tracks
+    that missed AccurateRip, and the addendum supersedes their AR results. A
+    track that was offset-variant-only on the first pass can be fully verified by
+    the time the report is written.
+
+    That is not hypothetical — it is what the first disc through this path did.
+    See the call site for the measured case.
+
+    Counts via :func:`~platterpus.verdict.accuraterip_counts`, the module that
+    documents itself as the single source the banner and the JSON both read, then
+    hands the number to the parser's own renderer so the careful denominator
+    reasoning there is reused rather than restated (a fork build once changed
+    what that denominator *meant*, and a second copy of the wording would have
+    missed the correction).
+
+    Returns ``None`` when there is nothing to say, which is how every other
+    optional field in the report spells absent. Never raises — a report must be
+    written even when a summary line cannot be.
+    """
+    parsed = getattr(rip_log, "partially_accurate_summary", "") or None
+    try:
+        from platterpus.parsers.cyanrip_log import render_partially_accurate_summary
+        from platterpus.verdict import accuraterip_counts
+
+        reported = str(getattr(rip_log, "partially_accurate_reported", "") or "")
+        if not reported:
+            # Nothing to anchor a recomputation to — the ripper never printed its
+            # fraction, which is every whipper-era log and any shape the parser did
+            # not fill in. FALL BACK to what the parser rendered rather than
+            # returning nothing: the footnote vanishing is a worse answer than a
+            # footnote that predates the addendum, and the whole point of this
+            # function is to stop a *wrong* number, not to start suppressing a
+            # right one. (The first version returned None here and silently removed
+            # the footnote for those logs; `tests/test_ui_rip_progress.py` caught it.)
+            return parsed
+        _total, _verified, partial = accuraterip_counts(rip_log)
+        disc_tracks = len(getattr(rip_log, "tracks", ()) or ())
+        recomputed = render_partially_accurate_summary(reported, partial, disc_tracks)
+        # An empty render means the renderer declined (a malformed fraction). Keep
+        # the parser's sentence rather than dropping the line.
+        return recomputed or parsed
+    except Exception:  # noqa: BLE001 — a summary line must never block the report
+        log.exception("could not recompute the offset-variant summary")
+        return parsed
+
+
 def _elision(dropped: int) -> str:
     """The marker that makes a truncation VISIBLE and COUNTED.
 
@@ -1021,9 +1071,27 @@ def _build(
         "completeness": completeness,
         "rip": rip_block,
         "accuraterip_summary": getattr(rip_log, "accuraterip_summary", "") or None,
-        "partially_accurate_summary": (
-            getattr(rip_log, "partially_accurate_summary", "") or None
-        ),
+        # RECOMPUTED from the final per-track data, not read off the parse.
+        #
+        # The parse-time string describes the WHOLE-DISC PASS. When the auto-fix
+        # re-rips a track that missed AccurateRip, the addendum supersedes that
+        # track's AR result — and on the first real disc to exercise it (the
+        # Police re-rip, 2026-08-07) track 3 went from offset-variant-only to
+        # fully verified while track 5 stayed partial. The parse-time sentence
+        # still said **"2 of 14 tracks matched only an offset-variant pressing"**
+        # while the verdict directly above it said **"the other 1"**, and both
+        # were rendered into the same report and the same results pane.
+        #
+        # `accuraterip_counts` documents itself as "the single source both
+        # `accuraterip_verdict` and `reconcile_ar_ctdb` read, so the banner, the
+        # JSON, and the reconciliation line can never disagree on the tally" —
+        # this field was the one that bypassed it. Routing it through the same
+        # function is what makes that sentence true rather than aspirational.
+        #
+        # `partially_accurate_reported` below is deliberately NOT recomputed: it
+        # is the ripper's own fraction, verbatim, and its whole value is being
+        # what the ripper said rather than what we concluded.
+        "partially_accurate_summary": _final_partial_summary(rip_log),
         # v20: the ripper's own fraction, verbatim, beside our sentence about it.
         "partially_accurate_reported": (
             getattr(rip_log, "partially_accurate_reported", "") or None

@@ -405,6 +405,35 @@ def main(argv: list[str] | None = None) -> int:
         "from the AppImage, so a hardware session needs no source checkout",
     )
     parser.add_argument(
+        "--rig-check",
+        metavar="OUTPUT-DIR",
+        type=Path,
+        default=None,
+        help="run Platterpus's half of the cyanrip seam check into OUTPUT-DIR and "
+        "exit, appending to the MANIFEST.txt their script writes into the same "
+        "directory so the two projects' evidence is ONE upload rather than two "
+        "piles. Read-only: nothing rips, re-encodes or writes into the library. "
+        "--rig-session runs this for you; the flag exists so their script can too",
+    )
+    parser.add_argument(
+        "--rig-check-album",
+        metavar="FOLDER",
+        type=Path,
+        default=None,
+        help="the already-ripped album folder --rig-check should read its log "
+        "from. Optional: without it the log-reading checks report SKIP (did not "
+        "run) rather than a pass, because a check that quietly found nothing and "
+        "a check that quietly did not run look identical in a summary",
+    )
+    parser.add_argument(
+        "--rig-check-device",
+        metavar="DEVICE",
+        default=None,
+        help="the optical device --rig-check should name in its record, e.g. "
+        "/dev/sr0. It is recorded, not opened — the drive passes belong to "
+        "cyanrip's own script and are deliberately not duplicated here",
+    )
+    parser.add_argument(
         "--ctdb-calibrate",
         metavar="FOLDER",
         type=Path,
@@ -600,6 +629,35 @@ def main(argv: list[str] | None = None) -> int:
             chosen = str(Path.home() / f"platterpus-rig-{stamp}")
             print(f"no output directory given — using {chosen}")
         return _run_rig_session(Path(chosen))
+
+    # Platterpus's half of the cyanrip seam check. A terminal diagnostic like
+    # --doctor: no GUI, no disc, read-only. `--rig-session` calls it for us, so an
+    # operator still runs one command; the flag exists because the FORK's script
+    # calls it too, and both writing into one directory is what makes the two
+    # projects' evidence a single upload instead of two piles to reconcile.
+    if args.rig_check is not None:
+        from platterpus import settings_validation
+        from platterpus.rig_check import run_rig_check
+
+        # Validate at the boundary: `type=Path` constructs, it does not check.
+        out_dir, error = settings_validation.resolve_input_directory(
+            "--rig-check output dir", args.rig_check, must_exist=False
+        )
+        if out_dir is None:
+            print(f"error: {error}")
+            return 2
+        album: Path | None = None
+        if args.rig_check_album is not None:
+            # must_exist=True: refuse rather than degrade to SKIP. A folder that
+            # was named and is missing is a mistake, and SKIP would report it as
+            # an omission — the two are not the same answer.
+            album, error = settings_validation.resolve_input_directory(
+                "--rig-check-album", args.rig_check_album, must_exist=True
+            )
+            if album is None:
+                print(f"error: {error}")
+                return 2
+        return run_rig_check(out_dir, album_dir=album, device=args.rig_check_device)
 
     # CTDB calibrate mode: a no-GUI, no-disc CTDB verify + CRC-trim sweep over an
     # already-ripped folder (KDD-16 hardware validation from the AppImage). Like

@@ -147,11 +147,19 @@ def _why_this_build_is_here(tag: str) -> str:
         )
     for retired in fork_source.SUPERSEDED_TEST_PINS:
         if retired.casefold() in lowered:
+            # Deliberately does NOT name a round for the retired build. It used to
+            # say "a round-{FORK_TEST_PIN_ROUND} test pin", which reads as true and
+            # is not: that constant names the round of the CURRENT pin, so the
+            # moment a round closed every previously-retired build was relabelled
+            # into the new one. The retired pins on that list span rounds 6 and 7;
+            # we do not track which, so the honest sentence omits it rather than
+            # asserting the only number to hand.
             return (
-                f" That build was a round-{fork_source.FORK_TEST_PIN_ROUND} test pin that"
-                f" has since been RETIRED; the current one is {test_pin}"
-                f" (cyanrip {fork_source.FORK_TEST_VERSION}). Evidence gathered with"
-                " a retired pin is not what the round is waiting for."
+                f" That build was a test pin from an EARLIER round and has since"
+                f" been RETIRED; the current one is {test_pin} (cyanrip"
+                f" {fork_source.FORK_TEST_VERSION}, round"
+                f" {fork_source.FORK_TEST_PIN_ROUND}). Evidence gathered with a"
+                " retired pin is not what the round is waiting for."
             )
     under_review = fork_source.NEXT_PIN_UNDER_REVIEW
     if under_review and under_review.casefold() in lowered:

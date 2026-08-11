@@ -341,6 +341,26 @@ else
     echo "skipped: no runnable Platterpus" >"$OUT/16-audit.txt"
   fi
 
+  # ---- the seam check, our half ---------------------------------------------
+  #
+  # The cyanrip fork's script writes into the SAME directory and appends to the
+  # same MANIFEST.txt, so the two projects' evidence is one upload rather than
+  # two piles a person has to reconcile. It is read-only; the heavy check inside
+  # it composes a real rip's argv, runs it against a device that cannot open, and
+  # reads the invocation back out of cyanrip's own -j record — which is the one
+  # argv question that can be settled without spending a disc.
+  say "17  the cyanrip seam check (our half; theirs appends to the same manifest)"
+  if [ -x "$APP" ]; then
+    run "    rig check" "17-rig-check.txt" \
+        "$APP" --rig-check "$OUT/seam" --rig-check-album "$ALBUM_DIR"
+  elif [ -f pyproject.toml ]; then
+    run "    rig check" "17-rig-check.txt" \
+        python3 -m platterpus --rig-check "$OUT/seam" --rig-check-album "$ALBUM_DIR"
+  else
+    note "!! no way to run the seam check — neither the AppImage nor a checkout"
+    echo "skipped: no runnable Platterpus" >"$OUT/17-rig-check.txt"
+  fi
+
   # ---- collect the TEXT artifacts, and only the text artifacts --------------
   #
   # CRITICAL RULE #8: no copyrighted media, ever, not even temporarily. The
@@ -348,7 +368,7 @@ else
   # and the CRCs inside them prove bit-perfection without the audio. The
   # extension list below is an ALLOW-list for exactly that reason: a deny-list of
   # audio extensions would silently start copying the first format we forgot.
-  say "17  collect the rip's text artifacts (never the audio)"
+  say "18  collect the rip's text artifacts (never the audio)"
   COLLECT="$OUT/rip-artifacts"
   mkdir -p "$COLLECT"
   COPIED=0
