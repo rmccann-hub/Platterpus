@@ -11,6 +11,39 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.11] — 2026-08-11
+
+### Fixed
+- **The 5 MB rip report was serialised and `fsync`'d on the GUI thread, six to
+  eight times per rip.** `rip_report.write_report` was called inline because its
+  own docstring said *"writing a small JSON file is cheap, so this is safe to
+  call on the GUI thread"* — and that sentence is why nobody measured it for six
+  releases. It is not a small file: the `debug` block alone is budgeted 8 MiB,
+  and real reports on the maintainer's machine measure **5.2 MB / 46,594 lines**.
+  Measured against that artifact: ~46 ms to serialise, 15–40 ms for the atomic
+  write and its two `fsync`s on local SSD, and **206 ms** into a directory
+  holding 400 MB of fresh FLAC writeback — which is exactly the post-rip
+  condition, and the output folder is explicitly allowed to be a removable disk
+  or a network share. The user-visible symptom was the results pane going
+  unresponsive in bursts precisely as the verdict was being filled in.
+  The write now runs on a dedicated worker (`report_writer.py`): one thread, a
+  single newest-wins pending slot, ordering guaranteed by construction. Not one
+  byte of the report changed — only when it is written relative to the event
+  loop.
+- **Two docstrings asserted the safety on size grounds and both were wrong.**
+  Corrected in place rather than deleted, because they are the reason the defect
+  survived: `rip_report.write_report` now says *do not call this on the GUI
+  thread* with the measurements, and `atomic_write`'s "these are tiny files
+  (< a few KB); the fsync cost is negligible" carries its own refutation.
+  `tests/test_report_writer.py` fails if either claim returns unqualified.
+
+### Changed
+- **`closeEvent` waits — bounded — for the pending report.** The write is
+  asynchronous now, so the final revision would otherwise die with the process.
+  It waits up to `report_writer.FLUSH_TIMEOUT_S` and **logs when it times out**
+  rather than returning silently, because a caller that cannot tell a completed
+  write from an abandoned one reports the report as complete.
+
 ## [0.6.10] — 2026-08-11
 
 ### Fixed
@@ -5218,7 +5251,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.10.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.11.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7460,7 +7493,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.10...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.11...HEAD
+[0.6.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.10...v0.6.11
 [0.6.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.9...v0.6.10
 [0.6.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.8...v0.6.9
 [0.6.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.7...v0.6.8
@@ -7553,4 +7587,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.10.*
+*Last updated for Platterpus v0.6.11.*

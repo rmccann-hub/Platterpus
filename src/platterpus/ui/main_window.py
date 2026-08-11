@@ -787,7 +787,13 @@ class MainWindow(
         self._force_stop_timer.stop()
         # Flush any debounced rip-report write so closing mid-verify never loses
         # the last result that had been queued for serialization.
-        self._flush_rip_report()
+        #
+        # `wait=True` ONLY here. The write is asynchronous now (it moved off this
+        # thread because a 5 MB serialize + two fsyncs was freezing the window
+        # six to eight times per rip), so on the way out someone has to wait for
+        # the bytes to land or the final report dies with the process. Bounded,
+        # and it reports rather than swallows when the deadline passes.
+        self._flush_rip_report(wait=True)
         super().closeEvent(event)  # type: ignore[arg-type]
 
     # --- Menus --------------------------------------------------------------
