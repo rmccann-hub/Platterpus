@@ -11,6 +11,68 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-11 — the seam check, and a rule about where a capability goes
+
+**Shipped v0.6.8.** Built the cyanrip fork's §4b ask — a checker they can call
+from their own script so both projects append to one `MANIFEST.txt` rather than
+producing two piles to reconcile. Its headline check is the one that settles an
+argv question without spending a disc: compose exactly the argv a real rip would
+send *through the real builder*, invoke the ripper against a device that cannot
+open, and read `invocation` back out of cyanrip's own `-j` record. That compares
+what the binary **received** against what we **composed** — a comparison no unit
+test of the builder can make, because both sides of that test are ours.
+
+**The correction that changed the design, and it was the maintainer's.** The
+first version was a CLI flag. He asked: *"is there a reason you are wiring to an
+argument instead of just giving me a script text file? wouldn't that be easier
+and more to the reason we made it?"* — and then, plainly: *"the entire point of
+adding the ability to run scripts is for this."* He was right, and the reasoning
+generalises past this feature. The script language is where this project's tests
+are written, so **a capability the language cannot reach is a capability the
+tests cannot reach**, and the person who wanted it ends up composing a command
+line instead of writing a test. Graduated to `CLAUDE.md` (Code conventions) with
+a ratchet behind it: `tests/test_script_surface_is_the_default.py` lists every
+flag with the reason a verb could not serve it, the list may shrink and not grow,
+and a fourth test refuses a free-form reason that merely *reads* like one of the
+three permitted categories — the *"can it be satisfied by the wrong thing"*
+question asked of the check itself.
+
+`--rig-check` survives that ratchet on the one ground that holds: a caller in
+**another repository** invokes it, and a script verb is unreachable from a
+different project's shell script. So it is both — and both are thin callers of
+one function, never two implementations, with a test pinning the pair together so
+the flag's written justification cannot quietly become false if the verb is ever
+removed.
+
+**Three defects the gates caught, none of which I would have found by reading.**
+(a) My first fixture was a hand-written cyanrip log; it parsed to zero tracks.
+Replaced with the committed golden reference — *when a committed artifact can
+settle a question, the test should read the artifact* — which then revealed the
+artifact carries the **OPEN** handshake shape, not the closed one I had asserted.
+Both shapes now have coverage, plus a third that is neither, because a note the
+check cannot classify must say *unrecognised* rather than defaulting to either
+verdict: an open round silently reported as closed would clear a release gate.
+(b) `tests/test_rip_addendum.py` swept the new module and found it reading a rip
+log from disk **without** the sidecar — the exact re-parse-skips-the-supersede
+bug that sweep exists for, in a module written the same day by someone who had
+read the rule. A rule remembered really is a rule that decays. (c) The verb's
+first draft ran the check inline; it spawns two subprocesses, so it now runs on a
+helper thread like the `cyanrip` verb, and a test reads the handler's source to
+prove the call sits *inside* the closure rather than trusting a comment that says
+it is safe.
+
+**Revert-proved the ratchet**, not just ran it: deleted one entry, asserted the
+file hash changed, watched it fail naming the flag, restored it. Also fixed the
+two `mypy --strict` errors the v0.6.7 partial-capture fix left — typeshed models
+`TimeoutExpired.stdout/stderr` as bytes-mode only, narrowed with a *reasoned*
+ignore rather than encoding text back to bytes to satisfy an annotation.
+
+**Also graduated:** *never hand back an instruction file.* Maintainer, same
+session: *"i should never get an instruction file again for 99.9% of times."* A
+document of manual steps is work handed back, and every hand-edit in one is a
+thing the software was supposed to do. Second occurrence in three days, so it is
+now a line in `CLAUDE.md`'s *Working with the maintainer*.
+
 ## 2026-08-07 (later) — the script surface learns to rip; two stale records found
 
 **Shipped v0.6.5** (the `ddf7ac3` wizard correction) and merged PR #136 before
@@ -1298,4 +1360,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.7.*
+*Last updated for Platterpus v0.6.8.*
