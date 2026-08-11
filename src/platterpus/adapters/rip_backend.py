@@ -143,14 +143,44 @@ def run_capture(
         )
         raise RipError(f"{tool_name} binary not found at {binary}") from exc
     except subprocess.TimeoutExpired as exc:
+        # BOTH streams, merged, exactly as the success path below merges them.
+        # `TimeoutExpired.output` is an alias for `.stdout` only, so reading it
+        # alone dropped everything the tool wrote to stderr — and a tool that is
+        # hanging writes its last useful line to stderr about as often as not.
+        # `KillableCommand` now drains and attaches both after the kill; this is
+        # the half that surfaces them.
+        # DECODED DEFENSIVELY, because these are not always `str`. When the child
+        # is unreapable the second drain never completes, so whatever CPython
+        # attached on the original raise stays put — and that can be **bytes**,
+        # since `Popen.communicate` populates the exception from the raw pipe
+        # before text decoding. Concatenating bytes with str raises `TypeError`,
+        # which would crash the diagnostic path at exactly the moment it is the
+        # only thing left reporting. Found by revert-proving the capture fix: the
+        # reverted run failed with `a bytes-like object is required, not 'str'`
+        # rather than the clean assertion the test expected, and that surprise was
+        # the finding.
+        def _text(value: object) -> str:
+            if isinstance(value, bytes):
+                return value.decode("utf-8", errors="replace")
+            return str(value) if value else ""
+
+        captured = _text(getattr(exc, "stdout", None)) + _text(
+            getattr(exc, "stderr", None)
+        )
         diagnostics.error(
             "deps.command_failed",
             f"{tool_name} timed out after {timeout:.0f}s and was killed — it never "
-            f"reported an exit status",
+            f"reported an exit status"
+            + (
+                ""
+                if captured
+                else "; it had written nothing before the timeout, or the child "
+                "was unreapable and nothing could be recovered"
+            ),
             tool=tool_name,
             argv=argv,
             exit_code=None,
-            detail=diagnostics.bounded_output(getattr(exc, "output", "") or ""),
+            detail=diagnostics.bounded_output(captured),
             where="adapters.rip_backend.run_capture",
         )
         raise RipError(f"{tool_name} timed out after {timeout:.0f}s") from exc
