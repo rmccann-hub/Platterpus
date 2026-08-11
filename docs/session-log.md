@@ -11,6 +11,34 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-11 (later) — one file, and the arity that contradicted its own handler
+
+**Shipped v0.6.9.** The deliverable to the cyanrip fork is now a *test script*,
+not a document: `docs/rig-scripts/round-08-joint.txt`. Maintainer's framing, and
+it is the right one — *"don't give me a handshake file, give me the testing file.
+I will give this to cyanrip so they can add their own tests."* Sections A, B and
+D are ours; section C is fenced for them, and the file carries the whole verb
+vocabulary plus the four rules that bite, so it needs no companion note. One
+file, one path, one direction.
+
+**Writing it found a real bug, which is the argument for writing tests as
+artifacts rather than prose.** `rig-check` was declared `max_args=1` while its
+handler already called `step.joined()` — so the verb's advertised arity
+contradicted its own implementation, and a genuine album path
+(`~/Music/The Police/Every Breath You Take`) failed at **parse** time with an
+arity complaint, never reaching the handler at all. Every test had used a
+`tmp_path` with no spaces in it. That is precisely *"what does my stand-in do
+that the real thing does not"*: a fixture path is tidier than a library path in
+exactly the way that hid this. Fixed to rest-of-line, like `album`, which takes
+the tail for the same reason. Revert-proved: hash asserted changed, both tests
+observed failing under the old arity, hash restored.
+
+**The parse check is the deliverable's own gate.** A test file that fails to load
+is the worst possible thing to hand another project, so the script was run
+through the real parser and the real `sanitise_cyanrip_args` before being
+committed — 32 steps, 0 errors, both passthrough lines allowed. That is how the
+arity bug surfaced; reading the file would not have found it.
+
 ## 2026-08-11 — the seam check, and a rule about where a capability goes
 
 **Shipped v0.6.8.** Built the cyanrip fork's §4b ask — a checker they can call
@@ -1360,4 +1388,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.8.*
+*Last updated for Platterpus v0.6.9.*

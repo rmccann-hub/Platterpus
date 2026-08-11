@@ -218,7 +218,13 @@ _VERB_LIST: tuple[Verb, ...] = (
     Verb(
         "rig-check",
         0,
-        1,
+        # Rest of the line, NOT one token — the argument is an album FOLDER, and
+        # every real one has spaces in it ("The Police/Every Breath You Take").
+        # Declared as 1 argument it rejected every genuine path with an arity
+        # complaint while the handler was already calling `step.joined()`, so the
+        # verb's advertised arity contradicted its own implementation. Same
+        # reasoning as `album`: a verb whose tail is human text takes the tail.
+        None,
         "rig-check [album-folder] — run the seam check the cyanrip fork asked "
         "for: compose a real rip's argv, read it back out of the ripper's own -j "
         "record, classify the build, and parse the album's log. Read-only",
