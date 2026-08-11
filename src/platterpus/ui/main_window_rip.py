@@ -2989,7 +2989,27 @@ class RipMixin(MainWindowShared):
             else None
         )
 
-        rip_report.write_report(
+        # HAND THE WRITE TO THE WRITER THREAD, do not perform it here.
+        #
+        # `partial` evaluates its arguments EAGERLY, which is the whole trick:
+        # every value below is snapshotted on the GUI thread — cheap attribute
+        # reads and three small file reads — and the expensive half runs
+        # elsewhere. What moves off is `build_report` + the self-check (which
+        # stats the audio files), `json.dumps` of a **5.2 MB** document (~46 ms
+        # measured on a real 14-track artifact) and the atomic write with its two
+        # `fsync`s (15-40 ms on local SSD, **206 ms** into a directory holding
+        # 400 MB of fresh FLAC writeback). Six to eight times per rip.
+        #
+        # `write_report`'s own docstring claimed this was safe on the GUI thread
+        # "because writing a small JSON file is cheap". It is not a small file —
+        # the `debug` block alone is budgeted 8 MiB — and that sentence is why
+        # nobody looked. Corrected there too.
+        from functools import partial
+
+        from platterpus import report_writer
+
+        job = partial(
+            rip_report.write_report,
             rip_log,
             log_file,
             ctdb_result=getattr(self, "_last_ctdb_result", None),
@@ -3097,6 +3117,10 @@ class RipMixin(MainWindowShared):
                 transcode_requested=self._config.output_format in TRANSCODE_FORMATS,
             ),
         )
+        # Newest-wins: a job still sitting unstarted is replaced, which is
+        # lossless because every write carries ALL accumulated results — the same
+        # property the 750 ms debounce above already depends on.
+        report_writer.writer().submit(job)
 
     def _write_minimal_failure_report(self, params: RipParameters | None) -> None:
         """Write a report for a rip that produced NO log at all.
@@ -3290,15 +3314,35 @@ class RipMixin(MainWindowShared):
             return
         self._rip_report_timer.start()  # (re)arm; single-shot, so it coalesces
 
-    def _flush_rip_report(self) -> None:
-        """Write any pending debounced rip report immediately (timer slot + close).
+    def _flush_rip_report(self, *, wait: bool = False) -> None:
+        """Write any pending debounced rip report (timer slot + close).
 
-        Stops the debounce timer and serializes now, so a queued write is never
+        Stops the debounce timer and submits now, so a queued write is never
         left unwritten when the window closes mid-verify. Safe to call when
-        nothing is pending (no rip log yet, or the timer already fired)."""
+        nothing is pending (no rip log yet, or the timer already fired).
+
+        ``wait`` is for the CLOSE path only. The submit itself is asynchronous —
+        that is the point of the writer thread — so on shutdown someone has to
+        wait for the bytes to reach disk or the last report is lost to process
+        exit. It is a **bounded** wait (`report_writer.FLUSH_TIMEOUT_S`), because
+        the output folder is allowed to be a network share and an unbounded one
+        would put the freeze back at the moment the user is trying to leave.
+        """
         self._rip_report_timer.stop()
         if self._last_rip_log is not None and self._last_rip_log_file is not None:
             self._write_rip_report(self._last_rip_log, self._last_rip_log_file)
+        if wait:
+            from platterpus import report_writer
+
+            if not report_writer.writer().stop():
+                # Said, not swallowed. The report on disk may be one revision
+                # behind, and a silent return here would be indistinguishable
+                # from a complete write — the shape CLAUDE.md calls a silent
+                # truncation reading as completeness.
+                log.warning(
+                    "closed before the rip report finished writing; the file may "
+                    "be one post-rip check behind"
+                )
 
     # --- Per-file SHA256 digests (embedded in the report) -------------------
 
