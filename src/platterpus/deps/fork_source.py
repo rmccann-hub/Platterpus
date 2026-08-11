@@ -336,12 +336,27 @@ NEXT_PIN_UNDER_REVIEW: Final[str] = "5bc654d"
 #: v15). A beta.8 banner against a `4a35604` expectation would report an unapproved
 #: binary on a rip that is behaviourally the declared one — a false alarm on the very
 #: artifact the round is waiting for.
-FORK_TEST_PIN: Final[str] = "104f6d4"
-FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.5-beta.8"
+#:
+#: **Moved to `cb440bd` / `platterpus.6-beta.1` — the ROUND 8 test pin** (their round-8
+#: lap 1, 2026-08-10), built and verified on the rig the same day: the installer's own
+#: verify step read the banner back and confirmed `platterpus-fork-gcb440bd`.
+#:
+#: **One discrepancy, recorded rather than smoothed over, because their own publication
+#: mechanism does not carry it.** Their lap 1 §A names the pin as *"`release-manifest.json`
+#: seq 12, channel `beta`"* — deliberately not writing the SHA, on the sound argument that
+#: a lap cannot name the build that contains it. But the manifest **at `cb440bd` itself**
+#: still reads `latest_seq: 11` with both channels at `ddf7ac3`, and `cb440bd` is not on
+#: `platterpus-fork` (whose head is `104f6d4`), so the raw URL our own
+#: `ripper_manifest.py` fetches cannot see it either. The pin is real and installs; the
+#: *publication* of it did not happen. Named here so the value is reachable from code
+#: while their manifest catches up — which is exactly the fallback a machine-readable
+#: channel is supposed to remove the need for, and is worth one line back to them.
+FORK_TEST_PIN: Final[str] = "cb440bd"
+FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.6-beta.1"
 #: Which round nominated it. Stated rather than derived from the approved round + 1:
 #: a test pin belongs to *a* round, and arithmetic on the approved round is only
 #: accidentally right — it breaks the first time two rounds pass without a close.
-FORK_TEST_PIN_ROUND: Final[int] = 7
+FORK_TEST_PIN_ROUND: Final[int] = 8
 FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 
 #: Test pins this round has already retired. Listed **only** so a rig that built one
@@ -356,6 +371,10 @@ FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 #: still have built: it was the pin for thirteen laps and it is what the 2026-08-04 rig
 #: session actually ran, so every artifact we hold from real hardware came from it.
 SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = (
+    # Retired when round 8 opened with `cb440bd`. `104f6d4` was round SEVEN's final test
+    # pin (beta.8) and round 7 CLOSED at lap 39 with a mutual GO, so a rig still holding
+    # it is not merely stale — it is gathering evidence for a round that is over.
+    "104f6d4",
     # Withdrawn as the fetch target hours after v0.6.4 shipped — it fails 2 of
     # its own 33 tests (version bumped, derived artifacts not yet regenerated).
     # Listed so a rig that already built it still receives `--consumer`: the
