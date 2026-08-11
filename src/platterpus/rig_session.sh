@@ -341,6 +341,27 @@ else
     echo "skipped: no runnable Platterpus" >"$OUT/16-audit.txt"
   fi
 
+  # ---- a DOUBLE rip, if one happened ----------------------------------------
+  #
+  # Ripped the disc twice? Then the interesting artifact is not either rip, it is
+  # the DIFF: which tracks came back byte-identical and which changed. That is
+  # the finding the whole double-pass exercise exists to produce.
+  #
+  # No arguments. `--compare` with none discovers the newest rip and the best
+  # earlier rip OF THE SAME DISC, which is the part worth getting right: pairing
+  # by recency alone would diff two different albums and print a confident table
+  # doing it. Exit 1 means "nothing to compare" -- a single rip, not a failure --
+  # so it does not fail the session; the reason is recorded either way.
+  say "17b the double-rip diff, if a second pass exists"
+  if [ -x "$APP" ]; then
+    run "    compare passes" "17b-compare.txt" "$APP" --compare
+  elif [ -f pyproject.toml ]; then
+    run "    compare passes" "17b-compare.txt" python3 -m platterpus --compare
+  else
+    note "!! no way to run the comparison — neither the AppImage nor a checkout"
+    echo "skipped: no runnable Platterpus" >"$OUT/17b-compare.txt"
+  fi
+
   # ---- the seam check, our half ---------------------------------------------
   #
   # The cyanrip fork's script writes into the SAME directory and appends to the
