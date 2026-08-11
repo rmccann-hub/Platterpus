@@ -11,6 +11,32 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **A double test rip needs no paths typed.** `platterpus --compare` with **no
+  arguments** now finds the newest rip and the best earlier rip *of the same
+  disc* and compares them; `--rig-session` runs it, so ripping a disc twice and
+  getting the diff stays one argument-less command. Pairing is by **disc
+  identity**, never by recency alone — a naive "two most recent reports" rule
+  would diff two different albums and print a confident table doing it. The
+  existing `find_prior_report` does the ranking (completeness before recency,
+  never an abandoned in-progress snapshot), so nothing about "same disc" is
+  re-decided.
+- **`rip_compare.default_report_roots()` / `newest_report()`** — one home for
+  "where do rips live on this machine". The same list was being rebuilt in shell
+  inside `rig_session.sh` twice and a third copy was about to be written; three
+  descriptions of that will eventually disagree, and the one that disagrees
+  silently searches the wrong place and reports *no rip found*, which is
+  indistinguishable from *no rip happened*.
+
+### Fixed
+- **"Nothing to compare" now says which of four things happened** — no reports at
+  all, only one rip, none of the same disc, or a newest rip carrying no disc
+  identity. The operator acts differently on each, and a bare "nothing found"
+  collapses them into one useless message.
+- **The discovery label names the folder, not just the filename.** Two passes of
+  one disc always produce the same basename, so the first version read
+  `Album.platterpus.json -> Album.platterpus.json` and identified neither rip.
+
 ## [0.6.9] — 2026-08-11
 
 ### Fixed
