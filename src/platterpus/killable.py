@@ -168,8 +168,14 @@ class KillableCommand:
                 # path that did not, which is why swapping `run` for this class
                 # silently lost the capture.
                 late_stdout, late_stderr = proc.communicate(timeout=REAP_TIMEOUT_S)
-                timed_out.stdout = late_stdout
-                timed_out.stderr = late_stderr
+                # typeshed types these `bytes | None` because it models only the
+                # bytes-mode child; ours is `text=True`, so `communicate` really
+                # returns `str` and CPython stores whatever it is given. Narrowed
+                # here rather than weakened at the source: encoding the text back
+                # to bytes to satisfy the annotation would make every reader of
+                # the exception decode it again, and one of them would forget.
+                timed_out.stdout = late_stdout  # type: ignore[assignment]  # text mode
+                timed_out.stderr = late_stderr  # type: ignore[assignment]  # text mode
                 if late_stdout or late_stderr:
                     log.warning(
                         "%s: timed out after %ss; keeping the %d character(s) it "

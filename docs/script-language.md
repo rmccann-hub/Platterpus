@@ -57,6 +57,7 @@ text is taken verbatim as one value.
 | `cyanrip` | 1+ (rest of line) | ready | cyanrip <args…> — run the host-exported ripper for real and capture its exit code, exact argv and complete output |
 | `expect-cyanrip` | 1+ (rest of line) | ready | expect-cyanrip <text> — assert the last cyanrip output contains text |
 | `expect-exit` | 1 | ready | expect-exit <code> — assert the last cyanrip exit code |
+| `rig-check` | 0–1 | ready | rig-check [album-folder] — run the seam check the cyanrip fork asked for: compose a real rip's argv, read it back out of the ripper's own -j record, classify the build, and parse the album's log. Read-only |
 | `eval` | 1+ (rest of line) | **NOT IMPLEMENTED**; needs the unsafe opt-in | eval <python> — evaluate an expression against the window (UNSAFE) |
 | `call` | 1+ (rest of line) | **NOT IMPLEMENTED**; needs the unsafe opt-in | call <method> [args] — call a window method by name (UNSAFE) |
 
@@ -310,7 +311,7 @@ found nothing wrong*.
 {
   "language": "platterpus-uiscript",
   "grammar_version": 1,
-  "platterpus_version": "0.6.7",
+  "platterpus_version": "0.6.8",
   "syntax": {
     "one_statement_per_line": true,
     "comment_prefix": "#",
@@ -525,6 +526,14 @@ found nothing wrong*.
       "unsafe": false,
       "implemented": true,
       "help": "expect-exit <code> \u2014 assert the last cyanrip exit code"
+    },
+    {
+      "name": "rig-check",
+      "min_args": 0,
+      "max_args": 1,
+      "unsafe": false,
+      "implemented": true,
+      "help": "rig-check [album-folder] \u2014 run the seam check the cyanrip fork asked for: compose a real rip's argv, read it back out of the ripper's own -j record, classify the build, and parse the album's log. Read-only"
     },
     {
       "name": "eval",
@@ -746,4 +755,4 @@ found nothing wrong*.
 }
 ```
 
-*Last updated for Platterpus v0.6.7.*
+*Last updated for Platterpus v0.6.8.*

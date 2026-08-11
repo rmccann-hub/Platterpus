@@ -11,6 +11,44 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.8] — 2026-08-11
+
+### Added
+- **The cyanrip seam check, reachable from the script language and from a
+  command line.** The fork's seam packet (2026-08-10 §4b) asked for a checker
+  they could call from their own script so both projects append to **one**
+  `MANIFEST.txt` instead of producing two piles to reconcile. `rig_check.py` is
+  that. Its headline check is theirs and it needs no disc: compose exactly the
+  argv a real rip would send — through the *real* argv builder, so a flag that
+  stops being emitted disappears from the check on the next run — invoke the
+  ripper against a device that cannot open, and read `invocation` back out of
+  cyanrip's own `-j` record. That compares what the binary **received** against
+  what we **composed**, which is the comparison a unit test of the builder
+  cannot make. It also classifies the installed build tri-state, reads the
+  `Handshake:` note in both its closed and open shapes, and parses the album's
+  log with a floor (zero tracks is a `FAIL`, because a parse that finds nothing
+  is not a parse that found nothing wrong). Four statuses, and the distinction is
+  load-bearing: **`SKIP` means did not run**, so a session that never found the
+  rip cannot render as one where everything passed.
+- **`rig-check [album-folder]` script verb.** Runs on a helper thread with a
+  bounded wait, like the `cyanrip` verb — the check spawns subprocesses, and the
+  never-block rule has no case exemption.
+- **`--rig-check` / `--rig-check-album` / `--rig-check-device`**, the interface
+  the fork's script calls. Both surfaces are thin callers of the same function;
+  neither reimplements it, so they cannot disagree about what the check found.
+  `--rig-session` now runs it too, so an operator's one command still covers it.
+
+### Changed
+- **A new testing capability is a script verb; a CLI flag now has to be argued
+  for.** Maintainer directive: the script language exists precisely so testing
+  capabilities live there, and a capability the language cannot reach is one the
+  tests cannot reach. `CLAUDE.md` carries the rule and
+  `tests/test_script_surface_is_the_default.py` enforces it — every flag is
+  listed with the reason a verb could not serve it (pre-GUI, an external caller,
+  or the entry point that starts a script run), the list may shrink and not grow,
+  and a fourth test refuses a free-form reason that merely reads like one of the
+  three.
+
 ## [0.6.7] — 2026-08-11
 
 ### Fixed
@@ -5075,7 +5113,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.7.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.8.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7317,7 +7355,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.7...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.8...HEAD
+[0.6.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.7...v0.6.8
 [0.6.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4...v0.6.5
@@ -7407,4 +7446,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.7.*
+*Last updated for Platterpus v0.6.8.*

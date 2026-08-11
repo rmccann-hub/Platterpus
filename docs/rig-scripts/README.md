@@ -20,8 +20,9 @@ editing:
 That one command does everything mechanical: app and ripper versions, `--doctor`,
 the ripper's own `-x` cache probe and `-j` diagnostics record (neither of which a
 rip ever sends), pre-gap screening, a clean clone of the fork, handshake status,
-preflight — **then it finds the rip you just made**, audits it, collects its text
-artifacts, and packs the lot into a single `.tar.gz` to send.
+preflight — **then it finds the rip you just made**, audits it, runs the cyanrip
+seam check, collects its text artifacts, and packs the lot into a single
+`.tar.gz` to send.
 
 Nothing is named and nothing is typed. The output directory defaults to a
 timestamped one under `$HOME`, so re-running never overwrites the previous
@@ -93,9 +94,17 @@ every Settings field by its `config.toml` name (`set`, `expect`,
 `expect-contains` — validated by the same validator the dialog uses, so a script
 cannot persist a value the dialog would refuse), the rip itself (`rip`,
 `wait-for-rip`, `cancel-rip`), assertions (`expect-tracks`, `expect-dialog`),
-evidence (`screenshot`, `snapshot`), dialogs (`open`, `ok`, `cancel`), and
+evidence (`screenshot`, `snapshot`), dialogs (`open`, `ok`, `cancel`),
 **cyanrip itself as a real passthrough** (`cyanrip <args…>`, `expect-cyanrip`,
-`expect-exit`).
+`expect-exit`), and the **cyanrip seam check** (`rig-check [album-folder]`).
+
+A new testing capability is a **verb here**, not a new command-line flag — that
+is a written rule now (`CLAUDE.md`, Code conventions) with a ratchet test behind
+it (`tests/test_script_surface_is_the_default.py`). A flag is justified only when
+a verb cannot serve: the app has no window yet (`--doctor`), a caller in another
+repository must invoke it (`--rig-check`, which the cyanrip fork's own script
+calls), or it is how a script run is *started* (`--run-script`). When both are
+warranted they are two thin callers of one function, never two implementations.
 
 **Does not reach, on purpose:** ejecting, deleting, uninstalling, installing a
 dependency, launching an external app. The failure mode of an unattended
@@ -150,4 +159,4 @@ hazard rather than a documentation nit.
 it prints is the first data point in existence — including an absurd number,
 which is a finding and a good outcome.
 
-*Last updated for Platterpus v0.6.7.*
+*Last updated for Platterpus v0.6.8.*
