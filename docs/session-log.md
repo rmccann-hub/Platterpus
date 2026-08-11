@@ -11,6 +11,48 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-11 (evening) — the docstring that stopped anyone measuring
+
+**Shipped v0.6.11.** The perf audit's one confirmed finding, acted on: the rip
+report was serialised and `fsync`'d **on the GUI thread, six to eight times per
+rip**, and it is a **5.2 MB** document. ~46 ms to serialise, 15-40 ms for the
+atomic write and its two `fsync`s on local SSD, **206 ms** into a directory
+holding 400 MB of fresh FLAC writeback — the actual post-rip condition, on a
+folder that is allowed to be a removable disk or a network share.
+
+**Why it survived six releases is the lesson, not the milliseconds.** Two
+docstrings asserted it was safe, both on size grounds, both wrong:
+`write_report` said *"writing a small JSON file is cheap, so this is safe to call
+on the GUI thread"*, and `atomic_write` said *"these are tiny files (< a few KB);
+the fsync cost is negligible"* — thirteen lines above an 8 MiB budget. Nobody
+measured because the code had already answered the question. Both are corrected
+in place and carry their own refutation, and a test fails if either claim returns
+unqualified: the false claim is load-bearing history, not decoration.
+
+**The fix's own new state got the attention** (*what new state does this create,
+and what tests that?*): two writers on one file would tear the artifact, so one
+worker; a stale write landing after a fresher one would silently regress the
+report to an earlier revision **and still parse**, so newest-wins with a single
+consumer and ordering by construction; a write dropped at close would lose the
+final revision, so a bounded `flush` that **reports** its timeout rather than
+returning silently.
+
+**The tests found a design flaw in my first version**, which is the part worth
+recording. `stop()` latched a `_stopping` flag and refused all later work with a
+warning — on a process-wide singleton. One close would have disarmed report
+writing for everything afterwards, including a late queued signal arriving during
+teardown, which is precisely when the report matters most. Dropping a report is
+strictly worse than writing one late, so `stop()` now ends the *thread*, not the
+*writer*, and a later submit restarts it. I only noticed because ten existing
+tests went red in a way that made no sense until I read why.
+
+**One of my own assertions was wrong and failed on working code**: a check that
+the non-waiting flush path does not block matched the bare string `stop()` and
+hit `_rip_report_timer.stop()`, which is correct and belongs there. Tightened to
+`writer().stop()`. A substring check that hits the wrong subject is the same
+class of mistake as a check that passes for the wrong reason — it just fails
+loudly instead of quietly.
+
 ## 2026-08-11 (later still) — the guard was backwards, and its test said otherwise
 
 **Shipped v0.6.10.** An adversarial review of the file about to be sent to the
@@ -1452,4 +1494,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.10.*
+*Last updated for Platterpus v0.6.11.*

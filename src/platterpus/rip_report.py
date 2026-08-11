@@ -2168,9 +2168,20 @@ def write_report(
     """Build and write the JSON report beside ``log_file``. Best-effort.
 
     Returns the path written, or None on any failure (the report is a nice-to-
-    have; it must never break the post-rip flow). Writing a small JSON file is
-    cheap, so this is safe to call on the GUI thread. (Computing ``checksums``
-    is NOT — that's done off-thread by the caller and passed in here.)
+    have; it must never break the post-rip flow).
+
+    **DO NOT CALL THIS ON THE GUI THREAD.** This docstring used to say the
+    opposite — *"writing a small JSON file is cheap, so this is safe to call on
+    the GUI thread"* — and that sentence is why nobody measured it for six
+    releases. It is not a small file: the ``debug`` block alone is budgeted
+    :data:`_MAX_EMBEDDED_LOG_BYTES` (8 MiB), and real reports measure **5.2 MB /
+    46,594 lines**. Serialising one is ~46 ms, the atomic write with its two
+    ``fsync``s is another 15-40 ms on local SSD and **206 ms** into a directory
+    holding fresh FLAC writeback — six to eight times per rip. Route it through
+    :mod:`platterpus.report_writer`, which the window does.
+
+    (Computing ``checksums`` is likewise off-thread, done by the caller and
+    passed in here.)
     """
     target = report_path_for(log_file)
     try:

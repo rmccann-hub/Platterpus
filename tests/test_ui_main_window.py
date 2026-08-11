@@ -22,7 +22,7 @@ import pytest
 from conftest import HardExitCalled, stop_window_threads
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 
-from platterpus import rip_report
+from platterpus import report_writer, rip_report
 from platterpus.adapters.ctdb_client import CTDBClient, CtdbLookupResult
 from platterpus.adapters.derived_verify import DerivedVerifyResult
 from platterpus.adapters.metaflac import MetaflacAdapter
@@ -1008,6 +1008,8 @@ def test_auto_heal_retries_as_unknown_on_no_metadata_failure(
 
     window._on_rip_finished(False, "")
 
+    report_writer.writer().flush()  # the report write is off-thread now
+
     assert window._auto_retry_done is True
     assert len(retried) == 1
     assert retried[0].unknown is True  # retried as unknown-album
@@ -1031,6 +1033,8 @@ def test_rip_finished_shows_actionable_failure_hint(
     monkeypatch.setattr(window._rip_progress, "set_status", statuses.append)
 
     window._on_rip_finished(False, "")
+
+    report_writer.writer().flush()  # the report write is off-thread now
 
     assert any("Track 3" in s for s in statuses)
 
@@ -1059,6 +1063,7 @@ def test_no_auto_heal_when_not_flagged(
     retried: list = []
     monkeypatch.setattr(window, "_start_rip_worker", lambda p: retried.append(p))
     window._on_rip_finished(False, "")
+    report_writer.writer().flush()  # the report write is off-thread now
     assert retried == []  # ordinary failure → no heal
 
 
@@ -1518,6 +1523,8 @@ def test_unknown_rip_finish_runs_tag_post_processing(
 
     window._on_rip_finished(True, str(log_file))
 
+    report_writer.writer().flush()  # the report write is off-thread now
+
     # Tagging now runs on the post-rip daemon thread (off the GUI thread) —
     # join it before asserting the call landed.
     assert window._post_rip_thread is not None
@@ -1552,6 +1559,7 @@ def test_finish_handler_survives_non_utf8_log(teardown_threads, tmp_path: Path) 
 
     # Must not raise, and must complete the handler (state cleared).
     window._on_rip_finished(True, str(log_file))
+    report_writer.writer().flush()  # the report write is off-thread now
 
     assert window._active_rip_params is None  # chain completed, state cleared
     assert window._rip_thread is None
@@ -1713,6 +1721,8 @@ def test_unknown_rip_tagging_runs_off_the_gui_thread(
 
     window._on_rip_finished(True, str(log_file))
 
+    report_writer.writer().flush()  # the report write is off-thread now
+
     # The finish handler returned while tagging is still blocked → it ran on
     # a worker thread, not the GUI thread (had it been synchronous, this line
     # would only be reached after gate.wait timed out and tagging completed).
@@ -1739,6 +1749,8 @@ def test_known_rip_finish_skips_tag_post_processing(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, "")
+
+    report_writer.writer().flush()  # the report write is off-thread now
 
     assert calls == []  # identified discs are tagged by whipper itself
 
@@ -1866,6 +1878,7 @@ def test_finish_handler_clears_state_even_if_body_raises(
 
     # Must NOT raise (the slot swallows + logs) and must clear all rip state.
     window._on_rip_finished(True, "")
+    report_writer.writer().flush()  # the report write is off-thread now
 
     assert window._rip_thread is None
     assert window._rip_worker is None
@@ -3556,6 +3569,8 @@ def test_auto_eject_on_successful_rip_when_enabled(
     window._active_rip_params = _rip_params("/dev/sr0")
 
     window._on_rip_finished(True, "")
+
+    report_writer.writer().flush()  # the report write is off-thread now
     _join_eject(window)
 
     assert calls == [{"device": "/dev/sr0"}]
@@ -3567,6 +3582,8 @@ def test_no_auto_eject_when_disabled(teardown_threads, monkeypatch) -> None:
     window._active_rip_params = _rip_params("/dev/sr0")
 
     window._on_rip_finished(True, "")
+
+    report_writer.writer().flush()  # the report write is off-thread now
     _join_eject(window)
 
     assert calls == []
@@ -3578,6 +3595,8 @@ def test_no_auto_eject_on_failed_rip(teardown_threads, monkeypatch) -> None:
     window._active_rip_params = _rip_params("/dev/sr0")
 
     window._on_rip_finished(False, "")
+
+    report_writer.writer().flush()  # the report write is off-thread now
     _join_eject(window)
 
     assert calls == []
@@ -3899,6 +3918,8 @@ def test_cyanrip_rip_finish_fetches_and_applies_cover_art(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, str(log_file))
+
+    report_writer.writer().flush()  # the report write is off-thread now
     assert window._post_rip_thread is not None
     window._post_rip_thread.join(timeout=10)
 
@@ -3926,6 +3947,8 @@ def test_unknown_heal_rip_fetches_cover_art_when_release_is_known(
     window._active_rip_params = _params(tmp_path, unknown=True)
 
     window._on_rip_finished(True, str(log_file))
+
+    report_writer.writer().flush()  # the report write is off-thread now
     assert window._post_rip_thread is not None
     window._post_rip_thread.join(timeout=10)
 
@@ -3942,6 +3965,8 @@ def test_unidentified_disc_skips_cover_art(teardown_threads, tmp_path: Path) -> 
 
     window._on_rip_finished(True, "")
 
+    report_writer.writer().flush()  # the report write is off-thread now
+
     assert window._post_rip_thread is None
 
 
@@ -3951,6 +3976,8 @@ def test_cover_art_off_skips_the_fetch(teardown_threads, tmp_path: Path) -> None
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, "")
+
+    report_writer.writer().flush()  # the report write is off-thread now
 
     assert window._post_rip_thread is None
 
@@ -3978,6 +4005,8 @@ def test_wavpack_output_keeps_folder_cover_even_in_embed_mode(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, str(log_file))
+
+    report_writer.writer().flush()  # the report write is off-thread now
     assert window._post_rip_thread is not None
     window._post_rip_thread.join(timeout=10)
 
@@ -3999,6 +4028,8 @@ def test_mp3_output_does_not_force_folder_cover(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, str(log_file))
+
+    report_writer.writer().flush()  # the report write is off-thread now
     window._post_rip_thread.join(timeout=10)
 
     # MP3 embeds its own cover, so 'embed' mode behaves as before (no folder file).
@@ -4035,6 +4066,8 @@ def test_ctdb_verify_skipped_when_disabled(teardown_threads, tmp_path: Path) -> 
 
     window._on_rip_finished(True, "")
 
+    report_writer.writer().flush()  # the report write is off-thread now
+
     assert window._ctdb_thread is None  # no verify when the toggle is off
 
 
@@ -4067,6 +4100,8 @@ def test_ctdb_verify_runs_off_the_gui_thread(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, str(log_file))
+
+    report_writer.writer().flush()  # the report write is off-thread now
     assert window._ctdb_thread is not None  # verify started off-thread
     window._ctdb_thread.join(timeout=10)
 
@@ -4086,6 +4121,8 @@ def test_flac_verify_skipped_when_disabled(teardown_threads, tmp_path: Path) -> 
 
     window._on_rip_finished(True, "")
 
+    report_writer.writer().flush()  # the report write is off-thread now
+
     assert window._flac_verify_thread is None
 
 
@@ -4098,6 +4135,8 @@ def test_flac_verify_skipped_for_self_verifying_backend(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, "")
+
+    report_writer.writer().flush()  # the report write is off-thread now
 
     assert window._flac_verify_thread is None
 
@@ -4126,6 +4165,8 @@ def test_flac_verify_runs_for_non_self_verifying_backend(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, str(log_file))
+
+    report_writer.writer().flush()  # the report write is off-thread now
     assert window._flac_verify_thread is not None  # started off-thread
     window._flac_verify_thread.join(timeout=10)
     assert calls == [album_dir]  # verified the album folder the rip wrote
@@ -4156,7 +4197,7 @@ def test_rip_report_accumulates_verify_results_and_checksums(
     # close does) to serialize the accumulated state now, without a real wait.
     window._on_checksums_done({"01 - A.flac": "deadbeef", "01 - A.mp3": "cafe"})
     window._on_flac_verified(FlacVerifyResult(checked=3))
-    window._flush_rip_report()
+    window._flush_rip_report(wait=True)
 
     report = _json.loads((tmp_path / "Album.platterpus.json").read_text())
     # Compared to the constant, not a literal: these two tests care that the
@@ -4199,7 +4240,7 @@ def test_async_rip_report_rewrites_are_debounced_into_one_write(
     assert window._rip_report_timer.isActive()
     assert writes == []
     # Flush (what window-close does) → exactly one write for the whole burst.
-    window._flush_rip_report()
+    window._flush_rip_report(wait=True)
     assert writes == [1]
     assert not window._rip_report_timer.isActive()
 
@@ -4217,6 +4258,8 @@ def test_successful_rip_starts_checksum_thread(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, str(log_file))
+
+    report_writer.writer().flush()  # the report write is off-thread now
 
     assert window._checksums_thread is not None
     window._checksums_thread.join(timeout=10)
@@ -4304,6 +4347,8 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
     )
 
     window._on_rip_finished(True, str(log_file))
+
+    report_writer.writer().flush()  # the report write is off-thread now
 
     report = _json.loads((album_dir / "Album.platterpus.json").read_text())
     # Compared to the constant, not a literal: these two tests care that the
@@ -4399,6 +4444,8 @@ def test_no_failure_report_when_rip_cancelled(teardown_threads, tmp_path: Path) 
 
     window._on_rip_finished(False, "")
 
+    report_writer.writer().flush()  # the report write is off-thread now
+
     assert not (out_dir / "platterpus-rip-failure.platterpus.json").exists()
 
 
@@ -4426,6 +4473,8 @@ def test_recompress_skipped_when_disabled(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, "")
+
+    report_writer.writer().flush()  # the report write is off-thread now
     if window._post_rip_thread is not None:
         window._post_rip_thread.join(timeout=10)
 
@@ -4443,6 +4492,8 @@ def test_recompress_skipped_for_max_compression_backend(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, "")
+
+    report_writer.writer().flush()  # the report write is off-thread now
     if window._post_rip_thread is not None:
         window._post_rip_thread.join(timeout=10)
 
@@ -4468,6 +4519,8 @@ def test_recompress_runs_for_whipper_with_toggle_on(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, str(log_file))
+
+    report_writer.writer().flush()  # the report write is off-thread now
     assert window._post_rip_thread is not None  # folded into post-rip processing
     window._post_rip_thread.join(timeout=10)
 
@@ -4525,6 +4578,8 @@ def test_transcode_skipped_for_flac_output(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, "")
+
+    report_writer.writer().flush()  # the report write is off-thread now
     if window._post_rip_thread is not None:
         window._post_rip_thread.join(timeout=10)
 
@@ -4549,6 +4604,8 @@ def test_transcode_runs_for_nonflac_output(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, str(log_file))
+
+    report_writer.writer().flush()  # the report write is off-thread now
     assert window._post_rip_thread is not None  # folded into post-rip processing
     window._post_rip_thread.join(timeout=10)
 
@@ -4572,6 +4629,8 @@ def test_transcode_passes_mp3_quality(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, str(log_file))
+
+    report_writer.writer().flush()  # the report write is off-thread now
     window._post_rip_thread.join(timeout=10)
 
     assert calls[0]["fmt"] == "mp3" and calls[0]["q"] == 0
@@ -4622,6 +4681,8 @@ def test_nonflac_rip_starts_derived_verify(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, str(log_file))
+
+    report_writer.writer().flush()  # the report write is off-thread now
     if window._post_rip_thread is not None:
         window._post_rip_thread.join(timeout=10)
 
@@ -4639,6 +4700,7 @@ def test_flac_only_rip_does_not_start_derived_verify(
     )
     window._active_rip_params = _params(tmp_path, unknown=False)
     window._on_rip_finished(True, "")
+    report_writer.writer().flush()  # the report write is off-thread now
     if window._post_rip_thread is not None:
         window._post_rip_thread.join(timeout=10)
     assert started == []
@@ -4658,7 +4720,7 @@ def test_on_derived_verified_records_and_reports(
     window._on_derived_verified(
         DerivedVerifyResult(fmt="wavpack", lossless=True, checked=2, expected=2)
     )
-    window._flush_rip_report()
+    window._flush_rip_report(wait=True)
 
     import json as _json
 
@@ -4808,6 +4870,8 @@ def test_window_closes_during_ctdb_verify_without_blocking(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, str(log_file))
+
+    report_writer.writer().flush()  # the report write is off-thread now
     verify_thread = window._ctdb_thread
     assert verify_thread is not None
 
@@ -5463,6 +5527,7 @@ def test_a_rip_with_no_log_never_scopes_post_rip_work_to_the_output_root(
 
     # success=True with an EMPTY log path — the exact reachable state.
     window._on_rip_finished(True, "")
+    report_writer.writer().flush()  # the report write is off-thread now
 
     assert not swept, (
         "a post-rip step ran with no known album folder, so it was scoped to the "
@@ -5819,6 +5884,8 @@ def test_finish_handler_hands_the_parsed_log_to_the_post_rip_steps(
     monkeypatch.setattr(window, "run_unknown_post_processing", _record)
 
     window._on_rip_finished(True, str(log_file))
+
+    report_writer.writer().flush()  # the report write is off-thread now
     assert window._post_rip_thread is not None
     window._post_rip_thread.join(timeout=10)
 
@@ -5928,7 +5995,7 @@ def test_tagging_failure_reaches_the_json_report_as_an_issue(
     window._on_tagging_done(
         TaggingResult(ran=True, attempted=2, tagged=0, failures=tuple(_THIS_RIP))
     )
-    window._flush_rip_report()
+    window._flush_rip_report(wait=True)
 
     report = json.loads((album / "Greatest Hits.platterpus.json").read_text())
     tagging_issues = [i for i in report["issues"] if i["code"] == "tagging_failed"]
@@ -5968,7 +6035,7 @@ def test_a_clean_tagging_pass_does_not_alarm_or_add_an_issue(
         album, launch_picard=False, rip_log=_parsed_log(log_file)
     )
     window._on_tagging_done(result)
-    window._flush_rip_report()
+    window._flush_rip_report(wait=True)
 
     assert result.ok is True
     assert "FAILED" not in window._rip_progress.current_status()
@@ -6355,6 +6422,12 @@ def test_a_report_rewrite_does_not_empty_the_rippers_captured_output(
 
     window._write_rip_report(RipLog(log_creator="cyanrip 0.9.4-rc1"), log_file)
 
+    # The write is asynchronous now; wait for it before reading the
+
+    # file, the same way closeEvent does.
+
+    assert report_writer.writer().flush(), "report write timed out"
+
     report = json.loads((out / "rip.platterpus.json").read_text(encoding="utf-8"))
     stdout_block = (report["artifacts"] or {}).get("ripper_stdout") or {}
     assert "Track 1 ripped and encoded successfully!" in (
@@ -6612,6 +6685,8 @@ def test_finish_survives_a_log_path_that_cannot_be_read(
 
     window._on_rip_finished(True, str(unreadable))
 
+    report_writer.writer().flush()  # the report write is off-thread now
+
     assert window._rip_thread is None
     assert window._active_rip_params is None
 
@@ -6630,6 +6705,8 @@ def test_finish_writes_a_minimal_report_for_a_failure_with_no_log(
 
     window._on_rip_finished(False, "")
 
+    report_writer.writer().flush()  # the report write is off-thread now
+
     report_file = tmp_path / "platterpus-rip-failure.platterpus.json"
     assert report_file.exists()
     report = json.loads(report_file.read_text())
@@ -6647,6 +6724,8 @@ def test_a_cancelled_rip_writes_no_minimal_failure_report(
     window._rip_cancelled = True
 
     window._on_rip_finished(False, "")
+
+    report_writer.writer().flush()  # the report write is off-thread now
 
     assert not (tmp_path / "platterpus-rip-failure.platterpus.json").exists()
     assert "cancelled" in window._rip_progress.current_status().lower()
@@ -6678,6 +6757,8 @@ def test_a_manual_cover_choice_forces_an_embed_even_with_art_turned_off(
     )
 
     window._on_rip_finished(True, str(log_file))
+
+    report_writer.writer().flush()  # the report write is off-thread now
 
     assert kwargs and kwargs[0]["embed"] is True
     assert kwargs[0]["local_cover_path"] == str(tmp_path / "mine.png")
@@ -7783,6 +7864,8 @@ def test_finish_survives_a_report_write_that_raises(
 
     window._on_rip_finished(True, str(log_file))
 
+    report_writer.writer().flush()  # the report write is off-thread now
+
     assert window._rip_thread is None  # the chain still cleared the rip state
     assert window._active_rip_params is None
 
@@ -7898,7 +7981,7 @@ def test_an_in_progress_report_does_not_claim_bit_perfect_for_the_whole_disc(
         ),
     )
     window._last_rip_log_file = log_file
-    window._flush_rip_report()
+    window._flush_rip_report(wait=True)
 
     report = _json.loads((album_dir / "Album.platterpus.json").read_text())
     message = report["verdict"]["message"] or ""
@@ -7935,6 +8018,9 @@ def test_the_json_report_embeds_the_three_files_written_beside_it(
 
     window._write_eac_log(rip_log, log_file)
     window._write_rip_report(rip_log, log_file)
+    # The write is asynchronous now; wait for it before reading the
+    # file, the same way closeEvent does.
+    assert report_writer.writer().flush(), "report write timed out"
 
     report = json.loads(
         (tmp_path / "The Police - Album.platterpus.json").read_text(encoding="utf-8")
@@ -7995,6 +8081,9 @@ def test_the_report_never_embeds_audio_even_if_asked(
     log_file = tmp_path / "Album.flac"  # a caller that got it badly wrong
     log_file.write_bytes(b"fLaC\x00\x00\x00\x22" + b"\xde\xad\xbe\xef" * 64)
     window._write_rip_report(RipLog(tracks=(TrackResult(number=1),)), log_file)
+    # The write is asynchronous now; wait for it before reading the
+    # file, the same way closeEvent does.
+    assert report_writer.writer().flush(), "report write timed out"
 
     report = json.loads(
         (tmp_path / "Album.platterpus.json").read_text(encoding="utf-8")
@@ -8180,6 +8269,8 @@ def test_a_cancelled_rip_is_recorded_as_cancelled_even_when_every_track_landed(
     )
 
     window._on_rip_finished(True, "")
+
+    report_writer.writer().flush()  # the report write is off-thread now
 
     outcome = window._last_outcome
     assert outcome is not None, "no outcome was recorded at all"

@@ -12,8 +12,20 @@ guarantee needs ``fsync`` of the file *before* the rename and ``fsync`` of the
 directory *after* it. This module is the one place that does it right, so the
 durability claim in those callers' docstrings is actually true.
 
-Never used on the GUI thread for large data — these are tiny files (< a few KB);
-the ``fsync`` cost is negligible and worth the correctness.
+**The "tiny files" claim here was false, and it is worth keeping the correction
+visible rather than just deleting the sentence.** This said *"never used on the
+GUI thread for large data — these are tiny files (< a few KB); the fsync cost is
+negligible"*. The rip report is written through here and measures **5.2 MB**;
+the write plus its two ``fsync``s took 15-40 ms on local SSD and **206 ms** into
+a directory holding 400 MB of fresh FLAC writeback, six to eight times per rip,
+on the GUI thread. Two docstrings — this one and ``rip_report.write_report`` —
+asserted the safety on size grounds, and both were measuring an assumption.
+
+So: the ``fsync`` cost is **not** negligible for anything but genuinely small
+files, and it is unbounded on a network share or a removable disk (both of which
+the output folder is allowed to be). Callers writing anything that is not
+provably a few KB must do it off the GUI thread —
+:mod:`platterpus.report_writer` is that thread for the report.
 """
 
 from __future__ import annotations
