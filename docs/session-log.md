@@ -11,6 +11,70 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-11 (later still) — the guard was backwards, and its test said otherwise
+
+**Shipped v0.6.10.** An adversarial review of the file about to be sent to the
+cyanrip fork found a **blocking** defect in the guard that file depends on, and
+the reproduction is what settled it rather than the argument.
+
+`sanitise_cyanrip_args` exempted `-x` and `-j` from the `-N` requirement as
+"probes that print something and exit". They are not. The fork's own published
+provider contract lists them at rows 40 and 42 of
+`round-07-lap-39-provider-contract-g422d12a.md`, inside **`### Ripping
+options`** — not `### Metadata options`, where the genuinely non-ripping `-I`
+and `-J` live. Bare, they are rips with cyanrip's MusicBrainz lookup ENABLED,
+which is the unattended interactive-prompt hang the sanitiser exists to prevent.
+An end-to-end run against the real `ScriptRunner` produced the transcript: exit
+`null` after the timeout, and a partial album directory left in the working
+directory.
+
+**The detail that makes it a lesson rather than a bug.** Every other `-x` call
+site in this repo already carried `-N` — `rig_session.sh`, `police-rerip.txt`,
+the archived rig sheets, the generated script-language recipe. The convention
+was right in four places and the *guard* was wrong, so the guard could never
+have taught anyone; it only ever waved things through. And
+`test_probe_invocations_are_exempt_because_they_never_look_up_metadata` asserted
+the exemption was correct, which is what made it look verified for a release.
+That test measured my belief about the flag, not the fork's contract — the same
+shape as round 5's fatal-string inventory, where a list checked against itself
+was consistent rather than verified.
+
+**A second hole in the same expression.** `any(arg in PROBE_FLAGS ...)` meant one
+probe flag anywhere exempted the WHOLE argv, so `cyanrip -v -d /dev/sr0 -o flac`
+was classified as a probe. Now `all(...)`, with an explicit empty-argv guard,
+because `all()` over an empty sequence is `True` and would have made a bare
+`cyanrip` the most exempt invocation of all.
+
+**A pre-existing gate caught my fix mid-flight**, which is the system working:
+`tests/test_cyanrip_version_flag.py` refused the hardcoded version flags I put in
+`PROBE_FLAGS` and made me import `cyanrip_cli.VERSION_FLAGS`. That gate exists
+because upstream removed `-V` after 0.9.3 and every hardcoded probe started
+reporting the ripper as missing.
+
+**Also shipped: a double test rip needs no paths typed.** `--compare` with zero
+arguments discovers the newest rip and the best earlier rip *of the same disc*;
+`--rig-session` runs it. Identity is decided by the existing tri-state
+`same_disc`, and a rip with no disc identity is refused rather than guessed at —
+pairing by recency alone would diff two different albums and print a confident
+table doing it. Writing the decoy for that test went wrong first: it changed
+`disc.disc_id`, a field `same_disc` never reads, so the "different disc" still
+shared every real identity field and pairing with it was correct behaviour. The
+test was wrong, not the code. `_disc_fields` is now asserted directly so the
+decoy cannot silently stop being one.
+
+**Measured, and the answer was "don't".** A separate audit timed the whole
+post-rip pipeline on a real 14-track disc: **7.11 seconds**, because stage-level
+concurrency already exists (`main_window_rip.py:1793-1820` runs CTDB verify,
+FLAC verify and checksums as concurrent daemon threads). I had told the
+maintainer there was "zero concurrency anywhere in src/" on the strength of a
+grep for pool primitives — true about pools, false about concurrency, and
+corrected. Adding per-stage pools would save ~4 s on a 60-minute operation, so
+it was not done. Three findings outrank the speedup: `flac_recompress` is the
+largest saving on paper (~4 minutes) and **cannot run at all** with cyanrip as
+the backend; the expensive CTDB work is the full-disc decode at
+`ctdb/verify.py:158`, not the `toc.py` probe; and `tool_run.run_tool` uses
+`subprocess.run`, so a pool would turn one uncancellable child into N.
+
 ## 2026-08-11 (later) — one file, and the arity that contradicted its own handler
 
 **Shipped v0.6.9.** The deliverable to the cyanrip fork is now a *test script*,
@@ -1388,4 +1452,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.9.*
+*Last updated for Platterpus v0.6.10.*

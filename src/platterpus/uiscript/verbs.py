@@ -36,6 +36,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from platterpus.cyanrip_cli import VERSION_FLAGS
+
 
 @dataclass(frozen=True)
 class Verb:
@@ -298,16 +300,36 @@ def verb_reference() -> str:
 
 
 #: Flags that make a cyanrip invocation a *probe* rather than a rip — it prints
-#: something and exits without touching metadata or the drive's audio.
+#: something and exits without touching metadata, the drive, or any audio.
 #:
 #: This distinction is the whole reason scripted invocations need their own
 #: sanitiser rather than the rip path's. `assert_metadata_lookup_disabled`
 #: requires `-N` on every argv, and it is right to: without it cyanrip runs its
 #: own MusicBrainz lookup, which **can block on an interactive prompt with no
 #: terminal attached** — an unattended batch would hang forever, which is the
-#: exact failure this whole feature exists to prevent. But `cyanrip --version`
-#: and the fork's `-x` cache probe neither look up metadata nor rip, so demanding
-#: `-N` of them would forbid the most useful scripted calls.
-PROBE_FLAGS: frozenset[str] = frozenset(
-    {"--version", "-v", "--help", "-h", "-x", "--cache-probe", "-j"}
-)
+#: exact failure this whole feature exists to prevent.
+#:
+#: **`-x` and `-j` were in this set and had to come out (2026-08-11).** Both are
+#: **rip modifiers**, and the fork's own published provider contract says so: in
+#: `docs/handshake/inbound/artifacts/round-07-lap-39-provider-contract-g422d12a.md`
+#: they are rows 40 and 42, inside `### Ripping options` — not `### Metadata
+#: options`, where the genuinely non-ripping `-I`/`-J` live. `-x` measures the
+#: drive's cache *before ripping*; `-j` writes a diagnostics record *of a rip*.
+#: Exempting them inverted the contract: a scripted `cyanrip -x` was a full rip
+#: with MusicBrainz lookup ENABLED, which is precisely the unattended hang the
+#: sanitiser exists to prevent. Every other `-x` call site in this repo already
+#: passed `-N` (`rig_session.sh`, `police-rerip.txt`, the archived rig sheets) —
+#: the convention was right everywhere and only the exemption was wrong.
+#:
+#: What remains is only what the contract's line 92 says prints and exits:
+#: *"-v, -V and --version all print the version banner and exit 0"*, plus help.
+#: `-I` and `-J` are deliberately NOT here: they do not rip, but they DO reach
+#: the drive and DO run the metadata lookup unless `-N` is passed — the fork's
+#: own probe invocation is `cyanrip -d <dev> -I -N -A -U -P 0 -x`, carrying it.
+#: The version flags come from `cyanrip_cli.VERSION_FLAGS` rather than being
+#: spelled again here. That module is the single home for them precisely because
+#: this seam has already broken once: upstream removed `-V` after 0.9.3 and every
+#: probe that hardcoded it started reporting the ripper as *missing*.
+#: `tests/test_cyanrip_version_flag.py` refuses a second copy, and it caught this
+#: line the moment it was written — the gate working exactly as intended.
+PROBE_FLAGS: frozenset[str] = frozenset({*VERSION_FLAGS, "-v", "--help", "-h"})

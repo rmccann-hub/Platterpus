@@ -325,14 +325,63 @@ def test_the_guard_is_delegated_not_restated() -> None:
     assert script_mod.sanitise_cyanrip_args(["-o", "flac"]) == canonical
 
 
-def test_probe_invocations_are_exempt_because_they_never_look_up_metadata() -> None:
-    """Otherwise the most useful scripted calls would be forbidden.
+def test_only_print_and_exit_flags_are_exempt_from_the_N_requirement() -> None:
+    """`--version` and `--help` print and exit; demanding `-N` of them would be
+    a rule applied past its own reason.
 
-    `--version` and the fork's `-x` cache probe print and exit; demanding `-N` of
-    them would be a rule applied past its own reason.
+    This test previously also asserted that ``-x`` was exempt, and its passing is
+    what made the wrong exemption look verified for a whole release. It was
+    measuring my belief about the flag rather than the fork's contract: their
+    published provider contract lists ``-x`` and ``-j`` under **Ripping options**
+    (rows 40 and 42 of the round-7 lap-39 artifact), not under the metadata
+    options where the non-ripping ``-I``/``-J`` live. A list checked against
+    itself is consistent, not verified.
     """
-    for probe in (["--version"], ["-x", "-D", "/tmp/scratch"], ["--help"]):
+    for probe in (["--version"], ["-v"], ["--help"], ["-h"]):
         assert script_mod.sanitise_cyanrip_args(probe) is None, probe
+
+
+def test_a_rip_modifier_is_not_a_probe_even_though_it_probes() -> None:
+    """``-x`` measures the drive cache *before ripping*; ``-j`` records a rip.
+
+    Bare, they are rips with cyanrip's own MusicBrainz lookup ENABLED, which can
+    block on an interactive prompt with no terminal attached — the exact
+    unattended hang this sanitiser exists to prevent. The fork's own probe
+    invocation carries ``-N``, and so does every ``-x`` call site in this repo.
+    """
+    for rip_modifier in (["-x"], ["--cache-probe"], ["-j", "/tmp/diag.json"]):
+        refusal = script_mod.sanitise_cyanrip_args(rip_modifier)
+        assert refusal is not None, f"{rip_modifier} was waved through as a probe"
+        assert "-N" in refusal
+    # With -N they are fine — the flag is not banned, the missing guard was.
+    assert (
+        script_mod.sanitise_cyanrip_args(["-x", "-D", "/tmp/s", "-o", "flac", "-N"])
+        is None
+    )
+    assert (
+        script_mod.sanitise_cyanrip_args(
+            ["-d", "/dev/sr0", "-I", "-N", "-A", "-U", "-x"]
+        )
+        is None
+    )
+
+
+def test_one_probe_flag_does_not_exempt_a_whole_rip_command_line() -> None:
+    """The exemption is a property of the ENTIRE argv, not of any one argument.
+
+    Written as ``any(...)`` it meant a single ``-v`` anywhere waved through
+    everything after it, so ``cyanrip -v -d /dev/sr0 -o flac`` — a full rip of
+    the inserted disc with metadata lookup on — was classified as a probe.
+    """
+    refusal = script_mod.sanitise_cyanrip_args(["-v", "-d", "/dev/sr0", "-o", "flac"])
+    assert refusal is not None, "a probe flag smuggled a whole rip past the guard"
+    assert "-N" in refusal
+
+
+def test_an_empty_argv_is_not_a_probe() -> None:
+    """``all()`` over an empty sequence is True, which would have made a bare
+    ``cyanrip`` with no arguments the most exempt invocation of all."""
+    assert script_mod.sanitise_cyanrip_args([]) is not None
 
 
 def test_a_newline_in_an_argument_is_refused_as_log_forgery() -> None:

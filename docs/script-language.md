@@ -102,7 +102,7 @@ hang forever.
 These flags are exempt, because they print something and exit without
 touching metadata or the drive's audio:
 
-`--cache-probe`, `--help`, `--version`, `-h`, `-j`, `-v`, `-x`
+`--help`, `--version`, `-V`, `-h`, `-v`
 
 Arguments containing a newline or NUL are refused. That is not injection —
 no shell is involved — it is **log forgery**: cyanrip writes its argv into
@@ -311,7 +311,7 @@ found nothing wrong*.
 {
   "language": "platterpus-uiscript",
   "grammar_version": 1,
-  "platterpus_version": "0.6.9",
+  "platterpus_version": "0.6.10",
   "syntax": {
     "one_statement_per_line": true,
     "comment_prefix": "#",
@@ -563,13 +563,11 @@ found nothing wrong*.
     "setup"
   ],
   "cyanrip_probe_flags": [
-    "--cache-probe",
     "--help",
     "--version",
+    "-V",
     "-h",
-    "-j",
-    "-v",
-    "-x"
+    "-v"
   ],
   "limits": {
     "max_script_lines": 2000,
@@ -756,4 +754,4 @@ found nothing wrong*.
 }
 ```
 
-*Last updated for Platterpus v0.6.9.*
+*Last updated for Platterpus v0.6.10.*
