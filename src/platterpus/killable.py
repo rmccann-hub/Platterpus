@@ -143,17 +143,49 @@ class KillableCommand:
             self._kill_group(proc)
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as timed_out:
             # `subprocess.run` kills on timeout; do the same, group-wide, so a
             # timed-out probe does not keep the drive busy. Then re-raise so
             # callers' existing TimeoutExpired handling is unchanged.
             self._kill_group(proc)
             try:
-                proc.communicate(timeout=REAP_TIMEOUT_S)
+                # **KEEP WHAT THE CHILD ALREADY SAID.** This second `communicate`
+                # returns everything buffered before the timeout, and this code
+                # used to discard it and re-raise — so a hung probe produced
+                # `exit code: none` and *nothing captured*, which is what the
+                # diagnostic record showed for the 120 s `cyanrip -I` hang on
+                # 2026-08-10. The output existed. We threw it away.
+                #
+                # That is `CLAUDE.md`'s diagnostic-completeness rule, fourth
+                # instance: "all three were facts we HAD and discarded, which is
+                # worse than facts never obtained because the report looked
+                # complete either way." A partial capture is often the whole
+                # diagnosis — the last line before a drive wedges is the line that
+                # says which sector it wedged on.
+                #
+                # `subprocess.run` does exactly this: it catches TimeoutExpired,
+                # drains, and re-raises with the output attached. We were the only
+                # path that did not, which is why swapping `run` for this class
+                # silently lost the capture.
+                late_stdout, late_stderr = proc.communicate(timeout=REAP_TIMEOUT_S)
+                timed_out.stdout = late_stdout
+                timed_out.stderr = late_stderr
+                if late_stdout or late_stderr:
+                    log.warning(
+                        "%s: timed out after %ss; keeping the %d character(s) it "
+                        "had already written — see the diagnostic record",
+                        self._name,
+                        timeout,
+                        len(late_stdout or "") + len(late_stderr or ""),
+                    )
             except subprocess.TimeoutExpired:
+                # Unreapable: the child never died, so there is nothing to drain
+                # and `timed_out.stdout` stays as CPython left it. Absence here is
+                # a real answer and must not be dressed up as an empty capture.
                 log.error(
                     "%s: child unreapable after SIGKILL — leaked, probably stuck "
-                    "in an uninterruptible drive ioctl",
+                    "in an uninterruptible drive ioctl; no output could be "
+                    "recovered",
                     self._name,
                 )
             raise
