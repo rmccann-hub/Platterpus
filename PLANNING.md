@@ -1140,4 +1140,4 @@ Three consequences, now standing:
 
 ---
 
-*Last updated for Platterpus v0.6.9.*
+*Last updated for Platterpus v0.6.10.*
