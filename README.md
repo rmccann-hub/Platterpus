@@ -6,7 +6,7 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.6.4b12 — BETA, for the joint cyanrip hardware test session.** This build exists to produce the evidence the open cyanrip handshake round needs in order to close; it is **not** a jointly-verified pair, and every rip it makes says so in its own report. For ordinary use, prefer the latest stable v0.6.x release.
+> **Status: v0.6.8 — BETA, for the joint cyanrip hardware test session.** This build exists to produce the evidence the open cyanrip handshake round needs in order to close; it is **not** a jointly-verified pair, and every rip it makes says so in its own report. For ordinary use, prefer the latest stable v0.6.x release.
 >
 > **Status: v0.6.x — public pre-release.** Implemented end-to-end with 2,000+ tests (including a full-pipeline end-to-end test) at ~93% branch coverage (91% enforced in CI), and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (actively maintained, no >587 read-offset bug — whipper was retired, see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast Verified / Archival Exact / Portable), an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line**, **true in-app updates**, **cover art** from the Cover Art Archive, **auto-filing finished rips into your library folder**, an **EAC-compatible companion log** with a per-track **EAC CRC32 column**, and **software-version provenance** recorded in the log header and the window title. **New in v0.6.3 — use your own fork, and be told which one you're on:** the one-time setup wizard now **builds and installs the pinned Platterpus fork of cyanrip** for you (no terminal), verifies the installed binary really is that build, and keeps the working upstream ripper if the build fails; the dependency check **names which build is installed** rather than only its version — which matters because the fork deliberately keeps upstream's version string, so the number alone cannot tell them apart; a multi-disc rip now writes Vorbis-correct `DISCNUMBER`/`totaldiscs` instead of cramming `2/3` into one tag; and every self-check that runs now **says something**, because a check that stays silent reads exactly like a check that found nothing wrong. **New in v0.6.1 — the provenance-and-honesty release:** every rip now records **which cyanrip binary produced it** (the Platterpus fork, unmodified upstream, or — honestly — *not determined*), captures the ripper's **exit code, exact command line and complete output** so a failure is reproducible, surfaces **the ripper's own words** instead of a bare "Rip failed", picks **the right disc of a multi-disc set** (or says it could not tell rather than guessing), and **audits itself**: a `self_check` block lands in every rip's JSON, and `--audit-rips` runs the same checks over your whole library in one command. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
 
@@ -654,6 +654,14 @@ forwards every argument straight to the app):
 # ripper clone + build, handshake status and preflight. Send the whole folder.
 ./platterpus-x86_64.AppImage --rig-session ~/rig-session-output
 
+# The cyanrip seam check on its own. `--rig-session` already runs this, so you
+# rarely need it directly — it exists because the cyanrip fork's own script calls
+# it, and both write into the same MANIFEST.txt so the two projects' evidence is
+# one upload rather than two piles. Read-only: nothing rips or re-encodes.
+# Inside a test script the same check is the `rig-check` verb.
+./platterpus-x86_64.AppImage --rig-check ~/seam-out \
+    --rig-check-album "/path/to/Album" --rig-check-device /dev/sr0
+
 # Compare two rips of the SAME disc track-by-track (which tracks are byte-for-
 # byte identical, which differ, and which rip is the better master). Points at
 # the .platterpus.json report each rip writes beside the FLACs.
@@ -947,4 +955,4 @@ See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
 
 ---
 
-*Last updated for Platterpus v0.6.6.*
+*Last updated for Platterpus v0.6.8.*

@@ -11,6 +11,124 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.8] — 2026-08-11
+
+### Changed
+- **The cyanrip test pin moved to the round-8 build `cb440bd`** (`0.9.4-rc1+platterpus.6-beta.1`),
+  with round 7's final pin `104f6d4` retired. This changes no verdict — a test pin is still
+  reported `unapproved`, which is the correct answer while a round is open — it changes the
+  *reason* the report gives, so a rip made during the round-8 session says "this is the round-8
+  test pin, expected during a test session" instead of naming a pin from a round that has closed.
+  Recorded alongside it: their lap 1 names the pin as `release-manifest.json` **seq 12**, but the
+  manifest at `cb440bd` still reads `latest_seq: 11` with both channels at `ddf7ac3`, and
+  `cb440bd` is not on `platterpus-fork` — so the machine-readable channel cannot see the pin it
+  is supposed to publish. The pin itself builds and verifies; only its publication is missing.
+- **A retired test pin no longer claims to be from the current round.** The message read
+  "a round-{N} test pin that has since been RETIRED" using the constant that names the round of
+  the *current* pin — so every previously-retired build was silently relabelled into the new
+  round the moment one closed. It now says "an EARLIER round" and names only the round it can
+  actually vouch for.
+
+### Added
+- **The cyanrip seam check, reachable from the script language and from a
+  command line.** The fork's seam packet (2026-08-10 §4b) asked for a checker
+  they could call from their own script so both projects append to **one**
+  `MANIFEST.txt` instead of producing two piles to reconcile. `rig_check.py` is
+  that. Its headline check is theirs and it needs no disc: compose exactly the
+  argv a real rip would send — through the *real* argv builder, so a flag that
+  stops being emitted disappears from the check on the next run — invoke the
+  ripper against a device that cannot open, and read `invocation` back out of
+  cyanrip's own `-j` record. That compares what the binary **received** against
+  what we **composed**, which is the comparison a unit test of the builder
+  cannot make. It also classifies the installed build tri-state, reads the
+  `Handshake:` note in both its closed and open shapes, and parses the album's
+  log with a floor (zero tracks is a `FAIL`, because a parse that finds nothing
+  is not a parse that found nothing wrong). Four statuses, and the distinction is
+  load-bearing: **`SKIP` means did not run**, so a session that never found the
+  rip cannot render as one where everything passed.
+- **`rig-check [album-folder]` script verb.** Runs on a helper thread with a
+  bounded wait, like the `cyanrip` verb — the check spawns subprocesses, and the
+  never-block rule has no case exemption.
+- **`--rig-check` / `--rig-check-album` / `--rig-check-device`**, the interface
+  the fork's script calls. Both surfaces are thin callers of the same function;
+  neither reimplements it, so they cannot disagree about what the check found.
+  `--rig-session` now runs it too, so an operator's one command still covers it.
+
+### Changed
+- **A new testing capability is a script verb; a CLI flag now has to be argued
+  for.** Maintainer directive: the script language exists precisely so testing
+  capabilities live there, and a capability the language cannot reach is one the
+  tests cannot reach. `CLAUDE.md` carries the rule and
+  `tests/test_script_surface_is_the_default.py` enforces it — every flag is
+  listed with the reason a verb could not serve it (pre-GUI, an external caller,
+  or the entry point that starts a script run), the list may shrink and not grow,
+  and a fourth test refuses a free-form reason that merely reads like one of the
+  three.
+
+## [0.6.7] — 2026-08-11
+
+### Fixed
+- **A killed subprocess's output was captured and thrown away.** Asked by the cyanrip
+  fork (seam packet 2026-08-10, T-C) after a `cyanrip -I` probe was killed at 120 s and
+  the diagnostic record showed `exit code: none` with nothing captured. The answer was
+  the bad one: `KillableCommand.run` caught the timeout, killed the group, called
+  `communicate()` a second time to reap — which **returns everything buffered before the
+  timeout** — ignored the return value and re-raised. `subprocess.run` has always done
+  this correctly; ours was the one path that did not, which is why swapping `run` for a
+  killable child silently lost the capture. Both streams are now attached to the
+  exception and merged into the diagnostic (`run_capture` read `exc.output`, which
+  aliases stdout only). Revert-proving it exposed a second defect: on the **unreapable**
+  path CPython leaves raw *bytes* on the exception, and concatenating them would have
+  raised `TypeError` inside the diagnostic path — decoded defensively now. Tri-state
+  kept: an unreapable child still reports nothing recovered, and the message says which
+  of the two silences it is.
+- **The AccurateRip inventory check over-stated its own denominator.** Shipped in v0.6.6
+  as a fix for under-counting, and it reported `29 of a possible 42` on a 14-track disc —
+  implying 13 absent results where exactly **one** track could have had a 450 line at
+  all. `Accurip 450:` prints only where v1 and v2 both missed, so the ceiling is
+  `2 × tracks + (tracks where both missed)`, not `3 × tracks`. The same disc now reads
+  `29/29 — complete`. Corrected against the fork's rule (seam packet §2.3); a ceiling
+  that cannot be reached is as misleading as a subset reported as the whole.
+- **The EAC-compatible log stated a cause the ripper never reported.** "Appended
+  silence … *because the drive could not read that far*" was our inference; cyanrip
+  reports the append and says nothing about why (seam packet §2.4). The fact stays, the
+  guess goes — same discipline as `Cache defeat:` → `Cache model:`.
+
+### Known, accepted, not yet fixed
+- **The EAC-compatible log does not record that an earlier read disagreed.** When the
+  auto-fix re-rips a track, the `Test CRC == Copy CRC` pair describes the secure
+  re-read — truthfully — while the superseded first pass, which read something
+  different, survives only in the addendum that log never mentions (seam packet §2.2;
+  finding accepted, their diagnosis confirmed). Not fixed here: the exporter has no
+  access to the superseded CRC, so it is a data-plumbing change, and one is not being
+  made on the eve of a hardware session. First item in round 9.
+
+### Fixed
+- **The offset-variant footnote counted the first pass, not the tracks actually shipped.**
+  Found on the first disc ever to take the auto-fix path on a released build (the Police
+  re-rip, 2026-08-07). Tracks 3 and 5 both missed AccurateRip on the whole-disc pass and
+  were re-ripped; track 3's re-read matched exactly, track 5's still matched only the
+  +450 offset-variant pressing. So the truth afterwards is **one** partially-accurate
+  track — which the verdict banner said, while the footnote directly beneath it said
+  **"2 of 14"**. Both went into the same `.platterpus.json` and onto the same results
+  pane, and the stale one reads as the more specific.
+
+  `partially_accurate_summary` was a sentence rendered while *parsing* the whole-disc
+  log and never recomputed once the addendum superseded those tracks' AccurateRip
+  results. `accuraterip_counts` documents itself as the single source "so the banner,
+  the JSON, and the reconciliation line can never disagree on the tally" — this field
+  was the one bypassing it. It now counts through that function, in both the report and
+  the results pane. `partially_accurate_reported` is deliberately left alone: it is the
+  ripper's own fraction, verbatim, and being exactly that is its whole job.
+
+  Two notes on how the fix was checked, because both mattered. The first regression test
+  passed against a revert — it called the helper directly, and the helper was never what
+  broke; it now goes through the real `build_report`. And the first fix *removed* the
+  footnote entirely for logs that carry no ripper fraction (whipper-era and partial
+  parses); the existing UI tests caught that, and it now falls back to the parser's
+  sentence rather than going silent. Suppressing a right answer is not an improvement
+  over correcting a wrong one.
+
 ## [0.6.6] — 2026-08-07
 
 ### Fixed
@@ -5011,7 +5129,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.6.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.8.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7253,7 +7371,9 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.6...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.8...HEAD
+[0.6.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.7...v0.6.8
+[0.6.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b15...v0.6.4
@@ -7342,4 +7462,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.6.*
+*Last updated for Platterpus v0.6.8.*

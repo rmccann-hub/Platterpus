@@ -215,6 +215,14 @@ _VERB_LIST: tuple[Verb, ...] = (
         1,
         "expect-exit <code> — assert the last cyanrip exit code",
     ),
+    Verb(
+        "rig-check",
+        0,
+        1,
+        "rig-check [album-folder] — run the seam check the cyanrip fork asked "
+        "for: compose a real rip's argv, read it back out of the ripper's own -j "
+        "record, classify the build, and parse the album's log. Read-only",
+    ),
     # --- The escape hatch ----------------------------------------------------
     Verb(
         "eval",

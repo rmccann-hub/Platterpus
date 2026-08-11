@@ -1049,10 +1049,18 @@ def _appended_silence_line(rip_log: RipLog) -> list[str]:
         padded.append(f"{track.number} ({frames} frame(s))")
     if not padded:
         return []
+    # STATE THE FACT, NOT A CAUSE WE WERE NEVER TOLD. This used to end "…because
+    # the drive could not read that far", which is our inference: cyanrip reports
+    # `Appended:  N frames of silence` and says nothing about why (cyanrip fork,
+    # seam packet 2026-08-10 §2.4 — "the fact is ours and supported; the cause is
+    # your inference"). The plausible reason is not the reported one, and an
+    # archival log is the wrong place to promote a guess to a finding — the same
+    # discipline as `Cache defeat:` → `Cache model:` and `none` versus
+    # `unknown (reason)`.
     return [
         "Appended silence    : track(s) " + ", ".join(padded) + " end in silence the "
-        "ripper appended because the drive could not read that far — those final "
-        "frames are not disc audio"
+        "ripper appended to fill the offset-shifted edge — those final frames are "
+        "not disc audio (the ripper reports the append; it does not report a cause)"
     ]
 
 

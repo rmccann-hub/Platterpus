@@ -123,6 +123,22 @@ def _audit_ripper(report: dict[str, Any], album: AlbumAudit) -> None:
         album.add(LEVEL_NOTE, f"ripper build not determined ({build})")
 
 
+def _ar_matched(block: Any) -> bool:
+    """True when an AccurateRip variant block records an actual match.
+
+    A block's *presence* is not a match — cyanrip prints a line for "not found,
+    either a new pressing, or bad rip" too, and counting the line was how a track
+    that matched nothing once got reported as an offset-variant match. Keyed on the
+    result text, which is what the ripper actually said.
+    """
+    if not isinstance(block, dict):
+        return False
+    result = str(block.get("result") or "").casefold()
+    if not result or "not found" in result:
+        return False
+    return "accurately ripped" in result or "matches accurip" in result
+
+
 def _audit_handshake_note(report: dict[str, Any], album: AlbumAudit) -> None:
     """Do the ripper's **own** statement and *our* verdict agree about the round?
 
@@ -250,31 +266,46 @@ def _audit_checksum_inventory(report: dict[str, Any], album: AlbumAudit) -> None
             f"so any 'all CRCs matched' claim covers less than the whole disc",
         )
 
-    # AccurateRip has three variants per track. A shortfall is normal (the disc may
-    # simply not be in the database) — what matters is that the number is STATED with
-    # its denominator, so nobody later reports a subset as if it were the inventory.
+    # **The denominator is NOT 3 × tracks, and getting that wrong is the same class
+    # of error this check was written to catch** (cyanrip fork, seam packet
+    # 2026-08-10 §2.3). `Accurip 450:` prints *only where v1 and v2 both missed*, so
+    # a disc where everything matches can never produce more than 2 × tracks. The
+    # first version of this check reported "29 of a possible 42" on a 14-track disc,
+    # implying 13 absent results where exactly **one** track could have had a 450
+    # line at all. A ceiling that cannot be reached is as misleading as a subset
+    # reported as the whole — we published this check as a fix for under-counting and
+    # it shipped over-stating instead.
     #
+    # Their rule, which we adopt: `2 × tracks + (tracks where v1 AND v2 both missed)`.
+    both_missed = 0
+    for track in ripped:
+        ar = track.get("accuraterip")
+        if not isinstance(ar, dict):
+            continue
+        if not _ar_matched(ar.get("v1")) and not _ar_matched(ar.get("v2")):
+            both_missed += 1
+    possible = expected * 2 + both_missed
+    variants = "v1, v2, and 450 only where both of those missed"
+
     # GRADED, not hard-coded to `note`. A full inventory is a clean result and must
     # say so: an informational check pinned at note level makes an otherwise perfect
     # rip un-gradeable, which is the defect
     # `test_a_complete_rip_with_real_files_is_clean` was written for after it shipped
     # once already. A grade that can never be clean tells the user nothing.
-    possible = expected * len(accurip_kinds)
-    variants = ", ".join(accurip_kinds)
     if accurip_present >= possible:
         album.add(
             LEVEL_OK,
             f"AccurateRip inventory complete: {accurip_present}/{possible} "
-            f"({expected} tracks × {len(accurip_kinds)} variants: {variants})",
+            f"({expected} tracks × 2, plus {both_missed} where both v1 and v2 "
+            f"missed and a 450 line could appear)",
         )
     else:
         album.add(
             LEVEL_NOTE,
             f"AccurateRip results present: {accurip_present} of a possible "
-            f"{possible} ({expected} tracks × {len(accurip_kinds)} variants: "
-            f"{variants}). A shortfall means the disc or those variants are absent "
-            f"from the database, not that the rip is worse — but the denominator is "
-            f"what makes the number readable",
+            f"{possible} — {variants}. A shortfall means the disc or those "
+            f"variants are absent from the database, not that the rip is worse; "
+            f"the denominator is what makes the number readable",
         )
 
 
