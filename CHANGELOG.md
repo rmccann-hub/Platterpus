@@ -13,6 +13,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [0.6.8] — 2026-08-11
 
+### Changed
+- **The cyanrip test pin moved to the round-8 build `cb440bd`** (`0.9.4-rc1+platterpus.6-beta.1`),
+  with round 7's final pin `104f6d4` retired. This changes no verdict — a test pin is still
+  reported `unapproved`, which is the correct answer while a round is open — it changes the
+  *reason* the report gives, so a rip made during the round-8 session says "this is the round-8
+  test pin, expected during a test session" instead of naming a pin from a round that has closed.
+  Recorded alongside it: their lap 1 names the pin as `release-manifest.json` **seq 12**, but the
+  manifest at `cb440bd` still reads `latest_seq: 11` with both channels at `ddf7ac3`, and
+  `cb440bd` is not on `platterpus-fork` — so the machine-readable channel cannot see the pin it
+  is supposed to publish. The pin itself builds and verifies; only its publication is missing.
+- **A retired test pin no longer claims to be from the current round.** The message read
+  "a round-{N} test pin that has since been RETIRED" using the constant that names the round of
+  the *current* pin — so every previously-retired build was silently relabelled into the new
+  round the moment one closed. It now says "an EARLIER round" and names only the round it can
+  actually vouch for.
+
 ### Added
 - **The cyanrip seam check, reachable from the script language and from a
   command line.** The fork's seam packet (2026-08-10 §4b) asked for a checker
