@@ -453,12 +453,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--compare",
-        nargs=2,
-        metavar=("PREVIOUS.json", "LATER.json"),
+        nargs="*",
+        metavar="REPORT.json",
         type=Path,
+        default=None,
         help="compare two .platterpus.json rip reports of the same disc "
         "track-by-track (which tracks are byte-identical, which differ, and "
-        "which rip is the better master), then exit; no CD needed",
+        "which rip is the better master), then exit; no CD needed. "
+        "WITH NO ARGUMENTS it finds them itself: the newest rip and the best "
+        "earlier rip of the same disc — which is what makes a double test rip "
+        "one command instead of two pasted paths",
     )
     parser.add_argument(
         "--assemble-best-of",
@@ -696,10 +700,32 @@ def main(argv: list[str] | None = None) -> int:
     # Compare two rip reports of the same disc (a re-rip vs the previous one).
     # Terminal diagnostic like --doctor: no GUI, no CD.
     if args.compare is not None:
-        from platterpus import cli_compare
+        from platterpus import cli_compare, rip_compare
 
-        previous, later = args.compare
-        return cli_compare.run_compare(previous, later)
+        if len(args.compare) == 2:
+            previous, later = args.compare
+            return cli_compare.run_compare(previous, later)
+        if args.compare:
+            # One path, or three. Refuse with the count rather than silently
+            # comparing the wrong things or falling through to discovery — a
+            # caller who named files meant those files.
+            print(
+                f"error: --compare takes two report paths or none (got "
+                f"{len(args.compare)}). With no arguments it discovers the "
+                "newest rip and the best earlier rip of the same disc."
+            )
+            return 2
+        # Zero arguments: discover. This is the double-test-rip path — rip the
+        # disc twice, then ask for the comparison without naming either folder.
+        pair = rip_compare.discover_pair_to_compare()
+        if not pair.found:
+            # Never silent, and never a bare "nothing found": the four causes
+            # are genuinely different and the operator acts differently on each.
+            print(f"nothing to compare: {pair.reason}")
+            return 1
+        print(f"comparing (found automatically): {pair.reason}\n")
+        assert pair.previous is not None and pair.later is not None
+        return cli_compare.run_compare(pair.previous, pair.later)
 
     # Assemble a best-of-both master folder from two rips of the same disc.
     if args.assemble_best_of is not None:

@@ -231,7 +231,12 @@ def sanitise_cyanrip_args(args: list[str]) -> str | None:
                 "could forge a second line in it"
             )
 
-    if any(arg in PROBE_FLAGS for arg in args):
+    # ALL, not ANY. `any` made one probe flag anywhere exempt the WHOLE command
+    # line, so `cyanrip -v -d /dev/sr0 -o flac` was waved through as "a probe" —
+    # a full rip of the inserted disc with MusicBrainz lookup enabled, which is
+    # the unattended interactive-prompt hang this function exists to prevent.
+    # A probe is a property of the entire argv: every argument must be one.
+    if args and all(arg in PROBE_FLAGS for arg in args):
         return None  # a probe: prints and exits, never looks up metadata
 
     try:

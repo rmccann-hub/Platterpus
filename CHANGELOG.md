@@ -11,6 +11,71 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.10] — 2026-08-11
+
+### Fixed
+- **`-x` and `-j` were exempt from the `-N` requirement, inverting the cyanrip
+  fork's own contract.** `sanitise_cyanrip_args` treated them as probes that
+  "print something and exit", so a scripted `cyanrip -x` was waved past the
+  metadata chokepoint — and it is not a probe: the fork's published provider
+  contract lists `-x` (row 40) and `-j` (row 42) under **Ripping options**, not
+  under the metadata options where the genuinely non-ripping `-I`/`-J` live.
+  Bare, they are rips with cyanrip's own MusicBrainz lookup **enabled**, which
+  blocks on an interactive prompt with no terminal attached — the exact
+  unattended hang the sanitiser exists to prevent. Reproduced end-to-end against
+  the real `ScriptRunner`: the step stalls to the 300 s timeout, reports exit
+  `null`, and leaves a partial album directory behind in the working directory.
+  Every other `-x` call site in this repo already passed `-N`, so the convention
+  was right everywhere and only the exemption was wrong. The test asserting the
+  exemption was correct is what made it look verified for a release — it
+  measured a belief about the flag rather than the fork's contract.
+- **One probe flag anywhere exempted the entire command line.** The check was
+  `any(arg in PROBE_FLAGS ...)`, so `cyanrip -v -d /dev/sr0 -o flac` — a full
+  rip of the inserted disc with lookup on — was classified as a probe. It is
+  `all(...)` now, with an explicit empty-argv guard, because `all()` over an
+  empty sequence is `True` and would otherwise have made a bare `cyanrip` the
+  most exempt invocation of all.
+- **The version flags in `PROBE_FLAGS` are imported from `cyanrip_cli`** rather
+  than spelled a second time. Caught by `tests/test_cyanrip_version_flag.py`,
+  the gate added after upstream's `-V` removal made every hardcoded probe report
+  the ripper as missing.
+- **The `rig-check` verb rejected every real album folder.** Declared
+  `max_args=1` while its handler already called `step.joined()`, so a path like
+  `~/Music/The Police/Every Breath You Take` failed at *parse* time and never
+  reached the handler. Every test had used a `tmp_path` with no spaces in it —
+  a fixture tidier than reality, hiding the defect. Now rest-of-line, like
+  `album`, which takes the tail for the same reason.
+- **The shipped round-8 joint script carried the bare `cyanrip -x` on a live
+  line.** Replaced with the fork's own info-only form
+  (`-d /dev/sr0 -I -N -A -U -P 0 -x`), and the sanitiser now refuses the bare
+  one rather than trusting whoever writes the next script.
+
+### Added
+- **A double test rip needs no paths typed.** `platterpus --compare` with **no
+  arguments** now finds the newest rip and the best earlier rip *of the same
+  disc* and compares them; `--rig-session` runs it, so ripping a disc twice and
+  getting the diff stays one argument-less command. Pairing is by **disc
+  identity**, never by recency alone — a naive "two most recent reports" rule
+  would diff two different albums and print a confident table doing it. The
+  existing `find_prior_report` does the ranking (completeness before recency,
+  never an abandoned in-progress snapshot), so nothing about "same disc" is
+  re-decided.
+- **`rip_compare.default_report_roots()` / `newest_report()`** — one home for
+  "where do rips live on this machine". The same list was being rebuilt in shell
+  inside `rig_session.sh` twice and a third copy was about to be written; three
+  descriptions of that will eventually disagree, and the one that disagrees
+  silently searches the wrong place and reports *no rip found*, which is
+  indistinguishable from *no rip happened*.
+
+### Fixed
+- **"Nothing to compare" now says which of four things happened** — no reports at
+  all, only one rip, none of the same disc, or a newest rip carrying no disc
+  identity. The operator acts differently on each, and a bare "nothing found"
+  collapses them into one useless message.
+- **The discovery label names the folder, not just the filename.** Two passes of
+  one disc always produce the same basename, so the first version read
+  `Album.platterpus.json -> Album.platterpus.json` and identified neither rip.
+
 ## [0.6.9] — 2026-08-11
 
 ### Fixed
@@ -5153,7 +5218,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.9.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.10.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7395,7 +7460,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.9...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.10...HEAD
+[0.6.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.9...v0.6.10
 [0.6.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.8...v0.6.9
 [0.6.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.7...v0.6.8
 [0.6.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.6...v0.6.7
@@ -7487,4 +7553,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.9.*
+*Last updated for Platterpus v0.6.10.*

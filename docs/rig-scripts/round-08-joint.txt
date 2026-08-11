@@ -172,7 +172,17 @@ snapshot B-before-rip
 log SECTION C — cyanrip tests
 
 # --- EXAMPLE, DELETE IT: the cache probe on a real drive -----------------------
-cyanrip -x
+#
+# THIS IS YOUR OWN INVOCATION, from round 7 lap 1, and the shape matters.
+# `-x` is NOT a standalone probe: your provider contract lists it under
+# "Ripping options" (row 40, beside `-j` at row 42), so `cyanrip -x` on its own
+# is a RIP with MusicBrainz lookup enabled — it blocks on a prompt with no
+# terminal attached, or rips the whole disc into the working directory. The
+# first draft of this file had exactly that on a live line and it took an
+# end-to-end reproduction to catch. `-I` keeps it info-only, `-N` keeps the
+# lookup off, and the script now REFUSES the bare form rather than trusting
+# whoever writes the next one.
+cyanrip -d /dev/sr0 -I -N -A -U -P 0 -x
 expect-exit 0
 expect-cyanrip Cache probe:
 # ^ NOTE what is wrong with that last line, and do not copy the mistake: it

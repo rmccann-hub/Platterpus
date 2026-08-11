@@ -1212,3 +1212,190 @@ def render_best_of_plan(plan: BestOfPlan) -> str:
             "to A; re-rip to break the tie"
         )
     return "\n".join(lines)
+
+
+def default_report_roots(config: object | None = None) -> list[Path]:
+    """Where rips land on this machine, best-effort, in priority order.
+
+    The user's configured output folder, then their library folder (the
+    auto-move destination), then ``~/Music`` as the last resort. Only existing
+    directories are returned, deduped, order preserved.
+
+    **Why this is a function and not three lines at each call site.** The same
+    list was being reconstructed in shell inside ``rig_session.sh`` — twice —
+    and a third copy was about to be written for the compare path. Three
+    descriptions of "where the rips are" will eventually disagree, and the one
+    that disagrees silently searches the wrong place and reports *no rip found*,
+    which is indistinguishable from *no rip happened*. Pure apart from the
+    directory-existence checks; never raises.
+    """
+    if config is None:
+        try:
+            from platterpus import config as config_module
+
+            config = config_module.load()
+        except Exception:  # noqa: BLE001 — a bad config must not break discovery
+            log.warning("could not load config for report discovery", exc_info=True)
+            config = None
+
+    roots: list[Path] = []
+    for raw in (
+        getattr(config, "output_dir", "") or "",
+        getattr(config, "library_dir", "") or "",
+        str(Path.home() / "Music"),
+    ):
+        if not raw:
+            continue
+        try:
+            candidate = Path(raw).expanduser()
+            if not candidate.is_dir():
+                continue
+            resolved = candidate.resolve()
+        except OSError:
+            continue
+        if resolved not in roots:
+            roots.append(resolved)
+    return roots
+
+
+def newest_report(roots: Sequence[Path]) -> Path | None:
+    """The most recently modified ``*.platterpus.json`` under ``roots``.
+
+    Newest by **file mtime**, deliberately, and different from the "best prior"
+    rule in :func:`find_prior_report`: this answers *"which rip did the operator
+    just make"*, where recency is the whole question and completeness is not —
+    a cancelled rip they just ran is still the rip they want looked at.
+
+    Bounded by the same ``_MAX_SCAN_REPORTS`` budget and just as defensive: any
+    unreadable tree is skipped and the whole thing returns None rather than
+    raising.
+    """
+    best: tuple[float, Path] | None = None
+    scanned = 0
+    for root in roots:
+        try:
+            candidates = root.rglob("*.platterpus.json")
+        except OSError:
+            continue
+        try:
+            for candidate in candidates:
+                if scanned >= _MAX_SCAN_REPORTS:
+                    log.warning(
+                        "newest-rip scan stopped at %d reports; a newer one "
+                        "beyond that was not considered",
+                        _MAX_SCAN_REPORTS,
+                    )
+                    break
+                scanned += 1
+                try:
+                    stamp = candidate.stat().st_mtime
+                except OSError:
+                    continue
+                if best is None or stamp > best[0]:
+                    best = (stamp, candidate)
+        except OSError:
+            continue
+    return best[1] if best else None
+
+
+def _pair_label(report_path: Path) -> str:
+    """A label that distinguishes two rips of the SAME disc.
+
+    The album folder plus the filename. Filename alone is useless here: two
+    passes of one disc produce identical basenames, so a message built from
+    ``.name`` reads "Album.json -> Album.json" and names neither rip. The folder
+    is the distinguishing part, which is why a rig script gives each pass its own
+    album title.
+    """
+    parent = report_path.parent.name
+    return f"{parent}/{report_path.name}" if parent else report_path.name
+
+
+@dataclass(frozen=True)
+class DiscoveredPair:
+    """The outcome of looking for two rips of one disc to compare.
+
+    ``previous``/``later`` are both set only when a comparable pair was found.
+    ``reason`` always explains the outcome, including the successful one —
+    because *"nothing to compare"* has at least four distinct causes and a
+    caller that cannot tell them apart will report the wrong one:
+
+    * no reports at all (no rip has happened, or they land elsewhere);
+    * exactly one report (a single rip — not yet a double);
+    * reports exist but none is the same disc (different albums);
+    * the same album twice but identity could not be **confirmed**, which is
+      tri-state and is NOT the same as *different discs*.
+    """
+
+    previous: Path | None
+    later: Path | None
+    reason: str
+
+    @property
+    def found(self) -> bool:
+        return self.previous is not None and self.later is not None
+
+
+def discover_pair_to_compare(roots: Sequence[Path] | None = None) -> DiscoveredPair:
+    """Find the newest rip and its best prior rip *of the same disc*.
+
+    This is what makes a double test rip one argument-less command: rip the disc
+    twice, then ask for a comparison without naming either folder. A path the
+    operator has to type is a path they can mistype, and comparing the *wrong*
+    pair still prints a confident-looking table.
+
+    Delegates the hard half to :func:`find_prior_report`, which already ranks by
+    completeness before recency and refuses to select an abandoned in-progress
+    snapshot. Nothing about "same disc" is re-decided here.
+    """
+    search_roots = list(roots) if roots is not None else default_report_roots()
+    if not search_roots:
+        return DiscoveredPair(None, None, "no rip folders exist to search")
+
+    later = newest_report(search_roots)
+    if later is None:
+        return DiscoveredPair(
+            None,
+            None,
+            "no .platterpus.json found under "
+            + ", ".join(str(r) for r in search_roots)
+            + " — either no rip has happened, or rips land somewhere else",
+        )
+
+    report = load_report(later)
+    if report is None:
+        return DiscoveredPair(
+            None, None, f"the newest report could not be read: {later}"
+        )
+    if not _disc_fields(report):
+        # Refusing to guess. An unknown-disc rip has no identity to match on, and
+        # picking "the other newest thing" would compare two different albums.
+        return DiscoveredPair(
+            None,
+            None,
+            f"the newest rip ({later.name}) carries no disc identity, so a prior "
+            "rip of the same disc cannot be identified",
+        )
+
+    previous = find_prior_report(
+        later,
+        search_roots[0],
+        current_report=report,
+        extra_roots=tuple(search_roots[1:]),
+    )
+    if previous is None:
+        return DiscoveredPair(
+            None,
+            None,
+            f"found the newest rip ({later.name}) but no earlier rip of the same "
+            "disc — a second pass has not been made, or it is not under the "
+            "searched folders",
+        )
+    # The FOLDER, not the filename. Two passes of one disc always produce the
+    # same basename -- the album title names the file -- so "Album.platterpus.json
+    # -> Album.platterpus.json" tells the operator nothing about which rip is
+    # which. The distinct thing is the directory, which is exactly why a rig
+    # script gives each pass its own album title.
+    return DiscoveredPair(
+        previous, later, f"{_pair_label(previous)} -> {_pair_label(later)}"
+    )
