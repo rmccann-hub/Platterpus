@@ -56,6 +56,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from platterpus.build_info import self_invocation
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
 from platterpus.parsers.rip_log import (
     RipLog,
@@ -1335,8 +1336,14 @@ def comparison_banner_text(comparison: object) -> tuple[str, str]:
         prefix = {"ok": "✓", "warn": "⚠", "neutral": "ⓘ"}.get(level, "ⓘ")
         text = f"{prefix} Compared to your previous rip of this disc: {summary}"
         if getattr(comparison, "differing_count", 0):
+            # The invocation the user can ACTUALLY type. There is no
+            # `platterpus` on PATH for an AppImage install, which is the primary
+            # distribution channel, so the literal string was an instruction that
+            # produces `command not found`. Same defect the cyanrip fork reported
+            # against the update dialog (round 8 lap 7 §H) — they found one
+            # instance; this was the second of five.
             text += (
-                "  Run  platterpus --compare  for the full table, or  "
+                f"  Run  {self_invocation()} --compare  for the full table, or  "
                 "--assemble-best-of  to keep the best copy of each track."
             )
         return text, level

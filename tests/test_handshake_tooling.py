@@ -1290,6 +1290,15 @@ def test_our_real_outbound_round_openers_pass_the_outbound_spec(
         num = hs.round_number(path)
         if num is None or num < first_round_held_to_the_spec:
             continue
+        # OPENERS ONLY, as the docstring above has always said — lap 1, or a
+        # grandfathered `round-N.md` with no lap in its name. The loop did not
+        # filter, and nothing noticed because every committed outbound file
+        # happened to be one until round 8, which the fork opened: our first
+        # outbound file for it is lap **2**, a mid-round reply, and holding a
+        # reply to the full-round section sweep asks it to restate a spec it is
+        # not the place for.
+        if hs.sort_key(path)[1] != 1:
+            continue
         checked += 1
         problems.extend(hs.check_outbound_paths(path))
     assert checked >= 4, (

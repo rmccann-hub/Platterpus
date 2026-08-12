@@ -134,9 +134,13 @@ class HelpDialog(CenteredDialog):
         This is the user-facing counterpart to the docs' "Last updated for vX.Y.Z"
         stamps: the in-app guide is read where git history isn't visible, so a
         visible version is a real currency signal.
+
+        ``user_guide()``, never the raw ``USER_GUIDE`` constant: the same
+        render-time reasoning applies to the guide's command examples, which name
+        *this* install rather than a program name that exists on one channel only.
         """
         return (
-            f"{help_content.USER_GUIDE}\n\n---\n\n"
+            f"{help_content.user_guide()}\n\n---\n\n"
             f"*User Guide for **Platterpus v{__version__}** "
             f"(build {build_fingerprint()}).*\n"
         )

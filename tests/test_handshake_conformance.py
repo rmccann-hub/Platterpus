@@ -472,6 +472,30 @@ def _record_with_one_open_round(root: Path) -> Path:
     return root
 
 
+def _record_with_one_closed_round(root: Path) -> Path:
+    """The mirror of :func:`_record_with_one_open_round`: one round, verdict GO.
+
+    Deliberately built the same way and differing only in the verdict, so the
+    pair isolates *the verdict* as the thing that opens and closes a round. A
+    fixture that also differed in which files exist would let a presence-only
+    gate pass both halves.
+    """
+    for sub in ("outbound", "inbound", "verified"):
+        (root / sub).mkdir(parents=True, exist_ok=True)
+    (root / "outbound" / "round-99.md").write_text("sent\n", encoding="utf-8")
+    # FULL closing headers on both, not just a verdict line: a GO that cannot
+    # close is not a close (§5), and `close_blockers` is what enforces it. A
+    # fixture carrying only the verdict would assert that the gate says yes to
+    # something the gate is right to refuse.
+    for sub, sender in (("inbound", "cyanrip-fork"), ("verified", "platterpus")):
+        (root / sub / "round-99.md").write_text(
+            _header(**{"HANDSHAKE-ROUND": "99", "HANDSHAKE-FROM": sender})
+            + "\n**GO on 5bc654d** — verified in both directions.\n",
+            encoding="utf-8",
+        )
+    return root
+
+
 def test_C19_a_stable_release_is_refused_while_any_round_is_open(
     hs: ModuleType, tmp_path: Path
 ) -> None:
@@ -490,18 +514,40 @@ def test_C19_a_stable_release_is_refused_while_any_round_is_open(
     )
 
 
-def test_C19_the_real_record_is_currently_closed_and_a_release_is_allowed(
-    hs: ModuleType,
+def test_C19_a_stable_release_is_allowed_when_every_round_is_closed(
+    hs: ModuleType, tmp_path: Path
 ) -> None:
-    """The companion the fixture cannot give: the gate says YES when it should.
+    """The companion half: a refusal test alone passes against a gate that
+    refuses everything.
 
-    A refusal test alone passes against a gate that refuses everything. This is
-    the other half, and it is run against the real record on purpose — it is the
-    statement that Platterpus may cut a stable release right now, which is a fact
-    about the project and not about a fixture.
+    **Moved off the real record, 2026-08-12.** It used to assert *"Platterpus may
+    cut a stable release right now"*, which was true when written (round 7 had
+    just closed) and is a statement about today rather than about the gate. Round
+    8 opened and it failed — correctly reporting reality, and uselessly, because
+    the property under test is *the gate can say yes*, not *the project is
+    currently releasable*. That is the "a test that asserts today's state is a
+    test that fails on progress" shape `round_status` already warns about, and
+    the sibling above had already been re-pointed at a fixture for exactly this
+    reason.
     """
-    assert [ln for ln in hs.round_status() if ln.endswith("OPEN")] == []
-    assert hs.main(["--release-gate"]) == 0
+    root = _record_with_one_closed_round(tmp_path / "handshake")
+    assert [ln for ln in hs.round_status(root) if ln.endswith("OPEN")] == []
+    assert hs.main(["--release-gate", "--handshake-dir", str(root)]) == 0
+
+
+def test_C19_the_gate_agrees_with_the_real_record(hs: ModuleType) -> None:
+    """What the real record can still be asked, without pinning today's answer.
+
+    Whether Platterpus is releasable changes; that the gate's verdict *matches
+    its own status report* does not. Keeping this against the real record means a
+    gate that ignored the record entirely — the failure mode both C19 halves
+    exist for — still fails here whichever way the project happens to stand.
+    """
+    open_rounds = [ln for ln in hs.round_status() if ln.endswith("OPEN")]
+    expected = 1 if open_rounds else 0
+    assert hs.main(["--release-gate"]) == expected, (
+        f"the gate and the status report disagree: open rounds {open_rounds}"
+    )
 
 
 def test_C20_a_prerelease_is_allowed_and_prints_every_open_round(

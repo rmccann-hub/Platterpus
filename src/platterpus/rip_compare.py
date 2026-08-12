@@ -38,9 +38,11 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from platterpus.build_info import self_invocation
 from platterpus.paths import LOG_PATH
 
 log = logging.getLogger(__name__)
+
 
 # Cap on how many report files a library scan will load, so discovery can't
 # stall on a pathologically huge library. One report per album, and loading a
@@ -902,8 +904,9 @@ def find_prior_report(
                         "prior-rip scan ignoring %s: its outcome is still "
                         "'in_progress', so it is an abandoned mid-rip snapshot "
                         "rather than a finished rip. Compare against it "
-                        "deliberately with: platterpus --compare <that file> "
+                        "deliberately with: %s --compare <that file> "
                         "<this rip's report>",
+                        self_invocation(),
                         candidate,
                     )
                     continue

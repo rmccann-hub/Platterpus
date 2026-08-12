@@ -643,3 +643,87 @@ def test_the_verify_error_names_the_banner_it_ACTUALLY_saw() -> None:
         "the vcs_tag-fallback case has a specific cause and deserves its own "
         "sentence — a user should not need to know meson internals to act on it"
     )
+
+
+# --- the release gate's floor ------------------------------------------------
+
+
+def test_an_in_flight_round_with_no_committed_files_is_still_OPEN(
+    tmp_path: Path,
+) -> None:
+    """The state that let four releases out during round 8.
+
+    Round 8 ran for seven laps with its files uncommitted. `round-*.md` found
+    nothing for it, so the gate reported every *filed* round CLOSED and allowed
+    a release — and it was not wrong about anything it could see. The
+    empty-record branch did not fire either: it only triggers when there are **no**
+    rounds at all, and rounds 1-7 were sitting right there.
+
+    So the defect is the empty-record one arriving a level up — an in-flight round
+    with no files is indistinguishable from no round — and `CURRENT_ROUND` is the
+    floor that closes it. This test builds exactly that world: every round below
+    the current one filed and CLOSED, the current one absent.
+    """
+    handshake = _handshake()
+    for name in ("outbound", "inbound", "verified"):
+        (tmp_path / name).mkdir()
+    for number in range(1, handshake.CURRENT_ROUND):
+        for name in ("outbound", "inbound", "verified"):
+            sender = "cyanrip" if name == "inbound" else "platterpus"
+            (tmp_path / name / f"round-{number}.md").write_text(
+                f"HANDSHAKE-ROUND: {number}\n"
+                "HANDSHAKE-LAP: 1\n"
+                f"HANDSHAKE-FROM: {sender}\n"
+                "HANDSHAKE-VERDICT: GO\n\n**GO on ddf7ac3**\n",
+                encoding="utf-8",
+            )
+
+    lines = handshake.round_status(tmp_path, floor=handshake.CURRENT_ROUND)
+    current = [ln for ln in lines if ln.startswith(f"round-{handshake.CURRENT_ROUND}:")]
+    assert current, (
+        f"round {handshake.CURRENT_ROUND} vanished from the status report because "
+        "it has no files — which is the entire bug"
+    )
+    assert "OPEN" in current[0], current[0]
+    assert any("do not release" in ln for ln in lines), lines
+
+
+def test_the_floor_does_not_make_every_round_open(tmp_path: Path) -> None:
+    """The companion question: can this be satisfied by the wrong thing?
+
+    A floor that reported OPEN unconditionally would pass the test above while
+    making the gate useless — every round open forever, and the first person to
+    need a release would delete the check. Rounds below the current one must
+    still be able to close.
+    """
+    handshake = _handshake()
+    for name in ("outbound", "inbound", "verified"):
+        (tmp_path / name).mkdir()
+        sender = "cyanrip" if name == "inbound" else "platterpus"
+        (tmp_path / name / "round-1.md").write_text(
+            "HANDSHAKE-ROUND: 1\nHANDSHAKE-LAP: 1\n"
+            f"HANDSHAKE-FROM: {sender}\nHANDSHAKE-VERDICT: GO\n\n**GO on ddf7ac3**\n",
+            encoding="utf-8",
+        )
+    lines = handshake.round_status(tmp_path)
+    assert any(ln.startswith("round-1:") and "CLOSED" in ln for ln in lines), lines
+
+
+def test_the_floor_tracks_the_newest_round_on_disk() -> None:
+    """`CURRENT_ROUND` is maintained by hand, so it can go stale. Staleness in the
+    safe direction (too low relative to reality) is the dangerous one — that is
+    the invisible-round bug returning — so pin it against the record: the floor
+    must be at least the highest round anyone has filed a file for."""
+    handshake = _handshake()
+    base = REPO_ROOT / "docs" / "handshake"
+    filed = {
+        number
+        for name in ("outbound", "inbound", "verified")
+        for path in (base / name).glob("round-*.md")
+        if (number := handshake.round_number(path)) is not None
+    }
+    assert filed, "no handshake files at all — this test is measuring nothing"
+    assert handshake.CURRENT_ROUND >= max(filed), (
+        f"CURRENT_ROUND is {handshake.CURRENT_ROUND} but round {max(filed)} has "
+        "files on disk; bump it or the newer round is invisible to the gate"
+    )
