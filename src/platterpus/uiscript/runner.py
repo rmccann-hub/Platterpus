@@ -239,6 +239,35 @@ class _RigCheckJob:
     error: str = ""
 
 
+def _preflight(steps: list[Step]) -> list[str]:
+    """Every `cyanrip` step the sanitiser will refuse, found before step 1 runs.
+
+    Pure, and it reruns the **real** sanitiser rather than a summary of its
+    rules — a second description of what is refused would drift from the guard
+    the first time either changed, and the wrong copy is the one the operator
+    would be reading.
+
+    Why it exists: a refusal is a run-time outcome, so on a 60-step hardware
+    batch the operator learns about it forty minutes in, next to a drive, with
+    the disc pass already spent. Every fact needed was in the file before the run
+    started. Found while validating the cyanrip fork's returned round-8 script:
+    three of their six ripper tests would have been refused, and nothing would
+    have said so until each one's turn came round.
+
+    Does **not** filter or reorder the run. The refused steps still execute and
+    still record their own failures in place; this only moves the *notice*
+    earlier.
+    """
+    problems: list[str] = []
+    for step in steps:
+        if step.verb != "cyanrip" or not step.ok:
+            continue
+        refusal = sanitise_cyanrip_args(list(step.args))
+        if refusal is not None:
+            problems.append(f"L{step.line_no}: {step.source} — {refusal}")
+    return problems
+
+
 class ScriptRunner(QObject):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.
 
@@ -313,12 +342,17 @@ class ScriptRunner(QObject):
             started_at=datetime.now(UTC).isoformat(timespec="seconds"),
             app_version=__version__,
             script_source=source,
+            preflight=_preflight(self._steps),
         )
         log.info(
             "ui script run starting: %d step(s), unsafe verbs %s",
             len(self._steps),
             "ALLOWED" if unsafe_allowed else "refused",
         )
+        for problem in self._report.preflight:
+            # WARNING, not debug: this is a finding about the batch about to run,
+            # and it must be in the log file a bug report carries.
+            log.warning("ui script preflight: %s", problem)
         self._timer.start()
 
     def stop(self, reason: str = "stopped by the user") -> None:
