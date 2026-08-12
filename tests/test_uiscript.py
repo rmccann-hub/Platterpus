@@ -593,3 +593,79 @@ def test_a_rip_is_still_refused_after_the_exemption_was_added() -> None:
     the whole sanitiser was written to close."""
     refusal = script_mod.sanitise_cyanrip_args(["-d", "/dev/sr0", "-o", "flac"])
     assert refusal is not None and "-N" in refusal
+
+
+# --- preflight: say it before the disc pass, not forty minutes in ------------
+
+
+def _preflight_for(text: str) -> list[str]:
+    from platterpus.uiscript.runner import _preflight
+
+    return _preflight(script_mod.parse(text))
+
+
+def test_preflight_names_every_step_that_will_be_refused() -> None:
+    """The whole point: the operator learns before step 1, not on the drive."""
+    problems = _preflight_for(
+        "log start\n"
+        "cyanrip --version\n"
+        "cyanrip -d /dev/sr0 -o flac\n"
+        "cyanrip -N -d /dev/sr0 -t 1\n"
+    )
+    assert len(problems) == 2, problems
+    assert any("L3" in p and "-N" in p for p in problems)
+    assert any("L4" in p and "=" in p for p in problems)
+
+
+def test_preflight_is_silent_on_a_clean_script() -> None:
+    """The floor, from the other side. A preflight that reported something for
+    every script would be noise, and noise at the top of a transcript is scrolled
+    past — which is the same as not being there."""
+    assert _preflight_for("cyanrip --version\ncyanrip -N -d /dev/sr0 -x") == []
+
+
+def test_preflight_reruns_the_real_sanitiser_rather_than_describing_it() -> None:
+    """A second description of what is refused would drift from the guard the
+    first time either changed, and the copy the operator reads is the one that
+    would be wrong. Asserted structurally because the alternative — a comment
+    claiming they agree — is the shape this project keeps paying for."""
+    import inspect
+
+    from platterpus.uiscript.runner import _preflight
+
+    src = inspect.getsource(_preflight)
+    assert "sanitise_cyanrip_args(" in src
+
+
+def test_preflight_does_not_filter_the_run() -> None:
+    """It moves the *notice* earlier, nothing else. Dropping the refused steps
+    would lose their per-step failure rows, and a transcript that never mentions
+    a step is indistinguishable from a script that never contained it."""
+    steps = script_mod.parse("cyanrip -d /dev/sr0 -o flac\nlog after\n")
+    from platterpus.uiscript.runner import _preflight
+
+    assert len(_preflight(steps)) == 1
+    assert len(steps) == 2, "preflight must not consume steps"
+
+
+def test_the_transcript_puts_the_preflight_above_the_steps() -> None:
+    """Below the step list it would be read after the thing it was meant to
+    prevent."""
+    report = RunReport(
+        started_at="2026-08-12T00:00:00+00:00",
+        app_version="test",
+        preflight=["L3: cyanrip -d /dev/sr0 — refused: no -N"],
+    )
+    report.steps.append(StepRecord(3, "cyanrip -d /dev/sr0", Outcome.FAIL, "refused"))
+    text = report_mod.render(report)
+    assert "will be refused" in text
+    assert text.index("L3: cyanrip -d /dev/sr0 — refused: no -N") < text.index(
+        "[ FAIL "
+    )
+
+
+def test_the_preflight_survives_into_the_json() -> None:
+    """The transcript is pasted; the JSON is what a machine reads. A finding in
+    only one of them is a finding half the consumers cannot see."""
+    report = RunReport(started_at="t", app_version="v", preflight=["L1: nope"])
+    assert report.as_dict()["preflight"] == ["L1: nope"]

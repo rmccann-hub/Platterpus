@@ -58,6 +58,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `takes_paths` per verb so the prose and the JSON cannot disagree.
 
 ### Added
+- **A script now says which ripper steps will be refused *before* step 1 runs.**
+  A sanitiser refusal is a run-time outcome, so on a 60-step hardware batch the
+  operator found out forty minutes in, standing next to a drive, with the disc
+  pass already spent — while every fact needed was in the file before the run
+  started. The findings go to the log at `WARNING`, to the top of the transcript
+  above the step list, and into the run JSON. The run is not filtered or
+  reordered: refused steps still execute and still record their own failure rows.
 - `tests/test_self_invocation_sweep.py` — the fork found **one** instance; the
   sweep found **seven**, which is why this is enforced across the package rather
   than fixed at the site it was learned. It AST-walks every module, ignores
