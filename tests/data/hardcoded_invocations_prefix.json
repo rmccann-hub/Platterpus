@@ -1,0 +1,41 @@
+{
+  "source_commit": "7ead4f3634e6394ce07c294d658413e99eb18ea2",
+  "note": "Verbatim excerpts of the user-facing strings that hardcoded an invocation, taken from the named commit by scripts/../tests fixture generator. Corpus for the sweep's revert-proof.",
+  "instances": [
+    {
+      "file": "src/platterpus/deps/ripper_offer.py",
+      "line": 96,
+      "excerpt": "platterpus --install-ripper "
+    },
+    {
+      "file": "src/platterpus/ui/rip_progress.py",
+      "line": 1339,
+      "excerpt": "  Run  platterpus --compare  for the full table, or  --assemble-best-o"
+    },
+    {
+      "file": "src/platterpus/ctdb/verify.py",
+      "line": 198,
+      "excerpt": "AccurateRip is the authority here. Run `platterpus --ctdb-calibrate <folder>` to pin the algorithm."
+    },
+    {
+      "file": "src/platterpus/rip_compare.py",
+      "line": 902,
+      "excerpt": ". Compare against it deliberately with: platterpus --compare <that file> <this rip's report>"
+    },
+    {
+      "file": "src/platterpus/help_content.py",
+      "line": 22,
+      "excerpt": "From a terminal (or the AppImage):\n\n    platterpus --compare previous.platterpus.json later.platterpus."
+    },
+    {
+      "file": "src/platterpus/help_content.py",
+      "line": 22,
+      "excerpt": "e — your originals are untouched):\n\n    platterpus --assemble-best-of BestOf/ rip1.platterpus.json rip2"
+    },
+    {
+      "file": "src/platterpus/help_content.py",
+      "line": 22,
+      "excerpt": " library at once, from a terminal:\n\n    ./platterpus-x86_64.AppImage --audit-rips ~/Music/rips/\n\nIt is **read-only** — it"
+    }
+  ]
+}

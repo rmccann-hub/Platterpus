@@ -16,9 +16,19 @@ ISSUES_URL: str = f"{REPO_URL}/issues"
 LICENSE_NAME: str = "GPL-3.0-only"
 TAGLINE: str = "EAC-equivalent archival-quality audio-CD ripping for Linux."
 
+#: The token every command example in the guide uses in place of a hardcoded
+#: program name. Substituted at render time by :func:`user_guide` — see there for
+#: why a literal ``platterpus`` was a real, operator-blocking bug and not a
+#: cosmetic one. Chosen to be visibly not-a-command so a reader of the raw string
+#: cannot mistake it for one; the guide contains no other braces, but the
+#: substitution is a plain ``str.replace`` rather than ``.format`` so that adding
+#: some later cannot turn the whole guide into a formatting error.
+INVOCATION_TOKEN: str = "{cmd}"
+
 # The user guide, rendered as Markdown by HelpDialog. Keep it task-oriented and
 # in step with the actual UI — when a feature changes, update the relevant
-# section here too.
+# section here too. Command examples use INVOCATION_TOKEN, never a literal
+# program name: render with `user_guide()`, not this constant.
 USER_GUIDE: str = """\
 # Platterpus — User Guide
 
@@ -127,9 +137,10 @@ report**.
 
 Because each `.platterpus.json` records every track's checksum, you can compare
 two rips of the *same disc* and see exactly what changed — the app can't do this
-from memory, but the reports remember it. From a terminal (or the AppImage):
+from memory, but the reports remember it. From a terminal, run **this** copy of
+Platterpus:
 
-    platterpus --compare previous.platterpus.json later.platterpus.json
+    {cmd} --compare previous.platterpus.json later.platterpus.json
 
 It prints a track-by-track table: which tracks are byte-for-byte identical, which
 differ, and — for the ones that differ — **which rip is the better master** (an
@@ -139,7 +150,7 @@ track that quietly regressed on a re-rip even though nothing looked wrong.
 If a re-rip wins on some tracks and loses on others, assemble the best of both
 into a new folder (non-destructive — your originals are untouched):
 
-    platterpus --assemble-best-of BestOf/ rip1.platterpus.json rip2.platterpus.json
+    {cmd} --assemble-best-of BestOf/ rip1.platterpus.json rip2.platterpus.json
 
 ## Unknown discs
 
@@ -431,7 +442,7 @@ it is already there.
 
 To check a whole library at once, from a terminal:
 
-    ./platterpus-x86_64.AppImage --audit-rips ~/Music/rips/
+    {cmd} --audit-rips ~/Music/rips/
 
 It is **read-only** — it opens files and prints; it never moves, deletes or
 re-rips anything. Per album it answers:
@@ -490,3 +501,27 @@ an older commit is rebuilt rather than accepted.
 - Dependencies (cyanrip, MusicBrainz Picard, etc.) are checked automatically at
   launch and from the Settings dialog.
 """
+
+
+def user_guide() -> str:
+    """The user guide with every command example naming *this* install.
+
+    **Why the guide is a template rather than finished text.** It used to print
+    ``platterpus --compare …`` and ``./platterpus-x86_64.AppImage --audit-rips …``
+    literally. Each of those is correct for exactly one distribution channel and
+    produces ``command not found`` on the other: there is no ``platterpus`` on
+    ``PATH`` for an AppImage user, and an AppImage user's file is rarely at the
+    path the second example hardcodes. Since the AppImage is this project's
+    *primary* channel, the guide's own worked examples were broken for most of
+    the people reading them — the cyanrip fork reported the same string in the
+    update dialog as the only thing that had actually blocked the operator, twice
+    (round 8 lap 7 §H).
+
+    :func:`build_info.self_invocation` resolves the token that works here, so the
+    reader can copy the line out of the dialog and have it run. Imported inside
+    the function to keep this module import-light and free of import cycles — it
+    is also imported by tooling that has no reason to load ``build_info``.
+    """
+    from platterpus.build_info import self_invocation
+
+    return USER_GUIDE.replace(INVOCATION_TOKEN, self_invocation())

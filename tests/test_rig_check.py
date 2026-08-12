@@ -196,7 +196,9 @@ class TestScriptVerb:
         # Rest-of-line, not one token. See the arity test below for why.
         assert verb.max_args is None
 
-    def test_an_album_path_with_spaces_parses_without_quoting(self) -> None:
+    def test_an_album_path_with_spaces_parses_without_quoting(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """A real album folder has spaces, and the verb must take it unquoted.
 
         Declared as ``max_args=1`` this verb rejected every genuine path with an
@@ -207,12 +209,21 @@ class TestScriptVerb:
 
         The regression is pinned on the PARSER, not on the handler, because the
         failure happened at parse time: the step never reached the handler at all.
+
+        The ``~`` is now expanded at parse time as well (see
+        ``test_uiscript.py`` — a literal tilde reached the ripper and produced a
+        *plausible* failure). Both facts are asserted here because they are the
+        two halves of "the path a person actually types arrives usable": the
+        spaces survive the tokeniser, and the home reference resolves.
         """
         from platterpus.uiscript.script import parse
 
+        monkeypatch.setenv("HOME", "/home/rig")
         step = parse("rig-check ~/Music/The Police/Every Breath You Take (pass 1)")[0]
         assert step.error == "", step.error
-        assert step.joined() == "~/Music/The Police/Every Breath You Take (pass 1)"
+        assert (
+            step.joined() == "/home/rig/Music/The Police/Every Breath You Take (pass 1)"
+        )
 
     def test_the_runner_has_a_handler_for_it(self) -> None:
         """`tests/test_uiscript.py` sweeps this too; asserted here as well so a

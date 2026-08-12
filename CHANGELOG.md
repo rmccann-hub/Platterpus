@@ -11,6 +11,61 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.12] — 2026-08-12
+
+### Fixed
+- **Every command Platterpus told you to type was wrong for AppImage users —
+  seven strings, five modules.** The update dialog printed
+  `platterpus --install-ripper <sha>`, the re-rip banner printed
+  `platterpus --compare`, the CTDB no-match hint printed
+  `platterpus --ctdb-calibrate`, and the User Guide printed three more (one of
+  them a hardcoded `./platterpus-x86_64.AppImage` path). There is no `platterpus`
+  on `PATH` for an AppImage install — the project's **primary** distribution
+  channel — so each of those produced `bash: platterpus: command not found`. The
+  cyanrip fork reported the update-dialog one as *the only thing that has
+  actually blocked the operator, twice* (round 8 lap 7 §H). Every such string now
+  goes through `build_info.self_invocation()`, which returns the absolute path of
+  the running AppImage (quoted when it contains a space) and `platterpus`
+  otherwise, so the line can be copied out of the window and run.
+- The User Guide is now rendered by `help_content.user_guide()` rather than read
+  as a constant, so its worked examples name the install you are actually using.
+- **A `~/` path in a script reached the ripper as a literal tilde.** Nothing in
+  the pipeline expanded it, so `cyanrip --verify-log ~/Music/…/rip.log` asked the
+  ripper to open a file whose name starts with `~` — and the resulting failure is
+  *plausible*, which is the dangerous part: a test asserting `expect-exit 1` goes
+  green having proved nothing. A leading `~/` is now expanded in the arguments of
+  the path-taking verbs (`set`, `cyanrip`, `rig-check`), **quoted or not**. That
+  last part deliberately differs from a shell, where `"~/x"` stays literal: real
+  album folders under `~/Music` need quoting *and* expanding, and following the
+  shell would mean losing one to gain the other, silently either way. Free-text
+  verbs (`log`, `expect-cyanrip`) are untouched — those carry match patterns, and
+  rewriting a pattern changes what an assertion asserts.
+- **`cyanrip --verify-log <path>` was refused from a script while the app itself
+  ran exactly that argv.** `adapters/ripper_log_verify` has built
+  `[cyanrip, --verify-log, <path>]` with no `-N` since v0.6.x, correctly — there
+  is no metadata lookup to disable on a path that only checksums a text file — so
+  the script surface could not test what the product does. The exemption is keyed
+  on the fork's own published contract, which lists `-Y`/`--verify-log` under
+  *Misc. options* (the same structural evidence that took `-x`/`-j` *out* of the
+  probe set in 0.6.10), and it matches the **shape**, not the flag: exactly the
+  flag plus one non-flag operand. `--verify-log x.log -d /dev/sr0` stays refused.
+
+### Changed
+- `docs/script-language.md` (generated) described the grammar as **"not
+  quoted"**, which was never true — the tokeniser has always grouped a
+  double-quoted value, and there is a test for it. The Syntax section now
+  documents quoting and `~` expansion, and the machine half of the page carries
+  `takes_paths` per verb so the prose and the JSON cannot disagree.
+
+### Added
+- `tests/test_self_invocation_sweep.py` — the fork found **one** instance; the
+  sweep found **seven**, which is why this is enforced across the package rather
+  than fixed at the site it was learned. It AST-walks every module, ignores
+  docstrings (so the bug can still be *described* in code), and is revert-proved
+  against `tests/data/hardcoded_invocations_prefix.json` — the seven pre-fix
+  strings, generated verbatim from the blobs and carrying the commit they came
+  from, so a weakened detector fails instead of passing by finding nothing.
+
 ## [0.6.11] — 2026-08-11
 
 ### Fixed
@@ -5251,7 +5306,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.11.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7493,7 +7548,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.11...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12...HEAD
+[0.6.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.11...v0.6.12
 [0.6.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.10...v0.6.11
 [0.6.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.9...v0.6.10
 [0.6.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.8...v0.6.9
@@ -7587,4 +7643,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.11.*
+*Last updated for Platterpus v0.6.12.*

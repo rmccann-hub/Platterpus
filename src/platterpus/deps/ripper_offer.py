@@ -30,6 +30,7 @@ import logging
 from dataclasses import dataclass
 from typing import Final
 
+from platterpus.build_info import self_invocation
 from platterpus.deps import fork_source
 from platterpus.deps.ripper_manifest import (
     CHANNEL_BETA,
@@ -93,7 +94,13 @@ def _install_hint(release: RipperRelease) -> str:
     build dependency changes. A copied shell snippet would be a second description of
     the install and would drift the first time it did.
     """
-    return f"platterpus --install-ripper {release.commit}"
+    # `self_invocation()`, NOT the literal "platterpus". There is no `platterpus`
+    # on PATH for an AppImage user — the project's PRIMARY distribution channel —
+    # so this string used to hand them a command that produces
+    # `bash: platterpus: command not found`. Reported by the cyanrip fork as the
+    # only thing that had actually blocked the operator, and it blocked them
+    # TWICE, which is what a broken instruction does: it does not teach.
+    return f"{self_invocation()} --install-ripper {release.commit}"
 
 
 def evaluate_offer(

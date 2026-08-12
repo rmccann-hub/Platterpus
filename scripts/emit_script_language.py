@@ -69,6 +69,7 @@ def _verb_rows() -> list[dict[str, Any]]:
                 # value a machine reader has to know to special-case.
                 "max_args": verb.max_args,
                 "unsafe": verb.unsafe,
+                "takes_paths": verb.takes_paths,
                 "implemented": verb.implemented,
                 "help": verb.help,
             }
@@ -171,13 +172,31 @@ def _document() -> str:
     add("objects, so they cannot disagree with each other either.")
     add("")
 
+    path_verbs = ", ".join(f"`{v['name']}`" for v in verbs if v["takes_paths"])
     add("## Syntax")
     add("")
     add("One statement per line. `#` starts a comment; blank lines are ignored.")
-    add("Arguments are separated by whitespace and are **not quoted** — the verbs")
-    add("that take free text swallow the rest of the line instead, which is why")
-    add("`album Synchronicity (rig pass 1)` needs no quoting. Verb names are")
-    add("matched case-insensitively.")
+    add("Arguments are separated by whitespace. Verb names are matched")
+    add("case-insensitively.")
+    add("")
+    add("Most values need no quoting: the verbs that take free text swallow the")
+    add("rest of the line, which is why `album Synchronicity (rig pass 1)` works")
+    add("as typed. **Double quotes group one value** when a verb takes a fixed")
+    add("number of arguments and one of them contains spaces — a `--verify-log`")
+    add("path under `~/Music/The Police/…` being the case that keeps arising. A")
+    add("`#` inside quotes is part of the value, not a comment; an unterminated")
+    add("quote is reported against its own line.")
+    add("")
+    add("**A leading `~/` is expanded to your home directory** in the arguments")
+    add(f"of the path-taking verbs ({path_verbs}) — quoted or not.")
+    add("")
+    add('That last part is a deliberate difference from a shell, where `"~/x"`')
+    add("stays literal. The path that needs quoting is usually the same path that")
+    add("needs expanding, so following the shell here would mean losing one to")
+    add("gain the other, and both losses are silent. Free-text verbs such as")
+    add("`log` and `expect-cyanrip` are left alone — those carry messages and")
+    add("match patterns, and rewriting a pattern changes what an assertion")
+    add("asserts. `~user/` is not supported.")
     add("")
     add("A step that fails is recorded and the batch **continues**; only `abort`")
     add("stops it. That is deliberate for an unattended run: stopping at the first")
