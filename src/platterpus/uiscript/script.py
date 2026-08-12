@@ -13,10 +13,15 @@ whole session.
 (``FLAC — Lossless Archival Master [Recommended]``), so double quotes group a
 value. Everything else is whitespace-split. An unterminated quote is reported
 against its line rather than swallowing the rest of the file.
+
+**``~`` is expanded, quoted or not** — see :func:`expand_home`. This is the one
+place the language deliberately differs from a shell, and the difference exists
+because the case that actually occurs is a path that needs *both*.
 """
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 
@@ -95,6 +100,39 @@ def _tokenise(text: str) -> tuple[list[str], str]:
     return tokens, ""
 
 
+def expand_home(token: str) -> str:
+    """Expand a leading ``~/`` (or a lone ``~``) to the running user's home.
+
+    **Why the language does this at all.** A script is written by a person who
+    just came from a terminal, and every path they know is spelled ``~/Music/…``.
+    Nothing else in this pipeline expands it: the token is handed to the ripper
+    as-is, and a tool asked to open a file literally named ``~/Music/…`` fails —
+    with a *plausible* error. That is the dangerous part. The cyanrip fork's
+    round-8 ``--verify-log`` test asserts only ``expect-exit 1``, so "refused a
+    foreign log" (what it means to prove) and "could not open that path" (what it
+    would actually have proved) are the same green tick. A check satisfied by the
+    wrong thing.
+
+    **Why quoted tokens expand too, unlike a shell.** In bash ``"~/x"`` stays
+    literal. Following that here would break the exact case that produced this
+    function — a path containing *both* a home reference and spaces, which is
+    every real album folder under ``~/Music``. The operator would quote it to
+    survive the tokeniser and lose the expansion in the same move, with no error
+    either time. Quoting in this language means "this is one value", nothing more.
+
+    ``~user/`` is deliberately **not** supported: an unattended rig script runs as
+    one person, and a silent fallback for an unknown user is a worse answer than
+    a path that visibly fails. Never raises — ``os.path.expanduser`` returns its
+    input unchanged when ``$HOME`` cannot be resolved, and so do we.
+    """
+    if token != "~" and not token.startswith("~/"):
+        return token
+    try:
+        return os.path.expanduser(token)
+    except (OSError, RuntimeError, KeyError):  # pragma: no cover — defensive
+        return token
+
+
 def _strip_comment(line: str) -> str:
     """Remove a trailing ``#`` comment, respecting quotes.
 
@@ -154,6 +192,12 @@ def parse(text: str) -> list[Step]:
             )
             continue
         args = tuple(tokens[1:])
+        if spec.takes_paths:
+            # Per verb, not per token: the free-text verbs carry messages and
+            # match patterns, and rewriting one of those would quietly turn an
+            # assertion into a different assertion. `Verb.takes_paths` is where a
+            # reader can see the whole set at once.
+            args = tuple(expand_home(arg) for arg in args)
         arity = spec.arity_problem(len(args))
         if arity:
             steps.append(Step(number, body, verb=name, args=args, error=arity))
@@ -217,7 +261,7 @@ def sanitise_cyanrip_args(args: list[str]) -> str | None:
     # contract, and taking each from its own home keeps that distinction visible.
     from platterpus.adapters.cyanrip_backend import assert_metadata_lookup_disabled
     from platterpus.adapters.rip_backend import RipError
-    from platterpus.uiscript.verbs import PROBE_FLAGS
+    from platterpus.uiscript.verbs import FILE_ONLY_FLAGS, PROBE_FLAGS
 
     if len(args) > 64:
         return f"{len(args)} arguments is not a command line; the limit is 64"
@@ -238,6 +282,16 @@ def sanitise_cyanrip_args(args: list[str]) -> str | None:
     # A probe is a property of the entire argv: every argument must be one.
     if args and all(arg in PROBE_FLAGS for arg in args):
         return None  # a probe: prints and exits, never looks up metadata
+
+    # A read-a-file-and-report invocation: exactly the flag and its one operand,
+    # nothing else. The shape is checked, not just the flag — `--verify-log x -d
+    # /dev/sr0` must stay refused, and an exemption keyed on "contains the flag"
+    # is the same `any`-instead-of-`all` mistake one level up. The application's
+    # own `ripper_log_verify` adapter builds precisely this argv, without `-N`,
+    # once per rip; refusing it from a script meant the script surface could not
+    # test what the product does.
+    if len(args) == 2 and args[0] in FILE_ONLY_FLAGS and not args[1].startswith("-"):
+        return None
 
     try:
         assert_metadata_lookup_disabled(["cyanrip", *args])

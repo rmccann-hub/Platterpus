@@ -36,7 +36,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from platterpus.cyanrip_cli import VERSION_FLAGS
+from platterpus.cyanrip_cli import VERIFY_LOG_FLAG, VERSION_FLAGS
 
 
 @dataclass(frozen=True)
@@ -59,6 +59,14 @@ class Verb:
     max_args: int | None
     help: str
     unsafe: bool = False
+    #: True when this verb's arguments can be filesystem paths, so a leading
+    #: ``~/`` is expanded at parse time. Declared per verb rather than applied to
+    #: every token because the free-text verbs (``log``, ``expect-cyanrip``) carry
+    #: *messages and match patterns*, and silently rewriting one of those would
+    #: turn an assertion into a different assertion. See
+    #: :func:`platterpus.uiscript.script.expand_home` for why the expansion has to
+    #: happen at all.
+    takes_paths: bool = False
     #: False while the runner has no handler for this verb yet. The table is what
     #: the console's reference renders, so an advertised verb with no
     #: implementation would offer a user a command that fails at RUN time —
@@ -135,6 +143,7 @@ _VERB_LIST: tuple[Verb, ...] = (
         None,
         "set <config-field> <value> — change a setting (validated, then saved); "
         "booleans take on/off",
+        takes_paths=True,
     ),
     Verb(
         "expect",
@@ -204,6 +213,7 @@ _VERB_LIST: tuple[Verb, ...] = (
         None,
         "cyanrip <args…> — run the host-exported ripper for real and capture "
         "its exit code, exact argv and complete output",
+        takes_paths=True,
     ),
     Verb(
         "expect-cyanrip",
@@ -230,6 +240,7 @@ _VERB_LIST: tuple[Verb, ...] = (
         "rig-check [album-folder] — run the seam check the cyanrip fork asked "
         "for: compose a real rip's argv, read it back out of the ripper's own -j "
         "record, classify the build, and parse the album's log. Read-only",
+        takes_paths=True,
     ),
     # --- The escape hatch ----------------------------------------------------
     Verb(
@@ -333,3 +344,27 @@ def verb_reference() -> str:
 #: `tests/test_cyanrip_version_flag.py` refuses a second copy, and it caught this
 #: line the moment it was written — the gate working exactly as intended.
 PROBE_FLAGS: frozenset[str] = frozenset({*VERSION_FLAGS, "-v", "--help", "-h"})
+
+#: Flags that read a **file we name** and report on it, then exit — no disc, no
+#: metadata, no audio. Unlike :data:`PROBE_FLAGS` these take exactly one operand,
+#: so they cannot be recognised by "every argument is a probe flag".
+#:
+#: **Why this set exists at all.** The application's own adapter has invoked
+#: ``[cyanrip, --verify-log, <path>]`` — with no ``-N`` — once per rip since
+#: v0.6.x (:mod:`platterpus.adapters.ripper_log_verify`), and correctly: there is
+#: no lookup to disable on a path that only checksums a text file. The script
+#: surface refused the identical argv, so the same invocation was legitimate from
+#: our code and forbidden from a test of our code. That asymmetry is what the
+#: cyanrip fork's round-8 C6 test walked into.
+#:
+#: **The evidence, not the reasoning.** Their published provider contract lists
+#: ``-Y`` / ``--verify-log`` under ``### Misc. options`` — the same structural
+#: test that took ``-x`` and ``-j`` *out* of :data:`PROBE_FLAGS`, where the
+#: contract had them under ``### Ripping options``. The contract is the authority
+#: on which side of that line a flag sits; a plausible argument about what a flag
+#: "obviously" does is how the last exemption got it backwards.
+#:
+#: Narrow on purpose: the exemption applies only to an argv that is *exactly*
+#: one of these plus one non-flag operand. ``--verify-log x.log -d /dev/sr0`` is
+#: not covered and never will be.
+FILE_ONLY_FLAGS: frozenset[str] = frozenset({VERIFY_LOG_FLAG, "-Y"})

@@ -457,3 +457,215 @@ def test_the_reference_marks_unimplemented_verbs_in_capitals() -> None:
         # written to guard against sloppiness.
         line = next(ln for ln in text.splitlines() if ln.strip().startswith(name + " "))
         assert "NOT YET IMPLEMENTED" in line, f"{name} is advertised as working"
+
+
+# --- ~ in a path -------------------------------------------------------------
+#
+# Found by validating the cyanrip fork's returned round-8 joint script: their C6
+# test passes `--verify-log ~/Music/…` with a path that contains both a home
+# reference and spaces. Nothing downstream expanded the `~`, so cyanrip would
+# have been handed a file name starting with a literal tilde, failed to open it,
+# and exited 1 — which is exactly what the test asserts. It would have gone green
+# while proving nothing about foreign-log refusal.
+
+
+def test_a_tilde_path_reaches_the_ripper_expanded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HOME", "/home/rig")
+    steps = script_mod.parse("cyanrip -N --verify-log ~/Music/rip.log")
+    assert steps[0].args == ("-N", "--verify-log", "/home/rig/Music/rip.log")
+
+
+def test_quoting_a_path_does_not_cost_you_the_expansion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The case that actually occurs, and the reason this diverges from a shell.
+
+    Every real album folder under ``~/Music`` has spaces in it, so the operator
+    must quote — and in bash quoting is precisely what makes ``~`` literal. Both
+    spellings would fail silently, in opposite ways.
+    """
+    monkeypatch.setenv("HOME", "/home/rig")
+    steps = script_mod.parse('rig-check "~/Music/The Police/Every Breath - Archive"')
+    assert steps[0].args == ("/home/rig/Music/The Police/Every Breath - Archive",)
+
+
+def test_free_text_verbs_keep_their_tilde(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The floor on the blast radius. `expect-cyanrip` carries a MATCH PATTERN,
+    and rewriting one would turn an assertion into a different assertion that
+    still reports itself as passing."""
+    monkeypatch.setenv("HOME", "/home/rig")
+    steps = script_mod.parse("log ~/note\nexpect-cyanrip ~/pattern")
+    assert steps[0].args == ("~/note",)
+    assert steps[1].args == ("~/pattern",)
+
+
+def test_a_tilde_inside_a_value_is_left_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only a leading `~/` (or a lone `~`) is a home reference. A tag value like
+    `album=~untitled~` is text, and expanding inside it would corrupt a tag."""
+    monkeypatch.setenv("HOME", "/home/rig")
+    steps = script_mod.parse("cyanrip -N -a album=~untitled~")
+    assert steps[0].args == ("-N", "-a", "album=~untitled~")
+
+
+def test_expansion_is_declared_per_verb_and_the_declaration_is_reachable() -> None:
+    """Revert-proof for the wiring rather than the function: `expand_home` could
+    be perfect and unused. Assert both that the flag is set where it is needed and
+    that it is NOT set on the free-text verbs, so a later blanket `takes_paths`
+    would fail here rather than silently widening the rewrite."""
+    assert verbs_mod.VERBS["cyanrip"].takes_paths
+    assert verbs_mod.VERBS["rig-check"].takes_paths
+    assert verbs_mod.VERBS["set"].takes_paths
+    assert not verbs_mod.VERBS["log"].takes_paths
+    assert not verbs_mod.VERBS["expect-cyanrip"].takes_paths
+    assert not verbs_mod.VERBS["album"].takes_paths
+
+
+def test_expand_home_never_raises_without_a_home(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A rig script runs from a service context often enough that an unset $HOME
+    is real. Returning the token unchanged fails visibly at the tool; raising here
+    would take the whole batch down at parse time."""
+    monkeypatch.delenv("HOME", raising=False)
+    monkeypatch.delenv("USERPROFILE", raising=False)
+    assert script_mod.parse("cyanrip -N --verify-log ~/x.log")[0].error == ""
+
+
+# --- --verify-log: the app does it, so a script must be able to --------------
+
+
+def test_verify_log_alone_is_allowed_because_our_own_adapter_does_exactly_this() -> (
+    None
+):
+    """`ripper_log_verify` has built `[cyanrip, --verify-log, <path>]` with no
+    `-N` since v0.6.x, and correctly — there is no metadata lookup to disable on
+    a path that only checksums a text file. Refusing it from a script meant the
+    test surface could not exercise what the product does."""
+    assert script_mod.sanitise_cyanrip_args(["--verify-log", "/tmp/rip.log"]) is None
+    assert script_mod.sanitise_cyanrip_args(["-Y", "/tmp/rip.log"]) is None
+
+
+def test_the_production_adapter_really_does_omit_dash_N() -> None:
+    """The floor under the test above. If the adapter started passing `-N`, the
+    justification for this exemption would be gone and nothing else would say so
+    — the argument would keep citing an adapter that no longer behaves that way.
+    Read the source rather than trusting the claim (`CLAUDE.md`: answer from the
+    artifact, and name which one)."""
+    import inspect
+
+    from platterpus.adapters import ripper_log_verify
+
+    src = inspect.getsource(ripper_log_verify)
+    assert "[binary, VERIFY_LOG_FLAG, str(path)]" in src, (
+        "the verify-log argv has changed shape; re-derive the exemption "
+        "in verbs.FILE_ONLY_FLAGS instead of leaving its reason stale"
+    )
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["--verify-log", "/tmp/rip.log", "-d", "/dev/sr0"],
+        ["-d", "/dev/sr0", "--verify-log", "/tmp/rip.log"],
+        ["--verify-log", "/tmp/rip.log", "-o", "flac"],
+        ["--verify-log"],
+        ["--verify-log", "-d"],
+    ],
+)
+def test_the_exemption_covers_the_shape_not_the_flag(args: list[str]) -> None:
+    """The companion question: can this be satisfied by the WRONG thing?
+
+    An exemption keyed on "the argv mentions --verify-log" would wave through a
+    full rip that happens to carry it — the same `any`-instead-of-`all` mistake
+    that made `cyanrip -v -d /dev/sr0 -o flac` read as a probe. The shape is
+    checked: exactly the flag, exactly one non-flag operand, nothing else.
+    """
+    assert script_mod.sanitise_cyanrip_args(args) is not None
+
+
+def test_a_rip_is_still_refused_after_the_exemption_was_added() -> None:
+    """Would this have failed before the change? No — which is the point. It
+    exists so a later widening of FILE_ONLY_FLAGS cannot quietly reopen the hole
+    the whole sanitiser was written to close."""
+    refusal = script_mod.sanitise_cyanrip_args(["-d", "/dev/sr0", "-o", "flac"])
+    assert refusal is not None and "-N" in refusal
+
+
+# --- preflight: say it before the disc pass, not forty minutes in ------------
+
+
+def _preflight_for(text: str) -> list[str]:
+    from platterpus.uiscript.runner import _preflight
+
+    return _preflight(script_mod.parse(text))
+
+
+def test_preflight_names_every_step_that_will_be_refused() -> None:
+    """The whole point: the operator learns before step 1, not on the drive."""
+    problems = _preflight_for(
+        "log start\n"
+        "cyanrip --version\n"
+        "cyanrip -d /dev/sr0 -o flac\n"
+        "cyanrip -N -d /dev/sr0 -t 1\n"
+    )
+    assert len(problems) == 2, problems
+    assert any("L3" in p and "-N" in p for p in problems)
+    assert any("L4" in p and "=" in p for p in problems)
+
+
+def test_preflight_is_silent_on_a_clean_script() -> None:
+    """The floor, from the other side. A preflight that reported something for
+    every script would be noise, and noise at the top of a transcript is scrolled
+    past — which is the same as not being there."""
+    assert _preflight_for("cyanrip --version\ncyanrip -N -d /dev/sr0 -x") == []
+
+
+def test_preflight_reruns_the_real_sanitiser_rather_than_describing_it() -> None:
+    """A second description of what is refused would drift from the guard the
+    first time either changed, and the copy the operator reads is the one that
+    would be wrong. Asserted structurally because the alternative — a comment
+    claiming they agree — is the shape this project keeps paying for."""
+    import inspect
+
+    from platterpus.uiscript.runner import _preflight
+
+    src = inspect.getsource(_preflight)
+    assert "sanitise_cyanrip_args(" in src
+
+
+def test_preflight_does_not_filter_the_run() -> None:
+    """It moves the *notice* earlier, nothing else. Dropping the refused steps
+    would lose their per-step failure rows, and a transcript that never mentions
+    a step is indistinguishable from a script that never contained it."""
+    steps = script_mod.parse("cyanrip -d /dev/sr0 -o flac\nlog after\n")
+    from platterpus.uiscript.runner import _preflight
+
+    assert len(_preflight(steps)) == 1
+    assert len(steps) == 2, "preflight must not consume steps"
+
+
+def test_the_transcript_puts_the_preflight_above_the_steps() -> None:
+    """Below the step list it would be read after the thing it was meant to
+    prevent."""
+    report = RunReport(
+        started_at="2026-08-12T00:00:00+00:00",
+        app_version="test",
+        preflight=["L3: cyanrip -d /dev/sr0 — refused: no -N"],
+    )
+    report.steps.append(StepRecord(3, "cyanrip -d /dev/sr0", Outcome.FAIL, "refused"))
+    text = report_mod.render(report)
+    assert "will be refused" in text
+    assert text.index("L3: cyanrip -d /dev/sr0 — refused: no -N") < text.index(
+        "[ FAIL "
+    )
+
+
+def test_the_preflight_survives_into_the_json() -> None:
+    """The transcript is pasted; the JSON is what a machine reads. A finding in
+    only one of them is a finding half the consumers cannot see."""
+    report = RunReport(started_at="t", app_version="v", preflight=["L1: nope"])
+    assert report.as_dict()["preflight"] == ["L1: nope"]

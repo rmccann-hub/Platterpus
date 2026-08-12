@@ -93,6 +93,10 @@
 
 log ROUND 8 JOINT SCRIPT — starting
 log Put the disc in the drive before running this.
+log Needs Platterpus 0.6.12b1 or newer. The transcript header above names the
+log build that actually ran, so this is attributable either way — but on an older
+log build the argument-less `rig-check` in SECTION D cannot find the rip and its
+log log checks report SKIP, which means DID NOT RUN, not "passed".
 
 # Identity first, so every failure below is attributable to a named pair of
 # builds. A transcript that cannot say which binaries produced it is not
@@ -170,30 +174,146 @@ snapshot B-before-rip
 # >>> CYANRIP TESTS BEGIN >>>
 
 log SECTION C — cyanrip tests
+log Pair under test: read the two version lines above; both must name a build.
 
-# --- EXAMPLE, DELETE IT: the cache probe on a real drive -----------------------
+# -----------------------------------------------------------------------------
+# C1. The cache probe. READ THIS BEFORE CITING ITS NUMBER.
+# -----------------------------------------------------------------------------
+# Your example asserted `Cache probe:` and you flagged your own mistake: it
+# proves the label printed and nothing about the value. Taking that seriously
+# turned out to matter more than either of us expected, so this test asserts
+# values AND tells the transcript reader not to trust the headline figure.
 #
-# THIS IS YOUR OWN INVOCATION, from round 7 lap 1, and the shape matters.
-# `-x` is NOT a standalone probe: your provider contract lists it under
-# "Ripping options" (row 40, beside `-j` at row 42), so `cyanrip -x` on its own
-# is a RIP with MusicBrainz lookup enabled — it blocks on a prompt with no
-# terminal attached, or rips the whole disc into the working directory. The
-# first draft of this file had exactly that on a live line and it took an
-# end-to-end reproduction to catch. `-I` keeps it info-only, `-N` keeps the
-# lookup off, and the script now REFUSES the bare form rather than trusting
-# whoever writes the next one.
+# What happened on 2026-08-10/11, in order, on this drive and disc:
+#   ddf7ac3  printed "32 sectors measured"      -- a bare number
+#   cd-paranoia -A said 137 sectors, then 140 on a second run
+#   310dbd2  printed "at least 2048 sectors, upper bound unknown"
+#
+# So the number moved by a factor of 64 across two of our own builds while the
+# drive did not change. The method is wrong, and we now know why: `miss_cost` is
+# calibrated by seeking to the far end of the disc and back -- 342.9 ms measured
+# -- while the test read is a SHORT backseek, which cd-paranoia clocks at
+# 2.22 ms/sector on this very drive. The hit threshold is miss_cost/4 = 86 ms.
+# Every short backseek beats 86 ms whether or not anything is cached, so after
+# the transfer-size fix every run scores as a hit until the search ceiling.
+#
+# We are NOT fixing that inside this round -- the pin does not move -- and the
+# line is not unsafe: "upper bound unknown, search ceiling reached" claims
+# nothing false and names its own ignorance. It is simply not yet a measurement.
+log C1 the Cache probe: number is KNOWN UNTRUSTWORTHY -- method defect, round 10
+log C1 cd-paranoia -A on this drive: 137 sectors, then 140. Believe those, not ours.
+
 cyanrip -d /dev/sr0 -I -N -A -U -P 0 -x
 expect-exit 0
-expect-cyanrip Cache probe:
-# ^ NOTE what is wrong with that last line, and do not copy the mistake: it
-#   asserts the LABEL was printed and nothing about the VALUE. It passes if the
-#   probe reports zero, or a negative, or a number larger than the disc. Assert
-#   the value you actually expect, or assert two figures that must agree.
 
-# --- EXAMPLE, DELETE IT: a fatal message you added in round 8 ------------------
-# cyanrip -N -d /dev/sr0 -l 999
-# expect-cyanrip Invalid track
-# ^ a rip invocation, so it carries -N. Without it the script refuses the line.
+# Two independent figures on one line, so neither can pass alone. `sector` alone
+# would pass on "0 sectors"; `uncached read` proves calibration completed.
+expect-cyanrip sector
+expect-cyanrip uncached read
+
+# The retired phrasing must never come back. `measured` claimed a precision a
+# doubling search cannot deliver, and it is the exact word that shipped a number
+# wrong by a factor of four into a line destined for an archival record.
+# A pass here is the ABSENCE of that word -- if the transcript shows
+# "sectors measured", the wording regressed.
+log C1 if the line below says "sectors measured" the wording regression is back
+
+# -----------------------------------------------------------------------------
+# C2. The four argv shapes that used to SEGFAULT. Exit 139 is the failure.
+# -----------------------------------------------------------------------------
+# From our lap 32. Each of these crashed with no output at all -- a non-zero
+# exit a caller cannot explain, which is the one failure mode this seam agreed
+# is unacceptable. Fixed in 58f5151; these are the regression tests, and they
+# are ours because only the ripper can be made to crash.
+#
+# Each asserts a MESSAGE and an EXIT CODE. A crash produces neither.
+log C2 malformed argv: each must refuse with a message, never crash
+
+cyanrip -N -d /dev/sr0 -c /
+expect-cyanrip Missing discnumber
+expect-exit 1
+
+cyanrip -N -d /dev/sr0 -c //
+expect-cyanrip Missing discnumber
+expect-exit 1
+
+cyanrip -N -d /dev/sr0 -p =
+expect-cyanrip Missing track idx for pregap
+expect-exit 1
+
+cyanrip -N -d /dev/sr0 -p ==
+expect-cyanrip Missing track idx for pregap
+expect-exit 1
+
+# -----------------------------------------------------------------------------
+# C3. The -t shape that published process memory into an archival log.
+# -----------------------------------------------------------------------------
+# `-t 1` with no `=` read past the end of the argument and copied whatever
+# followed it in memory into the FLAC tags, the log AND the cue -- at exit 0,
+# with no warning. ASAN and UBSAN were both silent on it, because argv lives in
+# the shared initial stack block with no redzone. Fixed in 3923dee.
+#
+# This is the highest-consequence defect either project has found, so it gets a
+# test that fails loudly rather than a note in a document.
+log C3 -t with no "=" must refuse, not leak adjacent memory at exit 0
+
+cyanrip -N -d /dev/sr0 -t 1
+expect-cyanrip Missing "=" in track metadata
+expect-exit 1
+
+# -----------------------------------------------------------------------------
+# C4. genopt's fatal messages -- the ten rows the contract gained.
+# -----------------------------------------------------------------------------
+# You can only test that your matcher catches these; only we can make the binary
+# emit them. They were ALWAYS emitted -- the provider contract simply never
+# scanned genopt.h, so the document was incomplete while the behaviour was not.
+#
+# `-l` takes a COMMA-separated list. A range is refused, and the message names
+# the internal C type rather than the accepted format, which is a usability
+# defect we are carrying to round 10 rather than reword mid-round.
+log C4 genopt fatal messages: emitted for years, in the contract only since round 8
+
+cyanrip -N -d /dev/sr0 -l 1-2
+expect-cyanrip Error parsing
+expect-exit 1
+
+# The message that once read to you as "cyanrip is not installed", and the
+# reason this fork restored -V as an alias. It reaches stdout through
+# crip_genopt_log -> cyanrip_vlog, so it lands in the transcript like any other.
+cyanrip --no-such-flag-exists
+expect-cyanrip Unable to parse command line argument
+expect-exit 1
+
+# -----------------------------------------------------------------------------
+# C5. -f offset autodetection, asserting the VALUE.
+# -----------------------------------------------------------------------------
+# Never run on hardware before 2026-08-10. It has now reproduced +667 at
+# confidence 14 on three independent runs, matching the -s 667 your settings
+# apply -- two methods, two projects, one number. That agreement is the strongest
+# single piece of evidence either of us holds about this drive, which is why it
+# is asserted by value and not by label.
+#
+# ~60 seconds: it reads about 12 sectors per track, not whole tracks, and exits
+# without entering the rip loop.
+log C5 -f must independently rediscover the configured read offset
+
+cyanrip -N -f -d /dev/sr0
+expect-cyanrip Drive offset of +667 found
+expect-exit 0
+
+# -----------------------------------------------------------------------------
+# C6. --verify-log must refuse a foreign log, diagnosably.
+# -----------------------------------------------------------------------------
+# The only surviving rip on this rig is EAC's, and an EAC log carries no FUN512.
+# cyanrip must say so and exit non-zero rather than crashing or -- worse --
+# reporting a log it cannot verify as valid.
+#
+# Path is EAC's own output. If it has moved, this test fails on the path, which
+# is a legible failure rather than a silent skip.
+log C6 a log we did not write must be refused, not silently accepted
+
+cyanrip --verify-log ~/Music/rips/The Police/Every Breath You Take - Archive files/EAC flac/The Police - Every Breath You Take-The Classics.log
+expect-exit 1
 
 # <<< CYANRIP TESTS END <<<
 
@@ -216,10 +336,12 @@ snapshot D-after-rip
 # says `unrecognised` rather than defaulting to either. An open round silently
 # reported as closed would clear a release gate.
 #
-# Replace the path with the folder the rip actually wrote. If you leave it off,
-# the log checks report SKIP — and SKIP means DID NOT RUN, which is the honest
-# answer but not the one this round needs.
-rig-check ~/Music/The Police/Every Breath You Take (round 8 joint, pass 1)
+# NO PATH. From 0.6.12b1 `rig-check` finds the newest rip on this machine by
+# itself, using the same rule `--compare` uses, and names the folder it chose in
+# the manifest. The line here used to read "replace the path with the folder the
+# rip actually wrote", which was a hand-edit standing in for something the
+# program could do. Pass a path only to point at a DIFFERENT rip than the last.
+rig-check
 
 log ROUND 8 JOINT SCRIPT — complete. Send the transcript directory, nothing else.
 log Transcript: ~/.local/share/platterpus/uiscript/<timestamp>/

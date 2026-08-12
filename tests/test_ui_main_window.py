@@ -1008,7 +1008,10 @@ def test_auto_heal_retries_as_unknown_on_no_metadata_failure(
 
     window._on_rip_finished(False, "")
 
-    report_writer.writer().flush()  # the report write is off-thread now
+    # Asserted, not awaited blindly: `flush` returns False on timeout, and an
+    # unasserted one turns a genuine stall into a confusing FileNotFoundError
+    # on the next line. Same defect the e2e test just paid for.
+    assert report_writer.writer().flush(30.0), "the report write stalled"
 
     assert window._auto_retry_done is True
     assert len(retried) == 1

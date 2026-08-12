@@ -78,6 +78,19 @@ class RunReport:
     used_unsafe: bool = False
     #: Directory holding this run's screenshots, if any were taken.
     artifact_dir: str = ""
+    #: Problems found by reading the whole script BEFORE step 1 ran — today, the
+    #: cyanrip invocations the sanitiser will refuse. One string per problem,
+    #: naming the line.
+    #:
+    #: **Why up front rather than in situ.** A refusal is a run-time outcome, so
+    #: on a 60-step hardware batch the operator learns about it forty minutes in,
+    #: standing next to a drive, with the disc pass already spent. The information
+    #: was available before the first step: the sanitiser is pure and the argv is
+    #: in the file. Reporting it at the top costs nothing and turns an hour into a
+    #: sentence. It does NOT stop the run — a refused step is still recorded as a
+    #: failure in its own place, and stopping early would hide every finding
+    #: behind it.
+    preflight: list[str] = field(default_factory=list)
 
     def counts(self) -> dict[str, int]:
         """Outcome tallies, every category present even at zero.
@@ -111,6 +124,7 @@ class RunReport:
             "ended_reason": self.ended_reason or None,
             "used_unsafe_verbs": self.used_unsafe,
             "artifact_dir": self.artifact_dir or None,
+            "preflight": list(self.preflight),
             "counts": self.counts(),
             "ok": self.ok,
             "steps": [step.as_dict() for step in self.steps],
@@ -158,6 +172,14 @@ def render(report: RunReport) -> str:
         head.append("*** THIS RUN USED UNSAFE VERBS (eval/call) ***")
     if report.artifact_dir:
         head.append(f"screenshots: {report.artifact_dir}")
+    if report.preflight:
+        # Above the steps, because the point is that the reader sees it before
+        # spending a disc pass finding out the same thing the slow way.
+        head.append("")
+        head.append(
+            f"read before running — {len(report.preflight)} step(s) will be refused:"
+        )
+        head.extend(f"  {problem}" for problem in report.preflight)
     head.append("=" * 64)
 
     body: list[str] = []

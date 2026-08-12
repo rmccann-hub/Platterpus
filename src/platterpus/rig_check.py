@@ -391,6 +391,40 @@ def check_parsers_against_the_log(manifest: Manifest, album_dir: Path | None) ->
     )
 
 
+def _discover_album_dir(manifest: Manifest) -> Path | None:
+    """The folder holding the newest rip on this machine, or ``None``.
+
+    Reuses :mod:`platterpus.rip_compare`'s discovery — the same "which rip did
+    the operator just make" rule ``--compare`` uses — rather than re-deriving it
+    here, so the two cannot disagree about which rip is current.
+
+    Never raises: discovery is a convenience, and a rig session must not die
+    because a configured output folder has gone missing. Every outcome is
+    recorded, including the failures, because *"no album folder"* and *"I picked
+    one for you"* are different facts about the run.
+    """
+    try:
+        from platterpus import rip_compare
+
+        report = rip_compare.newest_report(rip_compare.default_report_roots())
+    except Exception as exc:  # noqa: BLE001 — discovery must never end the session
+        manifest.add(Result(INFO, "album/discovery", f"could not look: {exc}"))
+        return None
+    if report is None:
+        manifest.add(
+            Result(
+                INFO,
+                "album/discovery",
+                "no .platterpus.json found under the output/library folders; "
+                "the log checks below will SKIP",
+            )
+        )
+        return None
+    found = report.parent
+    manifest.add(Result(INFO, "album/discovery", f"newest rip found: {found}"))
+    return found
+
+
 def run_rig_check(
     out: Path,
     album_dir: Path | None = None,
@@ -408,6 +442,20 @@ def run_rig_check(
 
     manifest = Manifest(out, sink=sink)
     binary = str(CYANRIP_BINARY_DEFAULT)
+
+    # NO ALBUM FOLDER? FIND IT. The rig script used to carry the line
+    # "Replace the path with the folder the rip actually wrote" — a hand-edit in
+    # a written procedure, which by the maintainer's 2026-08-11 directive is a
+    # thing the software was supposed to do. The operator has just ripped a disc;
+    # which folder that landed in is a question this program can answer and they
+    # should not have to.
+    #
+    # Discovery is only a DEFAULT: an explicit path always wins, because a rig
+    # session may deliberately point at an older rip. And it is announced in the
+    # manifest either way — a check that silently chose its own subject would let
+    # a reader attribute one rip's log to another.
+    if album_dir is None:
+        album_dir = _discover_album_dir(manifest)
 
     from platterpus import __version__
     from platterpus.build_info import build_fingerprint

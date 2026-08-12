@@ -281,6 +281,27 @@ def test_e2e_unknown_rip_tags_flacs_and_embeds_cover_art(
     # absent, but the elapsed time is always recorded.
     import json
 
+    # WAIT FOR THE WRITER FIRST. Since v0.6.11 the report is serialised and
+    # written on a background thread (`report_writer`) — a 5.2 MB document and
+    # two `fsync`s that used to run on the GUI thread. This assertion still read
+    # the file the instant the rip signalled done, so on a loaded runner it
+    # raced the writer and failed with FileNotFoundError. Intermittently: it
+    # passed thousands of times and failed twice, which is the worst shape,
+    # because a flake in a merge gate teaches people to re-run rather than look.
+    #
+    # The flush is NOT papering over a product bug — production's `closeEvent`
+    # calls `_flush_rip_report(wait=True)`, so a real user's final report always
+    # lands. This test simply never goes through close. Asserted rather than
+    # awaited blindly: `flush` returns False on timeout, and a writer that
+    # genuinely never finishes must still fail here rather than turn into a
+    # confusing FileNotFoundError one line later.
+    from platterpus import report_writer
+
+    assert report_writer.writer().flush(30.0), (
+        "the rip report was still being written after 30s — that is a real "
+        "stall, not the race this wait exists to remove"
+    )
+
     report = json.loads((album / "rip.platterpus.json").read_text(encoding="utf-8"))
     assert report["timing"] is not None
     assert report["timing"]["elapsed_seconds"] is not None
