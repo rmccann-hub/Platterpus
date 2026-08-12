@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.12b1] — 2026-08-12
+
 ### Fixed
 - **The release gate could not see a handshake round whose files were not yet
   committed, and four releases went out during one.** Round 8 ran for seven laps
@@ -23,10 +25,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   floor the status report counts unconditionally. Staleness fails safe: a value
   left behind blocks a release, which is a conversation; the other direction
   ships.
-
-## [0.6.12b1] — 2026-08-12
-
-### Fixed
+- **The end-to-end rip test raced the report writer and failed intermittently in
+  CI.** v0.6.11 moved the 5.2 MB report write off the GUI thread; this assertion
+  still read the file the instant the rip signalled done. It passed ~3,900 times
+  and failed twice — the worst shape, because a flake in a merge gate teaches
+  people to re-run rather than look. Not a product bug: `closeEvent` calls
+  `_flush_rip_report(wait=True)`, so a real user's final report always lands, and
+  every other test that reads a product-written report already flushed. The wait
+  is **asserted**, not awaited blindly, so a genuinely stalled writer still fails
+  with a message that says so instead of a confusing `FileNotFoundError`.
 - **Every command Platterpus told you to type was wrong for AppImage users —
   seven strings, five modules.** The update dialog printed
   `platterpus --install-ripper <sha>`, the re-rip banner printed
