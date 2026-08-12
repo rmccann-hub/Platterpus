@@ -93,6 +93,10 @@
 
 log ROUND 8 JOINT SCRIPT — starting
 log Put the disc in the drive before running this.
+log Needs Platterpus 0.6.12b1 or newer. The transcript header above names the
+log build that actually ran, so this is attributable either way — but on an older
+log build the argument-less `rig-check` in SECTION D cannot find the rip and its
+log log checks report SKIP, which means DID NOT RUN, not "passed".
 
 # Identity first, so every failure below is attributable to a named pair of
 # builds. A transcript that cannot say which binaries produced it is not
