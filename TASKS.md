@@ -20,6 +20,46 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Found on the rig, 2026-08-12 — the round-8 script run that never reached the rip
+
+Three defects, all ours, all found by a real hardware run of
+`docs/rig-scripts/round-08-joint.txt` on the Bazzite + BDR-209D rig. The run
+scored 62 pass / 10 fail and **the rip never started**, so it produced no round-8
+evidence — but it produced these. Parked pending the fork's lap 9; the first one
+is a release blocker and should lead.
+
+- [ ] **BLOCKER — the disc scan is killed by a 0 ms grace, so no disc identifies
+  and no rip can start.** `drive changed: /dev/sr0` fires **twice** during
+  startup (02.978 and 06.823 in the rig log); the second cancels the in-flight
+  `DiscInfoWorker`, which is then abandoned with *"did not stop within 0ms"* and
+  its cyanrip child is SIGKILLed mid-TOC-read — surfacing as
+  `cyanrip failed (exit -9) with no output`. Start rip stays disabled, so
+  `rip` fails with *"the Start button is not enabled"* and the whole unattended
+  run is lost. A **zero**-length wait is the same family as `CLAUDE.md` rule #9's
+  *never hand `QThread.wait()` a negative number*: no grace at all is not a
+  bounded wait, it is a kill. Two questions to answer together — *why does the
+  drive-changed signal fire twice from one startup*, and *why is the cancel
+  budget 0 ms*. Fixing only the second leaves a scan that is still cancelled and
+  restarted for no reason. Present in 0.6.11 and 0.6.12b1 alike.
+
+- [ ] **A refused `cyanrip` step leaves the PREVIOUS invocation as the comparison
+  subject.** On the rig, `L260` was refused (the `-t 1` guard) and `L261`'s
+  `expect-cyanrip` then compared against the output of `-p ==`, two commands
+  earlier; same at L283/L284 and L315/L316. It failed loudly this time, which is
+  luck — the stale command could just as easily have contained the expected
+  string and reported a **pass for a step that never ran**. That is the
+  *satisfied by the wrong thing* shape, inside the surface this project's tests
+  are written in. A refusal must invalidate `_last_cyanrip_*` so the following
+  assertion fails as *"no cyanrip ran"*.
+
+- [ ] **`expect secure_rerip_dynamic True` measures the operator's config, not
+  the behaviour.** Failed on the rig (`got False`) because that install has it
+  off. Round 8 lap 8 §J9 told the fork "both defaults are what B2 asserts, so B2
+  passes on a default install" — accurate about a *default* install and useless
+  about this one. A test that asserts a setting it did not set is testing the
+  machine. Either `set` it first, or asserting it is the point and the script
+  should say which. Correct this to the fork in lap 10.
+
 ## Ripper install: find the newest build automatically, and let the user pick its channel (2026-08-07)
 
 **The maintainer's ask, verbatim:** *"in the future it should be automatic that it
