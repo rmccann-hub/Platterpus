@@ -332,10 +332,12 @@ snapshot D-after-rip
 # says `unrecognised` rather than defaulting to either. An open round silently
 # reported as closed would clear a release gate.
 #
-# Replace the path with the folder the rip actually wrote. If you leave it off,
-# the log checks report SKIP — and SKIP means DID NOT RUN, which is the honest
-# answer but not the one this round needs.
-rig-check ~/Music/The Police/Every Breath You Take (round 8 joint, pass 1)
+# NO PATH. From 0.6.12b1 `rig-check` finds the newest rip on this machine by
+# itself, using the same rule `--compare` uses, and names the folder it chose in
+# the manifest. The line here used to read "replace the path with the folder the
+# rip actually wrote", which was a hand-edit standing in for something the
+# program could do. Pass a path only to point at a DIFFERENT rip than the last.
+rig-check
 
 log ROUND 8 JOINT SCRIPT — complete. Send the transcript directory, nothing else.
 log Transcript: ~/.local/share/platterpus/uiscript/<timestamp>/

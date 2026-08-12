@@ -24,7 +24,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   left behind blocks a release, which is a conversation; the other direction
   ships.
 
-## [0.6.12] — 2026-08-12
+## [0.6.12b1] — 2026-08-12
 
 ### Fixed
 - **Every command Platterpus told you to type was wrong for AppImage users —
@@ -71,6 +71,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `takes_paths` per verb so the prose and the JSON cannot disagree.
 
 ### Added
+- **`rig-check` finds the rip by itself when given no folder.** The round-8 rig
+  script carried the line *"Replace the path with the folder the rip actually
+  wrote"* — a hand-edit standing in for something the program can do (maintainer
+  directive, 2026-08-11). It now reuses `rip_compare`'s "which rip did the
+  operator just make" rule, the same one `--compare` uses, rather than a second
+  copy of it, and **names the folder it chose in the manifest** — a check that
+  silently picked its own subject would let a reader attribute one rip's log to
+  another. An explicit path still wins, and finding nothing is reported as its
+  own row rather than left to look like a machine where discovery worked.
 - **A script now says which ripper steps will be refused *before* step 1 runs.**
   A sanitiser refusal is a run-time outcome, so on a 60-step hardware batch the
   operator found out forty minutes in, standing next to a drive, with the disc
@@ -5326,7 +5335,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12b1.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7568,8 +7577,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12...HEAD
-[0.6.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.11...v0.6.12
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b1...HEAD
+[0.6.12b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.11...v0.6.12b1
 [0.6.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.10...v0.6.11
 [0.6.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.9...v0.6.10
 [0.6.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.8...v0.6.9
@@ -7663,4 +7672,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.12.*
+*Last updated for Platterpus v0.6.12b1.*

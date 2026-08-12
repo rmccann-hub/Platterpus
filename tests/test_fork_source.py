@@ -678,7 +678,7 @@ def test_an_in_flight_round_with_no_committed_files_is_still_OPEN(
                 encoding="utf-8",
             )
 
-    lines = handshake.round_status(tmp_path)
+    lines = handshake.round_status(tmp_path, floor=handshake.CURRENT_ROUND)
     current = [ln for ln in lines if ln.startswith(f"round-{handshake.CURRENT_ROUND}:")]
     assert current, (
         f"round {handshake.CURRENT_ROUND} vanished from the status report because "

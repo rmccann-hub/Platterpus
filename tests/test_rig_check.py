@@ -297,6 +297,27 @@ class TestCliFlag:
             assert flag in helptext, f"{flag} is the fork's interface; it moved"
 
 
+#: Scripts we ship that legitimately carry `cyanrip` lines our own sanitiser
+#: refuses, with the exact count. **Only for a section another project owns.**
+#:
+#: `round-08-joint.txt` is one file with two authors: sections A/B/D are ours,
+#: section C is the cyanrip fork's and is committed **verbatim** — the file's own
+#: header promises we will not edit it. Their three refused lines are:
+#:
+#: * `-t 1` — refused because it is the malformed shape whose memory disclosure
+#:   their C3 exists to test. The refusal IS our half of that seam passing; it
+#:   cannot also be their half, which needs the argv to reach the binary and
+#:   belongs in their own argv gate.
+#: * `--no-such-flag-exists` — needs `-N`. One token, no change to what it
+#:   proves; asked for in round 8 lap 8 §B2.
+#: * `--verify-log <path>` — needs its spaces quoted so it is one argument.
+#:   Asked for in §B1; the two *other* defects on that line were ours and are
+#:   fixed.
+#:
+#: A count, not a boolean, and asserted for equality below — see that test.
+KNOWN_FOREIGN_REFUSALS: dict[str, int] = {"round-08-joint.txt": 3}
+
+
 class TestShippedScripts:
     """Every script we SHIP must parse. This is the deliverable's own gate.
 
@@ -347,6 +368,119 @@ class TestShippedScripts:
             if s.verb == "cyanrip"
             and (reason := sanitise_cyanrip_args(list(s.args))) is not None
         ]
-        assert not refused, f"{script.name} carries refused argv:\n" + "\n".join(
-            refused
+        allowed = KNOWN_FOREIGN_REFUSALS.get(script.name, 0)
+        assert len(refused) <= allowed, (
+            f"{script.name} carries {len(refused)} refused argv, "
+            f"{allowed} accounted for:\n" + "\n".join(refused)
         )
+
+    @pytest.mark.parametrize("script", SCRIPTS, ids=lambda p: p.name)
+    def test_the_foreign_refusal_allowance_is_never_larger_than_reality(
+        self, script: Path
+    ) -> None:
+        """The companion floor, and the reason the allowance is a **count**.
+
+        An allowance is a hole. Left as "this file may contain refusals" it would
+        absorb a genuine `-N`-less rip line added later — the exact invocation
+        that hangs an unattended batch on an interactive prompt forever, which is
+        the whole reason the sanitiser exists. Pinned to the *exact* number so a
+        new refusal fails even though the file is already allowed to carry some,
+        and so the number must shrink as the fork fixes its lines rather than
+        quietly outliving them.
+        """
+        from platterpus.uiscript.script import parse, sanitise_cyanrip_args
+
+        refused = sum(
+            1
+            for s in parse(script.read_text(encoding="utf-8"))
+            if s.verb == "cyanrip" and sanitise_cyanrip_args(list(s.args)) is not None
+        )
+        allowed = KNOWN_FOREIGN_REFUSALS.get(script.name, 0)
+        assert allowed == refused, (
+            f"{script.name}: the allowance is {allowed} but {refused} lines are "
+            "refused. If the fork fixed a line, lower the number; the allowance "
+            "is a record of a known state, not a budget to spend."
+        )
+
+
+class TestAlbumDiscovery:
+    """No album folder given → find the one the operator just ripped.
+
+    The rig script used to say *"Replace the path with the folder the rip
+    actually wrote"*. A hand-edit in a written procedure is a thing the software
+    was supposed to do (maintainer directive, 2026-08-11), and this is that
+    thing: the operator has just ripped a disc, and which folder it landed in is
+    a question the program can answer.
+    """
+
+    def test_an_explicit_path_always_wins(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Discovery is a default, not a policy. A rig session may deliberately
+        point at an older rip, and a check that overrode that would silently
+        examine a different artifact from the one it was asked about."""
+        from platterpus import rip_compare
+
+        called: list[str] = []
+        monkeypatch.setattr(
+            rip_compare, "newest_report", lambda _roots: called.append("looked") or None
+        )
+        album = tmp_path / "album"
+        album.mkdir()
+        (album / "rip.log").write_text("cyanrip\n", encoding="utf-8")
+        rig_check.run_rig_check(tmp_path / "out", album_dir=album, sink=lambda _l: None)
+        assert not called, "discovery ran even though a path was given"
+
+    def test_discovery_is_announced_not_silent(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A check that silently chose its own subject would let a reader
+        attribute one rip's log to another. The manifest must name the folder."""
+        from platterpus import rip_compare
+
+        album = tmp_path / "Some Artist" / "Some Album"
+        album.mkdir(parents=True)
+        report = album / "rip.platterpus.json"
+        report.write_text("{}", encoding="utf-8")
+        monkeypatch.setattr(rip_compare, "default_report_roots", lambda *a, **k: [])
+        monkeypatch.setattr(rip_compare, "newest_report", lambda _roots: report)
+        lines: list[str] = []
+        rig_check.run_rig_check(tmp_path / "out", sink=lines.append)
+        joined = "\n".join(lines)
+        assert "album/discovery" in joined, joined
+        assert str(album) in joined, joined
+
+    def test_finding_nothing_is_reported_and_the_checks_still_skip(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """*"No album folder"* and *"I picked one for you"* are different facts,
+        and SKIP still means did not run. Silence on the first would make an
+        unconfigured machine look like one where discovery worked."""
+        from platterpus import rip_compare
+
+        monkeypatch.setattr(rip_compare, "default_report_roots", lambda *a, **k: [])
+        monkeypatch.setattr(rip_compare, "newest_report", lambda _roots: None)
+        lines: list[str] = []
+        rig_check.run_rig_check(tmp_path / "out", sink=lines.append)
+        joined = "\n".join(lines)
+        assert "album/discovery" in joined
+        log_rows = [ln for ln in lines if "handshake/note" in ln or "parser/log" in ln]
+        assert len(log_rows) == 2 and all(r.startswith("SKIP") for r in log_rows), (
+            log_rows
+        )
+
+    def test_a_raising_discovery_does_not_end_the_session(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A rig session is expensive and unattended. It must not die because a
+        configured output folder has gone missing."""
+        from platterpus import rip_compare
+
+        def boom(*_a: object, **_k: object) -> list[Path]:
+            raise OSError("output folder vanished")
+
+        monkeypatch.setattr(rip_compare, "default_report_roots", boom)
+        lines: list[str] = []
+        rc = rig_check.run_rig_check(tmp_path / "out", sink=lines.append)
+        assert rc in (0, 1)
+        assert any("could not look" in ln for ln in lines), lines

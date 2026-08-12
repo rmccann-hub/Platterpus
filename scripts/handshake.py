@@ -1446,7 +1446,7 @@ def _round_files(directory: Path, number: int) -> list[Path]:
     )
 
 
-def round_status(root: Path | None = None) -> list[str]:
+def round_status(root: Path | None = None, *, floor: int | None = None) -> list[str]:
     """Describe the state of every round found under ``docs/handshake/``.
 
     ``root`` overrides that directory so the OPEN and CLOSED branches can be
@@ -1454,7 +1454,15 @@ def round_status(root: Path | None = None) -> list[str]:
     whatever the repo happens to contain today — which is exactly how the first
     version of this test broke: it pinned "round 4 is OPEN", and round 4 closed.
     A test that asserts today's state is a test that fails on progress.
+
+    ``floor`` is the round counted even with no files (see :data:`CURRENT_ROUND`).
+    It defaults to ``CURRENT_ROUND`` **only for the real record**: a constructed
+    ``root`` is a synthetic world, and injecting the real in-flight round into it
+    would make every such world contain a round its author never wrote. Pass it
+    explicitly to exercise the floor itself.
     """
+    if floor is None and root is None:
+        floor = CURRENT_ROUND
     base = root if root is not None else HANDSHAKE_DIR
     outbound, inbound, verified = (
         base / "outbound",
@@ -1469,9 +1477,13 @@ def round_status(root: Path | None = None) -> list[str]:
                 num = round_number(path)
                 if num is not None:
                     rounds.add(num)
-    # The floor, added unconditionally: see CURRENT_ROUND for why a round with no
-    # committed files must still count as a round.
-    rounds.add(CURRENT_ROUND)
+    # The floor, and ONLY when it is newer than everything filed. Its whole job is
+    # "an in-flight round with no files is invisible"; a floor at or below the
+    # newest round on disk answers a question nobody asked, and — measured — it
+    # injects a phantom round into any constructed world whose rounds run past it,
+    # which is how it first broke sixteen tests that build their own record.
+    if floor is not None and (not rounds or floor > max(rounds)):
+        rounds.add(floor)
     if not rounds:
         # AN EMPTY RECORD IS A REFUSAL, NOT AGREEMENT (PROTOCOL.md §8 row 12).
         #
