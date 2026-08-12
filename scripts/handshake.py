@@ -718,6 +718,27 @@ _VERDICT_LINE = re.compile(r"^[ \t]*(?:\*\*)?(?P<verdict>GO|HOLD)\b", re.MULTILI
 RETROSPECTIVE_ROUNDS: frozenset[int] = frozenset({1, 2, 3})
 
 
+#: The round currently in flight. **The release gate's floor** — it is counted as
+#: a round whether or not any file for it has been committed yet.
+#:
+#: **Why a constant and not "whatever files exist".** Round 8 ran for seven laps
+#: with its files uncommitted, so ``round-*.md`` found nothing for it and the
+#: gate reported every *filed* round CLOSED — release allowed. Four releases went
+#: out during an open round, and the gate was not wrong about anything it could
+#: see. The empty-record branch above did not fire either: it only triggers when
+#: there are **no** rounds at all, and rounds 1-7 were sitting right there.
+#:
+#: So this is the same defect the empty-record branch already exists to prevent,
+#: arriving one level up: *an in-flight round with no files is indistinguishable
+#: from no round*. A committed number cannot be forgotten the way a commit can,
+#: and ``--emit`` refuses a round above it so opening one forces the bump.
+#:
+#: Staleness fails in the SAFE direction: a value left behind reports a closed
+#: round as open and blocks a release, which is a conversation. The other
+#: direction ships.
+CURRENT_ROUND: Final[int] = 8
+
+
 # --- The shared wire format (protocol §8) -----------------------------------
 #
 # ONE language, both repos. The fork introduced a machine-readable header block in
@@ -1448,6 +1469,9 @@ def round_status(root: Path | None = None) -> list[str]:
                 num = round_number(path)
                 if num is not None:
                     rounds.add(num)
+    # The floor, added unconditionally: see CURRENT_ROUND for why a round with no
+    # committed files must still count as a round.
+    rounds.add(CURRENT_ROUND)
     if not rounds:
         # AN EMPTY RECORD IS A REFUSAL, NOT AGREEMENT (PROTOCOL.md §8 row 12).
         #

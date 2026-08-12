@@ -11,6 +11,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The release gate could not see a handshake round whose files were not yet
+  committed, and four releases went out during one.** Round 8 ran for seven laps
+  uncommitted, so `handshake.py --status` found no `round-8` files, reported
+  every *filed* round CLOSED, and allowed a release — while being entirely
+  correct about everything it could see. The existing empty-record guard did not
+  fire: it only triggers when there are **no** rounds at all, and rounds 1–7 were
+  right there. This is that same defect one level up — *an in-flight round with
+  no files is indistinguishable from no round* — so `CURRENT_ROUND` is now a
+  floor the status report counts unconditionally. Staleness fails safe: a value
+  left behind blocks a release, which is a conversation; the other direction
+  ships.
+
 ## [0.6.12] — 2026-08-12
 
 ### Fixed
