@@ -63,6 +63,37 @@ def install_channel() -> str:
     return "source"
 
 
+def self_invocation() -> str:
+    """How to invoke THIS copy of Platterpus from a terminal, as the user must type it.
+
+    Returns ``"platterpus"`` for a `pipx`/source install, and the **absolute path
+    of the running AppImage** for an AppImage one.
+
+    **Why this is not a cosmetic detail.** There is no ``platterpus`` on ``PATH``
+    for an AppImage user — only `pipx` and dev installs put one there — so every
+    message that prints ``platterpus --something`` is, for the project's *primary*
+    distribution channel, an instruction that produces
+    ``bash: platterpus: command not found``. The cyanrip fork reported it as the
+    only thing that had actually blocked the operator, twice (round 8 lap 7 §H),
+    and it is the "zero-terminal for end users" bar being missed by a string.
+
+    AppImage sets ``$APPIMAGE`` to the absolute path of the file being run, which
+    is exactly the token that works. Quoted when it contains whitespace, because
+    an unquoted path with a space is a second broken command rather than a
+    working one — and an AppImage very often lives under ``~/Applications``.
+
+    Never raises: any trouble degrades to ``"platterpus"``, which is right for
+    every non-AppImage install and no worse than today's behaviour for the rest.
+    """
+    try:
+        appimage = os.environ.get("APPIMAGE", "")
+        if appimage:
+            return f'"{appimage}"' if any(c.isspace() for c in appimage) else appimage
+    except Exception:  # noqa: BLE001 — a hint string must never raise
+        pass
+    return "platterpus"
+
+
 def environment_report() -> EnvironmentBlock:
     """The report's ``environment`` block: Python / OS / PySide6 / channel.
 

@@ -14,10 +14,27 @@ objects, so they cannot disagree with each other either.
 ## Syntax
 
 One statement per line. `#` starts a comment; blank lines are ignored.
-Arguments are separated by whitespace and are **not quoted** — the verbs
-that take free text swallow the rest of the line instead, which is why
-`album Synchronicity (rig pass 1)` needs no quoting. Verb names are
-matched case-insensitively.
+Arguments are separated by whitespace. Verb names are matched
+case-insensitively.
+
+Most values need no quoting: the verbs that take free text swallow the
+rest of the line, which is why `album Synchronicity (rig pass 1)` works
+as typed. **Double quotes group one value** when a verb takes a fixed
+number of arguments and one of them contains spaces — a `--verify-log`
+path under `~/Music/The Police/…` being the case that keeps arising. A
+`#` inside quotes is part of the value, not a comment; an unterminated
+quote is reported against its own line.
+
+**A leading `~/` is expanded to your home directory** in the arguments
+of the path-taking verbs (`set`, `cyanrip`, `rig-check`) — quoted or not.
+
+That last part is a deliberate difference from a shell, where `"~/x"`
+stays literal. The path that needs quoting is usually the same path that
+needs expanding, so following the shell here would mean losing one to
+gain the other, and both losses are silent. Free-text verbs such as
+`log` and `expect-cyanrip` are left alone — those carry messages and
+match patterns, and rewriting a pattern changes what an assertion
+asserts. `~user/` is not supported.
 
 A step that fails is recorded and the batch **continues**; only `abort`
 stops it. That is deliberate for an unattended run: stopping at the first
@@ -311,7 +328,7 @@ found nothing wrong*.
 {
   "language": "platterpus-uiscript",
   "grammar_version": 1,
-  "platterpus_version": "0.6.11",
+  "platterpus_version": "0.6.12",
   "syntax": {
     "one_statement_per_line": true,
     "comment_prefix": "#",
@@ -341,6 +358,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": null,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "log <text> \u2014 write a line into the transcript"
     },
@@ -349,6 +367,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": 1,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "wait <seconds> \u2014 pause (fractions allowed, max 600)"
     },
@@ -357,6 +376,7 @@ found nothing wrong*.
       "min_args": 0,
       "max_args": null,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "abort [reason] \u2014 stop the batch here (the only verb that does)"
     },
@@ -365,6 +385,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": 1,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "screenshot <name> \u2014 save a PNG of the whole app, dialogs included"
     },
@@ -373,6 +394,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": 1,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "snapshot <name> \u2014 record the visible state as text in the transcript"
     },
@@ -381,6 +403,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": 1,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "open <settings|dependencies|about|diagnostics|guide|setup|drive> \u2014 open a dialog"
     },
@@ -389,6 +412,7 @@ found nothing wrong*.
       "min_args": 0,
       "max_args": 0,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "ok \u2014 accept the dialog on top"
     },
@@ -397,6 +421,7 @@ found nothing wrong*.
       "min_args": 0,
       "max_args": 0,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "cancel \u2014 dismiss the dialog on top"
     },
@@ -405,6 +430,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": 1,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "expect-dialog <title-or-none> \u2014 assert which dialog is on screen"
     },
@@ -413,6 +439,7 @@ found nothing wrong*.
       "min_args": 2,
       "max_args": null,
       "unsafe": false,
+      "takes_paths": true,
       "implemented": true,
       "help": "set <config-field> <value> \u2014 change a setting (validated, then saved); booleans take on/off"
     },
@@ -421,6 +448,7 @@ found nothing wrong*.
       "min_args": 2,
       "max_args": null,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "expect <config-field> <value> \u2014 assert a setting equals a value"
     },
@@ -429,6 +457,7 @@ found nothing wrong*.
       "min_args": 2,
       "max_args": null,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "expect-contains <config-field> <text> \u2014 assert a setting contains text"
     },
@@ -437,6 +466,7 @@ found nothing wrong*.
       "min_args": 0,
       "max_args": 0,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "rescan \u2014 re-read the disc in the drive"
     },
@@ -445,6 +475,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": null,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "album <title> \u2014 set the album title, so repeat rips land in separate folders"
     },
@@ -453,6 +484,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": null,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "album-artist <name> \u2014 set the album artist for this rip"
     },
@@ -461,6 +493,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": 1,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "select-tracks <all|none|1,3,5-7> \u2014 choose which tracks the rip covers (this is cyanrip's -l)"
     },
@@ -469,6 +502,7 @@ found nothing wrong*.
       "min_args": 0,
       "max_args": 0,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "rip \u2014 start the rip (needs an identified disc)"
     },
@@ -477,6 +511,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": 1,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "wait-for-rip <seconds> \u2014 wait for the rip to finish, up to a timeout"
     },
@@ -485,6 +520,7 @@ found nothing wrong*.
       "min_args": 0,
       "max_args": 0,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "cancel-rip \u2014 cancel a rip in progress"
     },
@@ -493,6 +529,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": null,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": false,
       "help": "expect-status <text> \u2014 assert the status line contains text"
     },
@@ -501,6 +538,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": 1,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "expect-tracks <count> \u2014 assert how many track rows are loaded"
     },
@@ -509,6 +547,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": null,
       "unsafe": false,
+      "takes_paths": true,
       "implemented": true,
       "help": "cyanrip <args\u2026> \u2014 run the host-exported ripper for real and capture its exit code, exact argv and complete output"
     },
@@ -517,6 +556,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": null,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "expect-cyanrip <text> \u2014 assert the last cyanrip output contains text"
     },
@@ -525,6 +565,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": 1,
       "unsafe": false,
+      "takes_paths": false,
       "implemented": true,
       "help": "expect-exit <code> \u2014 assert the last cyanrip exit code"
     },
@@ -533,6 +574,7 @@ found nothing wrong*.
       "min_args": 0,
       "max_args": null,
       "unsafe": false,
+      "takes_paths": true,
       "implemented": true,
       "help": "rig-check [album-folder] \u2014 run the seam check the cyanrip fork asked for: compose a real rip's argv, read it back out of the ripper's own -j record, classify the build, and parse the album's log. Read-only"
     },
@@ -541,6 +583,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": null,
       "unsafe": true,
+      "takes_paths": false,
       "implemented": false,
       "help": "eval <python> \u2014 evaluate an expression against the window (UNSAFE)"
     },
@@ -549,6 +592,7 @@ found nothing wrong*.
       "min_args": 1,
       "max_args": null,
       "unsafe": true,
+      "takes_paths": false,
       "implemented": false,
       "help": "call <method> [args] \u2014 call a window method by name (UNSAFE)"
     }
@@ -754,4 +798,4 @@ found nothing wrong*.
 }
 ```
 
-*Last updated for Platterpus v0.6.11.*
+*Last updated for Platterpus v0.6.12.*

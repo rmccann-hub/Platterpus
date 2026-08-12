@@ -11,6 +11,66 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-12 — the fork found one; there were seven
+
+**Shipped v0.6.12.** Round 8 lap 7 arrived with a §H finding: the update dialog
+prints `platterpus --install-ripper <sha>`, which cannot run on an AppImage
+install — *"the only thing that has actually blocked the operator, twice."*
+Correct, and one instance of six. A sweep for the shape found the re-rip banner,
+the CTDB no-match hint, and three more inside the User Guide (one of them a
+hardcoded `./platterpus-x86_64.AppImage` path, wrong for everybody who is not on
+an AppImage). There is no `platterpus` on `PATH` for the project's **primary**
+distribution channel, so each of those printed a command that produces
+`command not found`.
+
+`build_info.self_invocation()` now answers "how does *this* copy get run", and
+`tests/test_self_invocation_sweep.py` AST-walks the package so a seventh cannot
+appear. It ignores docstrings deliberately — the bug has to stay describable in
+code — and is revert-proved against `tests/data/hardcoded_invocations_prefix.json`,
+the seven pre-fix strings generated verbatim from the blobs. A committed corpus
+rather than `git show HEAD~1`, because CI's `test` job checks out at depth 1 and
+a history-reading revert-proof would have silently *skipped* in the one job that
+gates every merge.
+
+**Validating their returned joint script found three more things, and two were
+ours.** Running SECTION C through the real parser and sanitiser (68 steps, 0
+parse errors) refused 3 of their 6 cyanrip tests before the binary would ever see
+them:
+
+- `--verify-log <path>` was refused for want of `-N` — **while our own
+  `ripper_log_verify` adapter has built exactly that argv, without `-N`, once per
+  rip since v0.6.x.** The same invocation was legitimate from our code and
+  forbidden from a test of our code. Fixed with a `FILE_ONLY_FLAGS` exemption
+  keyed on their published contract (`-Y`/`--verify-log` sits under *Misc.
+  options*, the same structural evidence that took `-x`/`-j` **out** of the probe
+  set in 0.6.10) and matched on **shape** — the flag plus one non-flag operand,
+  so `--verify-log x.log -d /dev/sr0` stays refused.
+- Their path was `~/Music/…`, and **nothing in the pipeline expanded `~`**. The
+  ripper would have been handed a literal tilde, failed to open it, and exited 1
+  — which is what their test asserts. Green, proving nothing. Now expanded at
+  parse time for the path-taking verbs, **quoted or not**: real album folders need
+  quoting *and* expanding, and shell semantics would have cost one to gain the
+  other, silently both ways.
+- `-t 1` stays refused, and that is the answer rather than a defect. It is the
+  exact malformed shape their C3 tests, and our sanitiser names it. Their
+  binary-level version of that test belongs in their argv gate, which already
+  runs it; ours proves Platterpus can never send the shape.
+
+**Third-order finding: our own generated language reference said arguments are
+"not quoted".** Never true — the tokeniser has grouped a double-quoted value
+since it was written, with a test for it. So part of why their C6 line was
+malformed is that our documentation told them quoting was not a thing. The
+Syntax section is rewritten and the machine half now carries `takes_paths` per
+verb, so the prose and the JSON come from one pass over one set of objects.
+
+**Lessons graduated:** the invocation rule and the two-halves-of-a-seam
+reasoning already live in `CLAUDE.md`; what is new here is narrower and stays
+with the code — *a guard that refuses what the product itself does is not a
+guard, it is an asymmetry*, and *a committed corpus beats a history read when the
+gating job clones shallow*.
+
+---
+
 ## 2026-08-11 (evening) — the docstring that stopped anyone measuring
 
 **Shipped v0.6.11.** The perf audit's one confirmed finding, acted on: the rip
@@ -1494,4 +1554,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.11.*
+*Last updated for Platterpus v0.6.12.*

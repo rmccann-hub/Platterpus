@@ -35,6 +35,7 @@ from platterpus.adapters.ctdb_client import (
     CtdbLookupError,
     CtdbLookupResult,
 )
+from platterpus.build_info import self_invocation
 from platterpus.ctdb import crc as crc_mod
 from platterpus.ctdb import decode
 from platterpus.ctdb.toc import (
@@ -198,7 +199,7 @@ def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
             f"disc is in CTDB (confidence {best}), but the CTDB CRC algorithm is "
             "not yet hardware-validated (KDD-16), so this non-match is not "
             "meaningful — AccurateRip is the authority here. Run "
-            "`platterpus --ctdb-calibrate <folder>` to pin the algorithm."
+            f"`{self_invocation()} --ctdb-calibrate <folder>` to pin the algorithm."
         )
     return CtdbVerifyResult(
         Verdict.NO_MATCH,
