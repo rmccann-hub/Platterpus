@@ -93,10 +93,14 @@
 
 log ROUND 8 JOINT SCRIPT — starting
 log Put the disc in the drive before running this.
-log Needs Platterpus 0.6.12b1 or newer. The transcript header above names the
+log Needs Platterpus 0.6.12b2 or newer. The transcript header above names the
 log build that actually ran, so this is attributable either way — but on an older
 log build the argument-less `rig-check` in SECTION D cannot find the rip and its
 log log checks report SKIP, which means DID NOT RUN, not "passed".
+log On anything older than 0.6.12b2 the rip in SECTION D cannot start at all: a
+log second drive populate four seconds into launch superseded its own disc scan
+log and SIGKILLed cyanrip mid-TOC-read (exit -9, no output). That is the blocker
+log the 2026-08-12 pass hit, and it costs every step from `rip` onward.
 
 # Identity first, so every failure below is attributable to a named pair of
 # builds. A transcript that cannot say which binaries produced it is not
@@ -361,5 +365,8 @@ snapshot D-after-rip
 # program could do. Pass a path only to point at a DIFFERENT rip than the last.
 rig-check
 
-log ROUND 8 JOINT SCRIPT — complete. Send the transcript directory, nothing else.
-log Transcript: ~/.local/share/platterpus/uiscript/<timestamp>/
+log ROUND 8 JOINT SCRIPT — complete. Send the folder named at the top of this
+log transcript, nothing else. From 0.6.12b2 the run writes itself into that
+log folder when it ends — transcript.txt, report.json and any screenshots — so
+log there is nothing to copy out of a window by hand.
+log Folder: ~/.local/share/platterpus/uiscript/<timestamp>/

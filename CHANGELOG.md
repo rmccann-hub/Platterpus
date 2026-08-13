@@ -26,6 +26,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   stays as the manual fallback for the case the automatic write fails (a full
   disk at the end of an hour-long disc pass must not also lose the run).
 
+### Changed
+- **`docs/rig-scripts/round-08-joint.txt` names 0.6.12b2 as its floor.** Its
+  header said 0.6.12b1 was enough; it is not, because on anything older the
+  SECTION D rip cannot start at all (see the drive-picker fix below), so a run on
+  the older build yields a transcript that looks like a test result and tests
+  nothing. Its closing lines also said *"send the transcript directory"* while
+  nothing wrote a transcript into it — true as literally as it reads now. 93
+  steps, 0 parse errors, 1 refusal by design.
+
 ### Fixed
 - **The disc scan was killed four seconds into every launch, so no disc
   identified and no rip could start.** `DrivePicker.set_drives` re-emitted
