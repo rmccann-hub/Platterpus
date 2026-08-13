@@ -182,9 +182,28 @@ class DrivePicker(QWidget):
         self._combo.setCurrentIndex(restore_index)
         self._combo.blockSignals(False)
 
-        # Emit once for the restored / initial selection.
+        # Emit once for the restored / initial selection — and ONLY when the
+        # selected device actually changed.
+        #
+        # **This re-emit destroyed a rig session.** A repopulate that restores the
+        # same drive is a no-op by definition: same device, same disc, nothing to
+        # re-read. But it fired `drive_changed` anyway, and the main window's
+        # handler supersedes any in-flight disc probe — deliberately, with a 0 ms
+        # wait, because a probe blocked in a subprocess cannot be asked politely
+        # to stop. So a second populate four seconds into launch **SIGKILLed a
+        # perfectly healthy scan mid-TOC-read**: `cyanrip exited -9`, no output,
+        # no disc identified, Start rip disabled, and an unattended 72-step
+        # script lost its rip and everything downstream of it (2026-08-12 rig
+        # run; the cyanrip fork's round-8 lap 7 §0b logged the same three lines
+        # from the other side).
+        #
+        # The 0 ms is not the bug and is not changed here: superseding really
+        # does need to be immediate, and `stop_thread` abandons rather than
+        # blocks. The bug is asking it to supersede something for no reason.
+        # `rescan()` below re-emits deliberately and is unaffected — an explicit
+        # re-probe is a different thing from a list refresh that changed nothing.
         device = self._combo.currentData()
-        if device is not None:
+        if device is not None and device != previous_device:
             self.drive_changed.emit(device)
 
     def show_error(self, message: str) -> None:

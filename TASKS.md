@@ -20,6 +20,73 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Found on the rig, 2026-08-12 — the round-8 script run that never reached the rip
+
+Three defects, all ours, all found by a real hardware run of
+`docs/rig-scripts/round-08-joint.txt` on the Bazzite + BDR-209D rig. The run
+scored 62 pass / 10 fail and **the rip never started**, so it produced no round-8
+evidence — but it produced these.
+
+**All three are fixed and shipped in v0.6.12b2** (2026-08-13), together with a
+fourth the fork reported separately (`expect-cyanrip` could not express a string
+containing a double quote). Boxes ticked below with what each turned out to be —
+kept rather than deleted, because the *diagnosis* of the first one is the part
+worth re-reading and it is not what the symptom said.
+
+- [x] **BLOCKER — the disc scan is killed by a 0 ms grace, so no disc identifies
+  and no rip can start.** *Fixed in 0.6.12b2 — and the 0 ms was innocent.*
+  `DrivePicker.set_drives` re-emitted `drive_changed` when a repopulate restored
+  the **same** device, which is a no-op by definition; the second emission four
+  seconds into launch superseded a healthy scan for no reason. Superseding really
+  does need to be immediate (a probe blocked in `subprocess.communicate()` cannot
+  be asked politely to stop), so the wait is unchanged. **When a mechanism is
+  correctly violent, audit its trigger, not its force** — the second of the two
+  questions below was the wrong one to fix, and fixing it would have left the
+  scan still cancelled and restarted, just more slowly. Original notes: `drive changed: /dev/sr0` fires **twice** during
+  startup (02.978 and 06.823 in the rig log); the second cancels the in-flight
+  `DiscInfoWorker`, which is then abandoned with *"did not stop within 0ms"* and
+  its cyanrip child is SIGKILLed mid-TOC-read — surfacing as
+  `cyanrip failed (exit -9) with no output`. Start rip stays disabled, so
+  `rip` fails with *"the Start button is not enabled"* and the whole unattended
+  run is lost. A **zero**-length wait is the same family as `CLAUDE.md` rule #9's
+  *never hand `QThread.wait()` a negative number*: no grace at all is not a
+  bounded wait, it is a kill. Two questions to answer together — *why does the
+  drive-changed signal fire twice from one startup*, and *why is the cancel
+  budget 0 ms*. Fixing only the second leaves a scan that is still cancelled and
+  restarted for no reason. Present in 0.6.11 and 0.6.12b1 alike.
+
+- [x] **A refused `cyanrip` step leaves the PREVIOUS invocation as the comparison
+  subject.** *Fixed in 0.6.12b2: a refusal now clears `_last_cyanrip_*`, so the
+  following assertion reports "no cyanrip command has run yet".* On the rig, `L260` was refused (the `-t 1` guard) and `L261`'s
+  `expect-cyanrip` then compared against the output of `-p ==`, two commands
+  earlier; same at L283/L284 and L315/L316. It failed loudly this time, which is
+  luck — the stale command could just as easily have contained the expected
+  string and reported a **pass for a step that never ran**. That is the
+  *satisfied by the wrong thing* shape, inside the surface this project's tests
+  are written in. A refusal must invalidate `_last_cyanrip_*` so the following
+  assertion fails as *"no cyanrip ran"*.
+
+- [x] **`expect secure_rerip_dynamic True` measures the operator's config, not
+  the behaviour.** *Fixed in the script, not the code: B2 now `set`s both fields
+  before asserting them. Still to correct to the fork in lap 10.* Failed on the rig (`got False`) because that install has it
+  off. Round 8 lap 8 §J9 told the fork "both defaults are what B2 asserts, so B2
+  passes on a default install" — accurate about a *default* install and useless
+  about this one. A test that asserts a setting it did not set is testing the
+  machine. Either `set` it first, or asserting it is the point and the script
+  should say which. Correct this to the fork in lap 10.
+
+- [ ] **The setup wizard silently rebuilds the production pin over a test pin.**
+  Found while answering the fork's J10 (*"what reverts our binary?"*) from source
+  rather than from memory: nothing reverts it at launch, and the only code running
+  `git checkout --force --detach <pin>` is the setup wizard and `--install-ripper`,
+  both explicit. But the wizard builds `WIZARD_TARGET` (= `PRODUCTION_TARGET`), so
+  an operator running a test pin who opens the wizard for any other reason —
+  a missing encoder, a drive question — gets it **downgraded with no warning**,
+  which is exactly the shape of every revert in their reflog landing on `ddf7ac3`.
+  The wizard should say *"this will replace cyanrip <test pin> with <production
+  pin>"* and let the operator decline. Deliberately **not** fixed mid-round
+  (S-14: a real defect that does not break the artifact under review).
+
 ## Ripper install: find the newest build automatically, and let the user pick its channel (2026-08-07)
 
 **The maintainer's ask, verbatim:** *"in the future it should be automatic that it
@@ -1812,4 +1879,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.11.*
+*Last updated for Platterpus v0.6.12b2.*

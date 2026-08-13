@@ -23,6 +23,8 @@ five wrong `OPENABLE` names were caught by.
 from __future__ import annotations
 
 import dataclasses
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -458,3 +460,101 @@ def test_a_saved_config_failure_is_reported_not_swallowed(qapp, process_until) -
     assert record.outcome is Outcome.PASS
     assert "not saved to disk" in record.detail
     assert win._config.force_overread is True
+
+
+# --- The run must leave a folder, not a window full of text -----------------
+
+
+def _finished_report(runner: Any, qapp: Any, process_until: Any) -> Any:
+    """Drive `runner` to its natural end and return the emitted RunReport.
+
+    Uses the real `start()` → `_tick()` path rather than poking `_persist`
+    directly, because the defect this guards against is not "the writer is
+    broken" — it is "the writer exists and nothing calls it", which is the shape
+    `CLAUDE.md` records as having shipped three times (a `cancel()` calling an
+    ABC no-op, a `RipHandle.cancel` called from nowhere, a flag nobody checks).
+    """
+    emitted: list[Any] = []
+    runner.finished.connect(emitted.append)
+    runner.start(parse("log hello\nlog goodbye"), source="log hello\nlog goodbye")
+    assert process_until(lambda: bool(emitted)), "the run never finished"
+    return emitted[0]
+
+
+def test_a_finished_run_writes_its_transcript_and_json_to_disk(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The operator's deliverable is a folder, not a text selection.
+
+    Before this, the only route off the rig was the console's *Save transcript…*
+    button — a human, after an unattended run. On the 2026-08-12 pass the
+    transcript came back pasted into a chat message instead.
+    """
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    runner = ScriptRunner(_window())
+    report = _finished_report(runner, qapp, process_until)
+
+    assert report.artifact_dir, "the run finished without naming an output folder"
+    directory = Path(report.artifact_dir)
+    transcript = (directory / "transcript.txt").read_text(encoding="utf-8")
+    payload = json.loads((directory / "report.json").read_text(encoding="utf-8"))
+
+    # Non-triviality: an empty file compares equal to an empty file, so assert
+    # the run's actual content reached both forms rather than that they exist.
+    assert "log hello" in transcript and "log goodbye" in transcript
+    assert [step["source"] for step in payload["steps"]] == ["log hello", "log goodbye"]
+    # And the transcript must name the folder it is sitting in — that string is
+    # the entire answer to "what do I upload".
+    assert str(directory) in transcript
+
+
+def test_the_writer_is_reachable_from_both_ends_of_a_run(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """A run stopped early is the case that most needs its evidence kept, and it
+    leaves by a different exit than a run that completes. Both call the writer.
+
+    This is the revert-proof: deleting either `_persist()` call site leaves the
+    other passing, so each is asserted through the path that reaches it.
+    """
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    runner = ScriptRunner(_window())
+    emitted: list[Any] = []
+    runner.finished.connect(emitted.append)
+    runner.start(parse("wait 30\nlog never reached"))
+    runner.stop("stopped by the operator")
+    assert emitted, "stopping did not finish the run"
+    report = emitted[0]
+
+    assert report.artifact_dir, "a stopped run left nothing on disk"
+    transcript = (Path(report.artifact_dir) / "transcript.txt").read_text(
+        encoding="utf-8"
+    )
+    assert "stopped by the operator" in transcript
+    assert "skip" in transcript, "the unreached step is not recorded as skipped"
+
+
+def test_a_write_failure_is_logged_and_does_not_lose_the_run(
+    qapp, process_until, tmp_path, monkeypatch, caplog
+) -> None:
+    """A full disk at the end of an hour-long disc pass must not also take the
+    transcript still sitting in the window. `_persist` reports and returns."""
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+
+    def boom(self: Any, *args: Any, **kwargs: Any) -> None:
+        raise OSError("no space left on device")
+
+    monkeypatch.setattr(Path, "write_text", boom)
+    runner = ScriptRunner(_window())
+    with caplog.at_level("ERROR"):
+        report = _finished_report(runner, qapp, process_until)
+
+    # The run itself is intact and still emitted; only the copy on disk is lost.
+    assert [step.source for step in report.steps] == ["log hello", "log goodbye"]
+    assert "no space left on device" in caplog.text

@@ -263,7 +263,12 @@ def test_refresh_preserves_selection_if_device_still_present(
     picker.refresh()
 
     assert picker.current_device() == "/dev/sr1"
-    assert seen == ["/dev/sr1"]
+    # AND IT MUST NOT RE-EMIT. This assertion used to read `== ["/dev/sr1"]`,
+    # encoding the behaviour that later SIGKILLed a disc scan mid-TOC-read and
+    # cost a hardware session its rip. The test's subject was always "the
+    # selection sticks"; the emit was a side effect nobody had asked whether
+    # they wanted. See `test_a_second_populate_of_the_same_drive_emits_nothing`.
+    assert seen == [], f"a no-op repopulate re-emitted drive_changed: {seen}"
 
 
 def test_refresh_falls_back_to_first_when_previous_device_gone(
@@ -377,3 +382,68 @@ def test_rescan_button_noop_without_a_drive(qapp: QApplication) -> None:
     picker._rescan_button.click()
 
     assert seen == []  # nothing selected → nothing to rescan
+
+
+# --- the re-emit that destroyed a rig session --------------------------------
+
+
+def test_a_second_populate_of_the_same_drive_emits_nothing(
+    qapp: QApplication,
+) -> None:
+    """**This is the bug that lost a hardware run.**
+
+    A repopulate that restores the same drive is a no-op — same device, same
+    disc, nothing to re-read — but it fired `drive_changed` anyway. The main
+    window's handler supersedes any in-flight disc probe, deliberately with a
+    0 ms wait (a probe blocked in a subprocess cannot be asked politely to
+    stop), so a second populate four seconds into launch SIGKILLed a healthy
+    scan mid-TOC-read:
+
+        19:18:06,823  drive changed: /dev/sr0
+        19:18:06,830  DiscInfoWorker did not stop within 0ms — abandoning it
+        19:18:06,831  cyanrip exited -9 … argv: cyanrip -I -N -d /dev/sr0
+
+    No disc identified, Start rip disabled, and a 72-step unattended script lost
+    its rip and every step downstream. 2026-08-12, Bazzite + BDR-209D.
+    """
+    backend = _FakeBackend()
+    backend.set_drives([_drive("/dev/sr0")])
+    picker = DrivePicker(backend)
+    picker.refresh()
+
+    seen: list[str] = []
+    picker.drive_changed.connect(seen.append)
+    picker.refresh()  # same list, same selection — nothing changed
+
+    assert seen == [], f"a no-op repopulate re-emitted drive_changed: {seen}"
+
+
+def test_a_populate_that_really_changes_the_drive_still_emits(
+    qapp: QApplication,
+) -> None:
+    """The floor. A guard that silenced the signal entirely would pass the test
+    above and break drive selection — the disc would never be read at all."""
+    backend = _FakeBackend()
+    backend.set_drives([_drive("/dev/sr0")])
+    picker = DrivePicker(backend)
+    picker.refresh()
+
+    seen: list[str] = []
+    picker.drive_changed.connect(seen.append)
+    # The previously-selected device is gone; a different one is selected.
+    backend.set_drives([_drive("/dev/sr1")])
+    picker.refresh()
+
+    assert seen == ["/dev/sr1"], seen
+
+
+def test_the_first_populate_still_emits(qapp: QApplication) -> None:
+    """The other floor: with no previous device, the initial selection IS a
+    change and must start the scan."""
+    backend = _FakeBackend()
+    backend.set_drives([_drive("/dev/sr0")])
+    picker = DrivePicker(backend)
+    seen: list[str] = []
+    picker.drive_changed.connect(seen.append)
+    picker.refresh()
+    assert seen == ["/dev/sr0"], seen

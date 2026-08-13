@@ -308,14 +308,14 @@ class TestCliFlag:
 #:   their C3 exists to test. The refusal IS our half of that seam passing; it
 #:   cannot also be their half, which needs the argv to reach the binary and
 #:   belongs in their own argv gate.
-#: * `--no-such-flag-exists` — needs `-N`. One token, no change to what it
-#:   proves; asked for in round 8 lap 8 §B2.
-#: * `--verify-log <path>` — needs its spaces quoted so it is one argument.
-#:   Asked for in §B1; the two *other* defects on that line were ours and are
-#:   fixed.
+#: **Was 3; is 1 as of the fork's returned lap-7 copy.** They added `-N` to the
+#: two lines that needed it, and we quoted the `--verify-log` path (the one edit
+#: we made inside their section, announced by a `log` line beside it). The
+#: number goes DOWN as the seam converges, which is the whole reason it is a
+#: count rather than a flag.
 #:
 #: A count, not a boolean, and asserted for equality below — see that test.
-KNOWN_FOREIGN_REFUSALS: dict[str, int] = {"round-08-joint.txt": 3}
+KNOWN_FOREIGN_REFUSALS: dict[str, int] = {"round-08-joint.txt": 1}
 
 
 class TestShippedScripts:
