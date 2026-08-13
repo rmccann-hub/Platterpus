@@ -1223,7 +1223,21 @@ class ScriptRunner(QObject):
             return True
 
         chosen = releases[index]
-        dialog._table.setCurrentRow(index)
+        # `getattr`, not `dialog._table`: mypy types this as a bare `QDialog`
+        # (the module is imported *by* the picker, so the real class cannot be
+        # imported here without a cycle) and a private attribute on it is an
+        # `attr-defined` error. It is also the honest shape — the attribute is
+        # reached duck-typed, so a rename should be a legible failure rather
+        # than an AttributeError inside an unattended batch.
+        table = getattr(dialog, "_table", None)
+        if table is None:
+            self._deadline_outcome = Outcome.ERROR
+            self._deadline_detail = (
+                "the release picker has no `_table` — its internals changed and "
+                "this verb needs updating; refusing rather than guessing"
+            )
+            return True
+        table.setCurrentRow(index)
         mbid = getattr(chosen, "mbid", "?")
         title = getattr(chosen, "title", "") or "?"
         dialog.accept()

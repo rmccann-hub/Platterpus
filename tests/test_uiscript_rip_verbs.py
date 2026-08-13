@@ -740,3 +740,36 @@ def test_an_ambiguous_prefix_refuses_rather_than_taking_the_first(
     assert process_until(lambda: bool(runner._report.steps))
     assert runner._report.steps[-1].outcome is Outcome.FAIL
     assert not dialog.accepted
+
+
+def test_a_picker_whose_internals_changed_is_reported_not_crashed(
+    qapp, process_until, monkeypatch
+) -> None:
+    """The verb reaches `_table` duck-typed, because importing the real dialog
+    here would be circular. That makes a rename an AttributeError inside an
+    unattended batch unless it is checked — so it is checked, and it says which
+    attribute went missing rather than dying."""
+
+    class _Renamed:
+        def __init__(self) -> None:
+            self._releases = [_Release("d14a7546-815b-43c6-8af6-35cff6cee1d0")]
+            self.accepted = False
+
+        def isVisible(self) -> bool:  # noqa: N802 — Qt spelling
+            return True
+
+        def accept(self) -> None:
+            self.accepted = True
+
+    win = _window()
+    runner = ScriptRunner(win)
+    dialog = _Renamed()
+    _with_picker(monkeypatch, dialog)
+
+    runner.start(parse("pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0"))
+    assert process_until(lambda: bool(runner._report.steps))
+
+    record = runner._report.steps[-1]
+    assert record.outcome is Outcome.ERROR
+    assert "_table" in record.detail
+    assert not dialog.accepted, "it accepted without ever moving the selection"
