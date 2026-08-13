@@ -110,6 +110,20 @@ expect-exit 0
 expect-cyanrip platterpus-fork
 log ^ if that failed you are on stock upstream, not the fork. Everything below is void.
 
+# Answer the MusicBrainz release picker before anything else can collide with
+# it. This disc returns FOUR candidates, so on launch a modal opens and waits —
+# and SECTION A's `cancel` below closes whatever modal is on top, which would be
+# the picker rather than the dependencies dialog. Added 2026-08-13 after the
+# operator asked the obvious question: "is there a way you can pick the album?"
+# There was not. There is now — a verb, not an app setting, because auto-choosing
+# in the product would silently pick the tags for every ambiguous disc a user
+# ever rips. In a script the choice is written down and applies to this run only.
+#
+# The MBID is the one the operator chose on 2026-08-13, twice, consistently.
+# Named by MBID rather than row number because MusicBrainz ordering is not
+# stable: `pick-release 2` would mean a different release next month.
+pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+
 # The seam check with no album folder: the argv half only. It composes a real
 # rip's argv through the REAL builder, runs it against a device that cannot open,
 # and reads `invocation` back out of cyanrip's own -j record — which compares
@@ -132,6 +146,7 @@ log SECTION B — Platterpus tests
 #     real one, and the transcript reads clean either way.
 rescan
 wait 20
+pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
 expect-tracks 14
 
 # B2. Dynamic secure re-rip is the DEFAULT and it means the album pass carries

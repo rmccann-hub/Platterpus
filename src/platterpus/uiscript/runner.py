@@ -297,6 +297,15 @@ class ScriptRunner(QObject):
         self._deadline_step: Step | None = None
         self._deadline_started: float = 0.0
         self._deadline_predicate: Callable[[], bool] | None = None
+        #: Set by a predicate that does real work (today: `pick-release`) so the
+        #: transcript records *what it did* rather than a bare "ok". Cleared when
+        #: the deadline is armed, so one verb's result can never be reported
+        #: against the next.
+        self._deadline_outcome: Outcome = Outcome.PASS
+        self._deadline_detail: str = ""
+        #: Replaces the generic "still not finished after Ns" when a verb can say
+        #: something more useful about having run out of time.
+        self._deadline_timeout_detail: str = ""
         #: The last `cyanrip` invocation, so `expect-cyanrip` / `expect-exit`
         #: assert against what actually ran rather than re-running it.
         self._last_cyanrip_exit: int | None = None
@@ -470,11 +479,17 @@ class ScriptRunner(QObject):
                 self._record(
                     step,
                     Outcome.FAIL,
-                    f"still not finished after {elapsed:.0f}s",
+                    self._deadline_timeout_detail
+                    or f"still not finished after {elapsed:.0f}s",
                     elapsed=elapsed,
                 )
             else:
-                self._record(step, Outcome.PASS, elapsed=elapsed)
+                self._record(
+                    step,
+                    self._deadline_outcome,
+                    self._deadline_detail,
+                    elapsed=elapsed,
+                )
 
     def _arm_deadline(
         self,
@@ -486,6 +501,12 @@ class ScriptRunner(QObject):
         self._deadline = self._deadline_started + seconds
         self._deadline_step = step
         self._deadline_predicate = predicate
+        # Reset per arming, so a previous verb's result can never be reported
+        # against this one — the same defect class as the stale `cyanrip`
+        # invocation that graded a step two lines earlier (0.6.12b2).
+        self._deadline_outcome = Outcome.PASS
+        self._deadline_detail = ""
+        self._deadline_timeout_detail = ""
 
     def _record(
         self,
@@ -1113,6 +1134,118 @@ class ScriptRunner(QObject):
         self._record(step, Outcome.PASS, "start requested")
         QTimer.singleShot(0, start)
 
+    def _do_pick_release(self, step: Step) -> None:
+        """Answer the MusicBrainz release picker without a person.
+
+        **Why this is a verb and not an app setting.** A disc with more than one
+        MusicBrainz candidate opens a modal picker and waits, which is correct
+        behaviour for a person and fatal for an unattended batch — the rig disc
+        (*Every Breath You Take — The Classics*) returns **four**. Auto-choosing
+        one *in the product* would silently pick the tags for every ambiguous
+        disc a user ever rips, which is a real archival decision and not ours to
+        make on their behalf. In a **script** it is exactly right: the choice is
+        written down, it is in the transcript, and it applies only to this run.
+        `CLAUDE.md`: a new testing capability is a script verb.
+
+        Usage — ``pick-release <mbid|prefix|N>``. An MBID (or an unambiguous
+        prefix of one) is preferred over a row number, because MusicBrainz
+        ordering is not stable and ``pick-release 2`` would silently mean a
+        different release next month.
+
+        Non-blocking, like `wait-for-rip`: it arms the deadline with a predicate
+        the tick polls, so the GUI keeps running while the scan finishes. Qt
+        delivers timer events inside a modal's nested event loop, which is the
+        whole reason a script can dismiss a modal at all.
+
+        **A picker that never appears is a PASS, and that needs justifying** —
+        it is exactly the "satisfied by finding nothing" shape. It is only
+        accepted alongside *positive* evidence: tracks are loaded, so the disc
+        identified unambiguously and there was genuinely nothing to pick. Waiting
+        with an empty track table keeps waiting until the timeout.
+        """
+        # `args[0]`, never `joined()`: with the optional timeout present,
+        # `joined()` returns "d14a7546… 60" and the MBID would match nothing.
+        # Caught by a test that passes the timeout, which the first version
+        # of this verb did not have.
+        wanted = step.args[0].strip()
+        if not wanted:
+            self._record(
+                step, Outcome.ERROR, "pick-release needs an MBID or a row number"
+            )
+            return
+        try:
+            seconds = float(step.args[1]) if len(step.args) > 1 else 120.0
+        except ValueError:
+            self._record(
+                step, Outcome.ERROR, f"{step.args[1]!r} is not a number of seconds"
+            )
+            return
+        if seconds <= 0:
+            self._record(step, Outcome.ERROR, "the timeout must be positive")
+            return
+        seconds = min(seconds, MAX_WAIT_S)
+        self._arm_deadline(step, seconds, lambda: self._try_pick_release(wanted))
+        self._deadline_timeout_detail = (
+            f"no release picker appeared within {seconds:.0f}s and no tracks "
+            "loaded either — the disc scan did not finish, so nothing was chosen"
+        )
+
+    def _try_pick_release(self, wanted: str) -> bool:
+        """One poll: choose in the picker if it is up, else look for tracks.
+
+        Returns True when the wait is over — either because a release was chosen
+        (or could not be), or because tracks are loaded and no choice was needed.
+        Sets `_deadline_outcome` / `_deadline_detail` so the transcript records
+        *which* release was taken, out of how many, rather than a bare "ok".
+        """
+        dialog = _release_picker()
+        if dialog is None:
+            table = getattr(self._window, "_track_table", None)
+            loaded = len(table.tracks()) if table is not None else 0
+            if loaded > 0:
+                self._deadline_detail = (
+                    f"no picker appeared and {loaded} track(s) are loaded — the "
+                    "disc identified unambiguously, so there was nothing to pick"
+                )
+                return True
+            return False  # scan still running; keep waiting
+
+        releases = list(getattr(dialog, "_releases", []))
+        index = _match_release(releases, wanted)
+        if index is None:
+            offered = ", ".join(getattr(r, "mbid", "?") for r in releases) or "none"
+            self._deadline_outcome = Outcome.FAIL
+            self._deadline_detail = (
+                f"{wanted!r} is not among the {len(releases)} release(s) offered: "
+                f"{offered}. Leaving the picker open rather than choosing something "
+                "else — a rip tagged from the wrong release is worse than a failed step."
+            )
+            return True
+
+        chosen = releases[index]
+        # `getattr`, not `dialog._table`: mypy types this as a bare `QDialog`
+        # (the module is imported *by* the picker, so the real class cannot be
+        # imported here without a cycle) and a private attribute on it is an
+        # `attr-defined` error. It is also the honest shape — the attribute is
+        # reached duck-typed, so a rename should be a legible failure rather
+        # than an AttributeError inside an unattended batch.
+        table = getattr(dialog, "_table", None)
+        if table is None:
+            self._deadline_outcome = Outcome.ERROR
+            self._deadline_detail = (
+                "the release picker has no `_table` — its internals changed and "
+                "this verb needs updating; refusing rather than guessing"
+            )
+            return True
+        table.setCurrentRow(index)
+        mbid = getattr(chosen, "mbid", "?")
+        title = getattr(chosen, "title", "") or "?"
+        dialog.accept()
+        self._deadline_detail = (
+            f"chose {mbid} ({title}) — row {index + 1} of {len(releases)}"
+        )
+        return True
+
     def _do_wait_for_rip(self, step: Step) -> None:
         """Wait for the rip to finish, up to a timeout.
 
@@ -1438,6 +1571,40 @@ def _window_manifest_line(widget: QWidget) -> str:
         f"geom={geometry.x()},{geometry.y()} {geometry.width()}x{geometry.height()} "
         f"on_a_screen={on_a_screen}"
     )
+
+
+def _release_picker() -> QDialog | None:
+    """The MusicBrainz release picker, if it is on screen.
+
+    Matched by class name for the same reason as `_is_the_harness`: importing
+    the dialog here would be circular. Unlike `_active_dialog` this looks at
+    *every* top level rather than the active one, because the picker can be up
+    while a `QMessageBox` sits in front of it.
+    """
+    for widget in QApplication.topLevelWidgets():
+        if type(widget).__name__ == "ReleasePickerDialog" and widget.isVisible():
+            return widget if isinstance(widget, QDialog) else None
+    return None
+
+
+def _match_release(releases: list[object], wanted: str) -> int | None:
+    """Index of the release `wanted` names, or None.
+
+    Accepts a full MBID, an unambiguous **prefix** of one (so a script can carry
+    the readable first block of a UUID), or a 1-based row number. A prefix that
+    matches more than one release returns None rather than the first hit —
+    guessing here would tag a rip from the wrong release, which is the kind of
+    error that survives into an archive.
+    """
+    if wanted.isdigit():
+        row = int(wanted) - 1
+        return row if 0 <= row < len(releases) else None
+    key = wanted.casefold()
+    ids = [str(getattr(r, "mbid", "")).casefold() for r in releases]
+    if key in ids:
+        return ids.index(key)
+    hits = [i for i, mbid in enumerate(ids) if mbid.startswith(key)]
+    return hits[0] if len(hits) == 1 else None
 
 
 def _is_the_harness(widget: QWidget) -> bool:
