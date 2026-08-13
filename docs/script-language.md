@@ -63,6 +63,7 @@ text is taken verbatim as one value.
 | `expect` | 2+ (rest of line) | ready | expect <config-field> <value> — assert a setting equals a value |
 | `expect-contains` | 2+ (rest of line) | ready | expect-contains <config-field> <text> — assert a setting contains text |
 | `rescan` | 0 | ready | rescan — re-read the disc in the drive |
+| `pick-release` | 1–2 | ready | pick-release <mbid|prefix|N> [seconds] — answer the MusicBrainz release picker when a disc has more than one candidate, so an unattended run does not stop at a modal. Passes without choosing only if no picker appears AND tracks are loaded (the disc was unambiguous) |
 | `album` | 1+ (rest of line) | ready | album <title> — set the album title, so repeat rips land in separate folders |
 | `album-artist` | 1+ (rest of line) | ready | album-artist <name> — set the album artist for this rip |
 | `select-tracks` | 1 | ready | select-tracks <all|none|1,3,5-7> — choose which tracks the rip covers (this is cyanrip's -l) |
@@ -328,7 +329,7 @@ found nothing wrong*.
 {
   "language": "platterpus-uiscript",
   "grammar_version": 1,
-  "platterpus_version": "0.6.12b3",
+  "platterpus_version": "0.6.12b4",
   "syntax": {
     "one_statement_per_line": true,
     "comment_prefix": "#",
@@ -469,6 +470,15 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "rescan \u2014 re-read the disc in the drive"
+    },
+    {
+      "name": "pick-release",
+      "min_args": 1,
+      "max_args": 2,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "pick-release <mbid|prefix|N> [seconds] \u2014 answer the MusicBrainz release picker when a disc has more than one candidate, so an unattended run does not stop at a modal. Passes without choosing only if no picker appears AND tracks are loaded (the disc was unambiguous)"
     },
     {
       "name": "album",
@@ -798,4 +808,4 @@ found nothing wrong*.
 }
 ```
 
-*Last updated for Platterpus v0.6.12b3.*
+*Last updated for Platterpus v0.6.12b4.*

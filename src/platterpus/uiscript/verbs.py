@@ -160,6 +160,19 @@ _VERB_LIST: tuple[Verb, ...] = (
     # --- Disc and rip --------------------------------------------------------
     Verb("rescan", 0, 0, "rescan — re-read the disc in the drive"),
     Verb(
+        # An MBID rather than a row number is the documented form because
+        # MusicBrainz ordering is not stable: `pick-release 2` would silently
+        # mean a different release next month, and a rip tagged from the wrong
+        # release is an error that survives into the archive.
+        "pick-release",
+        1,
+        2,
+        "pick-release <mbid|prefix|N> [seconds] — answer the MusicBrainz release "
+        "picker when a disc has more than one candidate, so an unattended run "
+        "does not stop at a modal. Passes without choosing only if no picker "
+        "appears AND tracks are loaded (the disc was unambiguous)",
+    ),
+    Verb(
         "album",
         1,
         None,

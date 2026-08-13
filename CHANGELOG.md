@@ -11,6 +11,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.12b4] — 2026-08-13
+
+### Added
+- **`pick-release` — a script can now answer the MusicBrainz release picker.**
+  A disc with more than one MusicBrainz candidate opens a modal and waits, which
+  is right for a person and fatal for an unattended batch; the rig disc returns
+  **four**, so the joint script needed an operator at the keyboard for its first
+  minute and could not be left alone. `pick-release <mbid|prefix|N> [seconds]`
+  waits for the picker, selects the named release and accepts it.
+
+  **A verb rather than an app setting, deliberately.** Auto-choosing inside the
+  product would silently pick the tags for every ambiguous disc a user ever rips
+  — a real archival decision, and not ours to make on their behalf. In a script
+  the choice is written down, appears in the transcript, and applies to that run
+  only (`CLAUDE.md`: *a new testing capability is a script verb*).
+
+  Three refusals, because the failure this prevents is a rip tagged from the
+  wrong release — an error that survives into an archive: an MBID that is not
+  among the candidates **fails and names what was offered** rather than choosing
+  something else; an ambiguous prefix refuses rather than taking the first hit;
+  and a row number is accepted but documented as the weaker form, since
+  MusicBrainz ordering is not stable. Passing when **no** picker appears is
+  allowed only alongside positive evidence that the disc identified — tracks
+  loaded — so the verb cannot be satisfied by finding nothing.
+
 ## [0.6.12b3] — 2026-08-13
 
 ### Fixed
@@ -5432,7 +5457,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12b3.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12b4.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7674,7 +7699,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b3...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b4...HEAD
+[0.6.12b4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b3...v0.6.12b4
 [0.6.12b3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b2...v0.6.12b3
 [0.6.12b2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b1...v0.6.12b2
 [0.6.12b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.11...v0.6.12b1
@@ -7771,4 +7797,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.12b3.*
+*Last updated for Platterpus v0.6.12b4.*
