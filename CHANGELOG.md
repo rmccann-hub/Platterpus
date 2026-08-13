@@ -11,6 +11,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **`docs/rig-scripts/platterpuscollect.sh`** — one command that bundles a rig
+  run's evidence into a single `~/platterpusbundle.tar.gz`: the script transcript
+  folder, `report.json`, the app log, `--doctor`, both version banners, the config
+  and the rig-check manifest, plus the newest rip's log/cue/report. **Text only** —
+  it copies only known-text extensions and then sweeps for audio anyway and
+  deletes what it finds (Critical rule #8), and that backstop was verified by
+  planting a `.flac` and confirming it fires. Lives in the repo so it can be
+  `curl`ed rather than attached: sending rig files through a chat attachment cost
+  two runs on 2026-08-13 — once to a hyphen in the name, once to a browser's
+  `(1)` suffix — and a raw URL with a published checksum has neither failure mode.
+
 ### Fixed
 - **`docs/rig-scripts/round08joint.txt` named the EAC reference log by a path that
   was one space wrong**, so C6's `--verify-log` would have failed to *open* the
