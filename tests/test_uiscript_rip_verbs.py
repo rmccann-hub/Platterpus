@@ -558,3 +558,185 @@ def test_a_write_failure_is_logged_and_does_not_lose_the_run(
     # The run itself is intact and still emitted; only the copy on disk is lost.
     assert [step.source for step in report.steps] == ["log hello", "log goodbye"]
     assert "no space left on device" in caplog.text
+
+
+# --- pick-release: answering the MusicBrainz picker without a person --------
+
+
+class _Release:
+    """As much of a `ReleaseSummary` as the verb touches."""
+
+    def __init__(self, mbid: str, title: str = "Every Breath You Take") -> None:
+        self.mbid = mbid
+        self.title = title
+
+
+class _FakeTable:
+    def __init__(self) -> None:
+        self.current = -1
+
+    def setCurrentRow(self, row: int) -> None:  # noqa: N802 — Qt spelling
+        self.current = row
+
+
+class ReleasePickerDialog:  # noqa: N801 — the name IS the interface here
+    """Stand-in matched by class name, exactly as the runner matches the real one.
+
+    **What it does that the real dialog does not:** it does not lay out widgets,
+    does not populate a table, and `accept()` only records a flag instead of
+    ending a modal loop. The three things the verb actually touches — `_releases`,
+    `_table.setCurrentRow`, `accept()` — are pinned against the real class by
+    `test_the_stand_in_matches_the_real_pickers_surface` below, so this cannot
+    drift into satisfying a verb the product would not.
+    """
+
+    def __init__(self, releases: list[_Release], visible: bool = True) -> None:
+        self._releases = releases
+        self._table = _FakeTable()
+        self._visible = visible
+        self.accepted = False
+
+    def isVisible(self) -> bool:  # noqa: N802 — Qt spelling
+        return self._visible
+
+    def accept(self) -> None:
+        self.accepted = True
+
+
+def _with_picker(monkeypatch: Any, dialog: Any) -> None:
+    """Make `_release_picker()` find `dialog` (or nothing, for None)."""
+    import platterpus.uiscript.runner as runner_mod
+
+    monkeypatch.setattr(runner_mod, "_release_picker", lambda: dialog)
+
+
+def test_the_stand_in_matches_the_real_pickers_surface() -> None:
+    """The floor. A stub that answers whatever the verb asks would let the verb
+    reach for attributes the real dialog does not have, and every test below
+    would still pass while the verb died in front of an unattended batch."""
+    from platterpus.ui.release_picker import ReleasePickerDialog as Real
+
+    for name in ("_releases", "_table", "accept", "isVisible"):
+        assert hasattr(Real, name) or f"self.{name}" in __import__("inspect").getsource(
+            Real.__init__
+        ), f"the real ReleasePickerDialog has no {name!r}, but the verb uses it"
+
+
+def test_it_chooses_the_release_the_script_names(
+    qapp, process_until, monkeypatch
+) -> None:
+    win = _window()
+    runner = ScriptRunner(win)
+    dialog = ReleasePickerDialog(
+        [
+            _Release("aaaa1111-0000-0000-0000-000000000000"),
+            _Release("d14a7546-815b-43c6-8af6-35cff6cee1d0"),
+            _Release("bbbb2222-0000-0000-0000-000000000000"),
+        ]
+    )
+    _with_picker(monkeypatch, dialog)
+
+    runner.start(parse("pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0"))
+    assert process_until(lambda: bool(runner._report.steps)), "never resolved"
+
+    record = runner._report.steps[-1]
+    assert record.outcome is Outcome.PASS, record.detail
+    assert dialog._table.current == 1, "selected the wrong row"
+    assert dialog.accepted, "the picker was never accepted"
+    assert "d14a7546-815b-43c6-8af6-35cff6cee1d0" in record.detail
+    assert "row 2 of 3" in record.detail
+
+
+def test_the_optional_timeout_is_not_swallowed_into_the_mbid(
+    qapp, process_until, monkeypatch
+) -> None:
+    """Regression: the first version used `joined()`, so `pick-release <mbid> 60`
+    searched for "<mbid> 60" and matched nothing — the verb would have timed out
+    on the very disc it was written for."""
+    win = _window()
+    runner = ScriptRunner(win)
+    dialog = ReleasePickerDialog([_Release("d14a7546-815b-43c6-8af6-35cff6cee1d0")])
+    _with_picker(monkeypatch, dialog)
+
+    runner.start(parse("pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 60"))
+    assert process_until(lambda: bool(runner._report.steps))
+    assert runner._report.steps[-1].outcome is Outcome.PASS
+    assert dialog.accepted
+
+
+def test_an_unknown_release_fails_and_leaves_the_picker_alone(
+    qapp, process_until, monkeypatch
+) -> None:
+    """Choosing *something else* would tag the rip from the wrong release — an
+    error that survives into an archive. Failing the step is the cheap outcome."""
+    win = _window()
+    runner = ScriptRunner(win)
+    dialog = ReleasePickerDialog([_Release("aaaa1111-0000-0000-0000-000000000000")])
+    _with_picker(monkeypatch, dialog)
+
+    runner.start(parse("pick-release ffff9999-0000-0000-0000-000000000000"))
+    assert process_until(lambda: bool(runner._report.steps))
+
+    record = runner._report.steps[-1]
+    assert record.outcome is Outcome.FAIL
+    assert not dialog.accepted, "it accepted a release the script did not name"
+    assert dialog._table.current == -1, "it moved the selection anyway"
+    assert "aaaa1111-0000-0000-0000-000000000000" in record.detail, (
+        "the failure does not say what WAS offered, so it cannot be acted on"
+    )
+
+
+def test_no_picker_plus_loaded_tracks_is_a_pass_that_says_why(
+    qapp, process_until, monkeypatch
+) -> None:
+    """A disc with one candidate opens no picker. That must not fail — but it is
+    the 'satisfied by finding nothing' shape, so it is only accepted alongside
+    positive evidence that the disc really did identify."""
+    win = _window()  # the stub track table carries 14 tracks
+    runner = ScriptRunner(win)
+    _with_picker(monkeypatch, None)
+
+    runner.start(parse("pick-release d14a7546"))
+    assert process_until(lambda: bool(runner._report.steps))
+
+    record = runner._report.steps[-1]
+    assert record.outcome is Outcome.PASS
+    assert "14 track(s) are loaded" in record.detail
+    assert "nothing to pick" in record.detail
+
+
+def test_no_picker_and_no_tracks_keeps_waiting_then_fails(
+    qapp, process_until, monkeypatch
+) -> None:
+    """The case the pass above must not absorb: the scan simply has not finished.
+    Passing here would report success for a disc that was never identified."""
+    win = _window(track_table=_TrackTable(count=0))
+    runner = ScriptRunner(win)
+    _with_picker(monkeypatch, None)
+
+    runner.start(parse("pick-release d14a7546 1"))
+    assert process_until(lambda: bool(runner._report.steps), timeout=8.0)
+
+    record = runner._report.steps[-1]
+    assert record.outcome is Outcome.FAIL
+    assert "no release picker appeared" in record.detail
+    assert "no tracks" in record.detail
+
+
+def test_an_ambiguous_prefix_refuses_rather_than_taking_the_first(
+    qapp, process_until, monkeypatch
+) -> None:
+    win = _window()
+    runner = ScriptRunner(win)
+    dialog = ReleasePickerDialog(
+        [
+            _Release("d14a7546-aaaa-0000-0000-000000000000"),
+            _Release("d14a7546-bbbb-0000-0000-000000000000"),
+        ]
+    )
+    _with_picker(monkeypatch, dialog)
+
+    runner.start(parse("pick-release d14a7546"))
+    assert process_until(lambda: bool(runner._report.steps))
+    assert runner._report.steps[-1].outcome is Outcome.FAIL
+    assert not dialog.accepted
