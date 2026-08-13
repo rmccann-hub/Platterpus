@@ -858,13 +858,46 @@ def main(argv: list[str] | None = None) -> int:
         if _autorun:
             try:
                 console = window.open_script_console(autorun=False)
+                # A named file that will not load must STOP the run, not fall
+                # through to whatever the editor happens to hold — which is the
+                # built-in starter sample on a fresh install. On the rig
+                # (2026-08-13) that produced a nine-line transcript stamped with
+                # the right app version and reading like a real result, for a
+                # script the operator had never seen. `run_now()` clears the
+                # transcript pane, so the "could not read" line `load_file` had
+                # just written was erased before anyone could read it.
+                #
+                # The file the operator named IS the run. There is no sensible
+                # fallback, so there is no fallback.
+                #
+                # The path is resolved leniently first: the same artifact is
+                # spelled `round08joint.txt` by the cyanrip fork and
+                # `round-08-joint.txt` here, and that mismatch is what lost the
+                # run. Matching ignores case and separators, which works
+                # whichever convention either side picks. It does NOT guess:
+                # ambiguity is a refusal, same as absence.
+                _resolved: Path | None = None
+                _why = ""
                 if _script is not None:
-                    console.load_file(Path(_script).expanduser())
-                log.info(
-                    "unattended test script starting (%s)",
-                    "--run-script" if _script is not None else "config autorun",
-                )
-                console.run_now()
+                    from platterpus.uiscript.find_script import resolve_script_path
+
+                    _resolved, _why = resolve_script_path(str(_script))
+                    log.info("--run-script %s -> %s", _script, _why)
+                if _script is not None and (
+                    _resolved is None or not console.load_file(_resolved)
+                ):
+                    log.error(
+                        "--run-script %s could not be read; NOT running anything "
+                        "else. The console is open with the reason in it.",
+                        _script,
+                    )
+                    console.report_autorun_refused(Path(_script).expanduser(), _why)
+                else:
+                    log.info(
+                        "unattended test script starting (%s)",
+                        "--run-script" if _script is not None else "config autorun",
+                    )
+                    console.run_now()
             except Exception:  # noqa: BLE001 — last-resort guard
                 log.exception("the unattended test script could not be started")
     except Exception as exc:  # noqa: BLE001 — fatal-startup guard

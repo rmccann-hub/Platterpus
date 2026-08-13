@@ -11,6 +11,42 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.12b3] — 2026-08-13
+
+### Fixed
+- **`--run-script` ran a *different* script when the named file would not load,
+  and said nothing.** `load_file` returned `None`, so the launch path called
+  `run_now()` regardless; an unreadable path left the editor holding the built-in
+  starter sample, and that ran. The resulting transcript was correct about
+  everything it said — right app version, right timestamp, real steps — and was
+  about a nine-line sample the operator had never seen. `load_file` *had*
+  reported the failure into the transcript pane; `_on_run` clears that pane as
+  its first act, so the one sentence explaining what happened was erased about
+  120 ms later by the very call that followed it. A file that will not load is
+  now a refusal: nothing runs, the transcript says `REFUSED TO RUN` and names
+  every directory searched, and a message box says so on screen for a launch
+  nobody is sitting in front of. (Found on the rig, 2026-08-13, where it cost a
+  run.)
+- **A hyphen cost a rig run, so filenames no longer have to match exactly.** The
+  same artifact is `round08joint.txt` on one machine and `round-08-joint.txt` on
+  another — one spelling per project, for a file that crosses both. `--run-script`
+  now resolves the path by comparing names with case and ASCII separators
+  removed, searching the directory you named and then `~/Downloads`, `~/Desktop`
+  and the working directory. It is symmetric, so neither project has to be the
+  one that changes; it never guesses (two matches is a refusal that lists them);
+  and a miss names every place it looked, because *"not found"* is only useful
+  beside *where it looked*. Repo artifacts are also renamed to the separator-free
+  convention now written down in `CLAUDE.md` → *Artifact filenames that cross
+  machines*.
+- **`expect-dialog none` could never pass, including in the sample shipped to
+  teach the feature.** The script console is a `QDialog` and is open by
+  definition while a script runs, so `_active_dialog()` always found it — the
+  starter script a first-time reader is told to press Run on has always reported
+  one failure. Worse and never shipped to a user: a `cancel` with no application
+  dialog open would have found the console and *rejected* it, closing the window
+  hosting the runner's own timer, mid-run. The console is the harness, not the
+  application under test, and is now excluded.
+
 ## [0.6.12b2] — 2026-08-13
 
 ### Added
@@ -27,7 +63,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   disk at the end of an hour-long disc pass must not also lose the run).
 
 ### Changed
-- **`docs/rig-scripts/round-08-joint.txt` names 0.6.12b2 as its floor.** Its
+- **`docs/rig-scripts/round08joint.txt` names 0.6.12b2 as its floor.** Its
   header said 0.6.12b1 was enough; it is not, because on anything older the
   SECTION D rip cannot start at all (see the drive-picker fix below), so a run on
   the older build yields a transcript that looks like a test result and tests
@@ -269,7 +305,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   takes the text.
 
 ### Added
-- **`docs/rig-scripts/round-08-joint.txt`** — the joint round-8 test script, and
+- **`docs/rig-scripts/round08joint.txt`** — the joint round-8 test script, and
   the only file either project sends. Platterpus owns sections A, B and D;
   section C is fenced for the cyanrip fork to fill with tests only they can run
   (`-x` on a real drive, their new fatal messages, the malformed-argv shapes that
@@ -5396,7 +5432,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12b2.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12b3.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7638,7 +7674,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b2...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b3...HEAD
+[0.6.12b3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b2...v0.6.12b3
 [0.6.12b2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b1...v0.6.12b2
 [0.6.12b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.11...v0.6.12b1
 [0.6.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.10...v0.6.11
@@ -7734,4 +7771,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.12b2.*
+*Last updated for Platterpus v0.6.12b3.*
