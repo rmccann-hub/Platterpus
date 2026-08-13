@@ -27,6 +27,7 @@ that stops without a verdict reads exactly like one that passed.
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
@@ -39,7 +40,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
 from platterpus import __version__
-from platterpus.uiscript.report import Outcome, RunReport, StepRecord
+from platterpus.uiscript.report import Outcome, RunReport, StepRecord, render
 from platterpus.uiscript.script import Step, sanitise_cyanrip_args
 from platterpus.uiscript.verbs import OPENABLE
 
@@ -410,6 +411,7 @@ class ScriptRunner(QObject):
             )
         self._report.ended_reason = reason
         log.info("ui script run ended: %s", reason)
+        self._persist()
         self.finished.emit(self._report)
 
     # --- The tick ------------------------------------------------------------
@@ -437,6 +439,7 @@ class ScriptRunner(QObject):
             if self._index >= len(self._steps):
                 self._timer.stop()
                 log.info("ui script run finished: %s", self._report.counts())
+                self._persist()
                 self.finished.emit(self._report)
                 return
             step = self._steps[self._index]
@@ -720,6 +723,20 @@ class ScriptRunner(QObject):
         # the failure this whole feature exists to prevent.
         refusal = sanitise_cyanrip_args(args)
         if refusal is not None:
+            # INVALIDATE THE LAST RESULT. A refused step ran nothing, so every
+            # `expect-cyanrip` / `expect-exit` after it must have no subject —
+            # not the subject two commands ago.
+            #
+            # On the rig this happened four times in one run: L316's *"expected
+            # exit 1, got 0"* was grading C5's `-f` offset probe, not the C6
+            # `--verify-log` line it followed. It failed, which was luck. **Had
+            # `-f` exited 1, that assertion would have PASSED for a command that
+            # never ran** — an assertion satisfied by the wrong thing, inside the
+            # surface this project writes its tests in. Found by the cyanrip fork
+            # reading their own transcript (round 8 lap 7 §0b, item 2).
+            self._last_cyanrip_argv = []
+            self._last_cyanrip_output = ""
+            self._last_cyanrip_exit = None
             self._record(step, Outcome.FAIL, refusal)
             return
         argv = [str(CYANRIP_BINARY_DEFAULT), *args]
@@ -919,7 +936,17 @@ class ScriptRunner(QObject):
         self._record(job.step, outcome, body, elapsed=elapsed)
 
     def _do_expect_cyanrip(self, step: Step) -> None:
-        wanted = step.joined()
+        # THE RAW TAIL, not the re-joined tokens. This verb matches against a
+        # tool's own output, so every character the operator typed is meaningful
+        # — including quotes, which tokenising eats because they are grouping
+        # characters everywhere else in the language.
+        #
+        # cyanrip prints `Missing "=" in track metadata "1"`. Asserting that was
+        # impossible until now: the quotes vanished before the comparison, so the
+        # fork's C3 could only assert a weakened, quote-free substring and said so
+        # (round 8 lap 7 §0b — *"a gap in the language, not in the test"*).
+        # `joined()` stays for the verbs whose tokens really are just words.
+        wanted = step.raw_tail or step.joined()
         if not self._last_cyanrip_argv:
             self._record(step, Outcome.ERROR, "no cyanrip command has run yet")
             return
@@ -1115,6 +1142,24 @@ class ScriptRunner(QObject):
             )
             return
         window = self._window
+        # NOTHING RUNNING IS A FAILURE, NOT AN INSTANT PASS.
+        #
+        # The predicate below is "no rip worker exists", which is true both when a
+        # rip has finished and when one never started. On the 2026-08-12 rig run
+        # `rip` had just failed — Start was disabled because the disc never
+        # identified — and this step then reported **ok immediately**, in SECTION
+        # D, in a transcript whose whole purpose was proving the rip happened.
+        # The fork logged it as a vacuous pass and they were right: a wait that
+        # succeeds by finding nothing is the shape this script's own header
+        # forbids in point 3.
+        if getattr(window, "_rip_worker", None) is None:
+            self._record(
+                step,
+                Outcome.FAIL,
+                "no rip is running, so there is nothing to wait for — this step "
+                "reports the state it found rather than passing on an empty room",
+            )
+            return
         self._arm_deadline(
             step, capped, lambda: getattr(window, "_rip_worker", None) is None
         )
@@ -1285,6 +1330,41 @@ class ScriptRunner(QObject):
         self._record(
             step, Outcome.PASS, f"selected {len(wanted)} track(s): {sorted(wanted)}"
         )
+
+    def _persist(self) -> None:
+        """Write the finished run to disk beside its screenshots. Never raises.
+
+        **Why the runner does this and not the console.** Until now the only way
+        to get a transcript off the rig was the console's *Save transcript…*
+        button — a human selecting text in a window and choosing a filename,
+        after an unattended run whose entire purpose was to need no human. On the
+        2026-08-12 rig pass the operator pasted it into a chat message instead,
+        which is the same work wearing a different hat, and it is the shape
+        `CLAUDE.md` names as a defect: *every hand-edit in a written procedure is
+        a thing the software was supposed to do.* Now the run leaves a folder and
+        the instruction is "upload this folder".
+
+        Both forms, deliberately. ``transcript.txt`` is what a person reads and
+        what goes into a handshake lap; ``report.json`` is the same run in the
+        shape a parser takes, and the two must come from one render so they
+        cannot disagree about what happened.
+
+        Failure is logged and swallowed: a full disk at the end of an hour-long
+        disc pass must not lose the run that is still sitting in the window. The
+        console's Save button remains as the manual fallback for exactly that.
+        """
+        directory = self._ensure_artifact_dir()
+        if directory is None:
+            return  # `_ensure_artifact_dir` already logged why
+        for name, text in (
+            ("transcript.txt", render(self._report)),
+            ("report.json", json.dumps(self._report.as_dict(), indent=2)),
+        ):
+            try:
+                (directory / name).write_text(text, encoding="utf-8")
+            except OSError as exc:
+                log.error("could not write %s: %r", directory / name, exc)
+        log.info("ui script run saved to %s", directory)
 
     def _ensure_artifact_dir(self) -> Path | None:
         if self._artifact_dir is not None:

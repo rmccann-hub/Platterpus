@@ -11,6 +11,135 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-13 — the rig ran, and the app killed its own disc scan
+
+**Shipped v0.6.12b2.** Four defects, one of which cost the entire 2026-08-12
+joint rig pass, plus one piece of work that was not a defect and should have
+been done a run earlier.
+
+**The blocker, and why it looked like a ripper failure.** `DrivePicker.set_drives`
+re-emitted `drive_changed` when a repopulate restored the **same** device — a
+no-op by definition. The main window's handler supersedes any in-flight disc
+probe with a **0 ms** wait, which is correct: a probe blocked inside
+`subprocess.communicate()` cannot be asked politely to stop. So the second
+populate, four seconds into launch, SIGKILLed a perfectly healthy scan
+mid-TOC-read. What the operator saw was `cyanrip exited -9` with no output, no
+disc identified, Start rip greyed out, and 10 of 72 script steps failing —
+every symptom pointing at the ripper, none of them its fault. The fork logged
+the same three lines from their side as round 8 lap 7 §0b/J11.
+
+*The lesson worth keeping is about the 0 ms, which is unchanged.* It reads like
+the bug and is not: superseding really does need to be immediate. The bug was
+asking it to supersede something **for no reason**. When a mechanism is
+correctly violent, the thing to audit is its trigger, not its force.
+
+**Three script-language defects the same run exposed**, all of the "passes for
+the wrong reason" family this project keeps finding:
+
+* `wait-for-rip` passed instantly when no rip was running. Its predicate is *"no
+  rip worker exists"*, which is equally true after a rip finishes and when one
+  never started — so it reported `ok` in the very transcript whose purpose was
+  proving the rip happened.
+* A refused `cyanrip` step left the previous invocation as the comparison
+  subject, so `expect-cyanrip` graded a command two lines earlier — four times
+  in one run. It failed loudly that time, which was **luck**: the stale command
+  could as easily have contained the expected string and reported a pass for a
+  step that never ran.
+* `expect-cyanrip` could not express a string containing a double quote, which is
+  exactly the shape cyanrip prints (`Missing "=" in track metadata "1"`). The
+  tokeniser consumed the quotes as grouping characters before the comparison. The
+  fork called it *"a gap in the language, not in the test"* and was right.
+
+**The thing that was not a defect.** Until this release the only route for a
+transcript off the rig was the console's *Save transcript…* button — a person
+selecting text in a window, after an unattended run whose entire purpose was to
+need no person. On 2026-08-12 it came back pasted into a chat message instead.
+Nothing was broken; the work had simply been handed back. A finished run now
+writes `transcript.txt` and `report.json` into the timestamped folder it already
+creates for screenshots, and the transcript's header names that folder, so the
+answer to *"what do I send back"* is one path. `CLAUDE.md` already had the rule —
+*every hand-edit in a written procedure is a thing the software was supposed to
+do* — and it took a second occurrence to notice it applied here.
+
+**Two revert-proofs, both run rather than reasoned about.** Each `_persist()`
+call site was deleted in turn with the file hash asserted before and after, so a
+`str.replace` that quietly matched nothing could not be mistaken for a passing
+test. Deleting the natural-end call fails two tests; deleting the `stop()` call
+fails a different one and nothing else — which is why they are separate tests: a
+run stopped early is the case that most needs its evidence kept, and it leaves by
+a different exit.
+
+**Known and expected on the rig, so nobody reads it as a failure:** the round-8
+**test pin** `2ce8993` classifies as `unapproved` against the round-7 approved
+pin `ddf7ac3`. That is the check working. A test pin is by definition not the
+approved one, and `--doctor` still passes because it asks whether the binary is
+*the fork*, which is a different question.
+
+**Still open:** the setup wizard silently rebuilds `WIZARD_TARGET` (= the
+production pin) over whatever test pin is installed, with no warning. Parked in
+`TASKS.md` rather than fixed mid-round — S-14: it is a real defect and it does
+not break the artifact under review.
+
+---
+
+## 2026-08-12 (late) — the gate could not see the round it was gating
+
+**Shipped v0.6.12b1** as a pre-release, which the gate explicitly permits with a
+round open (round 7 lap 6 §1: refusing the beta does not protect a user, it
+guarantees the round can never close).
+
+**The finding that matters.** Committing round 8's record made
+`handshake.py --status` report the round for the first time — and it reported
+**OPEN**. It had been open all along; laps 3–7 were never committed, so the
+`round-*.md` glob found nothing for round 8, every *filed* round read CLOSED, and
+**four releases (v0.6.8 … v0.6.11) went out during it**. The gate was not wrong
+about anything it could see. Its own empty-record guard did not fire either,
+because that branch only triggers when there are **no** rounds at all and rounds
+1–7 were sitting right there.
+
+So this is the empty-record defect one level up: *an in-flight round with no
+files is indistinguishable from no round.* `CURRENT_ROUND` is now a floor the
+status report counts unconditionally — and only when it is newer than everything
+filed, because the first version injected a phantom round into every constructed
+test world and broke sixteen tests that build their own record. Staleness fails
+in the safe direction: a value left behind blocks a release, which is a
+conversation; the other direction ships.
+
+**Committing the record then found four more, all of them true beforehand:**
+
+* `_MAX_TABLE_LAG` was right to fail. Their lap 1 names its provider contract at
+  `ea2793a` **in their repo**, and that constant's own comment says a contract in
+  a directory nothing reads changes nothing. Fetched it and committed it as an
+  artifact rather than widening the ratchet — and it independently confirmed the
+  `--verify-log` exemption (`-Y` under *Misc. options*, `-x`/`-j` under *Ripping
+  options*).
+* The outbound-openers test never filtered to openers, which its docstring has
+  always claimed. Unnoticed because every committed outbound file happened to be
+  a lap 1 until round 8 — which the fork opened, so our first file for it is lap
+  **2**, a mid-round reply held to a full-round section sweep.
+* A conformance row asserted *"Platterpus may cut a stable release right now"* —
+  true when written, and a statement about today rather than about the gate.
+  Moved to a closed-record fixture mirroring the open one beside it.
+* Our verification header said `HANDSHAKE-VERDICT: OPEN` while its own prose said
+  `HOLD`. OPEN is a round state, not a verdict.
+
+**And a real flake, finally caught.** `test_e2e_unknown_rip_tags_flacs…` failed
+in CI on py3.13 with `FileNotFoundError` on the report. v0.6.11 moved the 5.2 MB
+write off the GUI thread; the assertion still read the file the instant the rip
+signalled done. ~3,900 passes, two failures. **Proved rather than assumed:**
+spying on the real writer during the real test shows it *busy* at the moment of
+the assertion, so the flush is load-bearing, not decorative. Not a product bug —
+`closeEvent` flushes with `wait=True` — and a sweep found every other test that
+reads a product-written report already flushed.
+
+**Lessons graduated:** *a gate that cannot see a thing cannot gate it, and
+"nothing found" must be distinguishable from "nothing looked at"* — the same
+sentence this project keeps rediscovering, here applied to the release gate
+itself. Also: **apply the round-8 convergence rules (S-13…S-16) to our own
+queue, not only to the correspondence.** Every finding above was real, and
+several belonged to a later round by our own S-14 test; treating them all as
+in-scope is exactly the 37-lap failure mode, reproduced in-house.
+
 ## 2026-08-12 — the fork found one; there were seven
 
 **Shipped v0.6.12.** Round 8 lap 7 arrived with a §H finding: the update dialog
@@ -1554,4 +1683,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.12b1.*
+*Last updated for Platterpus v0.6.12b2.*

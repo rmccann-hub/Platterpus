@@ -56,6 +56,18 @@ class Step:
     verb: str = ""
     args: tuple[str, ...] = field(default_factory=tuple)
     error: str = ""
+    #: The rest of the line after the verb, EXACTLY as typed — comment stripped,
+    #: ends trimmed, and nothing else touched. Quotes survive here because they
+    #: were never grouping characters in this half.
+    #:
+    #: Tokenising is lossy on purpose (it is what makes `"a b"` one value), and
+    #: for a verb whose argument is *text to match against a tool's output* that
+    #: loss is a hole in the language. The cyanrip fork hit it: their C3 needed
+    #: to assert cyanrip's own message, `Missing "=" in track metadata`, and
+    #: every spelling they could write was unmatchable — the quotes were consumed
+    #: before the comparison. They reported it as *"a gap in the language, not in
+    #: the test"*, and that is exactly right.
+    raw_tail: str = ""
 
     @property
     def ok(self) -> bool:
@@ -192,6 +204,10 @@ def parse(text: str) -> list[Step]:
             )
             continue
         args = tuple(tokens[1:])
+        # The verbatim tail, for the match verbs. Split on the FIRST run of
+        # whitespace after the verb as it appears in the stripped body, so the
+        # verb's own spelling (any case) is removed and nothing else is.
+        raw_tail = body[len(tokens[0]) :].strip()
         if spec.takes_paths:
             # Per verb, not per token: the free-text verbs carry messages and
             # match patterns, and rewriting one of those would quietly turn an
@@ -200,9 +216,11 @@ def parse(text: str) -> list[Step]:
             args = tuple(expand_home(arg) for arg in args)
         arity = spec.arity_problem(len(args))
         if arity:
-            steps.append(Step(number, body, verb=name, args=args, error=arity))
+            steps.append(
+                Step(number, body, verb=name, args=args, error=arity, raw_tail=raw_tail)
+            )
             continue
-        steps.append(Step(number, body, verb=name, args=args))
+        steps.append(Step(number, body, verb=name, args=args, raw_tail=raw_tail))
     if truncated:
         steps.append(
             Step(
