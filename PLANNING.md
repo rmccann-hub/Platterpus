@@ -164,7 +164,8 @@ Platterpus/
         │   ├── verbs.py                # the CLOSED vocabulary — the security boundary, as data
         │   ├── script.py               # the parser (never raises) + the cyanrip argv sanitiser
         │   ├── runner.py               # QTimer state machine: one step per event-loop tick
-        │   └── report.py               # the transcript, for the console and the rip JSON
+        │   ├── report.py               # the transcript, for the console and the rip JSON
+        │   └── find_script.py          # resolve a typed script path, ignoring case/separators
         ├── settings_validation.py       # pure Settings/Config input validation (type/range/charset/format)
         ├── verdict.py                   # the single pure AccurateRip trust verdict (shared by every surface)
         ├── tool_paths.py                # resolve an external tool off PATH (~/.local/bin distrobox exports)
@@ -336,6 +337,7 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`uiscript/verbs.py`** — the **closed vocabulary** of the in-app test language, held as *data* rather than as branches in the runner, because it is the security boundary: widening the scripting surface has to be a deliberate edit to one table. Carries each verb's arity, whether it needs the escape-hatch opt-in, whether it is `implemented` yet, and one line of help — and the console's reference is *rendered from this table*, so it cannot advertise a command that does not run.
 - **`uiscript/script.py`** — the parser: script text in, `Step`s out, and it **never raises**, because a script is external input and a traceback on line 12 of a 60-line batch destroys the other 59 results. Also home to `sanitise_cyanrip_args`, which re-establishes the argv chokepoint for the one path that bypasses it — by **delegating** to `assert_metadata_lookup_disabled` rather than restating its rule.
 - **`uiscript/runner.py`** — the executor: **one step per `QTimer` tick**, never a loop. A loop would freeze the GUI thread for the whole batch and deadlock the first time a step opened a modal; timers keep firing inside a nested event loop, which is what lets a script drive a modal dialog at all. Its `screenshot` verb records a **window manifest** beside the PNG, because `QWidget.grab()` returns a valid pixmap for a dialog that was never shown.
+- **`uiscript/find_script.py`** — resolves the path an operator typed for `--run-script`, comparing filenames with ASCII separators and case removed so `round08joint.txt` and `round-08-joint.txt` are one name. Exists because a rig run was lost to exactly that mismatch (2026-08-13): the same artifact is spelled one way by the cyanrip fork and the other way here, and a path is an exact-match string. **Normalisation rather than a naming rule**, because a rule binds only whoever last read it and this artifact crosses two repositories, a chat client and a file manager — none of which read anything; the comparison is also symmetric, so neither project has to be the one that changes. Deliberately not fuzzy: two names match only when identical after normalisation, and two candidates are a **refusal** listing both, never a guess — silently picking one is how you get a confident transcript of the wrong file, which is the defect this module ends rather than relocates.
 - **`uiscript/report.py`** — the transcript, rendered for a human to paste back and serialised for the rip JSON, so one file can carry the whole session. Carries the script *source* verbatim beside the outcomes: recording which step failed without recording what was asked of it is half a bug report.
 - **`naming.py`** — file-naming presets (the `%`-token path templates for the rip's folder+file layout) plus a pure `render_preview()` so the Settings dialog shows the exact filename before the user commits.
 - **`goal_presets.py`** — the three rip "goal" presets (Fast Verified / Archival Exact / Portable); each just bundles existing `Config` fields (progressive disclosure — the rip still reads the individual fields, presets are never a new code path).
@@ -1142,4 +1144,4 @@ Three consequences, now standing:
 
 ---
 
-*Last updated for Platterpus v0.6.12b2.*
+*Last updated for Platterpus v0.6.12b3.*

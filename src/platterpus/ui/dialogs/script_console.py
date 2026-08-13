@@ -189,14 +189,53 @@ class ScriptConsoleDialog(CenteredDialog):
         """
         self._on_run()
 
-    def load_file(self, path: Path) -> None:
-        """Load a script file into the editor, reporting a failure visibly.
+    def load_file(self, path: Path) -> bool:
+        """Load a script file into the editor. Returns whether it loaded.
 
         Public because `--run-script` needs it and reaching into `_load_path`
         from `app.py` would make the console's internals part of the CLI's
         contract.
+
+        **The return value is the fix for a run that was lost on the rig**
+        (2026-08-13). This used to return ``None``, so `app.py` called
+        ``run_now()`` unconditionally — and a path that could not be read left
+        the editor holding :data:`STARTER_SCRIPT`, which then ran. The operator
+        got a clean-looking transcript, correctly stamped with the app version,
+        of a nine-line sample they never asked for. `_load_path` *had* reported
+        the failure into the transcript pane; ``_on_run`` clears that pane as its
+        first act, so the one sentence explaining what happened was erased about
+        120 ms after it was written, by the very call that followed it.
         """
-        self._load_path(path, announce=True)
+        return self._load_path(path, announce=True)
+
+    def report_autorun_refused(self, path: Path, detail: str = "") -> None:
+        """Say, in the transcript and on screen, that no script was run.
+
+        Called by ``--run-script`` when the named file would not load. It has to
+        be *both*: the transcript is what the operator reads, and nothing else
+        will overwrite it now that the run is refused — but an unattended launch
+        may be watched from across the room, so the empty-looking window also
+        gets a message box it cannot be mistaken for a finished run.
+
+        ``detail`` is the resolver's own account of what it searched. It is
+        passed through verbatim rather than summarised: "not found" is only
+        useful next to *where it looked*, and the operator is the one who knows
+        which of those directories the file is actually in.
+        """
+        self._append(
+            f"REFUSED TO RUN.\n"
+            f"  --run-script named: {path}\n"
+            + (f"  {detail}\n" if detail else "")
+            + "  Nothing was run. The editor still holds the previous script, and\n"
+            "  running it would have produced a transcript of the wrong thing."
+        )
+        QMessageBox.warning(
+            self,
+            "Platterpus — no script was run",
+            f"--run-script could not open:\n\n{path}\n\n"
+            + (f"{detail}\n\n" if detail else "")
+            + "Nothing was run.",
+        )
 
     def script_text(self) -> str:
         return self._editor.toPlainText()
@@ -278,23 +317,25 @@ class ScriptConsoleDialog(CenteredDialog):
         if chosen:
             self._load_path(Path(chosen), announce=True)
 
-    def _load_path(self, path: Path, *, announce: bool) -> None:
+    def _load_path(self, path: Path, *, announce: bool) -> bool:
         """Read a script file into the editor, reporting failure visibly.
 
-        A path that cannot be read is stated in the transcript AND logged. The
-        alternative — an empty editor — is the silent-failure shape: it looks
-        exactly like a script file that happened to be empty.
+        A path that cannot be read is stated in the transcript AND logged AND
+        reported to the caller. The alternative — leaving whatever was in the
+        editor — is the silent-failure shape: the *next* run looks exactly like a
+        successful one, because it is a successful run of the wrong script.
         """
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError as exc:
             log.warning("script console could not read %s: %s", path, exc)
             self._append(f"could not read {path}: {exc}")
-            return
+            return False
         self._editor.setPlainText(text)
         self._script_path = str(path)
         if announce:
             self._append(f"loaded {path} ({len(text.splitlines())} lines)")
+        return True
 
     def _on_save_transcript(self) -> None:
         text = self._transcript.toPlainText()
