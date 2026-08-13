@@ -134,6 +134,12 @@ expect-tracks 14
 #     NO -Z; only AccurateRip-failing tracks get -Z on the refix pass. Asserted
 #     rather than assumed, because the fork read a -Z-free album pass as a
 #     dropped flag in their round-8 §2.1 and it is our design.
+# SET, then assert. Asserting alone measured whoever's config the script ran on
+# — and on the rig it ran on one with `secure_rerip_dynamic` off, so B2 reported
+# a configuration mismatch as though it were a defect (2026-08-12). A test that
+# does not establish its own precondition is testing the machine.
+set secure_rerip_dynamic on
+set secure_rerip_matches 2
 expect secure_rerip_dynamic True
 expect secure_rerip_matches 2
 
@@ -258,7 +264,10 @@ expect-exit 1
 log C3 -t with no "=" must refuse, not leak adjacent memory at exit 0
 
 cyanrip -N -d /dev/sr0 -t 1
-expect-cyanrip Missing "=" in track metadata
+log C3 assertion is quote-free on purpose: the runner strips double quotes,
+log C3 so `Missing "=" in track metadata` can never match. Its own error said
+log C3 'Missing = in track metadata' -- the quotes were gone before comparing.
+expect-cyanrip in track metadata
 expect-exit 1
 
 # -----------------------------------------------------------------------------
@@ -280,7 +289,7 @@ expect-exit 1
 # The message that once read to you as "cyanrip is not installed", and the
 # reason this fork restored -V as an alias. It reaches stdout through
 # crip_genopt_log -> cyanrip_vlog, so it lands in the transcript like any other.
-cyanrip --no-such-flag-exists
+cyanrip -N --no-such-flag-exists
 expect-cyanrip Unable to parse command line argument
 expect-exit 1
 
@@ -311,8 +320,17 @@ expect-exit 0
 # Path is EAC's own output. If it has moved, this test fails on the path, which
 # is a legible failure rather than a silent skip.
 log C6 a log we did not write must be refused, not silently accepted
+log C6 -N added 2026-08-12: rule 1 refused this line without it, and the
+log C6 refusal left the PREVIOUS cyanrip result live, so the next assert
+log C6 silently graded a command that never ran. Ours to fix, both halves.
 
-cyanrip --verify-log ~/Music/rips/The Police/Every Breath You Take - Archive files/EAC flac/The Police - Every Breath You Take-The Classics.log
+log C6 PLATTERPUS EDIT, the only one we made inside SECTION C: the path
+log C6 below is now QUOTED. Unquoted it contains spaces, so it reached
+log C6 cyanrip as 17 arguments -- and `expect-exit 1` would then have
+log C6 passed because the file could not be OPENED, not because the log
+log C6 was refused. Exactly the "satisfied by the wrong thing" shape,
+log C6 on the one test whose purpose is telling those two apart.
+cyanrip -N --verify-log "~/Music/rips/The Police/Every Breath You Take - Archive files/EAC flac/The Police - Every Breath You Take-The Classics.log"
 expect-exit 1
 
 # <<< CYANRIP TESTS END <<<

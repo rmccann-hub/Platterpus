@@ -11,6 +11,38 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.12b2] — 2026-08-13
+
+### Fixed
+- **The disc scan was killed four seconds into every launch, so no disc
+  identified and no rip could start.** `DrivePicker.set_drives` re-emitted
+  `drive_changed` even when the repopulate restored the **same** device — a no-op
+  by definition. The main window's handler supersedes any in-flight disc probe,
+  deliberately with a 0 ms wait (a probe blocked in a subprocess cannot be asked
+  politely to stop), so the second populate SIGKILLed a healthy scan mid-TOC-read:
+  `cyanrip exited -9`, no output, Start rip disabled, and a 72-step unattended
+  script lost its rip and every step downstream (2026-08-12 rig run; the cyanrip
+  fork logged the same three lines from their side as round 8 lap 7 §0b / J11).
+  The 0 ms is not the bug and is unchanged — superseding really does need to be
+  immediate. Asking it to supersede something for no reason was.
+- **`wait-for-rip` passed instantly when no rip was running.** Its predicate is
+  "no rip worker exists", which is equally true after a rip finishes and when one
+  never started. On the rig it reported `ok` immediately after `rip` had failed,
+  in SECTION D, in a transcript whose purpose was proving the rip happened. It
+  now fails and says which state it found.
+- **A refused `cyanrip` step left the previous invocation as the comparison
+  subject.** Four times in one run, `expect-cyanrip` / `expect-exit` graded a
+  command two lines earlier. It failed loudly that time, which was luck — the
+  stale command could as easily have contained the expected string and reported
+  a **pass for a step that never ran**. A refusal now clears the last-invocation
+  state, so the following assertion reports *no cyanrip command has run yet*.
+- **`expect-cyanrip` could not express a string containing a double quote.**
+  cyanrip prints `Missing "=" in track metadata "1"`; every spelling of that
+  assertion was unmatchable because quotes are grouping characters in the
+  tokeniser and were consumed before the comparison. The fork reported it as *"a
+  gap in the language, not in the test"* — correct. `Step.raw_tail` carries the
+  verbatim tail and the match verbs use it.
+
 ## [0.6.12b1] — 2026-08-12
 
 ### Fixed
@@ -5342,7 +5374,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12b1.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12b2.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7584,7 +7616,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b1...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b2...HEAD
+[0.6.12b2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b1...v0.6.12b2
 [0.6.12b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.11...v0.6.12b1
 [0.6.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.10...v0.6.11
 [0.6.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.9...v0.6.10
@@ -7679,4 +7712,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.12b1.*
+*Last updated for Platterpus v0.6.12b2.*

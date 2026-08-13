@@ -720,6 +720,20 @@ class ScriptRunner(QObject):
         # the failure this whole feature exists to prevent.
         refusal = sanitise_cyanrip_args(args)
         if refusal is not None:
+            # INVALIDATE THE LAST RESULT. A refused step ran nothing, so every
+            # `expect-cyanrip` / `expect-exit` after it must have no subject —
+            # not the subject two commands ago.
+            #
+            # On the rig this happened four times in one run: L316's *"expected
+            # exit 1, got 0"* was grading C5's `-f` offset probe, not the C6
+            # `--verify-log` line it followed. It failed, which was luck. **Had
+            # `-f` exited 1, that assertion would have PASSED for a command that
+            # never ran** — an assertion satisfied by the wrong thing, inside the
+            # surface this project writes its tests in. Found by the cyanrip fork
+            # reading their own transcript (round 8 lap 7 §0b, item 2).
+            self._last_cyanrip_argv = []
+            self._last_cyanrip_output = ""
+            self._last_cyanrip_exit = None
             self._record(step, Outcome.FAIL, refusal)
             return
         argv = [str(CYANRIP_BINARY_DEFAULT), *args]
@@ -919,7 +933,17 @@ class ScriptRunner(QObject):
         self._record(job.step, outcome, body, elapsed=elapsed)
 
     def _do_expect_cyanrip(self, step: Step) -> None:
-        wanted = step.joined()
+        # THE RAW TAIL, not the re-joined tokens. This verb matches against a
+        # tool's own output, so every character the operator typed is meaningful
+        # — including quotes, which tokenising eats because they are grouping
+        # characters everywhere else in the language.
+        #
+        # cyanrip prints `Missing "=" in track metadata "1"`. Asserting that was
+        # impossible until now: the quotes vanished before the comparison, so the
+        # fork's C3 could only assert a weakened, quote-free substring and said so
+        # (round 8 lap 7 §0b — *"a gap in the language, not in the test"*).
+        # `joined()` stays for the verbs whose tokens really are just words.
+        wanted = step.raw_tail or step.joined()
         if not self._last_cyanrip_argv:
             self._record(step, Outcome.ERROR, "no cyanrip command has run yet")
             return
@@ -1115,6 +1139,24 @@ class ScriptRunner(QObject):
             )
             return
         window = self._window
+        # NOTHING RUNNING IS A FAILURE, NOT AN INSTANT PASS.
+        #
+        # The predicate below is "no rip worker exists", which is true both when a
+        # rip has finished and when one never started. On the 2026-08-12 rig run
+        # `rip` had just failed — Start was disabled because the disc never
+        # identified — and this step then reported **ok immediately**, in SECTION
+        # D, in a transcript whose whole purpose was proving the rip happened.
+        # The fork logged it as a vacuous pass and they were right: a wait that
+        # succeeds by finding nothing is the shape this script's own header
+        # forbids in point 3.
+        if getattr(window, "_rip_worker", None) is None:
+            self._record(
+                step,
+                Outcome.FAIL,
+                "no rip is running, so there is nothing to wait for — this step "
+                "reports the state it found rather than passing on an empty room",
+            )
+            return
         self._arm_deadline(
             step, capped, lambda: getattr(window, "_rip_worker", None) is None
         )

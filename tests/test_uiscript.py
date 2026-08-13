@@ -669,3 +669,95 @@ def test_the_preflight_survives_into_the_json() -> None:
     only one of them is a finding half the consumers cannot see."""
     report = RunReport(started_at="t", app_version="v", preflight=["L1: nope"])
     assert report.as_dict()["preflight"] == ["L1: nope"]
+
+
+# --- the three defects the 2026-08-12 rig run found --------------------------
+
+
+def test_wait_for_rip_fails_when_no_rip_is_running() -> None:
+    """A wait that succeeds by finding nothing is the shape the script's own
+    header forbids.
+
+    On the rig, `rip` had just failed — the Start button was disabled because
+    the disc never identified — and `wait-for-rip 7200` then reported **ok
+    immediately**, in SECTION D, in a transcript whose entire purpose was
+    proving the rip happened.
+    """
+    from platterpus.uiscript.report import Outcome
+    from platterpus.uiscript.runner import ScriptRunner
+
+    class _NoRip:
+        _rip_worker = None
+
+    runner = ScriptRunner.__new__(ScriptRunner)
+    runner._window = _NoRip()
+    recorded: list[tuple[Outcome, str]] = []
+    runner._record = lambda step, outcome, detail="": recorded.append((outcome, detail))  # type: ignore[method-assign]
+    runner._arm_deadline = lambda *a, **k: recorded.append((Outcome.PASS, "ARMED"))  # type: ignore[method-assign]
+
+    runner._do_wait_for_rip(script_mod.parse("wait-for-rip 7200")[0])
+    assert recorded and recorded[0][0] is Outcome.FAIL, recorded
+    assert "nothing to wait for" in recorded[0][1]
+    assert not any(d == "ARMED" for _o, d in recorded), "it armed a deadline anyway"
+
+
+def test_a_refused_cyanrip_step_invalidates_the_last_result() -> None:
+    """The stale-subject bug, found by the fork reading their own transcript.
+
+    Four times in one rig run, `expect-cyanrip` / `expect-exit` graded the
+    *previous* invocation because the step between them was refused and never
+    ran. L316's *"expected exit 1, got 0"* was testing C5's `-f` probe, not the
+    C6 line it followed. **Had `-f` exited 1, that assertion would have passed
+    for a command that never ran.**
+    """
+    import inspect
+
+    from platterpus.uiscript.runner import ScriptRunner
+
+    src = inspect.getsource(ScriptRunner._do_cyanrip)
+    refusal_branch = src.split("if refusal is not None:", 1)[1].split("return", 1)[0]
+    for field in ("_last_cyanrip_argv", "_last_cyanrip_output", "_last_cyanrip_exit"):
+        assert field in refusal_branch, (
+            f"a refused step leaves {field} pointing at an unrelated command"
+        )
+
+
+def test_expect_exit_reports_no_subject_rather_than_a_stale_one() -> None:
+    """The other half: clearing the state is only useful if the assertions then
+    say so. Asserted through the real handler, not by reading it."""
+    from platterpus.uiscript.report import Outcome
+    from platterpus.uiscript.runner import ScriptRunner
+
+    runner = ScriptRunner.__new__(ScriptRunner)
+    runner._last_cyanrip_argv = []
+    runner._last_cyanrip_output = ""
+    runner._last_cyanrip_exit = None
+    recorded: list[tuple[Outcome, str]] = []
+    runner._record = lambda step, outcome, detail="": recorded.append((outcome, detail))  # type: ignore[method-assign]
+
+    runner._do_expect_exit(script_mod.parse("expect-exit 1")[0])
+    assert recorded[0][0] is Outcome.ERROR
+    assert "no cyanrip command has run" in recorded[0][1]
+
+
+def test_expect_cyanrip_can_match_a_string_containing_quotes() -> None:
+    """cyanrip prints `Missing "=" in track metadata "1"`. Until the raw tail
+    existed there was no spelling of that assertion the language could carry —
+    the quotes were consumed as grouping characters before the comparison, so
+    the fork's C3 had to settle for a weakened substring and reported it as a
+    gap in the language rather than in their test. It was."""
+    step = script_mod.parse('expect-cyanrip Missing "=" in track metadata')[0]
+    assert step.raw_tail == 'Missing "=" in track metadata'
+    # The lossy form is what it used to match on, and it could never have hit.
+    assert step.joined() == "Missing = in track metadata"
+    assert step.joined() not in 'Missing "=" in track metadata'
+
+
+def test_the_raw_tail_strips_the_verb_and_the_comment_and_nothing_else() -> None:
+    """A floor on the new field: it must not smuggle the verb back in, and it
+    must still respect the comment rule that a `#` inside quotes is data."""
+    assert script_mod.parse("log  hello   there  ")[0].raw_tail == "hello   there"
+    assert script_mod.parse("log hi # trailing")[0].raw_tail == "hi"
+    assert (
+        script_mod.parse('album "Greatest Hits #2"')[0].raw_tail == '"Greatest Hits #2"'
+    )
