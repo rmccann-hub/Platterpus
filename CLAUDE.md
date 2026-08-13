@@ -279,6 +279,33 @@ Beyond the *guidance* in the Critical rules above, a few things are **enforced**
 - **`.githooks/pre-commit`** — blocks any commit that stages an audio/copyrighted-media file (Critical rule #8), even via `git add -f`. The hard guarantee behind the rule + the `.gitignore` backstop. Activate per clone with `git config core.hooksPath .githooks` (**`dev-setup.sh` does this**); bypass for a verified CC0/self-generated sample with `git commit --no-verify`.
 - **`.claude/settings.json`** (committed, shared) — permission `deny` for destructive commands (`rm -rf`, `git push --force`/`-f`/`--force-with-lease`) and secret reads (`.env*`, `secrets/**`), plus a `PreToolUse` hook that blocks a Bash call while audio is staged (the Claude-session belt for the same rule; git hook is the canonical guard). Deliberately does **not** prompt on normal `git push`, to preserve the merge-and-keep-going workflow. Personal overrides go in `.claude/settings.local.json` (git-ignored). Run `/memory` or `/hooks` to confirm what loaded.
 
+### Artifact filenames that cross machines
+
+**Lowercase ASCII letters and digits only. No hyphens, no underscores, no
+spaces, no case. Numbers zero-padded.** `round08joint.txt`, `round08lap07.md`.
+Applies to anything that leaves this repo and comes back — rig scripts,
+handshake files, anything named in a command an operator will type or paste.
+
+Added 2026-08-13, on the maintainer's instruction, after a rig run was lost to
+it. The same artifact was `round08joint.txt` on their disk and
+`round-08-joint.txt` in the instructions written for them. A path is an
+exact-match string, so the load failed — and (separately fixed) the app then ran
+a *different* script without saying so. The maintainer's words: *"every file you
+talk about has a `-` or emdash, every file has none… it should be machine
+readable, os agnostic, language agnostic."*
+
+Why this spelling and not a prettier one: it is the intersection of what every
+filesystem, shell, chat client and file manager in this project's path handles
+without quoting or transformation. Hyphens are individually fine; *two
+conventions* are not, and this is the one the artifacts already had.
+
+**The rule is a convention; `uiscript/find_script.py` is the guarantee.** A rule
+binds whoever last read it, and this artifact crosses two repositories, a chat
+client and a file manager — none of which read anything. So `--run-script`
+resolves the path by comparing names with separators and case removed, which is
+symmetric (it works whichever convention either side picks) and refuses rather
+than guesses when two files match. Legislate the name *and* stop depending on it.
+
 ### Important paths
 
 - Source root: `src/platterpus/`
@@ -306,4 +333,4 @@ Chronological session notes — what was built, decided, and learned each sessio
 
 ---
 
-*Last updated for Platterpus v0.6.12b2.*
+*Last updated for Platterpus v0.6.12b3.*

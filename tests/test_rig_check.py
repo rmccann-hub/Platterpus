@@ -300,7 +300,7 @@ class TestCliFlag:
 #: Scripts we ship that legitimately carry `cyanrip` lines our own sanitiser
 #: refuses, with the exact count. **Only for a section another project owns.**
 #:
-#: `round-08-joint.txt` is one file with two authors: sections A/B/D are ours,
+#: `round08joint.txt` is one file with two authors: sections A/B/D are ours,
 #: section C is the cyanrip fork's and is committed **verbatim** — the file's own
 #: header promises we will not edit it. Their three refused lines are:
 #:
@@ -315,7 +315,7 @@ class TestCliFlag:
 #: count rather than a flag.
 #:
 #: A count, not a boolean, and asserted for equality below — see that test.
-KNOWN_FOREIGN_REFUSALS: dict[str, int] = {"round-08-joint.txt": 1}
+KNOWN_FOREIGN_REFUSALS: dict[str, int] = {"round08joint.txt": 1}
 
 
 class TestShippedScripts:

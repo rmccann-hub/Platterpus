@@ -309,7 +309,7 @@ the backend; the expensive CTDB work is the full-disc decode at
 ## 2026-08-11 (later) — one file, and the arity that contradicted its own handler
 
 **Shipped v0.6.9.** The deliverable to the cyanrip fork is now a *test script*,
-not a document: `docs/rig-scripts/round-08-joint.txt`. Maintainer's framing, and
+not a document: `docs/rig-scripts/round08joint.txt`. Maintainer's framing, and
 it is the right one — *"don't give me a handshake file, give me the testing file.
 I will give this to cyanrip so they can add their own tests."* Sections A, B and
 D are ours; section C is fenced for them, and the file carries the whole verb
@@ -1683,4 +1683,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.12b2.*
+*Last updated for Platterpus v0.6.12b3.*

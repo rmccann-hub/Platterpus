@@ -1440,20 +1440,48 @@ def _window_manifest_line(widget: QWidget) -> str:
     )
 
 
+def _is_the_harness(widget: QWidget) -> bool:
+    """True for the script console itself — the thing *running* the script.
+
+    Compared by class name rather than by importing `ScriptConsoleDialog`,
+    because this module is imported *by* the console: a real import would be
+    circular. The name is pinned by a test that instantiates the real class, so
+    a rename cannot quietly turn this back into `False` for everything.
+    """
+    return type(widget).__name__ == "ScriptConsoleDialog"
+
+
 def _active_dialog() -> QDialog | None:
-    """The dialog on top, if any.
+    """The dialog on top, if any — **excluding the script console itself.**
 
     Prefers the modal one, because that is the thing blocking the app and
     therefore the thing a script means when it says "cancel".
+
+    **Why the console is excluded** (2026-08-13, found on the rig). The console
+    is a `QDialog`, and it is by definition open whenever a script is running, so
+    without this it always answered "yes, a dialog is open". Three consequences,
+    the first of which shipped:
+
+    * ``expect-dialog none`` could **never pass** — including in
+      :data:`~platterpus.ui.dialogs.script_console.STARTER_SCRIPT`, the sample a
+      first-time reader is told to press Run on to prove the feature works. It
+      has always reported ``FAIL … a dialog is open: 'Run test script'``.
+    * ``cancel`` with no application dialog open would have found the console and
+      **rejected it**, closing the window hosting the runner's own timer, mid-run.
+    * ``expect-dialog`` for a real dialog could match the console's title first.
+
+    The console is the harness, not the application under test. A script that
+    says "no dialog is open" plainly means *no dialog of the app's* — nobody
+    writes an assertion about the window they are typing into.
     """
     modal = QApplication.activeModalWidget()
-    if isinstance(modal, QDialog):
+    if isinstance(modal, QDialog) and not _is_the_harness(modal):
         return modal
     active = QApplication.activeWindow()
-    if isinstance(active, QDialog):
+    if isinstance(active, QDialog) and not _is_the_harness(active):
         return active
     for widget in _visible_top_levels():
-        if isinstance(widget, QDialog):
+        if isinstance(widget, QDialog) and not _is_the_harness(widget):
             return widget
     return None
 
