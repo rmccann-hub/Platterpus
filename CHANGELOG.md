@@ -11,6 +11,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **`docs/rig-scripts/round08joint.txt` named the EAC reference log by a path that
+  was one space wrong**, so C6's `--verify-log` would have failed to *open* the
+  file while `expect-exit 1` passed — a green result on the one test whose purpose
+  is distinguishing "refused a foreign log" from "could not read it". Corrected
+  against the operator's own `ls`. The general case (a literal path inside a
+  script is an exact-match string, the same trap `find_script.py` fixed for
+  `--run-script`) is queued in `TASKS.md`.
+
 ## [0.6.12b4] — 2026-08-13
 
 ### Added

@@ -87,6 +87,22 @@ worth re-reading and it is not what the symptom said.
   pin>"* and let the operator decline. Deliberately **not** fixed mid-round
   (S-14: a real defect that does not break the artifact under review).
 
+- [ ] **A filesystem path inside a script is still an exact-match string.** Fixed
+  for `--run-script` itself (`uiscript/find_script.py` matches names with case and
+  ASCII separators removed), and *not* for paths the script hands to a tool. C6 of
+  the round-8 joint script named the EAC log as
+  `…Every Breath You Take-The Classics.log`; the file on disk is
+  `…Every Breath You Take- The Classics.log`. One space. `--verify-log` would have
+  exited non-zero because the file could not be **opened**, and `expect-exit 1`
+  would have **passed** — on the one test whose entire purpose is telling that
+  apart from "the log was refused". Satisfied by the wrong thing, again, and it
+  survived because the path was checked by eye rather than against the filesystem.
+  The fix is a glob or a normalising resolve for `takes_paths` arguments, plus a
+  parse-time warning when a literal path does not exist. **Not done mid-round
+  (S-14):** the corrected literal works and does not make the reviewed pin unsafe.
+  Found 2026-08-13 by asking the operator to `ls` the path before the run — which
+  is the cheap check that should have existed the first time the path was written.
+
 ## Ripper install: find the newest build automatically, and let the user pick its channel (2026-08-07)
 
 **The maintainer's ask, verbatim:** *"in the future it should be automatic that it
