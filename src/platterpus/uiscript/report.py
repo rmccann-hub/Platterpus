@@ -171,7 +171,12 @@ def render(report: RunReport) -> str:
         # a reader must not have to scroll to find that out.
         head.append("*** THIS RUN USED UNSAFE VERBS (eval/call) ***")
     if report.artifact_dir:
-        head.append(f"screenshots: {report.artifact_dir}")
+        # Named as the thing to upload, not as "where the screenshots went". The
+        # runner writes `transcript.txt` and `report.json` into this same folder
+        # when the run ends, so one path is the whole answer to "what do I send
+        # back" — which is the question the operator actually has.
+        head.append(f"saved to: {report.artifact_dir}")
+        head.append("  (transcript.txt, report.json, and any screenshots)")
     if report.preflight:
         # Above the steps, because the point is that the reader sees it before
         # spending a disc pass finding out the same thing the slow way.

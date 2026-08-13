@@ -13,6 +13,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [0.6.12b2] — 2026-08-13
 
+### Added
+- **A script run now saves itself.** When a `--run-script` batch ends — normally
+  or by being stopped — it writes `transcript.txt` and `report.json` into the
+  same timestamped folder its screenshots go to
+  (`~/.local/share/platterpus/uiscript/<stamp>/`), and the transcript's header
+  names that folder. Until now the only way to get a transcript off the rig was
+  the console's *Save transcript…* button: a person selecting text in a window,
+  after an unattended run whose whole point was to need no person. On the
+  2026-08-12 rig pass it came back pasted into a chat message instead. The
+  answer to *"what do I send back"* is now one folder path. The Save button
+  stays as the manual fallback for the case the automatic write fails (a full
+  disk at the end of an hour-long disc pass must not also lose the run).
+
 ### Fixed
 - **The disc scan was killed four seconds into every launch, so no disc
   identified and no rip could start.** `DrivePicker.set_drives` re-emitted

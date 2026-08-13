@@ -27,6 +27,7 @@ that stops without a verdict reads exactly like one that passed.
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
@@ -39,7 +40,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
 from platterpus import __version__
-from platterpus.uiscript.report import Outcome, RunReport, StepRecord
+from platterpus.uiscript.report import Outcome, RunReport, StepRecord, render
 from platterpus.uiscript.script import Step, sanitise_cyanrip_args
 from platterpus.uiscript.verbs import OPENABLE
 
@@ -410,6 +411,7 @@ class ScriptRunner(QObject):
             )
         self._report.ended_reason = reason
         log.info("ui script run ended: %s", reason)
+        self._persist()
         self.finished.emit(self._report)
 
     # --- The tick ------------------------------------------------------------
@@ -437,6 +439,7 @@ class ScriptRunner(QObject):
             if self._index >= len(self._steps):
                 self._timer.stop()
                 log.info("ui script run finished: %s", self._report.counts())
+                self._persist()
                 self.finished.emit(self._report)
                 return
             step = self._steps[self._index]
@@ -1327,6 +1330,41 @@ class ScriptRunner(QObject):
         self._record(
             step, Outcome.PASS, f"selected {len(wanted)} track(s): {sorted(wanted)}"
         )
+
+    def _persist(self) -> None:
+        """Write the finished run to disk beside its screenshots. Never raises.
+
+        **Why the runner does this and not the console.** Until now the only way
+        to get a transcript off the rig was the console's *Save transcript…*
+        button — a human selecting text in a window and choosing a filename,
+        after an unattended run whose entire purpose was to need no human. On the
+        2026-08-12 rig pass the operator pasted it into a chat message instead,
+        which is the same work wearing a different hat, and it is the shape
+        `CLAUDE.md` names as a defect: *every hand-edit in a written procedure is
+        a thing the software was supposed to do.* Now the run leaves a folder and
+        the instruction is "upload this folder".
+
+        Both forms, deliberately. ``transcript.txt`` is what a person reads and
+        what goes into a handshake lap; ``report.json`` is the same run in the
+        shape a parser takes, and the two must come from one render so they
+        cannot disagree about what happened.
+
+        Failure is logged and swallowed: a full disk at the end of an hour-long
+        disc pass must not lose the run that is still sitting in the window. The
+        console's Save button remains as the manual fallback for exactly that.
+        """
+        directory = self._ensure_artifact_dir()
+        if directory is None:
+            return  # `_ensure_artifact_dir` already logged why
+        for name, text in (
+            ("transcript.txt", render(self._report)),
+            ("report.json", json.dumps(self._report.as_dict(), indent=2)),
+        ):
+            try:
+                (directory / name).write_text(text, encoding="utf-8")
+            except OSError as exc:
+                log.error("could not write %s: %r", directory / name, exc)
+        log.info("ui script run saved to %s", directory)
 
     def _ensure_artifact_dir(self) -> Path | None:
         if self._artifact_dir is not None:
