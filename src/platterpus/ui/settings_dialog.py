@@ -44,6 +44,7 @@ from platterpus.paths import LOG_PATH
 from platterpus.settings_validation import ValidationIssue
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
+from platterpus.ui.scroll_guards import WheelGuard, protect_value_widgets
 from platterpus.update_check import CHANNEL_BETA, CHANNEL_STABLE
 
 
@@ -750,6 +751,16 @@ class SettingsDialog(CenteredDialog):
         self._form_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._form_scroll.setAccessibleName("Settings")
         root.addWidget(self._form_scroll, stretch=1)
+
+        # A scroll gesture must never change a value. Qt's default is that a
+        # spin box or combo under the pointer eats the wheel and increments
+        # ITSELF, so scrolling this page past a control silently edits it — the
+        # maintainer hit exactly that (2026-08-13). Here it is a data-integrity
+        # defect, not an annoyance: a nudged read offset or `-Z` count rips the
+        # NEXT disc wrong and looks completely normal doing it. The guard is
+        # retained on `self` because an event filter whose last Python reference
+        # is dropped stops filtering, silently.
+        self._wheel_guard: WheelGuard = protect_value_widgets(form_host)
 
         # --- Live input validation (visible errors during the change) ---
         # A banner that lists what's wrong with the current inputs and marks the

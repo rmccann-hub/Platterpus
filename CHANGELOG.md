@@ -13,6 +13,29 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [0.6.12b5] — 2026-08-13
 
+### Added
+- **A scroll gesture can no longer change a setting.** Qt's default is that a
+  spin box or combo under the pointer swallows the wheel and increments
+  *itself*, so scrolling the Settings page past a control silently edited it —
+  reported from real use: *"the scrolling on the settings page i have
+  accidentially scrolled down on options i did not mean to."* For most apps that
+  is an annoyance. Here it is a **data-integrity** defect: most of those controls
+  are calibration that reaches cyanrip's argv, so a nudged read offset rips the
+  **next disc wrong** and looks completely normal doing it — no error, no
+  warning, a clean log with the wrong offset in every sample. Value widgets now
+  ignore the wheel unless they already hold keyboard focus, so clicking into one
+  and dialling still works and scrolling past does not.
+- **The script console's transcript sticks to the bottom instead of resetting.**
+  It follows the tail while you are at the tail, and holds position the moment
+  you scroll up to read something — previously the next step dragged you away
+  from the failure you had stopped to look at.
+
+  Both live in one `ui/scroll_guards.py` applied by widget *type*, not patched
+  into the ten controls that happened to be reported, and the wheel guard is
+  measured against Qt's real behaviour: a companion test drives the same event
+  at an **unguarded** spin box and requires the value to move, so the guard's
+  other tests cannot pass by asserting nothing.
+
 ### Fixed
 - **`pick-release` called a method `QTableWidget` does not have.** The picker's
   table is a `QTableWidget`, whose API is `setCurrentCell(row, column)`;
