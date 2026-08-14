@@ -11,6 +11,81 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-14 — an audit that found nothing wrong, and the guard that had been applied where it was learned
+
+Two pieces of work with the same shape: **a rule that was true but unheld**.
+
+**The accessibility audit.** The maintainer commissioned a UI/UX & accessibility
+standards review and asked for an audit against it, "so we do not regress". The
+result was a slightly awkward one to report: the app already passed every
+criterion it can be held to. Zero single-character shortcuts, every verdict level
+already carrying a `✓`/`⚠`/`ⓘ`, `announce()` already focus-safe, one Help menu on
+the platform Help key. There was nothing to fix.
+
+*That is the interesting case, not the boring one.* A passing state with nothing
+holding it decays silently, and it decays **invisibly** — the same failure mode
+`CLAUDE.md` already describes for documents that promise completeness. Nobody
+reviews a file for the shortcut that is not there. So the deliverable was not a
+fix but five tests, each pinning a property the app currently has, so that the
+**regression** is what fails rather than the adoption. Target recorded as WCAG
+2.2 AA in `docs/ux-design-principles.md`, with the per-criterion results and —
+deliberately — the half of the review that does **not** transfer, because the
+source material is web-focused and claiming `role="grid"` conformance in a Qt app
+would make the whole claim worthless. Two gaps left open and named rather than
+papered over: contrast has never been measured from rendered pixels, and the
+track table has had no greyscale/CVD pass.
+
+**The test's own bug is the part worth keeping.** The first draft of the 1.4.1
+check built fake track objects with a `matched` attribute — which nothing in the
+codebase reads. Every one of the five cases therefore fell through the same
+branch, and the test passed while exercising one verdict level out of five. What
+caught it was the non-triviality floor written into the same test minutes
+earlier (`assert len(seen) >= 2`). *The floor caught the author.* Fixing it meant
+reading `accuraterip_is_match` for the real contract — confidence ≥ 1 **and** a
+non-all-zero CRC — which is the standing rule about deriving from the source
+rather than from a plausible model of it, arriving from a new direction: not a
+dependency's description this time, but my own.
+
+**The scroll guard, applied where it was learned.** The wheel guard shipped the
+day before, and it was installed on Settings and the script console — the two
+surfaces that happened to be in the conversation. A sweep found it had missed the
+**read-offset spin box** in the drive-setup dialog: the one control in the entire
+app that the guard's own docstring names as the reason it exists, because that
+value becomes cyanrip's `-s` and a stray wheel roll rips the next disc at the
+wrong offset with no error and a clean-looking log. Also unguarded: the drive
+combo on the main window, where a scroll can switch which drive rips *and*
+re-trigger a disc scan.
+
+This is `CLAUDE.md`'s "enforce a rule across the codebase, not at the place it
+was learned" — and note it was violated **by the commit that introduced the
+rule**, one day old. The fix is not the four call sites; it is that the rule is
+now a sweep test with two ratcheted allowlists.
+
+**A ratchet entry needs its reason checked, not just recorded.** `rip_progress`
+is exempt from the sticky-append rule because its own mechanism is a *superset*:
+its pane spends most of a rip in a non-current tab, where Qt does not lay the
+widget out, so `maximum()` is stale and the shared helper's per-append "were we
+at the bottom?" question is unanswerable there. It tracks follow-state across
+appends instead. If someone deletes that mechanism, the module keeps its
+exemption while losing the property the exemption was granted for — "satisfied by
+the wrong thing", inside a ratchet. So a third test asserts the mechanism is
+still present. **An allowlist entry should be checked against the claim that
+earned it, not merely against the module's name.**
+
+**Method note, since it caught something.** Each of the four guards was reverted
+individually to confirm the sweep fails without it, with the file's SHA-256
+compared before and after so a revert that silently failed to apply could not be
+mistaken for a vacuous test. The first attempt at that loop produced no verdict
+at all — a `sed` in the output pipeline used `/` as its delimiter against a path
+containing `/` and swallowed pytest's result while the "revert landed" line
+printed happily. That is the four-known-ways list gaining a fifth: **a harness
+that reports the setup succeeded and eats the result reads exactly like a pass.**
+
+Graduated: the accessibility convention → `CLAUDE.md` *Code conventions*; the
+audit + numbers + open gaps → `docs/ux-design-principles.md` *Conformance
+target*; the sweep + allowlist-integrity pattern → the tests themselves, which
+is where it can bite.
+
 ## 2026-08-13 — the rig ran, and the app killed its own disc scan
 
 **Shipped v0.6.12b2.** Four defects, one of which cost the entire 2026-08-12

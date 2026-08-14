@@ -195,9 +195,17 @@ first time someone reaches for `setShortcut("R")`.
    vanishes under it. `_banner_style` sets `color:`, which survives; the
    validation-error border (`border: 1px solid …`) needs checking.
 4. **Committing actions measured against 44 px** rather than left to the style.
-5. **The remaining scroll areas** — `ui/scroll_guards.py` exists and is applied
-   to Settings and the script console; Live log, rip progress, diagnostics, file
-   viewer, uninstall, host setup and drive setup are not yet swept.
+5. ~~**The remaining scroll areas**~~ — **closed 2026-08-14.** Both rules are now
+   applied by *sweep* rather than per widget, and the sweep is a test
+   (`tests/test_scroll_guards.py::TestTheRuleIsAppliedEverywhere`) with two
+   ratcheted allowlists. Newly guarded: the **read offset** in drive setup (the
+   control the rule was written for — it becomes cyanrip's `-s`), the drive
+   combo on the main window, and the host-setup and uninstall result panes.
+   `rip_progress` keeps its own append path deliberately: its pane sits in a
+   non-current tab where Qt leaves `maximum()` stale, so it tracks follow-state
+   across appends instead — a superset of the shared helper, and a test holds
+   that claim true so the exemption cannot outlive its reason. Diagnostics and
+   the file viewer `setPlainText` once and never append, so neither rule applies.
 
 ## The bar for new features
 
