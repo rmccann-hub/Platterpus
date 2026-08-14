@@ -23,6 +23,7 @@ five wrong `OPENABLE` names were caught by.
 from __future__ import annotations
 
 import dataclasses
+import inspect
 import json
 from pathlib import Path
 from typing import Any
@@ -572,10 +573,20 @@ class _Release:
 
 
 class _FakeTable:
+    """Stands in for the picker's `QTableWidget`.
+
+    **`setCurrentCell`, not `setCurrentRow`** — and getting that wrong is the
+    whole reason this class is now pinned against the real widget below. The
+    first version provided `setCurrentRow`, which `QListWidget` has and
+    `QTableWidget` does not, so every test here passed while the shipped verb
+    raised `AttributeError` on the rig 25 times in a single step. The stub was
+    kinder than the product, exactly as `CLAUDE.md` warns.
+    """
+
     def __init__(self) -> None:
         self.current = -1
 
-    def setCurrentRow(self, row: int) -> None:  # noqa: N802 — Qt spelling
+    def setCurrentCell(self, row: int, column: int) -> None:  # noqa: N802 — Qt
         self.current = row
 
 
@@ -771,5 +782,75 @@ def test_a_picker_whose_internals_changed_is_reported_not_crashed(
 
     record = runner._report.steps[-1]
     assert record.outcome is Outcome.ERROR
-    assert "_table" in record.detail
+    assert "setCurrentCell" in record.detail
     assert not dialog.accepted, "it accepted without ever moving the selection"
+
+
+def test_the_fake_table_speaks_the_real_widgets_api() -> None:
+    """The floor that was missing, and its absence shipped a broken verb.
+
+    `test_the_stand_in_matches_the_real_pickers_surface` checked that the dialog
+    has a `_table`. It did not check what that table *is*, so the fake was free
+    to offer `setCurrentRow` — a `QListWidget` method — while the real
+    `QTableWidget` has only `setCurrentCell`. Every test passed; the rig raised
+    `AttributeError` 25 times in one step.
+
+    So: every method the verb calls on the table is asserted to exist on the
+    **real** widget class, and the method the fake does NOT have is asserted
+    absent, so the fake cannot drift back into inventing API.
+    """
+    from PySide6.QtWidgets import QTableWidget
+
+    from platterpus.ui.release_picker import ReleasePickerDialog as Real
+
+    assert "QTableWidget" in inspect.getsource(Real.__init__), (
+        "the picker no longer builds a QTableWidget — re-check what the verb calls"
+    )
+    assert hasattr(QTableWidget, "setCurrentCell"), (
+        "the real widget lost setCurrentCell; the verb calls it"
+    )
+    assert not hasattr(QTableWidget, "setCurrentRow"), (
+        "QTableWidget gained setCurrentRow — this test encodes that it has NOT, "
+        "which is why the shipped verb was wrong; revisit the fix"
+    )
+    assert hasattr(_FakeTable, "setCurrentCell")
+    assert not hasattr(_FakeTable, "setCurrentRow"), (
+        "the fake is offering API the real widget does not have — the exact "
+        "shape that let a broken verb ship"
+    )
+
+
+def test_a_faulting_predicate_ends_the_step_once(
+    qapp, process_until, monkeypatch
+) -> None:
+    """One raise must end the step, not be retried every 120 ms forever.
+
+    On the rig a single `AttributeError` produced **25 identical ERROR rows** for
+    one script line, and only a human clicking the dialog stopped it. A
+    transcript like that buries every other finding in the run.
+    """
+    import platterpus.uiscript.runner as runner_mod
+
+    def boom() -> bool:
+        raise RuntimeError("predicate is broken")
+
+    win = _window()
+    runner = ScriptRunner(win)
+    monkeypatch.setattr(
+        runner_mod,
+        "_release_picker",
+        lambda: (_ for _ in ()).throw(RuntimeError("predicate is broken")),
+    )
+
+    runner.start(parse("pick-release d14a7546 30"))
+    assert process_until(lambda: bool(runner._report.steps))
+    # Give it several more ticks — a retry loop would pile up more records.
+    assert not process_until(lambda: len(runner._report.steps) > 1, timeout=2.0), (
+        f"the faulting step was retried: {len(runner._report.steps)} records for "
+        "one line — this is the 25-row rig failure"
+    )
+
+    record = runner._report.steps[0]
+    assert record.outcome is Outcome.ERROR
+    assert "faulted and the step was ended rather than retried" in record.detail
+    assert "predicate is broken" in record.detail

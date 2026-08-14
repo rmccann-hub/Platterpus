@@ -11,6 +11,82 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.12b5] — 2026-08-13
+
+### Added
+- **A scroll gesture can no longer change a setting.** Qt's default is that a
+  spin box or combo under the pointer swallows the wheel and increments
+  *itself*, so scrolling the Settings page past a control silently edited it —
+  reported from real use: *"the scrolling on the settings page i have
+  accidentially scrolled down on options i did not mean to."* For most apps that
+  is an annoyance. Here it is a **data-integrity** defect: most of those controls
+  are calibration that reaches cyanrip's argv, so a nudged read offset rips the
+  **next disc wrong** and looks completely normal doing it — no error, no
+  warning, a clean log with the wrong offset in every sample. Value widgets now
+  ignore the wheel unless they already hold keyboard focus, so clicking into one
+  and dialling still works and scrolling past does not.
+- **The script console's transcript sticks to the bottom instead of resetting.**
+  It follows the tail while you are at the tail, and holds position the moment
+  you scroll up to read something — previously the next step dragged you away
+  from the failure you had stopped to look at.
+
+  Both live in one `ui/scroll_guards.py` applied by widget *type*, not patched
+  into the ten controls that happened to be reported, and the wheel guard is
+  measured against Qt's real behaviour: a companion test drives the same event
+  at an **unguarded** spin box and requires the value to move, so the guard's
+  other tests cannot pass by asserting nothing.
+
+### Fixed
+- **`pick-release` called a method `QTableWidget` does not have.** The picker's
+  table is a `QTableWidget`, whose API is `setCurrentCell(row, column)`;
+  `setCurrentRow` belongs to `QListWidget`. Written from memory rather than
+  checked, and it raised `AttributeError` on the rig — so the operator still had
+  to answer both dialogs by hand, on the run whose whole point was not having to.
+  **Every test passed with the bug in place**, because the stand-in table
+  cheerfully provided `setCurrentRow`: the stub was kinder than the product,
+  exactly the shape `CLAUDE.md` warns about. The fake now offers only what the
+  real widget offers, and a test asserts both halves — that `QTableWidget` has
+  `setCurrentCell` and that it does **not** have `setCurrentRow` — so the fake
+  cannot drift back into inventing API. Restoring the bug now fails two tests.
+- **A `wait`-family predicate that raised was retried every tick, forever.**
+  One `AttributeError` inside `pick-release` produced **25 identical ERROR rows
+  for a single script line**, and the only thing that ended it was a human
+  clicking the dialog. `_tick`'s catch-all recorded the fault and returned with
+  the deadline still armed, so the next tick called the same broken predicate
+  again. A faulting predicate now ends its step once, saying so. This is the
+  worse of the two defects: a transcript with 25 rows for one line buries every
+  other finding in the run.
+- **`platterpuscollect.sh` ran without `set -e`.** Caught by the repo's own shell
+  gate the moment it was committed. Not a formality: without it a failed copy of
+  the transcript was invisible and the bundle would arrive *looking* complete
+  while missing the evidence it exists to carry. Adding `set -eu` naively broke
+  the script on a machine with no rips yet, so every command that may legitimately
+  find nothing now goes through an explicit `optional` wrapper — "absent" and
+  "broken" stay different. Exercised against two fake homes: a bare machine (exit
+  0, bundle written) and a full one with a planted `.flac` (stripped).
+
+
+### Added
+- **`docs/rig-scripts/platterpuscollect.sh`** — one command that bundles a rig
+  run's evidence into a single `~/platterpusbundle.tar.gz`: the script transcript
+  folder, `report.json`, the app log, `--doctor`, both version banners, the config
+  and the rig-check manifest, plus the newest rip's log/cue/report. **Text only** —
+  it copies only known-text extensions and then sweeps for audio anyway and
+  deletes what it finds (Critical rule #8), and that backstop was verified by
+  planting a `.flac` and confirming it fires. Lives in the repo so it can be
+  `curl`ed rather than attached: sending rig files through a chat attachment cost
+  two runs on 2026-08-13 — once to a hyphen in the name, once to a browser's
+  `(1)` suffix — and a raw URL with a published checksum has neither failure mode.
+
+### Fixed
+- **`docs/rig-scripts/round08joint.txt` named the EAC reference log by a path that
+  was one space wrong**, so C6's `--verify-log` would have failed to *open* the
+  file while `expect-exit 1` passed — a green result on the one test whose purpose
+  is distinguishing "refused a foreign log" from "could not read it". Corrected
+  against the operator's own `ls`. The general case (a literal path inside a
+  script is an exact-match string, the same trap `find_script.py` fixed for
+  `--run-script`) is queued in `TASKS.md`.
+
 ## [0.6.12b4] — 2026-08-13
 
 ### Added
@@ -5457,7 +5533,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12b4.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12b5.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7699,7 +7775,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b4...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b5...HEAD
+[0.6.12b5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b4...v0.6.12b5
 [0.6.12b4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b3...v0.6.12b4
 [0.6.12b3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b2...v0.6.12b3
 [0.6.12b2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b1...v0.6.12b2
@@ -7797,4 +7874,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.12b4.*
+*Last updated for Platterpus v0.6.12b5.*

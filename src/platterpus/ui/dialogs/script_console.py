@@ -50,6 +50,7 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.ui.dialogs.centering import CenteredDialog
+from platterpus.ui.scroll_guards import append_keeping_position
 from platterpus.uiscript.report import Outcome, RunReport, StepRecord, render
 from platterpus.uiscript.runner import ScriptRunner
 from platterpus.uiscript.script import parse
@@ -363,7 +364,12 @@ class ScriptConsoleDialog(CenteredDialog):
         box.exec()
 
     def _append(self, text: str) -> None:
-        self._transcript.appendPlainText(text)
+        # Sticky bottom: follow the tail only if we were already at it. Appending
+        # unconditionally scrolls to the end, which is right while a run streams
+        # past and wrong the moment you scroll up to read a failure — the next
+        # step drags you away from the thing you stopped to look at (maintainer,
+        # 2026-08-13).
+        append_keeping_position(self._transcript, text)
 
     # --- Teardown ------------------------------------------------------------
 

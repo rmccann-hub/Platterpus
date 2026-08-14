@@ -349,7 +349,7 @@ log C6 cyanrip as 17 arguments -- and `expect-exit 1` would then have
 log C6 passed because the file could not be OPENED, not because the log
 log C6 was refused. Exactly the "satisfied by the wrong thing" shape,
 log C6 on the one test whose purpose is telling those two apart.
-cyanrip -N --verify-log "~/Music/rips/The Police/Every Breath You Take - Archive files/EAC flac/The Police - Every Breath You Take-The Classics.log"
+cyanrip -N --verify-log "~/Music/rips/The Police/Every Breath You Take - Archive files/EAC flac/The Police - Every Breath You Take- The Classics.log"
 expect-exit 1
 
 # <<< CYANRIP TESTS END <<<
