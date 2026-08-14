@@ -20,6 +20,9 @@ which is why it is tested like one rather than eyeballed.
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import pytest
 
 pytest.importorskip("PySide6.QtWidgets")
@@ -192,6 +195,119 @@ class TestALogPaneDoesNotYankYouBack:
         text = view.toPlainText()
         assert "MARKER-ONE" in text and "MARKER-TWO" in text
         view.deleteLater()
+
+
+class TestTheRuleIsAppliedEverywhere:
+    """The sweep, modelled on `test_qthread_ownership.py`.
+
+    The first pass of this fix guarded Settings and the script console, because
+    those were the two the maintainer happened to be looking at. That is exactly
+    the failure `CLAUDE.md` names — *enforce a rule across the codebase, not at
+    the place it was learned* — and it left the **read-offset spin box** in the
+    drive-setup dialog unguarded, which is the single control the rule was
+    written for.
+
+    So: derive the population from the source, and require the guard. Both
+    allowlists below are ratchets with a written reason per entry; they may
+    shrink, never grow.
+    """
+
+    #: Modules that build a value widget but deliberately do not install the
+    #: wheel guard. Empty, and it should stay that way — an entry here needs a
+    #: reason good enough to accept that scrolling can edit the value.
+    WHEEL_GUARD_EXEMPT: dict[str, str] = {}
+
+    #: Modules allowed to append to a text view directly. One entry, and it is
+    #: an exception because its own mechanism is *stronger* — see the note in
+    #: `ui/scroll_guards.py`.
+    STICKY_APPEND_EXEMPT: dict[str, str] = {
+        "rip_progress.py": (
+            "tracks follow-state across appends and re-pins on tab-show; its "
+            "pane sits in a non-current tab where Qt leaves maximum() stale, "
+            "so the per-append question this helper asks cannot be answered "
+            "there. Unifying would restore the 2026-08-06 stale-pane bug."
+        ),
+    }
+
+    def _ui_modules(self) -> list[Path]:
+        from platterpus import ui
+
+        return sorted(Path(ui.__file__).parent.rglob("*.py"))
+
+    def test_every_module_with_a_value_widget_installs_the_guard(self) -> None:
+        constructs = re.compile(
+            r"\bQ(?:Spin|DoubleSpin|Combo|Slider|Dial|DateTime|Date|Time)"
+            r"(?:Box|Edit)?\s*\("
+        )
+        offenders: list[str] = []
+        examined = 0
+        for path in self._ui_modules():
+            if path.name == "scroll_guards.py":
+                continue
+            text = path.read_text(encoding="utf-8")
+            if not constructs.search(text):
+                continue
+            examined += 1
+            if path.name in self.WHEEL_GUARD_EXEMPT:
+                continue
+            if "protect_value_widgets" not in text:
+                offenders.append(str(path.name))
+        assert examined >= 3, (
+            f"only {examined} module(s) with a value widget were found — the "
+            "sweep is not reaching the UI package, so a clean result is "
+            "meaningless (there are at least Settings, the drive picker and "
+            "the drive-setup dialog)"
+        )
+        assert not offenders, (
+            "these build a QSpinBox/QComboBox/QSlider but never call "
+            "`protect_value_widgets`, so scrolling past one silently edits it "
+            "— for anything reaching cyanrip's argv that rips the next disc "
+            f"wrong with a clean-looking log:\n  {chr(10).join(offenders)}"
+        )
+
+    def test_no_module_appends_to_a_text_view_directly(self) -> None:
+        offenders: list[str] = []
+        examined = 0
+        for path in self._ui_modules():
+            if path.name == "scroll_guards.py":
+                continue
+            examined += 1
+            if path.name in self.STICKY_APPEND_EXEMPT:
+                continue
+            for lineno, line in enumerate(
+                path.read_text(encoding="utf-8").splitlines(), 1
+            ):
+                if line.lstrip().startswith("#"):
+                    continue
+                if re.search(r"\.appendPlainText\s*\(", line):
+                    offenders.append(f"{path.name}:{lineno}")
+        assert examined >= 20, f"sweep reached only {examined} modules"
+        assert not offenders, (
+            "these append directly, which always yanks the view to the bottom "
+            "and drags a reader away from the line they stopped on. Use "
+            "`append_keeping_position`, or add a reasoned allowlist entry:\n  "
+            + "\n  ".join(offenders)
+        )
+
+    def test_the_allowlisted_exception_really_is_stronger(self) -> None:
+        """A ratchet entry that stops being true is worse than no entry.
+
+        `rip_progress` is exempt *because* it has tab-aware follow state. If
+        someone deletes that mechanism and leaves the exemption, the module
+        keeps its pass while losing the property the exemption was granted for
+        — the "satisfied by the wrong thing" failure. So the claim is checked.
+        """
+        from platterpus import ui
+
+        source = (Path(ui.__file__).parent / "rip_progress.py").read_text(
+            encoding="utf-8"
+        )
+        assert "_log_follow" in source and "valueChanged" in source, (
+            "rip_progress.py is allowlisted out of the sticky-append rule "
+            "because it tracks follow state itself — that mechanism is gone, "
+            "so either restore it or drop the allowlist entry and use "
+            "`append_keeping_position`"
+        )
 
 
 class TestItIsActuallyWiredIn:

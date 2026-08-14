@@ -32,6 +32,7 @@ from platterpus.deps.step_engine import StepResult, StepStatus
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.ui.failure_text import LOG_POINTER
+from platterpus.ui.scroll_guards import append_keeping_position
 from platterpus.workers import start_worker_thread
 from platterpus.workers.host_setup_worker import HostSetupWorker
 
@@ -162,7 +163,10 @@ class HostSetupDialog(CenteredDialog):
         line = f"{glyph} {result.title}"
         if result.detail:
             line += f" — {result.detail}"
-        self._results.appendPlainText(line)
+        # Sticky bottom, not forced bottom: setup runs for minutes and a failing
+        # step is exactly when the user scrolls up to read what it said. A plain
+        # append would drag them back to the tail on the next step.
+        append_keeping_position(self._results, line)
 
     def _on_finished(self, results: list[StepResult]) -> None:
         """Render the final summary. Safe to call directly in tests."""
