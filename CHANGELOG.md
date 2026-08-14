@@ -12,6 +12,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **The 2026-08-13 rig run is committed, so claims about it can be checked.**
+  A real disc read on the Bazzite + Pioneer BDR-209D — cyanrip log, cue, our JSON
+  report, the ui-script transcript and report, the `--rig-check` manifest, the
+  argv probe, the app log and `--doctor` — now lives in
+  `docs/handshake/artifactsround08/`. Text only, no audio (Critical rule #8: the
+  per-track CRCs are the proof). It had been sitting outside the repo, which
+  meant every statement about it was an assertion rather than a citation — the
+  exact thing this project's *answer from the artifact* rule exists to prevent.
+  Its README records what the run measured (`-s 667`, paranoia max, five of
+  fourteen tracks, `Ripping errors: 0`, three accurately ripped and two
+  offset-variant at confidence 200) and, prominently, **which build produced
+  it**: `platterpus-fork-g2ce8993`, which is *not* the `ddf7ac3` under review in
+  round 8. Our own `--rig-check` flagged that at the time and the notice is
+  quoted verbatim, because evidence about one build is not evidence about
+  another.
 - **An accessibility conformance target, audited and now enforced.** The
   maintainer commissioned a UI/UX & accessibility standards review and asked for
   an audit against it *"so we do not regress"*. The target is **WCAG 2.2 AA**

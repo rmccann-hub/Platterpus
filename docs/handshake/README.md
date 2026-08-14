@@ -54,14 +54,28 @@ later valid file was read as the newest, and the ambiguity was never examined by
 gate. Sorting it last makes it the file the verdict is read from, at which point the
 header check refuses it.
 
-## Artifacts — `artifacts-round-NN/`
+## Artifacts — `artifacts-round-NN/` (round 7 and earlier) and `artifactsroundNN/` (round 8 on)
 
-Rig artifacts and derived records for a round live in `artifacts-round-NN/`, named
-`round-NN-lap-LL-<kind>-g<build>.<ext>` — `<build>` being the commit the artifact's **own
-banner** asserts, never the one a lap file names it by. Round 7's holds the 2026-08-04 rig
-rip (log, auto-fix addendum, cue, rendered EAC-compatible log, JSON report) plus
-`rig-session-results-c5fb909.md`, the derived record that says which artifact settled which
-claim.
+Rig artifacts and derived records for a round live in a per-round directory. **The naming
+convention changed at round 8** — see below — so both spellings exist and neither is
+retro-renamed, because a path already cited in committed correspondence is a string other
+documents depend on.
+
+- **`artifacts-round-07-lap-29/`** — the older form, `round-NN-lap-LL-<kind>-g<build>.<ext>`,
+  `<build>` being the commit the artifact's **own banner** asserts, never the one a lap file
+  names it by. Holds the 2026-08-04 rig rip (log, auto-fix addendum, cue, rendered
+  EAC-compatible log, JSON report) plus `rig-session-results-c5fb909.md`, the derived record
+  that says which artifact settled which claim.
+- **`artifactsround08/`** — the 2026-08-13 rig run: cyanrip log, cue, our JSON report, the
+  ui-script transcript and report, the `--rig-check` manifest, the argv probe, the app log,
+  `--doctor`, and the rig's config and drive profile. Its `README.md` carries the provenance
+  and **states plainly that the run used ripper build `g2ce8993`, which is NOT the
+  `ddf7ac3` under review in round 8** — evidence about one build is not evidence about
+  another.
+
+**Names are lowercase ASCII letters and digits only from round 8 on** (`CLAUDE.md` →
+*Artifact filenames that cross machines*). These files leave the repo and come back, and two
+naming conventions cost a rig run once already.
 
 **Text only, ever.** Critical rule #8: the per-track CRCs prove bit-perfection, so no audio
 is committed even temporarily.
