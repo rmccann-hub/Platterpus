@@ -1,63 +1,81 @@
 #!/usr/bin/env bash
-# Collect everything needed to diagnose a Platterpus run into ONE file.
+# Collect everything needed to diagnose a Platterpus rig run into ONE file.
 #
 # NEVER copies audio. Only text: transcripts, logs, cue sheets, the rip report,
 # the EAC-compatible log, the seam-check manifest. That is deliberate and not
 # only about size -- the CRCs in those files prove bit-perfection without the
 # audio, and shipping music around is the one thing this project refuses to do.
-set -u
+#
+# `set -eu` is the repo's shell rule and is load-bearing here: without it a
+# failed copy of the transcript would be invisible and the bundle would arrive
+# LOOKING complete while missing the evidence. Everything that may legitimately
+# find nothing goes through `optional`, so "absent" and "broken" stay different.
+set -eu
+
 OUT=~/platterpusbundle
-rm -rf "$OUT" 2>/dev/null
+rm -rf "$OUT"
 mkdir -p "$OUT"
+
+# Run a command that is ALLOWED to fail (the file may simply not exist yet).
+# Anything not wrapped in this is required, and `set -e` will stop on it.
+optional() { "$@" || true; }
 
 echo "== versions =="
 {
-  ~/Applications/platterpus-x86_64.AppImage --version 2>&1
-  ~/.local/bin/cyanrip --version 2>&1 | head -3
+  optional ~/Applications/platterpus-x86_64.AppImage --version
+  optional ~/.local/bin/cyanrip --version
 } > "$OUT/versions.txt" 2>&1
-cat "$OUT/versions.txt"
+optional cat "$OUT/versions.txt"
 
 echo; echo "== preflight =="
-~/Applications/platterpus-x86_64.AppImage --doctor > "$OUT/doctor.txt" 2>&1
-tail -3 "$OUT/doctor.txt"
+optional ~/Applications/platterpus-x86_64.AppImage --doctor > "$OUT/doctor.txt" 2>&1
+optional tail -3 "$OUT/doctor.txt"
 
 echo; echo "== script transcripts =="
 if [ -d ~/.local/share/platterpus/uiscript ]; then
-  cp -r ~/.local/share/platterpus/uiscript "$OUT/uiscript"
+  cp -r ~/.local/share/platterpus/uiscript "$OUT/uiscript"   # required: it is the point
   find "$OUT/uiscript" -type f | sed "s|$OUT/|  |"
+else
+  echo "  none found — was a script run on this machine?"
+fi
+
+echo; echo "== app log =="
+if [ -f ~/.local/share/platterpus/log.txt ]; then
+  for f in ~/.local/share/platterpus/log.txt*; do cp "$f" "$OUT"/; done
+  echo "  copied"
 else
   echo "  none"
 fi
 
-echo; echo "== app logs =="
-cp ~/.local/share/platterpus/log.txt* "$OUT"/ 2>/dev/null && echo "  copied" || echo "  none"
-
 echo; echo "== settings =="
-cp ~/.config/platterpus/config.toml "$OUT"/ 2>/dev/null
-cp ~/.config/platterpus/drive_profiles.json "$OUT"/ 2>/dev/null
-ls "$OUT" | grep -E 'config.toml|drive_profiles' | sed 's/^/  /'
+for f in ~/.config/platterpus/config.toml ~/.config/platterpus/drive_profiles.json; do
+  [ -f "$f" ] && cp "$f" "$OUT"/ && echo "  $(basename "$f")"
+done
+true   # the loop's last test may be false; that is not a failure
 
 echo; echo "== newest rip's TEXT artifacts (no audio) =="
-NEWEST=$(find ~/Music/rips -mindepth 2 -maxdepth 2 -type d -printf '%T@ %p\n' 2>/dev/null \
-         | sort -rn | head -1 | cut -d' ' -f2-)
-if [ -n "${NEWEST:-}" ]; then
+NEWEST=""
+if [ -d ~/Music/rips ]; then
+  NEWEST=$(find ~/Music/rips -mindepth 2 -maxdepth 2 -type d -printf '%T@ %p\n' 2>/dev/null \
+           | sort -rn | head -1 | cut -d' ' -f2- || true)
+fi
+if [ -n "$NEWEST" ]; then
   echo "  from: $NEWEST"
   mkdir -p "$OUT/rip"
-  find "$NEWEST" -maxdepth 2 -type f \
+  optional find "$NEWEST" -maxdepth 2 -type f \
     \( -iname '*.log' -o -iname '*.cue' -o -iname '*.json' -o -iname '*.txt' -o -iname '*.m3u*' \) \
-    -exec cp {} "$OUT/rip"/ \; 2>/dev/null
-  ls "$OUT/rip" 2>/dev/null | sed 's/^/    /' || echo "    (no text artifacts yet)"
+    -exec cp {} "$OUT/rip"/ \;
+  optional ls "$OUT/rip"
 else
   echo "  no rip folder found"
 fi
 
 echo; echo "== proving no audio slipped in =="
 AUDIO=$(find "$OUT" -type f \( -iname '*.flac' -o -iname '*.wav' -o -iname '*.mp3' \
-        -o -iname '*.wv' -o -iname '*.m4a' -o -iname '*.ape' \) | head)
+        -o -iname '*.wv' -o -iname '*.m4a' -o -iname '*.ape' -o -iname '*.aiff' \) || true)
 if [ -n "$AUDIO" ]; then
-  echo "  REMOVING audio that should not be here:"; echo "$AUDIO" | sed 's/^/    /'
-  find "$OUT" -type f \( -iname '*.flac' -o -iname '*.wav' -o -iname '*.mp3' \
-       -o -iname '*.wv' -o -iname '*.m4a' -o -iname '*.ape' \) -delete
+  echo "  REMOVING audio that must not be here:"; echo "$AUDIO" | sed 's/^/    /'
+  echo "$AUDIO" | while read -r f; do rm -f "$f"; done
 else
   echo "  clean - no audio files in the bundle"
 fi

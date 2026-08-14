@@ -11,6 +11,38 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.12b5] — 2026-08-13
+
+### Fixed
+- **`pick-release` called a method `QTableWidget` does not have.** The picker's
+  table is a `QTableWidget`, whose API is `setCurrentCell(row, column)`;
+  `setCurrentRow` belongs to `QListWidget`. Written from memory rather than
+  checked, and it raised `AttributeError` on the rig — so the operator still had
+  to answer both dialogs by hand, on the run whose whole point was not having to.
+  **Every test passed with the bug in place**, because the stand-in table
+  cheerfully provided `setCurrentRow`: the stub was kinder than the product,
+  exactly the shape `CLAUDE.md` warns about. The fake now offers only what the
+  real widget offers, and a test asserts both halves — that `QTableWidget` has
+  `setCurrentCell` and that it does **not** have `setCurrentRow` — so the fake
+  cannot drift back into inventing API. Restoring the bug now fails two tests.
+- **A `wait`-family predicate that raised was retried every tick, forever.**
+  One `AttributeError` inside `pick-release` produced **25 identical ERROR rows
+  for a single script line**, and the only thing that ended it was a human
+  clicking the dialog. `_tick`'s catch-all recorded the fault and returned with
+  the deadline still armed, so the next tick called the same broken predicate
+  again. A faulting predicate now ends its step once, saying so. This is the
+  worse of the two defects: a transcript with 25 rows for one line buries every
+  other finding in the run.
+- **`platterpuscollect.sh` ran without `set -e`.** Caught by the repo's own shell
+  gate the moment it was committed. Not a formality: without it a failed copy of
+  the transcript was invisible and the bundle would arrive *looking* complete
+  while missing the evidence it exists to carry. Adding `set -eu` naively broke
+  the script on a machine with no rips yet, so every command that may legitimately
+  find nothing now goes through an explicit `optional` wrapper — "absent" and
+  "broken" stay different. Exercised against two fake homes: a bare machine (exit
+  0, bundle written) and a full one with a planted `.flac` (stripped).
+
+
 ### Added
 - **`docs/rig-scripts/platterpuscollect.sh`** — one command that bundles a rig
   run's evidence into a single `~/platterpusbundle.tar.gz`: the script transcript
@@ -5478,7 +5510,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12b4.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12b5.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7720,7 +7752,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b4...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b5...HEAD
+[0.6.12b5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b4...v0.6.12b5
 [0.6.12b4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b3...v0.6.12b4
 [0.6.12b3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b2...v0.6.12b3
 [0.6.12b2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b1...v0.6.12b2
@@ -7818,4 +7851,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.12b4.*
+*Last updated for Platterpus v0.6.12b5.*

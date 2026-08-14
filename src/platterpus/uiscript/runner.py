@@ -468,7 +468,31 @@ class ScriptRunner(QObject):
         step = self._deadline_step
         assert step is not None
         now = time.monotonic()
-        satisfied = self._deadline_predicate is not None and self._deadline_predicate()
+        # A predicate that RAISES must end the step, not be retried every tick.
+        # On the rig one `AttributeError` inside `pick-release` was re-recorded
+        # **25 times** for a single line, because `_tick`'s catch-all logged it
+        # and returned with the deadline still armed — so the next tick called
+        # the same broken predicate again, and the only thing that stopped it
+        # was a human clicking the dialog. A transcript with 25 identical ERROR
+        # rows for one step also buries every other finding in the run.
+        try:
+            satisfied = (
+                self._deadline_predicate is not None and self._deadline_predicate()
+            )
+        except Exception as exc:  # noqa: BLE001 — a faulty predicate ends its step
+            log.exception("ui script deadline predicate faulted")
+            elapsed = now - self._deadline_started
+            self._deadline = None
+            self._deadline_predicate = None
+            self._deadline_step = None
+            self._record(
+                step,
+                Outcome.ERROR,
+                f"the wait's own check faulted and the step was ended rather "
+                f"than retried: {exc!r}",
+                elapsed=elapsed,
+            )
+            return
         if satisfied or now >= self._deadline:
             elapsed = now - self._deadline_started
             timed_out = not satisfied and self._deadline_predicate is not None
@@ -1230,14 +1254,21 @@ class ScriptRunner(QObject):
         # reached duck-typed, so a rename should be a legible failure rather
         # than an AttributeError inside an unattended batch.
         table = getattr(dialog, "_table", None)
-        if table is None:
+        # `setCurrentCell(row, 0)`, NOT `setCurrentRow`. The picker's table is a
+        # `QTableWidget`, which has no `setCurrentRow` — that is `QListWidget`'s
+        # API. Shipped in 0.6.12b4 and raised `AttributeError` on the rig 25
+        # times in one step (2026-08-13). Checked against the real class here
+        # rather than written from memory a second time.
+        select = getattr(table, "setCurrentCell", None) if table is not None else None
+        if select is None:
             self._deadline_outcome = Outcome.ERROR
             self._deadline_detail = (
-                "the release picker has no `_table` — its internals changed and "
-                "this verb needs updating; refusing rather than guessing"
+                "the release picker's table has no `setCurrentCell` — its "
+                "internals changed and this verb needs updating; refusing rather "
+                "than guessing"
             )
             return True
-        table.setCurrentRow(index)
+        select(index, 0)
         mbid = getattr(chosen, "mbid", "?")
         title = getattr(chosen, "title", "") or "?"
         dialog.accept()
