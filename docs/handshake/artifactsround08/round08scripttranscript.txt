@@ -1,0 +1,651 @@
+================================================================
+Platterpus UI script run — 2026-08-13T23:45:36+00:00
+app: 0.6.12b4
+saved to: /home/rmccann/.local/share/platterpus/uiscript/20260813T234536+0000
+  (transcript.txt, report.json, and any screenshots)
+
+read before running — 1 step(s) will be refused:
+  L285: cyanrip -N -d /dev/sr0 -t 1 — refusing to run cyanrip: the -t argument '1' is not '<track number>=<tags>'. cyanrip steps over the '=' without checking it is there, so this reads past the end of the string
+================================================================
+[  ok  ] L94   log ROUND 8 JOINT SCRIPT — starting
+           ROUND 8 JOINT SCRIPT — starting
+[  ok  ] L95   log Put the disc in the drive before running this.
+           Put the disc in the drive before running this.
+[  ok  ] L96   log Needs Platterpus 0.6.12b2 or newer. The transcript header above names the
+           Needs Platterpus 0.6.12b2 or newer. The transcript header above names the
+[  ok  ] L97   log build that actually ran, so this is attributable either way — but on an older
+           build that actually ran, so this is attributable either way — but on an older
+[  ok  ] L98   log build the argument-less `rig-check` in SECTION D cannot find the rip and its
+           build the argument-less `rig-check` in SECTION D cannot find the rip and its
+[  ok  ] L99   log log checks report SKIP, which means DID NOT RUN, not "passed".
+           log checks report SKIP, which means DID NOT RUN, not passed .
+[  ok  ] L100  log On anything older than 0.6.12b2 the rip in SECTION D cannot start at all: a
+           On anything older than 0.6.12b2 the rip in SECTION D cannot start at all: a
+[  ok  ] L101  log second drive populate four seconds into launch superseded its own disc scan
+           second drive populate four seconds into launch superseded its own disc scan
+[  ok  ] L102  log and SIGKILLed cyanrip mid-TOC-read (exit -9, no output). That is the blocker
+           and SIGKILLed cyanrip mid-TOC-read (exit -9, no output). That is the blocker
+[  ok  ] L103  log the 2026-08-12 pass hit, and it costs every step from `rip` onward.
+           the 2026-08-12 pass hit, and it costs every step from `rip` onward.
+[  ok  ] L108  cyanrip --version   (0.2s)
+           argv: /home/rmccann/.local/bin/cyanrip --version
+           exit: 0
+           cyanrip 0.9.4-rc1+platterpus.6-beta.4 (platterpus-fork-g2ce8993)
+[  ok  ] L109  expect-exit 0
+           exit was 0
+[  ok  ] L110  expect-cyanrip platterpus-fork
+           found 'platterpus-fork'
+[  ok  ] L111  log ^ if that failed you are on stock upstream, not the fork. Everything below is void.
+           ^ if that failed you are on stock upstream, not the fork. Everything below is void.
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[ERROR ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
+           runner fault: AttributeError("'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'")
+[  ok  ] L125  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120   (8.0s)
+           no picker appeared and 14 track(s) are loaded — the disc identified unambiguously, so there was nothing to pick
+[  ok  ] L131  rig-check   (0.6s)
+           exit: 0
+           manifest under /home/rmccann/.local/share/platterpus/uiscript/20260813T234536+0000/rig-check
+           INFO  album/discovery  no .platterpus.json found under the output/library folders; the log checks below will SKIP
+           INFO  platterpus/version  0.6.12b4 (build 8af03aa)
+           INFO  ripper/version  cyanrip 0.9.4-rc1+platterpus.6-beta.4 (platterpus-fork-g2ce8993)  [ripper-version.txt]
+           INFO  ripper/handshake  unapproved — ripper build platterpus-fork-g2ce8993 is NOT the build this Platterpus was verified against (platterpus-fork-gddf7ac3, approved by handshake round 7). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper.
+           INFO  ripper/pin  this Platterpus pins ddf7ac3; the installed banner is above. A test pin is expected to differ during an open round.
+           OK    argv/integrity  every flag we composed arrived intact (-Z, -l, -N, -s present in the binary's own record of 24 composed args)  [argv-probe-output.txt]
+           SKIP  handshake/note  no --album-dir given, so no log to read
+           SKIP  parser/log  no --album-dir given
+           SKIP  device  no --device given
+           manifest: /home/rmccann/.local/share/platterpus/uiscript/20260813T234536+0000/rig-check/MANIFEST.txt
+[  ok  ] L133  open dependencies
+           opening dependencies
+[  ok  ] L134  screenshot A-dependencies
+           examined 9 window(s); wrote 9 PNG(s)
+             MainWindow 'Platterpus 0.6.12b4' visible=True platform_window=yes exposed=True modal=False geom=460,96 1000x888 on_a_screen=True
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True
+             QMessageBox 'Dependency check complete' visible=True platform_window=yes exposed=False modal=True geom=320,489 500x168 on_a_screen=True
+             ReleasePickerDialog 'Pick a MusicBrainz release' visible=False platform_window=yes exposed=False modal=True geom=510,322 900x408 on_a_screen=True
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=120,82 760x668 on_a_screen=True
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True
+           -> /home/rmccann/.local/share/platterpus/uiscript/20260813T234536+0000/A-dependencies.png
+[  ok  ] L135  cancel
+           cancelled 'Dependency check complete'
+[  ok  ] L142  log SECTION B — Platterpus tests
+           SECTION B — Platterpus tests
+[  ok  ] L147  rescan
+           rescanning /dev/sr0
+[  ok  ] L148  wait 20   (20.1s)
+[  ok  ] L149  pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120   (0.1s)
+           no picker appeared and 14 track(s) are loaded — the disc identified unambiguously, so there was nothing to pick
+[  ok  ] L150  expect-tracks 14
+           14 track rows, as expected
+[  ok  ] L160  set secure_rerip_dynamic on
+           secure_rerip_dynamic = True
+[  ok  ] L161  set secure_rerip_matches 2
+           secure_rerip_matches = 2
+[  ok  ] L162  expect secure_rerip_dynamic True
+           secure_rerip_dynamic is True
+[  ok  ] L163  expect secure_rerip_matches 2
+           secure_rerip_matches is 2
+[  ok  ] L166  select-tracks 1,3,5-7
+           selected 5 track(s): [1, 3, 5, 6, 7]
+[  ok  ] L170  album Every Breath You Take (round 8 joint, pass 1)
+           album title set to 'Every Breath You Take (round 8 joint, pass 1)'
+[  ok  ] L171  album-artist The Police
+           album artist set to 'The Police'
+[  ok  ] L173  snapshot B-before-rip
+           snapshot 'B-before-rip':
+             dialog on top: (none)
+             window title : Platterpus 0.6.12b4
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: 4 matches found — pick one
+             accuraterip: —
+             read offset: not recorded yet — Set up drive to calibrate
+[  ok  ] L201  log SECTION C — cyanrip tests
+           SECTION C — cyanrip tests
+[  ok  ] L202  log Pair under test: read the two version lines above; both must name a build.
+           Pair under test: read the two version lines above; both must name a build.
+[  ok  ] L228  log C1 the Cache probe: number is KNOWN UNTRUSTWORTHY -- method defect, round 10
+           C1 the Cache probe: number is KNOWN UNTRUSTWORTHY -- method defect, round 10
+[  ok  ] L229  log C1 cd-paranoia -A on this drive: 137 sectors, then 140. Believe those, not ours.
+           C1 cd-paranoia -A on this drive: 137 sectors, then 140. Believe those, not ours.
+[  ok  ] L231  cyanrip -d /dev/sr0 -I -N -A -U -P 0 -x   (15.9s)
+           argv: /home/rmccann/.local/bin/cyanrip -d /dev/sr0 -I -N -A -U -P 0 -x
+           exit: 0
+           Checking /dev/sr0 for cdrom...
+           		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+           
+           
+           Opening drive...
+           MusicBrainz URL:
+           https://musicbrainz.org/cdtoc/attach?toc=1+14+268857+150+14637+28217+50070+72720+90792+109325+128907+145812+159387+178482+201012+224660+246677&tracks=14&id=pNtImOkdBm9RMBIalzx0w9cfsYY-
+           Log(s) will be written to:
+               Unknown disc (PNTI) [FLAC]/Unknown disc (PNTI).log
+           CUE files will be written to:
+               Unknown disc (PNTI) [FLAC]/Unknown disc (PNTI).cue
+           cyanrip 0.9.4-rc1+platterpus.6-beta.4 (platterpus-fork-g2ce8993)
+           Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -I -N -A -U -P 0 -x
+           Handshake:      round 8 lap 7 OPEN, verdict OPEN -- NOT a released build
+           Consumer:       not identified (no --consumer given)
+           Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+           System device:  /dev/sr0
+           Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+           Offset:         +0 samples
+           Overread:       +0 frames
+           Overread mode:  fill with silence in lead-in/lead-out
+           Speed:          default (unchangeable)
+           C2 errors:      unsupported by drive
+           CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+           Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+           Paranoia level: none
+           Frame retries:  10
+           Cache model:    not in use (paranoia disabled)
+           HDCD decoding:  disabled
+           Album Art:      none
+           Outputs:        flac
+           Disc tracks:    14
+           Tracks to rip:  all
+           DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+           CDDB ID:        E20DFE0E
+           Album:          Unknown disc (PNTI)
+           AccurateRip:    disabled
+           Total time:     59:42.57
+           
+           Cache probe:    at least 2048 sectors, upper bound unknown (4704.0 KiB or more, search ceiling reached, uncached read 363.1 ms)
+           Gaps:
+               160 frame pregap in track 2, merging into track 1
+               158 frame pregap in track 4, merging into track 3
+               115 frame pregap in track 5, merging into track 4
+               105 frame pregap in track 7, merging into track 6
+               85 frame pregap in track 8, merging into track 7
+               94 frame pregap in track 9, merging into track 8
+               147 frame pregap in track 10, merging into track 9
+               90 frame pregap in track 13, merging into track 12
+               117 frame pregap in track 14, merging into track 13
+           
+           Tracks:
+           Track 1 info:
+             Preemphasis:   none detected
+           
+             Properties:
+               Duration:    03:13.12
+               Samples:     8518356
+               Frames:      14487
+               Pregap LSN:  0 (duration: 00:02.00)
+               Pregap length: 150 frames
+               Pregap source: lead-in
+               Start LSN:   0
+               End LSN:     14486
+             Secure re-read:  not attempted
+             Accurip:       disabled
+           
+             Metadata:
+               track:              1
+               tracktotal:         14
+               musicbrainz_discid: pNtImOkdBm9RMBIalzx0w9cfsYY-
+               cddb:               E20DFE0E
+               media:              CD
+               comment:            cyanrip 0.9.4-rc1+platterpus.6-beta.4
+               album:              Unknown disc (PNTI)
+               title:              Unknown track
+           
+             Paranoia status counts:
+               none
+           
+             File(s):
+               Unknown disc (PNTI) [FLAC]/01 - Unknown track.flac
+           
+           Track 2 info:
+             Preemphasis:   none detected
+           
+             Properties:
+               Duration:    03:01.05
+               Samples:     7985040
+               Frames:      13580
+               Pregap LSN:  14327 (duration: 00:02.10)
+               Pregap length: 160 frames
+               Pregap source: sub-channel (not signalled by TOC)
+               Start LSN:   14487
+               End LSN:     28066
+             Secure re-read:  not attempted
+             Accurip:       disabled
+           
+             Metadata:
+               track:              2
+               tracktotal:         14
+               musicbrainz_discid: pNtImOkdBm9RMBIalzx0w9cfsYY-
+               cddb:               E20DFE0E
+               media:              CD
+               comment:            cyanrip 0.9.4-rc1+platterpus.6-beta.4
+               album:              Unknown disc (PNTI)
+               title:              Unknown track
+           
+             Paranoia status counts:
+               none
+           
+             File(s):
+               Unknown disc (PNTI) [FLAC]/02 - Unknown track.flac
+           
+           Track 3 info:
+             Preemphasis:   none detected
+           
+             Properties:
+               Duration:    04:51.28
+               Samples:     12849564
+               Frames:      21853
+               Pregap LSN:  28067 (duration: 00:00.00)
+               Pregap length: 0 frames
+               Pregap source: sub-channel (not signalled 
+           … [5309 characters omitted] …
+           lac
+           
+           Track 10 info:
+             Preemphasis:   none detected
+           
+             Properties:
+               Duration:    04:14.45
+               Samples:     11227860
+               Frames:      19095
+               Pregap LSN:  159090 (duration: 00:01.72)
+               Pregap length: 147 frames
+               Pregap source: sub-channel (not signalled by TOC)
+               Start LSN:   159237
+               End LSN:     178331
+             Secure re-read:  not attempted
+             Accurip:       disabled
+           
+             Metadata:
+               track:              10
+               tracktotal:         14
+               musicbrainz_discid: pNtImOkdBm9RMBIalzx0w9cfsYY-
+               cddb:               E20DFE0E
+               media:              CD
+               comment:            cyanrip 0.9.4-rc1+platterpus.6-beta.4
+               album:              Unknown disc (PNTI)
+               title:              Unknown track
+           
+             Paranoia status counts:
+               none
+           
+             File(s):
+               Unknown disc (PNTI) [FLAC]/10 - Unknown track.flac
+           
+           Track 11 info:
+             Preemphasis:   none detected
+           
+             Properties:
+               Duration:    05:00.30
+               Samples:     13247640
+               Frames:      22530
+               Pregap LSN:  178332 (duration: 00:00.00)
+               Pregap length: 0 frames
+               Pregap source: sub-channel (not signalled by TOC)
+               Start LSN:   178332
+               End LSN:     200861
+             Secure re-read:  not attempted
+             Accurip:       disabled
+           
+             Metadata:
+               track:              11
+               tracktotal:         14
+               musicbrainz_discid: pNtImOkdBm9RMBIalzx0w9cfsYY-
+               cddb:               E20DFE0E
+               media:              CD
+               comment:            cyanrip 0.9.4-rc1+platterpus.6-beta.4
+               album:              Unknown disc (PNTI)
+               title:              Unknown track
+           
+             Paranoia status counts:
+               none
+           
+             File(s):
+               Unknown disc (PNTI) [FLAC]/11 - Unknown track.flac
+           
+           Track 12 info:
+             Preemphasis:   none detected
+           
+             Properties:
+               Duration:    05:15.23
+               Samples:     13905024
+               Frames:      23648
+               Pregap LSN:  200862 (duration: 00:00.00)
+               Pregap length: 0 frames
+               Pregap source: sub-channel (not signalled by TOC)
+               Start LSN:   200862
+               End LSN:     224509
+             Secure re-read:  not attempted
+             Accurip:       disabled
+           
+             Metadata:
+               track:              12
+               tracktotal:         14
+               musicbrainz_discid: pNtImOkdBm9RMBIalzx0w9cfsYY-
+               cddb:               E20DFE0E
+               media:              CD
+               comment:            cyanrip 0.9.4-rc1+platterpus.6-beta.4
+               album:              Unknown disc (PNTI)
+               title:              Unknown track
+           
+             Paranoia status counts:
+               none
+           
+             File(s):
+               Unknown disc (PNTI) [FLAC]/12 - Unknown track.flac
+           
+           Track 13 info:
+             Preemphasis:   none detected
+           
+             Properties:
+               Duration:    04:53.42
+               Samples:     12945996
+               Frames:      22017
+               Pregap LSN:  224420 (duration: 00:01.15)
+               Pregap length: 90 frames
+               Pregap source: sub-channel (not signalled by TOC)
+               Start LSN:   224510
+               End LSN:     246526
+             Secure re-read:  not attempted
+             Accurip:       disabled
+           
+             Metadata:
+               track:              13
+               tracktotal:         14
+               musicbrainz_discid: pNtImOkdBm9RMBIalzx0w9cfsYY-
+               cddb:               E20DFE0E
+               media:              CD
+               comment:            cyanrip 0.9.4-rc1+platterpus.6-beta.4
+               album:              Unknown disc (PNTI)
+               title:              Unknown track
+           
+             Paranoia status counts:
+               none
+           
+             File(s):
+               Unknown disc (PNTI) [FLAC]/13 - Unknown track.flac
+           
+           Track 14 info:
+             Preemphasis:   none detected
+           
+             Properties:
+               Duration:    04:55.55
+               Samples:     13041840
+               Frames:      22180
+               Pregap LSN:  246410 (duration: 00:01.42)
+               Pregap length: 117 frames
+               Pregap source: sub-channel (not signalled by TOC)
+               Start LSN:   246527
+               End LSN:     268706
+             Secure re-read:  not attempted
+             Accurip:       disabled
+           
+             Metadata:
+               track:              14
+               tracktotal:         14
+               musicbrainz_discid: pNtImOkdBm9RMBIalzx0w9cfsYY-
+               cddb:               E20DFE0E
+               media:              CD
+               comment:            cyanrip 0.9.4-rc1+platterpus.6-beta.4
+               album:              Unknown disc (PNTI)
+               title:              Unknown track
+           
+             Paranoia status counts:
+               none
+           
+             File(s):
+               Unknown disc (PNTI) [FLAC]/14 - Unknown track.flac
+           
+[  ok  ] L232  expect-exit 0
+           exit was 0
+[  ok  ] L236  expect-cyanrip sector
+           found 'sector'
+[  ok  ] L237  expect-cyanrip uncached read
+           found 'uncached read'
+[  ok  ] L244  log C1 if the line below says "sectors measured" the wording regression is back
+           C1 if the line below says sectors measured the wording regression is back
+[  ok  ] L255  log C2 malformed argv: each must refuse with a message, never crash
+           C2 malformed argv: each must refuse with a message, never crash
+[  ok  ] L257  cyanrip -N -d /dev/sr0 -c /   (0.2s)
+           argv: /home/rmccann/.local/bin/cyanrip -N -d /dev/sr0 -c /
+           exit: 1
+           Missing discnumber
+[  ok  ] L258  expect-cyanrip Missing discnumber
+           found 'Missing discnumber'
+[  ok  ] L259  expect-exit 1
+           exit was 1
+[  ok  ] L261  cyanrip -N -d /dev/sr0 -c //   (0.4s)
+           argv: /home/rmccann/.local/bin/cyanrip -N -d /dev/sr0 -c //
+           exit: 1
+           Missing discnumber
+[  ok  ] L262  expect-cyanrip Missing discnumber
+           found 'Missing discnumber'
+[  ok  ] L263  expect-exit 1
+           exit was 1
+[  ok  ] L265  cyanrip -N -d /dev/sr0 -p =   (0.3s)
+           argv: /home/rmccann/.local/bin/cyanrip -N -d /dev/sr0 -p =
+           exit: 1
+           Missing track idx for pregap
+[  ok  ] L266  expect-cyanrip Missing track idx for pregap
+           found 'Missing track idx for pregap'
+[  ok  ] L267  expect-exit 1
+           exit was 1
+[  ok  ] L269  cyanrip -N -d /dev/sr0 -p ==   (0.3s)
+           argv: /home/rmccann/.local/bin/cyanrip -N -d /dev/sr0 -p ==
+           exit: 1
+           Missing track idx for pregap
+[  ok  ] L270  expect-cyanrip Missing track idx for pregap
+           found 'Missing track idx for pregap'
+[  ok  ] L271  expect-exit 1
+           exit was 1
+[  ok  ] L283  log C3 -t with no "=" must refuse, not leak adjacent memory at exit 0
+           C3 -t with no = must refuse, not leak adjacent memory at exit 0
+[ FAIL ] L285  cyanrip -N -d /dev/sr0 -t 1
+           refusing to run cyanrip: the -t argument '1' is not '<track number>=<tags>'. cyanrip steps over the '=' without checking it is there, so this reads past the end of the string
+[  ok  ] L286  log C3 assertion is quote-free on purpose: the runner strips double quotes,
+           C3 assertion is quote-free on purpose: the runner strips double quotes,
+[  ok  ] L287  log C3 so `Missing "=" in track metadata` can never match. Its own error said
+           C3 so `Missing = in track metadata` can never match. Its own error said
+[  ok  ] L288  log C3 'Missing = in track metadata' -- the quotes were gone before comparing.
+           C3 'Missing = in track metadata' -- the quotes were gone before comparing.
+[ERROR ] L289  expect-cyanrip in track metadata
+           no cyanrip command has run yet
+[ERROR ] L290  expect-exit 1
+           no cyanrip command has run yet
+[  ok  ] L302  log C4 genopt fatal messages: emitted for years, in the contract only since round 8
+           C4 genopt fatal messages: emitted for years, in the contract only since round 8
+[  ok  ] L304  cyanrip -N -d /dev/sr0 -l 1-2   (0.4s)
+           argv: /home/rmccann/.local/bin/cyanrip -N -d /dev/sr0 -l 1-2
+           exit: 1
+           Error parsing "1-2" as a int32_t for argument "tracks"
+[  ok  ] L305  expect-cyanrip Error parsing
+           found 'Error parsing'
+[  ok  ] L306  expect-exit 1
+           exit was 1
+[  ok  ] L311  cyanrip -N --no-such-flag-exists   (0.4s)
+           argv: /home/rmccann/.local/bin/cyanrip -N --no-such-flag-exists
+           exit: 1
+           Unable to parse command line argument: --no-such-flag-exists
+[  ok  ] L312  expect-cyanrip Unable to parse command line argument
+           found 'Unable to parse command line argument'
+[  ok  ] L313  expect-exit 1
+           exit was 1
+[  ok  ] L326  log C5 -f must independently rediscover the configured read offset
+           C5 -f must independently rediscover the configured read offset
+[  ok  ] L328  cyanrip -N -f -d /dev/sr0   (57.3s)
+           argv: /home/rmccann/.local/bin/cyanrip -N -f -d /dev/sr0
+           exit: 0
+           Searching for drive offset, enabling AccuRip and disabling MusicBrainz and Cover art fetching...
+           Checking /dev/sr0 for cdrom...
+           		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+           
+           
+           Opening drive...
+           Loading data for track 1...
+           Data loaded, searching for offsets...
+           Offset of +667 found in track 1, trying to confirm with another track
+           Loading data for track 2...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 2) in track 2, trying to confirm with another track
+           Loading data for track 3...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 3) in track 3, trying to confirm with another track
+           Loading data for track 4...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 4) in track 4, trying to confirm with another track
+           Loading data for track 5...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 5) in track 5, trying to confirm with another track
+           Loading data for track 6...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 6) in track 6, trying to confirm with another track
+           Loading data for track 7...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 7) in track 7, trying to confirm with another track
+           Loading data for track 8...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 8) in track 8, trying to confirm with another track
+           Loading data for track 9...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 9) in track 9, trying to confirm with another track
+           Loading data for track 10...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 10) in track 10, trying to confirm with another track
+           Loading data for track 11...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 11) in track 11, trying to confirm with another track
+           Loading data for track 12...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 12) in track 12, trying to confirm with another track
+           Loading data for track 13...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 13) in track 13, trying to confirm with another track
+           Loading data for track 14...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 14) in track 14
+           Drive offset of +667 found (confidence: 14)!
+[  ok  ] L329  expect-cyanrip Drive offset of +667 found
+           found 'Drive offset of +667 found'
+[  ok  ] L330  expect-exit 0
+           exit was 0
+[  ok  ] L341  log C6 a log we did not write must be refused, not silently accepted
+           C6 a log we did not write must be refused, not silently accepted
+[  ok  ] L342  log C6 -N added 2026-08-12: rule 1 refused this line without it, and the
+           C6 -N added 2026-08-12: rule 1 refused this line without it, and the
+[  ok  ] L343  log C6 refusal left the PREVIOUS cyanrip result live, so the next assert
+           C6 refusal left the PREVIOUS cyanrip result live, so the next assert
+[  ok  ] L344  log C6 silently graded a command that never ran. Ours to fix, both halves.
+           C6 silently graded a command that never ran. Ours to fix, both halves.
+[  ok  ] L346  log C6 PLATTERPUS EDIT, the only one we made inside SECTION C: the path
+           C6 PLATTERPUS EDIT, the only one we made inside SECTION C: the path
+[  ok  ] L347  log C6 below is now QUOTED. Unquoted it contains spaces, so it reached
+           C6 below is now QUOTED. Unquoted it contains spaces, so it reached
+[  ok  ] L348  log C6 cyanrip as 17 arguments -- and `expect-exit 1` would then have
+           C6 cyanrip as 17 arguments -- and `expect-exit 1` would then have
+[  ok  ] L349  log C6 passed because the file could not be OPENED, not because the log
+           C6 passed because the file could not be OPENED, not because the log
+[  ok  ] L350  log C6 was refused. Exactly the "satisfied by the wrong thing" shape,
+           C6 was refused. Exactly the satisfied by the wrong thing shape,
+[  ok  ] L351  log C6 on the one test whose purpose is telling those two apart.
+           C6 on the one test whose purpose is telling those two apart.
+[  ok  ] L352  cyanrip -N --verify-log "~/Music/rips/The Police/Every Breath You Take - Archive files/EAC flac/The Police - Every Breath You Take- The Classics.log"   (0.4s)
+           argv: /home/rmccann/.local/bin/cyanrip -N --verify-log /home/rmccann/Music/rips/The Police/Every Breath You Take - Archive files/EAC flac/The Police - Every Breath You Take- The Classics.log
+           exit: 1
+           No FUN512 checksum found in "/home/rmccann/Music/rips/The Police/Every Breath You Take - Archive files/EAC flac/The Police - Every Breath You Take- The Classics.log"!
+[  ok  ] L353  expect-exit 1
+           exit was 1
+[  ok  ] L362  log SECTION D — the rip
+           SECTION D — the rip
+[  ok  ] L364  rip
+           start requested
+[  ok  ] L365  wait-for-rip 7200   (1269.7s)
+[  ok  ] L367  screenshot D-after-rip
+           examined 9 window(s); wrote 9 PNG(s)
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 235x158 on_a_screen=True
+             MainWindow 'Platterpus 0.6.12b4' visible=True platform_window=yes exposed=True modal=False geom=460,96 1000x888 on_a_screen=True
+             ReleasePickerDialog 'Pick a MusicBrainz release' visible=False platform_window=yes exposed=False modal=True geom=510,322 900x408 on_a_screen=True
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=120,82 760x668 on_a_screen=True
+             ReleasePickerDialog 'Pick a MusicBrainz release' visible=False platform_window=yes exposed=False modal=True geom=510,322 900x408 on_a_screen=True
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 120x26 on_a_screen=True
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 2x2 on_a_screen=True
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 242x54 on_a_screen=True
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 264x210 on_a_screen=True
+           -> /home/rmccann/.local/share/platterpus/uiscript/20260813T234536+0000/D-after-rip.png
+[  ok  ] L368  snapshot D-after-rip
+           snapshot 'D-after-rip':
+             dialog on top: (none)
+             window title : Platterpus 0.6.12b4
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: 4 matches found — pick one
+             accuraterip: 3 of 5 tracks matched
+             read offset: +667 — confirmed by an AccurateRip-matching rip (medium confidence)
+[  ok  ] L381  rig-check   (0.9s)
+           exit: 0
+           manifest under /home/rmccann/.local/share/platterpus/uiscript/20260813T234536+0000/rig-check
+           INFO  album/discovery  newest rip found: /var/home/rmccann/Music/rips/The Police/Every Breath You Take (round 8 joint, pass 1)
+           INFO  platterpus/version  0.6.12b4 (build 8af03aa)
+           INFO  ripper/version  cyanrip 0.9.4-rc1+platterpus.6-beta.4 (platterpus-fork-g2ce8993)  [ripper-version.txt]
+           INFO  ripper/handshake  unapproved — ripper build platterpus-fork-g2ce8993 is NOT the build this Platterpus was verified against (platterpus-fork-gddf7ac3, approved by handshake round 7). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper.
+           INFO  ripper/pin  this Platterpus pins ddf7ac3; the installed banner is above. A test pin is expected to differ during an open round.
+           OK    argv/integrity  every flag we composed arrived intact (-Z, -l, -N, -s present in the binary's own record of 24 composed args)  [argv-probe-output.txt]
+           INFO  handshake/note  OPEN: Handshake:      round 8 lap 7 OPEN, verdict OPEN -- NOT a released build
+           OK    parser/log  parsed 5 track(s) from Every Breath You Take (round 8 joint, pass 1).log
+           INFO  parser/cache-probe  no Cache probe: line in this log (the rip did not pass -x)
+           SKIP  device  no --device given
+           manifest: /home/rmccann/.local/share/platterpus/uiscript/20260813T234536+0000/rig-check/MANIFEST.txt
+[  ok  ] L383  log ROUND 8 JOINT SCRIPT — complete. Send the folder named at the top of this
+           ROUND 8 JOINT SCRIPT — complete. Send the folder named at the top of this
+[  ok  ] L384  log transcript, nothing else. From 0.6.12b2 the run writes itself into that
+           transcript, nothing else. From 0.6.12b2 the run writes itself into that
+[  ok  ] L385  log folder when it ends — transcript.txt, report.json and any screenshots — so
+           folder when it ends — transcript.txt, report.json and any screenshots — so
+[  ok  ] L386  log there is nothing to copy out of a window by hand.
+           there is nothing to copy out of a window by hand.
+[  ok  ] L387  log Folder: ~/.local/share/platterpus/uiscript/<timestamp>/
+           Folder: ~/.local/share/platterpus/uiscript/<timestamp>/
+================================================================
+pass=92  fail=1  error=25  skipped=0  blocked=0
+RESULT: see failures above
+================================================================

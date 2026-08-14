@@ -1,0 +1,30 @@
+2026-08-13 20:17:27,037 INFO platterpus.app: platterpus 0.6.12b4 (build 8af03aa) starting
+2026-08-13 20:17:27,096 INFO platterpus.logging_setup: debug logging disabled
+2026-08-13 20:17:27,163 INFO platterpus.composition: using cyanrip backend (/home/rmccann/.local/bin/cyanrip)
+2026-08-13 20:17:27,434 INFO platterpus.deps.manager: dependency cyanrip build: the Platterpus fork (ok=True)
+2026-08-13 20:17:29,460 INFO platterpus.adapters.ctdb_client: CTDB lookup: http://db.cuetools.net/lookup2.php?version=3&ctdb=1&fuzzy=0&metadata=none&toc=0%3A19850%3A39850%3A59850
+2026-08-13 20:17:29,675 WARNING platterpus.diagnostics: platterpus-diagnostic [warning] ctdb.query_failed: CTDB rejected the lookup (HTTP 404) — the whole-disc cross-check could not run. AccurateRip is the primary proof and is unaffected.
+  tool: CTDB (HTTP)
+  where: adapters.ctdb_client.CtdbHttpImpl.lookup
+  detail:
+http://db.cuetools.net/lookup2.php?version=3&ctdb=1&fuzzy=0&metadata=none&toc=0%3A19850%3A39850%3A59850
+HTTP 404 Not Found
+Platterpus 0.6.12b4 (build 8af03aa) preflight — backend: cyanrip
+
+[✓] Configuration — backend=cyanrip, output=/home/rmccann/Music/rips
+[✓] Output location — writable (/home/rmccann/Music/rips)
+[✓] Dependencies — all 7 dependencies present
+[✓] cyanrip reachable — cyanrip 0.9.4-rc1+platterpus.6-beta.4 (platterpus-fork-g2ce8993)
+[✓] cyanrip build — cyanrip 0.9.4-rc1+platterpus.6-beta.4 (platterpus-fork-g2ce8993) — the Platterpus fork
+[✓] Optical drive detected — 1 drive(s) found
+[✓] Read offset — +667 samples (applied as cyanrip's -s)
+[✓] Drive access — The optical drive is accessible.
+[✓] MusicBrainz reachable — reachable (1 release(s) for the probe disc id)
+[✓] Cover Art Archive reachable — reachable (HTTP 200)
+[!] CTDB reachable — could not reach CTDB
+
+! CTDB reachable: could not reach CTDB
+    CTDB rejected the request (HTTP 404)
+    → CTDB verify is optional; rips work without it.
+
+Preflight: 10 OK, 1 warning(s), 0 blocker(s) — ready (review warnings)
