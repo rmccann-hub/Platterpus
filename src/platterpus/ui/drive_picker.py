@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from platterpus.adapters.rip_backend import RipBackend, RipError
 from platterpus.parsers.drive_list import DriveDescriptor
+from platterpus.ui.scroll_guards import WheelGuard, protect_value_widgets
 
 log = logging.getLogger(__name__)
 
@@ -104,6 +105,14 @@ class DrivePicker(QWidget):
         self._eject_button.setToolTip("Eject the disc from the selected drive.")
         self._eject_button.clicked.connect(self._on_eject_clicked)
         layout.addWidget(self._eject_button)
+
+        # A scroll gesture must never change a value. This combo sits at the top
+        # of the main window, so a wheel roll aimed at the page can land on it
+        # and silently switch which drive the next rip reads — and because
+        # `currentIndexChanged` is wired above, that also re-triggers a disc
+        # scan. Nothing in the UI would look wrong; the user would just be
+        # ripping a different drive than the one they chose.
+        self._wheel_guard: WheelGuard = protect_value_widgets(self)
 
     # --- Public surface -----------------------------------------------------
 

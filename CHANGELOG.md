@@ -35,6 +35,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   per-criterion results and the sizing numbers: `docs/ux-design-principles.md`
   → *Conformance target*.
 
+### Fixed
+- **The scroll-gesture guard now covers the control it was written for.** The
+  first pass protected Settings and the script console — the two surfaces that
+  happened to be under discussion — and left the **read offset** in the
+  *Set up drive* dialog unguarded, which is the single value in the app where a
+  stray wheel roll rips the next disc wrong with no error and a clean-looking
+  log. Also guarded: the drive combo on the main window, where a scroll aimed at
+  the page could silently switch which drive the next rip reads *and* re-trigger
+  a disc scan. The host-setup and uninstall panes now hold your scroll position
+  instead of yanking you back to the tail on every step, which is what they were
+  doing at exactly the moment you had stopped to read a failing step.
+
+  The real fix is that the rule is now **swept rather than applied by hand**: a
+  test derives the population from the source and requires the guard, with two
+  ratcheted allowlists carrying a written reason each. `rip_progress` keeps its
+  own append path deliberately — its pane sits in a non-current tab where Qt
+  leaves `maximum()` stale, so it tracks follow-state across appends instead,
+  which is a *superset* of the shared helper — and a third test checks that
+  claim is still true, so the exemption cannot outlive the reason it was
+  granted.
+
 ## [0.6.12b5] — 2026-08-13
 
 ### Added
