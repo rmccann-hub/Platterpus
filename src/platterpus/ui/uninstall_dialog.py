@@ -36,6 +36,7 @@ from platterpus.deps.step_engine import StepResult, StepStatus
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.ui.failure_text import LOG_POINTER
+from platterpus.ui.scroll_guards import append_keeping_position
 from platterpus.workers import start_worker_thread
 from platterpus.workers.host_setup_worker import HostSetupWorker
 
@@ -176,7 +177,10 @@ class UninstallDialog(CenteredDialog):
         line = f"{_STATUS_GLYPH.get(result.status, '•')} {result.title}"
         if result.detail:
             line += f" — {result.detail}"
-        self._results.appendPlainText(line)
+        # Sticky bottom — see the same call in `host_setup_dialog`. Uninstall is
+        # the run you least want to lose your place in: a step that reports it
+        # skipped something is the one the user stops to read.
+        append_keeping_position(self._results, line)
 
     def _on_finished(self, results: list[StepResult]) -> None:
         if self._closing:

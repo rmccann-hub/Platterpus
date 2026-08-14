@@ -29,7 +29,21 @@ it was. Scrolled up → your position is kept. At the bottom → it follows.
 
 Neither rule is Platterpus-specific, which is why they live here and are applied
 by sweep rather than one widget at a time (`CLAUDE.md`: enforce a rule across
-the codebase, not at the place it was learned).
+the codebase, not at the place it was learned). The sweep is
+`tests/test_scroll_guards.py::TestTheRuleIsAppliedEverywhere`, and its two
+allowlists are ratchets with a written reason each.
+
+**One deliberate exception, and it is stronger rather than weaker.**
+``rip_progress.append_log_line`` does NOT use :func:`append_keeping_position`
+and must not be "unified" with it. Its pane spends most of a rip in a
+**non-current tab**, and Qt does not lay out a widget in a hidden tab — so
+``maximum()`` is stale there, and the "were we at the bottom?" question this
+helper asks per-append cannot be answered. That module tracks follow state
+across appends via ``valueChanged`` and re-pins on tab-show, which is a superset
+of what happens here; it was written against a measured symptom (a pane showing
+output from twenty minutes earlier while the status line was current, 2026-08-06)
+and folding it into this helper would restore that bug. If you ever do unify
+them, the *tab-aware* version is the one to keep.
 """
 
 from __future__ import annotations

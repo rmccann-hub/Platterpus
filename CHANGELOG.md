@@ -11,6 +11,51 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **An accessibility conformance target, audited and now enforced.** The
+  maintainer commissioned a UI/UX & accessibility standards review and asked for
+  an audit against it *"so we do not regress"*. The target is **WCAG 2.2 AA**
+  (also ISO/IEC 40500:2025), and the audit found the app already passing every
+  criterion it could be held to — which is precisely when a rule is worth
+  writing down, because a passing state with nothing holding it decays silently.
+  `tests/test_accessibility_standards.py` now pins five of them: status is never
+  carried by colour alone (every verdict level has a `✓`/`⚠`/`ⓘ` marker, checked
+  by *calling* the real verdict function across five branches, not by grepping
+  for glyphs); there are no single-character keyboard shortcuts (WCAG 2.1.4 —
+  they fire while a speech-input user is dictating); help stays in one place
+  behind the platform Help key; status announcements do not steal focus; and our
+  own explicit widget sizing stays above the 24 px floor. Each check has a
+  non-triviality floor, so none of them can pass by examining nothing.
+- **What does *not* transfer is stated rather than quietly claimed.** The review
+  targets web apps, so roughly half of it — `scroll-padding-top`, reflow to
+  320 px, `role="grid"`, TV safe areas — has no desktop-Qt meaning and is
+  explicitly excluded from the conformance claim. Two gaps are recorded as open
+  rather than papered over: contrast has not been measured from rendered pixels,
+  and the track table has not had a greyscale/CVD pass. Full audit,
+  per-criterion results and the sizing numbers: `docs/ux-design-principles.md`
+  → *Conformance target*.
+
+### Fixed
+- **The scroll-gesture guard now covers the control it was written for.** The
+  first pass protected Settings and the script console — the two surfaces that
+  happened to be under discussion — and left the **read offset** in the
+  *Set up drive* dialog unguarded, which is the single value in the app where a
+  stray wheel roll rips the next disc wrong with no error and a clean-looking
+  log. Also guarded: the drive combo on the main window, where a scroll aimed at
+  the page could silently switch which drive the next rip reads *and* re-trigger
+  a disc scan. The host-setup and uninstall panes now hold your scroll position
+  instead of yanking you back to the tail on every step, which is what they were
+  doing at exactly the moment you had stopped to read a failing step.
+
+  The real fix is that the rule is now **swept rather than applied by hand**: a
+  test derives the population from the source and requires the guard, with two
+  ratcheted allowlists carrying a written reason each. `rip_progress` keeps its
+  own append path deliberately — its pane sits in a non-current tab where Qt
+  leaves `maximum()` stale, so it tracks follow-state across appends instead,
+  which is a *superset* of the shared helper — and a third test checks that
+  claim is still true, so the exemption cannot outlive the reason it was
+  granted.
+
 ## [0.6.12b5] — 2026-08-13
 
 ### Added

@@ -41,6 +41,7 @@ from platterpus.adapters.rip_backend import RipBackend
 from platterpus.settings_validation import OFFSET_MAX, OFFSET_MIN
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
+from platterpus.ui.scroll_guards import WheelGuard, protect_value_widgets
 from platterpus.workers import start_worker_thread
 from platterpus.workers.drive_setup_worker import (
     DriveSetupResult,
@@ -290,6 +291,14 @@ class DriveSetupDialog(CenteredDialog):
         self._button_box.rejected.connect(self.reject)
         self._button_box.accepted.connect(self.accept)
         root.addWidget(self._button_box)
+
+        # A scroll gesture must never change a value — and of every value widget
+        # in the app, THIS is the one the rule was written for. The offset above
+        # is fed straight to cyanrip as `-s`, so a wheel nudge while reading this
+        # dialog rips the next disc at the wrong offset: no error, no warning, a
+        # clean-looking log with every sample shifted. Installed last so the
+        # sweep sees a fully-built widget tree.
+        self._wheel_guard: WheelGuard = protect_value_widgets(self)
 
         self._apply_content_derived_minimum_size(root)
 

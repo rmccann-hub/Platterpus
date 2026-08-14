@@ -124,6 +124,89 @@ screen-reader session on real hardware, which only the rig can prove). Only #3
 hardware-gated (needs real anomaly-bearing rip output to write a position-level
 parser against, and a real FLAC + CC0 sample to validate playback).
 
+## Conformance target: WCAG 2.2 AA — audited 2026-08-14
+
+**Why this doc and not a new one.** The maintainer commissioned a UI/UX &
+accessibility standards review and asked for an audit "so we do not regress".
+This is the home the rule already had — principles, gaps, the bar for new
+features — and `CLAUDE.md`'s last-resort rule says a new file must name the
+homes it rejected. Considered and rejected: a new `docs/accessibility.md`
+(duplicates principle 10 and this backlog one screen away, and *"a second doc
+that duplicates a home is worse than one long home"*); `docs/testing.md` (the
+enforcement lives there by reference, but the *principle* is UX); `CLAUDE.md`
+(one convention graduated there — the rest is too long for the always-loaded
+file).
+
+**The target is WCAG 2.2 AA**, now also ISO/IEC 40500:2025. It back-ports to
+every law referencing 2.1, and its six new A/AA criteria are exactly the ones a
+dense editable grid fails. Not WCAG 3.0 — still a Working Draft, years from
+Recommendation; track it, do not build to it.
+
+### What transfers, and what does not
+
+The review targets **web** line-of-business apps. Platterpus is **desktop Qt**,
+so roughly half of it does not apply and is deliberately *not* claimed:
+`scroll-padding-top`, `appearance: base-select`, `<input type="date">`
+divergence, reflow to 320 px, TV overscan safe areas, `role="grid"` vs
+`<table>`. Ticking those boxes would make the conformance claim worthless.
+**Say which half you are claiming.**
+
+### Audited, and the result
+
+Measured 2026-08-14 by reading the source and *calling* the real functions —
+not by inspection. Enforcement is `tests/test_accessibility_standards.py`,
+one test per row, because a passing state with nothing holding it decays
+silently and *a comment where a check belongs is not a fix*.
+
+| Criterion | Level | Result | Held by |
+|---|---|---|---|
+| **1.4.1 Use of Color** | A | **pass** — every verdict level carries `✓` / `⚠` / `ⓘ`; colour is reinforcement | test calls the real `accuraterip_verdict` across five branches and requires distinct markers per level |
+| **2.1.4 Character Key Shortcuts** | A | **pass** — zero single-key shortcuts; all three are `QKeySequence.StandardKey` | source sweep, with a floor asserting the sweep reaches the package *and* finds shortcuts at all |
+| **3.2.6 Consistent Help** | A | **pass** — one Help menu, platform Help key | test pins both |
+| **4.1.3 Status Messages** | AA | **pass** — `ui/accessibility.announce()`, used, and it does not `setFocus()` | test pins the no-focus half, which is the part that gets lost |
+| **2.5.8 Target Size** | AA | **pass** for our explicit sizing (24 px floor) | sweep over `setFixed/MinimumHeight/Width` |
+| **2.4.7 Focus Visible** | AA | inherited from the Qt style | not ours to break; not claimed as verified |
+| **3.3.8 Accessible Authentication** | AA | **n/a** — no authentication anywhere | — |
+| **1.4.3 / 1.4.11 Contrast** | AA | **not yet measured** | honest gap; needs a rendered-pixel check, below |
+
+**2.1.4 is worth naming.** The review calls it *"the criterion most often missed
+on Excel-like grids"* — a bare letter shortcut fires while a speech-input user
+is dictating. We pass by construction today; the test is what keeps it true the
+first time someone reaches for `setShortcut("R")`.
+
+### The numbers, so sizing stops being taste
+
+- **24×24 px** absolute floor (WCAG 2.5.8 AA).
+- **44×44 px** for anything that **commits** — Start rip, Cancel, Force stop.
+  Matches Apple HIG 44 pt and WCAG 2.5.5 AAA; MIT Touch Lab puts a fingertip at
+  16–20 mm, far above 24 px.
+- Qt sizing from the platform style is the *user-agent control* exception — but
+  **the moment we set an explicit height we own it**, which is why the sweep
+  checks our own calls and nothing else.
+
+### Still open
+
+1. **Contrast measured, not assumed** — 4.5:1 text / 3:1 non-text, from rendered
+   pixels rather than from the palette we hope is applied.
+2. **Greyscale + CVD pass** — ~8% of men have red/green CVD. The verdict banner
+   passes by construction; the *track table* cells have not been checked in
+   greyscale.
+3. **Forced-colors / High Contrast** — status carried by a background colour
+   vanishes under it. `_banner_style` sets `color:`, which survives; the
+   validation-error border (`border: 1px solid …`) needs checking.
+4. **Committing actions measured against 44 px** rather than left to the style.
+5. ~~**The remaining scroll areas**~~ — **closed 2026-08-14.** Both rules are now
+   applied by *sweep* rather than per widget, and the sweep is a test
+   (`tests/test_scroll_guards.py::TestTheRuleIsAppliedEverywhere`) with two
+   ratcheted allowlists. Newly guarded: the **read offset** in drive setup (the
+   control the rule was written for — it becomes cyanrip's `-s`), the drive
+   combo on the main window, and the host-setup and uninstall result panes.
+   `rip_progress` keeps its own append path deliberately: its pane sits in a
+   non-current tab where Qt leaves `maximum()` stale, so it tracks follow-state
+   across appends instead — a superset of the shared helper, and a test holds
+   that claim true so the exemption cannot outlive its reason. Diagnostics and
+   the file viewer `setPlainText` once and never append, so neither rule applies.
+
 ## The bar for new features
 
 Before a rip-related feature is "done," ask: does it make trust **more visible**,
@@ -133,4 +216,4 @@ finished — put the explanation *in the product*.
 
 ---
 
-*Last updated for Platterpus v0.6.4b13.*
+*Last updated for Platterpus v0.6.12b5.*
