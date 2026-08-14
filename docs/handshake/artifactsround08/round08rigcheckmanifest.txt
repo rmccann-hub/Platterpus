@@ -1,0 +1,19 @@
+INFO  album/discovery  no .platterpus.json found under the output/library folders; the log checks below will SKIP
+INFO  platterpus/version  0.6.12b4 (build 8af03aa)
+INFO  ripper/version  cyanrip 0.9.4-rc1+platterpus.6-beta.4 (platterpus-fork-g2ce8993)  [ripper-version.txt]
+INFO  ripper/handshake  unapproved — ripper build platterpus-fork-g2ce8993 is NOT the build this Platterpus was verified against (platterpus-fork-gddf7ac3, approved by handshake round 7). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper.
+INFO  ripper/pin  this Platterpus pins ddf7ac3; the installed banner is above. A test pin is expected to differ during an open round.
+OK    argv/integrity  every flag we composed arrived intact (-Z, -l, -N, -s present in the binary's own record of 24 composed args)  [argv-probe-output.txt]
+SKIP  handshake/note  no --album-dir given, so no log to read
+SKIP  parser/log  no --album-dir given
+SKIP  device  no --device given
+INFO  album/discovery  newest rip found: /var/home/rmccann/Music/rips/The Police/Every Breath You Take (round 8 joint, pass 1)
+INFO  platterpus/version  0.6.12b4 (build 8af03aa)
+INFO  ripper/version  cyanrip 0.9.4-rc1+platterpus.6-beta.4 (platterpus-fork-g2ce8993)  [ripper-version.txt]
+INFO  ripper/handshake  unapproved — ripper build platterpus-fork-g2ce8993 is NOT the build this Platterpus was verified against (platterpus-fork-gddf7ac3, approved by handshake round 7). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper.
+INFO  ripper/pin  this Platterpus pins ddf7ac3; the installed banner is above. A test pin is expected to differ during an open round.
+OK    argv/integrity  every flag we composed arrived intact (-Z, -l, -N, -s present in the binary's own record of 24 composed args)  [argv-probe-output.txt]
+INFO  handshake/note  OPEN: Handshake:      round 8 lap 7 OPEN, verdict OPEN -- NOT a released build
+OK    parser/log  parsed 5 track(s) from Every Breath You Take (round 8 joint, pass 1).log
+INFO  parser/cache-probe  no Cache probe: line in this log (the rip did not pass -x)
+SKIP  device  no --device given

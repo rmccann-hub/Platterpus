@@ -1,0 +1,22 @@
+{
+  "profiles": {
+    "vm:PIONEER BD-RW BDR-209D": {
+      "cache_defeat": true,
+      "cache_defeat_source": "offset_find",
+      "last_seen_at": "2026-08-14T00:08:42.909736+00:00",
+      "last_seen_device": "/dev/sr0",
+      "model": "BD-RW   BDR-209D",
+      "offset": {
+        "confidence": "medium",
+        "detected_at": "2026-08-14T00:08:42.875527+00:00",
+        "source": "accuraterip_confirmed",
+        "value": 667
+      },
+      "release": "1.51",
+      "serial": "",
+      "vendor": "PIONEER",
+      "wwn": ""
+    }
+  },
+  "schema_version": 1
+}

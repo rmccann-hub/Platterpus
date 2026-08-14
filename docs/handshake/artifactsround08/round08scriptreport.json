@@ -1,0 +1,965 @@
+{
+  "started_at": "2026-08-13T23:45:36+00:00",
+  "app_version": "0.6.12b4",
+  "script_source": "# =============================================================================\n# ROUND 8 JOINT TEST SCRIPT  \u2014  Platterpus + the cyanrip fork\n# =============================================================================\n#\n# THIS IS THE ONLY FILE EITHER SIDE SENDS. Not a document about tests. The tests.\n#\n#   How to run it:   ./platterpus-x86_64.AppImage --run-script round08joint.txt\n#   Where it lands:  docs/rig-scripts/round08joint.txt  in rmccann-hub/Platterpus\n#                    ^ ONE place. Nowhere else, by either side.\n#\n# CYANRIP: add your tests in SECTION C. Change nothing above or below it. Send\n# this same file back with C filled in \u2014 no prose, no companion note, no second\n# document. If a test needs explaining, the explanation is a `log` line inside\n# the test, where whoever reads the transcript will actually be standing.\n#\n# THE ONE RULE THAT MAKES THIS WORK: a failing step does NOT stop the batch.\n# Only `abort` does. So write tests that fail loudly and keep going \u2014 a run that\n# stops at the first problem hides every problem behind it, and on real hardware\n# a disc pass costs an hour you do not get back.\n#\n# -----------------------------------------------------------------------------\n# THE WHOLE LANGUAGE. There is no other syntax; this is all of it.\n# -----------------------------------------------------------------------------\n#\n#   log <text>                 write a line into the transcript\n#   wait <seconds>             pause, bounded at 600\n#   abort [why]                stop the batch \u2014 the ONLY thing that does\n#   screenshot <name>          PNG of every visible window\n#   snapshot <name>            text dump of the window state\n#\n#   rescan                     re-probe the drive, as the toolbar button does\n#   album <text>               set the album title\n#   album-artist <text>        set the album artist\n#   select-tracks <spec>       \"1,3,5-7\" \u2014 this becomes cyanrip's -l\n#   expect-tracks <count>      ASSERT the track count. See the floor note below.\n#   rip                        start the rip, as the button does\n#   wait-for-rip <seconds>     block until it finishes, bounded at 3 hours\n#   cancel-rip                 cancel a running rip\n#\n#   set <field> <value>        any Settings field, BY ITS config.toml NAME\n#   expect <field> <value>     assert a field equals a value\n#   expect-contains <f> <v>    assert a field contains a value\n#\n#   open <dialog>              about | dependencies | diagnostics | drive\n#                              | guide | settings | setup\n#   ok                         accept the top dialog\n#   cancel                     dismiss the top dialog\n#   expect-dialog <text>       assert a dialog is showing, containing <text>\n#\n#   cyanrip <args\u2026>            RUN THE REAL RIPPER. Exit code, exact argv and\n#                              complete output all land in the transcript.\n#   expect-cyanrip <text>      assert the last cyanrip output contains <text>\n#   expect-exit <code>         assert the last cyanrip exit code\n#\n#   rig-check [album-folder]   the seam check: compose a real rip's argv, read it\n#                              back out of cyanrip's own -j record, classify the\n#                              build, parse the album's log\n#\n# `#` starts a comment. Blank lines are free. Arguments are the rest of the line.\n#\n# -----------------------------------------------------------------------------\n# FOUR THINGS THAT WILL BITE YOU IF NOBODY SAYS THEM\n# -----------------------------------------------------------------------------\n#\n# 1. A `cyanrip` RIP INVOCATION MUST CARRY `-N`, and the script refuses it\n#    otherwise. Not pedantry: without `-N` cyanrip runs its own MusicBrainz\n#    lookup and can block on an interactive prompt with no terminal attached, so\n#    an unattended batch hangs forever. Probe flags are exempt because they never\n#    reach the metadata path: --version, -v, --help, -h, -x, --cache-probe, -j\n#\n# 2. NO ARGUMENT MAY CONTAIN A NEWLINE OR NUL, and the script refuses it. This is\n#    not shell injection \u2014 no shell is ever used. It is LOG FORGERY: cyanrip\n#    writes its argv into an archival log, and a newline could fabricate a line\n#    in a document whose entire purpose is being trustworthy evidence.\n#    Also bounded: 64 arguments, 4000 characters each.\n#\n# 3. A TEST THAT CAN PASS BY FINDING NOTHING IS DECORATION. `expect-cyanrip`\n#    against output that never arrived fails, which is right \u2014 but a test whose\n#    only assertion is \"it did not crash\" passes on a binary that does nothing.\n#    Give it a floor: assert a COUNT, or assert two things that must agree.\n#\n# 4. AN ASSERTION THAT CAN PASS FOR THE WRONG REASON IS WORSE THAN ONE THAT\n#    FAILS, because a failure gets investigated and a pass gets cited. Match on\n#    the value, not just the label \u2014 `expect-cyanrip Cache probe:` proves the\n#    line was printed and nothing about what it said.\n#\n# =============================================================================\n\n\n# =============================================================================\n# SECTION A \u2014 SETUP.  PLATTERPUS OWNS THIS. Do not edit.\n# =============================================================================\n\nlog ROUND 8 JOINT SCRIPT \u2014 starting\nlog Put the disc in the drive before running this.\nlog Needs Platterpus 0.6.12b2 or newer. The transcript header above names the\nlog build that actually ran, so this is attributable either way \u2014 but on an older\nlog build the argument-less `rig-check` in SECTION D cannot find the rip and its\nlog log checks report SKIP, which means DID NOT RUN, not \"passed\".\nlog On anything older than 0.6.12b2 the rip in SECTION D cannot start at all: a\nlog second drive populate four seconds into launch superseded its own disc scan\nlog and SIGKILLed cyanrip mid-TOC-read (exit -9, no output). That is the blocker\nlog the 2026-08-12 pass hit, and it costs every step from `rip` onward.\n\n# Identity first, so every failure below is attributable to a named pair of\n# builds. A transcript that cannot say which binaries produced it is not\n# evidence, and two logs of one disc from two builds are not interchangeable.\ncyanrip --version\nexpect-exit 0\nexpect-cyanrip platterpus-fork\nlog ^ if that failed you are on stock upstream, not the fork. Everything below is void.\n\n# Answer the MusicBrainz release picker before anything else can collide with\n# it. This disc returns FOUR candidates, so on launch a modal opens and waits \u2014\n# and SECTION A's `cancel` below closes whatever modal is on top, which would be\n# the picker rather than the dependencies dialog. Added 2026-08-13 after the\n# operator asked the obvious question: \"is there a way you can pick the album?\"\n# There was not. There is now \u2014 a verb, not an app setting, because auto-choosing\n# in the product would silently pick the tags for every ambiguous disc a user\n# ever rips. In a script the choice is written down and applies to this run only.\n#\n# The MBID is the one the operator chose on 2026-08-13, twice, consistently.\n# Named by MBID rather than row number because MusicBrainz ordering is not\n# stable: `pick-release 2` would mean a different release next month.\npick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120\n\n# The seam check with no album folder: the argv half only. It composes a real\n# rip's argv through the REAL builder, runs it against a device that cannot open,\n# and reads `invocation` back out of cyanrip's own -j record \u2014 which compares\n# what the binary RECEIVED against what we COMPOSED. No disc is spent.\nrig-check\n\nopen dependencies\nscreenshot A-dependencies\ncancel\n\n\n# =============================================================================\n# SECTION B \u2014 PLATTERPUS'S TESTS.  WE OWN THIS. cyanrip: do not edit.\n# =============================================================================\n\nlog SECTION B \u2014 Platterpus tests\n\n# B1. The disc pipeline, and a floor under it. `expect-tracks` is the floor:\n#     without it, a rip that identified NOTHING reports success exactly like a\n#     real one, and the transcript reads clean either way.\nrescan\nwait 20\npick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120\nexpect-tracks 14\n\n# B2. Dynamic secure re-rip is the DEFAULT and it means the album pass carries\n#     NO -Z; only AccurateRip-failing tracks get -Z on the refix pass. Asserted\n#     rather than assumed, because the fork read a -Z-free album pass as a\n#     dropped flag in their round-8 \u00a72.1 and it is our design.\n# SET, then assert. Asserting alone measured whoever's config the script ran on\n# \u2014 and on the rig it ran on one with `secure_rerip_dynamic` off, so B2 reported\n# a configuration mismatch as though it were a defect (2026-08-12). A test that\n# does not establish its own precondition is testing the machine.\nset secure_rerip_dynamic on\nset secure_rerip_matches 2\nexpect secure_rerip_dynamic True\nexpect secure_rerip_matches 2\n\n# B3. Per-track selection becomes cyanrip's -l as a COMMA LIST, never a range.\nselect-tracks 1,3,5-7\n\n# B4. A distinct album title per pass. A session that overwrites its own evidence\n#     has destroyed the thing it was run to produce.\nalbum Every Breath You Take (round 8 joint, pass 1)\nalbum-artist The Police\n\nsnapshot B-before-rip\n\n\n# =============================================================================\n# SECTION C \u2014 CYANRIP'S TESTS.  YOU OWN THIS. WE WILL NOT EDIT IT.\n# =============================================================================\n#\n# Add whatever you want between the two markers. Delete the examples. The three\n# verbs you need are `cyanrip`, `expect-cyanrip` and `expect-exit`; everything\n# above is available to you too if you want a rip driven around your test.\n#\n# Things only YOU can test, which is why this section exists:\n#   - `-x` / `--cache-probe` on a real drive. As of 2026-08-07 this had never\n#     executed on real hardware, by anyone. Whatever it prints is the first data\n#     point in existence \u2014 INCLUDING an absurd number, which is a finding.\n#     A HANG IS ALS\n\u2026 [157 characters omitted] \u2026\nem, never that your binary emits them.\n#   - the malformed-argv shapes from your lap 32 (`-c /`, `-p =`) that segfaulted.\n#   - anything where the question is \"what does the ripper do\", not \"what does\n#     the app do with what the ripper did\".\n#\n# WARNING, because this one costs 23 minutes: `-x` is the CACHE PROBE.\n# `-O` is OVERREAD, and `-O` is confirmed to hang the BDR-209D for ~23 minutes.\n# They are one keystroke apart. Do not reach for `-O` on this rig.\n\n# >>> CYANRIP TESTS BEGIN >>>\n\nlog SECTION C \u2014 cyanrip tests\nlog Pair under test: read the two version lines above; both must name a build.\n\n# -----------------------------------------------------------------------------\n# C1. The cache probe. READ THIS BEFORE CITING ITS NUMBER.\n# -----------------------------------------------------------------------------\n# Your example asserted `Cache probe:` and you flagged your own mistake: it\n# proves the label printed and nothing about the value. Taking that seriously\n# turned out to matter more than either of us expected, so this test asserts\n# values AND tells the transcript reader not to trust the headline figure.\n#\n# What happened on 2026-08-10/11, in order, on this drive and disc:\n#   ddf7ac3  printed \"32 sectors measured\"      -- a bare number\n#   cd-paranoia -A said 137 sectors, then 140 on a second run\n#   310dbd2  printed \"at least 2048 sectors, upper bound unknown\"\n#\n# So the number moved by a factor of 64 across two of our own builds while the\n# drive did not change. The method is wrong, and we now know why: `miss_cost` is\n# calibrated by seeking to the far end of the disc and back -- 342.9 ms measured\n# -- while the test read is a SHORT backseek, which cd-paranoia clocks at\n# 2.22 ms/sector on this very drive. The hit threshold is miss_cost/4 = 86 ms.\n# Every short backseek beats 86 ms whether or not anything is cached, so after\n# the transfer-size fix every run scores as a hit until the search ceiling.\n#\n# We are NOT fixing that inside this round -- the pin does not move -- and the\n# line is not unsafe: \"upper bound unknown, search ceiling reached\" claims\n# nothing false and names its own ignorance. It is simply not yet a measurement.\nlog C1 the Cache probe: number is KNOWN UNTRUSTWORTHY -- method defect, round 10\nlog C1 cd-paranoia -A on this drive: 137 sectors, then 140. Believe those, not ours.\n\ncyanrip -d /dev/sr0 -I -N -A -U -P 0 -x\nexpect-exit 0\n\n# Two independent figures on one line, so neither can pass alone. `sector` alone\n# would pass on \"0 sectors\"; `uncached read` proves calibration completed.\nexpect-cyanrip sector\nexpect-cyanrip uncached read\n\n# The retired phrasing must never come back. `measured` claimed a precision a\n# doubling search cannot deliver, and it is the exact word that shipped a number\n# wrong by a factor of four into a line destined for an archival record.\n# A pass here is the ABSENCE of that word -- if the transcript shows\n# \"sectors measured\", the wording regressed.\nlog C1 if the line below says \"sectors measured\" the wording regression is back\n\n# -----------------------------------------------------------------------------\n# C2. The four argv shapes that used to SEGFAULT. Exit 139 is the failure.\n# -----------------------------------------------------------------------------\n# From our lap 32. Each of these crashed with no output at all -- a non-zero\n# exit a caller cannot explain, which is the one failure mode this seam agreed\n# is unacceptable. Fixed in 58f5151; these are the regression tests, and they\n# are ours because only the ripper can be made to crash.\n#\n# Each asserts a MESSAGE and an EXIT CODE. A crash produces neither.\nlog C2 malformed argv: each must refuse with a message, never crash\n\ncyanrip -N -d /dev/sr0 -c /\nexpect-cyanrip Missing discnumber\nexpect-exit 1\n\ncyanrip -N -d /dev/sr0 -c //\nexpect-cyanrip Missing discnumber\nexpect-exit 1\n\ncyanrip -N -d /dev/sr0 -p =\nexpect-cyanrip Missing track idx for pregap\nexpect-exit 1\n\ncyanrip -N -d /dev/sr0 -p ==\nexpect-cyanrip Missing track idx for pregap\nexpect-exit 1\n\n# -----------------------------------------------------------------------------\n# C3. The -t shape that published process memory into an archival log.\n# -----------------------------------------------------------------------------\n# `-t 1` with no `=` read past the end of the argument and copied whatever\n# followed it in memory into the FLAC tags, the log AND the cue -- at exit 0,\n# with no warning. ASAN and UBSAN were both silent on it, because argv lives in\n# the shared initial stack block with no redzone. Fixed in 3923dee.\n#\n# This is the highest-consequence defect either project has found, so it gets a\n# test that fails loudly rather than a note in a document.\nlog C3 -t with no \"=\" must refuse, not leak adjacent memory at exit 0\n\ncyanrip -N -d /dev/sr0 -t 1\nlog C3 assertion is quote-free on purpose: the runner strips double quotes,\nlog C3 so `Missing \"=\" in track metadata` can never match. Its own error said\nlog C3 'Missing = in track metadata' -- the quotes were gone before comparing.\nexpect-cyanrip in track metadata\nexpect-exit 1\n\n# -----------------------------------------------------------------------------\n# C4. genopt's fatal messages -- the ten rows the contract gained.\n# -----------------------------------------------------------------------------\n# You can only test that your matcher catches these; only we can make the binary\n# emit them. They were ALWAYS emitted -- the provider contract simply never\n# scanned genopt.h, so the document was incomplete while the behaviour was not.\n#\n# `-l` takes a COMMA-separated list. A range is refused, and the message names\n# the internal C type rather than the accepted format, which is a usability\n# defect we are carrying to round 10 rather than reword mid-round.\nlog C4 genopt fatal messages: emitted for years, in the contract only since round 8\n\ncyanrip -N -d /dev/sr0 -l 1-2\nexpect-cyanrip Error parsing\nexpect-exit 1\n\n# The message that once read to you as \"cyanrip is not installed\", and the\n# reason this fork restored -V as an alias. It reaches stdout through\n# crip_genopt_log -> cyanrip_vlog, so it lands in the transcript like any other.\ncyanrip -N --no-such-flag-exists\nexpect-cyanrip Unable to parse command line argument\nexpect-exit 1\n\n# -----------------------------------------------------------------------------\n# C5. -f offset autodetection, asserting the VALUE.\n# -----------------------------------------------------------------------------\n# Never run on hardware before 2026-08-10. It has now reproduced +667 at\n# confidence 14 on three independent runs, matching the -s 667 your settings\n# apply -- two methods, two projects, one number. That agreement is the strongest\n# single piece of evidence either of us holds about this drive, which is why it\n# is asserted by value and not by label.\n#\n# ~60 seconds: it reads about 12 sectors per track, not whole tracks, and exits\n# without entering the rip loop.\nlog C5 -f must independently rediscover the configured read offset\n\ncyanrip -N -f -d /dev/sr0\nexpect-cyanrip Drive offset of +667 found\nexpect-exit 0\n\n# -----------------------------------------------------------------------------\n# C6. --verify-log must refuse a foreign log, diagnosably.\n# -----------------------------------------------------------------------------\n# The only surviving rip on this rig is EAC's, and an EAC log carries no FUN512.\n# cyanrip must say so and exit non-zero rather than crashing or -- worse --\n# reporting a log it cannot verify as valid.\n#\n# Path is EAC's own output. If it has moved, this test fails on the path, which\n# is a legible failure rather than a silent skip.\nlog C6 a log we did not write must be refused, not silently accepted\nlog C6 -N added 2026-08-12: rule 1 refused this line without it, and the\nlog C6 refusal left the PREVIOUS cyanrip result live, so the next assert\nlog C6 silently graded a command that never ran. Ours to fix, both halves.\n\nlog C6 PLATTERPUS EDIT, the only one we made inside SECTION C: the path\nlog C6 below is now QUOTED. Unquoted it contains spaces, so it reached\nlog C6 cyanrip as 17 arguments -- and `expect-exit 1` would then have\nlog C6 passed because the file could not be OPENED, not because the log\nlog C6 was refused. Exactly the \"satisfied by the wrong thing\" shape,\nlog C6 on the one test whose purpose is telling those two apart.\ncyanrip -N --verify-log \"~/Music/rips/The Police/Every Breath You Take - Archive files/EAC flac/The Police - Every Breath You Take- The Classics.log\"\nexpect-exit 1\n\n# <<< CYANRIP TESTS END <<<\n\n\n# =============================================================================\n# SECTION D \u2014 THE RIP, AND THE SEAM CHECK OVER IT.  PLATTERPUS OWNS THIS.\n# =============================================================================\n\nlog SECTION D \u2014 the rip\n\nrip\nwait-for-rip 7200\n\nscreenshot D-after-rip\nsnapshot D-after-rip\n\n# The seam check again, this time WITH the album folder, so it also parses the\n# log this rip just produced and reads its `Handshake:` note. Both note shapes\n# must be read correctly \u2014 `closed` and `OPEN` \u2014 and a note it cannot classify\n# says `unrecognised` rather than defaulting to either. An open round silently\n# reported as closed would clear a release gate.\n#\n# NO PATH. From 0.6.12b1 `rig-check` finds the newest rip on this machine by\n# itself, using the same rule `--compare` uses, and names the folder it chose in\n# the manifest. The line here used to read \"replace the path with the folder the\n# rip actually wrote\", which was a hand-edit standing in for something the\n# program could do. Pass a path only to point at a DIFFERENT rip than the last.\nrig-check\n\nlog ROUND 8 JOINT SCRIPT \u2014 complete. Send the folder named at the top of this\nlog transcript, nothing else. From 0.6.12b2 the run writes itself into that\nlog folder when it ends \u2014 transcript.txt, report.json and any screenshots \u2014 so\nlog there is nothing to copy out of a window by hand.\nlog Folder: ~/.local/share/platterpus/uiscript/<timestamp>/\n",
+  "ended_reason": null,
+  "used_unsafe_verbs": false,
+  "artifact_dir": "/home/rmccann/.local/share/platterpus/uiscript/20260813T234536+0000",
+  "preflight": [
+    "L285: cyanrip -N -d /dev/sr0 -t 1 \u2014 refusing to run cyanrip: the -t argument '1' is not '<track number>=<tags>'. cyanrip steps over the '=' without checking it is there, so this reads past the end of the string"
+  ],
+  "counts": {
+    "pass": 92,
+    "fail": 1,
+    "error": 25,
+    "skipped": 0,
+    "blocked": 0
+  },
+  "ok": false,
+  "steps": [
+    {
+      "line_no": 94,
+      "source": "log ROUND 8 JOINT SCRIPT \u2014 starting",
+      "outcome": "pass",
+      "detail": "ROUND 8 JOINT SCRIPT \u2014 starting",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 95,
+      "source": "log Put the disc in the drive before running this.",
+      "outcome": "pass",
+      "detail": "Put the disc in the drive before running this.",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 96,
+      "source": "log Needs Platterpus 0.6.12b2 or newer. The transcript header above names the",
+      "outcome": "pass",
+      "detail": "Needs Platterpus 0.6.12b2 or newer. The transcript header above names the",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 97,
+      "source": "log build that actually ran, so this is attributable either way \u2014 but on an older",
+      "outcome": "pass",
+      "detail": "build that actually ran, so this is attributable either way \u2014 but on an older",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 98,
+      "source": "log build the argument-less `rig-check` in SECTION D cannot find the rip and its",
+      "outcome": "pass",
+      "detail": "build the argument-less `rig-check` in SECTION D cannot find the rip and its",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 99,
+      "source": "log log checks report SKIP, which means DID NOT RUN, not \"passed\".",
+      "outcome": "pass",
+      "detail": "log checks report SKIP, which means DID NOT RUN, not passed .",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 100,
+      "source": "log On anything older than 0.6.12b2 the rip in SECTION D cannot start at all: a",
+      "outcome": "pass",
+      "detail": "On anything older than 0.6.12b2 the rip in SECTION D cannot start at all: a",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 101,
+      "source": "log second drive populate four seconds into launch superseded its own disc scan",
+      "outcome": "pass",
+      "detail": "second drive populate four seconds into launch superseded its own disc scan",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 102,
+      "source": "log and SIGKILLed cyanrip mid-TOC-read (exit -9, no output). That is the blocker",
+      "outcome": "pass",
+      "detail": "and SIGKILLed cyanrip mid-TOC-read (exit -9, no output). That is the blocker",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 103,
+      "source": "log the 2026-08-12 pass hit, and it costs every step from `rip` onward.",
+      "outcome": "pass",
+      "detail": "the 2026-08-12 pass hit, and it costs every step from `rip` onward.",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 108,
+      "source": "cyanrip --version",
+      "outcome": "pass",
+      "detail": "argv: /home/rmccann/.local/bin/cyanrip --version\nexit: 0\ncyanrip 0.9.4-rc1+platterpus.6-beta.4 (platterpus-fork-g2ce8993)\n",
+      "elapsed_s": 0.24968258899752982,
+      "artifact": ""
+    },
+    {
+      "line_no": 109,
+      "source": "expect-exit 0",
+      "outcome": "pass",
+      "detail": "exit was 0",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 110,
+      "source": "expect-cyanrip platterpus-fork",
+      "outcome": "pass",
+      "detail": "found 'platterpus-fork'",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 111,
+      "source": "log ^ if that failed you are on stock upstream, not the fork. Everything below is void.",
+      "outcome": "pass",
+      "detail": "^ if that failed you are on stock upstream, not the fork. Everything below is void.",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "error",
+      "detail": "runner fault: AttributeError(\"'PySide6.QtWidgets.QTableWidget' object has no attribute 'setCurrentRow'\")",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 125,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "pass",
+      "detail": "no picker appeared and 14 track(s) are loaded \u2014 the disc identified unambiguously, so there was nothing to pick",
+      "elapsed_s": 8.000031685001886,
+      "artifact": ""
+    },
+    {
+      "line_no": 131,
+      "source": "rig-check",
+      "outcome": "pass",
+      "detail": "exit: 0\nmanifest under /home/rmccann/.local/share/platterpus/uiscript/20260813T234536+0000/rig-check\nINFO  album/discovery  no .platterpus.json found under the output/library folders; the log checks below will SKIP\nINFO  platterpus/version  0.6.12b4 (build 8af03aa)\nINFO  ripper/version  cyanrip 0.9.4-rc1+platterpus.6-beta.4 (platterpus-fork-g2ce8993)  [ripper-version.txt]\nINFO  ripper/handshake  unapproved \u2014 ripper build platterpus-fork-g2ce8993 is NOT the build this Platterpus was verified against (platterpus-fork-gddf7ac3, approved by handshake round 7). The rip is still bit-perfect if its own checks passed \u2014 but it was not produced by a jointly-verified ripper.\nINFO  ripper/pin  this Platterpus pins ddf7ac3; the installed banner is above. A test pin is expected to differ during an open round.\nOK    argv/integrity  every flag we composed arrived intact (-Z, -l, -N, -s present in the binary's own record of 24 composed args)  [argv-probe-output.txt]\nSKIP  handshake/note  no --album-dir given, so no log to read\nSKIP  parser/log  no --album-dir given\nSKIP  device  no --device given\nmanifest: /home/rmccann/.local/share/platterpus/uiscript/20260813T234536+0000/rig-check/MANIFEST.txt",
+      "elapsed_s": 0.6229586340014066,
+      "artifact": ""
+    },
+    {
+      "line_no": 133,
+      "source": "open dependencies",
+      "outcome": "pass",
+      "detail": "opening dependencies",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 134,
+      "source": "screenshot A-dependencies",
+      "outcome": "pass",
+      "detail": "examined 9 window(s); wrote 9 PNG(s)\n  MainWindow 'Platterpus 0.6.12b4' visible=True platform_window=yes exposed=True modal=False geom=460,96 1000x888 on_a_screen=True\n  QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True\n  QMessageBox 'Dependency check complete' visible=True platform_window=yes exposed=False modal=True geom=320,489 500x168 on_a_screen=True\n  ReleasePickerDialog 'Pick a MusicBrainz release' visible=False platform_window=yes exposed=False modal=True geom=510,322 900x408 on_a_screen=True\n  ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=120,82 760x668 on_a_screen=True\n  QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True\n  QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True\n  QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True\n  QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True",
+      "elapsed_s": 0.0,
+      "artifact": "/home/rmccann/.local/share/platterpus/uiscript/20260813T234536+0000/A-dependencies.png"
+    },
+    {
+      "line_no": 135,
+      "source": "cancel",
+      "outcome": "pass",
+      "detail": "cancelled 'Dependency check complete'",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 142,
+      "source": "log SECTION B \u2014 Platterpus tests",
+      "outcome": "pass",
+      "detail": "SECTION B \u2014 Platterpus tests",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 147,
+      "source": "rescan",
+      "outcome": "pass",
+      "detail": "rescanning /dev/sr0",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 148,
+      "source": "wait 20",
+      "outcome": "pass",
+      "detail": "",
+      "elapsed_s": 20.125114557002235,
+      "artifact": ""
+    },
+    {
+      "line_no": 149,
+      "source": "pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120",
+      "outcome": "pass",
+      "detail": "no picker appeared and 14 track(s) are loaded \u2014 the disc identified unambiguously, so there was nothing to pick",
+      "elapsed_s": 0.12523094800053514,
+      "artifact": ""
+    },
+    {
+      "line_no": 150,
+      "source": "expect-tracks 14",
+      "outcome": "pass",
+      "detail": "14 track rows, as expected",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 160,
+      "source": "set secure_rerip_dynamic on",
+      "outcome": "pass",
+      "detail": "secure_rerip_dynamic = True",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 161,
+      "source": "set secure_rerip_matches 2",
+      "outcome": "pass",
+      "detail": "secure_rerip_matches = 2",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 162,
+      "source": "expect secure_rerip_dynamic True",
+      "outcome": "pass",
+      "detail": "secure_rerip_dynamic is True",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 163,
+      "source": "expect secure_rerip_matches 2",
+      "outcome": "pass",
+      "detail": "secure_rerip_matches is 2",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 166,
+      "source": "select-tracks 1,3,5-7",
+      "outcome": "pass",
+      "detail": "selected 5 track(s): [1, 3, 5, 6, 7]",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 170,
+      "source": "album Every Breath You Take (round 8 joint, pass 1)",
+      "outcome": "pass",
+      "detail": "album title set to 'Every Breath You Take (round 8 joint, pass 1)'",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 171,
+      "source": "album-artist The Police",
+      "outcome": "pass",
+      "detail": "album artist set to 'The Police'",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 173,
+      "source": "snapshot B-before-rip",
+      "outcome": "pass",
+      "detail": "snapshot 'B-before-rip':\n  dialog on top: (none)\n  window title : Platterpus 0.6.12b4\n  drive: PIONEER BD-RW BDR-209D \u00b7 firmware 1.51 \u00b7 /dev/sr0\n  musicbrainz: 4 matches found \u2014 pick one\n  accuraterip: \u2014\n  read offset: not recorded yet \u2014 Set up drive to calibrate",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 201,
+      "source": "log SECTION C \u2014 cyanrip tests",
+      "outcome": "pass",
+      "detail": "SECTION C \u2014 cyanrip tests",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 202,
+      "source": "log Pair under test: read the two version lines above; both must name a build.",
+      "outcome": "pass",
+      "detail": "Pair under test: read the two version lines above; both must name a build.",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 228,
+      "source": "log C1 the Cache probe: number is KNOWN UNTRUSTWORTHY -- method defect, round 10",
+      "outcome": "pass",
+      "detail": "C1 the Cache probe: number is KNOWN UNTRUSTWORTHY -- method defect, round 10",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 229,
+      "source": "log C1 cd-paranoia -A on this drive: 137 sectors, then 140. Believe those, not ours.",
+      "outcome": "pass",
+      "detail": "C1 cd-paranoia -A on this drive: 137 sectors, then 140. Believe those, not ours.",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 231,
+      "source": "cyanrip -d /dev/sr0 -I -N -A -U -P 0 -x",
+      "outcome": "pass",
+      "detail": "argv: /home/rmccann/.local/bin/cyanrip -d /dev/sr0 -I -N -A -U -P 0 -x\nexit: 0\nChecking /dev/sr0 for cdrom...\n\t\tCDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\n\n\nOpening drive...\nMusicBrainz URL:\nhttps://musicbrainz.org/cdtoc/attach?toc=1+14+268857+150+14637+28217+50070+72720+90792+109325+128907+145812+159387+178482+201012+224660+246677&tracks=14&id=pNtImOkdBm9RMBIalzx0w9cfsYY-\nLog(s) will be written to:\n    Unknown disc (PNTI) [FLAC]/Unknown disc (PNTI).log\nCUE files will be written to:\n    Unknown disc (PNTI) [FLAC]/Unknown disc (PNTI).cue\ncyanrip 0.9.4-rc1+platterpus.6-beta.4 (platterpus-fork-g2ce8993)\nInvoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -I -N -A -U -P 0 -x\nHandshake:      round 8 lap 7 OPEN, verdict OPEN -- NOT a released build\nConsumer:       not identified (no --consumer given)\nDrive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)\nSystem device:  /dev/sr0\nDevice model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\nOffset:         +0 samples\nOverread:       +0 frames\nOverread mode:  fill with silence in lead-in/lead-out\nSpeed:          default (unchangeable)\nC2 errors:      unsupported by drive\nCD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)\nEncoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)\nParanoia level: none\nFrame retries:  10\nCache model:    not in use (paranoia disabled)\nHDCD decoding:  disabled\nAlbum Art:      none\nOutputs:        flac\nDisc tracks:    14\nTracks to rip:  all\nDiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-\nCDDB ID:        E20DFE0E\nAlbum:          Unknown disc (PNTI)\nAccurateRip:    disabled\nTotal time:     59:42.57\n\nCache probe:    at least 2048 sectors, upper bound unknown (4704.0 KiB or more, search ceiling reached, uncached read 363.1 ms)\nGaps:\n    160 frame pregap in track 2, merging into track 1\n    158 frame pregap in track 4, merging into track 3\n    115 frame pregap in track 5, merging into track 4\n    105 frame pregap in track 7, merging into track 6\n    85 frame pregap in track 8, merging into track 7\n    94 frame pregap in track 9, merging into track 8\n    147 frame pregap in track 10, merging into track 9\n    90 frame pregap in track 13, merging into track 12\n    117 frame pregap in track 14, merging into track 13\n\nTracks:\nTrack 1 info:\n  Preemphasis:   none detected\n\n  Properties:\n    Duration:    03:13.12\n    Samples:     8518356\n    Frames:      14487\n    Pregap LSN:  0 (duration: 00:02.00)\n    Pregap length: 150 frames\n    Pregap source: lead-in\n    Start LSN:   0\n    End LSN:     14486\n  Secure re-read:  not attempted\n  Accurip:       disabled\n\n  Metadata:\n    track:              1\n    tracktotal:         14\n    musicbrainz_discid: pNtImOkdBm9RMBIalzx0w9cfsYY-\n    cddb:               E20DFE0E\n    media:              CD\n    comment:            cyanrip 0.9.4-rc1+platterpus.6-beta.4\n    album:              Unknown disc (PNTI)\n    title:              Unknown track\n\n  Paranoia status counts:\n    none\n\n  File(s):\n    Unknown disc (PNTI) [FLAC]/01 - Unknown track.flac\n\nTrack 2 info:\n  Preemphasis:   none detected\n\n  Properties:\n    Duration:    03:01.05\n    Samples:     7985040\n    Frames:      13580\n    Pregap LSN:  14327 (duration: 00:02.10)\n    Pregap length: 160 frames\n    Pregap source: sub-channel (not signalled by TOC)\n    Start LSN:   14487\n    End LSN:     28066\n  Secure re-read:  not attempted\n  Accurip:       disabled\n\n  Metadata:\n    track:              2\n    tracktotal:         14\n    musicbrainz_discid: pNtImOkdBm9RMBIalzx0w9cfsYY-\n    cddb:               E20DFE0E\n    media:              CD\n    comment:            cyanrip 0.9.4-rc1+platterpus.6-beta.4\n    album:              Unknown disc (PNTI)\n    title:              Unknown track\n\n  Paranoia status counts:\n    none\n\n  File(s):\n    Unknown disc (PNTI) [FLAC]/02 - Unknown track.flac\n\nTrack 3 info:\n  Preemphasis:   none detected\n\n  Properties:\n    Duration:    04:51.28\n    Samples:     12849564\n    Frames:      21853\n    Pregap LSN:  28067 (duration: 00:00.00)\n    Pregap length: 0 frames\n    Pregap source: sub-channel (not signalled \n\u2026 [5309 characters omitted] \u2026\nlac\n\nTrack 10 info:\n  Preemphasis:   none detected\n\n  Properties:\n    Duration:    04:14.45\n    Samples:     11227860\n    Frames:      19095\n    Pregap LSN:  159090 (duration: 00:01.72)\n    Pregap length: 147 frames\n    Pregap source: sub-channel (not signalled by TOC)\n    Start LSN:   159237\n    End LSN:     178331\n  Secure re-read:  not attempted\n  Accurip:       disabled\n\n  Metadata:\n    track:              10\n    tracktotal:         14\n    musicbrainz_discid: pNtImOkdBm9RMBIalzx0w9cfsYY-\n    cddb:               E20DFE0E\n    media:              CD\n    comment:            cyanrip 0.9.4-rc1+platterpus.6-beta.4\n    album:              Unknown disc (PNTI)\n    title:              Unknown track\n\n  Paranoia status counts:\n    none\n\n  File(s):\n    Unknown disc (PNTI) [FLAC]/10 - Unknown track.flac\n\nTrack 11 info:\n  Preemphasis:   none detected\n\n  Properties:\n    Duration:    05:00.30\n    Samples:     13247640\n    Frames:      22530\n    Pregap LSN:  178332 (duration: 00:00.00)\n    Pregap length: 0 frames\n    Pregap source: sub-channel (not signalled by TOC)\n    Start LSN:   178332\n    End LSN:     200861\n  Secure re-read:  not attempted\n  Accurip:       disabled\n\n  Metadata:\n    track:              11\n    tracktotal:         14\n    musicbrainz_discid: pNtImOkdBm9RMBIalzx0w9cfsYY-\n    cddb:               E20DFE0E\n    media:              CD\n    comment:            cyanrip 0.9.4-rc1+platterpus.6-beta.4\n    album:              Unknown disc (PNTI)\n    title:              Unknown track\n\n  Paranoia status counts:\n    none\n\n  File(s):\n    Unknown disc (PNTI) [FLAC]/11 - Unknown track.flac\n\nTrack 12 info:\n  Preemphasis:   none detected\n\n  Properties:\n    Duration:    05:15.23\n    Samples:     13905024\n    Frames:      23648\n    Pregap LSN:  200862 (duration: 00:00.00)\n    Pregap length: 0 frames\n    Pregap source: sub-channel (not signalled by TOC)\n    Start LSN:   200862\n    End LSN:     224509\n  Secure re-read:  not attempted\n  Accurip:       disabled\n\n  Metadata:\n    track:              12\n    tracktotal:         14\n    musicbrainz_discid: pNtImOkdBm9RMBIalzx0w9cfsYY-\n    cddb:               E20DFE0E\n    media:              CD\n    comment:            cyanrip 0.9.4-rc1+platterpus.6-beta.4\n    album:              Unknown disc (PNTI)\n    title:              Unknown track\n\n  Paranoia status counts:\n    none\n\n  File(s):\n    Unknown disc (PNTI) [FLAC]/12 - Unknown track.flac\n\nTrack 13 info:\n  Preemphasis:   none detected\n\n  Properties:\n    Duration:    04:53.42\n    Samples:     12945996\n    Frames:      22017\n    Pregap LSN:  224420 (duration: 00:01.15)\n    Pregap length: 90 frames\n    Pregap source: sub-channel (not signalled by TOC)\n    Start LSN:   224510\n    End LSN:     246526\n  Secure re-read:  not attempted\n  Accurip:       disabled\n\n  Metadata:\n    track:              13\n    tracktotal:         14\n    musicbrainz_discid: pNtImOkdBm9RMBIalzx0w9cfsYY-\n    cddb:               E20DFE0E\n    media:              CD\n    comment:            cyanrip 0.9.4-rc1+platterpus.6-beta.4\n    album:              Unknown disc (PNTI)\n    title:              Unknown track\n\n  Paranoia status counts:\n    none\n\n  File(s):\n    Unknown disc (PNTI) [FLAC]/13 - Unknown track.flac\n\nTrack 14 info:\n  Preemphasis:   none detected\n\n  Properties:\n    Duration:    04:55.55\n    Samples:     13041840\n    Frames:      22180\n    Pregap LSN:  246410 (duration: 00:01.42)\n    Pregap length: 117 frames\n    Pregap source: sub-channel (not signalled by TOC)\n    Start LSN:   246527\n    End LSN:     268706\n  Secure re-read:  not attempted\n  Accurip:       disabled\n\n  Metadata:\n    track:              14\n    tracktotal:         14\n    musicbrainz_discid: pNtImOkdBm9RMBIalzx0w9cfsYY-\n    cddb:               E20DFE0E\n    media:              CD\n    comment:            cyanrip 0.9.4-rc1+platterpus.6-beta.4\n    album:              Unknown disc (PNTI)\n    title:              Unknown track\n\n  Paranoia status counts:\n    none\n\n  File(s):\n    Unknown disc (PNTI) [FLAC]/14 - Unknown track.flac\n\n",
+      "elapsed_s": 15.874731489999249,
+      "artifact": ""
+    },
+    {
+      "line_no": 232,
+      "source": "expect-exit 0",
+      "outcome": "pass",
+      "detail": "exit was 0",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 236,
+      "source": "expect-cyanrip sector",
+      "outcome": "pass",
+      "detail": "found 'sector'",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 237,
+      "source": "expect-cyanrip uncached read",
+      "outcome": "pass",
+      "detail": "found 'uncached read'",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 244,
+      "source": "log C1 if the line below says \"sectors measured\" the wording regression is back",
+      "outcome": "pass",
+      "detail": "C1 if the line below says sectors measured the wording regression is back",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 255,
+      "source": "log C2 malformed argv: each must refuse with a message, never crash",
+      "outcome": "pass",
+      "detail": "C2 malformed argv: each must refuse with a message, never crash",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 257,
+      "source": "cyanrip -N -d /dev/sr0 -c /",
+      "outcome": "pass",
+      "detail": "argv: /home/rmccann/.local/bin/cyanrip -N -d /dev/sr0 -c /\nexit: 1\nMissing discnumber\n",
+      "elapsed_s": 0.2496159490001446,
+      "artifact": ""
+    },
+    {
+      "line_no": 258,
+      "source": "expect-cyanrip Missing discnumber",
+      "outcome": "pass",
+      "detail": "found 'Missing discnumber'",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 259,
+      "source": "expect-exit 1",
+      "outcome": "pass",
+      "detail": "exit was 1",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 261,
+      "source": "cyanrip -N -d /dev/sr0 -c //",
+      "outcome": "pass",
+      "detail": "argv: /home/rmccann/.local/bin/cyanrip -N -d /dev/sr0 -c //\nexit: 1\nMissing discnumber\n",
+      "elapsed_s": 0.37487541700102156,
+      "artifact": ""
+    },
+    {
+      "line_no": 262,
+      "source": "expect-cyanrip Missing discnumber",
+      "outcome": "pass",
+      "detail": "found 'Missing discnumber'",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 263,
+      "source": "expect-exit 1",
+      "outcome": "pass",
+      "detail": "exit was 1",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 265,
+      "source": "cyanrip -N -d /dev/sr0 -p =",
+      "outcome": "pass",
+      "detail": "argv: /home/rmccann/.local/bin/cyanrip -N -d /dev/sr0 -p =\nexit: 1\nMissing track idx for pregap\n",
+      "elapsed_s": 0.2501983399997698,
+      "artifact": ""
+    },
+    {
+      "line_no": 266,
+      "source": "expect-cyanrip Missing track idx for pregap",
+      "outcome": "pass",
+      "detail": "found 'Missing track idx for pregap'",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 267,
+      "source": "expect-exit 1",
+      "outcome": "pass",
+      "detail": "exit was 1",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 269,
+      "source": "cyanrip -N -d /dev/sr0 -p ==",
+      "outcome": "pass",
+      "detail": "argv: /home/rmccann/.local/bin/cyanrip -N -d /dev/sr0 -p ==\nexit: 1\nMissing track idx for pregap\n",
+      "elapsed_s": 0.2500035669982026,
+      "artifact": ""
+    },
+    {
+      "line_no": 270,
+      "source": "expect-cyanrip Missing track idx for pregap",
+      "outcome": "pass",
+      "detail": "found 'Missing track idx for pregap'",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 271,
+      "source": "expect-exit 1",
+      "outcome": "pass",
+      "detail": "exit was 1",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 283,
+      "source": "log C3 -t with no \"=\" must refuse, not leak adjacent memory at exit 0",
+      "outcome": "pass",
+      "detail": "C3 -t with no = must refuse, not leak adjacent memory at exit 0",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 285,
+      "source": "cyanrip -N -d /dev/sr0 -t 1",
+      "outcome": "fail",
+      "detail": "refusing to run cyanrip: the -t argument '1' is not '<track number>=<tags>'. cyanrip steps over the '=' without checking it is there, so this reads past the end of the string",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 286,
+      "source": "log C3 assertion is quote-free on purpose: the runner strips double quotes,",
+      "outcome": "pass",
+      "detail": "C3 assertion is quote-free on purpose: the runner strips double quotes,",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 287,
+      "source": "log C3 so `Missing \"=\" in track metadata` can never match. Its own error said",
+      "outcome": "pass",
+      "detail": "C3 so `Missing = in track metadata` can never match. Its own error said",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 288,
+      "source": "log C3 'Missing = in track metadata' -- the quotes were gone before comparing.",
+      "outcome": "pass",
+      "detail": "C3 'Missing = in track metadata' -- the quotes were gone before comparing.",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 289,
+      "source": "expect-cyanrip in track metadata",
+      "outcome": "error",
+      "detail": "no cyanrip command has run yet",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 290,
+      "source": "expect-exit 1",
+      "outcome": "error",
+      "detail": "no cyanrip command has run yet",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 302,
+      "source": "log C4 genopt fatal messages: emitted for years, in the contract only since round 8",
+      "outcome": "pass",
+      "detail": "C4 genopt fatal messages: emitted for years, in the contract only since round 8",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 304,
+      "source": "cyanrip -N -d /dev/sr0 -l 1-2",
+      "outcome": "pass",
+      "detail": "argv: /home/rmccann/.local/bin/cyanrip -N -d /dev/sr0 -l 1-2\nexit: 1\nError parsing \"1-2\" as a int32_t for argument \"tracks\"\n",
+      "elapsed_s": 0.3749040180009615,
+      "artifact": ""
+    },
+    {
+      "line_no": 305,
+      "source": "expect-cyanrip Error parsing",
+      "outcome": "pass",
+      "detail": "found 'Error parsing'",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 306,
+      "source": "expect-exit 1",
+      "outcome": "pass",
+      "detail": "exit was 1",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 311,
+      "source": "cyanrip -N --no-such-flag-exists",
+      "outcome": "pass",
+      "detail": "argv: /home/rmccann/.local/bin/cyanrip -N --no-such-flag-exists\nexit: 1\nUnable to parse command line argument: --no-such-flag-exists\n",
+      "elapsed_s": 0.3747428940005193,
+      "artifact": ""
+    },
+    {
+      "line_no": 312,
+      "source": "expect-cyanrip Unable to parse command line argument",
+      "outcome": "pass",
+      "detail": "found 'Unable to parse command line argument'",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 313,
+      "source": "expect-exit 1",
+      "outcome": "pass",
+      "detail": "exit was 1",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 326,
+      "source": "log C5 -f must independently rediscover the configured read offset",
+      "outcome": "pass",
+      "detail": "C5 -f must independently rediscover the configured read offset",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 328,
+      "source": "cyanrip -N -f -d /dev/sr0",
+      "outcome": "pass",
+      "detail": "argv: /home/rmccann/.local/bin/cyanrip -N -f -d /dev/sr0\nexit: 0\nSearching for drive offset, enabling AccuRip and disabling MusicBrainz and Cover art fetching...\nChecking /dev/sr0 for cdrom...\n\t\tCDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\n\n\nOpening drive...\nLoading data for track 1...\nData loaded, searching for offsets...\nOffset of +667 found in track 1, trying to confirm with another track\nLoading data for track 2...\nData loaded, searching for offsets...\nOffset of +667 confirmed (confidence: 2) in track 2, trying to confirm with another track\nLoading data for track 3...\nData loaded, searching for offsets...\nOffset of +667 confirmed (confidence: 3) in track 3, trying to confirm with another track\nLoading data for track 4...\nData loaded, searching for offsets...\nOffset of +667 confirmed (confidence: 4) in track 4, trying to confirm with another track\nLoading data for track 5...\nData loaded, searching for offsets...\nOffset of +667 confirmed (confidence: 5) in track 5, trying to confirm with another track\nLoading data for track 6...\nData loaded, searching for offsets...\nOffset of +667 confirmed (confidence: 6) in track 6, trying to confirm with another track\nLoading data for track 7...\nData loaded, searching for offsets...\nOffset of +667 confirmed (confidence: 7) in track 7, trying to confirm with another track\nLoading data for track 8...\nData loaded, searching for offsets...\nOffset of +667 confirmed (confidence: 8) in track 8, trying to confirm with another track\nLoading data for track 9...\nData loaded, searching for offsets...\nOffset of +667 confirmed (confidence: 9) in track 9, trying to confirm with another track\nLoading data for track 10...\nData loaded, searching for offsets...\nOffset of +667 confirmed (confidence: 10) in track 10, trying to confirm with another track\nLoading data for track 11...\nData loaded, searching for offsets...\nOffset of +667 confirmed (confidence: 11) in track 11, trying to confirm with another track\nLoading data for track 12...\nData loaded, searching for offsets...\nOffset of +667 confirmed (confidence: 12) in track 12, trying to confirm with another track\nLoading data for track 13...\nData loaded, searching for offsets...\nOffset of +667 confirmed (confidence: 13) in track 13, trying to confirm with another track\nLoading data for track 14...\nData loaded, searching for offsets...\nOffset of +667 confirmed (confidence: 14) in track 14\nDrive offset of +667 found (confidence: 14)!\n",
+      "elapsed_s": 57.32496649099994,
+      "artifact": ""
+    },
+    {
+      "line_no": 329,
+      "source": "expect-cyanrip Drive offset of +667 found",
+      "outcome": "pass",
+      "detail": "found 'Drive offset of +667 found'",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 330,
+      "source": "expect-exit 0",
+      "outcome": "pass",
+      "detail": "exit was 0",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 341,
+      "source": "log C6 a log we did not write must be refused, not silently accepted",
+      "outcome": "pass",
+      "detail": "C6 a log we did not write must be refused, not silently accepted",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 342,
+      "source": "log C6 -N added 2026-08-12: rule 1 refused this line without it, and the",
+      "outcome": "pass",
+      "detail": "C6 -N added 2026-08-12: rule 1 refused this line without it, and the",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 343,
+      "source": "log C6 refusal left the PREVIOUS cyanrip result live, so the next assert",
+      "outcome": "pass",
+      "detail": "C6 refusal left the PREVIOUS cyanrip result live, so the next assert",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 344,
+      "source": "log C6 silently graded a command that never ran. Ours to fix, both halves.",
+      "outcome": "pass",
+      "detail": "C6 silently graded a command that never ran. Ours to fix, both halves.",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 346,
+      "source": "log C6 PLATTERPUS EDIT, the only one we made inside SECTION C: the path",
+      "outcome": "pass",
+      "detail": "C6 PLATTERPUS EDIT, the only one we made inside SECTION C: the path",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 347,
+      "source": "log C6 below is now QUOTED. Unquoted it contains spaces, so it reached",
+      "outcome": "pass",
+      "detail": "C6 below is now QUOTED. Unquoted it contains spaces, so it reached",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 348,
+      "source": "log C6 cyanrip as 17 arguments -- and `expect-exit 1` would then have",
+      "outcome": "pass",
+      "detail": "C6 cyanrip as 17 arguments -- and `expect-exit 1` would then have",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 349,
+      "source": "log C6 passed because the file could not be OPENED, not because the log",
+      "outcome": "pass",
+      "detail": "C6 passed because the file could not be OPENED, not because the log",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 350,
+      "source": "log C6 was refused. Exactly the \"satisfied by the wrong thing\" shape,",
+      "outcome": "pass",
+      "detail": "C6 was refused. Exactly the satisfied by the wrong thing shape,",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 351,
+      "source": "log C6 on the one test whose purpose is telling those two apart.",
+      "outcome": "pass",
+      "detail": "C6 on the one test whose purpose is telling those two apart.",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 352,
+      "source": "cyanrip -N --verify-log \"~/Music/rips/The Police/Every Breath You Take - Archive files/EAC flac/The Police - Every Breath You Take- The Classics.log\"",
+      "outcome": "pass",
+      "detail": "argv: /home/rmccann/.local/bin/cyanrip -N --verify-log /home/rmccann/Music/rips/The Police/Every Breath You Take - Archive files/EAC flac/The Police - Every Breath You Take- The Classics.log\nexit: 1\nNo FUN512 checksum found in \"/home/rmccann/Music/rips/The Police/Every Breath You Take - Archive files/EAC flac/The Police - Every Breath You Take- The Classics.log\"!\n",
+      "elapsed_s": 0.3751507529996161,
+      "artifact": ""
+    },
+    {
+      "line_no": 353,
+      "source": "expect-exit 1",
+      "outcome": "pass",
+      "detail": "exit was 1",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 362,
+      "source": "log SECTION D \u2014 the rip",
+      "outcome": "pass",
+      "detail": "SECTION D \u2014 the rip",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 364,
+      "source": "rip",
+      "outcome": "pass",
+      "detail": "start requested",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 365,
+      "source": "wait-for-rip 7200",
+      "outcome": "pass",
+      "detail": "",
+      "elapsed_s": 1269.6861180120031,
+      "artifact": ""
+    },
+    {
+      "line_no": 367,
+      "source": "screenshot D-after-rip",
+      "outcome": "pass",
+      "detail": "examined 9 window(s); wrote 9 PNG(s)\n  QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 235x158 on_a_screen=True\n  MainWindow 'Platterpus 0.6.12b4' visible=True platform_window=yes exposed=True modal=False geom=460,96 1000x888 on_a_screen=True\n  ReleasePickerDialog 'Pick a MusicBrainz release' visible=False platform_window=yes exposed=False modal=True geom=510,322 900x408 on_a_screen=True\n  ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=120,82 760x668 on_a_screen=True\n  ReleasePickerDialog 'Pick a MusicBrainz release' visible=False platform_window=yes exposed=False modal=True geom=510,322 900x408 on_a_screen=True\n  QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 120x26 on_a_screen=True\n  QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 2x2 on_a_screen=True\n  QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 242x54 on_a_screen=True\n  QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 264x210 on_a_screen=True",
+      "elapsed_s": 0.0,
+      "artifact": "/home/rmccann/.local/share/platterpus/uiscript/20260813T234536+0000/D-after-rip.png"
+    },
+    {
+      "line_no": 368,
+      "source": "snapshot D-after-rip",
+      "outcome": "pass",
+      "detail": "snapshot 'D-after-rip':\n  dialog on top: (none)\n  window title : Platterpus 0.6.12b4\n  drive: PIONEER BD-RW BDR-209D \u00b7 firmware 1.51 \u00b7 /dev/sr0\n  musicbrainz: 4 matches found \u2014 pick one\n  accuraterip: 3 of 5 tracks matched\n  read offset: +667 \u2014 confirmed by an AccurateRip-matching rip (medium confidence)",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 381,
+      "source": "rig-check",
+      "outcome": "pass",
+      "detail": "exit: 0\nmanifest under /home/rmccann/.local/share/platterpus/uiscript/20260813T234536+0000/rig-check\nINFO  album/discovery  newest rip found: /var/home/rmccann/Music/rips/The Police/Every Breath You Take (round 8 joint, pass 1)\nINFO  platterpus/version  0.6.12b4 (build 8af03aa)\nINFO  ripper/version  cyanrip 0.9.4-rc1+platterpus.6-beta.4 (platterpus-fork-g2ce8993)  [ripper-version.txt]\nINFO  ripper/handshake  unapproved \u2014 ripper build platterpus-fork-g2ce8993 is NOT the build this Platterpus was verified against (platterpus-fork-gddf7ac3, approved by handshake round 7). The rip is still bit-perfect if its own checks passed \u2014 but it was not produced by a jointly-verified ripper.\nINFO  ripper/pin  this Platterpus pins ddf7ac3; the installed banner is above. A test pin is expected to differ during an open round.\nOK    argv/integrity  every flag we composed arrived intact (-Z, -l, -N, -s present in the binary's own record of 24 composed args)  [argv-probe-output.txt]\nINFO  handshake/note  OPEN: Handshake:      round 8 lap 7 OPEN, verdict OPEN -- NOT a released build\nOK    parser/log  parsed 5 track(s) from Every Breath You Take (round 8 joint, pass 1).log\nINFO  parser/cache-probe  no Cache probe: line in this log (the rip did not pass -x)\nSKIP  device  no --device given\nmanifest: /home/rmccann/.local/share/platterpus/uiscript/20260813T234536+0000/rig-check/MANIFEST.txt",
+      "elapsed_s": 0.8750419100033469,
+      "artifact": ""
+    },
+    {
+      "line_no": 383,
+      "source": "log ROUND 8 JOINT SCRIPT \u2014 complete. Send the folder named at the top of this",
+      "outcome": "pass",
+      "detail": "ROUND 8 JOINT SCRIPT \u2014 complete. Send the folder named at the top of this",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 384,
+      "source": "log transcript, nothing else. From 0.6.12b2 the run writes itself into that",
+      "outcome": "pass",
+      "detail": "transcript, nothing else. From 0.6.12b2 the run writes itself into that",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 385,
+      "source": "log folder when it ends \u2014 transcript.txt, report.json and any screenshots \u2014 so",
+      "outcome": "pass",
+      "detail": "folder when it ends \u2014 transcript.txt, report.json and any screenshots \u2014 so",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 386,
+      "source": "log there is nothing to copy out of a window by hand.",
+      "outcome": "pass",
+      "detail": "there is nothing to copy out of a window by hand.",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    },
+    {
+      "line_no": 387,
+      "source": "log Folder: ~/.local/share/platterpus/uiscript/<timestamp>/",
+      "outcome": "pass",
+      "detail": "Folder: ~/.local/share/platterpus/uiscript/<timestamp>/",
+      "elapsed_s": 0.0,
+      "artifact": ""
+    }
+  ]
+}
