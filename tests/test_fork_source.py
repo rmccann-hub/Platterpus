@@ -727,3 +727,65 @@ def test_the_floor_tracks_the_newest_round_on_disk() -> None:
         f"CURRENT_ROUND is {handshake.CURRENT_ROUND} but round {max(filed)} has "
         "files on disk; bump it or the newer round is invisible to the gate"
     )
+
+
+class TestInstallingTheApprovedPinByName:
+    """`--install-ripper <approved pin>` must not call it unapproved.
+
+    **Measured on the rig, 2026-08-14.** The operator ran
+    ``--install-ripper ddf7ac3`` — naming the pin a closed round approved — and
+    the installer answered:
+
+        cyanrip build: ddf7ac3 — ... NOT a pinned build, and no round has
+        approved it. Every rip with this installed reports
+        ripper_handshake_approval: unapproved, which is the correct answer
+
+        NOTE: this is not the handshake-approved build (ddf7ac3).
+
+    A sentence of the form *"this is not X (X)"*. Ninety seconds later
+    ``--rig-check`` reported ``OK ripper/handshake approved`` for the very same
+    binary, because approval is decided by the installed build tag and not by how
+    the install was requested.
+
+    Two surfaces disagreeing about one fact is the failure `CLAUDE.md` names by
+    name. The cause was a whole-object comparison — ``target_for_commit`` builds a
+    ForkTarget whose ``version`` and ``why`` differ by construction, so
+    ``target != PRODUCTION_TARGET`` was true even when the pins matched. Only the
+    commit may decide approval.
+    """
+
+    def test_the_approved_pin_is_not_described_as_unapproved(self) -> None:
+        target = fork_source.target_for_commit(fork_source.PRODUCTION_TARGET.pin)
+        assert "no round has approved it" not in target.why, (
+            "installing the approved pin by name claims no round approved it — "
+            f"this is the 2026-08-14 rig contradiction. why={target.why!r}"
+        )
+        assert "unapproved" not in target.why, (
+            "the install predicts rips will report unapproved; --rig-check "
+            f"reports approved for this exact build. why={target.why!r}"
+        )
+        assert "approved" in target.why
+
+    def test_a_genuinely_different_commit_is_still_called_unapproved(self) -> None:
+        """The non-triviality floor. A fix that called *everything* approved
+        would pass the test above and destroy the warning that matters."""
+        target = fork_source.target_for_commit("0badc0de")
+        assert "NOT the approved pin" in target.why
+        assert "unapproved" in target.why
+
+    def test_same_commit_treats_a_short_sha_as_the_full_one(self) -> None:
+        """Git abbreviations are prefixes, so both spellings are one commit."""
+        short = fork_source.PRODUCTION_TARGET.pin
+        assert fork_source.same_commit(short, short)
+        assert fork_source.same_commit(short, short + "9f2c1ab4d5e6")
+        assert fork_source.same_commit(short.upper(), short)
+
+    def test_same_commit_refuses_the_cases_that_would_approve_by_accident(
+        self,
+    ) -> None:
+        """An empty pin must never match: returning True there would silently
+        approve a build nobody named."""
+        assert not fork_source.same_commit("", fork_source.PRODUCTION_TARGET.pin)
+        assert not fork_source.same_commit(fork_source.PRODUCTION_TARGET.pin, "")
+        assert not fork_source.same_commit("", "")
+        assert not fork_source.same_commit("0badc0de", "ddf7ac3")
