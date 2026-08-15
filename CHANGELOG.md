@@ -12,6 +12,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **The round-8 correspondence ships as one file.** `scripts/emit_handshake_bundle.py`
+  packs our outbound laps into `docs/handshake/outbound/round08platterpusbundle.md`
+  — a **transport envelope, not a merged round file**: each lap's exact bytes,
+  delimited, with its SHA-256, so the receiver splits it back into the originals
+  and can *prove* they are the originals. The laps stay the record; the envelope
+  exists because both projects have been losing hand-relayed attachments, and one
+  attachment is fewer things to lose. Generated and gated, because a hand-built
+  bundle goes stale the first time a lap is corrected and a stale envelope is
+  worse than none — it looks complete. Its name deliberately cannot match the
+  `round-*.md` glob both gates use, since its body carries three wire headers.
+- **`docs/cyanrip-known-issues.md` is marked CLOSED** — the fork dispositioned all
+  ten findings (§2 struck: we reported a defect fixed before we wrote it; the
+  other nine real and fixed). Kept rather than deleted, because the evidence
+  behind each finding is what made the hand-off worth acting on. The live home for
+  the three that remain in `ddf7ac3` is round-8 lap 10 §C and §O.
 - **cyanrip handshake round 8: our half is `GO` on pin `ddf7ac3`**
   (`docs/handshake/verified/round-08-lap-10.md`), carrying the round's close
   condition 1 — a real disc ripped on the pin under review, `Ripping errors: 0`,
