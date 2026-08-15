@@ -181,9 +181,29 @@ def latest_release(
         log.warning("update check failed", exc_info=True)
         return None
 
+    ordered = _parse_releases(releases, channel)
+    if ordered is None:
+        return None
+    if not ordered:
+        log.info("update check: no releases on the %r channel", channel)
+        return None
+    # Newest first, so the head IS the answer — one ordering, used by both the
+    # "is there an update" question and the "show me the choices" one. Two
+    # orderings of the same list is how a picker and a prompt come to disagree
+    # about what "newest" means.
+    return ordered[0]
+
+
+def _parse_releases(releases: object, channel: str) -> list[ReleaseInfo] | None:
+    """Releases from the API payload, newest first. ``None`` means unusable.
+
+    Split out of :func:`latest_release` so the catalogue and the update prompt
+    cannot disagree: the prompt is now literally the first element of the list
+    the picker shows.
+    """
     candidates: list[tuple[tuple[int, int, int, int, int], ReleaseInfo]] = []
     try:
-        for entry in releases:
+        for entry in releases:  # type: ignore[attr-defined]  # payload shape is checked by the try
             tag = str(entry["tag_name"])
             version = tag[1:] if tag.startswith("v") else tag
             key = release_sort_key(version)
@@ -204,11 +224,40 @@ def latest_release(
     except Exception:  # noqa: BLE001 — a malformed entry is "unknown", never a crash
         log.warning("update check: malformed releases payload", exc_info=True)
         return None
+    candidates.sort(key=lambda pair: pair[0], reverse=True)
+    return [info for _key, info in candidates]
 
-    if not candidates:
-        log.info("update check: no releases on the %r channel", channel)
-        return None
-    return max(candidates, key=lambda pair: pair[0])[1]
+
+def available_releases(
+    fetch: Callable[[str], str] | None = None,
+    channel: str = CHANNEL_STABLE,
+) -> list[ReleaseInfo]:
+    """Every release the channel allows, **newest first**.
+
+    The list form of :func:`latest_release`, for a picker that offers a choice
+    rather than a single answer. Same channel rule, same ordering, same
+    parser — deliberately, because an offer list that disagreed with the update
+    prompt about which release is newest would be worse than having no picker.
+
+    Stable entries and pre-releases are returned in one version-ordered list
+    rather than two blocks: on the beta channel a tester wants the newest thing
+    first regardless of its kind, and each entry carries ``is_prerelease`` so a
+    caller that wants to group or label them still can.
+
+    Returns ``[]`` on any network, JSON or shape problem — never raises. A
+    caller shows "couldn't check", exactly as it does for the single-release
+    question.
+    """
+    if channel not in (CHANNEL_STABLE, CHANNEL_BETA):
+        log.warning("unknown ripper/update channel %r — treating as stable", channel)
+        channel = CHANNEL_STABLE
+    try:
+        body = (fetch or _default_fetch)(RELEASES_API_URL)
+        releases = json.loads(body)
+    except Exception:  # noqa: BLE001 — any failure means "unknown", never a crash
+        log.warning("release listing failed", exc_info=True)
+        return []
+    return _parse_releases(releases, channel) or []
 
 
 def is_newer(candidate: str, current: str) -> bool:

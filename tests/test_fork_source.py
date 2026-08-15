@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import importlib.util
 import re
+import shlex
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -432,6 +434,10 @@ def test_the_build_script_has_a_label_argument_so_values_are_not_eaten_as_argv0(
         fork_source.FORK_REPO_URL,
         fork_source.FORK_BRANCH,
         fork_source.WIZARD_TARGET.pin,
+        # $5 — the build tag the pre-install guard compares against, so a wrong
+        # build is refused before `sudo install` and `distrobox-export` make the
+        # change irreversible.
+        fork_source.WIZARD_TARGET.build_tag,
     ]
 
 
@@ -789,3 +795,183 @@ class TestInstallingTheApprovedPinByName:
         assert not fork_source.same_commit(fork_source.PRODUCTION_TARGET.pin, "")
         assert not fork_source.same_commit("", "")
         assert not fork_source.same_commit("0badc0de", "ddf7ac3")
+
+
+class TestTheBuildRefusesBeforeInstalling:
+    """The build step must reject a wrong binary BEFORE anything irreversible.
+
+    The step order is build → install → export → verify. `sudo install` writes
+    `/usr/local/bin/cyanrip` and `distrobox-export` rewrites the host wrapper;
+    both are irreversible and both used to run *before* the only build-tag
+    check. A failing verify therefore reported the problem accurately and left
+    the wrong ripper on the ripping path with no rollback — the guard meant to
+    be the last word running after the point of no return.
+
+    These tests EXECUTE the shipped shell rather than pattern-match it. A shell
+    guard that merely looks correct is a known failure mode here: the fork's own
+    `sed` once produced non-compiling C while build output was suppressed, so a
+    stale binary ran the test and passed.
+    """
+
+    #: The guard, lifted verbatim out of the shipped script so the test cannot
+    #: drift from what we actually run.
+    MARKER = "# --- REFUSE HERE, BEFORE ANYTHING IS INSTALLED"
+
+    def _guard_fragment(self) -> str:
+        script = fork_source._BUILD_SCRIPT
+        assert self.MARKER in script, (
+            "the pre-install guard is gone from the build script — the binary "
+            "would be installed before its build tag is ever checked"
+        )
+        return script[script.index(self.MARKER) :]
+
+    def _run(self, banner: str, expected_tag: str) -> subprocess.CompletedProcess[str]:
+        """Run the real guard with a given banner, as `sh` would."""
+        fragment = f"_banner={shlex.quote(banner)}\n" + self._guard_fragment()
+        return subprocess.run(
+            ["sh", "-c", fragment, "guard-test", "", "", "", "somepin", expected_tag],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    def test_a_matching_banner_is_accepted(self) -> None:
+        done = self._run(
+            "cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)",
+            "platterpus-fork-gddf7ac3",
+        )
+        assert done.returncode == 0, f"correct build refused: {done.stderr}"
+        assert "safe to install" in done.stdout
+
+    def test_a_wrong_banner_is_refused_and_says_nothing_changed(self) -> None:
+        done = self._run(
+            "cyanrip 0.9.4-rc1+platterpus.6-beta.4 (platterpus-fork-g2ce8993)",
+            "platterpus-fork-gddf7ac3",
+        )
+        assert done.returncode != 0, "a mismatched build tag was allowed through"
+        # NAME WHAT WE GOT, not only what we wanted.
+        assert "g2ce8993" in done.stderr, "the refusal does not quote the actual banner"
+        assert "gddf7ac3" in done.stderr, "the refusal does not name what was expected"
+        assert "UNCHANGED" in done.stderr, (
+            "the refusal does not tell the operator the previous ripper is still "
+            "in place — which is the whole point of refusing early"
+        )
+
+    def test_a_binary_that_answers_no_version_flag_is_refused(self) -> None:
+        done = self._run("", "platterpus-fork-gddf7ac3")
+        assert done.returncode != 0
+        assert "none of: -V --version" in done.stderr
+
+    def test_the_release_fallback_tag_is_named_specifically(self) -> None:
+        """`vcs_tag` falling back to its literal default is the v0.6.4b2 symptom
+        and deserves its own sentence, not a generic mismatch."""
+        # The fork's build tag is `platterpus-fork-g<vcs_tag>`, so when meson's
+        # vcs_tag falls back to its literal default the tag reads
+        # `platterpus-fork-grelease` — which is why the pattern keys on `-grelease`
+        # rather than on the bare word.
+        done = self._run(
+            "cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-grelease)",
+            "platterpus-fork-gddf7ac3",
+        )
+        assert done.returncode != 0
+        assert "names no commit at all" in done.stderr
+
+    def test_the_guard_runs_before_the_install_script_exists(self) -> None:
+        """Structural: the check lives in the BUILD script, and the install and
+        export scripts are separate later steps. If the guard ever moves into
+        the verify script, this fails — which is the regression."""
+        assert self.MARKER in fork_source._BUILD_SCRIPT
+
+        def _code_only(script: str) -> str:
+            # Comments mention `sudo install` to explain WHY the guard is here,
+            # so match on executable lines only. (The first version of this test
+            # matched its own explanatory comment and failed — a check satisfied
+            # by the wrong thing, caught immediately because it was run.)
+            return "\n".join(
+                line
+                for line in script.splitlines()
+                if not line.lstrip().startswith("#")
+            )
+
+        assert "sudo install" not in _code_only(fork_source._BUILD_SCRIPT), (
+            "the build script now installs, so 'refuse before installing' is "
+            "no longer a meaningful ordering claim"
+        )
+        assert "sudo install" in _code_only(fork_source._INSTALL_SCRIPT)
+
+    def test_the_expected_tag_is_passed_from_the_target_not_rebuilt_in_shell(
+        self,
+    ) -> None:
+        """One object owns the pin→tag relationship. A shell reconstruction from
+        $3 and $4 would be a second spelling, free to drift."""
+        target = fork_source.PRODUCTION_TARGET
+        cmd = fork_source.build_command("ripping", target)
+        assert cmd[-1] == target.build_tag, (
+            f"the build tag is not the last positional arg: {cmd[-3:]}"
+        )
+        assert cmd[-2] == target.pin
+
+    def test_every_shipped_script_is_valid_shell(self) -> None:
+        """`sh -n` parses without executing. Cheap, and it catches the case this
+        project keeps hitting: shell that reads correctly and does not run."""
+        for name in ("_BUILD_SCRIPT", "_INSTALL_SCRIPT", "_VERIFY_SCRIPT"):
+            script = getattr(fork_source, name)
+            done = subprocess.run(
+                ["sh", "-n"], input=script, capture_output=True, text=True, timeout=30
+            )
+            assert done.returncode == 0, f"{name} is not valid shell: {done.stderr}"
+
+
+class TestTheRipperBuildMenu:
+    """`--install-ripper list` must name the build TAG, not only a role.
+
+    A menu offering "the newest beta" without naming
+    `platterpus-fork-g<sha>` asks an operator to choose a build they cannot
+    later identify in a log. That is the confusion that cost a rig session's
+    evidence on 2026-08-13, when a rip turned out to be on `g2ce8993` while the
+    round under review was `ddf7ac3` — every artifact looked fine and answered a
+    question nobody had asked.
+    """
+
+    def test_every_choice_carries_its_build_tag(self) -> None:
+        choices = fork_source.ripper_choices()
+        assert choices, "the menu is empty"
+        for choice in choices:
+            assert choice.build_tag.startswith(fork_source.FORK_BRANCH + "-g"), (
+                f"{choice.pin} has no usable build tag: {choice.build_tag!r}"
+            )
+            assert choice.pin in choice.build_tag
+            assert choice.build_tag in choice.label, (
+                f"the menu line hides the tag: {choice.label!r}"
+            )
+
+    def test_the_approved_build_leads_and_is_marked_approved(self) -> None:
+        """Ordering is by trust, not by date. For the ripper the newest build is
+        the *least* checked one, which inverts the app's own 'newest wins'."""
+        choices = fork_source.ripper_choices()
+        assert choices[0].is_approved, "the approved build is not first"
+        assert choices[0].pin == fork_source.PRODUCTION_TARGET.pin
+        assert choices[0].kind == "approved"
+
+    def test_an_unapproved_choice_is_visibly_marked(self) -> None:
+        """Non-triviality floor: a menu that marked everything approved would
+        pass the test above and destroy the distinction it exists for."""
+        unapproved = [c for c in fork_source.ripper_choices() if not c.is_approved]
+        assert unapproved, (
+            "no unapproved build in the menu — either the test pin has been "
+            "promoted (fine, drop this assertion then) or the flag is stuck True"
+        )
+        for choice in unapproved:
+            assert "⚠" in choice.label and "✓" not in choice.label
+
+    def test_a_duplicate_pin_is_listed_once(self) -> None:
+        """When a round closes, the test pin is promoted and the two constants
+        coincide. One build shown twice under two names reads as two options."""
+        pins = [c.pin for c in fork_source.ripper_choices()]
+        assert len(pins) == len(set(pins)), f"a build is listed twice: {pins}"
+
+    def test_the_word_list_cannot_collide_with_a_commit(self) -> None:
+        """`list` is a literal in the same slot as a COMMIT. Git requires at
+        least 4 hex characters for an abbreviation, and 'list' is not hex, so
+        the two can never be confused."""
+        assert not all(ch in "0123456789abcdef" for ch in "list")
