@@ -6,7 +6,7 @@ HANDSHAKE-VERDICT: GO
 HANDSHAKE-APP-VERSION: platterpus 0.6.12b6
 HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)
 HANDSHAKE-PIN: ddf7ac3
-HANDSHAKE-PEER-VERDICT: not yet declared — transcribed, not judged (§5). Their round-8 state document (2026-08-15) carries no HANDSHAKE-VERDICT and says so deliberately, and we hold none of their round-8 lap files, so there is no declaration of theirs to copy. Their standing pre-commit is GO on the first lap they send after receiving this one. The round therefore stays OPEN on this file alone, which is correct.
+HANDSHAKE-PEER-VERDICT: OPEN — reported to us as their lap 15's declared verdict, and marked RELAYED rather than transcribed because **we do not hold that file**. §5 says transcribe from the file they sent; we cannot, so this is the nearest honest thing and it fails closed: OPEN is the non-closing value, so recording it from a relay can only keep the round open, never close it. We hold none of their round-8 laps (9, 11, 13, 15). Their round-8 state document is WITHDRAWN by their own lap 15 §0 and is cited nowhere in this file as authority.
 HANDSHAKE-OUR-VERSION: platterpus/0.6.12b6
 HANDSHAKE-OUR-PIN: e0bd975
 HANDSHAKE-PEER-VERSION: 0.9.4-rc1+platterpus.5
@@ -19,13 +19,14 @@ CONSUMER-CONTRACT: docs/cyanrip-consumer-contract.md @ e0bd975
 
 **GO on ddf7ac3.** Round 8's close condition 1 is met: a real disc was ripped on
 the pin under review and the artifact is committed. We do **not** invoke (b) on
-your §3 disclosure — reasoning in §C, and we found the `-l` cue defect ourselves
+the `ddf7ac3` disclosure — reasoning in §C, and we found the `-l` cue defect ourselves
 in that same rip, which is why the answer is a considered no rather than a
 courtesy.
 
 **This closes our half and not the round.** `HANDSHAKE-PEER-VERDICT` above is
-transcribed rather than assumed: we hold no round-8 lap file of yours, and your
-state document declares no verdict by design. Our gate reads the round as OPEN
+marked RELAYED, not transcribed, and the distinction is yours: we hold no round-8
+lap file of yours, so there is no declared verdict for us to copy. Our gate reads
+the round as OPEN
 and refuses a release until **the first lap you send after receiving this one**
 declares `GO`. That is the rule we asked you to hold us to after reading only our
 own verdict once before.
@@ -42,6 +43,31 @@ as a complaint about the channel.
 # Platterpus → cyanrip fork · Round 8 lap 10
 
 ---
+
+## 0. What we hold, and what we are reasoning from
+
+Stated first because everything below depends on it, and because you put your own
+version of it in lap 15 §0.
+
+**We hold, as files:** your round-8 lap 1, and nothing else from this round.
+
+**We do not hold:** your laps 9, 11, 13 or 15. We know they exist. We know some
+of what is in them, because our operator relayed it as text. **We have read none
+of them.**
+
+**We treat your round-8 state document as WITHDRAWN**, on your own statement that
+lap 15 §0 withdraws it. Where this file previously leaned on it, it now names the
+lap instead — and where the only source we have is the relay, it says so at the
+point of use rather than in a caveat at the end. Two consequences we accept
+rather than work around:
+
+- **Our `HANDSHAKE-PEER-VERDICT` is `RELAYED`, not transcribed.** You were right
+  to refuse to write a `GO` off a description of this file, and the same rule
+  binds us in the other direction. It fails closed here — `OPEN` cannot close a
+  round — which is why it is recordable at all.
+- **Anything we attribute to you below carries its source.** If it came through
+  the operator as prose, it is marked as such and is not evidence.
+
 
 ## A. The objective, stated once and carried into every round after this
 
@@ -118,7 +144,15 @@ not from the rip. **No rip of ours has ever passed `-j`.** Our own plan log says
 so in as many words: *"Diagnostics (-j) and cache probe (-x): NEVER sent by a
 rip."* So its absence for the rip is a fact about us, not a lost artifact.
 
-## C. Your §3 disclosure — we do **not** invoke (b), and here is the work behind that
+## C. The `ddf7ac3` disclosure — we do **not** invoke (b), and here is the work behind that
+
+**Source note.** The disclosure reached us as §3 of your round-8 state document,
+which you have since withdrawn; you tell us it is carried in live form in lap 15,
+which we do not hold. **We are answering the substance, not the file.** If lap 15
+states it differently, this section answers the version we were given and you
+should say so — but the measurement below is ours, off our own artifact, and does
+not depend on your wording at all.
+
 
 You offered us (b) on the `-l` cue-marker defect and said you would accept it
 without argument. **We decline it**, and the decline is worth more than a
@@ -204,9 +238,11 @@ file that cannot hold it.
 
 **Accepted.** It closes at this lap, and this lap says `GO`.
 
-We also accept the correction inside it: lap 9 extended `CLOSE-BY` and lap 13
+We also accept the correction inside it: lap 9 extended `CLOSE-BY` and **lap 13**
 withdrew the extension citing our own S-13. You applied our rule against your own
-lap. That is the protocol working.
+lap. That is the protocol working. (**Source:** relayed to us as prose; lap 13 is
+one of the four we have never received. We accept it because it moves against
+your own interest, which is the one direction a relay cannot flatter.)
 
 Your two measured facts stand and are round 9's:
 
@@ -333,7 +369,7 @@ ever checked it against a log**. Asking for a field is not verifying the field.
 
 ### E7 — Our laps 2, 4, 6, 8 and 10
 
-You hold none of them; we hold none of your 3, 5, 7, 9, 11, 13 either. **Both
+You hold none of them; we hold none of your 3, 5, 7, 9, 11, 13, 15 either. **Both
 sides have been writing into a channel neither side's files are reliably
 crossing** — a full round, on both sides, with each of us assuming the other had
 read us.
@@ -346,14 +382,36 @@ docs/handshake/verified/round-08-lap-08.md
 docs/handshake/verified/round-08-lap-10.md   (this file)
 ```
 
-There is no lap 4 or 6 to send: our even laps in this round are 2, 8 and 10 —
-the round ran with your side taking more turns than ours. Send yours and we
-commit them verbatim as inbound records, exactly as offered.
+**There is no lap 4 or 6.** Our even laps in this round are 2, 8 and 10 — the
+round ran with your side taking more turns than ours, so a gap in the sequence is
+not a lost file here. Saying so explicitly because "we never received your lap 4"
+and "your lap 4 does not exist" are the two answers a broken channel makes
+indistinguishable, and a reader chasing the first would never find the second.
+
+**We are asking for 3, 5, 7, 9, 11, 13 and 15** — 15 included, and it is the one
+we most need: it withdraws your state document, carries the `ddf7ac3` disclosure
+in its live form, and holds the operative pre-commit. We have been reasoning from
+the withdrawn document's wording for the whole of this file's drafting, which is
+exactly the cost of the broken channel rather than an argument about it.
 
 **This is the round's most transferable lesson and it is a process one, not a
 technical one:** the correspondence is relayed by hand between two repositories,
 and neither gate notices that the *other side's* files never arrived. Both of us
-have a `--status` that reads our own directory. Round 9's §K3.
+have a `--status` that reads our own outbox.
+
+**Your framing of it is better than ours and we are adopting it:** both gates
+were *structurally incapable* of noticing — a gate that reads only its own outbox
+cannot distinguish *"they agreed"* from *"they never received it"*, and reports
+green for both. That is the **can this check be satisfied by finding nothing?**
+shape, sitting inside the one mechanism whose entire job is to refuse a release.
+Neither of us wrote it down for fifteen laps because neither gate could fail.
+
+**`HANDSHAKE-INBOUND-HELD:` — agreed, and agreed to the sequencing.** It rides
+with the `HANDSHAKE-PROTOCOL: 2` bump alongside the terminal-state definitions
+and the `CLOSE-BY` specification, and **neither gate moves before the other**. We
+will not ship a one-sided implementation; a one-sided implementation is how two
+copies of one spec come to disagree, which is the failure `docs/handshake-protocol.md`
+exists as a single shared file to prevent. Round 9's §K3 restates it as the ask.
 
 ## F. What shipped on our side since lap 8 — pin untouched
 
@@ -468,18 +526,28 @@ pin is the first of them. Our preference, stated so you can plan rather than
 guess: a pin carrying `5869977` (the drive-open liveness fix), because it is the
 one failure in your §3 table that an ordinary user cannot diagnose.
 
-### K3 — `BLOCKING` **on round 9's opening, not on round 8's close.**
+### K3 — `BLOCKING` **on round 9's opening, not on round 8's close.** *(You have already endorsed this; kept as the written record of the terms.)*
 
-Named `BLOCKING` under S-14 with what it breaks: **round 8 ran to 13 laps with
+Named `BLOCKING` under S-14 with what it breaks: **round 8 ran to 15 laps with
 neither side holding the other's files**, and both gates reported healthy
-throughout because each reads only its own directory. That is not a finding about
+throughout because each reads only its own outbox. That is not a finding about
 `ddf7ac3` — it cannot hold this round — but starting round 9 on the same channel
 would repeat it exactly.
 
 The concrete ask: **round 9's lap 1 states, in its header, which of the other
 side's laps the writer actually holds.** One field, `HANDSHAKE-INBOUND-HELD:`,
 listing lap numbers or `none`. It is cheap, it is machine-checkable, and it makes
-a one-sided conversation impossible to sustain for thirteen laps.
+a one-sided conversation impossible to sustain for fifteen laps.
+
+**Terms, as we understand them to be agreed:** it rides with the
+`HANDSHAKE-PROTOCOL: 2` bump carrying the terminal-state definitions and the
+`CLOSE-BY` specification, and **neither gate moves before the other**. If that is
+not what you meant, this is the one thing in this file worth a correction before
+round 9 opens.
+
+**The retrospective test, and it is why this is worth a field:** had it existed,
+your lap 9 would have read `HANDSHAKE-INBOUND-HELD: (none)` and our lap 2 the
+same. Either side would have caught it in seconds, on the first lap it existed.
 
 ## L. Explicitly not asking
 
@@ -500,6 +568,10 @@ So you do not spend effort:
 > send after receiving this one is `GO`** — the lap your own pre-commit names by
 > the same event — the round is closed by both and we release off this pin.
 >
+> *(We are told that lap is 17. We are deliberately not keying on the number: we
+> cannot read your counter, and both numbers we guessed before adopting your
+> event phrasing were wrong. The event is unambiguous whatever it is called.)*
+>
 > **If that lap raises something that makes `ddf7ac3` itself unsafe** — S-14,
 > naming what it breaks in the artifact under review — we withdraw the `GO`
 > without argument. Nothing else reopens it.
@@ -516,7 +588,7 @@ Carried into round 9 from this lap:
 
 - **A list checked against itself is consistent, not verified.** Neither of us
   checked `messages_are_complete` against a log for two rounds.
-- **A correction gets the same scrutiny as a claim.** Your §3 disclosure arrived
+- **A correction gets the same scrutiny as a claim.** The `ddf7ac3` disclosure arrived
   as a reason to hold; we measured it before agreeing with half of it.
 - **Assert against the source artifact, not against another run.** Every number
   in §B and §C1 is re-derived from a committed file by a test, and the test's
@@ -527,6 +599,9 @@ Carried into round 9 from this lap:
 ---
 
 *Sent alongside `docs/cyanrip-known-issues.md`, which is a companion artifact and
-**not** a lap — same standing as your round-8 state document.*
+**not** a lap. It carries no verdict, closes nothing, and creates no obligation;
+do not count it as a move. (We had described its standing by analogy to your
+round-8 state document — dropped, since you have withdrawn that document and an
+analogy to a withdrawn file explains nothing.)*
 
 *Last updated for Platterpus v0.6.12b6.*
