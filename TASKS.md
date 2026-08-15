@@ -103,6 +103,35 @@ worth re-reading and it is not what the symptom said.
   Found 2026-08-13 by asking the operator to `ls` the path before the run — which
   is the cheap check that should have existed the first time the path was written.
 
+## Found on the rig, 2026-08-15 — two `--install-ripper` observations
+
+Both surfaced while an operator moved the rig between pins during round 8.
+Neither made a build unsafe, so both are **NEXT-ROUND under S-14**.
+
+- [ ] **Verify the built binary *before* installing it, not after.** The build
+  script's order is build → install → export → verify, so
+  `sudo install -Dm0755 …` overwrites `/usr/local/bin/cyanrip` and
+  `distrobox-export` rewrites the host wrapper *before* `verify-cyanrip-fork`
+  compares the banner's build tag. A failing verify therefore reports the
+  problem correctly and leaves the wrong ripper installed and exported, with no
+  rollback — the guard meant to be the last word runs after the irreversible
+  step. **Not demonstrated on the rig**: the 2026-08-15 pin change was an
+  explicit `--install-ripper 2ce8993`, not a failed verify, and every verify
+  observed has passed. Filed as a latent ordering hazard, not a sighting. The
+  fix is nearly free because the build step *already* reads the banner off the
+  binary it just produced (`platterpus: built banner=…`) — the comparison can
+  move there, leaving the post-install verify as a second, cheaper check that
+  what landed is what was checked.
+
+- [ ] **`--install-ripper` prints its own shell scripts to the terminal.** The
+  step engine logs each container command at INFO, and the fork build/install/
+  verify steps *are* multi-line `sh -c` scripts, so a routine install dumps
+  roughly a hundred lines of shell source between the progress rows. It is
+  excellent diagnostics and poor terminal UX, and the two are separable: keep
+  the full script in the log file, print a one-line summary to the terminal.
+  The maintainer's standing bar — *"at the end of the day people need to use
+  it"* — applies to a command an end user is told to run during setup.
+
 ## Ripper install: find the newest build automatically, and let the user pick its channel (2026-08-07)
 
 **The maintainer's ask, verbatim:** *"in the future it should be automatic that it
