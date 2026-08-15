@@ -11,6 +11,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The log did not record the arguments Platterpus itself was started with.**
+  It records the exact argv of every dependency it spawns — a Critical-rule
+  obligation — and the argv of a `--rig-session` run, but the main entry point
+  logged only `platterpus X.Y.Z (build …) starting`. That gap cost a diagnosis
+  on 2026-08-14: the rig's installed ripper silently changed from the approved
+  pin to a different build, and the log showed a second start at the exact
+  minute followed by the whole build/install/export sequence — but not *which
+  pin it had been asked for*. The question could only be settled from the
+  operator's shell history, which no bug report carries. The same reasoning that
+  requires a dependency's argv applies to our own: this program's behaviour
+  changes completely by flag, since `--install-ripper` rebuilds and replaces the
+  ripper while `--doctor` touches nothing.
+
 ## [0.6.12b6] — 2026-08-15
 
 ### Fixed

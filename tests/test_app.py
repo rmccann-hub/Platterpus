@@ -820,3 +820,55 @@ def test_the_unapproved_note_still_fires_for_a_different_commit(
     out = capsys.readouterr().out
     assert "this is not the handshake-approved build" in out
     assert "unapproved" in out
+
+
+def test_startup_logs_the_argv_it_was_invoked_with(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The run's own argv must reach the log, not just its version.
+
+    **Measured 2026-08-14.** The rig's installed ripper silently changed from
+    the approved pin to a different build. `~/.local/share/platterpus/log.txt`
+    showed a second `platterpus … starting` at the exact minute, followed by the
+    full build/install/export sequence — but *not which pin it had been asked
+    for*, so the question could only be answered from the operator's shell
+    history. No bug report carries shell history.
+
+    Critical rule #12 requires the exact argv of every dependency we spawn. The
+    same reasoning applies to our own invocation, because this program's
+    behaviour changes completely by flag: `--install-ripper` rebuilds and
+    replaces the ripper; `--doctor` touches nothing.
+    """
+    _install_ripper_stub(monkeypatch, ready=True)
+    with caplog.at_level("INFO", logger="platterpus.app"):
+        app_module.main(["--install-ripper", "0badc0de"])
+    startup = [r for r in caplog.records if "starting" in r.getMessage()]
+    assert startup, "no startup line logged at all"
+    message = startup[0].getMessage()
+    assert "0badc0de" in message, (
+        "the startup line does not record the argv, so a log cannot say which "
+        f"pin an --install-ripper run was asked for. Logged: {message!r}"
+    )
+
+
+def test_the_startup_line_survives_a_flag_with_no_argument(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Non-triviality floor for the test above.
+
+    The argv addition must not make the startup line conditional on there being
+    an interesting argument to print — a run with a bare flag still needs its
+    marker in the log, and it must still name the flag.
+
+    (`--version` deliberately is not used here: argparse's version action exits
+    inside `parse_args`, before `configure_logging()`, so it logs nothing at all
+    by design. Asserting otherwise would pin a behaviour we do not have.)
+    """
+    _install_ripper_stub(monkeypatch, ready=True)
+    with caplog.at_level("INFO", logger="platterpus.app"):
+        app_module.main(["--install-ripper"])
+    startup = [r for r in caplog.records if "starting" in r.getMessage()]
+    assert startup, "a startup line must be logged for a bare flag too"
+    assert "install-ripper" in startup[0].getMessage(), (
+        f"the flag itself is missing from the startup line: {startup[0].getMessage()!r}"
+    )
