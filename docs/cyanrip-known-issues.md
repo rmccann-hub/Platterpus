@@ -1,5 +1,34 @@
 # Known issues for cyanrip — from Platterpus, outside the handshake
 
+> ## ⚠ CLOSED, 2026-08-15 — do not read this as a live list
+>
+> **All ten findings are dispositioned.** The fork acted on the whole document:
+> **§2 is STRUCK** (we reported a defect that had been fixed at `8499890` before
+> we wrote it), and the other nine were real and are all fixed. Two of our
+> proposed remedies — §4a and §5 — would not have worked, and the fork said which
+> half of each it accepted.
+>
+> **Three of them are fixed *after* the round-8 pin, so they are still present in
+> `ddf7ac3`:** §7, **§8** and §9. Their live home is
+> `docs/handshake/verified/round-08-lap-10.md` §C and §O, which carries the
+> disposition table and the round-9 asks. **§8 is also now detected on our side**
+> (`platterpus.cue_validate`, finding `cue_index00_orphaned`).
+>
+> **Why this file is kept rather than deleted:** each finding's evidence — the
+> cited artifacts, the line numbers, the refutation record — is the reason the
+> hand-off was worth acting on, and a disposition table cannot carry it. Nothing
+> here has been summarised away. But it is a **record**, not a map: it describes
+> defects that mostly no longer exist, and re-reading it as current is exactly the
+> silent decay this project writes rules about.
+>
+> **The one finding worth re-reading is §2, and for the opposite reason to the
+> others.** We could not see the delivered fix because the provider contract
+> published the row as `C2 errors:      %s` and our drive reports C2 unsupported,
+> so the affirmative branch appears in no artifact we hold. An opaque contract row
+> hid a shipped fix for a full round — which makes the contract's **coverage**
+> worth more than its accuracy, since neither project can read the other's code
+> and both can compare behaviour.
+
 **What this is.** A list of concrete, evidence-backed problems that Platterpus has hit, measured, or worked around, where the fix belongs on the cyanrip side (fork or upstream). It is offered as useful information, nothing more.
 
 **What this is not.** This is **not a handshake lap.** It carries no wire header, declares no verdict, is not numbered as a lap, and must not be counted as one. It creates no obligation to respond, and no response from you closes or advances anything.

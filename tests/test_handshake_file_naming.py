@@ -91,8 +91,64 @@ def _declared(path: Path) -> tuple[int | None, int | None, str]:
     )
 
 
+#: Files in the handshake tree that are NOT laps and must not be judged as ones.
+#:
+#: **Exactly one entry, and it is a ratchet: it may shrink, never grow.** The
+#: transport envelope (`scripts/emit_handshake_bundle.py`) embeds three laps
+#: verbatim so an operator can send one attachment instead of three, so its body
+#: legitimately contains three `HANDSHAKE-LAP:` lines and the sweep below reads
+#: it as a lap-declaring file with a non-canonical name.
+#:
+#: **This exclusion is safe only because of the bundle's name**, which is the
+#: whole point of `tests/test_handshake_bundle.py`: `round08platterpusbundle.md`
+#: cannot match the `round-*.md` glob that `scripts/handshake.py` and the fork's
+#: gate use, so no ordering or verdict decision can ever reach it. If that test
+#: is ever weakened, this exclusion becomes a hole.
+#:
+#: Listed by exact filename rather than by a pattern deliberately: a pattern
+#: ("anything not named round-*") would silently excuse the next misfiled file,
+#: which is the failure this module exists to catch.
+_NOT_LAPS: frozenset[str] = frozenset({"round08platterpusbundle.md"})
+
+
+def _lap_files_in(directory: str) -> list[Path]:
+    """Every candidate lap in one directory, envelope excluded.
+
+    A single chokepoint on purpose. Four sweeps in this module globbed the
+    directory themselves, and adding the exclusion to `_all_files` alone fixed
+    two of them and left two reading the envelope as a lap — the same
+    "enforce a rule at the place it was learned" failure `docs/testing.md` §5.o
+    records. Route every sweep through here.
+    """
+    return sorted(
+        p for p in (_HANDSHAKE / directory).glob("*.md") if p.name not in _NOT_LAPS
+    )
+
+
 def _all_files() -> list[Path]:
-    return sorted(p for d in _DIRS for p in (_HANDSHAKE / d).glob("*.md"))
+    return sorted(p for d in _DIRS for p in _lap_files_in(d))
+
+
+def test_every_excluded_file_really_is_not_a_lap() -> None:
+    """The exclusion list must not become a place to hide a misfiled lap.
+
+    Two checks, because either alone is satisfiable by the wrong thing: the file
+    must exist (a stale entry silently excuses nothing and hides that it is
+    stale), and it must be structurally incapable of being read as a lap — no
+    wire header at column 0 of its own, and a name no gate's glob can reach.
+    """
+    for name in _NOT_LAPS:
+        matches = [p for d in _DIRS for p in (_HANDSHAKE / d).glob(name)]
+        assert len(matches) == 1, f"{name}: expected exactly one, found {matches}"
+        path = matches[0]
+        assert not path.name.lower().startswith("round-"), (
+            f"{name} matches the round-*.md glob every gate uses; excluding it "
+            "from the naming sweep would leave it readable as a lap"
+        )
+        first = path.read_text(encoding="utf-8").splitlines()[0]
+        assert not first.startswith("HANDSHAKE-"), (
+            f"{name} opens with a wire header, so it IS declaring itself a lap"
+        )
 
 
 def test_there_are_files_to_check() -> None:
@@ -192,7 +248,7 @@ def test_only_one_file_per_round_can_be_its_first(hs: ModuleType) -> None:
     checked = 0
     for directory in _DIRS:
         rounds: dict[int, list[Path]] = {}
-        for path in sorted((_HANDSHAKE / directory).glob("*.md")):
+        for path in _lap_files_in(directory):
             number = hs.round_number(path)
             if number is None:
                 continue
@@ -298,7 +354,7 @@ def test_no_two_files_in_a_directory_claim_the_same_lap() -> None:
     """
     for directory in _DIRS:
         seen: dict[tuple[int, int], Path] = {}
-        for path in sorted((_HANDSHAKE / directory).glob("*.md")):
+        for path in _lap_files_in(directory):
             round_, lap, _sender = _declared(path)
             if round_ is None or lap is None:
                 continue
@@ -346,7 +402,7 @@ def test_a_canonical_sort_really_is_chronological(hs: ModuleType) -> None:
     for directory in _DIRS:
         pairs = [
             hs.name_round_and_lap(p)
-            for p in sorted((_HANDSHAKE / directory).glob("*.md"))
+            for p in _lap_files_in(directory)
             if hs.name_round_and_lap(p) is not None
         ]
         if len(pairs) < 3:
