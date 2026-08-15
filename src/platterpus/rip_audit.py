@@ -798,6 +798,24 @@ def _audit_cue_integrity(report: dict[str, Any], album: AlbumAudit) -> None:
         ):
             pregaps[number] = frames
 
+    # How long each track's own audio is, in CD frames, straight off the sector
+    # numbers the ripper recorded. This is what lets the INDEX 00 placement check
+    # say *how far* past the end of a file a misplaced pre-gap marker lands
+    # instead of only that it is in the wrong one. Inclusive of both ends: a
+    # one-sector track has start == end and is 1 frame long.
+    track_frames: dict[int, int] = {}
+    for track in tracks:
+        number = track.get("number")
+        start = track.get("start_sector")
+        end = track.get("end_sector")
+        if (
+            isinstance(number, int)
+            and isinstance(start, int)
+            and isinstance(end, int)
+            and end >= start
+        ):
+            track_frames[number] = end - start + 1
+
     # Only claim a track count when the rip actually finished. A cancelled rip
     # legitimately leaves a shorter cue, and accusing it of one would train the
     # reader to ignore this check.
@@ -814,6 +832,7 @@ def _audit_cue_integrity(report: dict[str, Any], album: AlbumAudit) -> None:
     expected = ExpectedCue(
         isrcs=isrcs,
         pregap_frames=pregaps,
+        track_frames=track_frames,
         track_titles=titles,
         album_title=real_colons(sent_album["album"])
         if sent_album.get("album")

@@ -1,0 +1,134 @@
+──── Platterpus 0.6.12b6 (build 154d255) ────
+2026-08-15 15:32:35,830 INFO platterpus.app: platterpus 0.6.12b6 (build 154d255) starting
+2026-08-15 15:32:35,886 INFO platterpus.logging_setup: debug logging disabled
+2026-08-15 15:32:36,003 INFO platterpus.app: Wayland session detected — preferring XWayland (QT_QPA_PLATFORM=xcb;wayland) to avoid the Plasma 6 black-window repaint bug; set QT_QPA_PLATFORM=wayland to force native Wayland.
+2026-08-15 15:32:36,255 INFO platterpus.composition: using cyanrip backend (/home/rmccann/.local/bin/cyanrip)
+2026-08-15 15:32:36,389 INFO platterpus.ui.dialogs.centering: dialog presented: ScriptConsoleDialog ('Run test script') — the app now waits for the user
+2026-08-15 15:32:36,391 INFO platterpus.app: --run-script /home/rmccann/Downloads/round08joint.txt -> found: /home/rmccann/Downloads/round08joint.txt
+2026-08-15 15:32:36,392 INFO platterpus.app: unattended test script starting (--run-script)
+2026-08-15 15:32:36,394 INFO platterpus.uiscript.runner: ui script run starting: 95 step(s), unsafe verbs refused
+2026-08-15 15:32:36,394 WARNING platterpus.uiscript.runner: ui script preflight: L285: cyanrip -N -d /dev/sr0 -t 1 — refusing to run cyanrip: the -t argument '1' is not '<track number>=<tags>'. cyanrip steps over the '=' without checking it is there, so this reads past the end of the string
+2026-08-15 15:32:36,394 INFO platterpus.app: termination-signal handlers installed for [<Signals.SIGTERM: 15>, <Signals.SIGINT: 2>]
+2026-08-15 15:32:36,407 INFO platterpus.ui.main_window: drive changed: /dev/sr0
+2026-08-15 15:32:36,643 INFO platterpus.deps.manager: dependency cyanrip build: the Platterpus fork (ok=True)
+2026-08-15 15:32:49,774 INFO platterpus.ui.main_window: MusicBrainz returned 4 candidates for disc 'pNtImOkdBm9RMBIalzx0w9cfsYY-' — opening the release picker; the app will WAIT here until the user chooses (this is not a hang)
+2026-08-15 15:32:49,781 INFO platterpus.ui.dialogs.centering: dialog presented: ReleasePickerDialog ('Pick a MusicBrainz release') — the app now waits for the user
+2026-08-15 15:32:49,783 INFO platterpus.ui.dialogs.centering: dialog closed: ReleasePickerDialog ('Pick a MusicBrainz release') — accepted
+2026-08-15 15:32:49,787 INFO platterpus.ui.main_window: release picker: user chose d14a7546-815b-43c6-8af6-35cff6cee1d0 after 0.0s
+2026-08-15 15:32:50,910 INFO platterpus.deps.manager: dependency cyanrip build: the Platterpus fork (ok=True)
+2026-08-15 15:32:52,052 INFO platterpus.ui.main_window: drive changed: /dev/sr0
+2026-08-15 15:32:58,250 INFO platterpus.ui.main_window: MusicBrainz returned 4 candidates for disc 'pNtImOkdBm9RMBIalzx0w9cfsYY-' — opening the release picker; the app will WAIT here until the user chooses (this is not a hang)
+2026-08-15 15:32:58,255 INFO platterpus.ui.dialogs.centering: dialog presented: ReleasePickerDialog ('Pick a MusicBrainz release') — the app now waits for the user
+2026-08-15 15:33:00,927 INFO platterpus.ui.dialogs.centering: dialog closed: ReleasePickerDialog ('Pick a MusicBrainz release') — accepted
+2026-08-15 15:33:00,930 INFO platterpus.ui.main_window: release picker: user chose d14a7546-815b-43c6-8af6-35cff6cee1d0 after 2.7s
+2026-08-15 15:33:22,281 WARNING platterpus.diagnostics: platterpus-diagnostic [warning] deps.command_failed: cyanrip exited 1
+  tool: cyanrip
+  exit code: 1
+  argv: /home/rmccann/.local/bin/cyanrip -N -d /dev/sr0 -c /
+  where: adapters.rip_backend.run_capture
+  detail:
+Missing discnumber
+2026-08-15 15:33:23,028 WARNING platterpus.diagnostics: platterpus-diagnostic [warning] deps.command_failed: cyanrip exited 1
+  tool: cyanrip
+  exit code: 1
+  argv: /home/rmccann/.local/bin/cyanrip -N -d /dev/sr0 -c //
+  where: adapters.rip_backend.run_capture
+  detail:
+Missing discnumber
+2026-08-15 15:33:23,792 WARNING platterpus.diagnostics: platterpus-diagnostic [warning] deps.command_failed: cyanrip exited 1
+  tool: cyanrip
+  exit code: 1
+  argv: /home/rmccann/.local/bin/cyanrip -N -d /dev/sr0 -p =
+  where: adapters.rip_backend.run_capture
+  detail:
+Missing track idx for pregap
+2026-08-15 15:33:24,528 WARNING platterpus.diagnostics: platterpus-diagnostic [warning] deps.command_failed: cyanrip exited 1
+  tool: cyanrip
+  exit code: 1
+  argv: /home/rmccann/.local/bin/cyanrip -N -d /dev/sr0 -p ==
+  where: adapters.rip_backend.run_capture
+  detail:
+Missing track idx for pregap
+2026-08-15 15:33:25,151 WARNING platterpus.uiscript.runner: ui script L285 fail: refusing to run cyanrip: the -t argument '1' is not '<track number>=<tags>'. cyanrip steps over the '=' without checking it is there, so this reads past the end of the string
+2026-08-15 15:33:25,652 WARNING platterpus.uiscript.runner: ui script L289 error: no cyanrip command has run yet
+2026-08-15 15:33:25,777 WARNING platterpus.uiscript.runner: ui script L290 error: no cyanrip command has run yet
+2026-08-15 15:33:26,276 WARNING platterpus.diagnostics: platterpus-diagnostic [warning] deps.command_failed: cyanrip exited 1
+  tool: cyanrip
+  exit code: 1
+  argv: /home/rmccann/.local/bin/cyanrip -N -d /dev/sr0 -l 1-2
+  where: adapters.rip_backend.run_capture
+  detail:
+Error parsing "1-2" as a int32_t for argument "tracks"
+2026-08-15 15:33:26,907 WARNING platterpus.diagnostics: platterpus-diagnostic [warning] deps.command_failed: cyanrip exited 1
+  tool: cyanrip
+  exit code: 1
+  argv: /home/rmccann/.local/bin/cyanrip -N --no-such-flag-exists
+  where: adapters.rip_backend.run_capture
+  detail:
+Unable to parse command line argument: --no-such-flag-exists
+2026-08-15 15:34:26,728 WARNING platterpus.diagnostics: platterpus-diagnostic [warning] deps.command_failed: cyanrip exited 1
+  tool: cyanrip
+  exit code: 1
+  argv: /home/rmccann/.local/bin/cyanrip -N --verify-log /home/rmccann/Music/rips/The Police/Every Breath You Take - Archive files/EAC flac/The Police - Every Breath You Take- The Classics.log
+  where: adapters.rip_backend.run_capture
+  detail:
+No FUN512 checksum found in "/home/rmccann/Music/rips/The Police/Every Breath You Take - Archive files/EAC flac/The Police - Every Breath You Take- The Classics.log"!
+2026-08-15 15:34:27,229 INFO platterpus.workers.rip_worker: [plan] This rip's settings, before anything runs (compare against the ripper's own 'Invoked as:' line afterwards):
+2026-08-15 15:34:27,229 INFO platterpus.workers.rip_worker: [plan]   Secure re-read (-Z): ON at 2 matching reads, in DYNAMIC mode — so the FIRST pass carries NO -Z and reads the whole disc once at speed. Only tracks that then miss AccurateRip are re-read with -Z 2.
+2026-08-15 15:34:27,229 INFO platterpus.workers.rip_worker: [plan]   → If you wanted -Z on EVERY track from the first read, turn ON Settings → 'Verify every track with a second read (EAC-style Test & Copy)'. On a disc that fully matches AccurateRip, dynamic mode means -Z is never applied at all and the rip's secure-re-read counters stay at their single-pass values.
+2026-08-15 15:34:27,229 INFO platterpus.workers.rip_worker: [plan]   Offset-variant tracks re-read: no (dynamic mode only; an offset-variant AccurateRip match is accepted as-is)
+2026-08-15 15:34:27,229 INFO platterpus.workers.rip_worker: [plan]   Read speed (-S): adaptive ladder. Pass 1 sends NO -S (the drive's own maximum); slower rungs are only used if a pass finishes with unrecoverable read errors.
+2026-08-15 15:34:27,229 INFO platterpus.workers.rip_worker: [plan]   Read offset (-s): +667 samples
+2026-08-15 15:34:27,229 INFO platterpus.workers.rip_worker: [plan]   Overread into lead-in/lead-out (-O): off
+2026-08-15 15:34:27,229 INFO platterpus.workers.rip_worker: [plan]   Retries per read error (-r): 5
+2026-08-15 15:34:27,230 INFO platterpus.workers.rip_worker: [plan]   Cover art (-G suppresses it): embed
+2026-08-15 15:34:27,230 INFO platterpus.workers.rip_worker: [plan]   Output (-o): flac
+2026-08-15 15:34:27,230 INFO platterpus.workers.rip_worker: [plan]   Tracks (-l): only 1, 3, 5, 6, 7 of 14 — the rest of the disc is NOT read.
+2026-08-15 15:34:27,230 INFO platterpus.workers.rip_worker: [plan]   MusicBrainz lookup (-N): ALWAYS disabled — Platterpus supplies the tags it already fetched (Critical rule #5).
+2026-08-15 15:34:27,230 INFO platterpus.workers.rip_worker: [plan]   Diagnostics (-j) and cache probe (-x): NEVER sent by a rip. Neither is part of our argv surface; run them directly against the ripper (Tools → Run test script, or the rig-session harness) if you need those records.
+2026-08-15 15:34:27,482 INFO platterpus.adapters.cyanrip_backend: cyanrip rip starting: /home/rmccann/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -r 5 -l 1,3,5,6,7 -N --consumer platterpus/0.6.12b6 -c 1/1 -a album=Every Breath You Take (round 8 joint, pass 1):album_artist=The Police:date=1995-09-12:catalognumber=31454 0380 2:label=A&M Records:musicbrainz_albumid=d14a7546-815b-43c6-8af6-35cff6cee1d0 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} (cwd=/home/rmccann/Music/rips)
+2026-08-15 15:55:40,161 INFO platterpus.ui.main_window_rip: rip finished: success=True log=/home/rmccann/Music/rips/The Police/Every Breath You Take (round 8 joint, pass 1)/Every Breath You Take (round 8 joint, pass 1).log
+2026-08-15 15:55:40,162 INFO platterpus.ui.main_window_rip: rip elapsed (actual): 21m 13s
+2026-08-15 15:55:40,202 INFO platterpus.ui.main_window_rip: completion notification posted: Platterpus — rip complete — Done — all 5 tracks ripped cleanly, no read errors. AccurateRip: 3/5 verified. 2 tracks partially accurate (offset-variant match).
+2026-08-15 15:55:40,203 INFO platterpus.ui.main_window_rip: post-rip processing in /home/rmccann/Music/rips/The Police/Every Breath You Take (round 8 joint, pass 1) (tag=False, cover-art embed=True save=False, recompress=False, transcode=no)
+2026-08-15 15:55:40,203 INFO platterpus.ui.main_window_rip: starting CTDB verify for /home/rmccann/Music/rips/The Police/Every Breath You Take (round 8 joint, pass 1)
+2026-08-15 15:55:40,204 INFO platterpus.ui.main_window_rip: starting FLAC verify for /home/rmccann/Music/rips/The Police/Every Breath You Take (round 8 joint, pass 1)
+2026-08-15 15:55:40,206 INFO platterpus.ui.main_window_rip: computing SHA256 digests for /home/rmccann/Music/rips/The Police/Every Breath You Take (round 8 joint, pass 1)
+2026-08-15 15:55:41,977 INFO platterpus.uiscript.runner: ui script run finished: {'pass': 92, 'fail': 1, 'error': 2, 'skipped': 0, 'blocked': 0}
+2026-08-15 15:55:41,979 INFO platterpus.uiscript.runner: ui script run saved to /home/rmccann/.local/share/platterpus/uiscript/20260815T193236+0000
+2026-08-15 15:56:22,308 INFO platterpus.adapters.cover_art: cover art fetch failed for d14a7546-815b-43c6-8af6-35cff6cee1d0: The read operation timed out
+2026-08-15 15:56:22,308 WARNING platterpus.adapters.cover_art: cover art not applied for release 'd14a7546-815b-43c6-8af6-35cff6cee1d0': reason=network (TimeoutError: The read operation timed out)
+2026-08-15 15:56:22,308 WARNING platterpus.diagnostics: platterpus-diagnostic [warning] coverart.fetch_failed: cover art was not applied (reason: network) — Cover art: could not reach the Cover Art Archive — art was not fetched, so this release may still have one (rip unaffected).
+  tool: Cover Art Archive (HTTP)
+  where: adapters.cover_art.fetch_and_apply
+  detail:
+release d14a7546-815b-43c6-8af6-35cff6cee1d0: TimeoutError: The read operation timed out
+2026-08-15 15:56:26,877 INFO platterpus.adapters.cover_art: cover-art manifest fetch failed for d14a7546-815b-43c6-8af6-35cff6cee1d0: HTTP Error 502: Bad Gateway
+2026-08-15 15:56:26,877 INFO platterpus.ui.main_window_rip: Cover art: could not reach the Cover Art Archive — art was not fetched, so this release may still have one (rip unaffected).
+2026-08-15 15:56:26,910 INFO platterpus.rip_files: verifying 5 file(s) this rip wrote in /home/rmccann/Music/rips/The Police/Every Breath You Take (round 8 joint, pass 1)
+2026-08-15 15:56:26,910 INFO platterpus.rip_files: verifying 5 file(s) this rip wrote in /home/rmccann/Music/rips/The Police/Every Breath You Take (round 8 joint, pass 1)
+2026-08-15 15:56:26,910 INFO platterpus.rip_files: verifying 5 file(s) this rip wrote in /home/rmccann/Music/rips/The Police/Every Breath You Take (round 8 joint, pass 1)
+2026-08-15 15:56:26,990 INFO platterpus.ui.main_window_rip: digests: 5 file(s) hashed (SHA256), 5 FLAC audio MD5(s) read
+2026-08-15 15:56:27,991 INFO platterpus.adapters.ctdb_client: CTDB lookup: http://db.cuetools.net/lookup2.php?version=3&ctdb=1&fuzzy=0&metadata=none&toc=0%3A14487%3A36340%3A54412%3A72945%3A92527
+2026-08-15 15:56:28,175 WARNING platterpus.diagnostics: platterpus-diagnostic [warning] ctdb.query_failed: CTDB rejected the lookup (HTTP 404) — the whole-disc cross-check could not run. AccurateRip is the primary proof and is unaffected.
+  tool: CTDB (HTTP)
+  where: adapters.ctdb_client.CtdbHttpImpl.lookup
+  detail:
+http://db.cuetools.net/lookup2.php?version=3&ctdb=1&fuzzy=0&metadata=none&toc=0%3A14487%3A36340%3A54412%3A72945%3A92527
+HTTP 404 Not Found
+2026-08-15 15:56:28,175 INFO platterpus.ui.main_window_rip: CTDB verify verdict: lookup_error
+2026-08-15 15:56:29,103 INFO platterpus.ui.main_window_rip: FLAC verify: all 5 file(s) decode cleanly.
+2026-08-15 16:07:04,522 INFO platterpus.ui.dialogs.centering: dialog closed: ScriptConsoleDialog ('Run test script') — rejected or closed
+2026-08-15 16:07:36,433 INFO platterpus.ui.main_window: window close requested; tearing down workers (rip active=False)
+──── Platterpus 0.6.12b6 (build 154d255) ────
+2026-08-15 16:07:42,256 INFO platterpus.app: platterpus 0.6.12b6 (build 154d255) starting
+2026-08-15 16:07:42,317 INFO platterpus.logging_setup: debug logging disabled
+2026-08-15 16:07:42,393 INFO platterpus.composition: using cyanrip backend (/home/rmccann/.local/bin/cyanrip)
+2026-08-15 16:07:42,663 INFO platterpus.deps.manager: dependency cyanrip build: the Platterpus fork (ok=True)
+2026-08-15 16:07:44,835 INFO platterpus.adapters.ctdb_client: CTDB lookup: http://db.cuetools.net/lookup2.php?version=3&ctdb=1&fuzzy=0&metadata=none&toc=0%3A19850%3A39850%3A59850
+2026-08-15 16:07:44,980 WARNING platterpus.diagnostics: platterpus-diagnostic [warning] ctdb.query_failed: CTDB rejected the lookup (HTTP 404) — the whole-disc cross-check could not run. AccurateRip is the primary proof and is unaffected.
+  tool: CTDB (HTTP)
+  where: adapters.ctdb_client.CtdbHttpImpl.lookup
+  detail:
+http://db.cuetools.net/lookup2.php?version=3&ctdb=1&fuzzy=0&metadata=none&toc=0%3A19850%3A39850%3A59850
+HTTP 404 Not Found

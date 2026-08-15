@@ -1,0 +1,469 @@
+cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -r 5 -l 1,3,5,6,7 -N --consumer platterpus/0.6.12b6 -c 1/1 -a "album=Every Breath You Take (round 8 joint, pass 1):album_artist=The Police:date=1995-09-12:catalognumber=31454 0380 2:label=A&M Records:musicbrainz_albumid=d14a7546-815b-43c6-8af6-35cff6cee1d0" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}"
+Handshake:      round 7 lap 39 closed, verdict GO
+Consumer:       platterpus/0.6.12b6
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+Paranoia level: max
+Frame retries:  5
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  1, 3, 5, 6, 7
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     d14a7546-815b-43c6-8af6-35cff6cee1d0
+CDDB ID:        E20DFE0E
+Album:          Every Breath You Take (round 8 joint, pass 1)
+Album artist:   The Police
+AccurateRip:    found
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    94 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Tracks:
+Track 1 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.9 LUFS
+    Threshold: -24.3 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -34.3 LUFS
+    LRA low:   -18.3 LUFS
+    LRA high:  -11.7 LUFS
+
+  Sample peak:
+    Peak:       -0.5 dBFS
+
+  True peak:
+    Peak:        0.3 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    03:13.12
+    Samples:     8518356
+    Frames:      14487
+    Sample peak level: 94.3% (-0.5 dBFS)
+    True peak level:   0.3 dBFS
+    Integrated loudness (R128): -13.9 LUFS
+    Loudness range (R128):      6.5 LU (-18.3 to -11.7 LUFS)
+    Extraction speed:  0.9x
+    Elapsed:            214.51 s
+    Pregap LSN:  0 (duration: 00:02.00)
+    Pregap length: 150 frames
+    Pregap source: lead-in
+    Start LSN:   0 (with offset: 1)
+    End LSN:     14486 (with offset: 14488)
+
+  EAC CRC32:     B0D122E7
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  5D3C90CB (accurately ripped, confidence 129)
+    Accurip v2:  22B9924D (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         1
+    tracktotal:                    14
+    musicbrainz_discid:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media:                         CD
+    comment:                       cyanrip 0.9.4-rc1+platterpus.5
+    totaldiscs:                    1
+    title:                         Roxanne
+    disc:                          1
+    album:                         Every Breath You Take (round 8 joint, pass 1)
+    album_artist:                  The Police
+    date:                          1995-09-12
+    catalognumber:                 31454 0380 2
+    label:                         A&M Records
+    musicbrainz_albumid:           d14a7546-815b-43c6-8af6-35cff6cee1d0
+    artist:                        The Police
+    isrc:                          GBAAM0201086
+    creation_time:                 2026-08-15T15:34:32
+    REPLAYGAIN_TRACK_GAIN:         -4.10 dB
+    R128_TRACK_GAIN:               229
+    REPLAYGAIN_TRACK_RANGE:        6.54 dB
+    REPLAYGAIN_TRACK_PEAK:         1.029445
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  Paranoia status counts:
+    READ:          1250
+    VERIFY:        85
+    OVERLAP:       17
+
+  File(s):
+    The Police/Every Breath You Take (round 8 joint, pass 1)/01 - Roxanne.flac
+
+Track 3 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  0.9x
+    Elapsed:            307.49 s
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     3D8FCF0C
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  1B28C061 (not found, either a new pressing, or bad rip)
+    Accurip v2:  757AAD2D (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, track is partially accurately ripped)
+
+  Metadata:
+    track:                         3
+    tracktotal:                    14
+    musicbrainz_discid:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media:                         CD
+    comment:                       cyanrip 0.9.4-rc1+platterpus.5
+    totaldiscs:                    1
+    title:                         Message in a Bottle
+    disc:                          1
+    album:                         Every Breath You Take (round 8 joint, pass 1)
+    album_artist:                  The Police
+    date:                          1995-09-12
+    catalognumber:                 31454 0380 2
+    label:                         A&M Records
+    musicbrainz_albumid:           d14a7546-815b-43c6-8af6-35cff6cee1d0
+    artist:                        The Police
+    isrc:                          GBAAM0201170
+    creation_time:                 2026-08-15T15:38:07
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  Paranoia status counts:
+    READ:          1874
+    VERIFY:        198
+    FIXUP_ATOM:    18
+    OVERLAP:       48
+
+  File(s):
+    The Police/Every Breath You Take (round 8 joint, pass 1)/03 - Message in a Bottle.flac
+
+Track 5 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -14.6 LUFS
+    Threshold: -25.4 LUFS
+
+  Loudness range:
+    LRA:        14.1 LU
+    Threshold: -35.4 LUFS
+    LRA low:   -27.0 LUFS
+    LRA high:  -12.9 LUFS
+
+  Sample peak:
+    Peak:       -0.5 dBFS
+
+  True peak:
+    Peak:        0.8 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    04:00.72
+    Samples:     10626336
+    Frames:      18072
+    Sample peak level: 94.3% (-0.5 dBFS)
+    True peak level:   0.8 dBFS
+    Integrated loudness (R128): -14.6 LUFS
+    Loudness range (R128):      14.1 LU (-27.0 to -12.9 LUFS)
+    Extraction speed:  1.0x
+    Elapsed:            247.57 s
+    Pregap LSN:  72455 (duration: 00:01.40)
+    Pregap length: 115 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   72570 (with offset: 72571)
+    End LSN:     90641 (with offset: 90643)
+
+  EAC CRC32:     6902BCF0
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  7CE3F6E7 (not found, either a new pressing, or bad rip)
+    Accurip v2:  268CCD94 (not found, either a new pressing, or bad rip)
+    Accurip 450: 4CCBCF89 (matches Accurip DB, confidence 200, track is partially accurately ripped)
+
+  Metadata:
+    track:                         5
+    tracktotal:                    14
+    musicbrainz_discid:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media:                         CD
+    comment:                       cyanrip 0.9.4-rc1+platterpus.5
+    totaldiscs:                    1
+    title:                         Don’t Stand So Close to Me
+    disc:                          1
+    album:                         Every Breath You Take (round 8 joint, pass 1)
+    album_artist:                  The Police
+    date:                          1995-09-12
+    catalognumber:                 31454 0380 2
+    label:                         A&M Records
+    musicbrainz_albumid:           d14a7546-815b-43c6-8af6-35cff6cee1d0
+    artist:                        The Police
+    isrc:                          GBAAM0201148
+    creation_time:                 2026-08-15T15:43:14
+    REPLAYGAIN_TRACK_GAIN:         -3.37 dB
+    R128_TRACK_GAIN:               418
+    REPLAYGAIN_TRACK_RANGE:        14.08 dB
+    REPLAYGAIN_TRACK_PEAK:         1.097202
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  Paranoia status counts:
+    READ:          1634
+    VERIFY:        179
+    FIXUP_ATOM:    8
+    OVERLAP:       41
+
+  File(s):
+    The Police/Every Breath You Take (round 8 joint, pass 1)/05 - Don’t Stand So Close to Me.flac
+
+Track 6 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -14.0 LUFS
+    Threshold: -24.1 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -34.1 LUFS
+    LRA low:   -18.5 LUFS
+    LRA high:  -11.9 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.8 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    04:07.08
+    Samples:     10897404
+    Frames:      18533
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.8 dBFS
+    Integrated loudness (R128): -14.0 LUFS
+    Loudness range (R128):      6.5 LU (-18.5 to -11.9 LUFS)
+    Extraction speed:  1.0x
+    Elapsed:            242.19 s
+    Pregap LSN:  90642 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   90642 (with offset: 90643)
+    End LSN:     109174 (with offset: 109176)
+
+  EAC CRC32:     B32769D6
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  92B4C7B4 (accurately ripped, confidence 129)
+    Accurip v2:  34DA67DB (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         6
+    tracktotal:                    14
+    musicbrainz_discid:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media:                         CD
+    comment:                       cyanrip 0.9.4-rc1+platterpus.5
+    totaldiscs:                    1
+    title:                         De Do Do Do, De Da Da Da
+    disc:                          1
+    album:                         Every Breath You Take (round 8 joint, pass 1)
+    album_artist:                  The Police
+    date:                          1995-09-12
+    catalognumber:                 31454 0380 2
+    label:                         A&M Records
+    musicbrainz_albumid:           d14a7546-815b-43c6-8af6-35cff6cee1d0
+    artist:                        The Police
+    isrc:                          GBAAM0201154
+    creation_time:                 2026-08-15T15:47:22
+    REPLAYGAIN_TRACK_GAIN:         -3.99 dB
+    R128_TRACK_GAIN:               259
+    REPLAYGAIN_TRACK_RANGE:        6.52 dB
+    REPLAYGAIN_TRACK_PEAK:         1.093319
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  Paranoia status counts:
+    READ:          1489
+    VERIFY:        110
+    OVERLAP:       30
+
+  File(s):
+    The Police/Every Breath You Take (round 8 joint, pass 1)/06 - De Do Do Do, De Da Da Da.flac
+
+Track 7 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -14.0 LUFS
+    Threshold: -24.4 LUFS
+
+  Loudness range:
+    LRA:         6.4 LU
+    Threshold: -34.4 LUFS
+    LRA low:   -18.4 LUFS
+    LRA high:  -12.0 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:        0.3 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    04:21.07
+    Samples:     11514216
+    Frames:      19582
+    Sample peak level: 98.9% (-0.1 dBFS)
+    True peak level:   0.3 dBFS
+    Integrated loudness (R128): -14.0 LUFS
+    Loudness range (R128):      6.4 LU (-18.4 to -12.0 LUFS)
+    Extraction speed:  1.0x
+    Elapsed:            255.16 s
+    Pregap LSN:  109070 (duration: 00:01.30)
+    Pregap length: 105 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   109175 (with offset: 109176)
+    End LSN:     128756 (with offset: 128758)
+
+  EAC CRC32:     CCBFF669
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  DE379389 (accurately ripped, confidence 127)
+    Accurip v2:  154797B6 (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         7
+    tracktotal:                    14
+    musicbrainz_discid:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media:                         CD
+    comment:                       cyanrip 0.9.4-rc1+platterpus.5
+    totaldiscs:                    1
+    title:                         Every Little Thing She Does Is Magic
+    disc:                          1
+    album:                         Every Breath You Take (round 8 joint, pass 1)
+    album_artist:                  The Police
+    date:                          1995-09-12
+    catalognumber:                 31454 0380 2
+    label:                         A&M Records
+    musicbrainz_albumid:           d14a7546-815b-43c6-8af6-35cff6cee1d0
+    artist:                        The Police
+    isrc:                          GBAAM0201127
+    creation_time:                 2026-08-15T15:51:24
+    REPLAYGAIN_TRACK_GAIN:         -4.02 dB
+    R128_TRACK_GAIN:               251
+    REPLAYGAIN_TRACK_RANGE:        6.44 dB
+    REPLAYGAIN_TRACK_PEAK:         1.035161
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  Paranoia status counts:
+    READ:          1633
+    VERIFY:        147
+    OVERLAP:       37
+
+  File(s):
+    The Police/Every Breath You Take (round 8 joint, pass 1)/07 - Every Little Thing She Does Is Magic.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -13.6 LUFS
+    Threshold: -24.0 LUFS
+
+  Loudness range:
+    LRA:         8.2 LU
+    Threshold: -34.0 LUFS
+    LRA low:   -19.2 LUFS
+    LRA high:  -10.9 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:        0.8 dBFS
+
+Tracks ripped accurately: 3/14
+Tracks ripped partially accurately: 2/14
+
+Paranoia status counts:
+  READ:          7880
+  VERIFY:        719
+  FIXUP_ATOM:    26
+  OVERLAP:       173
+
+Ripping errors: 0
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (5 of 14 tracks)
+Ripping finished at 2026-08-15T15:55:39
+Log FUN512: S5TBFn.8JvWaOIuYlhqe65ezjtnH7vuEv2N_Y0mt_F.z9NU7wI41HOV_r1H7BATAkfBweAiePV4Txq3jre5YpQ
