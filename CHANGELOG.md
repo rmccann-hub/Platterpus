@@ -11,6 +11,28 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Installing the approved cyanrip pin by name announced that no round had
+  approved it.** `--install-ripper ddf7ac3` — naming the very build a closed
+  round approved — printed *"NOT a pinned build, and no round has approved it"*
+  and then *"NOTE: this is not the handshake-approved build (ddf7ac3)"*: a
+  sentence of the form *"this is not X (X)"*. It also predicted that every rip
+  would report `unapproved`. Ninety seconds later, on the rig, `--rig-check`
+  reported **`OK ripper/handshake approved`** for that same binary — because
+  approval is decided by the installed build tag, not by how the install was
+  requested. Two surfaces disagreeing about one fact is the failure this
+  project's rules name outright, and here the wrong one spoke first and loudest,
+  at the moment an operator decides whether to trust the build they just made.
+
+  The cause was a whole-object comparison. `target_for_commit` returns a
+  `ForkTarget` whose `version` and `why` differ from the pinned target *by
+  construction*, so `target != PRODUCTION_TARGET` was true even when the pins
+  were identical. Approval is a property of the commit, so only the commit may
+  decide it: both sites now compare pins through a `same_commit` helper that
+  treats a short SHA and the full one as the same revision. The warning for a
+  genuinely different commit is unchanged and has its own non-triviality test,
+  because a "fix" that called everything approved would be worse than the bug.
+
 ### Added
 - **`docs/cyanrip-known-issues.md` — ten verified issues to hand the fork,
   deliberately *not* a handshake lap.** The maintainer asked for something
