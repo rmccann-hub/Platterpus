@@ -134,6 +134,19 @@ file."* This section is the staging area; it is not correspondence.
   approved`, so this is one disc. **Rip AFTER their lap 9 confirms the pin**, not
   before — a rip on a pin they are about to move is wasted.
 
+- [ ] **Report the loss of `~/rigsession/` (2026-08-14) plainly in lap 10.** Their
+  round-8 state document §10.4 asked for it to be kept regardless — *"it is the
+  only evidence of the drive-open hang and cannot be re-taken."* It is gone from
+  the operator's machine, confirmed by a `find` across `$HOME` on 2026-08-15, and
+  no copy was ever uploaded to us: the bundle we hold contains the ui-script run,
+  not the rig-session artifacts. **It was not our archive command** — that moved
+  nothing (its target directory is empty) and never named `rigsession` at all.
+  Say so without hedging: an artifact the other side asked us to preserve was
+  lost on our side. It does not block the round — the drive-open hang is their
+  finding, fixed on their side at `5869977`, and its status was already *"needs
+  your rig"* — but a quiet omission here is exactly the failure both projects
+  keep writing rules against.
+
 - [ ] **Answer their reply to our two §F questions** (both `NEXT-ROUND`): whether
   their `HANDSHAKE-PROTOCOL: 2` proposal changes the field set we are already
   emitting, and whether they hold round 8 laps 3–7 for us to commit as inbound.
