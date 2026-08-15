@@ -736,7 +736,7 @@ RETROSPECTIVE_ROUNDS: frozenset[int] = frozenset({1, 2, 3})
 #: Staleness fails in the SAFE direction: a value left behind reports a closed
 #: round as open and blocks a release, which is a conversation. The other
 #: direction ships.
-CURRENT_ROUND: Final[int] = 8
+CURRENT_ROUND: Final[int] = 9
 
 
 # --- The shared wire format (protocol §8) -----------------------------------

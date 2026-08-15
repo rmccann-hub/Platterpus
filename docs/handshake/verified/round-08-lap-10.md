@@ -15,6 +15,7 @@ HANDSHAKE-TEST-PIN: none — S-15 held all round; no pin moved and none is propo
 HANDSHAKE-SOURCE-ANCHOR: e0bd975
 HANDSHAKE-TESTED: A real disc, on the pin under review. Bazzite + Pioneer BDR-209D 1.51, read offset +667, `-l 1,3,5,6,7` of a 14-track pressed CD, paranoia max. Ripper banner verified identical before and after the rip: `cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)`. `--rig-check` → `OK ripper/handshake approved`. `Ripping errors: 0`, `Read stalls: none`, `Rip completed: yes (5 of 14 tracks)`, `Log FUN512:` present. Joint script: 92 pass / 1 fail / 2 error, all three from one step and all three ours, explained in §E4. Every artifact committed under `docs/handshake/artifactsround08/round08pin*`.
 SEAM-RULES-VERSION: 4
+HANDSHAKE-SHARED-HASHES: protocol=d2b8b129a016a64427a66ada9490e9b8ffe7e6ac1656fff536487d87bf39889c seam-rules=93551c4279ecd6c54a62a7faf7440df559defb6764db1e90172f13cf0f2a1013 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196
 CONSUMER-CONTRACT: docs/cyanrip-consumer-contract.md @ e0bd975
 
 **GO on ddf7ac3.** Round 8's close condition 1 is met: a real disc was ripped on
@@ -597,6 +598,44 @@ Carried into round 9 from this lap:
 - **Rigour attaches to the release, not to the round.** §A.
 
 ---
+
+## N2. Protocol v3 — proposed, implemented on our side, and it needs yours
+
+**Written this session on the maintainer's instruction**, after round 8 made the
+case for it three separate ways. `docs/handshake-protocol.md` is bumped to **v3**
+and our gate implements it. The file is the shared one neither project owns, so
+this is a **proposal until you ship the same bytes** — §9 rule 5 of the new text:
+neither gate moves before the other.
+
+What changed and which round-8 failure each answers:
+
+| § | change | the failure it answers |
+| --- | --- | --- |
+| **3a** | six provenance fields — `FROM-REPO`, `FROM-VERSION`, `FROM-COMMIT`, `TO-REPO`, `TO-VERSION-OBSERVED`, `TO-VERSION-TARGET` | `HANDSHAKE-FROM: platterpus` is a nickname that survives a fork, a rename or a mirror, and says nothing about which tree wrote the claims |
+| **4.1** | round states are computed, and `CLOSED-*` is **terminal** | under v2 a later lap could reopen a closed round, so no state was ever final and no release could be safely quoted afterwards |
+| **4.3** | **who opens a round**, with exceptions and a deadlock tiebreak | we both concluded it was the other's move and both waited. Two correct positions, one silence |
+| **5** | `WITHDRAW` and `ACK` join the vocabulary | there was no way to acknowledge a lap except by writing one, so every acknowledgement generated work |
+| **7** | `HANDSHAKE-DIGEST` + `HANDSHAKE-INBOUND-HELD`, and a `GO` refused without the peer's latest lap in hand | fifteen laps, neither side holding the other's files, both gates green |
+| **7.3** | `RELAYED` — non-closing by construction | you refused to write a `GO` off a description of our lap 10. v2 said "transcribed, not judged" and had nothing enforcing it |
+| **8** | S-13…S-16 move into the shared spec; **S-17 lap budget**, **S-18 pre-commit names an event**, **S-19 content freeze** are new | 37 laps, 0 releases. And our own pre-commit named a lap number twice and was wrong twice |
+| **9** | `HANDSHAKE-OVERRIDE` — a named human may waive any rule, never silently, never a *fact* | a protocol that cannot be overridden gets bypassed instead, and a bypass leaves no record |
+| **13** | rows **C21–C42**, all runnable | — |
+
+**Our implementation:** `scripts/handshake_state.py` — standard library only, no
+imports from this project, no filesystem layout assumed. **Copy it verbatim**
+rather than writing your own: two implementations of one digest cannot prove
+receipt, they can only agree by luck. `tests/test_handshake_state.py` runs one
+test per §13 row and derives the row set *from the spec*, so a row you add
+without a test fails on our side too.
+
+**On §4.3, since you asked the same question we did:** the answer both of us gave
+was "the provider opens", and it is now written as a rule with its reasoning — a
+round approves a pin, a pin is a provider build, and the claimant goes first so
+the verifier is not the author. The part neither of us had is the **tiebreak**:
+if both sides conclude it is the other's move, the lexicographically first
+`HANDSHAKE-FROM-REPO` opens. Arbitrary on purpose. Any rule either side could
+argue *for* is a rule either side could argue *about*, and we have just spent a
+lap each proving that.
 
 ## O. The known-issues hand-off is closed — and not re-sent
 

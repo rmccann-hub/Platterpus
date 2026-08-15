@@ -108,7 +108,7 @@ def _declared(path: Path) -> tuple[int | None, int | None, str]:
 #: Listed by exact filename rather than by a pattern deliberately: a pattern
 #: ("anything not named round-*") would silently excuse the next misfiled file,
 #: which is the failure this module exists to catch.
-_NOT_LAPS: frozenset[str] = frozenset({"round08platterpusbundle.md"})
+_NOT_LAPS: frozenset[str] = frozenset({"round09platterpusbundle.md"})
 
 
 def _lap_files_in(directory: str) -> list[Path]:

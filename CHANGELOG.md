@@ -12,6 +12,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **Handshake protocol v3 adopted, byte-identical from the cyanrip fork**
+  (`docs/handshake-protocol.md`, sha256 `63f53d05…`). Round and lap become *legal
+  states*: computed round states with `RECONCILE` for a record mismatch, a
+  terminal `CLOSED` that can never reopen, addressing fields that say which repo a
+  lap came from and what it wants changed, convergence rules R1–R7, and operator
+  overrides that are always available and never silent. **The provider opens a
+  round** — the rule was settled by asking both projects the question
+  simultaneously without either seeing the other's answer, and the fork wrote
+  *our* argument into the shared file over their own: only the provider can mint
+  the unit of work, because a round decides a pin and you cannot open a round
+  against a commit that does not exist.
+- **`scripts/round_digest.py` — `HANDSHAKE-ROUND-DIGEST`, implemented from the
+  spec text and deliberately not from the fork's implementation**, so the two
+  numbers are worth comparing. It found two things on its first run: our own
+  transport envelope was being counted as a lap (a container is not a lap — the
+  rule is now derived from the spec's own ambiguity clause rather than a
+  filename allowlist), and our round-8 record holds 4 laps against the fork's 12,
+  which is the §4a `RECONCILE` state the checksum exists to make visible.
+- **The transport envelope now carries one round at a time** and follows it;
+  round 8's is retired, since the laps themselves are committed individually and
+  are what survives.
 - **The round-8 correspondence ships as one file.** `scripts/emit_handshake_bundle.py`
   packs our outbound laps into `docs/handshake/outbound/round08platterpusbundle.md`
   — a **transport envelope, not a merged round file**: each lap's exact bytes,

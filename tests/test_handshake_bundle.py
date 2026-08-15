@@ -51,7 +51,10 @@ def test_splitting_the_bundle_reproduces_every_source_file_byte_for_byte() -> No
     parts = bundle.split_bundle(bundle.BUNDLE_PATH.read_text(encoding="utf-8"))
 
     # Non-triviality floor: an empty split would satisfy every assertion below.
-    assert len(parts) == len(bundle.BUNDLE_PARTS) >= 3, parts.keys()
+    # Derived from BUNDLE_PARTS rather than a literal, because the envelope
+    # carries one round at a time and a round's outbound record is however
+    # many laps it is — three for round 8, one for round 9.
+    assert len(parts) == len(bundle.BUNDLE_PARTS) >= 1, parts.keys()
 
     for source in bundle.BUNDLE_PARTS:
         assert source.name in parts, f"{source.name} is missing from the bundle"
@@ -64,7 +67,7 @@ def test_every_manifest_hash_matches_the_bytes_it_labels() -> None:
     """A hash beside content nobody checks is decoration."""
     text = bundle.BUNDLE_PATH.read_text(encoding="utf-8")
     matches = list(bundle.PART_RE.finditer(text))
-    assert len(matches) >= 3, "the delimiters did not parse"
+    assert len(matches) == len(bundle.BUNDLE_PARTS) >= 1, "the delimiters did not parse"
     for match in matches:
         data = (match["body"] + "\n").encode("utf-8")
         assert hashlib.sha256(data).hexdigest() == match["sha"], match["name"]
@@ -73,10 +76,9 @@ def test_every_manifest_hash_matches_the_bytes_it_labels() -> None:
 def test_the_bundle_name_cannot_be_read_as_a_lap_by_either_gate() -> None:
     """`round-*.md` must never match it — on any filesystem, either case.
 
-    Both projects' gates glob that pattern, and the bundle body carries three wire
-    headers. A name that matched would most likely resolve as lap 2 (the first
-    header in the file) and could displace the round's real latest lap — which is
-    how a `GO` once closed a round whose latest lap said `HOLD`.
+    Both projects' gates glob that pattern, and the bundle body carries wire
+    headers. A name that matched could displace the round's real latest lap —
+    which is how a `GO` once closed a round whose latest lap said `HOLD`.
     """
     name = bundle.BUNDLE_PATH.name
     directory = bundle.BUNDLE_PATH.parent

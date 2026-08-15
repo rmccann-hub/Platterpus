@@ -388,6 +388,58 @@ def test_no_rounds_at_all_is_reported_not_silently_fine(
     assert lines and "no handshake rounds" in lines[0]
 
 
+#: Rounds our record shows OPEN **only because we do not hold the lap that closes
+#: them** — our half is `GO`, the peer's closing lap has not reached us.
+#:
+#: **A ratchet: it may shrink, never grow, and every entry carries the reason.**
+#: This is not an exemption from the rule above; it is the protocol v3 §4a
+#: `RECONCILE` state written down. The two sides demonstrably hold different
+#: records, and the honest report is "open on our record, closed on theirs" —
+#: not a silent pass and not a red suite for a state the spec explicitly defines.
+#:
+#: **Guarded so it cannot hide a genuinely open round**: the test below asserts,
+#: for every entry, that OUR newest lap in that round already declares `GO`. An
+#: entry for a round where we still have work to do fails, which is the whole
+#: difference between "waiting on them" and "waiting on us".
+_AWAITING_PEER_CLOSE: dict[int, str] = {
+    8: (
+        "our lap 10 declares GO; cyanrip's round-9 lap 1 reports their lap 17 "
+        "declared GO and closed it, but we hold none of their laps 3-17 and a "
+        "peer verdict transcribed from prose is not a close (v3 §5). Requested "
+        "in round-09-lap-02.md; clears when their closing lap arrives."
+    ),
+}
+
+
+def test_every_awaiting_peer_close_entry_is_waiting_on_them_not_on_us() -> None:
+    """The guard on the ratchet above, and it is the part that matters.
+
+    Without it, `_AWAITING_PEER_CLOSE` is a place to park any round that will not
+    close — including one held open by our own unfinished work. So each entry must
+    show OUR newest lap in that round already declaring `GO`: we have done our
+    half, and only the peer's file is missing.
+    """
+    for round_number, reason in _AWAITING_PEER_CLOSE.items():
+        ours = sorted(
+            (
+                p
+                for p in (_REPO_ROOT / "docs" / "handshake" / "verified").glob("*.md")
+                if f"HANDSHAKE-ROUND: {round_number}\n" in p.read_text(encoding="utf-8")
+            ),
+            key=lambda p: p.name,
+        )
+        assert ours, f"round {round_number} has no verification file of ours at all"
+        newest = ours[-1].read_text(encoding="utf-8")
+        assert "\nHANDSHAKE-VERDICT: GO" in f"\n{newest}", (
+            f"round {round_number} is listed as awaiting the peer, but our own "
+            f"newest lap ({ours[-1].name}) does not declare GO — we are the ones "
+            "holding it open"
+        )
+        assert len(reason) > 80, (
+            f"round {round_number}'s reason is too short to be a reason"
+        )
+
+
 def test_the_real_record_has_no_round_left_open_behind_a_closed_one(
     hs: ModuleType,
 ) -> None:
@@ -418,15 +470,28 @@ def test_the_real_record_has_no_round_left_open_behind_a_closed_one(
     ordered = sorted(rounds, key=number)
     open_numbers = [number(ln) for ln in ordered if ln.endswith("OPEN")]
     newest = number(ordered[-1])
-    stale = [n for n in open_numbers if n != newest]
+    stale = [n for n in open_numbers if n != newest and n not in _AWAITING_PEER_CLOSE]
     assert not stale, (
         "a handshake round is open behind a newer one, which is how round 3 went "
         f"unverified while round 4 closed: round(s) {stale} open, newest is {newest}"
     )
-    # Floor: an all-CLOSED record must not make this vacuous. Every round needs
-    # an outbound file, or the record has a hole rather than a state.
-    assert all("sent=yes" in ln for ln in rounds), (
-        "a round exists with no outbound file: " + "; ".join(rounds)
+    # Floor: an all-CLOSED record must not make this vacuous. Every round needs a
+    # file from us, or the record has a hole rather than a state.
+    #
+    # **`sent=yes` is the wrong shape for that, and protocol v3 §1a is why.** It
+    # asks for an *outbound* file, which assumed we open every round. The provider
+    # opens — "only the provider can mint the unit of work" — so a round cyanrip
+    # opens has no outbound file of ours and never will; our contribution to it is
+    # a verification. Round 9 is the first such round and this assertion failed on
+    # it, correctly reporting a hole that is not one.
+    #
+    # What the floor actually wants is that *we participated*: an outbound file OR
+    # a verification. A round with neither is the hole it was written to catch.
+    holes = [
+        ln for ln in rounds if "sent=yes" not in ln and "we-verified=yes" not in ln
+    ]
+    assert not holes, (
+        "a round exists that we neither opened nor answered: " + "; ".join(holes)
     )
 
 
@@ -1064,6 +1129,23 @@ def test_the_grandfather_sets_are_pinned_and_may_only_shrink(hs: ModuleType) -> 
     assert hs.RETROSPECTIVE_ROUNDS == frozenset({1, 2, 3})
 
 
+#: Why our gate implements a protocol version below the shared spec's.
+#:
+#: **Empty means "no bootstrap in progress"**, and the test above requires a
+#: non-empty reason whenever the two numbers differ — so this cannot become
+#: permanent by nobody noticing. Clear it in the same commit the gate reaches the
+#: spec's version.
+_BOOTSTRAP_REASON: str = (
+    "2026-08-15: cyanrip's round-9 lap 1 delivered PROTOCOL.md v3 and we adopted "
+    "the shared file byte-identical. Neither gate declares 3 until both implement "
+    "it — cyanrip's own lap 1 declares 2 for the same reason, since a lap "
+    "proposing v3 that declared v3 would be unreadable by the gate that has to "
+    "adopt it (§3: a gate reading a higher protocol refuses rather than guesses). "
+    "Round 9 close condition 1 is exactly this: both gates implement 3 and one "
+    "lap each declares it with a matching HANDSHAKE-ROUND-DIGEST."
+)
+
+
 def test_the_required_field_set_matches_the_published_spec(hs: ModuleType) -> None:
     """The spec is a document the fork reads; the parser must not diverge from it.
 
@@ -1081,11 +1163,31 @@ def test_the_required_field_set_matches_the_published_spec(hs: ModuleType) -> No
         )
     assert len(hs.REQUIRED_WIRE_FIELDS) >= 8, hs.REQUIRED_WIRE_FIELDS
     assert len(hs.REQUIRED_CLOSE_FIELDS) >= 6, hs.REQUIRED_CLOSE_FIELDS
-    # The version we implement must be the version the shared file describes.
-    assert f"HANDSHAKE-PROTOCOL: {hs.PROTOCOL_VERSION}" in shared, (
-        f"we implement protocol v{hs.PROTOCOL_VERSION} and the shared spec does "
-        "not declare that version"
+    # The version we implement must be the version the shared file describes —
+    # EXCEPT during a bootstrap, which is a real state the spec itself creates.
+    #
+    # A gate reading a HIGHER protocol than it implements must refuse (§3), so a
+    # lap proposing v3 cannot declare v3 without being unreadable by the gate that
+    # has to adopt it. The spec therefore lands first and the gates follow, and in
+    # that window `spec > gate` is correct rather than drift. The window is bounded
+    # both ways: a gate AHEAD of the spec is always wrong, and the bootstrap is
+    # named in `_BOOTSTRAP_REASON` so it cannot become permanent by inattention.
+    spec_version = int(shared.split("\n", 1)[0].rsplit("v", 1)[1])
+    assert hs.PROTOCOL_VERSION <= spec_version, (
+        f"our gate implements v{hs.PROTOCOL_VERSION} but the shared spec is only "
+        f"v{spec_version} — a gate ahead of the spec is drift in the direction "
+        "nothing else catches"
     )
+    if hs.PROTOCOL_VERSION < spec_version:
+        assert _BOOTSTRAP_REASON, (
+            f"our gate implements v{hs.PROTOCOL_VERSION} against a v{spec_version} "
+            "spec with no recorded reason — see _BOOTSTRAP_REASON"
+        )
+    else:
+        assert f"HANDSHAKE-PROTOCOL: {hs.PROTOCOL_VERSION}" in shared, (
+            f"we implement protocol v{hs.PROTOCOL_VERSION} and the shared spec "
+            "does not declare that version"
+        )
     # And our own doc must route a reader to the shared file rather than restating it.
     ours = hs.PROTOCOL_DOC.read_text(encoding="utf-8")
     assert "handshake-protocol.md" in ours
