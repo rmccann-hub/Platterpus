@@ -558,11 +558,33 @@ def main(argv: list[str] | None = None) -> int:
         from platterpus.deps.fork_source import (
             PRODUCTION_TARGET,
             WIZARD_TARGET,
+            ripper_choices,
             same_commit,
             target_for_commit,
         )
         from platterpus.deps.host_setup import HostSetup
         from platterpus.deps.step_engine import StepResult, StepStatus, SubprocessRunner
+
+        # `--install-ripper list` shows the menu instead of installing. A
+        # literal, because the flag already takes an optional COMMIT and a
+        # separate --list-ripper-builds would be a second surface for one
+        # question. "list" is not a valid abbreviated SHA — git requires at
+        # least 4 hex characters — so it cannot collide with a real commit.
+        if args.install_ripper.strip().lower() == "list":
+            print(
+                f"Platterpus {__version__} — cyanrip builds this version can install\n"
+            )
+            for choice in ripper_choices():
+                print(f"  {choice.label}")
+                print(f"      {choice.why}\n")
+            print(
+                "Install one with:  --install-ripper <commit>\n"
+                "The build tag in brackets is what the binary prints and what\n"
+                "--rig-check compares, so it is how a rip is traced to a build later.\n"
+                "Any other commit on the fork works too; it reports as unapproved,\n"
+                "which is the correct answer for a build no round has verified."
+            )
+            return 0
 
         # An operator-supplied commit wins over the pinned one. Resolved HERE, once, so
         # every line below — the banner we print, the build, and the verify — reads the

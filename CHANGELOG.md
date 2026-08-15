@@ -11,6 +11,40 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **`--install-ripper list` — choose a cyanrip build instead of memorising a
+  SHA.** Prints every build this Platterpus knows how to install, each with the
+  **build tag** a correct build must print, the approved one first and marked
+  `✓`, anything unverified marked `⚠`:
+
+  ```
+    ✓ approved: ddf7ac3 (platterpus-fork-gddf7ac3)
+    ⚠ test-pin: cb440bd (platterpus-fork-gcb440bd)
+  ```
+
+  Naming the tag is the point, not decoration: it is what the binary prints and
+  what `--rig-check` compares, so it is how a rip is traced back to a build
+  later. A menu offering "the newest beta" would ask an operator to pick
+  something they cannot identify afterwards — which is how a rig session
+  produced a complete, clean artifact set for `g2ce8993` while the round under
+  review was `ddf7ac3`.
+
+  **Ordering is by trust, not by date, and only for the ripper.** For the app a
+  newer release is a better one. For the ripper it is not: the build a closed
+  handshake round approved is the one whose output both projects verified, and a
+  newer test pin is by definition *less* checked. Listing installs nothing — a
+  test asserts the installer is never even constructed, because the dangerous
+  failure is not a wrong menu but a menu that replaces the ripper you are
+  currently using.
+- **`update_check.available_releases()`** — the list form of the existing
+  "is there an update" check, for a picker that offers a choice rather than a
+  single answer. It shares one parser and one ordering with `latest_release()`,
+  which is now literally the head of that list: an offer list that disagreed
+  with the update prompt about which release is newest would be worse than no
+  picker. Respects the existing `update_channel` / `ripper_channel` settings,
+  which already exist and are deliberately separate so you can run app betas
+  against a released ripper, or the reverse during a hardware session.
+
 ### Fixed
 - **A wrong cyanrip build is now refused *before* it is installed.** The install
   ran build → install → export → verify, so `sudo install` overwrote

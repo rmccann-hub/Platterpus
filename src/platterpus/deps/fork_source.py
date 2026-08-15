@@ -1177,3 +1177,76 @@ def fork_build_commands(
         export_command(container),
         verify_command(container, chosen),
     ]
+
+
+@dataclass(frozen=True)
+class RipperChoice:
+    """One installable cyanrip build, as an operator would choose it.
+
+    Carries the **build tag** (`platterpus-fork-g<sha>`) because that is the
+    string the binary itself prints and the only thing that proves, after the
+    fact, which source produced it. A menu that offered "the newest beta"
+    without naming the tag would be asking someone to pick a build they cannot
+    later identify in a log — which is the confusion that cost this project a
+    rig session's evidence when a rip turned out to be on `g2ce8993` while the
+    round under review was `ddf7ac3`.
+    """
+
+    #: Short commit SHA to build.
+    pin: str
+    #: What this build is *for*, in one word: "approved", "test-pin", "custom".
+    kind: str
+    #: Human-readable reason, straight from the underlying :class:`ForkTarget`.
+    why: str
+    #: The banner parenthetical a correct build must print.
+    build_tag: str
+    #: True when a closed handshake round has approved this exact build.
+    is_approved: bool
+
+    @property
+    def label(self) -> str:
+        """One line for a menu, naming the tag rather than only the role."""
+        mark = "✓" if self.is_approved else "⚠"
+        return f"{mark} {self.kind}: {self.pin} ({self.build_tag})"
+
+
+def ripper_choices() -> list[RipperChoice]:
+    """The cyanrip builds this Platterpus knows how to install, best first.
+
+    **Ordering is by trust, not by date**, and that is deliberate. For the app
+    itself "newest" is the right default because a newer release is a better
+    release. For the *ripper* it is not: the build a closed handshake round
+    approved is the one whose output both projects have verified, and a newer
+    test pin is by definition less checked, not more. So the approved build
+    leads and the round's test pin follows, each labelled with what it is.
+
+    **What this deliberately does NOT do yet: ask GitHub for the fork's newest
+    builds.** That needs facts about the fork's release practice we do not hold
+    — whether it publishes GitHub releases at all, how a beta is marked, and
+    which tag shape a release carries — and inventing an answer would produce a
+    menu that looks authoritative and lists builds that may not exist. It is the
+    open question in the next handshake file rather than a guess here. Every
+    entry below is one we can state from our own constants.
+
+    A commit typed by hand still reaches the installer through
+    :func:`target_for_commit`; this is the menu, not the only door.
+    """
+    seen: set[str] = set()
+    out: list[RipperChoice] = []
+    for target, kind in ((PRODUCTION_TARGET, "approved"), (TEST_TARGET, "test-pin")):
+        if target.pin in seen:
+            # The two constants coincide whenever a round has just closed and the
+            # test pin has been promoted. Showing one build twice under two names
+            # would read as two options.
+            continue
+        seen.add(target.pin)
+        out.append(
+            RipperChoice(
+                pin=target.pin,
+                kind=kind,
+                why=target.why,
+                build_tag=target.build_tag,
+                is_approved=same_commit(target.pin, PRODUCTION_TARGET.pin),
+            )
+        )
+    return out
