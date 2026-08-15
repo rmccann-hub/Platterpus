@@ -480,7 +480,30 @@ def main(argv: list[str] | None = None) -> int:
     from platterpus.logging_setup import configure_logging, set_debug_logging
 
     configure_logging()
-    log.info("platterpus %s (build %s) starting", __version__, build_fingerprint())
+    # Log OUR OWN argv, not just the version. Critical rule #12 requires the
+    # exact argv of every dependency we spawn; the same reasoning applies to the
+    # invocation that produced the run, because this program's behaviour changes
+    # completely by flag — `--install-ripper` rebuilds and replaces the ripper,
+    # `--doctor` touches nothing.
+    #
+    # Measured cost of not having it (2026-08-14): the rig's installed ripper
+    # silently changed from the approved pin to another build. The log showed a
+    # second `platterpus … starting` at the exact minute, followed by the whole
+    # build-install-export sequence — but not WHICH pin it was asked for, so the
+    # question could only be answered from the operator's shell history, which
+    # no bug report carries. `--rig-session` already logs its argv (see
+    # `rig session starting:` above); the main entry point did not.
+    #
+    # `argv` is the caller-supplied list in tests and `sys.argv[1:]` in
+    # production, so this records what was actually parsed rather than
+    # re-reading the process arguments and risking the two disagreeing.
+    _invoked = argv if argv is not None else sys.argv[1:]
+    log.info(
+        "platterpus %s (build %s) starting; args: %s",
+        __version__,
+        build_fingerprint(),
+        " ".join(_invoked) if _invoked else "(none — GUI launch)",
+    )
 
     # Config first; both the logging path and the adapter constructors
     # depend on what the user has configured.
