@@ -21,6 +21,7 @@ from platterpus.deps.step_engine import (
     StepResult,
     StepStatus,
     SubprocessRunner,
+    one_line_argv,
 )
 
 # --- StepResult.ok: which statuses count as success -------------------------
@@ -166,3 +167,94 @@ def test_bounded_output_keeps_the_tail_and_counts_the_gap() -> None:
     assert kept[-1] == f"line{total - 1}", "the tail was dropped"
     marker = kept[_OUTPUT_HEAD_LINES]
     assert "omitted" in marker and "400" in marker, f"gap not counted: {marker!r}"
+
+
+class TestArgvIsLoggedOnOneLine:
+    """A multi-line `sh -c` script must not become 100 log lines.
+
+    Reported from real use, 2026-08-15: `--install-ripper` printed its own shell
+    scripts at the operator between progress rows, because the step engine logs
+    each command at INFO and several commands *are* multi-line scripts. The log
+    goes to the terminal as well as the file, so good diagnostics produced
+    unusable output.
+
+    The fix must not lose anything: recording the exact argv is the obligation
+    that makes a run diagnosable, and the same day proved what its absence
+    costs. So this pins both halves — one line, and nothing dropped.
+    """
+
+    SCRIPT = "set -eu\necho one\necho two\n"
+
+    def test_a_multiline_script_becomes_a_single_line(self) -> None:
+        rendered = one_line_argv(["sh", "-c", self.SCRIPT, "label"])
+        assert "\n" not in rendered, (
+            f"the argv still spans multiple lines: {rendered!r}"
+        )
+        assert rendered.count("\\n") == 3, "the newlines were dropped, not escaped"
+
+    def test_nothing_is_lost(self) -> None:
+        """The non-triviality floor, and the one that matters: a truncating
+        'fix' would satisfy the single-line test while destroying the record."""
+        rendered = one_line_argv(["sh", "-c", self.SCRIPT])
+        for token in ("set -eu", "echo one", "echo two"):
+            assert token in rendered, f"{token!r} vanished from the logged argv"
+
+    @staticmethod
+    def _unescape(text: str) -> str:
+        """A correct inverse: parse left to right, one escape at a time.
+
+        Chained `str.replace` calls are NOT a valid inverse of backslash
+        escaping, and the first version of this test used them and failed on
+        `back\\nslash` — a literal backslash followed by the letter n. Escaping
+        gives `back\\\\nslash`; replacing `\\n` first then matches the *second*
+        backslash and turns it into a newline. The encoding is unambiguous; a
+        naive decoder is not, which is exactly the sort of "looks equivalent"
+        shortcut this project keeps finding in its own checks.
+        """
+        out: list[str] = []
+        i = 0
+        while i < len(text):
+            if text[i] == "\\" and i + 1 < len(text):
+                nxt = text[i + 1]
+                mapped = {"n": "\n", "r": "\r", "t": "\t", "\\": "\\"}.get(nxt)
+                if mapped is not None:
+                    out.append(mapped)
+                    i += 2
+                    continue
+            out.append(text[i])
+            i += 1
+        return "".join(out)
+
+    def test_the_escaping_is_reversible(self) -> None:
+        """A log line you cannot turn back into the command is a summary, not a
+        record. Tested per-argument: splitting the joined line on spaces would be
+        meaningless, since arguments legitimately contain spaces."""
+        for original in (
+            "set -eu\nrm -rf /\n",
+            "a\tb",
+            "carriage\rreturn",
+            "back\\slash",
+            "back\\nslash-that-looks-escaped",
+            "trailing-backslash\\",
+            "",
+            "plain",
+        ):
+            rendered = one_line_argv([original])
+            assert "\n" not in rendered and "\r" not in rendered
+            restored = self._unescape(rendered)
+            assert restored == original, (
+                f"{original!r} did not survive the round trip: "
+                f"rendered={rendered!r} restored={restored!r}"
+            )
+
+    def test_an_ordinary_command_is_unchanged(self) -> None:
+        """Most commands have no newlines and must read exactly as before."""
+        assert one_line_argv(["distrobox", "list"]) == "distrobox list"
+
+    def test_the_runner_uses_it(self) -> None:
+        """A helper nothing calls is the shape this project has shipped before."""
+        import inspect
+
+        src = inspect.getsource(SubprocessRunner.run)
+        assert "one_line_argv" in src, "the runner still joins argv raw"
+        assert '" ".join(argv)' not in src

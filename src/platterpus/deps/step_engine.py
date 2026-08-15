@@ -39,6 +39,37 @@ _OUTPUT_TAIL_LINES: int = 60
 _OUTPUT_ELISION: str = "  … [{count} line(s) omitted] …"
 
 
+def one_line_argv(argv: list[str]) -> str:
+    """Render an argv as exactly one log line, losing nothing.
+
+    **The problem this solves.** Several steps pass a multi-line shell script as
+    a single ``sh -c`` argument. ``" ".join(argv)`` embeds those newlines
+    verbatim, so one INFO record became ~100 physical lines — and because the
+    log also goes to the terminal, ``--install-ripper`` appeared to print its own
+    source code at the operator between progress rows. Reported from real use on
+    2026-08-15: excellent diagnostics, unusable terminal output.
+
+    **Why escaping and not truncating.** The obligation to record the exact argv
+    is not negotiable — a run whose command we cannot reconstruct is a run we
+    cannot diagnose, which is the gap that cost a diagnosis the same day. So
+    nothing is dropped: newlines, tabs and carriage returns become their
+    two-character escapes, which is reversible, greppable, and one line. A cap
+    would have been easier and would have thrown away the middle of the script,
+    where the interesting part lives.
+
+    Arguments are separated by a space and left otherwise verbatim; this is a
+    log line, not a shell-quoting round trip, and pretending otherwise would
+    invite someone to paste it back into a terminal.
+    """
+    return " ".join(
+        arg.replace("\\", "\\\\")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+        for arg in argv
+    )
+
+
 def _bounded_output(output: str) -> str:
     """``output`` capped to a head and a tail, with the gap counted and marked.
 
@@ -117,7 +148,7 @@ class SubprocessRunner:
         return path.exists()
 
     def run(self, argv: list[str]) -> tuple[int, str]:
-        log.info("host-setup: %s", " ".join(argv))
+        log.info("host-setup: %s", one_line_argv(argv))
         try:
             proc = subprocess.run(
                 argv,
@@ -130,10 +161,17 @@ class SubprocessRunner:
             log.error("host-setup: %s — command not found", argv[0])
             return 127, f"command not found: {argv[0]} ({exc})"
         except subprocess.TimeoutExpired:
+            # One line here too. A timeout is precisely when the operator reads
+            # this line, and a multi-line `sh -c` script would bury it.
             log.error(
-                "host-setup: timed out after %.0fs: %s", _STEP_TIMEOUT_S, " ".join(argv)
+                "host-setup: timed out after %.0fs: %s",
+                _STEP_TIMEOUT_S,
+                one_line_argv(argv),
             )
-            return 124, f"timed out after {_STEP_TIMEOUT_S:.0f}s: {' '.join(argv)}"
+            return (
+                124,
+                f"timed out after {_STEP_TIMEOUT_S:.0f}s: {one_line_argv(argv)}",
+            )
         output = (proc.stdout or "") + (proc.stderr or "")
         # LOG THE OUTPUT, NOT ONLY THE ARGV.
         #
@@ -159,7 +197,7 @@ class SubprocessRunner:
             log.error(
                 "host-setup: exit %d from %s\n%s",
                 proc.returncode,
-                " ".join(argv),
+                one_line_argv(argv),
                 _bounded_output(output),
             )
         elif output.strip():

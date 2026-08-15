@@ -12,6 +12,29 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A wrong cyanrip build is now refused *before* it is installed.** The install
+  ran build → install → export → verify, so `sudo install` overwrote
+  `/usr/local/bin/cyanrip` and `distrobox-export` rewrote the host wrapper
+  *before* anything compared the binary's build tag. A failed verification
+  reported the problem accurately and still left the wrong ripper on the ripping
+  path with no rollback — the guard meant to be the last word running after the
+  point of no return. The build step already read the banner off the binary it
+  had just produced; it now compares it too, and refuses with both the tag it
+  got and the tag it wanted, plus an explicit note that nothing was changed and
+  the previous ripper is still in place. The post-install check stays: one says
+  *we built the right thing*, the other says *the right thing is what landed and
+  got exported*, and install/export is exactly where a correct build can still
+  go astray. (Latent, not a sighting — no rig failure was caused by it.)
+- **`--install-ripper` no longer appears to print its own source code at you.**
+  Several steps pass a multi-line shell script as one `sh -c` argument, and the
+  step engine logs each command at INFO, so a routine install emitted roughly a
+  hundred literal lines of shell between the progress rows — and the log goes to
+  the terminal as well as the file. Command lines are now escaped to exactly one
+  line, losing nothing: newlines, tabs and returns become two-character escapes,
+  which is reversible and greppable. Truncating would have been easier and would
+  have thrown away the middle of the script, which is where the interesting part
+  is. Applied to the failure and timeout paths too — a timeout is precisely when
+  that line gets read.
 - **The log did not record the arguments Platterpus itself was started with.**
   It records the exact argv of every dependency it spawns — a Critical-rule
   obligation — and the argv of a `--rig-session` run, but the main entry point
