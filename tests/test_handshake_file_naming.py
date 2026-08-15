@@ -93,22 +93,17 @@ def _declared(path: Path) -> tuple[int | None, int | None, str]:
 
 #: Files in the handshake tree that are NOT laps and must not be judged as ones.
 #:
-#: **Exactly one entry, and it is a ratchet: it may shrink, never grow.** The
-#: transport envelope (`scripts/emit_handshake_bundle.py`) embeds three laps
-#: verbatim so an operator can send one attachment instead of three, so its body
-#: legitimately contains three `HANDSHAKE-LAP:` lines and the sweep below reads
-#: it as a lap-declaring file with a non-canonical name.
+#: **Empty, and that is the goal state.** It briefly held a transport envelope —
+#: one file wrapping several laps so the operator could send one attachment. That
+#: container was retired on 2026-08-15: a lap file **is** the interchange format,
+#: cyanrip sends plain laps, and a wrapper that carries wire headers in its body is
+#: a thing every content-based sweep on both sides has to be taught to ignore. It
+#: cost us one such lesson in `tests/test_handshake_file_naming.py` and another in
+#: `scripts/round_digest.py`, where it was silently counted as a lap.
 #:
-#: **This exclusion is safe only because of the bundle's name**, which is the
-#: whole point of `tests/test_handshake_bundle.py`: `round08platterpusbundle.md`
-#: cannot match the `round-*.md` glob that `scripts/handshake.py` and the fork's
-#: gate use, so no ordering or verdict decision can ever reach it. If that test
-#: is ever weakened, this exclusion becomes a hole.
-#:
-#: Listed by exact filename rather than by a pattern deliberately: a pattern
-#: ("anything not named round-*") would silently excuse the next misfiled file,
-#: which is the failure this module exists to catch.
-_NOT_LAPS: frozenset[str] = frozenset({"round09platterpusbundle.md"})
+#: Keep it empty. If something must go in, it needs a written reason and a test
+#: that the excluded file genuinely cannot be read as a lap.
+_NOT_LAPS: frozenset[str] = frozenset()
 
 
 def _lap_files_in(directory: str) -> list[Path]:
@@ -129,7 +124,7 @@ def _all_files() -> list[Path]:
     return sorted(p for d in _DIRS for p in _lap_files_in(d))
 
 
-def test_every_excluded_file_really_is_not_a_lap() -> None:
+def test_nothing_is_excluded_and_the_guard_still_works_if_something_is() -> None:
     """The exclusion list must not become a place to hide a misfiled lap.
 
     Two checks, because either alone is satisfiable by the wrong thing: the file
@@ -137,7 +132,12 @@ def test_every_excluded_file_really_is_not_a_lap() -> None:
     stale), and it must be structurally incapable of being read as a lap — no
     wire header at column 0 of its own, and a name no gate's glob can reach.
     """
-    for name in _NOT_LAPS:
+    assert not _NOT_LAPS, (
+        "the exclusion list is meant to be empty — a container in the handshake "
+        "tree is a thing every sweep on both sides must be taught to ignore. "
+        "Adding one needs a written reason here."
+    )
+    for name in _NOT_LAPS:  # pragma: no cover — empty by design; the guard below
         matches = [p for d in _DIRS for p in (_HANDSHAKE / d).glob(name)]
         assert len(matches) == 1, f"{name}: expected exactly one, found {matches}"
         path = matches[0]

@@ -30,35 +30,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   rule is now derived from the spec's own ambiguity clause rather than a
   filename allowlist), and our round-8 record holds 4 laps against the fork's 12,
   which is the §4a `RECONCILE` state the checksum exists to make visible.
-- **The transport envelope now carries one round at a time** and follows it;
-  round 8's is retired, since the laps themselves are committed individually and
-  are what survives.
-- **The round-8 correspondence ships as one file.** `scripts/emit_handshake_bundle.py`
-  packs our outbound laps into `docs/handshake/outbound/round08platterpusbundle.md`
-  — a **transport envelope, not a merged round file**: each lap's exact bytes,
-  delimited, with its SHA-256, so the receiver splits it back into the originals
-  and can *prove* they are the originals. The laps stay the record; the envelope
-  exists because both projects have been losing hand-relayed attachments, and one
-  attachment is fewer things to lose. Generated and gated, because a hand-built
-  bundle goes stale the first time a lap is corrected and a stale envelope is
-  worse than none — it looks complete. Its name deliberately cannot match the
-  `round-*.md` glob both gates use, since its body carries three wire headers.
-- **`docs/cyanrip-known-issues.md` is marked CLOSED** — the fork dispositioned all
-  ten findings (§2 struck: we reported a defect fixed before we wrote it; the
-  other nine real and fixed). Kept rather than deleted, because the evidence
-  behind each finding is what made the hand-off worth acting on. The live home for
-  the three that remain in `ddf7ac3` is round-8 lap 10 §C and §O.
-- **cyanrip handshake round 8: our half is `GO` on pin `ddf7ac3`**
-  (`docs/handshake/verified/round-08-lap-10.md`), carrying the round's close
-  condition 1 — a real disc ripped on the pin under review, `Ripping errors: 0`,
-  `Read stalls: none`, ripper banner verified identical before and after. **The
-  round is still OPEN**: a close is affirmative and two-sided, the fork has not
-  declared `GO`, and `scripts/handshake.py --status` continues to refuse a
-  release. The lap declines the fork's offered veto on the `-l` cue defect —
-  it is a 2023 upstream bug present in every release either project has shipped,
-  so under S-14 it is not a reason to hold this pin — and states the standing
-  objective both projects now carry: **leave beta for a user-testable release,
-  without trading quality, functionality or bug count for it.**
+- **The transport envelope is retired, and the reason is worth more than the
+  feature.** It was added this cycle so an operator could send one attachment
+  instead of three, and deleted the same day: a **lap file is the interchange
+  format** — cyanrip sends plain laps and so do we — while a container carrying
+  wire headers in its body is something *every content-based sweep on both sides
+  must be taught to ignore*, one sweep at a time. It cost two lessons in one
+  afternoon: the round digest counted it as a lap, and the naming sweep read it as
+  a misfiled one. Round 9 lap 2 raises the underlying gap with the fork as a
+  blocking amendment, because deleting our container does not remove the gap — the
+  next one will not be ours.
 
 ### Added
 - **The cue check now judges *where* an `INDEX 00` pre-gap marker sits, not only
