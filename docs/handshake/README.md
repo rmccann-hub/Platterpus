@@ -66,12 +66,21 @@ documents depend on.
   names it by. Holds the 2026-08-04 rig rip (log, auto-fix addendum, cue, rendered
   EAC-compatible log, JSON report) plus `rig-session-results-c5fb909.md`, the derived record
   that says which artifact settled which claim.
-- **`artifactsround08/`** — the 2026-08-13 rig run: cyanrip log, cue, our JSON report, the
-  ui-script transcript and report, the `--rig-check` manifest, the argv probe, the app log,
-  `--doctor`, and the rig's config and drive profile. Its `README.md` carries the provenance
-  and **states plainly that the run used ripper build `g2ce8993`, which is NOT the
-  `ddf7ac3` under review in round 8** — evidence about one build is not evidence about
-  another.
+- **`artifactsround08/`** — **two** rig runs, distinguished by filename prefix, because they
+  differ in the one variable round 8 is about:
+  - `round08…` — the 2026-08-13 run on ripper build **`g2ce8993`**, which is **NOT** the
+    `ddf7ac3` under review. Evidence about one build is not evidence about another, and the
+    directory's `README.md` says so at the top. Kept rather than superseded: it is the only
+    hardware evidence about that build.
+  - `round08pin…` — the 2026-08-15 run on **`ddf7ac3`, the pin under review** — round 8's
+    close-condition-1 rip, and what lap 10's `GO` rests on. Banner verified before and after,
+    `--rig-check` → `OK ripper/handshake approved`. Its cue is also the artifact that
+    confirmed the fork's `-l` pre-gap-marker disclosure *and* carries the control case that
+    bounds it; `tests/test_cue_validate.py` re-derives every number from it.
+
+  Each run holds: the cyanrip log, the cue, our JSON report, the ui-script transcript and
+  report, the `--rig-check` manifest, the argv probe, and the app log. The 2026-08-13 set
+  additionally holds `--doctor`, the rig's config and its drive profile.
 
 **Names are lowercase ASCII letters and digits only from round 8 on** (`CLAUDE.md` →
 *Artifact filenames that cross machines*). These files leave the repo and come back, and two

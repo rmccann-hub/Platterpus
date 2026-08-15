@@ -11,6 +11,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **cyanrip handshake round 8: our half is `GO` on pin `ddf7ac3`**
+  (`docs/handshake/verified/round-08-lap-10.md`), carrying the round's close
+  condition 1 — a real disc ripped on the pin under review, `Ripping errors: 0`,
+  `Read stalls: none`, ripper banner verified identical before and after. **The
+  round is still OPEN**: a close is affirmative and two-sided, the fork has not
+  declared `GO`, and `scripts/handshake.py --status` continues to refuse a
+  release. The lap declines the fork's offered veto on the `-l` cue defect —
+  it is a 2023 upstream bug present in every release either project has shipped,
+  so under S-14 it is not a reason to hold this pin — and states the standing
+  objective both projects now carry: **leave beta for a user-testable release,
+  without trading quality, functionality or bug count for it.**
+
 ### Added
 - **The cue check now judges *where* an `INDEX 00` pre-gap marker sits, not only
   whether one exists.** A marker means *"this track's pre-gap is appended to the
