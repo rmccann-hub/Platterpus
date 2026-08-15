@@ -11,6 +11,103 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-15 — round 8's rip, a `GO` we could have declined to give, and a cue that carried its own control
+
+**The round-8 rip happened, on the pin under review.** `ddf7ac3`, verified before
+and after from the binary's own banner, `--rig-check` → `OK ripper/handshake
+approved`, `Ripping errors: 0`, `Read stalls: none`, five of fourteen tracks by
+per-track selection. All artifacts committed under
+`docs/handshake/artifactsround08/round08pin*`, alongside — not replacing — the
+2026-08-13 set, which is `g2ce8993` and therefore evidence about a different
+build. Two runs, one directory, a README that says which is which.
+
+**The finding, and why it is the good kind.** The fork disclosed, while asking us
+for a `GO`, that `ddf7ac3` carries an `-l` defect that writes an `INDEX 00`
+pre-gap marker into a file the rip never wrote — and explicitly offered us the
+veto: *"you own the judgement about your users… if you read that as your (b), say
+so and we accept it without argument."* Our cue reproduces it: track 5's marker
+lands **682 frames — 9.09 s — past the end of track 3's file**, the same number
+they measured, arrived at independently.
+
+**We declined the veto.** Under S-14 it is a 2023 upstream bug present in every
+cyanrip release either project has ever shipped, it corrupts no audio, and
+holding a pin for a property it shares with all its predecessors is round 7's
+37-lap failure with our name on it. The answer was to *detect* it instead —
+three findings in `cue_validate`, because "the predecessor is missing", "it is
+present and the marker is elsewhere" and "the nesting is right and the time
+overshoots" have different fixes.
+
+### What the artifact gave us that the disclosure could not
+
+The same cue holds the **control**: track 7's marker, whose predecessor *was*
+ripped, is exactly 105 frames from the end of track 6's file — correct. One file,
+both outcomes. That is what turned "the pre-gap branch is broken" into the much
+narrower and more useful *"a marker is emitted for a pre-gap whose predecessor's
+file does not exist"*, and it is what makes the new check falsifiable rather than
+a detector that flags every partial rip. **A finding with its own negative
+control inside it is worth more than two findings.**
+
+### The bug the new tests found in the old parser
+
+Writing the check exposed one of ours. `parse_cue` re-pointed a track's `FILE`
+whenever a `FILE` line appeared while that track was syntactically open — true of
+cyanrip's gap-appended shape (`TRACK`/`INDEX 00`/`FILE`/`INDEX 01`), and wrong of
+the ordinary one (`FILE`/`TRACK`), where the line belongs to the *next* track. On
+this very cue it credited track 3's file to track 1, so the first version of the
+new finding would have reported the overshoot as **8048 frames instead of 682** —
+a correct-looking diagnosis with a wrong number, which is worse than no
+diagnosis. Nothing had ever needed to know *whose* audio a file holds, so it had
+never mattered.
+
+**And then the fixture.** `_b5_shaped_cue` dropped `INDEX 00` lines without moving
+the `FILE` line above the `TRACK` line, producing a layout cyanrip never writes —
+so the new check correctly called three of its markers misplaced, and the
+"clean rip is all-OK" control failed. *What does my stand-in do that the real
+thing does not*: that. Fixed in the fixture and pinned there with an assertion, so
+a future edit cannot quietly hand a malformed sheet to fourteen assertions that
+were never about layout.
+
+### Two process findings, both about reading only your own half
+
+- **Neither project has been receiving the other's lap files for a full round.**
+  Their state document says they hold none of our laps 2, 4, 6, 8, 10; we hold
+  none of their 3, 5, 7, 9, 11, 13. Both `--status` gates reported healthy the
+  whole time, because **each reads only its own directory**. Thirteen laps of a
+  one-sided conversation that no gate on either side could see. Raised as lap
+  10's one `BLOCKING` item — against round 9's *opening*, not round 8's close,
+  which is S-14 applied honestly.
+- **`messages_are_complete` was asked for by us, added by them, praised by us,
+  and checked against a log by nobody** for two rounds. Asking for a field is not
+  verifying the field. Graduated already as *a list checked against itself is
+  consistent, not verified*; this is the second instance.
+
+### The objective, set this session and now standing
+
+The maintainer's words, both halves: *"get us out of beta and into a user release
+testable release… as soon as we can"* and *"but not at the expense of quality,
+functionality, or reducing bugs."* Recorded at the top of `TASKS.md` and in lap
+10 §A so the fork carries it too. It is not a lowered bar — it is round 7's own
+diagnosis applied to us: **release-grade rigour was being attached to the round
+rather than to the release.** The rigour stays; the round has to be able to end.
+
+### Also this session
+
+- Answered the fork's seven §11 questions from source rather than memory: J11
+  fixed in `0.6.12b2` (and the diagnosis was not what the symptom said — a
+  duplicate `drive_changed` emission, not the 0 ms teardown); J12 needs no
+  cleanup command because every run writes to its own timestamped directory; the
+  joint script's 1 fail + 2 errors are all one step and all ours, two of them
+  being the round-8 stale-command fix *working*.
+- Reported the loss of `~/rigsession/` plainly, having been asked to keep it.
+  An artifact the other side asked us to preserve was lost on our side; it was
+  not our archive command, and we cannot say what it was.
+- Hardware confirmed `-f` rediscovering `+667` independently of the configured
+  `-s 667`, and a third measurement of the `-x` cache-probe disagreement (ours
+  32 sectors, `cd-paranoia -A` 137 then 140) — which is **our** method defect,
+  filed for round 9.
+
+---
+
 ## 2026-08-14 — an audit that found nothing wrong, and the guard that had been applied where it was learned
 
 Two pieces of work with the same shape: **a rule that was true but unheld**.
