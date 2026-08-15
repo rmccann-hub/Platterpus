@@ -103,6 +103,51 @@ worth re-reading and it is not what the symptom said.
   Found 2026-08-13 by asking the operator to `ls` the path before the run — which
   is the cheap check that should have existed the first time the path was written.
 
+## When their lap 9 arrives — everything our lap 10 must carry (staged 2026-08-15)
+
+**Do NOT write a lap-10 file before their lap 9 lands.** Round 8 is open, lap 9
+is theirs under the opener/parity rule, and a lap written before the one it
+answers is not a reply — it is a second opener. Maintainer's instruction,
+verbatim: *"keep all you notes ready for the next lap handshake doc so we can
+send to cyanrip as well, but not until they prompt us with the next handshake
+file."* This section is the staging area; it is not correspondence.
+
+- [ ] **Settle the expired close-by date FIRST.** Our lap 8 §J1 accepted
+  `HANDSHAKE-CLOSE-BY: 2026-08-14` *"Accepted, unchanged"*. That date passed with
+  the round open. Under S-13 a close condition fixed at lap 1 cannot be
+  *extended*, which is exactly the rule written after round 7's 37 laps — so
+  this needs a joint decision, not a unilateral reading by either side. It is the
+  first thing lap 10 addresses.
+
+- [ ] **Hold the pre-commit exactly as written.** Lap 8 §E: *"Our lap 10 is GO on
+  `ddf7ac3` unless"* (1) their lap 9 moves the pin, (2) they raise a finding that
+  makes `ddf7ac3` **itself** unsafe (S-14 — name what it breaks in the artifact
+  under review), or (3) they would rather we made the two SECTION C edits.
+  **Nothing else.** §C2, §C3 and §C5 were pre-committed to round 9 precisely so
+  they could not quietly become blockers; honour that even if lap 9 revisits them.
+
+- [ ] **Carry hardware evidence on `ddf7ac3` — the gap that would otherwise make
+  lap 10 dishonest.** We pre-commit to GO on `ddf7ac3` and our only rig rip is on
+  `g2ce8993` (`docs/handshake/artifactsround08/`, which says so in its README).
+  Signing off a build nobody ripped with is what Critical rule #12 exists to
+  prevent. The rig is now on `ddf7ac3` and reporting `OK ripper/handshake
+  approved`, so this is one disc. **Rip AFTER their lap 9 confirms the pin**, not
+  before — a rip on a pin they are about to move is wasted.
+
+- [ ] **Answer their reply to our two §F questions** (both `NEXT-ROUND`): whether
+  their `HANDSHAKE-PROTOCOL: 2` proposal changes the field set we are already
+  emitting, and whether they hold round 8 laps 3–7 for us to commit as inbound.
+
+- [ ] **Report what shipped since lap 8**, with the pin unchanged: v0.6.12b6;
+  the pre-install build-tag guard (a wrong build is now refused *before* `sudo
+  install` and `distrobox-export`, so a failed check no longer leaves the wrong
+  ripper exported); our own argv now logged at startup; `--install-ripper list`.
+  None of it touches SECTION C or the pin.
+
+- [ ] **Hand over `docs/cyanrip-known-issues.md`** — ten verified findings, and
+  §10b's three questions about listing their builds. It is deliberately not a lap
+  and must not be counted as one; say so when sending.
+
 ## Found on the rig, 2026-08-15 — two `--install-ripper` observations
 
 Both surfaced while an operator moved the rig between pins during round 8.
