@@ -1,0 +1,4 @@
+argv: /home/rmccann/.local/bin/cyanrip -j /home/rmccann/.local/share/platterpus/uiscript/20260815T193236+0000/rig-check/argv-probe.json -d /nonexistent-platterpus-rig-check.cue -s 667 -o flac -r 3 -Z 3 -l 1,2 -N --consumer platterpus/0.6.12b6 -c 1/1 -a album=Rig Check:album_artist=Platterpus:date=2026 -t 1=title=One -t 2=title=Two -F (track) - (title) -G
+exit: 1
+
+libcdio error: source name /nonexistent-platterpus-rig-check.cue is not recognized as a CUE file

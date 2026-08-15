@@ -12,6 +12,36 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **The cue check now judges *where* an `INDEX 00` pre-gap marker sits, not only
+  whether one exists.** A marker means *"this track's pre-gap is appended to the
+  end of the file above"*, so the file above must be the **previous track's**
+  audio. On a partial rip driven by the per-track "Rip?" checkboxes, cyanrip
+  writes the marker even when the previous track was not selected — nesting it
+  under whichever file happens to be current, at a position that file does not
+  contain. Measured on the 2026-08-15 rig rip (`-l 1,3,5,6,7`): track 5's marker
+  landed **682 frames — 9.09 s — past the end of track 3's file**, while track
+  7's, whose predecessor *was* ripped, is exactly right. Both are in one cue, and
+  both are re-derived from the two committed artifacts by the tests rather than
+  transcribed. Three findings, so a bug report is pointed at the right cause:
+  `cue_index00_orphaned`, `cue_index00_misplaced`, `cue_index00_past_eof`. The
+  defect is upstream-origin (`90c02175`, 2023) and present in every cyanrip
+  release either project has shipped; the fork disclosed it independently in
+  round 8. The audio is unaffected — this is an error in the sheet.
+- **`ExpectedCue.track_frames`** — each track's length in CD frames, derived by
+  `rip_audit` from the ripper's own sector numbers, so the finding can say *how
+  far* past a file's end a marker lands instead of only that it is wrong.
+
+### Fixed
+- **The cue parser attributed a file to the wrong track in the ordinary
+  multi-file layout.** A `FILE` line seen while a track block was still
+  syntactically open was always taken as that track's own audio — true in
+  cyanrip's gap-appended shape (`TRACK`/`INDEX 00`/`FILE`/`INDEX 01`), and wrong
+  in the plain one (`FILE`/`TRACK`), where it belongs to the *next* track. It
+  now re-points only when the open track has an `INDEX 00` and no `INDEX 01`
+  yet, which is that shape's signature. Invisible until something needed to know
+  whose audio a file holds: on the rig cue it credited track 3's file to track 1
+  and would have reported the misplaced marker as 8048 frames out instead of the
+  true 682. Found by the new placement tests, not by review.
 - **`--install-ripper list` — choose a cyanrip build instead of memorising a
   SHA.** Prints every build this Platterpus knows how to install, each with the
   **build tag** a correct build must print, the approved one first and marked
