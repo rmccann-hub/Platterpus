@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.12b6] — 2026-08-15
+
 ### Fixed
 - **Installing the approved cyanrip pin by name announced that no round had
   approved it.** `--install-ripper ddf7ac3` — naming the very build a closed
@@ -5640,7 +5642,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12b5.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12b6.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7882,7 +7884,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b5...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b6...HEAD
+[0.6.12b6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b5...v0.6.12b6
 [0.6.12b5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b4...v0.6.12b5
 [0.6.12b4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b3...v0.6.12b4
 [0.6.12b3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b2...v0.6.12b3
@@ -7981,4 +7984,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.12b5.*
+*Last updated for Platterpus v0.6.12b6.*
