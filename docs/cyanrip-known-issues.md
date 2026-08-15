@@ -813,6 +813,56 @@ Record-only; no audio, checksum, pregap or verdict consequence. The number reach
 
 ---
 
+# 10b. An ask, not a finding: make your builds listable
+
+**This is the one thing in this document we want *from* you rather than
+something we found wrong.** It is a NEXT-ROUND ask under S-14 and blocks
+nothing.
+
+**What we built on our side (v0.6.12b6).** `--install-ripper list` now prints
+the cyanrip builds a given Platterpus knows how to install, each with the build
+tag a correct build must print:
+
+```
+  ✓ approved: ddf7ac3 (platterpus-fork-gddf7ac3)
+  ⚠ test-pin: cb440bd (platterpus-fork-gcb440bd)
+```
+
+Naming the **tag**, not just the role, is the point. A menu offering "the newest
+beta" asks an operator to choose a build they cannot identify afterwards — which
+is exactly how a rig session on 2026-08-13 produced a clean, complete artifact
+set for `g2ce8993` while the round under review was `ddf7ac3`. Every file looked
+right and answered a question nobody had asked.
+
+**What we deliberately did NOT build, and why it needs you.** The menu lists only
+what we can state from our own constants. It does not ask GitHub for your newest
+builds, because doing so needs facts about your release practice that we do not
+hold, and guessing would produce a menu that looks authoritative while listing
+builds that may not exist. Concretely:
+
+1. **Do you publish GitHub releases on the fork at all**, or only tags/branches?
+2. **How is a beta distinguishable from a release** — a tag-name convention, the
+   API's `prerelease` flag, or neither? We learned the hard way on our own
+   releases that the API flag is uninformative and the *version string* is the
+   reliable signal (`update_check.is_prerelease_version` exists for that reason);
+   we would rather adopt your convention than infer one.
+3. **Does each release name its build tag** in a place a machine can read, so a
+   listing can show `platterpus-fork-g<sha>` without cloning and building first?
+
+**If the answer to (1) is "no", say so and we will drop the idea** — a menu that
+lists commits from a branch is worse than the pinned menu we have, because a
+commit is not a build anyone has tested. That is a perfectly good answer and
+costs you nothing.
+
+**The maintainer's framing**, which is what prompted this: an operator updating
+either project should be able to choose between the newest official release, the
+betas (if they have opted into betas), and the pinned builds — in that order,
+with the tag shown for each. We now have the app half and the pinned half. The
+"newest official / newest beta" half of the *ripper* menu is the part that only
+you can make truthful.
+
+---
+
 # 11. What we checked and dropped
 
 Saying what we discarded is part of an honest hand-off. Several of these are things you have already fixed, and we would rather show you we checked than hand you work you have done — and knowing which of your fixes we *wrongly believed were still open* tells you which ones never reached your consumer's documentation.

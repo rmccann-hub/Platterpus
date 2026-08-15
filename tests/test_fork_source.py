@@ -920,3 +920,58 @@ class TestTheBuildRefusesBeforeInstalling:
                 ["sh", "-n"], input=script, capture_output=True, text=True, timeout=30
             )
             assert done.returncode == 0, f"{name} is not valid shell: {done.stderr}"
+
+
+class TestTheRipperBuildMenu:
+    """`--install-ripper list` must name the build TAG, not only a role.
+
+    A menu offering "the newest beta" without naming
+    `platterpus-fork-g<sha>` asks an operator to choose a build they cannot
+    later identify in a log. That is the confusion that cost a rig session's
+    evidence on 2026-08-13, when a rip turned out to be on `g2ce8993` while the
+    round under review was `ddf7ac3` — every artifact looked fine and answered a
+    question nobody had asked.
+    """
+
+    def test_every_choice_carries_its_build_tag(self) -> None:
+        choices = fork_source.ripper_choices()
+        assert choices, "the menu is empty"
+        for choice in choices:
+            assert choice.build_tag.startswith(fork_source.FORK_BRANCH + "-g"), (
+                f"{choice.pin} has no usable build tag: {choice.build_tag!r}"
+            )
+            assert choice.pin in choice.build_tag
+            assert choice.build_tag in choice.label, (
+                f"the menu line hides the tag: {choice.label!r}"
+            )
+
+    def test_the_approved_build_leads_and_is_marked_approved(self) -> None:
+        """Ordering is by trust, not by date. For the ripper the newest build is
+        the *least* checked one, which inverts the app's own 'newest wins'."""
+        choices = fork_source.ripper_choices()
+        assert choices[0].is_approved, "the approved build is not first"
+        assert choices[0].pin == fork_source.PRODUCTION_TARGET.pin
+        assert choices[0].kind == "approved"
+
+    def test_an_unapproved_choice_is_visibly_marked(self) -> None:
+        """Non-triviality floor: a menu that marked everything approved would
+        pass the test above and destroy the distinction it exists for."""
+        unapproved = [c for c in fork_source.ripper_choices() if not c.is_approved]
+        assert unapproved, (
+            "no unapproved build in the menu — either the test pin has been "
+            "promoted (fine, drop this assertion then) or the flag is stuck True"
+        )
+        for choice in unapproved:
+            assert "⚠" in choice.label and "✓" not in choice.label
+
+    def test_a_duplicate_pin_is_listed_once(self) -> None:
+        """When a round closes, the test pin is promoted and the two constants
+        coincide. One build shown twice under two names reads as two options."""
+        pins = [c.pin for c in fork_source.ripper_choices()]
+        assert len(pins) == len(set(pins)), f"a build is listed twice: {pins}"
+
+    def test_the_word_list_cannot_collide_with_a_commit(self) -> None:
+        """`list` is a literal in the same slot as a COMMIT. Git requires at
+        least 4 hex characters for an abbreviation, and 'list' is not hex, so
+        the two can never be confused."""
+        assert not all(ch in "0123456789abcdef" for ch in "list")
