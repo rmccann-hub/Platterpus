@@ -942,9 +942,11 @@ ninja -C "$src/build"
 built="$src/build/src/cyanrip"
 if [ -x "$built" ]; then
   echo "platterpus: built binary=$built"
+  _banner=''
   for _f in -V --version; do
     if _out="$("$built" "$_f" 2>/dev/null)"; then
-      echo "platterpus: built banner=$(printf '%s\\n' "$_out" | head -n 1)"
+      _banner="$(printf '%s\\n' "$_out" | head -n 1)"
+      echo "platterpus: built banner=$_banner"
       break
     fi
   done
@@ -952,6 +954,42 @@ else
   echo "platterpus: FATAL ninja reported success but $built is not executable" >&2
   exit 1
 fi
+
+# --- REFUSE HERE, BEFORE ANYTHING IS INSTALLED ------------------------------
+# $5 is the build tag a correct build of $4 must print. Checking it *here* is
+# the whole point: the steps that follow are `sudo install` over
+# /usr/local/bin/cyanrip and `distrobox-export` over the host wrapper, and both
+# are irreversible. Verifying only after them means a failed check reports the
+# problem accurately and still leaves the wrong ripper on the ripping path,
+# with no rollback — the guard meant to be the last word running after the
+# point of no return.
+#
+# The post-install verify stays. Two checks are not redundant here: this one
+# says "we built the right thing", the later one says "the right thing is what
+# landed and got exported". A single check cannot cover both, because install
+# and export are exactly where a correct build could still go astray.
+if [ -z "$_banner" ]; then
+  echo "platterpus: FATAL the binary we just built answered none of: -V --version" >&2
+  echo "platterpus: refusing to install it — nothing has been changed" >&2
+  exit 1
+fi
+case "$_banner" in
+  *"$5"*)
+    echo "platterpus: built binary identifies as $5 — safe to install" ;;
+  *)
+    echo "platterpus: FATAL built binary reports \\"$_banner\\"" >&2
+    echo "platterpus: but commit $4 must produce build tag \\"$5\\"" >&2
+    case "$_banner" in
+      *-grelease*|*-gunknown*)
+        echo "platterpus: that tag names no commit at all — meson's vcs_tag fell" \\
+             "back to its literal default, so the binary cannot prove which" \\
+             "source built it" >&2 ;;
+    esac
+    echo "platterpus: refusing to install it — /usr/local/bin/cyanrip and the" \\
+         "host export are UNCHANGED, so the previously working ripper is still" \\
+         "in place" >&2
+    exit 1 ;;
+esac
 """
 
 #: Verifies the freshly installed binary is the fork *and* the pinned build,
@@ -1040,6 +1078,14 @@ def build_command(container: str, target: ForkTarget | None = None) -> list[str]
         FORK_REPO_URL,
         FORK_BRANCH,
         chosen.pin,
+        # $5 — the tag a correct build must print, so the build step can refuse
+        # BEFORE `sudo install` and `distrobox-export` make the change
+        # irreversible. Passed from `ForkTarget.build_tag` rather than rebuilt
+        # in shell from $3 and $4: one object owns the pin-to-tag relationship
+        # (that is why ForkTarget exists), and a shell reconstruction would be a
+        # second spelling of it, free to drift the first time the tag format
+        # changes.
+        chosen.build_tag,
     )
 
 
