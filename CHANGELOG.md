@@ -11,6 +11,77 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **`--install-ripper list` — choose a cyanrip build instead of memorising a
+  SHA.** Prints every build this Platterpus knows how to install, each with the
+  **build tag** a correct build must print, the approved one first and marked
+  `✓`, anything unverified marked `⚠`:
+
+  ```
+    ✓ approved: ddf7ac3 (platterpus-fork-gddf7ac3)
+    ⚠ test-pin: cb440bd (platterpus-fork-gcb440bd)
+  ```
+
+  Naming the tag is the point, not decoration: it is what the binary prints and
+  what `--rig-check` compares, so it is how a rip is traced back to a build
+  later. A menu offering "the newest beta" would ask an operator to pick
+  something they cannot identify afterwards — which is how a rig session
+  produced a complete, clean artifact set for `g2ce8993` while the round under
+  review was `ddf7ac3`.
+
+  **Ordering is by trust, not by date, and only for the ripper.** For the app a
+  newer release is a better one. For the ripper it is not: the build a closed
+  handshake round approved is the one whose output both projects verified, and a
+  newer test pin is by definition *less* checked. Listing installs nothing — a
+  test asserts the installer is never even constructed, because the dangerous
+  failure is not a wrong menu but a menu that replaces the ripper you are
+  currently using.
+- **`update_check.available_releases()`** — the list form of the existing
+  "is there an update" check, for a picker that offers a choice rather than a
+  single answer. It shares one parser and one ordering with `latest_release()`,
+  which is now literally the head of that list: an offer list that disagreed
+  with the update prompt about which release is newest would be worse than no
+  picker. Respects the existing `update_channel` / `ripper_channel` settings,
+  which already exist and are deliberately separate so you can run app betas
+  against a released ripper, or the reverse during a hardware session.
+
+### Fixed
+- **A wrong cyanrip build is now refused *before* it is installed.** The install
+  ran build → install → export → verify, so `sudo install` overwrote
+  `/usr/local/bin/cyanrip` and `distrobox-export` rewrote the host wrapper
+  *before* anything compared the binary's build tag. A failed verification
+  reported the problem accurately and still left the wrong ripper on the ripping
+  path with no rollback — the guard meant to be the last word running after the
+  point of no return. The build step already read the banner off the binary it
+  had just produced; it now compares it too, and refuses with both the tag it
+  got and the tag it wanted, plus an explicit note that nothing was changed and
+  the previous ripper is still in place. The post-install check stays: one says
+  *we built the right thing*, the other says *the right thing is what landed and
+  got exported*, and install/export is exactly where a correct build can still
+  go astray. (Latent, not a sighting — no rig failure was caused by it.)
+- **`--install-ripper` no longer appears to print its own source code at you.**
+  Several steps pass a multi-line shell script as one `sh -c` argument, and the
+  step engine logs each command at INFO, so a routine install emitted roughly a
+  hundred literal lines of shell between the progress rows — and the log goes to
+  the terminal as well as the file. Command lines are now escaped to exactly one
+  line, losing nothing: newlines, tabs and returns become two-character escapes,
+  which is reversible and greppable. Truncating would have been easier and would
+  have thrown away the middle of the script, which is where the interesting part
+  is. Applied to the failure and timeout paths too — a timeout is precisely when
+  that line gets read.
+- **The log did not record the arguments Platterpus itself was started with.**
+  It records the exact argv of every dependency it spawns — a Critical-rule
+  obligation — and the argv of a `--rig-session` run, but the main entry point
+  logged only `platterpus X.Y.Z (build …) starting`. That gap cost a diagnosis
+  on 2026-08-14: the rig's installed ripper silently changed from the approved
+  pin to a different build, and the log showed a second start at the exact
+  minute followed by the whole build/install/export sequence — but not *which
+  pin it had been asked for*. The question could only be settled from the
+  operator's shell history, which no bug report carries. The same reasoning that
+  requires a dependency's argv applies to our own: this program's behaviour
+  changes completely by flag, since `--install-ripper` rebuilds and replaces the
+  ripper while `--doctor` touches nothing.
+
 ## [0.6.12b6] — 2026-08-15
 
 ### Fixed

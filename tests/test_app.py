@@ -820,3 +820,103 @@ def test_the_unapproved_note_still_fires_for_a_different_commit(
     out = capsys.readouterr().out
     assert "this is not the handshake-approved build" in out
     assert "unapproved" in out
+
+
+def test_startup_logs_the_argv_it_was_invoked_with(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The run's own argv must reach the log, not just its version.
+
+    **Measured 2026-08-14.** The rig's installed ripper silently changed from
+    the approved pin to a different build. `~/.local/share/platterpus/log.txt`
+    showed a second `platterpus … starting` at the exact minute, followed by the
+    full build/install/export sequence — but *not which pin it had been asked
+    for*, so the question could only be answered from the operator's shell
+    history. No bug report carries shell history.
+
+    Critical rule #12 requires the exact argv of every dependency we spawn. The
+    same reasoning applies to our own invocation, because this program's
+    behaviour changes completely by flag: `--install-ripper` rebuilds and
+    replaces the ripper; `--doctor` touches nothing.
+    """
+    _install_ripper_stub(monkeypatch, ready=True)
+    with caplog.at_level("INFO", logger="platterpus.app"):
+        app_module.main(["--install-ripper", "0badc0de"])
+    startup = [r for r in caplog.records if "starting" in r.getMessage()]
+    assert startup, "no startup line logged at all"
+    message = startup[0].getMessage()
+    assert "0badc0de" in message, (
+        "the startup line does not record the argv, so a log cannot say which "
+        f"pin an --install-ripper run was asked for. Logged: {message!r}"
+    )
+
+
+def test_the_startup_line_survives_a_flag_with_no_argument(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Non-triviality floor for the test above.
+
+    The argv addition must not make the startup line conditional on there being
+    an interesting argument to print — a run with a bare flag still needs its
+    marker in the log, and it must still name the flag.
+
+    (`--version` deliberately is not used here: argparse's version action exits
+    inside `parse_args`, before `configure_logging()`, so it logs nothing at all
+    by design. Asserting otherwise would pin a behaviour we do not have.)
+    """
+    _install_ripper_stub(monkeypatch, ready=True)
+    with caplog.at_level("INFO", logger="platterpus.app"):
+        app_module.main(["--install-ripper"])
+    startup = [r for r in caplog.records if "starting" in r.getMessage()]
+    assert startup, "a startup line must be logged for a bare flag too"
+    assert "install-ripper" in startup[0].getMessage(), (
+        f"the flag itself is missing from the startup line: {startup[0].getMessage()!r}"
+    )
+
+
+def test_install_ripper_list_shows_the_menu_and_installs_nothing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--install-ripper list` is a query, not an action.
+
+    The dangerous failure is not a wrong menu — it is a menu that *installs*.
+    This asserts the step engine was never constructed, so listing cannot
+    replace the ripper the operator is currently using.
+    """
+    from platterpus.deps import host_setup as host_setup_module
+    from platterpus.deps.fork_source import PRODUCTION_TARGET
+
+    seen = _install_ripper_stub(monkeypatch, ready=True)
+    host_setup_module.HostSetup.last_kwargs = {}
+    assert app_module.main(["--install-ripper", "list"]) == 0
+    out = capsys.readouterr().out
+
+    assert PRODUCTION_TARGET.build_tag in out, "the menu does not name the build tag"
+    assert PRODUCTION_TARGET.pin in out
+    assert not seen, f"listing ran install steps: {seen}"
+    assert not host_setup_module.HostSetup.last_kwargs, (
+        "listing constructed the installer — a query must not be able to "
+        "replace the ripper the operator is currently ripping with"
+    )
+
+
+def test_install_ripper_list_is_case_and_space_tolerant(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Typed by a person at a terminal, so ' List ' must work too."""
+    _install_ripper_stub(monkeypatch, ready=True)
+    assert app_module.main(["--install-ripper", " List "]) == 0
+    assert "install" in capsys.readouterr().out.lower()
+
+
+def test_a_real_commit_still_installs_rather_than_listing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Non-triviality floor: a guard that swallowed every value would satisfy
+    the tests above and break installing entirely."""
+    from platterpus.deps import host_setup as host_setup_module
+
+    _install_ripper_stub(monkeypatch, ready=True)
+    assert app_module.main(["--install-ripper", "0badc0de"]) == 0
+    target = host_setup_module.HostSetup.last_kwargs.get("fork_target")
+    assert target is not None and target.pin == "0badc0de"
