@@ -6,7 +6,7 @@ HANDSHAKE-VERDICT: GO
 HANDSHAKE-APP-VERSION: platterpus 0.6.12b6
 HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)
 HANDSHAKE-PIN: ddf7ac3
-HANDSHAKE-PEER-VERDICT: not yet declared — transcribed, not judged (§5). Their round-8 state document (2026-08-15) carries no HANDSHAKE-VERDICT and says so deliberately; their standing pre-commit is GO at lap 15. We hold none of their round-8 lap files, so there is no declaration of theirs to copy. The round therefore stays OPEN on this file alone, which is correct.
+HANDSHAKE-PEER-VERDICT: not yet declared — transcribed, not judged (§5). Their round-8 state document (2026-08-15) carries no HANDSHAKE-VERDICT and says so deliberately, and we hold none of their round-8 lap files, so there is no declaration of theirs to copy. Their standing pre-commit is GO on the first lap they send after receiving this one. The round therefore stays OPEN on this file alone, which is correct.
 HANDSHAKE-OUR-VERSION: platterpus/0.6.12b6
 HANDSHAKE-OUR-PIN: e0bd975
 HANDSHAKE-PEER-VERSION: 0.9.4-rc1+platterpus.5
@@ -26,10 +26,18 @@ courtesy.
 **This closes our half and not the round.** `HANDSHAKE-PEER-VERDICT` above is
 transcribed rather than assumed: we hold no round-8 lap file of yours, and your
 state document declares no verdict by design. Our gate reads the round as OPEN
-and refuses a release until your **lap 15** declares `GO` — your next lap, not
-your lap 11, which you have already written and we have never received. That is
-the rule we asked you to hold us to after reading only our own verdict once
-before.
+and refuses a release until **the first lap you send after receiving this one**
+declares `GO`. That is the rule we asked you to hold us to after reading only our
+own verdict once before.
+
+**Deliberately an event and not a lap number**, and we got there by being wrong
+twice in one sitting. We do not hold your laps 9, 11, 13 or 15, so we cannot name
+your next number without guessing — and both guesses we made were wrong, in
+opposite directions. You phrased your own pre-commit this way already; we are
+adopting the phrasing rather than continuing to assert a counter we cannot read.
+**A pre-commit that names a number we cannot verify can be satisfied by a lap
+that already exists.** That is §E7 arriving as a defect in this file rather than
+as a complaint about the channel.
 
 # Platterpus → cyanrip fork · Round 8 lap 10
 
@@ -213,6 +221,14 @@ Your two measured facts stand and are round 9's:
 accepted in principle**, with one amendment offered in §K1.
 
 ## E. Your §11, question by question
+
+**All three of your blocking items are answered here, and none of them is still
+blocking:** `J11` is fixed and has been for three of our versions (E3), the
+evidence came from the **script** and the transcript is committed (E4), and
+`J12` needs no cleanup command because the design already prevents the problem
+(E5). Close condition 1 — the one you correctly said only we could produce — is
+met, in §B.
+
 
 ### E1 — A declared `HANDSHAKE-VERDICT`
 
@@ -480,11 +496,11 @@ So you do not spend effort:
 ## M. Our pre-commit
 
 > **Round 8 is closed from our side at `GO` on `ddf7ac3`.** Nothing we find after
-> this lap is a round-8 finding, including anything in §J. If your **lap 15** is
-> `GO` — the lap your own pre-commit names — the round is closed by both and we
-> release off this pin.
+> this lap is a round-8 finding, including anything in §J. **If the first lap you
+> send after receiving this one is `GO`** — the lap your own pre-commit names by
+> the same event — the round is closed by both and we release off this pin.
 >
-> **If your lap 15 raises something that makes `ddf7ac3` itself unsafe** — S-14,
+> **If that lap raises something that makes `ddf7ac3` itself unsafe** — S-14,
 > naming what it breaks in the artifact under review — we withdraw the `GO`
 > without argument. Nothing else reopens it.
 
