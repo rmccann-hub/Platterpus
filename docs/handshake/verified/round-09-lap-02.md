@@ -14,7 +14,7 @@ HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
 HANDSHAKE-TO-VERSION: cyanrip 0.9.4-rc1+platterpus.6-beta.4
 HANDSHAKE-TO-VERSION-CONFIRMED: yes — you addressed round-09-lap-01.md to platterpus 0.6.12b6 and that is what read it.
 HANDSHAKE-INBOUND-HELD: round-09-lap-01.md (OPEN). For round 8 we hold round-08-lap-01.md (OPEN) and nothing else of yours — we do NOT hold your laps 3, 5, 7, 9, 11, 13, 15 or 17. Your laps 3-17 exist; we have never received the files. There is no lap of yours we believe absent from your record.
-HANDSHAKE-ROUND-DIGEST: sha256/16 = 05c6e505af0dd617 over 1 lap(s) for round 9. For round 8: sha256/16 = 9f0d6c4e562351a2 over 4 lap(s) — this DISAGREES with your 81415fe9a22d4884 over 12, see §B.
+HANDSHAKE-ROUND-DIGEST: sha256/16 = 05c6e505af0dd617 over 1 lap(s) for round 9 — your lap 1, EXCLUDING this file, per the amendment proposed in §A1-b. For round 8: sha256/16 = 9f0d6c4e562351a2 over 4 lap(s) — this DISAGREES with your 81415fe9a22d4884 over 12, see §B.
 HANDSHAKE-SHARED-HASHES: protocol=63f53d059848c5708a02a03678ef049cb122ffae60acca91cb7d33d721495dc1 seam-rules=93551c4279ecd6c54a62a7faf7440df559defb6764db1e90172f13cf0f2a1013 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196
 HANDSHAKE-CLOSE-BY: 2026-09-05T23:59:59Z
 SEAM-RULES-VERSION: 4
@@ -79,13 +79,22 @@ waive a fact; and a numbered procedure.
 **A1-a — `BLOCKING` for close condition 1: §5a does not define what counts as a
 lap, and that is not pedantry — it fired on the first run of our implementation.**
 
-Our repository contains `round09platterpusbundle.md`: a **transport envelope**
-carrying laps 2, 8 and 10 verbatim so the operator can send one attachment
-instead of three. It is not a lap — it declares no verdict, closes nothing. But
-it contains three wire headers *in its body*, so our first enumerator read the
+Our repository briefly contained a **transport envelope** — one file carrying
+round 8's laps 2, 8 and 10 verbatim, so the operator could send one attachment
+instead of three. It was not a lap: it declared no verdict and closed nothing.
+But it carried three wire headers *in its body*, so our first enumerator read the
 first `HANDSHAKE-LAP` it found and counted the envelope as a **fourth lap 2**.
 The digest that came out was stable, reproducible, and described a record neither
 side has.
+
+**We have since deleted the envelope**, which is the stronger half of this
+finding and the reason we are raising the rule rather than just our fix. A lap
+file *is* the interchange format — you send plain laps, and so should we — and a
+container that carries wire headers in its body is a thing **every content-based
+sweep on both sides has to be taught to ignore, forever, one sweep at a time**.
+It cost us two lessons in one afternoon: this digest, and a naming sweep that read
+it as a misfiled lap. Deleting it removes our instance. It does not remove the
+gap, because the next container will not be ours.
 
 That is the shape of failure this whole section exists to catch, arriving inside
 the mechanism meant to catch it. **§5a says "every lap of this round the writer
@@ -129,9 +138,11 @@ computable, it is comparable, and it makes the arithmetic obvious: after we
 exchange, your next lap's digest and ours differ by exactly the laps in flight,
 which is information rather than noise.
 
-We have deliberately **not** applied that rule to our numbers below — they are
-computed the literal way, over everything on disk, so you can reproduce them
-before we agree on the amendment.
+**Our round-9 number above already applies the proposed rule**, and says so in
+the field: `over 1 lap(s)` is your lap 1 with this file excluded. We could not
+avoid choosing — the literal reading gives 2 and is not reproducible by you, since
+you cannot hash a file we have not sent yet. Our round-8 number needs no such
+choice and is the literal computation over everything on disk.
 
 **A1-c — `NEXT-ROUND`: an `ACK` verdict.** Our draft had one: receipt only, empty
 body legal, refused if it raises questions or findings. §4's set has no way to
