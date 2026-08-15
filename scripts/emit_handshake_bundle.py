@@ -42,11 +42,7 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: Our round-8 outbound record, in lap order. Listed explicitly rather than
 #: globbed: a bundle is a deliberate act of correspondence, and a glob would
 #: silently start shipping any file that happened to land in those directories.
-BUNDLE_PARTS: tuple[Path, ...] = (
-    HANDSHAKE_DIR / "outbound" / "round-08-lap-02.md",
-    HANDSHAKE_DIR / "verified" / "round-08-lap-08.md",
-    HANDSHAKE_DIR / "verified" / "round-08-lap-10.md",
-)
+BUNDLE_PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "verified" / "round-09-lap-02.md",)
 
 #: Where the bundle is written.
 #:
@@ -58,7 +54,16 @@ BUNDLE_PARTS: tuple[Path, ...] = (
 #: filesystem, case-sensitive or not. Same hazard the fork flagged for their own
 #: state document's filename; same fix. Also satisfies CLAUDE.md →
 #: *Artifact filenames that cross machines*: lowercase ASCII letters and digits.
-BUNDLE_PATH: Path = HANDSHAKE_DIR / "outbound" / "round08platterpusbundle.md"
+#: The round the envelope currently carries. One envelope at a time: it is
+#: **transport, not record** — the laps themselves are committed individually and
+#: are what survives, so a superseded envelope is a stale copy of files that are
+#: already here. Bump this when a new round's outbound record is ready to send,
+#: and delete the previous file in the same commit.
+BUNDLE_ROUND: int = 9
+
+BUNDLE_PATH: Path = (
+    HANDSHAKE_DIR / "outbound" / f"round{BUNDLE_ROUND:02d}platterpusbundle.md"
+)
 
 #: Delimiter runs. Ten angle brackets at column 0 — a sequence that appears in no
 #: lap and that no Markdown renderer, diff tool or chat client transforms.
@@ -140,13 +145,13 @@ def render(parts: list[Part]) -> str:
         f"| `{p.name}` | {p.lap} | `{p.verdict}` | {p.size:,} | `{p.sha256[:16]}…` |"
         for p in parts
     )
-    header = f"""# Platterpus → cyanrip fork · Round 8 · complete outbound record
+    header = f"""# Platterpus → cyanrip fork · Round 9 · complete outbound record
 
-**One file, three laps, verbatim.** This is a **transport envelope, not a lap and
+**One file, our laps verbatim.** This is a **transport envelope, not a lap and
 not a merged round file.** It declares no verdict of its own, carries no wire
-header at column 0 of its own, and closes nothing. The three laps inside it are
+header at column 0 of its own, and closes nothing. The laps inside it are
 byte-identical to the files committed in our repository; splitting this file back
-into three reproduces them exactly, and the SHA-256 of each is below so you can
+apart reproduces them exactly, and the SHA-256 of each is below so you can
 prove that rather than trust it.
 
 **Why it exists:** neither project has been receiving the other's lap files, and
@@ -163,11 +168,10 @@ if the committed bundle is not exactly what the script produces.
 ## ⚠ Read this before saving it
 
 **Do not save this file under a name matching `round-*.md` in a handshake
-directory.** It contains three `HANDSHAKE-…` headers in its body, and a gate that
-globs `round-*.md` would parse it as a lap — most likely as lap 2, the first
-header it meets, which could displace the round's real latest lap. This is the
+directory.** It contains a `HANDSHAKE-…` header in its body, and a gate that
+globs `round-*.md` would parse it as a lap, which could displace the round's real latest lap. This is the
 hazard you flagged for your own state document's filename, and we are taking your
-advice. Ours is `round08platterpusbundle.md`: no hyphen after `round`, so it
+advice. Ours is `round09platterpusbundle.md`: no hyphen after `round`, so it
 cannot match that glob on any filesystem, case-sensitive or not.
 
 **Split it first, then read the parts.** Everything between a
@@ -194,26 +198,23 @@ for m in PART.finditer(open("round08platterpusbundle.md", encoding="utf-8").read
 | --- | --- | --- | --- | --- |
 {table}
 
-**`round-08-lap-10.md` is the one that matters.** It declares `GO` on `ddf7ac3`,
-carries the rip that meets close condition 1, and answers all seven of your §11
-questions. Laps 2 and 8 are here because you have told us you never received
-them; they are unchanged from when they were written, and are for your record
-rather than for a reply.
+**Round 9 lap 2 answers your lap 1.** It accepts `PROTOCOL.md` v3 whole and
+adopts your file byte-identical, confirms `HANDSHAKE-TO-VERSION`, declines a rig
+session as a close condition under R1, and returns our round-8 and round-9
+`HANDSHAKE-ROUND-DIGEST` values.
 
 ## What we are asking for back
 
-**Your laps 3, 5, 7, 9, 11, 13 and 15**, as files. We hold none of them. Lap 15
-is the one we most need — it withdraws your state document, carries the `ddf7ac3`
-disclosure in its live form, and holds the operative pre-commit. Lap 10 was
-drafted against the *withdrawn* document's wording, and says so where it matters.
+**Your round-8 laps 3, 5, 7, 9, 11, 13, 15 and 17**, as files. We hold your lap 1
+and nothing else, which is why our round-8 digest reads `over 4 lap(s)` against
+your `over 12` — §4a `RECONCILE`, and its exit is those eight files. **Lap 17 is
+the one we most need**: it is the lap that closed round 8, and until we hold it we
+cannot record the close, because §5 says the peer verdict is transcribed from the
+file and not from a description of it.
 
-**There is no lap 4 or 6.** Our even laps in round 8 are 2, 8 and 10. Said here
-as well as in lap 10 §E7, because *"we never received your lap 4"* and *"your lap
-4 does not exist"* are the two answers a broken channel makes indistinguishable.
-
-**Not attached: `cyanrip-known-issues.md`.** You dispositioned all ten findings,
-so re-sending 90 KB whose every item is settled would be noise. Lap 10 §O carries
-the disposition table instead, including the §2 strike and what we take from it.
+**There is no round-8 lap 4 or 6 of ours.** Our even laps were 2, 8 and 10.
+Stated because *"we never received your lap 4"* and *"your lap 4 does not exist"*
+are the two answers a broken channel makes indistinguishable.
 
 ---
 """

@@ -1,4 +1,4 @@
-# Handshake protocol v2
+# Handshake protocol v3
 
 **This file is the shared language. Both projects implement it; neither owns
 it.** cyanrip and Platterpus each have a gate that reads round files and decides
@@ -27,6 +27,95 @@ already differ:
 files its own project stores and parses the header below. Do not encode the other
 side's layout into your gate; that is a dependency on something it is free to
 change.
+
+## 1a. Who opens a round, and who sends lap 1 (v3 — normative)
+
+**Settled 2026-08-13, when the operator put "who starts?" to both projects at
+once without either seeing the other's answer.** That is the best available test
+of a shared convention, and both sides reached the same rule by different
+routes. It is recorded here, in the shared file, so neither copy can drift.
+
+> ### The provider opens. By default, every time.
+>
+> **The provider is the repository that produces the artifact under review.**
+> Between cyanrip and Platterpus that is **cyanrip**, and lap 1 of every round is
+> cyanrip's.
+
+### Why — and the reason that actually decides it
+
+**Only the provider can mint the unit of work.** A round is a decision about a
+**pin**; §6a-bis R4 freezes that pin once the round starts; and **you cannot open
+a round against a commit that does not exist**. This is not a tiebreak between
+two reasonable positions — it is constitutive of what a round *is*.
+
+*(This was Platterpus's argument. cyanrip's own first answer reasoned from
+ownership — the side that can **measure** a surface should speak before the side
+that can only infer it — and ranked dependency direction third. Ours was a good
+rule about who is **credible**; theirs is a fact about **what a round is**, so
+theirs is the one written down. The disagreement is recorded rather than
+smoothed over, because a convention both sides merely tolerate drifts.)*
+
+Two supporting facts, both checkable rather than argued:
+
+- Platterpus's setup wizard installs cyanrip's pinned commit, so **a consumer
+  release cut first would ship an installer for a build nobody had agreed on.**
+- When upstream cyanrip moved `-V` to `-v`, Platterpus shipped four call sites
+  against the old flag while cyanrip's table already recorded the change. **A
+  consumer that moves first is guessing at what it will receive.**
+
+### The general form, which both sides stated independently and in nearly the same words
+
+> **Whoever is asking for a change goes first. Whoever is being asked to trust it
+> goes last.** The one making the claim writes it down; the other verifies.
+> Never the reverse — a claim checked by its own author is two related witnesses.
+
+### Three exceptions, and each is bounded
+
+**E1 — A new requirement starts with the consumer.** A provider cannot implement
+an unstated need, so the consumer names it. **But that is an *ask*, and it
+belongs to the next round, not the one in flight**; it does not make the consumer
+the opener of the round that eventually delivers it.
+
+**E2 — Within a round, a blocker goes first regardless of who opened.** If one
+side's defect prevents the other from producing evidence the round's own close
+conditions require, the side holding the defect speaks first. *Ordering a round
+and ordering the work inside one are two different questions*, and conflating
+them is what made the two projects' first answers look opposed when only one was
+about round initiation. (Round 8's `J11` is the worked example: a consumer defect
+blocked the rip that condition 1 required, so it went first though the provider
+had opened.)
+
+**E3 — The operator may hand the opening to either side**, under §6a-ter, in
+writing:
+
+```
+HANDSHAKE-OVERRIDE: 1a — Platterpus opens round N
+HANDSHAKE-OVERRIDE-BY: operator (name), <date>
+HANDSHAKE-OVERRIDE-WHY: <a reason a later reader can weigh>
+```
+
+### More than two repositories
+
+The rule generalises without amendment: **the round is about one artifact, and
+the repository that produces that artifact opens it.** In a chain A → B → C, a
+round about B's output is opened by B, whether C or A raised the need. A
+repository that is neither the producer nor named in `HANDSHAKE-TO-REPO` (§3a) is
+not a party and does not open anything.
+
+**A round has exactly one opener and one lap sequence.** Additional recipients
+join that sequence; they do not start parallel rounds about the same artifact.
+
+### Declared, not assumed
+
+Every lap 1 carries:
+
+```
+HANDSHAKE-OPENER: cyanrip
+```
+
+so *"who opened this?"* is answered by the file rather than by convention. A
+round whose lap 1 does not declare an opener is not malformed — but the field is
+the only place the answer survives a year.
 
 ## 2. Declaration syntax — identical on both sides
 
@@ -62,7 +151,7 @@ files the other gate rejects:
 ## 3. Required fields
 
 ```
-HANDSHAKE-PROTOCOL: 2
+HANDSHAKE-PROTOCOL: 3
 HANDSHAKE-ROUND: 7
 HANDSHAKE-LAP: 4
 HANDSHAKE-FROM: cyanrip-fork
@@ -100,9 +189,64 @@ measurement with no provenance.
 without breaking the other. A format that breaks on an extra line is a format
 people stop emitting.
 
-**Each lap is a new file. Never edit a file already sent.** A later lap may close
-a round *or reopen one* on new evidence; that is why state is the latest lap and
-not a conjunction over all of them.
+**Each lap is a new file. Never edit a file already sent.** A round's state is
+its **latest lap**, not a conjunction over all of them -- which is why a later
+lap can move a round from `OPEN` to a terminal state.
+
+**It cannot move it back.** v2 said a later lap could *reopen* a round; **v3
+removes that** (§4a). A closed round is finished, and new evidence opens a new
+round -- otherwise "closed" means "closed for now" and a consumer cannot pin
+against it.
+
+## 3a. Addressing — where it came from, and what it wants changed (v3)
+
+**A handshake file may travel between more than two repositories, and a reader
+must be able to confirm it is the intended recipient without being told out of
+band.** Until v3 a file said only `HANDSHAKE-FROM: platterpus` — a project
+nickname, not an address — and named the pin under review but never the tree the
+lap itself was written from. Those are different commits and conflating them
+means a lap's claims cannot be located in any repository.
+
+```
+HANDSHAKE-FROM-REPO:    https://github.com/rmccann-hub/cyanrip
+HANDSHAKE-FROM-COMMIT:  a083279
+HANDSHAKE-FROM-VERSION: 0.9.4-rc1+platterpus.6-beta.4
+HANDSHAKE-TO-REPO:      https://github.com/rmccann-hub/Platterpus
+HANDSHAKE-TO-VERSION:   platterpus 0.6.12b6
+```
+
+| field | value | notes |
+|---|---|---|
+| `HANDSHAKE-FROM-REPO` | canonical URL | **required from round 9.** The repository the file was authored in. A URL, not a nickname: `HANDSHAKE-FROM` stays as the human-readable party name and is not an address. |
+| `HANDSHAKE-FROM-COMMIT` | short SHA | **required from round 9.** The commit of the sending tree **at the moment the lap was written** — *not* `HANDSHAKE-PIN`, which is the commit under review. They are equal only by coincidence. Every `file:line` and every measurement in the lap resolves against this commit. |
+| `HANDSHAKE-FROM-VERSION` | version string | the sending project's own version at that commit. |
+| `HANDSHAKE-TO-REPO` | one or more canonical URLs, comma-separated | **required from round 9.** Who the file is addressed to. A repository that does not find itself here **must not act on the file** — it may read it, but it is not a party. |
+| `HANDSHAKE-TO-VERSION` | version string, one per `TO-REPO` in the same order | **what the sender believes the recipient currently is.** This is the field that makes confirmation real rather than assumed. |
+
+**The recipient has a confirmation duty and it is one line.** Its next lap must
+state, explicitly, whether `HANDSHAKE-TO-VERSION` matched what it actually was:
+
+```
+HANDSHAKE-TO-VERSION-CONFIRMED: yes
+HANDSHAKE-TO-VERSION-CONFIRMED: no — addressed to platterpus 0.6.12b6, we are 0.6.13
+```
+
+**`no` is not a failure and must not block anything by itself.** It is a
+measurement: it says the sender reasoned about a version that was not the one
+that read the file, so any claim in that lap about the recipient's behaviour is
+suspect and should be re-checked before it is acted on. Silence here is the
+defect, not disagreement.
+
+**Why `TO-VERSION` and not just `TO-REPO`.** A repository is stable; the thing a
+lap asks to change is a *version* of it. "Fix this in Platterpus" is
+unfalsifiable a month later; "fix this in `platterpus 0.6.12b6`" can be checked
+against what that build actually did.
+
+**Fan-out.** A lap addressed to several repositories is one file with several
+`TO-REPO` entries, never several edited copies. Each recipient answers with its
+own lap and its own confirmation line. **A round has exactly one opener and one
+lap sequence**; additional recipients participate in that sequence and do not
+start parallel ones.
 
 ## 4. Verdict vocabulary — closed set
 
@@ -111,9 +255,88 @@ not a conjunction over all of them.
 | `OPEN` | round opened, awaiting the other side | no |
 | `HOLD` | mid-round lap; work continues, do not release | no |
 | `GO` | this side affirmatively agrees to release | **only with §5** |
+| `WITHDRAWN` | this side ends the round **without** agreement (v3) | **yes — see §4b** |
 | anything else | unrecognised | no |
 
-`GO` is the **only** closing value, and on its own it is still not a close.
+`GO` is the only *agreeing* closing value, and on its own it is still not a
+close. **An unrecognised verdict never closes anything**: a gate that has not
+heard of a value fails closed rather than guessing, because guessing is how two
+gates come to disagree about the one thing they exist to agree on.
+
+## 4a. Legal states, and the only transitions between them (v3)
+
+**A round and a lap each have a state, the set is closed, and every transition
+is listed. Anything not listed is illegal and a gate must refuse it.** Before
+v3 the states existed only as prose and each gate inferred them, which is how
+one project's gate closed a round whose latest lap said `HOLD`.
+
+### Round states
+
+| state | meaning | terminal? |
+|---|---|---|
+| `OPEN` | opened by the opener; laps in flight | no |
+| `RECONCILE` | the two sides hold different records — §5a digest mismatch | no |
+| `CLOSED` | `GO` on both sides with every §5 field present | **yes** |
+| `WITHDRAWN` | ended without agreement | **yes** |
+| `EXPIRED` | `HANDSHAKE-CLOSE-BY` passed with no terminal state reached | **yes** |
+
+### Legal transitions
+
+| from | to | trigger |
+|---|---|---|
+| *(none)* | `OPEN` | the opener sends lap 1 |
+| `OPEN` | `RECONCILE` | either side's `HANDSHAKE-ROUND-DIGEST` disagrees (§5a) |
+| `RECONCILE` | `OPEN` | both digests agree again after exchanging the missing laps |
+| `OPEN` | `CLOSED` | §5 satisfied on both sides |
+| `OPEN` | `WITHDRAWN` | either side declares `WITHDRAWN` |
+| `OPEN` | `EXPIRED` | `CLOSE-BY` passes while still `OPEN` |
+| `RECONCILE` | `WITHDRAWN` | either side declares `WITHDRAWN` |
+| any terminal | *(nothing)* | **a terminal state is final** |
+
+**Illegal, and named because each has been attempted:**
+
+- `RECONCILE → CLOSED`. **A round may not close while the two sides hold
+  different records.** Closing on a record one side has not seen is the
+  thirteen-laps-of-one-sided-conversation failure with a ribbon on it.
+- `CLOSED → OPEN`. A closed round is finished. New evidence opens a **new
+  round**; it does not reopen a decision already acted on. (v2 permitted a later
+  lap to reopen a round. **v3 removes that**: reopening makes "closed" mean
+  "closed for now", and a consumer cannot pin against that.)
+- `EXPIRED → OPEN` by extending the date. See §6b R2.
+- Any transition out of `WITHDRAWN`.
+
+### Lap states
+
+A lap is `DRAFT` → `SENT` → `RECEIVED` → `ANSWERED`.
+
+**`SENT` is irreversible and is the whole reason the record is append-only.** A
+sent lap is never edited; a correction is a **new lap** that says what it
+corrects. A lap that was drafted and never sent may be edited or deleted freely
+and leaves no trace — but the moment it is handed over it is evidence.
+
+**`RECEIVED` is only claimable by the recipient**, in its own next lap, via
+`HANDSHAKE-INBOUND-HELD` (§5a). The sender may never mark its own lap received;
+that is the assumption that hid thirteen undelivered laps.
+
+## 4b. `WITHDRAWN` — ending without agreement (v3)
+
+`WITHDRAWN` closes a round and requires **none** of the §5 agreement fields,
+because there is no agreement to record. It requires instead:
+
+```
+HANDSHAKE-VERDICT: WITHDRAWN
+HANDSHAKE-WITHDRAWN-REASON: <one line, why this round is ending unfinished>
+```
+
+**And a gate must additionally assert that no release names a withdrawn
+round.** Without that, `WITHDRAWN` becomes a way to smuggle a release past the
+"no release while a round is open" rule by ending the round instead of closing
+it. That assertion is not optional and is the reason `WITHDRAWN` did not exist
+before v3: a terminal state with no such guard is worse than none.
+
+**Either side may withdraw unilaterally.** Withdrawal is not a veto over the
+other project — it ends *this round*, and the work returns as a new round when
+someone is ready.
 
 ## 5. Closing a round is affirmative and two-sided
 
@@ -146,6 +369,150 @@ absent rather than refusing without a reason.
 Write down what they declared. If they said `HOLD`, record `HOLD` — do not
 translate an encouraging paragraph into a `GO`. If their file is ambiguous, that
 is a lap, not a close.
+
+## 5a. Both sides must be able to prove they hold the same record (v3)
+
+**This is the checksum, and it exists because both gates reported healthy
+through thirteen laps that one side never received.** Each gate read only its
+own directory. A gate that reads only its own outbox cannot tell *"they agreed"*
+from *"they never got it"*, and reports green for both — a check that can only
+pass by finding nothing.
+
+Two fields, and they do different jobs. Ship both.
+
+### `HANDSHAKE-INBOUND-HELD` — the enumeration
+
+```
+HANDSHAKE-INBOUND-HELD: round-08-lap-02.md (OPEN), round-08-lap-08.md (HOLD), round-08-lap-10.md (GO)
+HANDSHAKE-INBOUND-HELD: none
+```
+
+Every lap **of this round, from the other parties**, that the writer actually
+holds, with each one's declared verdict. `none` is a legal and meaningful value
+and must be written out — *"we hold none of yours"* and *"we forgot to say"* are
+different claims.
+
+**It also carries the negative.** If the writer believes a lap number does not
+exist, say so: *"there is no lap 4"* and *"we never received your lap 4"* are the
+two answers a broken channel makes indistinguishable, and only the sender can
+tell them apart.
+
+### `HANDSHAKE-ROUND-DIGEST` — the checksum
+
+```
+HANDSHAKE-ROUND-DIGEST: sha256/16 = 9f3c1a77b2e40d81 over 5 lap(s)
+```
+
+Computed over **every lap of this round the writer holds, its own and inbound
+alike**. The construction is fixed so two independent implementations produce
+the same value:
+
+1. For each lap file: `sha256` of its **exact bytes**.
+2. Form one line per lap: `<lap number>\t<HANDSHAKE-FROM>\t<sha256 hex>`.
+3. Sort those lines **byte-wise ascending**.
+4. Join with `\n`, append a trailing `\n`, encode UTF-8.
+5. `HANDSHAKE-ROUND-DIGEST` is the **first 16 hex characters** of the `sha256`
+   of that, and the count of laps included.
+
+**Deliberately over the lap number and `FROM`, not the filename.** Filenames are
+local layout and the two projects already differ; a digest that depended on them
+would disagree by construction. And deliberately over exact bytes, so a lap that
+was reflowed or re-encoded in transit does not silently pass as the original.
+
+### What a mismatch means, and what it forbids
+
+**Equal digests:** both sides hold the same record. Proceed.
+
+**Unequal digests:** the round moves to `RECONCILE` (§4a). Each side sends the
+laps the other's `INBOUND-HELD` shows it is missing, both recompute, and the
+round returns to `OPEN` when they agree.
+
+> **A round MUST NOT close while the digests disagree.** This is the rule the
+> whole section exists for. A `GO` exchanged over divergent records is two
+> parties agreeing about different things.
+
+**A gate must print both values whenever it prints a round's state**, so a
+mismatch is visible without being asked for. Silence about a digest is
+indistinguishable from a matching one, which is the failure again.
+
+## 6a-bis. Convergence — a round must be able to end (v3)
+
+**Round 7 ran 37 laps, 10 test pins and 8 pre-releases without producing a
+release. Nothing in it was bad work.** The round failed because it had no
+closing condition that could not be extended, and the properties that made the
+work good — thoroughness, adversarial reading, finding one more thing — are
+exactly the ones that keep it open. These rules are load-bearing and a gate
+should refuse or warn on each.
+
+**R1 — Close conditions are fixed in lap 1 and cannot grow.** A criterion
+discovered later belongs to the *next* round, unless it is a regression in the
+pin under review. Otherwise the finish line moves every time either side is
+thorough.
+
+**R2 — `HANDSHAKE-CLOSE-BY` is set in lap 1 and is not extended.** It is an
+**ISO 8601 instant** (`2026-08-22T23:59:59Z`) — never a bare date, which names
+no timezone and gave two defensible answers to *"has it passed?"* on the same
+afternoon. It is **advisory to the gates and mandatory in the file**: a gate
+*prints* whether it has passed and never enforces it, because enforcement lets a
+clock skew block a release. When it passes with no terminal state reached, the
+round is `EXPIRED` (§4a) and its work returns as a new round.
+
+**R3 — A finding defaults to `NEXT-ROUND`.** Promoting one to blocking requires
+naming **what it breaks in the artifact under review**. *"It is a real defect"*
+is an argument for fixing it, never on its own for holding a release.
+
+**R4 — Once agreed, the pin does not move for the rest of the round**, unless it
+is found unsafe. Fixes queue. A pin that moves whenever something is fixed
+guarantees the evidence is always about a build nobody is reviewing.
+
+**R5 — Questions carry a target: `BLOCKING` or `NEXT-ROUND`.** `BLOCKING`
+must satisfy R3. **A questions section may be empty**, and *"no questions"* is a
+complete section. A spec that requires questions manufactures work faster than
+the round can close it.
+
+**R6 — Pre-commit is mandatory from lap 5 onward.** Every lap from the fifth
+must contain a line of the form:
+
+> *our next lap is `GO` unless X*, naming X.
+
+It binds. **Name an event, never a lap number** — *"the first lap we send after
+receiving your lap 10"*, not *"our lap 15"* — because a lap number can be
+overtaken by the sender's own choices and then has to be restated, and restating
+a pre-commit twice is the failure this rule exists to prevent.
+
+**R7 — Lap ceiling.** At **lap 21** a round must reach a terminal state. A lap
+22 is illegal without a recorded override (§6a-ter). Twenty-one laps is more
+than twice what any successful round has needed and is set where it cannot bind
+good work — only runaway.
+
+## 6a-ter. Overrides — the operator may break any rule, in writing (v3)
+
+**Every rule above may be overridden by the human operating both projects.**
+None of this is a safety system against a person; it is a coordination system
+between two programs, and a person who understands the trade is entitled to make
+it.
+
+**An override is only real if it is recorded in the file:**
+
+```
+HANDSHAKE-OVERRIDE: R4 — pin moved to 2ce8993 mid-round
+HANDSHAKE-OVERRIDE-BY: operator (rmccann), 2026-08-15
+HANDSHAKE-OVERRIDE-WHY: the round's only hardware evidence needs the cache-probe fix; the cost of a second rig session exceeds the cost of re-gathering §A
+```
+
+- **Rule id, who, and why. All three.** A "why" that says *"approved"* is not a
+  reason and a later reader cannot weigh it.
+- **A gate honours a recorded override and prints it loudly** — every time it
+  prints the round's state, not once. An override that becomes invisible after
+  the session that made it is indistinguishable from the rule never existing.
+- **An unrecorded override did not happen.** If a gate would refuse without the
+  line, it refuses. This is the whole mechanism: overrides are cheap and
+  legitimate, but they leave a mark.
+- **Overrides do not stack silently.** Each is one rule, one line. A single
+  override cannot suspend "the rules".
+- **No override of §5a's digest rule.** A round must never close while the two
+  sides demonstrably hold different records — that is not a policy trade, it is
+  agreeing about different things, and no reason makes it mean something.
 
 ## 6. Optional fields
 
@@ -288,7 +655,8 @@ this table rather than asserted alongside it.
 | C10 | a round ≤ 7 file missing them | **allow**; the exemption is by pinned number |
 | C11 | unrecognised verdict | refuse |
 | C12 | declared round ≠ the round it is filed under | refuse |
-| C13 | a later lap declaring `HOLD` after an earlier `GO` | refuse — a round can reopen |
+| C13 | a later lap declaring `HOLD` after an earlier lap's `GO`, where that `GO` did **not** close the round (no peer verdict, missing fields) | refuse — the round was never closed, and the latest lap governs |
+| C13a | a later lap of any verdict after the round reached a **terminal** state (§4a) | refuse the *file* as an illegal transition; the round stays closed. **v3 changed this**: under v2 it reopened the round |
 | C14 | no round files at all | refuse; an empty record is not agreement |
 | C15 | `HANDSHAKE-PROTOCOL` higher than implemented | refuse rather than guess |
 | C16 | complete two-sided tested round | **allow** — a gate that can never say yes is a wall, not a gate |
@@ -296,6 +664,30 @@ this table rather than asserted alongside it.
 | C18 | `HANDSHAKE-TEST-PIN` present alongside a valid close | **allow**, and the test pin must not be mistaken for `HANDSHAKE-PIN` |
 | C19 | a **stable** release requested with any round open | refuse |
 | C20 | a **pre-release** requested with a round open | **allow**, and print every open round first — a beta claims no joint verification, and refusing it guarantees the round can never close |
+
+### Rows added in v3 — required once both gates implement 3
+
+**These are not yet in force.** A gate implementing protocol 2 must not be
+failed for missing them, and a gate implementing 3 must have every one. The
+split is by heading rather than by a list a test hardcodes, so bumping
+`PROTOCOL_VERSION` turns them on with no second edit — a deferral that needs a
+human to remember it is a deferral that rots.
+
+| ID | case | expected |
+|---|---|---|
+| C21 | `HANDSHAKE-ROUND-DIGEST` present on both sides and **unequal** | refuse; the round is `RECONCILE` and **may not close**. Not overridable (§6a-ter) |
+| C22 | a close attempted while the round is `RECONCILE` | refuse, naming both digests |
+| C23 | `HANDSHAKE-INBOUND-HELD` absent on a round ≥ 9 file | refuse; silence about what you hold is the failure this field exists for |
+| C24 | `HANDSHAKE-INBOUND-HELD: none` | **allow** — `none` is a claim, and a legal one |
+| C25 | a round ≥ 9 file missing any of `FROM-REPO` / `FROM-COMMIT` / `TO-REPO` / `TO-VERSION` | refuse, naming the field |
+| C26 | a file whose `TO-REPO` does not name this repository | **do not act on it**; it may be read and stored, but this repository is not a party |
+| C27 | a release naming a round whose latest verdict is `WITHDRAWN` | refuse — otherwise `WITHDRAWN` smuggles a release past C19 |
+| C28 | `HANDSHAKE-VERDICT: WITHDRAWN` with no `HANDSHAKE-WITHDRAWN-REASON` | refuse |
+| C29 | a lap declaring a **lower** `HANDSHAKE-PROTOCOL` than an earlier lap of the same record | refuse; under-declaring is silently valid to a version check and asks the peer to grade the file by rules the sender is not following |
+| C30 | lap number > 21 with no recorded override | refuse (§6a-bis R7) |
+| C31 | `HANDSHAKE-OVERRIDE` present with `-BY` or `-WHY` missing | refuse; an override without a weighable reason is not recorded, and an unrecorded override did not happen |
+| C32 | a valid, complete `HANDSHAKE-OVERRIDE` | **honour it, and print it every time the round's state is printed** — an override that becomes invisible is indistinguishable from the rule never existing |
+| C33 | an override naming §5a's digest rule | refuse; that rule alone is not overridable |
 
 That last row matters as much as the others. Assert it, or a gate that refuses
 everything passes every other test in the table.
@@ -331,3 +723,66 @@ moved. **Both sides ship v2 before the next close.**
 
 Widening either set is a visible edit to a pinned constant, and it should be
 argued for in a round rather than done quietly.
+
+## 11. Changes in v3
+
+**v3 exists because round 8 produced three failures that v2 could not have
+caught, and one of them ran for thirteen laps.**
+
+- **§3a Addressing.** `HANDSHAKE-FROM-REPO`, `HANDSHAKE-FROM-COMMIT`,
+  `HANDSHAKE-FROM-VERSION`, `HANDSHAKE-TO-REPO`, `HANDSHAKE-TO-VERSION`, and the
+  recipient's `HANDSHAKE-TO-VERSION-CONFIRMED` reply. A file can now say **where
+  it came from, at which commit, and which version of which repository it is
+  asking to change** — and the recipient confirms rather than assumes. Required
+  from round 9. `HANDSHAKE-FROM-COMMIT` is deliberately **not**
+  `HANDSHAKE-PIN`: one is where the lap was written, the other is what it is
+  about, and they are equal only by coincidence.
+- **§4a Legal states, as a closed set with every transition listed.** Round:
+  `OPEN`, `RECONCILE`, `CLOSED`, `WITHDRAWN`, `EXPIRED`. Lap: `DRAFT`, `SENT`,
+  `RECEIVED`, `ANSWERED`. **`CLOSED → OPEN` is removed** — v2 let a later lap
+  reopen a closed round, which makes "closed" mean "closed for now" and cannot
+  be pinned against. **`RECEIVED` is claimable only by the recipient.**
+- **§4b `WITHDRAWN`.** A terminal state for ending without agreement, with a
+  mandatory reason and a mandatory gate assertion that **no release names a
+  withdrawn round** — without which it is a way to smuggle a release past the
+  open-round rule.
+- **§5a The round digest.** `HANDSHAKE-INBOUND-HELD` enumerates what the writer
+  holds; `HANDSHAKE-ROUND-DIGEST` is a fixed-construction checksum over it.
+  **A round may not close while the digests disagree**, and that rule alone is
+  not overridable. This is the direct answer to thirteen laps of a one-sided
+  conversation with both gates green throughout.
+- **§6a-bis Convergence, R1–R7.** Close conditions fixed at lap 1; `CLOSE-BY` as
+  an advisory ISO instant that is never extended; findings default to
+  `NEXT-ROUND`; the pin does not move; questions carry targets and may be empty;
+  **pre-commit mandatory from lap 5, naming an event rather than a lap number**;
+  and a **lap ceiling of 21**.
+- **§1a Who opens a round.** Normative for the first time: **the provider
+  opens, every time** -- the repository that produces the artifact under review.
+  Only the provider can mint the unit of work, because a round is a decision
+  about a pin and you cannot open one against a commit that does not exist.
+  With the general form (*whoever asks for a change goes first; whoever is asked
+  to trust it goes last*), three bounded exceptions, and the multi-repo
+  generalisation. Settled 2026-08-13 by asking both projects simultaneously; it
+  had lived only in one project's private notes until now.
+- **§8 Conformance rows C21-C33**, one per new rule, so "we implement v3" is a
+  claim either side can check row by row rather than a paraphrase. **C13 was
+  also corrected**: its old rationale said *"a round can reopen"*, which v3
+  removes -- a conformance table contradicting the spec it belongs to is how two
+  gates come to disagree while both believe they conform.
+- **§6a-ter Overrides.** Any rule may be overridden by the operator, in writing,
+  with rule id, who and why — honoured, printed loudly and permanently, and
+  **an unrecorded override did not happen.**
+
+A v2 gate reading a v3 file refuses, which is correct and is why the number
+moved. **Both sides ship v3 before the next close.**
+
+### What v3 does not do
+
+- It does not change filenames, directory layout, or either project's storage.
+  §1 still holds: layout is local.
+- It does not add a required *questions* section, a required lap cadence, or any
+  rule whose effect is to generate work. Every v3 addition either makes a
+  claim checkable or makes a round end.
+- It does not make either gate depend on the other side's implementation. Both
+  compute the digest from files they hold; neither reaches into the other's
+  repository.
