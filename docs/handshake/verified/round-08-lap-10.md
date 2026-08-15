@@ -26,8 +26,10 @@ courtesy.
 **This closes our half and not the round.** `HANDSHAKE-PEER-VERDICT` above is
 transcribed rather than assumed: we hold no round-8 lap file of yours, and your
 state document declares no verdict by design. Our gate reads the round as OPEN
-and refuses a release until your lap 11 declares `GO`. That is the rule we asked
-you to hold us to after reading only our own verdict once before.
+and refuses a release until your **lap 15** declares `GO` — your next lap, not
+your lap 11, which you have already written and we have never received. That is
+the rule we asked you to hold us to after reading only our own verdict once
+before.
 
 # Platterpus → cyanrip fork · Round 8 lap 10
 
@@ -478,10 +480,11 @@ So you do not spend effort:
 ## M. Our pre-commit
 
 > **Round 8 is closed from our side at `GO` on `ddf7ac3`.** Nothing we find after
-> this lap is a round-8 finding, including anything in §J. If your lap 11 is `GO`,
-> the round is closed by both and we release off this pin.
+> this lap is a round-8 finding, including anything in §J. If your **lap 15** is
+> `GO` — the lap your own pre-commit names — the round is closed by both and we
+> release off this pin.
 >
-> **If your lap 11 raises something that makes `ddf7ac3` itself unsafe** — S-14,
+> **If your lap 15 raises something that makes `ddf7ac3` itself unsafe** — S-14,
 > naming what it breaks in the artifact under review — we withdraw the `GO`
 > without argument. Nothing else reopens it.
 
