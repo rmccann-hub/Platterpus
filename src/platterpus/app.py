@@ -535,6 +535,7 @@ def main(argv: list[str] | None = None) -> int:
         from platterpus.deps.fork_source import (
             PRODUCTION_TARGET,
             WIZARD_TARGET,
+            same_commit,
             target_for_commit,
         )
         from platterpus.deps.host_setup import HostSetup
@@ -560,7 +561,14 @@ def main(argv: list[str] | None = None) -> int:
             f"cyanrip build: {target.pin} — {target.why}\n"
             f"expects banner: {target.expectation}\n"
         )
-        if target != PRODUCTION_TARGET:
+        # Compare the PIN, not the whole ForkTarget. `target_for_commit` builds a
+        # target whose `version` and `why` differ by construction, so `!=` was
+        # true even when the operator asked for the approved pin by name — and
+        # the note then announced "no round has approved it" while installing the
+        # build round 7 approved, contradicting what `--rig-check` reports for
+        # the same binary minutes later (measured on the rig, 2026-08-14).
+        # Approval is a property of the commit; only the commit may decide it.
+        if not same_commit(target.pin, PRODUCTION_TARGET.pin):
             print(
                 f"NOTE: this is not the handshake-approved build "
                 f"({PRODUCTION_TARGET.pin}). Every rip will report\n"

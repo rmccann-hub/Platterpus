@@ -647,6 +647,28 @@ TEST_TARGET: Final[ForkTarget] = ForkTarget(
 WIZARD_TARGET: Final[ForkTarget] = PRODUCTION_TARGET
 
 
+def same_commit(a: str, b: str) -> bool:
+    """Whether two git revisions name the same commit, allowing for short SHAs.
+
+    Git abbreviations are prefixes, so ``ddf7ac3`` and a full 40-character SHA
+    beginning ``ddf7ac3`` are the same commit and must compare equal. Comparison
+    is case-insensitive because git accepts either case.
+
+    **A prefix match is not proof of identity** — two commits can share a short
+    prefix — but the alternative here is a bare ``==``, which reports *different*
+    for two spellings of the same revision, and that is the error this exists to
+    stop. The tighter check belongs to the build step, which reads the tag off the
+    binary it just produced; this only decides which sentence to print.
+
+    Empty strings never match: an unset pin is not "the same as" anything, and
+    returning True there would silently approve a build nobody named.
+    """
+    left, right = a.strip().lower(), b.strip().lower()
+    if not left or not right:
+        return False
+    return left.startswith(right) or right.startswith(left)
+
+
 def target_for_commit(pin: str) -> ForkTarget:
     """A build target for an ARBITRARY fork commit, for ``--install-ripper <commit>``.
 
@@ -669,12 +691,34 @@ def target_for_commit(pin: str) -> ForkTarget:
     honest shape: the tag is verified, the version is declared unknown, and nothing
     pretends otherwise.
     """
+    # A commit handed to `--install-ripper` may BE the approved pin — an operator
+    # re-installing it deliberately, which is exactly what a rig does when the
+    # round's test pin has drifted and it wants the reviewed build back. Saying
+    # "no round has approved it" without comparing is a claim we never checked,
+    # and it contradicts what `handshake_approval` will report for the very same
+    # binary (it keys on the installed BUILD TAG, not on how it was installed).
+    # Two surfaces disagreeing about one fact is the failure CLAUDE.md names; the
+    # fix is that only one of them decides, and the deciding field is the pin.
+    if same_commit(pin, PRODUCTION_TARGET.pin):
+        # Deliberately NOT importing `handshake_approval` to name the round:
+        # that module imports THIS one, so the reference would be circular. The
+        # pin is the fact that matters and it is right here.
+        return ForkTarget(
+            pin=pin,
+            version="(version not read from the tree; the tag is what we verify)",
+            why=(
+                f"commit {pin}, supplied on the command line — and this IS the "
+                f"approved pin ({PRODUCTION_TARGET.pin}), the build a closed round "
+                "approved. Rips with this installed report "
+                "ripper_handshake_approval: approved"
+            ),
+        )
     return ForkTarget(
         pin=pin,
         version="(version not known for an operator-supplied commit)",
         why=(
-            f"commit {pin}, supplied on the command line — NOT a pinned build, and no "
-            "round has approved it. Every rip with this installed reports "
+            f"commit {pin}, supplied on the command line — NOT the approved pin "
+            f"({PRODUCTION_TARGET.pin}). Every rip with this installed reports "
             "ripper_handshake_approval: unapproved, which is the correct answer"
         ),
     )

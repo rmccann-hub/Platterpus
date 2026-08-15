@@ -770,3 +770,53 @@ def test_an_operator_commit_does_not_invent_a_version_string(
         "claim about a tree we never read"
     )
     assert "not predictable" in out
+
+
+def test_install_ripper_with_the_approved_pin_does_not_call_it_unapproved(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Naming the approved pin explicitly must not produce "this is not X (X)".
+
+    **Measured on the rig, 2026-08-14.** `--install-ripper ddf7ac3` — the pin a
+    closed round approved — printed *"NOT a pinned build, and no round has
+    approved it"* and *"NOTE: this is not the handshake-approved build
+    (ddf7ac3)"*, then predicted every rip would report `unapproved`. Ninety
+    seconds later `--rig-check` reported `OK ripper/handshake approved` for that
+    same binary, because approval is decided by the installed build tag, not by
+    how the install was requested.
+
+    The cause was a whole-object comparison: `target_for_commit` returns a
+    ForkTarget whose `version` and `why` differ by construction, so
+    `target != PRODUCTION_TARGET` held even when the pins were identical. This
+    covers the `app.py` half — the note itself — which the `fork_source` tests
+    cannot reach.
+    """
+    from platterpus.deps.fork_source import PRODUCTION_TARGET
+
+    _install_ripper_stub(monkeypatch, ready=True)
+    assert app_module.main(["--install-ripper", PRODUCTION_TARGET.pin]) == 0
+    out = capsys.readouterr().out
+    assert "this is not the handshake-approved build" not in out, (
+        "installing the approved pin by name announced it is not the approved "
+        f"build — the 2026-08-14 rig contradiction. Output:\n{out}"
+    )
+    assert "unapproved" not in out, (
+        "the install predicted rips would report unapproved; --rig-check reports "
+        f"approved for this exact build. Output:\n{out}"
+    )
+
+
+def test_the_unapproved_note_still_fires_for_a_different_commit(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Non-triviality floor for the test above.
+
+    A "fix" that deleted the note entirely would satisfy the previous test and
+    remove the warning that matters — a test pin really does report `unapproved`
+    on every rip, and the install is the honest place to say so.
+    """
+    _install_ripper_stub(monkeypatch, ready=True)
+    app_module.main(["--install-ripper", "0badc0de"])
+    out = capsys.readouterr().out
+    assert "this is not the handshake-approved build" in out
+    assert "unapproved" in out
