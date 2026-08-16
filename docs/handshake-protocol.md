@@ -1,4 +1,4 @@
-# Handshake protocol v3
+# Handshake protocol v4
 
 **This file is the shared language. Both projects implement it; neither owns
 it.** cyanrip and Platterpus each have a gate that reads round files and decides
@@ -151,7 +151,7 @@ files the other gate rejects:
 ## 3. Required fields
 
 ```
-HANDSHAKE-PROTOCOL: 3
+HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 7
 HANDSHAKE-LAP: 4
 HANDSHAKE-FROM: cyanrip-fork
@@ -404,8 +404,9 @@ HANDSHAKE-ROUND-DIGEST: sha256/16 = 9f3c1a77b2e40d81 over 5 lap(s)
 ```
 
 Computed over **every lap of this round the writer holds, its own and inbound
-alike**. The construction is fixed so two independent implementations produce
-the same value:
+alike — excluding the lap being written** (see "Self-reference" below). The
+construction is fixed so two independent implementations produce the same
+value:
 
 1. For each lap file: `sha256` of its **exact bytes**.
 2. Form one line per lap: `<lap number>\t<HANDSHAKE-FROM>\t<sha256 hex>`.
@@ -418,6 +419,63 @@ the same value:
 local layout and the two projects already differ; a digest that depended on them
 would disagree by construction. And deliberately over exact bytes, so a lap that
 was reflowed or re-encoded in transit does not silently pass as the original.
+
+### What counts as one lap (v4)
+
+**A file is one lap, for digest purposes, only if — after fenced code blocks are
+stripped — it declares `HANDSHAKE-ROUND`, `HANDSHAKE-LAP` and `HANDSHAKE-FROM`
+exactly once each.** Anything else is excluded, and its exclusion is not an
+error.
+
+This follows from §2 rule 3, which already says a field declared twice is
+ambiguous and that ambiguity is never resolved by taking the first or the last.
+**A file with two `HANDSHAKE-LAP` lines is not a lap; it is a file *containing*
+laps.**
+
+**Why it is a rule and not an implementation detail.** Platterpus built a
+transport envelope — one file carrying three laps verbatim so an operator could
+send one attachment instead of three — and their first enumerator read the first
+`HANDSHAKE-LAP` in its body and counted the envelope as a fourth lap. The digest
+that came out was stable, reproducible, and described a record neither side
+held. Under §4a that is not a harmless difference: it puts the round into
+`RECONCILE`, a state exchanging files cannot exit, because there is nothing
+missing to exchange.
+
+**Derived, not listed.** A filename exclusion, or a list of known container
+formats, only ever excludes the container someone has already met. This test
+excludes the next one too. **Neither project maintains a list.**
+
+*(Proposed by Platterpus, round 9 lap 2 §A1-a, from their own defect. Adopted
+verbatim in substance.)*
+
+### Self-reference — the digest excludes the lap that carries it (v4)
+
+**A digest over exact bytes cannot include the file carrying it**, and a spec
+that ignores that guarantees a permanent disagreement rather than a detectable
+one.
+
+> **The digest declared in lap N covers every lap of the round the writer holds
+> at the time of writing, excluding lap N itself.**
+>
+> **A verifier checks it by computing over its own holdings, excluding that same
+> lap N** — not excluding the verifier's own newest lap.
+
+The second sentence is the one that makes the check well-defined, and it is not
+symmetric with the first: the writer excludes *itself*, the reader excludes *the
+file it just received*. Equality then means precisely **"we hold the same record
+apart from the lap in flight"**, which is the claim wanted. Without it, each side
+excludes a different file and the numbers differ forever by construction — the
+failure this section exists to prevent, reintroduced by the fix for a different
+one.
+
+**Consequence, and it is a feature:** two sides mid-exchange will report
+different lap counts, and **the difference is exactly the laps in flight**. That
+is information, not noise. A gate should print both counts rather than only the
+verdict.
+
+*(Proposed by Platterpus, round 9 lap 2 §A1-b. The verifier-side half is
+cyanrip's amendment to the amendment: their wording defines what the writer
+computes and leaves what the reader compares it against undetermined.)*
 
 ### What a mismatch means, and what it forbids
 
@@ -665,10 +723,10 @@ this table rather than asserted alongside it.
 | C19 | a **stable** release requested with any round open | refuse |
 | C20 | a **pre-release** requested with a round open | **allow**, and print every open round first — a beta claims no joint verification, and refusing it guarantees the round can never close |
 
-### Rows added in v3 — required once both gates implement 3
+### Rows added in v3/v4 — required once both gates implement 4
 
 **These are not yet in force.** A gate implementing protocol 2 must not be
-failed for missing them, and a gate implementing 3 must have every one. The
+failed for missing them, and a gate implementing 4 must have every one. The
 split is by heading rather than by a list a test hardcodes, so bumping
 `PROTOCOL_VERSION` turns them on with no second edit — a deferral that needs a
 human to remember it is a deferral that rots.
@@ -688,6 +746,9 @@ human to remember it is a deferral that rots.
 | C31 | `HANDSHAKE-OVERRIDE` present with `-BY` or `-WHY` missing | refuse; an override without a weighable reason is not recorded, and an unrecorded override did not happen |
 | C32 | a valid, complete `HANDSHAKE-OVERRIDE` | **honour it, and print it every time the round's state is printed** — an override that becomes invisible is indistinguishable from the rule never existing |
 | C33 | an override naming §5a's digest rule | refuse; that rule alone is not overridable |
+| C34 | a file declaring `HANDSHAKE-LAP` (or `ROUND`, or `FROM`) more than once, after fences are stripped | **exclude it from the digest**; it is not a lap. Not an error |
+| C35 | a lap whose declared digest includes itself | refuse; a digest over exact bytes cannot cover the file carrying it |
+| C36 | verifying a peer's digest by excluding **your own** newest lap rather than **theirs** | refuse; the exclusion is of the lap in flight, and getting this backwards makes the two sides disagree forever |
 
 That last row matters as much as the others. Assert it, or a gate that refuses
 everything passes every other test in the table.
@@ -786,3 +847,42 @@ moved. **Both sides ship v3 before the next close.**
 - It does not make either gate depend on the other side's implementation. Both
   compute the digest from files they hold; neither reaches into the other's
   repository.
+
+
+## 12. Changes in v4
+
+**v4 is v3 plus two amendments Platterpus raised in round 9 lap 2, both of which
+came from their implementation failing on its first run.** Nothing in v3 is
+withdrawn.
+
+- **§5a "What counts as one lap".** A file is one lap only if, after fences are
+  stripped, it declares `HANDSHAKE-ROUND`, `HANDSHAKE-LAP` and `HANDSHAKE-FROM`
+  **exactly once each**. Derived from §2 rule 3 rather than from a list of
+  container formats, so it excludes the next container as well as the one that
+  prompted it. **Their finding, their rule, adopted in substance.**
+- **§5a "Self-reference".** The digest in lap N covers what the writer holds
+  **excluding lap N**, and a verifier checks it **excluding that same lap N**.
+  The first half is theirs; **the second half is cyanrip's amendment to it** —
+  their wording defined what the writer computes and left undetermined what the
+  reader compares it against, and without that the two sides exclude different
+  files and disagree permanently by construction.
+- **§8 rows C34–C36**, one per new rule.
+
+**Why v4 rather than an edit to v3.** v3 was adopted byte-identical by both
+projects and its hash is quoted in a sent lap. Editing a version in place is the
+drift this file exists to prevent, even when both sides agree on the edit —
+the number is what makes "we hold the same spec" checkable.
+
+**Neither gate implemented 3.** Both were still declaring 2 under the bootstrap
+in round 9 lap 1 §0, so nothing is skipped by going straight to 4: implement 4,
+declare 4, and the round's close condition 1 is met.
+
+### Deferred to v5, not rejected
+
+- **An `ACK` verdict** — receipt only, empty body legal, refused if it carries
+  questions or findings. Platterpus's round 9 lap 2 §A1-c. It serves §6a-bis
+  directly: §4's set has no way to say *"received, nothing to add"* except a
+  `HOLD`, and a `HOLD` with content generates content in reply. **Accepted in
+  principle, deferred because it widens the verdict vocabulary** — the one set
+  both gates must agree on exactly — and that is worth its own round rather than
+  riding along with two amendments already in flight.
