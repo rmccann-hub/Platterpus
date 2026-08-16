@@ -770,7 +770,7 @@ _FENCE_BLOCK = re.compile(
 #: The protocol version this gate implements (`PROTOCOL.md`). A file declaring a
 #: **higher** number is refused rather than guessed at: we cannot know which of
 #: that version's rules we are silently not applying.
-PROTOCOL_VERSION: int = 2
+PROTOCOL_VERSION: int = 4
 
 #: Sentinel for a field declared more than once with conflicting values. A real
 #: value can never equal it, and every consumer treats it as "not closed".

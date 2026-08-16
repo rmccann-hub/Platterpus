@@ -106,6 +106,33 @@ def _declared(path: Path) -> tuple[int | None, int | None, str]:
 _NOT_LAPS: frozenset[str] = frozenset()
 
 
+def _is_one_lap(path: Path) -> bool:
+    """v4 §5a — a file is ONE lap only if it declares each of the three
+    identifying fields exactly once, fences stripped.
+
+    **Replaces a filename allowlist**, which is the weaker thing it used to be:
+    a list only ever excludes the container someone has already met. This is the
+    same predicate `scripts/round_digest.py::is_a_lap` uses, and it is the rule
+    cyanrip adopted into the shared spec in round 9 lap 3 §B1 — so the naming
+    sweep and the digest now agree about what a lap is, which they did not when
+    the digest counted an envelope as one.
+
+    **The threshold differs from the digest's on purpose, and the difference is
+    the grandfathered files.** Here a file is excluded only when a field is
+    declared **more than once** — the §2 rule 3 ambiguity clause. `round_digest`
+    additionally requires each field to be present *at all*, because a lap with no
+    round number cannot be placed in a round; this sweep must still judge the
+    pre-header files of rounds 1–6, which declare none of the three and are
+    perfectly legitimate laps. Same rule, two thresholds, each matched to what its
+    caller needs from it.
+    """
+    text = _FENCE.sub("", path.read_text(encoding="utf-8", errors="replace"))
+    return not any(
+        len(re.findall(rf"^{field}:", text, re.MULTILINE)) > 1
+        for field in ("HANDSHAKE-ROUND", "HANDSHAKE-LAP", "HANDSHAKE-FROM")
+    )
+
+
 def _lap_files_in(directory: str) -> list[Path]:
     """Every candidate lap in one directory, envelope excluded.
 
@@ -116,7 +143,9 @@ def _lap_files_in(directory: str) -> list[Path]:
     records. Route every sweep through here.
     """
     return sorted(
-        p for p in (_HANDSHAKE / directory).glob("*.md") if p.name not in _NOT_LAPS
+        p
+        for p in (_HANDSHAKE / directory).glob("*.md")
+        if p.name not in _NOT_LAPS and _is_one_lap(p)
     )
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`HANDSHAKE-ROUND-DIGEST` — protocol v3 §5a, implemented from the spec text.
+"""`HANDSHAKE-ROUND-DIGEST` — protocol v4 §5a, implemented from the spec text.
 
 **Written independently of cyanrip's `tools/round-digest.py`, deliberately.** The
 spec fixes the construction precisely so two implementations can be *compared*;
@@ -23,10 +23,27 @@ local layout and the two projects already differ.
 **What counts as a lap is the part the spec leaves to the reader, and it bit on
 the first run.** See :func:`is_a_lap`.
 
+**v4 adds the asymmetric exclusion, and getting it backwards is the failure
+mode**, so it is stated here as well as in `--exclude`'s help:
+
+> The digest declared in lap N covers every lap the writer holds, excluding lap
+> N. **A verifier checks it by computing over its own holdings, excluding that
+> same lap N** — not its own newest lap.
+
+The writer excludes *itself*; the reader excludes *the file it just received*.
+Equality then means exactly *"we hold the same record apart from the lap in
+flight"*. If a verifier excluded its own newest lap instead, the two sides would
+exclude different files and disagree permanently — the failure §5a exists to
+prevent, reintroduced by the fix for a different one. That half is the fork's,
+added in round 9 lap 3 §B2, and it is the reason this takes a lap name rather
+than a boolean.
+
 Usage::
 
-    python scripts/round_digest.py 8          # the digest for round 8
-    python scripts/round_digest.py 8 --list   # and show every lap it included
+    python scripts/round_digest.py 8                              # round 8
+    python scripts/round_digest.py 8 --list                       # show the laps
+    python scripts/round_digest.py 9 --exclude round-09-lap-04.md # writer side
+    python scripts/round_digest.py 9 --exclude round-09-lap-03.md # reader side
 """
 
 from __future__ import annotations
@@ -79,30 +96,34 @@ class LapFile:
 def is_a_lap(text: str) -> bool:
     """Is this file **one lap**, for digest purposes?
 
-    **The spec says "every lap of this round the writer holds" and leaves the
-    enumeration to each implementation. That gap is real, and it fired on the very
-    first run of this tool**, which is the best possible time.
+        **The spec says "every lap of this round the writer holds" and leaves the
+        enumeration to each implementation. That gap is real, and it fired on the very
+        first run of this tool**, which is the best possible time.
 
-    Our repository contains `round08platterpusbundle.md` — a *transport envelope*
-    carrying three laps verbatim so the operator can send one attachment instead
-    of three. It is not a lap: it declares no verdict of its own and closes
-    nothing. But it contains three wire headers in its body, so a sweep that reads
-    the *first* `HANDSHAKE-LAP` it finds counted it as a fourth lap 2 and produced
-    a digest over five entries for a round with four. **A digest that silently
-    includes a container is worse than none**: it is stable, reproducible, and
-    describes a record neither side has.
+    Our repository carries a *transport envelope* — one file wrapping several laps
+        verbatim so the operator moves one attachment instead of nine. It is not a lap:
+        it declares no verdict and closes nothing. But it carries a wire header per
+        part, so a sweep that reads the *first* `HANDSHAKE-LAP` it finds counted the
+        envelope as an extra lap and produced a digest over one entry too many.
+        **A digest that silently includes a container is worse than none**: it is
+        stable, reproducible, and describes a record neither side has.
 
-    The rule is derived from the spec rather than from a local allowlist, which
-    matters because an allowlist only ever excludes the container you already know
-    about:
+        The rule is derived from the spec rather than from a local allowlist, which
+        matters because an allowlist only ever excludes the container you already know
+        about:
 
-    * **§2 rule 3** — a field declared twice is *ambiguous*, and ambiguity is
-      never resolved by taking the first or the last. A file with two
-      `HANDSHAKE-LAP` lines is not a lap; it is a file containing laps.
-    * A lap must declare a round, a lap number and a sender — exactly once each.
+        **Adopted into the shared spec as v4 §5a "What counts as one lap"**, with the
+        reasoning and the defect recorded — cyanrip measured it against their own tree
+        before agreeing (no file of theirs declares any of the three fields more than
+        once; round 8's digest was unchanged), which is the right way to accept a rule.
 
-    A quoted-lap appendix, a merged summary, and any future envelope are all
-    excluded by the same test, without either project maintaining a list.
+        * **§2 rule 3** — a field declared twice is *ambiguous*, and ambiguity is
+          never resolved by taking the first or the last. A file with two
+          `HANDSHAKE-LAP` lines is not a lap; it is a file containing laps.
+        * A lap must declare a round, a lap number and a sender — exactly once each.
+
+        A quoted-lap appendix, a merged summary, and any future envelope are all
+        excluded by the same test, without either project maintaining a list.
     """
     for key in ("HANDSHAKE-ROUND", "HANDSHAKE-LAP", "HANDSHAKE-FROM"):
         if len(_declarations(text, key)) != 1:
@@ -110,8 +131,18 @@ def is_a_lap(text: str) -> bool:
     return True
 
 
-def laps_for_round(number: int, root: Path = HANDSHAKE_DIR) -> list[LapFile]:
-    """Every lap of ``number`` this repository holds — ours and inbound alike."""
+def laps_for_round(
+    number: int, root: Path = HANDSHAKE_DIR, *, exclude: str | None = None
+) -> list[LapFile]:
+    """Every lap of ``number`` this repository holds — ours and inbound alike.
+
+    ``exclude`` names **one lap file by basename** and drops it (§5a, v4). It is a
+    name rather than a flag because writer and reader exclude *different* files
+    and must both be able to say which: the writer excludes the lap it is
+    composing, the verifier excludes the lap it just received. A boolean
+    "exclude the newest" would read correctly on the writing side and be silently
+    wrong on the reading side, which is the whole reason the spec spells it out.
+    """
     found: list[LapFile] = []
     for path in sorted(root.rglob("*.md")):
         if NON_LAP_DIRS & set(path.parts):
@@ -121,6 +152,8 @@ def laps_for_round(number: int, root: Path = HANDSHAKE_DIR) -> list[LapFile]:
         if not is_a_lap(text):
             continue
         if _declarations(text, "HANDSHAKE-ROUND")[0] != str(number):
+            continue
+        if exclude is not None and path.name == exclude:
             continue
         found.append(
             LapFile(
@@ -144,9 +177,11 @@ def round_digest(laps: list[LapFile]) -> tuple[str, int]:
     return hashlib.sha256(blob).hexdigest()[:16], len(laps)
 
 
-def declaration(number: int, root: Path = HANDSHAKE_DIR) -> str:
+def declaration(
+    number: int, root: Path = HANDSHAKE_DIR, *, exclude: str | None = None
+) -> str:
     """The header line, formatted exactly as §5a shows it."""
-    digest, count = round_digest(laps_for_round(number, root))
+    digest, count = round_digest(laps_for_round(number, root, exclude=exclude))
     return f"HANDSHAKE-ROUND-DIGEST: sha256/16 = {digest} over {count} lap(s)"
 
 
@@ -154,15 +189,27 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("round", type=int, help="round number")
     parser.add_argument("--list", action="store_true", help="show every lap included")
+    parser.add_argument(
+        "--exclude",
+        metavar="LAP-FILE",
+        help=(
+            "drop one lap by basename (v4 section 5a). ASYMMETRIC, and getting it "
+            "backwards is the failure mode: as the WRITER of lap N, exclude lap N "
+            "-- your own file, which the reader cannot hash because you have not "
+            "sent it. As the READER verifying lap N, exclude THAT SAME lap N, not "
+            "your own newest. Excluding your own newest makes the two sides drop "
+            "different files and disagree forever."
+        ),
+    )
     args = parser.parse_args(argv)
 
-    laps = laps_for_round(args.round)
+    laps = laps_for_round(args.round, exclude=args.exclude)
     if args.list:
         for lap in sorted(laps, key=lambda item: (int(item.lap or 0), item.sender)):
             print(f"  lap {lap.lap:>2}  {lap.sender:<14} {lap.sha256[:16]}  {lap.path}")
         if not laps:
             print("  (no laps held for this round)", file=sys.stderr)
-    print(declaration(args.round))
+    print(declaration(args.round, exclude=args.exclude))
     return 0
 
 

@@ -1135,15 +1135,11 @@ def test_the_grandfather_sets_are_pinned_and_may_only_shrink(hs: ModuleType) -> 
 #: non-empty reason whenever the two numbers differ — so this cannot become
 #: permanent by nobody noticing. Clear it in the same commit the gate reaches the
 #: spec's version.
-_BOOTSTRAP_REASON: str = (
-    "2026-08-15: cyanrip's round-9 lap 1 delivered PROTOCOL.md v3 and we adopted "
-    "the shared file byte-identical. Neither gate declares 3 until both implement "
-    "it — cyanrip's own lap 1 declares 2 for the same reason, since a lap "
-    "proposing v3 that declared v3 would be unreadable by the gate that has to "
-    "adopt it (§3: a gate reading a higher protocol refuses rather than guesses). "
-    "Round 9 close condition 1 is exactly this: both gates implement 3 and one "
-    "lap each declares it with a matching HANDSHAKE-ROUND-DIGEST."
-)
+_BOOTSTRAP_REASON: str = ""
+#: Empty because the bootstrap is over: `docs/handshake-protocol.md` is v4 and our
+#: gate implements and declares 4, which is round 9's close condition 1. It held a
+#: reason for one day, between adopting v3's text and the fork's v4 landing with
+#: both of our amendments in it.
 
 
 def test_the_required_field_set_matches_the_published_spec(hs: ModuleType) -> None:
@@ -1496,6 +1492,13 @@ def test_a_verification_without_a_bolded_verdict_is_rejected(
 #: as drift every round.
 _SHARED_FILE_PATHS: dict[str, str] = {
     "protocol": "docs/handshake-protocol.md",
+    # **A version-qualified alias, and it is not redundant.** cyanrip's round-9
+    # lap 3 declared `protocol(v4)=…` alongside `protocol(v3, the copy you
+    # adopted)=…` during the version change, because for one lap the useful claim
+    # was *which* copy each side held. Our lap 4 follows the same spelling. Without
+    # this row the checker refuses the declaration as naming an unknown file —
+    # which it did, correctly, on the first run.
+    "protocol(v4)": "docs/handshake-protocol.md",
     "seam-rules": "docs/seam-rules.md",
     "seam-commands": "docs/seam-commands.md",
 }

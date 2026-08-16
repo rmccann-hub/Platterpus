@@ -12,6 +12,40 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **Handshake protocol v4 adopted, byte-identical** (`ed8ee62f…`), carrying both
+  amendments Platterpus proposed in round 9 lap 2 — the exactly-once rule for what
+  counts as one lap, and the exclusion of the lap that carries a digest — plus the
+  fork's addition that makes the second one work: **the verifier excludes the lap
+  it received, not its own newest**. Without that asymmetry the two sides drop
+  different files and disagree permanently, which is our own amendment
+  reintroducing the failure it was fixing. Round 9 is `GO` from our side on
+  `b56f936`.
+- **`scripts/emit_envelope.py`** — one file per exchange, restored after being
+  deleted. Deleting our envelope removed our exposure; protocol v4 §5a's
+  exactly-once rule removed everyone's, so the format is safe to use again. The
+  generator asserts the not-a-lap property on its own output **before writing**,
+  because a *single-part* envelope would otherwise declare each field exactly once
+  and be indistinguishable from a lap.
+
+### Fixed
+- **A lap was edited after it had been sent.** Round 8 lap 10 was handed over at
+  `c125acd1…` and two commits later carried an extra header line and an appended
+  section describing a since-discarded draft — protocol v4 §4a in the plainest
+  terms: *a sent lap is never edited; a correction is a new lap.* Found by the
+  fork's cross-project checksum, not by us: every check we had was about a file's
+  **content** and none about its **identity over time**. Restored to the bytes both
+  sides hold, and round 8's digest now matches theirs exactly at
+  `81415fe9a22d4884 over 12`. `tests/test_sent_laps_are_immutable.py` pins the
+  hash of every lap we have handed over, with a failure message that says to
+  restore the file rather than update the constant — a guard whose remedy is
+  "adjust the guard" is not one.
+- **The naming sweep and the round digest disagreed about what a lap is.** Both
+  now use protocol v4 §5a's rule instead of a filename allowlist, at the two
+  thresholds each needs: the digest requires each identifying field present
+  exactly once (a lap with no round number cannot be placed), the naming sweep
+  excludes only on *duplicates* (rounds 1–6 predate the fields and are still laps).
+
+### Changed
 - **Handshake protocol v3 adopted, byte-identical from the cyanrip fork**
   (`docs/handshake-protocol.md`, sha256 `63f53d05…`). Round and lap become *legal
   states*: computed round states with `RECONCILE` for a record mismatch, a
