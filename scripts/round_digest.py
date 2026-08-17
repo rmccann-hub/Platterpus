@@ -131,18 +131,43 @@ def is_a_lap(text: str) -> bool:
     return True
 
 
+class UnmatchedExclusion(Exception):
+    """``--exclude`` named a file this round does not contain.
+
+    **Raised rather than ignored, and that is the whole point of the class.** The
+    first version matched on basename and silently dropped nothing when the name
+    did not match — so passing a *path* instead of a basename printed a confident
+    digest over the full set, including the very lap it had been told to remove.
+    A caller comparing that number against a peer's would have read a manufactured
+    mismatch as a real one.
+
+    That is this project's own *"can this check be satisfied by finding nothing?"*
+    failure, sitting inside the tool that implements the one §5a rule neither side
+    may override. Found by an adversarial review of the diagnosis it was being used
+    to produce, 2026-08-15 — not by the tool's own tests, which only ever passed it
+    names that matched.
+    """
+
+
 def laps_for_round(
-    number: int, root: Path = HANDSHAKE_DIR, *, exclude: str | None = None
+    number: int, root: Path = HANDSHAKE_DIR, *, exclude: tuple[str, ...] = ()
 ) -> list[LapFile]:
     """Every lap of ``number`` this repository holds — ours and inbound alike.
 
-    ``exclude`` names **one lap file by basename** and drops it (§5a, v4). It is a
-    name rather than a flag because writer and reader exclude *different* files
-    and must both be able to say which: the writer excludes the lap it is
-    composing, the verifier excludes the lap it just received. A boolean
-    "exclude the newest" would read correctly on the writing side and be silently
-    wrong on the reading side, which is the whole reason the spec spells it out.
+    ``exclude`` names lap files **by basename** and drops them (§5a, v4). Names
+    rather than a flag because writer and reader exclude *different* files and must
+    both be able to say which: the writer excludes the lap it is composing, the
+    verifier excludes the lap it just received. A boolean "exclude the newest" would
+    read correctly on the writing side and be silently wrong on the reading side,
+    which is the whole reason the spec spells it out.
+
+    **A name that matches nothing raises** :exc:`UnmatchedExclusion`. Plural because
+    a verifier reproducing an older declaration has to drop every lap filed since,
+    and the single-valued form could not express it — which meant the natural
+    command for re-checking a past number quietly returned a different one.
     """
+    wanted_out = set(exclude)
+    matched: set[str] = set()
     found: list[LapFile] = []
     for path in sorted(root.rglob("*.md")):
         if NON_LAP_DIRS & set(path.parts):
@@ -153,7 +178,8 @@ def laps_for_round(
             continue
         if _declarations(text, "HANDSHAKE-ROUND")[0] != str(number):
             continue
-        if exclude is not None and path.name == exclude:
+        if path.name in wanted_out:
+            matched.add(path.name)
             continue
         found.append(
             LapFile(
@@ -162,6 +188,13 @@ def laps_for_round(
                 sender=_declarations(text, "HANDSHAKE-FROM")[0],
                 sha256=hashlib.sha256(data).hexdigest(),
             )
+        )
+    missing = wanted_out - matched
+    if missing:
+        raise UnmatchedExclusion(
+            f"--exclude named {sorted(missing)}, which round {number} does not "
+            f"contain. Basenames only, e.g. round-09-lap-04.md — not a path. "
+            "Refusing rather than printing a digest over a set you did not ask for."
         )
     return found
 
@@ -178,7 +211,7 @@ def round_digest(laps: list[LapFile]) -> tuple[str, int]:
 
 
 def declaration(
-    number: int, root: Path = HANDSHAKE_DIR, *, exclude: str | None = None
+    number: int, root: Path = HANDSHAKE_DIR, *, exclude: tuple[str, ...] = ()
 ) -> str:
     """The header line, formatted exactly as §5a shows it."""
     digest, count = round_digest(laps_for_round(number, root, exclude=exclude))
@@ -192,9 +225,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--exclude",
         metavar="LAP-FILE",
+        action="append",
+        default=[],
         help=(
             "drop one lap by basename (v4 section 5a). ASYMMETRIC, and getting it "
-            "backwards is the failure mode: as the WRITER of lap N, exclude lap N "
+            "backwards is the failure mode. Repeatable. As the WRITER of lap N, exclude lap N "
             "-- your own file, which the reader cannot hash because you have not "
             "sent it. As the READER verifying lap N, exclude THAT SAME lap N, not "
             "your own newest. Excluding your own newest makes the two sides drop "
@@ -203,13 +238,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    laps = laps_for_round(args.round, exclude=args.exclude)
+    exclude = tuple(args.exclude)
+    try:
+        laps = laps_for_round(args.round, exclude=exclude)
+    except UnmatchedExclusion as exc:
+        print(f"round_digest: {exc}", file=sys.stderr)
+        return 2
     if args.list:
         for lap in sorted(laps, key=lambda item: (int(item.lap or 0), item.sender)):
             print(f"  lap {lap.lap:>2}  {lap.sender:<14} {lap.sha256[:16]}  {lap.path}")
         if not laps:
             print("  (no laps held for this round)", file=sys.stderr)
-    print(declaration(args.round, exclude=args.exclude))
+    print(declaration(args.round, exclude=exclude))
     return 0
 
 

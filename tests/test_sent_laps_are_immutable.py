@@ -54,21 +54,31 @@ SENT_LAPS: dict[str, str] = {
         "c125acd1c8a5bd2c5a2db47827998da24f6554fdab5e5937a3d5b49ea51d0898"
     ),
     "outbound/round-08-lap-02.md": (
-        "e4406ff1baca686d4b1cbe0dc4ffd0e18e75d94ba0e7e1e0e4dd3b13bd7de4e9"
+        "e4406ff1baca686d70d5cb38c20e0a3bf56d405ff5a3e3ab74cd33f2d2fe21c5"
     ),
     "verified/round-08-lap-08.md": (
-        "a2e37bcacbfaea53f45e6ac2ba0ee11e4a2c9c2e78e2cd51d5c6cb1f8b2c5d3e"
+        "a2e37bcacbfaea53ffb00c4cdfc2d5c2d6c698ed79bfc0e8d262211f4915734d"
+    ),
+    # Round 9. Both **confirmed by the peer** rather than only recorded here:
+    # cyanrip's lap 5 publishes lap 2's hash in its own digest lines and reports
+    # verifying lap 4 against our envelope manifest. A pinned value the other side
+    # has independently quoted is the strongest form this row takes.
+    "verified/round-09-lap-02.md": (
+        "e1499e25f2df98a635567285e115cefd01854b2f09270f43224bfc567697e0b0"
+    ),
+    "verified/round-09-lap-04.md": (
+        "fb25fce0b2eb6bfe103fd505bb2c5b5329e36549842eb79f9dce13be86d95a0b"
     ),
 }
 
-#: Rows whose full hash we do not hold — only the 16-char prefix the manifest
-#: published. **A prefix is still a check**, and refusing to record one because it
-#: is not the whole value would leave the file unguarded entirely, which is
-#: strictly worse. Each entry is a candidate for promotion the next time the full
-#: value is computed at send time.
-PREFIX_ONLY: frozenset[str] = frozenset(
-    {"outbound/round-08-lap-02.md", "verified/round-08-lap-08.md"}
-)
+#: Rows whose full hash we do not hold — only the 16-char prefix a manifest
+#: published.
+#:
+#: **Empty, and that is the goal state.** It held two rows for one lap, recorded
+#: from prefixes rather than left unguarded, because a prefix is still a check and
+#: refusing to record one would have left the file unguarded entirely. Both were
+#: promoted the moment the full values were computed. Keep it empty.
+PREFIX_ONLY: frozenset[str] = frozenset()
 
 HANDSHAKE: Path = REPO_ROOT / "docs" / "handshake"
 
@@ -79,7 +89,7 @@ def _digest(relative: str) -> str:
 
 def test_there_are_sent_laps_to_check() -> None:
     """Floor. An empty map passes every assertion below by having nothing to do."""
-    assert len(SENT_LAPS) >= 3, f"only {len(SENT_LAPS)} sent lap(s) pinned"
+    assert len(SENT_LAPS) >= 5, f"only {len(SENT_LAPS)} sent lap(s) pinned"
 
 
 @pytest.mark.parametrize("relative", sorted(SENT_LAPS))
