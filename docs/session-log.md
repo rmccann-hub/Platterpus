@@ -11,6 +11,108 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-16/17 — round 8 closed, protocol v4, and three ways a record drifted while every gate read healthy
+
+**Round 8 is `CLOSED`** — `GO`/`GO` on `ddf7ac3`, digests agreeing at
+`81415fe9a22d4884 over 12`. **Round 9 is in `RECONCILE`**, ours
+`5c1925a9e35d5805 over 3` against their `ed2cf5c3c4443733 over 3`, and the
+divergence is diagnosed: laps 1 and 2 are byte-identical between the two trees
+and **lap 3 is the only divergent line**. Our lap 6 (`HOLD`) carries a
+pre-commit — *the first lap we send after the digests match is `GO` on
+`b56f936`* — which is the S-13-shaped mechanism that actually ends rounds.
+
+**The maintainer set the standing objective this session**, and both halves
+bind: *"get us out of beta and into a user release testable release… as soon as
+we can"*, **and** *"but not at the expense of quality, functionality, or
+reducing bugs."* It is now stated in the handshake files rather than held in a
+session.
+
+### Round and lap became legal states, checked by checksum
+
+On the maintainer's instruction (*"make the round and lap both the legal states
+of this transfer… like checksum type thing… the goal is not to keep going, but
+to converge on solution as quickly as possible"*), the shared spec went to **v3
+and then v4** — adopted byte-identical from the fork both times, `ed8ee62f…`.
+Round states `OPEN`/`RECONCILE`/`CLOSED`/`WITHDRAWN`/`EXPIRED` with `CLOSED→OPEN`
+removed; lap states `DRAFT→SENT→RECEIVED→ANSWERED` with **`SENT` irreversible**;
+`HANDSHAKE-ROUND-DIGEST` as a mutual checksum over the round's record; §6a-ter
+operator overrides requiring a rule id, a who and a why, all three.
+
+**We drafted a v3 of our own and discarded it wholesale** in favour of theirs.
+Worth recording: two specs for one protocol is the exact failure the shared-file
+rule exists to prevent, and preferring ours would have been preferring
+authorship over the property.
+
+### Three drifts, none of which any gate caught
+
+1. **We edited a lap after sending it.** Round 8 lap 10 went out at `c125acd1…`
+   and two commits later was `2831e6fc…` — a header line added and a whole
+   section appended describing a draft since discarded. The fork found it by
+   cross-project checksum. Their *hypothesis* (a botched revert probe) was wrong;
+   the truth was worse. Restored from `d97adae`, and the property is now pinned
+   by hash in `tests/test_sent_laps_are_immutable.py`. **Every check we had was
+   about a file's content; none was about its identity over time.** First restore
+   attempt used `git checkout --`, which restored the *drifted committed* version
+   — proving the revert landed is not optional.
+2. **`round_digest.py --exclude` silently no-oped** on a name that matched
+   nothing, printing a confident digest over the full set *including the lap it
+   had been told to drop*. This project's own *"can this check be satisfied by
+   finding nothing?"* failure, sitting inside the one §5a rule neither side may
+   override. Found by an adversarial review of the diagnosis it was producing —
+   not by its own tests, which only ever passed it names that matched.
+3. **The transport envelope's filename drifted three times in one session** and
+   the test that would have caught it had been deleted with the envelope and not
+   restored when the envelope came back two commits later. The maintainer caught
+   it, asking whether the name deviated from the convention. See below.
+
+### The envelope: deleted, then restored on the fork's argument
+
+We built a one-file-per-exchange envelope, our own digest counted it as a lap,
+our naming sweep read it as a misfiled lap, and we deleted it — calling that the
+stronger fix. The fork disagreed and was right: ***"deleting the instance removed
+your exposure; the rule removed everyone's."*** The rule is v4 §5a — a file
+declaring `HANDSHAKE-ROUND`/`HANDSHAKE-LAP`/`HANDSHAKE-FROM` more than once is
+ambiguous under §2 rule 3 and therefore not a lap — which excludes every present
+and future container **by construction, with no allowlist**. The maintainer
+independently required the same shape hours later: *"there should only be one
+file moving forward, unless the second is a script file to run."*
+
+### Lessons graduated
+
+- **A rule with an instance deleted is not a rule.** Removing the offending file
+  fixes your tree; writing the exclusion into the shared spec fixes both.
+- **An identity check and a content check are different checks.** Everything we
+  had verified what a file *said*; nothing verified that it still said what it
+  said when it left. A hash pinned at send time is the only fact that crosses the
+  operator boundary, because "the commit that sent it" is not derivable from the
+  tree — an attachment is an event git never sees.
+- **A generated name cannot drift; a typed one will.** `handshake_filename` had
+  this property on the lap side and the envelope had no equivalent, so three
+  sends produced three unrelated names. Now `emit_envelope.envelope_filename`,
+  derived from the header of the lap the envelope leads with.
+- **A deleted test is a deleted rule, and nothing notices.** The envelope's
+  name-safety test went out with `test_handshake_bundle.py` and was not restored
+  when `emit_envelope.py` re-created the envelope. For two commits the only
+  statement of the property was a source comment asserting compliance — *a
+  comment where a check belongs is not a fix*, with the three renames as the
+  evidence. **When retiring a subsystem, its tests' *properties* need re-homing
+  even when its code does not come back — and especially when it does.**
+- **A correction gets the same scrutiny as a claim.** Both sides' round-9
+  hypotheses about the other's divergence were wrong, and each was applied
+  faster than an in-house finding would have been.
+- **Our own §D was imprecise** — *"all nine of your laps split from the
+  envelope"* when eight were in it — and is the likeliest seed of their
+  mis-ranking of lap 3. Owned in lap 6 as a shared bookkeeping error rather than
+  argued about.
+
+**Two conventions now coexist deliberately**: `round-NN-lap-LL.md` for files that
+stay in the repo, and the no-separator cross-machine spelling
+(`round09lap06platterpus.md`) for anything relayed by hand. The envelope's name
+must *not* match `round-*.md`, the glob both projects' gates use, or a container
+could be resolved as a lap and displace a round's real latest one.
+
+---
+
 ## 2026-08-15 — round 8's rip, a `GO` we could have declined to give, and a cue that carried its own control
 
 **The round-8 rip happened, on the pin under review.** `ddf7ac3`, verified before
