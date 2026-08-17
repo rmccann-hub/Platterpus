@@ -240,6 +240,11 @@ def test_our_published_digests_still_reproduce() -> None:
         (10, 4): ("049fa6ecccaa5328", 3),
         # --- Round 11 ---
         (11, 2): ("32e19aec2253f1dd", 1),
+        # Lap 4 closes the round. Its figure covers laps 1-3, which is why the
+        # count is 3 and not 1: by lap 4 we hold their lap 1, our lap 2 and their
+        # lap 3. Added because the sweep below caught it missing on the very first
+        # lap filed after the sweep existed — which is the floor doing its job.
+        (11, 4): ("663c687da69fb8e2", 3),
     }
     for lap, expected in published.items():
         assert _as_declared_in(lap) == expected, (
