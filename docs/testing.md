@@ -1347,6 +1347,45 @@ that in code and a test asserts the placeholder is *recognised* while still *fai
 label check — because implementing the exemption as "the checker accepts parenthesised
 strings" would have quietly exempted every badly-named label too.
 
+### §5.aj — The runner is a stand-in too, and the permissive one is the one you type
+
+*The v0.6.12 release CI, 2026-08-17. Found by CI, which is the only thing that was
+running the real invocation.*
+
+`tests/test_round_digest.py` opened with `from scripts import round_digest as rd`. It
+collected cleanly every time it was run locally and raised `ModuleNotFoundError: No
+module named 'scripts'` on all four CI Pythons, at the **collection** stage — so the
+release branch's `test` job was red in 16 seconds with the other five jobs green.
+
+The mechanism is one line of CPython behaviour: `python -m pytest` prepends the cwd to
+`sys.path`, the `pytest` console script prepends nothing. At the repo root that makes
+every non-package directory here — `scripts/`, `build/` — an importable implicit
+namespace package under the first runner and invisible under the second. Reproduce CI's
+import path locally with **`PYTHONSAFEPATH=1 python -m pytest`**.
+
+**Why this belongs in §5.t's family rather than beside it.** §5.t is about a *fixture*
+that does the product's job, so the suite is green while the product is broken. This is
+the same shape one level out: the **invocation** is a stand-in for CI's, and it is the
+more permissive of the two. That asymmetry is what makes it dangerous — the permissive
+runner is the one a human types, so the defect is invisible until CI or a contributor
+with a different habit runs it. Ask of a local green run the same question §5.t asks of
+a fixture: *what does my stand-in do that the real thing does not?*
+
+**The guard is a sweep, not a fix to one file** (§5.o). `test_harness_fidelity.py`
+derives the suspect set from the filesystem — every repo-root directory with no
+`__init__.py` — and AST-walks every `tests/*.py` for a top-level import of one, rather
+than hard-coding `scripts`. Floors on both sides, because either half can go vacuous
+independently: `>= 40` test modules examined so a broken glob cannot read as *nothing
+imports badly*, and a converse test requiring `>= 5` modules to still load a script by
+file location, so the check cannot pass trivially on the day the established idiom
+erodes. Verified by reverting the import and watching the guard name
+`test_round_digest.py:23`, with the revert asserted to have landed before the run was
+believed (§5.s).
+
+**The near-miss worth recording.** The suite had already been run green under the fixed
+import — under `python -m pytest`. Had the guard not been written as a sweep, the same
+command would have gone on vouching for the same blind spot.
+
 ### 5.ag — An implemented capability is not a capability either (added 2026-08-06)
 
 §5.p is about a capability the docs claimed and the code lacked. This is the step
@@ -1501,4 +1540,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.4.*
+*Last updated for Platterpus v0.6.12.*

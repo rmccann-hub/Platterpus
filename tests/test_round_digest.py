@@ -12,15 +12,40 @@ Every test below is a way the tool could have produced one.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import re
 import subprocess
 import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
-from scripts import round_digest as rd
 
 REPO_ROOT: Path = Path(__file__).resolve().parent.parent
+
+
+def _load_round_digest() -> ModuleType:
+    """Import `scripts/round_digest.py` by path, not by package name.
+
+    `scripts/` is not a package and is not on `sys.path` — a plain
+    `from scripts import round_digest` only resolves when the repo root
+    happens to be `sys.path[0]`, which is true under `python -m pytest`
+    (it prepends the cwd) and false under the bare `pytest` console
+    script that CI runs. That difference collected fine locally and
+    failed CI on all four Python versions. Every other test that reaches
+    into `scripts/` loads by file location for this reason; this one now
+    matches them.
+    """
+    script = REPO_ROOT / "scripts" / "round_digest.py"
+    spec = importlib.util.spec_from_file_location("round_digest", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+rd: ModuleType = _load_round_digest()
 
 
 def _lap(round_no: int, lap_no: int, sender: str, body: str = "body\n") -> str:

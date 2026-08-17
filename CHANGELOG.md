@@ -34,6 +34,16 @@ and exits 0 for the first time.
   is the safe direction and exactly what our own condition asked for.
 
 ### Fixed
+- **The release CI was red on a test that passed locally every time.**
+  `tests/test_round_digest.py` opened `from scripts import round_digest`, which resolves
+  only when the repo root is `sys.path[0]` — true under `python -m pytest`, which prepends
+  the cwd, and false under the bare `pytest` console script CI runs. It failed at the
+  *collection* stage on all four Python versions while the other five jobs stayed green.
+  Now loaded by file location, matching the fourteen other tests that reach into
+  `scripts/`. The guard is a sweep rather than a one-file fix: `test_harness_fidelity.py`
+  derives every repo-root directory that is not a package and AST-walks the suite for a
+  top-level import of one, with floors on both sides so neither half can go vacuous.
+  Reproduce CI's import path locally with `PYTHONSAFEPATH=1 python -m pytest`.
 - **The README's status banner claimed the opposite of the truth.** It read *"v0.6.11 —
   BETA … it is **not** a jointly-verified pair, and every rip it makes says so in its own
   report"* — false on both counts after round 8 closed, and stamped with a version two
