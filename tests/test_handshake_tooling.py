@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import re
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -1704,3 +1705,105 @@ def test_the_guard_ignores_a_fenced_example() -> None:
     offending = "HANDSHAKE-PEER-VERDICT: GO — transcribed from round-09-lap-04.md\n"
     problems = hs.closed_set_prose(offending)
     assert problems and "ABSENT" in problems[0], problems
+
+
+# --- Our OWN verification files go through our own --check ------------------
+#
+# `--check` validates a file the fork sends us. Nothing ran it over the files we
+# send them, and on 2026-08-17 that hole was demonstrated rather than argued: the
+# round-11 closing lap was written without the bolded `**GO on <pin>` line every
+# verification file from round 4 on must carry, `--status` closed the round anyway
+# (it reads the column-0 `HANDSHAKE-VERDICT` wire header, which was correct), the
+# release gate went green, and the whole handshake suite passed. The defect was
+# caught by running `--check` by hand.
+#
+# Enforce a rule across the surface, not at the place it was learned
+# (`docs/testing.md` §5.o). This is the outbound half of a check that only ever ran
+# on the inbound half — the same one-half-of-a-two-half-contract shape §7 of the
+# protocol already records more than once.
+
+#: Verification files `--check` does not pass, each with the reason it may not be
+#: fixed. **A ratchet: it may shrink, never grow.** Every entry here is either
+#: pre-header or already sent, and a sent lap is immutable — correcting one would
+#: rewrite a document the peer holds, which is the failure `SENT_LAPS` exists to
+#: prevent. New laps must pass; that is the point.
+_CHECK_EXEMPT: dict[str, str] = {
+    # Pre-header rounds: the verdict is stated in prose in a shape that predates
+    # the §5 wire header entirely. The grandfather clause the status gate already
+    # applies via OUR_PRE_HEADER_ROUNDS.
+    "round-1.md": "pre-header round",
+    "round-2.md": "pre-header round",
+    "round-3.md": "pre-header round",
+    "round-07-lap-03.md": "round 7 adopted the wire header mid-round, at lap 3",
+    "round-07-lap-05.md": "round 7, pre-adoption lap",
+    "round-07-lap-07.md": "round 7, pre-adoption lap",
+    "round-07-lap-09.md": "round 7, pre-adoption lap",
+    "round-07-lap-40.md": "round 7, sent — immutable",
+    "round-07-lap-41.md": "round 7, sent — immutable",
+    # Post-header and SENT. The fork's own HANDSHAKE-INBOUND-HELD lists each of
+    # these as held by them, so they cannot be corrected here. They carry a valid
+    # column-0 `HANDSHAKE-VERDICT`, which is what the gate reads and what protocol
+    # v4 §5 makes authoritative; what they lack is the older bolded-prose form.
+    # That divergence — two spellings of one fact, one of which drifted — is the
+    # NEXT-ROUND item this exemption records rather than hides.
+    "round-09-lap-10.md": "sent — immutable; has the wire verdict, not the prose one",
+    "round-10-lap-02.md": "sent — immutable; has the wire verdict, not the prose one",
+    "round-10-lap-04.md": "sent — immutable; has the wire verdict, not the prose one",
+}
+
+
+def test_our_own_verification_files_pass_our_own_check() -> None:
+    """Every file we send the fork must satisfy the validator we apply to theirs."""
+    verified = sorted(
+        (_REPO_ROOT / "docs" / "handshake" / "verified").glob("round-*.md")
+    )
+    assert len(verified) >= 30, (
+        f"only {len(verified)} verification files found — the glob is wrong and this "
+        "sweep has gone vacuous."
+    )
+
+    offenders: list[str] = []
+    for path in verified:
+        if path.name in _CHECK_EXEMPT:
+            continue
+        result = subprocess.run(
+            [sys.executable, str(_SCRIPT), "--check", str(path)],
+            capture_output=True,
+            text=True,
+            cwd=_REPO_ROOT,
+        )
+        if result.returncode != 0:
+            offenders.append(f"{path.name}: {result.stdout.strip().splitlines()[-1:]}")
+
+    assert not offenders, (
+        "these verification files of ours fail our own `--check`:\n  "
+        + "\n  ".join(offenders)
+        + "\nA file we send must satisfy the validator we apply to what we receive."
+    )
+
+
+def test_the_check_exemptions_all_still_exist_and_still_fail() -> None:
+    """A ratchet entry that no longer applies must be deleted, not left to rot.
+
+    Two ways an allowlist goes wrong and both are covered: naming a file that is
+    gone (so the entry is noise), and naming one that now **passes** (so the entry
+    is silently excusing nothing while implying it excuses something).
+    """
+    verified_dir = _REPO_ROOT / "docs" / "handshake" / "verified"
+    missing = sorted(n for n in _CHECK_EXEMPT if not (verified_dir / n).exists())
+    assert not missing, f"exemptions naming files that do not exist: {missing}"
+
+    now_passing: list[str] = []
+    for name in sorted(_CHECK_EXEMPT):
+        result = subprocess.run(
+            [sys.executable, str(_SCRIPT), "--check", str(verified_dir / name)],
+            capture_output=True,
+            text=True,
+            cwd=_REPO_ROOT,
+        )
+        if result.returncode == 0:
+            now_passing.append(name)
+    assert not now_passing, (
+        f"these files are exempted but now pass `--check`: {now_passing}. "
+        "Remove them from _CHECK_EXEMPT — the ratchet may shrink, and should."
+    )

@@ -149,11 +149,21 @@ _TABLE_ROUND_FLOOR: int = 6
 #: `parsers/cyanrip_log.py`. Naming both halves here because checking one half of a
 #: two-half contract is the failure that shipped the `-V` blocker.
 #:
-#: Returns to 0 when the fork attaches `PROVIDER-CONTRACT.md` to a round-11 lap —
-#: asked for in our lap 2. Deliberately NOT satisfied by fetching their contract out
-#: of their repository: the record is what was exchanged, and a document we helped
-#: ourselves to is not a document they published to us.
-_MAX_TABLE_LAG: int = 2
+#: **Back to 0 the same day, on their round-11 lap 3.** They attached
+#: `PROVIDER-CONTRACT.md` generated at `c455683` to the lap itself — which cost them
+#: a fix to `make-envelope.py` first, because a one-lap-plus-artifacts envelope was
+#: the one shape it refused. It is committed at
+#: `inbound/artifacts/round-11-lap-03-provider-contract-gc455683.md` and this check
+#: now reads the current pin's own table.
+#:
+#: The excursion 1 → 2 → 0 is left in the history deliberately, as the earlier one
+#: was: a recorded gap that closes is the mechanism working, and a number that moves
+#: in both directions with a written reason each time is what makes it a ratchet
+#: rather than a preference. It was deliberately NOT satisfied by fetching their
+#: contract out of their repository — the record is what was *exchanged*, and a
+#: document we helped ourselves to is not one they published to us. Their lap 3 §3:
+#: *"you were right not to help yourself to the copy in our repository."*
+_MAX_TABLE_LAG: int = 0
 #: **Back to 0 on 2026-08-15**, the same day it went to 1. cyanrip's round-9 lap 3
 #: sent `PROVIDER-CONTRACT.md` for `b56f936` in its envelope; it is committed at
 #: `docs/handshake/inbound/artifacts/round-09-PROVIDER-CONTRACT.md` and the argv

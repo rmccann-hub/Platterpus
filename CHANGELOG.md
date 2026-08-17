@@ -12,6 +12,23 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **Handshake round 11 is CLOSED** — `GO`/`GO` on `c455683`, four laps. Every round in
+  the record is now closed and `handshake.py --status` exits 0, so the **strict**
+  release gate permits a stable release rather than the prerelease path.
+  - The fork enclosed `PROVIDER-CONTRACT.md` generated at the pin, taking our argv
+    tolerance from 2 back to **0** — our flag surface is now checked against the
+    current pin's own table rather than round 9's.
+  - They corrected their own round-11 §1 by `HANDSHAKE-CORRECTS` after our §2, and
+    chose to withdraw the over-wide sentence rather than emit `build` per ledger row:
+    a new top-level key means `schema` 3, which this release (supporting `{1, 2}`)
+    would refuse exactly as it just refused schema 2.
+- **Our own verification files now go through our own `--check`.** It validated files
+  the fork sends us and nothing ran it over the files we send them — demonstrated,
+  not argued: the round-11 closing lap was written without the bolded `**GO on <pin>`
+  line, `--status` closed the round anyway (correctly — it reads the column-0 wire
+  header), the release gate went green, and the whole handshake suite passed. Caught
+  by hand. The sweep has a shrinking allowlist with a written reason per entry; three
+  of its entries are already-sent laps, which are immutable by construction.
 - **The cyanrip build command now comes from the fork's manifest, per pin — parsed,
   never executed.** Handshake round 11 opened with a measured finding: adding
   `-Ddeclare_released=true` unconditionally, which is what our own changelog said we
