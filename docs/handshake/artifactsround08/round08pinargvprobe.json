@@ -1,0 +1,28 @@
+{
+  "schema": "cyanrip-diagnostics/1",
+  "cyanrip": {
+    "version": "0.9.4-rc1+platterpus.5",
+    "fork_id": "platterpus-fork",
+    "vcs": "ddf7ac3",
+    "handshake": "round 7 lap 39 closed, verdict GO",
+    "released_build": true
+  },
+  "invocation": "/usr/local/bin/cyanrip -j /home/rmccann/.local/share/platterpus/uiscript/20260815T193236+0000/rig-check/argv-probe.json -d /nonexistent-platterpus-rig-check.cue -s 667 -o flac -r 3 -Z 3 -l 1,2 -N --consumer platterpus/0.6.12b6 -c 1/1 -a \"album=Rig Check:album_artist=Platterpus:date=2026\" -t 1=title=One -t 2=title=Two -F \"(track) - (title)\" -G",
+  "exit_code": 1,
+  "read_stalls": {
+    "watched": true,
+    "threshold_seconds": 10,
+    "count": 0,
+    "longest_seconds": 0,
+    "longest_track": null, "longest_lsn": null
+  },
+  "rip": null,
+  "messages_are_classified": false,
+  "messages_note": "cyanrip_log() carries no severity, so no severity is asserted here. Progress lines that were overwritten on the terminal are collapsed to the final state of each line.",
+  "messages_dropped": 0,
+  "messages_are_complete": true,
+  "messages": [
+    "libcdio error: source name /nonexistent-platterpus-rig-check.cue is not recognized as a CUE file"
+  ],
+  "messages_tail": []
+}

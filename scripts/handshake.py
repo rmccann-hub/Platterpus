@@ -736,7 +736,7 @@ RETROSPECTIVE_ROUNDS: frozenset[int] = frozenset({1, 2, 3})
 #: Staleness fails in the SAFE direction: a value left behind reports a closed
 #: round as open and blocks a release, which is a conversation. The other
 #: direction ships.
-CURRENT_ROUND: Final[int] = 8
+CURRENT_ROUND: Final[int] = 11
 
 
 # --- The shared wire format (protocol §8) -----------------------------------
@@ -770,7 +770,7 @@ _FENCE_BLOCK = re.compile(
 #: The protocol version this gate implements (`PROTOCOL.md`). A file declaring a
 #: **higher** number is refused rather than guessed at: we cannot know which of
 #: that version's rules we are silently not applying.
-PROTOCOL_VERSION: int = 2
+PROTOCOL_VERSION: int = 4
 
 #: Sentinel for a field declared more than once with conflicting values. A real
 #: value can never equal it, and every consumer treats it as "not closed".
@@ -807,6 +807,63 @@ REQUIRED_CLOSE_FIELDS: tuple[str, ...] = (
     "HANDSHAKE-PEER-PIN",
     "HANDSHAKE-TESTED",
 )
+
+#: Fields whose value is drawn from §4's **closed** verdict vocabulary. Anything
+#: after the token is prose, and prose in a closed-set field is not decoration.
+CLOSED_SET_FIELDS: tuple[str, ...] = (
+    "HANDSHAKE-VERDICT",
+    "HANDSHAKE-PEER-VERDICT",
+)
+
+#: A bare vocabulary token: `GO`, `HOLD`, `OPEN`, `WITHDRAWN`.
+_BARE_TOKEN: re.Pattern[str] = re.compile(r"^[A-Z][A-Z-]*$")
+
+
+def closed_set_prose(text: str) -> list[str]:
+    """Closed-set fields in ``text`` that carry prose after the verdict token.
+
+    **Tolerant on input, strict on output — and the asymmetry is the whole point.**
+    Our own reader takes the first whitespace-delimited token (see the peer-verdict
+    check in :func:`close_blockers`), so a trailing clause is harmless *to us*. The
+    cyanrip fork's gate anchors its verdict pattern to end-of-line, so the same line
+    matches **nothing** and the field reads as **absent** — their round-9 lap 7 §F2
+    measured that against our laps 4 and 6 and reported *"our verdict GO, but no
+    peer verdict declared"* on files that declared one.
+
+    That is the CLAUDE.md argv-chokepoint rule arriving on the handshake seam: a
+    value we hand the peer must satisfy *their* documented contract, not merely
+    ours. A closing `GO` their gate reads as verdict-less would refuse a close that
+    both sides agreed to — indistinguishable, from their side, from us never having
+    declared it.
+
+    So this is checked on what we **emit**, never used to refuse what we receive:
+    being strict about their files would turn their pre-fix laps into errors we
+    cannot act on, and §2 rule 6's *"an unrecognised value is not agreement"*
+    already fails those closed.
+
+    Fenced blocks are stripped first (§2 rule 2). **That is not a detail** — the
+    first version of this sweep omitted it and flagged the fork's lap 7, which is
+    conforming and merely *quotes* the bad shape inside a fence to explain it. A
+    compliance checker that reads a document's example as a violation is the
+    "satisfied by the wrong thing" failure, in the checker.
+    """
+    stripped = _strip_fences(text)
+    problems: list[str] = []
+    for field in CLOSED_SET_FIELDS:
+        for match in re.finditer(
+            rf"^{re.escape(field)}:[ \t]*(?P<v>.*)$", stripped, re.MULTILINE
+        ):
+            value = match.group("v").strip()
+            if value and not _BARE_TOKEN.match(value):
+                token = value.split()[0]
+                problems.append(
+                    f"{field} carries prose after {token!r}; the peer's gate anchors "
+                    "its verdict pattern to end-of-line and will read this field as "
+                    "ABSENT. Declare the bare token and move the provenance to "
+                    f"{field}-SOURCE."
+                )
+    return problems
+
 
 #: The optional field that names a build designated to *gather* the evidence a
 #: close needs (§6a). It is **not** a pin agreement and must never be read as one.
@@ -1518,13 +1575,53 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
         # last on the strength of a round it does not belong to. Reported before the
         # verdicts are read, because the verdicts are read *off the ordering*.
         unorderable = ordering_blockers([*sent, *back, *done])
+
         # The verdict comes from the NEWEST verification file for the round —
         # `_round_files` sorts by `sort_key`, so a later lap supersedes the file it
         # corrects. Reading the oldest would let a since-withdrawn GO keep a round
         # closed.
+        # OUR NEWEST LAP SPANS BOTH OF OUR DIRECTORIES.
+        #
+        # **The fork's round-9 lap 11 §B corrected our diagnosis of the bug below and
+        # the correction opened a second hole.** We had said the outbound requirement
+        # hid for eight rounds "because we opened all eight"; every one of their nine
+        # round-8 laps declares `HANDSHAKE-OPENER: cyanrip`, and round-08-lap-01 is
+        # theirs. **They opened round 8 too.** What actually differs between rounds 8
+        # and 9 is where *our* reply was filed: round 8's went to `outbound/`, round
+        # 9's to `verified/`. Their words: *"a fix reasoned from it may not cover the
+        # case that actually fires."*
+        #
+        # They were right, and reading it made the symmetric hole visible: `verdict`
+        # came from `done` — `verified/` only — so a round whose newest lap of ours
+        # sits in `outbound/` reads its verdict from an older file, or from none at
+        # all, and can never close. Same coupling, other directory, and the first fix
+        # would not have caught it because it only removed the requirement without
+        # making the *reading* filing-agnostic.
+        #
+        # So: our contribution is every lap of ours in the round, `outbound/` and
+        # `verified/` alike, ordered by declared lap number. Where a lap is filed is
+        # local bookkeeping; it must not decide whether a round can close.
+        # **Tie-break on "declares a verdict", because merging the two directories
+        # created key collisions that did not exist when each was read alone.**
+        # `outbound/round-9.md` and `verified/round-9.md` have the SAME sort key —
+        # same round, both header-less so both `DEFAULT_LAP`, and identical stems —
+        # so which one landed last was arbitrary. A header-less legacy file winning
+        # the tie became "our newest lap" and reported no verdict, turning a closed
+        # round OPEN. Caught by `test_the_release_gate_blocks_a_release_while_a_round
+        # _is_open`, whose final assertion is the floor that the gate can still say
+        # yes — the reason that floor exists.
+        #
+        # A file that declares no verdict is not our latest *word*, so it loses a tie
+        # to one that does. Ordering is still by (round, lap) first; this only decides
+        # between files the primary key cannot separate.
+        def _states_a_verdict(path: Path) -> int:
+            text = _safe_read(path)
+            return 1 if (wire_verdict(text) or verification_verdict(text)) else 0
+
+        ours = sorted([*sent, *done], key=lambda p: (sort_key(p), _states_a_verdict(p)))
         verdict: str | None = None
-        if done:
-            our_text = done[-1].read_text(encoding="utf-8")
+        if ours:
+            our_text = ours[-1].read_text(encoding="utf-8")
             # The shared header is authoritative (protocol §8). Our own bolded
             # prose form is the fallback, and only for rounds that predate the
             # format — otherwise the two representations could disagree and the
@@ -1568,9 +1665,9 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
         our_blockers: list[str] = []
         their_blockers: list[str] = []
         if not pre_header:
-            if done:
+            if ours:
                 our_blockers = close_blockers(
-                    done[-1].read_text(encoding="utf-8"), round_hint=num
+                    ours[-1].read_text(encoding="utf-8"), round_hint=num
                 )
             if back:
                 their_blockers = close_blockers(
@@ -1583,7 +1680,30 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
             and not their_blockers
             and not unorderable
         )
-        state = "CLOSED" if (sent and back and both_go) else "OPEN"
+        # OUR CONTRIBUTION IS A LAP OF OURS, WHEREVER IT LIVES — not an outbound file.
+        #
+        # **This condition could not be satisfied by a round the PEER opened, and
+        # round 9 is the first one.** Protocol v4 §1a — adopted in round 9 itself —
+        # says *the provider opens, because only the provider can mint the unit of
+        # work*. When they open, we never write an opening file: every lap of ours is
+        # a verification, and verifications live in `verified/`. So `sent` was empty
+        # for the whole round, and `--status` reported round 9 `OPEN` with **both
+        # sides declaring GO** — a gate condition no correctly-shaped peer-opened
+        # round can ever meet, which would have blocked every release indefinitely.
+        #
+        # Invisible for eight rounds because we opened all eight, so `outbound/` was
+        # always non-empty and the coupling never showed. The same shape the fork
+        # found in their own gate one lap earlier (round 9 lap 7 §C): a gate reading
+        # the wrong directory. Theirs failed **open** and permitted a release it
+        # should have refused; ours failed **closed** and refused one it should have
+        # permitted. Fail-closed is the right direction to be wrong in, and it is
+        # still wrong.
+        #
+        # `done` rather than `sent or done`: `both_go` already requires `verdict`,
+        # which is read from `done[-1]`, so a round cannot reach here with our GO and
+        # no verification file. Naming `done` states the real requirement instead of
+        # accepting either.
+        state = "CLOSED" if (ours and back and both_go) else "OPEN"
 
         def shown_verdict(value: str | None) -> str:
             if value is None:

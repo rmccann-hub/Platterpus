@@ -68,11 +68,25 @@ MANIFEST_URL: Final[str] = (
     "platterpus-fork/release-manifest.json"
 )
 
-#: The only ``schema`` value we know how to read. A manifest declaring anything else
-#: is refused outright rather than parsed optimistically — that is the entire point
-#: of them declaring it. If they add a field we want, they bump this and we implement
-#: it; until then a future schema reads as "not determined", which is honest.
-SUPPORTED_SCHEMA: Final[int] = 1
+#: The newest ``schema`` we implement. Kept as a single number because the tests and
+#: the fork's own conformance check quote it; the set of values we *accept* is
+#: :data:`SUPPORTED_SCHEMAS` below.
+SUPPORTED_SCHEMA: Final[int] = 2
+
+#: Every ``schema`` value we know how to read. A manifest declaring anything else is
+#: refused outright rather than parsed optimistically — that is the entire point of
+#: them declaring it.
+#:
+#: **Schema 2 adds ``build``** (round 11): the exact build command for that channel's
+#: commit, derived by the fork from the commit's own tree. It is *additive*, so a
+#: schema-1 document still parses — its rows simply carry no build options, which is
+#: the correct reading of a manifest written before the field existed.
+#:
+#: Why 1 stays accepted rather than being dropped: the fork's branch tip is the
+#: published record, and a consumer that refuses the older document cannot read a
+#: manifest from before the bump — which is precisely the rollback direction round 11
+#: §0 is about.
+SUPPORTED_SCHEMAS: Final[frozenset[int]] = frozenset({1, 2})
 
 #: The ``project`` value that identifies this as the manifest we mean. Checked so a
 #: URL that has been re-pointed at some *other* project's manifest is refused rather
@@ -141,6 +155,14 @@ class RipperRelease:
     #: actually drive is a git checkout of :attr:`commit`, which is what our build
     #: step already knows how to do.
     install_url: str
+    #: Validated ``meson setup`` options for **this commit**, from schema 2's ``build``
+    #: field. Empty for a schema-1 manifest, for a commit predating the options, and
+    #: for any ``build`` string we did not fully recognise — see
+    #: :func:`_clean_build_options` for why empty is the safe answer in every case.
+    #:
+    #: Defaulted so a schema-1 row constructs unchanged, and so a caller that forgets
+    #: this field gets the under-claiming build rather than an error.
+    meson_options: tuple[str, ...] = ()
 
     @property
     def build_tag(self) -> str:
@@ -268,6 +290,100 @@ def _clean_install_url(value: Any) -> str | None:
     return url
 
 
+#: Meson options we will accept out of a manifest's ``build`` field, mapped to the
+#: values each may take.
+#:
+#: **This allowlist is the whole security argument for schema 2**, so it is worth
+#: stating plainly. The fork's ``build`` field is a *shell command string*
+#: (``"meson setup build -Ddeclare_released=true && ninja -C build"``). Round 11 §J1
+#: asks us to run what it says instead of a constant of our own. Taking that
+#: literally — handing the string to a shell — would turn a field in a remote JSON
+#: document into arbitrary command execution inside the user's container, on a path
+#: whose later steps run ``sudo install``. Whoever can write that file, or anyone who
+#: can interpose on the fetch, would own the machine.
+#:
+#: So we honour the *intent* and refuse the *mechanism*: parse the string, extract
+#: only ``-D`` options that appear here with a value that appears here, and build
+#: with our own command. Their requirement was "it must not be a constant on your
+#: side" — the options are not; the command around them is, deliberately.
+_ALLOWED_MESON_OPTIONS: Final[dict[str, frozenset[str]]] = {
+    "declare_released": frozenset({"true", "false"}),
+}
+
+#: The command shape we expect, ignoring options. Anything else is refused whole.
+_EXPECTED_BUILD_WORDS: Final[frozenset[str]] = frozenset(
+    {"meson", "setup", "build", "&&", "ninja", "-C"}
+)
+
+#: Bound on the ``build`` string. A real one is ~60 characters.
+_MAX_BUILD_CHARS: Final[int] = 512
+
+
+def _clean_build_options(value: Any, *, field: str) -> tuple[str, ...]:
+    """The validated ``-D`` options from a manifest ``build`` command.
+
+    Returns a tuple of option strings we are willing to pass to ``meson setup``.
+    **Returns an empty tuple for anything unrecognised** — a missing field, a
+    malformed one, an option we do not know, a value we do not accept, or a stray
+    word that suggests the command does something beyond configure-and-compile.
+
+    Empty is the safe answer in both directions, which is why every failure returns
+    it rather than ``None``:
+
+    * For ``declare_released``, dropping the option makes the build render as *not a
+      released build*. That **under-claims**, which is the direction round 10 fixed
+      the flag to fail in and the one condition we set on accepting a declaration at
+      all — a permissive lie lands in somebody's archival record forever.
+    * For the build itself, no options is exactly what every commit before the option
+      existed needs (round 11 §0: ``meson_options.txt`` is absent at ``ddf7ac3`` and
+      meson fails the *whole configure* on an unknown ``-D``).
+
+    Never raises, per the parser rule — this reads a document off the network.
+    """
+    if value is None:
+        return ()
+    if not isinstance(value, str):
+        log.warning("ripper manifest: %s is not a string (%r)", field, type(value))
+        return ()
+    if len(value) > _MAX_BUILD_CHARS:
+        log.warning(
+            "ripper manifest: %s is %d chars, over the %d cap — refusing it",
+            field,
+            len(value),
+            _MAX_BUILD_CHARS,
+        )
+        return ()
+
+    options: list[str] = []
+    for word in value.split():
+        if word.startswith("-D"):
+            key, sep, val = word[2:].partition("=")
+            allowed = _ALLOWED_MESON_OPTIONS.get(key)
+            if not sep or allowed is None or val not in allowed:
+                # Logged with the offending token so a bug report carries it. We
+                # refuse the WHOLE field rather than the single option: a command we
+                # only partly understand is a command we do not understand, and
+                # silently dropping one option from a build instruction is how a
+                # build ends up meaning something nobody wrote.
+                log.warning(
+                    "ripper manifest: %s carries an option we do not accept (%r) — "
+                    "refusing the whole field and building with no options",
+                    field,
+                    word[:80],
+                )
+                return ()
+            options.append(word)
+        elif word not in _EXPECTED_BUILD_WORDS:
+            log.warning(
+                "ripper manifest: %s carries an unexpected word (%r) — refusing the "
+                "whole field and building with no options",
+                field,
+                word[:80],
+            )
+            return ()
+    return tuple(options)
+
+
 def _parse_channel(name: str, raw: Any) -> RipperRelease | None:
     """One channel row, fully validated, or ``None`` with the reason logged."""
     if not isinstance(raw, dict):
@@ -302,6 +418,10 @@ def _parse_channel(name: str, raw: Any) -> RipperRelease | None:
         handshake_round=handshake_round,
         round_closed=round_closed,
         install_url=install_url,
+        # Absent in schema 1, and an unreadable one degrades to no options rather
+        # than dropping the row: the build command is an optimisation of honesty
+        # (the release admitting it is one), not a precondition for installing.
+        meson_options=_clean_build_options(raw.get("build"), field=f"{name}.build"),
     )
 
 
@@ -325,15 +445,15 @@ def parse_manifest(text: str) -> RipperManifest | None:
     schema = _clean_int(document.get("schema"), field="schema", maximum=1_000)
     if schema is None:
         return None
-    if schema != SUPPORTED_SCHEMA:
+    if schema not in SUPPORTED_SCHEMAS:
         # Refusing rather than guessing is what the field is FOR. Logged at warning
         # so a bug report carries it — a user seeing "couldn't check" deserves a log
         # line saying the manifest moved past us.
         log.warning(
-            "ripper manifest: schema %d is newer than the %d this Platterpus "
-            "implements — refusing it rather than guessing at its fields",
+            "ripper manifest: schema %d is not one this Platterpus implements (%s) "
+            "— refusing it rather than guessing at its fields",
             schema,
-            SUPPORTED_SCHEMA,
+            sorted(SUPPORTED_SCHEMAS),
         )
         return None
 

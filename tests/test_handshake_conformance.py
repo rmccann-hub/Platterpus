@@ -275,14 +275,28 @@ def test_C15_a_higher_protocol_version_refuses_rather_than_guessing(
 ) -> None:
     """*"`HANDSHAKE-PROTOCOL` higher than implemented → refuse rather than guess."*
 
-    A v2 gate reading a v3 file cannot know which of v3's rules it is silently not
-    applying — including, possibly, a new close requirement.
+    A gate reading a file one version ahead cannot know which of that version's
+    rules it is silently not applying — including, possibly, a new close
+    requirement.
+
+    **Derived from `hs.PROTOCOL_VERSION`, never a literal.** The first version of
+    this test hard-coded `"3"` as "higher", which was true while the gate
+    implemented v2 and became a test of nothing the day the gate shipped v3 — the
+    assertion still passed by asserting the opposite of what it meant. A test whose
+    fixture encodes the value under test measures the fixture.
     """
-    assert hs.protocol_refusal(_header(**{"HANDSHAKE-PROTOCOL": "3"})) is not None
+    ours = hs.PROTOCOL_VERSION
+    assert (
+        hs.protocol_refusal(_header(**{"HANDSHAKE-PROTOCOL": str(ours + 1)}))
+        is not None
+    )
     assert hs.protocol_refusal(_header(**{"HANDSHAKE-PROTOCOL": "99"})) is not None
     # Our own version and older ones are fine.
-    assert hs.protocol_refusal(_header(**{"HANDSHAKE-PROTOCOL": "2"})) is None
-    assert hs.protocol_refusal(_header(**{"HANDSHAKE-PROTOCOL": "1"})) is None
+    assert hs.protocol_refusal(_header(**{"HANDSHAKE-PROTOCOL": str(ours)})) is None
+    for older in range(1, ours):
+        assert (
+            hs.protocol_refusal(_header(**{"HANDSHAKE-PROTOCOL": str(older)})) is None
+        )
     assert hs.protocol_refusal(_header(**{"HANDSHAKE-PROTOCOL": None})) is None
     # A non-integer is refused too rather than silently ignored.
     assert hs.protocol_refusal(_header(**{"HANDSHAKE-PROTOCOL": "two"})) is not None
@@ -598,6 +612,23 @@ def _conformance_row_ids() -> list[str]:
     return re.findall(r"^\|\s*(C\d+)\s*\|", text, re.MULTILINE)
 
 
+def _rows_after_heading(heading_fragment: str) -> list[str]:
+    """Row IDs declared *after* a given §8 sub-heading in the shared spec.
+
+    Used to separate rows that bind today from rows the spec itself defers. The
+    fragment is matched against the heading text, so the fork can reword the
+    heading without breaking us as long as the phrase survives — and if it does
+    not, the caller asserts the split parsed rather than silently exempting the
+    whole table.
+    """
+    text = (_REPO_ROOT / "docs" / "handshake-protocol.md").read_text(encoding="utf-8")
+    lowered = text.lower()
+    at = lowered.find(heading_fragment.lower())
+    if at < 0:
+        return []
+    return re.findall(r"^\|\s*\*{0,2}(C\d+)\*{0,2}\s*\|", text[at:], re.MULTILINE)
+
+
 def test_every_conformance_row_has_a_test_here() -> None:
     """A floor on the suite, not on the gate.
 
@@ -614,11 +645,36 @@ def test_every_conformance_row_has_a_test_here() -> None:
     )
     assert len(ids) == len(set(ids)), f"duplicate row IDs in the table: {ids}"
     source = Path(__file__).read_text(encoding="utf-8")
-    missing = [i for i in ids if f"def test_{i}_" not in source]
+
+    # The v3 rows are not yet binding, and the spec says so itself — the heading
+    # "Rows added in v3 — required once both gates implement 3". So the split is
+    # DERIVED from the document rather than hard-coded here: a row the fork moves
+    # out of that section becomes binding on us the moment they send the file, with
+    # no edit on our side. A hand-kept list would go stale in exactly the direction
+    # that hides work.
+    pending = _rows_after_heading("Rows added in v3")
+    assert pending, (
+        "the v3 section heading no longer parses — if the rows became binding, "
+        "delete this branch rather than letting it silently exempt everything"
+    )
+    binding = [i for i in ids if i not in pending]
+    # Floor on the split itself: if it ever swallowed the v2 rows the check above
+    # would pass by exempting everything, which is the shape this file exists for.
+    assert len(binding) >= 20, (
+        f"only {len(binding)} binding row(s) after removing the v3 section — the "
+        "split is reading the table wrong"
+    )
+
+    missing = [i for i in binding if f"def test_{i}_" not in source]
     assert not missing, (
         f"shared protocol §8 rows {', '.join(missing)} have no test in this file — "
         "a conformance row without a test is a divergence nobody can see"
     )
+
+    # And the pending ones are reported, not forgotten. Round 9's close condition 1
+    # is "both gates implement 3"; these are what that means for this file.
+    unwritten = [i for i in pending if f"def test_{i}_" not in source]
+    assert unwritten == sorted(unwritten, key=lambda s: int(s[1:])), unwritten
 
 
 def test_no_test_here_claims_a_row_the_table_does_not_have() -> None:

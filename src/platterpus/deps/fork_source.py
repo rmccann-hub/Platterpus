@@ -566,6 +566,17 @@ class ForkTarget:
     version: str
     #: Human-readable reason this target exists, for the log and the wizard UI.
     why: str
+    #: ``meson setup`` options this pin needs, validated. **Empty by default, and the
+    #: default is the safe one** — round 11 §0, measured: ``meson_options.txt`` is
+    #: absent at ``ddf7ac3`` (our production pin), and meson fails the *entire*
+    #: configure on an unknown ``-D``. A flag written as a constant would therefore
+    #: have made the current pin unbuildable and killed the downgrade path, which is
+    #: the one thing retaining a previous stable exists to guarantee.
+    #:
+    #: Belongs on ``ForkTarget`` for the same reason :attr:`build_tag` does: it is a
+    #: property *of the pin*, and the class exists so pin-dependent facts cannot drift
+    #: apart into separate constants that agree only by accident.
+    meson_options: tuple[str, ...] = ()
 
     @property
     def build_tag(self) -> str:
@@ -866,6 +877,15 @@ src="$HOME/$1"
 url="$2"
 branch="$3"
 pin="$4"
+# $6 — `meson setup` options for THIS pin, or empty. Word-split deliberately
+# (the one place in this script that wants splitting), because it is either
+# empty or a short list of `-Dkey=value`. Every element was validated against an
+# allowlist in Python before it got here: see `_clean_build_options` in
+# ripper_manifest.py for why the manifest's build command is PARSED and never
+# executed. Empty is the correct value for every commit predating the option —
+# round 11 §0 measured that meson fails the WHOLE configure on an unknown -D, so
+# a constant flag here would break the downgrade path to our own current pin.
+meson_opts="${6-}"
 
 # --- Say where we are before doing anything ---------------------------------
 # These four lines are the ones that would have ended the v0.6.4b2 hunt in
@@ -925,12 +945,16 @@ fi
 
 # `--wipe` reconfigures an existing build dir (and fails if there isn't one),
 # so branch on it rather than deleting anything.
+echo "platterpus: meson options=${meson_opts:-(none)}"
+# Unquoted on purpose — see `meson_opts` above. `set -eu` is active, so an empty
+# value expands to nothing rather than to an empty argument.
+# shellcheck disable=SC2086
 if [ -d "$src/build" ]; then
   echo "platterpus: reconfiguring existing build dir"
-  meson setup --wipe "$src/build" "$src"
+  meson setup --wipe $meson_opts "$src/build" "$src"
 else
   echo "platterpus: configuring a fresh build dir"
-  meson setup "$src/build" "$src"
+  meson setup $meson_opts "$src/build" "$src"
 fi
 ninja -C "$src/build"
 
@@ -1086,6 +1110,11 @@ def build_command(container: str, target: ForkTarget | None = None) -> list[str]
         # second spelling of it, free to drift the first time the tag format
         # changes.
         chosen.build_tag,
+        # $6 — `meson setup` options for this pin, space-joined. Empty string for
+        # every pin that needs none, which is the default and the safe direction.
+        # Joined here rather than in shell so the *only* thing the container sees
+        # is a list Python already validated.
+        " ".join(chosen.meson_options),
     )
 
 

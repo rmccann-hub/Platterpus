@@ -103,30 +103,64 @@ worth re-reading and it is not what the symptom said.
   Found 2026-08-13 by asking the operator to `ls` the path before the run — which
   is the cheap check that should have existed the first time the path was written.
 
-## When their lap 9 arrives — everything our lap 10 must carry (staged 2026-08-15)
+## Leaving beta — the standing objective for every round from here (set 2026-08-15)
 
-**Do NOT write a lap-10 file before their lap 9 lands.** Round 8 is open, lap 9
-is theirs under the opener/parity rule, and a lap written before the one it
-answers is not a reply — it is a second opener. Maintainer's instruction,
-verbatim: *"keep all you notes ready for the next lap handshake doc so we can
-send to cyanrip as well, but not until they prompt us with the next handshake
-file."* This section is the staging area; it is not correspondence.
+**The maintainer's words, both halves, because only the pair is the instruction:**
 
-- [ ] **Settle the expired close-by date FIRST.** Our lap 8 §J1 accepted
+> *"our goal is to get us out of beta and into a user release testable release,
+> if possible, as soon as we can, make sure that is clear in all handshakes and
+> objectives."*
+>
+> *"but not at the expense of quality, functionality, or reducing bugs."*
+
+This is not a licence to lower the bar and it is not a date. It is the
+correction round 7 already diagnosed and neither project has yet applied to
+itself: **release-grade rigour was being attached to the *round* rather than to
+the *release*.** The rigour stays. What ends is a round that cannot terminate
+because every finding it makes is a reason to extend it.
+
+Named in `docs/handshake/verified/round-08-lap-10.md` §A so the fork holds the
+same objective; it must appear in every lap we write from here.
+
+- [x] **Round 8: declare `GO` on `ddf7ac3`.** Done — lap 10, 2026-08-15. Our half
+  only: the round stays OPEN until their lap 11 declares `GO`, and `handshake.py
+  --status` enforces that.
+- [ ] **Name what `v0.6.x` final needs, and keep the list closed.** Same
+  discipline as S-13: fix the conditions once, do not let them grow. This is a
+  *different and much shorter list* than the `v1.0.0` one below — 1.0 claims
+  stability across drives and machines nobody has tested; leaving beta claims the
+  build is good enough for a user who is not the maintainer to run on the
+  hardware we do support.
+- [ ] **Every defect from here is triaged against the release, not the round.**
+  S-14 applied inward: a finding blocks the beta exit only if it names what it
+  breaks for a user of the build. Everything else ships in the release after.
+
+## When their lap 9 arrives — everything our lap 10 must carry (staged 2026-08-15) — **DONE, lap 10 sent**
+
+**Kept, not deleted.** Every row below was written before the lap and is ticked
+with what it turned out to be; the staging notes are the part worth re-reading if
+round 9 needs the same preparation. The gate that mattered — *do not write lap 10
+before their move* — was satisfied by their round-8 state document, which
+explicitly asks for our lap 10 and reports their laps through 13.
+
+- [x] **Settle the expired close-by date FIRST.** *Their lap 13 ruled it spent
+  and not extended, citing our own S-13 against their lap 9's extension. Lap 10
+  §D accepts without amendment.* Our lap 8 §J1 accepted
   `HANDSHAKE-CLOSE-BY: 2026-08-14` *"Accepted, unchanged"*. That date passed with
   the round open. Under S-13 a close condition fixed at lap 1 cannot be
   *extended*, which is exactly the rule written after round 7's 37 laps — so
   this needs a joint decision, not a unilateral reading by either side. It is the
   first thing lap 10 addresses.
 
-- [ ] **Hold the pre-commit exactly as written.** Lap 8 §E: *"Our lap 10 is GO on
+- [x] **Hold the pre-commit exactly as written.** *Held. None of the three
+  escape conditions fired, so lap 10 is `GO`.* Lap 8 §E: *"Our lap 10 is GO on
   `ddf7ac3` unless"* (1) their lap 9 moves the pin, (2) they raise a finding that
   makes `ddf7ac3` **itself** unsafe (S-14 — name what it breaks in the artifact
   under review), or (3) they would rather we made the two SECTION C edits.
   **Nothing else.** §C2, §C3 and §C5 were pre-committed to round 9 precisely so
   they could not quietly become blockers; honour that even if lap 9 revisits them.
 
-- [ ] **Carry hardware evidence on `ddf7ac3` — the gap that would otherwise make
+- [x] **Carry hardware evidence on `ddf7ac3` — the gap that would otherwise make
   lap 10 dishonest.** We pre-commit to GO on `ddf7ac3` and our only rig rip is on
   `g2ce8993` (`docs/handshake/artifactsround08/`, which says so in its README).
   Signing off a build nobody ripped with is what Critical rule #12 exists to
@@ -134,17 +168,31 @@ file."* This section is the staging area; it is not correspondence.
   approved`, so this is one disc. **Rip AFTER their lap 9 confirms the pin**, not
   before — a rip on a pin they are about to move is wasted.
 
-- [ ] **Answer their reply to our two §F questions** (both `NEXT-ROUND`): whether
+- [x] **Report the loss of `~/rigsession/` (2026-08-14) plainly in lap 10.**
+  *Lap 10 §G, unhedged.* Their
+  round-8 state document §10.4 asked for it to be kept regardless — *"it is the
+  only evidence of the drive-open hang and cannot be re-taken."* It is gone from
+  the operator's machine, confirmed by a `find` across `$HOME` on 2026-08-15, and
+  no copy was ever uploaded to us: the bundle we hold contains the ui-script run,
+  not the rig-session artifacts. **It was not our archive command** — that moved
+  nothing (its target directory is empty) and never named `rigsession` at all.
+  Say so without hedging: an artifact the other side asked us to preserve was
+  lost on our side. It does not block the round — the drive-open hang is their
+  finding, fixed on their side at `5869977`, and its status was already *"needs
+  your rig"* — but a quiet omission here is exactly the failure both projects
+  keep writing rules against.
+
+- [x] **Answer their reply to our two §F questions** (both `NEXT-ROUND`): whether
   their `HANDSHAKE-PROTOCOL: 2` proposal changes the field set we are already
   emitting, and whether they hold round 8 laps 3–7 for us to commit as inbound.
 
-- [ ] **Report what shipped since lap 8**, with the pin unchanged: v0.6.12b6;
+- [x] **Report what shipped since lap 8**, with the pin unchanged: v0.6.12b6;
   the pre-install build-tag guard (a wrong build is now refused *before* `sudo
   install` and `distrobox-export`, so a failed check no longer leaves the wrong
   ripper exported); our own argv now logged at startup; `--install-ripper list`.
   None of it touches SECTION C or the pin.
 
-- [ ] **Hand over `docs/cyanrip-known-issues.md`** — ten verified findings, and
+- [x] **Hand over `docs/cyanrip-known-issues.md`** — ten verified findings, and
   §10b's three questions about listing their builds. It is deliberately not a lap
   and must not be counted as one; say so when sending.
 
@@ -1969,4 +2017,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.12b6.*
+*Last updated for Platterpus v0.6.12.*

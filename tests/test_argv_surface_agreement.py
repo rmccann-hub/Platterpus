@@ -122,7 +122,55 @@ _TABLE_ROUND_FLOOR: int = 6
 #: Recorded as a number rather than left implicit because *a silent truncation reads as
 #: completeness*: without this, the check reports agreement about a surface it is
 #: reading from before the round opened. Asked for in lap 22 §C.
+#: **1 as of 2026-08-17, and the reason is that there is nothing to lag behind.**
+#: Round 10 lap 1 §I declares the provider contract *"unchanged since round 9 lap 11 —
+#: no flag, no log line, no exit code moved"*, and reports
+#: `gen-provider-contract.py --check` exiting 0 at their pin. So round 9's table IS the
+#: current argv surface; the lag is nominal rather than a gap in what we can check.
+#: **Returns to 0 the moment they publish a round-10 table** — this is a ratchet with a
+#: written reason per value, and the value may shrink at any time.
+#:
+#: **2 as of 2026-08-17, and the reason is a MEASUREMENT rather than a declaration.**
+#: Round 11 opened without a flag table. Raising a safety ratchet to make one's own
+#: suite go green is the instinct this file exists to resist, so the number moved only
+#: after checking the thing the table describes, in the fork's own repository:
+#:
+#:     git diff b56f936..c455683 -- src/cyanrip_main.c   ->  empty
+#:
+#: `src/cyanrip_main.c` is where cyanrip parses its argv, and it is **byte-identical**
+#: between round 9's pin — whose table this check reads — and round 11's. So round 9's
+#: P1 table describes the current binary's flags exactly, and the lag is nominal.
+#:
+#: **The same measurement says the other half of the seam DID move**, which is why it
+#: is recorded here rather than waved through: `src/cyanrip_log.c` changed over that
+#: span (+18/-2), adding the ` -- released build` suffix and its parenthesised
+#: continuation line. That is round 10's deliverable, and the *output* half is checked
+#: elsewhere — `tests/test_cyanrip_log_parser.py` and the continuation folding in
+#: `parsers/cyanrip_log.py`. Naming both halves here because checking one half of a
+#: two-half contract is the failure that shipped the `-V` blocker.
+#:
+#: **Back to 0 the same day, on their round-11 lap 3.** They attached
+#: `PROVIDER-CONTRACT.md` generated at `c455683` to the lap itself — which cost them
+#: a fix to `make-envelope.py` first, because a one-lap-plus-artifacts envelope was
+#: the one shape it refused. It is committed at
+#: `inbound/artifacts/round-11-lap-03-provider-contract-gc455683.md` and this check
+#: now reads the current pin's own table.
+#:
+#: The excursion 1 → 2 → 0 is left in the history deliberately, as the earlier one
+#: was: a recorded gap that closes is the mechanism working, and a number that moves
+#: in both directions with a written reason each time is what makes it a ratchet
+#: rather than a preference. It was deliberately NOT satisfied by fetching their
+#: contract out of their repository — the record is what was *exchanged*, and a
+#: document we helped ourselves to is not one they published to us. Their lap 3 §3:
+#: *"you were right not to help yourself to the copy in our repository."*
 _MAX_TABLE_LAG: int = 0
+#: **Back to 0 on 2026-08-15**, the same day it went to 1. cyanrip's round-9 lap 3
+#: sent `PROVIDER-CONTRACT.md` for `b56f936` in its envelope; it is committed at
+#: `docs/handshake/inbound/artifacts/round-09-PROVIDER-CONTRACT.md` and the argv
+#: check now reads the pin's own table. The excursion is left in the history
+#: deliberately: a recorded gap that closes is the mechanism working, and the
+#: number moving in both directions with a reason each time is what makes it a
+#: ratchet rather than a preference.
 
 
 #: Inbound ARTIFACTS the fork ships beside a lap file — their provider contract among
@@ -563,9 +611,18 @@ def test_the_table_we_check_against_is_the_current_rounds_own() -> None:
     """
     files = _newest_round_files()
     rounds = {_file_round(p) for p in files}
-    assert rounds == {_newest_inbound_round()}, (
-        f"the flag table came from round(s) {rounds}, not the newest "
-        f"({_newest_inbound_round()}) — this is the silent-fallback case"
+    newest = _newest_inbound_round()
+    # A fallback is permitted exactly as far as `_MAX_TABLE_LAG` records, and no
+    # further. **One number, one place**: this used to assert strict equality while
+    # `_MAX_TABLE_LAG` allowed a lag, so the two checks could disagree about the
+    # same situation — and when round 9 opened without a contract attached, they
+    # did. Two checks that can disagree about one fact is the shape that put a
+    # stale flag table past a round of "verification" in the first place.
+    behind = {newest - r for r in rounds if r is not None}
+    assert behind and max(behind) <= _MAX_TABLE_LAG, (
+        f"the flag table came from round(s) {rounds}, {max(behind) if behind else '?'} "
+        f"behind the newest ({newest}), past the recorded lag {_MAX_TABLE_LAG} — "
+        "this is the silent-fallback case"
     )
     assert any("provider-contract" in p.name for p in files), (
         "no provider contract among the files read, so the table is being taken from "

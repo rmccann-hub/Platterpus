@@ -129,6 +129,16 @@ class CueTrack:
     index01: str = ""
     #: The ``FILE`` this track's audio lives in, as written in the cue.
     file: str = ""
+    #: The ``FILE`` that was in effect **on the ``INDEX 00`` line itself**.
+    #:
+    #: Deliberately separate from :attr:`file`, and the distinction is the whole
+    #: point of the gap-appended layout: an ``INDEX 00`` says "this track's
+    #: pre-gap is appended to the file above", and the ``FILE`` line for the
+    #: track's *own* audio comes after it. So :attr:`file` gets re-pointed to the
+    #: track's own audio while parsing continues, and by the end of the block the
+    #: information about *where the marker was nested* is gone. Recording it at
+    #: the moment it is read is the only way to keep it.
+    index00_file: str = ""
     line_number: int = 0
 
 
@@ -185,6 +195,14 @@ class ExpectedCue:
     #: Only include tracks whose pre-gap was actually *measured*: an "unknown"
     #: pre-gap must not become an accusation in either direction.
     pregap_frames: Mapping[int, int] = field(default_factory=dict)
+    #: Track number → the length of that track's own audio in CD frames.
+    #:
+    #: Comes from the ripper's sector figures (``end_sector - start_sector + 1``),
+    #: i.e. from the disc, not from the cue — so using it to judge the cue is a
+    #: comparison against an independent source rather than a self-consistency
+    #: check. Used to say *how far* past the end of a file a misplaced ``INDEX 00``
+    #: marker lands; an absent entry costs the number, never the finding.
+    track_frames: Mapping[int, int] = field(default_factory=dict)
     #: Track number → the true title (real colon), for the repair message.
     track_titles: Mapping[int, str] = field(default_factory=dict)
     #: The true album title, with its real colon.
@@ -284,8 +302,31 @@ def parse_cue(cue_text: str) -> CueSheet:
             sheet.lines_understood += 1
             current_file = _unquote(match_file["value"])
             sheet.files.append(current_file)
-            if current is not None:
+            if current is not None and current.index00 and not current.index01:
                 # Gap-appended layout: this FILE is the open track's own audio.
+                #
+                # The condition is the signature of that layout and not a
+                # nicety. A `FILE` line can appear while a track block is open
+                # for two entirely different reasons:
+                #
+                #   TRACK 02          <- gap-appended: 02's pre-gap is in 01's
+                #     INDEX 00 …         file, and 02's own audio follows
+                #   FILE "02.flac"
+                #     INDEX 01 …
+                #
+                #   TRACK 01
+                #     INDEX 01 …      <- ordinary multi-file layout: this FILE
+                #   FILE "02.flac"       belongs to the NEXT track, and track 1
+                #   TRACK 02             is merely still syntactically open
+                #
+                # Re-pointing unconditionally got the second case wrong, and it
+                # was invisible until something needed to know *whose* audio a
+                # file holds: on the 2026-08-15 rig cue it attributed track 3's
+                # file to track 1, which would have measured a misplaced pre-gap
+                # marker against the wrong track's length and reported an
+                # overshoot of 8048 frames instead of the true 682. An
+                # already-seen `INDEX 01` means the track has its audio, so a
+                # `FILE` after it is the next track's.
                 current.file = current_file
             continue
 
@@ -294,6 +335,7 @@ def parse_cue(cue_text: str) -> CueSheet:
             sheet.lines_understood += 1
             if match_index["index"].lstrip("0") == "":  # "00" / "0"
                 current.index00 = match_index["time"]
+                current.index00_file = current_file
             elif match_index["index"].lstrip("0") == "1":
                 current.index01 = match_index["time"]
             continue
@@ -720,6 +762,212 @@ def _check_pregaps(sheet: CueSheet, expected: ExpectedCue) -> list[CueFinding]:
     return findings
 
 
+#: CD frames per second. Red Book, fixed forever — a cue ``MM:SS:FF`` field
+#: counts frames in the third position, not hundredths.
+FRAMES_PER_SECOND: int = 75
+
+
+def index_time_to_frames(text: str) -> int | None:
+    """``MM:SS:FF`` → absolute CD frames, or ``None`` if it is not that shape.
+
+    Never raises. ``MM`` is deliberately unbounded (a cue may legally carry more
+    than 99 minutes in one file); ``SS`` and ``FF`` are range-checked, because a
+    ``SS`` of 61 or an ``FF`` of 80 is a malformed marker rather than a large
+    one, and silently normalising it would let a corrupt time pass as a number.
+    """
+    parts = text.strip().split(":")
+    if len(parts) != 3:
+        return None
+    minutes = int_or_none(parts[0], field="cue INDEX minutes")
+    seconds = int_or_none(parts[1], field="cue INDEX seconds")
+    frames = int_or_none(parts[2], field="cue INDEX frames")
+    if minutes is None or seconds is None or frames is None:
+        return None
+    if minutes < 0 or not 0 <= seconds < 60 or not 0 <= frames < FRAMES_PER_SECOND:
+        return None
+    return (minutes * 60 + seconds) * FRAMES_PER_SECOND + frames
+
+
+def _check_index00_placement(
+    sheet: CueSheet, expected: ExpectedCue
+) -> list[CueFinding]:
+    """Is each ``INDEX 00`` marker nested under a file that can actually hold it?
+
+    **The defect this exists for, measured on our own rig.** An ``INDEX 00``
+    means *"track N's pre-gap is appended to the end of the file above"* — and
+    the file above must therefore be **track N-1's** audio. On a partial rip
+    (Platterpus's per-track "Rip?" checkboxes → cyanrip ``-l``) where track N-1
+    was **not** selected, cyanrip still writes the marker, nesting it under
+    whichever file happens to be current. The result is a cue that points a
+    burner or tracker at a position the file does not contain.
+
+    Measured 2026-08-15 on `-l 1,3,5,6,7`
+    (``docs/handshake/artifactsround08/round08pinripcue.cue``), and both
+    outcomes are in that one file, which is what makes it evidence rather than
+    an anecdote:
+
+    * **track 5** — pre-gap 115 frames, track 4 not ripped. Marker written as
+      ``INDEX 00 05:00:35`` (22535 frames) under **track 3's** file, which is
+      21853 frames long: **682 frames — 9.09 s — past the end of it**.
+    * **track 7** — pre-gap 105 frames, track 6 *was* ripped. Marker written as
+      ``INDEX 00 04:05:53`` (18428 frames) under track 6's file, 18533 frames
+      long: exactly 105 frames from its end. **Correct**, and it is the control
+      that proves the writer is right whenever the previous track is present.
+
+    The fork reported the same defect independently
+    (round-8 state document §3, upstream-origin ``90c02175``, 2023), so this
+    check is our half of a two-sided finding rather than a rediscovery.
+
+    **Why the existing pre-gap check could not see it.** :func:`_check_pregaps`
+    deliberately skips any track whose predecessor was not ripped, on the correct
+    reasoning that an *absent* marker there is right rather than wrong. That skip
+    answered "is a missing marker OK?" and left "is a **present** marker OK?"
+    unasked — the exemption was sound and its converse was never written.
+
+    Tri-state and floored, like every check here: a cue with no ``INDEX 00`` at
+    all reports **not determined**, never a pass, because a check that succeeds
+    by finding nothing is decoration.
+    """
+    by_number = {t.number: t for t in sheet.tracks if t.number is not None}
+    #: Which cue track's audio each FILE holds, so a marker's host file can be
+    #: measured. First writer wins: a file named by two tracks is malformed, and
+    #: attributing it to the earlier one keeps the overshoot conservative.
+    owner_of_file: dict[str, int] = {}
+    for track in sheet.tracks:
+        if track.file and track.number is not None and track.file not in owner_of_file:
+            owner_of_file[track.file] = track.number
+
+    def host_frames(file_name: str) -> int | None:
+        owner = owner_of_file.get(file_name)
+        if owner is None:
+            return None
+        return expected.track_frames.get(owner)
+
+    orphaned: list[str] = []
+    misplaced: list[str] = []
+    past_eof: list[str] = []
+    examined = 0
+
+    for track in sheet.tracks:
+        number = track.number
+        if number is None or not track.index00:
+            continue
+        if number == 1:
+            # The lead-in pre-gap belongs to no file at all; `_check_pregaps`
+            # documents why track 1 is exempt and the same physics apply here.
+            continue
+        examined += 1
+        marker = index_time_to_frames(track.index00)
+        previous = by_number.get(number - 1)
+        capacity = host_frames(track.index00_file) if track.index00_file else None
+
+        overshoot = ""
+        if marker is not None and capacity is not None and marker >= capacity:
+            past = marker - capacity
+            overshoot = (
+                f" — {past} frame(s) ({past / FRAMES_PER_SECOND:.2f} s) past the "
+                f"end of that {capacity}-frame file"
+            )
+
+        if previous is None:
+            orphaned.append(
+                f"track {number}: marker at {track.index00} is nested under "
+                f'"{track.index00_file or "(no FILE)"}", but track {number - 1} '
+                f"was not ripped, so this pre-gap has no file to belong to{overshoot}"
+            )
+        elif (
+            track.index00_file and previous.file and track.index00_file != previous.file
+        ):
+            misplaced.append(
+                f'track {number}: marker is under "{track.index00_file}" but '
+                f'track {number - 1}\'s audio is in "{previous.file}"{overshoot}'
+            )
+        elif overshoot:
+            past_eof.append(f"track {number}: marker at {track.index00}{overshoot}")
+
+    if examined == 0:
+        # No markers at all. That is *correct* — not merely unexamined — when an
+        # independent source says none was due: the ripper's own measured pre-gap
+        # lengths. Without that source it stays not-determined, because "there
+        # was nothing to check" and "there was correctly nothing to check" are
+        # different answers and only one of them is a pass.
+        #
+        # This distinction is not pedantry. Most discs have no signalled pre-gap
+        # on any track, so collapsing the two would put a permanent NOTE on the
+        # majority of clean rips — and a verdict that can never reach OK stops
+        # being a verdict, which this project has already shipped once.
+        due = [
+            number
+            for number in (t.number for t in sheet.tracks if t.number is not None)
+            if number != 1 and expected.pregap_frames.get(number, 0) > 0
+        ]
+        if expected.pregap_frames and not due:
+            return [
+                CueFinding(
+                    LEVEL_OK,
+                    "cue_index00_ok",
+                    "cue sheet — no INDEX 00 pre-gap marker to place: the ripper "
+                    "measured no signalled pre-gap on any track in this cue, so a "
+                    "sheet without markers is what it should look like",
+                )
+            ]
+        return [
+            CueFinding(
+                LEVEL_NOTE,
+                "cue_index00_not_determined",
+                "cue sheet — INDEX 00 placement not determined: this cue carries no "
+                "pre-gap marker on any track after track 1, and no measured pre-gap "
+                "length says whether one was due",
+            )
+        ]
+
+    findings: list[CueFinding] = []
+    tail = (
+        " A burner or tracker reading this cue will seek to a position the file "
+        "does not contain. The audio itself is unaffected — this is an error in "
+        "the sheet, not in the rip."
+    )
+    if orphaned:
+        findings.append(
+            CueFinding(
+                LEVEL_WARN,
+                "cue_index00_orphaned",
+                f"cue sheet — {len(orphaned)} INDEX 00 pre-gap marker(s) point into a "
+                f"file that belongs to a different track, because the track before "
+                f"them was not part of this rip: {_named(orphaned)}.{tail}",
+            )
+        )
+    if misplaced:
+        findings.append(
+            CueFinding(
+                LEVEL_WARN,
+                "cue_index00_misplaced",
+                f"cue sheet — {len(misplaced)} INDEX 00 pre-gap marker(s) are nested "
+                f"under the wrong file: {_named(misplaced)}.{tail}",
+            )
+        )
+    if past_eof:
+        findings.append(
+            CueFinding(
+                LEVEL_WARN,
+                "cue_index00_past_eof",
+                f"cue sheet — {len(past_eof)} INDEX 00 pre-gap marker(s) sit past the "
+                f"end of the file they are nested under: {_named(past_eof)}.{tail}",
+            )
+        )
+    if not findings:
+        findings.append(
+            CueFinding(
+                LEVEL_OK,
+                "cue_index00_ok",
+                f"cue sheet — all {examined} INDEX 00 pre-gap marker(s) are nested "
+                "under the previous track's own file, and none sits past the end of "
+                "it",
+            )
+        )
+    return findings
+
+
 #: Characters a cue sheet cannot carry verbatim in a quoted value, so a
 #: difference involving one of them is a *formatting* difference and not evidence
 #: that text was lost. A title containing one is reported **not determined**
@@ -993,6 +1241,7 @@ def validate_cue(cue_text: str, *, expected: ExpectedCue) -> list[CueFinding]:
         findings += _check_structure(sheet, expected)
         findings += _check_isrcs(sheet, expected)
         findings += _check_pregaps(sheet, expected)
+        findings += _check_index00_placement(sheet, expected)
         findings += _check_colon_fidelity(sheet, expected)
         return findings
     except Exception as exc:  # noqa: BLE001 — a validator must not kill its caller
