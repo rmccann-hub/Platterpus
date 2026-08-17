@@ -11,6 +11,84 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-17 — a green suite that CI failed to collect, and round 11's trap in a plan we had written down
+
+Two things, and they rhyme: in both, the record said one thing and the artifact
+said another, and only opening the artifact settled it.
+
+### The release CI was red on a test that passed locally every time
+
+`tests/test_round_digest.py` opened `from scripts import round_digest`. That
+resolves only when the repo root is `sys.path[0]` — true under `python -m
+pytest`, which prepends the cwd, false under the bare `pytest` console script CI
+runs. So it collected cleanly in every local run and raised
+`ModuleNotFoundError` on all four CI Pythons, failing at the **collection**
+stage while lint, typecheck, changelog, media-guard and pip-audit stayed green.
+
+It was the only import of its kind in the suite; the other fourteen tests that
+reach into `scripts/` load by file location. Reproduce CI's import path locally
+with **`PYTHONSAFEPATH=1 python -m pytest`** — used for every run in this
+session afterwards, which is how the round-11 work below was verified.
+
+Graduated to `docs/testing.md` §5.aj. The lesson generalises §5.t one level out:
+**the runner is a stand-in too, and the permissive one is the one a human
+types**, so the defect is invisible until CI or a contributor with different
+habits runs it. The guard is a sweep rather than a one-file fix — derive every
+repo-root directory that is not a package from the filesystem, AST-walk the
+suite for a top-level import of one, floors on both sides.
+
+### Round 11: the fork caught a trap in a plan our own changelog had written down
+
+Their lap 1 arrived measured. v0.6.12's changelog said adding
+`-Ddeclare_released=true` was next; they had unpacked `ddf7ac3` and run it:
+
+```
+$ meson setup b -Ddeclare_released=true
+meson.build:1:0: ERROR: Unknown options: "declare_released"
+```
+
+`meson_options.txt` is absent before `+platterpus.6`, and meson fails the
+**whole configure**, not the option. The flag as a constant would have made our
+own current pin unbuildable and killed the downgrade path — the one thing
+retaining a previous stable exists to guarantee. Confirmed in their tree before
+acting on it, per the rule that a correction is not pre-verified just because it
+arrives as one.
+
+**We took the requirement and refused the mechanism.** Their fix puts the build
+command in `release-manifest.json` as a *shell command string*. Executing it
+would turn a field in a remote JSON document into arbitrary command execution
+inside the user's container, on a path whose later steps run `sudo install`.
+So it is parsed to a meson-option allowlist; anything unrecognised refuses the
+**whole** field and we build with no options. Their requirement — *"the one
+thing we ask is that it not be a constant on your side"* — is still met: the
+options are not constant, the command around them is.
+
+Three findings of our own, all from opening artifacts rather than reading prose:
+
+| what | how it was found |
+|---|---|
+| Their §1 claims reading `build` covers *"rollbacks and every release older than the option"*. The published manifest carries `build` for the **channel head only** — `build_command()` is per-commit but is called once, for `latest["commit"]`. A consumer reusing it across a rollback reproduces their own §0. | read `tools/gen-release-manifest.py` and the manifest, not the lap |
+| **Their schema 2 was already live against our shipped reader**, which pinned schema 1 and returned *not determined* for the real document. Answers their J3 with a measurement instead of an opinion. | ran our parser on their published bytes |
+| Digests we declared in rounds **10 and 11** were pinned by nothing. The reproduction test was scoped to round 9 while its own floor promised *"every lap of ours in the tree"* — true when written, false the moment round 10 opened. | the floor's comment disagreed with its glob |
+
+That last one is §5.af arriving from a new direction, inside a test rather than
+a document: **a promise of completeness needs a sweep, not a comment.** Now keyed
+by `(round, lap)` across every round; all three newly-covered figures re-derive
+from the committed tree.
+
+### The release did not go out, and that was the call
+
+`v0.6.12` is a `v0.*` tag, so `release.yml` runs the **prerelease** gate, which
+exits 0 with a round open. It would have shipped. Its own message for that path
+is *"this build is a test artifact, not a verified pair"* — the exact opposite
+of what v0.6.12 says it is (*"Out of beta. The cyanrip pairing is jointly
+verified"*). Shipping an artifact that contradicts its own gate is not a release,
+so it waits for round 11's lap 3. The strict gate blocks it outright, correctly.
+
+Worth recording as a shape: **the permissive path existed and was available, and
+taking it would have been defensible line by line.** The reason not to was not in
+any gate's exit code — it was in the gate's sentence.
+
 ## 2026-08-16/17 — rounds 8, 9 and 10 all closed, v0.6.12 leaves beta, and six instrument defects
 
 **Round 8 is `CLOSED`** — `GO`/`GO` on `ddf7ac3`, digests agreeing at
