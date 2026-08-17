@@ -1,0 +1,142 @@
+# =============================================================================
+# RIG TEST — the two things v0.6.12 ships as [NOT PROVEN], plus dialog sizing
+# =============================================================================
+#
+#   How to run it:  ./platterpus-x86_64.AppImage --run-script rigcancelandoverread.txt
+#   Where it lives: docs/rig-scripts/rigcancelandoverread.txt
+#
+# NOTHING IN THIS FILE NEEDS EDITING. No album name, no track count, no path.
+# Put any ordinary audio CD in the drive and run it. Everything disc-specific is
+# either discovered or expressed as "the first few tracks", so the same file
+# works on the next disc and on somebody else's.
+#
+# WHY THIS EXISTS. v0.6.12 leaves beta with two claims it cannot make:
+#
+#   1. `-x` (force overread) has NEVER run on a real drive. It is wired, it is
+#      tested in CI against a fake, and no disc has ever been read with it. A
+#      setting that reaches cyanrip's argv and has never touched hardware is
+#      exactly the kind of thing that rips the next disc wrong with a clean log.
+#   2. The drive-open fix — cancelling a rip must release the reader, not leave
+#      the drive held by a process nobody can see.
+#
+# Both are hardware-only. No amount of suite is evidence for either.
+#
+# THE RULE THAT MAKES THIS SAFE TO LEAVE ALONE: a failing step does NOT stop the
+# batch; only `abort` does. So every check below fails loudly and keeps going. A
+# run that stops at the first problem hides every problem behind it, and a disc
+# pass costs an hour you do not get back.
+#
+# WHAT IT COSTS: roughly 30-50 minutes. It rips a handful of tracks three times,
+# never the whole disc.
+# -----------------------------------------------------------------------------
+
+log =============================================================
+log RIG TEST: force-overread on real hardware, and the cancel path
+log =============================================================
+snapshot atstart
+
+# --- A. Identity, before anything is measured -------------------------------
+# Every claim below is about a specific binary. Establish which one FIRST, so a
+# result that looks wrong can be attributed rather than guessed at. A build tag
+# we do not recognise must read as "not determined", never as a pass.
+
+log --- A. which ripper is actually installed ---
+cyanrip --version
+expect-exit 0
+expect-cyanrip platterpus-fork
+
+# --- B. Dialog sizing — the clipped text from the brief's Appendix A ---------
+# Screenshots, not assertions: clipping is a rendering fact at the operator's
+# real font size and DPI, and no assertion here can see it. These are for a
+# person to look at. They cost seconds and they are the only evidence that
+# survives the session.
+
+log --- B. dialogs, for the clipping check (look at these afterwards) ---
+open drive
+screenshot dialogdrive
+cancel
+open setup
+screenshot dialogsetup
+cancel
+open settings
+screenshot dialogsettings
+cancel
+open dependencies
+screenshot dialogdependencies
+cancel
+expect-dialog none
+
+# --- C. `-x` FORCE OVERREAD, ON A REAL DRIVE, FOR THE FIRST TIME ------------
+# The disc is read to its very edge. On a drive that cannot overread this is
+# where it fails, and failing HERE — visibly, in a transcript — is the entire
+# point of running it.
+#
+# Two tracks, not the disc: the question is whether the drive tolerates the
+# flag at all, and that is answered in the first track.
+
+log --- C. force overread ON (this has never run on a drive) ---
+rescan
+pick-release 1 90
+select-tracks 1-2
+set force_overread on
+expect force_overread on
+album-artist Platterpus rig
+album overread on
+rip
+wait-for-rip 3600
+snapshot afteroverreadrip
+rig-check
+
+# --- D. THE CANCEL PATH, AND THE ONLY HONEST PROOF OF IT --------------------
+# Cancelling is easy to *appear* to fix: the button greys out, the status says
+# cancelled, and the drive is still held by a reader nobody can see. A snapshot
+# taken right after the cancel cannot tell those apart.
+#
+# So the proof is not the cancel — it is the RIP AFTER IT. A second rip can only
+# start if the device was genuinely released. That is why section E exists and
+# why it is not optional.
+
+log --- D. start a rip, then cancel it mid-flight ---
+set force_overread off
+expect force_overread off
+rescan
+pick-release 1 90
+select-tracks 1-3
+album cancel me
+rip
+log letting it read for 60s so the cancel lands mid-track, not at a boundary
+wait 60
+snapshot beforecancel
+cancel-rip
+log cancel issued; giving the escalation its full SIGTERM to SIGKILL window
+wait 30
+snapshot aftercancel
+screenshot aftercancel
+
+# --- E. The drive-open proof: rip again ------------------------------------
+# If this succeeds, the drive was released. If it hangs or fails to identify the
+# disc, it was not — and THAT is the finding, recorded here rather than in
+# somebody's memory of a session.
+
+log --- E. can we rip again? this is the real drive-open test ---
+rescan
+pick-release 1 90
+select-tracks 1
+album after cancel
+rip
+wait-for-rip 1800
+snapshot afterrecovery
+rig-check
+
+# --- F. Leave the rig as we found it ---------------------------------------
+# A test that changes a persistent setting and does not put it back means the
+# NEXT session runs under a configuration nobody chose. force_overread reaches
+# cyanrip's argv, so leaving it on would silently alter every later rip.
+
+log --- F. restoring settings ---
+set force_overread off
+expect force_overread off
+snapshot atend
+log =============================================================
+log DONE. Now run:  ./platterpus-x86_64.AppImage --rig-session
+log =============================================================
