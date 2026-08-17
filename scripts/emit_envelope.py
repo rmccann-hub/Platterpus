@@ -56,12 +56,58 @@ PARTS: tuple[Path, ...] = (
     HANDSHAKE_DIR / "verified" / "round-09-lap-02.md",
 )
 
-#: **The name cannot match `round-*.md`**, which is the glob both projects' gates
-#: use. The envelope carries wire headers in its body, so a matching name could be
-#: resolved as a lap and displace the round's real latest one. `round09…` has no
-#: hyphen after `round`, so it cannot match on any filesystem, case-sensitive or
-#: not — and it satisfies CLAUDE.md → *Artifact filenames that cross machines*.
-OUT: Path = HANDSHAKE_DIR / "outbound" / "round09lap06platterpus.md"
+#: The envelope's name, as a template. **Two properties, and both are checked by
+#: `tests/test_handshake_file_naming.py` rather than asserted in this comment.**
+#:
+#: 1. **It cannot match `round-*.md`**, the glob both projects' gates use. The
+#:    envelope carries wire headers in its body, so a matching name could be
+#:    resolved as a lap and displace the round's real latest one. `round09…` has no
+#:    hyphen after `round`, so it cannot match on any filesystem, case-sensitive or
+#:    not.
+#: 2. **It is safe to cross machines** — CLAUDE.md → *Artifact filenames that cross
+#:    machines*: lowercase ASCII letters and digits only, numbers zero-padded. This
+#:    file is relayed by hand through a chat client and a file manager, which is the
+#:    exact path that lost a rig run to `round08joint.txt` vs `round-08-joint.txt`.
+#:
+#: **Why a template and not a literal.** The literal drifted three times in one
+#: session — `round08platterpusbundle.md` → `round09platterpusenvelope.md` →
+#: `round09lap06platterpus.md` — because nothing stated the pattern and nothing
+#: checked it, so each send re-invented the name. The operator noticed before any
+#: gate did. The name is now *generated from the lap it carries*, the same rule
+#: `handshake_filename` follows and for the same reason: a hand-typed name is a
+#: second description of a fact the file already declares.
+NAME_TEMPLATE: str = "round{round:02d}lap{lap:02d}platterpus.md"
+
+
+def envelope_filename(round_: int, lap: int) -> str:
+    """The cross-machine name for the envelope carrying ``round``/``lap``.
+
+    Zero-padded to two digits to match the lap-file convention's pad width, so the
+    two names state the same numbers the same way.
+    """
+    return NAME_TEMPLATE.format(round=round_, lap=lap)
+
+
+def lead_identity() -> tuple[int, int]:
+    """``(round, lap)`` of the lap this envelope is *for* — read from its header.
+
+    ``PARTS[0]`` is the lap being sent; anything after it is context the peer asked
+    for. Reading the header rather than taking arguments is what makes the name
+    unable to drift from the contents: change the parts and the name follows.
+    """
+    text = _FENCE_RE.sub("", PARTS[0].read_text(encoding="utf-8"))
+    found: list[int] = []
+    for field in ("HANDSHAKE-ROUND", "HANDSHAKE-LAP"):
+        values = re.findall(rf"^{field}:[ \t]*(\d+)[ \t]*$", text, re.MULTILINE)
+        if len(values) != 1:
+            raise SystemExit(
+                f"cannot name the envelope: {PARTS[0].name} declares {field} "
+                f"{len(values)} time(s), and the name states that number. "
+                "A lead part must be exactly one lap."
+            )
+        found.append(int(values[0]))
+    return found[0], found[1]
+
 
 BEGIN: str = "<<<<<<<<<< BEGIN {name} sha256={sha} >>>>>>>>>>"
 END: str = "<<<<<<<<<< END {name} >>>>>>>>>>"
@@ -84,6 +130,10 @@ _LAP_FIELDS: tuple[str, ...] = (
     "HANDSHAKE-LAP",
     "HANDSHAKE-FROM",
 )
+
+#: Where the envelope is written. Defined here rather than beside `NAME_TEMPLATE`
+#: only because it calls `lead_identity()`, which needs `_FENCE_RE` to exist.
+OUT: Path = HANDSHAKE_DIR / "outbound" / envelope_filename(*lead_identity())
 
 
 @dataclass(frozen=True)

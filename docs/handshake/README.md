@@ -25,6 +25,31 @@ lap 17, and enforced on our side by `tests/test_handshake_file_naming.py`.
 | **No amendment letters.** An amendment is a new lap | A lap number is a fact both sides can state; "the next free letter" is a fact only the filer knows |
 | Generate it with `handshake_filename(round, lap)` | Never hand-typed — a typed name is a third description |
 | Artifacts: `round-NN-lap-LL-<kind>-g<build>.<ext>` | `<build>` is the commit the artifact's **own banner** asserts, not the commit a lap file names it by. Those differ (see below), and only the banner is derivable from the artifact's content |
+| Transport envelopes: `round<NN>lap<LL>platterpus.md` — **no hyphens** | A different convention on purpose; see below |
+
+### Transport envelopes — `round<NN>lap<LL>platterpus.md`
+
+The envelope is one file wrapping several laps verbatim so the operator sends one
+attachment (*"there should only be one file moving forward, unless the second is a
+script file to run"*, 2026-08-15). It is **not** a lap, and its name has two jobs the
+lap convention cannot do:
+
+* **It must not match `round-*.md`**, the glob both projects' gates use to collect
+  laps. The envelope carries a wire header per part, so a matching name could be
+  resolved as a lap and displace the round's real latest one — deciding a verdict read
+  off a container. `round09…` has no hyphen after `round`, so it cannot match on a
+  case-sensitive or a case-insensitive filesystem.
+* **It crosses machines by hand**, through a chat client and a file manager, so it
+  follows CLAUDE.md → *Artifact filenames that cross machines*: lowercase ASCII letters
+  and digits only, numbers zero-padded. That rule was written after a rig run was lost
+  to `round08joint.txt` vs `round-08-joint.txt`.
+
+Generate it with `emit_envelope.envelope_filename(round, lap)` — never hand-typed. The
+literal drifted three times in one session (`round08platterpusbundle` →
+`round09platterpusenvelope` → `round09lap06platterpus`) because nothing stated the
+pattern and no test checked it; the operator noticed before any gate did. The name is
+now derived from the header of the lap the envelope leads with, so it cannot disagree
+with the contents, and `tests/test_handshake_file_naming.py` pins both properties.
 
 **Why it changed.** The old scheme was `round-N` plus the next free letter, and the
 letter encoded nothing:

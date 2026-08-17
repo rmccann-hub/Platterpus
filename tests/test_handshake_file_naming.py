@@ -33,6 +33,7 @@ This file is that something.
 
 from __future__ import annotations
 
+import fnmatch
 import importlib.util
 import re
 import sys
@@ -41,6 +42,8 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+
+from platterpus.uiscript.find_script import normalise
 
 _REPO = Path(__file__).resolve().parents[1]
 _HANDSHAKE = _REPO / "docs" / "handshake"
@@ -60,10 +63,10 @@ _FROM = re.compile(r"^HANDSHAKE-FROM:\s*(\S+)\s*$", re.M)
 _FENCE = re.compile(r"^```.*?^```", re.M | re.S)
 
 
-def _handshake() -> ModuleType:
-    """The module that OWNS the convention. Loaded, never re-implemented here."""
-    script = _REPO / "scripts" / "handshake.py"
-    spec = importlib.util.spec_from_file_location("handshake_naming_test", script)
+def _load(script_name: str, as_: str) -> ModuleType:
+    """Load a `scripts/` module by path. Loaded, never re-implemented here."""
+    script = _REPO / "scripts" / script_name
+    spec = importlib.util.spec_from_file_location(as_, script)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -73,7 +76,14 @@ def _handshake() -> ModuleType:
 
 @pytest.fixture(scope="module")
 def hs() -> ModuleType:
-    return _handshake()
+    """The module that OWNS the lap-file convention."""
+    return _load("handshake.py", "handshake_naming_test")
+
+
+@pytest.fixture(scope="module")
+def envelope() -> ModuleType:
+    """The module that OWNS the transport-envelope name."""
+    return _load("emit_envelope.py", "emit_envelope_naming_test")
 
 
 def _declared(path: Path) -> tuple[int | None, int | None, str]:
@@ -883,6 +893,207 @@ def test_the_convention_is_documented_where_a_reader_will_look() -> None:
         "the handshake README does not state the file naming convention, so the next "
         "person to file a received file will guess — which is how lap 4 got overwritten"
     )
+
+
+# --- the transport envelope's name -------------------------------------------------
+#
+# THE SECOND NAME IN THIS TREE, and it is deliberately unlike the first. The envelope
+# is one file wrapping several laps verbatim, so the operator sends one attachment
+# instead of nine; it crosses two repositories by hand, through a chat client and a
+# file manager.
+#
+# WHY IT NEEDS ITS OWN CHECKS. There WAS one — `test_handshake_bundle.py` pinned
+# exactly this property — and it was deleted along with the envelope on 2026-08-15,
+# then never restored when `emit_envelope.py` re-created the envelope hours later
+# under protocol v4 §5a. For two commits the only statement of the rule was a comment
+# in the generator saying the name satisfied it. *A comment where a check belongs is
+# not a fix* (CLAUDE.md), and the proof is that the literal then drifted three times in
+# one session — `round08platterpusbundle` → `round09platterpusenvelope` →
+# `round09lap06platterpus` — with no gate noticing. The operator asked whether the name
+# deviated from the convention, which is the question a test should have been answering.
+
+
+def test_the_envelope_name_cannot_be_read_as_a_lap_by_either_gate(
+    hs: ModuleType, envelope: ModuleType
+) -> None:
+    """**RESTORED GUARD.** The envelope carries wire headers, so its NAME must not
+    be resolvable as a lap by anything on either side.
+
+    Both projects' gates glob `round-*.md`. A matching name on a file that declares
+    a round and a lap per part would be collected into the round and could sort as
+    its newest — displacing the real latest lap and deciding a verdict read.
+
+    Three assertions, because each covers a different reader: the shared glob, our
+    own name parser, and the case-insensitive filesystem an operator may be on.
+    """
+    name = envelope.OUT.name
+    assert not fnmatch.fnmatch(name, "round-*.md"), (
+        f"{name} matches round-*.md, the glob both gates use to collect laps"
+    )
+    assert not fnmatch.fnmatch(name.lower(), "round-*.md"), (
+        f"{name} matches round-*.md once case is folded — a case-insensitive "
+        "filesystem would collect it even though a case-sensitive one would not"
+    )
+    assert hs.name_round_and_lap(envelope.OUT) is None, (
+        f"{name} parses as a canonical lap name, so `--status` would read a verdict "
+        "off a container"
+    )
+    assert hs.round_number(envelope.OUT) is None, (
+        f"{name} parses as belonging to a round, so the status report would place a "
+        "container among that round's laps"
+    )
+
+    # NON-TRIVIALITY. Every assertion above can be satisfied by a name that is
+    # simply unlike anything — so prove the checks discriminate by running them on
+    # the name the envelope must NOT have.
+    forbidden = Path(hs.handshake_filename(*envelope.lead_identity()))
+    assert fnmatch.fnmatch(forbidden.name, "round-*.md")
+    assert hs.name_round_and_lap(forbidden) is not None
+    assert hs.round_number(forbidden) is not None
+
+
+def test_the_envelope_name_is_safe_to_cross_machines(envelope: ModuleType) -> None:
+    """CLAUDE.md → *Artifact filenames that cross machines*, checked on the real name.
+
+    > Lowercase ASCII letters and digits only. No hyphens, no underscores, no spaces,
+    > no case. Numbers zero-padded.
+
+    Asserted against `find_script.normalise` — the function `--run-script` uses to
+    resolve an operator-typed path — rather than a second regex here. A name is
+    already in the canonical spelling exactly when normalising it is a no-op, so the
+    rule and the resolver cannot drift apart into two different ideas of "safe".
+
+    This is the rule a lost rig run paid for: the same artifact was `round08joint.txt`
+    on the operator's disk and `round-08-joint.txt` in the instructions written for
+    them, and a path is an exact-match string.
+    """
+    name = envelope.OUT.name
+    stem, dot, suffix = name.partition(".")
+    assert dot and suffix == "md", f"{name} must be a single-suffix .md file"
+    assert normalise(stem) == stem, (
+        f"{name} is not in the cross-machine spelling: `{stem}` normalises to "
+        f"`{normalise(stem)}`. Lowercase ASCII letters and digits only — no hyphens, "
+        "underscores, spaces or capitals (CLAUDE.md → Artifact filenames that cross "
+        "machines)."
+    )
+    assert re.fullmatch(r"round\d{2}lap\d{2}platterpus", stem), (
+        f"{name} does not follow round<NN>lap<LL>platterpus.md. The numbers are "
+        "zero-padded so a directory listing sorts chronologically, and the sender is "
+        "named so the operator can tell our envelope from theirs at a glance."
+    )
+
+
+def test_the_envelope_name_is_generated_from_the_lap_it_carries(
+    envelope: ModuleType,
+) -> None:
+    """**The anti-drift property, and the reason this is a template not a literal.**
+
+    A hand-typed name is a second description of a fact the lead part's header already
+    declares. `handshake_filename` exists for exactly that reason on the lap side; the
+    envelope had no equivalent, and three sends produced three unrelated names.
+
+    Both directions are asserted: the name matches the header, and the generator
+    actually varies with its inputs — a `envelope_filename` that ignored its arguments
+    would satisfy the first assertion on a tree of one envelope.
+    """
+    round_, lap = envelope.lead_identity()
+    assert envelope.OUT.name == envelope.envelope_filename(round_, lap), (
+        f"{envelope.OUT.name} does not state round {round_} lap {lap}, which is what "
+        f"{envelope.PARTS[0].name} declares. Regenerate rather than rename."
+    )
+    assert envelope.envelope_filename(9, 6) == "round09lap06platterpus.md"
+    assert envelope.envelope_filename(10, 21) == "round10lap21platterpus.md"
+    assert envelope.envelope_filename(9, 6) != envelope.envelope_filename(9, 7), (
+        "the generator does not vary with the lap, so the name cannot track the "
+        "contents and the check above proves nothing"
+    )
+
+
+def test_the_naming_sweep_reaches_the_real_envelope_and_excludes_it(
+    envelope: ModuleType,
+) -> None:
+    """The *content* half, asserted on the file that actually exists.
+
+    The name checks above stop a gate resolving it as a lap; this stops the sweep in
+    THIS module judging it as one. `_NOT_LAPS` is empty by design, so the exclusion is
+    structural (v4 §5a — a field declared more than once is ambiguous, so the file is
+    not one lap). Structural exclusions are the kind that quietly stop applying, so
+    the real file is the subject here rather than a fixture.
+    """
+    out = envelope.OUT
+    assert out.is_file(), (
+        f"{out.name} is not in the tree — regenerate with "
+        "`python scripts/emit_envelope.py` or this test is checking nothing"
+    )
+    assert out.parent == _HANDSHAKE / "outbound", out.parent
+    raw = list((_HANDSHAKE / "outbound").glob("*.md"))
+    assert out in raw, (
+        f"{out.name} is not reached by the sweep's own glob, so its exclusion below "
+        "would pass for the wrong reason"
+    )
+    assert not _is_one_lap(out), (
+        f"{out.name} declares each wire field at most once, so every content-based "
+        "sweep on both sides reads it as a lap. `emit_envelope.assert_not_a_lap` is "
+        "supposed to make that impossible before the file is written."
+    )
+    assert out not in _lap_files_in("outbound")
+
+
+def test_a_ONE_PART_envelope_is_still_not_a_lap(envelope: ModuleType) -> None:
+    """The case the structural rule does NOT cover for free, exercised directly.
+
+    An envelope carrying N parts declares each field N times, so v4 §5a excludes it —
+    for N ≥ 2. At **N = 1** the count is one and the envelope is indistinguishable
+    from the lap inside it. The preamble's own `not-a-lap` declarations are what keep
+    the count at two; without them a single-lap send would be filed as a duplicate of
+    the lap it wraps, in both trees.
+
+    Nothing in the suite touched `emit_envelope.py` before this — the guard was
+    written, documented, and never run by a test.
+    """
+    parts = envelope.read_parts()[:1]
+    text = envelope._FENCE_RE.sub("", envelope.render(parts))
+    for field in envelope._LAP_FIELDS:
+        assert len(re.findall(rf"^{field}:", text, re.MULTILINE)) == 2, (
+            f"a one-part envelope declares {field} an ambiguous number of times; it "
+            "must be exactly two (the preamble's, and the lap's)"
+        )
+    envelope.assert_not_a_lap(text)  # and the guard agrees
+
+
+def test_the_not_a_lap_guard_actually_fires(envelope: ModuleType) -> None:
+    """Revert-proof. Remove what makes a one-part envelope safe; the guard must refuse.
+
+    Without this, the test above passes and `assert_not_a_lap` could be a no-op — the
+    *"can this check be satisfied by finding nothing?"* question asked of the one
+    check standing between a container and both projects' lap enumerators.
+    """
+    text = envelope.render(envelope.read_parts()[:1])
+    for field in envelope._LAP_FIELDS:
+        text = text.replace(f"{field}: not-a-lap (transport envelope)\n", "")
+    with pytest.raises(SystemExit, match="exactly once"):
+        envelope.assert_not_a_lap(text)
+
+
+def test_the_envelope_splits_back_into_byte_identical_parts(
+    envelope: ModuleType,
+) -> None:
+    """The envelope's whole promise: the receiver gets the originals, provably.
+
+    A merged round file would be a falsified record. This is a wrapper, so the
+    inverse must be exact — asserted on the file as published, with the published
+    reader, over every part.
+    """
+    published = envelope.OUT.read_text(encoding="utf-8")
+    recovered = envelope.split(published)
+    assert len(recovered) == len(envelope.PARTS), (
+        f"{envelope.OUT.name} splits into {sorted(recovered)}, but was packed from "
+        f"{[p.name for p in envelope.PARTS]}"
+    )
+    for part in envelope.PARTS:
+        assert recovered[part.name] == part.read_bytes(), (
+            f"{part.name} does not survive the round trip byte-for-byte"
+        )
 
 
 # --- concurrent laps: both sides numbered a lap 25 -------------------------------
