@@ -611,6 +611,7 @@ def test_rule_tables_are_a_complete_enumeration_of_this_module() -> None:
         | {pattern for _name, pattern in cyanrip_log._SECTION_LINE_PATTERNS}
         | {pattern for _name, pattern in cyanrip_log._INDENTED_LINE_PATTERNS}
         | {pattern for _name, pattern in cyanrip_log._FRAGMENT_PATTERNS}
+        | {pattern for _name, pattern in cyanrip_log._PREPROCESS_PATTERNS}
     )
     # The fragment group must not become a dumping ground: it is small, every entry is
     # applied to a captured substring, and it may not swallow a line-level pattern.
@@ -1652,3 +1653,97 @@ def test_a_malformed_fraction_is_reported_not_raised() -> None:
     # A junk DENOMINATOR is not a disagreement: we never read the denominator, and
     # the numerator still checks out. The raw string is preserved either way.
     assert "does not agree" not in render_partially_accurate_summary("1/", 1, 14)
+
+
+# --- the fork's parenthetical qualifiers travel with the line they qualify ---------
+#
+# WHAT HAPPENED (2026-08-17, round 10 lap 3). The fork implemented the shape we chose
+# for `HANDSHAKE_RELEASED`: a released build now prints
+#
+#     Handshake:      round 9 lap 11 closed, verdict GO -- released build
+#                     (declared at build time, not verified by cyanrip)
+#
+# The qualifier IS the fix — it says who declared the claim and that cyanrip did not
+# verify it. Every reader here anchored on `^Handshake:`, so we would have captured
+# `-- released build` and dropped the disclaimer, surfacing a build's self-assertion as
+# though it were verified. Their defect, repaired on their side, re-created on ours by a
+# line-oriented parser.
+
+
+def test_a_released_builds_qualifier_is_not_dropped() -> None:
+    """The claim and its disclaimer are one statement, so they parse as one."""
+    log = (
+        "cyanrip 0.9.4-rc1+platterpus.6-beta.4 (platterpus-fork-g3515553)\n"
+        "Handshake:      round 9 lap 11 closed, verdict GO -- released build\n"
+        "                (declared at build time, not verified by cyanrip)\n"
+    )
+    note = parse_cyanrip_log(log).handshake_note
+    assert "released build" in note
+    assert "declared at build time, not verified by cyanrip" in note, (
+        "the qualifier was dropped, so the note asserts a verified release when the "
+        f"binary explicitly disclaimed one: {note!r}"
+    )
+
+
+def test_the_consumer_qualifier_does_not_migrate_onto_the_handshake_note() -> None:
+    """The trap that ruled out a "continuation rule" and forced adjacency-folding.
+
+    `Consumer:` has its own parenthetical two lines later. A rule matching "an
+    indented parenthetical after a handshake note" would graft *the caller's*
+    disclaimer onto *the build's* claim — two different provenances merged into one
+    sentence, which is worse than dropping either.
+    """
+    log = (
+        "cyanrip 0.9.4-rc1+platterpus.6-beta.4 (platterpus-fork-g3515553)\n"
+        "Handshake:      round 9 lap 11 closed, verdict GO -- released build\n"
+        "                (declared at build time, not verified by cyanrip)\n"
+        "Consumer:       platterpus/0.6.12b6\n"
+        "                (reported by the caller, not verified by cyanrip)\n"
+    )
+    note = parse_cyanrip_log(log).handshake_note
+    assert "reported by the caller" not in note, (
+        f"Consumer's qualifier migrated onto the handshake note: {note!r}"
+    )
+    assert "declared at build time" in note
+
+
+def test_the_unreleased_rendering_is_unchanged() -> None:
+    """Their §D: the unreleased line is byte-identical to before.
+
+    Folding must be invisible to it — a build with no continuation line parses exactly
+    as it always did, or the fix has a blast radius it was not supposed to have.
+    """
+    log = (
+        "cyanrip 0.9.4-rc1+platterpus.6-beta.4 (platterpus-fork-gb809cfc)\n"
+        "Handshake:      round 10 lap 1 OPEN, verdict OPEN -- NOT a released build\n"
+    )
+    assert (
+        parse_cyanrip_log(log).handshake_note
+        == "round 10 lap 1 OPEN, verdict OPEN -- NOT a released build"
+    )
+
+
+def test_a_released_note_does_not_read_as_unreleased() -> None:
+    """The substring trap, checked against the real token list.
+
+    `"NOT a released build"` contains `"released build"`, so the tokens meaning
+    *unreleased* and the new rendering meaning *released* share a substring. Asserted
+    against `handshake_approval`'s actual tuple rather than a copy of it, and in both
+    directions so the check is discriminating.
+    """
+    from platterpus.handshake_approval import _NOTE_NOT_RELEASED
+
+    released = (
+        "round 9 lap 11 closed, verdict GO -- released build "
+        "(declared at build time, not verified by cyanrip)"
+    ).casefold()
+    unreleased = "round 10 lap 1 OPEN, verdict OPEN -- NOT a released build".casefold()
+
+    assert not [t for t in _NOTE_NOT_RELEASED if t in released], (
+        "a released build reads as unreleased — the folded qualifier or a token has "
+        "introduced a false match"
+    )
+    assert [t for t in _NOTE_NOT_RELEASED if t in unreleased], (
+        "an unreleased build no longer reads as unreleased, so the tokens have stopped "
+        "matching anything and this test proves nothing"
+    )

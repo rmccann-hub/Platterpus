@@ -35,6 +35,26 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `round09lap06platterpus`) with no gate noticing. The name is unchanged.
 
 ### Fixed
+- **The fork's released-build qualifier would have been silently dropped.** Round 10
+  lap 3 implemented the shape we chose, and a released build now prints two lines — the
+  claim, then `(declared at build time, not verified by cyanrip)` on an indented
+  continuation. All three of our readers anchored on `^Handshake:`, so we would have
+  captured `-- released build` and discarded the disclaimer, **surfacing a build's
+  self-assertion as though we had verified it** — the defect they spent the round
+  repairing, re-created on our side by a line-oriented parser.
+  `_fold_continuations` now joins a parenthetical qualifier to the line it follows.
+  Folding rather than a continuation *rule*, because `Consumer:` has its own
+  parenthetical two lines later and a rule would have grafted the caller's provenance
+  onto the build's claim. Four tests, including the substring trap — `"NOT a released
+  build"` contains `"released build"` — asserted in both directions against the real
+  token tuple. Their `released_build` → `released_build_declared` rename is free here:
+  `grep` finds the key and the schema **referenced nowhere** in this repository, so no
+  deprecated alias is wanted.
+- **Round 10 lap 4 declares `GO` on `56413d2`.** All three close conditions met; the
+  round closes on their lap 5, exactly as round 9 closed on their lap 11. `FORK_PIN`
+  stays `ddf7ac3` — `56413d2` has no `release_seq`, the same refusal that held for
+  `b56f936`, so the release ships on round 8's approved build and the pin move is
+  round 11's work.
 - **Round 10 is open; lap 2 answers both of the fork's `BLOCKING` asks and contributes
   evidence they cannot get.** Their lap 1 reports `HANDSHAKE_RELEASED` unreachable, so
   `-- NOT a released build` is a constant — *a field whose value never varies asserts
