@@ -78,6 +78,14 @@ SENT_LAPS: dict[str, str] = {
     "verified/round-09-lap-06.md": (
         "f2a866416afcc837942dac4b94b0594107421a36da04bb6147c7aa191d28194d"
     ),
+    # Lap 8 corrects three statements lap 6 shipped. **Lap 6's row above is NOT
+    # touched** — that is the whole discipline: it is `SENT`, the fork holds those
+    # bytes, and a correction is a new lap (v4 §4a). Editing the row to make the
+    # record look tidier would be the round-8 lap-10 violation performed on the
+    # guard against it.
+    "verified/round-09-lap-08.md": (
+        "6c5b57678c80947b8e954d47cb78ae18a732373c5a6eb89e1f37b5f60c19177f"
+    ),
 }
 
 #: Rows whose full hash we do not hold — only the 16-char prefix a manifest
