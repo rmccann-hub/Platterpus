@@ -1300,21 +1300,106 @@ def test_a_peer_opened_round_still_refuses_when_their_NEWEST_lap_is_not_GO(
     )
 
 
-def test_we_opened_rounds_still_need_our_own_verification(
+def test_a_round_with_NO_lap_of_ours_anywhere_stays_open(
     hs: ModuleType, tmp_path: Path
 ) -> None:
-    """The other floor: holding only THEIR file never closes a round.
+    """The real floor: holding only THEIR file never closes a round.
 
-    `done` replaced `sent` in the close condition, so the check that we contributed
-    at all now rests entirely on `verified/`. With nothing of ours, a round must stay
-    OPEN however emphatic their GO is.
+    **This test previously asserted the opposite of the truth, and that is worth
+    keeping.** Written from our own wrong diagnosis, it put a lap of ours in
+    `outbound/` with an empty `verified/` and asserted the round stays OPEN — which
+    encoded the symmetric coupling as *desired behaviour*. The fork's round-9 lap 11
+    §B corrected the diagnosis, and correcting it turned this test red, which is how
+    we learned a wrong explanation had already been written into a guard.
+
+    **A test derived from a wrong diagnosis locks the defect in.** The floor that
+    actually matters is this one: with nothing of ours at all, no verdict of ours
+    exists, and the round cannot close however emphatic theirs is.
     """
-    outbound, inbound, _verified = _round_dirs(tmp_path)
-    (outbound / "round-09-lap-01.md").write_text(
-        _closing(hs, "platterpus", 9, 1), encoding="utf-8"
-    )
+    _outbound, inbound, _verified = _round_dirs(tmp_path)
     (inbound / "round-09-lap-09.md").write_text(
         _closing(hs, "cyanrip-fork", 9, 9), encoding="utf-8"
     )
     lines = hs.round_status(root=tmp_path)
     assert any(line.endswith("OPEN") for line in lines), lines
+    assert not any(line.endswith("CLOSED") for line in lines), (
+        "a round closed with no lap of ours in either directory"
+    )
+
+
+def test_our_verdict_is_read_from_our_newest_lap_in_EITHER_directory(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """**The symmetric hole, found by the fork correcting our diagnosis.**
+
+    Our first fix dropped the `outbound/` requirement from the close condition but
+    still read the verdict from `verified/` only. The fork's round-9 lap 11 §B showed
+    the trigger was never *who opened the round* — they opened round 8 as well as
+    round 9, declared in all nine of their round-8 laps — but **where our reply gets
+    filed**, which changed between the two rounds.
+
+    That makes the mirror case reachable: a round whose newest lap of ours sits in
+    `outbound/` would read its verdict from an older `verified/` file, or from none,
+    and could never close. Constructed here with the newest lap of ours in
+    `outbound/` and an OLDER, superseded one in `verified/`, so reading the wrong
+    directory yields the wrong verdict rather than merely no verdict.
+    """
+    outbound, inbound, verified = _round_dirs(tmp_path)
+    # Superseded: an earlier HOLD of ours, in verified/.
+    (verified / "round-12-lap-02.md").write_text(
+        _closing(hs, "platterpus", 12, 2).replace(
+            "HANDSHAKE-VERDICT: GO", "HANDSHAKE-VERDICT: HOLD"
+        ),
+        encoding="utf-8",
+    )
+    # Our NEWEST lap, filed in outbound/ — the case the first fix missed.
+    (outbound / "round-12-lap-04.md").write_text(
+        _closing(hs, "platterpus", 12, 4), encoding="utf-8"
+    )
+    (inbound / "round-12-lap-03.md").write_text(
+        _closing(hs, "cyanrip-fork", 12, 3), encoding="utf-8"
+    )
+
+    lines = hs.round_status(root=tmp_path)
+    assert any(line.endswith("CLOSED") for line in lines), lines
+
+    # REVERT-PROOF, and it must discriminate: reading `verified/` only would find our
+    # lap 2's HOLD and report OPEN. Assert that is really what the old rule yields.
+    stale = hs.wire_verdict(
+        (verified / "round-12-lap-02.md").read_text(encoding="utf-8")
+    )
+    fresh = hs.wire_verdict(
+        (outbound / "round-12-lap-04.md").read_text(encoding="utf-8")
+    )
+    assert (stale, fresh) == ("HOLD", "GO"), (
+        "the fixture no longer puts a superseded HOLD in verified/ and a newer GO in "
+        "outbound/, so this test cannot separate the two readings"
+    )
+
+
+def test_a_superseded_verdict_of_OURS_in_the_other_directory_cannot_close_a_round(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The floor on the fix above: newest wins, in the refusing direction too.
+
+    Spanning both directories must not become "any GO of ours anywhere closes it".
+    Newest lap of ours is a HOLD in `verified/`; an older GO sits in `outbound/`.
+    """
+    outbound, inbound, verified = _round_dirs(tmp_path)
+    (outbound / "round-12-lap-02.md").write_text(
+        _closing(hs, "platterpus", 12, 2), encoding="utf-8"
+    )
+    (inbound / "round-12-lap-03.md").write_text(
+        _closing(hs, "cyanrip-fork", 12, 3), encoding="utf-8"
+    )
+    (verified / "round-12-lap-04.md").write_text(
+        _closing(hs, "platterpus", 12, 4).replace(
+            "HANDSHAKE-VERDICT: GO", "HANDSHAKE-VERDICT: HOLD"
+        ),
+        encoding="utf-8",
+    )
+    lines = hs.round_status(root=tmp_path)
+    assert any(line.endswith("OPEN") for line in lines), lines
+    assert not any(line.endswith("CLOSED") for line in lines), (
+        "an older GO of ours in outbound/ closed a round our newest lap HOLDs"
+    )

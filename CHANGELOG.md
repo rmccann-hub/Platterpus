@@ -35,6 +35,29 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `round09lap06platterpus`) with no gate noticing. The name is unchanged.
 
 ### Fixed
+- **Round 9 is CLOSED, both sides `GO` on `b56f936`, every round in the record closed
+  and `handshake.py --status` exiting 0.** Eleven laps; every digest either project
+  declared now reproduces on the other's tree.
+- **The gate's verdict reading is filing-agnostic.** The first fix dropped the
+  `outbound/` requirement from the close condition but still read our verdict from
+  `verified/` only — so a round whose newest lap of ours sat in `outbound/` would read
+  a superseded verdict, or none. The fork corrected our diagnosis (they opened round 8
+  *and* round 9 — all nine of their round-8 laps declare `HANDSHAKE-OPENER: cyanrip`;
+  the real trigger was *where our reply is filed*, which changed between the rounds),
+  and the correction exposed the mirror hole. Our newest lap now spans both
+  directories, ordered by declared lap number. **A test written from the wrong
+  diagnosis had already asserted the hole as desired behaviour** — correcting the
+  diagnosis turned it red, which is how we found it.
+- **`round-08-lap-18.md` declared `HANDSHAKE-OPENER: platterpus`, contradicting nine
+  files.** cyanrip opened round 8. Corrected in place — the lap was never sent.
+- **The approval constants are keyed on the pin, not on recency.** They asked "what is
+  the newest closed round?", which coincided with "which round approved the pin we
+  install" until round 9 closed. Round 9 approved `b56f936`, which is **not a numbered
+  fork release** — the fork's lap 11 §F confirms its logs still read *"NOT a released
+  build"* and that this changes only when their `release-manifest.json` names a commit
+  — so `FORK_PIN` correctly stays at round 8's `ddf7ac3` and `APPROVED_BY_ROUND` stays
+  8. The check now finds the newest closed round *declaring the pin we ship*, which is
+  the question that actually bears on a rip report.
 - **Our release gate could never close a round the peer opened.** `round_status`
   required an **outbound** file (`state = "CLOSED" if (sent and back and both_go)`),
   but protocol v4 §1a — adopted in round 9 — says the *provider* opens, and when

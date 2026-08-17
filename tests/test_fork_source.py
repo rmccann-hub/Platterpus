@@ -125,18 +125,43 @@ def _newest_closed_round_verification() -> tuple[int, Path]:
         if (match := re.match(r"round-(\d+):.*-> CLOSED", line))
     }
     assert closed_rounds, "no closed handshake round"
-    newest_closed = max(closed_rounds)
-    naming_the_pin = [
-        path
-        for path in verified
-        if handshake.sort_key(path)[0] == newest_closed
-        and _declares_pin(path.read_text(encoding="utf-8"), fork_source.FORK_PIN)
-    ]
-    assert naming_the_pin, (
-        f"round {newest_closed} is CLOSED but no verification file of it DECLARES pin "
-        f"{fork_source.FORK_PIN!r} in HANDSHAKE-PIN or HANDSHAKE-RELEASE"
+
+    # THE ROUND THAT APPROVED THE PIN WE INSTALL — not simply the newest closed one.
+    #
+    # **Those coincided until round 9 closed, and the difference has release
+    # consequences.** Round 9 approved `b56f936`, which is **not a numbered fork
+    # release**: the fork's round-9 lap 11 §F says its logs still read *"NOT a
+    # released build"* and that the line *"moves when `release-manifest.json` names a
+    # commit, and not before"*. `FORK_RELEASE_SEQ_BY_PIN` has no sequence for it, and
+    # `fork_source` records at length why installing such a build is the worse error:
+    # every archival log it writes would carry that sentence.
+    #
+    # So `FORK_PIN` legitimately stays at `ddf7ac3` — round **8**'s approved release —
+    # while round 9 is the newest closed round. Keying on recency made the constants
+    # demand a pin we must not install; keying on the pin asks the question that
+    # actually matters: *which closed round approved the build we ship?*
+    #
+    # This is the same shape as round 7 vs `ddf7ac3` already documented in
+    # `fork_source`: an approval and an installable release are different commits, and
+    # the gap between them is normal rather than exceptional.
+    by_round: dict[int, list[Path]] = {}
+    for path in verified:
+        number = handshake.sort_key(path)[0]
+        if number in closed_rounds and _declares_pin(
+            path.read_text(encoding="utf-8"), fork_source.FORK_PIN
+        ):
+            by_round.setdefault(number, []).append(path)
+    assert by_round, (
+        f"no CLOSED round has a verification file DECLARING pin "
+        f"{fork_source.FORK_PIN!r} in HANDSHAKE-PIN or HANDSHAKE-RELEASE. Closed "
+        f"rounds: {sorted(closed_rounds)}. Either the pin moved without a round "
+        "approving it, or a round's verification does not name the pin it approved."
     )
-    return newest_closed, naming_the_pin[-1]
+    approving = max(by_round)
+    # A floor, so this cannot silently pick an ancient round while a newer closed one
+    # approved the same pin and was skipped for an unrelated reason.
+    assert approving <= max(closed_rounds), (approving, sorted(closed_rounds))
+    return approving, by_round[approving][-1]
 
 
 #: Wire fields in which naming the pin is a **declaration about** it, rather than a
