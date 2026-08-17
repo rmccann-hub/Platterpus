@@ -57,7 +57,17 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: then said both that it travelled in an envelope (§B) and that it travelled bare
 #: (§E). One artifact implying a send that did not happen was half of that
 #: contradiction — see lap 8 §A2.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "verified" / "round-09-lap-08.md",)
+#: `PARTS[0]` is the OPERATIVE lap — `lead_identity()` names the envelope after it.
+#: Part 2 is round 8's lap 18, which their round-11 lap 3 §6 asked for: it was
+#: written on 2026-08-16, declares GO transcribing their lap 17, and was never sent.
+#: Enclosing it does not reopen round 8 (closed on both sides, and their rounds 9-11
+#: proceed from it) — the correspondence is append-only and a hole neither side can
+#: reconstruct later is worth one envelope part. It travels **unmodified**: not
+#: back-dated, not amended, not re-verified against today's tree.
+PARTS: tuple[Path, ...] = (
+    HANDSHAKE_DIR / "verified" / "round-11-lap-04.md",
+    HANDSHAKE_DIR / "verified" / "round-08-lap-18.md",
+)
 
 #: The envelope's name, as a template. **Two properties, and both are checked by
 #: `tests/test_handshake_file_naming.py` rather than asserted in this comment.**
