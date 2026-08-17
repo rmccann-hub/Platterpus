@@ -84,7 +84,7 @@ discovered or expressed as "the first few tracks".
 ./platterpus-x86_64.AppImage --run-script rigcancelandoverread.txt
 ```
 
-It exists because v0.6.12 ships two claims it cannot make, and neither can be
+It exists because the v0.6.x line ships two claims it cannot make, and neither can be
 settled by any amount of suite:
 
 1. **`-x` (force overread) has never run on a real drive.** It is wired and
@@ -189,4 +189,4 @@ hazard rather than a documentation nit.
 it prints is the first data point in existence — including an absurd number,
 which is a finding and a good outcome.
 
-*Last updated for Platterpus v0.6.12.*
+*Last updated for Platterpus v0.6.13.*

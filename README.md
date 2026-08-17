@@ -6,9 +6,9 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.6.12 — out of beta.** The ripper pairing is **jointly verified**: handshake rounds 8, 9 and 10 are all closed with `GO` from both projects, and every number either side declared reproduces on the other's tree. This build installs cyanrip `0.9.4-rc1+platterpus.5` (`ddf7ac3`), the build round 8 approved and rig-tested on real hardware — `Ripping errors: 0`, banner verified before and after the rip. **Two things are still unproven on hardware and every rip says so in its own report:** the `-x` force-overread calibration has never run on a drive, and the drive-open fix is unverified there. Those are what a v1.0 would need; this is not that release, and it does not pretend to be.
+> **Status: v0.6.13 — out of beta.** The ripper pairing is **jointly verified**: handshake rounds 8 through 11 are all closed with `GO` from both projects, and every number either side declared reproduces on the other's tree. This build installs cyanrip `0.9.4-rc1+platterpus.5` (`ddf7ac3`), the build round 8 approved and rig-tested on real hardware — `Ripping errors: 0`, banner verified before and after the rip. **Two things are still unproven on hardware and every rip says so in its own report:** the `-x` force-overread calibration has never run on a drive, and the drive-open fix is unverified there. Those are what a v1.0 would need; this is not that release, and it does not pretend to be.
 >
-> **Status: v0.6.x — public pre-release.** Implemented end-to-end with 2,000+ tests (including a full-pipeline end-to-end test) at ~93% branch coverage (91% enforced in CI), and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (actively maintained, no >587 read-offset bug — whipper was retired, see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast Verified / Archival Exact / Portable), an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line**, **true in-app updates**, **cover art** from the Cover Art Archive, **auto-filing finished rips into your library folder**, an **EAC-compatible companion log** with a per-track **EAC CRC32 column**, and **software-version provenance** recorded in the log header and the window title. **New in v0.6.3 — use your own fork, and be told which one you're on:** the one-time setup wizard now **builds and installs the pinned Platterpus fork of cyanrip** for you (no terminal), verifies the installed binary really is that build, and keeps the working upstream ripper if the build fails; the dependency check **names which build is installed** rather than only its version — which matters because the fork deliberately keeps upstream's version string, so the number alone cannot tell them apart; a multi-disc rip now writes Vorbis-correct `DISCNUMBER`/`totaldiscs` instead of cramming `2/3` into one tag; and every self-check that runs now **says something**, because a check that stays silent reads exactly like a check that found nothing wrong. **New in v0.6.1 — the provenance-and-honesty release:** every rip now records **which cyanrip binary produced it** (the Platterpus fork, unmodified upstream, or — honestly — *not determined*), captures the ripper's **exit code, exact command line and complete output** so a failure is reproducible, surfaces **the ripper's own words** instead of a bare "Rip failed", picks **the right disc of a multi-disc set** (or says it could not tell rather than guessing), and **audits itself**: a `self_check` block lands in every rip's JSON, and `--audit-rips` runs the same checks over your whole library in one command. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
+> **What is in it.** Implemented end-to-end with 2,000+ tests (including a full-pipeline end-to-end test) at ~93% branch coverage (91% enforced in CI), and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (actively maintained, no >587 read-offset bug — whipper was retired, see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast Verified / Archival Exact / Portable), an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line**, **true in-app updates**, **cover art** from the Cover Art Archive, **auto-filing finished rips into your library folder**, an **EAC-compatible companion log** with a per-track **EAC CRC32 column**, and **software-version provenance** recorded in the log header and the window title. **New in v0.6.3 — use your own fork, and be told which one you're on:** the one-time setup wizard now **builds and installs the pinned Platterpus fork of cyanrip** for you (no terminal), verifies the installed binary really is that build, and keeps the working upstream ripper if the build fails; the dependency check **names which build is installed** rather than only its version — which matters because the fork deliberately keeps upstream's version string, so the number alone cannot tell them apart; a multi-disc rip now writes Vorbis-correct `DISCNUMBER`/`totaldiscs` instead of cramming `2/3` into one tag; and every self-check that runs now **says something**, because a check that stays silent reads exactly like a check that found nothing wrong. **New in v0.6.1 — the provenance-and-honesty release:** every rip now records **which cyanrip binary produced it** (the Platterpus fork, unmodified upstream, or — honestly — *not determined*), captures the ripper's **exit code, exact command line and complete output** so a failure is reproducible, surfaces **the ripper's own words** instead of a bare "Rip failed", picks **the right disc of a multi-disc set** (or says it could not tell rather than guessing), and **audits itself**: a `self_check` block lands in every rip's JSON, and `--audit-rips` runs the same checks over your whole library in one command. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
 
 ## At a glance
 
@@ -271,11 +271,30 @@ sudo dnf install cyanrip
 Verify the tools are installed:
 
 ```bash
-cyanrip -V
+cyanrip --version
 metaflac --version
 ```
 
-`cyanrip -V` should report a version such as `cyanrip 0.9.3.1` (note the capital `-V` — cyanrip has no `--version`). `metaflac` is part of the `flac` package.
+`cyanrip --version` should report something like
+`cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)`. The parenthetical is
+the part that matters: it names the **fork**, which is the build Platterpus is
+verified against.
+
+**On the version flag, because the obvious advice is wrong in both directions.**
+There is no single spelling that works on every cyanrip, and this README used to
+say the opposite of the truth — *"note the capital `-V` — cyanrip has no
+`--version`"*. Measured, and published in the fork's own provider contract:
+
+| build | `--version` | `-V` | `-v` |
+|---|---|---|---|
+| stock, before the genopt rewrite (0.9.3) | fails | **works** | fails |
+| stock, genopt onward (0.9.4-rc1) | **works** | fails | **works** |
+| the Platterpus fork | **works** | **works** | **works** |
+
+`-V` and `--version` are exactly complementary across the stock line, so a probe
+that has to cover both needs two attempts by construction. On the fork you
+install here, all three work — use `--version`. `metaflac` is part of the `flac`
+package.
 
 ### Step 4 — Export the binaries to your host
 
@@ -955,4 +974,4 @@ See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
 
 ---
 
-*Last updated for Platterpus v0.6.12.*
+*Last updated for Platterpus v0.6.13.*
