@@ -511,6 +511,13 @@ def test_the_release_gate_blocks_a_release_while_a_round_is_open(
     # would exercise the exemption instead of the gate.
     (tmp_path / "outbound" / "round-9.md").write_text("x", encoding="utf-8")
     monkeypatch.setattr(hs, "HANDSHAKE_DIR", tmp_path)
+    # **And pin CURRENT_ROUND to the fixture's own world.** Without this the gate
+    # enumerates every round up to the REAL current one, so opening round 10 made a
+    # round with no files in this tmp tree report OPEN and the floor below could never
+    # be reached. The scenario under test is "round 9 is the current round"; coupling
+    # it to whatever round the live record has reached made a passing test depend on
+    # the calendar.
+    monkeypatch.setattr(hs, "CURRENT_ROUND", 9)
 
     # Sent, nothing back: OPEN → blocked.
     assert hs.main(["--release-gate"]) == 1
@@ -849,9 +856,23 @@ def test_the_real_verification_files_all_declare_a_verdict(hs: ModuleType) -> No
     # have seen BOTH verdicts, or it is only testing one branch of the parser
     # against the real corpus.
     assert len(verdicts) >= 4, verdicts
-    assert set(verdicts.values()) == {"GO", "HOLD"}, (
-        "the real record no longer contains one of each verdict, so this test has "
-        f"stopped comparing them: {verdicts}"
+    # Non-triviality: BOTH closing verdicts must appear, or this is only exercising
+    # one branch of the parser against the real corpus.
+    #
+    # **`OPEN` joined the set on 2026-08-17 and the equality had to give way.** Round
+    # 10 lap 2 is ours, it participates in a round neither side has closed, and §4's
+    # vocabulary makes `OPEN` the correct declaration for it — the previous rounds all
+    # happened to have our first lap be a HOLD, so `{GO, HOLD}` held by accident of
+    # the record rather than by rule. Requiring the two *closing* verdicts is the
+    # property that was actually meant; forbidding a third legal value was a
+    # coincidence the equality had frozen.
+    assert {"GO", "HOLD"} <= set(verdicts.values()), (
+        "the real record no longer contains one of each CLOSING verdict, so this test "
+        f"has stopped comparing them: {verdicts}"
+    )
+    assert set(verdicts.values()) <= set(hs.VERDICT_VOCABULARY), (
+        "a verification file declares a verdict outside §4's closed set: "
+        f"{sorted(set(verdicts.values()) - set(hs.VERDICT_VOCABULARY))}"
     )
 
 

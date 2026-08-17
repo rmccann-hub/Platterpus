@@ -122,7 +122,14 @@ _TABLE_ROUND_FLOOR: int = 6
 #: Recorded as a number rather than left implicit because *a silent truncation reads as
 #: completeness*: without this, the check reports agreement about a surface it is
 #: reading from before the round opened. Asked for in lap 22 §C.
-_MAX_TABLE_LAG: int = 0
+#: **1 as of 2026-08-17, and the reason is that there is nothing to lag behind.**
+#: Round 10 lap 1 §I declares the provider contract *"unchanged since round 9 lap 11 —
+#: no flag, no log line, no exit code moved"*, and reports
+#: `gen-provider-contract.py --check` exiting 0 at their pin. So round 9's table IS the
+#: current argv surface; the lag is nominal rather than a gap in what we can check.
+#: **Returns to 0 the moment they publish a round-10 table** — this is a ratchet with a
+#: written reason per value, and the value may shrink at any time.
+_MAX_TABLE_LAG: int = 1
 #: **Back to 0 on 2026-08-15**, the same day it went to 1. cyanrip's round-9 lap 3
 #: sent `PROVIDER-CONTRACT.md` for `b56f936` in its envelope; it is committed at
 #: `docs/handshake/inbound/artifacts/round-09-PROVIDER-CONTRACT.md` and the argv
