@@ -80,6 +80,21 @@ SENT_LAPS: dict[str, str] = {
     "verified/round-09-lap-06.md": (
         "f2a866416afcc837942dac4b94b0594107421a36da04bb6147c7aa191d28194d"
     ),
+    # Round 11's closing lap, and the round-8 lap their §6 asked for, sent
+    # together as one envelope (sha256 7a82572bdb9a7d17…) — the two-part shape
+    # their own `make-envelope.py` fix made possible on both sides.
+    #
+    # `round-08-lap-18.md` is the unusual row: written 2026-08-16, never sent,
+    # and sent unmodified two rounds later. It is pinned from the bytes that
+    # left, which are the bytes it has always had — sending a file late does not
+    # make it a new file, and back-dating or "refreshing" it would have been the
+    # edit this map exists to prevent.
+    "verified/round-11-lap-04.md": (
+        "8688d9bbc34d6cfa1eba24d1faebbe68df174132c6c1ece638737ce8e82e6d1f"
+    ),
+    "verified/round-08-lap-18.md": (
+        "a45d5dfd01cecac4d5841c759627ad4437782463a172d9e2cc942b4d1fadf117"
+    ),
 }
 
 #: **The boundary this map records, and it was wrong in both directions in 48 hours.**
