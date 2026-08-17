@@ -144,11 +144,32 @@ def _newest_closed_round_verification() -> tuple[int, Path]:
     # This is the same shape as round 7 vs `ddf7ac3` already documented in
     # `fork_source`: an approval and an installable release are different commits, and
     # the gap between them is normal rather than exceptional.
+    # **BILATERAL, because "approved" means both sides declared it.** §5's whole point.
+    #
+    # Round 10 exposed why one side is not enough: our lap 2 declared
+    # `HANDSHAKE-PIN: ddf7ac3` — the pin we *install* — while the fork's lap 1 used the
+    # same field for `b809cfc`, the pin under *review*. **Two meanings of one field
+    # across the seam inside one round.** Keying on our side alone made round 10 look
+    # like the round that approved `ddf7ac3`, and it approved `56413d2`; a rip report
+    # would have credited the wrong round for the build it installs, which is the exact
+    # failure this test exists to catch.
+    #
+    # Requiring the pin in a lap of OURS *and* a lap of THEIRS is the property that
+    # actually matters and cannot be satisfied by one side's bookkeeping. Round 8
+    # qualifies (our lap 18 and their lap 17 both declare `ddf7ac3`); round 10 does not.
+    inbound_dir = REPO_ROOT / "docs" / "handshake" / "inbound"
+    theirs_by_round: dict[int, list[Path]] = {}
+    for path in sorted(inbound_dir.glob("round-*.md")):
+        if _declares_pin(path.read_text(encoding="utf-8"), fork_source.FORK_PIN):
+            theirs_by_round.setdefault(handshake.sort_key(path)[0], []).append(path)
+
     by_round: dict[int, list[Path]] = {}
     for path in verified:
         number = handshake.sort_key(path)[0]
-        if number in closed_rounds and _declares_pin(
-            path.read_text(encoding="utf-8"), fork_source.FORK_PIN
+        if (
+            number in closed_rounds
+            and number in theirs_by_round
+            and _declares_pin(path.read_text(encoding="utf-8"), fork_source.FORK_PIN)
         ):
             by_round.setdefault(number, []).append(path)
     assert by_round, (
