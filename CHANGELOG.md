@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.14] — 2026-08-17
+
 ### Fixed
 - **The cyanrip update check never looked at the installed binary.** It read a
   cached `self._observed_ripper_banner` — an attribute **assigned nowhere in the
@@ -8447,7 +8449,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.13...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.14...HEAD
+[0.6.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.13...v0.6.14
 [0.6.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12...v0.6.13
 [0.6.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b6...v0.6.12
 [0.6.12b6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b5...v0.6.12b6
@@ -8549,4 +8552,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.13.*
+*Last updated for Platterpus v0.6.14.*
