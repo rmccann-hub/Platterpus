@@ -1580,3 +1580,106 @@ def test_the_declared_shared_hashes_match_the_files_on_disk() -> None:
             f"{lap.name} declares {name}={claimed} but {rel} hashes to {actual} — a "
             "declared hash that does not match the file is worse than none"
         )
+
+
+# --- closed-set fields must be bare tokens on OUTPUT -------------------------------
+#
+# WHAT HAPPENED (2026-08-17, round 9 lap 7 §F2). The fork's gate anchors its verdict
+# pattern to end-of-line; ours takes the first whitespace-delimited token. So
+# `HANDSHAKE-PEER-VERDICT: HOLD — transcribed from...` reads as HOLD to us and as
+# ABSENT to them. Their gate reported "our verdict GO, but no peer verdict declared"
+# on a lap that declared one. Neither side noticed for four laps, because inbound
+# files sit outside each gate's own glob and neither of us ran the other's file
+# through our own parser.
+#
+# The failure that matters is not cosmetic: a closing GO their gate reads as
+# verdict-less refuses a close both sides agreed to.
+
+#: Laps of ours that carry prose in a closed-set field and can never be fixed.
+#:
+#: **A ratchet that can only shrink, and here it can never shrink at all** — every
+#: entry is `SENT`, the fork holds those exact bytes, and v4 §4a forbids editing a
+#: sent lap. So this is a frozen historical set, not a backlog. Adding a row means a
+#: lap went out non-conforming, which is the thing the test exists to prevent.
+_PROSE_IN_CLOSED_SET_FIELD: frozenset[str] = frozenset(
+    {
+        "round-08-lap-10.md",  # PEER-VERDICT: OPEN — relayed, not held; sent 2026-08-15
+        "round-09-lap-04.md",  # PEER-VERDICT: HOLD — transcribed…; sent 2026-08-16
+        "round-09-lap-06.md",  # PEER-VERDICT: HOLD — transcribed…; sent 2026-08-17
+    }
+)
+
+
+def test_our_laps_declare_closed_set_fields_as_bare_tokens() -> None:
+    """Every lap of OURS, except the three frozen ones, emits a bare verdict token."""
+    hs = _load()
+    offenders: dict[str, list[str]] = {}
+    checked = 0
+    for directory in ("outbound", "verified"):
+        for path in sorted(
+            (_REPO_ROOT / "docs" / "handshake" / directory).glob("round-*.md")
+        ):
+            checked += 1
+            problems = hs.closed_set_prose(path.read_text(encoding="utf-8"))
+            if problems and path.name not in _PROSE_IN_CLOSED_SET_FIELD:
+                offenders[f"{directory}/{path.name}"] = problems
+    assert checked >= 10, f"only {checked} of our laps swept"
+    assert not offenders, (
+        "these laps of ours carry prose in a closed-set field, so the fork's gate "
+        f"reads the field as ABSENT: {offenders}. Declare the bare token and move "
+        "provenance to <FIELD>-SOURCE."
+    )
+
+
+def test_the_frozen_prose_list_names_real_offenders_and_only_sent_laps() -> None:
+    """The exemption cannot quietly widen, and must not cover a fixable file.
+
+    Two directions, because either alone is satisfiable by the wrong thing: every
+    named file must actually still offend (a stale name is an exemption for nothing,
+    hiding that it is stale), and every named file must be pinned as SENT — which is
+    the only reason it cannot simply be corrected.
+    """
+    hs = _load()
+    from test_sent_laps_are_immutable import SENT_LAPS
+
+    sent_names = {name.split("/")[-1] for name in SENT_LAPS}
+    for name in sorted(_PROSE_IN_CLOSED_SET_FIELD):
+        matches = [
+            p
+            for d in ("outbound", "verified")
+            for p in (_REPO_ROOT / "docs" / "handshake" / d).glob(name)
+        ]
+        assert len(matches) == 1, f"{name}: expected exactly one, found {matches}"
+        assert hs.closed_set_prose(matches[0].read_text(encoding="utf-8")), (
+            f"{name} no longer carries prose in a closed-set field — remove it from "
+            "the frozen list rather than leaving a dead exemption"
+        )
+        assert name in sent_names, (
+            f"{name} is exempted as unfixable but is not pinned in SENT_LAPS. Only a "
+            "SENT lap cannot be corrected; if it was never sent, fix it instead."
+        )
+
+
+def test_the_guard_ignores_a_fenced_example() -> None:
+    """§2 rule 2, and the bug the first version of the sweep actually had.
+
+    It flagged the fork's conforming lap 7, because that lap *quotes* the bad shape
+    inside a fence in order to explain it. A compliance checker that reads a
+    document's own example as a violation is the "satisfied by the wrong thing"
+    failure, one level up.
+    """
+    hs = _load()
+    documenting = (
+        "HANDSHAKE-VERDICT: GO\n"
+        "HANDSHAKE-PEER-VERDICT: GO\n"
+        "\n"
+        "Do not write this:\n"
+        "```\n"
+        "HANDSHAKE-PEER-VERDICT: GO — transcribed from round-09-lap-04.md, which we\n"
+        "```\n"
+    )
+    assert hs.closed_set_prose(documenting) == []
+    # And prove it still catches the real thing, or the fence-stripping made it vacuous.
+    offending = "HANDSHAKE-PEER-VERDICT: GO — transcribed from round-09-lap-04.md\n"
+    problems = hs.closed_set_prose(offending)
+    assert problems and "ABSENT" in problems[0], problems

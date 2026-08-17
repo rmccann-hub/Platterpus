@@ -35,6 +35,37 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `round09lap06platterpus`) with no gate noticing. The name is unchanged.
 
 ### Fixed
+- **Round 8 is CLOSED.** Our lap 10 declared `GO` but could not close it: §5 requires
+  the peer verdict *transcribed from the file they sent*, and we held none of their
+  round-8 laps 3–17, so lap 10 recorded a relayed `OPEN` and failed closed —
+  correctly. Those laps arrived inside the fork's round-9 lap-3 envelope;
+  `round-08-lap-17.md` declares `GO`, and `verified/round-08-lap-18.md` now
+  transcribes it from the file. The round sat open five days with **both sides
+  declaring `GO`**, because one side could not see the other's declaration; the gate
+  was right the whole time and the fix was never a change to the gate — it was an
+  envelope. Round 8's digest is unchanged at `81415fe9a22d4884 over 12` (a lap
+  excludes itself, so filing the closing lap does not move it).
+- **Closed-set verdict fields are now emitted as bare tokens, enforced on output**
+  (`handshake.closed_set_prose`). The fork's gate anchors its verdict pattern to
+  end-of-line; ours takes the first whitespace-delimited token. So
+  `HANDSHAKE-PEER-VERDICT: HOLD — transcribed from…` reads as `HOLD` to us and as
+  **absent** to them — their gate reported *"our verdict GO, but no peer verdict
+  declared"* on a lap that declared one. A closing `GO` their gate reads as
+  verdict-less refuses a close both sides agreed to. Tolerant on input, strict on
+  output, which is the argv-chokepoint rule applied to the handshake seam; the three
+  laps of ours that already went out with prose are named in a frozen list with the
+  reason, because a `SENT` lap cannot be fixed. The first version of the sweep
+  omitted fence-stripping and flagged the fork's *conforming* lap 7 for quoting the
+  bad shape inside a fence — §2 rule 2, broken in the tool written to check it.
+- **`SENT_LAPS` recorded the wrong event, in both directions inside 48 hours.** It
+  pinned a lap's hash at hand-over to the operator; that is not delivery to the peer,
+  and only the operator can distinguish them. Lap 6 was edited as "not yet sent" when
+  it had gone, and lap 8 was pinned as sent when it had not — asserting the fork held
+  bytes they had never seen. Rows now record **operator-confirmed delivery**, and the
+  lap-8 row was removed rather than corrected, because it was never a send. The
+  concept neither spec has: v4 §4a makes `RECEIVED` claimable only by the recipient
+  for exactly this reason, then leaves `SENT` to the sender — the one party who cannot
+  observe it.
 - **Round 9 lap 6 misquoted the fork's own document while correcting them.** Its
   §D lead attributed *"Committed to `platterpus-fork` at `003f7aa`"* to a §H of
   their lap 3 — that string appears nowhere in the file and there is no §H. The

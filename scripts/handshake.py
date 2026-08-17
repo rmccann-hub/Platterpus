@@ -808,6 +808,63 @@ REQUIRED_CLOSE_FIELDS: tuple[str, ...] = (
     "HANDSHAKE-TESTED",
 )
 
+#: Fields whose value is drawn from §4's **closed** verdict vocabulary. Anything
+#: after the token is prose, and prose in a closed-set field is not decoration.
+CLOSED_SET_FIELDS: tuple[str, ...] = (
+    "HANDSHAKE-VERDICT",
+    "HANDSHAKE-PEER-VERDICT",
+)
+
+#: A bare vocabulary token: `GO`, `HOLD`, `OPEN`, `WITHDRAWN`.
+_BARE_TOKEN: re.Pattern[str] = re.compile(r"^[A-Z][A-Z-]*$")
+
+
+def closed_set_prose(text: str) -> list[str]:
+    """Closed-set fields in ``text`` that carry prose after the verdict token.
+
+    **Tolerant on input, strict on output — and the asymmetry is the whole point.**
+    Our own reader takes the first whitespace-delimited token (see the peer-verdict
+    check in :func:`close_blockers`), so a trailing clause is harmless *to us*. The
+    cyanrip fork's gate anchors its verdict pattern to end-of-line, so the same line
+    matches **nothing** and the field reads as **absent** — their round-9 lap 7 §F2
+    measured that against our laps 4 and 6 and reported *"our verdict GO, but no
+    peer verdict declared"* on files that declared one.
+
+    That is the CLAUDE.md argv-chokepoint rule arriving on the handshake seam: a
+    value we hand the peer must satisfy *their* documented contract, not merely
+    ours. A closing `GO` their gate reads as verdict-less would refuse a close that
+    both sides agreed to — indistinguishable, from their side, from us never having
+    declared it.
+
+    So this is checked on what we **emit**, never used to refuse what we receive:
+    being strict about their files would turn their pre-fix laps into errors we
+    cannot act on, and §2 rule 6's *"an unrecognised value is not agreement"*
+    already fails those closed.
+
+    Fenced blocks are stripped first (§2 rule 2). **That is not a detail** — the
+    first version of this sweep omitted it and flagged the fork's lap 7, which is
+    conforming and merely *quotes* the bad shape inside a fence to explain it. A
+    compliance checker that reads a document's example as a violation is the
+    "satisfied by the wrong thing" failure, in the checker.
+    """
+    stripped = _strip_fences(text)
+    problems: list[str] = []
+    for field in CLOSED_SET_FIELDS:
+        for match in re.finditer(
+            rf"^{re.escape(field)}:[ \t]*(?P<v>.*)$", stripped, re.MULTILINE
+        ):
+            value = match.group("v").strip()
+            if value and not _BARE_TOKEN.match(value):
+                token = value.split()[0]
+                problems.append(
+                    f"{field} carries prose after {token!r}; the peer's gate anchors "
+                    "its verdict pattern to end-of-line and will read this field as "
+                    "ABSENT. Declare the bare token and move the provenance to "
+                    f"{field}-SOURCE."
+                )
+    return problems
+
+
 #: The optional field that names a build designated to *gather* the evidence a
 #: close needs (§6a). It is **not** a pin agreement and must never be read as one.
 #:

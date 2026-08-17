@@ -27,6 +27,10 @@ from the tree — a lap is sent by an operator attaching it to a message, an eve
 git never sees. The hash is the only fact that crosses that boundary, so the hash
 is what we pin.
 
+**WHICH event, though — see `SEND_BOUNDARY` below.** "Handed to the operator" and
+"delivered to the peer" are not the same moment, and pinning at the first one made
+this map assert a send that never happened. Rows record the second.
+
 **The map may grow and may never change an existing value.** Adding a row records
 a new send; editing one would be the very thing this file forbids, performed on
 the guard itself.
@@ -69,24 +73,38 @@ SENT_LAPS: dict[str, str] = {
     "verified/round-09-lap-04.md": (
         "fb25fce0b2eb6bfe103fd505bb2c5b5329e36549842eb79f9dce13be86d95a0b"
     ),
-    # Pinned AT HAND-OVER, which is the point: the row records the bytes that left,
-    # and the only moment we can observe that is the moment we hand the file to the
-    # operator. An earlier draft of this lap existed and was never handed over — it
-    # therefore never reached `SENT` (v4 §4a: *"a lap that was drafted and never sent
-    # may be edited or deleted freely and leaves no trace"*) and correcting it in
-    # place was legal. The value below is the first and only lap 6.
+    # **Peer-confirmed.** cyanrip's round-9 lap 7 quotes this exact value back:
+    # *"your lap 6's bytes verify against the sha256 relayed in its covering
+    # message: f2a866416afcc837…"*. A row the other side has independently
+    # published is the strongest form this map takes.
     "verified/round-09-lap-06.md": (
         "f2a866416afcc837942dac4b94b0594107421a36da04bb6147c7aa191d28194d"
     ),
-    # Lap 8 corrects three statements lap 6 shipped. **Lap 6's row above is NOT
-    # touched** — that is the whole discipline: it is `SENT`, the fork holds those
-    # bytes, and a correction is a new lap (v4 §4a). Editing the row to make the
-    # record look tidier would be the round-8 lap-10 violation performed on the
-    # guard against it.
-    "verified/round-09-lap-08.md": (
-        "6c5b57678c80947b8e954d47cb78ae18a732373c5a6eb89e1f37b5f60c19177f"
-    ),
 }
+
+#: **The boundary this map records, and it was wrong in both directions in 48 hours.**
+#:
+#: The docstring above used to say a row is recorded *"at the moment we hand the file
+#: to the operator"*. That is the wrong event, and both failures are on the record:
+#:
+#: * **Lap 6** — treated as not-yet-sent and edited in place. It *had* gone. The fix
+#:   was a correction lap (round-9 lap 8 §E), not an edit, and the edit had already
+#:   happened by then.
+#: * **Lap 8** — pinned at hand-over, so this map asserted the fork held bytes they
+#:   had never seen. The row was removed rather than corrected: it was never a send,
+#:   so there was nothing to freeze. Its absence here is not an oversight.
+#:
+#: The concept neither spec has: **"handed to the operator" and "delivered to the
+#: peer" are different events, and only the operator can tell them apart.** v4 §4a
+#: makes `RECEIVED` claimable only by the recipient for exactly this reason, then
+#: leaves `SENT` to the sender — the one party who cannot observe it.
+#:
+#: So: **a row goes in when the operator confirms the file has gone to the peer**,
+#: not when we hand it over. That is an external fact we are told, never a judgement
+#: we make — which is what separates this from the fork's round-9 §A, where a
+#: convenient definition of `SENT` was invented in the very file about to break the
+#: rule. Ours was unexamined rather than invented; it produced the same false record.
+SEND_BOUNDARY: str = "operator-confirmed delivery to the peer, not hand-over"
 
 #: Rows whose full hash we do not hold — only the 16-char prefix a manifest
 #: published.
