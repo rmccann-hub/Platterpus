@@ -35,7 +35,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `round09lap06platterpus`) with no gate noticing. The name is unchanged.
 
 ### Fixed
-- **Restored the envelope name-safety test lost with `test_handshake_bundle.py`.**
+- **Round 9 lap 6 misquoted the fork's own document while correcting them.** Its
+  §D lead attributed *"Committed to `platterpus-fork` at `003f7aa`"* to a §H of
+  their lap 3 — that string appears nowhere in the file and there is no §H. The
+  argument it supports survives untouched (their §I line 286 does name `fa7e319`
+  as its own commit, and a file committed at X cannot contain X), but the quote
+  is now verbatim with its line number, verified against the source. Caught by
+  sweeping every hex token and quoted fragment in the lap against the inbound
+  files before hand-over; the lap had not been sent, so it was corrected in place
+  under v4 §4a rather than owing a correction lap. `SENT_LAPS` now pins it.
   When the envelope was retired on 2026-08-15 its test file went with it, and when
   `emit_envelope.py` re-created the envelope hours later the guard was not restored
   — leaving the two properties stated only in a source comment, which is the
