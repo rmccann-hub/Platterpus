@@ -170,3 +170,100 @@ def test_every_qthread_slot_is_stopped_on_close() -> None:
         f"closeEvent does not account for these QThread slots: {forgotten}. "
         "Destroying the window while one of them runs aborts the process."
     )
+
+
+# --- The runner is a stand-in too ----------------------------------------
+#
+# Everything above polices fixtures that do the product's job. This one
+# polices the *invocation*: a local `python -m pytest` is a stand-in for
+# CI's bare `pytest`, and it is the more permissive of the two. `python -m`
+# prepends the cwd to `sys.path`, so at the repo root every non-package
+# directory here — `scripts/`, `build/`, `uiscript/`'s parent — becomes an
+# importable implicit namespace package. The `pytest` console script that
+# CI runs prepends nothing.
+#
+# So `from scripts import round_digest` collects locally and raises
+# `ModuleNotFoundError` on all four CI Pythons. That shipped: it was the
+# only import of its kind in the suite, every other test reaching into
+# `scripts/` loads by file location, and it turned the v0.6.12 release CI
+# red at the collection stage (2026-08-17). Reproduce CI's import path
+# locally with `PYTHONSAFEPATH=1 python -m pytest`.
+
+
+def _repo_root_dirs_that_are_not_packages() -> set[str]:
+    """Top-level directories importable ONLY because the cwd is on `sys.path`.
+
+    A directory with no `__init__.py` is not a package; it resolves as an
+    implicit namespace package, and only while its *parent* is on the path.
+    Under CI's runner the repo root is not, so importing one of these by
+    name is a collection error.
+    """
+    return {
+        entry.name
+        for entry in REPO_ROOT.iterdir()
+        if entry.is_dir()
+        and not entry.name.startswith(".")
+        and not (entry / "__init__.py").exists()
+    }
+
+
+def test_no_test_imports_a_repo_root_directory_by_name() -> None:
+    """No test may depend on the repo root being `sys.path[0]`.
+
+    The failure mode is asymmetric and that is what makes it dangerous:
+    the permissive runner is the one a human types, so the bug is
+    invisible until CI — or a contributor with a different habit — runs it.
+    """
+    suspect = _repo_root_dirs_that_are_not_packages()
+    assert "scripts" in suspect, (
+        "`scripts/` is expected to be a non-package directory; if it gained "
+        "an `__init__.py` this guard needs rethinking (it would still not be "
+        "on `sys.path` under the bare `pytest` runner, so the rule stands)."
+    )
+
+    modules = sorted(REPO_ROOT.glob("tests/*.py"))
+    assert len(modules) >= 40, (
+        f"only {len(modules)} test modules found — the glob is wrong and this "
+        "check has gone vacuous."
+    )
+
+    offenders: list[str] = []
+    for path in modules:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                roots = [alias.name.split(".")[0] for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.level == 0:
+                roots = [(node.module or "").split(".")[0]]
+            else:
+                continue
+            for root in roots:
+                if root in suspect:
+                    offenders.append(f"{path.name}:{node.lineno} imports `{root}`")
+
+    assert not offenders, (
+        "these tests import a repo-root directory by name, which only resolves "
+        "under `python -m pytest` and fails under the bare `pytest` CI runs:\n  "
+        + "\n  ".join(offenders)
+        + "\nLoad the module by file location instead (see `_load()` in "
+        "tests/test_handshake_conformance.py for the idiom)."
+    )
+
+
+def test_the_by_file_location_idiom_is_actually_used() -> None:
+    """The converse floor: prove tests DO reach into `scripts/` some other way.
+
+    Without this, the check above passes trivially the day nobody needs
+    `scripts/` at all — and would keep passing while the idiom it points
+    people at quietly disappeared.
+    """
+    users = [
+        path.name
+        for path in sorted(REPO_ROOT.glob("tests/*.py"))
+        if "spec_from_file_location" in path.read_text(encoding="utf-8")
+    ]
+    assert len(users) >= 5, (
+        f"only {len(users)} test modules load a script by file location "
+        f"({users}) — the established idiom has eroded; the guard above now "
+        "polices a population that barely exists."
+    )
