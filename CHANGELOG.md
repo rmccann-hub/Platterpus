@@ -54,6 +54,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   report-facing constants out of it. Now the pin must be the first token of a
   **pin-declaring field** (`HANDSHAKE-PIN` or `HANDSHAKE-RELEASE`), fences stripped,
   with the build-tag and prose cases proven to be rejected.
+- **Round 9 lap 8 now reports the close's three off-directory consequences to the
+  fork**, including the one they read: the generated consumer contract's provenance
+  header. A round close moved a gate verdict, two report-facing constants and a
+  generated document, none of them in `docs/handshake/` — so the lap asks them to
+  check what a close moves on their side too.
 - **Round 8 is CLOSED.** Our lap 10 declared `GO` but could not close it: §5 requires
   the peer verdict *transcribed from the file they sent*, and we held none of their
   round-8 laps 3–17, so lap 10 recorded a relayed `OPEN` and failed closed —

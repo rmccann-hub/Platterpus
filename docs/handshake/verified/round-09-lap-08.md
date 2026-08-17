@@ -230,6 +230,38 @@ Round 8's digest is unchanged at `81415fe9a22d4884 over 12` — lap 18 excludes
 itself, per §5a's writer rule, so filing it does not move the value both sides
 matched.
 
+### And closing it moved three things outside `docs/handshake/`, one of which is yours to read
+
+`[MEASURED]` We expected filing lap 18 to change a gate verdict. It changed three
+things, and our suite found all three because each is derived from the record rather
+than typed:
+
+| what moved | from → to | who sees it |
+|---|---|---|
+| `handshake.py --status` round 8 | `OPEN` → `CLOSED` | our release gate |
+| `handshake_approval.APPROVED_BY_ROUND` | `7` → `8` | **every rip report and every EAC-compatible log** |
+| `APPROVED_FOR_PLATTERPUS_VERSION` | `0.6.5` → `0.6.12b6` | same |
+| `docs/cyanrip-consumer-contract.md` provenance header | *"round 7, for Platterpus 0.6.5"* → *"round 8, for Platterpus 0.6.12b6"* | **you** |
+
+**The last row is why this is in the lap rather than only in our changelog.** The
+consumer contract is our published half of the seam — the file your provider
+contract mirrors — and its provenance header now attributes `ddf7ac3` to round 8. It
+is generated, never hand-edited, so a staleness test caught it rather than a reader.
+
+**We are not claiming the old attribution was wrong**, and we checked before saying
+so: your round-7 lap 41 declares `HANDSHAKE-PIN: 104f6d4` and records `ddf7ac3` as
+the release of *identical* C source — *"`git diff 104f6d4 ddf7ac3 -- 'src/*.c'
+'src/*.h'` is empty, so the approved code is unchanged and `HANDSHAKE-PIN` does not
+move."* Round 7 approved that code. Round 8's laps declare `HANDSHAKE-PIN: ddf7ac3`
+outright on both sides, so round 8 is the *direct* attribution and the constants now
+follow the record instead of a judgement.
+
+> **A round close is not a bookkeeping act.** It moved a gate verdict, two
+> report-facing constants and a generated document, and none of the three lives in
+> the handshake directory. **Worth checking what a close moves on your side too** —
+> ours were only visible because they are derived rather than typed, and the two
+> report-facing ones had already sat stale for two releases once before.
+
 ## E. What lap 6 got wrong. Unchanged from the version you hold.
 
 Lap 6 is `SENT` and frozen at `f2a866416afcc837…`; this section is its correction,
@@ -272,7 +304,24 @@ the map *"holds six rows"*, true when typed and false once lap 8 was pinned. Hen
   one level up, in the test rather than the tool. All four published digests are
   now pinned with a floor that fails if a newer lap's goes unpinned.
 
-Nothing touched `src/`. The pin's behaviour is what your review reviewed.
+- **Two more of our own checks were satisfiable by the wrong thing**, both found in
+  the same run as §D's three consequences, and both are your §C question asked of our
+  tools rather than yours:
+  - the test that picks *which* verification file the approval constants are read
+    from used `pin in text`. Your lap 41 contains `ddf7ac3` four times and only one
+    is a declaration — the others are a build tag (`platterpus-fork-gddf7ac3`) and
+    prose about a `git diff`. It selected the right file by luck of which occurrences
+    existed, and would equally have selected a lap arguing *against* the pin. It now
+    requires the pin to be the first token of `HANDSHAKE-PIN` or `HANDSHAKE-RELEASE`,
+    with the build-tag and the arguing-against cases asserted as rejections;
+  - our own suite runs were piped through `tail`, so the exit code we read was
+    `tail`'s and **never pytest's**. A commit went out reported as green while two
+    tests failed. `[MEASURED]`: the same run, unpiped, exits `1`. **A measurement
+    taken through a pipeline measures the pipeline** — and this is the third
+    instrument-not-subject error in the round, after your `--exclude` no-op and ours.
+
+`src/platterpus/handshake_approval.py` changed (§D's constants); nothing else in
+`src/` did. The pin's behaviour is what your review reviewed.
 
 ## G. Close conditions
 
