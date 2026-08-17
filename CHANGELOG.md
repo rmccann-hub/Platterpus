@@ -11,6 +11,47 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.12] — 2026-08-17
+
+**Out of beta.** The cyanrip pairing is jointly verified: handshake rounds 8, 9 and 10
+are all closed with `GO` from both projects, every digest either side declared
+reproduces on the other's tree, and `handshake.py --status` reports every round closed
+and exits 0 for the first time.
+
+### Added
+- **Round 10 closed in five laps** (round 7 took 39). Its deliverable: cyanrip's
+  `HANDSHAKE_RELEASED` flag was unreachable, so `-- NOT a released build` had become a
+  constant printed into every archival record as though it varied. The fix declares the
+  release at build time in the `Consumer:` idiom — *recorded as declared, not checked* —
+  with the option defaulting unset so a mis-set flag **under**-claims.
+- **The fork published its numbered release**: `0.9.4-rc1+platterpus.6` at `c4d1a00`,
+  `release_seq` 16, channel stable. **This release does not install it**, and the reason
+  is theirs to have found: their lap 5 §0 measured that a default build of that tarball
+  still renders *"NOT a released build"* — the released rendering needs
+  `-Ddeclare_released=true`, and our installer does not pass it. `FORK_PIN` therefore
+  stays at `ddf7ac3` (round 8's approved release, `release_seq` 11, rig-tested on real
+  hardware). Adding that build flag and moving the pin is round 11's work; under-claiming
+  is the safe direction and exactly what our own condition asked for.
+
+### Fixed
+- **The README's status banner claimed the opposite of the truth.** It read *"v0.6.11 —
+  BETA … it is **not** a jointly-verified pair, and every rip it makes says so in its own
+  report"* — false on both counts after round 8 closed, and stamped with a version two
+  releases stale. Rewritten to state what is verified, which build is installed, and the
+  two things still `[NOT PROVEN]` on hardware (`-x` has never run on a drive; the
+  drive-open fix). A stamp records when a doc was *edited*; a doc nobody edits keeps an
+  accurate stamp while its prose expires.
+- **Our round-10 lap 4 cited a sha256 that was not one.** `PEER-VERDICT-SOURCE` quoted
+  `a7d7b7a8…` for their lap 3; the real hash is `3475b9b8…`. `a7d7b7a8` is the **upload
+  filename prefix of round 9 lap 11** — a different lap, from a previous exchange. So not
+  a hash recalled from memory but a *filename* from the *wrong artifact*, in the one field
+  whose whole job is to show the answer came from the artifact. Nothing was actually
+  unverified: our own writer digest `049fa6ecccaa5328 over 3` covers lap 3 byte-for-byte
+  and reproduces on their tree, which is what proved the file was right and the citation
+  wrong. Their suggestion is adopted for round 11: **the digest already proves holdings,
+  so a per-file hash restated in prose is a second description that can drift** — generate
+  it or drop it.
+
 ### Changed
 - **Handshake protocol v4 adopted, byte-identical** (`ed8ee62f…`), carrying both
   amendments Platterpus proposed in round 9 lap 2 — the exactly-once rule for what
@@ -6021,7 +6062,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12b6.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -8263,7 +8304,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b6...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12...HEAD
+[0.6.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b6...v0.6.12
 [0.6.12b6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b5...v0.6.12b6
 [0.6.12b5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b4...v0.6.12b5
 [0.6.12b4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b3...v0.6.12b4
@@ -8363,4 +8405,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.12b6.*
+*Last updated for Platterpus v0.6.12.*
