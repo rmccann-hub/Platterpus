@@ -194,7 +194,14 @@ def test_the_handshake_and_consumer_lines_are_read() -> None:
         assert parsed.handshake_note, f"{path.name}: no Handshake: line parsed"
         assert "OPEN" in parsed.handshake_note, path.name
         assert "NOT a released build" in parsed.handshake_note, path.name
-        assert parsed.consumer == "platterpus/0.6.4b3", path.name
+        # The caller's qualifier travels with the claim, from 2026-08-17: the fork's
+        # round-10 lap-3 released rendering put ITS provenance on a continuation line,
+        # and `_fold_continuations` joins any such qualifier to the line it qualifies —
+        # `Consumer:` included, by the same reasoning. Dropping it would surface a
+        # caller-reported string as though cyanrip had checked it.
+        assert parsed.consumer == (
+            "platterpus/0.6.4b3 (reported by the caller, not verified by cyanrip)"
+        ), path.name
 
 
 def test_the_compiled_in_lap_is_always_behind_the_file_that_ships_it() -> None:

@@ -417,6 +417,63 @@ _HANDSHAKE_NOTE: re.Pattern[str] = re.compile(r"^Handshake:\s+(?P<note>\S.*)$")
 # `name/version` string we will start passing.
 _CONSUMER: re.Pattern[str] = re.compile(r"^Consumer:\s+(?P<consumer>\S.*)$")
 
+#: An indented line consisting of NOTHING BUT a parenthetical — the shape the fork
+#: uses to qualify the line above it.
+#:
+#: **Added 2026-08-17, round 10 lap 3.** Their released rendering is two lines:
+#:
+#:     Handshake:      round 9 lap 11 closed, verdict GO -- released build
+#:                     (declared at build time, not verified by cyanrip)
+#:
+#: The qualifier is the whole point of their fix — it says who declared the claim and
+#: that cyanrip did not verify it. **Every reader here anchored on `^Handshake:`, so we
+#: would have captured the confident half and dropped the disclaimer**, surfacing
+#: `-- released build` as though it were verified. That is the exact defect they had
+#: just repaired, re-created on our side by a line-oriented parser.
+#:
+#: **Why fold rather than add a continuation rule.** A rule matching "any indented
+#: parenthetical after a note" would graft `Consumer:`'s own qualifier —
+#: `(reported by the caller, not verified by cyanrip)` — onto the handshake note,
+#: because that line intervenes two lines later. Folding is adjacency-correct by
+#: construction: a qualifier joins the line it follows, whichever label that is.
+#:
+#: Deliberately narrow: **indented, one balanced parenthetical, nothing else.**
+#: cyanrip's other indented rows (`Peak:`, the `Gaps:` block, track tables) carry a
+#: field and do not match, so no existing rule sees different input. Bounded to 200
+#: characters like every pattern in this module.
+_CONTINUATION: re.Pattern[str] = re.compile(r"^[ \t]+\([^()]{1,200}\)[ \t]*$")
+
+
+#: Patterns that shape the INPUT before any line rule sees it, rather than
+#: recognising a line's content.
+#:
+#: **Enumerated in the module, not exempted in the test.** The completeness sweep in
+#: `tests/test_parsers_cyanrip_log.py` derives its expected set from these groups
+#: precisely so a new pattern fails the sweep instead of quietly requiring a test-side
+#: allowlist — the shape that hid 16 of the fork's fatal strings behind a prefix filter
+#: in round 5. A pre-processing pattern is still something we recognise; it just acts on
+#: the line's *shape* rather than its content.
+_PREPROCESS_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("continuation", _CONTINUATION),
+)
+
+
+def _fold_continuations(text: str) -> list[str]:
+    """Lines, with each parenthetical qualifier joined onto the line it qualifies.
+
+    Never raises: an unmatched or leading continuation is emitted unchanged rather
+    than dropped, because a line we do not understand is still a line the binary
+    wrote (this module's forward-compatibility rule).
+    """
+    folded: list[str] = []
+    for line in text.splitlines():
+        if folded and _CONTINUATION.match(line):
+            folded[-1] = f"{folded[-1].rstrip()} {line.strip()}"
+        else:
+            folded.append(line)
+    return folded
+
+
 # ---------------------------------------------------------------------------
 # Lines a FORK of cyanrip will print, parsed before they exist
 # ---------------------------------------------------------------------------
@@ -1731,7 +1788,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         )
         current = None
 
-    for line in text.splitlines():
+    for line in _fold_continuations(text):
         # Are we inside a track block? Read once per line, for the rows that only
         # count in the disc-level report. Nothing between here and the last table
         # dispatch can change it without also skipping to the next line, so a
