@@ -197,6 +197,7 @@ def test_our_published_round_9_numbers_still_reproduce() -> None:
         # that never left, per the corrected SEND_BOUNDARY. A number this map may
         # never change is one the peer holds -- and the peer holds none of these.
         8: ("a010a87d075d4834", 7),
+        10: ("598f28c6ed351675", 9),
     }
     for lap, expected in published.items():
         assert _as_declared_in(lap) == expected, (

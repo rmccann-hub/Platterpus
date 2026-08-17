@@ -35,6 +35,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `round09lap06platterpus`) with no gate noticing. The name is unchanged.
 
 ### Fixed
+- **Our release gate could never close a round the peer opened.** `round_status`
+  required an **outbound** file (`state = "CLOSED" if (sent and back and both_go)`),
+  but protocol v4 §1a — adopted in round 9 — says the *provider* opens, and when
+  cyanrip opens, every lap of ours is a verification in `verified/` while `outbound/`
+  stays empty for the whole round. Round 9 is the first peer-opened round, so
+  `--status` reported it `OPEN` with **both sides declaring `GO`**, and would have
+  done so permanently — blocking every release under our own deviation policy.
+  Invisible for eight rounds because we opened all eight. The condition now requires a
+  lap of *ours* (`done`), which `both_go` already reads the verdict from, so nothing
+  is weakened. This is the mirror of the defect the fork found in their own gate one
+  lap earlier: same cause (a gate reading the wrong directory), opposite direction —
+  theirs failed **open** and permitted a release while writing *"round 9 lap 7
+  closed"* into every logfile; ours failed **closed**. Three tests, each
+  revert-proved: a peer-opened round with no outbound file closes on mutual `GO`; the
+  same round stays `OPEN` when their newest lap is `HOLD`; and holding only their file
+  never closes anything.
 - **Closing round 8 moved the pin's approval attribution, and only a test noticed.**
   `handshake_approval.APPROVED_BY_ROUND` 7 → 8 and `APPROVED_FOR_PLATTERPUS_VERSION`
   `0.6.5` → `0.6.12b6`, both derived from the newest CLOSED round's own verification
