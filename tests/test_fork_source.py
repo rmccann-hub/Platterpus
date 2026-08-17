@@ -525,6 +525,11 @@ def test_the_build_script_has_a_label_argument_so_values_are_not_eaten_as_argv0(
         # build is refused before `sudo install` and `distrobox-export` make the
         # change irreversible.
         fork_source.WIZARD_TARGET.build_tag,
+        # $6 — `meson setup` options for this pin, space-joined; empty for every
+        # pin that predates `meson_options.txt` (round 11 §0), which is our
+        # current one. Asserted through the target rather than as a literal ""
+        # so this test keeps checking the *wiring* after the pin moves.
+        " ".join(fork_source.WIZARD_TARGET.meson_options),
     ]
 
 
@@ -993,10 +998,14 @@ class TestTheBuildRefusesBeforeInstalling:
         $3 and $4 would be a second spelling, free to drift."""
         target = fork_source.PRODUCTION_TARGET
         cmd = fork_source.build_command("ripping", target)
-        assert cmd[-1] == target.build_tag, (
-            f"the build tag is not the last positional arg: {cmd[-3:]}"
+        # $6 (the per-pin meson options) now trails the tag, so index off the end
+        # by name rather than assuming the tag is last — the reason this test
+        # broke when the argument was added, and the reason it says so here.
+        assert cmd[-1] == " ".join(target.meson_options)
+        assert cmd[-2] == target.build_tag, (
+            f"the build tag is not where it should be: {cmd[-4:]}"
         )
-        assert cmd[-2] == target.pin
+        assert cmd[-3] == target.pin
 
     def test_every_shipped_script_is_valid_shell(self) -> None:
         """`sh -n` parses without executing. Cheap, and it catches the case this
@@ -1062,3 +1071,72 @@ class TestTheRipperBuildMenu:
         least 4 hex characters for an abbreviation, and 'list' is not hex, so
         the two can never be confused."""
         assert not all(ch in "0123456789abcdef" for ch in "list")
+
+
+# --- Round 11 §0: the build flag is per-pin, and the default under-claims ---
+
+
+def test_our_production_pin_gets_no_meson_options() -> None:
+    """The measured trap, pinned as a test.
+
+    Round 11 §0: `meson_options.txt` is **absent** at `ddf7ac3`, and meson fails the
+    *entire* configure on an unknown `-D` — not just the option:
+
+        meson.build:1:0: ERROR: Unknown options: "declare_released"
+
+    Verified independently against the fork's tree rather than taken from their lap:
+    `git ls-tree ddf7ac3 -- meson_options.txt` is empty, and the same file at
+    `c4d1a00` declares `option('declare_released', ... value: false)`.
+
+    So a constant `-Ddeclare_released=true` in our build step would make our *own
+    current pin* unbuildable, and would kill the downgrade path to the one build with
+    rig evidence behind it. This asserts the default is the safe one.
+    """
+    assert fork_source.PRODUCTION_TARGET.pin == "ddf7ac3", (
+        "the pin moved — re-check whether it still predates meson_options.txt"
+    )
+    assert fork_source.PRODUCTION_TARGET.meson_options == ()
+
+
+def test_the_build_argv_carries_the_pins_options_and_nothing_else() -> None:
+    """The options reach the container as one positional argument, or as empty."""
+    argv = fork_source.build_command("ripping")
+    assert argv[-1] == "", "our current pin must configure with no -D options"
+
+    with_option = fork_source.ForkTarget(
+        pin="c4d1a00",
+        version="0.9.4-rc1+platterpus.6",
+        why="round 11's published release",
+        meson_options=("-Ddeclare_released=true",),
+    )
+    assert fork_source.build_command("ripping", with_option)[-1] == (
+        "-Ddeclare_released=true"
+    )
+
+
+def test_the_build_script_never_interpolates_a_command_string() -> None:
+    """The security boundary, asserted on the script text itself.
+
+    Round 11 §J1 asked us to take the build command from their manifest. We take the
+    *options* and keep our own command, because executing a string from a remote JSON
+    document — on a path whose later steps run `sudo install` — hands the machine to
+    whoever can write that file.
+
+    So the script must reference `$6` only as `meson setup`'s options, and must never
+    `eval` it or run it as a command in its own right.
+    """
+    script = fork_source._BUILD_SCRIPT
+    assert "meson_opts" in script, "the options parameter vanished from the script"
+    for forbidden in (
+        "eval ",
+        '$meson_opts "$@"',
+        'sh -c "$meson_opts',
+        "`$meson_opts`",
+    ):
+        assert forbidden not in script, (
+            f"the build script may execute the manifest's text ({forbidden!r})"
+        )
+    # It is used exactly where it should be: as arguments to `meson setup`.
+    assert script.count("$meson_opts") == 2, (
+        "expected the options in both the --wipe and the fresh-configure branch"
+    )

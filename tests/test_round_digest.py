@@ -173,8 +173,8 @@ def test_the_cli_refuses_an_unmatched_exclusion_rather_than_printing(
     assert good.returncode == 0 and "HANDSHAKE-ROUND-DIGEST" in good.stdout
 
 
-def _as_declared_in(lap: int) -> tuple[str, int]:
-    """Reproduce the digest our lap ``lap`` declared, from the tree as it is now.
+def _as_declared_in(lap: tuple[int, int]) -> tuple[str, int]:
+    """Reproduce the digest our ``(round, lap)`` declared, from the tree as it is now.
 
     §5a's writer rule is *"every lap of this round the writer holds, excluding this
     one"* — so reproducing a **past** declaration means excluding that lap **and
@@ -190,57 +190,82 @@ def _as_declared_in(lap: int) -> tuple[str, int]:
     in the test rather than the tool.
     """
     root = REPO_ROOT / "docs" / "handshake"
+    round_no, lap_no = lap
+    stem = f"round-{round_no:02d}-lap-"
     later = tuple(
         path.name
         for directory in ("inbound", "outbound", "verified")
-        for path in (root / directory).glob("round-09-lap-*.md")
-        if (m := re.fullmatch(r"round-09-lap-(\d+)\.md", path.name))
-        and int(m.group(1)) >= lap
+        for path in (root / directory).glob(f"{stem}*.md")
+        if (m := re.fullmatch(rf"{re.escape(stem)}(\d+)\.md", path.name))
+        and int(m.group(1)) >= lap_no
     )
     assert later, f"no lap at or after {lap} — the exclusion would be a no-op"
-    return rd.round_digest(rd.laps_for_round(9, root, exclude=later))
+    return rd.round_digest(rd.laps_for_round(round_no, root, exclude=later))
 
 
-def test_our_published_round_9_numbers_still_reproduce() -> None:
+def test_our_published_digests_still_reproduce() -> None:
     """Every value we have sent cyanrip, re-derived from the committed tree.
 
     A number in a lap is a claim the other project acts on and cannot re-derive
     without our tree. This asserts each one is still what the tool produces — so a
     change to the enumerator that would have altered a *sent* figure fails here
     rather than in their `RECONCILE`.
+
+    **Keyed by ``(round, lap)``, and swept across every round.** It was round 9 only
+    until 2026-08-17, and the floor below carried the giveaway: its comment promised
+    *"every lap of ours in the tree"* while its glob said `round-09-lap-*`. That was
+    the same statement when it was written, and stopped being so the moment round 10
+    opened — so rounds 10 and 11 each declared digests to the fork that **nothing
+    pinned**, silently, which is exactly the invisible-by-omission decay `CLAUDE.md`
+    describes and `docs/testing.md` §5.af names. A promise of completeness needs a
+    sweep, not a comment.
     """
     published = {
+        # --- Round 9 ---
         # Lap 2 is where the writer-exclusion rule was first *proposed* (its §A1-b),
         # and it already computed the number that way — so it reproduces under the
         # same rule as the laps that came after the amendment was adopted.
-        2: ("05c6e505af0dd617", 1),
-        4: ("5c1925a9e35d5805", 3),
-        6: ("39b57574cf3f5296", 5),
+        (9, 2): ("05c6e505af0dd617", 1),
+        (9, 4): ("5c1925a9e35d5805", 3),
+        (9, 6): ("39b57574cf3f5296", 5),
         # Lap 8's value moved 1d48ae7d79f5deb5/6 -> a010a87d075d4834/7 when the
         # fork's lap 7 was filed and lap 8 was rewritten to answer it. **That is
         # not an edit to a sent number**: the earlier value lived only in a draft
         # that never left, per the corrected SEND_BOUNDARY. A number this map may
         # never change is one the peer holds -- and the peer holds none of these.
-        8: ("a010a87d075d4834", 7),
-        10: ("598f28c6ed351675", 9),
+        (9, 8): ("a010a87d075d4834", 7),
+        (9, 10): ("598f28c6ed351675", 9),
+        # --- Round 10 ---
+        (10, 2): ("8ebd52790dedf658", 1),
+        (10, 4): ("049fa6ecccaa5328", 3),
+        # --- Round 11 ---
+        (11, 2): ("32e19aec2253f1dd", 1),
     }
     for lap, expected in published.items():
         assert _as_declared_in(lap) == expected, (
-            f"lap {lap}'s declared digest moved: it published {expected} and the tree "
-            f"now yields {_as_declared_in(lap)}. A sent number is frozen — find what "
-            "changed in the enumerator or the laps, do not edit this map."
+            f"round {lap[0]} lap {lap[1]}'s declared digest moved: it published "
+            f"{expected} and the tree now yields {_as_declared_in(lap)}. A sent "
+            "number is frozen — find what changed in the enumerator or the laps, do "
+            "not edit this map."
         )
-    # A floor: the map must cover every lap of ours in the tree, or a future lap's
-    # published figure goes unpinned and the check quietly stops covering the newest
-    # claim — the one most likely to be acted on.
-    ours = sorted(
-        int(m.group(1))
+
+    # The floor, derived from the filesystem across EVERY round rather than one.
+    # Without it a future lap's published figure goes unpinned and the check quietly
+    # stops covering the newest claim — the one most likely to be acted on.
+    ours = {
+        (int(m.group(1)), int(m.group(2)))
         for path in (REPO_ROOT / "docs" / "handshake" / "verified").glob(
-            "round-09-lap-*.md"
+            "round-*-lap-*.md"
         )
-        if (m := re.fullmatch(r"round-09-lap-(\d+)\.md", path.name))
-    )
-    assert set(ours) <= set(published), (
-        f"our round-9 laps are {ours} but only {sorted(published)} have their "
-        "published digest pinned — add the newest one's declared value"
+        if (m := re.fullmatch(r"round-(\d+)-lap-(\d+)\.md", path.name))
+    }
+    # Rounds 9 and later only: the digest field postdates the earlier rounds, whose
+    # laps declare no number for this to pin. Stated as a boundary rather than left
+    # to the map's contents, so "not pinned" and "never declared one" stay distinct.
+    declared = {lap for lap in ours if lap[0] >= 9}
+    unpinned = sorted(declared - set(published))
+    assert not unpinned, (
+        f"these laps of ours declare a round digest that nothing pins: {unpinned}. "
+        "Add each one's declared value — an unpinned figure is one the fork can act "
+        "on and we cannot prove we still reproduce."
     )

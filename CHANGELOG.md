@@ -11,6 +11,40 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **The cyanrip build command now comes from the fork's manifest, per pin — parsed,
+  never executed.** Handshake round 11 opened with a measured finding: adding
+  `-Ddeclare_released=true` unconditionally, which is what our own changelog said we
+  would do next, **breaks the pin we currently install**. `meson_options.txt` is
+  absent at `ddf7ac3` and meson fails the *entire* configure on an unknown `-D`, so
+  the flag would have made our production pin unbuildable and killed the downgrade
+  path. Confirmed in the fork's own tree before acting on it.
+  - `release-manifest.json` **schema 2** is now supported, and schema 1 stays
+    supported — a reader that refuses the older document cannot read a manifest from
+    before the bump, which is the same downgrade direction.
+  - Schema 2's `build` field is a *shell command string*. We take the requirement and
+    refuse the mechanism: executing it would turn a field in a remote JSON document
+    into arbitrary command execution inside the user's container, on a path whose
+    later steps run `sudo install`. It is parsed instead — only `-D` options on an
+    allowlist survive, anything unrecognised refuses the **whole** field, and we build
+    with our own command. Verified against the fork's published bytes.
+  - `ForkTarget.meson_options` carries the options per pin, defaulting empty, which is
+    both the safe direction (a mis-set flag under-claims) and the correct build for
+    every commit predating the option.
+
+### Fixed
+- **Our shipped manifest reader could not read the fork's live manifest.** They
+  published schema 2; `SUPPORTED_SCHEMA` pinned 1, so `parse_manifest` returned *not
+  determined* for the real document — measured against their published bytes, not
+  inferred. Fail-closed and logged, which is what the field is for, but the update
+  check was blind for as long as it stood.
+- **Round digests we declared to the fork in rounds 10 and 11 were pinned by
+  nothing.** The reproduction test was scoped to round 9 while its own floor promised
+  *"every lap of ours in the tree"* — true when written, false the moment round 10
+  opened. Now keyed by `(round, lap)` and swept across every round, so the newest
+  claim, the one most likely to be acted on, cannot go unpinned. All three
+  newly-covered figures re-derive from the committed tree.
+
 ## [0.6.12] — 2026-08-17
 
 **Out of beta.** The cyanrip pairing is jointly verified: handshake rounds 8, 9 and 10
