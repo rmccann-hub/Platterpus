@@ -11,6 +11,52 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.13] — 2026-08-17
+
+Corrects the v0.6.12 release record and the version-check instructions, and adds the
+gate that would have caught the first of those.
+
+### Fixed
+- **The README told users to verify cyanrip with a flag, and got the reason exactly
+  backwards.** It said *"`cyanrip -V` … (note the capital `-V` — cyanrip has no
+  `--version`)"*. `--version` **does** exist on the build Platterpus installs, and on
+  stock cyanrip from the genopt rewrite onward — where `-V` is the spelling that
+  *fails*. Replaced with the measured per-build table from the fork's own provider
+  contract, and the example output updated from the long-stale `0.9.3.1`.
+
+  This is the same defect that cost a release blocker in handshake round 5: a rejected
+  version flag exits non-zero, and a probe reads that as *"the tool is not
+  installed."* It survived in the README because the fix was applied to the code and
+  not swept across the docs — enforce a rule across the surface, not at the place it
+  was learned.
+- **v0.6.12 shipped with six changelog entries filed under `[Unreleased]`.** They
+  describe handshake round 11 and the manifest work, all of which **is** in the
+  v0.6.12 tag — the entries were added after the release section was cut and never
+  moved down. Corrected here rather than left: they now sit under `[0.6.12]`, which is
+  the release that contains them. The published v0.6.12 tag still carries the
+  mislabelled copy; this is the amendment, said out loud rather than quietly rewritten.
+
+### Added
+- **The release now refuses to tag with a non-empty `[Unreleased]`.** The existing
+  version-bump gate asserted that a `## [X.Y.Z]` section exists, that it has a compare
+  link, and that the `[Unreleased]` link points at it — **all three pass with a fully
+  populated `[Unreleased]`**, which is exactly how the above shipped. The new check
+  lives in `release.yml`, because whether entries were moved is a property of the tag
+  rather than of somebody's working tree.
+
+## [0.6.12] — 2026-08-17
+
+**Out of beta.** The cyanrip pairing is jointly verified: handshake rounds 8, 9, 10 and
+11 are all closed with `GO` from both projects, every digest either side declared
+reproduces on the other's tree, and `handshake.py --status` reports every round closed
+and exits 0 for the first time.
+
+> **Record note.** The entries immediately below were committed to `[Unreleased]` and
+> released in this tag without being moved under this heading. They are filed here now
+> because this is the release that contains them; the published `v0.6.12` tag carries
+> the uncorrected copy.
+
+
 ### Added
 - **A rig script for the two things this line ships as `[NOT PROVEN]`** —
   `docs/rig-scripts/rigcancelandoverread.txt`. It needs **no editing**: any ordinary
@@ -72,13 +118,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   opened. Now keyed by `(round, lap)` and swept across every round, so the newest
   claim, the one most likely to be acted on, cannot go unpinned. All three
   newly-covered figures re-derive from the committed tree.
-
-## [0.6.12] — 2026-08-17
-
-**Out of beta.** The cyanrip pairing is jointly verified: handshake rounds 8, 9 and 10
-are all closed with `GO` from both projects, every digest either side declared
-reproduces on the other's tree, and `handshake.py --status` reports every round closed
-and exits 0 for the first time.
 
 ### Added
 - **Round 10 closed in five laps** (round 7 took 39). Its deliverable: cyanrip's
@@ -8376,7 +8415,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.13...HEAD
+[0.6.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12...v0.6.13
 [0.6.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b6...v0.6.12
 [0.6.12b6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b5...v0.6.12b6
 [0.6.12b5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b4...v0.6.12b5
@@ -8477,4 +8517,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.12.*
+*Last updated for Platterpus v0.6.13.*

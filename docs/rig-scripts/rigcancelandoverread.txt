@@ -1,5 +1,5 @@
 # =============================================================================
-# RIG TEST — the two things v0.6.12 ships as [NOT PROVEN], plus dialog sizing
+# RIG TEST — the two things the v0.6.x line ships as [NOT PROVEN], plus dialogs
 # =============================================================================
 #
 #   How to run it:  ./platterpus-x86_64.AppImage --run-script rigcancelandoverread.txt
@@ -10,7 +10,7 @@
 # either discovered or expressed as "the first few tracks", so the same file
 # works on the next disc and on somebody else's.
 #
-# WHY THIS EXISTS. v0.6.12 leaves beta with two claims it cannot make:
+# WHY THIS EXISTS. The v0.6.x line leaves beta with two claims it cannot make:
 #
 #   1. `-x` (force overread) has NEVER run on a real drive. It is wired, it is
 #      tested in CI against a fake, and no disc has ever been read with it. A

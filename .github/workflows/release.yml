@@ -75,6 +75,40 @@ jobs:
               python scripts/handshake.py --release-gate ;;
           esac
 
+      - name: Changelog gate — refuse to tag with a non-empty [Unreleased]
+        # v0.6.12 shipped with six entries still under `[Unreleased]`, describing
+        # work that IS in that tag. Nothing caught it: the version-bump gate
+        # (tests/test_no_stale_version_claims.py) asserts that a `## [X.Y.Z]`
+        # section exists, that it has a compare link, and that the `[Unreleased]`
+        # link points at it — and ALL THREE PASS with a fully populated
+        # `[Unreleased]`. Three green assertions about the right release, none of
+        # them about the thing that was wrong.
+        #
+        # It lives HERE rather than in the suite because "were the entries moved"
+        # is a property of the TAG, not of somebody's working tree: between
+        # releases a populated `[Unreleased]` is correct and a test asserting
+        # otherwise would be red for most of the project's life.
+        run: |
+          python - <<'PY'
+          import pathlib, re, sys
+          text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          m = re.search(r"^## \[Unreleased\][^\n]*\n(.*?)(?=^## \[)", text,
+                        re.M | re.S)
+          if m is None:
+              sys.exit("CHANGELOG.md has no [Unreleased] section followed by a "
+                       "released one — the format changed; fix this gate.")
+          body = [l for l in m.group(1).splitlines() if l.strip()]
+          if body:
+              print(f"::error::CHANGELOG.md still has {len(body)} line(s) under "
+                    "[Unreleased]. Move them under the new '## [X.Y.Z] — <date>' "
+                    "heading before tagging — otherwise this release ships a "
+                    "changelog that calls its own contents unreleased.")
+              for line in body[:20]:
+                  print(f"  {line}")
+              sys.exit(1)
+          print("changelog gate: [Unreleased] is empty — entries were moved.")
+          PY
+
       - name: Install build tooling
         run: |
           python -m pip install --upgrade pip
