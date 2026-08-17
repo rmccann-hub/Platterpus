@@ -55,10 +55,38 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   of "safe". Each assertion is proven discriminating against the name it must
   reject.
 - **`emit_envelope.py` had no test coverage at all** — its not-a-lap guard was
-  written, documented and never run. Now exercised on the case it exists for (a
-  one-part envelope, where the structural v4 §5a exclusion does not apply for
-  free), with a revert-proof that the guard actually refuses, plus a round-trip
-  assertion that every part splits back byte-identical to its original.
+  written, documented, and never covered by a test. (Precisely: it *executes* on
+  every emit and has **never refused anything**, because no committed state has a
+  one-part envelope lacking the preamble declarations. An earlier wording here and
+  in round-9 lap 6 §H said it had "fired", which is not derivable from any commit;
+  corrected in lap 8 §A3.) Now exercised on the case it exists for — a one-part
+  envelope, where the structural v4 §5a exclusion does not apply for free — with a
+  revert-proof that the guard actually refuses, plus a round-trip assertion that
+  every part splits back byte-identical to its original.
+- **Round 9 lap 8 corrects three statements lap 6 shipped**, found by an adversarial
+  review that finished *after* lap 6 was handed over: a `SENT_LAPS` count made false
+  by the very commit that shipped it (five → six), a §B/§E self-contradiction about
+  whether that lap travelled in an envelope or bare, and the "it fired" claim above.
+  Lap 6 is not edited — it is `SENT` and frozen at `f2a86641…`, so the correction is
+  a new lap per v4 §4a. Two lessons graduated with it: **finish the review before the
+  artifact leaves, or the review becomes a correction lap**, and **a sweep beats a
+  re-read** — "a number that was true when written" reads correctly however carefully
+  you read it.
+- **`test_our_published_round_9_numbers_still_reproduce` derived its exclusion set
+  instead of listing it.** Reproducing a past digest declaration means excluding that
+  lap *and every lap filed since*; the hand-written tuple went stale the moment lap 8
+  was filed and reproduced a different number for lap 4. It failed loudly only
+  because lap 4's value was pinned — with an unpinned lap it would have silently
+  validated the wrong figure, which is the manufactured-mismatch failure one level
+  up, in the test rather than the tool. Now derived from the tree, with all four
+  published laps pinned and a floor that fails if a newer lap's declared digest goes
+  unpinned.
+- **The envelope no longer implies a send that did not happen.** `outbound/` held an
+  envelope packing lap 6 *and* lap 2 while lap 6 actually went bare and §E declined
+  to re-send lap 2 — one half of the §B/§E contradiction. `PARTS` now tracks the
+  current lap only, the unsent lap-6 envelope is removed, and `emit_envelope.py`
+  states that its output is the *offered* packaging while `SENT_LAPS` is the record
+  of what was sent.
 - **`round_digest.py --exclude` silently dropped nothing when its argument did not
   match**, printing a confident digest over the full set — including the lap it
   had been told to remove. A manufactured mismatch is indistinguishable from a

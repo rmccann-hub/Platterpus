@@ -48,13 +48,16 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: What this exchange carries, in reading order. Listed explicitly rather than
 #: globbed: sending is a deliberate act, and a glob would silently ship whatever
 #: happened to land in the directory.
-PARTS: tuple[Path, ...] = (
-    HANDSHAKE_DIR / "verified" / "round-09-lap-06.md",
-    # Their lap 5 §J2 asked for lap 2 hash-declared, so its bytes are verifiable
-    # on receipt the way lap 3's never were. It is unchanged from when it was
-    # sent — cyanrip publishes the same hash in their own digest lines.
-    HANDSHAKE_DIR / "verified" / "round-09-lap-02.md",
-)
+#:
+#: **This file is the OFFERED packaging of the current lap, not a record of what
+#: was sent.** The record of what was sent is `tests/test_sent_laps_are_immutable.py`,
+#: because a send is an act by the operator and this generator cannot observe it.
+#: Keeping the two straight is not pedantry: round 9 lap 6 went out bare while this
+#: envelope sat in `outbound/` packing lap 6 *and* lap 2, and the lap's own prose
+#: then said both that it travelled in an envelope (§B) and that it travelled bare
+#: (§E). One artifact implying a send that did not happen was half of that
+#: contradiction — see lap 8 §A2.
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "verified" / "round-09-lap-08.md",)
 
 #: The envelope's name, as a template. **Two properties, and both are checked by
 #: `tests/test_handshake_file_naming.py` rather than asserted in this comment.**

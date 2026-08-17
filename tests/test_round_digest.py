@@ -12,6 +12,7 @@ Every test below is a way the tool could have produced one.
 from __future__ import annotations
 
 import hashlib
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -147,25 +148,68 @@ def test_the_cli_refuses_an_unmatched_exclusion_rather_than_printing(
     assert good.returncode == 0 and "HANDSHAKE-ROUND-DIGEST" in good.stdout
 
 
-def test_our_published_round_9_numbers_still_reproduce() -> None:
-    """The values sent to cyanrip, re-derived from the committed tree.
+def _as_declared_in(lap: int) -> tuple[str, int]:
+    """Reproduce the digest our lap ``lap`` declared, from the tree as it is now.
 
-    A number in a lap is a claim the other project acts on. This asserts the two
-    we have published are still what the tool produces — so a change to the
-    enumerator that would have altered a sent figure fails here rather than in
-    their `RECONCILE`.
+    §5a's writer rule is *"every lap of this round the writer holds, excluding this
+    one"* — so reproducing a **past** declaration means excluding that lap **and
+    every lap filed since**, because those did not exist when the number was
+    computed.
+
+    **Derived from the tree, never listed.** The first version of this test carried a
+    hand-written exclusion tuple, and filing lap 8 did not break it loudly — it made
+    it reproduce a *different number* for lap 4 and fail on the comparison. That is
+    the lucky outcome. Had lap 4's assertion not been pinned, a stale exclusion list
+    would have silently validated the wrong figure, which is exactly the
+    manufactured-mismatch failure this whole module exists to prevent — one level up,
+    in the test rather than the tool.
     """
-    ours = REPO_ROOT / "docs" / "handshake"
-    lap4, count4 = rd.round_digest(
-        rd.laps_for_round(
-            9,
-            ours,
-            exclude=("round-09-lap-04.md", "round-09-lap-05.md", "round-09-lap-06.md"),
-        )
+    root = REPO_ROOT / "docs" / "handshake"
+    later = tuple(
+        path.name
+        for directory in ("inbound", "outbound", "verified")
+        for path in (root / directory).glob("round-09-lap-*.md")
+        if (m := re.fullmatch(r"round-09-lap-(\d+)\.md", path.name))
+        and int(m.group(1)) >= lap
     )
-    assert (lap4, count4) == ("5c1925a9e35d5805", 3), "lap 4's declared digest moved"
+    assert later, f"no lap at or after {lap} — the exclusion would be a no-op"
+    return rd.round_digest(rd.laps_for_round(9, root, exclude=later))
 
-    lap6, count6 = rd.round_digest(
-        rd.laps_for_round(9, ours, exclude=("round-09-lap-06.md",))
+
+def test_our_published_round_9_numbers_still_reproduce() -> None:
+    """Every value we have sent cyanrip, re-derived from the committed tree.
+
+    A number in a lap is a claim the other project acts on and cannot re-derive
+    without our tree. This asserts each one is still what the tool produces — so a
+    change to the enumerator that would have altered a *sent* figure fails here
+    rather than in their `RECONCILE`.
+    """
+    published = {
+        # Lap 2 is where the writer-exclusion rule was first *proposed* (its §A1-b),
+        # and it already computed the number that way — so it reproduces under the
+        # same rule as the laps that came after the amendment was adopted.
+        2: ("05c6e505af0dd617", 1),
+        4: ("5c1925a9e35d5805", 3),
+        6: ("39b57574cf3f5296", 5),
+        8: ("1d48ae7d79f5deb5", 6),
+    }
+    for lap, expected in published.items():
+        assert _as_declared_in(lap) == expected, (
+            f"lap {lap}'s declared digest moved: it published {expected} and the tree "
+            f"now yields {_as_declared_in(lap)}. A sent number is frozen — find what "
+            "changed in the enumerator or the laps, do not edit this map."
+        )
+    # A floor: the map must cover every lap of ours in the tree, or a future lap's
+    # published figure goes unpinned and the check quietly stops covering the newest
+    # claim — the one most likely to be acted on.
+    ours = sorted(
+        int(m.group(1))
+        for path in (REPO_ROOT / "docs" / "handshake" / "verified").glob(
+            "round-09-lap-*.md"
+        )
+        if (m := re.fullmatch(r"round-09-lap-(\d+)\.md", path.name))
     )
-    assert (lap6, count6) == ("39b57574cf3f5296", 5), "lap 6's declared digest moved"
+    assert set(ours) <= set(published), (
+        f"our round-9 laps are {ours} but only {sorted(published)} have their "
+        "published digest pinned — add the newest one's declared value"
+    )
