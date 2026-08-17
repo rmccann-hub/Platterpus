@@ -191,7 +191,12 @@ def test_our_published_round_9_numbers_still_reproduce() -> None:
         2: ("05c6e505af0dd617", 1),
         4: ("5c1925a9e35d5805", 3),
         6: ("39b57574cf3f5296", 5),
-        8: ("1d48ae7d79f5deb5", 6),
+        # Lap 8's value moved 1d48ae7d79f5deb5/6 -> a010a87d075d4834/7 when the
+        # fork's lap 7 was filed and lap 8 was rewritten to answer it. **That is
+        # not an edit to a sent number**: the earlier value lived only in a draft
+        # that never left, per the corrected SEND_BOUNDARY. A number this map may
+        # never change is one the peer holds -- and the peer holds none of these.
+        8: ("a010a87d075d4834", 7),
     }
     for lap, expected in published.items():
         assert _as_declared_in(lap) == expected, (

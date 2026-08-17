@@ -35,6 +35,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `round09lap06platterpus`) with no gate noticing. The name is unchanged.
 
 ### Fixed
+- **Closing round 8 moved the pin's approval attribution, and only a test noticed.**
+  `handshake_approval.APPROVED_BY_ROUND` 7 → 8 and `APPROVED_FOR_PLATTERPUS_VERSION`
+  `0.6.5` → `0.6.12b6`, both derived from the newest CLOSED round's own verification
+  file. Every rip report and every EAC-compatible log stamps those two values, so
+  closing a round has a **product** consequence and nothing else in the codebase
+  would have seen it go stale. The old pairing was defensible rather than wrong —
+  round 7's lap 41 declares `HANDSHAKE-PIN: 104f6d4` and records `ddf7ac3` as the
+  release of *identical* C source (`git diff … -- 'src/*.c' 'src/*.h'` empty, "so
+  `HANDSHAKE-PIN` does not move") — but round 8's laps declare `HANDSHAKE-PIN:
+  ddf7ac3` outright on both sides, which is the direct attribution.
+- **The test picking that verification file accepted the pin appearing anywhere in
+  it.** `pin in text` is the "satisfied by the wrong thing" shape: round 7's lap 41
+  contains `ddf7ac3` four times, and only one is a declaration — the others are a
+  build tag (`platterpus-fork-gddf7ac3`) and prose about a `git diff`. It happened to
+  select the right file, and would equally have selected a lap arguing *against* the
+  pin or one whose only occurrence was inside another build's tag, then read the two
+  report-facing constants out of it. Now the pin must be the first token of a
+  **pin-declaring field** (`HANDSHAKE-PIN` or `HANDSHAKE-RELEASE`), fences stripped,
+  with the build-tag and prose cases proven to be rejected.
 - **Round 8 is CLOSED.** Our lap 10 declared `GO` but could not close it: §5 requires
   the peer verdict *transcribed from the file they sent*, and we held none of their
   round-8 laps 3–17, so lap 10 recorded a relayed `OPEN` and failed closed —

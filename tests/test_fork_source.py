@@ -130,13 +130,54 @@ def _newest_closed_round_verification() -> tuple[int, Path]:
         path
         for path in verified
         if handshake.sort_key(path)[0] == newest_closed
-        and fork_source.FORK_PIN in path.read_text(encoding="utf-8")
+        and _declares_pin(path.read_text(encoding="utf-8"), fork_source.FORK_PIN)
     ]
     assert naming_the_pin, (
-        f"round {newest_closed} is CLOSED but no verification file of it names pin "
-        f"{fork_source.FORK_PIN!r}"
+        f"round {newest_closed} is CLOSED but no verification file of it DECLARES pin "
+        f"{fork_source.FORK_PIN!r} in HANDSHAKE-PIN or HANDSHAKE-RELEASE"
     )
     return newest_closed, naming_the_pin[-1]
+
+
+#: Wire fields in which naming the pin is a **declaration about** it, rather than a
+#: mention of it. `HANDSHAKE-RELEASE` counts because round 7 lap 41 used it for
+#: exactly the case it exists for: the same approved C source at a new release
+#: commit, with `HANDSHAKE-PIN` deliberately left where it was.
+_PIN_DECLARING_FIELDS: tuple[str, ...] = ("HANDSHAKE-PIN", "HANDSHAKE-RELEASE")
+
+
+def _declares_pin(text: str, pin: str) -> bool:
+    """Does this lap **declare** ``pin``, or merely contain the string?
+
+    **The old check was `pin in text`, and that is the "satisfied by the wrong
+    thing" shape** this project keeps finding: a label matched without its subject.
+    Round 7's lap 41 declares `HANDSHAKE-PIN: 104f6d4` and contains `ddf7ac3` four
+    times — in a build tag (`platterpus-fork-gddf7ac3`), in `HANDSHAKE-RELEASE`, and
+    twice in prose about a `git diff`. Three of those four are not declarations, and
+    a bare substring test cannot tell them apart.
+
+    It happened to select the right file, because lap 41's `HANDSHAKE-RELEASE` **is**
+    a real declaration. But it would equally have selected a lap that merely argued
+    *against* the pin, or one whose only occurrence was inside another build's tag —
+    and then `APPROVED_BY_ROUND` and the app version would have been read out of a
+    file that declares nothing about the pin we install. Every rip report and every
+    EAC-compatible log carries those two values.
+
+    So: the pin must be the **value of a pin-declaring field**, matched whole. A
+    build tag like `platterpus-fork-gddf7ac3` is excluded because the value is not
+    the pin, it merely ends with it.
+    """
+    stripped = re.sub(r"^```.*?^```", "", text, flags=re.MULTILINE | re.DOTALL)
+    for field in _PIN_DECLARING_FIELDS:
+        for match in re.finditer(
+            rf"^{re.escape(field)}:[ \t]*(?P<value>.*)$", stripped, re.MULTILINE
+        ):
+            # First whitespace-delimited token, so `ddf7ac3 — supersedes ...` counts
+            # and `cyanrip 0.9.4 (platterpus-fork-gddf7ac3)` does not.
+            head = match.group("value").strip().split()
+            if head and head[0].strip("`") == pin:
+                return True
+    return False
 
 
 def test_the_approval_round_and_app_version_match_the_record() -> None:
