@@ -2,7 +2,7 @@ HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 8
 HANDSHAKE-LAP: 18
 HANDSHAKE-FROM: platterpus
-HANDSHAKE-OPENER: platterpus
+HANDSHAKE-OPENER: cyanrip
 HANDSHAKE-VERDICT: GO
 HANDSHAKE-PEER-VERDICT: GO
 HANDSHAKE-PEER-VERDICT-SOURCE: round-08-lap-17.md, line 6, which we now hold as a file (sha256 in §B). Transcribed from the file itself, per §5 — which is precisely what our lap 10 could not do and said so.

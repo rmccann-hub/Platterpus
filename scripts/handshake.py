@@ -1579,9 +1579,31 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
         # `_round_files` sorts by `sort_key`, so a later lap supersedes the file it
         # corrects. Reading the oldest would let a since-withdrawn GO keep a round
         # closed.
+        # OUR NEWEST LAP SPANS BOTH OF OUR DIRECTORIES.
+        #
+        # **The fork's round-9 lap 11 §B corrected our diagnosis of the bug below and
+        # the correction opened a second hole.** We had said the outbound requirement
+        # hid for eight rounds "because we opened all eight"; every one of their nine
+        # round-8 laps declares `HANDSHAKE-OPENER: cyanrip`, and round-08-lap-01 is
+        # theirs. **They opened round 8 too.** What actually differs between rounds 8
+        # and 9 is where *our* reply was filed: round 8's went to `outbound/`, round
+        # 9's to `verified/`. Their words: *"a fix reasoned from it may not cover the
+        # case that actually fires."*
+        #
+        # They were right, and reading it made the symmetric hole visible: `verdict`
+        # came from `done` — `verified/` only — so a round whose newest lap of ours
+        # sits in `outbound/` reads its verdict from an older file, or from none at
+        # all, and can never close. Same coupling, other directory, and the first fix
+        # would not have caught it because it only removed the requirement without
+        # making the *reading* filing-agnostic.
+        #
+        # So: our contribution is every lap of ours in the round, `outbound/` and
+        # `verified/` alike, ordered by declared lap number. Where a lap is filed is
+        # local bookkeeping; it must not decide whether a round can close.
+        ours = sorted([*sent, *done], key=sort_key)
         verdict: str | None = None
-        if done:
-            our_text = done[-1].read_text(encoding="utf-8")
+        if ours:
+            our_text = ours[-1].read_text(encoding="utf-8")
             # The shared header is authoritative (protocol §8). Our own bolded
             # prose form is the fallback, and only for rounds that predate the
             # format — otherwise the two representations could disagree and the
@@ -1625,9 +1647,9 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
         our_blockers: list[str] = []
         their_blockers: list[str] = []
         if not pre_header:
-            if done:
+            if ours:
                 our_blockers = close_blockers(
-                    done[-1].read_text(encoding="utf-8"), round_hint=num
+                    ours[-1].read_text(encoding="utf-8"), round_hint=num
                 )
             if back:
                 their_blockers = close_blockers(
@@ -1663,7 +1685,7 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
         # which is read from `done[-1]`, so a round cannot reach here with our GO and
         # no verification file. Naming `done` states the real requirement instead of
         # accepting either.
-        state = "CLOSED" if (done and back and both_go) else "OPEN"
+        state = "CLOSED" if (ours and back and both_go) else "OPEN"
 
         def shown_verdict(value: str | None) -> str:
             if value is None:
