@@ -28,6 +28,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   and be indistinguishable from a lap.
 
 ### Fixed
+- **`round_digest.py --exclude` silently dropped nothing when its argument did not
+  match**, printing a confident digest over the full set — including the lap it
+  had been told to remove. A manufactured mismatch is indistinguishable from a
+  real one, and this sat inside the tool implementing the one protocol rule
+  neither project may override. It now refuses with exit 2 and is repeatable, since
+  a verifier reproducing an older declaration must drop every lap filed since.
+  **Found by running an adversarial review over a diagnosis before publishing it**,
+  not by the tool's own tests — which only ever passed it names that matched.
 - **A lap was edited after it had been sent.** Round 8 lap 10 was handed over at
   `c125acd1…` and two commits later carried an extra header line and an appended
   section describing a since-discarded draft — protocol v4 §4a in the plainest

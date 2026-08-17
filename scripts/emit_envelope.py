@@ -48,14 +48,20 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: What this exchange carries, in reading order. Listed explicitly rather than
 #: globbed: sending is a deliberate act, and a glob would silently ship whatever
 #: happened to land in the directory.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "verified" / "round-09-lap-04.md",)
+PARTS: tuple[Path, ...] = (
+    HANDSHAKE_DIR / "verified" / "round-09-lap-06.md",
+    # Their lap 5 §J2 asked for lap 2 hash-declared, so its bytes are verifiable
+    # on receipt the way lap 3's never were. It is unchanged from when it was
+    # sent — cyanrip publishes the same hash in their own digest lines.
+    HANDSHAKE_DIR / "verified" / "round-09-lap-02.md",
+)
 
 #: **The name cannot match `round-*.md`**, which is the glob both projects' gates
 #: use. The envelope carries wire headers in its body, so a matching name could be
 #: resolved as a lap and displace the round's real latest one. `round09…` has no
 #: hyphen after `round`, so it cannot match on any filesystem, case-sensitive or
 #: not — and it satisfies CLAUDE.md → *Artifact filenames that cross machines*.
-OUT: Path = HANDSHAKE_DIR / "outbound" / "round09platterpusenvelope.md"
+OUT: Path = HANDSHAKE_DIR / "outbound" / "round09lap06platterpus.md"
 
 BEGIN: str = "<<<<<<<<<< BEGIN {name} sha256={sha} >>>>>>>>>>"
 END: str = "<<<<<<<<<< END {name} >>>>>>>>>>"

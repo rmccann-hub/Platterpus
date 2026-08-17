@@ -103,7 +103,9 @@ def _declared(path: Path) -> tuple[int | None, int | None, str]:
 #:
 #: Keep it empty. If something must go in, it needs a written reason and a test
 #: that the excluded file genuinely cannot be read as a lap.
-_NOT_LAPS: frozenset[str] = frozenset()
+_NOT_LAPS: frozenset[str] = (
+    frozenset()
+)  # the envelope is excluded structurally, by _is_one_lap
 
 
 def _is_one_lap(path: Path) -> bool:
