@@ -69,6 +69,15 @@ SENT_LAPS: dict[str, str] = {
     "verified/round-09-lap-04.md": (
         "fb25fce0b2eb6bfe103fd505bb2c5b5329e36549842eb79f9dce13be86d95a0b"
     ),
+    # Pinned AT HAND-OVER, which is the point: the row records the bytes that left,
+    # and the only moment we can observe that is the moment we hand the file to the
+    # operator. An earlier draft of this lap existed and was never handed over — it
+    # therefore never reached `SENT` (v4 §4a: *"a lap that was drafted and never sent
+    # may be edited or deleted freely and leaves no trace"*) and correcting it in
+    # place was legal. The value below is the first and only lap 6.
+    "verified/round-09-lap-06.md": (
+        "f2a866416afcc837942dac4b94b0594107421a36da04bb6147c7aa191d28194d"
+    ),
 }
 
 #: Rows whose full hash we do not hold — only the 16-char prefix a manifest
