@@ -12,6 +12,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **A rig script for the two things this line ships as `[NOT PROVEN]`** —
+  `docs/rig-scripts/rigcancelandoverread.txt`. It needs **no editing**: any ordinary
+  audio CD, everything disc-specific discovered or expressed as "the first few
+  tracks". It exercises `-x` force-overread on a real drive for the first time, the
+  cancel path, and the dialogs whose clipping only a person can see.
+  - **The cancel test's proof is the rip *after* the cancel.** A cancel is easy to
+    appear to fix — button greys out, status says cancelled, drive still held by a
+    reader nobody can see — and a snapshot taken straight afterwards cannot tell
+    those apart. Only a released device allows a second rip to start.
+  - It restores `force_overread` at the end, because that setting reaches cyanrip's
+    argv and leaving it on would silently alter every later rip.
 - **Handshake round 11 is CLOSED** — `GO`/`GO` on `c455683`, four laps. Every round in
   the record is now closed and `handshake.py --status` exits 0, so the **strict**
   release gate permits a stable release rather than the prerelease path.

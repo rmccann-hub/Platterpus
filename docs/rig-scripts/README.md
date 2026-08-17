@@ -74,6 +74,36 @@ success exactly like a real one. The `album` line is what stops pass 2 landing
 on top of pass 1 — a session that overwrites its own evidence has destroyed the
 thing it was run to produce.
 
+## Running `rigcancelandoverread.txt` — the two `[NOT PROVEN]` items
+
+**This one needs no editing at all**, which is the difference from
+`police-rerip.txt` above. Any ordinary audio CD; everything disc-specific is
+discovered or expressed as "the first few tracks".
+
+```sh
+./platterpus-x86_64.AppImage --run-script rigcancelandoverread.txt
+```
+
+It exists because v0.6.12 ships two claims it cannot make, and neither can be
+settled by any amount of suite:
+
+1. **`-x` (force overread) has never run on a real drive.** It is wired and
+   CI-tested against a fake. A setting that reaches cyanrip's argv and has never
+   touched hardware is exactly what rips the next disc wrong with a clean log.
+2. **The drive-open fix** — cancelling must release the reader.
+
+**The cancel test's proof is the rip *after* it, not the cancel.** A cancel is
+easy to appear to fix: the button greys out, the status says cancelled, and the
+drive is still held by a reader nobody can see. A snapshot taken straight after
+cannot tell those apart, so section E starts a second rip; only a released
+device allows one. Section F puts `force_overread` back, because a persistent
+setting left on would silently alter every later rip.
+
+Dialog sizing is **screenshots, not assertions** — clipping is a fact about the
+operator's real font size and DPI, and nothing in the script can see it.
+
+Roughly 30–50 minutes. It rips a handful of tracks three times, never the disc.
+
 ## Reading the result
 
 The transcript is the evidence, not the screen. Every step records `PASS`,
@@ -159,4 +189,4 @@ hazard rather than a documentation nit.
 it prints is the first data point in existence — including an absurd number,
 which is a finding and a good outcome.
 
-*Last updated for Platterpus v0.6.9.*
+*Last updated for Platterpus v0.6.12.*
