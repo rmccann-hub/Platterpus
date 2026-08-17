@@ -26,8 +26,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   generator asserts the not-a-lap property on its own output **before writing**,
   because a *single-part* envelope would otherwise declare each field exactly once
   and be indistinguishable from a lap.
+- **The transport envelope's filename is now generated, not typed**
+  (`emit_envelope.envelope_filename`), derived from the header of the lap it leads
+  with — the same rule `handshake_filename` follows on the lap side, and for the
+  same reason: a typed name is a second description of a fact the file already
+  declares. The literal had drifted three times in one session
+  (`round08platterpusbundle` → `round09platterpusenvelope` →
+  `round09lap06platterpus`) with no gate noticing. The name is unchanged.
 
 ### Fixed
+- **Restored the envelope name-safety test lost with `test_handshake_bundle.py`.**
+  When the envelope was retired on 2026-08-15 its test file went with it, and when
+  `emit_envelope.py` re-created the envelope hours later the guard was not restored
+  — leaving the two properties stated only in a source comment, which is the
+  *"a comment where a check belongs is not a fix"* failure. `tests/test_handshake_file_naming.py`
+  now pins both on the real file: the name cannot match `round-*.md` (the glob both
+  projects' gates use to collect laps, checked case-folded too), and it satisfies
+  CLAUDE.md → *Artifact filenames that cross machines*, asserted via
+  `find_script.normalise` so the rule and the resolver cannot drift into two ideas
+  of "safe". Each assertion is proven discriminating against the name it must
+  reject.
+- **`emit_envelope.py` had no test coverage at all** — its not-a-lap guard was
+  written, documented and never run. Now exercised on the case it exists for (a
+  one-part envelope, where the structural v4 §5a exclusion does not apply for
+  free), with a revert-proof that the guard actually refuses, plus a round-trip
+  assertion that every part splits back byte-identical to its original.
 - **`round_digest.py --exclude` silently dropped nothing when its argument did not
   match**, printing a confident digest over the full set — including the lap it
   had been told to remove. A manufactured mismatch is indistinguishable from a
