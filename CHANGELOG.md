@@ -11,6 +11,40 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.14] — 2026-08-17
+
+### Fixed
+- **The cyanrip update check never looked at the installed binary.** It read a
+  cached `self._observed_ripper_banner` — an attribute **assigned nowhere in the
+  tree**, and only in a test, which is what made it look wired. The read went
+  through `getattr(..., "")` so it could not raise: it returned `None` on every
+  call, and the check silently compared the fork's manifest against the build-time
+  constant `FORK_PIN` instead. It told an operator running `c4d1a00` that they had
+  *"release 11 (ddf7ac3)"* — forever, including immediately after a successful
+  install, which is exactly the reported symptom.
+  - The banner is now **probed from the binary** on the update worker's own thread
+    (a probe has no producer to forget; a cache does), and the parsing moved to
+    `ripper_identity.fork_commit_from_banner` beside the other banner reader.
+- **Every scripted rig transcript silently omitted the cache-defeat verdict.**
+  `uiscript/runner.py` listed `_cache_defeat_value` among the disc-panel fields a
+  `snapshot` records; the panel's attribute is `_cache_value`. The GUI showed it
+  correctly the whole time — the hole was in the artifact we upload as handshake
+  evidence.
+
+### Added
+- **A sweep for the class both of those belong to**: a private attribute the
+  product *reads* but nothing ever *writes*. Both failed silently rather than
+  raising — `getattr` with a default, and a loop that skips what it cannot find —
+  so the feature is simply absent while every surface around it looks healthy.
+  - It collects **every** private-attribute-shaped string literal, not just
+    `getattr` arguments: the two defects have identical semantics and different
+    syntax, and a detector shaped like the first misses the second entirely.
+  - Proven rather than asserted — with both defects restored the sweep names each
+    by name. Its denominator is deliberately generous (methods, `setattr`,
+    annotated declarations, names held in constants); the first draft omitted
+    `def` names and called nine healthy dispatch targets dead, which is how a
+    too-strict detector burns its own credibility.
+
 ## [0.6.13] — 2026-08-17
 
 Corrects the v0.6.12 release record and the version-check instructions, and adds the
@@ -8415,7 +8449,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.13...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.14...HEAD
+[0.6.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.13...v0.6.14
 [0.6.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12...v0.6.13
 [0.6.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b6...v0.6.12
 [0.6.12b6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b5...v0.6.12b6
@@ -8517,4 +8552,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.13.*
+*Last updated for Platterpus v0.6.14.*
