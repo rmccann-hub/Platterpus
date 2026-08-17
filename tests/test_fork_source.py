@@ -125,18 +125,105 @@ def _newest_closed_round_verification() -> tuple[int, Path]:
         if (match := re.match(r"round-(\d+):.*-> CLOSED", line))
     }
     assert closed_rounds, "no closed handshake round"
-    newest_closed = max(closed_rounds)
-    naming_the_pin = [
-        path
-        for path in verified
-        if handshake.sort_key(path)[0] == newest_closed
-        and fork_source.FORK_PIN in path.read_text(encoding="utf-8")
-    ]
-    assert naming_the_pin, (
-        f"round {newest_closed} is CLOSED but no verification file of it names pin "
-        f"{fork_source.FORK_PIN!r}"
+
+    # THE ROUND THAT APPROVED THE PIN WE INSTALL — not simply the newest closed one.
+    #
+    # **Those coincided until round 9 closed, and the difference has release
+    # consequences.** Round 9 approved `b56f936`, which is **not a numbered fork
+    # release**: the fork's round-9 lap 11 §F says its logs still read *"NOT a
+    # released build"* and that the line *"moves when `release-manifest.json` names a
+    # commit, and not before"*. `FORK_RELEASE_SEQ_BY_PIN` has no sequence for it, and
+    # `fork_source` records at length why installing such a build is the worse error:
+    # every archival log it writes would carry that sentence.
+    #
+    # So `FORK_PIN` legitimately stays at `ddf7ac3` — round **8**'s approved release —
+    # while round 9 is the newest closed round. Keying on recency made the constants
+    # demand a pin we must not install; keying on the pin asks the question that
+    # actually matters: *which closed round approved the build we ship?*
+    #
+    # This is the same shape as round 7 vs `ddf7ac3` already documented in
+    # `fork_source`: an approval and an installable release are different commits, and
+    # the gap between them is normal rather than exceptional.
+    # **BILATERAL, because "approved" means both sides declared it.** §5's whole point.
+    #
+    # Round 10 exposed why one side is not enough: our lap 2 declared
+    # `HANDSHAKE-PIN: ddf7ac3` — the pin we *install* — while the fork's lap 1 used the
+    # same field for `b809cfc`, the pin under *review*. **Two meanings of one field
+    # across the seam inside one round.** Keying on our side alone made round 10 look
+    # like the round that approved `ddf7ac3`, and it approved `56413d2`; a rip report
+    # would have credited the wrong round for the build it installs, which is the exact
+    # failure this test exists to catch.
+    #
+    # Requiring the pin in a lap of OURS *and* a lap of THEIRS is the property that
+    # actually matters and cannot be satisfied by one side's bookkeeping. Round 8
+    # qualifies (our lap 18 and their lap 17 both declare `ddf7ac3`); round 10 does not.
+    inbound_dir = REPO_ROOT / "docs" / "handshake" / "inbound"
+    theirs_by_round: dict[int, list[Path]] = {}
+    for path in sorted(inbound_dir.glob("round-*.md")):
+        if _declares_pin(path.read_text(encoding="utf-8"), fork_source.FORK_PIN):
+            theirs_by_round.setdefault(handshake.sort_key(path)[0], []).append(path)
+
+    by_round: dict[int, list[Path]] = {}
+    for path in verified:
+        number = handshake.sort_key(path)[0]
+        if (
+            number in closed_rounds
+            and number in theirs_by_round
+            and _declares_pin(path.read_text(encoding="utf-8"), fork_source.FORK_PIN)
+        ):
+            by_round.setdefault(number, []).append(path)
+    assert by_round, (
+        f"no CLOSED round has a verification file DECLARING pin "
+        f"{fork_source.FORK_PIN!r} in HANDSHAKE-PIN or HANDSHAKE-RELEASE. Closed "
+        f"rounds: {sorted(closed_rounds)}. Either the pin moved without a round "
+        "approving it, or a round's verification does not name the pin it approved."
     )
-    return newest_closed, naming_the_pin[-1]
+    approving = max(by_round)
+    # A floor, so this cannot silently pick an ancient round while a newer closed one
+    # approved the same pin and was skipped for an unrelated reason.
+    assert approving <= max(closed_rounds), (approving, sorted(closed_rounds))
+    return approving, by_round[approving][-1]
+
+
+#: Wire fields in which naming the pin is a **declaration about** it, rather than a
+#: mention of it. `HANDSHAKE-RELEASE` counts because round 7 lap 41 used it for
+#: exactly the case it exists for: the same approved C source at a new release
+#: commit, with `HANDSHAKE-PIN` deliberately left where it was.
+_PIN_DECLARING_FIELDS: tuple[str, ...] = ("HANDSHAKE-PIN", "HANDSHAKE-RELEASE")
+
+
+def _declares_pin(text: str, pin: str) -> bool:
+    """Does this lap **declare** ``pin``, or merely contain the string?
+
+    **The old check was `pin in text`, and that is the "satisfied by the wrong
+    thing" shape** this project keeps finding: a label matched without its subject.
+    Round 7's lap 41 declares `HANDSHAKE-PIN: 104f6d4` and contains `ddf7ac3` four
+    times — in a build tag (`platterpus-fork-gddf7ac3`), in `HANDSHAKE-RELEASE`, and
+    twice in prose about a `git diff`. Three of those four are not declarations, and
+    a bare substring test cannot tell them apart.
+
+    It happened to select the right file, because lap 41's `HANDSHAKE-RELEASE` **is**
+    a real declaration. But it would equally have selected a lap that merely argued
+    *against* the pin, or one whose only occurrence was inside another build's tag —
+    and then `APPROVED_BY_ROUND` and the app version would have been read out of a
+    file that declares nothing about the pin we install. Every rip report and every
+    EAC-compatible log carries those two values.
+
+    So: the pin must be the **value of a pin-declaring field**, matched whole. A
+    build tag like `platterpus-fork-gddf7ac3` is excluded because the value is not
+    the pin, it merely ends with it.
+    """
+    stripped = re.sub(r"^```.*?^```", "", text, flags=re.MULTILINE | re.DOTALL)
+    for field in _PIN_DECLARING_FIELDS:
+        for match in re.finditer(
+            rf"^{re.escape(field)}:[ \t]*(?P<value>.*)$", stripped, re.MULTILINE
+        ):
+            # First whitespace-delimited token, so `ddf7ac3 — supersedes ...` counts
+            # and `cyanrip 0.9.4 (platterpus-fork-gddf7ac3)` does not.
+            head = match.group("value").strip().split()
+            if head and head[0].strip("`") == pin:
+                return True
+    return False
 
 
 def test_the_approval_round_and_app_version_match_the_record() -> None:
@@ -438,6 +525,11 @@ def test_the_build_script_has_a_label_argument_so_values_are_not_eaten_as_argv0(
         # build is refused before `sudo install` and `distrobox-export` make the
         # change irreversible.
         fork_source.WIZARD_TARGET.build_tag,
+        # $6 — `meson setup` options for this pin, space-joined; empty for every
+        # pin that predates `meson_options.txt` (round 11 §0), which is our
+        # current one. Asserted through the target rather than as a literal ""
+        # so this test keeps checking the *wiring* after the pin moves.
+        " ".join(fork_source.WIZARD_TARGET.meson_options),
     ]
 
 
@@ -906,10 +998,14 @@ class TestTheBuildRefusesBeforeInstalling:
         $3 and $4 would be a second spelling, free to drift."""
         target = fork_source.PRODUCTION_TARGET
         cmd = fork_source.build_command("ripping", target)
-        assert cmd[-1] == target.build_tag, (
-            f"the build tag is not the last positional arg: {cmd[-3:]}"
+        # $6 (the per-pin meson options) now trails the tag, so index off the end
+        # by name rather than assuming the tag is last — the reason this test
+        # broke when the argument was added, and the reason it says so here.
+        assert cmd[-1] == " ".join(target.meson_options)
+        assert cmd[-2] == target.build_tag, (
+            f"the build tag is not where it should be: {cmd[-4:]}"
         )
-        assert cmd[-2] == target.pin
+        assert cmd[-3] == target.pin
 
     def test_every_shipped_script_is_valid_shell(self) -> None:
         """`sh -n` parses without executing. Cheap, and it catches the case this
@@ -975,3 +1071,72 @@ class TestTheRipperBuildMenu:
         least 4 hex characters for an abbreviation, and 'list' is not hex, so
         the two can never be confused."""
         assert not all(ch in "0123456789abcdef" for ch in "list")
+
+
+# --- Round 11 §0: the build flag is per-pin, and the default under-claims ---
+
+
+def test_our_production_pin_gets_no_meson_options() -> None:
+    """The measured trap, pinned as a test.
+
+    Round 11 §0: `meson_options.txt` is **absent** at `ddf7ac3`, and meson fails the
+    *entire* configure on an unknown `-D` — not just the option:
+
+        meson.build:1:0: ERROR: Unknown options: "declare_released"
+
+    Verified independently against the fork's tree rather than taken from their lap:
+    `git ls-tree ddf7ac3 -- meson_options.txt` is empty, and the same file at
+    `c4d1a00` declares `option('declare_released', ... value: false)`.
+
+    So a constant `-Ddeclare_released=true` in our build step would make our *own
+    current pin* unbuildable, and would kill the downgrade path to the one build with
+    rig evidence behind it. This asserts the default is the safe one.
+    """
+    assert fork_source.PRODUCTION_TARGET.pin == "ddf7ac3", (
+        "the pin moved — re-check whether it still predates meson_options.txt"
+    )
+    assert fork_source.PRODUCTION_TARGET.meson_options == ()
+
+
+def test_the_build_argv_carries_the_pins_options_and_nothing_else() -> None:
+    """The options reach the container as one positional argument, or as empty."""
+    argv = fork_source.build_command("ripping")
+    assert argv[-1] == "", "our current pin must configure with no -D options"
+
+    with_option = fork_source.ForkTarget(
+        pin="c4d1a00",
+        version="0.9.4-rc1+platterpus.6",
+        why="round 11's published release",
+        meson_options=("-Ddeclare_released=true",),
+    )
+    assert fork_source.build_command("ripping", with_option)[-1] == (
+        "-Ddeclare_released=true"
+    )
+
+
+def test_the_build_script_never_interpolates_a_command_string() -> None:
+    """The security boundary, asserted on the script text itself.
+
+    Round 11 §J1 asked us to take the build command from their manifest. We take the
+    *options* and keep our own command, because executing a string from a remote JSON
+    document — on a path whose later steps run `sudo install` — hands the machine to
+    whoever can write that file.
+
+    So the script must reference `$6` only as `meson setup`'s options, and must never
+    `eval` it or run it as a command in its own right.
+    """
+    script = fork_source._BUILD_SCRIPT
+    assert "meson_opts" in script, "the options parameter vanished from the script"
+    for forbidden in (
+        "eval ",
+        '$meson_opts "$@"',
+        'sh -c "$meson_opts',
+        "`$meson_opts`",
+    ):
+        assert forbidden not in script, (
+            f"the build script may execute the manifest's text ({forbidden!r})"
+        )
+    # It is used exactly where it should be: as arguments to `meson setup`.
+    assert script.count("$meson_opts") == 2, (
+        "expected the options in both the --wipe and the fresh-configure branch"
+    )

@@ -25,6 +25,31 @@ lap 17, and enforced on our side by `tests/test_handshake_file_naming.py`.
 | **No amendment letters.** An amendment is a new lap | A lap number is a fact both sides can state; "the next free letter" is a fact only the filer knows |
 | Generate it with `handshake_filename(round, lap)` | Never hand-typed — a typed name is a third description |
 | Artifacts: `round-NN-lap-LL-<kind>-g<build>.<ext>` | `<build>` is the commit the artifact's **own banner** asserts, not the commit a lap file names it by. Those differ (see below), and only the banner is derivable from the artifact's content |
+| Transport envelopes: `round<NN>lap<LL>platterpus.md` — **no hyphens** | A different convention on purpose; see below |
+
+### Transport envelopes — `round<NN>lap<LL>platterpus.md`
+
+The envelope is one file wrapping several laps verbatim so the operator sends one
+attachment (*"there should only be one file moving forward, unless the second is a
+script file to run"*, 2026-08-15). It is **not** a lap, and its name has two jobs the
+lap convention cannot do:
+
+* **It must not match `round-*.md`**, the glob both projects' gates use to collect
+  laps. The envelope carries a wire header per part, so a matching name could be
+  resolved as a lap and displace the round's real latest one — deciding a verdict read
+  off a container. `round09…` has no hyphen after `round`, so it cannot match on a
+  case-sensitive or a case-insensitive filesystem.
+* **It crosses machines by hand**, through a chat client and a file manager, so it
+  follows CLAUDE.md → *Artifact filenames that cross machines*: lowercase ASCII letters
+  and digits only, numbers zero-padded. That rule was written after a rig run was lost
+  to `round08joint.txt` vs `round-08-joint.txt`.
+
+Generate it with `emit_envelope.envelope_filename(round, lap)` — never hand-typed. The
+literal drifted three times in one session (`round08platterpusbundle` →
+`round09platterpusenvelope` → `round09lap06platterpus`) because nothing stated the
+pattern and no test checked it; the operator noticed before any gate did. The name is
+now derived from the header of the lap the envelope leads with, so it cannot disagree
+with the contents, and `tests/test_handshake_file_naming.py` pins both properties.
 
 **Why it changed.** The old scheme was `round-N` plus the next free letter, and the
 letter encoded nothing:
@@ -66,12 +91,21 @@ documents depend on.
   names it by. Holds the 2026-08-04 rig rip (log, auto-fix addendum, cue, rendered
   EAC-compatible log, JSON report) plus `rig-session-results-c5fb909.md`, the derived record
   that says which artifact settled which claim.
-- **`artifactsround08/`** — the 2026-08-13 rig run: cyanrip log, cue, our JSON report, the
-  ui-script transcript and report, the `--rig-check` manifest, the argv probe, the app log,
-  `--doctor`, and the rig's config and drive profile. Its `README.md` carries the provenance
-  and **states plainly that the run used ripper build `g2ce8993`, which is NOT the
-  `ddf7ac3` under review in round 8** — evidence about one build is not evidence about
-  another.
+- **`artifactsround08/`** — **two** rig runs, distinguished by filename prefix, because they
+  differ in the one variable round 8 is about:
+  - `round08…` — the 2026-08-13 run on ripper build **`g2ce8993`**, which is **NOT** the
+    `ddf7ac3` under review. Evidence about one build is not evidence about another, and the
+    directory's `README.md` says so at the top. Kept rather than superseded: it is the only
+    hardware evidence about that build.
+  - `round08pin…` — the 2026-08-15 run on **`ddf7ac3`, the pin under review** — round 8's
+    close-condition-1 rip, and what lap 10's `GO` rests on. Banner verified before and after,
+    `--rig-check` → `OK ripper/handshake approved`. Its cue is also the artifact that
+    confirmed the fork's `-l` pre-gap-marker disclosure *and* carries the control case that
+    bounds it; `tests/test_cue_validate.py` re-derives every number from it.
+
+  Each run holds: the cyanrip log, the cue, our JSON report, the ui-script transcript and
+  report, the `--rig-check` manifest, the argv probe, and the app log. The 2026-08-13 set
+  additionally holds `--doctor`, the rig's config and its drive profile.
 
 **Names are lowercase ASCII letters and digits only from round 8 on** (`CLAUDE.md` →
 *Artifact filenames that cross machines*). These files leave the repo and come back, and two
@@ -153,7 +187,10 @@ commit a *closed* round verified.
 
 | Round | Pin | Verdict | What it was about |
 |---|---|---|---|
-| **8** | `ddf7ac3` (`0.9.4-rc1+platterpus.5`) — test pin `cb440bd` | **HOLD (ours, lap 8) — OPEN** | Opened by the fork with a **test pin**, which by their §6a cannot close a round and never moves `HANDSHAKE-PIN`. The round the correspondence stopped being a document: one joint **script**, ours in sections A/B/D, theirs in C, returned changed rather than commented on. Validating their returned SECTION C through the real parser found 3 of 6 ripper tests would be refused before the binary saw them — and **two of the three were ours**: we refused `--verify-log <path>` while our own adapter has sent exactly that argv, unaccompanied by `-N`, once per rip since v0.6.x; and nothing in our pipeline expanded `~`, so their `--verify-log ~/Music/…` test would have exited 1 on a path error and passed for the wrong reason. Both fixed in 0.6.12, along with a preflight that names every refusal before step 1 instead of forty minutes into a disc pass. Their §H found `platterpus --install-ripper <sha>` unusable on an AppImage — one instance; a sweep found seven. **Found against ourselves:** laps 3–7 were never committed, so `--status` could not see the round at all and four releases went out during it; `CURRENT_ROUND` is now a floor the gate counts even with no files. |
+| **11** | `c455683` (`0.9.4-rc1+platterpus.6`) — byte-identical to the published `c4d1a00` in `src/`, `meson.build` and `meson_options.txt`, re-measured here | **CLOSED — `GO`/`GO`, four laps** | Opened by the fork. Subject: **`release-manifest.json` schema 2 and its new `build` field.** Their §0 caught a trap in a plan we had written down but not built — adding `-Ddeclare_released=true` unconditionally would have made **our own current pin unbuildable**, because `meson_options.txt` is absent at `ddf7ac3` and meson fails the *whole* configure on an unknown `-D` (confirmed independently in their tree, not taken from the lap). Our lap 2 accepts the requirement and **refuses the mechanism**: their `build` is a shell command string, and executing it would turn a remote JSON field into arbitrary command execution on a path that later runs `sudo install` — so it is parsed to a meson-option allowlist and our own command is kept. Our findings: the published manifest carries `build` for the **channel head only**, so §1's "including for rollbacks" is not supported by the artifact (`NEXT-ROUND`); and their **schema 2 was already live against our shipped reader**, which pinned schema 1 and returned *not determined* for the real document — the number doing exactly its job, and answering their J3. `FORK_PIN` stays `ddf7ac3`: `c4d1a00` has no hardware behind it. Their lap 3 **ruled our close condition 1 met and named the defect as theirs**: conditions 1 and 2 could not both be satisfied by a consistent actor, since 2 excuses not installing `c4d1a00` while 1 asked us to install it — *a close-condition defect is not a close-condition change*, so S-13 is intact. They corrected their own §1 by `HANDSHAKE-CORRECTS`, chose to withdraw the sentence rather than emit `build` per ledger row (a new key means `schema` 3, which our shipped `0.6.12` would refuse exactly as it just refused 2), and enclosed `PROVIDER-CONTRACT.md` — which took our argv tolerance **2 → 0** and cost them a `make-envelope.py` fix, since one lap plus artifacts was the one shape it refused. Our lap 4 closes it. |
+| **8** | `ddf7ac3` (`0.9.4-rc1+platterpus.5`) — test pin `cb440bd`, later `2ce8993` | **GO (ours, lap 10) — RECONCILE** | Closed on the fork's side at their lap 17 (`GO`), and **we cannot record that**: we hold their lap 1 and none of 3–17, so there is no file to transcribe the peer verdict from (protocol §5). Our lap 10 carries round 8's close condition 1 — the 2026-08-15 rig rip on `ddf7ac3`, `Ripping errors: 0`, banner verified before and after — and declines the veto the fork offered on the `-l` cue defect, which our own cue reproduced at 682 frames past EOF **with its control case in the same file**. Digests: ours `9f0d6c4e562351a2 over 4`, theirs `81415fe9a22d4884 over 12` → §4a `RECONCILE`, exit is their laps 3–17 arriving. Artifacts for **two** rig runs in `artifactsround08/` (`round08…` = test pin `g2ce8993`, `round08pin…` = the reviewed `gddf7ac3`). |
+| **9** | `b56f936` (`0.9.4-rc1+platterpus.6-beta.4`) | **CLOSED — `GO`/`GO`, 11 laps** | Opened by the fork per v4 §1a. Adopted protocol v3 then **v4** byte-identical, carrying both of our amendments (the exactly-once rule for what counts as one lap; a digest excludes the lap that carries it) plus their asymmetry fix — *the verifier excludes the lap it received, not its own newest*. Went to `RECONCILE` twice on digests that were **never a disagreement about the record**: their lap 5 published a verifier's computation under the writer's field, and their lap 7 a value typed from a command run before our lap 6 existed (we found the set `{1,2,3,5}` by exhaustive search; they found the command in their own log). Underneath: **a sent lap edited on each side**, their gate closing a round on a superseded peer verdict *and compiling "round 9 lap 7 closed" into every logfile*, our gate unable to close a round the peer opened, a pin check satisfied by a build tag, and a suite exit code read from a pipe. Final digests agree: `18b950305b58a1c9 over 11`. |
+| **10** | `56413d2` (`0.9.4-rc1+platterpus.6-beta.4`) — pin moved once, at the implementation lap, as lap 1's policy said | **GO/GO — closes on their lap 5** | Subject: **`HANDSHAKE_RELEASED` was unreachable**, so `-- NOT a released build` had become a constant. Our lap 2 chose **(b)** (declare at build time in the `Consumer:` idiom, option defaulting unset so a mis-set flag *under*-claims) and contributed the evidence that broke their own generalisation: `round08pinmanifest.txt`, written by `gddf7ac3`, carries **no disclaimer**. They corroborated it by rebuilding `ddf7ac3`, corrected our interval (`_head_is` entered at `a083279`, **after seq 15 and one commit before `b56f936`** — so *round 9 approved the first build ever to carry the broken flag*), and **declined our diagnosis**: restoring `ok` alone would let `b809cfc` claim released. Their lap 3 built it — released rendering reachable from a real rip, five flag states isolated, four revert-proofs including one they reported as confounded. Our lap 4 found the mirror defect **in us**: every reader anchored on `^Handshake:`, so we would have dropped the *(declared at build time, not verified by cyanrip)* qualifier that is the whole fix — fixed by adjacency-folding, four tests. Their `released_build` → `released_build_declared` rename is free here: **referenced nowhere in our tree.** `FORK_PIN` still `ddf7ac3` — `56413d2` has no `release_seq`. |
 | **7** | `345241b` → `422d12a` (`0.9.4-rc1+platterpus.5-beta.8`) | GO both sides at lap 39 | Their §7 measured both rip sessions at 81m11s / 81m13s, refuting our "much faster" explanation — we had described the dynamic-rerip mechanism and let it stand as the cause of a delta never measured. Their §5 pre-gap `Duration:` off-by-one-frame reproduced on our rig, with a sign flip they had not reported (+1 on tracks 1–13, **−1 on track 14**). Their file shipped no §I provider contract; their lap 2 replaced the whole idea with a generated contract plus a resolvable pointer, which is better. Lap 3 adopted their header format as the shared wire format (§8), made the gate bilateral, and put a handshake-approval check in every rip. **41 laps, 10 test pins, 8 pre-releases, 0 releases** — the round that produced S-13…S-16, the convergence rules, because nothing in it was bad work and it still could not end. |
 | **6** | `2f950c8` (fork release r2) | GO | The round that took three pins in one day. Their finding: at any paranoia level above 0, ripping a **disc image** returned one correct sector then silence — 99.7% of samples zeroed, reported as `Ripping errors: 0` — inherited from upstream, never affecting a real drive. Ours: two consecutive golden references whose build tags named commits three behind their content; per-track paranoia counters are per-**pass**, not per-track; their §C7 refuted by their own appendix. Amendments `6b` (urgent pin withdrawal) and `6c`. |
 | **5** | `e1d800e` | GO | Found the release blocker: every version probe we shipped sent `cyanrip -V`, which upstream deleted after 0.9.3 — and a non-zero exit from a version probe reads here as *"the tool is not installed."* Also found our strongest-looking test was measuring **their** generator's allowlist, not the ripper: their fatal inventory went 88 → 104 on re-derivation and our matcher had missed all 13 matchable strings the allowlist hid. |

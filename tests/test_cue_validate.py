@@ -581,6 +581,17 @@ def _b5_shaped_cue(
       ``INDEX 00`` — reproducing the fork's cue writer dropping ISRC precisely
       in its pre-gap branch.
 
+    **And the layout moves with the marker**, which is the part that is easy to
+    forget and was: cyanrip nests a track's own ``FILE`` line *after* its
+    ``INDEX 00`` only in the gap-appended shape. A track with no pre-gap gets
+    the ordinary ``FILE``-then-``TRACK`` order — verified against the 2026-08-15
+    rig cue, where tracks 3 and 6 have 0-frame pre-gaps and their ``FILE`` lines
+    precede their ``TRACK`` lines. Dropping the marker while leaving the ``FILE``
+    inside the block produced a shape the ripper never writes, and the
+    ``INDEX 00`` placement check correctly called three of its markers misplaced.
+    *What does my stand-in do that the real thing does not* — this is the answer,
+    pinned rather than papered over.
+
     Returns ``(cue_text, tracks_without_an_isrc)`` and asserts the result really
     is the 9-of-14 shape before handing it back: a fixture that quietly drifted
     would make every assertion against it meaningless.
@@ -592,13 +603,24 @@ def _b5_shaped_cue(
     }
     out: list[str] = []
     current: int | None = None
+    #: Where in `out` the open TRACK line sits, and whether this track lost its
+    #: marker and so needs its FILE line hoisted above that TRACK line.
+    track_line_at: int | None = None
+    hoist_next_file = False
     for line in cue_text.splitlines():
         match = re.match(r"^\s*TRACK\s+(?P<n>\d+)\s", line)
         if match:
             current = int(match["n"])
+            track_line_at = len(out)
+            hoist_next_file = current not in marked
         if re.match(r"^\s*INDEX 00\b", line) and current not in marked:
             continue  # round 7: no marker for a 0-frame pre-gap
         if re.match(r"^\s*ISRC\b", line) and drop_isrcs and current in marked:
+            continue
+        if re.match(r"^\s*FILE\b", line) and hoist_next_file:
+            assert track_line_at is not None
+            out.insert(track_line_at, line)
+            hoist_next_file = False
             continue
         out.append(line)
         if (
@@ -625,6 +647,19 @@ def _b5_shaped_cue(
         assert len(without) == 9
     else:
         assert not without, f"every track should carry an ISRC, missing {without}"
+    # The layout must still be one cyanrip would write: every track's audio in
+    # its own file, every marker nested under its predecessor's. Asserted here,
+    # in the fixture, so a future edit to the rewrite cannot quietly hand a
+    # malformed sheet to fourteen assertions that were never about layout.
+    assert {t.number: t.file for t in sheet.tracks} == {
+        n: f"{n:02d} - " + title
+        for n, title in (
+            (t.number, t.file.split(" - ", 1)[1]) for t in sheet.tracks if t.file
+        )
+    }, "a track's FILE is no longer its own audio"
+    assert "cue_index00_misplaced" not in {
+        f.code for f in validate_cue(text, expected=expected)
+    }, "the rewrite produced a layout the ripper never writes"
     return text, without
 
 
@@ -1127,3 +1162,308 @@ def test_the_substitute_still_wins_over_the_title_comparison() -> None:
     )
     assert "cue_colon_artefact" in _codes(findings)
     assert "cue_title_mismatch" not in _codes(findings)
+
+
+# --- INDEX 00 placement: the misplaced pre-gap marker on a partial rip -------
+#
+# Everything here is measured off two committed artifacts from one hardware run
+# (Bazzite + Pioneer BDR-209D, 2026-08-15, cyanrip `platterpus-fork-gddf7ac3`,
+# app 0.6.12b6, `-l 1,3,5,6,7` on a 14-track disc). The run is round 8's rip on
+# the pin under review; the fork reported the same defect independently from
+# their side, so the two findings are a two-sided confirmation rather than one
+# project's anecdote.
+#
+# The artifact is the point. Nothing below hard-codes "682" from a chat log —
+# the numbers are re-derived from the cue and the report every run, and the
+# derivation is asserted before it is used.
+
+_RIG = (
+    Path(__file__).resolve().parent.parent / "docs" / "handshake" / "artifactsround08"
+)
+_RIG_CUE_PATH = _RIG / "round08pinripcue.cue"
+_RIG_REPORT_PATH = _RIG / "round08pinripreport.json"
+
+
+def _rig_cue() -> str:
+    return _RIG_CUE_PATH.read_text(encoding="utf-8")
+
+
+def _rig_expected() -> ExpectedCue:
+    """`ExpectedCue` for the rig rip, built the way `rip_audit` builds it."""
+    report = json.loads(_RIG_REPORT_PATH.read_text(encoding="utf-8"))
+    argv = [str(x) for x in (report.get("outcome") or {}).get("ripper_argv") or []]
+    tracks = [t for t in report.get("tracks") or [] if isinstance(t, dict)]
+    return ExpectedCue(
+        pregap_frames={
+            t["number"]: t["pregap_length_frames"]
+            for t in tracks
+            if isinstance(t.get("number"), int)
+            and isinstance(t.get("pregap_length_frames"), int)
+            and t.get("pregap_state") == "known"
+        },
+        track_frames={
+            t["number"]: t["end_sector"] - t["start_sector"] + 1
+            for t in tracks
+            if isinstance(t.get("number"), int)
+            and isinstance(t.get("start_sector"), int)
+            and isinstance(t.get("end_sector"), int)
+        },
+        ripped_tracks=cue_validate.sent_track_selection(argv),
+    )
+
+
+def test_index_time_to_frames_reads_cue_times_and_refuses_malformed_ones() -> None:
+    """`MM:SS:FF` in CD frames, and a range check that is not cosmetic.
+
+    An `FF` of 80 is a malformed marker, not a large one. Normalising it would
+    turn a corrupt time into a plausible number and let the placement check
+    reason about a position nobody wrote.
+    """
+    assert cue_validate.index_time_to_frames("00:00:00") == 0
+    assert cue_validate.index_time_to_frames("05:00:35") == 22535
+    assert cue_validate.index_time_to_frames("04:05:53") == 18428
+    # Minutes are unbounded: one file may legally exceed 99 minutes.
+    assert cue_validate.index_time_to_frames("120:00:00") == 120 * 60 * 75
+    for bad in ("", "1:2", "aa:bb:cc", "00:61:00", "00:00:80", "00:00:-1", "1:2:3:4"):
+        assert cue_validate.index_time_to_frames(bad) is None, bad
+
+
+def test_the_rig_cue_carries_one_orphaned_index00_and_one_correct_one() -> None:
+    """The measured defect, re-derived from the two committed artifacts.
+
+    Track 5's pre-gap marker is nested under **track 3's** file because track 4
+    was not part of the rip; track 7's is nested under track 6's file, which
+    *was* ripped, and is correct. One cue, both outcomes — which is what makes
+    the check falsifiable rather than a detector that flags every partial rip.
+    """
+    sheet = parse_cue(_rig_cue())
+    by_number = {t.number: t for t in sheet.tracks}
+
+    # Derive, then assert the derivation landed, then use it.
+    assert set(by_number) == {1, 3, 5, 6, 7}, "the rig cue is the 5-track selection"
+    marker_5 = cue_validate.index_time_to_frames(by_number[5].index00)
+    marker_7 = cue_validate.index_time_to_frames(by_number[7].index00)
+    assert marker_5 == 22535 and marker_7 == 18428
+
+    expected = _rig_expected()
+    assert expected.ripped_tracks == frozenset({1, 3, 5, 6, 7})
+    # Track 5's marker sits under track 3's FILE; track 7's under track 6's.
+    assert by_number[5].index00_file == by_number[3].file
+    assert by_number[7].index00_file == by_number[6].file
+    # The overshoot is arithmetic on the artifacts, not a remembered number.
+    assert marker_5 - expected.track_frames[3] == 682
+    assert marker_7 < expected.track_frames[6]
+
+    findings = validate_cue(_rig_cue(), expected=expected)
+    codes = _codes(findings)
+    assert "cue_index00_orphaned" in codes
+    assert "cue_index00_ok" not in codes
+    orphan = _by_code(findings, "cue_index00_orphaned")
+    assert orphan.level == LEVEL_WARN
+    # It names the one track and only the one track.
+    assert "track 5" in orphan.text
+    assert "track 7" not in orphan.text
+    # And it carries the measurement, so a reader does not have to compute it.
+    assert "682 frame(s)" in orphan.text
+    assert "9.09 s" in orphan.text
+
+
+def test_the_existing_pregap_check_still_passes_on_that_cue() -> None:
+    """The new check found what the old one was structurally unable to see.
+
+    `_check_pregaps` skips a track whose predecessor was not ripped, because an
+    *absent* marker there is correct. That exemption is still right — this
+    asserts it, so the two checks stay complementary instead of one quietly
+    subsuming the other and hiding which question is being answered.
+    """
+    findings = validate_cue(_rig_cue(), expected=_rig_expected())
+    assert "cue_pregap_marker_missing" not in _codes(findings)
+    assert "cue_pregap_marker_spurious" not in _codes(findings)
+
+
+def test_a_whole_disc_cue_gets_a_clean_placement_verdict() -> None:
+    """The negative control: every marker's previous track is present.
+
+    Read off the committed whole-disc reference rip, so a change that made the
+    check fire on ordinary cues fails here rather than in the field. Uses a
+    non-trivial floor: at least two markers must actually have been examined,
+    or "clean" would only mean "nothing to look at".
+    """
+    sheet = parse_cue(_real_cue())
+    markers = [t for t in sheet.tracks if t.index00 and t.number not in (None, 1)]
+    assert len(markers) >= 2, "the reference cue must carry markers to check"
+
+    findings = validate_cue(_real_cue(), expected=_expected_from_report(_real_report()))
+    codes = _codes(findings)
+    assert "cue_index00_ok" in codes
+    assert "cue_index00_orphaned" not in codes
+    assert "cue_index00_misplaced" not in codes
+    assert "cue_index00_past_eof" not in codes
+
+
+def test_a_cue_with_no_pregap_markers_is_not_determined_not_ok() -> None:
+    """The floor. A check that passes by having nothing to examine is decoration."""
+    cue = (
+        'FILE "01.flac" WAVE\n'
+        "  TRACK 01 AUDIO\n"
+        "    INDEX 01 00:00:00\n"
+        'FILE "02.flac" WAVE\n'
+        "  TRACK 02 AUDIO\n"
+        "    INDEX 01 00:00:00\n"
+    )
+    findings = validate_cue(cue, expected=ExpectedCue())
+    assert "cue_index00_ok" not in _codes(findings)
+    note = _by_code(findings, "cue_index00_not_determined")
+    assert note.level == LEVEL_NOTE
+
+
+def test_track_1_is_never_place_checked() -> None:
+    """Track 1's pre-gap is the disc lead-in and belongs to no file.
+
+    Synthetic, because no real cue writes it — which is exactly why it needs a
+    test: the branch is unreachable from any artifact we hold.
+    """
+    cue = (
+        'FILE "01.flac" WAVE\n'
+        "  TRACK 01 AUDIO\n"
+        "    INDEX 00 00:00:00\n"
+        "    INDEX 01 00:02:00\n"
+    )
+    findings = validate_cue(cue, expected=ExpectedCue())
+    assert _by_code(findings, "cue_index00_not_determined")
+
+
+def test_a_marker_under_the_wrong_present_file_is_misplaced() -> None:
+    """Synthetic: the predecessor *was* ripped and the marker still went astray.
+
+    Not observed on any artifact — cyanrip nests correctly whenever the previous
+    track is present. Kept because "the previous track is missing" and "the
+    previous track is present but the marker is elsewhere" are different faults
+    with different fixes, and a checker that collapsed them would misdirect a
+    bug report. Written in the *non*-gap-appended layout (each track's own FILE
+    line precedes its indices), which is the shape that makes the two differ.
+    """
+    astray = (
+        'FILE "01.flac" WAVE\n'
+        "  TRACK 01 AUDIO\n"
+        "    INDEX 01 00:00:00\n"
+        'FILE "02.flac" WAVE\n'
+        "  TRACK 02 AUDIO\n"
+        "    INDEX 01 00:00:00\n"
+        'FILE "03.flac" WAVE\n'
+        "  TRACK 03 AUDIO\n"
+        "    INDEX 00 00:01:00\n"
+        "    INDEX 01 00:02:00\n"
+    )
+    findings = validate_cue(astray, expected=ExpectedCue())
+    misplaced = _by_code(findings, "cue_index00_misplaced")
+    assert misplaced.level == LEVEL_WARN
+    assert "track 3" in misplaced.text
+    assert '"03.flac"' in misplaced.text and '"02.flac"' in misplaced.text
+    assert "cue_index00_ok" not in _codes(findings)
+
+    # And the correct gap-appended shape of the same three tracks is clean, so
+    # this is not just "any three-track cue trips the check".
+    proper = (
+        'FILE "01.flac" WAVE\n'
+        "  TRACK 01 AUDIO\n"
+        "    INDEX 01 00:00:00\n"
+        "  TRACK 02 AUDIO\n"
+        "    INDEX 00 00:01:00\n"
+        'FILE "02.flac" WAVE\n'
+        "    INDEX 01 00:00:00\n"
+        "  TRACK 03 AUDIO\n"
+        "    INDEX 00 00:01:00\n"
+        'FILE "03.flac" WAVE\n'
+        "    INDEX 01 00:00:00\n"
+    )
+    assert "cue_index00_ok" in _codes(validate_cue(proper, expected=ExpectedCue()))
+
+
+def test_a_marker_past_the_end_of_the_right_file_is_reported() -> None:
+    """The predecessor is present and correct, and the marker still overshoots.
+
+    Distinct from the orphan case: here the nesting is right and the *time* is
+    wrong, which a cue reader hits the same way but a bug report must describe
+    differently.
+    """
+    cue = (
+        'FILE "01.flac" WAVE\n'
+        "  TRACK 01 AUDIO\n"
+        "    INDEX 01 00:00:00\n"
+        "  TRACK 02 AUDIO\n"
+        "    INDEX 00 00:20:00\n"
+        'FILE "02.flac" WAVE\n'
+        "    INDEX 01 00:00:00\n"
+    )
+    # Track 1 is 1000 frames long; the marker sits at 20 s = 1500 frames.
+    findings = validate_cue(cue, expected=ExpectedCue(track_frames={1: 1000}))
+    past = _by_code(findings, "cue_index00_past_eof")
+    assert past.level == LEVEL_WARN
+    assert "500 frame(s)" in past.text
+    # Without the lengths it is not an accusation — the nesting alone is fine.
+    assert "cue_index00_ok" in _codes(validate_cue(cue, expected=ExpectedCue()))
+
+
+def test_the_audit_reaches_the_finding_end_to_end_on_the_rig_report() -> None:
+    """The plumbing, not just the checker.
+
+    A check whose input is never populated in production passes every test and
+    finds nothing in the field. This runs the *production* entry point over the
+    committed rig report — which embeds its own cue — and asserts the sentence a
+    user would actually see, including the measured overshoot that only exists
+    because `rip_audit` now derives `track_frames` from the sector numbers.
+    """
+    report = json.loads(_RIG_REPORT_PATH.read_text(encoding="utf-8"))
+    album = rip_audit.AlbumAudit(folder=Path("/nonexistent/rig-album"))
+    rip_audit._audit_cue_integrity(report, album)
+
+    texts = [f.text for f in album.findings]
+    assert texts, "the audit produced no cue findings at all"
+    hits = [t for t in texts if "has no file to belong to" in t]
+    assert len(hits) == 1, texts
+    assert "track 5" in hits[0]
+    assert "682 frame(s)" in hits[0]
+    assert any(f.level == LEVEL_WARN for f in album.findings)
+
+
+def test_no_markers_is_a_pass_only_when_something_says_none_were_due() -> None:
+    """The floor, and its escape hatch — both halves, because either alone is wrong.
+
+    A disc with no signalled pre-gap correctly produces a cue with no `INDEX 00`
+    at all, and that is the common case. Calling it "not determined" would put a
+    permanent NOTE on most clean rips, and a verdict that can never reach OK is
+    not a verdict. But the pass is only earned by an *independent* source saying
+    no marker was due — the ripper's measured pre-gap lengths — never by the
+    cue's own silence.
+    """
+    cue = (
+        'FILE "01.flac" WAVE\n'
+        "  TRACK 01 AUDIO\n"
+        "    INDEX 01 00:00:00\n"
+        'FILE "02.flac" WAVE\n'
+        "  TRACK 02 AUDIO\n"
+        "    INDEX 01 00:00:00\n"
+    )
+    # Measured: track 1 is the lead-in, track 2 has no pre-gap. Nothing was due.
+    ok = _by_code(
+        validate_cue(cue, expected=ExpectedCue(pregap_frames={1: 150, 2: 0})),
+        "cue_index00_ok",
+    )
+    assert ok.level == LEVEL_OK
+    assert "no signalled pre-gap" in ok.text
+
+    # Same cue, nothing measured — the silence is now unexplained.
+    assert (
+        _by_code(
+            validate_cue(cue, expected=ExpectedCue()), "cue_index00_not_determined"
+        ).level
+        == LEVEL_NOTE
+    )
+
+    # Same cue, and a pre-gap *was* measured on track 2. The marker's absence is
+    # a real gap in the sheet, so this must not be graded a pass here — the
+    # pre-gap check owns that finding and says so.
+    findings = validate_cue(cue, expected=ExpectedCue(pregap_frames={1: 150, 2: 90}))
+    assert "cue_index00_ok" not in _codes(findings)
+    assert _by_code(findings, "cue_pregap_marker_missing").level == LEVEL_WARN

@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import re
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -388,6 +389,58 @@ def test_no_rounds_at_all_is_reported_not_silently_fine(
     assert lines and "no handshake rounds" in lines[0]
 
 
+#: Rounds our record shows OPEN **only because we do not hold the lap that closes
+#: them** — our half is `GO`, the peer's closing lap has not reached us.
+#:
+#: **A ratchet: it may shrink, never grow, and every entry carries the reason.**
+#: This is not an exemption from the rule above; it is the protocol v3 §4a
+#: `RECONCILE` state written down. The two sides demonstrably hold different
+#: records, and the honest report is "open on our record, closed on theirs" —
+#: not a silent pass and not a red suite for a state the spec explicitly defines.
+#:
+#: **Guarded so it cannot hide a genuinely open round**: the test below asserts,
+#: for every entry, that OUR newest lap in that round already declares `GO`. An
+#: entry for a round where we still have work to do fails, which is the whole
+#: difference between "waiting on them" and "waiting on us".
+_AWAITING_PEER_CLOSE: dict[int, str] = {
+    8: (
+        "our lap 10 declares GO; cyanrip's round-9 lap 1 reports their lap 17 "
+        "declared GO and closed it, but we hold none of their laps 3-17 and a "
+        "peer verdict transcribed from prose is not a close (v3 §5). Requested "
+        "in round-09-lap-02.md; clears when their closing lap arrives."
+    ),
+}
+
+
+def test_every_awaiting_peer_close_entry_is_waiting_on_them_not_on_us() -> None:
+    """The guard on the ratchet above, and it is the part that matters.
+
+    Without it, `_AWAITING_PEER_CLOSE` is a place to park any round that will not
+    close — including one held open by our own unfinished work. So each entry must
+    show OUR newest lap in that round already declaring `GO`: we have done our
+    half, and only the peer's file is missing.
+    """
+    for round_number, reason in _AWAITING_PEER_CLOSE.items():
+        ours = sorted(
+            (
+                p
+                for p in (_REPO_ROOT / "docs" / "handshake" / "verified").glob("*.md")
+                if f"HANDSHAKE-ROUND: {round_number}\n" in p.read_text(encoding="utf-8")
+            ),
+            key=lambda p: p.name,
+        )
+        assert ours, f"round {round_number} has no verification file of ours at all"
+        newest = ours[-1].read_text(encoding="utf-8")
+        assert "\nHANDSHAKE-VERDICT: GO" in f"\n{newest}", (
+            f"round {round_number} is listed as awaiting the peer, but our own "
+            f"newest lap ({ours[-1].name}) does not declare GO — we are the ones "
+            "holding it open"
+        )
+        assert len(reason) > 80, (
+            f"round {round_number}'s reason is too short to be a reason"
+        )
+
+
 def test_the_real_record_has_no_round_left_open_behind_a_closed_one(
     hs: ModuleType,
 ) -> None:
@@ -418,15 +471,28 @@ def test_the_real_record_has_no_round_left_open_behind_a_closed_one(
     ordered = sorted(rounds, key=number)
     open_numbers = [number(ln) for ln in ordered if ln.endswith("OPEN")]
     newest = number(ordered[-1])
-    stale = [n for n in open_numbers if n != newest]
+    stale = [n for n in open_numbers if n != newest and n not in _AWAITING_PEER_CLOSE]
     assert not stale, (
         "a handshake round is open behind a newer one, which is how round 3 went "
         f"unverified while round 4 closed: round(s) {stale} open, newest is {newest}"
     )
-    # Floor: an all-CLOSED record must not make this vacuous. Every round needs
-    # an outbound file, or the record has a hole rather than a state.
-    assert all("sent=yes" in ln for ln in rounds), (
-        "a round exists with no outbound file: " + "; ".join(rounds)
+    # Floor: an all-CLOSED record must not make this vacuous. Every round needs a
+    # file from us, or the record has a hole rather than a state.
+    #
+    # **`sent=yes` is the wrong shape for that, and protocol v3 §1a is why.** It
+    # asks for an *outbound* file, which assumed we open every round. The provider
+    # opens — "only the provider can mint the unit of work" — so a round cyanrip
+    # opens has no outbound file of ours and never will; our contribution to it is
+    # a verification. Round 9 is the first such round and this assertion failed on
+    # it, correctly reporting a hole that is not one.
+    #
+    # What the floor actually wants is that *we participated*: an outbound file OR
+    # a verification. A round with neither is the hole it was written to catch.
+    holes = [
+        ln for ln in rounds if "sent=yes" not in ln and "we-verified=yes" not in ln
+    ]
+    assert not holes, (
+        "a round exists that we neither opened nor answered: " + "; ".join(holes)
     )
 
 
@@ -446,6 +512,13 @@ def test_the_release_gate_blocks_a_release_while_a_round_is_open(
     # would exercise the exemption instead of the gate.
     (tmp_path / "outbound" / "round-9.md").write_text("x", encoding="utf-8")
     monkeypatch.setattr(hs, "HANDSHAKE_DIR", tmp_path)
+    # **And pin CURRENT_ROUND to the fixture's own world.** Without this the gate
+    # enumerates every round up to the REAL current one, so opening round 10 made a
+    # round with no files in this tmp tree report OPEN and the floor below could never
+    # be reached. The scenario under test is "round 9 is the current round"; coupling
+    # it to whatever round the live record has reached made a passing test depend on
+    # the calendar.
+    monkeypatch.setattr(hs, "CURRENT_ROUND", 9)
 
     # Sent, nothing back: OPEN → blocked.
     assert hs.main(["--release-gate"]) == 1
@@ -784,9 +857,23 @@ def test_the_real_verification_files_all_declare_a_verdict(hs: ModuleType) -> No
     # have seen BOTH verdicts, or it is only testing one branch of the parser
     # against the real corpus.
     assert len(verdicts) >= 4, verdicts
-    assert set(verdicts.values()) == {"GO", "HOLD"}, (
-        "the real record no longer contains one of each verdict, so this test has "
-        f"stopped comparing them: {verdicts}"
+    # Non-triviality: BOTH closing verdicts must appear, or this is only exercising
+    # one branch of the parser against the real corpus.
+    #
+    # **`OPEN` joined the set on 2026-08-17 and the equality had to give way.** Round
+    # 10 lap 2 is ours, it participates in a round neither side has closed, and §4's
+    # vocabulary makes `OPEN` the correct declaration for it — the previous rounds all
+    # happened to have our first lap be a HOLD, so `{GO, HOLD}` held by accident of
+    # the record rather than by rule. Requiring the two *closing* verdicts is the
+    # property that was actually meant; forbidding a third legal value was a
+    # coincidence the equality had frozen.
+    assert {"GO", "HOLD"} <= set(verdicts.values()), (
+        "the real record no longer contains one of each CLOSING verdict, so this test "
+        f"has stopped comparing them: {verdicts}"
+    )
+    assert set(verdicts.values()) <= set(hs.VERDICT_VOCABULARY), (
+        "a verification file declares a verdict outside §4's closed set: "
+        f"{sorted(set(verdicts.values()) - set(hs.VERDICT_VOCABULARY))}"
     )
 
 
@@ -1064,6 +1151,19 @@ def test_the_grandfather_sets_are_pinned_and_may_only_shrink(hs: ModuleType) -> 
     assert hs.RETROSPECTIVE_ROUNDS == frozenset({1, 2, 3})
 
 
+#: Why our gate implements a protocol version below the shared spec's.
+#:
+#: **Empty means "no bootstrap in progress"**, and the test above requires a
+#: non-empty reason whenever the two numbers differ — so this cannot become
+#: permanent by nobody noticing. Clear it in the same commit the gate reaches the
+#: spec's version.
+_BOOTSTRAP_REASON: str = ""
+#: Empty because the bootstrap is over: `docs/handshake-protocol.md` is v4 and our
+#: gate implements and declares 4, which is round 9's close condition 1. It held a
+#: reason for one day, between adopting v3's text and the fork's v4 landing with
+#: both of our amendments in it.
+
+
 def test_the_required_field_set_matches_the_published_spec(hs: ModuleType) -> None:
     """The spec is a document the fork reads; the parser must not diverge from it.
 
@@ -1081,11 +1181,31 @@ def test_the_required_field_set_matches_the_published_spec(hs: ModuleType) -> No
         )
     assert len(hs.REQUIRED_WIRE_FIELDS) >= 8, hs.REQUIRED_WIRE_FIELDS
     assert len(hs.REQUIRED_CLOSE_FIELDS) >= 6, hs.REQUIRED_CLOSE_FIELDS
-    # The version we implement must be the version the shared file describes.
-    assert f"HANDSHAKE-PROTOCOL: {hs.PROTOCOL_VERSION}" in shared, (
-        f"we implement protocol v{hs.PROTOCOL_VERSION} and the shared spec does "
-        "not declare that version"
+    # The version we implement must be the version the shared file describes —
+    # EXCEPT during a bootstrap, which is a real state the spec itself creates.
+    #
+    # A gate reading a HIGHER protocol than it implements must refuse (§3), so a
+    # lap proposing v3 cannot declare v3 without being unreadable by the gate that
+    # has to adopt it. The spec therefore lands first and the gates follow, and in
+    # that window `spec > gate` is correct rather than drift. The window is bounded
+    # both ways: a gate AHEAD of the spec is always wrong, and the bootstrap is
+    # named in `_BOOTSTRAP_REASON` so it cannot become permanent by inattention.
+    spec_version = int(shared.split("\n", 1)[0].rsplit("v", 1)[1])
+    assert hs.PROTOCOL_VERSION <= spec_version, (
+        f"our gate implements v{hs.PROTOCOL_VERSION} but the shared spec is only "
+        f"v{spec_version} — a gate ahead of the spec is drift in the direction "
+        "nothing else catches"
     )
+    if hs.PROTOCOL_VERSION < spec_version:
+        assert _BOOTSTRAP_REASON, (
+            f"our gate implements v{hs.PROTOCOL_VERSION} against a v{spec_version} "
+            "spec with no recorded reason — see _BOOTSTRAP_REASON"
+        )
+    else:
+        assert f"HANDSHAKE-PROTOCOL: {hs.PROTOCOL_VERSION}" in shared, (
+            f"we implement protocol v{hs.PROTOCOL_VERSION} and the shared spec "
+            "does not declare that version"
+        )
     # And our own doc must route a reader to the shared file rather than restating it.
     ours = hs.PROTOCOL_DOC.read_text(encoding="utf-8")
     assert "handshake-protocol.md" in ours
@@ -1394,6 +1514,13 @@ def test_a_verification_without_a_bolded_verdict_is_rejected(
 #: as drift every round.
 _SHARED_FILE_PATHS: dict[str, str] = {
     "protocol": "docs/handshake-protocol.md",
+    # **A version-qualified alias, and it is not redundant.** cyanrip's round-9
+    # lap 3 declared `protocol(v4)=…` alongside `protocol(v3, the copy you
+    # adopted)=…` during the version change, because for one lap the useful claim
+    # was *which* copy each side held. Our lap 4 follows the same spelling. Without
+    # this row the checker refuses the declaration as naming an unknown file —
+    # which it did, correctly, on the first run.
+    "protocol(v4)": "docs/handshake-protocol.md",
     "seam-rules": "docs/seam-rules.md",
     "seam-commands": "docs/seam-commands.md",
 }
@@ -1475,3 +1602,208 @@ def test_the_declared_shared_hashes_match_the_files_on_disk() -> None:
             f"{lap.name} declares {name}={claimed} but {rel} hashes to {actual} — a "
             "declared hash that does not match the file is worse than none"
         )
+
+
+# --- closed-set fields must be bare tokens on OUTPUT -------------------------------
+#
+# WHAT HAPPENED (2026-08-17, round 9 lap 7 §F2). The fork's gate anchors its verdict
+# pattern to end-of-line; ours takes the first whitespace-delimited token. So
+# `HANDSHAKE-PEER-VERDICT: HOLD — transcribed from...` reads as HOLD to us and as
+# ABSENT to them. Their gate reported "our verdict GO, but no peer verdict declared"
+# on a lap that declared one. Neither side noticed for four laps, because inbound
+# files sit outside each gate's own glob and neither of us ran the other's file
+# through our own parser.
+#
+# The failure that matters is not cosmetic: a closing GO their gate reads as
+# verdict-less refuses a close both sides agreed to.
+
+#: Laps of ours that carry prose in a closed-set field and can never be fixed.
+#:
+#: **A ratchet that can only shrink, and here it can never shrink at all** — every
+#: entry is `SENT`, the fork holds those exact bytes, and v4 §4a forbids editing a
+#: sent lap. So this is a frozen historical set, not a backlog. Adding a row means a
+#: lap went out non-conforming, which is the thing the test exists to prevent.
+_PROSE_IN_CLOSED_SET_FIELD: frozenset[str] = frozenset(
+    {
+        "round-08-lap-10.md",  # PEER-VERDICT: OPEN — relayed, not held; sent 2026-08-15
+        "round-09-lap-04.md",  # PEER-VERDICT: HOLD — transcribed…; sent 2026-08-16
+        "round-09-lap-06.md",  # PEER-VERDICT: HOLD — transcribed…; sent 2026-08-17
+    }
+)
+
+
+def test_our_laps_declare_closed_set_fields_as_bare_tokens() -> None:
+    """Every lap of OURS, except the three frozen ones, emits a bare verdict token."""
+    hs = _load()
+    offenders: dict[str, list[str]] = {}
+    checked = 0
+    for directory in ("outbound", "verified"):
+        for path in sorted(
+            (_REPO_ROOT / "docs" / "handshake" / directory).glob("round-*.md")
+        ):
+            checked += 1
+            problems = hs.closed_set_prose(path.read_text(encoding="utf-8"))
+            if problems and path.name not in _PROSE_IN_CLOSED_SET_FIELD:
+                offenders[f"{directory}/{path.name}"] = problems
+    assert checked >= 10, f"only {checked} of our laps swept"
+    assert not offenders, (
+        "these laps of ours carry prose in a closed-set field, so the fork's gate "
+        f"reads the field as ABSENT: {offenders}. Declare the bare token and move "
+        "provenance to <FIELD>-SOURCE."
+    )
+
+
+def test_the_frozen_prose_list_names_real_offenders_and_only_sent_laps() -> None:
+    """The exemption cannot quietly widen, and must not cover a fixable file.
+
+    Two directions, because either alone is satisfiable by the wrong thing: every
+    named file must actually still offend (a stale name is an exemption for nothing,
+    hiding that it is stale), and every named file must be pinned as SENT — which is
+    the only reason it cannot simply be corrected.
+    """
+    hs = _load()
+    from test_sent_laps_are_immutable import SENT_LAPS
+
+    sent_names = {name.split("/")[-1] for name in SENT_LAPS}
+    for name in sorted(_PROSE_IN_CLOSED_SET_FIELD):
+        matches = [
+            p
+            for d in ("outbound", "verified")
+            for p in (_REPO_ROOT / "docs" / "handshake" / d).glob(name)
+        ]
+        assert len(matches) == 1, f"{name}: expected exactly one, found {matches}"
+        assert hs.closed_set_prose(matches[0].read_text(encoding="utf-8")), (
+            f"{name} no longer carries prose in a closed-set field — remove it from "
+            "the frozen list rather than leaving a dead exemption"
+        )
+        assert name in sent_names, (
+            f"{name} is exempted as unfixable but is not pinned in SENT_LAPS. Only a "
+            "SENT lap cannot be corrected; if it was never sent, fix it instead."
+        )
+
+
+def test_the_guard_ignores_a_fenced_example() -> None:
+    """§2 rule 2, and the bug the first version of the sweep actually had.
+
+    It flagged the fork's conforming lap 7, because that lap *quotes* the bad shape
+    inside a fence in order to explain it. A compliance checker that reads a
+    document's own example as a violation is the "satisfied by the wrong thing"
+    failure, one level up.
+    """
+    hs = _load()
+    documenting = (
+        "HANDSHAKE-VERDICT: GO\n"
+        "HANDSHAKE-PEER-VERDICT: GO\n"
+        "\n"
+        "Do not write this:\n"
+        "```\n"
+        "HANDSHAKE-PEER-VERDICT: GO — transcribed from round-09-lap-04.md, which we\n"
+        "```\n"
+    )
+    assert hs.closed_set_prose(documenting) == []
+    # And prove it still catches the real thing, or the fence-stripping made it vacuous.
+    offending = "HANDSHAKE-PEER-VERDICT: GO — transcribed from round-09-lap-04.md\n"
+    problems = hs.closed_set_prose(offending)
+    assert problems and "ABSENT" in problems[0], problems
+
+
+# --- Our OWN verification files go through our own --check ------------------
+#
+# `--check` validates a file the fork sends us. Nothing ran it over the files we
+# send them, and on 2026-08-17 that hole was demonstrated rather than argued: the
+# round-11 closing lap was written without the bolded `**GO on <pin>` line every
+# verification file from round 4 on must carry, `--status` closed the round anyway
+# (it reads the column-0 `HANDSHAKE-VERDICT` wire header, which was correct), the
+# release gate went green, and the whole handshake suite passed. The defect was
+# caught by running `--check` by hand.
+#
+# Enforce a rule across the surface, not at the place it was learned
+# (`docs/testing.md` §5.o). This is the outbound half of a check that only ever ran
+# on the inbound half — the same one-half-of-a-two-half-contract shape §7 of the
+# protocol already records more than once.
+
+#: Verification files `--check` does not pass, each with the reason it may not be
+#: fixed. **A ratchet: it may shrink, never grow.** Every entry here is either
+#: pre-header or already sent, and a sent lap is immutable — correcting one would
+#: rewrite a document the peer holds, which is the failure `SENT_LAPS` exists to
+#: prevent. New laps must pass; that is the point.
+_CHECK_EXEMPT: dict[str, str] = {
+    # Pre-header rounds: the verdict is stated in prose in a shape that predates
+    # the §5 wire header entirely. The grandfather clause the status gate already
+    # applies via OUR_PRE_HEADER_ROUNDS.
+    "round-1.md": "pre-header round",
+    "round-2.md": "pre-header round",
+    "round-3.md": "pre-header round",
+    "round-07-lap-03.md": "round 7 adopted the wire header mid-round, at lap 3",
+    "round-07-lap-05.md": "round 7, pre-adoption lap",
+    "round-07-lap-07.md": "round 7, pre-adoption lap",
+    "round-07-lap-09.md": "round 7, pre-adoption lap",
+    "round-07-lap-40.md": "round 7, sent — immutable",
+    "round-07-lap-41.md": "round 7, sent — immutable",
+    # Post-header and SENT. The fork's own HANDSHAKE-INBOUND-HELD lists each of
+    # these as held by them, so they cannot be corrected here. They carry a valid
+    # column-0 `HANDSHAKE-VERDICT`, which is what the gate reads and what protocol
+    # v4 §5 makes authoritative; what they lack is the older bolded-prose form.
+    # That divergence — two spellings of one fact, one of which drifted — is the
+    # NEXT-ROUND item this exemption records rather than hides.
+    "round-09-lap-10.md": "sent — immutable; has the wire verdict, not the prose one",
+    "round-10-lap-02.md": "sent — immutable; has the wire verdict, not the prose one",
+    "round-10-lap-04.md": "sent — immutable; has the wire verdict, not the prose one",
+}
+
+
+def test_our_own_verification_files_pass_our_own_check() -> None:
+    """Every file we send the fork must satisfy the validator we apply to theirs."""
+    verified = sorted(
+        (_REPO_ROOT / "docs" / "handshake" / "verified").glob("round-*.md")
+    )
+    assert len(verified) >= 30, (
+        f"only {len(verified)} verification files found — the glob is wrong and this "
+        "sweep has gone vacuous."
+    )
+
+    offenders: list[str] = []
+    for path in verified:
+        if path.name in _CHECK_EXEMPT:
+            continue
+        result = subprocess.run(
+            [sys.executable, str(_SCRIPT), "--check", str(path)],
+            capture_output=True,
+            text=True,
+            cwd=_REPO_ROOT,
+        )
+        if result.returncode != 0:
+            offenders.append(f"{path.name}: {result.stdout.strip().splitlines()[-1:]}")
+
+    assert not offenders, (
+        "these verification files of ours fail our own `--check`:\n  "
+        + "\n  ".join(offenders)
+        + "\nA file we send must satisfy the validator we apply to what we receive."
+    )
+
+
+def test_the_check_exemptions_all_still_exist_and_still_fail() -> None:
+    """A ratchet entry that no longer applies must be deleted, not left to rot.
+
+    Two ways an allowlist goes wrong and both are covered: naming a file that is
+    gone (so the entry is noise), and naming one that now **passes** (so the entry
+    is silently excusing nothing while implying it excuses something).
+    """
+    verified_dir = _REPO_ROOT / "docs" / "handshake" / "verified"
+    missing = sorted(n for n in _CHECK_EXEMPT if not (verified_dir / n).exists())
+    assert not missing, f"exemptions naming files that do not exist: {missing}"
+
+    now_passing: list[str] = []
+    for name in sorted(_CHECK_EXEMPT):
+        result = subprocess.run(
+            [sys.executable, str(_SCRIPT), "--check", str(verified_dir / name)],
+            capture_output=True,
+            text=True,
+            cwd=_REPO_ROOT,
+        )
+        if result.returncode == 0:
+            now_passing.append(name)
+    assert not now_passing, (
+        f"these files are exempted but now pass `--check`: {now_passing}. "
+        "Remove them from _CHECK_EXEMPT — the ratchet may shrink, and should."
+    )

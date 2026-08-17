@@ -12,6 +12,427 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **A rig script for the two things this line ships as `[NOT PROVEN]`** —
+  `docs/rig-scripts/rigcancelandoverread.txt`. It needs **no editing**: any ordinary
+  audio CD, everything disc-specific discovered or expressed as "the first few
+  tracks". It exercises `-x` force-overread on a real drive for the first time, the
+  cancel path, and the dialogs whose clipping only a person can see.
+  - **The cancel test's proof is the rip *after* the cancel.** A cancel is easy to
+    appear to fix — button greys out, status says cancelled, drive still held by a
+    reader nobody can see — and a snapshot taken straight afterwards cannot tell
+    those apart. Only a released device allows a second rip to start.
+  - It restores `force_overread` at the end, because that setting reaches cyanrip's
+    argv and leaving it on would silently alter every later rip.
+- **Handshake round 11 is CLOSED** — `GO`/`GO` on `c455683`, four laps. Every round in
+  the record is now closed and `handshake.py --status` exits 0, so the **strict**
+  release gate permits a stable release rather than the prerelease path.
+  - The fork enclosed `PROVIDER-CONTRACT.md` generated at the pin, taking our argv
+    tolerance from 2 back to **0** — our flag surface is now checked against the
+    current pin's own table rather than round 9's.
+  - They corrected their own round-11 §1 by `HANDSHAKE-CORRECTS` after our §2, and
+    chose to withdraw the over-wide sentence rather than emit `build` per ledger row:
+    a new top-level key means `schema` 3, which this release (supporting `{1, 2}`)
+    would refuse exactly as it just refused schema 2.
+- **Our own verification files now go through our own `--check`.** It validated files
+  the fork sends us and nothing ran it over the files we send them — demonstrated,
+  not argued: the round-11 closing lap was written without the bolded `**GO on <pin>`
+  line, `--status` closed the round anyway (correctly — it reads the column-0 wire
+  header), the release gate went green, and the whole handshake suite passed. Caught
+  by hand. The sweep has a shrinking allowlist with a written reason per entry; three
+  of its entries are already-sent laps, which are immutable by construction.
+- **The cyanrip build command now comes from the fork's manifest, per pin — parsed,
+  never executed.** Handshake round 11 opened with a measured finding: adding
+  `-Ddeclare_released=true` unconditionally, which is what our own changelog said we
+  would do next, **breaks the pin we currently install**. `meson_options.txt` is
+  absent at `ddf7ac3` and meson fails the *entire* configure on an unknown `-D`, so
+  the flag would have made our production pin unbuildable and killed the downgrade
+  path. Confirmed in the fork's own tree before acting on it.
+  - `release-manifest.json` **schema 2** is now supported, and schema 1 stays
+    supported — a reader that refuses the older document cannot read a manifest from
+    before the bump, which is the same downgrade direction.
+  - Schema 2's `build` field is a *shell command string*. We take the requirement and
+    refuse the mechanism: executing it would turn a field in a remote JSON document
+    into arbitrary command execution inside the user's container, on a path whose
+    later steps run `sudo install`. It is parsed instead — only `-D` options on an
+    allowlist survive, anything unrecognised refuses the **whole** field, and we build
+    with our own command. Verified against the fork's published bytes.
+  - `ForkTarget.meson_options` carries the options per pin, defaulting empty, which is
+    both the safe direction (a mis-set flag under-claims) and the correct build for
+    every commit predating the option.
+
+### Fixed
+- **Our shipped manifest reader could not read the fork's live manifest.** They
+  published schema 2; `SUPPORTED_SCHEMA` pinned 1, so `parse_manifest` returned *not
+  determined* for the real document — measured against their published bytes, not
+  inferred. Fail-closed and logged, which is what the field is for, but the update
+  check was blind for as long as it stood.
+- **Round digests we declared to the fork in rounds 10 and 11 were pinned by
+  nothing.** The reproduction test was scoped to round 9 while its own floor promised
+  *"every lap of ours in the tree"* — true when written, false the moment round 10
+  opened. Now keyed by `(round, lap)` and swept across every round, so the newest
+  claim, the one most likely to be acted on, cannot go unpinned. All three
+  newly-covered figures re-derive from the committed tree.
+
+## [0.6.12] — 2026-08-17
+
+**Out of beta.** The cyanrip pairing is jointly verified: handshake rounds 8, 9 and 10
+are all closed with `GO` from both projects, every digest either side declared
+reproduces on the other's tree, and `handshake.py --status` reports every round closed
+and exits 0 for the first time.
+
+### Added
+- **Round 10 closed in five laps** (round 7 took 39). Its deliverable: cyanrip's
+  `HANDSHAKE_RELEASED` flag was unreachable, so `-- NOT a released build` had become a
+  constant printed into every archival record as though it varied. The fix declares the
+  release at build time in the `Consumer:` idiom — *recorded as declared, not checked* —
+  with the option defaulting unset so a mis-set flag **under**-claims.
+- **The fork published its numbered release**: `0.9.4-rc1+platterpus.6` at `c4d1a00`,
+  `release_seq` 16, channel stable. **This release does not install it**, and the reason
+  is theirs to have found: their lap 5 §0 measured that a default build of that tarball
+  still renders *"NOT a released build"* — the released rendering needs
+  `-Ddeclare_released=true`, and our installer does not pass it. `FORK_PIN` therefore
+  stays at `ddf7ac3` (round 8's approved release, `release_seq` 11, rig-tested on real
+  hardware). Adding that build flag and moving the pin is round 11's work; under-claiming
+  is the safe direction and exactly what our own condition asked for.
+
+### Fixed
+- **The release CI was red on a test that passed locally every time.**
+  `tests/test_round_digest.py` opened `from scripts import round_digest`, which resolves
+  only when the repo root is `sys.path[0]` — true under `python -m pytest`, which prepends
+  the cwd, and false under the bare `pytest` console script CI runs. It failed at the
+  *collection* stage on all four Python versions while the other five jobs stayed green.
+  Now loaded by file location, matching the fourteen other tests that reach into
+  `scripts/`. The guard is a sweep rather than a one-file fix: `test_harness_fidelity.py`
+  derives every repo-root directory that is not a package and AST-walks the suite for a
+  top-level import of one, with floors on both sides so neither half can go vacuous.
+  Reproduce CI's import path locally with `PYTHONSAFEPATH=1 python -m pytest`.
+- **The README's status banner claimed the opposite of the truth.** It read *"v0.6.11 —
+  BETA … it is **not** a jointly-verified pair, and every rip it makes says so in its own
+  report"* — false on both counts after round 8 closed, and stamped with a version two
+  releases stale. Rewritten to state what is verified, which build is installed, and the
+  two things still `[NOT PROVEN]` on hardware (`-x` has never run on a drive; the
+  drive-open fix). A stamp records when a doc was *edited*; a doc nobody edits keeps an
+  accurate stamp while its prose expires.
+- **Our round-10 lap 4 cited a sha256 that was not one.** `PEER-VERDICT-SOURCE` quoted
+  `a7d7b7a8…` for their lap 3; the real hash is `3475b9b8…`. `a7d7b7a8` is the **upload
+  filename prefix of round 9 lap 11** — a different lap, from a previous exchange. So not
+  a hash recalled from memory but a *filename* from the *wrong artifact*, in the one field
+  whose whole job is to show the answer came from the artifact. Nothing was actually
+  unverified: our own writer digest `049fa6ecccaa5328 over 3` covers lap 3 byte-for-byte
+  and reproduces on their tree, which is what proved the file was right and the citation
+  wrong. Their suggestion is adopted for round 11: **the digest already proves holdings,
+  so a per-file hash restated in prose is a second description that can drift** — generate
+  it or drop it.
+
+### Changed
+- **Handshake protocol v4 adopted, byte-identical** (`ed8ee62f…`), carrying both
+  amendments Platterpus proposed in round 9 lap 2 — the exactly-once rule for what
+  counts as one lap, and the exclusion of the lap that carries a digest — plus the
+  fork's addition that makes the second one work: **the verifier excludes the lap
+  it received, not its own newest**. Without that asymmetry the two sides drop
+  different files and disagree permanently, which is our own amendment
+  reintroducing the failure it was fixing. Round 9 is `GO` from our side on
+  `b56f936`.
+- **`scripts/emit_envelope.py`** — one file per exchange, restored after being
+  deleted. Deleting our envelope removed our exposure; protocol v4 §5a's
+  exactly-once rule removed everyone's, so the format is safe to use again. The
+  generator asserts the not-a-lap property on its own output **before writing**,
+  because a *single-part* envelope would otherwise declare each field exactly once
+  and be indistinguishable from a lap.
+- **The transport envelope's filename is now generated, not typed**
+  (`emit_envelope.envelope_filename`), derived from the header of the lap it leads
+  with — the same rule `handshake_filename` follows on the lap side, and for the
+  same reason: a typed name is a second description of a fact the file already
+  declares. The literal had drifted three times in one session
+  (`round08platterpusbundle` → `round09platterpusenvelope` →
+  `round09lap06platterpus`) with no gate noticing. The name is unchanged.
+
+### Fixed
+- **The fork's released-build qualifier would have been silently dropped.** Round 10
+  lap 3 implemented the shape we chose, and a released build now prints two lines — the
+  claim, then `(declared at build time, not verified by cyanrip)` on an indented
+  continuation. All three of our readers anchored on `^Handshake:`, so we would have
+  captured `-- released build` and discarded the disclaimer, **surfacing a build's
+  self-assertion as though we had verified it** — the defect they spent the round
+  repairing, re-created on our side by a line-oriented parser.
+  `_fold_continuations` now joins a parenthetical qualifier to the line it follows.
+  Folding rather than a continuation *rule*, because `Consumer:` has its own
+  parenthetical two lines later and a rule would have grafted the caller's provenance
+  onto the build's claim. Four tests, including the substring trap — `"NOT a released
+  build"` contains `"released build"` — asserted in both directions against the real
+  token tuple. Their `released_build` → `released_build_declared` rename is free here:
+  `grep` finds the key and the schema **referenced nowhere** in this repository, so no
+  deprecated alias is wanted.
+- **Round 10 lap 4 declares `GO` on `56413d2`.** All three close conditions met; the
+  round closes on their lap 5, exactly as round 9 closed on their lap 11. `FORK_PIN`
+  stays `ddf7ac3` — `56413d2` has no `release_seq`, the same refusal that held for
+  `b56f936`, so the release ships on round 8's approved build and the pin move is
+  round 11's work.
+- **Round 10 is open; lap 2 answers both of the fork's `BLOCKING` asks and contributes
+  evidence they cannot get.** Their lap 1 reports `HANDSHAKE_RELEASED` unreachable, so
+  `-- NOT a released build` is a constant — *a field whose value never varies asserts
+  nothing*, printed into archival records as though it did. Their `[PROVEN]` was scoped
+  to *today's gate replayed over historical records*, explicitly not to what each build
+  actually printed. **Our round-8 rig artifacts hold the latter**:
+  `round08pinmanifest.txt`, written by `gddf7ac3` (seq 11) itself, reads
+  `Handshake: round 7 lap 39 closed, verdict GO` with **no disclaimer**, while
+  `round08scripttranscript.txt` from `g2ce8993` (seq 15) carries it. So the disclaimer is
+  **not invariant across builds we hold** and the unreachability is a regression after
+  seq 11, not original — which changes the fix from a design to a restoration. Our
+  answers: **(b)** declare it at build time in the `Consumer:` idiom, with the option
+  defaulting unset so a mis-set flag *under*-claims; and our pin gate keys on the
+  **manifest**, never on their log prose — which is where our own ask 3 was the wrong
+  shape, not merely unsatisfiable.
+- **Merging our two handshake directories created a sort-key collision, and the suite
+  caught it.** `outbound/round-9.md` and `verified/round-9.md` share a key — same round,
+  both header-less so both `DEFAULT_LAP`, identical stems — so a header-less legacy file
+  could win the tie, become "our newest lap", report no verdict and turn a closed round
+  `OPEN`. Ties now break on *declares a verdict*, because a file that states none is not
+  our latest word. Found by the release-gate test's floor assertion that the gate can
+  still say yes.
+- **`_MAX_TABLE_LAG` 0 → 1, with the reason.** Round 10 lap 1 §I declares the provider
+  contract unchanged since round 9 lap 11 and reports its own `--check` exiting 0, so
+  round 9's flag table *is* the current argv surface. Nominal lag, not a gap; returns to
+  0 when they publish a round-10 table.
+- **The verdict-corpus floor required exactly `{GO, HOLD}`.** `OPEN` is a legal §4 value
+  and our round-10 lap 2 declares it; the equality had frozen a coincidence of the
+  record (every prior round's first lap of ours happened to be a `HOLD`). Now requires
+  both *closing* verdicts and forbids anything outside §4's closed set.
+- **The release-gate test enumerated rounds up to the live `CURRENT_ROUND`.** Opening
+  round 10 gave its synthetic round-9 tree a phantom open round, so a passing test
+  depended on the calendar. The fixture now pins its own round number.
+- **Round 9 is CLOSED, both sides `GO` on `b56f936`, every round in the record closed
+  and `handshake.py --status` exiting 0.** Eleven laps; every digest either project
+  declared now reproduces on the other's tree.
+- **The gate's verdict reading is filing-agnostic.** The first fix dropped the
+  `outbound/` requirement from the close condition but still read our verdict from
+  `verified/` only — so a round whose newest lap of ours sat in `outbound/` would read
+  a superseded verdict, or none. The fork corrected our diagnosis (they opened round 8
+  *and* round 9 — all nine of their round-8 laps declare `HANDSHAKE-OPENER: cyanrip`;
+  the real trigger was *where our reply is filed*, which changed between the rounds),
+  and the correction exposed the mirror hole. Our newest lap now spans both
+  directories, ordered by declared lap number. **A test written from the wrong
+  diagnosis had already asserted the hole as desired behaviour** — correcting the
+  diagnosis turned it red, which is how we found it.
+- **`round-08-lap-18.md` declared `HANDSHAKE-OPENER: platterpus`, contradicting nine
+  files.** cyanrip opened round 8. Corrected in place — the lap was never sent.
+- **The approval constants are keyed on the pin, not on recency.** They asked "what is
+  the newest closed round?", which coincided with "which round approved the pin we
+  install" until round 9 closed. Round 9 approved `b56f936`, which is **not a numbered
+  fork release** — the fork's lap 11 §F confirms its logs still read *"NOT a released
+  build"* and that this changes only when their `release-manifest.json` names a commit
+  — so `FORK_PIN` correctly stays at round 8's `ddf7ac3` and `APPROVED_BY_ROUND` stays
+  8. The check now finds the newest closed round *declaring the pin we ship*, which is
+  the question that actually bears on a rip report.
+- **Our release gate could never close a round the peer opened.** `round_status`
+  required an **outbound** file (`state = "CLOSED" if (sent and back and both_go)`),
+  but protocol v4 §1a — adopted in round 9 — says the *provider* opens, and when
+  cyanrip opens, every lap of ours is a verification in `verified/` while `outbound/`
+  stays empty for the whole round. Round 9 is the first peer-opened round, so
+  `--status` reported it `OPEN` with **both sides declaring `GO`**, and would have
+  done so permanently — blocking every release under our own deviation policy.
+  Invisible for eight rounds because we opened all eight. The condition now requires a
+  lap of *ours* (`done`), which `both_go` already reads the verdict from, so nothing
+  is weakened. This is the mirror of the defect the fork found in their own gate one
+  lap earlier: same cause (a gate reading the wrong directory), opposite direction —
+  theirs failed **open** and permitted a release while writing *"round 9 lap 7
+  closed"* into every logfile; ours failed **closed**. Three tests, each
+  revert-proved: a peer-opened round with no outbound file closes on mutual `GO`; the
+  same round stays `OPEN` when their newest lap is `HOLD`; and holding only their file
+  never closes anything.
+- **Closing round 8 moved the pin's approval attribution, and only a test noticed.**
+  `handshake_approval.APPROVED_BY_ROUND` 7 → 8 and `APPROVED_FOR_PLATTERPUS_VERSION`
+  `0.6.5` → `0.6.12b6`, both derived from the newest CLOSED round's own verification
+  file. Every rip report and every EAC-compatible log stamps those two values, so
+  closing a round has a **product** consequence and nothing else in the codebase
+  would have seen it go stale. The old pairing was defensible rather than wrong —
+  round 7's lap 41 declares `HANDSHAKE-PIN: 104f6d4` and records `ddf7ac3` as the
+  release of *identical* C source (`git diff … -- 'src/*.c' 'src/*.h'` empty, "so
+  `HANDSHAKE-PIN` does not move") — but round 8's laps declare `HANDSHAKE-PIN:
+  ddf7ac3` outright on both sides, which is the direct attribution.
+- **The test picking that verification file accepted the pin appearing anywhere in
+  it.** `pin in text` is the "satisfied by the wrong thing" shape: round 7's lap 41
+  contains `ddf7ac3` four times, and only one is a declaration — the others are a
+  build tag (`platterpus-fork-gddf7ac3`) and prose about a `git diff`. It happened to
+  select the right file, and would equally have selected a lap arguing *against* the
+  pin or one whose only occurrence was inside another build's tag, then read the two
+  report-facing constants out of it. Now the pin must be the first token of a
+  **pin-declaring field** (`HANDSHAKE-PIN` or `HANDSHAKE-RELEASE`), fences stripped,
+  with the build-tag and prose cases proven to be rejected.
+- **Round 9 lap 8 now reports the close's three off-directory consequences to the
+  fork**, including the one they read: the generated consumer contract's provenance
+  header. A round close moved a gate verdict, two report-facing constants and a
+  generated document, none of them in `docs/handshake/` — so the lap asks them to
+  check what a close moves on their side too.
+- **Round 8 is CLOSED.** Our lap 10 declared `GO` but could not close it: §5 requires
+  the peer verdict *transcribed from the file they sent*, and we held none of their
+  round-8 laps 3–17, so lap 10 recorded a relayed `OPEN` and failed closed —
+  correctly. Those laps arrived inside the fork's round-9 lap-3 envelope;
+  `round-08-lap-17.md` declares `GO`, and `verified/round-08-lap-18.md` now
+  transcribes it from the file. The round sat open five days with **both sides
+  declaring `GO`**, because one side could not see the other's declaration; the gate
+  was right the whole time and the fix was never a change to the gate — it was an
+  envelope. Round 8's digest is unchanged at `81415fe9a22d4884 over 12` (a lap
+  excludes itself, so filing the closing lap does not move it).
+- **Closed-set verdict fields are now emitted as bare tokens, enforced on output**
+  (`handshake.closed_set_prose`). The fork's gate anchors its verdict pattern to
+  end-of-line; ours takes the first whitespace-delimited token. So
+  `HANDSHAKE-PEER-VERDICT: HOLD — transcribed from…` reads as `HOLD` to us and as
+  **absent** to them — their gate reported *"our verdict GO, but no peer verdict
+  declared"* on a lap that declared one. A closing `GO` their gate reads as
+  verdict-less refuses a close both sides agreed to. Tolerant on input, strict on
+  output, which is the argv-chokepoint rule applied to the handshake seam; the three
+  laps of ours that already went out with prose are named in a frozen list with the
+  reason, because a `SENT` lap cannot be fixed. The first version of the sweep
+  omitted fence-stripping and flagged the fork's *conforming* lap 7 for quoting the
+  bad shape inside a fence — §2 rule 2, broken in the tool written to check it.
+- **`SENT_LAPS` recorded the wrong event, in both directions inside 48 hours.** It
+  pinned a lap's hash at hand-over to the operator; that is not delivery to the peer,
+  and only the operator can distinguish them. Lap 6 was edited as "not yet sent" when
+  it had gone, and lap 8 was pinned as sent when it had not — asserting the fork held
+  bytes they had never seen. Rows now record **operator-confirmed delivery**, and the
+  lap-8 row was removed rather than corrected, because it was never a send. The
+  concept neither spec has: v4 §4a makes `RECEIVED` claimable only by the recipient
+  for exactly this reason, then leaves `SENT` to the sender — the one party who cannot
+  observe it.
+- **Round 9 lap 6 misquoted the fork's own document while correcting them.** Its
+  §D lead attributed *"Committed to `platterpus-fork` at `003f7aa`"* to a §H of
+  their lap 3 — that string appears nowhere in the file and there is no §H. The
+  argument it supports survives untouched (their §I line 286 does name `fa7e319`
+  as its own commit, and a file committed at X cannot contain X), but the quote
+  is now verbatim with its line number, verified against the source. Caught by
+  sweeping every hex token and quoted fragment in the lap against the inbound
+  files before hand-over; the lap had not been sent, so it was corrected in place
+  under v4 §4a rather than owing a correction lap. `SENT_LAPS` now pins it.
+  When the envelope was retired on 2026-08-15 its test file went with it, and when
+  `emit_envelope.py` re-created the envelope hours later the guard was not restored
+  — leaving the two properties stated only in a source comment, which is the
+  *"a comment where a check belongs is not a fix"* failure. `tests/test_handshake_file_naming.py`
+  now pins both on the real file: the name cannot match `round-*.md` (the glob both
+  projects' gates use to collect laps, checked case-folded too), and it satisfies
+  CLAUDE.md → *Artifact filenames that cross machines*, asserted via
+  `find_script.normalise` so the rule and the resolver cannot drift into two ideas
+  of "safe". Each assertion is proven discriminating against the name it must
+  reject.
+- **`emit_envelope.py` had no test coverage at all** — its not-a-lap guard was
+  written, documented, and never covered by a test. (Precisely: it *executes* on
+  every emit and has **never refused anything**, because no committed state has a
+  one-part envelope lacking the preamble declarations. An earlier wording here and
+  in round-9 lap 6 §H said it had "fired", which is not derivable from any commit;
+  corrected in lap 8 §A3.) Now exercised on the case it exists for — a one-part
+  envelope, where the structural v4 §5a exclusion does not apply for free — with a
+  revert-proof that the guard actually refuses, plus a round-trip assertion that
+  every part splits back byte-identical to its original.
+- **Round 9 lap 8 corrects three statements lap 6 shipped**, found by an adversarial
+  review that finished *after* lap 6 was handed over: a `SENT_LAPS` count made false
+  by the very commit that shipped it (five → six), a §B/§E self-contradiction about
+  whether that lap travelled in an envelope or bare, and the "it fired" claim above.
+  Lap 6 is not edited — it is `SENT` and frozen at `f2a86641…`, so the correction is
+  a new lap per v4 §4a. Two lessons graduated with it: **finish the review before the
+  artifact leaves, or the review becomes a correction lap**, and **a sweep beats a
+  re-read** — "a number that was true when written" reads correctly however carefully
+  you read it.
+- **`test_our_published_round_9_numbers_still_reproduce` derived its exclusion set
+  instead of listing it.** Reproducing a past digest declaration means excluding that
+  lap *and every lap filed since*; the hand-written tuple went stale the moment lap 8
+  was filed and reproduced a different number for lap 4. It failed loudly only
+  because lap 4's value was pinned — with an unpinned lap it would have silently
+  validated the wrong figure, which is the manufactured-mismatch failure one level
+  up, in the test rather than the tool. Now derived from the tree, with all four
+  published laps pinned and a floor that fails if a newer lap's declared digest goes
+  unpinned.
+- **The envelope no longer implies a send that did not happen.** `outbound/` held an
+  envelope packing lap 6 *and* lap 2 while lap 6 actually went bare and §E declined
+  to re-send lap 2 — one half of the §B/§E contradiction. `PARTS` now tracks the
+  current lap only, the unsent lap-6 envelope is removed, and `emit_envelope.py`
+  states that its output is the *offered* packaging while `SENT_LAPS` is the record
+  of what was sent.
+- **`round_digest.py --exclude` silently dropped nothing when its argument did not
+  match**, printing a confident digest over the full set — including the lap it
+  had been told to remove. A manufactured mismatch is indistinguishable from a
+  real one, and this sat inside the tool implementing the one protocol rule
+  neither project may override. It now refuses with exit 2 and is repeatable, since
+  a verifier reproducing an older declaration must drop every lap filed since.
+  **Found by running an adversarial review over a diagnosis before publishing it**,
+  not by the tool's own tests — which only ever passed it names that matched.
+- **A lap was edited after it had been sent.** Round 8 lap 10 was handed over at
+  `c125acd1…` and two commits later carried an extra header line and an appended
+  section describing a since-discarded draft — protocol v4 §4a in the plainest
+  terms: *a sent lap is never edited; a correction is a new lap.* Found by the
+  fork's cross-project checksum, not by us: every check we had was about a file's
+  **content** and none about its **identity over time**. Restored to the bytes both
+  sides hold, and round 8's digest now matches theirs exactly at
+  `81415fe9a22d4884 over 12`. `tests/test_sent_laps_are_immutable.py` pins the
+  hash of every lap we have handed over, with a failure message that says to
+  restore the file rather than update the constant — a guard whose remedy is
+  "adjust the guard" is not one.
+- **The naming sweep and the round digest disagreed about what a lap is.** Both
+  now use protocol v4 §5a's rule instead of a filename allowlist, at the two
+  thresholds each needs: the digest requires each identifying field present
+  exactly once (a lap with no round number cannot be placed), the naming sweep
+  excludes only on *duplicates* (rounds 1–6 predate the fields and are still laps).
+
+### Changed
+- **Handshake protocol v3 adopted, byte-identical from the cyanrip fork**
+  (`docs/handshake-protocol.md`, sha256 `63f53d05…`). Round and lap become *legal
+  states*: computed round states with `RECONCILE` for a record mismatch, a
+  terminal `CLOSED` that can never reopen, addressing fields that say which repo a
+  lap came from and what it wants changed, convergence rules R1–R7, and operator
+  overrides that are always available and never silent. **The provider opens a
+  round** — the rule was settled by asking both projects the question
+  simultaneously without either seeing the other's answer, and the fork wrote
+  *our* argument into the shared file over their own: only the provider can mint
+  the unit of work, because a round decides a pin and you cannot open a round
+  against a commit that does not exist.
+- **`scripts/round_digest.py` — `HANDSHAKE-ROUND-DIGEST`, implemented from the
+  spec text and deliberately not from the fork's implementation**, so the two
+  numbers are worth comparing. It found two things on its first run: our own
+  transport envelope was being counted as a lap (a container is not a lap — the
+  rule is now derived from the spec's own ambiguity clause rather than a
+  filename allowlist), and our round-8 record holds 4 laps against the fork's 12,
+  which is the §4a `RECONCILE` state the checksum exists to make visible.
+- **The transport envelope is retired, and the reason is worth more than the
+  feature.** It was added this cycle so an operator could send one attachment
+  instead of three, and deleted the same day: a **lap file is the interchange
+  format** — cyanrip sends plain laps and so do we — while a container carrying
+  wire headers in its body is something *every content-based sweep on both sides
+  must be taught to ignore*, one sweep at a time. It cost two lessons in one
+  afternoon: the round digest counted it as a lap, and the naming sweep read it as
+  a misfiled one. Round 9 lap 2 raises the underlying gap with the fork as a
+  blocking amendment, because deleting our container does not remove the gap — the
+  next one will not be ours.
+
+### Added
+- **The cue check now judges *where* an `INDEX 00` pre-gap marker sits, not only
+  whether one exists.** A marker means *"this track's pre-gap is appended to the
+  end of the file above"*, so the file above must be the **previous track's**
+  audio. On a partial rip driven by the per-track "Rip?" checkboxes, cyanrip
+  writes the marker even when the previous track was not selected — nesting it
+  under whichever file happens to be current, at a position that file does not
+  contain. Measured on the 2026-08-15 rig rip (`-l 1,3,5,6,7`): track 5's marker
+  landed **682 frames — 9.09 s — past the end of track 3's file**, while track
+  7's, whose predecessor *was* ripped, is exactly right. Both are in one cue, and
+  both are re-derived from the two committed artifacts by the tests rather than
+  transcribed. Three findings, so a bug report is pointed at the right cause:
+  `cue_index00_orphaned`, `cue_index00_misplaced`, `cue_index00_past_eof`. The
+  defect is upstream-origin (`90c02175`, 2023) and present in every cyanrip
+  release either project has shipped; the fork disclosed it independently in
+  round 8. The audio is unaffected — this is an error in the sheet.
+- **`ExpectedCue.track_frames`** — each track's length in CD frames, derived by
+  `rip_audit` from the ripper's own sector numbers, so the finding can say *how
+  far* past a file's end a marker lands instead of only that it is wrong.
+
+### Fixed
+- **The cue parser attributed a file to the wrong track in the ordinary
+  multi-file layout.** A `FILE` line seen while a track block was still
+  syntactically open was always taken as that track's own audio — true in
+  cyanrip's gap-appended shape (`TRACK`/`INDEX 00`/`FILE`/`INDEX 01`), and wrong
+  in the plain one (`FILE`/`TRACK`), where it belongs to the *next* track. It
+  now re-points only when the open track has an `INDEX 00` and no `INDEX 01`
+  yet, which is that shape's signature. Invisible until something needed to know
+  whose audio a file holds: on the rig cue it credited track 3's file to track 1
+  and would have reported the misplaced marker as 8048 frames out instead of the
+  true 682. Found by the new placement tests, not by review.
 - **`--install-ripper list` — choose a cyanrip build instead of memorising a
   SHA.** Prints every build this Platterpus knows how to install, each with the
   **build tag** a correct build must print, the approved one first and marked
@@ -5713,7 +6134,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12b6.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7955,7 +8376,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b6...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12...HEAD
+[0.6.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b6...v0.6.12
 [0.6.12b6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b5...v0.6.12b6
 [0.6.12b5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b4...v0.6.12b5
 [0.6.12b4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b3...v0.6.12b4
@@ -8055,4 +8477,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.12b6.*
+*Last updated for Platterpus v0.6.12.*

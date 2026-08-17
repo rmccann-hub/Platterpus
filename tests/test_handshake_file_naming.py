@@ -33,6 +33,7 @@ This file is that something.
 
 from __future__ import annotations
 
+import fnmatch
 import importlib.util
 import re
 import sys
@@ -41,6 +42,8 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+
+from platterpus.uiscript.find_script import normalise
 
 _REPO = Path(__file__).resolve().parents[1]
 _HANDSHAKE = _REPO / "docs" / "handshake"
@@ -60,10 +63,10 @@ _FROM = re.compile(r"^HANDSHAKE-FROM:\s*(\S+)\s*$", re.M)
 _FENCE = re.compile(r"^```.*?^```", re.M | re.S)
 
 
-def _handshake() -> ModuleType:
-    """The module that OWNS the convention. Loaded, never re-implemented here."""
-    script = _REPO / "scripts" / "handshake.py"
-    spec = importlib.util.spec_from_file_location("handshake_naming_test", script)
+def _load(script_name: str, as_: str) -> ModuleType:
+    """Load a `scripts/` module by path. Loaded, never re-implemented here."""
+    script = _REPO / "scripts" / script_name
+    spec = importlib.util.spec_from_file_location(as_, script)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -73,7 +76,14 @@ def _handshake() -> ModuleType:
 
 @pytest.fixture(scope="module")
 def hs() -> ModuleType:
-    return _handshake()
+    """The module that OWNS the lap-file convention."""
+    return _load("handshake.py", "handshake_naming_test")
+
+
+@pytest.fixture(scope="module")
+def envelope() -> ModuleType:
+    """The module that OWNS the transport-envelope name."""
+    return _load("emit_envelope.py", "emit_envelope_naming_test")
 
 
 def _declared(path: Path) -> tuple[int | None, int | None, str]:
@@ -91,8 +101,95 @@ def _declared(path: Path) -> tuple[int | None, int | None, str]:
     )
 
 
+#: Files in the handshake tree that are NOT laps and must not be judged as ones.
+#:
+#: **Empty, and that is the goal state.** It briefly held a transport envelope —
+#: one file wrapping several laps so the operator could send one attachment. That
+#: container was retired on 2026-08-15: a lap file **is** the interchange format,
+#: cyanrip sends plain laps, and a wrapper that carries wire headers in its body is
+#: a thing every content-based sweep on both sides has to be taught to ignore. It
+#: cost us one such lesson in `tests/test_handshake_file_naming.py` and another in
+#: `scripts/round_digest.py`, where it was silently counted as a lap.
+#:
+#: Keep it empty. If something must go in, it needs a written reason and a test
+#: that the excluded file genuinely cannot be read as a lap.
+_NOT_LAPS: frozenset[str] = (
+    frozenset()
+)  # the envelope is excluded structurally, by _is_one_lap
+
+
+def _is_one_lap(path: Path) -> bool:
+    """v4 §5a — a file is ONE lap only if it declares each of the three
+    identifying fields exactly once, fences stripped.
+
+    **Replaces a filename allowlist**, which is the weaker thing it used to be:
+    a list only ever excludes the container someone has already met. This is the
+    same predicate `scripts/round_digest.py::is_a_lap` uses, and it is the rule
+    cyanrip adopted into the shared spec in round 9 lap 3 §B1 — so the naming
+    sweep and the digest now agree about what a lap is, which they did not when
+    the digest counted an envelope as one.
+
+    **The threshold differs from the digest's on purpose, and the difference is
+    the grandfathered files.** Here a file is excluded only when a field is
+    declared **more than once** — the §2 rule 3 ambiguity clause. `round_digest`
+    additionally requires each field to be present *at all*, because a lap with no
+    round number cannot be placed in a round; this sweep must still judge the
+    pre-header files of rounds 1–6, which declare none of the three and are
+    perfectly legitimate laps. Same rule, two thresholds, each matched to what its
+    caller needs from it.
+    """
+    text = _FENCE.sub("", path.read_text(encoding="utf-8", errors="replace"))
+    return not any(
+        len(re.findall(rf"^{field}:", text, re.MULTILINE)) > 1
+        for field in ("HANDSHAKE-ROUND", "HANDSHAKE-LAP", "HANDSHAKE-FROM")
+    )
+
+
+def _lap_files_in(directory: str) -> list[Path]:
+    """Every candidate lap in one directory, envelope excluded.
+
+    A single chokepoint on purpose. Four sweeps in this module globbed the
+    directory themselves, and adding the exclusion to `_all_files` alone fixed
+    two of them and left two reading the envelope as a lap — the same
+    "enforce a rule at the place it was learned" failure `docs/testing.md` §5.o
+    records. Route every sweep through here.
+    """
+    return sorted(
+        p
+        for p in (_HANDSHAKE / directory).glob("*.md")
+        if p.name not in _NOT_LAPS and _is_one_lap(p)
+    )
+
+
 def _all_files() -> list[Path]:
-    return sorted(p for d in _DIRS for p in (_HANDSHAKE / d).glob("*.md"))
+    return sorted(p for d in _DIRS for p in _lap_files_in(d))
+
+
+def test_nothing_is_excluded_and_the_guard_still_works_if_something_is() -> None:
+    """The exclusion list must not become a place to hide a misfiled lap.
+
+    Two checks, because either alone is satisfiable by the wrong thing: the file
+    must exist (a stale entry silently excuses nothing and hides that it is
+    stale), and it must be structurally incapable of being read as a lap — no
+    wire header at column 0 of its own, and a name no gate's glob can reach.
+    """
+    assert not _NOT_LAPS, (
+        "the exclusion list is meant to be empty — a container in the handshake "
+        "tree is a thing every sweep on both sides must be taught to ignore. "
+        "Adding one needs a written reason here."
+    )
+    for name in _NOT_LAPS:  # pragma: no cover — empty by design; the guard below
+        matches = [p for d in _DIRS for p in (_HANDSHAKE / d).glob(name)]
+        assert len(matches) == 1, f"{name}: expected exactly one, found {matches}"
+        path = matches[0]
+        assert not path.name.lower().startswith("round-"), (
+            f"{name} matches the round-*.md glob every gate uses; excluding it "
+            "from the naming sweep would leave it readable as a lap"
+        )
+        first = path.read_text(encoding="utf-8").splitlines()[0]
+        assert not first.startswith("HANDSHAKE-"), (
+            f"{name} opens with a wire header, so it IS declaring itself a lap"
+        )
 
 
 def test_there_are_files_to_check() -> None:
@@ -192,7 +289,7 @@ def test_only_one_file_per_round_can_be_its_first(hs: ModuleType) -> None:
     checked = 0
     for directory in _DIRS:
         rounds: dict[int, list[Path]] = {}
-        for path in sorted((_HANDSHAKE / directory).glob("*.md")):
+        for path in _lap_files_in(directory):
             number = hs.round_number(path)
             if number is None:
                 continue
@@ -298,7 +395,7 @@ def test_no_two_files_in_a_directory_claim_the_same_lap() -> None:
     """
     for directory in _DIRS:
         seen: dict[tuple[int, int], Path] = {}
-        for path in sorted((_HANDSHAKE / directory).glob("*.md")):
+        for path in _lap_files_in(directory):
             round_, lap, _sender = _declared(path)
             if round_ is None or lap is None:
                 continue
@@ -346,7 +443,7 @@ def test_a_canonical_sort_really_is_chronological(hs: ModuleType) -> None:
     for directory in _DIRS:
         pairs = [
             hs.name_round_and_lap(p)
-            for p in sorted((_HANDSHAKE / directory).glob("*.md"))
+            for p in _lap_files_in(directory)
             if hs.name_round_and_lap(p) is not None
         ]
         if len(pairs) < 3:
@@ -798,6 +895,207 @@ def test_the_convention_is_documented_where_a_reader_will_look() -> None:
     )
 
 
+# --- the transport envelope's name -------------------------------------------------
+#
+# THE SECOND NAME IN THIS TREE, and it is deliberately unlike the first. The envelope
+# is one file wrapping several laps verbatim, so the operator sends one attachment
+# instead of nine; it crosses two repositories by hand, through a chat client and a
+# file manager.
+#
+# WHY IT NEEDS ITS OWN CHECKS. There WAS one — `test_handshake_bundle.py` pinned
+# exactly this property — and it was deleted along with the envelope on 2026-08-15,
+# then never restored when `emit_envelope.py` re-created the envelope hours later
+# under protocol v4 §5a. For two commits the only statement of the rule was a comment
+# in the generator saying the name satisfied it. *A comment where a check belongs is
+# not a fix* (CLAUDE.md), and the proof is that the literal then drifted three times in
+# one session — `round08platterpusbundle` → `round09platterpusenvelope` →
+# `round09lap06platterpus` — with no gate noticing. The operator asked whether the name
+# deviated from the convention, which is the question a test should have been answering.
+
+
+def test_the_envelope_name_cannot_be_read_as_a_lap_by_either_gate(
+    hs: ModuleType, envelope: ModuleType
+) -> None:
+    """**RESTORED GUARD.** The envelope carries wire headers, so its NAME must not
+    be resolvable as a lap by anything on either side.
+
+    Both projects' gates glob `round-*.md`. A matching name on a file that declares
+    a round and a lap per part would be collected into the round and could sort as
+    its newest — displacing the real latest lap and deciding a verdict read.
+
+    Three assertions, because each covers a different reader: the shared glob, our
+    own name parser, and the case-insensitive filesystem an operator may be on.
+    """
+    name = envelope.OUT.name
+    assert not fnmatch.fnmatch(name, "round-*.md"), (
+        f"{name} matches round-*.md, the glob both gates use to collect laps"
+    )
+    assert not fnmatch.fnmatch(name.lower(), "round-*.md"), (
+        f"{name} matches round-*.md once case is folded — a case-insensitive "
+        "filesystem would collect it even though a case-sensitive one would not"
+    )
+    assert hs.name_round_and_lap(envelope.OUT) is None, (
+        f"{name} parses as a canonical lap name, so `--status` would read a verdict "
+        "off a container"
+    )
+    assert hs.round_number(envelope.OUT) is None, (
+        f"{name} parses as belonging to a round, so the status report would place a "
+        "container among that round's laps"
+    )
+
+    # NON-TRIVIALITY. Every assertion above can be satisfied by a name that is
+    # simply unlike anything — so prove the checks discriminate by running them on
+    # the name the envelope must NOT have.
+    forbidden = Path(hs.handshake_filename(*envelope.lead_identity()))
+    assert fnmatch.fnmatch(forbidden.name, "round-*.md")
+    assert hs.name_round_and_lap(forbidden) is not None
+    assert hs.round_number(forbidden) is not None
+
+
+def test_the_envelope_name_is_safe_to_cross_machines(envelope: ModuleType) -> None:
+    """CLAUDE.md → *Artifact filenames that cross machines*, checked on the real name.
+
+    > Lowercase ASCII letters and digits only. No hyphens, no underscores, no spaces,
+    > no case. Numbers zero-padded.
+
+    Asserted against `find_script.normalise` — the function `--run-script` uses to
+    resolve an operator-typed path — rather than a second regex here. A name is
+    already in the canonical spelling exactly when normalising it is a no-op, so the
+    rule and the resolver cannot drift apart into two different ideas of "safe".
+
+    This is the rule a lost rig run paid for: the same artifact was `round08joint.txt`
+    on the operator's disk and `round-08-joint.txt` in the instructions written for
+    them, and a path is an exact-match string.
+    """
+    name = envelope.OUT.name
+    stem, dot, suffix = name.partition(".")
+    assert dot and suffix == "md", f"{name} must be a single-suffix .md file"
+    assert normalise(stem) == stem, (
+        f"{name} is not in the cross-machine spelling: `{stem}` normalises to "
+        f"`{normalise(stem)}`. Lowercase ASCII letters and digits only — no hyphens, "
+        "underscores, spaces or capitals (CLAUDE.md → Artifact filenames that cross "
+        "machines)."
+    )
+    assert re.fullmatch(r"round\d{2}lap\d{2}platterpus", stem), (
+        f"{name} does not follow round<NN>lap<LL>platterpus.md. The numbers are "
+        "zero-padded so a directory listing sorts chronologically, and the sender is "
+        "named so the operator can tell our envelope from theirs at a glance."
+    )
+
+
+def test_the_envelope_name_is_generated_from_the_lap_it_carries(
+    envelope: ModuleType,
+) -> None:
+    """**The anti-drift property, and the reason this is a template not a literal.**
+
+    A hand-typed name is a second description of a fact the lead part's header already
+    declares. `handshake_filename` exists for exactly that reason on the lap side; the
+    envelope had no equivalent, and three sends produced three unrelated names.
+
+    Both directions are asserted: the name matches the header, and the generator
+    actually varies with its inputs — a `envelope_filename` that ignored its arguments
+    would satisfy the first assertion on a tree of one envelope.
+    """
+    round_, lap = envelope.lead_identity()
+    assert envelope.OUT.name == envelope.envelope_filename(round_, lap), (
+        f"{envelope.OUT.name} does not state round {round_} lap {lap}, which is what "
+        f"{envelope.PARTS[0].name} declares. Regenerate rather than rename."
+    )
+    assert envelope.envelope_filename(9, 6) == "round09lap06platterpus.md"
+    assert envelope.envelope_filename(10, 21) == "round10lap21platterpus.md"
+    assert envelope.envelope_filename(9, 6) != envelope.envelope_filename(9, 7), (
+        "the generator does not vary with the lap, so the name cannot track the "
+        "contents and the check above proves nothing"
+    )
+
+
+def test_the_naming_sweep_reaches_the_real_envelope_and_excludes_it(
+    envelope: ModuleType,
+) -> None:
+    """The *content* half, asserted on the file that actually exists.
+
+    The name checks above stop a gate resolving it as a lap; this stops the sweep in
+    THIS module judging it as one. `_NOT_LAPS` is empty by design, so the exclusion is
+    structural (v4 §5a — a field declared more than once is ambiguous, so the file is
+    not one lap). Structural exclusions are the kind that quietly stop applying, so
+    the real file is the subject here rather than a fixture.
+    """
+    out = envelope.OUT
+    assert out.is_file(), (
+        f"{out.name} is not in the tree — regenerate with "
+        "`python scripts/emit_envelope.py` or this test is checking nothing"
+    )
+    assert out.parent == _HANDSHAKE / "outbound", out.parent
+    raw = list((_HANDSHAKE / "outbound").glob("*.md"))
+    assert out in raw, (
+        f"{out.name} is not reached by the sweep's own glob, so its exclusion below "
+        "would pass for the wrong reason"
+    )
+    assert not _is_one_lap(out), (
+        f"{out.name} declares each wire field at most once, so every content-based "
+        "sweep on both sides reads it as a lap. `emit_envelope.assert_not_a_lap` is "
+        "supposed to make that impossible before the file is written."
+    )
+    assert out not in _lap_files_in("outbound")
+
+
+def test_a_ONE_PART_envelope_is_still_not_a_lap(envelope: ModuleType) -> None:
+    """The case the structural rule does NOT cover for free, exercised directly.
+
+    An envelope carrying N parts declares each field N times, so v4 §5a excludes it —
+    for N ≥ 2. At **N = 1** the count is one and the envelope is indistinguishable
+    from the lap inside it. The preamble's own `not-a-lap` declarations are what keep
+    the count at two; without them a single-lap send would be filed as a duplicate of
+    the lap it wraps, in both trees.
+
+    Nothing in the suite touched `emit_envelope.py` before this — the guard was
+    written, documented, and never run by a test.
+    """
+    parts = envelope.read_parts()[:1]
+    text = envelope._FENCE_RE.sub("", envelope.render(parts))
+    for field in envelope._LAP_FIELDS:
+        assert len(re.findall(rf"^{field}:", text, re.MULTILINE)) == 2, (
+            f"a one-part envelope declares {field} an ambiguous number of times; it "
+            "must be exactly two (the preamble's, and the lap's)"
+        )
+    envelope.assert_not_a_lap(text)  # and the guard agrees
+
+
+def test_the_not_a_lap_guard_actually_fires(envelope: ModuleType) -> None:
+    """Revert-proof. Remove what makes a one-part envelope safe; the guard must refuse.
+
+    Without this, the test above passes and `assert_not_a_lap` could be a no-op — the
+    *"can this check be satisfied by finding nothing?"* question asked of the one
+    check standing between a container and both projects' lap enumerators.
+    """
+    text = envelope.render(envelope.read_parts()[:1])
+    for field in envelope._LAP_FIELDS:
+        text = text.replace(f"{field}: not-a-lap (transport envelope)\n", "")
+    with pytest.raises(SystemExit, match="exactly once"):
+        envelope.assert_not_a_lap(text)
+
+
+def test_the_envelope_splits_back_into_byte_identical_parts(
+    envelope: ModuleType,
+) -> None:
+    """The envelope's whole promise: the receiver gets the originals, provably.
+
+    A merged round file would be a falsified record. This is a wrapper, so the
+    inverse must be exact — asserted on the file as published, with the published
+    reader, over every part.
+    """
+    published = envelope.OUT.read_text(encoding="utf-8")
+    recovered = envelope.split(published)
+    assert len(recovered) == len(envelope.PARTS), (
+        f"{envelope.OUT.name} splits into {sorted(recovered)}, but was packed from "
+        f"{[p.name for p in envelope.PARTS]}"
+    )
+    for part in envelope.PARTS:
+        assert recovered[part.name] == part.read_bytes(), (
+            f"{part.name} does not survive the round trip byte-for-byte"
+        )
+
+
 # --- concurrent laps: both sides numbered a lap 25 -------------------------------
 #
 # WHAT HAPPENED (2026-08-05, round 7). We wrote lap 25 answering their lap 24; they
@@ -922,4 +1220,186 @@ def test_two_files_at_one_lap_from_DIFFERENT_senders_are_fine(
     )
     assert not hs.ordering_blockers(sorted(tmp_path.glob("*.md"))), (
         "two senders at the same lap were refused; concurrent laps are legitimate"
+    )
+
+
+# --- a round the PEER opened must be able to close ---------------------------------
+#
+# WHAT HAPPENED (2026-08-17). `round_status` required an OUTBOUND file to close a
+# round: `state = "CLOSED" if (sent and back and both_go)`. Protocol v4 §1a -- adopted
+# in round 9 -- says the PROVIDER opens, "because only the provider can mint the unit
+# of work". When cyanrip opens, every lap of ours is a verification and lives in
+# `verified/`; `outbound/` stays empty for the whole round.
+#
+# So round 9 reported OPEN with BOTH SIDES DECLARING GO, and would have done so
+# forever -- blocking every release, because the deviation policy forbids releasing
+# while a round is open. Invisible for eight rounds because we opened all eight.
+#
+# The mirror of the fork's own round-9 lap-7 §C: a gate reading the wrong directory.
+# Theirs failed OPEN and permitted a release it should have refused; ours failed
+# CLOSED. Fail-closed is the right direction to be wrong in and is still wrong.
+
+
+def _peer_opened_round(hs: ModuleType, base: Path, *, their_newest: str) -> list[str]:
+    """A round with NO outbound file: they opened it, we only ever verified.
+
+    Returns `round_status` lines. `their_newest` is the verdict on the newest inbound
+    lap, so one helper covers both the close and the refusal.
+    """
+    outbound, inbound, verified = _round_dirs(base)
+    # NOTHING in outbound/ -- that is the whole point.
+    (inbound / "round-09-lap-09.md").write_text(
+        _closing(hs, "cyanrip-fork", 9, 9).replace(
+            "HANDSHAKE-VERDICT: GO", f"HANDSHAKE-VERDICT: {their_newest}"
+        ),
+        encoding="utf-8",
+    )
+    (verified / "round-09-lap-10.md").write_text(
+        _closing(hs, "platterpus", 9, 10), encoding="utf-8"
+    )
+    assert not list(outbound.glob("*.md")), "the fixture must have no outbound file"
+    return hs.round_status(root=base)
+
+
+def test_a_peer_opened_round_can_CLOSE_without_an_outbound_file(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The regression. Both sides GO, no outbound file, round 9 must CLOSE."""
+    lines = _peer_opened_round(hs, tmp_path, their_newest="GO")
+    assert any(line.endswith("CLOSED") for line in lines), lines
+    assert not any(line.endswith("OPEN") for line in lines), lines
+
+    # REVERT-PROOF. Re-impose the old requirement and the same tree must go OPEN, or
+    # this test passes for a reason unrelated to the fix.
+    verified = tmp_path / "verified"
+    inbound = tmp_path / "inbound"
+    sent = list((tmp_path / "outbound").glob("*.md"))
+    done = list(verified.glob("*.md"))
+    back = list(inbound.glob("*.md"))
+    assert done and back and not sent, (sent, done, back)
+    assert not (sent and back and done), (
+        "the old condition `sent and back and both_go` is no longer unsatisfiable on "
+        "this fixture, so the regression is unreachable and the fix needs "
+        "re-justifying"
+    )
+
+
+def test_a_peer_opened_round_still_refuses_when_their_NEWEST_lap_is_not_GO(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The floor, and the direction that matters.
+
+    Dropping the outbound requirement must not make a peer-opened round close on our
+    verdict alone — that would trade a gate that refuses everything for one that
+    refuses nothing, which is how the fork's own §C defect behaved.
+    """
+    lines = _peer_opened_round(hs, tmp_path, their_newest="HOLD")
+    assert any(line.endswith("OPEN") for line in lines), lines
+    assert not any(line.endswith("CLOSED") for line in lines), (
+        "a peer-opened round closed while their newest lap declared HOLD"
+    )
+
+
+def test_a_round_with_NO_lap_of_ours_anywhere_stays_open(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The real floor: holding only THEIR file never closes a round.
+
+    **This test previously asserted the opposite of the truth, and that is worth
+    keeping.** Written from our own wrong diagnosis, it put a lap of ours in
+    `outbound/` with an empty `verified/` and asserted the round stays OPEN — which
+    encoded the symmetric coupling as *desired behaviour*. The fork's round-9 lap 11
+    §B corrected the diagnosis, and correcting it turned this test red, which is how
+    we learned a wrong explanation had already been written into a guard.
+
+    **A test derived from a wrong diagnosis locks the defect in.** The floor that
+    actually matters is this one: with nothing of ours at all, no verdict of ours
+    exists, and the round cannot close however emphatic theirs is.
+    """
+    _outbound, inbound, _verified = _round_dirs(tmp_path)
+    (inbound / "round-09-lap-09.md").write_text(
+        _closing(hs, "cyanrip-fork", 9, 9), encoding="utf-8"
+    )
+    lines = hs.round_status(root=tmp_path)
+    assert any(line.endswith("OPEN") for line in lines), lines
+    assert not any(line.endswith("CLOSED") for line in lines), (
+        "a round closed with no lap of ours in either directory"
+    )
+
+
+def test_our_verdict_is_read_from_our_newest_lap_in_EITHER_directory(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """**The symmetric hole, found by the fork correcting our diagnosis.**
+
+    Our first fix dropped the `outbound/` requirement from the close condition but
+    still read the verdict from `verified/` only. The fork's round-9 lap 11 §B showed
+    the trigger was never *who opened the round* — they opened round 8 as well as
+    round 9, declared in all nine of their round-8 laps — but **where our reply gets
+    filed**, which changed between the two rounds.
+
+    That makes the mirror case reachable: a round whose newest lap of ours sits in
+    `outbound/` would read its verdict from an older `verified/` file, or from none,
+    and could never close. Constructed here with the newest lap of ours in
+    `outbound/` and an OLDER, superseded one in `verified/`, so reading the wrong
+    directory yields the wrong verdict rather than merely no verdict.
+    """
+    outbound, inbound, verified = _round_dirs(tmp_path)
+    # Superseded: an earlier HOLD of ours, in verified/.
+    (verified / "round-12-lap-02.md").write_text(
+        _closing(hs, "platterpus", 12, 2).replace(
+            "HANDSHAKE-VERDICT: GO", "HANDSHAKE-VERDICT: HOLD"
+        ),
+        encoding="utf-8",
+    )
+    # Our NEWEST lap, filed in outbound/ — the case the first fix missed.
+    (outbound / "round-12-lap-04.md").write_text(
+        _closing(hs, "platterpus", 12, 4), encoding="utf-8"
+    )
+    (inbound / "round-12-lap-03.md").write_text(
+        _closing(hs, "cyanrip-fork", 12, 3), encoding="utf-8"
+    )
+
+    lines = hs.round_status(root=tmp_path)
+    assert any(line.endswith("CLOSED") for line in lines), lines
+
+    # REVERT-PROOF, and it must discriminate: reading `verified/` only would find our
+    # lap 2's HOLD and report OPEN. Assert that is really what the old rule yields.
+    stale = hs.wire_verdict(
+        (verified / "round-12-lap-02.md").read_text(encoding="utf-8")
+    )
+    fresh = hs.wire_verdict(
+        (outbound / "round-12-lap-04.md").read_text(encoding="utf-8")
+    )
+    assert (stale, fresh) == ("HOLD", "GO"), (
+        "the fixture no longer puts a superseded HOLD in verified/ and a newer GO in "
+        "outbound/, so this test cannot separate the two readings"
+    )
+
+
+def test_a_superseded_verdict_of_OURS_in_the_other_directory_cannot_close_a_round(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The floor on the fix above: newest wins, in the refusing direction too.
+
+    Spanning both directories must not become "any GO of ours anywhere closes it".
+    Newest lap of ours is a HOLD in `verified/`; an older GO sits in `outbound/`.
+    """
+    outbound, inbound, verified = _round_dirs(tmp_path)
+    (outbound / "round-12-lap-02.md").write_text(
+        _closing(hs, "platterpus", 12, 2), encoding="utf-8"
+    )
+    (inbound / "round-12-lap-03.md").write_text(
+        _closing(hs, "cyanrip-fork", 12, 3), encoding="utf-8"
+    )
+    (verified / "round-12-lap-04.md").write_text(
+        _closing(hs, "platterpus", 12, 4).replace(
+            "HANDSHAKE-VERDICT: GO", "HANDSHAKE-VERDICT: HOLD"
+        ),
+        encoding="utf-8",
+    )
+    lines = hs.round_status(root=tmp_path)
+    assert any(line.endswith("OPEN") for line in lines), lines
+    assert not any(line.endswith("CLOSED") for line in lines), (
+        "an older GO of ours in outbound/ closed a round our newest lap HOLDs"
     )
