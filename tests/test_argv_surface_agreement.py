@@ -129,7 +129,31 @@ _TABLE_ROUND_FLOOR: int = 6
 #: current argv surface; the lag is nominal rather than a gap in what we can check.
 #: **Returns to 0 the moment they publish a round-10 table** — this is a ratchet with a
 #: written reason per value, and the value may shrink at any time.
-_MAX_TABLE_LAG: int = 1
+#:
+#: **2 as of 2026-08-17, and the reason is a MEASUREMENT rather than a declaration.**
+#: Round 11 opened without a flag table. Raising a safety ratchet to make one's own
+#: suite go green is the instinct this file exists to resist, so the number moved only
+#: after checking the thing the table describes, in the fork's own repository:
+#:
+#:     git diff b56f936..c455683 -- src/cyanrip_main.c   ->  empty
+#:
+#: `src/cyanrip_main.c` is where cyanrip parses its argv, and it is **byte-identical**
+#: between round 9's pin — whose table this check reads — and round 11's. So round 9's
+#: P1 table describes the current binary's flags exactly, and the lag is nominal.
+#:
+#: **The same measurement says the other half of the seam DID move**, which is why it
+#: is recorded here rather than waved through: `src/cyanrip_log.c` changed over that
+#: span (+18/-2), adding the ` -- released build` suffix and its parenthesised
+#: continuation line. That is round 10's deliverable, and the *output* half is checked
+#: elsewhere — `tests/test_cyanrip_log_parser.py` and the continuation folding in
+#: `parsers/cyanrip_log.py`. Naming both halves here because checking one half of a
+#: two-half contract is the failure that shipped the `-V` blocker.
+#:
+#: Returns to 0 when the fork attaches `PROVIDER-CONTRACT.md` to a round-11 lap —
+#: asked for in our lap 2. Deliberately NOT satisfied by fetching their contract out
+#: of their repository: the record is what was exchanged, and a document we helped
+#: ourselves to is not a document they published to us.
+_MAX_TABLE_LAG: int = 2
 #: **Back to 0 on 2026-08-15**, the same day it went to 1. cyanrip's round-9 lap 3
 #: sent `PROVIDER-CONTRACT.md` for `b56f936` in its envelope; it is committed at
 #: `docs/handshake/inbound/artifacts/round-09-PROVIDER-CONTRACT.md` and the argv

