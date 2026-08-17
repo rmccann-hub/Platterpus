@@ -35,6 +35,39 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `round09lap06platterpus`) with no gate noticing. The name is unchanged.
 
 ### Fixed
+- **Round 10 is open; lap 2 answers both of the fork's `BLOCKING` asks and contributes
+  evidence they cannot get.** Their lap 1 reports `HANDSHAKE_RELEASED` unreachable, so
+  `-- NOT a released build` is a constant — *a field whose value never varies asserts
+  nothing*, printed into archival records as though it did. Their `[PROVEN]` was scoped
+  to *today's gate replayed over historical records*, explicitly not to what each build
+  actually printed. **Our round-8 rig artifacts hold the latter**:
+  `round08pinmanifest.txt`, written by `gddf7ac3` (seq 11) itself, reads
+  `Handshake: round 7 lap 39 closed, verdict GO` with **no disclaimer**, while
+  `round08scripttranscript.txt` from `g2ce8993` (seq 15) carries it. So the disclaimer is
+  **not invariant across builds we hold** and the unreachability is a regression after
+  seq 11, not original — which changes the fix from a design to a restoration. Our
+  answers: **(b)** declare it at build time in the `Consumer:` idiom, with the option
+  defaulting unset so a mis-set flag *under*-claims; and our pin gate keys on the
+  **manifest**, never on their log prose — which is where our own ask 3 was the wrong
+  shape, not merely unsatisfiable.
+- **Merging our two handshake directories created a sort-key collision, and the suite
+  caught it.** `outbound/round-9.md` and `verified/round-9.md` share a key — same round,
+  both header-less so both `DEFAULT_LAP`, identical stems — so a header-less legacy file
+  could win the tie, become "our newest lap", report no verdict and turn a closed round
+  `OPEN`. Ties now break on *declares a verdict*, because a file that states none is not
+  our latest word. Found by the release-gate test's floor assertion that the gate can
+  still say yes.
+- **`_MAX_TABLE_LAG` 0 → 1, with the reason.** Round 10 lap 1 §I declares the provider
+  contract unchanged since round 9 lap 11 and reports its own `--check` exiting 0, so
+  round 9's flag table *is* the current argv surface. Nominal lag, not a gap; returns to
+  0 when they publish a round-10 table.
+- **The verdict-corpus floor required exactly `{GO, HOLD}`.** `OPEN` is a legal §4 value
+  and our round-10 lap 2 declares it; the equality had frozen a coincidence of the
+  record (every prior round's first lap of ours happened to be a `HOLD`). Now requires
+  both *closing* verdicts and forbids anything outside §4's closed set.
+- **The release-gate test enumerated rounds up to the live `CURRENT_ROUND`.** Opening
+  round 10 gave its synthetic round-9 tree a phantom open round, so a passing test
+  depended on the calendar. The fixture now pins its own round number.
 - **Round 9 is CLOSED, both sides `GO` on `b56f936`, every round in the record closed
   and `handshake.py --status` exiting 0.** Eleven laps; every digest either project
   declared now reproduces on the other's tree.

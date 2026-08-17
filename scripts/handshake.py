@@ -736,7 +736,7 @@ RETROSPECTIVE_ROUNDS: frozenset[int] = frozenset({1, 2, 3})
 #: Staleness fails in the SAFE direction: a value left behind reports a closed
 #: round as open and blocks a release, which is a conversation. The other
 #: direction ships.
-CURRENT_ROUND: Final[int] = 9
+CURRENT_ROUND: Final[int] = 10
 
 
 # --- The shared wire format (protocol §8) -----------------------------------
@@ -1575,6 +1575,7 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
         # last on the strength of a round it does not belong to. Reported before the
         # verdicts are read, because the verdicts are read *off the ordering*.
         unorderable = ordering_blockers([*sent, *back, *done])
+
         # The verdict comes from the NEWEST verification file for the round —
         # `_round_files` sorts by `sort_key`, so a later lap supersedes the file it
         # corrects. Reading the oldest would let a since-withdrawn GO keep a round
@@ -1600,7 +1601,24 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
         # So: our contribution is every lap of ours in the round, `outbound/` and
         # `verified/` alike, ordered by declared lap number. Where a lap is filed is
         # local bookkeeping; it must not decide whether a round can close.
-        ours = sorted([*sent, *done], key=sort_key)
+        # **Tie-break on "declares a verdict", because merging the two directories
+        # created key collisions that did not exist when each was read alone.**
+        # `outbound/round-9.md` and `verified/round-9.md` have the SAME sort key —
+        # same round, both header-less so both `DEFAULT_LAP`, and identical stems —
+        # so which one landed last was arbitrary. A header-less legacy file winning
+        # the tie became "our newest lap" and reported no verdict, turning a closed
+        # round OPEN. Caught by `test_the_release_gate_blocks_a_release_while_a_round
+        # _is_open`, whose final assertion is the floor that the gate can still say
+        # yes — the reason that floor exists.
+        #
+        # A file that declares no verdict is not our latest *word*, so it loses a tie
+        # to one that does. Ordering is still by (round, lap) first; this only decides
+        # between files the primary key cannot separate.
+        def _states_a_verdict(path: Path) -> int:
+            text = _safe_read(path)
+            return 1 if (wire_verdict(text) or verification_verdict(text)) else 0
+
+        ours = sorted([*sent, *done], key=lambda p: (sort_key(p), _states_a_verdict(p)))
         verdict: str | None = None
         if ours:
             our_text = ours[-1].read_text(encoding="utf-8")
