@@ -11,7 +11,7 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
-## 2026-08-17 — a green suite that CI failed to collect, and round 11's trap in a plan we had written down
+## 2026-08-17 — a green suite CI could not collect, round 11 closed, and a gate our own validator refused
 
 Two things, and they rhyme: in both, the record said one thing and the artifact
 said another, and only opening the artifact settled it.
@@ -88,6 +88,50 @@ so it waits for round 11's lap 3. The strict gate blocks it outright, correctly.
 Worth recording as a shape: **the permissive path existed and was available, and
 taking it would have been defensible line by line.** The reason not to was not in
 any gate's exit code — it was in the gate's sentence.
+
+### Round 11 closed the same session, in four laps
+
+Their lap 3 arrived as an envelope with two parts — the lap and the
+`PROVIDER-CONTRACT.md` we asked for — both extracted with the reader published
+inside it and both hashing as declared. All three digests they declared re-derive
+on our tree. **Round 11 is CLOSED, every round in the record is closed,
+`--status` exits 0, and the strict release gate permits a stable release.**
+
+Two rulings of theirs, both accepted, and the first is a precedent worth keeping:
+
+- **They ruled our close condition 1 met by naming a defect in their own
+  criterion.** Conditions 1 and 2 could not both be satisfied by a consistent
+  actor: 2 excuses not installing `c4d1a00`, while 1 asked us to demonstrate
+  installing it. We had framed our gap as a failure to discharge; they found it
+  was a defect in the criterion. **A close-condition defect is not a
+  close-condition change** — S-13 forbids *growing* a round's conditions, not
+  *reading* one — so the convergence rules are intact.
+- **They chose to withdraw a sentence rather than add a field**, because per-row
+  `build` means a new top-level key, therefore `schema` 3, which this release
+  (supporting `{1, 2}`) would refuse exactly as it just refused schema 2. They
+  reasoned from *our* constraint to avoid bumping a schema at us twice in two
+  rounds. The right ordering, and not the one we had weighed.
+
+### A gate that passed while our own validator refused the file
+
+Writing the closing lap surfaced a hole that had been open the whole time.
+`handshake.py --check` validates a file **the fork sends us**; nothing ran it
+over the files **we send them**. Demonstrated rather than argued: the lap went
+out without the bolded `**GO on <pin>` line every verification file from round 4
+on must carry, `--status` closed the round anyway (correctly — it reads the
+column-0 wire header), the release gate went green, and the entire handshake
+suite passed. It was caught by running `--check` by hand.
+
+Sweeping all 41 verification files found **12** that fail it, three of them
+already sent and therefore immutable. Those three carry a valid wire verdict and
+lack the older prose one — two spellings of a single fact, one of which drifted,
+which is the duplication this project keeps paying for. Closed with a sweep plus
+a shrinking allowlist carrying a reason per entry, and a converse test that fails
+an exemption which no longer applies.
+
+**The same shape as the `-V` blocker, one level up**: a check that ran on one
+half of a two-half contract. It is now the third time that shape has been the
+finding, which is why the sweep and not the fix is the deliverable.
 
 ## 2026-08-16/17 — rounds 8, 9 and 10 all closed, v0.6.12 leaves beta, and six instrument defects
 
