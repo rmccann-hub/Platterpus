@@ -11,7 +11,7 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
-## 2026-08-16/17 — round 8 closed, protocol v4, and three ways a record drifted while every gate read healthy
+## 2026-08-16/17 — rounds 8, 9 and 10 all closed, v0.6.12 leaves beta, and six instrument defects
 
 **Round 8 is `CLOSED`** — `GO`/`GO` on `ddf7ac3`, digests agreeing at
 `81415fe9a22d4884 over 12`. **Round 9 is in `RECONCILE`**, ours
@@ -112,6 +112,69 @@ must *not* match `round-*.md`, the glob both projects' gates use, or a container
 could be resolved as a lap and displace a round's real latest one.
 
 ---
+
+### Rounds 9 and 10 closed too, and the release went out
+
+**Round 9: 11 laps.** It entered `RECONCILE` twice over digests that were **never a
+disagreement about the record** — the fork published a verifier's computation under the
+writer's field, then a number typed from a command run before one of our laps existed.
+We localised the second by exhaustive search over subsets (`{1,2,3,5}`); they found the
+command in their own session log. Closed `GO`/`GO` on `b56f936`.
+
+**Round 10: 5 laps.** Subject: cyanrip's `HANDSHAKE_RELEASED` was **unreachable**, so
+`-- NOT a released build` had become a constant printed into every archival record as
+though it varied. We chose *declare it at build time in the `Consumer:` idiom, the option
+defaulting unset so a mis-set flag under-claims*; they built it, and the released
+rendering exists for the first time. Closed `GO`/`GO` on `56413d2`.
+
+**`v0.6.12` shipped** — out of beta, on `ddf7ac3` (round 8's rig-tested release). **Not**
+on their brand-new `c4d1a00`: their own lap 5 measured that a default build of that
+tarball still says *"NOT a released build"*, because the released rendering needs
+`-Ddeclare_released=true` and our installer does not pass it. One line, round 11's work.
+
+### Six instrument defects, roughly half of them ours
+
+| ours | theirs |
+|---|---|
+| a sent lap edited after sending | a sent lap edited after sending |
+| a gate that could never close a **peer-opened** round — failed *closed* | a gate that closed a round on a **superseded** peer verdict — failed *open*, and compiled `"round 9 lap 7 closed"` into every logfile |
+| a pin check satisfiable by a build tag, or by prose arguing *against* the pin | an `--exclude` that silently dropped nothing |
+| a suite exit code read through a pipe, so a red commit was reported green | `HANDSHAKE_RELEASED` unreachable since one commit before the pin round 9 approved |
+
+**Neither project could have found the last one alone.** Their replay lives in their
+repository; the evidence it was wrong — `round08pinmanifest.txt`, written by `gddf7ac3`,
+carrying no disclaimer — lives in our rig artifacts. Their fix then exposed the mirror
+defect in **our** parser: every reader anchored on `^Handshake:`, so we would have
+captured `-- released build` and dropped `(declared at build time, not verified by
+cyanrip)` — their defect, repaired on their side, re-created on ours by a line-oriented
+parser.
+
+### Lessons graduated
+
+- **A count of a growing thing is a fact with an expiry date.** If a sentence must
+  survive the next lap, name the members, not the cardinality. Written after the same
+  error fired three times in one lap — including inside the paragraph correcting it.
+- **A measurement taken through a pipeline measures the pipeline.** `pytest | tail`
+  reports `tail`'s status. A commit went out reported green with two tests failing.
+- **A test derived from a wrong diagnosis locks the defect in.** Correcting our
+  peer-opened-round diagnosis turned red a test that had asserted the *symmetric hole*
+  as desired behaviour.
+- **"Handed to the operator" and "delivered to the peer" are different events, and only
+  the operator can tell them apart.** Our `SENT_LAPS` boundary was wrong in *both*
+  directions inside 48 hours. v4 §4a makes `RECEIVED` claimable only by the recipient for
+  exactly this reason, then leaves `SENT` to the sender — the one party who cannot
+  observe it.
+- **A round close is not a bookkeeping act.** Closing round 8 moved a gate verdict, two
+  report-facing constants stamped into every rip report and EAC log, and a generated
+  document — none of them in `docs/handshake/`.
+- **Approval is bilateral or it is nothing.** Our lap 2 used `HANDSHAKE-PIN` for the pin
+  we *install* while theirs used it for the pin under *review*; keying the approval check
+  on one side made round 10 look like the round that approved `ddf7ac3`. It now requires
+  a lap from each side.
+- **Cite the artifact, not its filename.** We quoted an upload filename prefix from a
+  *different lap* as a sha256, in the one field whose job is to show the answer came from
+  the artifact. Our own digest caught what the citation could not.
+
 
 ## 2026-08-15 — round 8's rip, a `GO` we could have declined to give, and a cue that carried its own control
 
