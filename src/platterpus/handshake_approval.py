@@ -54,7 +54,7 @@ from platterpus.deps import fork_source
 #: names :data:`~platterpus.deps.fork_source.FORK_PIN` — today
 #: ``docs/handshake/verified/round-07-lap-41.md``, which declares ``platterpus
 #: 0.6.5`` against pin ``ddf7ac3``.
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.5"
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.12b6"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -77,7 +77,14 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.5"
 #: ``tests/test_fork_source.py::test_the_approval_round_and_app_version_match_the_record``
 #: now derives both from ``docs/handshake/`` the same way the pin is derived, so the
 #: three values move together or the suite fails.
-APPROVED_BY_ROUND: Final[int] = 7
+#: **Moved 7 -> 8 on 2026-08-17, when round 8 finally closed.** Round 8's GO was
+#: bilateral five days earlier; what was missing was our side's ability to
+#: *transcribe* their lap 17 from the file, which had not reached us. Filing
+#: `round-08-lap-18.md` moved the newest CLOSED round, and this constant with it.
+#: The test below caught it in the same run -- which is the whole point of
+#: deriving it from the record: closing a round has a product consequence, and
+#: nothing else in the codebase would have noticed the attribution going stale.
+APPROVED_BY_ROUND: Final[int] = 8
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.
