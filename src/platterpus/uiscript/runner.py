@@ -1700,7 +1700,7 @@ def _panel_fields(window: QWidget) -> dict[str, str]:
         ("_mb_match_value", "musicbrainz"),
         ("_accuraterip_value", "accuraterip"),
         ("_offset_value", "read offset"),
-        ("_cache_defeat_value", "cache defeat"),
+        ("_cache_value", "cache defeat"),
     ):
         widget = getattr(panel, attr, None)
         text = getattr(widget, "text", None)

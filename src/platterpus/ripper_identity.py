@@ -205,3 +205,43 @@ def identify_from_banner(banner: str) -> RipperIdentity:
     head, _, rest = text.partition("(")
     tag = rest.partition(")")[0] if rest else ""
     return identify_ripper(head.strip(), tag.strip())
+
+
+#: The prefix a fork build tag carries before its commit, e.g.
+#: ``platterpus-fork-gc4d1a00``. The ``g`` is git-describe's, not ours.
+_FORK_COMMIT_PREFIX: Final[str] = "platterpus-fork-g"
+
+
+def fork_commit_from_banner(banner: str) -> str | None:
+    """The fork commit a banner names, or ``None`` when it names none.
+
+    ``"cyanrip 0.9.4-rc1+platterpus.6 (platterpus-fork-gc4d1a00)"`` -> ``"c4d1a00"``.
+
+    **Why this lives here rather than in the window that wanted it.** It used to
+    be a private method on the update mixin, reading a cached
+    ``self._observed_ripper_banner`` — an attribute assigned **nowhere in the
+    tree**. Because the read went through ``getattr(..., "")`` it could not raise,
+    so the method returned ``None`` on every call and the ripper update check
+    silently compared the manifest against the build-time constant ``FORK_PIN``
+    instead of against the installed binary. It reported *"you have release 11
+    (ddf7ac3)"* to an operator running ``c4d1a00`` — forever, including
+    immediately after a successful install (2026-08-17).
+
+    The lesson is not "assign the attribute": it is that a **cached observation
+    has a producer somebody has to remember to write**, and a probe does not. The
+    caller now reads the binary at check time, on its own thread, and passes the
+    banner straight in. Nothing to forget, and nothing to go stale.
+
+    Banner parsing stays in this module for the same reason
+    :func:`identify_from_banner` does — one place owns the shape of that line, so
+    a second private regex cannot drift from it.
+
+    Never raises: every failure mode is "we cannot tell", which is a ``None``.
+    """
+    text = (banner or "").strip()
+    if "(" not in text or ")" not in text:
+        return None
+    tag = text[text.index("(") + 1 : text.rindex(")")].strip()
+    if not tag.casefold().startswith(_FORK_COMMIT_PREFIX):
+        return None
+    return tag[len(_FORK_COMMIT_PREFIX) :].strip() or None
