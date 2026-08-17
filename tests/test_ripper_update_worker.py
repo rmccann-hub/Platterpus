@@ -302,14 +302,26 @@ def test_the_channel_is_read_live_and_falls_back_to_stable(qapp) -> None:
         ("", None),
     ],
 )
-def test_the_installed_commit_is_read_off_the_banner(banner, expected, qapp) -> None:
-    """Best-effort and never raising: this is a convenience input to a check whose
-    every failure mode is already "not determined"."""
-    from platterpus.config import Config
-    from platterpus.ui.main_window_update import UpdateMixin
+def test_the_installed_commit_is_read_off_the_banner(banner, expected) -> None:
+    """Best-effort and never raising: every failure mode is already "not determined".
 
-    window = _stub_window(Config(), banner=banner)
-    assert UpdateMixin._installed_ripper_commit(window) == expected
+    **Repointed 2026-08-17, and the move is the fix.** This used to call
+    ``UpdateMixin._installed_ripper_commit(window)``, whose only input was a cached
+    ``window._observed_ripper_banner`` — an attribute assigned **nowhere in src/**,
+    and assigned *here*, by ``_stub_window``. That is precisely what made the dead
+    code look wired: the test supplied the producer the product lacked, so the
+    parsing was exercised while the path that fed it in production returned ``None``
+    on every call. The window then reported the build-time constant ``FORK_PIN`` as
+    "what you have", forever, including right after a successful install.
+
+    The parsing now lives in :func:`platterpus.ripper_identity.fork_commit_from_banner`
+    and the worker probes the binary for the banner itself, so there is no cache to
+    populate and nothing for a stub to stand in for. The cases below are unchanged —
+    they were always the right cases, asked of the wrong object.
+    """
+    from platterpus.ripper_identity import fork_commit_from_banner
+
+    assert fork_commit_from_banner(banner) == expected
 
 
 def test_the_verdict_dialog_renders_plain_text_never_html(qapp, monkeypatch) -> None:

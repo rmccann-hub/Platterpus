@@ -62,6 +62,45 @@ class RipperUpdateWorker(QObject):
         """Break an in-flight fetch. Safe from any thread, and safe to call twice."""
         self._fetcher.cancel()
 
+    def _probe_installed_commit(self) -> str | None:
+        """The fork commit of the binary that is **actually installed**.
+
+        Read off the binary here, on the worker's own thread, rather than taken
+        from the caller. That is the whole fix: this used to arrive as a
+        constructor argument the window filled from a cached
+        ``self._observed_ripper_banner`` — an attribute **assigned nowhere in the
+        tree**. The read could not raise (``getattr`` with a default), so it
+        yielded ``None`` on every call and :func:`evaluate_offer` fell back to the
+        build-time constant ``FORK_PIN``. The dialog therefore told an operator
+        running ``c4d1a00`` that they had *"release 11 (ddf7ac3)"*, and kept
+        saying it after every successful install (2026-08-17).
+
+        **A cached observation needs a producer somebody remembers to write; a
+        probe does not.** So there is no cache any more.
+
+        It belongs on this thread because the probe shells out to the
+        host-exported ripper, which enters a Distrobox container — seconds on a
+        cold container, and the GUI-thread rule forbids that on the main thread.
+
+        Never raises and never blocks the result: every failure yields ``None``,
+        which :func:`evaluate_offer` already treats as "fall back to the pin",
+        and the constructor argument stays honoured as a test seam.
+        """
+        if self.installed_commit:
+            return self.installed_commit
+        try:
+            from platterpus.deps.checks import check_cyanrip
+            from platterpus.paths import CYANRIP_BINARY_DEFAULT
+            from platterpus.ripper_identity import fork_commit_from_banner
+
+            probe = check_cyanrip(CYANRIP_BINARY_DEFAULT)
+            if not probe.present:
+                return None
+            return fork_commit_from_banner(str(probe.raw_output or ""))
+        except Exception:  # noqa: BLE001 — a probe must never fail the check
+            log.warning("could not read the installed ripper banner", exc_info=True)
+            return None
+
     @Slot()
     def run(self) -> None:
         from platterpus.deps.ripper_manifest import fetch_manifest
@@ -70,7 +109,7 @@ class RipperUpdateWorker(QObject):
         try:
             manifest = fetch_manifest(fetch=self._fetcher.fetch)
             offer = evaluate_offer(
-                manifest, self.channel, installed_commit=self.installed_commit
+                manifest, self.channel, installed_commit=self._probe_installed_commit()
             )
         except Exception:  # noqa: BLE001 — a worker must always finish
             log.exception("ripper update check crashed")

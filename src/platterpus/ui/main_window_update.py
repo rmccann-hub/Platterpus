@@ -169,7 +169,6 @@ class UpdateMixin(MainWindowShared):
         # data — the worker must not touch the config or probe a binary off-thread.
         self._ripper_update_worker = RipperUpdateWorker(
             channel=self._ripper_channel(),
-            installed_commit=self._installed_ripper_commit(),
         )
         self._ripper_update_thread = QThread(self)
         self._ripper_update_worker.finished.connect(self._on_ripper_update_result)
@@ -191,24 +190,6 @@ class UpdateMixin(MainWindowShared):
 
         channel = str(getattr(self._config, "ripper_channel", CHANNEL_STABLE) or "")
         return channel if channel in CHANNELS else CHANNEL_STABLE
-
-    def _installed_ripper_commit(self) -> str | None:
-        """The fork commit actually installed, read off the banner we last observed.
-
-        ``None`` when we have not seen a banner, or when it carries no fork build
-        tag — the offer then falls back to the commit this build *pins*, which is
-        what a user who has never run ``--install-ripper`` has. Deliberately
-        best-effort and never raising: this is a convenience input to a check whose
-        every failure mode is already "not determined".
-        """
-        banner = str(getattr(self, "_observed_ripper_banner", "") or "")
-        if "(" not in banner or ")" not in banner:
-            return None
-        tag = banner[banner.index("(") + 1 : banner.rindex(")")].strip()
-        prefix = "platterpus-fork-g"
-        if not tag.casefold().startswith(prefix):
-            return None
-        return tag[len(prefix) :].strip() or None
 
     def _on_ripper_update_result(self, offer: object) -> None:
         """Show the verdict. Never installs — see the section comment above."""
