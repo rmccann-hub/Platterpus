@@ -1221,3 +1221,100 @@ def test_two_files_at_one_lap_from_DIFFERENT_senders_are_fine(
     assert not hs.ordering_blockers(sorted(tmp_path.glob("*.md"))), (
         "two senders at the same lap were refused; concurrent laps are legitimate"
     )
+
+
+# --- a round the PEER opened must be able to close ---------------------------------
+#
+# WHAT HAPPENED (2026-08-17). `round_status` required an OUTBOUND file to close a
+# round: `state = "CLOSED" if (sent and back and both_go)`. Protocol v4 §1a -- adopted
+# in round 9 -- says the PROVIDER opens, "because only the provider can mint the unit
+# of work". When cyanrip opens, every lap of ours is a verification and lives in
+# `verified/`; `outbound/` stays empty for the whole round.
+#
+# So round 9 reported OPEN with BOTH SIDES DECLARING GO, and would have done so
+# forever -- blocking every release, because the deviation policy forbids releasing
+# while a round is open. Invisible for eight rounds because we opened all eight.
+#
+# The mirror of the fork's own round-9 lap-7 §C: a gate reading the wrong directory.
+# Theirs failed OPEN and permitted a release it should have refused; ours failed
+# CLOSED. Fail-closed is the right direction to be wrong in and is still wrong.
+
+
+def _peer_opened_round(hs: ModuleType, base: Path, *, their_newest: str) -> list[str]:
+    """A round with NO outbound file: they opened it, we only ever verified.
+
+    Returns `round_status` lines. `their_newest` is the verdict on the newest inbound
+    lap, so one helper covers both the close and the refusal.
+    """
+    outbound, inbound, verified = _round_dirs(base)
+    # NOTHING in outbound/ -- that is the whole point.
+    (inbound / "round-09-lap-09.md").write_text(
+        _closing(hs, "cyanrip-fork", 9, 9).replace(
+            "HANDSHAKE-VERDICT: GO", f"HANDSHAKE-VERDICT: {their_newest}"
+        ),
+        encoding="utf-8",
+    )
+    (verified / "round-09-lap-10.md").write_text(
+        _closing(hs, "platterpus", 9, 10), encoding="utf-8"
+    )
+    assert not list(outbound.glob("*.md")), "the fixture must have no outbound file"
+    return hs.round_status(root=base)
+
+
+def test_a_peer_opened_round_can_CLOSE_without_an_outbound_file(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The regression. Both sides GO, no outbound file, round 9 must CLOSE."""
+    lines = _peer_opened_round(hs, tmp_path, their_newest="GO")
+    assert any(line.endswith("CLOSED") for line in lines), lines
+    assert not any(line.endswith("OPEN") for line in lines), lines
+
+    # REVERT-PROOF. Re-impose the old requirement and the same tree must go OPEN, or
+    # this test passes for a reason unrelated to the fix.
+    verified = tmp_path / "verified"
+    inbound = tmp_path / "inbound"
+    sent = list((tmp_path / "outbound").glob("*.md"))
+    done = list(verified.glob("*.md"))
+    back = list(inbound.glob("*.md"))
+    assert done and back and not sent, (sent, done, back)
+    assert not (sent and back and done), (
+        "the old condition `sent and back and both_go` is no longer unsatisfiable on "
+        "this fixture, so the regression is unreachable and the fix needs "
+        "re-justifying"
+    )
+
+
+def test_a_peer_opened_round_still_refuses_when_their_NEWEST_lap_is_not_GO(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The floor, and the direction that matters.
+
+    Dropping the outbound requirement must not make a peer-opened round close on our
+    verdict alone — that would trade a gate that refuses everything for one that
+    refuses nothing, which is how the fork's own §C defect behaved.
+    """
+    lines = _peer_opened_round(hs, tmp_path, their_newest="HOLD")
+    assert any(line.endswith("OPEN") for line in lines), lines
+    assert not any(line.endswith("CLOSED") for line in lines), (
+        "a peer-opened round closed while their newest lap declared HOLD"
+    )
+
+
+def test_we_opened_rounds_still_need_our_own_verification(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The other floor: holding only THEIR file never closes a round.
+
+    `done` replaced `sent` in the close condition, so the check that we contributed
+    at all now rests entirely on `verified/`. With nothing of ours, a round must stay
+    OPEN however emphatic their GO is.
+    """
+    outbound, inbound, _verified = _round_dirs(tmp_path)
+    (outbound / "round-09-lap-01.md").write_text(
+        _closing(hs, "platterpus", 9, 1), encoding="utf-8"
+    )
+    (inbound / "round-09-lap-09.md").write_text(
+        _closing(hs, "cyanrip-fork", 9, 9), encoding="utf-8"
+    )
+    lines = hs.round_status(root=tmp_path)
+    assert any(line.endswith("OPEN") for line in lines), lines

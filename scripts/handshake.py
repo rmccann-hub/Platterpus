@@ -1640,7 +1640,30 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
             and not their_blockers
             and not unorderable
         )
-        state = "CLOSED" if (sent and back and both_go) else "OPEN"
+        # OUR CONTRIBUTION IS A LAP OF OURS, WHEREVER IT LIVES — not an outbound file.
+        #
+        # **This condition could not be satisfied by a round the PEER opened, and
+        # round 9 is the first one.** Protocol v4 §1a — adopted in round 9 itself —
+        # says *the provider opens, because only the provider can mint the unit of
+        # work*. When they open, we never write an opening file: every lap of ours is
+        # a verification, and verifications live in `verified/`. So `sent` was empty
+        # for the whole round, and `--status` reported round 9 `OPEN` with **both
+        # sides declaring GO** — a gate condition no correctly-shaped peer-opened
+        # round can ever meet, which would have blocked every release indefinitely.
+        #
+        # Invisible for eight rounds because we opened all eight, so `outbound/` was
+        # always non-empty and the coupling never showed. The same shape the fork
+        # found in their own gate one lap earlier (round 9 lap 7 §C): a gate reading
+        # the wrong directory. Theirs failed **open** and permitted a release it
+        # should have refused; ours failed **closed** and refused one it should have
+        # permitted. Fail-closed is the right direction to be wrong in, and it is
+        # still wrong.
+        #
+        # `done` rather than `sent or done`: `both_go` already requires `verdict`,
+        # which is read from `done[-1]`, so a round cannot reach here with our GO and
+        # no verification file. Naming `done` states the real requirement instead of
+        # accepting either.
+        state = "CLOSED" if (done and back and both_go) else "OPEN"
 
         def shown_verdict(value: str | None) -> str:
             if value is None:
