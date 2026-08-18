@@ -51,6 +51,17 @@ So the shape is now **notice, and offer to do it** — three changes, each narro
 an arbitrary commit has been approved by nobody, so it is exactly the case that
 *should* cost a person a deliberate act. :func:`_install_hint` still renders it, for
 the offers where it belongs.
+
+**Being behind the fork is the normal state, so the code has to handle it well.** Our
+pin sits several fork releases back on purpose — round 11 §5: ``ddf7ac3`` has hardware
+behind it and nothing published since has been near a drive, and *"we do not ship a
+ripper to users on the strength of a suite"*. So this module's job is not to close a
+gap; it is to describe one accurately, and the gap will keep widening between hardware
+rounds. That is why :func:`_seq_from_manifest` exists: a hand-maintained map of
+release numbers cannot place a build published after the map shipped, and the
+consequence of it failing to is a user on the fork's current release being told their
+ripper has no story. Placing it from *their* document survives the next release
+without an edit here.
 """
 
 from __future__ import annotations
@@ -301,6 +312,66 @@ def _test_pin_offer(channel: str, installed: str, *, retired: bool) -> RipperOff
     )
 
 
+def _seq_from_manifest(installed: str, manifest: RipperManifest | None) -> int | None:
+    """Where ``installed`` sits in the release sequence **according to their document**.
+
+    The second of two sources, and it exists because neither one alone can place the
+    builds people actually run.
+
+    * :data:`~platterpus.deps.fork_source.FORK_RELEASE_SEQ_BY_PIN` is *our* record.
+      It is the only source that can place a build the fork has since moved past —
+      including our own pin ``ddf7ac3`` (release 11), which is the head of no channel
+      any more and therefore appears nowhere in the current manifest.
+    * The manifest is *their* statement, and the only source that can place a release
+      published **after this Platterpus was built**.
+
+    **The second source is the fix for a defect the first one keeps producing.** The
+    map is hand-maintained, which makes it a mirror of a document we already download,
+    and a stale mirror answers ``None`` — which routes a user sitting on the fork's
+    newest published stable to :func:`_mismatch_offer`: *"the build installed on this
+    machine is not the one this Platterpus was verified against."* True, and it drops
+    the fact that actually explains their situation, that they are on the fork's
+    current release. That is the message the maintainer received on 2026-08-17 while
+    running ``c4d1a00``.
+
+    Adding ``c4d1a00`` to the map fixed **that build**. This fixes the **class**: the
+    next release is equally absent from a map that shipped before it existed, so
+    without this the identical wrong message returns on release 17 — and our pin is
+    deliberately several releases behind (round 11 §5: ``ddf7ac3`` is rig-tested,
+    nothing since has been near a drive), so being behind is the *normal* state here,
+    not an anomaly to be tidied away. `CLAUDE.md`: where the underlying source is
+    reachable, derive from it rather than maintaining a list by hand.
+
+    Our record is asked **first**, and not because it is more trustworthy — the two
+    agree wherever they overlap, which ``tests/test_ripper_manifest.py`` checks
+    against the fork's own published document. It is so the answer for the build we
+    care most about does not depend on the network being reachable.
+
+    ``None`` stays a real answer: a build neither source can place cannot be ordered
+    against anything, and the caller must report "not determined" rather than guess a
+    direction.
+    """
+    if manifest is None:
+        return None
+    # Iterate OUR channel tuple rather than the dict, so the order two channels are
+    # consulted in is fixed by this codebase instead of by JSON key order in a
+    # document we did not write. Both channels usually name the same commit, so the
+    # order rarely matters — "rarely matters" is precisely when a non-deterministic
+    # answer goes unnoticed.
+    for name in CHANNELS:
+        row = manifest.channel(name)
+        if row is not None and fork_source.same_commit(installed, row.commit):
+            log.info(
+                "ripper update: build %s is release %d per the fork's manifest "
+                "(%s channel) — not in our own record",
+                installed,
+                row.release_seq,
+                name,
+            )
+            return row.release_seq
+    return None
+
+
 def evaluate_offer(
     manifest: RipperManifest | None,
     channel: str = CHANNEL_STABLE,
@@ -352,10 +423,10 @@ def evaluate_offer(
 
     installed_seq = fork_source.release_seq_for_commit(installed)
     if installed_seq is None:
-        # Not a numbered release. Three sub-cases, and they are genuinely different
-        # to the person reading the message: the current test pin (expected), a
-        # retired one (stale evidence), or a build we have no story for (the
-        # `c4d1a00` case that prompted this redesign).
+        # Not a release OUR record lists. Handle the session builds first: being the
+        # pin two projects nominated for a hardware round is the more relevant fact
+        # about a binary than where it sits in a sequence, and it is the one case
+        # where reinstalling over it would wreck work in progress.
         if fork_source.same_commit(installed, fork_source.FORK_TEST_PIN):
             return _test_pin_offer(channel, installed, retired=False)
         if any(
@@ -363,6 +434,14 @@ def evaluate_offer(
             for retired in fork_source.SUPERSEDED_TEST_PINS
         ):
             return _test_pin_offer(channel, installed, retired=True)
+        # Then ask THEIR document, which knows about releases published after this
+        # Platterpus was built — see :func:`_seq_from_manifest` for why a
+        # hand-maintained map cannot be the only source here.
+        installed_seq = _seq_from_manifest(installed, manifest)
+    if installed_seq is None:
+        # Neither source can place it: a build with no story. Offline with an
+        # unrecognised binary lands here too, which is the right answer — the useful
+        # advice needs no network.
         return _mismatch_offer(channel, installed)
 
     if manifest is None:
@@ -476,10 +555,26 @@ def _up_to_date_offer(
         if channel == CHANNEL_BETA
         else " You're on the stable channel — pre-release ripper builds are not offered."
     )
-    current = (
-        f"Your cyanrip build is the newest published: {row.version} ({installed}), "
-        f"release {installed_seq} on the {channel} channel.{channel_note}"
-    )
+    if fork_source.same_commit(installed, row.commit):
+        current = (
+            f"Your cyanrip build is the newest published: {row.version} ({installed}), "
+            f"release {installed_seq} on the {channel} channel.{channel_note}"
+        )
+    else:
+        # AHEAD OF THIS CHANNEL, which is not the same statement and must not borrow
+        # the other one's sentence. `row` is the channel head; `installed` is a
+        # different build that nothing newer supersedes — a beta while Settings say
+        # stable, or a commit installed by hand. Pairing `row.version` with
+        # `installed` here would print the head's version number against somebody
+        # else's commit and call it "on the stable channel": every field true, the
+        # sentence false. Exactly the shape `CLAUDE.md` keeps naming, and it only
+        # became reachable once we started resolving a sequence the manifest states
+        # rather than only ones our own map lists.
+        current = (
+            f"Nothing newer than your cyanrip build is published on the {channel} "
+            f"channel — you have release {installed_seq} ({installed}), and {channel} "
+            f"is at release {row.release_seq} ({row.commit}).{channel_note}"
+        )
     if fork_source.same_commit(installed, fork_source.FORK_PIN):
         return RipperOffer(
             verdict=OFFER_UP_TO_DATE,

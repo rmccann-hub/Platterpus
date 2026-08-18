@@ -109,6 +109,61 @@ looking for it.** A hang at 56%, an `_active_dialog()` assertion in an unrelated
 file. The rule that would have caught all three up front is now §3.12/§3.12a — ask
 *who is on the stack when this opens*, and *is anybody there to answer*.
 
+### The `FORK_PIN` gap: a deliberate decision, and a defect it was hiding
+
+Asked to address the gap between our pin (`ddf7ac3`, fork release **11**) and the
+fork's published stable (`c4d1a00`, release **16**). The first job was to find out
+whether it is drift, and the record settles it: it is not. Round 11's own
+verification file, `HANDSHAKE-PIN-POLICY`, says *"Reviewed and approved, not
+installed. FORK_PIN stays ddf7ac3"*, and its §5 gives the reason — **`c4d1a00` has no
+hardware behind it; `ddf7ac3` does.** Round 8 rig-tested `ddf7ac3` on the BDR-209D
+and nothing published since has been near a drive. *"We do not ship a ripper to users
+on the strength of a suite."*
+
+Two consequences worth stating together, because they point the same way:
+
+- `scripts/handshake.py --status` reports **all eleven rounds CLOSED**. No round is
+  open, so nothing in the handshake gate blocks a release today. Chasing the pin means
+  **opening round 12**, which closes that door — and per S-13 a round's close
+  conditions are fixed at its lap 1, so it cannot be opened cheaply "just to move a
+  constant". Moving the pin is gated on hardware (TASKS #53), not on code.
+- So being several fork releases behind is the **normal steady state here, by design**,
+  and it widens between hardware rounds. That reframes the gap from something to tidy
+  up into something the code has to describe well — which is where the actual defect
+  was.
+
+**The defect.** Where a build sits in the release sequence was answered *only* from
+`FORK_RELEASE_SEQ_BY_PIN`, a map maintained by hand in this repo. A map cannot list a
+release published after the map shipped, so the fork's *current stable* came back as
+"no sequence" and the app told the maintainer their ripper was not one this Platterpus
+was verified against — true, and it dropped the fact that explains their situation.
+Yesterday's fix added `c4d1a00: 16` to the map. That fixed **that build** and left
+release 17 to fail identically: the instance, not the class.
+
+The sequence now comes from **their manifest** as well — the document we already
+download — with our own record asked first so the answer for our own pin needs no
+network. Neither source can be dropped, which is the part that makes this two sources
+rather than a replacement: the map is the only thing that can place `ddf7ac3`, the
+head of no channel any more and therefore absent from every current manifest; the
+manifest is the only thing that can place a release newer than us. `CLAUDE.md`: *where
+the underlying source is reachable, derive from it.*
+
+**A second defect fell out of fixing the first, and it is the more interesting one.**
+Resolving a sequence we had previously refused made a new state reachable: a build
+*ahead* of the channel being asked about — a beta while Settings say stable. In that
+state `_up_to_date_offer` paired the **channel head's** version string with the
+**installed** commit and described it as "the newest published on stable". Every field
+in the sentence was true and the sentence was false. It had been unreachable only
+because we were too ignorant to get there, which is the uncomfortable shape: *a bug
+masked by a smaller bug*, and the fix for the smaller one exposes it. Answering
+"what new state does this fix create?" in the commit message is what found it — the
+question earns its place in `CLAUDE.md` again.
+
+Revert-proven rather than argued: removing the second source fails the two tests that
+assert it (`assert 'mismatched' == 'up_to_date'`), the third test is the control that
+passes either way, and the source hash was checked before and after the revert so the
+green run is not a stale read.
+
 ### And then CI found one neither half was looking for
 
 PR #157's `test` jobs went red on a test that passes locally, in a file this change

@@ -1021,6 +1021,16 @@ These remove most of the README's "until X happens" caveats. Done in order, they
       Earlier prep notes (2026-05-31): README rewritten for a published-AppImage world, `CHANGELOG.md` added, real app icon committed, release/CI workflows authored and YAML-validated.
 - **[x] Publish the wheel to PyPI — DONE.** Method B is live: `pipx install platterpus` works. `.github/workflows/publish-pypi.yml` builds wheel+sdist, `twine check`s them, and publishes via **Trusted Publishing (OIDC, no stored token)** on each release, separate from `release.yml` so it can't block the AppImage. The one-time PyPI Trusted-Publisher config is in place and the publish run has gone green on every tagged release.
 
+### P1 — The `FORK_PIN` gap: gated on hardware, not on code (assessed 2026-08-18)
+
+Our pin is `ddf7ac3` = fork release **11**; the fork's published stable is `c4d1a00` = release **16**. **This is a decision, not drift** — round 11's `HANDSHAKE-PIN-POLICY` reads *"Reviewed and approved, not installed. FORK_PIN stays ddf7ac3"*, and its §5 gives the reason: `ddf7ac3` has BDR-209D evidence behind it and nothing published since has been near a drive. *"We do not ship a ripper to users on the strength of a suite."*
+
+- **[x] Stop the gap being described wrongly (2026-08-18).** The release sequence of an installed build came only from `FORK_RELEASE_SEQ_BY_PIN`, a map maintained by hand here — so a release published *after* this app was built could not be placed, and a user on the fork's current stable was told their ripper had no story. It now also resolves from the fork's own manifest, so **the gap widening no longer degrades the message**. Since the gap is the normal steady state between hardware rounds, that mattered more than the gap itself.
+- **[ ] Move `FORK_PIN` — blocked, and deliberately so.** Two preconditions, in this order:
+  1. **Hardware evidence for the newer build** — the rig run in the *Hardware-gated* item below. Code-side prep is already done: `meson_options` is wired, so the move is a constant plus a rig session, not a build change.
+  2. **A handshake round that approves it.** That means **opening round 12**, which is not free: `scripts/handshake.py --status` shows all eleven rounds CLOSED today, so nothing blocks a release *right now*, and opening a round closes that door until both sides declare GO. Per **S-13** a round's close conditions are fixed at its lap 1, so a round cannot be opened cheaply just to move a constant.
+- **Do not "tidy" the pin forward.** Every mechanism that would let it drift silently is deliberate: `FORK_PIN_RELEASE_SEQ` is `None` if the pin moves without its sequence being recorded (the suite refuses that state), and `test_the_pin_is_the_one_the_newest_closed_handshake_round_verified` derives the pin from `docs/handshake/verified/` rather than trusting the constant.
+
 ### P1 — Install automation
 
 The host-side setup (Distrobox, container, whipper, exports) currently lives only in the README's prose. A reproducible script would catch the same pitfalls we hit walking the user through (`python3-setuptools` dep, `:latest` image pull confirmation, distrobox-export needs container entry). The post-clone side is already covered by `dev-setup.sh`.

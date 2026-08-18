@@ -1386,6 +1386,46 @@ believed (§5.s).
 import — under `python -m pytest`. Had the guard not been written as a sweep, the same
 command would have gone on vouching for the same blind spot.
 
+### §5.ak — A bug can be masked by a smaller bug, so a fix makes new states reachable
+
+*The ripper offer, 2026-08-18. Found by answering "what new state does this fix
+create?" in a commit message, which is the only reason it was found at all.*
+
+`_up_to_date_offer` rendered the **channel head's** version string against the
+**installed** commit and described it as *"the newest published on the stable
+channel"*. Every field in that sentence was read from a real object; the sentence was
+false. It reports one build's version number as another build's identity.
+
+**It was unreachable, and it was unreachable for the wrong reason.** Getting there
+requires a build that is ahead of the channel being asked about — a beta build while
+Settings say stable. Placing such a build requires knowing its release sequence, and
+the sequence came only from a hand-maintained map in this repo, which by construction
+cannot list a release newer than itself. So the code could never *get* to the state
+where it would have lied. The larger defect (refusing to place a newer release at all
+— the thing a user actually reported) was **hiding** the smaller one.
+
+That is the generalisable part, and it inverts the usual intuition about risk:
+
+> **A correctness fix expands the state space.** States the old bug made unreachable
+> become reachable, and nothing has ever executed them. They are not regressions
+> introduced by the fix — they are pre-existing defects the fix *exposes*, which is
+> worse in one specific way: they arrive already believed-in, in code that has been
+> in the tree for weeks and has a passing test suite behind it.
+
+So the question `CLAUDE.md` asks — *what new state does this fix create, and what
+tests that?* — is not only about state the fix **adds** (a cache, a guard, a
+precondition). It is also about state the fix **unblocks**. Ask, of any fix that makes
+a function answer where it used to decline: *what does the code downstream do with the
+answers it never used to receive?* Then go and read those branches, because no test
+covers them — a branch nothing could reach is a branch nobody wrote a case for.
+
+**The check.** `test_a_build_ahead_of_the_channel_does_not_borrow_the_heads_version`
+asserts the negative directly — `f"{stable_row.version} (abc1234)" not in detail` —
+rather than asserting the new wording, because the wording is ours to change and the
+mis-pairing is the defect. It sits beside a control test
+(`test_without_the_manifest_source_that_build_is_a_mismatch`) that passes with the fix
+reverted, so the pair distinguishes "the new source works" from "the suite is green".
+
 ### 5.ag — An implemented capability is not a capability either (added 2026-08-06)
 
 §5.p is about a capability the docs claimed and the code lacked. This is the step
@@ -1540,4 +1580,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.12.*
+*Last updated for Platterpus v0.6.14.*

@@ -37,6 +37,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   install, so a build that needs `-Ddeclare_released=true` gets it (round 11 §J1).
 
 ### Fixed
+- **A fork release published after your Platterpus is now recognised as a release.**
+  Where a build sits in the fork's release sequence was answered *only* from
+  `FORK_RELEASE_SEQ_BY_PIN`, a map maintained by hand in this repo — so a build newer
+  than the map could not be placed, and a user on the fork's **current published
+  stable** was told their ripper "is not one this Platterpus was verified against"
+  with no mention that it is the fork's newest. That is what the maintainer hit on
+  2026-08-17 running `c4d1a00`, and adding that one commit to the map fixed *that*
+  build while leaving the next one to fail identically. The sequence now also comes
+  from **the fork's own manifest** — which we already download — so a release
+  published after this app was built places itself. Our record is still asked first,
+  so the answer for our own pin needs no network. Neither source can be dropped: the
+  map is the only thing that can place `ddf7ac3` (release 11, the head of no channel
+  any more), and the manifest is the only thing that can place release 17.
+  - Our pin being several fork releases behind is **deliberate and unchanged**
+    (round 11 §5: `ddf7ac3` has rig evidence, nothing published since has been near a
+    drive). The gap widens between hardware rounds by design, which is exactly why
+    the code had to stop treating "newer than our map" as "no story".
+  - Also fixed while reachable: a build ahead of the channel being asked about (a
+    beta while Settings say stable) rendered the *channel head's* version string
+    against the *installed* commit and called it "the newest published on stable" —
+    every field true, the sentence false. It now states where each build sits.
 - **A machine running stock upstream cyanrip was told it was on the fork's current
   release.** `evaluate_offer`'s `installed_commit=None` meant *"assume the pinned
   commit"* — correct before the binary was actually probed, and a claim we never

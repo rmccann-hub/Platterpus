@@ -34,6 +34,7 @@ from platterpus.deps.ripper_offer import (
     OFFER_MISMATCHED,
     OFFER_NOT_DETERMINED,
     OFFER_UP_TO_DATE,
+    _seq_from_manifest,
     evaluate_offer,
 )
 
@@ -876,3 +877,168 @@ def test_the_reported_situation_against_the_real_published_manifest() -> None:
     assert offer.install_commit == fork_source.FORK_PIN
     assert offer.auto_installable is True
     assert "--install-ripper" not in offer.detail
+
+
+# --- Where a build sits in the sequence: TWO sources, and why one is not enough ---
+#
+# `FORK_RELEASE_SEQ_BY_PIN` is a hand-maintained map. That is unavoidable for builds
+# the fork has moved past — our own pin `ddf7ac3` (release 11) is the head of no
+# channel and so appears in no current manifest — but it is the WRONG only-source for
+# builds newer than this Platterpus, because a map cannot list a release published
+# after it shipped. The 2026-08-17 report is that failure: `c4d1a00` was the fork's
+# current stable and our map had never heard of it, so the app called it a build with
+# no story. Adding the commit to the map fixed that build. These tests are about the
+# class, and specifically about the NEXT one.
+
+
+def _future_release(commit: str, seq: int) -> dict[str, Any]:
+    """A manifest naming a release we do not have, as the fork would publish it.
+
+    Deliberately built from `PUBLISHED_V2` — their real document — with only the two
+    fields that must change, so it stays their format rather than becoming ours.
+    """
+    document = json.loads(json.dumps(PUBLISHED_V2))
+    for channel in ("stable", "beta"):
+        document["channels"][channel]["commit"] = commit
+        document["channels"][channel]["release_seq"] = seq
+        document["channels"][channel]["install"] = (
+            f"https://github.com/rmccann-hub/cyanrip/archive/{commit}.tar.gz"
+        )
+    return document
+
+
+def test_a_release_published_after_us_is_placed_from_their_manifest() -> None:
+    """The next release, which no map of ours can possibly list.
+
+    `abc1234` is release 17 in this document and absent from
+    `FORK_RELEASE_SEQ_BY_PIN` — the exact state `c4d1a00` was in on 2026-08-17, one
+    release later. The answer must be "you are on the newest published build, and it
+    is not the one we were verified against", NOT "this build is not one this
+    Platterpus was verified against" with the first half missing.
+    """
+    future = _future_release("abc1234", 17)
+    manifest = parse_manifest(json.dumps(future))
+    assert manifest is not None
+    # The floor for this test: the commit really is unknown to our own record, so the
+    # answer below cannot have come from there.
+    assert fork_source.release_seq_for_commit("abc1234") is None
+
+    offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="abc1234")
+
+    assert offer.verdict == OFFER_UP_TO_DATE, (
+        "a user on the fork's newest published release is up to date for their "
+        f"channel; got {offer.verdict!r} — {offer.detail!r}"
+    )
+    assert "release 17" in offer.detail
+    assert "newest published" in offer.detail
+    # And the half that explains the `unapproved` they will see on every rip.
+    assert "unapproved" in offer.detail
+    assert offer.install_commit == fork_source.FORK_PIN
+    assert offer.auto_installable is True
+
+
+def test_without_the_manifest_source_that_build_is_a_mismatch() -> None:
+    """The non-triviality check: the test above passes *because* of the new source.
+
+    Same commit, same channel, **no manifest** — the only difference is whether the
+    fork's document is in hand. If this returned `up_to_date` too, the test above
+    would be proving nothing about where the sequence came from.
+    """
+    offer = evaluate_offer(None, CHANNEL_STABLE, installed_commit="abc1234")
+    assert offer.verdict == OFFER_MISMATCHED
+    assert "release 17" not in offer.detail
+    # Still useful offline, which is the reason the classification runs before the
+    # network at all: it names the build to install without needing to look anything
+    # up.
+    assert offer.install_commit == fork_source.FORK_PIN
+    assert offer.auto_installable is True
+
+
+def test_our_own_record_still_answers_with_no_manifest_at_all() -> None:
+    """The first source has not been replaced by the second.
+
+    `ddf7ac3` is release 11 in our record and in no current manifest. Offline, on the
+    approved pin, the answer must be the reassuring one — and it must not depend on a
+    document that no longer mentions the build.
+    """
+    offer = evaluate_offer(None, CHANNEL_STABLE, installed_commit=fork_source.FORK_PIN)
+    assert offer.verdict == OFFER_NOT_DETERMINED
+    assert "unreachable or unreadable" in offer.detail
+    # NOT a mismatch: the build is ours, we simply could not check for a newer one.
+    assert offer.verdict != OFFER_MISMATCHED
+    assert offer.install_commit == ""
+
+
+def test_a_session_test_pin_is_still_a_test_pin_even_if_the_manifest_names_it() -> None:
+    """Order matters: the nominated session build outranks its sequence.
+
+    A round's test pin can legitimately also be a published release. Telling an
+    operator mid-session that their ripper is merely "up to date" would drop the fact
+    that matters — that this build is what both projects agreed to gather evidence
+    with — and `auto_installable` must stay False so nothing installs over it.
+    """
+    pinned_as_release = _future_release(fork_source.FORK_TEST_PIN, 99)
+    manifest = parse_manifest(json.dumps(pinned_as_release))
+    assert manifest is not None
+    offer = evaluate_offer(
+        manifest, CHANNEL_STABLE, installed_commit=fork_source.FORK_TEST_PIN
+    )
+    assert offer.verdict == OFFER_NOT_DETERMINED
+    assert "test pin" in offer.detail
+    assert offer.auto_installable is False
+
+
+def test_a_build_ahead_of_the_channel_does_not_borrow_the_heads_version() -> None:
+    """Beta build, stable channel: nothing newer on stable, and a different build.
+
+    This is the state the new source makes reachable, and it is the one that could
+    print a true-in-every-field, false-as-a-sentence answer: the head's *version*
+    number rendered against the *installed* commit, described as being on the channel
+    it is not on. `_up_to_date_offer` must say what is actually the case — nothing
+    newer is published on this channel, and here is where each build sits.
+    """
+    document = json.loads(json.dumps(PUBLISHED_V2))
+    # Stable stays at release 16 / `c4d1a00`; beta moves ahead to 17 / `abc1234`.
+    document["channels"]["beta"]["commit"] = "abc1234"
+    document["channels"]["beta"]["release_seq"] = 17
+    document["channels"]["beta"]["version"] = "0.9.4-rc1+platterpus.7"
+    document["channels"]["beta"]["install"] = (
+        "https://github.com/rmccann-hub/cyanrip/archive/abc1234.tar.gz"
+    )
+    manifest = parse_manifest(json.dumps(document))
+    assert manifest is not None
+    stable_row = manifest.channel(CHANNEL_STABLE)
+    assert stable_row is not None
+
+    offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="abc1234")
+
+    assert offer.verdict == OFFER_UP_TO_DATE
+    # It must NOT claim the installed build is the newest published on stable.
+    assert "newest published" not in offer.detail
+    # Both positions stated, so the sentence is checkable by the person reading it.
+    assert "release 17" in offer.detail
+    assert f"release {stable_row.release_seq}" in offer.detail
+    assert "abc1234" in offer.detail
+    # And the head's version string is NOT paired with somebody else's commit.
+    assert f"{stable_row.version} (abc1234)" not in offer.detail
+
+
+def test_the_manifest_source_never_invents_a_sequence() -> None:
+    """A commit no channel names gets no sequence from the manifest.
+
+    The tri-state has to survive the new source: a second place to look is only an
+    improvement if it still answers "I don't know" when it does not know. Asserted on
+    the resolver directly as well as on the verdict, because the verdict could be
+    right for another reason and this is the property that matters.
+    """
+    manifest = parse_manifest(json.dumps(PUBLISHED_V2))
+    assert manifest is not None
+    # The rows really are populated, so a `None` below is a refusal rather than an
+    # empty document — the "can this check be satisfied by finding nothing?" floor.
+    assert _seq_from_manifest("c4d1a00", manifest) == 16
+    assert _seq_from_manifest("deadbee", manifest) is None
+    assert _seq_from_manifest("deadbee", None) is None
+
+    offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="deadbee")
+    assert offer.verdict == OFFER_MISMATCHED
+    assert offer.release is None
