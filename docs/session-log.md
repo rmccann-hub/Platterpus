@@ -109,6 +109,39 @@ looking for it.** A hang at 56%, an `_active_dialog()` assertion in an unrelated
 file. The rule that would have caught all three up front is now §3.12/§3.12a — ask
 *who is on the stack when this opens*, and *is anybody there to answer*.
 
+### And then CI found one neither half was looking for
+
+PR #157's `test` jobs went red on a test that passes locally, in a file this change
+does not touch: `test_everyday_actions_have_keyboard_shortcuts`, asserting that the
+Quit menu item has a keyboard shortcut.
+
+**It is not ours.** `main` was green 13 hours earlier on **PySide6 6.11.1**; the PR
+run installed **6.11.2**. Same runner image, same Python, every other package
+version identical — read off both job logs rather than assumed. Reproduced on one
+machine, same `QT_QPA_PLATFORM=offscreen`, only the wheel changed:
+
+    6.11.1   Quit -> 'Exit'   Preferences -> 'Settings'   HelpContents -> 'F1'
+    6.11.2   Quit -> ''       Preferences -> ''           HelpContents -> 'F1'
+
+So on 6.11.2 the **Quit and Settings items shipped with no keyboard shortcut at
+all** — a WCAG 2.1.1 regression delivered by somebody else's release, with nothing
+in our diff. The test caught it because it asserts the *requirement* (a non-empty
+shortcut) rather than the *mechanism* (that we called StandardKey), which is the
+distinction that made it useful rather than tautological.
+
+**The lesson graduates to Critical rule #11**, which until now covered only the
+tools that *gate* CI. A floating **runtime** dependency has the same failure mode
+and a worse consequence: not a red build, a shipped regression. And the general form
+is bigger than pinning — *anything we ask a dependency for, we check the answer to.*
+`main_window.standard_shortcut` asks Qt and verifies; the sweep in
+`tests/test_accessibility_standards.py` refuses the unchecked form, because the raw
+`setShortcut(QKeySequence.StandardKey.X)` is exactly what the accessibility
+convention tells the next person to write.
+
+Open question left for the maintainer rather than decided here: whether to also pin
+PySide6 (currently `>=6.7,<7`). The fallback removes the urgency, and pinning the
+GUI framework is a call worth making deliberately.
+
 ### The enforcement audit: four agents, one question per gate
 
 *"you've been having a lot of these oversights … check everything so we dont do this

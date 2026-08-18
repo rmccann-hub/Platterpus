@@ -18,6 +18,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread, QTimer, Signal
+from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
     QDialog,
     QMainWindow,
@@ -122,6 +123,60 @@ _PANE_SHARES: tuple[float, float, float] = (0.20, 0.40, 0.40)
 # offer still connects it to opening the app. Not user-tunable: a knob for it would
 # be a knob for how long to defer being told the ripping path is wrong.
 _RIPPER_CHECK_DELAY_MS: int = 8_000
+
+
+def standard_shortcut(
+    standard: QKeySequence.StandardKey, fallback: str
+) -> QKeySequence:
+    """A ``QKeySequence`` for ``standard``, or ``fallback`` when Qt supplies none.
+
+    **A platform theme is a dependency, and this one moved under us.** Every menu
+    shortcut here is a :class:`QKeySequence.StandardKey` on purpose — the
+    accessibility convention in `CLAUDE.md` names it as the way to avoid a bare
+    single-character shortcut, because it resolves to a modified key per platform.
+    What that convention assumed, and never checked, is that Qt actually *has* a
+    binding for the key we ask about.
+
+    On **PySide6 6.11.2 it stopped having two of them.** Measured on 2026-08-18,
+    same machine, same ``QT_QPA_PLATFORM=offscreen``, only the wheel changed::
+
+        6.11.1   Quit -> 'Exit'     Preferences -> 'Settings'    HelpContents -> 'F1'
+        6.11.2   Quit -> ''         Preferences -> ''            HelpContents -> 'F1'
+
+    So on 6.11.2 the **Quit** and **Settings** menu items shipped with *no keyboard
+    shortcut at all* — a silent WCAG 2.1.1 regression introduced by a routine
+    dependency release, with no change to our code. CI caught it because
+    ``test_everyday_actions_have_keyboard_shortcuts`` asserts the *requirement*
+    rather than the mechanism; that is the test earning its place.
+
+    This is `CLAUDE.md` Critical rule #11 one level out. That rule pins the tools
+    that *gate* CI, on the reasoning that a floating version turns CI red with no
+    change to our code. The same is true of a floating **runtime** dependency, and
+    the consequence is worse: not a red build, a shipped accessibility regression.
+    Pinning PySide6 would stop this instance; asking Qt and then *checking the
+    answer* stops the whole class, on every Qt, forever.
+
+    ``fallback`` must carry a modifier — the a11y sweep in
+    ``tests/test_accessibility_standards.py`` enforces that on the literal, and a
+    bare letter is the thing StandardKey existed to avoid.
+
+    Typed with the real ``QKeySequence`` rather than ``object``. The first version
+    used ``object`` because this module imported ``QKeySequence`` lazily — and that
+    made every ``setShortcut(standard_shortcut(...))`` call a type error, which is
+    the same trap as the ``buttonClicked`` payload one commit earlier. Rule #10 cuts
+    both ways: a type loose enough to be "safe" stops describing the value, and the
+    call site is where that surfaces.
+    """
+    resolved = QKeySequence(standard)
+    if not resolved.isEmpty():
+        return resolved
+    log.warning(
+        "Qt supplied no binding for %s — falling back to %r so the action stays "
+        "keyboard-reachable (PySide6 6.11.2 dropped Quit and Preferences)",
+        standard,
+        fallback,
+    )
+    return QKeySequence(fallback)
 
 
 def _default_window_size() -> tuple[int, int]:
@@ -851,12 +906,16 @@ class MainWindow(
         unknown_action.triggered.connect(self._on_rip_as_unknown)
         file_menu.addSeparator()
         quit_action = file_menu.addAction("&Quit")
-        quit_action.setShortcut(QKeySequence.StandardKey.Quit)
+        quit_action.setShortcut(
+            standard_shortcut(QKeySequence.StandardKey.Quit, "Ctrl+Q")
+        )
         quit_action.triggered.connect(self.close)
 
         tools_menu = menubar.addMenu("&Tools")
         settings_action = tools_menu.addAction("&Settings…")
-        settings_action.setShortcut(QKeySequence.StandardKey.Preferences)
+        settings_action.setShortcut(
+            standard_shortcut(QKeySequence.StandardKey.Preferences, "Ctrl+,")
+        )
         settings_action.triggered.connect(self._on_open_settings)
 
         # Host bootstrap (installs the cyanrip container stack) — the
@@ -897,7 +956,9 @@ class MainWindow(
 
         help_menu = menubar.addMenu("&Help")
         guide_action = help_menu.addAction("&User Guide…")
-        guide_action.setShortcut(QKeySequence.StandardKey.HelpContents)
+        guide_action.setShortcut(
+            standard_shortcut(QKeySequence.StandardKey.HelpContents, "F1")
+        )
         guide_action.triggered.connect(self._on_show_help)
         update_action = help_menu.addAction("Check for &updates…")
         update_action.triggered.connect(self._on_check_updates)

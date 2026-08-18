@@ -82,6 +82,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   was doing and did not return until somebody answered — which nothing guarantees.
   Measured as an indefinite hang; a user would meet it as a frozen window.
 
+- **PySide6 6.11.2 silently removed the keyboard shortcuts from Quit and
+  Settings.** `QKeySequence.StandardKey.Quit` and `.Preferences` resolve to nothing
+  on 6.11.2 and resolved fine on 6.11.1 — reproduced on one machine, same
+  `QT_QPA_PLATFORM=offscreen`, only the wheel changed. `HelpContents` still
+  resolves. So a routine dependency release shipped a WCAG 2.1.1 regression with no
+  change to our code, and CI caught it only because
+  `test_everyday_actions_have_keyboard_shortcuts` asserts the *requirement* rather
+  than the mechanism.
+  - `main_window.standard_shortcut` now asks Qt and **checks the answer**, falling
+    back to `Ctrl+Q` / `Ctrl+,` / `F1` with a logged warning. Qt's binding still
+    wins whenever it has one, so per-platform behaviour is unchanged.
+  - Swept, not fixed at the three sites: a raw
+    `setShortcut(QKeySequence.StandardKey.X)` is the shape that broke, and it is
+    what the accessibility convention literally tells the next person to write.
+
 ### Changed (CI/release gates — an enforcement audit of every "enforced by" claim)
 - **The `lint` job installed `ruff>=0.15,<1` while `pyproject.toml` pinned
   `>=0.15.22,<0.16`.** Critical rule #11 (*"a tool that gates CI must not float"*)

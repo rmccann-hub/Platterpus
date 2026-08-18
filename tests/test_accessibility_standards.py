@@ -261,3 +261,107 @@ class TestTargetSize:
             "explicitly sized below the 24 px WCAG 2.5.8 floor:\n  "
             + "\n  ".join(offenders)
         )
+
+
+class TestShortcutsSurviveAQtUpgrade:
+    """2.1.1 — a menu action must stay keyboard-reachable across Qt versions.
+
+    **A platform theme is a dependency, and this one moved under us.** The
+    convention above says to use `QKeySequence.StandardKey` rather than a literal,
+    so shortcuts resolve to a modified key per platform. What it assumed, and never
+    checked, is that Qt actually *has* a binding for the key we ask about.
+
+    PySide6 **6.11.2** stopped having two of them. Measured 2026-08-18, same
+    machine, same `QT_QPA_PLATFORM=offscreen`, only the wheel changed:
+
+        6.11.1   Quit -> 'Exit'   Preferences -> 'Settings'   HelpContents -> 'F1'
+        6.11.2   Quit -> ''       Preferences -> ''           HelpContents -> 'F1'
+
+    So on 6.11.2 the **Quit** and **Settings** items shipped with no shortcut at
+    all — a WCAG 2.1.1 regression from a routine dependency release, with no change
+    to our code. `main_window.standard_shortcut` asks Qt and then *checks the
+    answer*.
+    """
+
+    def test_an_unbound_standard_key_falls_back_to_a_real_sequence(self, qapp) -> None:
+        """The fallback fires when Qt supplies nothing.
+
+        `StandardKey.UnknownKey` is used as the forced-empty case rather than
+        `Quit`, because `Quit` is empty on 6.11.2 and non-empty on 6.11.1 — a test
+        keyed on it would assert different things on different wheels, which is the
+        problem, not a way to check it. `UnknownKey` is empty on both (verified).
+        """
+        from PySide6.QtGui import QKeySequence
+
+        from platterpus.ui.main_window import standard_shortcut
+
+        unbound = QKeySequence.StandardKey.UnknownKey
+        assert QKeySequence(unbound).isEmpty(), (
+            "UnknownKey is bound on this Qt, so this test no longer forces the "
+            "empty branch — pick another unbound key rather than deleting the test"
+        )
+        got = standard_shortcut(unbound, "Ctrl+Q")
+        assert not got.isEmpty(), "the fallback did not fire"
+        assert got.toString() == "Ctrl+Q"
+
+    def test_qt_wins_when_qt_has_an_answer(self, qapp) -> None:
+        """Non-triviality: the fallback must not override a working binding.
+
+        Without this, `standard_shortcut` could ignore Qt entirely and every other
+        assertion here would still pass — the platform key is the whole reason
+        StandardKey is the convention.
+        """
+        from PySide6.QtGui import QKeySequence
+
+        from platterpus.ui.main_window import standard_shortcut
+
+        help_key = QKeySequence.StandardKey.HelpContents
+        qt_says = QKeySequence(help_key)
+        assert not qt_says.isEmpty(), "HelpContents is unbound; pick a bound key"
+        got = standard_shortcut(help_key, "Ctrl+Alt+Shift+Z")
+        assert got.toString() == qt_says.toString(), (
+            "the fallback overrode Qt's own binding — StandardKey must win when it "
+            "resolves, or the per-platform behaviour is lost"
+        )
+
+    def test_every_menu_shortcut_goes_through_the_guard(self) -> None:
+        """A raw `setShortcut(QKeySequence.StandardKey.X)` is the shape that broke.
+
+        Swept rather than fixed at the three sites, because the next person adding a
+        menu action will reach for the raw form — it is what the convention above
+        literally says to do, and it is what silently lost a shortcut.
+        """
+        source = (UI / "main_window.py").read_text(encoding="utf-8")
+        raw = re.findall(
+            r"setShortcut\(\s*QKeySequence\.StandardKey\.(\w+)\s*\)", source
+        )
+        assert not raw, (
+            "these shortcuts ask Qt without checking the answer, so a Qt release "
+            f"that drops the binding removes them silently: {raw}. Wrap them in "
+            "main_window.standard_shortcut(..., '<fallback with a modifier>')."
+        )
+        guarded = re.findall(
+            r"standard_shortcut\(\s*QKeySequence\.StandardKey\.(\w+)", source
+        )
+        assert len(guarded) >= 3, (
+            f"only {len(guarded)} guarded shortcut(s) found ({guarded}) — the sweep "
+            "above can pass by there being no shortcuts at all"
+        )
+
+    def test_every_fallback_carries_a_modifier(self) -> None:
+        """The fallback must not reintroduce the bare-letter problem (2.1.4)."""
+        source = (UI / "main_window.py").read_text(encoding="utf-8")
+        fallbacks = re.findall(
+            r"standard_shortcut\(\s*QKeySequence\.StandardKey\.\w+\s*,\s*[\"']([^\"']+)[\"']",
+            source,
+        )
+        assert fallbacks, "no fallbacks found — the sweep is not seeing the call sites"
+        bare = [
+            f
+            for f in fallbacks
+            if not re.search(r"(Ctrl|Alt|Meta|Shift|F\d|Esc|Del|Ins)", f)
+        ]
+        assert not bare, (
+            f"these fallbacks are bare printable keys and fire during speech input "
+            f"(WCAG 2.1.4): {bare}"
+        )
