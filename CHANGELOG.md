@@ -90,6 +90,26 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   waved the rest through as *"a menu action is user-initiated and synchronous"* — true
   of the menu handler, not of the result slot. Both use `open()` now and the guard
   covers both.
+- **Cancelling the ripper update check disabled every later version probe in the
+  process.** The new `cancel()` called `cancel_version_probes()` unconditionally, and
+  `VERSION_PROBE` is a module-level singleton whose cancel flag is *sticky* by design —
+  it closes the window between `Popen` returning and the child being registered, and is
+  cleared only when a run completes. So a cancel with nothing in flight left the flag set
+  for the rest of the process, refusing probes belonging to other callers. It is now
+  scoped to the phase where this worker is actually blocked in it, which is race-free
+  here because `run()` already re-checks the fetch's cancel immediately before the probe
+  starts. Measured both ways: `VERSION_PROBE._cancel_requested` after a bare
+  `worker.cancel()` is now `False`, and `True` when the cancel lands mid-probe.
+- **A pre-existing flaky test, surfaced by CI on py3.13.**
+  `test_a_cancel_that_lands_during_startup_is_not_lost` ran its child as
+  `sh -c "exit 0"`, which can finish before the sticky flag is read — and `_kill_group`
+  correctly returns early on an already-exited process, so no signal is sent and the
+  assertion fails. The product was right and the *test's premise* was unmet. It had never
+  failed locally (a probe found the child alive 200/200 times on this machine), which is
+  the signature of a race only a loaded scheduler loses. The child now sleeps, so the
+  window it tests genuinely exists, and the spy performs the real kill as well as
+  recording it — asserting a signal was *delivered* rather than that a function was
+  called. 25 consecutive runs clean, and it still fails if the sticky flag is removed.
 - **Five rules that said "enforced by" and were not.** The 2026-08-18 enforcement audit
   asked of every such claim in `CLAUDE.md` what actually enforces it, and recorded five
   answers of "nothing". All five now have one:

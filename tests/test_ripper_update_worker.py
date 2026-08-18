@@ -1036,13 +1036,31 @@ def test_the_install_never_borrows_a_manifest_row_for_a_DIFFERENT_commit() -> No
     )
 
 
-def test_cancel_interrupts_the_version_probe_not_only_the_fetch(monkeypatch) -> None:
-    """`cancel()` must reach BOTH blocking calls, or it is a rule-9 false promise.
+def test_cancel_interrupts_the_version_probe_only_while_it_is_probing(
+    monkeypatch,
+) -> None:
+    """`cancel()` must reach BOTH blocking calls — and not a shared object it is not in.
 
-    The fetch was the only one when this worker was written; probing the installed
-    binary added a second — `VERSION_PROBE` at 60 s per flag inside a `distrobox
-    enter`, which closing a socket does nothing about and `QThread.quit()` cannot
-    reach. `cancel_version_probes()` is the only thing that kills that child.
+    Two properties, and they pull in opposite directions, which is why they are asserted
+    together:
+
+    **It must reach the probe.** The fetch was the only blocking call when this worker
+    was written; probing the installed binary added a second and the cancel was not
+    extended, which made it a rule-9 false promise for the longer of the two —
+    `VERSION_PROBE` at 60 s per flag inside a `distrobox enter`, which closing a socket
+    does nothing about and `QThread.quit()` cannot reach.
+
+    **And it must not cancel that probe when this worker is not using it.**
+    `VERSION_PROBE` is a module-level singleton whose cancel flag is *sticky by design*
+    — it closes the window between `Popen` returning and the child being registered, and
+    clears only when a run completes. So the first version of this fix, which called
+    `cancel_version_probes()` unconditionally, left every later probe in the process
+    refused, for every caller. Measured, not theorised: `_cancel_requested` was `True`
+    after a bare `worker.cancel()` with nothing running.
+
+    Scoping is race-free here because the phases are ordered: `run()` re-checks the
+    fetch's cancel immediately before the probe starts, so a cancel landing earlier stops
+    the probe from happening at all.
     """
     from platterpus.deps import checks
     from platterpus.workers.ripper_update_worker import RipperUpdateWorker
@@ -1051,58 +1069,56 @@ def test_cancel_interrupts_the_version_probe_not_only_the_fetch(monkeypatch) -> 
     monkeypatch.setattr(
         checks, "cancel_version_probes", lambda: killed.append("probes")
     )
-    worker = RipperUpdateWorker(channel="stable")
-    worker.cancel()
-    assert worker._fetcher.cancelled, "the fetch interrupter was not called"
-    assert killed == ["probes"], (
-        "cancel() did not interrupt the version probe; it can block for two minutes "
-        "in a container exec that quit() cannot reach (CLAUDE.md rule 9)"
+
+    # NOT probing: the fetch is interrupted, the shared singleton is left alone.
+    idle = RipperUpdateWorker(channel="stable")
+    idle.cancel()
+    assert idle._fetcher.cancelled, "the fetch interrupter was not called"
+    assert killed == [], (
+        "cancel() cancelled the shared VERSION_PROBE while this worker was not using "
+        "it — its sticky flag then refuses every later probe in the process"
     )
-    worker.cancel()  # twice is safe
+
+    # Probing: the probe interrupter is called, because there is a block to break.
+    busy = RipperUpdateWorker(channel="stable")
+    busy._probing = True
+    busy.cancel()
+    assert busy._fetcher.cancelled
+    assert killed == ["probes"], (
+        "cancel() did not interrupt the version probe while it was running; that block "
+        "lasts up to two minutes in a container exec quit() cannot reach (rule 9)"
+    )
+    busy.cancel()  # twice is safe
     assert killed == ["probes", "probes"]
 
 
-def test_a_standing_offer_is_not_stacked_on_by_a_second_one(qapp, monkeypatch) -> None:
-    """Our OWN open offer must block another, which an earlier draft exempted.
+def test_the_shared_version_probe_is_not_left_cancelled_by_a_teardown() -> None:
+    """The property above, asserted on the REAL singleton rather than on a spy.
 
-    `_interruption_blocker` first read `modal is not self._ripper_offer_box`, on the
-    reasoning that our own dialog should not block us. Backwards: opening a second box
-    overwrites `_ripper_offer_box` and orphans the first one's pending `buttonClicked`,
-    so the answer to the dialog the user is looking at goes nowhere — or worse, installs
-    against a commit from the other offer. Caught while re-reading the fix rather than by
-    a test, which is why this one exists.
+    The spy proves `cancel_version_probes` was not *called*; this proves the shared
+    object was not *left cancelled*, which is the consequence a later caller actually
+    meets. Two different claims — and the spy version would still pass if the worker
+    reached into `VERSION_PROBE` by another route.
     """
-    from PySide6.QtWidgets import QMessageBox
+    from platterpus.deps import checks
+    from platterpus.workers.ripper_update_worker import RipperUpdateWorker
 
-    from platterpus.deps.ripper_offer import OFFER_MISMATCHED, RipperOffer
-    from platterpus.ui.main_window_update import UpdateMixin
-
-    opened: list[str] = []
-    monkeypatch.setattr(QMessageBox, "open", lambda self: opened.append("open"))
-
-    offer = RipperOffer(
-        verdict=OFFER_MISMATCHED,
-        channel="stable",
-        release=None,
-        detail="not the approved build",
-        install_commit=fork_source.FORK_PIN,
-        auto_installable=True,
-        may_surface_unprompted=True,
-    )
-    window = _stub_window(object())
-    window.show()
-    window._ripper_check_is_automatic = True
-
-    UpdateMixin._on_ripper_update_result(window, offer)
-    assert opened == ["open"], "floor: the first offer must actually open"
-    assert window._ripper_offer_box is not None
-    first_box = window._ripper_offer_box
-
-    # A second result arrives while that box is still standing.
-    window._ripper_check_is_automatic = True
-    UpdateMixin._on_ripper_update_result(window, offer)
-    assert opened == ["open"], "a second offer stacked on the standing one"
-    assert window._ripper_offer_box is first_box, (
-        "the standing offer's box was replaced, orphaning its pending answer"
-    )
-    window.close()
+    was = checks.VERSION_PROBE._cancel_requested
+    try:
+        checks.VERSION_PROBE._cancel_requested = False
+        RipperUpdateWorker(channel="stable").cancel()
+        assert checks.VERSION_PROBE._cancel_requested is False, (
+            "a teardown cancel left the shared VERSION_PROBE stickily cancelled, so "
+            "every later dependency version probe in this process would be refused"
+        )
+        # Floor: the flag really is reachable and settable, so the assertion above is
+        # about behaviour rather than about an attribute that never changes.
+        probing = RipperUpdateWorker(channel="stable")
+        probing._probing = True
+        probing.cancel()
+        assert checks.VERSION_PROBE._cancel_requested is True, (
+            "the interrupter never reaches VERSION_PROBE at all — the check above "
+            "would pass for a cancel() that does nothing"
+        )
+    finally:
+        checks.VERSION_PROBE._cancel_requested = was

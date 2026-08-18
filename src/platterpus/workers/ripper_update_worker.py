@@ -82,6 +82,12 @@ class RipperUpdateWorker(QObject):
         # sitting in `read()`, and a flag the blocked call never checks is a false
         # promise (CLAUDE.md rule 9), so this is the handle that makes the cancel real.
         self._fetcher: CancellableFetcher = CancellableFetcher()
+        #: True only while :meth:`_probe_installed_commit` is inside the container exec.
+        #: Read by :meth:`cancel` so it interrupts the shared ``VERSION_PROBE`` singleton
+        #: only when this worker is the one blocked in it — see :meth:`cancel`.
+        #: Assignment of a bool is atomic under the GIL, which is all this needs: the GUI
+        #: thread only ever reads it.
+        self._probing: bool = False
 
     @Slot()
     def cancel(self) -> None:
@@ -96,14 +102,28 @@ class RipperUpdateWorker(QObject):
         cannot reach and closing a socket does nothing about. `cancel_version_probes()`
         is the thing that SIGKILLs that child, and this worker never called it.
 
-        Both are called unconditionally rather than picking one by state: a cancel
-        arriving in the gap between the two phases must interrupt whichever the worker
-        reaches, and both are safe to call when nothing is in flight.
+        **The probe interrupter is scoped to the probe phase, and that is a fix rather
+        than a nicety.** ``VERSION_PROBE`` is a module-level singleton shared with the
+        whole dependency subsystem, and its cancel flag is *sticky* — deliberately, to
+        close the window between ``Popen`` returning and the child being registered. It
+        is cleared only when a run completes. So calling ``cancel_version_probes()``
+        while no probe is in flight left every *later* probe in the process refused,
+        including ones belonging to other callers. Measured: after a bare
+        ``worker.cancel()``, ``VERSION_PROBE._cancel_requested`` is ``True`` with nothing
+        running and stays that way.
+
+        Scoping it is race-free **for this worker** because the two phases are already
+        ordered: :meth:`run` checks ``self._fetcher.cancelled`` immediately before
+        starting the probe, so a cancel that lands earlier stops the probe from running
+        at all, and one that lands during it finds :attr:`_probing` set. There is no gap
+        for the sticky flag to cover here — which is why borrowing a shared object's
+        stickiness was the wrong tool.
         """
         from platterpus.deps.checks import cancel_version_probes
 
         self._fetcher.cancel()
-        cancel_version_probes()
+        if self._probing:
+            cancel_version_probes()
 
     def _probe_installed_commit(self) -> str | None:
         """The fork commit of the binary that is **actually installed**.
@@ -136,7 +156,14 @@ class RipperUpdateWorker(QObject):
             from platterpus.paths import CYANRIP_BINARY_DEFAULT
             from platterpus.ripper_identity import fork_commit_from_banner
 
-            probe = check_cyanrip(CYANRIP_BINARY_DEFAULT)
+            # Flagged around the blocking call only, and cleared in a `finally` so an
+            # exception cannot leave `cancel()` permanently authorised to cancel a
+            # singleton this worker is not using. See `cancel`.
+            self._probing = True
+            try:
+                probe = check_cyanrip(CYANRIP_BINARY_DEFAULT)
+            finally:
+                self._probing = False
             if not probe.present:
                 return None
             return fork_commit_from_banner(str(probe.raw_output or ""))

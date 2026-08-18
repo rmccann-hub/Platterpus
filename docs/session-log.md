@@ -189,6 +189,47 @@ to the code that breaks it, a comment asserting the invariant a line below where
 fails, two correct answers to one question by different keys. None is visible from
 inside either half.
 
+### CI found two more, and only one of them was mine
+
+The push went red on py3.13 with a failure in `test_killable.py` — a file this branch
+never touched. Two separate defects came out of chasing it, and separating them mattered
+more than fixing either.
+
+**Mine: cancelling the update check disabled every later version probe in the process.**
+The `cancel()` I had just extended called `cancel_version_probes()` unconditionally, and
+`VERSION_PROBE` is a module-level singleton whose cancel flag is *sticky by design* — it
+exists to close the window between `Popen` returning and the child being registered, and
+is cleared only when a run completes. So a cancel fired with nothing in flight left every
+subsequent probe refused, for every caller. Measured directly rather than reasoned about:
+`VERSION_PROBE._cancel_requested` was `True` after a bare `worker.cancel()`.
+
+The fix is to scope the interrupter to the phase where this worker is actually blocked in
+it, which is race-free *here* because `run()` already re-checks the fetch's cancel
+immediately before the probe starts — a cancel landing earlier stops the probe running at
+all. **The general lesson: borrowing a shared object's stickiness is not free.** The flag
+was correct for its owner and wrong for a second caller, and nothing about the call site
+said so.
+
+**Not mine: a pre-existing flaky test, and the interesting part is why it looked like
+mine.** `test_a_cancel_that_lands_during_startup_is_not_lost` runs its child as
+`sh -c "exit 0"` and asserts `killpg` was called. But `_kill_group` returns early on an
+already-exited child — correctly; you cannot signal a process that has exited — so if the
+child wins the race, no signal is sent and the assertion fails. **The product is right and
+the test's premise is unmet.**
+
+It had never failed here. A probe found the child still alive **200/200** times on this
+machine, which is precisely the signature of a race that only a loaded scheduler loses —
+and it is why "it passes locally" was worth nothing as evidence. The child now sleeps, so
+the window the test is about genuinely exists, and the spy performs the *real* kill as
+well as recording it, which upgrades the assertion from *a function was called* to *a
+signal was delivered*. 25 consecutive runs clean; still red if the sticky flag is removed.
+
+**What I would have got wrong by hurrying:** the obvious move was to assume the failure
+was the contamination I had just found, since both involve cancels and killable commands.
+They are unrelated — running the ripper-worker tests immediately before the killable ones
+does not reproduce it. Two defects that *rhyme* are still two defects, and attributing one
+to the other would have left a real flake in the suite wearing a fixed label.
+
 ### The five "enforced by" claims that enforced nothing
 
 The enforcement audit earlier this session listed five rules whose enforcement was
