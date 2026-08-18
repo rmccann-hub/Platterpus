@@ -1,5 +1,5 @@
 # =============================================================================
-# RIG TEST — the two things the v0.6.x line ships as [NOT PROVEN], plus dialogs
+# RIG TEST — the cache probe's first run, the cancel path, and the dialogs
 # =============================================================================
 #
 #   How to run it:  ./platterpus-x86_64.AppImage --run-script rigcancelandoverread.txt
@@ -10,12 +10,33 @@
 # either discovered or expressed as "the first few tracks", so the same file
 # works on the next disc and on somebody else's.
 #
-# WHY THIS EXISTS. The v0.6.x line leaves beta with two claims it cannot make:
+# -----------------------------------------------------------------------------
+# READ THIS BEFORE CHANGING ANYTHING — the flag correction of 2026-08-18
+# -----------------------------------------------------------------------------
+# This script USED to turn the Overread setting on and rip with it, under the
+# heading "force overread has never run on a real drive". Every part of that was
+# wrong, and running it would have cost a session:
 #
-#   1. `-x` (force overread) has NEVER run on a real drive. It is wired, it is
-#      tested in CI against a fake, and no disc has ever been read with it. A
-#      setting that reaches cyanrip's argv and has never touched hardware is
-#      exactly the kind of thing that rips the next disc wrong with a clean log.
+#   * Overread is `-O`. It HAS run on the BDR-209D, on 2026-07-22, and it HUNG
+#     THE DRIVE for ~23 minutes — 13 of 14 tracks ripped perfectly, then the last
+#     track's lead-out froze the progress bar near 100%. Turning it back on here
+#     would deliberately re-trigger a known hardware hang.
+#   * The flag that has never run on any drive, by anyone, is the FORK'S CACHE
+#     PROBE — also spelled `-x`, which is where the confusion came from. It is a
+#     different flag doing a different thing, and it costs SECONDS.
+#   * A third `-x` exists in the fossil record: whipper's `--force-overread`.
+#     That is where the mix-up originated. whipper has been gone since KDD-18.
+#
+# `docs/dependency-contracts.md` carries the hazard table and calls this
+# confusion "a hardware hazard rather than a documentation nit". It was right.
+# So section C now runs the CACHE PROBE, which is the genuinely unproven thing,
+# and overread is never enabled by this script at all.
+#
+# WHAT THIS FILE PROVES, then:
+#
+#   1. The fork's `-x` cache probe, executed on real hardware for the first time
+#      in its existence. Any number it prints is the first data point there is —
+#      including an absurd one, which is a finding and a good outcome.
 #   2. The drive-open fix — cancelling a rip must release the reader, not leave
 #      the drive held by a process nobody can see.
 #
@@ -26,12 +47,12 @@
 # run that stops at the first problem hides every problem behind it, and a disc
 # pass costs an hour you do not get back.
 #
-# WHAT IT COSTS: roughly 30-50 minutes. It rips a handful of tracks three times,
-# never the whole disc.
+# WHAT IT COSTS: roughly 25-40 minutes. It rips a handful of tracks twice, never
+# the whole disc.
 # -----------------------------------------------------------------------------
 
 log =============================================================
-log RIG TEST: force-overread on real hardware, and the cancel path
+log RIG TEST: cache probe on real hardware, and the cancel path
 log =============================================================
 snapshot atstart
 
@@ -39,6 +60,12 @@ snapshot atstart
 # Every claim below is about a specific binary. Establish which one FIRST, so a
 # result that looks wrong can be attributed rather than guessed at. A build tag
 # we do not recognise must read as "not determined", never as a pass.
+#
+# NOTE for a two-pass session (ddf7ac3 then c4d1a00): `expect-cyanrip
+# platterpus-fork` matches BOTH builds deliberately, so this one file runs
+# unedited against either. The build that actually ran is recorded by the
+# `cyanrip --version` output captured just above it — that line, not this
+# assertion, is what attributes the pass.
 
 log --- A. which ripper is actually installed ---
 cyanrip --version
@@ -66,46 +93,52 @@ screenshot dialogdependencies
 cancel
 expect-dialog none
 
-# --- C. `-x` FORCE OVERREAD, ON A REAL DRIVE, FOR THE FIRST TIME ------------
-# The disc is read to its very edge. On a drive that cannot overread this is
-# where it fails, and failing HERE — visibly, in a transcript — is the entire
-# point of running it.
+# --- C. THE CACHE PROBE, ON A REAL DRIVE, FOR THE FIRST TIME EVER -----------
+# `-x` / `--cache-probe` measures the drive's readback cache. The fork added it
+# in round 7 lap 1 at our own round-5 request, and as of 2026-08-07 it had never
+# been executed against real hardware by anybody. It costs seconds, not minutes.
 #
-# Two tracks, not the disc: the question is whether the drive tolerates the
-# flag at all, and that is answered in the first track.
+# `-N` alongside it is not optional: it disables the ripper's own metadata
+# lookup, which is Critical rule #5 and stops the binary blocking on an
+# interactive prompt with no terminal attached.
+#
+# NO `expect-exit` HERE, DELIBERATELY. We do not know what this prints or what
+# it returns — that is the entire point of running it. An assertion would be us
+# inventing the answer before measuring it. The transcript captures the exit
+# code, the exact argv and the complete output regardless, which is the evidence.
+#
+# The `Cache probe:` states are all legitimate outcomes and NONE of them means
+# "the cache was defeated": `N sectors measured`, `no readback cache measured`,
+# `not run (disc image has no drive cache)`, and four `unknown (<reason>)` forms.
 
-log --- C. force overread ON (this has never run on a drive) ---
-rescan
-pick-release 1 90
-select-tracks 1-2
-set force_overread on
-expect force_overread on
-album-artist Platterpus rig
-album overread on
-rip
-wait-for-rip 3600
-snapshot afteroverreadrip
-rig-check
+log --- C. cache probe: the first execution of this flag on real hardware ---
+log whatever it prints is the first data point in existence, including an absurd one
+cyanrip -x -N
+snapshot aftercacheprobe
 
 # --- D. THE CANCEL PATH, AND THE ONLY HONEST PROOF OF IT --------------------
 # Cancelling is easy to *appear* to fix: the button greys out, the status says
 # cancelled, and the drive is still held by a reader nobody can see. A snapshot
 # taken right after the cancel cannot tell those apart.
 #
-# So the proof is not the cancel — it is the RIP AFTER IT. A second rip can only
-# start if the device was genuinely released. That is why section E exists and
-# why it is not optional.
+# So the proof is not the cancel — it is the RIP AFTER IT, in section E.
+#
+# WHY THE WAIT BEFORE CANCELLING IS 90s AND NOT 60s: the cancel has to land
+# mid-track. Three tracks on a fast drive in burst mode can finish inside a
+# minute, and a "cancel" issued after the rip already ended tests nothing while
+# looking exactly like a pass. 90s with secure mode on is comfortably mid-disc.
+# If the rip HAS finished by then the transcript shows it, and that reading is
+# yours to make — the script cannot assert it (see the limits note at the end).
 
 log --- D. start a rip, then cancel it mid-flight ---
-set force_overread off
-expect force_overread off
 rescan
 pick-release 1 90
+expect-tracks 3
 select-tracks 1-3
 album cancel me
 rip
-log letting it read for 60s so the cancel lands mid-track, not at a boundary
-wait 60
+log letting it read for 90s so the cancel lands mid-track, not at a boundary
+wait 90
 snapshot beforecancel
 cancel-rip
 log cancel issued; giving the escalation its full SIGTERM to SIGKILL window
@@ -117,26 +150,60 @@ screenshot aftercancel
 # If this succeeds, the drive was released. If it hangs or fails to identify the
 # disc, it was not — and THAT is the finding, recorded here rather than in
 # somebody's memory of a session.
+#
+# THE TRAY SHOULD STILL BE CLOSED WHEN YOU GET HERE. Before v0.6.16 a cancel
+# left a 5-second rescue timer armed even when the reader had already stopped,
+# so the drive was force-ejected a few seconds after every successful cancel —
+# which made this section unanswerable in both directions: an empty tray reads
+# as a failure that is not real, and a reader freed by the rescue reads as a
+# success the cancel did not earn. If the tray is open when you look, you are on
+# an older build and this section proves nothing.
 
 log --- E. can we rip again? this is the real drive-open test ---
 rescan
 pick-release 1 90
+expect-tracks 1
 select-tracks 1
 album after cancel
 rip
 wait-for-rip 1800
 snapshot afterrecovery
+screenshot afterrecovery
 rig-check
 
 # --- F. Leave the rig as we found it ---------------------------------------
-# A test that changes a persistent setting and does not put it back means the
-# NEXT session runs under a configuration nobody chose. force_overread reaches
-# cyanrip's argv, so leaving it on would silently alter every later rip.
+# This script never enables overread, so there is nothing to put back. The
+# assertion stays as a GUARD: if `force_overread` is on here, something else
+# turned it on, and that is worth knowing before the next disc — the setting
+# reaches cyanrip's argv, and on this drive it hangs the read.
 
-log --- F. restoring settings ---
-set force_overread off
+log --- F. confirming overread is off (this script never turns it on) ---
 expect force_overread off
 snapshot atend
+
+# -----------------------------------------------------------------------------
+# WHAT THIS SCRIPT CANNOT ASSERT — read the transcript for these, do not assume
+# -----------------------------------------------------------------------------
+# Named here rather than left as silence, because a check that does not exist
+# looks identical to one that passed.
+#
+#   * THAT A RIP SUCCEEDED. `wait-for-rip` waits for the worker to disappear,
+#     nothing more, so a rip that starts and dies immediately still records
+#     PASS. Read the verdict banner in `afterrecovery` screenshot, and the
+#     album's own report.
+#   * WHAT ARGV THE RIP ACTUALLY SENT. No verb can read it. `expect` reads the
+#     config field only, and `rig-check` composes a SYNTHETIC argv rather than
+#     capturing the real one. The witness is the `Invoked as:` line in the
+#     album's own cyanrip log.
+#   * WHICH ALBUM `rig-check` EXAMINED. Bare `rig-check` auto-discovers the
+#     newest report under the output/library roots and exits 0 when its log
+#     checks SKIP — so PASS can mean "examined nothing" or "examined a different
+#     rip". Confirm the album name in its output.
+#
+# All three need new script verbs, filed in TASKS.md. They are limits of the
+# harness, not of this session.
+# -----------------------------------------------------------------------------
+
 log =============================================================
 log DONE. Now run:  ./platterpus-x86_64.AppImage --rig-session
 log =============================================================

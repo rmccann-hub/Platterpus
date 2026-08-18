@@ -11,6 +11,66 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.16] — 2026-08-18
+
+### Fixed
+- **A cancelled rip ejected the disc five seconds later, even when the cancel
+  worked.** `_on_rip_cancel` arms a 5-second force-stop rescue *"in case it doesn't
+  stop on its own"*; when the reader **did** stop on its own — the normal case, often
+  under two seconds — nothing disarmed it, so `_auto_force_stop` ran `_do_force_stop`,
+  whose job is *"Eject + kill the in-container reader"*. The timer was stopped in
+  exactly two places: the **start of the next rip** (far too late) and inside the
+  rescue itself. Worse than an annoyance: the only honest test of *"does cancelling
+  release the drive?"* is ripping again afterwards, and an unconditional eject-and-kill
+  made that unanswerable in **both** directions — an empty tray reads as a failure that
+  is not real, and a reader freed by the rescue reads as a success the cancel did not
+  earn. It made the hardware round incapable of proving the thing it exists to prove.
+  Found by auditing the rig script, not by the suite; regression-tested in both
+  directions, including that the rescue still fires for a rip that never finishes.
+- **CTDB's "I don't know this disc" was recorded as "the lookup failed".** The client
+  funnelled every 4xx into `CtdbLookupError`, the same exception class used for *"can't
+  reach the host"* — so `Verdict.NOT_IN_DATABASE` was **unreachable in production**: the
+  only other route to it is a 200 with zero entries, a shape the live server never
+  produces. Measured against CTDB on 2026-08-18, with the control that settles it: a
+  real disc's TOC returns **200** + XML, and the *same TOC with +1 frame on every
+  offset* returns **404**. Same URL, same parameters — the 404 is keyed on the disc, not
+  the request. (CTDB signals a genuinely bad request with **200** and the body `Invalid
+  arguments`.) Every rip of a disc CTDB doesn't know — which includes **every
+  partial-track rip**, whose synthesized TOC cannot exist there — wrote
+  `"verdict": "lookup_error"` and `"message": "CTDB rejected the request (HTTP 404)"`
+  into the archival JSON. Both false. 404 now returns an answered-but-empty result at
+  the adapter chokepoint, fixing the verdict, the report, `--doctor` and the diagnose
+  path at once.
+- **`--doctor`'s CTDB check could only ever fail, on every machine, and always had.**
+  Its OK branch needs a 2xx, which the *fabricated* probe TOC can never get. Three
+  independent proofs it never passed, including the only `--doctor` capture committed to
+  this repo. The suite missed it because the fake returns empty-*without-raising* — a
+  shape the real server has never produced. Fixed by the same 404 change.
+- **A failed CTDB check added nothing to `issues[]`.** `rip_report` compared the verdict
+  against `"error"`; the enum emits `"lookup_error"`, so the branch had never matched
+  since v0.5.12 — while `gates.ctdb` said `"ran"` beside it.
+
+### Changed
+- **The `-x` / `-O` conflation is corrected everywhere it was still live, and gated.**
+  `-x` is the **fork's cache probe**; **`-O`** is overread, and `-O` is *confirmed to
+  hang the Pioneer BDR-209D for ~23 minutes* (2026-07-22). `docs/dependency-contracts.md`
+  has carried that hazard table since 2026-08-07 calling the confusion *"a hardware
+  hazard rather than a documentation nit"* — and the correction had still not reached
+  `README.md`, `TASKS.md`, `docs/rig-scripts/README.md` (**one screen above that file's
+  own copy of the table**), or the runnable rig script. `tests/test_documented_ripper_
+  flags_are_real.py` now refuses any live doc that calls `-x` overread.
+- **The rig script no longer turns overread on.** Its section C had set `force_overread`
+  and ripped, under the heading *"force overread has never run on a real drive"* — which
+  would have re-triggered the known hang on the one drive we have. It now runs the
+  **cache probe**, which is the genuinely unproven flag, costs seconds, and has never
+  executed on real hardware by anyone. Also: `expect-tracks` floors added (a disc that
+  identifies nothing previously ran the whole script and looked like a session), the
+  pre-cancel wait raised 60s → 90s (three tracks on a fast drive can *finish* inside a
+  minute, making the "cancel" a no-op that still passes), and the three things the
+  harness **cannot** assert — that a rip succeeded, what argv it sent, which album
+  `rig-check` examined — are now named in the file instead of left as silence.
+
+
 ## [0.6.15] — 2026-08-18
 
 ### Added
@@ -8804,7 +8864,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.15...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.16...HEAD
+[0.6.16]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.15...v0.6.16
 [0.6.15]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.14...v0.6.15
 [0.6.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.13...v0.6.14
 [0.6.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12...v0.6.13
@@ -8908,4 +8969,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.15.*
+*Last updated for Platterpus v0.6.16.*

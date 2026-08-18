@@ -1760,9 +1760,15 @@ What we owe, and what waits on their answers:
       (13 sub-channel entries, 1 lead-in, zeros on tracks 3/6/11/12, 9 `Gaps:` rows). One
       disc is an existence proof, not a range: a disc with a *non-zero* pre-gap on a
       non-first track is the case that could still fail. Hardware-gated.
-- **[ ] H10 — send the `-x` force-overread log line (checklist §F2).** We ship the toggle; we have never
-      captured the line it produces on a drive that accepts the command. Hardware-gated on
-      the BDR-209D.
+- **[?] H10 — send the overread (`-O`) log line (checklist §F2). BLOCKED, and the block is
+      the finding.** We ship the toggle and have never captured the line it produces *on a
+      drive that accepts the command* — and the BDR-209D **does not accept it**: `-O` is
+      confirmed to hang that drive ~23 minutes (2026-07-22, 13/14 tracks then a frozen
+      lead-out). So this cannot be captured on our rig at all; it needs a different drive,
+      or it stays open with that stated.
+      *(Row said "`-x` force-overread" until 2026-08-18. `-x` is the fork's **cache probe**,
+      never overread and never in our argv — the conflation `docs/dependency-contracts.md`
+      calls a hardware hazard. What is genuinely uncaptured on any drive is `-x` itself.)*
 - **[ ] Pass `--consumer platterpus/<version>` on every rip.** Their lap-4 §7/§4: it is what
       puts our identity into the archived artifact, recorded verbatim with their log saying
       *"reported by the caller, not verified by cyanrip"*. Deliberately **not** shipped in the
@@ -2074,4 +2080,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.15.*
+*Last updated for Platterpus v0.6.16.*

@@ -8543,3 +8543,65 @@ def test_a_single_candidate_does_not_claim_a_picker_was_opened(
     text = "\n".join(r.getMessage() for r in caplog.records)
     assert "release picker" not in text
     assert "candidates" not in text
+
+
+# --- The cancel rescue must not eject a drive the cancel already freed -------
+
+
+def test_a_finished_rip_disarms_the_force_stop_rescue(qapp: QApplication) -> None:
+    """A cancel that works must not be followed by an eject five seconds later.
+
+    **The defect.** `_on_rip_cancel` arms `_force_stop_timer` for 5 s "in case it
+    doesn't stop on its own". When the reader *does* stop on its own — the normal
+    case, often under two seconds — nothing disarmed it, so `_auto_force_stop`
+    fired and ran `_do_force_stop("auto")`, whose own docstring is *"Eject + kill
+    the in-container reader"*. The disc came out of a drive nobody asked to open.
+    `stop()` was called in exactly two places: the START of the next rip (far too
+    late) and inside the rescue itself.
+
+    **Why it is worse than an annoyance.** The only honest test of *"does
+    cancelling release the drive?"* is ripping again afterwards, and an
+    unconditional eject-and-kill makes that unanswerable in BOTH directions: an
+    empty tray reads as a failure that is not real, and a reader freed by the
+    rescue reads as a success the cancel did not earn. It made the hardware round
+    (task #53) incapable of proving the thing it exists to prove.
+
+    Found 2026-08-18 by auditing the rig script, not by the suite.
+    """
+    window = _make_window(qapp)
+
+    # Arm the rescue exactly as a cancel does, without needing a real rip.
+    window._force_stop_done = False
+    window._force_stop_timer.start(5000)
+    assert window._force_stop_timer.isActive(), (
+        "the rescue is not armed, so this test would pass without the fix"
+    )
+
+    window._on_rip_finished(False, "")
+
+    assert not window._force_stop_timer.isActive(), (
+        "the force-stop rescue is still armed after the rip finished — it will "
+        "eject the disc seconds from now, for a reader that is already gone"
+    )
+    # Belt as well as braces: the manual Force-stop button stays enabled for the
+    # whole rip, so a press landing after completion must also not eject.
+    assert window._force_stop_done is True
+
+
+def test_the_rescue_still_fires_for_a_rip_that_never_finishes(
+    qapp: QApplication,
+) -> None:
+    """The counter-test: the fix must not disable the rescue it narrows.
+
+    A cancel whose reader hangs never reaches `_on_rip_finished`, which is the
+    entire case `_force_stop_timer` exists for. If the fix above had disarmed the
+    rescue unconditionally it would have removed the drive recovery, so this pins
+    that the timer survives when no completion arrives.
+    """
+    window = _make_window(qapp)
+    window._force_stop_done = False
+    window._force_stop_timer.start(5000)
+
+    # No `_on_rip_finished` — the reader is wedged, which is the point.
+    assert window._force_stop_timer.isActive()
+    assert window._force_stop_done is False
