@@ -129,6 +129,66 @@ def _build_tag_of(banner: str) -> str:
     return inner
 
 
+def approved_build_tag_for(commit: str) -> str:
+    """The build tag a correct build of ``commit`` prints, by *our* construction.
+
+    Built from :data:`~platterpus.deps.fork_source.FORK_BRANCH` rather than the
+    literal ``"platterpus-fork"`` so there is one spelling of the fork's id in the
+    predicate path. The fork's ``src/cyanrip_log.c`` renders
+    ``<PROJECT_FORK_ID>-g<short sha>``, and meson's ``vcs_tag`` fills the sha from
+    ``git rev-parse --short HEAD``.
+    """
+    return f"{fork_source.FORK_BRANCH}-g{(commit or '').strip()}"
+
+
+def _tag_is_approved(tag: str) -> bool:
+    """**THE** predicate: does our record approve the build carrying ``tag``?
+
+    Extracted so :func:`approve_ripper` and :func:`approves_commit` cannot answer
+    the same question differently. That is not hygiene — it is the fix for a real
+    defect (2026-08-18): :mod:`platterpus.deps.ripper_offer` decided whether a build
+    was one *"our record approves"* from the manifest's **round label**
+    (``round_closed and handshake_round <= APPROVED_BY_ROUND``) while this module
+    decided it from the **build tag**. Those are not the same question in this
+    project and the record says so out loud: rounds 9, 10 and 11 all closed here
+    against commits that are *not* ``FORK_PIN``, because a round can review a pin
+    without our installing it (round 11 §5 — ``ddf7ac3`` has hardware behind it and
+    the reviewed commit does not). So a manifest head from a round we have closed,
+    carrying a different commit, was reported as approved and offered as a
+    one-click install with *"nothing to weigh"* — and every rip made afterwards
+    stamped ``unapproved`` into its report, its log and its EAC export.
+
+    Measured, not reasoned: four constructed heads (the fork's own round-8 beta
+    builds at seq 12 and 13, and round 7's ``104f6d4`` and the **withdrawn**
+    ``422d12a``) all produced ``auto_installable=True`` against
+    ``approve_ripper(...) == unapproved``.
+
+    Exact, case-insensitive equality — deliberately **not**
+    :func:`~platterpus.deps.fork_source.same_commit`. A prefix match would accept a
+    full 40-character sha whose *printed tag* then differs from the approved one, so
+    the offer would promise an approval the rip-time check must refuse. Where the two
+    could disagree, the one that decides what lands in an archival record wins.
+    """
+    return (tag or "").strip().casefold() == (
+        fork_source.FORK_EXPECTED_BUILD_TAG.casefold()
+    )
+
+
+def approves_commit(commit: str) -> bool:
+    """Whether **our** record approves the build at ``commit``.
+
+    The question :mod:`platterpus.deps.ripper_offer` has to ask before it may offer
+    an install as costing nothing. Answered through :func:`_tag_is_approved`, the
+    same computation :func:`approve_ripper` performs at rip time, so the offer's
+    promise and the report's verdict are one fact rather than two agreeing opinions.
+
+    Empty or malformed input is ``False``: an unnamed build is not an approved one.
+    """
+    if not (commit or "").strip():
+        return False
+    return _tag_is_approved(approved_build_tag_for(commit))
+
+
 def _why_this_build_is_here(tag: str) -> str:
     """A sentence naming *why* a recognised-but-unapproved build is installed.
 
@@ -209,7 +269,9 @@ def approve_ripper(banner: str | None) -> RipperApproval:
             observed_banner=text,
         )
 
-    if tag.casefold() == fork_source.FORK_EXPECTED_BUILD_TAG.casefold():
+    # Through the shared predicate, NOT a second inline comparison — see
+    # `_tag_is_approved` for the defect that came from having two.
+    if _tag_is_approved(tag):
         return RipperApproval(
             verdict=APPROVED,
             detail=(

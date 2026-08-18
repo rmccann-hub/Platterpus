@@ -819,6 +819,90 @@ CLOSED_SET_FIELDS: tuple[str, ...] = (
 _BARE_TOKEN: re.Pattern[str] = re.compile(r"^[A-Z][A-Z-]*$")
 
 
+#: Values that are *present* in `HANDSHAKE-TESTED` and say nothing. Not an attempt at
+#: judging prose — just the handful of ways a field gets filled in to satisfy a checker.
+_CONTENT_FREE_EVIDENCE: frozenset[str] = frozenset(
+    {
+        "",
+        "-",
+        "--",
+        "n/a",
+        "na",
+        "none",
+        "nothing",
+        "tbd",
+        "todo",
+        "see above",
+        "see below",
+        "as above",
+        "unchanged",
+        "same",
+        "ok",
+        "yes",
+        "done",
+        ".",
+    }
+)
+
+#: Shortest `HANDSHAKE-TESTED` we will accept as evidence. Round 11's real one runs to
+#: 900 characters; the shortest honest one still has to name *what ran*, which does not
+#: happen in under this. A floor, not a quality bar — see :func:`evidence_blockers`.
+_MIN_EVIDENCE_CHARS: int = 40
+
+
+def evidence_blockers(fields: dict[str, str]) -> list[str]:
+    """`HANDSHAKE-TESTED` must carry evidence, not merely exist.
+
+    **The gap this closes.** The close check asked only whether the field was present
+    and unambiguous — the *label*, never the *subject*. So a round could close, and a
+    release could go out, on ``HANDSHAKE-TESTED: n/a``. That is the shape `CLAUDE.md`
+    names twice over: a check satisfied by finding nothing, and a check satisfied by the
+    wrong thing. This module's own docstring already warned about a section that is
+    "present but empty" passing — the warning was written for sections and never applied
+    to the one field whose entire purpose is content. Found by the 2026-08-18
+    enforcement audit.
+
+    Three refusals, in the order a lazy fill-in tends to take:
+
+    * **empty or whitespace** — the field exists and says nothing;
+    * **a content-free placeholder** — ``n/a``, ``none``, ``see above``, ``ok``;
+    * **too short to name what ran** — under :data:`_MIN_EVIDENCE_CHARS`.
+
+    **What this deliberately does NOT do** is judge whether the evidence is *good*. No
+    check can, and pretending otherwise would be worse than this: it would let a reader
+    treat a pass as a statement about the testing rather than about the field. The claim
+    here is exactly *"somebody wrote down what they ran"*, which is the minimum a later
+    reader needs in order to disagree.
+
+    Also refuses a **negative** dressed as evidence — a round that closes while stating
+    nothing was tested is precisely the release nobody checked, and §5's own comment on
+    `REQUIRED_CLOSE_FIELDS` says so.
+    """
+    value = fields.get("HANDSHAKE-TESTED")
+    if value is None or value == AMBIGUOUS:
+        return []  # already reported by the presence check; do not double-report
+    text = value.strip()
+    normalised = text.casefold().rstrip(".").strip()
+    if not text:
+        return [
+            "HANDSHAKE-TESTED is present but EMPTY (§5). A round cannot close on a "
+            "field that names no evidence — that is a release nobody checked."
+        ]
+    if normalised in _CONTENT_FREE_EVIDENCE:
+        return [
+            f"HANDSHAKE-TESTED says {text!r}, which names no evidence (§5). Write what "
+            "actually ran — the suite, the artifacts consumed, the digests re-derived — "
+            "and say plainly what was NOT tested."
+        ]
+    if len(text) < _MIN_EVIDENCE_CHARS:
+        return [
+            f"HANDSHAKE-TESTED is {len(text)} characters ({text!r}), too short to name "
+            f"what ran (§5 wants at least {_MIN_EVIDENCE_CHARS}). A close cites its "
+            "evidence so a later reader can disagree with it."
+        ]
+    return []
+
+
 def closed_set_prose(text: str) -> list[str]:
     """Closed-set fields in ``text`` that carry prose after the verdict token.
 
@@ -1023,6 +1107,7 @@ def close_blockers(text: str, round_hint: int | None = None) -> list[str]:
             blockers.append(f"a closing file must declare {key} (§5)")
         elif value == AMBIGUOUS:
             blockers.append(f"{key} declared more than once (§2 rule 3)")
+    blockers.extend(evidence_blockers(fields))
     peer = fields.get("HANDSHAKE-PEER-VERDICT")
     if peer is not None and peer != AMBIGUOUS and peer.split()[:1] != [AFFIRMATIVE]:
         # "They did not object" is never "they agreed" — and the peer verdict is

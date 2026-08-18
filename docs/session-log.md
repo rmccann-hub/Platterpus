@@ -11,6 +11,658 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-18 — the autoupdate the ripper never had, and an audit of every "enforced by" claim in this repo
+
+Two halves of one instruction (*"do both"*): build the ripper autoupdate the
+maintainer asked for, and find out which of this project's written rules have no
+mechanical enforcement.
+
+### The ripper update check made a SHA the interface
+
+The maintainer's words: *"i dont want an explicite release number to be the thing,
+the autoupdate on platterpus should take the next viable candidate without the user
+needing to pick … it shouldnt need to be explicity callled out by eitether rop
+unless very impartant"*, then *"assume last most stable is good, then if beta flags
+are checked, look for those, but it should still be an autoupdate"*, then *"make
+sure we can try will pins or non autoupdates, but that is manually and by script
+most likely."*
+
+What existed refused to install anything, ever, and ended **every** answer with
+`platterpus --install-ripper <sha>` to copy. The refusal had a real reason — a build
+our record has not approved makes every rip report `unapproved` — but it was applied
+to *every* build rather than to the ones it describes. So the app knew which build
+it wanted and made a person retype it.
+
+**The split is by consequence, which is what the original reasoning was always
+about.** `RipperOffer` grew two fields: `install_commit` (what a one-click install
+would build — carried so the UI never has to *show* it) and `auto_installable`
+(does taking it cost anything?). True only when our own record approves the build,
+so the common case is one click and nothing to read; false keeps the careful
+treatment, is never the default button, and hands over the command line — which is
+the right friction for a build nobody has verified, and is what a rig script calls.
+
+The install drives the **same step engine** as the wizard and `--install-ripper`,
+in the same dialog with different words (`SetupCopy`). Rules #6 and #12 both say a
+second installer is not an option; a copied dialog would be a copied snippet with a
+layout attached.
+
+**Three defects fell out of building it, all of the same family as the
+`_observed_ripper_banner` bug the day before — a value nothing produced, read
+through something that could not raise:**
+
+1. `installed_commit=None` meant *"assume the pinned commit"*. Correct before the
+   binary was actually probed; a claim we never checked once it was. **Stock
+   upstream cyanrip** has no fork commit in its banner, so it rendered as *"your
+   cyanrip build is current: 0.9.4-rc1+platterpus.5 (ddf7ac3)"* — a sentence
+   assembled entirely from constants.
+2. An unrecognised build was reported as *not determined*, the verdict that offers
+   nothing, when it was the single most common real state and the one with an
+   obvious remedy. It is now its own verdict, and it answers **with no network**,
+   because the two facts it needs are local.
+3. The maintainer's `c4d1a00` was never a stray build — it is the fork's **current
+   published stable release**, seq 16. We had recorded only our own pin's sequence,
+   so their own release came back as *"not one of the fork's numbered releases — a
+   mid-round test pin, or a commit installed by hand."* Every clause wrong about a
+   published release.
+
+**And the change caused a hang — whose first fix was the wrong half, which is the
+part worth recording.** The automatic check was armed by a `QTimer.singleShot` in
+`MainWindow.__init__`. The suite builds `MainWindow` directly in dozens of tests
+and several then spin a nested event loop for longer than the delay, so the timer
+fired, the check found no fork ripper, produced a one-click offer, and `exec()`d a
+`QMessageBox` **with nobody to click it**. The run stopped at 56% and stayed there.
+
+Moving the arming to `app.py` was right on its own terms — *"a window exists"* and
+*"the application started"* are different events, and only the second licenses
+interrupting somebody — **and it did not fix the hang.** The suite stopped in
+exactly the same place, because a test drives the real launch path and the timer
+was still pending. Chasing the scheduler was chasing the *trigger*; the defect was
+in what the callback did.
+
+The real fix: **a dialog raised from a queued signal uses `open()`, never
+`exec()`.** `exec()` spins a nested event loop inside whatever the GUI thread was
+already doing, and does not return until somebody answers — which nothing
+guarantees. That is the GUI-thread rule from a direction `architecture.md` §3.2 did
+not cover: not a slot doing blocking work, but **a slot becoming blocking work for
+its caller**. Graduated to §3.12/§3.12a.
+
+Two process notes from finding it, both cheap and both things I did not do first:
+`kill -ABRT` on the hung pytest gave the exact frame in three seconds after ~40
+minutes of bisecting by elimination; and the background wrapper reported *exit code
+0* for a run pytest had exited 134 on — the "read pytest's own rc, never the
+pipeline's" rule, demonstrating itself again.
+
+**And then the suite found a third one, which is the most serious of the three.**
+With the hang gone, an assertion in `test_script_console.py` — three files away and
+about something else entirely — started failing because two `cyanrip update`
+dialogs were standing open over the console. The automatic check was being armed
+for a **scripted run**. On the rig that means: a script drives the real GUI
+unattended for 30–50 minutes, a modal appears eight seconds in and blocks the batch
+until somebody happens to look, and answering it *yes* swaps the ripper
+**mid-session** — invalidating the evidence the session exists to produce. It is
+now not armed when `--run-script` (or the autorun config pair) is in play, with the
+reasoning in `app.py` and a revert-proven test.
+
+Worth naming as a pattern rather than an incident: **all three came from adding one
+thing that can interrupt somebody, and each was found by a surface that was not
+looking for it.** A hang at 56%, an `_active_dialog()` assertion in an unrelated
+file. The rule that would have caught all three up front is now §3.12/§3.12a — ask
+*who is on the stack when this opens*, and *is anybody there to answer*.
+
+### The adversarial review found 14 things, 3 of them blocking, in a diff that was fully green
+
+Worth leading with the number: PR #157 had a green suite, a green typecheck and **ten
+green CI checks** when a 25-agent adversarial review over the diff raised 20 findings,
+confirmed 14 and refuted 6. Three were blocking, and two of the three were in code
+written earlier in this same session. Nothing in the suite could have caught them,
+because each lived in a *relation* between two places that were individually correct.
+
+Every one was re-verified here before being acted on — *"a correction that arrives as
+'you got this wrong' is not pre-verified"* — and that mattered: one finding was already
+fixed by a commit that landed after the review started, and one of its sub-arguments
+was wrong about why a flag was `False`.
+
+**Blocking 1 — the offer and the rip disagreed about what "approved" means.** The
+one-click install asked *"does the fork label this head with a round we have closed?"*;
+`approve_ripper`, which stamps every report, log and EAC export, asks *"is this the
+approved build tag?"* Those are not the same question here, and our own record says so:
+rounds 9, 10 and 11 each closed against a commit that is **not** `FORK_PIN`. So any head
+carrying a closed round number was presented as *"the build our record approves"*,
+offered on one click with nothing to read, and reported `unapproved` by the next rip.
+Reproduced on four real commits, including `422d12a` — the build the fork **withdrew**
+for failing its own tests. Fixed with one predicate and two callers; graduated to
+`docs/testing.md` §5.al and to `CLAUDE.md`, because the general shape is *a label the
+other project supplies standing in for the identity our record keyed on.* The test
+asserts the **relation** — `offer.auto_installable is (approve_ripper(...) ==
+approved)` — which is a property neither module's own tests can express.
+
+**Blocking 2 — the "put the approved build back" repair could never have worked.** It
+read the version and `meson setup` options off the manifest row the user was *sitting
+on* while building a *different* commit, so `-Ddeclare_released=true` reached a
+configure of `ddf7ac3`, which has no `meson_options.txt`. Meson fails the whole
+configure on an unknown `-D`, so the advertised one-click fix aborted with an error
+that reads as our bug — for **exactly the operator population the feature was written
+for**. It also wrote `cyanrip 0.9.4-rc1+platterpus.6 (platterpus-fork-gddf7ac3)`, a
+banner no build prints, into the log a bug report carries. The code comment above it
+asserted the options were *"for THIS commit"*. Fixed by moving the resolution to
+`RipperOffer.build_hint()`, which returns the row's fields only for the commit being
+installed; verified in both directions, because always returning nothing would have
+silently dropped schema 2's whole point (round 11 §J1).
+
+**Blocking 3 — the interruption guards were checked at the wrong instant.** They lived
+in the arming slot and not in the result slot, so a rip that started *during* the check
+got a window-modal box over the live progress view with *"Install it now"*
+pre-selected. The uncomfortable part: `docs/architecture.md` §3.12a already carried the
+corollary *"deferred work must re-check its preconditions when it fires, not when it is
+scheduled"* — **written earlier in this same session, one screen from the code that
+ignored it.** And the regression test that was supposed to cover it set `_rip_thread`
+*before* arming, verifying the invariant only under the condition that guarantees it.
+The lesson recorded is to **count the deferrals**: the timer is the obvious one, the
+worker's own latency is the second and longer one, and that is where the user inserts a
+disc.
+
+**Four more worth naming**, all the same family:
+
+- The worker's `cancel()` interrupted the socket read and not the version probe — up to
+  two minutes of `distrobox enter` that closing a socket does nothing about. `rule 9`
+  again, and the `closeEvent` comment still described the worker as *"one bounded HTTPS
+  GET"*, having gone stale in the same change that widened what it blocks on.
+- `_on_ripper_update_result` called `exec()`. The structural guard written this session
+  to stop exactly that was scoped to one method, and its docstring waved the rest of the
+  mixin through as *"a menu action is user-initiated and synchronous"* — true of the menu
+  handler, and not of the worker's own result slot. Right rule, wrong subject.
+- The automatic check raised a **backwards** offer every launch to anyone offline and
+  ahead of the pin, because "may this interrupt?" was a verdict list in the UI and only
+  the decision layer knows whether the manifest was read. Now an offer field, defaulting
+  to *false* — fail closed, so a verdict added later is silent until somebody decides it
+  is worth interrupting for.
+- **Four holes in the pin-enforcement test written the same day.** `<1.0` was accepted
+  as a minor bound though it admits precisely what `<1` admits; a pin across a shell
+  line continuation was invisible; and *both* "floors" matched **prose**, so `ci.yml`'s
+  own twelve-line comment about rule #11 satisfied them with every `run:` step deleted.
+  A test written to enforce "don't restate the spec" had itself restated it, and its
+  floors checked for labels rather than subjects.
+
+The pattern across all fourteen, stated once: **the suite tests modules; these defects
+lived between them.** A guard scoped to the place a bug was found, a rule written next
+to the code that breaks it, a comment asserting the invariant a line below where it
+fails, two correct answers to one question by different keys. None is visible from
+inside either half.
+
+### Fixing the bound where it was noticed, twice over
+
+The entry below records the wedge and the job-level bound. Two things followed from
+it, and both are the same lesson arriving again in the same hour.
+
+**The bound stopped the six-hour stall, not the lost run.** A bounded job still
+*fails*, and a failed matrix leg means re-running everything. Watching the fourth
+wedge happen — py3.11 and py3.12 sitting in the apt step at 11 minutes while py3.13
+and py3.14 were already running tests, all four on the same commit — made it clear the
+step needs to survive the stall, not just die politely at it. It now runs each apt
+call under `timeout` (as `sudo timeout apt-get`, because `timeout sudo apt-get`
+signals `sudo`, which need not pass it on — the same process-vs-group trap as rule
+#9's `killpg`), retries three times with backoff, and sets apt's own
+`Acquire::*::Timeout` so a stall is *reported* rather than killed silently.
+
+Exercised against a stubbed `apt-get` instead of reasoned about, which was worth it
+twice over. `set -e` would have aborted the loop on the first failed attempt, so the
+retry would never have run — the call has to sit inside an `if`. And the probe's own
+leaked-child check reported a leak that did not exist: `pgrep -f "sleep"` matched the
+agent process, whose command line contains the word. **A detector satisfied by the
+wrong thing, inside the probe written to check the fix.**
+
+**Then the timeout itself turned out to be calibrated against half the sample.** The
+first version used 75s per apt call, chosen while two matrix legs were still running,
+against the two that had finished: 13s and 32s. When the run completed, the four apt
+steps measured **13s, 32s, 73s and 103s — all four successes.** A 75s per-call bound
+sits *inside* the healthy range, so the fix written to stop a stall would have started
+killing a slow-but-working install and, in the bad case, failed a step that used to
+pass. It is now 240s: more than twice the slowest healthy *whole* step, applied per
+call, and still an order of magnitude under the 20-minute stalls. Two attempts rather
+than three, because 2 × 2 × 240s + backoff fits the step and job bounds and three does
+not.
+
+The general form is a question already in `CLAUDE.md` — *did I verify this where it
+could have failed?* — arriving from a new direction. Nothing here was verified under
+conditions that guaranteed the answer; the problem was **sampling a distribution while
+it was still being drawn.** The two legs that finished first finished first *because*
+they were fast, so reading them early is reading the fast tail and calling it the
+range. Any measurement taken from an in-flight population needs the population to be
+closed first, or the qualifier stated. A number quoted from a partial run is not a
+measurement, and it does not announce itself as one.
+
+**And the bound itself was still scoped to where the problem was seen.** Asking the
+rule of the whole tree found three jobs with *no* bound anywhere: `appimage.yml`
+`build`, `publish-pypi.yml` `publish`, and `release.yml` `build-and-release` — the
+last being the worst case of the class, since an unbounded release job holds a runner
+for six hours while a maintainer waits for a release that is never coming.
+`tests/test_ci_jobs_are_bounded.py` now derives the set from disk, distinguishes a
+job-level bound from a step-level one (they are the same string, and telling them
+apart is the whole point), and rejects `timeout-minutes: 360` — GitHub's own default
+written out, which passes a presence check and changes nothing.
+
+**Its first version imported PyYAML and broke all four matrix legs at once.** The
+local suite was green, because this container has PyYAML installed incidentally;
+`pytest` in CI installs only the `dev` extra, where it is not listed and is used by
+nothing else in the repo. `ModuleNotFoundError` on every leg.
+
+This is *"what does my stand-in do that the real thing does not?"* asked of the
+**environment** rather than of a fixture. A local interpreter accumulates packages
+nobody declared, so "it passes here" silently includes them — and a *test* file is
+where that bites hardest, because it is the one place an undeclared import looks
+harmless. The rewrite drops the dependency entirely: the only question the sweep asks
+is whether `timeout-minutes` sits at job depth or step depth, which is a question
+about indentation, and a constructed-YAML test pins that discrimination directly
+(same key, same value, job level vs step level → 15 and `None`). Verified the way the
+failure demanded — by running the suite with a `yaml.py` stub on the path that raises
+`ImportError`, so the absence is reproduced rather than assumed.
+
+Adding the dependency was the other option and was deliberately not taken:
+`CLAUDE.md`'s deviation policy asks before a dependency not in `DEPENDENCIES.md`, and
+a test that needs no library at all is the better answer regardless.
+
+And a count in the changelog said *"all 10 jobs"* when the reader, once asked, printed
+**11** — `mutation.yml`'s `mutmut` was the one nobody counted. A number written from
+memory of a list rather than from the list.
+
+**The regression test for it is the general form, because the narrow one is the
+antipattern this whole batch is about.** *"`test_ci_jobs_are_bounded` must not import
+yaml"* would have been a guard scoped to exactly where the problem was seen — the
+sixth instance in one session. `tests/test_imports_are_declared.py` instead compares
+every import in `src/`, `tests/` and `scripts/` against everything `pyproject.toml`
+declares. Both sides derived, neither a list: a hand-written set of allowed modules
+would need editing the day a real dependency is added and would rot silently.
+
+Worth stating plainly why nothing existing could have caught this. `pip-audit` reads
+the *declared* set, so an import missing **from** that set is exactly the thing
+outside its view. `mypy` resolves against the *installed* environment — the one that
+has the package. The gap sits precisely between what is declared and what is
+imported, and only a comparison of the two closes it. It found no other offenders
+across ~3,400 import statements, and was revert-proven by putting `import yaml` back
+and watching it name the file.
+
+Its own first draft failed its own staleness check, which is the pleasing part: the
+alias table mapping distribution names to import names listed `pyyaml`, which
+`pyproject.toml` does not declare — the check refusing rows for undeclared packages
+caught it immediately. Removing that row then exposed that the two remaining rows
+(`pytest-cov`, `tomli-w`) were nothing but the hyphen-to-underscore rule the code
+already applied, so the table went entirely, replaced by a note saying which row it
+must never grow and why.
+
+### Retiring a file, and the links nobody swept
+
+Same shape a third time in the same session, found by reading `appimage.yml` for an
+unrelated reason: line 10 pointed at `docs/appimage-testing.md`, retired on
+2026-08-06. `CLAUDE.md` rule #7 says retiring a file means retiring **every inbound
+link in the same commit** — and the only thing enforcing it,
+`test_every_docs_path_named_in_claude_md_resolves`, read `CLAUDE.md` and nothing else.
+The rule was enforced at the place it was learned.
+
+Sweeping the rest of the tree found six live pointers into deleted files:
+
+| Source | Dead target |
+| --- | --- |
+| `.github/workflows/appimage.yml` | the retired AppImage-testing doc |
+| `adapters/transcode.py`, `config.py` | the archived multi-format design |
+| `update_install.py`, `update_signing.py` | the retired signing ritual |
+| `tests/test_argv_surface_agreement.py` | a handshake artifact path that never existed |
+
+The signing pair is the one that mattered. It is the **fail-closed arming**
+procedure — the one `CLAUDE.md` singles out as dangerous to half-read — so a
+maintainer following that pointer under release pressure landed on nothing.
+
+Two things worth keeping from the fix. **Dated record is excluded on purpose**: the
+changelog, the session log, the archive and the handshake correspondence state what
+was true on a date, and repointing their links would make them lie — the handshake
+files are also documents we *received*, which we do not edit. And **the last pointer
+was a wrong claim, not just a wrong path**: the comment said a provider contract was
+committed at `round-09-PROVIDER-CONTRACT.md`. Opening the fork's lap 3 rather than
+trusting the comment showed the file is `round-09-lap-03-provider-contract-g42fe4f2.md`
+and that two commits are in play — it was *generated by* `42fe4f2` and *describes*
+`b56f936`. Answering from the artifact rather than from memory of it turned a path fix
+into a correction.
+
+The new sweep's first catch was **its own file**: a docstring recounting the 2026-08-06
+consolidation wrote the retired name with a `docs/` prefix, which is exactly the form
+`CLAUDE.md` says not to use because it reads as a live pointer. The convention had a
+reason and now has a check.
+
+### The runner wedged twice, and the bound was on the wrong step
+
+Two CI runs hung for 20+ minutes on `Install headless Qt system libraries` — an
+`apt-get` on the GitHub runner, with the tests never starting. Not our code; the same
+commit's py3.12 and py3.14 jobs cleared it and passed.
+
+The instructive part is what the workflow already contained. `Run tests` carries
+`timeout-minutes: 15`, and the comment beside it states the general principle exactly
+right: *"a cheap backstop: if a future regression hangs the suite, the job fails in
+minutes instead of burning the 6-hour default."* It was applied to the step its author
+was thinking about. The step that actually wedges is the one nobody expected to.
+
+**That is this session's recurring shape, arriving for the fifth time**: the exec/open
+guard scoped to one method and missing its sibling; the interruption conditions checked
+at arming and not at surfacing; the pin rule written in the file that does not gate; the
+`HANDSHAKE-TESTED` warning written for sections and not applied to the field. Each time
+the rule was right and its *subject* was too narrow. Bounds are job-level across all
+seven jobs now.
+
+Worth noting what it cost beyond time: a hung job is indistinguishable from a slow one
+from the outside, so the first instinct was to suspect the change under review — and I
+spent a full random-order suite run locally chasing a hang that did not exist here. The
+diagnosis came from reading the job's *step list*, not its logs, which were unavailable
+while it was in progress. When a job is stuck, ask which step it is on before asking
+what the code did.
+
+### CI found two more, and only one of them was mine
+
+The push went red on py3.13 with a failure in `test_killable.py` — a file this branch
+never touched. Two separate defects came out of chasing it, and separating them mattered
+more than fixing either.
+
+**Mine: cancelling the update check disabled every later version probe in the process.**
+The `cancel()` I had just extended called `cancel_version_probes()` unconditionally, and
+`VERSION_PROBE` is a module-level singleton whose cancel flag is *sticky by design* — it
+exists to close the window between `Popen` returning and the child being registered, and
+is cleared only when a run completes. So a cancel fired with nothing in flight left every
+subsequent probe refused, for every caller. Measured directly rather than reasoned about:
+`VERSION_PROBE._cancel_requested` was `True` after a bare `worker.cancel()`.
+
+The fix is to scope the interrupter to the phase where this worker is actually blocked in
+it, which is race-free *here* because `run()` already re-checks the fetch's cancel
+immediately before the probe starts — a cancel landing earlier stops the probe running at
+all. **The general lesson: borrowing a shared object's stickiness is not free.** The flag
+was correct for its owner and wrong for a second caller, and nothing about the call site
+said so.
+
+**Not mine: a pre-existing flaky test, and the interesting part is why it looked like
+mine.** `test_a_cancel_that_lands_during_startup_is_not_lost` runs its child as
+`sh -c "exit 0"` and asserts `killpg` was called. But `_kill_group` returns early on an
+already-exited child — correctly; you cannot signal a process that has exited — so if the
+child wins the race, no signal is sent and the assertion fails. **The product is right and
+the test's premise is unmet.**
+
+It had never failed here. A probe found the child still alive **200/200** times on this
+machine, which is precisely the signature of a race that only a loaded scheduler loses —
+and it is why "it passes locally" was worth nothing as evidence. The child now sleeps, so
+the window the test is about genuinely exists, and the spy performs the *real* kill as
+well as recording it, which upgrades the assertion from *a function was called* to *a
+signal was delivered*. 25 consecutive runs clean; still red if the sticky flag is removed.
+
+**What I would have got wrong by hurrying:** the obvious move was to assume the failure
+was the contamination I had just found, since both involve cancels and killable commands.
+They are unrelated — running the ripper-worker tests immediately before the killable ones
+does not reproduce it. Two defects that *rhyme* are still two defects, and attributing one
+to the other would have left a real flake in the suite wearing a fixed label.
+
+### The five "enforced by" claims that enforced nothing
+
+The enforcement audit earlier this session listed five rules whose enforcement was
+prose, and the list sat under *"recorded, not yet acted on"*. All five now have a
+mechanism. Two of them mattered more than the other three:
+
+**A release could ship a commit whose CI was red — or had never run.** `release.yml`
+fires on a tag push, and a `needs:` only orders jobs *within* one workflow, so the
+four-Python matrix in `ci.yml` had no relationship to the release path whatsoever. The
+three gates that *did* run there (handshake, changelog, built-binary version) all check
+the *record*; none checked the *suite*. The new gate asks GitHub for the commit's own
+check runs and distinguishes three states — **failed**, **unfinished**, **never ran** —
+because absence of a result is not a pass, which is this project's tri-state rule
+applied to a gate rather than to a report. `tests-touched` is excluded by name: it is
+advisory by design, and a future advisory job must not silently acquire a veto.
+
+Exercised against five fixtures before shipping, and the *green* fixture deliberately
+has `tests-touched` **failing**, so the advisory carve-out is proven rather than
+asserted. Two things worth recording about writing it: the first draft split a list of
+check names on a `sed`-inserted delimiter because the names contain spaces — clever, and
+the sort of thing that breaks the day somebody renames a job, so it became a `while
+read` over a heredoc. And the harness I wrote to *test* the gate had a bug of its own: a
+non-greedy regex stubbing out the `gh api` call stopped at the first `)"` inside the
+`--jq` expression and left an unbalanced quote, so all five fixtures "failed" for a
+reason that had nothing to do with the gate. **The probe needed debugging before its
+subject did** — the third time this session that a checking tool was the thing at fault.
+
+**A handshake round could close on `HANDSHAKE-TESTED: n/a`.** The close check read the
+field for presence and non-duplication and never for content — the label, never the
+subject — and this is the one field whose entire purpose *is* content. `handshake.py`'s
+own module docstring already warned that a section "present but empty" passes; the
+warning was written for sections and never applied to the field. It now refuses empty
+values, a short list of content-free placeholders, and anything too short to name what
+ran.
+
+What it deliberately does **not** do is judge whether the evidence is any good. No check
+can, and a check that implied it could would be worse than none: a reader would take a
+pass as a statement about the testing rather than about the field. The claim is exactly
+*"somebody wrote down what they ran"* — the minimum a later reader needs in order to
+disagree.
+
+And it was run against the **20 committed verification files** before being believed,
+because a gate that refuses the record it was written against is the wrong gate. All 20
+pass. Six *tests* did not, and that is the interesting part: their synthetic fixture said
+`HANDSHAKE-TESTED: the suite, on the pair above` — 28 characters naming nothing — so the
+**stand-in was more permissive than the product**, and six close/status tests depended on
+that. The gate was right and the fixture was thin. Fixed the fixture.
+
+The other three are ratchets where a rule already existed: the mypy per-module opt-out
+list (rule #10 says it shrinks and never grows — that was prose), the CLI-flag allowlist
+(three checks enforced that a *reason* exists, none noticed the list getting longer, so
+"may not grow without writing the reason down" was satisfied by writing anything down),
+and the CI changelog gate, which asked whether `CHANGELOG.md` was *touched* — so deleting
+a bullet satisfied a gate whose purpose is "there is a new entry".
+
+**And a record defect found by reading rather than by a check:** `docs/testing.md`
+carried **two** `5.ag` sections and **two** `5.ah` sections, added five days apart. Five
+cross-references from `CLAUDE.md`, `docs/architecture.md` and this log pointed at those
+ids, so every one was ambiguous — and the ambiguity is invisible from either end, because
+the citing file looks right and each section looks right. Only counting reveals it. The
+two with no inbound references were renumbered, and the sweep that derives every `N.xx`
+id and fails on a duplicate is the check the situation deserved. Its non-triviality case
+is the exact shipped pair, one spelled `### §5.ag` and one `### 5.ag` — the spelling
+difference is why a reader's eye slid past it, so the detector has to be blind to it.
+
+### The verification pass failed, and an empty report is not a green one
+
+A second workflow was launched to adversarially verify the 14 fixes. **It produced
+nothing**: 12 of its 13 agents died on `StructuredOutput retry cap exceeded`, and the
+one that completed reported why — every tool call in its session was rejected by the
+harness with *"updatedInput must satisfy the tool's input schema"*, required parameters
+stripped before the call reached the sandbox. It could not read a line of the diff.
+
+**Worth recording because of how the result LOOKED.** The workflow returned
+`survivedCount: 0`, which reads exactly like *"nothing survived, the fixes are clean."*
+It meant *"nothing ran."* The synthesizing agent refused to launder it — it wrote *"this
+lane adds zero independent confirmation… the correct read of this report is 'coverage
+unknown', not 'clean'"*, and applied this project's own rule to itself: a check that can
+be satisfied by finding nothing needs a floor, and a synthesis over zero files has none.
+That is the vacuous-detector shape arriving through the tooling rather than through a
+test, and it would have been very easy to quote as a pass.
+
+So the gaps it *named* were closed by hand instead, and two were real:
+
+- **The three fixes not yet revert-proven** — the approval key, `build_hint`, and the
+  interruption re-check — were reverted one at a time, with the file hash checked before
+  and after each. All three went red; all three restored exactly. (CLAUDE.md lists four
+  measured ways to get a fake revert; hashing both ends rules them out.)
+- **The offer/rip relation is now a test** rather than a probe, over eleven hostile
+  inputs. It catches a *plausible* wrong predicate, not merely a broken one: loosening
+  `_tag_is_approved` to prefix-matching — which is what a careful person would most
+  likely write — fails it, because a full 40-character sha beginning with the pin is the
+  same commit to `same_commit` and a different build tag to the binary.
+- **`_BLOCKER_INTERRUPTERS` was missing a row.** The map was hand-written and omitted
+  `check_picard_flatpak`, so a worker calling it would have been swept and reported
+  clean. The expected set is now derived from `deps/checks.py`. The derivation's own
+  floor caught its first draft, which looked only for *direct* `VERSION_PROBE` references
+  and therefore found nothing at all — the helpers reach it through one level of
+  indirection. A floor that fires on its author is the check earning its place.
+- **The `exec()` → `open()` change was probed for the new state it creates** — leak,
+  modality, and a reaped handle. One box per check with no accumulation, window-modal as
+  intended, `_ripper_offer_box` cleared by its own `finished` handler, and
+  `_interruption_blocker` returns the right reason for each condition without raising on
+  a stale handle. The first attempt at that probe was confounded by its own earlier state
+  — a modal left standing from block 1 correctly blocked blocks 2 and 3 — which is worth
+  noting as the same shape one level out: *the probe needed a floor too.*
+- **`docs/cyanrip-consumer-contract.md` regenerates byte-identically**, so the argv
+  surface did not move and no handshake round is implicated.
+
+### The `FORK_PIN` gap: a deliberate decision, and a defect it was hiding
+
+Asked to address the gap between our pin (`ddf7ac3`, fork release **11**) and the
+fork's published stable (`c4d1a00`, release **16**). The first job was to find out
+whether it is drift, and the record settles it: it is not. Round 11's own
+verification file, `HANDSHAKE-PIN-POLICY`, says *"Reviewed and approved, not
+installed. FORK_PIN stays ddf7ac3"*, and its §5 gives the reason — **`c4d1a00` has no
+hardware behind it; `ddf7ac3` does.** Round 8 rig-tested `ddf7ac3` on the BDR-209D
+and nothing published since has been near a drive. *"We do not ship a ripper to users
+on the strength of a suite."*
+
+Two consequences worth stating together, because they point the same way:
+
+- `scripts/handshake.py --status` reports **all eleven rounds CLOSED**. No round is
+  open, so nothing in the handshake gate blocks a release today. Chasing the pin means
+  **opening round 12**, which closes that door — and per S-13 a round's close
+  conditions are fixed at its lap 1, so it cannot be opened cheaply "just to move a
+  constant". Moving the pin is gated on hardware (TASKS #53), not on code.
+- So being several fork releases behind is the **normal steady state here, by design**,
+  and it widens between hardware rounds. That reframes the gap from something to tidy
+  up into something the code has to describe well — which is where the actual defect
+  was.
+
+**The defect.** Where a build sits in the release sequence was answered *only* from
+`FORK_RELEASE_SEQ_BY_PIN`, a map maintained by hand in this repo. A map cannot list a
+release published after the map shipped, so the fork's *current stable* came back as
+"no sequence" and the app told the maintainer their ripper was not one this Platterpus
+was verified against — true, and it dropped the fact that explains their situation.
+Yesterday's fix added `c4d1a00: 16` to the map. That fixed **that build** and left
+release 17 to fail identically: the instance, not the class.
+
+The sequence now comes from **their manifest** as well — the document we already
+download — with our own record asked first so the answer for our own pin needs no
+network. Neither source can be dropped, which is the part that makes this two sources
+rather than a replacement: the map is the only thing that can place `ddf7ac3`, the
+head of no channel any more and therefore absent from every current manifest; the
+manifest is the only thing that can place a release newer than us. `CLAUDE.md`: *where
+the underlying source is reachable, derive from it.*
+
+**A second defect fell out of fixing the first, and it is the more interesting one.**
+Resolving a sequence we had previously refused made a new state reachable: a build
+*ahead* of the channel being asked about — a beta while Settings say stable. In that
+state `_up_to_date_offer` paired the **channel head's** version string with the
+**installed** commit and described it as "the newest published on stable". Every field
+in the sentence was true and the sentence was false. It had been unreachable only
+because we were too ignorant to get there, which is the uncomfortable shape: *a bug
+masked by a smaller bug*, and the fix for the smaller one exposes it. Answering
+"what new state does this fix create?" in the commit message is what found it — the
+question earns its place in `CLAUDE.md` again.
+
+Revert-proven rather than argued: removing the second source fails the two tests that
+assert it (`assert 'mismatched' == 'up_to_date'`), the third test is the control that
+passes either way, and the source hash was checked before and after the revert so the
+green run is not a stale read.
+
+### And then CI found one neither half was looking for
+
+PR #157's `test` jobs went red on a test that passes locally, in a file this change
+does not touch: `test_everyday_actions_have_keyboard_shortcuts`, asserting that the
+Quit menu item has a keyboard shortcut.
+
+**It is not ours.** `main` was green 13 hours earlier on **PySide6 6.11.1**; the PR
+run installed **6.11.2**. Same runner image, same Python, every other package
+version identical — read off both job logs rather than assumed. Reproduced on one
+machine, same `QT_QPA_PLATFORM=offscreen`, only the wheel changed:
+
+    6.11.1   Quit -> 'Exit'   Preferences -> 'Settings'   HelpContents -> 'F1'
+    6.11.2   Quit -> ''       Preferences -> ''           HelpContents -> 'F1'
+
+So on 6.11.2 the **Quit and Settings items shipped with no keyboard shortcut at
+all** — a WCAG 2.1.1 regression delivered by somebody else's release, with nothing
+in our diff. The test caught it because it asserts the *requirement* (a non-empty
+shortcut) rather than the *mechanism* (that we called StandardKey), which is the
+distinction that made it useful rather than tautological.
+
+**The lesson graduates to Critical rule #11**, which until now covered only the
+tools that *gate* CI. A floating **runtime** dependency has the same failure mode
+and a worse consequence: not a red build, a shipped regression. And the general form
+is bigger than pinning — *anything we ask a dependency for, we check the answer to.*
+`main_window.standard_shortcut` asks Qt and verifies; the sweep in
+`tests/test_accessibility_standards.py` refuses the unchecked form, because the raw
+`setShortcut(QKeySequence.StandardKey.X)` is exactly what the accessibility
+convention tells the next person to write.
+
+**And the fix broke a second test, which is the part worth keeping.** The
+fallback logs a warning, so on 6.11.2 two WARNING records now appear during window
+construction — and `test_accepted_with_no_selection_is_a_warning_not_a_silent_return`
+asserted `warnings[0]` was *its* line. `caplog` captures the whole test, so "the
+first warning in the process" was never the same claim as "this branch warned"; the
+two agreed only while nothing else warned at startup. Swept the codebase for the
+same shape: one instance, the others filter to a named subset first.
+
+**The real lesson is about the verification environment, not the test.** Every local
+run this session used PySide6 **6.11.1** — so the whole class was *structurally
+invisible* to me, twice: I could not have caught the original regression, and I could
+not have caught the breakage my own fix caused. CLAUDE.md already asks *"what does my
+stand-in do that the real thing does not?"* about fixtures and fakes; the same
+question applies to the **interpreter and its wheels**. The answer here was "a
+different Qt from the one that gates the merge."
+
+So the full suite is now also run against a throwaway 6.11.2 venv before pushing, and
+that is what a "green locally" claim means for anything touching Qt behaviour. Two
+green runs on two Qt versions is a different statement from two green runs on one.
+
+Open question left for the maintainer rather than decided here: whether to also pin
+PySide6 (currently `>=6.7,<7`). The fallback removes the urgency, and pinning the
+GUI framework is a call worth making deliberately.
+
+### The enforcement audit: four agents, one question per gate
+
+*"you've been having a lot of these oversights … check everything so we dont do this
+again."* Every "enforced by", "CI backstops", "a ratchet", "swept" claim in
+`CLAUDE.md`, against what actually enforces it. Three findings were verified against
+the files and fixed here; the rest are recorded for triage.
+
+- **Critical rule #11 was written in the file that does not gate.** *"A tool that
+  gates CI must not float"* — `pyproject.toml` pinned `ruff>=0.15.22,<0.16`, and
+  CI's `lint` job installed `ruff>=0.15,<1`, the whole 0.x line. Only `typecheck`
+  used the pin, because it installs the dev extra. A routine ruff 0.16 release
+  would have reddened CI on an unrelated PR and read as a code problem — word for
+  word the failure the rule describes. **The lesson, and it generalises: a rule
+  about a gate has to be checked at the gate.**
+- **The changelog gate I added yesterday passed identically whether the entries
+  were moved or deleted.** It checked that `[Unreleased]` was empty and then printed
+  *"entries were moved"* — asserting the one thing it had not checked. That is the
+  v0.6.12 defect displaced by one step, which is worth saying plainly: *fixing a
+  check by adding a check does not make the new one immune to the same question.*
+  Both halves now, proven by running the gate three ways.
+- **`release.yml` asks the tag shape twice and the two lists disagreed.** The
+  handshake gate treats `*a[0-9]*|*b[0-9]*|*rc[0-9]*` as pre-release; the publish
+  step did not. Every tag so far starts `v0.`, which both match, **so it was
+  invisible for the entire v0.x line and opens at v1.0.0** — a `v1.0.1b1` tag would
+  take the *relaxed* gate and publish as a *stable* release. Getting out of beta is
+  the current objective, so it would have fired on the first tag after it.
+- **The test guarding the release-gate wiring keyed on a label.** It asserted
+  `"handshake.py --release-gate"` appears in the workflow — a **substring of the
+  `--prerelease` line**, so deleting the strict branch left it green. Both branches
+  are now required, and the tag routing is **run under `sh`** rather than reasoned
+  about; shell globbing is one character from a bug (`v0.*` vs `v10.0.0`).
+
+**Recorded, not yet acted on** (from the same audit, unverified by me): the CI
+changelog job keys on the filename rather than on an added bullet; nothing
+requires CI to have passed before a release; `HANDSHAKE-TESTED` is checked for
+presence and never for content; the mypy opt-out ratchet has no test; the
+script-surface flag allowlist's "never grow" is not enforced.
+
+*(**All five acted on later the same session** — see "The five 'enforced by' claims
+that enforced nothing" above. Left as written rather than rewritten, because the
+paragraph below is about exactly this: a not-yet-acted-on list is a snapshot, and it
+is the one kind of note that goes stale inside the session that wrote it.)*
+
+*(Corrected 2026-08-18, by review: this list also named the release version check's
+substring match — and that one **was** fixed in this same batch, in the commit two
+paragraphs above, which now compares `awk '{print $2}'` with `=`. The record
+contradicted the code and the changelog inside a single push. Worth keeping the
+correction visible rather than editing it away: a "not yet acted on" list is
+written at the moment of the audit and then goes stale as the same session fixes
+things, which makes it the one kind of note that has to be re-read before the
+session ends.)*
+
 ## 2026-08-17 — a green suite CI could not collect, round 11 closed, and a gate our own validator refused
 
 Two things, and they rhyme: in both, the record said one thing and the artifact
@@ -2142,4 +2794,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.12.*
+*Last updated for Platterpus v0.6.14.*

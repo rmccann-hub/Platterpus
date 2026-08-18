@@ -76,7 +76,12 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from PySide6.QtCore import QThread, QTimer, Signal
-    from PySide6.QtWidgets import QProgressDialog, QSplitter, QSystemTrayIcon
+    from PySide6.QtWidgets import (
+        QMessageBox,
+        QProgressDialog,
+        QSplitter,
+        QSystemTrayIcon,
+    )
 
     # At type-check time the seam IS a QWidget (the concrete window is one), so
     # mypy resolves the Qt methods a mixin calls on ``self`` and accepts ``self``
@@ -164,6 +169,18 @@ class MainWindowShared(_SeamBase):
     # changes what every subsequent rip can claim about itself.
     _ripper_update_worker: RipperUpdateWorker | None
     _ripper_update_thread: QThread | None
+    #: True while the in-flight ripper check is the AUTOMATIC one (launch-time), so
+    #: its result stays silent unless there is something to act on. A menu-driven
+    #: check always answers, including "you're current" — an explicit question
+    #: deserves an explicit answer, and an unasked one must not interrupt.
+    _ripper_check_is_automatic: bool
+    #: The one-click install offer while it is on screen, plus what it would install.
+    #: Held here rather than closed over because the dialog is shown with `open()`
+    #: (non-blocking) and its answer arrives later on a bound method — see
+    #: `UpdateMixin._offer_ripper_install` for why `exec()` is not an option there.
+    _ripper_offer_box: QMessageBox | None
+    _ripper_offer: object  # RipperOffer | None — Qt gives us no better type here
+    _ripper_offer_commit: str
     _install_worker: UpdateInstallWorker | None
     _install_thread: QThread | None
     _install_dialog: QProgressDialog | None

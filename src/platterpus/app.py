@@ -908,6 +908,34 @@ def main(argv: list[str] | None = None) -> int:
         _autorun = _script is not None or (
             cfg.test_script_autorun and bool(cfg.test_script_path)
         )
+
+        # The automatic cyanrip check — armed HERE, from the launch path, and not
+        # from `MainWindow.__init__`. Building a window is not the same event as
+        # starting the application, and only the second one licenses interrupting
+        # somebody with a dialog. See `MainWindow.schedule_ripper_update_check`.
+        #
+        # **NOT during a scripted run**, and that is the important half. A script
+        # drives the real GUI unattended, for 30–50 minutes on the rig, with nobody
+        # watching — so a modal appearing eight seconds in would sit there blocking
+        # the batch until a person happened to look, and answering it "yes" would
+        # swap the ripper *mid-session*, invalidating the evidence the session
+        # exists to produce. Found 2026-08-18 by the suite, which drives this same
+        # path: two `cyanrip update` dialogs were left standing over the script
+        # console. A harness run is not a person sitting down, which is the same
+        # distinction the arming rule above is already about.
+        #
+        # It runs off-thread, stays silent unless it finds something it can fix in
+        # one click, and never blocks the window.
+        if not _autorun:
+            try:
+                window.schedule_ripper_update_check()
+            except Exception:  # noqa: BLE001 — last-resort guard
+                log.exception("could not arm the cyanrip update check; continuing")
+        else:
+            log.info(
+                "not arming the automatic cyanrip check — this launch runs a script"
+            )
+
         if _autorun:
             try:
                 console = window.open_script_console(autorun=False)

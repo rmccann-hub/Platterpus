@@ -37,6 +37,12 @@ jobs:
     # manylinux2014 CPython, so building on an older host keeps it broadly
     # compatible across the target distros (Bazzite, Fedora, Arch, Ubuntu).
     runs-on: ubuntu-22.04
+    # Bounded like every other job — see tests/test_ci_jobs_are_bounded.py. The
+    # widest bound in the repo because this one runs the release gates, builds the
+    # AppImage, uploads assets, attests provenance and dispatches the PyPI publish.
+    # An unbounded release job is the worst case of the class: it holds a runner
+    # for six hours while a maintainer waits on a release that will never appear.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -75,6 +81,98 @@ jobs:
               python scripts/handshake.py --release-gate ;;
           esac
 
+      # THE CI GATE. Nothing required CI to have passed before a release — found by
+      # the 2026-08-18 enforcement audit. `release.yml` runs on a tag push or a
+      # workflow_dispatch, and a `needs:` only orders jobs WITHIN one workflow, so the
+      # `test`/`lint`/`typecheck` matrix in `ci.yml` had no relationship to this at all.
+      # A release could therefore ship a commit whose suite was red, or whose suite had
+      # never run — and the release artifacts are what users auto-update to.
+      #
+      # Checked by asking GitHub for the commit's own check runs rather than by trusting
+      # ordering. Two failure modes are distinguished, because they need different
+      # responses and conflating them is how a gate becomes advisory:
+      #   * a required check FAILED    -> refuse, always.
+      #   * a required check is ABSENT -> refuse, unless CI has not been given time to
+      #     start, in which case say so rather than passing silently. "No result" is not
+      #     a pass; that is this project's tri-state rule applied to a gate.
+      - name: CI gate — refuse to release a commit whose CI is not green
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # The contexts that must be green. Named explicitly rather than "all of them":
+          # `tests-touched` is advisory BY DESIGN and must never block a release, and a
+          # future advisory job must not silently acquire veto power over one.
+          #
+          # Newline-delimited and read with `while read`, because a check name contains
+          # a space ("test (py3.11)") and word-splitting would shred it. This is the
+          # boring way on purpose — the first draft split on a sed-inserted delimiter,
+          # which is the kind of cleverness that breaks the day somebody renames a job.
+          required=$(cat <<'NAMES'
+          test (py3.11)
+          test (py3.12)
+          test (py3.13)
+          test (py3.14)
+          lint
+          typecheck
+          changelog
+          media-guard
+          pip-audit
+          NAMES
+          )
+          echo "Commit under release: $SHA"
+          runs="$(gh api "repos/$REPO/commits/$SHA/check-runs?per_page=100" \
+                    --jq '.check_runs[] | "\(.name)\t\(.status)\t\(.conclusion // "-")"')"
+          if [ -z "$runs" ]; then
+            echo "::error::No check runs at all for $SHA. CI has not run on this commit, so there is no evidence its suite passes. Push the commit to a branch, let CI finish, then tag."
+            exit 1
+          fi
+          printf '%s\n' "$runs" | sed 's/^/  /'
+
+          missing=""; failed=""; pending=""
+          while IFS= read -r name; do
+            name="$(printf '%s' "$name" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+            [ -n "$name" ] || continue
+            line="$(printf '%s\n' "$runs" | awk -F'\t' -v n="$name" '$1 == n { print; exit }')"
+            if [ -z "$line" ]; then
+              missing="$missing
+            $name"
+              continue
+            fi
+            status="$(printf '%s' "$line" | cut -f2)"
+            conclusion="$(printf '%s' "$line" | cut -f3)"
+            if [ "$status" != "completed" ]; then
+              pending="$pending
+            $name ($status)"
+            elif [ "$conclusion" != "success" ]; then
+              failed="$failed
+            $name ($conclusion)"
+            fi
+          done <<<"$required"
+
+          rc=0
+          if [ -n "$failed" ]; then
+            echo "::error::Required CI check(s) did not pass on $SHA:$failed"
+            echo "A release must not ship a commit whose suite is red."
+            rc=1
+          fi
+          if [ -n "$pending" ]; then
+            echo "::error::Required CI check(s) have not finished on $SHA:$pending"
+            echo "Wait for CI, then re-run this release — an unfinished check is not a pass."
+            rc=1
+          fi
+          if [ -n "$missing" ]; then
+            echo "::error::Required CI check(s) never ran on $SHA:$missing"
+            echo "Absence of a result is not a pass (CLAUDE.md: tri-state, never a bare negative)."
+            rc=1
+          fi
+          if [ "$rc" = "0" ]; then
+            echo "All required CI checks are green on $SHA. ✅"
+          fi
+          exit "$rc"
+
       - name: Changelog gate — refuse to tag with a non-empty [Unreleased]
         # v0.6.12 shipped with six entries still under `[Unreleased]`, describing
         # work that IS in that tag. Nothing caught it: the version-bump gate
@@ -88,10 +186,25 @@ jobs:
         # is a property of the TAG, not of somebody's working tree: between
         # releases a populated `[Unreleased]` is correct and a test asserting
         # otherwise would be red for most of the project's life.
+        #
+        # BOTH HALVES, because "moved" is a claim about two places and the first
+        # version of this gate only looked at one. It checked that `[Unreleased]`
+        # was empty and then printed *"entries were moved"* — so **deleting** the
+        # entries passed identically to moving them, and the success line asserted
+        # the one thing it had not checked. That is the very defect it was written
+        # to fix, displaced by one step (found by an enforcement audit, 2026-08-18:
+        # *can this check be satisfied by finding nothing?*). An empty
+        # `[Unreleased]` over an empty `## [X.Y.Z]` is a release whose changelog
+        # says nothing happened, which is worse than one that says it is unreleased.
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           python - <<'PY'
-          import pathlib, re, sys
+          import os, pathlib, re, sys
+          tag = os.environ["TAG"]
+          version = tag[1:] if tag.startswith("v") else tag
           text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+
           m = re.search(r"^## \[Unreleased\][^\n]*\n(.*?)(?=^## \[)", text,
                         re.M | re.S)
           if m is None:
@@ -106,7 +219,26 @@ jobs:
               for line in body[:20]:
                   print(f"  {line}")
               sys.exit(1)
-          print("changelog gate: [Unreleased] is empty — entries were moved.")
+
+          # THE DESTINATION. Keyed on $TAG, not on `__version__`: this gate is about
+          # what THIS tag ships, and a version constant read out of the tree is a
+          # different question that the suite already asks.
+          landed = re.search(
+              rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)",
+              text, re.M | re.S,
+          )
+          if landed is None:
+              sys.exit(f"::error::CHANGELOG.md has no '## [{version}]' section, so "
+                       f"the entries for tag {tag} went nowhere. An empty "
+                       f"[Unreleased] is not evidence they were moved — deleting "
+                       f"them looks identical from here.")
+          moved = [l for l in landed.group(1).splitlines() if l.strip()]
+          if not moved:
+              sys.exit(f"::error::CHANGELOG.md's '## [{version}]' section is EMPTY. "
+                       f"[Unreleased] is empty too, so this release would ship a "
+                       f"changelog claiming nothing changed.")
+          print(f"changelog gate: [Unreleased] is empty and '## [{version}]' "
+                f"carries {len(moved)} line(s) — the entries were moved.")
           PY
 
       - name: Install build tooling
@@ -154,12 +286,25 @@ jobs:
           # Fail loudly if the built version doesn't match the release tag — a
           # forgotten __version__ bump would otherwise ship a mislabeled binary
           # (e.g. a v0.4.9 release containing 0.4.8), breaking the in-app updater's
-          # version compare. TAG is like "v0.4.9"; --version prints "platterpus 0.4.9".
+          # version compare. TAG is like "v0.4.9"; --version prints
+          # "platterpus 0.4.9 (abc1234)".
+          #
+          # EXACT, not a substring. This was `case "$out" in *"$expected"*)`, which
+          # catches the direction the comment names and not the other one: `v0.6.1`
+          # is a substring of `platterpus 0.6.14`, so a dropped digit in the
+          # dispatch input would ship a 0.6.14 binary under tag v0.6.1 and pass.
+          # Measured against a real build: v0.6.14, v0.6.1, v0.6 and v0. all
+          # passed. Found by an enforcement audit, 2026-08-18.
+          #
+          # The version is pulled out as its own whitespace-delimited field and
+          # compared with `=`, so neither a prefix nor a suffix can satisfy it.
           expected="${TAG#v}"
-          case "$out" in
-            *"$expected"*) : ;;
-            *) echo "::error::built version ($out) does not match tag $TAG"; exit 1 ;;
-          esac
+          built="$(printf '%s\n' "$out" | head -n 1 | awk '{print $2}')"
+          if [ "$built" != "$expected" ]; then
+            echo "::error::built version ('$built', from \"$out\") is not tag $TAG"
+            exit 1
+          fi
+          echo "version check: built '$built' == tag '$expected'"
 
       - name: Publish to GitHub Release
         env:
@@ -168,9 +313,23 @@ jobs:
           TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           # 0.x (and any tag with a pre-release suffix) ship as pre-releases.
+          #
+          # **This list must be IDENTICAL to the handshake gate's list above**, and
+          # it was not: that one carries `*a[0-9]*|*b[0-9]*|*rc[0-9]*` and this one
+          # did not. The two together decide one thing — *is this build allowed to
+          # claim it is a verified release?* — and they disagreed on the project's
+          # own beta spelling. `v0.6.12b6` was covered only by the `v0.*` prefix, so
+          # the gap was invisible for the whole v0.x line and would have opened at
+          # v1.0.0: a `v1.0.1b1` tag would take the RELAXED handshake gate (it
+          # matches `*b[0-9]*`) and then publish as a STABLE GitHub release (it
+          # matched neither pattern here). A build excused from the gate, published
+          # as though it had passed it.
+          #
+          # Found 2026-08-18 by an enforcement audit, before v1.0.0 rather than
+          # after. `tests/test_handshake_tooling.py` now diffs the two lists.
           case "$TAG" in
-            v0.*|*-*) PRERELEASE="--prerelease" ;;
-            *)        PRERELEASE="" ;;
+            v0.*|*-*|*a[0-9]*|*b[0-9]*|*rc[0-9]*) PRERELEASE="--prerelease" ;;
+            *)                                    PRERELEASE="" ;;
           esac
           # Create the release if it doesn't exist yet; otherwise just (re)upload
           # the assets. --generate-notes auto-summarises merged PRs since the

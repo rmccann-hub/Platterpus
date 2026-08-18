@@ -29,7 +29,13 @@
 # unhashed wheel (its bytes are pinned by SOURCE_DATE_EPOCH instead). Timestamps
 # are also pinned (SOURCE_DATE_EPOCH). Remaining: validate full-AppImage byte
 # reproducibility on a real release build (only the wheel half is sandbox-checkable).
-PySide6~=6.7
+# MINOR-PINNED (see pyproject for the full reasoning): `~=6.11.1` is
+# `>=6.11.1,<6.12`, the same range pyproject states. 6.11.2 changed which
+# StandardKey bindings Qt supplies and silently removed two menu shortcuts,
+# so `<7` was a claim nothing verified. THIS line is what ships in the
+# AppImage, so it is the one that decides what a user runs. Bump both
+# together; tests/test_gating_tools_are_pinned.py fails if they disagree.
+PySide6~=6.11.1
 musicbrainzngs==0.7.1
 tomli-w~=1.0
 # Ed25519 release-signature verification (update_signing.py). Floor is the

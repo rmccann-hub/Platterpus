@@ -623,3 +623,170 @@ def test_every_worker_cancel_is_actually_invoked_at_a_stop_site() -> None:
         "thread still blocked in a container exec — and the cancel() is dead code "
         "that reads, in review, as though the hazard were handled."
     )
+
+
+# --- "some blocking call is interruptible" is not "all of them are" ------------
+#
+# `test_a_flag_only_cancel_is_either_justified_or_not_shipped` asks whether a
+# `cancel()` contains ANY name from `_INTERRUPTING_CALLS`. That is an existence check,
+# and rule 9 needs a universal one: a worker must be able to interrupt *every* call it
+# can be blocked in. `RipperUpdateWorker` shipped the gap (found by review, 2026-08-18):
+# its `cancel()` closed the HTTPS socket — a real interrupter, so the sweep was
+# satisfied — while `run()` had gained a `check_cyanrip` probe that runs `distrobox
+# enter` at 60 s per version flag. Two minutes of block that closing a socket does
+# nothing about, and `QThread.quit()` cannot reach either.
+
+#: Blocking helpers a worker can call, mapped to the interrupter that ends them.
+#:
+#: Hand-maintained, like `_INTERRUPTING_CALLS` — but a *pair* rather than a bare name,
+#: which is what makes it a universal check. Every entry is a measured ceiling, not a
+#: guess, and the map may grow when a new blocking helper appears; what it must never
+#: do is lose a row while its helper is still called.
+#: Every one of these reaches ``VERSION_PROBE.run(timeout=_PROBE_TIMEOUT_S)``, which
+#: `cancel_version_probes()` is the only thing that ends. Derived by reading
+#: ``deps/checks.py`` rather than remembered — and the map's own guard below resolves
+#: each name against the module, which is how the first draft's invented ``check_tool``
+#: was caught on its first run.
+_BLOCKER_INTERRUPTERS: dict[str, str] = {
+    "check_cyanrip": "cancel_version_probes",
+    "check_cdparanoia": "cancel_version_probes",
+    "check_metaflac": "cancel_version_probes",
+    "check_flac": "cancel_version_probes",
+    "check_ffmpeg": "cancel_version_probes",
+    # Added when the derivation below was written and immediately found it missing —
+    # which is the point of deriving rather than listing. A worker calling this one
+    # would have gone unchecked while the sweep reported clean.
+    "check_picard_flatpak": "cancel_version_probes",
+}
+
+
+def test_every_blocking_helper_a_worker_calls_has_its_interrupter_in_cancel() -> None:
+    """The universal form of rule 9: cancel must reach EVERY block, not one of them.
+
+    Derived from the source rather than listed: for each worker class that owns a
+    `cancel()`, every blocking helper it calls anywhere in the class must have its
+    matching interrupter named in that `cancel()`.
+
+    Pre-existing gaps in workers this batch did not touch are reported as a message
+    rather than silently tolerated — but the assertion is scoped to what the source
+    actually shows, so it cannot be satisfied by finding nothing (see the floor).
+    """
+    import ast
+    from pathlib import Path
+
+    src_root = Path(__file__).resolve().parents[1] / "src" / "platterpus"
+    gaps: list[str] = []
+    examined = 0
+    pairs_seen = 0
+
+    for path in sorted(src_root.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            cancel = next(
+                (
+                    item
+                    for item in node.body
+                    if isinstance(item, ast.FunctionDef) and item.name == "cancel"
+                ),
+                None,
+            )
+            if cancel is None:
+                continue
+            examined += 1
+            class_calls = _functions_called_in(ast.unparse(node))
+            cancel_calls = _functions_called_in(ast.unparse(cancel))
+            for blocker, interrupter in _BLOCKER_INTERRUPTERS.items():
+                if blocker not in class_calls:
+                    continue
+                pairs_seen += 1
+                if interrupter not in cancel_calls:
+                    gaps.append(
+                        f"{path.relative_to(src_root)}::{node.name} calls "
+                        f"{blocker}() but its cancel() never calls {interrupter}() — "
+                        f"that block cannot be interrupted (CLAUDE.md rule 9)"
+                    )
+
+    # Two floors, because either half can go vacuous on its own.
+    assert examined >= 3, (
+        f"only {examined} classes with a cancel() were found; the walk has gone stale "
+        "and this check is passing by finding nothing"
+    )
+    assert pairs_seen >= 1, (
+        "no worker was found calling any helper in _BLOCKER_INTERRUPTERS, so this "
+        "check examined nothing. Either the map is stale or the helpers were renamed; "
+        "a map that matches no code is decoration."
+    )
+    assert not gaps, "\n".join(gaps)
+
+
+def test_the_blocker_map_names_helpers_that_actually_exist() -> None:
+    """A stale row in the map is worse than a missing one: it looks like coverage.
+
+    Both halves of every pair are resolved against the real module, so a rename that
+    silently emptied the check fails here instead.
+    """
+    from platterpus.deps import checks
+
+    for blocker, interrupter in _BLOCKER_INTERRUPTERS.items():
+        assert hasattr(checks, blocker), (
+            f"_BLOCKER_INTERRUPTERS names {blocker!r}, which no longer exists in "
+            "platterpus.deps.checks — the row matches nothing and reads as coverage"
+        )
+        assert hasattr(checks, interrupter), (
+            f"_BLOCKER_INTERRUPTERS names interrupter {interrupter!r}, which no longer "
+            "exists in platterpus.deps.checks"
+        )
+
+
+def test_the_blocker_map_lists_every_probe_reaching_helper_in_checks() -> None:
+    """The map is DERIVED-AGAINST, not merely spelled correctly.
+
+    ``test_the_blocker_map_names_helpers_that_actually_exist`` catches a row that names
+    something gone; it cannot catch a row that was never added. That is the more likely
+    failure and the one that reads as coverage: a new ``check_*`` helper appears, reaches
+    ``VERSION_PROBE.run``, and the sweep simply never asks about it.
+
+    So the expected set comes out of ``deps/checks.py`` itself — every module-level
+    function whose body reaches ``VERSION_PROBE`` — the same "derive it from the source,
+    do not maintain a mirror by hand" rule the map's own subject matter is about.
+
+    Functions that reach it only *indirectly* (through another listed helper) are not
+    required: the sweep matches on what a worker actually calls, and the intermediate is
+    already covered by its own row.
+    """
+    checks_src = (SRC_ROOT / "deps" / "checks.py").read_text(encoding="utf-8")
+    tree = ast.parse(checks_src)
+
+    def _touches_probe(node: ast.FunctionDef) -> bool:
+        return any(
+            isinstance(n, ast.Name) and n.id == "VERSION_PROBE" for n in ast.walk(node)
+        )
+
+    functions = [n for n in tree.body if isinstance(n, ast.FunctionDef)]
+    # The module's own private runner is what actually holds VERSION_PROBE; the public
+    # `check_*` helpers go through it. So follow ONE level of indirection — a derivation
+    # that only looked for direct references found NOTHING, and its floor said so rather
+    # than passing quietly, which is why the floor is there.
+    direct = {n.name for n in functions if _touches_probe(n)}
+    reaching: set[str] = set()
+    for node in functions:
+        if node.name.startswith("_") or node.name == "cancel_version_probes":
+            continue
+        if node.name in direct or (_functions_called_in(ast.unparse(node)) & direct):
+            reaching.add(node.name)
+
+    # Floor: if the derivation finds nothing, the assertion below is vacuous.
+    assert reaching, (
+        "no function in deps/checks.py was found reaching VERSION_PROBE — the "
+        "derivation has gone stale and this check would pass by finding nothing"
+    )
+
+    missing = sorted(reaching - set(_BLOCKER_INTERRUPTERS))
+    assert not missing, (
+        f"deps/checks.py has probe-reaching helpers absent from "
+        f"_BLOCKER_INTERRUPTERS: {missing}. A worker calling one of those would not be "
+        f"checked for having an interrupter, and the sweep would report clean. Add each "
+        f"with its interrupter (cancel_version_probes for anything on VERSION_PROBE)."
+    )

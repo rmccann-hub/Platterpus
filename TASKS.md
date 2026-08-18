@@ -243,27 +243,31 @@ round is open. **An installer that silently fetched "the newest" would defeat th
 protocol both projects spent 41 laps building.** So the automation cannot be "keep
 up to date"; it has to be "notice, and offer."
 
-- [ ] **Detect that a newer fork build exists, and say so.** Not install it. The
-  dependency screen and the wizard already name the installed build tag; they
-  should also be able to say *"the fork's `platterpus-fork` branch is now at
-  `<sha>` (`<version>`), which no round has approved."* Read the branch head via
-  the GitHub API and the version out of `meson.build` at that commit — **there are
-  no tags to read**: the fork's git proxy refuses tag pushes, which is why the
-  commit sha is the only resolvable release identifier (see `fork_source.FORK_PIN`).
-- [ ] **`--install-ripper latest` / `latest-beta`**, resolving the newest commit on
-  the branch instead of requiring a sha typed by hand. The flag already takes an
-  arbitrary commit (`target_for_commit`), so this is a resolver in front of an
-  existing seam, not a new install path.
-- [ ] **A channel choice that mirrors the app's own.** Platterpus already has
-  `update_channel` = `stable`|`beta` with an explicit warning before a pre-release.
-  The ripper should read the same way, and for the same reason: *being handed a
-  tester build is a different thing from being handed an update.* Reuse the
-  vocabulary rather than inventing a second one.
-- [ ] **Every non-approved install must be visible in the artifact, not just at
-  install time.** This half already works — a rip on an unapproved build reports
-  `ripper_handshake_approval: unapproved`, and `not_determined` for an unrecognised
-  tag — and it is what makes the rest safe to offer. Confirm it still holds for a
-  build resolved automatically, since that is a path it has never taken.
+- [x] **Detect that a newer fork build exists, and say so.** Done via the fork's
+  published `release-manifest.json` rather than the GitHub API + `meson.build` read
+  sketched here — they publish the sequence, the channel and the round state as
+  facts, so nothing has to be inferred. (`deps/ripper_manifest.py`, 2026-08-07.)
+- [x] **A channel choice that mirrors the app's own.** `config.ripper_channel` =
+  `stable`|`beta`, Settings → Updates, same vocabulary as the app's own.
+- [x] **Every non-approved install must be visible in the artifact.** Still holds
+  for an automatically-resolved build — that path is now taken and tested.
+- [x] **Install it, on one click, when it costs nothing** *(2026-08-18, and it goes
+  further than this section asked)*. The maintainer's later instruction was
+  explicit: *"the autoupdate on platterpus should take the next viable candidate
+  without the user needing to pick … it shouldnt need to be explicity callled out by
+  eitether rop unless very impartant"*, and *"assume last most stable is good, then
+  if beta flags are checked, look for those, but it should still be an autoupdate."*
+  **The constraint above is not weakened, it is what draws the line:**
+  `RipperOffer.auto_installable` is true only for a build **our own record**
+  approves, so the one-click path can never move a user onto an unverified build —
+  which is exactly what *"do not make any of this the default"* was protecting. A
+  build no round here has verified keeps the old treatment: consequence stated,
+  never the default action, `--install-ripper <commit>` handed over.
+- [ ] **`--install-ripper latest` / `latest-beta`**, resolving the newest commit
+  from the manifest instead of requiring a sha. **Still open, and now lower
+  priority**: the GUI covers the case a person hits, so this is for a *script* that
+  wants "whatever the channel says" without pinning. A resolver in front of
+  `target_for_commit`, not a new install path.
 
 **Do not** make any of this the default. The default stays: install what a closed
 round approved. The automation's job is to stop the *maintainer* hand-editing a
@@ -1017,6 +1021,16 @@ These remove most of the README's "until X happens" caveats. Done in order, they
       Earlier prep notes (2026-05-31): README rewritten for a published-AppImage world, `CHANGELOG.md` added, real app icon committed, release/CI workflows authored and YAML-validated.
 - **[x] Publish the wheel to PyPI — DONE.** Method B is live: `pipx install platterpus` works. `.github/workflows/publish-pypi.yml` builds wheel+sdist, `twine check`s them, and publishes via **Trusted Publishing (OIDC, no stored token)** on each release, separate from `release.yml` so it can't block the AppImage. The one-time PyPI Trusted-Publisher config is in place and the publish run has gone green on every tagged release.
 
+### P1 — The `FORK_PIN` gap: gated on hardware, not on code (assessed 2026-08-18)
+
+Our pin is `ddf7ac3` = fork release **11**; the fork's published stable is `c4d1a00` = release **16**. **This is a decision, not drift** — round 11's `HANDSHAKE-PIN-POLICY` reads *"Reviewed and approved, not installed. FORK_PIN stays ddf7ac3"*, and its §5 gives the reason: `ddf7ac3` has BDR-209D evidence behind it and nothing published since has been near a drive. *"We do not ship a ripper to users on the strength of a suite."*
+
+- **[x] Stop the gap being described wrongly (2026-08-18).** The release sequence of an installed build came only from `FORK_RELEASE_SEQ_BY_PIN`, a map maintained by hand here — so a release published *after* this app was built could not be placed, and a user on the fork's current stable was told their ripper had no story. It now also resolves from the fork's own manifest, so **the gap widening no longer degrades the message**. Since the gap is the normal steady state between hardware rounds, that mattered more than the gap itself.
+- **[ ] Move `FORK_PIN` — blocked, and deliberately so.** Two preconditions, in this order:
+  1. **Hardware evidence for the newer build** — the rig run in the *Hardware-gated* item below. Code-side prep is already done: `meson_options` is wired, so the move is a constant plus a rig session, not a build change.
+  2. **A handshake round that approves it.** That means **opening round 12**, which is not free: `scripts/handshake.py --status` shows all eleven rounds CLOSED today, so nothing blocks a release *right now*, and opening a round closes that door until both sides declare GO. Per **S-13** a round's close conditions are fixed at its lap 1, so a round cannot be opened cheaply just to move a constant.
+- **Do not "tidy" the pin forward.** Every mechanism that would let it drift silently is deliberate: `FORK_PIN_RELEASE_SEQ` is `None` if the pin moves without its sequence being recorded (the suite refuses that state), and `test_the_pin_is_the_one_the_newest_closed_handshake_round_verified` derives the pin from `docs/handshake/verified/` rather than trusting the constant.
+
 ### P1 — Install automation
 
 The host-side setup (Distrobox, container, whipper, exports) currently lives only in the README's prose. A reproducible script would catch the same pitfalls we hit walking the user through (`python3-setuptools` dep, `:latest` image pull confirmation, distrobox-export needs container entry). The post-clone side is already covered by `dev-setup.sh`.
@@ -1355,7 +1369,7 @@ two verdicts turning GO.
       with *closable*. Fixed narrowly — see the CHANGELOG.
    - **[x] `v0.6.4b5` cut against `e61e75a`** (their §E1), and the session procedure rewritten
       as three human steps plus `scripts/rig_session.sh` (their §E2).
-   - **[ ] The second rig session** — `docs/rig-session-e61e75a.md`. The remaining evidence
+   - **[ ] The second rig session** — `docs/rig-session.md`. The remaining evidence
       is `-x` on a real drive (never executed anywhere, ever), `-j` from a physical drive, a
       deliberate abort, and a mid-rip cancel. **No parity re-run needed.**
    - **[ ] Then both GO on `0.9.4-rc1+platterpus.5`** cut from `e61e75a`, we move `FORK_PIN`,
@@ -2017,4 +2031,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.12.*
+*Last updated for Platterpus v0.6.14.*

@@ -721,7 +721,16 @@ def _closing(
         "HANDSHAKE-OUR-PIN": pin,
         "HANDSHAKE-PEER-VERSION": "cyanrip 0.9.4 (platterpus-fork-gabc1234)",
         "HANDSHAKE-PEER-PIN": pin,
-        "HANDSHAKE-TESTED": "one disc on a BDR-209D",
+        # Long enough to clear the evidence floor. It read 'one disc on a BDR-209D' — 22 characters
+        # naming nothing in particular — and the close/status tests leaned on that
+        # passing. `evidence_blockers` (2026-08-18) refuses content-free evidence, so
+        # this went red: the gate was correct and the STAND-IN WAS MORE PERMISSIVE THAN
+        # THE PRODUCT. CLAUDE.md, "what does my stand-in do that the real thing does
+        # not?" — the answer here was "accept a close with no evidence".
+        "HANDSHAKE-TESTED": (
+            "one disc on a BDR-209D — the full suite green under CI's import path, with "
+            "PYTEST_EXIT read from pytest's own status. NOT tested: any drive."
+        ),
     }
     return "".join(f"{key}: {value}\n" for key, value in fields.items())
 

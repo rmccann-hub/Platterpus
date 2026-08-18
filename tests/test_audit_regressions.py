@@ -1270,3 +1270,77 @@ def test_open_logs_folder_still_reports_a_refusal_through_the_shared_helper(
 
     assert len(bodies) == 1, "a refused open must not be silent"
     assert "platterpus" in bodies[0].lower(), "the user must be given the path"
+
+
+def test_the_mypy_opt_out_list_is_a_ratchet_that_only_shrinks() -> None:
+    """CLAUDE.md rule #10: *"retire one opt-out per commit, never add one."*
+
+    **The rule was written and nothing enforced it.** Found by the 2026-08-18
+    enforcement audit, which asked of every "enforced by" claim in ``CLAUDE.md`` what
+    actually enforces it. This one was prose: the list could grow, and growing it is
+    exactly what a module under deadline pressure invites — the opt-out is one line and
+    the type work is not.
+
+    A ratchet rather than an exact match, so retiring an entry needs no test edit while
+    adding one is a deliberate, visible act. When the list shrinks, lower ``CEILING``
+    in the same commit; the assertion below refuses to let it drift upward silently.
+
+    Deliberately keyed on the **module names**, not just the count: swapping one module
+    for another keeps the count and changes what is unchecked.
+    """
+    import tomllib
+
+    #: The opt-out set as of 2026-08-18. **May shrink. May never grow.**
+    CEILING: frozenset[str] = frozenset(
+        {
+            "platterpus.rip_report",
+            "platterpus.rip_compare",
+            "platterpus.adapters.musicbrainz_client",
+            "platterpus.ui.main_window_shared",
+            "platterpus.ui.main_window",
+            "platterpus.workers.rip_worker",
+            "platterpus.read_speed_ladder",
+            "platterpus.config",
+            "platterpus.ui.main_window_rip",
+        }
+    )
+
+    # Resolved from this file, not from the cwd: the sibling check at
+    # `test_mypy_cannot_silently_lose_its_view_of_pyside6` uses a bare relative path,
+    # which works only because pytest happens to run from the repo root.
+    from pathlib import Path as _Path
+
+    repo_root = _Path(__file__).resolve().parents[1]
+    with (repo_root / "pyproject.toml").open("rb") as handle:
+        config = tomllib.load(handle)
+
+    relaxed: set[str] = set()
+    for override in config["tool"]["mypy"]["overrides"]:
+        modules = override.get("module")
+        names = [modules] if isinstance(modules, str) else list(modules or [])
+        # Only the strictness opt-outs count. `ignore_missing_imports` on a THIRD-PARTY
+        # module is a different thing — it says "this dependency ships no stubs", which
+        # is a fact about them, not a relaxation of our own checking. Rule #10's ratchet
+        # is about ours.
+        if any(key != "module" and key != "ignore_missing_imports" for key in override):
+            relaxed.update(n for n in names if n.startswith("platterpus"))
+        elif override.get("ignore_missing_imports") and any(
+            n.startswith("platterpus.") and not n.endswith("_build") for n in names
+        ):
+            relaxed.update(n for n in names if n.startswith("platterpus"))
+
+    # Floor: if nothing was collected the comparison below is vacuous — it would pass
+    # for a pyproject.toml with the whole `[tool.mypy]` table deleted.
+    assert relaxed, (
+        "no per-module mypy opt-out was found at all. Either every one has been "
+        "retired — in which case delete this test and celebrate — or the parse has "
+        "gone stale and the ratchet is passing by finding nothing."
+    )
+
+    added = sorted(relaxed - CEILING)
+    assert not added, (
+        f"new mypy opt-out(s) {added}. CLAUDE.md rule #10: the per-module opt-out list "
+        f"shrinks, it does not grow — 'do not weaken a type to make a checker pass'. "
+        f"Fix the types instead. If an opt-out is genuinely unavoidable, say why in "
+        f"pyproject.toml AND raise the ceiling in this test, so the decision is visible."
+    )

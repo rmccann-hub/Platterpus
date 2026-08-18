@@ -7,7 +7,8 @@ name: AppImage
 #
 # Also runnable on demand (workflow_dispatch) on ANY branch: that uploads a
 # downloadable AppImage artifact, which is how you test a feature branch that
-# doesn't have a published release yet. See docs/appimage-testing.md.
+# doesn't have a published release yet. Procedure: docs/architecture.md §6.1
+# (it absorbed the former `appimage-testing.md` on 2026-08-06).
 
 on:
   push:
@@ -19,6 +20,11 @@ jobs:
     # Match release.yml: an older glibc keeps the bundled manylinux CPython
     # broadly compatible across the target distros.
     runs-on: ubuntu-22.04
+    # Bounded like every other job in the repo — see
+    # tests/test_ci_jobs_are_bounded.py for why this is swept rather than
+    # applied where a hang was last seen. Generous because this one downloads a
+    # manylinux CPython and builds an AppImage around it.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

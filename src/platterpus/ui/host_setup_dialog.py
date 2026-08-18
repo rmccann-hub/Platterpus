@@ -14,8 +14,9 @@ way DriveSetupDialog does.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, QTimer, Signal
 from PySide6.QtWidgets import (
     QDialogButtonBox,
     QLabel,
@@ -47,6 +48,48 @@ _STATUS_GLYPH: dict[StepStatus, str] = {
 }
 
 
+@dataclass(frozen=True)
+class SetupCopy:
+    """The words this dialog wears, so one engine can serve two errands.
+
+    **Why a dataclass and not five keyword arguments.** The ripper *update* runs the
+    identical pipeline as first-run setup — the steps are idempotent, so an update is
+    a setup where seven of the eight steps report DONE — but it must not say "installs
+    Distrobox + a container runtime" to someone who has been ripping for a month.
+    Only the prose differs, and `CLAUDE.md` rule #6 is explicit that a second
+    installer is not an option: *"no bespoke per-encoder install code"*, and rule #12
+    names ``--install-ripper`` driving *"the same step engine as the wizard rather
+    than a copied shell snippet"*. A copied dialog would be a copied snippet with a
+    layout attached.
+
+    Grouping the strings keeps the constructor honest about what varies (five
+    sentences) versus what does not (the engine, the worker, the teardown), and rule
+    #10 forbids the untyped-dict shape this would otherwise take.
+    """
+
+    title: str = "Set up Platterpus"
+    intro: str = (
+        "Platterpus rips through the <b>cyanrip</b> tool, which runs in a "
+        "small Linux container so it never touches your system. This sets "
+        "that up for you — no terminal needed:\n\n"
+        "• installs Distrobox + a container runtime (if missing)\n"
+        "• creates the 'ripping' container and installs cyanrip + flac into it\n"
+        "• makes the ripping tools available to this app\n\n"
+        "Installing system packages may pop up your system password prompt "
+        "once. On Bazzite/Silverblue everything's already there, so this is "
+        "usually instant. It's safe to re-run."
+    )
+    action_label: str = "&Set up"
+    rerun_label: str = "Re-run setup"
+    #: The headline when the run finished and a ripper is reachable. Named
+    #: separately from the failure lines because those must stay identical: a
+    #: failure has to read the same however the run was started.
+    success: str = (
+        "✓ Setup complete — the ripping tools are installed. You can rip now."
+    )
+    already: str = "✓ Everything was already set up — you're ready to rip."
+
+
 class HostSetupDialog(CenteredDialog):
     """Modal-ish wizard that bootstraps the host stack (Distrobox + cyanrip)."""
 
@@ -65,41 +108,40 @@ class HostSetupDialog(CenteredDialog):
         self,
         parent: QWidget | None = None,
         host_setup: HostSetup | None = None,
+        copy: SetupCopy | None = None,
+        start_immediately: bool = False,
     ) -> None:
         """`host_setup` is injectable for tests; production builds the real
-        one (a SubprocessRunner-backed bootstrap)."""
+        one (a SubprocessRunner-backed bootstrap).
+
+        ``copy`` swaps the prose for a caller running the same pipeline for a
+        different reason — see :class:`SetupCopy`. ``start_immediately`` skips the
+        button press, for a run the user has *already* consented to in the dialog
+        that opened this one: asking twice is not extra safety, it is a second
+        click on the same decision.
+        """
         super().__init__(parent)
         if host_setup is None:
             from platterpus.deps.step_engine import SubprocessRunner
 
             host_setup = HostSetup(runner=SubprocessRunner())
         self._host: HostSetup = host_setup
+        self._copy: SetupCopy = copy or SetupCopy()
         self._thread: QThread | None = None
         self._worker: HostSetupWorker | None = None
         self._closing: bool = False
 
-        self.setWindowTitle("Set up Platterpus")
+        self.setWindowTitle(self._copy.title)
         self.resize(580, 460)
         self.setMinimumSize(480, 360)
 
         root = QVBoxLayout(self)
 
-        self._intro: QLabel = QLabel(
-            "Platterpus rips through the <b>cyanrip</b> tool, which runs in a "
-            "small Linux container so it never touches your system. This sets "
-            "that up for you — no terminal needed:\n\n"
-            "• installs Distrobox + a container runtime (if missing)\n"
-            "• creates the 'ripping' container and installs cyanrip + flac into it\n"
-            "• makes the ripping tools available to this app\n\n"
-            "Installing system packages may pop up your system password prompt "
-            "once. On Bazzite/Silverblue everything's already there, so this is "
-            "usually instant. It's safe to re-run.",
-            self,
-        )
+        self._intro: QLabel = QLabel(self._copy.intro, self)
         self._intro.setWordWrap(True)
         root.addWidget(self._intro)
 
-        self._setup_button: QPushButton = QPushButton("&Set up", self)
+        self._setup_button: QPushButton = QPushButton(self._copy.action_label, self)
         self._setup_button.clicked.connect(self._on_setup_clicked)
         root.addWidget(self._setup_button)
 
@@ -125,6 +167,15 @@ class HostSetupDialog(CenteredDialog):
         self._button_box.rejected.connect(self.reject)
         self._button_box.accepted.connect(self.accept)
         root.addWidget(self._button_box)
+
+        if start_immediately:
+            # Deferred by one event-loop turn rather than called here. Starting a
+            # QThread from inside __init__ means the worker can emit its first
+            # `step` before the caller even holds the dialog — and `_on_step`
+            # touches widgets this constructor has only just finished building.
+            # A zero-delay singleShot costs nothing and removes the ordering
+            # question entirely.
+            QTimer.singleShot(0, self._on_setup_clicked)
 
     # --- Run flow -----------------------------------------------------------
 
@@ -174,7 +225,7 @@ class HostSetupDialog(CenteredDialog):
             return
         self._progress.setVisible(False)
         self._setup_button.setEnabled(True)
-        self._setup_button.setText("Re-run setup")
+        self._setup_button.setText(self._copy.rerun_label)
         ready = self._host.is_ready()
         # THE FAILED STEPS DECIDE THE HEADLINE, not `is_ready()` alone.
         #
@@ -223,13 +274,9 @@ class HostSetupDialog(CenteredDialog):
                     f"Setup stopped at “{first.title}”: {first.detail}\n{LOG_POINTER}"
                 )
         elif ready and all_already:
-            self._status_label.setText(
-                "✓ Everything was already set up — you're ready to rip."
-            )
+            self._status_label.setText(self._copy.already)
         elif ready:
-            self._status_label.setText(
-                "✓ Setup complete — the ripping tools are installed. You can rip now."
-            )
+            self._status_label.setText(self._copy.success)
         else:
             # Reached when `ready` is False and NO step is FAILED — empty results, an
             # all-skipped run, or a status the tri-state above does not cover. It said

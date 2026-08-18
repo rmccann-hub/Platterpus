@@ -30,6 +30,16 @@ jobs:
   # no Qt libs needed), so it runs as its own job in parallel with the tests.
   lint:
     runs-on: ubuntu-22.04
+    # A JOB-LEVEL bound, not just a step-level one. `Run tests` already carries
+    # `timeout-minutes: 15` with the right reasoning written beside it — "fails in
+    # minutes instead of burning the 6-hour default" — but it was applied to the step
+    # the author was thinking about rather than to the surface the rule belongs on.
+    # The step that has actually wedged is `Install headless Qt system libraries`: an
+    # apt stall on the runner hung two jobs for 20+ minutes on 2026-08-18, twice, with
+    # no bound at all and no way to tell a hang from slowness. That is this session's
+    # recurring shape — a guard scoped to where a problem was expected — so the bound
+    # now covers every step, including the ones nobody has seen fail yet.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -38,8 +48,31 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Install ruff
-        run: python -m pip install "ruff>=0.15,<1"
+      # Read the pin OUT OF pyproject.toml rather than repeating it here.
+      #
+      # This step used to install `ruff>=0.15,<1` — the whole 0.x line — while
+      # `[project.optional-dependencies].dev` pinned `>=0.15.22,<0.16`. So the
+      # constraint CLAUDE.md Critical rule #11 exists to impose ("a tool that gates
+      # CI must not float") was written down in the file that does NOT gate, and
+      # absent from the one that does. A routine ruff 0.16 release would have turned
+      # this job red with zero change to our code, and it would have read as a code
+      # problem — which is, word for word, the failure rule #11 describes.
+      #
+      # Deriving it means there is one place the version lives, so bumping it stays
+      # the deliberate commit the rule asks for. `tests/test_gating_tools_are_pinned.py`
+      # refuses a literal version here, so this cannot quietly regress to a copy.
+      - name: Install ruff (pin read from pyproject, so the gate cannot float)
+        run: |
+          python -m pip install --upgrade pip
+          spec="$(python -c '
+          import pathlib, tomllib
+          dev = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"][
+              "optional-dependencies"
+          ]["dev"]
+          print(next(d for d in dev if d.replace("-", "_").startswith("ruff")))
+          ')"
+          echo "pyproject pins: $spec"
+          python -m pip install "$spec"
 
       - name: Lint (ruff check)
         run: ruff check src tests
@@ -55,6 +88,7 @@ jobs:
   # mypy reads `.pyi` stubs and never imports Qt, so there's no apt step.
   typecheck:
     runs-on: ubuntu-22.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -80,6 +114,7 @@ jobs:
   # dependency-light.
   changelog:
     runs-on: ubuntu-22.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -152,11 +187,33 @@ jobs:
           if grep -qiE '^[[:space:]]*\[skip changelog\][[:space:]]*$' <<<"$messages"; then
             echo "Opt-out via commit message; skipping."; exit 0
           fi
-          # The check: was CHANGELOG.md touched anywhere in the range?
-          if grep -qx 'CHANGELOG.md' <<<"$(git diff --name-only "$base" "$head")"; then
-            echo "CHANGELOG.md updated. ✅"
+          # The check: does the range ADD a line to CHANGELOG.md?
+          #
+          # It used to ask only whether the FILE was touched — `grep -qx 'CHANGELOG.md'`
+          # over `--name-only` — which is the label rather than the subject. A commit
+          # that DELETED a bullet, reflowed whitespace, or fixed a typo satisfied a gate
+          # whose whole purpose is "there is a new entry". Found by the 2026-08-18
+          # enforcement audit; same shape as the release gate that printed "entries were
+          # moved" while only checking that [Unreleased] was empty.
+          #
+          # `--unified=0` so context lines are not mistaken for additions, and the added
+          # lines are filtered to non-blank ones: a commit that adds only a blank line to
+          # the changelog has added no entry.
+          added="$(git diff --unified=0 "$base" "$head" -- CHANGELOG.md \
+                     | grep -E '^\+' | grep -vE '^\+\+\+' | sed 's/^\+//' \
+                     | grep -cE '[^[:space:]]' || true)"
+          if [ "${added:-0}" -gt 0 ]; then
+            echo "CHANGELOG.md gained $added non-blank line(s). ✅"
           else
-            echo "::error::No CHANGELOG.md entry for this change. Add a bullet to the [Unreleased] section in the same commit (CLAUDE.md Critical Rule #7), or put a '[skip changelog]' line of its own in the commit message for a pure historical-record commit."
+            touched=0
+            if grep -qx 'CHANGELOG.md' <<<"$(git diff --name-only "$base" "$head")"; then
+              touched=1
+            fi
+            if [ "$touched" = "1" ]; then
+              echo "::error::CHANGELOG.md was modified but the change ADDS no content — a deletion or a whitespace edit is not an entry. Add a bullet to the [Unreleased] section (CLAUDE.md Critical Rule #7), or use a '[skip changelog]' line of its own for a pure historical-record commit."
+            else
+              echo "::error::No CHANGELOG.md entry for this change. Add a bullet to the [Unreleased] section in the same commit (CLAUDE.md Critical Rule #7), or put a '[skip changelog]' line of its own in the commit message for a pure historical-record commit."
+            fi
             exit 1
           fi
 
@@ -167,6 +224,7 @@ jobs:
   # guard: fail any push/PR that introduces a file with an audio extension.
   media-guard:
     runs-on: ubuntu-22.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -206,6 +264,7 @@ jobs:
   # yet: append `--ignore-vuln <GHSA/PYSEC-id>` here with a reason + revisit date.
   pip-audit:
     runs-on: ubuntu-22.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -231,6 +290,7 @@ jobs:
   # (a comment, a rename, a docstring) need no new test.
   tests-touched:
     runs-on: ubuntu-22.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -262,6 +322,7 @@ jobs:
 
   test:
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -289,12 +350,68 @@ jobs:
       # PySide6 imports a handful of system libraries even under the
       # "offscreen" Qt platform (no display needed). Install the minimal set;
       # without these the QApplication fixture in conftest.py fails to load.
+      #
+      # BOUNDED AND RETRIED, because this is the step that wedges. It stalled on
+      # the GitHub runner four times across three runs of one branch, past 20
+      # minutes each, with no bound at all — apt's own defaults let a mirror that
+      # accepts the connection and then trickles hold a fetch open far longer than
+      # the whole step is worth, and `apt-get` has no overall deadline of its own.
+      #
+      # Three things, each doing separate work:
+      #   * `timeout` wraps EACH apt call, so a stalled fetch dies in minutes
+      #     instead of consuming the job budget. It runs UNDER sudo rather than
+      #     over it — `timeout sudo apt-get` signals sudo, which need not pass
+      #     the signal on; `sudo timeout apt-get` parents apt directly.
+      #   * the retry makes a transient stall self-heal inside the same run,
+      #     instead of costing a re-run of the whole matrix.
+      #   * `Acquire::*::Timeout` bounds apt internally too, so a stall is
+      #     usually reported as a failed fetch (diagnosable) rather than
+      #     silently killed from outside (not).
+      #
+      # WHERE THE NUMBERS COME FROM, because the first version got them wrong.
+      # 240s per call was set to 75s while two matrix legs were still in flight,
+      # calibrated against the two that had finished — 13s and 32s. The full run
+      # measured 13s, 32s, 73s and 103s, ALL SUCCESSES. A 75s per-call bound sits
+      # inside the healthy range and would have killed the slow-but-working leg.
+      # A bound picked from the half of the sample that cannot disprove it is not
+      # a measurement. 240s is >2x the slowest healthy WHOLE step, applied per
+      # call, and still an order of magnitude below the 20-minute stalls.
+      #
+      # Two attempts, not three, and that is arithmetic rather than taste:
+      # 2 x 2 calls x 240s + 15s backoff = 975s, so the 18-minute step bound
+      # holds with room, and the 30-minute job bound still has ~13 minutes for
+      # the ~4.5-minute test step. Three attempts at this timeout would be 24.5
+      # minutes and would not fit.
       - name: Install headless Qt system libraries
+        timeout-minutes: 18
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libegl1 libgl1 libglib2.0-0 libxkbcommon0 \
-            libdbus-1-3 libfontconfig1 libfreetype6
+          set -euo pipefail
+          # Word splitting here is intended, so an array rather than a string.
+          opts=(-o Acquire::Retries=3 -o Acquire::http::Timeout=20
+                -o Acquire::https::Timeout=20)
+          for attempt in 1 2; do
+            # `if`, not a bare call: `set -e` would abort the loop on the first
+            # failed attempt and the retry would never happen.
+            echo "::group::apt attempt ${attempt}"
+            if sudo timeout -k 10 240 apt-get "${opts[@]}" update \
+               && sudo timeout -k 10 240 apt-get "${opts[@]}" install -y \
+                    --no-install-recommends \
+                    libegl1 libgl1 libglib2.0-0 libxkbcommon0 \
+                    libdbus-1-3 libfontconfig1 libfreetype6; then
+              echo "::endgroup::"
+              exit 0
+            fi
+            echo "::endgroup::"
+            # Named, because "the apt step failed" is not diagnosable and the
+            # attempt number separates a stalled mirror from a broken package
+            # list: a stall fails both attempts the same way, a real error fails
+            # attempt 1 instantly.
+            echo "::warning::apt attempt ${attempt} failed or timed out"
+            # No sleep after the last attempt — it would only delay the failure.
+            [ "${attempt}" -eq 2 ] || sleep 15
+          done
+          echo "::error::could not install the headless Qt libraries in 2 attempts"
+          exit 1
 
       - name: Install package with dev extras
         run: |

@@ -8513,7 +8513,18 @@ def test_accepted_with_no_selection_is_a_warning_not_a_silent_return(
         window._on_mb_releases("disc-A", _releases(4))
     warnings = [r for r in caplog.records if r.levelno >= logging.WARNING]
     assert warnings, "the impossible branch logged nothing"
-    assert "no selected release" in warnings[0].getMessage()
+    # SEARCH the records, do not index [0]. `caplog` captures the whole test,
+    # including the window construction above, so "the first warning in the
+    # process" is not the same claim as "this branch warned" — and the two came
+    # apart the moment anything else warned at startup. On PySide6 6.11.2 that is
+    # exactly what happens: `standard_shortcut` logs two lines because Qt supplies
+    # no binding for Quit or Preferences, so `warnings[0]` became a shortcut
+    # message and this test failed for a reason it was not about (CI, 2026-08-18).
+    # Order was never the property under test.
+    assert any("no selected release" in r.getMessage() for r in warnings), (
+        "no warning names the empty selection; got: "
+        + repr([r.getMessage() for r in warnings])
+    )
 
 
 def test_a_single_candidate_does_not_claim_a_picker_was_opened(

@@ -116,11 +116,34 @@ def test_a_cancel_that_lands_during_startup_is_not_lost(
     an empty slot and return quietly — the user presses Cancel and the work runs to
     completion. The sticky flag closes it. Here the cancel is fired from *inside*
     `Popen`, which is precisely that window.
+
+    **The child must still be ALIVE when the cancel lands, and it used not to be.**
+    This ran `sh -c "exit 0"`, which can finish before `run` reads the sticky flag —
+    and `_kill_group` correctly returns early on an already-exited child, so `killpg`
+    is never called and the assertion below fails. That is the product being right and
+    the TEST'S PREMISE being unmet: you cannot signal a process that has exited.
+
+    It went red on CI's py3.13 runner on 2026-08-18 and had never failed locally; a
+    probe here found the child still alive 200/200 times on this machine, which is
+    exactly the shape of a race that only a loaded scheduler loses. Fixed by giving the
+    child something to do (`sleep 30`) so the window it is testing genuinely exists.
+
+    The spy now performs the **real** kill as well as recording it, for two reasons:
+    the child would otherwise outlive the test and `communicate` would wait out its
+    sleep, and asserting that a signal was *delivered* is a stronger claim than
+    asserting a function was called. `getpgid` is left unpatched so the process group
+    resolved is the real one — the child is a group leader (`start_new_session=True`),
+    so the identity patch was only ever masking that.
     """
     cmd = KillableCommand("test startup race")
     killed: list[int] = []
-    monkeypatch.setattr(killable.os, "getpgid", lambda pid: pid)
-    monkeypatch.setattr(killable.os, "killpg", lambda pgid, sig: killed.append(sig))
+    real_killpg = killable.os.killpg
+
+    def _spy_killpg(pgid: int, sig: int) -> None:
+        killed.append(sig)
+        real_killpg(pgid, sig)
+
+    monkeypatch.setattr(killable.os, "killpg", _spy_killpg)
 
     real_popen = killable.subprocess.Popen
 
@@ -130,7 +153,10 @@ def test_a_cancel_that_lands_during_startup_is_not_lost(
         return proc
 
     monkeypatch.setattr(killable.subprocess, "Popen", _popen_then_cancel)
-    cmd.run(["sh", "-c", "exit 0"], timeout=10)
+    # A child that is unambiguously still running when the cancel lands. The timeout is
+    # far below the sleep, so if the kill did NOT happen this fails as a timeout rather
+    # than hanging the suite.
+    cmd.run(["sh", "-c", "sleep 30"], timeout=15)
 
     assert killed, (
         "a cancel arriving during process startup was dropped — the sticky "

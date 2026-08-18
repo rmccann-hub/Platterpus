@@ -31,8 +31,10 @@ from platterpus.deps.ripper_manifest import (
 )
 from platterpus.deps.ripper_offer import (
     OFFER_AVAILABLE,
+    OFFER_MISMATCHED,
     OFFER_NOT_DETERMINED,
     OFFER_UP_TO_DATE,
+    _seq_from_manifest,
     evaluate_offer,
 )
 
@@ -386,6 +388,42 @@ def test_the_recorded_sequence_agrees_with_the_published_manifest() -> None:
         )
 
 
+def test_every_recorded_sequence_agrees_with_a_published_manifest() -> None:
+    """Our whole commit→sequence map, checked against **their documents**.
+
+    The sibling above checks one entry — the pin. That was enough while the map had
+    one row, and it is exactly the shape `CLAUDE.md` warns about: a list checked
+    against itself is consistent, not verified. Every row here is a claim about a
+    number the fork published, so every row is compared to a manifest fixture that
+    actually carries it.
+
+    Both fixtures are searched because they are two published documents (schema 1 at
+    `ddf7ac3`, schema 2 at `c455683`) and a row may be stated by either. A row stated
+    by *neither* is not failed here — it may come from a manifest revision we do not
+    keep a fixture of — but it is counted, and the floor below refuses a run in which
+    nothing was actually compared.
+    """
+    published: dict[str, int] = {}
+    for document in (PUBLISHED, PUBLISHED_V2):
+        for row in document["channels"].values():
+            published[str(row["commit"])] = int(row["release_seq"])
+
+    checked = 0
+    for commit, seq in fork_source.FORK_RELEASE_SEQ_BY_PIN.items():
+        if commit not in published:
+            continue
+        checked += 1
+        assert seq == published[commit], (
+            f"FORK_RELEASE_SEQ_BY_PIN says {commit} is release {seq}, but the fork's "
+            f"published manifest says {published[commit]}. Read the number off their "
+            f"document; never derive it from a version string."
+        )
+    assert checked >= 2, (
+        f"only {checked} recorded sequence(s) were compared against a published "
+        "manifest — this check can pass by matching nothing, so it needs a floor."
+    )
+
+
 def test_an_unknown_commit_has_no_sequence() -> None:
     """Tri-state: a build outside the numbered releases returns None, not 0."""
     assert fork_source.release_seq_for_commit("0000000") is None
@@ -410,9 +448,14 @@ def test_up_to_date_and_not_determined_are_different_answers() -> None:
     unreachable network and an up-to-date ripper would render identically, and the
     reassuring one is the wrong default.
     """
-    unreachable = evaluate_offer(None, CHANNEL_STABLE)
+    # `installed_commit` is pinned to a build we recognise so the MANIFEST is the
+    # only thing failing. Passing nothing used to mean "assume the pinned build";
+    # since 2026-08-18 it means "we could not identify one", which is a different
+    # question with a different answer (see the mismatch tests below).
+    unreachable = evaluate_offer(None, CHANNEL_STABLE, installed_commit="ddf7ac3")
     assert unreachable.verdict == OFFER_NOT_DETERMINED
     assert not unreachable.is_actionable
+    assert not unreachable.can_install
 
     current = evaluate_offer(_manifest(), CHANNEL_STABLE, installed_commit="ddf7ac3")
     assert current.verdict == OFFER_UP_TO_DATE
@@ -609,3 +652,446 @@ def test_the_refusals_above_are_not_vacuous() -> None:
     assert stable.meson_options, (
         "the validator accepts nothing at all — every refusal test above is vacuous"
     )
+
+
+# --- The one-click install (redesigned 2026-08-18) ---------------------------
+#
+# Maintainer directive: *"the autoupdate on platterpus should take the next viable
+# candidate without the user needing to pick … it shouldnt need to be explicity
+# callled out by eitether rop unless very impartant"*, and *"make sure we can try
+# will pins or non autoupdates, but that is manually and by script most likely"*.
+#
+# The whole design reduces to one question asked of every offer: **does taking this
+# build cost the user anything?** If not, it installs on one click and no SHA is ever
+# shown. If it does, the consequence is stated and a command line is handed over,
+# because a deliberate act is the right friction for a build nobody has verified.
+
+
+def test_an_unrecognised_installed_build_offers_the_approved_one() -> None:
+    """The reported defect, as a test.
+
+    An operator running a build outside the release sequence used to be told it *"is
+    not one of the fork's numbered releases … Install a released build first if you
+    want update checks to work"* — accurate, and a dead end. The app knew which build
+    it wanted and made a person retype it.
+    """
+    offer = evaluate_offer(_manifest(), CHANNEL_STABLE, installed_commit="deadbee")
+    assert offer.verdict == OFFER_MISMATCHED
+    assert offer.can_install
+    assert offer.install_commit == fork_source.FORK_PIN
+    assert offer.auto_installable is True, (
+        "installing the approved pin is what makes rips report `approved` — there is "
+        "no consequence to weigh, so there is nothing for the user to read first"
+    )
+    assert "--install-ripper" not in offer.detail, (
+        "a costless install must not hand the user a command line; that is the "
+        "friction this redesign removed"
+    )
+
+
+def test_an_unidentifiable_ripper_is_never_reported_as_the_pinned_build() -> None:
+    """``installed_commit=None`` means "we could not tell", not "assume the pin".
+
+    The old fallback made a machine running **stock upstream cyanrip** — which has no
+    fork commit in its banner — render as *"your cyanrip build is current:
+    0.9.4-rc1+platterpus.5 (ddf7ac3)"*. Every word of that sentence was assembled
+    from constants, and it is the same family as the `_observed_ripper_banner`
+    defect: a value nothing produced, read through a default that cannot raise.
+    """
+    offer = evaluate_offer(_manifest(), CHANNEL_STABLE, installed_commit=None)
+    assert offer.verdict == OFFER_MISMATCHED
+    assert offer.verdict != OFFER_UP_TO_DATE
+    assert (
+        fork_source.FORK_EXPECTED_VERSION not in offer.detail.split("Expected:")[0]
+    ), (
+        "the part of the message describing what is INSTALLED must not name the "
+        "pinned version — that is the claim we cannot make"
+    )
+    assert offer.install_commit == fork_source.FORK_PIN
+
+
+def test_a_build_our_record_approved_installs_on_one_click() -> None:
+    """The "next viable candidate", taken without the user picking anything.
+
+    **Viable means our record approves THAT COMMIT** — not that the fork labelled it
+    with a round we happen to have closed.
+
+    This test used to assert the second thing, with commit ``abc1234`` and
+    ``handshake_round=APPROVED_BY_ROUND``, and it was pinning a defect (found by
+    review, 2026-08-18). `APPROVED_BY_ROUND` names the newest closed round that
+    approved *the pin we install*, and rounds 9, 10 and 11 each closed here against a
+    commit that is **not** ``FORK_PIN`` — reviewing a pin and installing it are
+    separate acts. So "their round is closed and we closed that round" was satisfied by
+    builds our record has never approved, including ``422d12a``, which the fork
+    *withdrew* for failing its own tests. Four such heads reproduced
+    ``auto_installable=True`` against ``approve_ripper(...) == unapproved``.
+
+    The candidate here is therefore ``FORK_PIN`` itself, offered to a user who is
+    behind it — which is the only shape in which a *newer* build can be one our record
+    approves, and exactly what the one-click path is for.
+    """
+    manifest = _manifest(
+        stable={
+            "release_seq": 99,
+            "commit": fork_source.FORK_PIN,
+            "handshake_round": 99,  # deliberately a round we have NOT closed
+            "round_closed": False,  # and one they call OPEN
+        }
+    )
+    offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="c4d1a00")
+    assert offer.verdict == OFFER_AVAILABLE
+    assert offer.would_be_unapproved is False
+    assert offer.auto_installable is True
+    assert offer.install_commit == fork_source.FORK_PIN
+    assert "--install-ripper" not in offer.detail
+    # The round fields above are deliberately hostile: our approval is ours to give,
+    # so a build that IS our pin stays installable even when the fork's own row calls
+    # its round open. That the two facts are independent is the whole fix.
+    assert "still OPEN" in offer.detail
+
+
+def test_a_round_label_can_no_longer_authorise_an_install() -> None:
+    """The regression test for the defect above, stated as the thing that broke.
+
+    A head the fork labels with a round we *have* closed, carrying a commit our record
+    has *not* approved, must not be auto-installable — and must not claim we approve
+    it. Asserted together with what the rip-time check says about the very same build,
+    because the defect was precisely those two disagreeing.
+    """
+    from platterpus.handshake_approval import APPROVED_BY_ROUND, approve_ripper
+
+    manifest = _manifest(
+        stable={
+            "release_seq": 99,
+            "commit": "cb440bd",  # a real round-8 fork build, and not our pin
+            "handshake_round": APPROVED_BY_ROUND,
+            "round_closed": True,
+        }
+    )
+    offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="ddf7ac3")
+    assert offer.verdict == OFFER_AVAILABLE
+    assert offer.install_commit == "cb440bd"
+    assert offer.auto_installable is False, (
+        "a round label authorised an install again; the predicate must be the commit"
+    )
+    assert offer.would_be_unapproved is True
+    assert "our record approves" not in offer.detail
+    # The two surfaces must agree about this build. That they did not is the defect.
+    rip = approve_ripper(
+        "cyanrip 0.9.4-rc1+platterpus.5-beta.1 (platterpus-fork-gcb440bd)"
+    )
+    assert rip.verdict == "unapproved"
+    assert offer.auto_installable is (rip.verdict == "approved")
+
+
+def test_a_build_no_round_here_has_verified_is_never_auto_installed() -> None:
+    """The "unless very important" case, and the revert check for the one above.
+
+    Both tests drive the same code path with one field different — the round number —
+    so a change that made everything auto-installable would fail here, and a change
+    that made nothing auto-installable would fail there. Neither can pass alone.
+    """
+    from platterpus.handshake_approval import APPROVED_BY_ROUND
+
+    manifest = _manifest(
+        stable={
+            "release_seq": 99,
+            "commit": "abc1234",
+            "handshake_round": APPROVED_BY_ROUND + 1,
+            "round_closed": True,
+        }
+    )
+    offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="ddf7ac3")
+    assert offer.verdict == OFFER_AVAILABLE
+    assert offer.would_be_unapproved is True
+    assert offer.auto_installable is False, (
+        "a build our record has not verified must never be installed on one click — "
+        "that is what would silently convert a library of jointly-verified archival "
+        "records into unverified ones"
+    )
+    assert "unapproved" in offer.detail
+    assert "--install-ripper abc1234" in offer.detail, (
+        "pins stay reachable, manually: the route must still be handed over"
+    )
+
+
+def test_a_session_test_pin_is_never_installed_over() -> None:
+    """A test pin is *supposed* to be there during a hardware session.
+
+    Auto-installing over it would destroy the evidence the session exists to gather,
+    at the moment it is being gathered. The route back is offered; it is never the
+    default.
+    """
+    offer = evaluate_offer(
+        _manifest(), CHANNEL_STABLE, installed_commit=fork_source.FORK_TEST_PIN
+    )
+    assert offer.verdict == OFFER_NOT_DETERMINED
+    assert offer.auto_installable is False
+    assert offer.can_install, "the way back must still be reachable"
+    assert offer.install_commit == fork_source.FORK_PIN
+
+
+def test_being_ahead_of_the_approved_pin_is_said_out_loud() -> None:
+    """ "Newest published" and "what your rips are checked against" are two questions.
+
+    A user who took a newer build sits at the head of the channel *and* fails
+    `approve_ripper` on every rip. The old text answered only the first and said
+    "your cyanrip build is current" to someone whose every report said `unapproved`.
+    """
+    manifest = _manifest(stable={"release_seq": 16, "commit": "c4d1a00"})
+    offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="c4d1a00")
+    assert offer.verdict == OFFER_UP_TO_DATE
+    assert "unapproved" in offer.detail
+    assert offer.install_commit == fork_source.FORK_PIN, (
+        "the remedy is the approved pin, and it must be offered rather than described"
+    )
+    assert offer.auto_installable is True
+
+
+def test_being_on_the_approved_pin_says_nothing_alarming() -> None:
+    """The floor for the test above: the healthy state must stay quiet.
+
+    Without this, a change that appended the ⚠ paragraph unconditionally would pass
+    every other test in this file — and would tell every correctly-configured user
+    their rips were unapproved.
+    """
+    offer = evaluate_offer(
+        _manifest(), CHANNEL_STABLE, installed_commit=fork_source.FORK_PIN
+    )
+    assert offer.verdict == OFFER_UP_TO_DATE
+    assert "unapproved" not in offer.detail
+    assert not offer.can_install, "there is nothing to install when nothing is wrong"
+    assert offer.auto_installable is False
+
+
+def test_the_beta_channel_is_read_from_settings_not_guessed() -> None:
+    """*"assume last most stable is good, then if beta flags are checked, look for
+    those, but it should still be an autoupdate."*
+
+    Both channels reach the same one-click path — the channel decides *which* build
+    is the candidate, never *whether* the app may install it. That distinction is
+    what keeps "opt into betas" from also meaning "opt into a weaker safety gate".
+    """
+    from platterpus.handshake_approval import APPROVED_BY_ROUND
+
+    # The beta row carries OUR PIN, so `auto_installable` is decided by the same
+    # predicate on both channels and the only variable left is the channel itself —
+    # which is the property under test. (It used to carry `abc1234` with a closed
+    # round, which made the assertion below pass for a build our record has never
+    # approved; see `test_a_round_label_can_no_longer_authorise_an_install`.)
+    manifest = _manifest(
+        beta={
+            "release_seq": 99,
+            "commit": fork_source.FORK_PIN,
+            "handshake_round": APPROVED_BY_ROUND,
+            "round_closed": True,
+        }
+    )
+    on_stable = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="c4d1a00")
+    assert on_stable.verdict == OFFER_UP_TO_DATE, "stable must not see a beta row"
+
+    on_beta = evaluate_offer(manifest, CHANNEL_BETA, installed_commit="c4d1a00")
+    assert on_beta.verdict == OFFER_AVAILABLE
+    assert on_beta.auto_installable is True
+    assert on_beta.install_commit == fork_source.FORK_PIN
+    assert "beta channel" in on_beta.detail, "a beta must say it is one"
+
+
+def test_the_reported_situation_against_the_real_published_manifest() -> None:
+    """**The maintainer's actual machine, replayed against the live document.**
+
+    Reported 2026-08-17: *"things are not lining up, why are versions different, i
+    cant update cyanrip fork directly, it says there are differences even if i do."*
+    They were running `c4d1a00` — which is not a stray build at all, it is the
+    fork's **current published stable release** (`release_seq: 16`) — while this
+    Platterpus pins `ddf7ac3` (release 11, the build round 8 approved).
+
+    The old answer was *"not one of the fork's numbered releases — a mid-round test
+    pin, or a commit installed by hand"*, with an instruction to install a released
+    build. Every clause of that was wrong about a published release, which is what
+    made it unactionable rather than merely unhelpful.
+
+    Asserted against `PUBLISHED_V2` — the fork's own file, not a fixture shaped to
+    suit us — because *"am I answering from the artifact, or from my memory of the
+    artifact?"* is the question this whole cycle turned on.
+    """
+    manifest = parse_manifest(json.dumps(PUBLISHED_V2))
+    assert manifest is not None
+    offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="c4d1a00")
+
+    # They are on the newest published build, and that is said plainly.
+    assert offer.verdict == OFFER_UP_TO_DATE
+    assert "newest published" in offer.detail
+    # AND on a build our record has not approved, which is the half that was
+    # missing — and the half that explains the `unapproved` they kept seeing.
+    assert "unapproved" in offer.detail
+    assert fork_source.FORK_PIN in offer.detail
+    # AND the remedy is offered rather than described. No commit to type.
+    assert offer.install_commit == fork_source.FORK_PIN
+    assert offer.auto_installable is True
+    assert "--install-ripper" not in offer.detail
+
+
+# --- Where a build sits in the sequence: TWO sources, and why one is not enough ---
+#
+# `FORK_RELEASE_SEQ_BY_PIN` is a hand-maintained map. That is unavoidable for builds
+# the fork has moved past — our own pin `ddf7ac3` (release 11) is the head of no
+# channel and so appears in no current manifest — but it is the WRONG only-source for
+# builds newer than this Platterpus, because a map cannot list a release published
+# after it shipped. The 2026-08-17 report is that failure: `c4d1a00` was the fork's
+# current stable and our map had never heard of it, so the app called it a build with
+# no story. Adding the commit to the map fixed that build. These tests are about the
+# class, and specifically about the NEXT one.
+
+
+def _future_release(commit: str, seq: int) -> dict[str, Any]:
+    """A manifest naming a release we do not have, as the fork would publish it.
+
+    Deliberately built from `PUBLISHED_V2` — their real document — with only the two
+    fields that must change, so it stays their format rather than becoming ours.
+    """
+    document = json.loads(json.dumps(PUBLISHED_V2))
+    for channel in ("stable", "beta"):
+        document["channels"][channel]["commit"] = commit
+        document["channels"][channel]["release_seq"] = seq
+        document["channels"][channel]["install"] = (
+            f"https://github.com/rmccann-hub/cyanrip/archive/{commit}.tar.gz"
+        )
+    return document
+
+
+def test_a_release_published_after_us_is_placed_from_their_manifest() -> None:
+    """The next release, which no map of ours can possibly list.
+
+    `abc1234` is release 17 in this document and absent from
+    `FORK_RELEASE_SEQ_BY_PIN` — the exact state `c4d1a00` was in on 2026-08-17, one
+    release later. The answer must be "you are on the newest published build, and it
+    is not the one we were verified against", NOT "this build is not one this
+    Platterpus was verified against" with the first half missing.
+    """
+    future = _future_release("abc1234", 17)
+    manifest = parse_manifest(json.dumps(future))
+    assert manifest is not None
+    # The floor for this test: the commit really is unknown to our own record, so the
+    # answer below cannot have come from there.
+    assert fork_source.release_seq_for_commit("abc1234") is None
+
+    offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="abc1234")
+
+    assert offer.verdict == OFFER_UP_TO_DATE, (
+        "a user on the fork's newest published release is up to date for their "
+        f"channel; got {offer.verdict!r} — {offer.detail!r}"
+    )
+    assert "release 17" in offer.detail
+    assert "newest published" in offer.detail
+    # And the half that explains the `unapproved` they will see on every rip.
+    assert "unapproved" in offer.detail
+    assert offer.install_commit == fork_source.FORK_PIN
+    assert offer.auto_installable is True
+
+
+def test_without_the_manifest_source_that_build_is_a_mismatch() -> None:
+    """The non-triviality check: the test above passes *because* of the new source.
+
+    Same commit, same channel, **no manifest** — the only difference is whether the
+    fork's document is in hand. If this returned `up_to_date` too, the test above
+    would be proving nothing about where the sequence came from.
+    """
+    offer = evaluate_offer(None, CHANNEL_STABLE, installed_commit="abc1234")
+    assert offer.verdict == OFFER_MISMATCHED
+    assert "release 17" not in offer.detail
+    # Still useful offline, which is the reason the classification runs before the
+    # network at all: it names the build to install without needing to look anything
+    # up.
+    assert offer.install_commit == fork_source.FORK_PIN
+    assert offer.auto_installable is True
+
+
+def test_our_own_record_still_answers_with_no_manifest_at_all() -> None:
+    """The first source has not been replaced by the second.
+
+    `ddf7ac3` is release 11 in our record and in no current manifest. Offline, on the
+    approved pin, the answer must be the reassuring one — and it must not depend on a
+    document that no longer mentions the build.
+    """
+    offer = evaluate_offer(None, CHANNEL_STABLE, installed_commit=fork_source.FORK_PIN)
+    assert offer.verdict == OFFER_NOT_DETERMINED
+    assert "unreachable or unreadable" in offer.detail
+    # NOT a mismatch: the build is ours, we simply could not check for a newer one.
+    assert offer.verdict != OFFER_MISMATCHED
+    assert offer.install_commit == ""
+
+
+def test_a_session_test_pin_is_still_a_test_pin_even_if_the_manifest_names_it() -> None:
+    """Order matters: the nominated session build outranks its sequence.
+
+    A round's test pin can legitimately also be a published release. Telling an
+    operator mid-session that their ripper is merely "up to date" would drop the fact
+    that matters — that this build is what both projects agreed to gather evidence
+    with — and `auto_installable` must stay False so nothing installs over it.
+    """
+    pinned_as_release = _future_release(fork_source.FORK_TEST_PIN, 99)
+    manifest = parse_manifest(json.dumps(pinned_as_release))
+    assert manifest is not None
+    offer = evaluate_offer(
+        manifest, CHANNEL_STABLE, installed_commit=fork_source.FORK_TEST_PIN
+    )
+    assert offer.verdict == OFFER_NOT_DETERMINED
+    assert "test pin" in offer.detail
+    assert offer.auto_installable is False
+
+
+def test_a_build_ahead_of_the_channel_does_not_borrow_the_heads_version() -> None:
+    """Beta build, stable channel: nothing newer on stable, and a different build.
+
+    This is the state the new source makes reachable, and it is the one that could
+    print a true-in-every-field, false-as-a-sentence answer: the head's *version*
+    number rendered against the *installed* commit, described as being on the channel
+    it is not on. `_up_to_date_offer` must say what is actually the case — nothing
+    newer is published on this channel, and here is where each build sits.
+    """
+    document = json.loads(json.dumps(PUBLISHED_V2))
+    # Stable stays at release 16 / `c4d1a00`; beta moves ahead to 17 / `abc1234`.
+    document["channels"]["beta"]["commit"] = "abc1234"
+    document["channels"]["beta"]["release_seq"] = 17
+    document["channels"]["beta"]["version"] = "0.9.4-rc1+platterpus.7"
+    document["channels"]["beta"]["install"] = (
+        "https://github.com/rmccann-hub/cyanrip/archive/abc1234.tar.gz"
+    )
+    manifest = parse_manifest(json.dumps(document))
+    assert manifest is not None
+    stable_row = manifest.channel(CHANNEL_STABLE)
+    assert stable_row is not None
+
+    offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="abc1234")
+
+    assert offer.verdict == OFFER_UP_TO_DATE
+    # It must NOT claim the installed build is the newest published on stable.
+    assert "newest published" not in offer.detail
+    # Both positions stated, so the sentence is checkable by the person reading it.
+    assert "release 17" in offer.detail
+    assert f"release {stable_row.release_seq}" in offer.detail
+    assert "abc1234" in offer.detail
+    # And the head's version string is NOT paired with somebody else's commit.
+    assert f"{stable_row.version} (abc1234)" not in offer.detail
+
+
+def test_the_manifest_source_never_invents_a_sequence() -> None:
+    """A commit no channel names gets no sequence from the manifest.
+
+    The tri-state has to survive the new source: a second place to look is only an
+    improvement if it still answers "I don't know" when it does not know. Asserted on
+    the resolver directly as well as on the verdict, because the verdict could be
+    right for another reason and this is the property that matters.
+    """
+    manifest = parse_manifest(json.dumps(PUBLISHED_V2))
+    assert manifest is not None
+    # The rows really are populated, so a `None` below is a refusal rather than an
+    # empty document — the "can this check be satisfied by finding nothing?" floor.
+    assert _seq_from_manifest("c4d1a00", manifest) == 16
+    assert _seq_from_manifest("deadbee", manifest) is None
+    assert _seq_from_manifest("deadbee", None) is None
+
+    offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="deadbee")
+    assert offer.verdict == OFFER_MISMATCHED
+    assert offer.release is None

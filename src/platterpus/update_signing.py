@@ -19,7 +19,7 @@ empty, :func:`signing_configured` is ``False`` and the updater keeps its
 SHA-256-only behaviour — so shipping this code changes nothing until the key is
 set. Baking in a key **arms** the fail-closed check, so the release that first
 sets the key MUST also be the first to carry a ``.minisig`` asset (see
-``docs/release-signing.md``).
+``docs/architecture.md`` §6.2).
 
 Verify-only
 -----------
@@ -66,7 +66,7 @@ log = logging.getLogger(__name__)
 # Paste the base64 payload from the SECOND line of the `minisign.pub` produced
 # by `minisign -G` (the line after "untrusted comment: …"). Leaving it EMPTY
 # keeps release-signing OFF (SHA-256-only updates, unchanged). Setting it ARMS
-# the fail-closed signature gate — see docs/release-signing.md before you do.
+# the fail-closed signature gate — see docs/architecture.md §6.2 before you do.
 #
 # **ARMING THIS IS A TWO-SIDED CHANGE, and only one side is here.** The moment a
 # key is baked in, `update_install.download_and_install` refuses any release with

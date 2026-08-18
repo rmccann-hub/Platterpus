@@ -708,11 +708,28 @@ folder name is filesystem-safe. Don't type a normal `:` (the path won't be
 found); let the shell supply the real character — `cd` into the folder and pass
 `"$PWD"`, or use tab-completion / a glob (`…/Every\ Breath\ You\ Take*`).
 
-**When to use `--install-ripper`:** normally you never need it — the GUI offers
-the setup wizard on first run. It matters when the **pinned cyanrip version
-moves**, because that pin lives inside a Platterpus release: if a newer cyanrip
-build is verified before the next Platterpus release goes out, this is how you
-get it without waiting. It prints the pin it is building and the build tag the
+**Keeping cyanrip up to date: the app does it, and you never type a commit.**
+Platterpus checks the fork's published releases a few seconds after launch and
+again from **Help → Check for cyanrip updates…**. When the build it finds is one
+the handshake record in this repository has approved — which includes the common
+case of *your ripper isn't the build this Platterpus was verified against* — it
+offers **Install it now**, and one click builds and installs it. There is no SHA
+to copy and nothing to read first, because taking that build is what makes your
+rips report `approved`.
+
+The launch-time check is **silent unless it has something to offer**. Which
+channel it looks at is **Settings → Updates**: stable by default, or pre-release
+cyanrip builds if you tick the beta box.
+
+When the newest published build is one **no round here has verified yet**, the
+app tells you, states plainly that every rip made with it would report its ripper
+as `unapproved`, and does *not* offer to install it — that one is deliberate, and
+it is what `--install-ripper` below is for.
+
+**When to use `--install-ripper`:** normally you never need it, now that the
+above exists. It is the manual route — the one a rig script calls — for
+installing **a specific commit**: a mid-round test pin, a build under review, or
+going back to an older one. It prints the pin it is building and the build tag the
 finished binary must report, so you can see which ripper you ended up with.
 
 **And it takes a commit**, which is what makes the sentence above actually true:

@@ -1196,7 +1196,7 @@ one question is the wrong input to a different one. `_source_modules()` excludes
 reusing that filter in the *phantom* check made the test report `PLANNING.md`'s
 (correct) `__init__.py` entry as describing a deleted module.
 
-### §5.ag — A conformance table is run, not read
+### §5.am — A conformance table is run, not read
 
 *Handshake round 7 lap 5, 2026-08-04.*
 
@@ -1386,6 +1386,92 @@ believed (§5.s).
 import — under `python -m pytest`. Had the guard not been written as a sweep, the same
 command would have gone on vouching for the same blind spot.
 
+### §5.al — Two surfaces answering one question by different keys will disagree
+
+*The one-click ripper install, 2026-08-18. Found by adversarial review of a diff that
+had already been through a full suite, a typecheck and ten green CI checks.*
+
+Whether a cyanrip build is *"one our record approves"* was computed twice:
+
+| surface | key | when it runs |
+|---|---|---|
+| `ripper_offer.evaluate_offer` | the manifest's **round label** — `round_closed and handshake_round <= APPROVED_BY_ROUND` | when we offer the install |
+| `handshake_approval.approve_ripper` | the **build tag** — `platterpus-fork-g<FORK_PIN>` | on every rip, into the report, the log and the EAC export |
+
+Both readings are defensible in isolation. They are not the same question **in this
+project**, and the record says so out loud: `APPROVED_BY_ROUND` names the newest closed
+round that approved *the pin we install*, and rounds 9, 10 and 11 each closed against a
+commit that is not `FORK_PIN`, because reviewing a pin and installing it are separate
+acts. So every head the fork labelled with a round we had closed was presented as
+approved, offered on one click with *"nothing to weigh"*, and then reported `unapproved`
+by the very next rip. Four real cases reproduced it — including `422d12a`, which the
+fork had **withdrawn** for failing its own tests.
+
+**What makes this class dangerous is that neither surface is wrong on its own.** There
+is no assertion to add to either one; a test of the offer passes, a test of the approval
+passes, and the defect lives strictly in the *relation*. The suite was green.
+
+Three things follow, in order of how much they buy:
+
+1. **One predicate, N callers — and the caller delegates rather than restating.** The
+   fix is `handshake_approval.approves_commit`, which `_tag_is_approved` backs and
+   `approve_ripper` also calls. Not "both compute the same thing"; literally the same
+   function. `ripper_offer._approves_commit` is a one-line pass-through that exists so a
+   future edit has to *replace a call* rather than tweak an expression.
+2. **Where the two could differ, the one that reaches an archival record wins.** The
+   shared predicate uses exact tag equality, not the prefix-tolerant `same_commit`,
+   because a prefix match would let the offer promise an approval the rip-time check
+   must refuse. Pick the stricter key deliberately and say why.
+3. **Test the relation, not the two sides.** The regression test asserts
+   `offer.auto_installable is (approve_ripper(banner).verdict == "approved")` for the
+   same build — a property no test of either module alone can express.
+
+**The smell to grep for:** a comparison against a *label* the other side supplies (a
+round number, a channel name, a version string, a `round_closed` flag) standing in for
+a comparison against the *identity* our own record keyed on. Ask: *if the other project
+relabelled this without changing the artifact, would my answer change?* If yes, the
+label is not the key.
+
+### §5.ak — A bug can be masked by a smaller bug, so a fix makes new states reachable
+
+*The ripper offer, 2026-08-18. Found by answering "what new state does this fix
+create?" in a commit message, which is the only reason it was found at all.*
+
+`_up_to_date_offer` rendered the **channel head's** version string against the
+**installed** commit and described it as *"the newest published on the stable
+channel"*. Every field in that sentence was read from a real object; the sentence was
+false. It reports one build's version number as another build's identity.
+
+**It was unreachable, and it was unreachable for the wrong reason.** Getting there
+requires a build that is ahead of the channel being asked about — a beta build while
+Settings say stable. Placing such a build requires knowing its release sequence, and
+the sequence came only from a hand-maintained map in this repo, which by construction
+cannot list a release newer than itself. So the code could never *get* to the state
+where it would have lied. The larger defect (refusing to place a newer release at all
+— the thing a user actually reported) was **hiding** the smaller one.
+
+That is the generalisable part, and it inverts the usual intuition about risk:
+
+> **A correctness fix expands the state space.** States the old bug made unreachable
+> become reachable, and nothing has ever executed them. They are not regressions
+> introduced by the fix — they are pre-existing defects the fix *exposes*, which is
+> worse in one specific way: they arrive already believed-in, in code that has been
+> in the tree for weeks and has a passing test suite behind it.
+
+So the question `CLAUDE.md` asks — *what new state does this fix create, and what
+tests that?* — is not only about state the fix **adds** (a cache, a guard, a
+precondition). It is also about state the fix **unblocks**. Ask, of any fix that makes
+a function answer where it used to decline: *what does the code downstream do with the
+answers it never used to receive?* Then go and read those branches, because no test
+covers them — a branch nothing could reach is a branch nobody wrote a case for.
+
+**The check.** `test_a_build_ahead_of_the_channel_does_not_borrow_the_heads_version`
+asserts the negative directly — `f"{stable_row.version} (abc1234)" not in detail` —
+rather than asserting the new wording, because the wording is ours to change and the
+mis-pairing is the defect. It sits beside a control test
+(`test_without_the_manifest_source_that_build_is_a_mismatch`) that passes with the fix
+reverted, so the pair distinguishes "the new source works" from "the suite is green".
+
 ### 5.ag — An implemented capability is not a capability either (added 2026-08-06)
 
 §5.p is about a capability the docs claimed and the code lacked. This is the step
@@ -1434,7 +1520,7 @@ at asking *"is this correct?"* and had nothing asking *"can anyone get to it?"*
 Both a documented capability and an implemented one can be unreachable, and
 unreachable is indistinguishable from absent to the only person who matters.
 
-### 5.ah — A gate that picks its subject by chance is not a gate (added 2026-08-06)
+### 5.an — A gate that picks its subject by chance is not a gate (added 2026-08-06)
 
 §5.aa is *a gate in the wrong place*. This is a gate in the right place, asking
 the right question, **of a document chosen by directory iteration order**.
@@ -1474,6 +1560,47 @@ Three things to take from it:
   that asserts *which subject it examined*, not only what it concluded — the
   conclusion can be right for a reason that will not survive the next file.
 
+### §5.ao — A number read from a run still in flight is the fast tail, not the range
+
+*The CI apt timeout, 2026-08-18. Caught by the run finishing before the commit was
+pushed, which is luck, not method.*
+
+Four matrix legs of one commit ran the same `apt-get` step. Two finished quickly and
+two were still going, so the timeout for a new bound was calibrated against the two
+observations available: **13s and 32s**. 75s per call looked generous — nearly 2.5×
+the slower of them.
+
+When the run completed, the four durations were **13s, 32s, 73s and 103s, every one a
+success.** A 75s per-call bound sits *inside* the healthy range. The fix written to
+stop a 20-minute stall would have begun killing a slow-but-working install, and in the
+bad case failed a step that had been passing.
+
+**The sampling error is structural, not careless.** Jobs that finish first finish first
+*because* they are fast. Reading an in-flight population therefore reads its fast tail
+with certainty — the slow observations are precisely the ones still missing, and their
+absence is what makes the sample look tight. The error is systematically in one
+direction, and a bound derived that way is always too tight, never too loose.
+
+This is `CLAUDE.md`'s *"did I verify this where it could have failed?"* arriving from a
+new direction. There the conditions guaranteed the invariant; here the conditions
+guaranteed the *sample*.
+
+What to do instead:
+
+- **Close the population before quoting it.** Wait for the run, the matrix, the batch.
+  If you cannot, state the qualifier in the number itself — *"≥73s across the 2 of 4
+  legs that had finished"* is honest and unusable as a bound, which is the point.
+- **Ask which observations are still missing, and whether they are missing at
+  random.** In any race-to-finish population they are not: the missing ones are the
+  extreme ones.
+- **Separate the two distributions you are choosing between.** Healthy ran 13–103s;
+  stalled ran 1200s+. A bound belongs in the gap, and the gap is only visible once both
+  ends are measured. Write the arithmetic into the comment so the next reader can
+  re-check it against a later sample rather than re-deriving it.
+- **Record the count, not just the value.** "240s, from 4 of 4 legs (13/32/73/103s)"
+  carries its own provenance; "240s" does not, and silently drops the qualifier the
+  first time it is quoted onward — the same decay as §5.u.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at
@@ -1492,6 +1619,24 @@ Three things to take from it:
       report **completeness meta-test** (`test_rip_report_completeness.py`) still
       passes — a new field cannot ship un-serialized. — *CLAUDE.md: validate every
       input & output*
+- [ ] **Before a RELEASE tag (not merely a merge): an adversarial review of the
+      release diff.** Not a general nicety — the measured reason. On 2026-08-18 a
+      25-agent review of a diff with a **green suite, a green typecheck and ten green
+      CI checks** raised 20 findings and confirmed 14, three of them blocking, and two
+      of the three would have reached an **archival record**: a build stamped
+      `unapproved` after the app said it was approved, and a repair path that could
+      never succeed for the population it was written for. None was visible to the
+      suite, because each lived in a *relation between* two individually-correct places
+      (§5.al) — and the suite tests modules. So the gates in `release.yml` are
+      necessary and not sufficient: they check that everything ran and passed, which is
+      a different claim from *the change is right*.
+      Prompt it to **refute**, require every finding to name what it ran, and verify
+      each one yourself before acting — *"a correction that arrives as 'you got this
+      wrong' is not pre-verified"*. And read an empty result carefully: a pass and *"the
+      review could not run"* look identical from the outside, which is exactly what
+      happened to the follow-up pass the same day (§5.aj's family, arriving through the
+      tooling). Apply **S-14** to what it finds — a real defect is an argument for
+      fixing it, not automatically for holding the release.
 - [ ] `ruff check` + `ruff format --check` clean.
 - [ ] `mypy` clean (the gating CI `typecheck` job; strict def-typing package-wide).
 - [ ] Coverage gate passes; gate not lowered.
@@ -1540,4 +1685,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.12.*
+*Last updated for Platterpus v0.6.14.*

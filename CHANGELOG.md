@@ -11,6 +11,359 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **Platterpus installs the right cyanrip build itself — no commit to type.**
+  Maintainer directive: *"the autoupdate on platterpus should take the next viable
+  candidate without the user needing to pick … it shouldnt need to be explicity
+  callled out by eitether rop unless very impartant."* The ripper check used to end
+  **every** answer with a command line carrying a SHA, so the app knew which build
+  it wanted and made a person retype it. Now:
+  - A build **our own handshake record approves** — including the very common case
+    of getting back onto the build this Platterpus was verified against — is offered
+    as *"Install it now"* and installed on one click, with no consequence to read
+    because there is none: taking it is what makes rips report `approved`.
+  - A build **no round here has verified** keeps the old careful treatment. The
+    offer states what taking it costs, is never the default action, and hands over
+    `--install-ripper <commit>` — the "very important" case, and the one where a
+    deliberate act is the right friction.
+  - The install drives the **same step engine** as the setup wizard and
+    `--install-ripper` (Critical rules #6 and #12), on a worker thread, in the same
+    dialog with different words. There is no second installer.
+  - The check now also runs **automatically**, a few seconds after launch, and stays
+    **silent unless it finds something it can fix in one click**.
+  - Pins remain reachable exactly as before, manually and from a script:
+    `--install-ripper <commit>`, and `--install-ripper list`.
+- Schema-2 manifests' per-commit `meson setup` options now flow into the in-app
+  install, so a build that needs `-Ddeclare_released=true` gets it (round 11 §J1).
+
+### Fixed
+- **The one-click ripper install could offer a build our record has never approved,
+  and call it approved.** Whether an install "costs nothing" was decided from the
+  fork manifest's **round label** (`round_closed and handshake_round <=
+  APPROVED_BY_ROUND`) while whether a *rip* reports `approved` is decided from the
+  **build tag**. Those are different questions here — rounds 9, 10 and 11 each closed
+  against a commit that is not our pin, because reviewing a pin and installing it are
+  separate acts — so any head the fork labelled with a round we had closed was
+  presented as *"the build our record approves"*, offered on one click with nothing to
+  read, and then stamped `unapproved` into every subsequent report, log and EAC export.
+  Four real cases reproduced it, including `422d12a`, the build the fork **withdrew**
+  for failing its own tests. Approval now runs through one predicate
+  (`handshake_approval.approves_commit`) that both the offer and the rip-time check
+  call, so the promise and the verdict are one computation rather than two opinions.
+- **The "put the approved build back" install could never have succeeded.** It took the
+  version and `meson setup` options off the manifest row the user was *sitting on*
+  while building a *different* commit — so `-Ddeclare_released=true` reached a configure
+  of `ddf7ac3`, which has no `meson_options.txt`; meson fails the whole configure on an
+  unknown `-D`, so the repair aborted with an error that reads as a Platterpus bug. It
+  also logged the expectation `cyanrip 0.9.4-rc1+platterpus.6 (platterpus-fork-gddf7ac3)`
+  — a banner no build prints — into the file a bug report carries. Measured against the
+  fork's live manifest for exactly the operator this feature was written for. The build
+  fields now come from `RipperOffer.build_hint()`, which returns them only for the
+  commit being installed; schema 2's options still flow when the row does describe it.
+- **An install offer could appear over a running rip, or over a window that had been
+  closed, or stacked on another dialog.** The three interruption conditions were checked
+  when the check was *armed* and never when its result *arrived* — and the gap between
+  those instants is the worker's own latency, a manifest fetch plus a container version
+  probe. So a user who started ripping during the check got a window-modal box over the
+  live progress view with *"Install it now"* pre-selected: one keypress from replacing
+  the binary mid-rip. All three are now re-checked at the moment of surfacing, and the
+  set gained "another dialog has the floor" (a launch-armed timer fires inside the
+  first-run setup question's nested loop). A check the user *asked* for still answers,
+  without the install action.
+- **The automatic check no longer nags a user who is offline and ahead of the pin.**
+  Without the manifest, an unrecognised build is indistinguishable from one of the
+  fork's newer releases — and the unprompted offer was raised anyway, every launch,
+  proposing a step backwards. Whether an offer may interrupt is now the offer's own
+  answer (`may_surface_unprompted`, defaulting to *false*) rather than a verdict list in
+  the UI, because only the decision layer knows whether the manifest was read. "No
+  ripper at all" still interrupts — that cannot be a deliberate choice.
+- **The ripper update worker's `cancel()` only interrupted half of what it blocks on.**
+  Probing the installed binary was added without extending the cancel, and that probe
+  runs `distrobox enter` at a 60-second timeout per version flag — two minutes that
+  closing a socket does nothing about and `QThread.quit()` cannot reach. It now also
+  calls `cancel_version_probes()`, and the cancel is re-checked after the probe as well
+  as after the fetch (`CLAUDE.md` rule 9). The `closeEvent` comment that still described
+  this worker as *"one bounded HTTPS GET"* has been corrected.
+- **The verdict dialog spun a nested event loop.** `_on_ripper_update_result` is the
+  worker's queued `result` slot and called `exec()`. The structural guard that caught
+  the same defect in the install offer was scoped to that one method and its docstring
+  waved the rest through as *"a menu action is user-initiated and synchronous"* — true
+  of the menu handler, not of the result slot. Both use `open()` now and the guard
+  covers both.
+- **Every CI job is now time-bounded, not just the pytest step — and it is swept.**
+  `Run tests` already carried `timeout-minutes: 15` with the right reasoning written
+  beside it — *"fails in minutes instead of burning the 6-hour default"* — applied to
+  the one step its author was thinking about. The step that actually wedged is the
+  `apt-get` that installs the headless Qt libraries: it stalled four times across
+  three runs on 2026-08-18 with no bound at all, while sibling matrix legs of the same
+  commit cleared it in 13 and 32 seconds. Sweeping for the rule instead of fixing it
+  where it was noticed found three more jobs with no bound anywhere — `appimage.yml`
+  `build`, `publish-pypi.yml` `publish`, and `release.yml` `build-and-release`, where
+  a wedge holds a runner for six hours while a maintainer waits for a release that is
+  never coming. All **11** job definitions across all 5 workflows are bounded now, and
+  `tests/test_ci_jobs_are_bounded.py` derives the set from disk so a workflow added
+  later is covered the day it lands. It also rejects a *fake* bound: `timeout-minutes:
+  360` is GitHub's own default restated, and would satisfy a presence check while
+  changing nothing. The sweep needs no YAML library — it distinguishes a job-level
+  bound from a step-level one by indentation depth, which is the only discrimination
+  it requires, and a constructed-YAML test pins exactly that. Same shape as the rest
+  of this batch: a guard scoped to where a problem was expected rather than to the
+  surface the rule belongs on.
+- **The `apt-get` step that kept wedging CI is now bounded and retried.** Bounding
+  every job stopped a stall costing six hours, but it still cost the run: the stalled
+  leg fails and the whole matrix has to be re-run. Each apt call now runs under
+  `timeout` (as `sudo timeout apt-get`, not `timeout sudo apt-get` — the latter
+  signals `sudo`, which need not pass it on), the step retries three times with
+  backoff, and apt's own `Acquire::*::Timeout` is set so a stall is usually reported
+  as a failed fetch rather than killed silently from outside. A transient mirror stall
+  now self-heals inside the same run. Measured against a stubbed `apt-get`: one
+  attempt when healthy; two attempts and a pass when the first fails; two attempts,
+  two warnings and a named `::error::` when it hangs throughout. The per-call bound is
+  240s — set from the **complete** sample of a run's four apt steps (13s, 32s, 73s,
+  103s, all successes), after a first version used 75s calibrated against the two legs
+  that had finished while the other two were still in flight. 75s sits inside the
+  healthy range and would have killed the slow-but-working leg. Reading a distribution
+  before it is fully drawn samples the fast tail and calls it the range.
+- **Every import is now checked against the declared dependencies.** A test imported
+  `yaml`; PyYAML is installed in some environments incidentally and is in neither the
+  runtime dependencies nor the `dev` extra, so the suite passed locally and all four
+  CI matrix legs failed at once with `ModuleNotFoundError`. Nothing could have caught
+  it: `pip-audit` reads the declared set, so an import missing *from* that set is
+  precisely what it cannot see, and `mypy` resolves against the installed environment
+  — the one that has the package. `tests/test_imports_are_declared.py` compares the
+  two, both sides derived (imports from the AST of `src/`, `tests/` and `scripts/`;
+  declarations from `pyproject.toml`), so neither is a list that can go stale. The
+  offending import was removed rather than the dependency added, and the sweep found
+  no others across ~3,400 import statements.
+- **Six pointers into deleted documents, in code as well as docs.** `CLAUDE.md` rule
+  #7 says retiring a file means retiring every inbound link to it in the same commit —
+  and the only thing enforcing that read `CLAUDE.md` alone, so the rule held at the
+  place it was learned and nowhere else. Sweeping the rest of the tree found
+  `appimage.yml` pointing at the retired AppImage-testing doc, `adapters/transcode.py`
+  and `config.py` at the archived multi-format design, `update_install.py` and
+  `update_signing.py` at the retired signing ritual, and a handshake artifact path in
+  `tests/test_argv_surface_agreement.py` that never existed in that spelling. The
+  signing pair is the one that mattered: it is the *fail-closed arming* procedure, so
+  a maintainer following it under release pressure landed on nothing. All six now
+  point at the section or archived file that absorbed them, and
+  `test_every_docs_pointer_in_a_live_surface_resolves` sweeps every live surface.
+  Dated record — the changelog, the session log, the handshake correspondence, the
+  archive — is deliberately excluded: those state what was true on a date, and
+  repointing their links would make them lie.
+- **Cancelling the ripper update check disabled every later version probe in the
+  process.** The new `cancel()` called `cancel_version_probes()` unconditionally, and
+  `VERSION_PROBE` is a module-level singleton whose cancel flag is *sticky* by design —
+  it closes the window between `Popen` returning and the child being registered, and is
+  cleared only when a run completes. So a cancel with nothing in flight left the flag set
+  for the rest of the process, refusing probes belonging to other callers. It is now
+  scoped to the phase where this worker is actually blocked in it, which is race-free
+  here because `run()` already re-checks the fetch's cancel immediately before the probe
+  starts. Measured both ways: `VERSION_PROBE._cancel_requested` after a bare
+  `worker.cancel()` is now `False`, and `True` when the cancel lands mid-probe.
+- **A pre-existing flaky test, surfaced by CI on py3.13.**
+  `test_a_cancel_that_lands_during_startup_is_not_lost` ran its child as
+  `sh -c "exit 0"`, which can finish before the sticky flag is read — and `_kill_group`
+  correctly returns early on an already-exited process, so no signal is sent and the
+  assertion fails. The product was right and the *test's premise* was unmet. It had never
+  failed locally (a probe found the child alive 200/200 times on this machine), which is
+  the signature of a race only a loaded scheduler loses. The child now sleeps, so the
+  window it tests genuinely exists, and the spy performs the real kill as well as
+  recording it — asserting a signal was *delivered* rather than that a function was
+  called. 25 consecutive runs clean, and it still fails if the sticky flag is removed.
+- **Five rules that said "enforced by" and were not.** The 2026-08-18 enforcement audit
+  asked of every such claim in `CLAUDE.md` what actually enforces it, and recorded five
+  answers of "nothing". All five now have one:
+  - **A release can no longer ship a commit whose CI is not green.** `release.yml` runs
+    on a tag push, and a `needs:` only orders jobs *within* one workflow — so the
+    `test`/`lint`/`typecheck` matrix had no relationship to it at all, and a release
+    could carry a commit whose suite was red or had never run. A new gate asks GitHub
+    for the commit's own check runs and distinguishes **failed**, **unfinished** and
+    **never ran** — because absence of a result is not a pass. `tests-touched` is
+    deliberately excluded: it is advisory by design and must never block. Exercised
+    against five fixtures before shipping, including one where the advisory job fails
+    and the release must still proceed.
+  - **The CI changelog gate checked that the file was *touched*.** So deleting a bullet,
+    or reflowing whitespace, satisfied a gate whose whole purpose is "there is a new
+    entry" — the label instead of the subject. It now requires an **added non-blank
+    line**, and says which of the two failures happened. Verified against four ranges: a
+    deletion, a whitespace-only edit, a real bullet, and an untouched file.
+  - **A handshake round could close on `HANDSHAKE-TESTED: n/a`.** The field was checked
+    for presence and non-duplication, never for content — and it is the one field whose
+    entire purpose is content. It now refuses empty values, content-free placeholders,
+    and anything too short to name what ran. Deliberately does *not* judge whether the
+    evidence is good; no check can, and pretending otherwise would be worse. Verified
+    not to refuse any of the **20 committed verification files**, because a gate that
+    rejects the record it was written against is the wrong gate.
+  - **The mypy per-module opt-out list could grow.** Rule #10 says it shrinks and never
+    grows; that was prose. It is a ratchet keyed on module names now, so swapping one
+    module for another cannot hide behind an unchanged count.
+  - **The CLI-flag allowlist could grow.** Three checks enforced that a reason exists and
+    names a permitted category — none noticed the list getting *longer*, so the promise
+    was satisfied by writing anything down. A ceiling makes growth visible in the diff.
+- **`docs/testing.md` had two `5.ag` sections and two `5.ah` sections**, added five days
+  apart, so the five cross-references to those ids from `CLAUDE.md`,
+  `docs/architecture.md` and the session log were all ambiguous. The two with no inbound
+  references were renumbered, and a new sweep derives every `N.xx` id across `docs/` and
+  `CLAUDE.md` and fails on a duplicate — the check that would have caught it, since a
+  duplicate id is invisible from either end and only counting reveals it.
+- **The Definition of Done now requires an adversarial review before a release tag**, not
+  merely before a merge, with the measured reason: the review that prompted it found
+  three blocking defects in a diff that had passed everything, two of which would have
+  reached an archival record.
+- **The offer/rip approval agreement is now a test, not a claim.** `CLAUDE.md`'s new
+  rule says to *test the relation* when two surfaces answer one question; this adds it —
+  `approves_commit(c)` must equal *"a rip with that build reports approved"*, checked
+  over eleven inputs chosen to be hostile rather than typical. The load-bearing row is a
+  full 40-character sha beginning with the pin: the prefix-tolerant `same_commit` calls
+  that the same commit while the binary prints a **different** build tag, so it is
+  exactly where a plausible implementation diverges. Proven by loosening the predicate to
+  prefix-matching and watching the test go red, with a floor asserting the input table
+  produces both answers.
+- **A real coverage hole in the new rule-9 sweep, found by deriving instead of listing.**
+  `_BLOCKER_INTERRUPTERS` was written by hand and was missing `check_picard_flatpak`, so
+  a worker calling it would have gone unchecked while the sweep reported clean. The
+  expected set now comes out of `deps/checks.py` — every public helper that reaches
+  `VERSION_PROBE`, following the one level of indirection they all use — and the
+  derivation's own floor caught the first draft, which looked only for direct references
+  and found nothing.
+- **Four ways the new pin-enforcement test could pass while broken** (found by review of
+  the test added the same day): `<1.0` was accepted as a "minor" bound though it admits
+  exactly what `<1` admits; a literal pin written across a shell line continuation was
+  invisible to the detector; and both "floors" matched **prose**, so `ci.yml`'s own
+  twelve-line comment about rule #11 satisfied them with every `run:` step deleted. The
+  bound is now checked as arithmetic against the floor, continuations are folded before
+  matching, and the floors read executable lines only and require the tools to be
+  *invoked*.
+- **A fork release published after your Platterpus is now recognised as a release.**
+  Where a build sits in the fork's release sequence was answered *only* from
+  `FORK_RELEASE_SEQ_BY_PIN`, a map maintained by hand in this repo — so a build newer
+  than the map could not be placed, and a user on the fork's **current published
+  stable** was told their ripper "is not one this Platterpus was verified against"
+  with no mention that it is the fork's newest. That is what the maintainer hit on
+  2026-08-17 running `c4d1a00`, and adding that one commit to the map fixed *that*
+  build while leaving the next one to fail identically. The sequence now also comes
+  from **the fork's own manifest** — which we already download — so a release
+  published after this app was built places itself. Our record is still asked first,
+  so the answer for our own pin needs no network. Neither source can be dropped: the
+  map is the only thing that can place `ddf7ac3` (release 11, the head of no channel
+  any more), and the manifest is the only thing that can place release 17.
+  - Our pin being several fork releases behind is **deliberate and unchanged**
+    (round 11 §5: `ddf7ac3` has rig evidence, nothing published since has been near a
+    drive). The gap widens between hardware rounds by design, which is exactly why
+    the code had to stop treating "newer than our map" as "no story".
+  - Also fixed while reachable: a build ahead of the channel being asked about (a
+    beta while Settings say stable) rendered the *channel head's* version string
+    against the *installed* commit and called it "the newest published on stable" —
+    every field true, the sentence false. It now states where each build sits.
+- **A machine running stock upstream cyanrip was told it was on the fork's current
+  release.** `evaluate_offer`'s `installed_commit=None` meant *"assume the pinned
+  commit"* — correct before the binary was actually probed, and a claim we never
+  checked once it was. Stock cyanrip has no fork commit in its banner, so it
+  rendered as *"your cyanrip build is current: 0.9.4-rc1+platterpus.5 (ddf7ac3)"*,
+  a sentence assembled entirely from constants. `None` now means *"we could not
+  identify a fork build"* and produces an offer to install the expected one.
+- **An unrecognised installed build was a dead end.** It reported *"not one of the
+  fork's numbered releases — a mid-round test pin, or a commit installed by hand …
+  install a released build first"*: accurate, and with nothing to act on. It is now
+  its own verdict (`mismatched`) that names both builds and offers the remedy. It
+  answers **without a network**, because the two facts it needs are local.
+- **"Newest published" and "what your rips are checked against" are two questions**,
+  and the up-to-date answer only ever answered the first — so a user ahead of the
+  handshake was told they were current while every report said `unapproved`. Both
+  facts now, with the way back offered.
+- `c4d1a00` recorded in `FORK_RELEASE_SEQ_BY_PIN` (release 16, from the fork's own
+  published manifest), so the fork's current stable release is no longer described
+  as an unnumbered hand-installed commit.
+- A cancelled ripper update check now yields no actionable offer. `cancel()` is
+  called from `closeEvent`, so a late result could otherwise have popped an install
+  prompt out of a window the user had just closed.
+- **The automatic check stands down for a window that is not on screen.** The timer
+  is armed at launch and fires seconds later, by which time the window may have been
+  closed — and it still fired, leaving an install dialog standing over nothing. A
+  user meets that as a dialog appearing after they quit.
+- **The automatic check never runs during a scripted (`--run-script`) session**, and
+  never offers a *step backwards*. A rig script drives the real GUI unattended for
+  30–50 minutes: a modal eight seconds in would block the batch until somebody
+  looked, and taking the offer would swap the ripper **mid-session**, invalidating
+  the evidence the session exists to produce. Separately, a user who is *ahead* of
+  the pin installed that build on purpose — the menu still offers the way back and
+  explains why their rips report `unapproved`, but the app does not raise it
+  unprompted at every launch.
+- The install offer's `buttonClicked` handler is typed `QAbstractButton`, not
+  `object`. The `object` convention here is for payloads Qt's *queued* connections
+  have flattened; this signal is emitted by our own widget on the same thread with a
+  concrete type, so `object` was over-caution rather than accuracy — and it made
+  `buttonRole(button)` a type error rather than a call. Caught by CI's `typecheck`,
+  which is the gate this container cannot run (its venv has no PySide6 for mypy).
+- The install offer is shown with `open()`, not `exec()`. It is raised from a queued
+  signal, so `exec()` spun a **nested event loop** inside whatever the GUI thread
+  was doing and did not return until somebody answered — which nothing guarantees.
+  Measured as an indefinite hang; a user would meet it as a frozen window.
+
+- A test asserted `warnings[0]` was its own log line. `caplog` captures the whole
+  test including the window construction, so "the first warning in the process" and
+  "this branch warned" are different claims — and they came apart the moment
+  anything else warned at startup, which is exactly what the shortcut fallback does
+  on 6.11.2. It searches the records now. Order was never the property under test.
+
+- **PySide6 is minor-pinned: `>=6.11.1,<6.12`** (was `>=6.7,<7`), matched in
+  `build/python-appimage/requirements.txt` as `~=6.11.1` because that file is what the
+  AppImage actually ships. 6.11.x patch releases still flow, so Qt's security fixes
+  do; a *minor* bump is now a deliberate commit that re-runs the gate. Enforced by
+  `tests/test_gating_tools_are_pinned.py`, which also fails if the two files disagree
+  — a pin in `pyproject.toml` alone pins nothing that ships. There turned out to be a
+  **third** copy of the number, in a test whose name says it checks the two agree:
+  `test_requirements_pins_match_dependencies_md` asserted the literal `PySide6~=6.7`,
+  so a correct pin change failed it. It derives the floor from `pyproject.toml` now. A
+  test that restates a spec cannot detect drift in it; it can only object to being out
+  of date.
+
+- **PySide6 6.11.2 silently removed the keyboard shortcuts from Quit and
+  Settings.** `QKeySequence.StandardKey.Quit` and `.Preferences` resolve to nothing
+  on 6.11.2 and resolved fine on 6.11.1 — reproduced on one machine, same
+  `QT_QPA_PLATFORM=offscreen`, only the wheel changed. `HelpContents` still
+  resolves. So a routine dependency release shipped a WCAG 2.1.1 regression with no
+  change to our code, and CI caught it only because
+  `test_everyday_actions_have_keyboard_shortcuts` asserts the *requirement* rather
+  than the mechanism.
+  - `main_window.standard_shortcut` now asks Qt and **checks the answer**, falling
+    back to `Ctrl+Q` / `Ctrl+,` / `F1` with a logged warning. Qt's binding still
+    wins whenever it has one, so per-platform behaviour is unchanged.
+  - Swept, not fixed at the three sites: a raw
+    `setShortcut(QKeySequence.StandardKey.X)` is the shape that broke, and it is
+    what the accessibility convention literally tells the next person to write.
+
+### Changed (CI/release gates — an enforcement audit of every "enforced by" claim)
+- **The `lint` job installed `ruff>=0.15,<1` while `pyproject.toml` pinned
+  `>=0.15.22,<0.16`.** Critical rule #11 (*"a tool that gates CI must not float"*)
+  was written in the file that does not gate and absent from the one that does, so
+  a routine ruff 0.16 release would have reddened CI on an unrelated PR and read as
+  a code problem — word for word the failure the rule describes. The job now reads
+  the pin out of `pyproject.toml`, and `tests/test_gating_tools_are_pinned.py`
+  refuses a literal version in the workflow.
+- **The release changelog gate passed identically whether entries were moved or
+  deleted.** It checked that `[Unreleased]` was empty and then printed *"entries
+  were moved"* — asserting the one thing it had not checked, which is the defect it
+  was added to fix displaced by one step. It now also requires the tag's own
+  `## [X.Y.Z]` section to exist and be non-empty. Proven against the real
+  changelog: moved passes, deleted fails, missing-section fails.
+- **`release.yml`'s two tag-shape lists disagreed.** The handshake gate treats
+  `*a[0-9]*|*b[0-9]*|*rc[0-9]*` as pre-release; the GitHub-publish step did not. Every
+  tag so far starts `v0.`, which both match, so it never showed — and it opens at
+  v1.0.0, where a `v1.0.1b1` tag would take the *relaxed* gate and publish as a
+  *stable* release. The lists are now identical and a test diffs them.
+- The test guarding the release-gate wiring asserted `"handshake.py --release-gate"
+  is in the workflow — a **substring of the `--prerelease` line**, so deleting the
+  strict branch left it green. It now requires both branches, and the tag routing is
+  **run under `sh`** rather than reasoned about.
+- **The built-binary version check was a substring match**, so it caught the
+  direction its own comment names (*"a v0.4.9 release containing 0.4.8"*) and not
+  the other one: `v0.6.1` is a substring of `platterpus 0.6.14`, so a dropped digit
+  in the dispatch input would have shipped a 0.6.14 binary under tag `v0.6.1`.
+  Measured against a real build, `v0.6.14`, `v0.6.1`, `v0.6` and `v0.` all passed.
+  The version is now pulled out as its own field and compared exactly; all four of
+  those are refused and the correct tag still passes.
+
 ## [0.6.14] — 2026-08-17
 
 ### Fixed
