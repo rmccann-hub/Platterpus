@@ -88,6 +88,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   anything else warned at startup, which is exactly what the shortcut fallback does
   on 6.11.2. It searches the records now. Order was never the property under test.
 
+- **PySide6 is minor-pinned: `>=6.11.1,<6.12`** (was `>=6.7,<7`), matched in
+  `build/python-appimage/requirements.txt` as `~=6.11.1` because that file is what the
+  AppImage actually ships. 6.11.x patch releases still flow, so Qt's security fixes
+  do; a *minor* bump is now a deliberate commit that re-runs the gate. Enforced by
+  `tests/test_gating_tools_are_pinned.py`, which also fails if the two files disagree
+  — a pin in `pyproject.toml` alone pins nothing that ships.
+
 - **PySide6 6.11.2 silently removed the keyboard shortcuts from Quit and
   Settings.** `QKeySequence.StandardKey.Quit` and `.Preferences` resolve to nothing
   on 6.11.2 and resolved fine on 6.11.1 — reproduced on one machine, same

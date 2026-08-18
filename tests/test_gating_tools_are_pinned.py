@@ -139,3 +139,130 @@ def test_the_literal_pin_detector_actually_matches_the_shipped_defect() -> None:
 
     # And the other spelling a future edit is most likely to reach for.
     assert _LITERAL_PIN.search("run: pip install mypy==2.3.0")
+
+
+# --- Runtime dependencies whose BEHAVIOUR we depend on -----------------------
+#
+# Rule #11 was written about the tools that *gate* CI, on the reasoning that a
+# floating version turns CI red with no change to our code. The same reasoning
+# reaches a floating **runtime** dependency, and the consequence is worse: not a red
+# build, a shipped regression.
+#
+# Two measured instances in this repository, which is what makes this a class rather
+# than an anecdote:
+#
+#   * **PySide6 6.11.2** stopped resolving `QKeySequence.StandardKey.Quit` and
+#     `.Preferences`, so the Quit and Settings menu items shipped with no keyboard
+#     shortcut at all — WCAG 2.1.1, from somebody else's release (2026-08-18).
+#   * **cryptography**: a `<50` ceiling excluded the only fix for CVE-2026-69247, so
+#     `pip-audit` resolved the vulnerable top of the range and reddened CI with no
+#     code change (DEPENDENCIES.md, 2026-08-04).
+#
+# A version range is a claim that every version in it behaves the same for us.
+# Nothing verifies that claim, so the range has to be narrow enough that a change in
+# behaviour arrives as a deliberate commit.
+
+APPIMAGE_REQUIREMENTS: Final[Path] = (
+    REPO_ROOT / "build" / "python-appimage" / "requirements.txt"
+)
+
+#: Runtime dependencies held to a minor-level bound, each with the reason.
+#: **A ratchet in the same direction as the tools above: it may grow, never shrink.**
+#: An entry leaving this set means someone decided a dependency may float again, and
+#: that is a decision worth a commit message.
+MINOR_PINNED_RUNTIME: Final[dict[str, str]] = {
+    "PySide6": (
+        "6.11.2 dropped the StandardKey bindings for Quit and Preferences, shipping "
+        "menu items with no keyboard shortcut"
+    ),
+}
+
+
+def _runtime_spec(dist: str) -> str:
+    """The `[project].dependencies` requirement string for ``dist``."""
+    document = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    for entry in document["project"]["dependencies"]:
+        if str(entry).replace("-", "_").lower().startswith(dist.lower()):
+            return str(entry)
+    raise AssertionError(f"{dist!r} is not in [project].dependencies at all")
+
+
+def _bounds(spec: str) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    """``(floor, ceiling)`` as version tuples, for either spelling.
+
+    Understands the two forms this repo uses — an explicit ``>=a.b.c,<x.y`` range and
+    the compatible-release ``~=a.b.c`` (which is ``>=a.b.c,<a.(b+1)``). They have to
+    be compared as *ranges* rather than as strings, because the AppImage
+    requirements file cannot use ``<`` at all: python-appimage installs each line
+    through a shell, so a ``<`` is read as a redirection and crashes the build (its
+    own header documents this). Two spellings of one range is exactly the kind of
+    pair that drifts, so this normalises before comparing.
+    """
+    tilde = re.search(r"~=\s*(\d+)\.(\d+)\.(\d+)", spec)
+    if tilde:
+        major, minor, patch = (int(g) for g in tilde.groups())
+        return (major, minor, patch), (major, minor + 1)
+    floor = re.search(r">=\s*(\d+)\.(\d+)\.(\d+)", spec)
+    ceil = re.search(r"<\s*(\d+)\.(\d+)", spec)
+    assert floor and ceil, f"cannot read bounds from {spec!r}"
+    return tuple(int(g) for g in floor.groups()), tuple(int(g) for g in ceil.groups())
+
+
+def test_behaviour_critical_runtime_deps_are_minor_pinned() -> None:
+    """A `<7`-style bound admits every minor release in a major series."""
+    for dist, why in MINOR_PINNED_RUNTIME.items():
+        spec = _runtime_spec(dist)
+        floor, ceiling = _bounds(spec)
+        assert ceiling[:2] == (floor[0], floor[1] + 1), (
+            f"{spec!r} is not bounded to the minor it was tested against "
+            f"(floor {floor}, ceiling {ceiling}). {dist}: {why}. A wider range is a "
+            f"claim that every version in it behaves the same, and nothing checks it."
+        )
+
+
+def test_the_shipped_pin_matches_the_declared_pin() -> None:
+    """**The AppImage requirements file is what a user actually runs.**
+
+    `pyproject.toml` governs a dev or pipx install; `build/python-appimage/
+    requirements.txt` governs the bundle that gets downloaded and double-clicked —
+    the project's primary distribution channel. Pinning one and not the other pins
+    nothing that ships.
+
+    The two use different spellings by necessity (see :func:`_bounds`), so this
+    compares the resolved ranges rather than the text.
+    """
+    shipped = APPIMAGE_REQUIREMENTS.read_text(encoding="utf-8")
+    for dist in MINOR_PINNED_RUNTIME:
+        line = next(
+            (
+                ln.strip()
+                for ln in shipped.splitlines()
+                if ln.strip().startswith(dist) and not ln.strip().startswith("#")
+            ),
+            None,
+        )
+        assert line, f"{dist} is not in {APPIMAGE_REQUIREMENTS.name} — nothing ships it"
+        assert _bounds(line) == _bounds(_runtime_spec(dist)), (
+            f"{dist} is pinned differently in the two files:\n"
+            f"  pyproject : {_runtime_spec(dist)!r} -> {_bounds(_runtime_spec(dist))}\n"
+            f"  shipped   : {line!r} -> {_bounds(line)}\n"
+            "The shipped one decides what a user runs. Bump both together."
+        )
+
+
+def test_the_pin_admits_both_wheels_we_actually_tested() -> None:
+    """Non-triviality with a floor, and a guard against over-tightening.
+
+    A pin narrow enough to exclude a version we verified would be a different
+    mistake: 6.11.1 is what runs locally and 6.11.2 is what CI installs, and the
+    whole point of the exercise was that BOTH are known-good. An `==6.11.1` would
+    satisfy the minor-bound test above and quietly forfeit Qt's patch releases.
+    """
+    floor, ceiling = _bounds(_runtime_spec("PySide6"))
+    for tested in ((6, 11, 1), (6, 11, 2)):
+        assert floor <= tested, (
+            f"the pin's floor {floor} excludes {tested}, a wheel we verified green"
+        )
+        assert tested[:2] < ceiling, (
+            f"the pin's ceiling {ceiling} excludes {tested}, a wheel we verified green"
+        )

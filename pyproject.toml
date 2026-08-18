@@ -36,7 +36,24 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: CD Audio :: CD Ripping",
 ]
 dependencies = [
-    "PySide6>=6.7,<7",
+    # MINOR-PINNED, not `<7`. A range is a claim that every version in it behaves
+    # the same for us, and 6.11.2 disproved it: `QKeySequence.StandardKey.Quit` and
+    # `.Preferences` stopped resolving, so the Quit and Settings menu items shipped
+    # with no keyboard shortcut — a WCAG 2.1.1 regression from somebody else's
+    # release, with no change to our code (2026-08-18; `main_window.standard_shortcut`
+    # now checks Qt's answer, and the suite is run against both wheels).
+    #
+    # This is CLAUDE.md Critical rule #11 applied to a RUNTIME dependency, and it is
+    # the second instance of the class here — see the `cryptography` note in
+    # DEPENDENCIES.md, where a floating ceiling let pip-audit resolve a vulnerable
+    # version and reddened CI with no code change either.
+    #
+    # The bound is the minor, not the patch: 6.11.x patch releases still flow (they
+    # carry Qt's security fixes, and 6.11.2 is now handled correctly and proven
+    # green), while a MINOR bump becomes a deliberate commit that re-runs the gate.
+    # `build/python-appimage/requirements.txt` must express the same range — it is
+    # what actually ships — and a test asserts the two agree.
+    "PySide6>=6.11.1,<6.12",
     "musicbrainzngs==0.7.1",
     "tomli-w>=1.0,<2",
     # Ed25519 verification of a release's minisign signature (the in-app

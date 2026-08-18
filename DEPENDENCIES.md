@@ -6,7 +6,7 @@ All dependencies, with last upstream release date and replacement plan. Reviewed
 
 | Name | Pinned version | Last upstream release | License | Status | Planned replacement |
 |---|---|---|---|---|---|
-| PySide6 | `>=6.7,<7` (current: 6.11.1) | 2026-05-13 | LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only | Active | — |
+| PySide6 | `>=6.11.1,<6.12` (current: 6.11.1; CI resolves 6.11.2) — **minor-pinned 2026-08-18**, was `>=6.7,<7`. 6.11.2 stopped resolving `QKeySequence.StandardKey.Quit` and `.Preferences`, so the Quit and Settings menu items shipped with **no keyboard shortcut** — a WCAG 2.1.1 regression from somebody else's release with no change to our code. Reproduced on one machine, same `QT_QPA_PLATFORM=offscreen`, only the wheel changed. `main_window.standard_shortcut` now checks Qt's answer instead of trusting it, and the suite is run against **both** wheels before a push touching Qt behaviour. The bound is the MINOR, not the patch: 6.11.x still flows (Qt's security fixes with it, and 6.11.2 is handled correctly and proven green), while a minor bump becomes a deliberate commit that re-runs the gate. `build/python-appimage/requirements.txt` expresses the same range as `~=6.11.1` — that file is what SHIPS — and `tests/test_gating_tools_are_pinned.py` fails if the two disagree. Same class as the `cryptography` ceiling incident below. | 2026-05-13 | LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only | Active | — |
 | musicbrainzngs | `==0.7.1` | 2020-01-11 | BSD-2-Clause (one file ISC) | Unmaintained (>12mo) | direct `requests` against `https://musicbrainz.org/ws/2/` via `MusicBrainzClient.RequestsJsonImpl` |
 | tomli-w | `>=1.0,<2` (current: 1.2.0) | 2025-01-15 | MIT | Active | — (stdlib `tomllib` is read-only, `tomli-w` is the canonical writer) |
 | cryptography | `>=50.0.0,<51` (pyproject); AppImage bundles `~=50.0`; exact version fixed by `requirements.lock` **once that lock exists** — it is not committed yet, so today's build is a version-pinned online install (`build_appimage.sh` branches on the file) | (per PyPI) | Apache-2.0 OR BSD-3-Clause | Active | — (Ed25519 verification of a release's minisign signature — the in-app updater's authenticity gate, `src/platterpus/update_signing.py`. Verify-only; no secret key in the app. The BLAKE2b prehash uses stdlib `hashlib`, so only the Ed25519 primitive is needed — stable since cryptography 2.6. **Floor is the CVE-2026-69247 fix (50.0.0)**, raised from the GHSA-537c-gmf6-5ccf floor (48.0.1) on 2026-08-04 — 49.0.0 carries CVE-2026-69247 and the old `<50` ceiling *excluded the only fix*, so `pip-audit` resolved the vulnerable top of the range and turned CI red with no change to our code. Keep the floor on the latest patched release, and when raising a floor check the CEILING admits it. Verified against 50.0.0 before the bump: the Ed25519 sign/verify path, raw-public-bytes round-trip, tampered-message rejection, and `tests/test_update_signing.py` + `tests/test_update_install.py` (32 tests) all pass.) |
@@ -95,6 +95,18 @@ A retirement review is recorded inline below as a dated bullet so future-you can
 
 ## Retirement review log
 
+- **2026-08-18 — PySide6 minor-pinned after a shipped accessibility regression.** Not a
+  retirement: a *bound* correction, logged here because the review log is where "why is this
+  pin what it is" has to be answerable. `>=6.7,<7` was a claim that every Qt 6.x behaves the
+  same for us; 6.11.2 disproved it by dropping two `StandardKey` bindings, shipping Quit and
+  Settings with no keyboard shortcut. Now `>=6.11.1,<6.12`, matched in the AppImage
+  requirements and **enforced by a test** rather than stated — this log already notes that the
+  review cadence "keeps failing: it is prose, not a gate", and a pin recorded only in prose has
+  the same weakness. **This is the second instance of the class in this table** (see the
+  `cryptography` note: a `<50` ceiling excluded the only CVE fix, so `pip-audit` resolved the
+  vulnerable top and reddened CI with no code change). Both share one shape: *a version range
+  is an unverified claim about behaviour.* No other dependency was changed; nothing retired.
+
 - **2026-08-04 — `cryptography` 48.0.1 → 50.0.0 (CVE-2026-69247), and the lesson is about the *ceiling*.** `pip-audit` turned `main` red with no change to our code: `49.0.0` carries CVE-2026-69247, the fix is `50.0.0`, and our range was `>=48.0.1,<50` — **the ceiling excluded the only fix.** pip-audit resolves the *highest* version a range admits, so it picked the vulnerable top. **A ceiling that can exclude the only fix is not a safety margin**, and this is Critical rule #11 (a tool that gates CI must not float) arriving through a dependency rather than a linter: the range floated, upstream published, CI failed, and it read as a code problem. Now `>=50.0.0,<51` in `pyproject.toml` and `~=50.0` in the AppImage requirements, bumped together as the comment there instructs. **Verified before the bump rather than assumed:** installed 50.0.0 in a clean venv and exercised the exact surface `update_signing.py` uses — Ed25519 sign/verify, `from_public_bytes` raw round-trip (32 bytes), and rejection of a tampered BLAKE2b digest — then ran `tests/test_update_signing.py` + `tests/test_update_install.py` (32 tests) against it. All pass. **No retirements triggered**, and no other pin moved.
 
 - **2026-07-28 — Catch-up review covering v0.5.5 – v0.5.12** (the whole-application audit found the "before every tagged release" cadence had lapsed for eight releases — the same gap the 2026-07-21 catch-up was created to close, so this entry is deliberately paired with a note on *why* the convention keeps failing: it is prose, not a gate). **Two dependencies were added in this window and both are already in the table with sign-off recorded:** `cryptography>=48.0.1,<50` (KDD-26, the update-signature verifier — a hard runtime dep) and the host tool `cd-paranoia` (KDD-29, the cache-defeat probe; optional — its absence leaves the verdict honestly "(unknown)"). **No retirements triggered.** python-musicbrainzngs stays frozen at 0.7.1 and unmaintained; its adapter still isolates it and the `requests`-based replacement plan is unchanged — and it is now the *only* dependency granted a mypy `ignore_missing_imports` exemption, which makes its stub-lessness visible in `pyproject.toml` rather than hidden behind a global flag. cyanrip: COPR 0.9.3.1 unchanged, upstream `master` still ahead of the last release (soft-fork runbook unchanged). No action needed.
@@ -110,4 +122,4 @@ A retirement review is recorded inline below as a dated bullet so future-you can
 
 ---
 
-*Last updated for Platterpus v0.6.4b1.*
+*Last updated for Platterpus v0.6.14.*
