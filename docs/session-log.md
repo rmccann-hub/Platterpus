@@ -189,6 +189,71 @@ to the code that breaks it, a comment asserting the invariant a line below where
 fails, two correct answers to one question by different keys. None is visible from
 inside either half.
 
+### The five "enforced by" claims that enforced nothing
+
+The enforcement audit earlier this session listed five rules whose enforcement was
+prose, and the list sat under *"recorded, not yet acted on"*. All five now have a
+mechanism. Two of them mattered more than the other three:
+
+**A release could ship a commit whose CI was red — or had never run.** `release.yml`
+fires on a tag push, and a `needs:` only orders jobs *within* one workflow, so the
+four-Python matrix in `ci.yml` had no relationship to the release path whatsoever. The
+three gates that *did* run there (handshake, changelog, built-binary version) all check
+the *record*; none checked the *suite*. The new gate asks GitHub for the commit's own
+check runs and distinguishes three states — **failed**, **unfinished**, **never ran** —
+because absence of a result is not a pass, which is this project's tri-state rule
+applied to a gate rather than to a report. `tests-touched` is excluded by name: it is
+advisory by design, and a future advisory job must not silently acquire a veto.
+
+Exercised against five fixtures before shipping, and the *green* fixture deliberately
+has `tests-touched` **failing**, so the advisory carve-out is proven rather than
+asserted. Two things worth recording about writing it: the first draft split a list of
+check names on a `sed`-inserted delimiter because the names contain spaces — clever, and
+the sort of thing that breaks the day somebody renames a job, so it became a `while
+read` over a heredoc. And the harness I wrote to *test* the gate had a bug of its own: a
+non-greedy regex stubbing out the `gh api` call stopped at the first `)"` inside the
+`--jq` expression and left an unbalanced quote, so all five fixtures "failed" for a
+reason that had nothing to do with the gate. **The probe needed debugging before its
+subject did** — the third time this session that a checking tool was the thing at fault.
+
+**A handshake round could close on `HANDSHAKE-TESTED: n/a`.** The close check read the
+field for presence and non-duplication and never for content — the label, never the
+subject — and this is the one field whose entire purpose *is* content. `handshake.py`'s
+own module docstring already warned that a section "present but empty" passes; the
+warning was written for sections and never applied to the field. It now refuses empty
+values, a short list of content-free placeholders, and anything too short to name what
+ran.
+
+What it deliberately does **not** do is judge whether the evidence is any good. No check
+can, and a check that implied it could would be worse than none: a reader would take a
+pass as a statement about the testing rather than about the field. The claim is exactly
+*"somebody wrote down what they ran"* — the minimum a later reader needs in order to
+disagree.
+
+And it was run against the **20 committed verification files** before being believed,
+because a gate that refuses the record it was written against is the wrong gate. All 20
+pass. Six *tests* did not, and that is the interesting part: their synthetic fixture said
+`HANDSHAKE-TESTED: the suite, on the pair above` — 28 characters naming nothing — so the
+**stand-in was more permissive than the product**, and six close/status tests depended on
+that. The gate was right and the fixture was thin. Fixed the fixture.
+
+The other three are ratchets where a rule already existed: the mypy per-module opt-out
+list (rule #10 says it shrinks and never grows — that was prose), the CLI-flag allowlist
+(three checks enforced that a *reason* exists, none noticed the list getting longer, so
+"may not grow without writing the reason down" was satisfied by writing anything down),
+and the CI changelog gate, which asked whether `CHANGELOG.md` was *touched* — so deleting
+a bullet satisfied a gate whose purpose is "there is a new entry".
+
+**And a record defect found by reading rather than by a check:** `docs/testing.md`
+carried **two** `5.ag` sections and **two** `5.ah` sections, added five days apart. Five
+cross-references from `CLAUDE.md`, `docs/architecture.md` and this log pointed at those
+ids, so every one was ambiguous — and the ambiguity is invisible from either end, because
+the citing file looks right and each section looks right. Only counting reveals it. The
+two with no inbound references were renumbered, and the sweep that derives every `N.xx`
+id and fails on a duplicate is the check the situation deserved. Its non-triviality case
+is the exact shipped pair, one spelled `### §5.ag` and one `### 5.ag` — the spelling
+difference is why a reader's eye slid past it, so the detector has to be blind to it.
+
 ### The verification pass failed, and an empty report is not a green one
 
 A second workflow was launched to adversarially verify the 14 fixes. **It produced
@@ -378,6 +443,11 @@ changelog job keys on the filename rather than on an added bullet; nothing
 requires CI to have passed before a release; `HANDSHAKE-TESTED` is checked for
 presence and never for content; the mypy opt-out ratchet has no test; the
 script-surface flag allowlist's "never grow" is not enforced.
+
+*(**All five acted on later the same session** — see "The five 'enforced by' claims
+that enforced nothing" above. Left as written rather than rewritten, because the
+paragraph below is about exactly this: a not-yet-acted-on list is a snapshot, and it
+is the one kind of note that goes stale inside the session that wrote it.)*
 
 *(Corrected 2026-08-18, by review: this list also named the release version check's
 substring match — and that one **was** fixed in this same batch, in the commit two
