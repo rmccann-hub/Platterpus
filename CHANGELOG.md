@@ -82,6 +82,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   was doing and did not return until somebody answered — which nothing guarantees.
   Measured as an indefinite hang; a user would meet it as a frozen window.
 
+- A test asserted `warnings[0]` was its own log line. `caplog` captures the whole
+  test including the window construction, so "the first warning in the process" and
+  "this branch warned" are different claims — and they came apart the moment
+  anything else warned at startup, which is exactly what the shortcut fallback does
+  on 6.11.2. It searches the records now. Order was never the property under test.
+
 - **PySide6 6.11.2 silently removed the keyboard shortcuts from Quit and
   Settings.** `QKeySequence.StandardKey.Quit` and `.Preferences` resolve to nothing
   on 6.11.2 and resolved fine on 6.11.1 — reproduced on one machine, same

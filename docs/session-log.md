@@ -138,6 +138,26 @@ is bigger than pinning — *anything we ask a dependency for, we check the answe
 `setShortcut(QKeySequence.StandardKey.X)` is exactly what the accessibility
 convention tells the next person to write.
 
+**And the fix broke a second test, which is the part worth keeping.** The
+fallback logs a warning, so on 6.11.2 two WARNING records now appear during window
+construction — and `test_accepted_with_no_selection_is_a_warning_not_a_silent_return`
+asserted `warnings[0]` was *its* line. `caplog` captures the whole test, so "the
+first warning in the process" was never the same claim as "this branch warned"; the
+two agreed only while nothing else warned at startup. Swept the codebase for the
+same shape: one instance, the others filter to a named subset first.
+
+**The real lesson is about the verification environment, not the test.** Every local
+run this session used PySide6 **6.11.1** — so the whole class was *structurally
+invisible* to me, twice: I could not have caught the original regression, and I could
+not have caught the breakage my own fix caused. CLAUDE.md already asks *"what does my
+stand-in do that the real thing does not?"* about fixtures and fakes; the same
+question applies to the **interpreter and its wheels**. The answer here was "a
+different Qt from the one that gates the merge."
+
+So the full suite is now also run against a throwaway 6.11.2 venv before pushing, and
+that is what a "green locally" claim means for anything touching Qt behaviour. Two
+green runs on two Qt versions is a different statement from two green runs on one.
+
 Open question left for the maintainer rather than decided here: whether to also pin
 PySide6 (currently `>=6.7,<7`). The fallback removes the urgency, and pinning the
 GUI framework is a call worth making deliberately.
