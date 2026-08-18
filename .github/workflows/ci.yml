@@ -30,6 +30,16 @@ jobs:
   # no Qt libs needed), so it runs as its own job in parallel with the tests.
   lint:
     runs-on: ubuntu-22.04
+    # A JOB-LEVEL bound, not just a step-level one. `Run tests` already carries
+    # `timeout-minutes: 15` with the right reasoning written beside it — "fails in
+    # minutes instead of burning the 6-hour default" — but it was applied to the step
+    # the author was thinking about rather than to the surface the rule belongs on.
+    # The step that has actually wedged is `Install headless Qt system libraries`: an
+    # apt stall on the runner hung two jobs for 20+ minutes on 2026-08-18, twice, with
+    # no bound at all and no way to tell a hang from slowness. That is this session's
+    # recurring shape — a guard scoped to where a problem was expected — so the bound
+    # now covers every step, including the ones nobody has seen fail yet.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -78,6 +88,7 @@ jobs:
   # mypy reads `.pyi` stubs and never imports Qt, so there's no apt step.
   typecheck:
     runs-on: ubuntu-22.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -103,6 +114,7 @@ jobs:
   # dependency-light.
   changelog:
     runs-on: ubuntu-22.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -212,6 +224,7 @@ jobs:
   # guard: fail any push/PR that introduces a file with an audio extension.
   media-guard:
     runs-on: ubuntu-22.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -251,6 +264,7 @@ jobs:
   # yet: append `--ignore-vuln <GHSA/PYSEC-id>` here with a reason + revisit date.
   pip-audit:
     runs-on: ubuntu-22.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -276,6 +290,7 @@ jobs:
   # (a comment, a rename, a docstring) need no new test.
   tests-touched:
     runs-on: ubuntu-22.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -307,6 +322,7 @@ jobs:
 
   test:
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

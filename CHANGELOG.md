@@ -90,6 +90,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   waved the rest through as *"a menu action is user-initiated and synchronous"* — true
   of the menu handler, not of the result slot. Both use `open()` now and the guard
   covers both.
+- **Every CI job is now time-bounded, not just the pytest step.** `Run tests` already
+  carried `timeout-minutes: 15` with the right reasoning written beside it — *"fails in
+  minutes instead of burning the 6-hour default"* — applied to the one step its author
+  was thinking about. The step that actually wedged is the `apt-get` that installs the
+  headless Qt libraries: it hung two jobs for 20+ minutes on 2026-08-18, twice, with no
+  bound and no way to tell a hang from slowness. Bounds are now job-level across all
+  seven jobs, so any wedged step fails fast and can be re-run instead of occupying a
+  runner for hours. Same shape as the rest of this batch: a guard scoped to where a
+  problem was expected rather than to the surface the rule belongs on.
 - **Cancelling the ripper update check disabled every later version probe in the
   process.** The new `cancel()` called `cancel_version_probes()` unconditionally, and
   `VERSION_PROBE` is a module-level singleton whose cancel flag is *sticky* by design —

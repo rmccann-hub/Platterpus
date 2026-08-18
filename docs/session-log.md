@@ -189,6 +189,32 @@ to the code that breaks it, a comment asserting the invariant a line below where
 fails, two correct answers to one question by different keys. None is visible from
 inside either half.
 
+### The runner wedged twice, and the bound was on the wrong step
+
+Two CI runs hung for 20+ minutes on `Install headless Qt system libraries` — an
+`apt-get` on the GitHub runner, with the tests never starting. Not our code; the same
+commit's py3.12 and py3.14 jobs cleared it and passed.
+
+The instructive part is what the workflow already contained. `Run tests` carries
+`timeout-minutes: 15`, and the comment beside it states the general principle exactly
+right: *"a cheap backstop: if a future regression hangs the suite, the job fails in
+minutes instead of burning the 6-hour default."* It was applied to the step its author
+was thinking about. The step that actually wedges is the one nobody expected to.
+
+**That is this session's recurring shape, arriving for the fifth time**: the exec/open
+guard scoped to one method and missing its sibling; the interruption conditions checked
+at arming and not at surfacing; the pin rule written in the file that does not gate; the
+`HANDSHAKE-TESTED` warning written for sections and not applied to the field. Each time
+the rule was right and its *subject* was too narrow. Bounds are job-level across all
+seven jobs now.
+
+Worth noting what it cost beyond time: a hung job is indistinguishable from a slow one
+from the outside, so the first instinct was to suspect the change under review — and I
+spent a full random-order suite run locally chasing a hang that did not exist here. The
+diagnosis came from reading the job's *step list*, not its logs, which were unavailable
+while it was in progress. When a job is stuck, ask which step it is on before asking
+what the code did.
+
 ### CI found two more, and only one of them was mine
 
 The push went red on py3.13 with a failure in `test_killable.py` — a file this branch
