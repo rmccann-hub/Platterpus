@@ -7,7 +7,8 @@ name: AppImage
 #
 # Also runnable on demand (workflow_dispatch) on ANY branch: that uploads a
 # downloadable AppImage artifact, which is how you test a feature branch that
-# doesn't have a published release yet. See docs/appimage-testing.md.
+# doesn't have a published release yet. Procedure: docs/architecture.md §6.1
+# (it absorbed the former `appimage-testing.md` on 2026-08-06).
 
 on:
   push:

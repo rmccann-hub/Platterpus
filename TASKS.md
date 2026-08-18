@@ -1369,7 +1369,7 @@ two verdicts turning GO.
       with *closable*. Fixed narrowly — see the CHANGELOG.
    - **[x] `v0.6.4b5` cut against `e61e75a`** (their §E1), and the session procedure rewritten
       as three human steps plus `scripts/rig_session.sh` (their §E2).
-   - **[ ] The second rig session** — `docs/rig-session-e61e75a.md`. The remaining evidence
+   - **[ ] The second rig session** — `docs/rig-session.md`. The remaining evidence
       is `-x` on a real drive (never executed anywhere, ever), `-j` from a physical drive, a
       deliberate abort, and a mid-rip cancel. **No parity re-run needed.**
    - **[ ] Then both GO on `0.9.4-rc1+platterpus.5`** cut from `e61e75a`, we move `FORK_PIN`,

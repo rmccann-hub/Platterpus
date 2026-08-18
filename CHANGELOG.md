@@ -116,6 +116,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   now self-heals inside the same run. Measured against a stubbed `apt-get`: one
   attempt when healthy; three attempts and a pass when it fails twice; three attempts,
   three warnings and a named `::error::` when it hangs throughout.
+- **Six pointers into deleted documents, in code as well as docs.** `CLAUDE.md` rule
+  #7 says retiring a file means retiring every inbound link to it in the same commit —
+  and the only thing enforcing that read `CLAUDE.md` alone, so the rule held at the
+  place it was learned and nowhere else. Sweeping the rest of the tree found
+  `appimage.yml` pointing at the retired AppImage-testing doc, `adapters/transcode.py`
+  and `config.py` at the archived multi-format design, `update_install.py` and
+  `update_signing.py` at the retired signing ritual, and a handshake artifact path in
+  `tests/test_argv_surface_agreement.py` that never existed in that spelling. The
+  signing pair is the one that mattered: it is the *fail-closed arming* procedure, so
+  a maintainer following it under release pressure landed on nothing. All six now
+  point at the section or archived file that absorbed them, and
+  `test_every_docs_pointer_in_a_live_surface_resolves` sweeps every live surface.
+  Dated record — the changelog, the session log, the handshake correspondence, the
+  archive — is deliberately excluded: those state what was true on a date, and
+  repointing their links would make them lie.
 - **Cancelling the ripper update check disabled every later version probe in the
   process.** The new `cancel()` called `cancel_version_probes()` unconditionally, and
   `VERSION_PROBE` is a module-level singleton whose cancel flag is *sticky* by design —

@@ -309,13 +309,15 @@ class Config:
     # best-practice VBR, with tags + cover) | "wav" (raw PCM, no tags/art).
     # Both backends always rip to FLAC; for a non-FLAC choice the GUI keeps that
     # FLAC as the master and derives the chosen format with a post-rip ffmpeg
-    # transcode (adapters/transcode.py). See docs/mp3-wav-support.md.
+    # transcode (adapters/transcode.py). Design of record:
+    # docs/archive/mp3-wav-support-2026-06.md.
     output_format: str = "flac"
     # MP3 VBR quality for libmp3lame when output_format == "mp3": ffmpeg
     # `-q:a N` == lame `-V N` (0 = best/~245kbps, 9 = smallest). Fixed at 0
     # (best-practice VBR) for now — the field exists for a future Settings
     # exposure. The LAME `-q4` noise-shaping bug is CBR/ABR-only, so VBR is
-    # unaffected (docs/mp3-wav-support.md §3). Ignored unless MP3 is selected.
+    # unaffected (docs/archive/mp3-wav-support-2026-06.md §3). Ignored unless
+    # MP3 is selected.
     mp3_vbr_quality: int = 0
 
     # --- Goal preset (Settings → Goal) ---
