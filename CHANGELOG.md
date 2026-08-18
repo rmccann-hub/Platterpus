@@ -93,7 +93,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   AppImage actually ships. 6.11.x patch releases still flow, so Qt's security fixes
   do; a *minor* bump is now a deliberate commit that re-runs the gate. Enforced by
   `tests/test_gating_tools_are_pinned.py`, which also fails if the two files disagree
-  — a pin in `pyproject.toml` alone pins nothing that ships.
+  — a pin in `pyproject.toml` alone pins nothing that ships. There turned out to be a
+  **third** copy of the number, in a test whose name says it checks the two agree:
+  `test_requirements_pins_match_dependencies_md` asserted the literal `PySide6~=6.7`,
+  so a correct pin change failed it. It derives the floor from `pyproject.toml` now. A
+  test that restates a spec cannot detect drift in it; it can only object to being out
+  of date.
 
 - **PySide6 6.11.2 silently removed the keyboard shortcuts from Quit and
   Settings.** `QKeySequence.StandardKey.Quit` and `.Preferences` resolve to nothing
