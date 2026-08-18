@@ -350,12 +350,62 @@ jobs:
       # PySide6 imports a handful of system libraries even under the
       # "offscreen" Qt platform (no display needed). Install the minimal set;
       # without these the QApplication fixture in conftest.py fails to load.
+      #
+      # BOUNDED AND RETRIED, because this is the step that actually wedges.
+      # Measured on this branch: four hangs across three runs, all here, all on
+      # the same commit shape — sibling matrix legs cleared it in 13-32 seconds
+      # while others sat in it past 20 minutes. That is a stalled Azure apt
+      # mirror, not slowness: apt's own defaults let a mirror that accepts the
+      # connection and then trickles hold a fetch open far longer than the whole
+      # step is worth, and `apt-get` has no overall deadline of its own.
+      #
+      # Three things, and each is doing separate work:
+      #   * `timeout` wraps EACH apt call, so a stalled fetch dies in ~100s
+      #     instead of consuming the job budget. It runs UNDER sudo rather than
+      #     over it — `timeout sudo apt-get` signals sudo, which need not pass
+      #     the signal on; `sudo timeout apt-get` parents apt directly.
+      #   * the retry loop makes a transient mirror stall self-heal inside the
+      #     same run, instead of costing a re-run of the whole matrix.
+      #   * `Acquire::*::Timeout` bounds apt internally too, so a stall is
+      #     usually reported as a failed fetch (diagnosable) rather than
+      #     silently killed from outside (not).
+      #
+      # The step bound is the backstop under all of it, and its number is
+      # ARITHMETIC rather than a guess so a later reader can re-check it: three
+      # attempts x two calls x 75s, plus 10s + 20s of backoff, is 480s = 8
+      # minutes worst case. 10 leaves headroom without letting a wedge sit.
+      # For scale, the healthy legs of the run that prompted this did the WHOLE
+      # step in 13s and 32s, so 75s per call is generous, not tight.
       - name: Install headless Qt system libraries
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libegl1 libgl1 libglib2.0-0 libxkbcommon0 \
-            libdbus-1-3 libfontconfig1 libfreetype6
+          set -euo pipefail
+          # Word splitting here is intended, so an array rather than a string.
+          opts=(-o Acquire::Retries=3 -o Acquire::http::Timeout=20
+                -o Acquire::https::Timeout=20)
+          for attempt in 1 2 3; do
+            # `if`, not a bare call: `set -e` would abort the loop on the first
+            # failed attempt and the retry would never happen.
+            echo "::group::apt attempt ${attempt}"
+            if sudo timeout -k 10 75 apt-get "${opts[@]}" update \
+               && sudo timeout -k 10 75 apt-get "${opts[@]}" install -y \
+                    --no-install-recommends \
+                    libegl1 libgl1 libglib2.0-0 libxkbcommon0 \
+                    libdbus-1-3 libfontconfig1 libfreetype6; then
+              echo "::endgroup::"
+              exit 0
+            fi
+            echo "::endgroup::"
+            # Named, because "the apt step failed" is not diagnosable and the
+            # attempt number separates a stalled mirror from a broken package
+            # list: a stall fails all three the same way, a real error fails
+            # attempt 1 instantly.
+            echo "::warning::apt attempt ${attempt} failed or timed out"
+            # No sleep after the last attempt — it would only delay the failure.
+            [ "${attempt}" -eq 3 ] || sleep $((attempt * 10))
+          done
+          echo "::error::could not install the headless Qt libraries in 3 attempts"
+          exit 1
 
       - name: Install package with dev extras
         run: |

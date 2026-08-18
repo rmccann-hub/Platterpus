@@ -99,6 +99,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   seven jobs, so any wedged step fails fast and can be re-run instead of occupying a
   runner for hours. Same shape as the rest of this batch: a guard scoped to where a
   problem was expected rather than to the surface the rule belongs on.
+- **The `apt-get` step that kept wedging CI is now bounded and retried.** Bounding
+  every job stopped a stall costing six hours, but it still cost the run: the stalled
+  leg fails and the whole matrix has to be re-run. Each apt call now runs under
+  `timeout` (as `sudo timeout apt-get`, not `timeout sudo apt-get` — the latter
+  signals `sudo`, which need not pass it on), the step retries three times with
+  backoff, and apt's own `Acquire::*::Timeout` is set so a stall is usually reported
+  as a failed fetch rather than killed silently from outside. A transient mirror stall
+  now self-heals inside the same run. Measured against a stubbed `apt-get`: one
+  attempt when healthy; three attempts and a pass when it fails twice; three attempts,
+  three warnings and a named `::error::` when it hangs throughout.
 - **Cancelling the ripper update check disabled every later version probe in the
   process.** The new `cancel()` called `cancel_version_probes()` unconditionally, and
   `VERSION_PROBE` is a module-level singleton whose cancel flag is *sticky* by design —
