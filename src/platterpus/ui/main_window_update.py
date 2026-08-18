@@ -29,7 +29,7 @@ import logging
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QAbstractButton, QMessageBox
 
 from platterpus import hard_exit
 from platterpus.ui.main_window_shared import MainWindowShared
@@ -388,13 +388,22 @@ class UpdateMixin(MainWindowShared):
         self._ripper_offer = None
         self._ripper_offer_commit = ""
 
-    def _on_ripper_offer_answered(self, button: object) -> None:
+    def _on_ripper_offer_answered(self, button: QAbstractButton) -> None:
         """The install offer's answer (GUI thread — `buttonClicked` from our own box).
 
         Keys on the button's **role**, not on identity with a stashed handle: the
         role is what the choice means, and it survives a future edit that rebuilds
         the buttons. Anything that is not an accept is a decline, which is the safe
         direction — an unrecognised answer must not install a ripper.
+
+        ``button`` is typed as the real ``QAbstractButton``, not ``object``. The
+        ``object`` convention in this codebase is for payloads Qt's **queued**
+        connections have flattened (see the ``Signal(object)`` declarations); this
+        signal is emitted by our own widget on this same thread with a concrete
+        type, so ``object`` was over-caution rather than accuracy — and it made
+        ``buttonRole(button)`` a type error rather than a call. Widening a type to
+        get past a checker is forbidden (rule #10); this is the opposite, and CI's
+        ``typecheck`` is what surfaced it.
         """
         box = self._ripper_offer_box
         offer, commit = self._ripper_offer, self._ripper_offer_commit

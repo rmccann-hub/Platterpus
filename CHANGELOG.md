@@ -71,6 +71,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   the pin installed that build on purpose — the menu still offers the way back and
   explains why their rips report `unapproved`, but the app does not raise it
   unprompted at every launch.
+- The install offer's `buttonClicked` handler is typed `QAbstractButton`, not
+  `object`. The `object` convention here is for payloads Qt's *queued* connections
+  have flattened; this signal is emitted by our own widget on the same thread with a
+  concrete type, so `object` was over-caution rather than accuracy — and it made
+  `buttonRole(button)` a type error rather than a call. Caught by CI's `typecheck`,
+  which is the gate this container cannot run (its venv has no PySide6 for mypy).
 - The install offer is shown with `open()`, not `exec()`. It is raised from a queued
   signal, so `exec()` spun a **nested event loop** inside whatever the GUI thread
   was doing and did not return until somebody answered — which nothing guarantees.
