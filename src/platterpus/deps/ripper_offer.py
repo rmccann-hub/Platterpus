@@ -144,6 +144,26 @@ class RipperOffer:
     #: costs and must not be the default button. That is the *"unless very
     #: important"* case, and it is the only one a person still has to think about.
     auto_installable: bool = False
+    #: Whether this offer may be raised **unprompted** — the automatic launch-time
+    #: check — as opposed to only when the user asks from the Help menu.
+    #:
+    #: **A separate axis from :attr:`auto_installable`, and it has to be.** That flag
+    #: answers *"is this install safe"*; this one answers *"is now a reasonable moment
+    #: to interrupt somebody about it"*. Conflating them is what let the automatic
+    #: check raise an every-launch modal offering a step *backwards* to a user sitting
+    #: on a fork release they installed on purpose: the install was perfectly safe and
+    #: the interruption was still wrong.
+    #:
+    #: The UI used to decide this from the verdict alone (``verdict in (AVAILABLE,
+    #: MISMATCHED)``), which cannot see the thing that matters — whether we managed to
+    #: read the manifest at all, and therefore whether an unplaceable build might be
+    #: one of their newer releases. That is knowable only here.
+    #:
+    #: **Defaults to ``False`` — fail closed.** A verdict added later is silent until
+    #: somebody decides it is worth interrupting for, which is the direction a mistake
+    #: should go in. The old verdict-list form defaulted the other way by construction:
+    #: anything matching the list surfaced, and nothing made you think about it.
+    may_surface_unprompted: bool = False
 
     @property
     def is_actionable(self) -> bool:
@@ -159,6 +179,52 @@ class RipperOffer:
         has an obvious thing to do — that gap is what made the old flow a dead end.
         """
         return bool(self.install_commit)
+
+    def build_hint(self) -> tuple[str | None, tuple[str, ...]]:
+        """The ``(version, meson_options)`` that describe :attr:`install_commit`.
+
+        ``(None, ())`` unless :attr:`release` is a row for **that same commit**.
+
+        **This exists because the two can be different commits, and the install used
+        the row unconditionally.** The rollback offer is exactly that shape: the row
+        is the channel head the user is sitting on, while ``install_commit`` is
+        :data:`~platterpus.deps.fork_source.FORK_PIN`, the older build we are putting
+        back. Handing the head's fields to a build of the pin produced two defects,
+        both measured against the live manifest for the very operator this feature was
+        written for (``c4d1a00`` installed, pin ``ddf7ac3``):
+
+        * ``-Ddeclare_released=true`` reached a ``meson setup`` of ``ddf7ac3``, whose
+          ``meson_options.txt`` does not exist. Meson fails the **whole configure** on
+          an unknown ``-D``, ``set -eu`` aborts, and the step reports FAILED — so the
+          advertised one-click repair could never succeed for the population it was
+          for, and the user saw a meson error that reads as a Platterpus bug.
+        * the expectation became ``cyanrip 0.9.4-rc1+platterpus.6
+          (platterpus-fork-gddf7ac3)`` — a banner **no build prints**, because
+          ``ddf7ac3`` prints ``+platterpus.5``. That pairing went into the log a bug
+          report carries, in the one file used to attribute an artifact to a binary.
+
+        Returning ``()`` is the safe answer in both directions and not a compromise:
+        no options is exactly what every commit predating ``meson_options.txt`` needs,
+        and ``version=None`` yields the honest **tag-only** expectation that
+        ``ForkTarget.version_known`` exists to produce. The under-claim is the correct
+        direction — the same reasoning as ``_clean_build_options``.
+
+        A method on the offer rather than a check in the dialog on purpose: the UI had
+        no way to know the two commits could differ, and the comment there asserted
+        they could not. The fact lives where the commit is chosen.
+        """
+        row = self.release
+        if row is None or not self.install_commit:
+            return None, ()
+        if not fork_source.same_commit(self.install_commit, row.commit):
+            log.info(
+                "ripper install: the manifest row describes %s but we are installing "
+                "%s — building with no version claim and no meson options",
+                row.commit,
+                self.install_commit,
+            )
+            return None, ()
+        return row.version, tuple(row.meson_options)
 
 
 def _install_hint(commit: str) -> str:
@@ -203,6 +269,21 @@ def _approved_record() -> tuple[int, str]:
     return APPROVED_BY_ROUND, APPROVED_FOR_PLATTERPUS_VERSION
 
 
+def _approves_commit(commit: str) -> bool:
+    """Does our record approve the build at ``commit``? Delegated, never re-derived.
+
+    A one-line pass-through to :func:`platterpus.handshake_approval.approves_commit`,
+    imported lazily for the same import-cycle reason as :func:`_approved_record`. It
+    exists as a named function here so the delegation is visible at the call site and
+    so a future edit has to *replace a call* rather than tweak an expression — the
+    thing that went wrong was an expression in this module quietly answering a
+    question another module owns.
+    """
+    from platterpus.handshake_approval import approves_commit
+
+    return approves_commit(commit)
+
+
 def _expected_build_sentence() -> str:
     """One line naming the build this Platterpus was verified against, and by whom."""
     our_round, our_version = _approved_record()
@@ -212,7 +293,9 @@ def _expected_build_sentence() -> str:
     )
 
 
-def _mismatch_offer(channel: str, installed: str | None) -> RipperOffer:
+def _mismatch_offer(
+    channel: str, installed: str | None, *, manifest_seen: bool = True
+) -> RipperOffer:
     """The installed ripper is not the one this build expects. Offer to fix it.
 
     ``installed`` is the fork commit we read off the binary, or ``None`` when we could
@@ -225,6 +308,17 @@ def _mismatch_offer(channel: str, installed: str | None) -> RipperOffer:
     :data:`~platterpus.deps.fork_source.FORK_PIN`, so taking it moves a rip's verdict
     *to* ``approved``. There is no consequence to weigh, so there is nothing for the
     user to read before clicking.
+
+    ``manifest_seen`` is a different question and controls
+    :attr:`RipperOffer.may_surface_unprompted` rather than the install. **When we could
+    not read the manifest we cannot tell an unrecognised build from one of the fork's
+    newer releases** — and those want opposite treatment: a stray build should be
+    offered the pin, a *newer release* the user installed on purpose must not be nagged
+    every launch to undo it. With a named commit and no manifest the honest position is
+    "offer it if asked, never raise it unprompted". With no commit at all
+    (``installed is None``) the offer stands unprompted regardless: no ripper on the
+    ripping path cannot be a deliberate newer release, and that case is exactly the
+    one worth interrupting for.
     """
     if installed:
         installed_line = f"Installed:  cyanrip build {installed}"
@@ -241,12 +335,24 @@ def _mismatch_offer(channel: str, installed: str | None) -> RipperOffer:
             "Platterpus couldn't identify a Platterpus-fork cyanrip build on this "
             "machine."
         )
+    unsure = (
+        ""
+        if manifest_seen or not installed
+        else (
+            "\n\nThe fork's release manifest was unreachable, so Platterpus could not "
+            "check whether that build is one of their newer published releases. If you "
+            "installed it deliberately, nothing here needs doing."
+        )
+    )
     return RipperOffer(
         verdict=OFFER_MISMATCHED,
         channel=channel,
         release=None,
         install_commit=fork_source.FORK_PIN,
         auto_installable=True,
+        # A NAMED build we could not place, with no manifest to place it against, is
+        # not raised unprompted — see the docstring. `installed is None` still is.
+        may_surface_unprompted=manifest_seen or not installed,
         # NOT `would_be_unapproved`: this offer's target IS the approved pin, so
         # taking it is what makes rips report `approved`. The flag describes the
         # build on offer, never the one already installed.
@@ -260,7 +366,7 @@ def _mismatch_offer(channel: str, installed: str | None) -> RipperOffer:
             "and still bit-perfect if its own checks pass — what changes is whether "
             "the record can say the ripper was jointly verified.\n\n"
             "Platterpus can install the expected build for you. It takes a few "
-            "minutes and needs no commit typed in."
+            f"minutes and needs no commit typed in.{unsure}"
         ),
     )
 
@@ -441,8 +547,11 @@ def evaluate_offer(
     if installed_seq is None:
         # Neither source can place it: a build with no story. Offline with an
         # unrecognised binary lands here too, which is the right answer — the useful
-        # advice needs no network.
-        return _mismatch_offer(channel, installed)
+        # advice needs no network — but it is NOT raised unprompted in that case,
+        # because without the manifest we cannot rule out that it is one of the fork's
+        # newer releases and nagging somebody to undo a deliberate choice is the one
+        # thing the automatic check must not do.
+        return _mismatch_offer(channel, installed, manifest_seen=manifest is not None)
 
     if manifest is None:
         return RipperOffer(
@@ -474,7 +583,24 @@ def evaluate_offer(
 
     # There is something newer. Everything below is about stating the cost honestly.
     our_round, our_version = _approved_record()
-    approved_here = newer.round_closed and newer.handshake_round <= our_round
+    # **Keyed on the COMMIT, through the same predicate the rip-time check uses.**
+    #
+    # This was `newer.round_closed and newer.handshake_round <= our_round` — the
+    # manifest's own ROUND LABEL — until 2026-08-18, and that is a different question
+    # in this project. `APPROVED_BY_ROUND` names the newest closed round that approved
+    # *the pin we install*; rounds 9, 10 and 11 each closed here against a commit that
+    # is not `FORK_PIN`, because reviewing a pin and installing it are separate acts
+    # (round 11 §5). So any head the fork labelled with a round we have closed was
+    # reported as *"one our record approves"*, offered as a one-click install with
+    # nothing to weigh — and then stamped `unapproved` into every subsequent report,
+    # log and EAC export. Four real cases reproduced it, including `422d12a`, the build
+    # the fork WITHDREW for failing its own tests.
+    #
+    # `approves_commit` is `handshake_approval`'s own predicate, so the sentence this
+    # function prints and the verdict a rip records are one computation. A second
+    # implementation of "is this approved" is a second thing free to disagree, and the
+    # one that reaches an archival record is the one that matters.
+    approved_here = _approves_commit(newer.commit)
     unclosed = (
         ""
         if newer.round_closed
@@ -495,14 +621,16 @@ def evaluate_offer(
         f"release {installed_seq} ({installed})."
     )
     if approved_here:
-        # THE COMMON CASE, AND IT COSTS NOTHING. Their round is closed and our record
-        # has closed it too, so both halves of the bilateral gate are in. No SHA, no
-        # command line, no paragraph of consequence — there is none to state.
+        # IT COSTS NOTHING — because this build IS the one our record approved, so
+        # taking it is what makes a rip report `approved`. The claim is about the
+        # commit, and the sentence says so; it deliberately no longer cites the
+        # round as the *reason*, because a round number was never the thing that
+        # decides this.
         consequence = (
-            f"\n\nHandshake round {newer.handshake_round} is closed on both sides, so "
-            f"this build is one our record approves for Platterpus {our_version}. "
-            "Platterpus can install it for you — it takes a few minutes and needs no "
-            "commit typed in."
+            f"\n\nThis is the build our record approves for Platterpus {our_version} "
+            f"(handshake round {our_round}), so taking it is what makes your rips "
+            "report their ripper as verified. Platterpus can install it for you — it "
+            "takes a few minutes and needs no commit typed in."
         )
     else:
         consequence = (
@@ -527,6 +655,9 @@ def evaluate_offer(
         would_be_unapproved=not approved_here,
         install_commit=newer.commit,
         auto_installable=approved_here,
+        # A genuine forward step, and we read the manifest to establish it. This is
+        # the one case the automatic check exists for.
+        may_surface_unprompted=True,
         detail=f"{headline}{consequence}{unclosed}{beta_note}",
     )
 

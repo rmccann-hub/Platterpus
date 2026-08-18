@@ -961,6 +961,29 @@ Two corollaries, both cheap:
   change — the automatic check stands down if a rip started in the meantime,
   because the user came to rip a disc and the install it offers would replace the
   binary doing the ripping.
+
+  **This paragraph was written before the code did it, which is the whole lesson.**
+  The three conditions were checked in `_maybe_check_ripper_updates` — the *arming*
+  slot — and never in `_on_ripper_update_result`, the slot that actually raises the
+  dialog. So the rule was stated one screen from the code that violated it, and the
+  method's own docstring asserted *"It does not run during a rip"* as a property of
+  the flow when it was a property of one instant. A comment where a check belongs is
+  not a fix; found by review the same day it was written.
+
+  **Count the deferrals, and guard the longest one.** There are two here and only
+  the short one was obvious: the 8-second timer, and then the *worker's own latency*
+  — a manifest fetch plus a `distrobox enter` version probe at 60 s per flag. The
+  second is the one where a user inserts a disc and starts ripping. Whenever work is
+  handed to a thread, its completion is a second deferral, and the precondition has
+  to be re-read there.
+
+  The conditions are a **named method returning a reason** (`_interruption_blocker`),
+  not three copies of an `if`, so both call sites ask the same question and every
+  refusal can say which condition refused. And there are **three**, not two: *a
+  person is here*, *they are not busy*, *nothing else has the floor* — the third
+  because a launch-armed timer fires inside the first-run setup question's nested
+  `exec()` loop, and a window-modal box stacked on an application-modal one is
+  input-blocked with both answers still pending.
 - **A worker that was cancelled must produce nothing actionable.** `cancel()` comes
   from `closeEvent`, so its late `finished` lands in a window that is going away.
   It still has to *emit* — a worker that never finishes is a thread `stop_thread`

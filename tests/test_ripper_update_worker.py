@@ -423,15 +423,21 @@ def test_the_verdict_dialog_renders_plain_text_never_html(qapp, monkeypatch) -> 
     from platterpus.ui.main_window_update import UpdateMixin
 
     built: list[QMessageBox] = []
-    real_exec = QMessageBox.exec
+    real_open = QMessageBox.open
 
-    def _capture(self: QMessageBox) -> int:
+    def _capture(self: QMessageBox) -> None:
         built.append(self)
-        return 0
 
-    monkeypatch.setattr(QMessageBox, "exec", _capture)
+    # Patches `open`, not `exec`: this dialog is raised from the worker's queued
+    # `result` signal, so it must not spin a nested event loop, and it now uses
+    # `open()` for the same reason `_offer_ripper_install` does.
+    monkeypatch.setattr(QMessageBox, "open", _capture)
     try:
         window = _stub_window(object())
+        # Shown, because `_interruption_blocker` refuses to raise a dialog over a
+        # window nobody is looking at — so a hidden stub would make this test assert
+        # about a box that was never built.
+        window.show()
         offer = RipperOffer(
             verdict=OFFER_AVAILABLE,
             channel="stable",
@@ -440,7 +446,7 @@ def test_the_verdict_dialog_renders_plain_text_never_html(qapp, monkeypatch) -> 
         )
         UpdateMixin._on_ripper_update_result(window, offer)
     finally:
-        monkeypatch.setattr(QMessageBox, "exec", real_exec)
+        monkeypatch.setattr(QMessageBox, "open", real_open)
 
     assert len(built) == 1, "the verdict must be shown, not swallowed"
     box = built[0]
@@ -460,17 +466,19 @@ def test_a_verdict_with_no_detail_still_says_something(qapp, monkeypatch) -> Non
 
     from platterpus.ui.main_window_update import UpdateMixin
 
-    # Capture the TEXT at exec time, not the widget. The box is parented to the
+    # Capture the TEXT at open() time, not the widget. The box is parented to the
     # window, so holding the widget past the test means reading a C++ object Qt
     # has already deleted — `libshiboken: Internal C++ object already deleted`.
     shown: list[str] = []
     monkeypatch.setattr(
-        QMessageBox, "exec", lambda self: shown.append(self.text()) or 0
+        QMessageBox, "open", lambda self: shown.append(self.text()) and None
     )
 
     window = _stub_window(object())
+    window.show()  # see `test_the_verdict_dialog_renders_plain_text_never_html`
     UpdateMixin._on_ripper_update_result(window, object())
     assert shown and shown[0].strip(), "an empty verdict dialog tells nobody anything"
+    window.close()
 
 
 def test_a_second_check_is_refused_while_one_is_in_flight(qapp) -> None:
@@ -645,25 +653,48 @@ def test_the_install_offer_is_never_shown_with_exec() -> None:
     from platterpus.ui import main_window_update
 
     tree = ast.parse(inspect.getsource(main_window_update))
-    offer = next(
-        node
+
+    # EVERY method reachable from the worker's queued `result` signal, not just the one
+    # the hang was measured in. The first version of this guard checked
+    # `_offer_ripper_install` alone and its docstring waved the rest of the mixin
+    # through as "a menu action is user-initiated and synchronous" — true of
+    # `_on_check_ripper_updates`, and NOT true of `_on_ripper_update_result`, which IS
+    # the result slot and shipped a `box.exec()`. A guard that names the right rule and
+    # picks the wrong subject is the `CLAUDE.md` shape "can it be satisfied by the wrong
+    # thing?"; naming the set is what fixes it.
+    QUEUED_SLOTS = ("_on_ripper_update_result", "_offer_ripper_install")
+    bodies = {
+        node.name: node
         for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name == "_offer_ripper_install"
+        if isinstance(node, ast.FunctionDef) and node.name in QUEUED_SLOTS
+    }
+    assert set(bodies) == set(QUEUED_SLOTS), (
+        f"a method this guard covers was renamed or removed: missing "
+        f"{sorted(set(QUEUED_SLOTS) - set(bodies))}. The guard must be updated with "
+        "the code, or it silently stops covering it."
     )
+
+    for name in QUEUED_SLOTS:
+        found = [
+            node.func.attr
+            for node in ast.walk(bodies[name])
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+        ]
+        assert "exec" not in found, (
+            f"{name} calls exec(). It is reached from a queued signal, so that nests "
+            "an event loop inside whatever the GUI thread was doing — the hang "
+            "measured on 2026-08-18. Use open()."
+        )
+        assert "open" in found, (
+            f"{name} no longer shows a dialog at all — the assertion above would pass "
+            "for a method that does nothing"
+        )
+
     calls = [
         node.func.attr
-        for node in ast.walk(offer)
+        for node in ast.walk(bodies["_offer_ripper_install"])
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
     ]
-    assert "exec" not in calls, (
-        "_offer_ripper_install calls exec(). It is raised from a queued signal, so "
-        "that nests an event loop inside whatever the GUI thread was doing — the "
-        "hang measured on 2026-08-18. Use open() and handle buttonClicked."
-    )
-    assert "open" in calls, (
-        "_offer_ripper_install no longer shows the dialog at all — the assertion "
-        "above would pass for a method that does nothing"
-    )
     # And the answer must actually be wired, or `open()` shows a dialog that
     # decides nothing.
     assert "connect" in calls, "buttonClicked is not connected; the answer is lost"
@@ -714,21 +745,31 @@ def test_the_automatic_check_never_offers_a_step_backwards(qapp, monkeypatch) ->
         auto_installable=True,
     )
 
+    # SHOWN, deliberately. A hidden window is refused by `_interruption_blocker`, so
+    # asserting "the automatic check stayed quiet" against one would pass for a reason
+    # that has nothing to do with the direction of travel — the vacuous-detector shape
+    # this project keeps finding. The window must be in the state where the check WOULD
+    # surface, and then not surface.
     window = _stub_window(object())
+    window.show()
+    assert window.isVisible(), "the floor for this test: the check could have surfaced"
     window._ripper_check_is_automatic = True
     UpdateMixin._on_ripper_update_result(window, ahead)
     assert not shown, (
         f"the automatic check interrupted with {shown} to offer a downgrade"
     )
+    window.close()
 
     # The converse, so this cannot pass by the automatic path being dead: asked
     # directly (the menu), the very same offer DOES surface, with its button.
     window = _stub_window(object())
+    window.show()
     window._ripper_check_is_automatic = False
     UpdateMixin._on_ripper_update_result(window, ahead)
     assert shown == ["open"], (
         f"the menu path must still offer the way back; got {shown}"
     )
+    window.close()
 
 
 def test_the_automatic_check_stands_down_when_the_window_is_not_shown(qapp) -> None:
@@ -793,3 +834,275 @@ def test_dismissing_the_offer_clears_its_slots_and_installs_nothing(qapp) -> Non
     qapp.processEvents()
     assert window._ripper_offer_box is None
     assert not installs, "declining installed the build anyway"
+
+
+# --- Preconditions are re-checked when the result LANDS, not when it was armed ---
+#
+# Found by adversarial review, 2026-08-18. The three guards lived only in
+# `_maybe_check_ripper_updates`, so they described the arming instant. The worker's own
+# latency is the long gap — a manifest fetch plus a `distrobox enter` version probe at a
+# 60 s timeout per flag — and anything can change inside it.
+
+
+def test_a_rip_that_starts_MID_CHECK_still_stops_the_modal(qapp, monkeypatch) -> None:
+    """The order that matters, and the order the old test did not use.
+
+    `test_the_automatic_check_stands_down_during_a_rip` sets `_rip_thread` *before*
+    arming, so it verifies the invariant under the condition that guarantees it —
+    `CLAUDE.md`'s "did I verify this where it could have failed?". Here the check is
+    armed with no rip running (the guard passes, as it did in the field), the rip starts
+    while the worker is still probing, and only then does the result arrive.
+
+    The harm is specific: a window-modal box over a live progress view with *"Install it
+    now"* pre-selected, one keypress from replacing the binary that is mid-rip.
+    """
+    from PySide6.QtWidgets import QMessageBox
+
+    from platterpus.deps.ripper_offer import OFFER_MISMATCHED, RipperOffer
+    from platterpus.ui.main_window_update import UpdateMixin
+
+    shown: list[str] = []
+    monkeypatch.setattr(QMessageBox, "open", lambda self: shown.append("open"))
+    monkeypatch.setattr(QMessageBox, "exec", lambda self: shown.append("exec") or 0)
+
+    offer = RipperOffer(
+        verdict=OFFER_MISMATCHED,
+        channel="stable",
+        release=None,
+        detail="the installed build is not the approved one",
+        install_commit=fork_source.FORK_PIN,
+        auto_installable=True,
+        may_surface_unprompted=True,
+    )
+
+    window = _stub_window(object())
+    window.show()
+    # FLOOR: with nothing running, this exact offer DOES surface. Without this the
+    # assertion below could pass because the offer was unsurfaceable all along.
+    window._ripper_check_is_automatic = True
+    UpdateMixin._on_ripper_update_result(window, offer)
+    assert shown == ["open"], f"floor failed: the offer never surfaces at all ({shown})"
+
+    shown.clear()
+    # Now the same offer, delivered while a rip is running — the state the guard was
+    # meant to cover and did not, because it was only ever read at arming time.
+    window._ripper_check_is_automatic = True
+    window._rip_thread = object()
+    UpdateMixin._on_ripper_update_result(window, offer)
+    assert not shown, f"a modal was raised over a running rip ({shown})"
+    window._rip_thread = None
+    window.close()
+
+
+def test_a_window_closed_MID_CHECK_gets_no_dialog(qapp, monkeypatch) -> None:
+    """Same shape, the other condition: the window went away during the probe."""
+    from PySide6.QtWidgets import QMessageBox
+
+    from platterpus.deps.ripper_offer import OFFER_MISMATCHED, RipperOffer
+    from platterpus.ui.main_window_update import UpdateMixin
+
+    shown: list[str] = []
+    monkeypatch.setattr(QMessageBox, "open", lambda self: shown.append("open"))
+
+    offer = RipperOffer(
+        verdict=OFFER_MISMATCHED,
+        channel="stable",
+        release=None,
+        detail="not the approved build",
+        install_commit=fork_source.FORK_PIN,
+        auto_installable=True,
+        may_surface_unprompted=True,
+    )
+    window = _stub_window(object())
+    window.show()
+    window.close()
+    assert not window.isVisible()
+    window._ripper_check_is_automatic = True
+    UpdateMixin._on_ripper_update_result(window, offer)
+    assert not shown, f"a dialog was raised on a window nobody is looking at ({shown})"
+
+
+def test_a_modal_already_up_blocks_the_offer(qapp, monkeypatch) -> None:
+    """Nothing stacks on somebody else's dialog.
+
+    The first-run setup question is application-modal and blocking, and a launch-armed
+    timer fires *inside* its nested `exec()` loop. Stacking a window-modal cyanrip box
+    on top of it is input-blocked, and answering both runs the install pipeline twice.
+    """
+    from PySide6.QtWidgets import QDialog, QMessageBox
+
+    from platterpus.deps.ripper_offer import OFFER_MISMATCHED, RipperOffer
+    from platterpus.ui.main_window_update import UpdateMixin
+
+    shown: list[str] = []
+    monkeypatch.setattr(QMessageBox, "open", lambda self: shown.append("open"))
+
+    offer = RipperOffer(
+        verdict=OFFER_MISMATCHED,
+        channel="stable",
+        release=None,
+        detail="not the approved build",
+        install_commit=fork_source.FORK_PIN,
+        auto_installable=True,
+        may_surface_unprompted=True,
+    )
+    window = _stub_window(object())
+    window.show()
+
+    other = QDialog(window)
+    other.setModal(True)
+    other.open()
+    try:
+        # FLOOR: Qt agrees something has the floor. Without this the test would pass
+        # on any platform where `activeModalWidget()` is always None.
+        from PySide6.QtWidgets import QApplication
+
+        qapp.processEvents()
+        assert QApplication.activeModalWidget() is other, (
+            "floor failed: Qt does not consider the other dialog modal here"
+        )
+        window._ripper_check_is_automatic = True
+        UpdateMixin._on_ripper_update_result(window, offer)
+        assert not shown, f"stacked a dialog on an open modal ({shown})"
+        # And the arming guard refuses too, naming the reason.
+        assert "already has the floor" in window._interruption_blocker()
+    finally:
+        other.close()
+        other.deleteLater()
+        window.close()
+
+
+def test_the_install_never_borrows_a_manifest_row_for_a_DIFFERENT_commit() -> None:
+    """The rollback install must not take the channel head's build fields.
+
+    Measured against the fork's live manifest for the operator this feature was written
+    for: row = `c4d1a00` with `-Ddeclare_released=true`, install = `ddf7ac3`. Passing
+    the row through put that option on a `meson setup` of a commit with no
+    `meson_options.txt` — meson fails the WHOLE configure on an unknown `-D`, so the
+    advertised one-click repair could never succeed — and produced the expectation
+    `cyanrip 0.9.4-rc1+platterpus.6 (platterpus-fork-gddf7ac3)`, a banner no build
+    prints, in the log a bug report carries.
+    """
+    import json
+
+    from platterpus.deps.fork_source import target_for_commit
+    from platterpus.deps.ripper_manifest import parse_manifest
+    from platterpus.deps.ripper_offer import evaluate_offer
+
+    row = {
+        "version": "0.9.4-rc1+platterpus.6",
+        "commit": "c4d1a00",
+        "release_seq": 16,
+        "handshake_round": 10,
+        "round_closed": True,
+        "build": "meson setup build -Ddeclare_released=true && ninja -C build",
+        "install": "https://github.com/rmccann-hub/cyanrip/archive/c4d1a00.tar.gz",
+    }
+    manifest = parse_manifest(
+        json.dumps(
+            {
+                "schema": 2,
+                "project": "cyanrip-fork",
+                "default_channel": "stable",
+                "channels": {"stable": dict(row), "beta": dict(row)},
+            }
+        )
+    )
+    assert manifest is not None
+
+    rollback = evaluate_offer(manifest, "stable", installed_commit="c4d1a00")
+    assert rollback.install_commit == fork_source.FORK_PIN
+    assert rollback.release is not None and rollback.release.commit == "c4d1a00", (
+        "floor: the two commits must actually differ, or this proves nothing"
+    )
+    hint_version, hint_options = rollback.build_hint()
+    assert (hint_version, hint_options) == (None, ())
+    target = target_for_commit(
+        rollback.install_commit, version=hint_version, meson_options=hint_options
+    )
+    assert target.meson_options == ()
+    assert "platterpus.6" not in target.expectation, (
+        "the expectation names a version the installed commit cannot print"
+    )
+
+    # THE CONVERSE, so this cannot pass by `build_hint` always returning nothing:
+    # when the row really does describe the commit, schema 2's options must flow
+    # through (round 11 §J1 asked for exactly that).
+    upgrade = evaluate_offer(manifest, "stable", installed_commit=fork_source.FORK_PIN)
+    assert upgrade.install_commit == "c4d1a00"
+    assert upgrade.build_hint() == (
+        "0.9.4-rc1+platterpus.6",
+        ("-Ddeclare_released=true",),
+    )
+
+
+def test_cancel_interrupts_the_version_probe_not_only_the_fetch(monkeypatch) -> None:
+    """`cancel()` must reach BOTH blocking calls, or it is a rule-9 false promise.
+
+    The fetch was the only one when this worker was written; probing the installed
+    binary added a second — `VERSION_PROBE` at 60 s per flag inside a `distrobox
+    enter`, which closing a socket does nothing about and `QThread.quit()` cannot
+    reach. `cancel_version_probes()` is the only thing that kills that child.
+    """
+    from platterpus.deps import checks
+    from platterpus.workers.ripper_update_worker import RipperUpdateWorker
+
+    killed: list[str] = []
+    monkeypatch.setattr(
+        checks, "cancel_version_probes", lambda: killed.append("probes")
+    )
+    worker = RipperUpdateWorker(channel="stable")
+    worker.cancel()
+    assert worker._fetcher.cancelled, "the fetch interrupter was not called"
+    assert killed == ["probes"], (
+        "cancel() did not interrupt the version probe; it can block for two minutes "
+        "in a container exec that quit() cannot reach (CLAUDE.md rule 9)"
+    )
+    worker.cancel()  # twice is safe
+    assert killed == ["probes", "probes"]
+
+
+def test_a_standing_offer_is_not_stacked_on_by_a_second_one(qapp, monkeypatch) -> None:
+    """Our OWN open offer must block another, which an earlier draft exempted.
+
+    `_interruption_blocker` first read `modal is not self._ripper_offer_box`, on the
+    reasoning that our own dialog should not block us. Backwards: opening a second box
+    overwrites `_ripper_offer_box` and orphans the first one's pending `buttonClicked`,
+    so the answer to the dialog the user is looking at goes nowhere — or worse, installs
+    against a commit from the other offer. Caught while re-reading the fix rather than by
+    a test, which is why this one exists.
+    """
+    from PySide6.QtWidgets import QMessageBox
+
+    from platterpus.deps.ripper_offer import OFFER_MISMATCHED, RipperOffer
+    from platterpus.ui.main_window_update import UpdateMixin
+
+    opened: list[str] = []
+    monkeypatch.setattr(QMessageBox, "open", lambda self: opened.append("open"))
+
+    offer = RipperOffer(
+        verdict=OFFER_MISMATCHED,
+        channel="stable",
+        release=None,
+        detail="not the approved build",
+        install_commit=fork_source.FORK_PIN,
+        auto_installable=True,
+        may_surface_unprompted=True,
+    )
+    window = _stub_window(object())
+    window.show()
+    window._ripper_check_is_automatic = True
+
+    UpdateMixin._on_ripper_update_result(window, offer)
+    assert opened == ["open"], "floor: the first offer must actually open"
+    assert window._ripper_offer_box is not None
+    first_box = window._ripper_offer_box
+
+    # A second result arrives while that box is still standing.
+    window._ripper_check_is_automatic = True
+    UpdateMixin._on_ripper_update_result(window, offer)
+    assert opened == ["open"], "a second offer stacked on the standing one"
+    assert window._ripper_offer_box is first_box, (
+        "the standing offer's box was replaced, orphaning its pending answer"
+    )
+    window.close()

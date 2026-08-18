@@ -710,30 +710,78 @@ def test_an_unidentifiable_ripper_is_never_reported_as_the_pinned_build() -> Non
     assert offer.install_commit == fork_source.FORK_PIN
 
 
-def test_a_build_a_closed_round_approved_installs_on_one_click() -> None:
+def test_a_build_our_record_approved_installs_on_one_click() -> None:
     """The "next viable candidate", taken without the user picking anything.
 
-    Viable means **our** record approves it: their round is closed *and* our record
-    has closed that round too. Both halves, because one side's GO is half a bilateral
-    contract — the failure this project has now paid for three times.
+    **Viable means our record approves THAT COMMIT** — not that the fork labelled it
+    with a round we happen to have closed.
+
+    This test used to assert the second thing, with commit ``abc1234`` and
+    ``handshake_round=APPROVED_BY_ROUND``, and it was pinning a defect (found by
+    review, 2026-08-18). `APPROVED_BY_ROUND` names the newest closed round that
+    approved *the pin we install*, and rounds 9, 10 and 11 each closed here against a
+    commit that is **not** ``FORK_PIN`` — reviewing a pin and installing it are
+    separate acts. So "their round is closed and we closed that round" was satisfied by
+    builds our record has never approved, including ``422d12a``, which the fork
+    *withdrew* for failing its own tests. Four such heads reproduced
+    ``auto_installable=True`` against ``approve_ripper(...) == unapproved``.
+
+    The candidate here is therefore ``FORK_PIN`` itself, offered to a user who is
+    behind it — which is the only shape in which a *newer* build can be one our record
+    approves, and exactly what the one-click path is for.
     """
-    from platterpus.handshake_approval import APPROVED_BY_ROUND
+    manifest = _manifest(
+        stable={
+            "release_seq": 99,
+            "commit": fork_source.FORK_PIN,
+            "handshake_round": 99,  # deliberately a round we have NOT closed
+            "round_closed": False,  # and one they call OPEN
+        }
+    )
+    offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="c4d1a00")
+    assert offer.verdict == OFFER_AVAILABLE
+    assert offer.would_be_unapproved is False
+    assert offer.auto_installable is True
+    assert offer.install_commit == fork_source.FORK_PIN
+    assert "--install-ripper" not in offer.detail
+    # The round fields above are deliberately hostile: our approval is ours to give,
+    # so a build that IS our pin stays installable even when the fork's own row calls
+    # its round open. That the two facts are independent is the whole fix.
+    assert "still OPEN" in offer.detail
+
+
+def test_a_round_label_can_no_longer_authorise_an_install() -> None:
+    """The regression test for the defect above, stated as the thing that broke.
+
+    A head the fork labels with a round we *have* closed, carrying a commit our record
+    has *not* approved, must not be auto-installable — and must not claim we approve
+    it. Asserted together with what the rip-time check says about the very same build,
+    because the defect was precisely those two disagreeing.
+    """
+    from platterpus.handshake_approval import APPROVED_BY_ROUND, approve_ripper
 
     manifest = _manifest(
         stable={
             "release_seq": 99,
-            "commit": "abc1234",
+            "commit": "cb440bd",  # a real round-8 fork build, and not our pin
             "handshake_round": APPROVED_BY_ROUND,
             "round_closed": True,
         }
     )
     offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="ddf7ac3")
     assert offer.verdict == OFFER_AVAILABLE
-    assert offer.would_be_unapproved is False
-    assert offer.auto_installable is True
-    assert offer.install_commit == "abc1234"
-    assert "--install-ripper" not in offer.detail
-    assert "unapproved" not in offer.detail
+    assert offer.install_commit == "cb440bd"
+    assert offer.auto_installable is False, (
+        "a round label authorised an install again; the predicate must be the commit"
+    )
+    assert offer.would_be_unapproved is True
+    assert "our record approves" not in offer.detail
+    # The two surfaces must agree about this build. That they did not is the defect.
+    rip = approve_ripper(
+        "cyanrip 0.9.4-rc1+platterpus.5-beta.1 (platterpus-fork-gcb440bd)"
+    )
+    assert rip.verdict == "unapproved"
+    assert offer.auto_installable is (rip.verdict == "approved")
 
 
 def test_a_build_no_round_here_has_verified_is_never_auto_installed() -> None:
@@ -826,21 +874,26 @@ def test_the_beta_channel_is_read_from_settings_not_guessed() -> None:
     """
     from platterpus.handshake_approval import APPROVED_BY_ROUND
 
+    # The beta row carries OUR PIN, so `auto_installable` is decided by the same
+    # predicate on both channels and the only variable left is the channel itself —
+    # which is the property under test. (It used to carry `abc1234` with a closed
+    # round, which made the assertion below pass for a build our record has never
+    # approved; see `test_a_round_label_can_no_longer_authorise_an_install`.)
     manifest = _manifest(
         beta={
             "release_seq": 99,
-            "commit": "abc1234",
+            "commit": fork_source.FORK_PIN,
             "handshake_round": APPROVED_BY_ROUND,
             "round_closed": True,
         }
     )
-    on_stable = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="ddf7ac3")
+    on_stable = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="c4d1a00")
     assert on_stable.verdict == OFFER_UP_TO_DATE, "stable must not see a beta row"
 
-    on_beta = evaluate_offer(manifest, CHANNEL_BETA, installed_commit="ddf7ac3")
+    on_beta = evaluate_offer(manifest, CHANNEL_BETA, installed_commit="c4d1a00")
     assert on_beta.verdict == OFFER_AVAILABLE
     assert on_beta.auto_installable is True
-    assert on_beta.install_commit == "abc1234"
+    assert on_beta.install_commit == fork_source.FORK_PIN
     assert "beta channel" in on_beta.detail, "a beta must say it is one"
 
 

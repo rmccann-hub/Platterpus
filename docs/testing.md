@@ -1386,6 +1386,52 @@ believed (§5.s).
 import — under `python -m pytest`. Had the guard not been written as a sweep, the same
 command would have gone on vouching for the same blind spot.
 
+### §5.al — Two surfaces answering one question by different keys will disagree
+
+*The one-click ripper install, 2026-08-18. Found by adversarial review of a diff that
+had already been through a full suite, a typecheck and ten green CI checks.*
+
+Whether a cyanrip build is *"one our record approves"* was computed twice:
+
+| surface | key | when it runs |
+|---|---|---|
+| `ripper_offer.evaluate_offer` | the manifest's **round label** — `round_closed and handshake_round <= APPROVED_BY_ROUND` | when we offer the install |
+| `handshake_approval.approve_ripper` | the **build tag** — `platterpus-fork-g<FORK_PIN>` | on every rip, into the report, the log and the EAC export |
+
+Both readings are defensible in isolation. They are not the same question **in this
+project**, and the record says so out loud: `APPROVED_BY_ROUND` names the newest closed
+round that approved *the pin we install*, and rounds 9, 10 and 11 each closed against a
+commit that is not `FORK_PIN`, because reviewing a pin and installing it are separate
+acts. So every head the fork labelled with a round we had closed was presented as
+approved, offered on one click with *"nothing to weigh"*, and then reported `unapproved`
+by the very next rip. Four real cases reproduced it — including `422d12a`, which the
+fork had **withdrawn** for failing its own tests.
+
+**What makes this class dangerous is that neither surface is wrong on its own.** There
+is no assertion to add to either one; a test of the offer passes, a test of the approval
+passes, and the defect lives strictly in the *relation*. The suite was green.
+
+Three things follow, in order of how much they buy:
+
+1. **One predicate, N callers — and the caller delegates rather than restating.** The
+   fix is `handshake_approval.approves_commit`, which `_tag_is_approved` backs and
+   `approve_ripper` also calls. Not "both compute the same thing"; literally the same
+   function. `ripper_offer._approves_commit` is a one-line pass-through that exists so a
+   future edit has to *replace a call* rather than tweak an expression.
+2. **Where the two could differ, the one that reaches an archival record wins.** The
+   shared predicate uses exact tag equality, not the prefix-tolerant `same_commit`,
+   because a prefix match would let the offer promise an approval the rip-time check
+   must refuse. Pick the stricter key deliberately and say why.
+3. **Test the relation, not the two sides.** The regression test asserts
+   `offer.auto_installable is (approve_ripper(banner).verdict == "approved")` for the
+   same build — a property no test of either module alone can express.
+
+**The smell to grep for:** a comparison against a *label* the other side supplies (a
+round number, a channel name, a version string, a `round_closed` flag) standing in for
+a comparison against the *identity* our own record keyed on. Ask: *if the other project
+relabelled this without changing the artifact, would my answer change?* If yes, the
+label is not the key.
+
 ### §5.ak — A bug can be masked by a smaller bug, so a fix makes new states reachable
 
 *The ripper offer, 2026-08-18. Found by answering "what new state does this fix

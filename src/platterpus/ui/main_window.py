@@ -831,9 +831,17 @@ class MainWindow(
         self._pending_library_move = None
         stop_thread(self._mb_thread, deadline=deadline)  # idle loop quits fast
         stop_thread(self._update_thread, deadline=deadline)  # short HTTP check
-        # One bounded HTTPS GET — but the WORKER is passed, not just the thread:
-        # its `cancel()` closes the socket, which is the only thing that can break a
-        # thread blocked in `read()`. Omitting it would make that cancel dead code.
+        # TWO blocking calls, not one, and the WORKER is passed for both: a bounded
+        # HTTPS GET (its `cancel()` closes the socket — the only thing that can break a
+        # thread blocked in `read()`) *and* a version probe that runs inside a
+        # `distrobox enter` at a 60 s timeout per flag, which only
+        # `cancel_version_probes()` can end. Omitting the worker would make both
+        # interrupters dead code.
+        #
+        # This comment said "One bounded HTTPS GET" for one commit, after the probe was
+        # added — the description of the seam went stale in the same change that
+        # widened it, which is how the worker's `cancel()` came to cover half of what
+        # it blocks on.
         stop_thread(
             self._ripper_update_thread, self._ripper_update_worker, deadline=deadline
         )

@@ -29,6 +29,26 @@ from platterpus.deps.ripper_offer import OFFER_NOT_DETERMINED, RipperOffer
 log = logging.getLogger(__name__)
 
 
+def _cancelled_offer(channel: str) -> RipperOffer:
+    """The verdict a cancelled check reports: nothing determined, nothing to install.
+
+    One function because the cancel is now checked at **two** points — before the
+    binary probe and after it — and two copies of "the offer that must not trigger a
+    modal" is two places for `install_commit` to creep back in. The empty
+    ``install_commit`` is the load-bearing part: an offer with one is what the window
+    answers with a modal install prompt, and a closing window must not raise one.
+    """
+    return RipperOffer(
+        verdict=OFFER_NOT_DETERMINED,
+        channel=channel,
+        release=None,
+        detail=(
+            "The cyanrip update check was cancelled before it finished. "
+            "Nothing was determined and nothing was changed."
+        ),
+    )
+
+
 class RipperUpdateWorker(QObject):
     """QObject worker: fetch the fork's release manifest, emit an offer."""
 
@@ -65,8 +85,25 @@ class RipperUpdateWorker(QObject):
 
     @Slot()
     def cancel(self) -> None:
-        """Break an in-flight fetch. Safe from any thread, and safe to call twice."""
+        """Break whatever this worker is blocked in. Safe from any thread, and twice.
+
+        **Two blocking calls, so two interrupters.** The fetch was the only one when
+        this was written; probing the installed binary added a second and the cancel
+        was not extended, which made it a false promise for the longer of the two
+        (`CLAUDE.md` rule 9). `_probe_installed_commit` runs `check_cyanrip`, which
+        runs `VERSION_PROBE` once per entry in `VERSION_FLAGS` at a 60-second timeout
+        each — up to two minutes inside a `distrobox enter`, which `QThread.quit()`
+        cannot reach and closing a socket does nothing about. `cancel_version_probes()`
+        is the thing that SIGKILLs that child, and this worker never called it.
+
+        Both are called unconditionally rather than picking one by state: a cancel
+        arriving in the gap between the two phases must interrupt whichever the worker
+        reaches, and both are safe to call when nothing is in flight.
+        """
+        from platterpus.deps.checks import cancel_version_probes
+
         self._fetcher.cancel()
+        cancel_version_probes()
 
     def _probe_installed_commit(self) -> str | None:
         """The fork commit of the binary that is **actually installed**.
@@ -130,21 +167,21 @@ class RipperUpdateWorker(QObject):
                 # deliberate: `finished` is what lets `stop_thread` join this thread,
                 # and a worker that never finishes is a thread that gets abandoned
                 # (CLAUDE.md rule 9).
-                offer = RipperOffer(
-                    verdict=OFFER_NOT_DETERMINED,
-                    channel=self.channel,
-                    release=None,
-                    detail=(
-                        "The cyanrip update check was cancelled before it finished. "
-                        "Nothing was determined and nothing was changed."
-                    ),
-                )
+                offer = _cancelled_offer(self.channel)
             else:
-                offer = evaluate_offer(
-                    manifest,
-                    self.channel,
-                    installed_commit=self._probe_installed_commit(),
-                )
+                installed = self._probe_installed_commit()
+                if self._fetcher.cancelled:
+                    # **The same check again, because the probe is the LONG phase.**
+                    # A cancel arriving during `distrobox enter` (up to two minutes)
+                    # would otherwise sail past the guard above — it was already
+                    # evaluated — and hand a modal-triggering offer to a window that
+                    # is tearing down. Checking once, before the shorter of the two
+                    # blocking calls, was checking at the wrong end.
+                    offer = _cancelled_offer(self.channel)
+                else:
+                    offer = evaluate_offer(
+                        manifest, self.channel, installed_commit=installed
+                    )
         except Exception:  # noqa: BLE001 — a worker must always finish
             log.exception("ripper update check crashed")
             # **The recovery must not call the thing that just failed.**

@@ -248,13 +248,63 @@ class UpdateMixin(MainWindowShared):
         leaving an install dialog standing over the rest of the suite. A user meets
         the same shape as a dialog appearing after they quit.
         """
-        if not self.isVisible():
-            log.info("skipping the automatic cyanrip check — the window is not shown")
-            return
-        if self._rip_thread is not None:
-            log.info("skipping the automatic cyanrip check — a rip is running")
+        blocker = self._interruption_blocker()
+        if blocker:
+            log.info("skipping the automatic cyanrip check — %s", blocker)
             return
         self._on_check_ripper_updates(automatic=True)
+
+    def _interruption_blocker(self) -> str:
+        """Why we must **not** raise a dialog *right now*, or ``""`` if we may.
+
+        The three conditions of `docs/architecture.md` §3.12a — *a person is here*,
+        *they are not busy*, *nothing else has the floor* — as a value rather than as
+        three copies of an ``if``.
+
+        **It returns a reason instead of a bool** so every refusal can name itself in
+        the log. A skipped interruption that logs "skipped" is indistinguishable from
+        one that skipped for the wrong reason.
+
+        **And it exists to be called TWICE: once when the check is armed and again
+        when its result arrives.** Those are different instants and the gap between
+        them is long — `fetch_manifest` plus a `distrobox enter` version probe, tens
+        of seconds on a cold container. Checking only at the arming instant made the
+        docstring above ("It does not run during a rip") a property of *when the timer
+        fired*, not of the flow: a user who inserted a disc and started ripping while
+        the worker was still probing got a window-modal install offer over the live
+        progress view, with *"Install it now"* pre-selected — one keypress from
+        replacing the binary that was mid-rip. Found by review, 2026-08-18. This is
+        §3.12a's own corollary applied to the *second* deferral, the worker's latency,
+        which is the long one.
+
+        The third condition is new with the same fix. A launch-armed timer can fire
+        inside the first-run setup question's nested ``exec()`` loop, stacking a
+        window-modal *"cyanrip update"* box on top of an application-modal *"Set up
+        Platterpus?"* — input-blocked, and answering both runs the install pipeline
+        twice. ``activeModalWidget()`` is Qt's own answer to "does something else have
+        the floor", so we ask it rather than tracking our own dialogs.
+        """
+        from PySide6.QtWidgets import QApplication
+
+        if not self.isVisible():
+            return "the window is not shown"
+        if self._rip_thread is not None:
+            return "a rip is running"
+        modal = QApplication.activeModalWidget()
+        if modal is not None:
+            # **Including one of ours.** The first draft of this excluded
+            # `self._ripper_offer_box`, reasoning that our own dialog should not block
+            # us — which is exactly backwards: an offer already standing is the one
+            # modal we most need to not stack on, because opening a second box
+            # overwrites `_ripper_offer_box` and orphans the first one's pending
+            # answer. There is no path that needs the exemption, and the exemption was
+            # a hole. Any modal blocks.
+            return f"a dialog already has the floor ({type(modal).__name__})"
+        if self._ripper_offer_box is not None:
+            # Belt to the above's braces: a box we opened but that Qt does not report
+            # as the active modal yet (it is shown asynchronously by `open()`).
+            return "a cyanrip install offer is already open"
+        return ""
 
     def _ripper_channel(self) -> str:
         """The user's *ripper* update channel, defensively.
@@ -277,7 +327,11 @@ class UpdateMixin(MainWindowShared):
         re-derives "is this safe" is a second opinion free to disagree with the one in
         the report a rip writes.
         """
-        from platterpus.deps.ripper_offer import OFFER_AVAILABLE, OFFER_MISMATCHED
+        from platterpus.deps.ripper_offer import (
+            OFFER_AVAILABLE,
+            OFFER_MISMATCHED,
+            RipperOffer,
+        )
 
         self._ripper_update_worker = None
         self._ripper_update_thread = None
@@ -304,7 +358,19 @@ class UpdateMixin(MainWindowShared):
         # raising it unprompted at every launch would be the app nagging somebody to
         # undo a deliberate decision. Exactly the *"unless very important"* line the
         # redesign was asked for, applied to the direction of travel.
-        auto_surfaceable = verdict in (OFFER_AVAILABLE, OFFER_MISMATCHED)
+        # **The OFFER decides whether it may interrupt, not a verdict list here.** This
+        # was `verdict in (OFFER_AVAILABLE, OFFER_MISMATCHED)` — which cannot see the
+        # fact that settles it. `OFFER_MISMATCHED` is also what an *unreachable
+        # manifest* produces for a build we could not place, and in that state an
+        # unrecognised commit is indistinguishable from one of the fork's newer
+        # releases: so the check raised an every-launch modal offering a step
+        # *backwards* to somebody who had upgraded on purpose. Only `evaluate_offer`
+        # knows whether it managed to read the manifest, so only it can answer this.
+        auto_surfaceable = (
+            offer.may_surface_unprompted
+            if isinstance(offer, RipperOffer)
+            else verdict in (OFFER_AVAILABLE, OFFER_MISMATCHED)
+        )
         if automatic and not (install_commit and auto_installable and auto_surfaceable):
             log.info(
                 "automatic cyanrip update check: %s (nothing to offer silently)",
@@ -312,11 +378,58 @@ class UpdateMixin(MainWindowShared):
             )
             return
 
+        # **Re-check, now.** The guards in `_maybe_check_ripper_updates` were true when
+        # the check was ARMED; this runs after the worker's own latency (a manifest
+        # fetch plus a `distrobox enter` probe), so a rip may have started, the window
+        # may have gone, or another dialog may have the floor. See
+        # `_interruption_blocker` — a precondition checked only at scheduling time is
+        # not a precondition of the thing that happens.
+        blocker = self._interruption_blocker()
+        if blocker:
+            if automatic:
+                log.info(
+                    "automatic cyanrip update check: %s, but not surfacing it — %s",
+                    verdict or "no verdict",
+                    blocker,
+                )
+                return
+            # A check the user ASKED for still gets an answer — dropping it silently
+            # is the no-op-failure shape this project forbids — but never the install
+            # action, and never stacked on another modal.
+            log.info(
+                "cyanrip update check answered without the install offer — %s", blocker
+            )
+            if not self.isVisible() or self._ripper_offer_box is not None:
+                return
+            from PySide6.QtWidgets import QApplication
+
+            if QApplication.activeModalWidget() is not None:
+                return
+            detail = (
+                f"{detail}\n\nPlatterpus will not change the ripper while {blocker}. "
+                "Run this again from the Help menu when you are ready."
+            )
+            install_commit = ""
+
         if install_commit and auto_installable:
             self._offer_ripper_install(offer, detail, install_commit)
             return
 
         box = QMessageBox(self)
+        # `open()`, not `exec()`, for the same reason `_offer_ripper_install` uses it:
+        # THIS METHOD IS A QUEUED SLOT. It is the update worker's `result` signal, so an
+        # `exec()` here spins a nested event loop inside whatever the GUI thread was
+        # doing — the hazard `docs/architecture.md` §3.12a names. It shipped as `exec()`
+        # because the structural guard that caught the offer dialog was scoped to that
+        # one method, and its docstring waved the rest of the mixin through as
+        # *"a menu action is user-initiated and synchronous"* — true of
+        # `_on_check_ripper_updates`, and not true of this. The guard names the right
+        # rule and picked the wrong subject; it covers both now.
+        #
+        # `WA_DeleteOnClose` because `open()` returns immediately and Qt owns the widget
+        # through its parent: without it every check would leave a hidden QMessageBox
+        # parented to the window for the life of the process.
+        box.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         box.setWindowTitle("Check for cyanrip updates")
         box.setText(detail)
         # PlainText, not Qt's default AutoText: this paragraph carries a version
@@ -331,7 +444,7 @@ class UpdateMixin(MainWindowShared):
             if verdict in (OFFER_AVAILABLE, OFFER_MISMATCHED)
             else QMessageBox.Icon.NoIcon
         )
-        box.exec()
+        box.open()
 
     def _offer_ripper_install(self, offer: object, detail: str, commit: str) -> None:
         """Ask once, then install. Only reached when the offer says it costs nothing.
@@ -440,19 +553,27 @@ class UpdateMixin(MainWindowShared):
         """
         from platterpus.deps.fork_source import target_for_commit
         from platterpus.deps.host_setup import HostSetup
+        from platterpus.deps.ripper_offer import RipperOffer
         from platterpus.deps.step_engine import SubprocessRunner
         from platterpus.ui.host_setup_dialog import HostSetupDialog, SetupCopy
 
-        release = getattr(offer, "release", None)
-        # The manifest's own build options for THIS commit, when the offer came from a
-        # manifest row (schema 2). Round 11 §J1 asks that the options come from their
-        # document rather than a constant of ours, and meson fails the whole configure
-        # on an unknown `-D` — so passing the wrong ones is not a degraded build, it is
-        # no build at all. Validated at the manifest boundary before it reaches here.
+        # The manifest's build options and version **for the commit we are actually
+        # installing** — resolved by the offer, not read off `offer.release` here.
+        #
+        # This used to take both fields off `offer.release` unconditionally, with a
+        # comment asserting they described "THIS commit". For the rollback offer they
+        # do not: the row is the head the user is sitting on and `commit` is the older
+        # pin we are putting back. That shipped `-Ddeclare_released=true` into a
+        # `meson setup` of a commit with no `meson_options.txt` (configure fails
+        # outright, so the one-click repair could never succeed) and wrote a banner no
+        # build prints into the log. `RipperOffer.build_hint` carries the reasoning and
+        # the measurements; the UI's job is to ask, not to decide.
+        hint_version: str | None = None
+        hint_options: tuple[str, ...] = ()
+        if isinstance(offer, RipperOffer):
+            hint_version, hint_options = offer.build_hint()
         target = target_for_commit(
-            commit,
-            version=str(getattr(release, "version", "") or "") or None,
-            meson_options=tuple(getattr(release, "meson_options", ()) or ()),
+            commit, version=hint_version, meson_options=hint_options
         )
         log.info("installing cyanrip %s (expects %s)", target.pin, target.expectation)
         dialog = HostSetupDialog(

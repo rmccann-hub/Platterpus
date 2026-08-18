@@ -37,6 +37,59 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   install, so a build that needs `-Ddeclare_released=true` gets it (round 11 §J1).
 
 ### Fixed
+- **The one-click ripper install could offer a build our record has never approved,
+  and call it approved.** Whether an install "costs nothing" was decided from the
+  fork manifest's **round label** (`round_closed and handshake_round <=
+  APPROVED_BY_ROUND`) while whether a *rip* reports `approved` is decided from the
+  **build tag**. Those are different questions here — rounds 9, 10 and 11 each closed
+  against a commit that is not our pin, because reviewing a pin and installing it are
+  separate acts — so any head the fork labelled with a round we had closed was
+  presented as *"the build our record approves"*, offered on one click with nothing to
+  read, and then stamped `unapproved` into every subsequent report, log and EAC export.
+  Four real cases reproduced it, including `422d12a`, the build the fork **withdrew**
+  for failing its own tests. Approval now runs through one predicate
+  (`handshake_approval.approves_commit`) that both the offer and the rip-time check
+  call, so the promise and the verdict are one computation rather than two opinions.
+- **The "put the approved build back" install could never have succeeded.** It took the
+  version and `meson setup` options off the manifest row the user was *sitting on*
+  while building a *different* commit — so `-Ddeclare_released=true` reached a configure
+  of `ddf7ac3`, which has no `meson_options.txt`; meson fails the whole configure on an
+  unknown `-D`, so the repair aborted with an error that reads as a Platterpus bug. It
+  also logged the expectation `cyanrip 0.9.4-rc1+platterpus.6 (platterpus-fork-gddf7ac3)`
+  — a banner no build prints — into the file a bug report carries. Measured against the
+  fork's live manifest for exactly the operator this feature was written for. The build
+  fields now come from `RipperOffer.build_hint()`, which returns them only for the
+  commit being installed; schema 2's options still flow when the row does describe it.
+- **An install offer could appear over a running rip, or over a window that had been
+  closed, or stacked on another dialog.** The three interruption conditions were checked
+  when the check was *armed* and never when its result *arrived* — and the gap between
+  those instants is the worker's own latency, a manifest fetch plus a container version
+  probe. So a user who started ripping during the check got a window-modal box over the
+  live progress view with *"Install it now"* pre-selected: one keypress from replacing
+  the binary mid-rip. All three are now re-checked at the moment of surfacing, and the
+  set gained "another dialog has the floor" (a launch-armed timer fires inside the
+  first-run setup question's nested loop). A check the user *asked* for still answers,
+  without the install action.
+- **The automatic check no longer nags a user who is offline and ahead of the pin.**
+  Without the manifest, an unrecognised build is indistinguishable from one of the
+  fork's newer releases — and the unprompted offer was raised anyway, every launch,
+  proposing a step backwards. Whether an offer may interrupt is now the offer's own
+  answer (`may_surface_unprompted`, defaulting to *false*) rather than a verdict list in
+  the UI, because only the decision layer knows whether the manifest was read. "No
+  ripper at all" still interrupts — that cannot be a deliberate choice.
+- **The ripper update worker's `cancel()` only interrupted half of what it blocks on.**
+  Probing the installed binary was added without extending the cancel, and that probe
+  runs `distrobox enter` at a 60-second timeout per version flag — two minutes that
+  closing a socket does nothing about and `QThread.quit()` cannot reach. It now also
+  calls `cancel_version_probes()`, and the cancel is re-checked after the probe as well
+  as after the fetch (`CLAUDE.md` rule 9). The `closeEvent` comment that still described
+  this worker as *"one bounded HTTPS GET"* has been corrected.
+- **The verdict dialog spun a nested event loop.** `_on_ripper_update_result` is the
+  worker's queued `result` slot and called `exec()`. The structural guard that caught
+  the same defect in the install offer was scoped to that one method and its docstring
+  waved the rest through as *"a menu action is user-initiated and synchronous"* — true
+  of the menu handler, not of the result slot. Both use `open()` now and the guard
+  covers both.
 - **A fork release published after your Platterpus is now recognised as a release.**
   Where a build sits in the fork's release sequence was answered *only* from
   `FORK_RELEASE_SEQ_BY_PIN`, a map maintained by hand in this repo — so a build newer
