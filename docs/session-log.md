@@ -11,6 +11,143 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-18 — the autoupdate the ripper never had, and an audit of every "enforced by" claim in this repo
+
+Two halves of one instruction (*"do both"*): build the ripper autoupdate the
+maintainer asked for, and find out which of this project's written rules have no
+mechanical enforcement.
+
+### The ripper update check made a SHA the interface
+
+The maintainer's words: *"i dont want an explicite release number to be the thing,
+the autoupdate on platterpus should take the next viable candidate without the user
+needing to pick … it shouldnt need to be explicity callled out by eitether rop
+unless very impartant"*, then *"assume last most stable is good, then if beta flags
+are checked, look for those, but it should still be an autoupdate"*, then *"make
+sure we can try will pins or non autoupdates, but that is manually and by script
+most likely."*
+
+What existed refused to install anything, ever, and ended **every** answer with
+`platterpus --install-ripper <sha>` to copy. The refusal had a real reason — a build
+our record has not approved makes every rip report `unapproved` — but it was applied
+to *every* build rather than to the ones it describes. So the app knew which build
+it wanted and made a person retype it.
+
+**The split is by consequence, which is what the original reasoning was always
+about.** `RipperOffer` grew two fields: `install_commit` (what a one-click install
+would build — carried so the UI never has to *show* it) and `auto_installable`
+(does taking it cost anything?). True only when our own record approves the build,
+so the common case is one click and nothing to read; false keeps the careful
+treatment, is never the default button, and hands over the command line — which is
+the right friction for a build nobody has verified, and is what a rig script calls.
+
+The install drives the **same step engine** as the wizard and `--install-ripper`,
+in the same dialog with different words (`SetupCopy`). Rules #6 and #12 both say a
+second installer is not an option; a copied dialog would be a copied snippet with a
+layout attached.
+
+**Three defects fell out of building it, all of the same family as the
+`_observed_ripper_banner` bug the day before — a value nothing produced, read
+through something that could not raise:**
+
+1. `installed_commit=None` meant *"assume the pinned commit"*. Correct before the
+   binary was actually probed; a claim we never checked once it was. **Stock
+   upstream cyanrip** has no fork commit in its banner, so it rendered as *"your
+   cyanrip build is current: 0.9.4-rc1+platterpus.5 (ddf7ac3)"* — a sentence
+   assembled entirely from constants.
+2. An unrecognised build was reported as *not determined*, the verdict that offers
+   nothing, when it was the single most common real state and the one with an
+   obvious remedy. It is now its own verdict, and it answers **with no network**,
+   because the two facts it needs are local.
+3. The maintainer's `c4d1a00` was never a stray build — it is the fork's **current
+   published stable release**, seq 16. We had recorded only our own pin's sequence,
+   so their own release came back as *"not one of the fork's numbered releases — a
+   mid-round test pin, or a commit installed by hand."* Every clause wrong about a
+   published release.
+
+**And the change caused a hang — whose first fix was the wrong half, which is the
+part worth recording.** The automatic check was armed by a `QTimer.singleShot` in
+`MainWindow.__init__`. The suite builds `MainWindow` directly in dozens of tests
+and several then spin a nested event loop for longer than the delay, so the timer
+fired, the check found no fork ripper, produced a one-click offer, and `exec()`d a
+`QMessageBox` **with nobody to click it**. The run stopped at 56% and stayed there.
+
+Moving the arming to `app.py` was right on its own terms — *"a window exists"* and
+*"the application started"* are different events, and only the second licenses
+interrupting somebody — **and it did not fix the hang.** The suite stopped in
+exactly the same place, because a test drives the real launch path and the timer
+was still pending. Chasing the scheduler was chasing the *trigger*; the defect was
+in what the callback did.
+
+The real fix: **a dialog raised from a queued signal uses `open()`, never
+`exec()`.** `exec()` spins a nested event loop inside whatever the GUI thread was
+already doing, and does not return until somebody answers — which nothing
+guarantees. That is the GUI-thread rule from a direction `architecture.md` §3.2 did
+not cover: not a slot doing blocking work, but **a slot becoming blocking work for
+its caller**. Graduated to §3.12/§3.12a.
+
+Two process notes from finding it, both cheap and both things I did not do first:
+`kill -ABRT` on the hung pytest gave the exact frame in three seconds after ~40
+minutes of bisecting by elimination; and the background wrapper reported *exit code
+0* for a run pytest had exited 134 on — the "read pytest's own rc, never the
+pipeline's" rule, demonstrating itself again.
+
+**And then the suite found a third one, which is the most serious of the three.**
+With the hang gone, an assertion in `test_script_console.py` — three files away and
+about something else entirely — started failing because two `cyanrip update`
+dialogs were standing open over the console. The automatic check was being armed
+for a **scripted run**. On the rig that means: a script drives the real GUI
+unattended for 30–50 minutes, a modal appears eight seconds in and blocks the batch
+until somebody happens to look, and answering it *yes* swaps the ripper
+**mid-session** — invalidating the evidence the session exists to produce. It is
+now not armed when `--run-script` (or the autorun config pair) is in play, with the
+reasoning in `app.py` and a revert-proven test.
+
+Worth naming as a pattern rather than an incident: **all three came from adding one
+thing that can interrupt somebody, and each was found by a surface that was not
+looking for it.** A hang at 56%, an `_active_dialog()` assertion in an unrelated
+file. The rule that would have caught all three up front is now §3.12/§3.12a — ask
+*who is on the stack when this opens*, and *is anybody there to answer*.
+
+### The enforcement audit: four agents, one question per gate
+
+*"you've been having a lot of these oversights … check everything so we dont do this
+again."* Every "enforced by", "CI backstops", "a ratchet", "swept" claim in
+`CLAUDE.md`, against what actually enforces it. Three findings were verified against
+the files and fixed here; the rest are recorded for triage.
+
+- **Critical rule #11 was written in the file that does not gate.** *"A tool that
+  gates CI must not float"* — `pyproject.toml` pinned `ruff>=0.15.22,<0.16`, and
+  CI's `lint` job installed `ruff>=0.15,<1`, the whole 0.x line. Only `typecheck`
+  used the pin, because it installs the dev extra. A routine ruff 0.16 release
+  would have reddened CI on an unrelated PR and read as a code problem — word for
+  word the failure the rule describes. **The lesson, and it generalises: a rule
+  about a gate has to be checked at the gate.**
+- **The changelog gate I added yesterday passed identically whether the entries
+  were moved or deleted.** It checked that `[Unreleased]` was empty and then printed
+  *"entries were moved"* — asserting the one thing it had not checked. That is the
+  v0.6.12 defect displaced by one step, which is worth saying plainly: *fixing a
+  check by adding a check does not make the new one immune to the same question.*
+  Both halves now, proven by running the gate three ways.
+- **`release.yml` asks the tag shape twice and the two lists disagreed.** The
+  handshake gate treats `*a[0-9]*|*b[0-9]*|*rc[0-9]*` as pre-release; the publish
+  step did not. Every tag so far starts `v0.`, which both match, **so it was
+  invisible for the entire v0.x line and opens at v1.0.0** — a `v1.0.1b1` tag would
+  take the *relaxed* gate and publish as a *stable* release. Getting out of beta is
+  the current objective, so it would have fired on the first tag after it.
+- **The test guarding the release-gate wiring keyed on a label.** It asserted
+  `"handshake.py --release-gate"` appears in the workflow — a **substring of the
+  `--prerelease` line**, so deleting the strict branch left it green. Both branches
+  are now required, and the tag routing is **run under `sh`** rather than reasoned
+  about; shell globbing is one character from a bug (`v0.*` vs `v10.0.0`).
+
+**Recorded, not yet acted on** (from the same audit, unverified by me): the CI
+changelog job keys on the filename rather than on an added bullet; the release
+version check is a substring match, so `v0.6.1` passes a `0.6.14` build; nothing
+requires CI to have passed before a release; `HANDSHAKE-TESTED` is checked for
+presence and never for content; the mypy opt-out ratchet has no test; the
+script-surface flag allowlist's "never grow" is not enforced.
+
 ## 2026-08-17 — a green suite CI could not collect, round 11 closed, and a gate our own validator refused
 
 Two things, and they rhyme: in both, the record said one thing and the artifact
@@ -2142,4 +2279,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.12.*
+*Last updated for Platterpus v0.6.14.*
