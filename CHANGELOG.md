@@ -124,6 +124,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   that had finished while the other two were still in flight. 75s sits inside the
   healthy range and would have killed the slow-but-working leg. Reading a distribution
   before it is fully drawn samples the fast tail and calls it the range.
+- **Every import is now checked against the declared dependencies.** A test imported
+  `yaml`; PyYAML is installed in some environments incidentally and is in neither the
+  runtime dependencies nor the `dev` extra, so the suite passed locally and all four
+  CI matrix legs failed at once with `ModuleNotFoundError`. Nothing could have caught
+  it: `pip-audit` reads the declared set, so an import missing *from* that set is
+  precisely what it cannot see, and `mypy` resolves against the installed environment
+  — the one that has the package. `tests/test_imports_are_declared.py` compares the
+  two, both sides derived (imports from the AST of `src/`, `tests/` and `scripts/`;
+  declarations from `pyproject.toml`), so neither is a list that can go stale. The
+  offending import was removed rather than the dependency added, and the sweep found
+  no others across ~3,400 import statements.
 - **Six pointers into deleted documents, in code as well as docs.** `CLAUDE.md` rule
   #7 says retiring a file means retiring every inbound link to it in the same commit —
   and the only thing enforcing that read `CLAUDE.md` alone, so the rule held at the

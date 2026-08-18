@@ -265,6 +265,30 @@ And a count in the changelog said *"all 10 jobs"* when the reader, once asked, p
 **11** — `mutation.yml`'s `mutmut` was the one nobody counted. A number written from
 memory of a list rather than from the list.
 
+**The regression test for it is the general form, because the narrow one is the
+antipattern this whole batch is about.** *"`test_ci_jobs_are_bounded` must not import
+yaml"* would have been a guard scoped to exactly where the problem was seen — the
+sixth instance in one session. `tests/test_imports_are_declared.py` instead compares
+every import in `src/`, `tests/` and `scripts/` against everything `pyproject.toml`
+declares. Both sides derived, neither a list: a hand-written set of allowed modules
+would need editing the day a real dependency is added and would rot silently.
+
+Worth stating plainly why nothing existing could have caught this. `pip-audit` reads
+the *declared* set, so an import missing **from** that set is exactly the thing
+outside its view. `mypy` resolves against the *installed* environment — the one that
+has the package. The gap sits precisely between what is declared and what is
+imported, and only a comparison of the two closes it. It found no other offenders
+across ~3,400 import statements, and was revert-proven by putting `import yaml` back
+and watching it name the file.
+
+Its own first draft failed its own staleness check, which is the pleasing part: the
+alias table mapping distribution names to import names listed `pyyaml`, which
+`pyproject.toml` does not declare — the check refusing rows for undeclared packages
+caught it immediately. Removing that row then exposed that the two remaining rows
+(`pytest-cov`, `tomli-w`) were nothing but the hyphen-to-underscore rule the code
+already applied, so the table went entirely, replaced by a note saying which row it
+must never grow and why.
+
 ### Retiring a file, and the links nobody swept
 
 Same shape a third time in the same session, found by reading `appimage.yml` for an
