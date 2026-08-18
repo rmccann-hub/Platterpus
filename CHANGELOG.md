@@ -90,6 +90,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   waved the rest through as *"a menu action is user-initiated and synchronous"* — true
   of the menu handler, not of the result slot. Both use `open()` now and the guard
   covers both.
+- **Four ways the new pin-enforcement test could pass while broken** (found by review of
+  the test added the same day): `<1.0` was accepted as a "minor" bound though it admits
+  exactly what `<1` admits; a literal pin written across a shell line continuation was
+  invisible to the detector; and both "floors" matched **prose**, so `ci.yml`'s own
+  twelve-line comment about rule #11 satisfied them with every `run:` step deleted. The
+  bound is now checked as arithmetic against the floor, continuations are folded before
+  matching, and the floors read executable lines only and require the tools to be
+  *invoked*.
 - **A fork release published after your Platterpus is now recognised as a release.**
   Where a build sits in the fork's release sequence was answered *only* from
   `FORK_RELEASE_SEQ_BY_PIN`, a map maintained by hand in this repo — so a build newer

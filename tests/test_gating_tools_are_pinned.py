@@ -40,7 +40,56 @@ GATING_TOOLS: Final[tuple[str, ...]] = ("ruff", "mypy")
 
 #: A pin whose upper bound is a MINOR, e.g. ``<0.16`` or ``<2.4``. ``<1`` is not one:
 #: it admits every minor release in a major series, which is what floating means.
+#:
+#: **``<1.0`` is not one either, and this pattern used to accept it.** A trailing
+#: ``.0`` makes a *major* bound look minor-shaped: ``<1.0`` and ``<1`` admit exactly
+#: the same releases, so one character of decoration flipped the verdict and the check
+#: could be satisfied by the precise value it exists to reject. Found by adversarial
+#: review, 2026-08-18 — the same "can it be satisfied by the wrong thing?" shape this
+#: file's own docstring is about, one level in.
+#:
+#: The bound is therefore compared against the FLOOR rather than pattern-matched
+#: alone: see :func:`_bounds_are_a_minor_pin`.
 _MINOR_UPPER_BOUND: Final[re.Pattern[str]] = re.compile(r"<\s*(\d+)\.(\d+)")
+
+#: The ``>=`` floor of a requirement, so an upper bound can be judged relative to it.
+_FLOOR: Final[re.Pattern[str]] = re.compile(r">=\s*(\d+)\.(\d+)")
+
+
+def _bounds_are_a_minor_pin(spec: str) -> str:
+    """``""`` if ``spec`` pins to a minor, else why not.
+
+    A minor pin means the upper bound is the floor's **next minor** — ``>=0.15.22``
+    with ``<0.16``. Anything else admits releases the pin was never measured against:
+
+    * ``<1`` — the whole major series, the shape that shipped in ci.yml.
+    * ``<1.0`` — identical to ``<1``, and what a bare pattern match let through.
+    * ``<2.4`` against a ``>=0.15`` floor — a range spanning majors.
+
+    Stated as the exact arithmetic relation rather than as a shape, because a shape
+    is what was gameable.
+    """
+    floor = _FLOOR.search(spec)
+    if floor is None:
+        return f"{spec!r} has no `>=major.minor` floor to judge an upper bound against"
+    upper = _MINOR_UPPER_BOUND.search(spec)
+    if upper is None:
+        return (
+            f"{spec!r} has no minor-level upper bound at all (a bare `<N` admits every "
+            f"minor release in major N)"
+        )
+    f_major, f_minor = int(floor.group(1)), int(floor.group(2))
+    u_major, u_minor = int(upper.group(1)), int(upper.group(2))
+    if (u_major, u_minor) != (f_major, f_minor + 1):
+        return (
+            f"{spec!r} is bounded at <{u_major}.{u_minor} but its floor is "
+            f">={f_major}.{f_minor}; a minor pin bounds at the floor's NEXT minor "
+            f"(<{f_major}.{f_minor + 1}). As written it admits releases the pin was "
+            f"never measured against — and `<{f_major}.0`-style bounds are exactly the "
+            f"`<{f_major}` this rule rejects, wearing a decimal point."
+        )
+    return ""
+
 
 #: A pip install of one of the gating tools carrying a literal version constraint.
 #: Matches the shape the defect had — ``pip install "ruff>=0.15,<1"`` — including a
@@ -49,6 +98,21 @@ _MINOR_UPPER_BOUND: Final[re.Pattern[str]] = re.compile(r"<\s*(\d+)\.(\d+)")
 _LITERAL_PIN: Final[re.Pattern[str]] = re.compile(
     r"pip\s+install[^\n]*[\"']?\b(?P<tool>ruff|mypy)\s*[<>=!~]"
 )
+
+
+def _joined(text: str) -> str:
+    """``text`` with shell line continuations folded away.
+
+    The detector's ``[^\n]*`` cannot cross a newline, so a pin written across a
+    backslash continuation — the most natural formatting for a longer ``pip install``,
+    and one a future edit would reach for precisely because the line got long — was
+    invisible to it. Folding first means the detector sees what the *shell* sees.
+
+    Also folds YAML block-scalar continuation (a bare newline inside a ``run: |``
+    block still reaches the shell as a separate command, so that one is left alone;
+    only the explicit backslash form is joined).
+    """
+    return re.sub(r"\\\s*\n\s*", " ", text)
 
 
 def _dev_extra() -> list[str]:
@@ -74,12 +138,31 @@ def test_every_gating_tool_is_pinned_to_a_minor() -> None:
     """The pin itself: an upper bound of ``<1`` is not a pin, it is a major range."""
     for tool in GATING_TOOLS:
         spec = _spec_for(tool)
-        match = _MINOR_UPPER_BOUND.search(spec)
-        assert match is not None, (
-            f"{spec!r} has no minor-level upper bound. CLAUDE.md rule #11: a gating "
-            f"tool is pinned to the minor it was measured against, because a routine "
-            f"upstream release otherwise turns CI red with no change to our code."
+        problem = _bounds_are_a_minor_pin(spec)
+        assert not problem, (
+            f"{problem} CLAUDE.md rule #11: a gating tool is pinned to the minor it "
+            f"was measured against, because a routine upstream release otherwise "
+            f"turns CI red with no change to our code."
         )
+
+
+def test_the_minor_pin_check_rejects_the_shapes_that_look_like_pins() -> None:
+    """Non-triviality for the check above, including the one it used to accept.
+
+    ``<1.0`` is the interesting row: it admits exactly what ``<1`` admits, and the
+    original pattern-match passed it. A check that accepts the value it names as the
+    defect is worse than no check, because a pass gets cited.
+    """
+    assert _bounds_are_a_minor_pin("ruff>=0.15.22,<0.16") == ""
+    assert _bounds_are_a_minor_pin("mypy>=2.3.0,<2.4") == ""
+    for bad in (
+        "ruff>=0.15.22,<1",  # the shape that shipped in ci.yml
+        "ruff>=0.15.22,<1.0",  # identical to the above, one decimal point later
+        "ruff>=0.15.22,<0.17",  # skips a minor it was never measured against
+        "ruff>=0.15.22",  # no ceiling at all
+        "ruff",  # no floor either
+    ):
+        assert _bounds_are_a_minor_pin(bad), f"{bad!r} was accepted as a minor pin"
 
 
 def test_the_ci_gate_installs_the_pin_rather_than_repeating_it() -> None:
@@ -89,7 +172,7 @@ def test_the_ci_gate_installs_the_pin_rather_than_repeating_it() -> None:
     with the first — and it did, for the whole life of the ``lint`` job. So the
     workflow must derive the spec instead of restating it.
     """
-    workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+    workflow = _joined(CI_WORKFLOW.read_text(encoding="utf-8"))
     offenders = sorted({m.group("tool") for m in _LITERAL_PIN.finditer(workflow)})
     assert not offenders, (
         f"{CI_WORKFLOW.name} installs {offenders} with a literal version constraint. "
@@ -99,24 +182,105 @@ def test_the_ci_gate_installs_the_pin_rather_than_repeating_it() -> None:
     )
 
 
-def test_the_ci_gate_still_installs_the_gating_tools_at_all() -> None:
+def _executable_lines(text: str) -> list[str]:
+    """The workflow's lines with comments stripped — what actually runs.
+
+    **The floors below matched PROSE.** ``ci.yml`` carries a twelve-line explanatory
+    comment block about this very rule, and it contains the words ``ruff``, ``mypy``
+    and ``pyproject.toml`` — so ``"ruff" in workflow`` was satisfied by the comment
+    that explains why ruff is pinned, with every ``run:`` step deleted. Label without
+    subject, which is the `CLAUDE.md` rule the docstring was citing while breaking it.
+    Found by adversarial review, 2026-08-18.
+
+    A YAML comment is ``#`` to end of line, but ``#`` inside a quoted string is not,
+    and a shell fragment can legitimately contain one. Only a ``#`` that starts a line
+    (after whitespace) or follows whitespace outside quotes is treated as a comment —
+    conservative in the direction that keeps *more* text, so this cannot hide a real
+    install line from the detector above.
+    """
+    kept: list[str] = []
+    for raw in _joined(text).splitlines():
+        stripped = raw.strip()
+        if stripped.startswith("#"):
+            continue
+        in_single = in_double = False
+        cut = len(raw)
+        for i, ch in enumerate(raw):
+            if ch == "'" and not in_double:
+                in_single = not in_single
+            elif ch == '"' and not in_single:
+                in_double = not in_double
+            elif (
+                ch == "#"
+                and not in_single
+                and not in_double
+                and i
+                and raw[i - 1] in " \t"
+            ):
+                cut = i
+                break
+        line = raw[:cut].rstrip()
+        if line.strip():
+            kept.append(line)
+    return kept
+
+
+def test_the_ci_gate_still_INVOKES_the_gating_tools_at_all() -> None:
     """The floor. Without it, deleting the install steps makes the test above pass.
 
     "Can this check be satisfied by finding nothing?" — it can, and this is the
-    answer: the workflow must still name every gating tool and must still read the
-    pin out of ``pyproject.toml``.
+    answer. Two strengthenings over the first version, both from review:
+
+    * it reads **executable lines only**, because ci.yml's own comment block about
+      rule #11 contains every word the old floor searched for, so the floor passed on
+      a workflow with all its ``run:`` steps removed;
+    * it requires the tool to be **invoked**, not mentioned — a step that installs
+      ruff and never runs it is not a gate.
     """
-    workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+    lines = _executable_lines(CI_WORKFLOW.read_text(encoding="utf-8"))
+    body = "\n".join(lines)
+    assert lines, f"{CI_WORKFLOW.name} has no executable lines at all"
     for tool in GATING_TOOLS:
-        assert tool in workflow, (
-            f"{CI_WORKFLOW.name} does not mention {tool!r} at all — the gate it is "
-            f"supposed to run has gone missing, and the pin check above would pass "
+        invoked = [ln for ln in lines if re.search(rf"\b{tool}\b\s", ln)]
+        assert invoked, (
+            f"{CI_WORKFLOW.name} never invokes {tool!r} outside comments — the gate it "
+            f"is supposed to run has gone missing, and the pin check above would pass "
             f"quietly for exactly that reason"
         )
-    assert "pyproject.toml" in workflow, (
-        "no job reads pyproject.toml, so nothing derives a pin — the literal-pin "
-        "check above is satisfied by a workflow that installs nothing"
+    # And a job must actually DERIVE the spec, which means reading pyproject in a
+    # command — not naming it in a comment about why we read pyproject.
+    derives = [ln for ln in lines if "pyproject.toml" in ln]
+    assert derives, (
+        "no executable line reads pyproject.toml, so nothing derives a pin — the "
+        "literal-pin check above is satisfied by a workflow that installs nothing"
     )
+    assert "pip install" in body, (
+        "no executable line installs anything; the derived spec is never used"
+    )
+
+
+def test_the_floors_are_not_satisfied_by_the_explanatory_comments() -> None:
+    """Non-triviality for the floor: prove the comment block alone does not pass it.
+
+    Constructed from ci.yml's real comment text plus a bare ``jobs:`` skeleton — the
+    state the old floor accepted. If this ever passes, the floor has gone back to
+    matching prose.
+    """
+    comment_only = (
+        "name: CI\n"
+        "jobs:\n"
+        "  lint:\n"
+        "    steps:\n"
+        "      # Derive the ruff spec from pyproject.toml rather than repeating it\n"
+        "      # here: a literal version in this file is a second copy of the pin\n"
+        "      # (CLAUDE.md rule #11), and mypy is pinned the same way.\n"
+    )
+    lines = _executable_lines(comment_only)
+    for tool in GATING_TOOLS:
+        assert not [ln for ln in lines if re.search(rf"\b{tool}\b\s", ln)], (
+            f"the floor still sees {tool!r} in a comment-only workflow"
+        )
+    assert not [ln for ln in lines if "pyproject.toml" in ln]
 
 
 def test_the_literal_pin_detector_actually_matches_the_shipped_defect() -> None:
@@ -139,6 +303,25 @@ def test_the_literal_pin_detector_actually_matches_the_shipped_defect() -> None:
 
     # And the other spelling a future edit is most likely to reach for.
     assert _LITERAL_PIN.search("run: pip install mypy==2.3.0")
+
+    # **Across a shell line continuation**, which the raw detector cannot see: its
+    # `[^\n]*` stops at the newline, so the pin was invisible in exactly the
+    # formatting a longer install command invites. Folding first is the fix, and this
+    # is the case that proves it — `_joined` is what the real check now applies.
+    continued = (
+        "        run: |\n"
+        "          python -m pip install \\\n"
+        '              "ruff>=0.15,<1" \\\n'
+        "              pytest\n"
+    )
+    assert not _LITERAL_PIN.search(continued), (
+        "the raw detector already crossed the continuation, so `_joined` is not the "
+        "thing being tested here — re-derive this case"
+    )
+    assert _LITERAL_PIN.search(_joined(continued)), (
+        "a literal pin written across a backslash continuation is still invisible to "
+        "the check; `_joined` did not fold it"
+    )
 
 
 # --- Runtime dependencies whose BEHAVIOUR we depend on -----------------------
