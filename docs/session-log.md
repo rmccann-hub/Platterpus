@@ -189,6 +189,50 @@ to the code that breaks it, a comment asserting the invariant a line below where
 fails, two correct answers to one question by different keys. None is visible from
 inside either half.
 
+### v0.6.15 shipped, and the release gate refused me first
+
+The release dispatched seconds after the squash merge, and `release.yml` declined it:
+
+> `Required CI check(s) have not finished on 459aafd: test (py3.11) (in_progress) …`
+> `Wait for CI, then re-run this release — an unfinished check is not a pass.`
+
+**That gate is one of the nine things this very release fixes**, and its first act was
+to catch its author. The mistake is worth naming because it is not obvious: a squash
+merge creates a **new commit**, and the ten green checks I had verified belonged to the
+branch head (`36c5f03`), not to the squash (`459aafd`). *"CI was green"* was true of a
+commit that is not the one being released — the same shape as every other finding this
+cycle, where a claim was accurate about the wrong subject. Re-dispatched once `main`'s
+own CI went green; published 19:59:45 as a pre-release with all five assets.
+
+One other thing the version bump surfaced: `docs/script-language.md` and
+`docs/cyanrip-consumer-contract.md` are **generated** and embed `__version__`, so the
+bump made both stale and their `*_emitted` test pairs failed. Regenerated with their own
+scripts rather than hand-edited, and the diff checked to be three version strings and
+nothing else — a generated file edited by hand is a file that will disagree with its
+generator the next time anyone runs it.
+
+### The two-pass rig plan, and the gap it exposed
+
+The hardware round is queued as **two passes of one script on two ripper builds** —
+`ddf7ac3` (our pin; closes the `[NOT PROVEN]` items for the build we ship) and
+`c4d1a00` (the fork's published stable; becomes round 12's lap-1 evidence). The
+maintainer asked the right question — *"I thought we wanted .6"* — and the answer is
+that both are needed, for different claims. Reports on pass 2 will read `unapproved`,
+correctly: our record approves `ddf7ac3`, and `handshake_approval` keys on that.
+
+Planning the second pass found a real gap. **`rigcancelandoverread.txt` writes to fixed
+album names**, so pass 2 lands on top of pass 1's rip folders. The file was written for
+a single pass and has no way to say *which* pass; its sibling `police-rerip.txt` solves
+the same problem by making the operator hand-edit a line, which is precisely the
+hand-editing this file exists to avoid.
+
+It is mitigated for the run by **ordering** — `--rig-session` discovers the newest
+report by mtime, so it always bundles the right pass, provided pass 1 is completely
+finished first. That is a procedure holding a correctness property, which is the shape
+this project keeps paying for, so it is filed in `TASKS.md` as a script-verb change
+rather than left as a warning in a chat message. Deliberately *not* fixed before the
+run: changing the script now would invalidate the procedure already handed over.
+
 ### Fixing the bound where it was noticed, twice over
 
 The entry below records the wedge and the job-level bound. Two things followed from
