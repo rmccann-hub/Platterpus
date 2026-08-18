@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import os
 import re
 import subprocess
 import sys
@@ -556,6 +557,116 @@ def test_the_release_workflow_actually_calls_the_gate() -> None:
     # And before the build, so a blocked release costs seconds not an AppImage.
     assert workflow.index("handshake.py --release-gate") < workflow.index(
         "Build the AppImage"
+    )
+    # BOTH BRANCHES, named separately.
+    #
+    # The assertion above is a LABEL check and it can be satisfied by the wrong
+    # thing: `handshake.py --release-gate` is a *substring* of the
+    # `--release-gate --prerelease` line, so deleting the strict branch entirely
+    # leaves this test green while nothing can ever block a release. Found
+    # 2026-08-18 by an enforcement audit asking that of every gate. The label
+    # answers "did they name it"; only the pair is a check.
+    assert "--release-gate --prerelease" in workflow, "the relaxed branch is gone"
+    assert re.search(r"--release-gate\s*;;", workflow), (
+        "the STRICT branch (--release-gate with no --prerelease) is not in "
+        "release.yml at all — nothing can block a release, and the substring "
+        "assertion above cannot tell you that"
+    )
+
+
+def _case_patterns(workflow: str, marker: str) -> list[str]:
+    """The tag globs a `case "$TAG" in` block routes to ``marker``.
+
+    ``marker`` is text on the matching branch's body (``--release-gate --prerelease``
+    or ``PRERELEASE="--prerelease"``), so this reads the *shape list*, which is the
+    thing the two blocks have to agree on.
+    """
+    for block in re.finditer(r'case "\$TAG" in\n(.*?)esac', workflow, re.S):
+        # Split on `;;`, NOT on newlines: one of the two blocks puts its patterns
+        # and its body on separate lines, and a line-based reader silently found
+        # neither — which would have made this whole check pass by matching nothing
+        # if it had defaulted instead of raising.
+        for branch in block.group(1).split(";;"):
+            head, sep, body = branch.partition(")")
+            if sep and marker in body:
+                return sorted(p.strip() for p in head.strip().split("|"))
+    raise AssertionError(f'no `case "$TAG"` branch routing to {marker!r}')
+
+
+def test_the_two_prerelease_tag_lists_are_identical() -> None:
+    """**One decision, two `case` blocks — so they must carry the same globs.**
+
+    `release.yml` asks the tag shape twice: once to decide whether the handshake
+    gate is relaxed, once to decide whether GitHub publishes a pre-release. Together
+    they answer a single question — *may this build claim to be a verified release?*
+    — and they disagreed: the gate's list carried `*a[0-9]*|*b[0-9]*|*rc[0-9]*` and
+    the publish list did not.
+
+    **Invisible for the whole v0.x line, and it opens at v1.0.0.** Every tag this
+    project has cut starts `v0.`, which both lists match, so the divergence never
+    showed. A `v1.0.1b1` tag matches `*b[0-9]*` (relaxed gate) and neither publish
+    pattern (stable release) — a build excused from the gate, published as though it
+    had passed it. Getting out of beta is the current goal, so this would have
+    fired on the first tag after it.
+    """
+    workflow = (
+        Path(__file__).resolve().parents[1] / ".github" / "workflows" / "release.yml"
+    ).read_text(encoding="utf-8")
+    gate = _case_patterns(workflow, "--release-gate --prerelease")
+    publish = _case_patterns(workflow, 'PRERELEASE="--prerelease"')
+    assert gate, "the handshake gate's pre-release branch matched no tag shapes"
+    assert gate == publish, (
+        "release.yml's two tag-shape lists disagree, so a tag can take the RELAXED "
+        "handshake gate and still publish as a STABLE GitHub release:\n"
+        f"  handshake gate : {gate}\n"
+        f"  GitHub publish : {publish}\n"
+        f"  only in gate   : {sorted(set(gate) - set(publish))}\n"
+        f"  only in publish: {sorted(set(publish) - set(gate))}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("tag", "relaxed"),
+    [
+        ("v0.6.14", True),  # every tag in the project's history so far
+        ("v0.6.14b3", True),
+        ("v1.0.0", False),  # the first tag the STRICT branch will ever see
+        ("v1.0.1b1", True),  # the shape the two lists used to disagree about
+        ("v1.2.3-rc1", True),
+        ("v10.0.0", False),  # `v1*` must not accidentally match `v0.*`
+    ],
+)
+def test_the_tag_routing_is_run_not_read(tag: str, relaxed: bool) -> None:
+    """Execute the `case` statement instead of reasoning about the globs.
+
+    Nothing tested this block. Shell pattern matching is easy to read wrongly —
+    `v0.*` versus `v10.0.0` is one character from being a bug — and the audit's
+    finding was precisely that the branch selection had no coverage while both
+    branches did. So the block is extracted from the workflow and run by `sh`, with
+    the invocation echoed rather than executed.
+    """
+    workflow = (
+        Path(__file__).resolve().parents[1] / ".github" / "workflows" / "release.yml"
+    ).read_text(encoding="utf-8")
+    block = re.search(r'(case "\$TAG" in\n.*?--release-gate.*?esac)', workflow, re.S)
+    assert block is not None, "the release-gate `case` block is gone from release.yml"
+    script = block.group(1).replace("python scripts/handshake.py", "echo CALLED")
+    result = subprocess.run(  # noqa: S603 — text we just read out of our own repo
+        ["sh", "-c", script],
+        env={"TAG": tag, "PATH": os.environ.get("PATH", "")},
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    chosen = result.stdout.strip()
+    assert chosen.startswith("CALLED --release-gate"), (
+        f"tag {tag} selected no branch at all: {chosen!r}"
+    )
+    got_relaxed = "--prerelease" in chosen
+    assert got_relaxed is relaxed, (
+        f"tag {tag} routed to {chosen!r}; expected the "
+        f"{'relaxed' if relaxed else 'STRICT'} branch"
     )
 
 

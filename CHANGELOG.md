@@ -11,6 +11,37 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed (CI/release gates — an enforcement audit of every "enforced by" claim)
+- **The `lint` job installed `ruff>=0.15,<1` while `pyproject.toml` pinned
+  `>=0.15.22,<0.16`.** Critical rule #11 (*"a tool that gates CI must not float"*)
+  was written in the file that does not gate and absent from the one that does, so
+  a routine ruff 0.16 release would have reddened CI on an unrelated PR and read as
+  a code problem — word for word the failure the rule describes. The job now reads
+  the pin out of `pyproject.toml`, and `tests/test_gating_tools_are_pinned.py`
+  refuses a literal version in the workflow.
+- **The release changelog gate passed identically whether entries were moved or
+  deleted.** It checked that `[Unreleased]` was empty and then printed *"entries
+  were moved"* — asserting the one thing it had not checked, which is the defect it
+  was added to fix displaced by one step. It now also requires the tag's own
+  `## [X.Y.Z]` section to exist and be non-empty. Proven against the real
+  changelog: moved passes, deleted fails, missing-section fails.
+- **`release.yml`'s two tag-shape lists disagreed.** The handshake gate treats
+  `*a[0-9]*|*b[0-9]*|*rc[0-9]*` as pre-release; the GitHub-publish step did not. Every
+  tag so far starts `v0.`, which both match, so it never showed — and it opens at
+  v1.0.0, where a `v1.0.1b1` tag would take the *relaxed* gate and publish as a
+  *stable* release. The lists are now identical and a test diffs them.
+- The test guarding the release-gate wiring asserted `"handshake.py --release-gate"
+  is in the workflow — a **substring of the `--prerelease` line**, so deleting the
+  strict branch left it green. It now requires both branches, and the tag routing is
+  **run under `sh`** rather than reasoned about.
+- **The built-binary version check was a substring match**, so it caught the
+  direction its own comment names (*"a v0.4.9 release containing 0.4.8"*) and not
+  the other one: `v0.6.1` is a substring of `platterpus 0.6.14`, so a dropped digit
+  in the dispatch input would have shipped a 0.6.14 binary under tag `v0.6.1`.
+  Measured against a real build, `v0.6.14`, `v0.6.1`, `v0.6` and `v0.` all passed.
+  The version is now pulled out as its own field and compared exactly; all four of
+  those are refused and the correct tag still passes.
+
 ## [0.6.14] — 2026-08-17
 
 ### Fixed

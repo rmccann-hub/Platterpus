@@ -38,8 +38,31 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Install ruff
-        run: python -m pip install "ruff>=0.15,<1"
+      # Read the pin OUT OF pyproject.toml rather than repeating it here.
+      #
+      # This step used to install `ruff>=0.15,<1` — the whole 0.x line — while
+      # `[project.optional-dependencies].dev` pinned `>=0.15.22,<0.16`. So the
+      # constraint CLAUDE.md Critical rule #11 exists to impose ("a tool that gates
+      # CI must not float") was written down in the file that does NOT gate, and
+      # absent from the one that does. A routine ruff 0.16 release would have turned
+      # this job red with zero change to our code, and it would have read as a code
+      # problem — which is, word for word, the failure rule #11 describes.
+      #
+      # Deriving it means there is one place the version lives, so bumping it stays
+      # the deliberate commit the rule asks for. `tests/test_gating_tools_are_pinned.py`
+      # refuses a literal version here, so this cannot quietly regress to a copy.
+      - name: Install ruff (pin read from pyproject, so the gate cannot float)
+        run: |
+          python -m pip install --upgrade pip
+          spec="$(python -c '
+          import pathlib, tomllib
+          dev = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"][
+              "optional-dependencies"
+          ]["dev"]
+          print(next(d for d in dev if d.replace("-", "_").startswith("ruff")))
+          ')"
+          echo "pyproject pins: $spec"
+          python -m pip install "$spec"
 
       - name: Lint (ruff check)
         run: ruff check src tests

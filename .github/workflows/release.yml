@@ -88,10 +88,25 @@ jobs:
         # is a property of the TAG, not of somebody's working tree: between
         # releases a populated `[Unreleased]` is correct and a test asserting
         # otherwise would be red for most of the project's life.
+        #
+        # BOTH HALVES, because "moved" is a claim about two places and the first
+        # version of this gate only looked at one. It checked that `[Unreleased]`
+        # was empty and then printed *"entries were moved"* — so **deleting** the
+        # entries passed identically to moving them, and the success line asserted
+        # the one thing it had not checked. That is the very defect it was written
+        # to fix, displaced by one step (found by an enforcement audit, 2026-08-18:
+        # *can this check be satisfied by finding nothing?*). An empty
+        # `[Unreleased]` over an empty `## [X.Y.Z]` is a release whose changelog
+        # says nothing happened, which is worse than one that says it is unreleased.
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           python - <<'PY'
-          import pathlib, re, sys
+          import os, pathlib, re, sys
+          tag = os.environ["TAG"]
+          version = tag[1:] if tag.startswith("v") else tag
           text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+
           m = re.search(r"^## \[Unreleased\][^\n]*\n(.*?)(?=^## \[)", text,
                         re.M | re.S)
           if m is None:
@@ -106,7 +121,26 @@ jobs:
               for line in body[:20]:
                   print(f"  {line}")
               sys.exit(1)
-          print("changelog gate: [Unreleased] is empty — entries were moved.")
+
+          # THE DESTINATION. Keyed on $TAG, not on `__version__`: this gate is about
+          # what THIS tag ships, and a version constant read out of the tree is a
+          # different question that the suite already asks.
+          landed = re.search(
+              rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)",
+              text, re.M | re.S,
+          )
+          if landed is None:
+              sys.exit(f"::error::CHANGELOG.md has no '## [{version}]' section, so "
+                       f"the entries for tag {tag} went nowhere. An empty "
+                       f"[Unreleased] is not evidence they were moved — deleting "
+                       f"them looks identical from here.")
+          moved = [l for l in landed.group(1).splitlines() if l.strip()]
+          if not moved:
+              sys.exit(f"::error::CHANGELOG.md's '## [{version}]' section is EMPTY. "
+                       f"[Unreleased] is empty too, so this release would ship a "
+                       f"changelog claiming nothing changed.")
+          print(f"changelog gate: [Unreleased] is empty and '## [{version}]' "
+                f"carries {len(moved)} line(s) — the entries were moved.")
           PY
 
       - name: Install build tooling
@@ -154,12 +188,25 @@ jobs:
           # Fail loudly if the built version doesn't match the release tag — a
           # forgotten __version__ bump would otherwise ship a mislabeled binary
           # (e.g. a v0.4.9 release containing 0.4.8), breaking the in-app updater's
-          # version compare. TAG is like "v0.4.9"; --version prints "platterpus 0.4.9".
+          # version compare. TAG is like "v0.4.9"; --version prints
+          # "platterpus 0.4.9 (abc1234)".
+          #
+          # EXACT, not a substring. This was `case "$out" in *"$expected"*)`, which
+          # catches the direction the comment names and not the other one: `v0.6.1`
+          # is a substring of `platterpus 0.6.14`, so a dropped digit in the
+          # dispatch input would ship a 0.6.14 binary under tag v0.6.1 and pass.
+          # Measured against a real build: v0.6.14, v0.6.1, v0.6 and v0. all
+          # passed. Found by an enforcement audit, 2026-08-18.
+          #
+          # The version is pulled out as its own whitespace-delimited field and
+          # compared with `=`, so neither a prefix nor a suffix can satisfy it.
           expected="${TAG#v}"
-          case "$out" in
-            *"$expected"*) : ;;
-            *) echo "::error::built version ($out) does not match tag $TAG"; exit 1 ;;
-          esac
+          built="$(printf '%s\n' "$out" | head -n 1 | awk '{print $2}')"
+          if [ "$built" != "$expected" ]; then
+            echo "::error::built version ('$built', from \"$out\") is not tag $TAG"
+            exit 1
+          fi
+          echo "version check: built '$built' == tag '$expected'"
 
       - name: Publish to GitHub Release
         env:
@@ -168,9 +215,23 @@ jobs:
           TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           # 0.x (and any tag with a pre-release suffix) ship as pre-releases.
+          #
+          # **This list must be IDENTICAL to the handshake gate's list above**, and
+          # it was not: that one carries `*a[0-9]*|*b[0-9]*|*rc[0-9]*` and this one
+          # did not. The two together decide one thing — *is this build allowed to
+          # claim it is a verified release?* — and they disagreed on the project's
+          # own beta spelling. `v0.6.12b6` was covered only by the `v0.*` prefix, so
+          # the gap was invisible for the whole v0.x line and would have opened at
+          # v1.0.0: a `v1.0.1b1` tag would take the RELAXED handshake gate (it
+          # matches `*b[0-9]*`) and then publish as a STABLE GitHub release (it
+          # matched neither pattern here). A build excused from the gate, published
+          # as though it had passed it.
+          #
+          # Found 2026-08-18 by an enforcement audit, before v1.0.0 rather than
+          # after. `tests/test_handshake_tooling.py` now diffs the two lists.
           case "$TAG" in
-            v0.*|*-*) PRERELEASE="--prerelease" ;;
-            *)        PRERELEASE="" ;;
+            v0.*|*-*|*a[0-9]*|*b[0-9]*|*rc[0-9]*) PRERELEASE="--prerelease" ;;
+            *)                                    PRERELEASE="" ;;
           esac
           # Create the release if it doesn't exist yet; otherwise just (re)upload
           # the assets. --generate-notes auto-summarises merged PRs since the
