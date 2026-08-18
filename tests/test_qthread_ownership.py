@@ -653,6 +653,10 @@ _BLOCKER_INTERRUPTERS: dict[str, str] = {
     "check_metaflac": "cancel_version_probes",
     "check_flac": "cancel_version_probes",
     "check_ffmpeg": "cancel_version_probes",
+    # Added when the derivation below was written and immediately found it missing —
+    # which is the point of deriving rather than listing. A worker calling this one
+    # would have gone unchecked while the sweep reported clean.
+    "check_picard_flatpak": "cancel_version_probes",
 }
 
 
@@ -734,3 +738,55 @@ def test_the_blocker_map_names_helpers_that_actually_exist() -> None:
             f"_BLOCKER_INTERRUPTERS names interrupter {interrupter!r}, which no longer "
             "exists in platterpus.deps.checks"
         )
+
+
+def test_the_blocker_map_lists_every_probe_reaching_helper_in_checks() -> None:
+    """The map is DERIVED-AGAINST, not merely spelled correctly.
+
+    ``test_the_blocker_map_names_helpers_that_actually_exist`` catches a row that names
+    something gone; it cannot catch a row that was never added. That is the more likely
+    failure and the one that reads as coverage: a new ``check_*`` helper appears, reaches
+    ``VERSION_PROBE.run``, and the sweep simply never asks about it.
+
+    So the expected set comes out of ``deps/checks.py`` itself — every module-level
+    function whose body reaches ``VERSION_PROBE`` — the same "derive it from the source,
+    do not maintain a mirror by hand" rule the map's own subject matter is about.
+
+    Functions that reach it only *indirectly* (through another listed helper) are not
+    required: the sweep matches on what a worker actually calls, and the intermediate is
+    already covered by its own row.
+    """
+    checks_src = (SRC_ROOT / "deps" / "checks.py").read_text(encoding="utf-8")
+    tree = ast.parse(checks_src)
+
+    def _touches_probe(node: ast.FunctionDef) -> bool:
+        return any(
+            isinstance(n, ast.Name) and n.id == "VERSION_PROBE" for n in ast.walk(node)
+        )
+
+    functions = [n for n in tree.body if isinstance(n, ast.FunctionDef)]
+    # The module's own private runner is what actually holds VERSION_PROBE; the public
+    # `check_*` helpers go through it. So follow ONE level of indirection — a derivation
+    # that only looked for direct references found NOTHING, and its floor said so rather
+    # than passing quietly, which is why the floor is there.
+    direct = {n.name for n in functions if _touches_probe(n)}
+    reaching: set[str] = set()
+    for node in functions:
+        if node.name.startswith("_") or node.name == "cancel_version_probes":
+            continue
+        if node.name in direct or (_functions_called_in(ast.unparse(node)) & direct):
+            reaching.add(node.name)
+
+    # Floor: if the derivation finds nothing, the assertion below is vacuous.
+    assert reaching, (
+        "no function in deps/checks.py was found reaching VERSION_PROBE — the "
+        "derivation has gone stale and this check would pass by finding nothing"
+    )
+
+    missing = sorted(reaching - set(_BLOCKER_INTERRUPTERS))
+    assert not missing, (
+        f"deps/checks.py has probe-reaching helpers absent from "
+        f"_BLOCKER_INTERRUPTERS: {missing}. A worker calling one of those would not be "
+        f"checked for having an interrupter, and the sweep would report clean. Add each "
+        f"with its interrupter (cancel_version_probes for anything on VERSION_PROBE)."
+    )

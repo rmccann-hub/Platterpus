@@ -90,6 +90,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   waved the rest through as *"a menu action is user-initiated and synchronous"* — true
   of the menu handler, not of the result slot. Both use `open()` now and the guard
   covers both.
+- **The offer/rip approval agreement is now a test, not a claim.** `CLAUDE.md`'s new
+  rule says to *test the relation* when two surfaces answer one question; this adds it —
+  `approves_commit(c)` must equal *"a rip with that build reports approved"*, checked
+  over eleven inputs chosen to be hostile rather than typical. The load-bearing row is a
+  full 40-character sha beginning with the pin: the prefix-tolerant `same_commit` calls
+  that the same commit while the binary prints a **different** build tag, so it is
+  exactly where a plausible implementation diverges. Proven by loosening the predicate to
+  prefix-matching and watching the test go red, with a floor asserting the input table
+  produces both answers.
+- **A real coverage hole in the new rule-9 sweep, found by deriving instead of listing.**
+  `_BLOCKER_INTERRUPTERS` was written by hand and was missing `check_picard_flatpak`, so
+  a worker calling it would have gone unchecked while the sweep reported clean. The
+  expected set now comes out of `deps/checks.py` — every public helper that reaches
+  `VERSION_PROBE`, following the one level of indirection they all use — and the
+  derivation's own floor caught the first draft, which looked only for direct references
+  and found nothing.
 - **Four ways the new pin-enforcement test could pass while broken** (found by review of
   the test added the same day): `<1.0` was accepted as a "minor" bound though it admits
   exactly what `<1` admits; a literal pin written across a shell line continuation was

@@ -461,3 +461,88 @@ def test_observed_pair_line_reports_what_ran_not_what_should_have() -> None:
     missing = ha.observed_version_pair_line(None)
     assert ha.NOT_DETERMINED in missing
     assert "no banner" in missing
+
+
+# --- The RELATION between the offer and the rip verdict -------------------------
+#
+# docs/testing.md §5.al: two surfaces answering one question by different keys will
+# disagree, and the defect lives strictly in the relation — no test of either side
+# alone can express it. This is that test.
+
+
+APPROVAL_RELATION_INPUTS: list[tuple[str, str]] = [
+    ("the pin exactly", fork_source.FORK_PIN),
+    ("the pin upper-cased", fork_source.FORK_PIN.upper()),
+    ("the pin with surrounding whitespace", f"  {fork_source.FORK_PIN}  "),
+    ("the pin with a -dirty suffix", f"{fork_source.FORK_PIN}-dirty"),
+    # THE CASE THAT MADE THE PREDICATE EXACT rather than prefix-tolerant: a full sha
+    # beginning with the pin passes `same_commit` and prints a DIFFERENT build tag.
+    (
+        "a full 40-char sha beginning with the pin",
+        fork_source.FORK_PIN + "a" * (40 - len(fork_source.FORK_PIN)),
+    ),
+    ("a short prefix of the pin", fork_source.FORK_PIN[:6]),
+    ("the round-8 test pin", "cb440bd"),
+    ("the build the fork withdrew", "422d12a"),
+    ("the empty string", ""),
+    ("whitespace only", "   "),
+    ("not a sha at all", "not-a-sha"),
+]
+
+
+@pytest.mark.parametrize(
+    ("label", "commit"),
+    APPROVAL_RELATION_INPUTS,
+    ids=[c[0] for c in APPROVAL_RELATION_INPUTS],
+)
+def test_the_offer_and_the_rip_never_disagree_about_approval(
+    label: str, commit: str
+) -> None:
+    """``approves_commit(c)`` must equal *"a rip with that build reports approved"*.
+
+    **The property the 2026-08-18 defect violated.** The install offer decided approval
+    from the manifest's round label while :func:`approve_ripper` decided it from the
+    build tag, so a build could be offered as *"one our record approves"* with nothing
+    to weigh and then stamp ``unapproved`` into every report, log and EAC export. Both
+    modules' own tests passed the whole time; only this relation could see it.
+
+    Parameterised over hostile inputs rather than the happy path, because the
+    interesting rows are the ones where a *plausible* implementation diverges — a
+    ``-dirty`` tag, and above all a full 40-character sha beginning with the pin, which
+    the prefix-tolerant :func:`~platterpus.deps.fork_source.same_commit` calls the same
+    commit while the binary prints a different tag.
+    """
+    from platterpus.handshake_approval import (
+        APPROVED,
+        approve_ripper,
+        approved_build_tag_for,
+        approves_commit,
+    )
+
+    offered = approves_commit(commit)
+    banner = (
+        f"cyanrip {fork_source.FORK_EXPECTED_VERSION} ({approved_build_tag_for(commit)})"
+        if commit.strip()
+        else f"cyanrip {fork_source.FORK_EXPECTED_VERSION}"
+    )
+    reported = approve_ripper(banner).verdict
+    assert offered is (reported == APPROVED), (
+        f"{label}: the offer says approves_commit={offered} while a rip with that build "
+        f"reports {reported!r}. One of these lands in an archival record; they must be "
+        f"one computation, not two agreeing opinions (docs/testing.md §5.al)."
+    )
+
+
+def test_the_approval_relation_is_not_vacuously_true() -> None:
+    """Floor: the parameter set must contain both answers, or the relation proves nothing.
+
+    A table of only-rejected inputs would satisfy the test above for an
+    ``approves_commit`` that returns ``False`` unconditionally.
+    """
+    from platterpus.handshake_approval import approves_commit
+
+    answers = {approves_commit(commit) for _, commit in APPROVAL_RELATION_INPUTS}
+    assert answers == {True, False}, (
+        f"the relation table produces only {answers} — it cannot distinguish a working "
+        "predicate from one that always answers the same way"
+    )
