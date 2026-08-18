@@ -236,10 +236,34 @@ rule of the whole tree found three jobs with *no* bound anywhere: `appimage.yml`
 `build`, `publish-pypi.yml` `publish`, and `release.yml` `build-and-release` — the
 last being the worst case of the class, since an unbounded release job holds a runner
 for six hours while a maintainer waits for a release that is never coming.
-`tests/test_ci_jobs_are_bounded.py` now derives the set from disk, parses YAML rather
-than grepping (a step-level bound and a job-level bound are the same string, and
-telling them apart is the whole point), and rejects `timeout-minutes: 360` — GitHub's
-own default written out, which passes a presence check and changes nothing.
+`tests/test_ci_jobs_are_bounded.py` now derives the set from disk, distinguishes a
+job-level bound from a step-level one (they are the same string, and telling them
+apart is the whole point), and rejects `timeout-minutes: 360` — GitHub's own default
+written out, which passes a presence check and changes nothing.
+
+**Its first version imported PyYAML and broke all four matrix legs at once.** The
+local suite was green, because this container has PyYAML installed incidentally;
+`pytest` in CI installs only the `dev` extra, where it is not listed and is used by
+nothing else in the repo. `ModuleNotFoundError` on every leg.
+
+This is *"what does my stand-in do that the real thing does not?"* asked of the
+**environment** rather than of a fixture. A local interpreter accumulates packages
+nobody declared, so "it passes here" silently includes them — and a *test* file is
+where that bites hardest, because it is the one place an undeclared import looks
+harmless. The rewrite drops the dependency entirely: the only question the sweep asks
+is whether `timeout-minutes` sits at job depth or step depth, which is a question
+about indentation, and a constructed-YAML test pins that discrimination directly
+(same key, same value, job level vs step level → 15 and `None`). Verified the way the
+failure demanded — by running the suite with a `yaml.py` stub on the path that raises
+`ImportError`, so the absence is reproduced rather than assumed.
+
+Adding the dependency was the other option and was deliberately not taken:
+`CLAUDE.md`'s deviation policy asks before a dependency not in `DEPENDENCIES.md`, and
+a test that needs no library at all is the better answer regardless.
+
+And a count in the changelog said *"all 10 jobs"* when the reader, once asked, printed
+**11** — `mutation.yml`'s `mutmut` was the one nobody counted. A number written from
+memory of a list rather than from the list.
 
 ### Retiring a file, and the links nobody swept
 

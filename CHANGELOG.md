@@ -100,12 +100,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   where it was noticed found three more jobs with no bound anywhere — `appimage.yml`
   `build`, `publish-pypi.yml` `publish`, and `release.yml` `build-and-release`, where
   a wedge holds a runner for six hours while a maintainer waits for a release that is
-  never coming. All 10 jobs across all 5 workflows are bounded now, and
+  never coming. All **11** job definitions across all 5 workflows are bounded now, and
   `tests/test_ci_jobs_are_bounded.py` derives the set from disk so a workflow added
   later is covered the day it lands. It also rejects a *fake* bound: `timeout-minutes:
   360` is GitHub's own default restated, and would satisfy a presence check while
-  changing nothing. Same shape as the rest of this batch: a guard scoped to where a
-  problem was expected rather than to the surface the rule belongs on.
+  changing nothing. The sweep needs no YAML library — it distinguishes a job-level
+  bound from a step-level one by indentation depth, which is the only discrimination
+  it requires, and a constructed-YAML test pins exactly that. Same shape as the rest
+  of this batch: a guard scoped to where a problem was expected rather than to the
+  surface the rule belongs on.
 - **The `apt-get` step that kept wedging CI is now bounded and retried.** Bounding
   every job stopped a stall costing six hours, but it still cost the run: the stalled
   leg fails and the whole matrix has to be re-run. Each apt call now runs under
