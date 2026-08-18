@@ -109,6 +109,86 @@ looking for it.** A hang at 56%, an `_active_dialog()` assertion in an unrelated
 file. The rule that would have caught all three up front is now §3.12/§3.12a — ask
 *who is on the stack when this opens*, and *is anybody there to answer*.
 
+### The adversarial review found 14 things, 3 of them blocking, in a diff that was fully green
+
+Worth leading with the number: PR #157 had a green suite, a green typecheck and **ten
+green CI checks** when a 25-agent adversarial review over the diff raised 20 findings,
+confirmed 14 and refuted 6. Three were blocking, and two of the three were in code
+written earlier in this same session. Nothing in the suite could have caught them,
+because each lived in a *relation* between two places that were individually correct.
+
+Every one was re-verified here before being acted on — *"a correction that arrives as
+'you got this wrong' is not pre-verified"* — and that mattered: one finding was already
+fixed by a commit that landed after the review started, and one of its sub-arguments
+was wrong about why a flag was `False`.
+
+**Blocking 1 — the offer and the rip disagreed about what "approved" means.** The
+one-click install asked *"does the fork label this head with a round we have closed?"*;
+`approve_ripper`, which stamps every report, log and EAC export, asks *"is this the
+approved build tag?"* Those are not the same question here, and our own record says so:
+rounds 9, 10 and 11 each closed against a commit that is **not** `FORK_PIN`. So any head
+carrying a closed round number was presented as *"the build our record approves"*,
+offered on one click with nothing to read, and reported `unapproved` by the next rip.
+Reproduced on four real commits, including `422d12a` — the build the fork **withdrew**
+for failing its own tests. Fixed with one predicate and two callers; graduated to
+`docs/testing.md` §5.al and to `CLAUDE.md`, because the general shape is *a label the
+other project supplies standing in for the identity our record keyed on.* The test
+asserts the **relation** — `offer.auto_installable is (approve_ripper(...) ==
+approved)` — which is a property neither module's own tests can express.
+
+**Blocking 2 — the "put the approved build back" repair could never have worked.** It
+read the version and `meson setup` options off the manifest row the user was *sitting
+on* while building a *different* commit, so `-Ddeclare_released=true` reached a
+configure of `ddf7ac3`, which has no `meson_options.txt`. Meson fails the whole
+configure on an unknown `-D`, so the advertised one-click fix aborted with an error
+that reads as our bug — for **exactly the operator population the feature was written
+for**. It also wrote `cyanrip 0.9.4-rc1+platterpus.6 (platterpus-fork-gddf7ac3)`, a
+banner no build prints, into the log a bug report carries. The code comment above it
+asserted the options were *"for THIS commit"*. Fixed by moving the resolution to
+`RipperOffer.build_hint()`, which returns the row's fields only for the commit being
+installed; verified in both directions, because always returning nothing would have
+silently dropped schema 2's whole point (round 11 §J1).
+
+**Blocking 3 — the interruption guards were checked at the wrong instant.** They lived
+in the arming slot and not in the result slot, so a rip that started *during* the check
+got a window-modal box over the live progress view with *"Install it now"*
+pre-selected. The uncomfortable part: `docs/architecture.md` §3.12a already carried the
+corollary *"deferred work must re-check its preconditions when it fires, not when it is
+scheduled"* — **written earlier in this same session, one screen from the code that
+ignored it.** And the regression test that was supposed to cover it set `_rip_thread`
+*before* arming, verifying the invariant only under the condition that guarantees it.
+The lesson recorded is to **count the deferrals**: the timer is the obvious one, the
+worker's own latency is the second and longer one, and that is where the user inserts a
+disc.
+
+**Four more worth naming**, all the same family:
+
+- The worker's `cancel()` interrupted the socket read and not the version probe — up to
+  two minutes of `distrobox enter` that closing a socket does nothing about. `rule 9`
+  again, and the `closeEvent` comment still described the worker as *"one bounded HTTPS
+  GET"*, having gone stale in the same change that widened what it blocks on.
+- `_on_ripper_update_result` called `exec()`. The structural guard written this session
+  to stop exactly that was scoped to one method, and its docstring waved the rest of the
+  mixin through as *"a menu action is user-initiated and synchronous"* — true of the menu
+  handler, and not of the worker's own result slot. Right rule, wrong subject.
+- The automatic check raised a **backwards** offer every launch to anyone offline and
+  ahead of the pin, because "may this interrupt?" was a verdict list in the UI and only
+  the decision layer knows whether the manifest was read. Now an offer field, defaulting
+  to *false* — fail closed, so a verdict added later is silent until somebody decides it
+  is worth interrupting for.
+- **Four holes in the pin-enforcement test written the same day.** `<1.0` was accepted
+  as a minor bound though it admits precisely what `<1` admits; a pin across a shell
+  line continuation was invisible; and *both* "floors" matched **prose**, so `ci.yml`'s
+  own twelve-line comment about rule #11 satisfied them with every `run:` step deleted.
+  A test written to enforce "don't restate the spec" had itself restated it, and its
+  floors checked for labels rather than subjects.
+
+The pattern across all fourteen, stated once: **the suite tests modules; these defects
+lived between them.** A guard scoped to the place a bug was found, a rule written next
+to the code that breaks it, a comment asserting the invariant a line below where it
+fails, two correct answers to one question by different keys. None is visible from
+inside either half.
+
 ### The `FORK_PIN` gap: a deliberate decision, and a defect it was hiding
 
 Asked to address the gap between our pin (`ddf7ac3`, fork release **11**) and the
@@ -250,11 +330,19 @@ the files and fixed here; the rest are recorded for triage.
   about; shell globbing is one character from a bug (`v0.*` vs `v10.0.0`).
 
 **Recorded, not yet acted on** (from the same audit, unverified by me): the CI
-changelog job keys on the filename rather than on an added bullet; the release
-version check is a substring match, so `v0.6.1` passes a `0.6.14` build; nothing
+changelog job keys on the filename rather than on an added bullet; nothing
 requires CI to have passed before a release; `HANDSHAKE-TESTED` is checked for
 presence and never for content; the mypy opt-out ratchet has no test; the
 script-surface flag allowlist's "never grow" is not enforced.
+
+*(Corrected 2026-08-18, by review: this list also named the release version check's
+substring match — and that one **was** fixed in this same batch, in the commit two
+paragraphs above, which now compares `awk '{print $2}'` with `=`. The record
+contradicted the code and the changelog inside a single push. Worth keeping the
+correction visible rather than editing it away: a "not yet acted on" list is
+written at the moment of the audit and then goes stale as the same session fixes
+things, which makes it the one kind of note that has to be re-read before the
+session ends.)*
 
 ## 2026-08-17 — a green suite CI could not collect, round 11 closed, and a gate our own validator refused
 
