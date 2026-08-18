@@ -1560,6 +1560,47 @@ Three things to take from it:
   that asserts *which subject it examined*, not only what it concluded — the
   conclusion can be right for a reason that will not survive the next file.
 
+### §5.ao — A number read from a run still in flight is the fast tail, not the range
+
+*The CI apt timeout, 2026-08-18. Caught by the run finishing before the commit was
+pushed, which is luck, not method.*
+
+Four matrix legs of one commit ran the same `apt-get` step. Two finished quickly and
+two were still going, so the timeout for a new bound was calibrated against the two
+observations available: **13s and 32s**. 75s per call looked generous — nearly 2.5×
+the slower of them.
+
+When the run completed, the four durations were **13s, 32s, 73s and 103s, every one a
+success.** A 75s per-call bound sits *inside* the healthy range. The fix written to
+stop a 20-minute stall would have begun killing a slow-but-working install, and in the
+bad case failed a step that had been passing.
+
+**The sampling error is structural, not careless.** Jobs that finish first finish first
+*because* they are fast. Reading an in-flight population therefore reads its fast tail
+with certainty — the slow observations are precisely the ones still missing, and their
+absence is what makes the sample look tight. The error is systematically in one
+direction, and a bound derived that way is always too tight, never too loose.
+
+This is `CLAUDE.md`'s *"did I verify this where it could have failed?"* arriving from a
+new direction. There the conditions guaranteed the invariant; here the conditions
+guaranteed the *sample*.
+
+What to do instead:
+
+- **Close the population before quoting it.** Wait for the run, the matrix, the batch.
+  If you cannot, state the qualifier in the number itself — *"≥73s across the 2 of 4
+  legs that had finished"* is honest and unusable as a bound, which is the point.
+- **Ask which observations are still missing, and whether they are missing at
+  random.** In any race-to-finish population they are not: the missing ones are the
+  extreme ones.
+- **Separate the two distributions you are choosing between.** Healthy ran 13–103s;
+  stalled ran 1200s+. A bound belongs in the gap, and the gap is only visible once both
+  ends are measured. Write the arithmetic into the comment so the next reader can
+  re-check it against a later sample rather than re-deriving it.
+- **Record the count, not just the value.** "240s, from 4 of 4 legs (13/32/73/103s)"
+  carries its own provenance; "240s" does not, and silently drops the qualifier the
+  first time it is quoted onward — the same decay as §5.u.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at

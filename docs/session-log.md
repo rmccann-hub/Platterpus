@@ -211,6 +211,26 @@ leaked-child check reported a leak that did not exist: `pgrep -f "sleep"` matche
 agent process, whose command line contains the word. **A detector satisfied by the
 wrong thing, inside the probe written to check the fix.**
 
+**Then the timeout itself turned out to be calibrated against half the sample.** The
+first version used 75s per apt call, chosen while two matrix legs were still running,
+against the two that had finished: 13s and 32s. When the run completed, the four apt
+steps measured **13s, 32s, 73s and 103s — all four successes.** A 75s per-call bound
+sits *inside* the healthy range, so the fix written to stop a stall would have started
+killing a slow-but-working install and, in the bad case, failed a step that used to
+pass. It is now 240s: more than twice the slowest healthy *whole* step, applied per
+call, and still an order of magnitude under the 20-minute stalls. Two attempts rather
+than three, because 2 × 2 × 240s + backoff fits the step and job bounds and three does
+not.
+
+The general form is a question already in `CLAUDE.md` — *did I verify this where it
+could have failed?* — arriving from a new direction. Nothing here was verified under
+conditions that guaranteed the answer; the problem was **sampling a distribution while
+it was still being drawn.** The two legs that finished first finished first *because*
+they were fast, so reading them early is reading the fast tail and calling it the
+range. Any measurement taken from an in-flight population needs the population to be
+closed first, or the qualifier stated. A number quoted from a partial run is not a
+measurement, and it does not announce itself as one.
+
 **And the bound itself was still scoped to where the problem was seen.** Asking the
 rule of the whole tree found three jobs with *no* bound anywhere: `appimage.yml`
 `build`, `publish-pypi.yml` `publish`, and `release.yml` `build-and-release` — the

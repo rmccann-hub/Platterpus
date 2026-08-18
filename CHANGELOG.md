@@ -114,8 +114,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   backoff, and apt's own `Acquire::*::Timeout` is set so a stall is usually reported
   as a failed fetch rather than killed silently from outside. A transient mirror stall
   now self-heals inside the same run. Measured against a stubbed `apt-get`: one
-  attempt when healthy; three attempts and a pass when it fails twice; three attempts,
-  three warnings and a named `::error::` when it hangs throughout.
+  attempt when healthy; two attempts and a pass when the first fails; two attempts,
+  two warnings and a named `::error::` when it hangs throughout. The per-call bound is
+  240s — set from the **complete** sample of a run's four apt steps (13s, 32s, 73s,
+  103s, all successes), after a first version used 75s calibrated against the two legs
+  that had finished while the other two were still in flight. 75s sits inside the
+  healthy range and would have killed the slow-but-working leg. Reading a distribution
+  before it is fully drawn samples the fast tail and calls it the range.
 - **Six pointers into deleted documents, in code as well as docs.** `CLAUDE.md` rule
   #7 says retiring a file means retiring every inbound link to it in the same commit —
   and the only thing enforcing that read `CLAUDE.md` alone, so the rule held at the
