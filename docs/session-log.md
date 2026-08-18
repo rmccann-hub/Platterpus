@@ -2794,4 +2794,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.14.*
+*Last updated for Platterpus v0.6.15.*
