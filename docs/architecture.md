@@ -883,6 +883,89 @@ plan" and "we never send it" look identical to a reader.
 Reach for this whenever a surface would otherwise only be able to report a choice
 after the cost of acting on it has been paid.
 
+### 3.12 Constructing a window is not the same event as starting the application
+
+Anything that can **interrupt a person** — a modal, a notification, a check that
+ends in a prompt — is armed from `app.py`'s launch path, never from
+`MainWindow.__init__`. `refresh_drives()` and
+`schedule_ripper_update_check()` are both called from there, and both say so in
+their own docstrings.
+
+**Why it is a rule and not a preference.** The suite builds `MainWindow` directly
+in dozens of tests, and several then spin a nested event loop. The automatic
+cyanrip check was first armed by a `QTimer.singleShot` in `__init__`; the timer
+fired inside one of those loops, the check found no fork ripper, produced a
+one-click install offer, and `exec()`d a `QMessageBox` **with nobody to click it**.
+The suite stopped dead and stayed there (measured 2026-08-18).
+
+The tempting fix is a test-mode flag the harness sets. **Do not** — it would hide a
+real hazard behind a green suite: a dialog that can appear at a moment nobody
+chose is a product defect wherever it happens. "A window object exists" is a fact
+about memory; "the application started" is a fact about a user sitting down. Only
+the second one licenses interrupting them.
+
+**And moving it was only half the fix — the more important half is below.** With
+the timer armed from `app.py` the suite hung *in exactly the same place*: some test
+drives the real launch path, so the timer was still pending when an unrelated test
+called `processEvents()`. Chasing the *scheduler* was chasing the trigger; the
+defect was in what the callback did.
+
+### 3.12a A dialog raised from a queued signal uses `open()`, never `exec()`
+
+`exec()` runs a **nested event loop**. That is fine for a dialog a user opened from
+a menu — the click is the outermost thing happening, and blocking until they answer
+is what a modal means. It is wrong for a dialog raised from a *timer* or a
+*worker's `finished`*, because the nested loop is then spun inside whatever the GUI
+thread was already doing — a repaint, another dialog's loop, a test's
+`processEvents()` — and it does not return until somebody answers. Nothing
+guarantees anybody will.
+
+This is the GUI-thread rule arriving from a direction §3.2 does not cover: not *a
+slot doing blocking work*, but **a slot becoming blocking work for its caller**.
+The `_install_dialog` pattern in `main_window_update.py` already avoids it for the
+app's own updater; `_offer_ripper_install` now does too:
+
+```python
+self._ripper_offer_box = box          # held on self — the handler outlives this call
+box.buttonClicked.connect(self._on_ripper_offer_answered)   # bound method, GUI thread
+box.open()                            # shows and RETURNS
+```
+
+The state the handler needs (which build, which offer) lives on `self` for the same
+reason: a callback that must survive the call that created it cannot close over
+locals. `tests/test_ripper_update_worker.py` asserts this on the source, because a
+behavioural test for "did it not hang" is a test that hangs when it fails.
+
+**The general question to ask of any new dialog:** *who is on the stack when this
+opens?* If the honest answer is "whatever happened to be running", it is `open()`.
+
+**And the companion question: is anybody there to answer it?** An unattended
+`--run-script` session drives this same GUI for 30–50 minutes with nobody watching,
+so anything that can raise a dialog must stand down for it — `app.py` does not arm
+the automatic ripper check when a script is in play. A modal in an unattended run
+does not merely annoy: it blocks the batch, and if answered it can change the
+system under test *while the test is running*. Whenever you add something that can
+interrupt, check it against all three: **a person is here** (`self.isVisible()` — a
+timer armed at launch fires seconds later, and the window may have been closed by
+then), **they are not busy** (no rip running, no script driving), and **they asked
+for this or it is important enough to ask anyway**.
+
+All three were learned the same afternoon, each from a different surface, each
+after the previous one looked like the whole fix. `_maybe_check_ripper_updates`
+carries them in that order with the incident behind each.
+
+Two corollaries, both cheap:
+
+- **Deferred work must re-check its preconditions when it fires, not when it is
+  scheduled.** A delay long enough to be useful is long enough for the world to
+  change — the automatic check stands down if a rip started in the meantime,
+  because the user came to rip a disc and the install it offers would replace the
+  binary doing the ripping.
+- **A worker that was cancelled must produce nothing actionable.** `cancel()` comes
+  from `closeEvent`, so its late `finished` lands in a window that is going away.
+  It still has to *emit* — a worker that never finishes is a thread `stop_thread`
+  cannot join (rule 9) — but it emits a verdict with no action attached.
+
 ## 4. Extension points — how to add things
 
 > The goal: a contributor who has never spoken to the author can add a
@@ -1456,4 +1539,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.6.4.*
+*Last updated for Platterpus v0.6.14.*

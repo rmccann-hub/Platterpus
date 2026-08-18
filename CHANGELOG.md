@@ -11,6 +11,71 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **Platterpus installs the right cyanrip build itself — no commit to type.**
+  Maintainer directive: *"the autoupdate on platterpus should take the next viable
+  candidate without the user needing to pick … it shouldnt need to be explicity
+  callled out by eitether rop unless very impartant."* The ripper check used to end
+  **every** answer with a command line carrying a SHA, so the app knew which build
+  it wanted and made a person retype it. Now:
+  - A build **our own handshake record approves** — including the very common case
+    of getting back onto the build this Platterpus was verified against — is offered
+    as *"Install it now"* and installed on one click, with no consequence to read
+    because there is none: taking it is what makes rips report `approved`.
+  - A build **no round here has verified** keeps the old careful treatment. The
+    offer states what taking it costs, is never the default action, and hands over
+    `--install-ripper <commit>` — the "very important" case, and the one where a
+    deliberate act is the right friction.
+  - The install drives the **same step engine** as the setup wizard and
+    `--install-ripper` (Critical rules #6 and #12), on a worker thread, in the same
+    dialog with different words. There is no second installer.
+  - The check now also runs **automatically**, a few seconds after launch, and stays
+    **silent unless it finds something it can fix in one click**.
+  - Pins remain reachable exactly as before, manually and from a script:
+    `--install-ripper <commit>`, and `--install-ripper list`.
+- Schema-2 manifests' per-commit `meson setup` options now flow into the in-app
+  install, so a build that needs `-Ddeclare_released=true` gets it (round 11 §J1).
+
+### Fixed
+- **A machine running stock upstream cyanrip was told it was on the fork's current
+  release.** `evaluate_offer`'s `installed_commit=None` meant *"assume the pinned
+  commit"* — correct before the binary was actually probed, and a claim we never
+  checked once it was. Stock cyanrip has no fork commit in its banner, so it
+  rendered as *"your cyanrip build is current: 0.9.4-rc1+platterpus.5 (ddf7ac3)"*,
+  a sentence assembled entirely from constants. `None` now means *"we could not
+  identify a fork build"* and produces an offer to install the expected one.
+- **An unrecognised installed build was a dead end.** It reported *"not one of the
+  fork's numbered releases — a mid-round test pin, or a commit installed by hand …
+  install a released build first"*: accurate, and with nothing to act on. It is now
+  its own verdict (`mismatched`) that names both builds and offers the remedy. It
+  answers **without a network**, because the two facts it needs are local.
+- **"Newest published" and "what your rips are checked against" are two questions**,
+  and the up-to-date answer only ever answered the first — so a user ahead of the
+  handshake was told they were current while every report said `unapproved`. Both
+  facts now, with the way back offered.
+- `c4d1a00` recorded in `FORK_RELEASE_SEQ_BY_PIN` (release 16, from the fork's own
+  published manifest), so the fork's current stable release is no longer described
+  as an unnumbered hand-installed commit.
+- A cancelled ripper update check now yields no actionable offer. `cancel()` is
+  called from `closeEvent`, so a late result could otherwise have popped an install
+  prompt out of a window the user had just closed.
+- **The automatic check stands down for a window that is not on screen.** The timer
+  is armed at launch and fires seconds later, by which time the window may have been
+  closed — and it still fired, leaving an install dialog standing over nothing. A
+  user meets that as a dialog appearing after they quit.
+- **The automatic check never runs during a scripted (`--run-script`) session**, and
+  never offers a *step backwards*. A rig script drives the real GUI unattended for
+  30–50 minutes: a modal eight seconds in would block the batch until somebody
+  looked, and taking the offer would swap the ripper **mid-session**, invalidating
+  the evidence the session exists to produce. Separately, a user who is *ahead* of
+  the pin installed that build on purpose — the menu still offers the way back and
+  explains why their rips report `unapproved`, but the app does not raise it
+  unprompted at every launch.
+- The install offer is shown with `open()`, not `exec()`. It is raised from a queued
+  signal, so `exec()` spun a **nested event loop** inside whatever the GUI thread
+  was doing and did not return until somebody answered — which nothing guarantees.
+  Measured as an indefinite hang; a user would meet it as a frozen window.
+
 ### Changed (CI/release gates — an enforcement audit of every "enforced by" claim)
 - **The `lint` job installed `ruff>=0.15,<1` while `pyproject.toml` pinned
   `>=0.15.22,<0.16`.** Critical rule #11 (*"a tool that gates CI must not float"*)

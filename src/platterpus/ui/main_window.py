@@ -116,6 +116,13 @@ _SCREEN_MARGIN_PX: int = 48
 # a STARTING point: the user drags freely afterwards and Qt keeps their sizes.
 _PANE_SHARES: tuple[float, float, float] = (0.20, 0.40, 0.40)
 
+# How long after launch the automatic cyanrip check waits before running. Long
+# enough that the dependency probe and the drive listing — both of which enter the
+# same container — are past their cold start, short enough that a user who sees the
+# offer still connects it to opening the app. Not user-tunable: a knob for it would
+# be a knob for how long to defer being told the ripping path is wrong.
+_RIPPER_CHECK_DELAY_MS: int = 8_000
+
 
 def _default_window_size() -> tuple[int, int]:
     """The startup window size, clamped to the screen that will show it.
@@ -301,6 +308,10 @@ class MainWindow(
         # second silently no-op while the first was in flight.
         self._ripper_update_worker = None
         self._ripper_update_thread: QThread | None = None
+        self._ripper_check_is_automatic: bool = False
+        self._ripper_offer_box = None  # type on MainWindowShared
+        self._ripper_offer: object = None
+        self._ripper_offer_commit: str = ""
         # In-flight update INSTALL (download+verify+swap); cancelled+joined
         # in closeEvent so a half-downloaded update can't outlive the window.
         self._install_worker = None  # type on MainWindowShared
@@ -618,8 +629,36 @@ class MainWindow(
         # after the window is shown; in tests (no exec loop) it never fires, so
         # it can't interfere — _should_offer_drive_setup() is tested directly.
         QTimer.singleShot(0, self._maybe_offer_first_run_setup)
+        # The automatic cyanrip check is armed by `app.py`, NOT here — see
+        # `schedule_ripper_update_check` below for why constructing a window must
+        # not schedule it.
 
     # --- Top-level lifecycle ------------------------------------------------
+
+    def schedule_ripper_update_check(self) -> None:
+        """Arm the automatic cyanrip check, a few seconds after launch.
+
+        **Called by `app.py`, deliberately not by `__init__`.** Constructing a
+        window must not schedule work that can pop a modal: the suite builds
+        `MainWindow` directly in dozens of tests, several of which then spin a
+        nested event loop for longer than this delay — and when the timer fired,
+        the check found no fork ripper on the test machine, produced a
+        one-click install offer, and `exec()`d a `QMessageBox` **with nobody to
+        click it**. The run hung there, at 56%, indefinitely (measured
+        2026-08-18, while building this).
+
+        That is not a test-only problem dressed up as one, which is why the fix
+        is structural rather than a flag the harness sets: *"a window exists"*
+        and *"the application started"* are different events, and only the second
+        one licenses interrupting somebody. `refresh_drives()` above is called
+        from `app.py` for the same reason and says so in its own docstring.
+
+        The delay lets the launch dependency probe and the drive listing get past
+        their cold `distrobox enter` first — a third one alongside them is slow
+        for everyone, and this check is silent unless it has something to offer,
+        so waiting costs nothing.
+        """
+        QTimer.singleShot(_RIPPER_CHECK_DELAY_MS, self._maybe_check_ripper_updates)
 
     def refresh_drives(self) -> None:
         """Populate the drive picker — `list_drives` runs OFF the GUI thread.

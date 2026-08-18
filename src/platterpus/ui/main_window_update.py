@@ -148,25 +148,67 @@ class UpdateMixin(MainWindowShared):
     # --- The RIPPER's updates, which are a different question ----------------
     #
     # The app's own update is routine: take it, restart, carry on. A newer *ripper*
-    # is not, and that asymmetry is why this is a separate action rather than a
-    # second line in the dialog above. Installing a fork build our handshake record
-    # has not approved makes every subsequent rip report its ripper as `unapproved`
-    # — correctly — so this flow's job is to say what is available and what taking
-    # it costs, and then stop. It installs nothing. See `deps/ripper_offer.py`.
+    # can be, and used not to be treated that way at all.
+    #
+    # REDESIGNED 2026-08-18, on the maintainer's instruction: *"the autoupdate on
+    # platterpus should take the next viable candidate without the user needing to
+    # pick … it shouldnt need to be explicity callled out by eitether rop unless very
+    # impartant"*, and *"assume last most stable is good, then if beta flags are
+    # checked, look for those, but it should still be an autoupdate."*
+    #
+    # What was here refused to install anything, ever, and ended every answer with a
+    # command line carrying a SHA. The refusal had a real reason — a build our record
+    # has not approved makes every subsequent rip report `unapproved` — but it was
+    # applied to *every* build rather than to the ones it describes. The operator who
+    # reported this had `c4d1a00` installed against a `ddf7ac3` pin and was told their
+    # build was unrecognised and to install a released one themselves. The app knew
+    # which build it wanted; only the person was allowed to act on it.
+    #
+    # So the split is by CONSEQUENCE, which is what the original reasoning was
+    # actually about (see `deps/ripper_offer.py`):
+    #
+    #   * `offer.auto_installable` — our own record approves this build, so taking it
+    #     costs nothing and there is nothing to read. One click, no SHA. This covers
+    #     the overwhelmingly common case: getting back onto the build this Platterpus
+    #     was verified against.
+    #   * otherwise — the "very important" case. The offer states the consequence and
+    #     hands over `--install-ripper <commit>`, and the app does not do it for you.
+    #     A specific pin is a deliberate act, which is why it stayed a command line
+    #     and is what a rig script calls.
+    #
+    # The install itself drives `HostSetup` — the SAME step engine as the setup wizard
+    # and `--install-ripper` (Critical rules #6 and #12). No second installer exists.
 
-    def _on_check_ripper_updates(self) -> None:
-        """Help → Check for cyanrip updates: ask the fork's release manifest.
+    def _on_check_ripper_updates(self, *, automatic: bool = False) -> None:
+        """Ask the fork's release manifest what it has published.
 
         Off-thread for the same reason every other network call here is: a stalled
         connection must not freeze the window for the whole timeout.
+
+        ``automatic`` marks the launch-time check, whose result stays **silent unless
+        it is actionable**. A check the user did not ask for must not interrupt them
+        to say "nothing to do" — that is how an update prompt becomes something people
+        dismiss without reading, which costs exactly the notice that mattered.
+
+        **Keyword-only, and that is load-bearing.** This is connected to a
+        ``QAction.triggered``, which emits ``bool checked`` — a *positional*
+        argument. With ``automatic`` positional it happened to work (a non-checkable
+        action emits ``False``), but it was right by accident: making the action
+        checkable, or any future emitter passing ``True``, would silently turn the
+        menu item into a check that stays quiet when it has nothing to offer. Behind
+        ``*``, Qt sees a slot taking no positional arguments and passes none, so the
+        two can never be confused.
         """
         if self._ripper_update_thread is not None:  # a check is already running
             return
         from platterpus.workers import start_worker_thread
         from platterpus.workers.ripper_update_worker import RipperUpdateWorker
 
-        # Both values are read HERE, on the GUI thread, and handed over as plain
-        # data — the worker must not touch the config or probe a binary off-thread.
+        self._ripper_check_is_automatic = automatic
+        # The channel is read HERE, on the GUI thread, and handed over as plain data —
+        # the worker must not touch the config off-thread. The installed build is NOT
+        # read here: probing it shells out to the host export, which enters a
+        # container, so it belongs on the worker (see `_probe_installed_commit`).
         self._ripper_update_worker = RipperUpdateWorker(
             channel=self._ripper_channel(),
         )
@@ -177,6 +219,42 @@ class UpdateMixin(MainWindowShared):
             self._ripper_update_thread,
             self._ripper_update_worker.run,
         )
+
+    def _maybe_check_ripper_updates(self) -> None:
+        """The automatic check, fired once shortly after launch.
+
+        Deliberately *not* gated behind a preference. The thing it looks for is a
+        mismatch between the installed ripper and the build this Platterpus was
+        verified against — a state in which every rip the user makes carries
+        ``unapproved`` into its archival record. A setting to stop being told that
+        would be a setting to silently degrade one's own library.
+
+        It is silent when there is nothing to do, and it never blocks the window.
+
+        **It does not run during a rip.** A rip can start within the delay — the
+        user came to rip a disc — and the one-click offer ends in a modal. Popping
+        one over a running rip would steal focus from a progress view somebody is
+        watching, and the install it offers replaces the very binary doing the
+        ripping. Skipping is free: the check runs at the next launch, or from the
+        Help menu whenever they want it.
+
+        **Nor when the window is not on screen.** The timer was armed at launch and
+        fires seconds later; by then the window may have been closed, or never shown.
+        An offer's whole premise is somebody looking at the app, so `isVisible()` is
+        the third of the three conditions this check is subject to — *a person is
+        here*, *they are not busy*, *they asked or it matters enough to ask anyway*
+        (`docs/architecture.md` §3.12a). Found 2026-08-18: `test_app_smoke` starts
+        the real app and closes the window, and the timer still fired on it,
+        leaving an install dialog standing over the rest of the suite. A user meets
+        the same shape as a dialog appearing after they quit.
+        """
+        if not self.isVisible():
+            log.info("skipping the automatic cyanrip check — the window is not shown")
+            return
+        if self._rip_thread is not None:
+            log.info("skipping the automatic cyanrip check — a rip is running")
+            return
+        self._on_check_ripper_updates(automatic=True)
 
     def _ripper_channel(self) -> str:
         """The user's *ripper* update channel, defensively.
@@ -192,16 +270,52 @@ class UpdateMixin(MainWindowShared):
         return channel if channel in CHANNELS else CHANNEL_STABLE
 
     def _on_ripper_update_result(self, offer: object) -> None:
-        """Show the verdict. Never installs — see the section comment above."""
-        from platterpus.deps.ripper_offer import OFFER_AVAILABLE
+        """Act on the verdict: install on one click when it costs nothing to.
+
+        The **offer** decides; this method only renders it. That division is
+        deliberate and `deps/ripper_offer.py` carries the reasoning — a dialog that
+        re-derives "is this safe" is a second opinion free to disagree with the one in
+        the report a rip writes.
+        """
+        from platterpus.deps.ripper_offer import OFFER_AVAILABLE, OFFER_MISMATCHED
 
         self._ripper_update_worker = None
         self._ripper_update_thread = None
+        automatic = self._ripper_check_is_automatic
+        self._ripper_check_is_automatic = False
 
         detail = str(
             getattr(offer, "detail", "") or "Couldn't check for a newer ripper."
         )
         verdict = str(getattr(offer, "verdict", "") or "")
+        install_commit = str(getattr(offer, "install_commit", "") or "")
+        auto_installable = bool(getattr(offer, "auto_installable", False))
+
+        # An unasked-for check stays quiet unless there is a one-click action. It must
+        # not interrupt to report "you're current", and it must not interrupt to
+        # report a build the user would have to install by hand — that is a menu
+        # answer, not a launch-time one.
+        #
+        # **And it offers upgrades and repairs, never a step backwards.** A user who
+        # is AHEAD of the pin is on a published release they installed on purpose —
+        # during a joint test session, say — and `up_to_date` is the verdict that
+        # says so. That state still carries a one-click way back (the menu offers
+        # it, and the paragraph explains why their rips report `unapproved`), but
+        # raising it unprompted at every launch would be the app nagging somebody to
+        # undo a deliberate decision. Exactly the *"unless very important"* line the
+        # redesign was asked for, applied to the direction of travel.
+        auto_surfaceable = verdict in (OFFER_AVAILABLE, OFFER_MISMATCHED)
+        if automatic and not (install_commit and auto_installable and auto_surfaceable):
+            log.info(
+                "automatic cyanrip update check: %s (nothing to offer silently)",
+                verdict or "no verdict",
+            )
+            return
+
+        if install_commit and auto_installable:
+            self._offer_ripper_install(offer, detail, install_commit)
+            return
+
         box = QMessageBox(self)
         box.setWindowTitle("Check for cyanrip updates")
         box.setText(detail)
@@ -214,10 +328,149 @@ class UpdateMixin(MainWindowShared):
         box.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         box.setIcon(
             QMessageBox.Icon.Information
-            if verdict == OFFER_AVAILABLE
+            if verdict in (OFFER_AVAILABLE, OFFER_MISMATCHED)
             else QMessageBox.Icon.NoIcon
         )
         box.exec()
+
+    def _offer_ripper_install(self, offer: object, detail: str, commit: str) -> None:
+        """Ask once, then install. Only reached when the offer says it costs nothing.
+
+        "Ask once" is the whole shape: the consent happens here, and the progress
+        dialog that follows starts immediately rather than presenting a second button
+        for the same decision.
+
+        **`open()`, never `exec()`, and that is not a style choice.** This dialog is
+        raised from a *queued signal* — the update worker finishing — which on the
+        automatic path was itself started by a timer. `exec()` spins a **nested event
+        loop** inside whatever the GUI thread was doing, which is the modal-dialog
+        trap `CLAUDE.md`'s GUI-thread rule names, arriving from a new direction: not
+        a slot doing blocking work, but a slot *becoming* blocking work for its
+        caller. Measured 2026-08-18: the suite reached this line from an unrelated
+        test's `qapp.processEvents()` and stopped there with no one to click the
+        button. A user can hit the same shape — a nested loop under a repaint, or
+        under another dialog — and the symptom there is a frozen window.
+
+        `open()` shows the dialog and returns; the answer arrives on
+        :meth:`_on_ripper_offer_answered`, a bound method on the GUI thread. The box
+        and the pending offer are held on ``self`` for the same reason the install
+        progress dialog is: a handler that must survive the call that created it
+        cannot close over local state.
+        """
+        box = QMessageBox(self)
+        box.setWindowTitle("cyanrip update")
+        box.setText(detail)
+        box.setTextFormat(Qt.TextFormat.PlainText)  # see `_on_ripper_update_result`
+        box.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        box.setIcon(QMessageBox.Icon.Information)
+        install = box.addButton("Install it now", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton("Not now", QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(install)
+        self._ripper_offer_box = box
+        self._ripper_offer = offer
+        self._ripper_offer_commit = commit
+        box.buttonClicked.connect(self._on_ripper_offer_answered)
+        # `finished` covers the ways out that click no button — Esc, the window's
+        # close box. Without it the slots below stay set, pointing at a dialog
+        # nobody can answer, and PySide6 turns the next access into "Internal C++
+        # object already deleted" once Qt reaps it. Qt emits `buttonClicked` first,
+        # so the handler above has already read and cleared them on the normal path
+        # and this is a no-op there.
+        box.finished.connect(self._on_ripper_offer_dismissed)
+        box.open()
+
+    def _on_ripper_offer_dismissed(self, _result: int) -> None:
+        """Drop the offer slots when the dialog goes away without a button."""
+        if self._ripper_offer_box is None:
+            return  # answered already; `_on_ripper_offer_answered` cleared them
+        log.info("cyanrip install offer dismissed (%s)", self._ripper_offer_commit)
+        self._ripper_offer_box = None
+        self._ripper_offer = None
+        self._ripper_offer_commit = ""
+
+    def _on_ripper_offer_answered(self, button: object) -> None:
+        """The install offer's answer (GUI thread — `buttonClicked` from our own box).
+
+        Keys on the button's **role**, not on identity with a stashed handle: the
+        role is what the choice means, and it survives a future edit that rebuilds
+        the buttons. Anything that is not an accept is a decline, which is the safe
+        direction — an unrecognised answer must not install a ripper.
+        """
+        box = self._ripper_offer_box
+        offer, commit = self._ripper_offer, self._ripper_offer_commit
+        self._ripper_offer_box = None
+        self._ripper_offer = None
+        self._ripper_offer_commit = ""
+        if box is None:
+            return
+        accepted = box.buttonRole(button) == QMessageBox.ButtonRole.AcceptRole
+        if not accepted:
+            log.info("cyanrip install declined by the user (%s)", commit)
+            return
+        self._begin_ripper_install(offer, commit)
+
+    def _begin_ripper_install(self, offer: object, commit: str) -> None:
+        """Build and install ``commit`` through the setup wizard's own step engine.
+
+        **The same engine, not a copy.** `CLAUDE.md` Critical rule #6 puts every
+        dependency install in one subsystem, and rule #12 names ``--install-ripper``
+        as driving *"the same step engine as the wizard rather than a copied shell
+        snippet"* — a second install path would drift the first time a build
+        dependency changed, and would drift silently, because both would still
+        produce a working binary most of the time.
+
+        Every step is idempotent, so for a machine that is already set up this is a
+        no-op through seven steps and a rebuild on the eighth. That is why it is safe
+        to run the whole pipeline rather than reaching inside it for one step: a
+        pipeline entered at the middle is a second pipeline.
+
+        The blocking work (git, meson, ninja, `sudo install`, `distrobox-export` —
+        minutes of it) runs on `HostSetupWorker`'s thread. Nothing here calls
+        subprocess: this is the dialog-that-does-blocking-work trap `CLAUDE.md` names,
+        and the dialog below is the one that already avoids it.
+        """
+        from platterpus.deps.fork_source import target_for_commit
+        from platterpus.deps.host_setup import HostSetup
+        from platterpus.deps.step_engine import SubprocessRunner
+        from platterpus.ui.host_setup_dialog import HostSetupDialog, SetupCopy
+
+        release = getattr(offer, "release", None)
+        # The manifest's own build options for THIS commit, when the offer came from a
+        # manifest row (schema 2). Round 11 §J1 asks that the options come from their
+        # document rather than a constant of ours, and meson fails the whole configure
+        # on an unknown `-D` — so passing the wrong ones is not a degraded build, it is
+        # no build at all. Validated at the manifest boundary before it reaches here.
+        target = target_for_commit(
+            commit,
+            version=str(getattr(release, "version", "") or "") or None,
+            meson_options=tuple(getattr(release, "meson_options", ()) or ()),
+        )
+        log.info("installing cyanrip %s (expects %s)", target.pin, target.expectation)
+        dialog = HostSetupDialog(
+            self,
+            host_setup=HostSetup(runner=SubprocessRunner(), fork_target=target),
+            copy=SetupCopy(
+                title="Updating cyanrip",
+                intro=(
+                    f"Installing cyanrip build <b>{target.pin}</b>.\n\n"
+                    "Platterpus builds the ripper from source inside its container, "
+                    "so this takes a few minutes. Everything already in place is "
+                    "skipped — the rows below say which.\n\n"
+                    "The build is verified before anything is installed: if the "
+                    "binary does not identify as the build we asked for, nothing is "
+                    "replaced and your current ripper keeps working."
+                ),
+                action_label="&Install",
+                rerun_label="Try again",
+                success=(
+                    "✓ cyanrip updated — the new build is installed and exported. "
+                    "Your next rip uses it."
+                ),
+                already="✓ Nothing to do — that build was already installed.",
+            ),
+            start_immediately=True,
+        )
+        dialog.exec()
 
     def _update_channel(self) -> str:
         """The user's update channel, defensively.

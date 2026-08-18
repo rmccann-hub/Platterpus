@@ -42,10 +42,16 @@ class RipperUpdateWorker(QObject):
     ) -> None:
         """``channel`` is the user's ripper update channel (``config.ripper_channel``).
 
-        ``installed_commit`` is the fork commit actually installed, when the window
-        could read it off the binary's banner. ``None`` means "fall back to the
-        commit this build pins", which is what a user who has never run
-        ``--install-ripper`` has.
+        ``installed_commit`` is a **test seam only**: production leaves it ``None``
+        and :meth:`_probe_installed_commit` reads the real binary on this thread.
+
+        Note what ``None`` means downstream, because it changed on 2026-08-18 and the
+        old meaning was the bug: :func:`~platterpus.deps.ripper_offer.evaluate_offer`
+        now reads it as *"we could not identify a Platterpus-fork build"* and offers
+        to install the expected one. It used to read it as *"assume the pinned
+        commit"*, which reported a machine running **stock upstream cyanrip** as
+        being on the fork's current release — a sentence assembled entirely from
+        constants.
         """
         super().__init__(parent)
         self.channel: str = channel
@@ -108,9 +114,37 @@ class RipperUpdateWorker(QObject):
 
         try:
             manifest = fetch_manifest(fetch=self._fetcher.fetch)
-            offer = evaluate_offer(
-                manifest, self.channel, installed_commit=self._probe_installed_commit()
-            )
+            if self._fetcher.cancelled:
+                # **A cancelled check has no verdict, and must not produce one.**
+                #
+                # `cancel()` is called from `closeEvent`, so reaching here means the
+                # window is going away. Falling through would probe the binary
+                # (seconds of `distrobox enter` during teardown) and then hand the
+                # GUI thread an offer — and since 2026-08-18 an offer can be one the
+                # window responds to with a **modal install prompt**. Popping a modal
+                # out of a closing window is the shape of bug this codebase keeps
+                # paying for: a late queued signal doing real work after the decision
+                # to stop.
+                #
+                # Emitting `not_determined` rather than returning silently is
+                # deliberate: `finished` is what lets `stop_thread` join this thread,
+                # and a worker that never finishes is a thread that gets abandoned
+                # (CLAUDE.md rule 9).
+                offer = RipperOffer(
+                    verdict=OFFER_NOT_DETERMINED,
+                    channel=self.channel,
+                    release=None,
+                    detail=(
+                        "The cyanrip update check was cancelled before it finished. "
+                        "Nothing was determined and nothing was changed."
+                    ),
+                )
+            else:
+                offer = evaluate_offer(
+                    manifest,
+                    self.channel,
+                    installed_commit=self._probe_installed_commit(),
+                )
         except Exception:  # noqa: BLE001 — a worker must always finish
             log.exception("ripper update check crashed")
             # **The recovery must not call the thing that just failed.**

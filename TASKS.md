@@ -243,27 +243,31 @@ round is open. **An installer that silently fetched "the newest" would defeat th
 protocol both projects spent 41 laps building.** So the automation cannot be "keep
 up to date"; it has to be "notice, and offer."
 
-- [ ] **Detect that a newer fork build exists, and say so.** Not install it. The
-  dependency screen and the wizard already name the installed build tag; they
-  should also be able to say *"the fork's `platterpus-fork` branch is now at
-  `<sha>` (`<version>`), which no round has approved."* Read the branch head via
-  the GitHub API and the version out of `meson.build` at that commit — **there are
-  no tags to read**: the fork's git proxy refuses tag pushes, which is why the
-  commit sha is the only resolvable release identifier (see `fork_source.FORK_PIN`).
-- [ ] **`--install-ripper latest` / `latest-beta`**, resolving the newest commit on
-  the branch instead of requiring a sha typed by hand. The flag already takes an
-  arbitrary commit (`target_for_commit`), so this is a resolver in front of an
-  existing seam, not a new install path.
-- [ ] **A channel choice that mirrors the app's own.** Platterpus already has
-  `update_channel` = `stable`|`beta` with an explicit warning before a pre-release.
-  The ripper should read the same way, and for the same reason: *being handed a
-  tester build is a different thing from being handed an update.* Reuse the
-  vocabulary rather than inventing a second one.
-- [ ] **Every non-approved install must be visible in the artifact, not just at
-  install time.** This half already works — a rip on an unapproved build reports
-  `ripper_handshake_approval: unapproved`, and `not_determined` for an unrecognised
-  tag — and it is what makes the rest safe to offer. Confirm it still holds for a
-  build resolved automatically, since that is a path it has never taken.
+- [x] **Detect that a newer fork build exists, and say so.** Done via the fork's
+  published `release-manifest.json` rather than the GitHub API + `meson.build` read
+  sketched here — they publish the sequence, the channel and the round state as
+  facts, so nothing has to be inferred. (`deps/ripper_manifest.py`, 2026-08-07.)
+- [x] **A channel choice that mirrors the app's own.** `config.ripper_channel` =
+  `stable`|`beta`, Settings → Updates, same vocabulary as the app's own.
+- [x] **Every non-approved install must be visible in the artifact.** Still holds
+  for an automatically-resolved build — that path is now taken and tested.
+- [x] **Install it, on one click, when it costs nothing** *(2026-08-18, and it goes
+  further than this section asked)*. The maintainer's later instruction was
+  explicit: *"the autoupdate on platterpus should take the next viable candidate
+  without the user needing to pick … it shouldnt need to be explicity callled out by
+  eitether rop unless very impartant"*, and *"assume last most stable is good, then
+  if beta flags are checked, look for those, but it should still be an autoupdate."*
+  **The constraint above is not weakened, it is what draws the line:**
+  `RipperOffer.auto_installable` is true only for a build **our own record**
+  approves, so the one-click path can never move a user onto an unverified build —
+  which is exactly what *"do not make any of this the default"* was protecting. A
+  build no round here has verified keeps the old treatment: consequence stated,
+  never the default action, `--install-ripper <commit>` handed over.
+- [ ] **`--install-ripper latest` / `latest-beta`**, resolving the newest commit
+  from the manifest instead of requiring a sha. **Still open, and now lower
+  priority**: the GUI covers the case a person hits, so this is for a *script* that
+  wants "whatever the channel says" without pinning. A resolver in front of
+  `target_for_commit`, not a new install path.
 
 **Do not** make any of this the default. The default stays: install what a closed
 round approved. The automation's job is to stop the *maintainer* hand-editing a
@@ -2017,4 +2021,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.12.*
+*Last updated for Platterpus v0.6.14.*
