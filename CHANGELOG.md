@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.15] — 2026-08-18
+
 ### Added
 - **Platterpus installs the right cyanrip build itself — no commit to type.**
   Maintainer directive: *"the autoupdate on platterpus should take the next viable
@@ -8802,7 +8804,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.14...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.15...HEAD
+[0.6.15]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.14...v0.6.15
 [0.6.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.13...v0.6.14
 [0.6.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12...v0.6.13
 [0.6.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.12b6...v0.6.12
@@ -8905,4 +8908,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.14.*
+*Last updated for Platterpus v0.6.15.*
