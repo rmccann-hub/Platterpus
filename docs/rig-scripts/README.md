@@ -87,22 +87,50 @@ discovered or expressed as "the first few tracks".
 It exists because the v0.6.x line ships two claims it cannot make, and neither can be
 settled by any amount of suite:
 
-1. **`-x` (force overread) has never run on a real drive.** It is wired and
-   CI-tested against a fake. A setting that reaches cyanrip's argv and has never
-   touched hardware is exactly what rips the next disc wrong with a clean log.
+1. **The fork's `-x` cache probe has never run on a real drive, by anyone.** It
+   costs seconds and every number it can print is the first in existence.
 2. **The drive-open fix** — cancelling must release the reader.
+
+> **⚠ Corrected 2026-08-18. This list said "`-x` (force overread) has never run
+> on a real drive", which conflated two different flags — and did so *one screen
+> above the table in this same file that separates them*.** Overread is **`-O`**,
+> it **has** run on the BDR-209D (2026-07-22), and it **hung the drive for ~23
+> minutes**: 13 of 14 tracks ripped perfectly, then the last track's lead-out
+> froze the progress bar near 100 %. So the script must **not** turn overread on
+> for this drive — doing so re-triggers a known hang under a claim that is false.
+>
+> The thing that is genuinely unproven is `-x`, the fork's cache probe, which the
+> old script did not test at all. This is exactly the hazard the table below
+> warns about, reached by reading this file's own opening.
 
 **The cancel test's proof is the rip *after* it, not the cancel.** A cancel is
 easy to appear to fix: the button greys out, the status says cancelled, and the
 drive is still held by a reader nobody can see. A snapshot taken straight after
 cannot tell those apart, so section E starts a second rip; only a released
-device allows one. Section F puts `force_overread` back, because a persistent
-setting left on would silently alter every later rip.
+device allows one.
+
+**That proof only works from v0.6.16 on.** Before it, a cancel left the 5-second
+force-stop rescue armed even when the reader had already stopped, so the drive
+was ejected moments after every *successful* cancel — which made section E
+unanswerable in both directions: an empty tray reads as a failure that is not
+real, and a reader freed by the rescue reads as a success the cancel did not
+earn. On an older build, section E proves nothing.
+
+Section F no longer restores `force_overread`, because the script never turns it
+on; the assertion is kept as a **guard** — if overread is on when the script
+ends, something else set it, and that matters before the next disc.
 
 Dialog sizing is **screenshots, not assertions** — clipping is a fact about the
 operator's real font size and DPI, and nothing in the script can see it.
 
-Roughly 30–50 minutes. It rips a handful of tracks three times, never the disc.
+Roughly 25–40 minutes. It rips a handful of tracks twice, never the whole disc.
+
+**Three things it cannot assert**, named in the script itself rather than left
+as silence: that a rip *succeeded* (`wait-for-rip` only waits for the worker to
+vanish), *what argv* the rip sent (no verb can read it — the witness is the
+`Invoked as:` line in the album's own cyanrip log), and *which album*
+`rig-check` examined (bare `rig-check` auto-discovers and exits 0 when its log
+checks skip). All three need new verbs, filed in `TASKS.md`.
 
 ## Reading the result
 
@@ -189,4 +217,4 @@ hazard rather than a documentation nit.
 it prints is the first data point in existence — including an absurd number,
 which is a finding and a good outcome.
 
-*Last updated for Platterpus v0.6.15.*
+*Last updated for Platterpus v0.6.16.*

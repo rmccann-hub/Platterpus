@@ -152,6 +152,48 @@ def test_lookup_retries_transient_then_succeeds(
 
 
 def test_lookup_does_not_retry_http_4xx(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deterministic REJECTION is not retried and does raise.
+
+    **This test used to use 404 and so pinned the defect it was meant to guard.**
+    404 is not a rejection — it is CTDB's way of saying "no entry for this TOC"
+    (see the 404 test below for the measurement). 403 is a real deterministic
+    refusal, which is what this case was always about.
+    """
+    import urllib.error
+
+    monkeypatch.setattr(
+        "platterpus.adapters.ctdb_client._RETRY_BACKOFFS_S", (0.0, 0.0, 0.0)
+    )
+    calls: list[int] = []
+
+    def forbidden(url: str) -> bytes:
+        calls.append(1)
+        raise urllib.error.HTTPError(url, 403, "Forbidden", {}, None)  # type: ignore[arg-type]
+
+    with pytest.raises(CtdbLookupError, match="HTTP 403"):
+        CtdbHttpImpl(fetcher=forbidden).lookup(_TOC)
+    assert len(calls) == 1  # 4xx is deterministic — not retried
+
+
+def test_lookup_reads_http_404_as_not_in_database(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """404 is an ANSWER: the disc is not in CTDB. It must not raise.
+
+    **Measured against the live server on 2026-08-18**, with the control that
+    settles it: a real disc's TOC (Nirvana *Nevermind*) returns 200 + 35 KB of
+    XML; the same TOC with +1 frame on every offset — structurally identical,
+    non-existent — returns 404. Same URL, same parameters, same track count. The
+    404 is keyed on the disc, not on the request. CTDB signals a genuinely bad
+    request with **200** and the body ``Invalid arguments``.
+
+    Routing 404 into ``CtdbLookupError`` made ``Verdict.NOT_IN_DATABASE``
+    unreachable in production — the only other route to it is a 200 with zero
+    entries, which the live server never produces for an unknown TOC. Every rip
+    of a disc CTDB does not know wrote ``"verdict": "lookup_error"`` and
+    ``"message": "CTDB rejected the request (HTTP 404)"`` into the archival JSON.
+    Both false.
+    """
     import urllib.error
 
     monkeypatch.setattr(
@@ -163,6 +205,10 @@ def test_lookup_does_not_retry_http_4xx(monkeypatch: pytest.MonkeyPatch) -> None
         calls.append(1)
         raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)  # type: ignore[arg-type]
 
-    with pytest.raises(CtdbLookupError, match="HTTP 404"):
-        CtdbHttpImpl(fetcher=not_found).lookup(_TOC)
-    assert len(calls) == 1  # 4xx is deterministic — not retried
+    result = CtdbHttpImpl(fetcher=not_found).lookup(_TOC)
+
+    assert result.in_database is False
+    assert result.entries == ()
+    # Answered on the first try: a 404 is deterministic, so retrying it would be
+    # three requests to be told the same thing.
+    assert len(calls) == 1

@@ -1235,6 +1235,30 @@ class RipMixin(MainWindowShared):
         """The rip subprocess exited."""
         log.info("rip finished: success=%s log=%s", success, log_path)
 
+        # **DISARM THE FORCE-STOP RESCUE — the reader is already gone.**
+        #
+        # `_on_rip_cancel` arms `_force_stop_timer` for 5s "in case it doesn't stop
+        # on its own". When it DOES stop on its own — the normal case, often in
+        # under two seconds — nothing here disarmed it, so `_auto_force_stop` fired
+        # anyway and ran `_do_force_stop("auto")`, whose job is *"Eject + kill the
+        # in-container reader"*. The disc came out of a drive nobody asked to open,
+        # seconds after a cancel that had already worked.
+        #
+        # The timer was stopped in exactly two places — the *start* of the next rip
+        # (which is far too late) and inside the rescue itself — so every completed
+        # cancel ejected. Found 2026-08-18 while auditing the rig script, and it is
+        # the reason that script could not prove what it exists to prove: the only
+        # honest test of "did cancelling release the drive?" is ripping again
+        # afterwards, and an unconditional eject-and-kill makes that unanswerable in
+        # BOTH directions — an empty tray reads as a failure that is not real, and a
+        # reader freed by the rescue reads as a success that the cancel did not earn.
+        #
+        # `_force_stop_done` is set too, not just the timer stopped: the manual
+        # Force-stop button is enabled for the whole rip, and pressing it after the
+        # rip has already finished would otherwise still eject.
+        self._force_stop_timer.stop()
+        self._force_stop_done = True
+
         # Autonomous heal (inert whipper-era seam): a ripper that does its own
         # online lookup can abort when it can't fetch metadata. cyanrip runs -N
         # and never does, so this never fires today, but the GUI already has the

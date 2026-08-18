@@ -1849,7 +1849,19 @@ def _issues(
                 "standard alignment — AccurateRip is the per-track authority, "
                 "and an offset-shifted pressing looks like this too",
             )
-        elif ctdb_verdict == "error":
+        elif ctdb_verdict == "lookup_error":
+            # **This branch tested `"error"`, which no verdict has ever been.**
+            # `Verdict.LOOKUP_ERROR.value` is `"lookup_error"` (ctdb/verify.py:58),
+            # so from v0.5.12 until 2026-08-18 a failed CTDB check added nothing to
+            # `issues[]` — while `gates.ctdb` said `"ran"` beside it. A gate
+            # claiming a check ran, and an issue list silently agreeing there was
+            # nothing wrong with it.
+            #
+            # Found by comparing the enum's values against the strings compared to
+            # them, after the 404 investigation showed this branch was where a real
+            # CTDB failure was supposed to surface. The lesson is the one this file
+            # keeps relearning: a string compared against an enum is a join nothing
+            # type-checks, so it must be derived or tested, never spelled twice.
             add(
                 "info",
                 "ctdb_unavailable",

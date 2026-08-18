@@ -20,6 +20,49 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Queued for the rig, 2026-08-18 — two passes, and a gap the plan exposed
+
+**v0.6.15 is published**, so the hardware round (item 3 / task #53) is unblocked.
+The plan is **two passes of the same script on two ripper builds**, because the two
+open questions are different questions:
+
+- [ ] **Pass 1 — `ddf7ac3`** (our `FORK_PIN`, `0.9.4-rc1+platterpus.5`). Closes the two
+  `[NOT PROVEN]` items — `-x` on a real drive, and the drive-open fix on cancel — for
+  the build **we ship**. Reports must say `approved`. This is what unblocks `v1.0.0`.
+- [ ] **Pass 2 — `c4d1a00`** (the fork's current published stable, seq 16,
+  `0.9.4-rc1+platterpus.6`). Becomes **round 12's lap-1 evidence**, which is what a
+  pin move needs and what round 11 explicitly did not have: its own header records
+  *"NOT tested: an actual build or install of +platterpus.6 — that needs the container
+  and the rig."* Reports will say `unapproved`, which is **correct** — our record
+  approves `ddf7ac3`, and a build it has not approved must be stamped as such.
+- [ ] **Restore `ddf7ac3`** afterwards, so the rig is left on the shipping build.
+
+**No handshake round is opened until pass 2's bundle exists.** Opening round 12 first
+would close the release door (deviation policy) *and* create a round whose close
+condition cannot be met — the S-13 failure that made round 7 run 37 laps.
+
+### The gap this exposed: the rig script cannot say which pass it is
+
+- [ ] **`rigcancelandoverread.txt` writes to fixed album names** (`overread on`,
+  `cancel me`, `after cancel`), so a second pass lands **on top of** the first pass's
+  rip folders. The file was written for a single pass and has no pass token; the
+  sibling `police-rerip.txt` solves this by making the operator hand-edit its `album`
+  line, which is exactly the hand-editing this file exists to avoid.
+
+  **Mitigated for now by ordering, not by code:** `--rig-session` discovers the newest
+  `.platterpus.json` by mtime, so it always bundles the *right* pass — but pass 1's raw
+  artifacts are gone once pass 2 runs. So pass 1 must be **completely** finished and its
+  tarball verified before pass 2 begins. That is a procedure holding a correctness
+  property, which is the shape this project keeps paying for.
+
+  **The fix is a script-language change, not an instruction**: a pass token that lands
+  in the album name automatically (the installed ripper's build tag is the obvious
+  value, since it is exactly what distinguishes the two passes). Per `CLAUDE.md`, a new
+  testing capability is a **script verb**, not a flag. Do this after the bundles land —
+  changing the script before the run would invalidate the procedure already sent.
+
+---
+
 ## Found on the rig, 2026-08-12 — the round-8 script run that never reached the rip
 
 Three defects, all ours, all found by a real hardware run of
@@ -1717,9 +1760,15 @@ What we owe, and what waits on their answers:
       (13 sub-channel entries, 1 lead-in, zeros on tracks 3/6/11/12, 9 `Gaps:` rows). One
       disc is an existence proof, not a range: a disc with a *non-zero* pre-gap on a
       non-first track is the case that could still fail. Hardware-gated.
-- **[ ] H10 — send the `-x` force-overread log line (checklist §F2).** We ship the toggle; we have never
-      captured the line it produces on a drive that accepts the command. Hardware-gated on
-      the BDR-209D.
+- **[?] H10 — send the overread (`-O`) log line (checklist §F2). BLOCKED, and the block is
+      the finding.** We ship the toggle and have never captured the line it produces *on a
+      drive that accepts the command* — and the BDR-209D **does not accept it**: `-O` is
+      confirmed to hang that drive ~23 minutes (2026-07-22, 13/14 tracks then a frozen
+      lead-out). So this cannot be captured on our rig at all; it needs a different drive,
+      or it stays open with that stated.
+      *(Row said "`-x` force-overread" until 2026-08-18. `-x` is the fork's **cache probe**,
+      never overread and never in our argv — the conflation `docs/dependency-contracts.md`
+      calls a hardware hazard. What is genuinely uncaptured on any drive is `-x` itself.)*
 - **[ ] Pass `--consumer platterpus/<version>` on every rip.** Their lap-4 §7/§4: it is what
       puts our identity into the archived artifact, recorded verbatim with their log saying
       *"reported by the caller, not verified by cyanrip"*. Deliberately **not** shipped in the
@@ -2031,4 +2080,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.15.*
+*Last updated for Platterpus v0.6.16.*

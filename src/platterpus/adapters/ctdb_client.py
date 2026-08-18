@@ -151,7 +151,47 @@ class CtdbHttpImpl(CTDBClient):
             try:
                 raw = self._fetch(url)
             except urllib.error.HTTPError as exc:
-                # 4xx is a deterministic server answer (bad request / not found)
+                # **404 IS AN ANSWER, NOT A FAILURE — it is how CTDB says "I have
+                # no entry for this TOC."**
+                #
+                # Measured against the live server 2026-08-18, with the control
+                # that settles it: a real disc's TOC (Nirvana *Nevermind*) returns
+                # 200 + 35 KB of XML; the SAME TOC with +1 frame on every offset —
+                # structurally identical, non-existent — returns 404 `Not Found`.
+                # Same URL, same params, same track count. The 404 is keyed on the
+                # disc, not on the request. Five of five real discs returned 200.
+                #
+                # And CTDB does not use 404 for rejection at all: a malformed
+                # request returns **200** with the body `Invalid arguments`, and an
+                # unparseable `toc=` returns 500. So a 404 from `lookup2.php` is
+                # never "the server refused us".
+                #
+                # Routing it into `CtdbLookupError` below made
+                # `Verdict.NOT_IN_DATABASE` **unreachable in production**: the only
+                # other route to it is a 200 with zero entries, a shape the live
+                # server never produces. Every rip of a disc CTDB does not know —
+                # which includes *every partial-track rip*, whose synthesized TOC
+                # cannot exist there — wrote `"verdict": "lookup_error"` and
+                # `"message": "CTDB rejected the request (HTTP 404)"` into the
+                # archival JSON. Both false, in a file kept beside the album.
+                #
+                # The correct pattern was already one screen away in this repo:
+                # the MusicBrainz adapter translates its own 404 into "no releases"
+                # rather than an error (`preflight.py`'s note, and
+                # `test_musicbrainz_client.py::test_releases_by_disc_id_returns_
+                # empty_on_404`). This seam copied the intent and none of the
+                # handling.
+                #
+                # Deliberately keyed on the STATUS, not on response headers. The
+                # investigation also found a header-based way to tell CTDB's
+                # "not in DB" 404 from Apache's wrong-path 404, and it is not used:
+                # the path is right by construction (we build the URL), so any 404
+                # from it means "not in database", and a discriminator we did not
+                # measure ourselves is not one to build a verdict on.
+                if exc.code == 404:
+                    log.info("CTDB has no entry for this TOC (HTTP 404)")
+                    return CtdbLookupResult()
+                # Other 4xx is a deterministic server answer (bad request, blocked)
                 # — don't retry; 5xx is transient — do.
                 if exc.code < 500:
                     # RECORD IT. A deterministic rejection is the one CTDB failure a
