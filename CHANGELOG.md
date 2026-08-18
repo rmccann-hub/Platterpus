@@ -90,14 +90,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   waved the rest through as *"a menu action is user-initiated and synchronous"* — true
   of the menu handler, not of the result slot. Both use `open()` now and the guard
   covers both.
-- **Every CI job is now time-bounded, not just the pytest step.** `Run tests` already
-  carried `timeout-minutes: 15` with the right reasoning written beside it — *"fails in
-  minutes instead of burning the 6-hour default"* — applied to the one step its author
-  was thinking about. The step that actually wedged is the `apt-get` that installs the
-  headless Qt libraries: it hung two jobs for 20+ minutes on 2026-08-18, twice, with no
-  bound and no way to tell a hang from slowness. Bounds are now job-level across all
-  seven jobs, so any wedged step fails fast and can be re-run instead of occupying a
-  runner for hours. Same shape as the rest of this batch: a guard scoped to where a
+- **Every CI job is now time-bounded, not just the pytest step — and it is swept.**
+  `Run tests` already carried `timeout-minutes: 15` with the right reasoning written
+  beside it — *"fails in minutes instead of burning the 6-hour default"* — applied to
+  the one step its author was thinking about. The step that actually wedged is the
+  `apt-get` that installs the headless Qt libraries: it stalled four times across
+  three runs on 2026-08-18 with no bound at all, while sibling matrix legs of the same
+  commit cleared it in 13 and 32 seconds. Sweeping for the rule instead of fixing it
+  where it was noticed found three more jobs with no bound anywhere — `appimage.yml`
+  `build`, `publish-pypi.yml` `publish`, and `release.yml` `build-and-release`, where
+  a wedge holds a runner for six hours while a maintainer waits for a release that is
+  never coming. All 10 jobs across all 5 workflows are bounded now, and
+  `tests/test_ci_jobs_are_bounded.py` derives the set from disk so a workflow added
+  later is covered the day it lands. It also rejects a *fake* bound: `timeout-minutes:
+  360` is GitHub's own default restated, and would satisfy a presence check while
+  changing nothing. Same shape as the rest of this batch: a guard scoped to where a
   problem was expected rather than to the surface the rule belongs on.
 - **The `apt-get` step that kept wedging CI is now bounded and retried.** Bounding
   every job stopped a stall costing six hours, but it still cost the run: the stalled

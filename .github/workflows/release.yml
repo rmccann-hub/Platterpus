@@ -37,6 +37,12 @@ jobs:
     # manylinux2014 CPython, so building on an older host keeps it broadly
     # compatible across the target distros (Bazzite, Fedora, Arch, Ubuntu).
     runs-on: ubuntu-22.04
+    # Bounded like every other job — see tests/test_ci_jobs_are_bounded.py. The
+    # widest bound in the repo because this one runs the release gates, builds the
+    # AppImage, uploads assets, attests provenance and dispatches the PyPI publish.
+    # An unbounded release job is the worst case of the class: it holds a runner
+    # for six hours while a maintainer waits on a release that will never appear.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

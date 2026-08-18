@@ -43,6 +43,11 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Bounded like every other job — see tests/test_ci_jobs_are_bounded.py. Short,
+    # because this job builds a wheel and uploads it; if it is still going at 30
+    # minutes the upload is wedged, and a wedged publish is worth failing fast so
+    # it can be re-dispatched for the same tag.
+    timeout-minutes: 30
     # The environment name must match the PyPI trusted-publisher config above.
     environment: pypi
     permissions:
