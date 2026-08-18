@@ -75,6 +75,98 @@ jobs:
               python scripts/handshake.py --release-gate ;;
           esac
 
+      # THE CI GATE. Nothing required CI to have passed before a release — found by
+      # the 2026-08-18 enforcement audit. `release.yml` runs on a tag push or a
+      # workflow_dispatch, and a `needs:` only orders jobs WITHIN one workflow, so the
+      # `test`/`lint`/`typecheck` matrix in `ci.yml` had no relationship to this at all.
+      # A release could therefore ship a commit whose suite was red, or whose suite had
+      # never run — and the release artifacts are what users auto-update to.
+      #
+      # Checked by asking GitHub for the commit's own check runs rather than by trusting
+      # ordering. Two failure modes are distinguished, because they need different
+      # responses and conflating them is how a gate becomes advisory:
+      #   * a required check FAILED    -> refuse, always.
+      #   * a required check is ABSENT -> refuse, unless CI has not been given time to
+      #     start, in which case say so rather than passing silently. "No result" is not
+      #     a pass; that is this project's tri-state rule applied to a gate.
+      - name: CI gate — refuse to release a commit whose CI is not green
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # The contexts that must be green. Named explicitly rather than "all of them":
+          # `tests-touched` is advisory BY DESIGN and must never block a release, and a
+          # future advisory job must not silently acquire veto power over one.
+          #
+          # Newline-delimited and read with `while read`, because a check name contains
+          # a space ("test (py3.11)") and word-splitting would shred it. This is the
+          # boring way on purpose — the first draft split on a sed-inserted delimiter,
+          # which is the kind of cleverness that breaks the day somebody renames a job.
+          required=$(cat <<'NAMES'
+          test (py3.11)
+          test (py3.12)
+          test (py3.13)
+          test (py3.14)
+          lint
+          typecheck
+          changelog
+          media-guard
+          pip-audit
+          NAMES
+          )
+          echo "Commit under release: $SHA"
+          runs="$(gh api "repos/$REPO/commits/$SHA/check-runs?per_page=100" \
+                    --jq '.check_runs[] | "\(.name)\t\(.status)\t\(.conclusion // "-")"')"
+          if [ -z "$runs" ]; then
+            echo "::error::No check runs at all for $SHA. CI has not run on this commit, so there is no evidence its suite passes. Push the commit to a branch, let CI finish, then tag."
+            exit 1
+          fi
+          printf '%s\n' "$runs" | sed 's/^/  /'
+
+          missing=""; failed=""; pending=""
+          while IFS= read -r name; do
+            name="$(printf '%s' "$name" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+            [ -n "$name" ] || continue
+            line="$(printf '%s\n' "$runs" | awk -F'\t' -v n="$name" '$1 == n { print; exit }')"
+            if [ -z "$line" ]; then
+              missing="$missing
+            $name"
+              continue
+            fi
+            status="$(printf '%s' "$line" | cut -f2)"
+            conclusion="$(printf '%s' "$line" | cut -f3)"
+            if [ "$status" != "completed" ]; then
+              pending="$pending
+            $name ($status)"
+            elif [ "$conclusion" != "success" ]; then
+              failed="$failed
+            $name ($conclusion)"
+            fi
+          done <<<"$required"
+
+          rc=0
+          if [ -n "$failed" ]; then
+            echo "::error::Required CI check(s) did not pass on $SHA:$failed"
+            echo "A release must not ship a commit whose suite is red."
+            rc=1
+          fi
+          if [ -n "$pending" ]; then
+            echo "::error::Required CI check(s) have not finished on $SHA:$pending"
+            echo "Wait for CI, then re-run this release — an unfinished check is not a pass."
+            rc=1
+          fi
+          if [ -n "$missing" ]; then
+            echo "::error::Required CI check(s) never ran on $SHA:$missing"
+            echo "Absence of a result is not a pass (CLAUDE.md: tri-state, never a bare negative)."
+            rc=1
+          fi
+          if [ "$rc" = "0" ]; then
+            echo "All required CI checks are green on $SHA. ✅"
+          fi
+          exit "$rc"
+
       - name: Changelog gate — refuse to tag with a non-empty [Unreleased]
         # v0.6.12 shipped with six entries still under `[Unreleased]`, describing
         # work that IS in that tag. Nothing caught it: the version-bump gate

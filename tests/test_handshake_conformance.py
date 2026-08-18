@@ -70,7 +70,16 @@ def _header(**overrides: str | None) -> str:
         "HANDSHAKE-OUR-PIN": "abc1234",
         "HANDSHAKE-PEER-VERSION": "0.9.4-rc1+platterpus.4",
         "HANDSHAKE-PEER-PIN": "5bc654d",
-        "HANDSHAKE-TESTED": "T1-T8 and T14 on the pair above",
+        # Long enough to clear the evidence floor. It read 'T1-T8 and T14 on the pair above' — 31 characters
+        # naming nothing in particular — and the close/status tests leaned on that
+        # passing. `evidence_blockers` (2026-08-18) refuses content-free evidence, so
+        # this went red: the gate was correct and the STAND-IN WAS MORE PERMISSIVE THAN
+        # THE PRODUCT. CLAUDE.md, "what does my stand-in do that the real thing does
+        # not?" — the answer here was "accept a close with no evidence".
+        "HANDSHAKE-TESTED": (
+            "T1-T8 and T14 on the pair above — the full suite green under CI's import path, with "
+            "PYTEST_EXIT read from pytest's own status. NOT tested: any drive."
+        ),
     }
     fields.update(overrides)
     return "\n".join(f"{k}: {v}" for k, v in fields.items() if v is not None) + "\n"

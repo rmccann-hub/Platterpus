@@ -175,11 +175,33 @@ jobs:
           if grep -qiE '^[[:space:]]*\[skip changelog\][[:space:]]*$' <<<"$messages"; then
             echo "Opt-out via commit message; skipping."; exit 0
           fi
-          # The check: was CHANGELOG.md touched anywhere in the range?
-          if grep -qx 'CHANGELOG.md' <<<"$(git diff --name-only "$base" "$head")"; then
-            echo "CHANGELOG.md updated. ✅"
+          # The check: does the range ADD a line to CHANGELOG.md?
+          #
+          # It used to ask only whether the FILE was touched — `grep -qx 'CHANGELOG.md'`
+          # over `--name-only` — which is the label rather than the subject. A commit
+          # that DELETED a bullet, reflowed whitespace, or fixed a typo satisfied a gate
+          # whose whole purpose is "there is a new entry". Found by the 2026-08-18
+          # enforcement audit; same shape as the release gate that printed "entries were
+          # moved" while only checking that [Unreleased] was empty.
+          #
+          # `--unified=0` so context lines are not mistaken for additions, and the added
+          # lines are filtered to non-blank ones: a commit that adds only a blank line to
+          # the changelog has added no entry.
+          added="$(git diff --unified=0 "$base" "$head" -- CHANGELOG.md \
+                     | grep -E '^\+' | grep -vE '^\+\+\+' | sed 's/^\+//' \
+                     | grep -cE '[^[:space:]]' || true)"
+          if [ "${added:-0}" -gt 0 ]; then
+            echo "CHANGELOG.md gained $added non-blank line(s). ✅"
           else
-            echo "::error::No CHANGELOG.md entry for this change. Add a bullet to the [Unreleased] section in the same commit (CLAUDE.md Critical Rule #7), or put a '[skip changelog]' line of its own in the commit message for a pure historical-record commit."
+            touched=0
+            if grep -qx 'CHANGELOG.md' <<<"$(git diff --name-only "$base" "$head")"; then
+              touched=1
+            fi
+            if [ "$touched" = "1" ]; then
+              echo "::error::CHANGELOG.md was modified but the change ADDS no content — a deletion or a whitespace edit is not an entry. Add a bullet to the [Unreleased] section (CLAUDE.md Critical Rule #7), or use a '[skip changelog]' line of its own for a pure historical-record commit."
+            else
+              echo "::error::No CHANGELOG.md entry for this change. Add a bullet to the [Unreleased] section in the same commit (CLAUDE.md Critical Rule #7), or put a '[skip changelog]' line of its own in the commit message for a pure historical-record commit."
+            fi
             exit 1
           fi
 

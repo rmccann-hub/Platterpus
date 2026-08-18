@@ -1196,7 +1196,7 @@ one question is the wrong input to a different one. `_source_modules()` excludes
 reusing that filter in the *phantom* check made the test report `PLANNING.md`'s
 (correct) `__init__.py` entry as describing a deleted module.
 
-### §5.ag — A conformance table is run, not read
+### §5.am — A conformance table is run, not read
 
 *Handshake round 7 lap 5, 2026-08-04.*
 
@@ -1520,7 +1520,7 @@ at asking *"is this correct?"* and had nothing asking *"can anyone get to it?"*
 Both a documented capability and an implemented one can be unreachable, and
 unreachable is indistinguishable from absent to the only person who matters.
 
-### 5.ah — A gate that picks its subject by chance is not a gate (added 2026-08-06)
+### 5.an — A gate that picks its subject by chance is not a gate (added 2026-08-06)
 
 §5.aa is *a gate in the wrong place*. This is a gate in the right place, asking
 the right question, **of a document chosen by directory iteration order**.
@@ -1578,6 +1578,24 @@ Three things to take from it:
       report **completeness meta-test** (`test_rip_report_completeness.py`) still
       passes — a new field cannot ship un-serialized. — *CLAUDE.md: validate every
       input & output*
+- [ ] **Before a RELEASE tag (not merely a merge): an adversarial review of the
+      release diff.** Not a general nicety — the measured reason. On 2026-08-18 a
+      25-agent review of a diff with a **green suite, a green typecheck and ten green
+      CI checks** raised 20 findings and confirmed 14, three of them blocking, and two
+      of the three would have reached an **archival record**: a build stamped
+      `unapproved` after the app said it was approved, and a repair path that could
+      never succeed for the population it was written for. None was visible to the
+      suite, because each lived in a *relation between* two individually-correct places
+      (§5.al) — and the suite tests modules. So the gates in `release.yml` are
+      necessary and not sufficient: they check that everything ran and passed, which is
+      a different claim from *the change is right*.
+      Prompt it to **refute**, require every finding to name what it ran, and verify
+      each one yourself before acting — *"a correction that arrives as 'you got this
+      wrong' is not pre-verified"*. And read an empty result carefully: a pass and *"the
+      review could not run"* look identical from the outside, which is exactly what
+      happened to the follow-up pass the same day (§5.aj's family, arriving through the
+      tooling). Apply **S-14** to what it finds — a real defect is an argument for
+      fixing it, not automatically for holding the release.
 - [ ] `ruff check` + `ruff format --check` clean.
 - [ ] `mypy` clean (the gating CI `typecheck` job; strict def-typing package-wide).
 - [ ] Coverage gate passes; gate not lowered.

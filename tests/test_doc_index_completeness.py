@@ -284,3 +284,76 @@ def test_the_index_routes_to_the_subdirectory_indexes() -> None:
             "under it are unreachable from the canonical index"
         )
         assert count >= 2, f"docs/{sub}/ holds only {count} files — still a dir?"
+
+
+# --- Section ids must be unique, because they are cited from other files ---------
+
+
+#: A cited section id: ``5.ag``, ``§5.ah``, ``3.12a``, ``6.1``. Both spellings of the
+#: prefix, because the collision that prompted this check spanned them — one heading
+#: wrote ``### §5.ag`` and the other ``### 5.ag``, which is exactly why a reader's eye
+#: slid past it.
+_SECTION_ID = re.compile(r"^#{2,4}\s+§?(\d+\.[0-9a-z]+)\b", re.MULTILINE)
+
+
+def test_no_doc_reuses_a_section_id() -> None:
+    """A cited id that resolves to two places is a broken cross-reference.
+
+    Found 2026-08-18 by reading, not by a check: ``docs/testing.md`` carried **two**
+    ``5.ag`` sections and **two** ``5.ah`` sections, added five days apart. Three files
+    cite ``§5.ah`` and two cite ``§5.ag``, so every one of those references was
+    ambiguous — and the ambiguity is invisible from either end. The citing file looks
+    correct, each section looks correct, and only counting reveals it.
+
+    This is the same class as the promise-of-completeness sweeps above (§5.af): a
+    numbered section is a *promise that the number identifies it*, and that promise
+    decays silently as sections are appended. Deriving the ids and counting them is the
+    check the parenthetical-comment version of this rule could not be.
+
+    Scoped to headings that carry an ``N.xx`` id, which is the convention that is cited;
+    plain prose headings are unaffected.
+    """
+    offenders: list[str] = []
+    examined = 0
+    for path in sorted(_DOCS.rglob("*.md")) + [_CLAUDE_MD]:
+        ids = _SECTION_ID.findall(path.read_text(encoding="utf-8"))
+        if not ids:
+            continue
+        examined += 1
+        seen: dict[str, int] = {}
+        for ident in ids:
+            seen[ident] = seen.get(ident, 0) + 1
+        for ident, count in sorted(seen.items()):
+            if count > 1:
+                offenders.append(
+                    f"{path.relative_to(_REPO_ROOT)}: §{ident} appears {count} times"
+                )
+
+    # Floor: if no document was found to carry numbered sections, this check examined
+    # nothing and would pass for a repo whose docs had all been deleted.
+    assert examined >= 2, (
+        f"only {examined} document(s) were found carrying `N.xx` section ids — the "
+        "pattern has gone stale and this check is passing by finding nothing"
+    )
+    assert not offenders, (
+        "duplicate section ids — every cross-reference to these is ambiguous:\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+def test_the_duplicate_id_check_would_catch_the_shipped_collision() -> None:
+    """Non-triviality, measured against the exact text that shipped.
+
+    Two headings from `docs/testing.md` as they stood on 2026-08-18, one with the ``§``
+    and one without — the spelling difference is why the collision survived a reader's
+    eye, so the detector has to be blind to it.
+    """
+    shipped = (
+        "### §5.ag — A conformance table is run, not read\n"
+        "body\n"
+        "### 5.ag — An implemented capability is not a capability either\n"
+    )
+    ids = _SECTION_ID.findall(shipped)
+    assert ids.count("5.ag") == 2, (
+        f"the detector does not see the shipped collision; it found {ids}"
+    )

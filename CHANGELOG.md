@@ -90,6 +90,46 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   waved the rest through as *"a menu action is user-initiated and synchronous"* — true
   of the menu handler, not of the result slot. Both use `open()` now and the guard
   covers both.
+- **Five rules that said "enforced by" and were not.** The 2026-08-18 enforcement audit
+  asked of every such claim in `CLAUDE.md` what actually enforces it, and recorded five
+  answers of "nothing". All five now have one:
+  - **A release can no longer ship a commit whose CI is not green.** `release.yml` runs
+    on a tag push, and a `needs:` only orders jobs *within* one workflow — so the
+    `test`/`lint`/`typecheck` matrix had no relationship to it at all, and a release
+    could carry a commit whose suite was red or had never run. A new gate asks GitHub
+    for the commit's own check runs and distinguishes **failed**, **unfinished** and
+    **never ran** — because absence of a result is not a pass. `tests-touched` is
+    deliberately excluded: it is advisory by design and must never block. Exercised
+    against five fixtures before shipping, including one where the advisory job fails
+    and the release must still proceed.
+  - **The CI changelog gate checked that the file was *touched*.** So deleting a bullet,
+    or reflowing whitespace, satisfied a gate whose whole purpose is "there is a new
+    entry" — the label instead of the subject. It now requires an **added non-blank
+    line**, and says which of the two failures happened. Verified against four ranges: a
+    deletion, a whitespace-only edit, a real bullet, and an untouched file.
+  - **A handshake round could close on `HANDSHAKE-TESTED: n/a`.** The field was checked
+    for presence and non-duplication, never for content — and it is the one field whose
+    entire purpose is content. It now refuses empty values, content-free placeholders,
+    and anything too short to name what ran. Deliberately does *not* judge whether the
+    evidence is good; no check can, and pretending otherwise would be worse. Verified
+    not to refuse any of the **20 committed verification files**, because a gate that
+    rejects the record it was written against is the wrong gate.
+  - **The mypy per-module opt-out list could grow.** Rule #10 says it shrinks and never
+    grows; that was prose. It is a ratchet keyed on module names now, so swapping one
+    module for another cannot hide behind an unchanged count.
+  - **The CLI-flag allowlist could grow.** Three checks enforced that a reason exists and
+    names a permitted category — none noticed the list getting *longer*, so the promise
+    was satisfied by writing anything down. A ceiling makes growth visible in the diff.
+- **`docs/testing.md` had two `5.ag` sections and two `5.ah` sections**, added five days
+  apart, so the five cross-references to those ids from `CLAUDE.md`,
+  `docs/architecture.md` and the session log were all ambiguous. The two with no inbound
+  references were renumbered, and a new sweep derives every `N.xx` id across `docs/` and
+  `CLAUDE.md` and fails on a duplicate — the check that would have caught it, since a
+  duplicate id is invisible from either end and only counting reveals it.
+- **The Definition of Done now requires an adversarial review before a release tag**, not
+  merely before a merge, with the measured reason: the review that prompted it found
+  three blocking defects in a diff that had passed everything, two of which would have
+  reached an archival record.
 - **The offer/rip approval agreement is now a test, not a claim.** `CLAUDE.md`'s new
   rule says to *test the relation* when two surfaces answer one question; this adds it —
   `approves_commit(c)` must equal *"a rip with that build reports approved"*, checked

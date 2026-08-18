@@ -130,3 +130,45 @@ def test_the_seam_check_really_is_reachable_from_the_script_language() -> None:
     )
     assert VERBS["rig-check"].implemented
     assert hasattr(ScriptRunner, "_do_rig_check")
+
+
+def test_the_allowlist_is_a_ratchet_with_a_ceiling_that_only_drops() -> None:
+    """The half the three checks above do not cover: **growth**.
+
+    This file's own header promises the allowlist *"may shrink; it may not grow without
+    someone writing that reason down"* — and the checks enforce that a reason **exists**
+    and names a permitted category. Neither notices the list getting **longer**, so the
+    promise is satisfied by writing anything down: add a flag, prefix its reason with
+    ``pre-GUI:``, and all three pass. Found by the 2026-08-18 enforcement audit, which
+    asked of each "enforced by" claim what actually enforces it.
+
+    A ceiling makes growth *visible in the diff* rather than merely justified in prose:
+    a new flag now requires touching this number, in the same commit, next to the reason.
+    That is the deliberate act the maintainer directive asked for — *"you dont need to
+    build special arguements unless absolutely needed"* — and the count is the only thing
+    that can tell "absolutely needed" from "easier to write".
+
+    Lower ``CEILING`` whenever a flag becomes a verb. It must never rise without a
+    sentence in the commit message saying which of the three categories forced it.
+    """
+    #: Flags allowlisted as of 2026-08-18. **May drop. May never rise silently.**
+    CEILING = 14
+
+    count = len(JUSTIFIED_FLAGS)
+    # Floor on the other side: an empty allowlist would satisfy any ceiling, and would
+    # mean the dict had been gutted rather than the flags retired.
+    assert count > 0, (
+        "JUSTIFIED_FLAGS is empty — either every flag became a verb (delete this test "
+        "and celebrate) or the dict was gutted and every check here is now vacuous"
+    )
+    assert count <= CEILING, (
+        f"the CLI flag allowlist has grown to {count} entries, over the {CEILING} "
+        f"recorded on 2026-08-18. A verb in `uiscript/verbs.py` is the default; a flag "
+        f"is the exception and has to be argued for (CLAUDE.md, Code conventions). If "
+        f"one of the three categories genuinely forces it, raise CEILING here in the "
+        f"same commit and say which category in the commit message."
+    )
+    assert count == CEILING, (
+        f"the allowlist is down to {count} from {CEILING} — good. Lower CEILING to "
+        f"{count} in this commit so the ratchet cannot silently slide back up."
+    )

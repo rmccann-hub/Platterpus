@@ -69,7 +69,17 @@ def _closing(**overrides: str | None) -> str:
         "HANDSHAKE-OUR-PIN": "def5678",
         "HANDSHAKE-PEER-VERSION": "0.9.4-rc1+platterpus.4",
         "HANDSHAKE-PEER-PIN": "abc1234",
-        "HANDSHAKE-TESTED": "the suite, on the pair above",
+        # Long enough to clear the evidence floor, because the FIXTURE WAS THINNER
+        # THAN THE REAL RECORDS: it read "the suite, on the pair above" — 28
+        # characters that name nothing — and six close/status tests depended on that
+        # passing. When `evidence_blockers` started refusing content-free evidence
+        # (2026-08-18) they went red, which is the right way round: the gate was
+        # correct and the stand-in was more permissive than the product. CLAUDE.md,
+        # "what does my stand-in do that the real thing does not?"
+        "HANDSHAKE-TESTED": (
+            "the full suite on the pair above, green under CI's import path with "
+            "PYTEST_EXIT read from pytest's own status. NOT tested: any drive."
+        ),
     }
     fields.update(overrides)
     return "\n".join(f"{k}: {v}" for k, v in fields.items() if v is not None) + "\n"
@@ -1917,4 +1927,85 @@ def test_the_check_exemptions_all_still_exist_and_still_fail() -> None:
     assert not now_passing, (
         f"these files are exempted but now pass `--check`: {now_passing}. "
         "Remove them from _CHECK_EXEMPT — the ratchet may shrink, and should."
+    )
+
+
+# --- `HANDSHAKE-TESTED` must carry evidence, not merely exist -------------------
+
+
+def test_a_content_free_handshake_tested_cannot_close_a_round() -> None:
+    """The close check read the LABEL and never the SUBJECT.
+
+    ``HANDSHAKE-TESTED`` was validated for presence and non-duplication only, so a
+    round could close — and a release go out — on ``HANDSHAKE-TESTED: n/a``. That is
+    both failure shapes `CLAUDE.md` names at once: satisfied by finding nothing, and
+    satisfied by the wrong thing. The module's own docstring warned about a section
+    that is "present but empty" passing; the warning was written for *sections* and
+    never applied to the one FIELD whose whole purpose is content. Found by the
+    2026-08-18 enforcement audit.
+    """
+    hs = _load()
+
+    refused = [
+        "",
+        "   ",
+        "n/a",
+        "N/A",
+        "none",
+        "None.",
+        "nothing",
+        "tbd",
+        "See above",
+        "ok",
+        "yes",
+        "-",
+        "ran the suite",  # honest, and still does not say what ran
+    ]
+    for value in refused:
+        problems = hs.evidence_blockers({"HANDSHAKE-TESTED": value})
+        assert problems, f"{value!r} was accepted as evidence for closing a round"
+
+    accepted = (
+        "Full suite green under CI's import path, PYTEST_EXIT read from pytest's own "
+        "status. Their lap 3's three digests re-derived here rather than transcribed. "
+        "NOT tested: any drive; no rip was performed for this round."
+    )
+    assert not hs.evidence_blockers({"HANDSHAKE-TESTED": accepted})
+
+    # An ABSENT field is the presence check's finding, not this one's — reporting it
+    # twice would make one defect look like two.
+    assert hs.evidence_blockers({}) == []
+    assert hs.evidence_blockers({"HANDSHAKE-TESTED": hs.AMBIGUOUS}) == []
+
+
+def test_the_evidence_check_accepts_every_record_we_have_already_closed() -> None:
+    """A gate that refuses the record it was written against is the wrong gate.
+
+    The point of running it over the committed files rather than over invented ones:
+    this check could easily have been calibrated so tightly that it rejected real
+    history, and the only way to know is to read the artifacts. `CLAUDE.md`: when a
+    committed artifact can settle a question, the test reads the artifact.
+    """
+    hs = _load()
+
+    verified = _REPO_ROOT / "docs" / "handshake" / "verified"
+    refused: list[str] = []
+    checked = 0
+    for path in sorted(verified.glob("*.md")):
+        match = re.search(r"^HANDSHAKE-TESTED:(.*)$", path.read_text(), re.M)
+        if match is None:
+            continue
+        checked += 1
+        problems = hs.evidence_blockers({"HANDSHAKE-TESTED": match.group(1).strip()})
+        if problems:
+            refused.append(f"{path.name}: {problems[0]}")
+
+    # Floor: a glob that matched nothing would make the assertion below vacuous.
+    assert checked >= 5, (
+        f"only {checked} verification file(s) carry HANDSHAKE-TESTED — the sweep has "
+        "gone stale and this check is passing by finding nothing"
+    )
+    assert not refused, (
+        "the evidence check refuses records that are already closed:\n  "
+        + "\n  ".join(refused)
     )
