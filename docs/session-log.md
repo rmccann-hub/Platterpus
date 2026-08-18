@@ -189,6 +189,50 @@ to the code that breaks it, a comment asserting the invariant a line below where
 fails, two correct answers to one question by different keys. None is visible from
 inside either half.
 
+### The verification pass failed, and an empty report is not a green one
+
+A second workflow was launched to adversarially verify the 14 fixes. **It produced
+nothing**: 12 of its 13 agents died on `StructuredOutput retry cap exceeded`, and the
+one that completed reported why — every tool call in its session was rejected by the
+harness with *"updatedInput must satisfy the tool's input schema"*, required parameters
+stripped before the call reached the sandbox. It could not read a line of the diff.
+
+**Worth recording because of how the result LOOKED.** The workflow returned
+`survivedCount: 0`, which reads exactly like *"nothing survived, the fixes are clean."*
+It meant *"nothing ran."* The synthesizing agent refused to launder it — it wrote *"this
+lane adds zero independent confirmation… the correct read of this report is 'coverage
+unknown', not 'clean'"*, and applied this project's own rule to itself: a check that can
+be satisfied by finding nothing needs a floor, and a synthesis over zero files has none.
+That is the vacuous-detector shape arriving through the tooling rather than through a
+test, and it would have been very easy to quote as a pass.
+
+So the gaps it *named* were closed by hand instead, and two were real:
+
+- **The three fixes not yet revert-proven** — the approval key, `build_hint`, and the
+  interruption re-check — were reverted one at a time, with the file hash checked before
+  and after each. All three went red; all three restored exactly. (CLAUDE.md lists four
+  measured ways to get a fake revert; hashing both ends rules them out.)
+- **The offer/rip relation is now a test** rather than a probe, over eleven hostile
+  inputs. It catches a *plausible* wrong predicate, not merely a broken one: loosening
+  `_tag_is_approved` to prefix-matching — which is what a careful person would most
+  likely write — fails it, because a full 40-character sha beginning with the pin is the
+  same commit to `same_commit` and a different build tag to the binary.
+- **`_BLOCKER_INTERRUPTERS` was missing a row.** The map was hand-written and omitted
+  `check_picard_flatpak`, so a worker calling it would have been swept and reported
+  clean. The expected set is now derived from `deps/checks.py`. The derivation's own
+  floor caught its first draft, which looked only for *direct* `VERSION_PROBE` references
+  and therefore found nothing at all — the helpers reach it through one level of
+  indirection. A floor that fires on its author is the check earning its place.
+- **The `exec()` → `open()` change was probed for the new state it creates** — leak,
+  modality, and a reaped handle. One box per check with no accumulation, window-modal as
+  intended, `_ripper_offer_box` cleared by its own `finished` handler, and
+  `_interruption_blocker` returns the right reason for each condition without raising on
+  a stale handle. The first attempt at that probe was confounded by its own earlier state
+  — a modal left standing from block 1 correctly blocked blocks 2 and 3 — which is worth
+  noting as the same shape one level out: *the probe needed a floor too.*
+- **`docs/cyanrip-consumer-contract.md` regenerates byte-identically**, so the argv
+  surface did not move and no handshake round is implicated.
+
 ### The `FORK_PIN` gap: a deliberate decision, and a defect it was hiding
 
 Asked to address the gap between our pin (`ddf7ac3`, fork release **11**) and the
