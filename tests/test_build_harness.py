@@ -8,6 +8,7 @@ references the right files.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,37 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BUILD_DIR = REPO_ROOT / "build"
 RECIPE_DIR = BUILD_DIR / "python-appimage"
+
+
+def _declared_floor(dist: str) -> str:
+    """The `>=` floor `pyproject.toml` declares for ``dist``.
+
+    Read out of the file rather than restated, so this test file cannot become one
+    more place a version number has to be kept in step by hand — see
+    `test_requirements_pins_match_dependencies_md` for the drift that prompted it.
+    Deliberately a small text scan and not a TOML parse: `tomllib` would give the
+    resolved list but the surrounding comments are what a reader needs, and a
+    dependency line here is always `"Name>=x.y.z,<a.b"`.
+    """
+    text = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    match = re.search(rf'^\s*"{re.escape(dist)}>=([0-9][^,"]*)', text, re.MULTILINE)
+    assert match is not None, (
+        f"pyproject.toml declares no `{dist}>=` floor — this test derives the "
+        f"expected recipe pin from it, so it cannot proceed without one"
+    )
+    return match.group(1)
+
+
+def _recipe_spec(text: str, dist: str) -> str:
+    """The recipe's whole requirement line for ``dist``, for a useful failure message.
+
+    A bare "not in text" assertion says nothing about what the file *does* say, which
+    is the first thing anyone reading the failure wants.
+    """
+    for line in text.splitlines():
+        if line.strip().lower().startswith(dist.lower()):
+            return line.strip()
+    return "<no line at all>"
 
 
 def test_build_script_exists_and_is_executable() -> None:
@@ -130,10 +162,24 @@ def test_requirements_pins_match_dependencies_md() -> None:
 
     Expressed with `~=` (no shell-special chars) but equivalent to the
     pyproject.toml / DEPENDENCIES.md bounds:
-      PySide6 ~=6.7  ==  >=6.7,<7.0     tomli-w ~=1.0  ==  >=1.0,<2.0
+      PySide6 ~=6.11.1  ==  >=6.11.1,<6.12    tomli-w ~=1.0  ==  >=1.0,<2.0
+
+    **PySide6's floor is DERIVED from `pyproject.toml`, not written out here.** It was
+    the literal `PySide6~=6.7` until 2026-08-18, when the pin moved to
+    `>=6.11.1,<6.12` — and this assertion turned out to be a *third* place holding a
+    copy of that number, so a correct pin change failed a test whose name says it
+    checks agreement. That is Critical rule #11 one layer down: a test that restates a
+    spec cannot detect drift in it, it can only object to being out of date. The full
+    equivalence check between the two files (bounds, not just the floor) lives in
+    `tests/test_gating_tools_are_pinned.py`; this one asserts the recipe names the
+    same floor, using the `~=` spelling the file is required to use.
     """
     text = (RECIPE_DIR / "requirements.txt").read_text()
-    assert "PySide6~=6.7" in text
+    pyside_floor = _declared_floor("PySide6")
+    assert f"PySide6~={pyside_floor}" in text, (
+        f"the AppImage recipe must pin PySide6~={pyside_floor} to match "
+        f"pyproject.toml; it says {_recipe_spec(text, 'PySide6')!r}"
+    )
     assert "musicbrainzngs==0.7.1" in text
     assert "tomli-w~=1.0" in text
 

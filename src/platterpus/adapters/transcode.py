@@ -7,13 +7,15 @@ keeps that FLAC as the archival master and **derives** the chosen format from it
 with a post-rip ffmpeg re-encode — this adapter. One uniform path for both
 backends means the MP3 is always best-practice VBR (cyanrip's *native* MP3 is
 only CBR), and there is always a lossless FLAC master (the north star).
-See ``docs/mp3-wav-support.md``.
+Design of record: ``docs/archive/mp3-wav-support-2026-06.md`` (archived once
+multi-format shipped, so the path moved — the content did not).
 
 **The FLAC stays the archival master.** We write a NEW sibling file next to each
 FLAC (``01 - x.flac`` → ``01 - x.mp3``/``.wv``/``.wav``) and never touch the
 FLAC. The derived file is additive.
 
-Per format (facts verified against upstream docs, docs/mp3-wav-support.md §3):
+Per format (facts verified against upstream docs;
+docs/archive/mp3-wav-support-2026-06.md §3):
   * **MP3** (lossy) — libmp3lame VBR ``-q:a N`` (== lame ``-V N``; N=0 ≈ the
     highest VBR, ~245 kbps), joint-stereo left on (ffmpeg default). The LAME
     ``-q4`` noise-shaping bug is CBR/ABR-only, so VBR is unaffected. Tags **and**

@@ -29,6 +29,26 @@ from platterpus.deps.ripper_offer import OFFER_NOT_DETERMINED, RipperOffer
 log = logging.getLogger(__name__)
 
 
+def _cancelled_offer(channel: str) -> RipperOffer:
+    """The verdict a cancelled check reports: nothing determined, nothing to install.
+
+    One function because the cancel is now checked at **two** points — before the
+    binary probe and after it — and two copies of "the offer that must not trigger a
+    modal" is two places for `install_commit` to creep back in. The empty
+    ``install_commit`` is the load-bearing part: an offer with one is what the window
+    answers with a modal install prompt, and a closing window must not raise one.
+    """
+    return RipperOffer(
+        verdict=OFFER_NOT_DETERMINED,
+        channel=channel,
+        release=None,
+        detail=(
+            "The cyanrip update check was cancelled before it finished. "
+            "Nothing was determined and nothing was changed."
+        ),
+    )
+
+
 class RipperUpdateWorker(QObject):
     """QObject worker: fetch the fork's release manifest, emit an offer."""
 
@@ -42,10 +62,16 @@ class RipperUpdateWorker(QObject):
     ) -> None:
         """``channel`` is the user's ripper update channel (``config.ripper_channel``).
 
-        ``installed_commit`` is the fork commit actually installed, when the window
-        could read it off the binary's banner. ``None`` means "fall back to the
-        commit this build pins", which is what a user who has never run
-        ``--install-ripper`` has.
+        ``installed_commit`` is a **test seam only**: production leaves it ``None``
+        and :meth:`_probe_installed_commit` reads the real binary on this thread.
+
+        Note what ``None`` means downstream, because it changed on 2026-08-18 and the
+        old meaning was the bug: :func:`~platterpus.deps.ripper_offer.evaluate_offer`
+        now reads it as *"we could not identify a Platterpus-fork build"* and offers
+        to install the expected one. It used to read it as *"assume the pinned
+        commit"*, which reported a machine running **stock upstream cyanrip** as
+        being on the fork's current release — a sentence assembled entirely from
+        constants.
         """
         super().__init__(parent)
         self.channel: str = channel
@@ -56,11 +82,48 @@ class RipperUpdateWorker(QObject):
         # sitting in `read()`, and a flag the blocked call never checks is a false
         # promise (CLAUDE.md rule 9), so this is the handle that makes the cancel real.
         self._fetcher: CancellableFetcher = CancellableFetcher()
+        #: True only while :meth:`_probe_installed_commit` is inside the container exec.
+        #: Read by :meth:`cancel` so it interrupts the shared ``VERSION_PROBE`` singleton
+        #: only when this worker is the one blocked in it — see :meth:`cancel`.
+        #: Assignment of a bool is atomic under the GIL, which is all this needs: the GUI
+        #: thread only ever reads it.
+        self._probing: bool = False
 
     @Slot()
     def cancel(self) -> None:
-        """Break an in-flight fetch. Safe from any thread, and safe to call twice."""
+        """Break whatever this worker is blocked in. Safe from any thread, and twice.
+
+        **Two blocking calls, so two interrupters.** The fetch was the only one when
+        this was written; probing the installed binary added a second and the cancel
+        was not extended, which made it a false promise for the longer of the two
+        (`CLAUDE.md` rule 9). `_probe_installed_commit` runs `check_cyanrip`, which
+        runs `VERSION_PROBE` once per entry in `VERSION_FLAGS` at a 60-second timeout
+        each — up to two minutes inside a `distrobox enter`, which `QThread.quit()`
+        cannot reach and closing a socket does nothing about. `cancel_version_probes()`
+        is the thing that SIGKILLs that child, and this worker never called it.
+
+        **The probe interrupter is scoped to the probe phase, and that is a fix rather
+        than a nicety.** ``VERSION_PROBE`` is a module-level singleton shared with the
+        whole dependency subsystem, and its cancel flag is *sticky* — deliberately, to
+        close the window between ``Popen`` returning and the child being registered. It
+        is cleared only when a run completes. So calling ``cancel_version_probes()``
+        while no probe is in flight left every *later* probe in the process refused,
+        including ones belonging to other callers. Measured: after a bare
+        ``worker.cancel()``, ``VERSION_PROBE._cancel_requested`` is ``True`` with nothing
+        running and stays that way.
+
+        Scoping it is race-free **for this worker** because the two phases are already
+        ordered: :meth:`run` checks ``self._fetcher.cancelled`` immediately before
+        starting the probe, so a cancel that lands earlier stops the probe from running
+        at all, and one that lands during it finds :attr:`_probing` set. There is no gap
+        for the sticky flag to cover here — which is why borrowing a shared object's
+        stickiness was the wrong tool.
+        """
+        from platterpus.deps.checks import cancel_version_probes
+
         self._fetcher.cancel()
+        if self._probing:
+            cancel_version_probes()
 
     def _probe_installed_commit(self) -> str | None:
         """The fork commit of the binary that is **actually installed**.
@@ -93,7 +156,14 @@ class RipperUpdateWorker(QObject):
             from platterpus.paths import CYANRIP_BINARY_DEFAULT
             from platterpus.ripper_identity import fork_commit_from_banner
 
-            probe = check_cyanrip(CYANRIP_BINARY_DEFAULT)
+            # Flagged around the blocking call only, and cleared in a `finally` so an
+            # exception cannot leave `cancel()` permanently authorised to cancel a
+            # singleton this worker is not using. See `cancel`.
+            self._probing = True
+            try:
+                probe = check_cyanrip(CYANRIP_BINARY_DEFAULT)
+            finally:
+                self._probing = False
             if not probe.present:
                 return None
             return fork_commit_from_banner(str(probe.raw_output or ""))
@@ -108,9 +178,37 @@ class RipperUpdateWorker(QObject):
 
         try:
             manifest = fetch_manifest(fetch=self._fetcher.fetch)
-            offer = evaluate_offer(
-                manifest, self.channel, installed_commit=self._probe_installed_commit()
-            )
+            if self._fetcher.cancelled:
+                # **A cancelled check has no verdict, and must not produce one.**
+                #
+                # `cancel()` is called from `closeEvent`, so reaching here means the
+                # window is going away. Falling through would probe the binary
+                # (seconds of `distrobox enter` during teardown) and then hand the
+                # GUI thread an offer — and since 2026-08-18 an offer can be one the
+                # window responds to with a **modal install prompt**. Popping a modal
+                # out of a closing window is the shape of bug this codebase keeps
+                # paying for: a late queued signal doing real work after the decision
+                # to stop.
+                #
+                # Emitting `not_determined` rather than returning silently is
+                # deliberate: `finished` is what lets `stop_thread` join this thread,
+                # and a worker that never finishes is a thread that gets abandoned
+                # (CLAUDE.md rule 9).
+                offer = _cancelled_offer(self.channel)
+            else:
+                installed = self._probe_installed_commit()
+                if self._fetcher.cancelled:
+                    # **The same check again, because the probe is the LONG phase.**
+                    # A cancel arriving during `distrobox enter` (up to two minutes)
+                    # would otherwise sail past the guard above — it was already
+                    # evaluated — and hand a modal-triggering offer to a window that
+                    # is tearing down. Checking once, before the shorter of the two
+                    # blocking calls, was checking at the wrong end.
+                    offer = _cancelled_offer(self.channel)
+                else:
+                    offer = evaluate_offer(
+                        manifest, self.channel, installed_commit=installed
+                    )
         except Exception:  # noqa: BLE001 — a worker must always finish
             log.exception("ripper update check crashed")
             # **The recovery must not call the thing that just failed.**

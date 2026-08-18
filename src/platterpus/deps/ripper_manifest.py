@@ -529,6 +529,18 @@ class CancellableFetcher:
         #: the gap between construction and connect is not silently ignored.
         self._cancelled: bool = False
 
+    @property
+    def cancelled(self) -> bool:
+        """Whether :meth:`cancel` has been called.
+
+        Public because a **caller** has to be able to tell "the fetch failed" from
+        "we abandoned it", and those need opposite responses: a failure is a verdict
+        to report, an abandonment happens because the window is closing and must
+        produce no user-facing anything. Reading ``_cancelled`` from outside would
+        have worked and would have been a private field two modules deep.
+        """
+        return self._cancelled
+
     def cancel(self) -> None:
         """Interrupt an in-flight fetch. Safe to call from any thread, and twice."""
         self._cancelled = True

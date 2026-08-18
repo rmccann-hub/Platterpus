@@ -130,7 +130,7 @@ parser against, and a real FLAC + CC0 sample to validate playback).
 accessibility standards review and asked for an audit "so we do not regress".
 This is the home the rule already had — principles, gaps, the bar for new
 features — and `CLAUDE.md`'s last-resort rule says a new file must name the
-homes it rejected. Considered and rejected: a new `docs/accessibility.md`
+homes it rejected. Considered and rejected: a new `accessibility.md`
 (duplicates principle 10 and this backlog one screen away, and *"a second doc
 that duplicates a home is worse than one long home"*); `docs/testing.md` (the
 enforcement lives there by reference, but the *principle* is UX); `CLAUDE.md`
@@ -216,4 +216,4 @@ finished — put the explanation *in the product*.
 
 ---
 
-*Last updated for Platterpus v0.6.12.*
+*Last updated for Platterpus v0.6.14.*

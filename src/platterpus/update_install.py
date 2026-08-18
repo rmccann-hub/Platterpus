@@ -194,7 +194,7 @@ def download_and_install(
             # Fail-closed: a missing/unfetchable signature is a REFUSAL, not a
             # fall-through to installing unverified bytes. (Every release cut
             # after signing is armed must carry a .minisig — see
-            # docs/release-signing.md.)
+            # docs/architecture.md §6.2.)
             part.unlink(missing_ok=True)
             raise UpdateInstallError(
                 "this release has no verifiable signature (.minisig) — refusing "

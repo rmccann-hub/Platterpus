@@ -222,7 +222,12 @@ def test_every_docs_path_named_in_claude_md_resolves() -> None:
     So this asserts the plainest possible thing about the one file every session
     is guaranteed to read: **every path it names is a path that is there.** It
     caught the four docs consolidated away on 2026-08-06 (the merge left
-    `CLAUDE.md` still pointing at `docs/appimage-testing.md`).
+    `CLAUDE.md` still pointing at the former `appimage-testing.md`).
+
+    Written as a bare label, not with a `docs/` prefix, per the convention
+    `CLAUDE.md` states for naming a retired file — the prefixed form reads as a
+    live pointer, and the wider sweep below now fails on one. This docstring was
+    the first thing that sweep caught, which is the convention earning its keep.
     """
     claude = _CLAUDE_MD.read_text(encoding="utf-8")
     named = _docs_paths_named_in(claude)
@@ -263,6 +268,159 @@ def test_the_docs_path_sweep_catches_a_vanished_file() -> None:
     assert not (_DOCS / "gone.md").is_file()
 
 
+#: Surfaces where a `docs/…md` path reads as a **live pointer** — something a
+#: contributor will follow *now*. Derived by walking these roots rather than listed
+#: file by file, so a module added next month is covered the day it lands.
+_LIVE_POINTER_ROOTS: tuple[str, ...] = (
+    "src",
+    "tests",
+    "scripts",
+    "build",
+    ".github/workflows",
+)
+
+#: Root-level and `docs/` files that are live maps rather than dated record.
+_LIVE_POINTER_FILES: tuple[str, ...] = (
+    "CLAUDE.md",
+    "README.md",
+    "PLANNING.md",
+    "TASKS.md",
+    "DEPENDENCIES.md",
+    "SECURITY.md",
+)
+
+#: **Deliberately excluded, and the reason matters more than the list.** These are
+#: *dated record*, not maps: they state what was true on a date. Repointing a link
+#: inside them to a file that did not exist yet would falsify the record, which is a
+#: worse outcome than a historical pointer that no longer resolves. `CHANGELOG.md`
+#: and `docs/session-log.md` are ours; `docs/handshake/` is correspondence exchanged
+#: with another project, and we do not edit documents we received. `docs/archive/`
+#: holds retired investigations whose whole purpose is to preserve what they said.
+_DATED_RECORD: tuple[str, ...] = (
+    "CHANGELOG.md",
+    "docs/session-log.md",
+    "docs/archive",
+    "docs/handshake",
+)
+
+#: Synthetic paths that exist to NOT exist — fixture strings in tests that prove the
+#: dangling-pointer detectors above can actually fail. A ratchet with a written reason
+#: per entry: it may shrink, never grow. Adding a real dead link here instead of
+#: fixing it defeats the sweep.
+_DELIBERATELY_ABSENT: dict[str, str] = {
+    "gone.md": "test_the_docs_path_sweep_catches_a_vanished_file's absent case",
+    "archive/foo.md": "same test's subdirectory case",
+    "handshake/nope.md": "test_round_digest.py's missing-file case",
+    "handshake/verified/round-N.md": "test_fork_source.py's filename TEMPLATE, "
+    "with a literal N — never a real path",
+    "definitely-not-here.md": "the absent half of "
+    "test_the_live_pointer_sweep_catches_a_dead_link_in_code, which proves this "
+    "sweep can fail at all",
+}
+
+
+def _live_pointer_files() -> list[Path]:
+    """Every file whose `docs/…md` mentions are pointers a reader would follow."""
+    seen: list[Path] = []
+    for root in _LIVE_POINTER_ROOTS:
+        for path in sorted((_REPO_ROOT / root).rglob("*")):
+            if path.is_file() and path.suffix in {".py", ".yml", ".yaml", ".sh"}:
+                seen.append(path)
+    for name in _LIVE_POINTER_FILES:
+        candidate = _REPO_ROOT / name
+        if candidate.is_file():
+            seen.append(candidate)
+    for path in sorted(_DOCS.rglob("*.md")):
+        rel = path.relative_to(_REPO_ROOT).as_posix()
+        if not any(rel == d or rel.startswith(d + "/") for d in _DATED_RECORD):
+            seen.append(path)
+    return seen
+
+
+def test_every_docs_pointer_in_a_live_surface_resolves() -> None:
+    """The same rule as the CLAUDE.md gate above, applied to the whole tree.
+
+    **Why this exists as a separate, wider sweep.** `CLAUDE.md` rule #7 says
+    retiring a file means retiring *every inbound link to it in the same commit* —
+    and the only thing enforcing that read `CLAUDE.md` alone. So the rule was held at
+    the place it was learned (a consolidation had left `CLAUDE.md` pointing at
+    `appimage-testing.md`) and nowhere else, which is this session's recurring shape
+    for the sixth time.
+
+    Sweeping the rest of the tree on 2026-08-18 found six live pointers into files
+    deleted weeks earlier, in code as well as docs:
+
+    * `.github/workflows/appimage.yml` → the retired AppImage-testing doc
+    * `adapters/transcode.py` and `config.py` → the archived multi-format design
+    * `update_install.py` and `update_signing.py` → the retired signing ritual,
+      which is the *worst* of the six: it is the fail-closed arming procedure, so a
+      maintainer who follows that pointer under release pressure lands on nothing
+    * `tests/test_argv_surface_agreement.py` → a handshake artifact path that never
+      existed in that spelling
+
+    Dated record is excluded on purpose — see `_DATED_RECORD`. A changelog entry is a
+    statement about a date, and "fixing" its links would make it lie.
+    """
+    files = _live_pointer_files()
+    dangling: list[str] = []
+    examined = 0
+    for path in files:
+        rel_file = path.relative_to(_REPO_ROOT).as_posix()
+        for rel in _docs_paths_named_in(path.read_text(encoding="utf-8")):
+            examined += 1
+            if rel in _DELIBERATELY_ABSENT or (_DOCS / rel).is_file():
+                continue
+            dangling.append(f"{rel_file} → docs/{rel}")
+
+    assert not dangling, (
+        "these live surfaces point at docs/ files that do not exist. Retiring a "
+        "doc means retiring every inbound link in the same commit (CLAUDE.md rule "
+        "#7) — repoint each at the section that absorbed it, or at the archived "
+        "path:\n  " + "\n  ".join(sorted(dangling))
+    )
+    # FLOORS. Two, because either one alone can be satisfied by finding nothing:
+    # a glob that stops matching yields no files, and a regex that stops matching
+    # yields no pointers from plenty of files.
+    assert len(files) >= 100, (
+        f"only {len(files)} live-pointer files found — the roots have moved and "
+        f"this sweep is passing over almost nothing"
+    )
+    assert examined >= 40, (
+        f"only {examined} docs/ pointers examined across {len(files)} files — the "
+        f"reference style has changed and this gate is passing by finding nothing"
+    )
+
+
+def test_the_deliberately_absent_list_is_still_deliberately_absent() -> None:
+    """Every exemption must still be *needed*, or the ratchet only ever loosens.
+
+    An allowlist entry whose file has since been created is no longer an exemption;
+    it is a stale hole that would let a genuinely dead pointer of the same name
+    through. So each entry is checked to be absent — the exact opposite of the
+    assertion it exempts.
+    """
+    assert _DELIBERATELY_ABSENT, "the allowlist is empty — delete it rather than ship"
+    for rel, reason in _DELIBERATELY_ABSENT.items():
+        assert not (_DOCS / rel).is_file(), (
+            f"`docs/{rel}` now exists, so its exemption ({reason}) is stale. Remove "
+            f"the entry: the sweep can check it for real now."
+        )
+
+
+def test_the_live_pointer_sweep_catches_a_dead_link_in_code() -> None:
+    """Revert-proof, against constructed text rather than by reading the regex.
+
+    The failure mode being excluded is a sweep that walks 100+ files, matches
+    nothing in any of them, and reports success. This proves the predicate the sweep
+    is built from separates present from absent on real paths.
+    """
+    sample = "# See docs/testing.md for the rules, and docs/definitely-not-here.md\n"
+    found = _docs_paths_named_in(sample)
+    assert found == ["testing.md", "definitely-not-here.md"], found
+    assert (_DOCS / found[0]).is_file()
+    assert not (_DOCS / found[1]).is_file()
+
+
 def test_the_index_routes_to_the_subdirectory_indexes() -> None:
     """Subdirectories are out of scope here *because* they self-index.
 
@@ -284,3 +442,76 @@ def test_the_index_routes_to_the_subdirectory_indexes() -> None:
             "under it are unreachable from the canonical index"
         )
         assert count >= 2, f"docs/{sub}/ holds only {count} files — still a dir?"
+
+
+# --- Section ids must be unique, because they are cited from other files ---------
+
+
+#: A cited section id: ``5.ag``, ``§5.ah``, ``3.12a``, ``6.1``. Both spellings of the
+#: prefix, because the collision that prompted this check spanned them — one heading
+#: wrote ``### §5.ag`` and the other ``### 5.ag``, which is exactly why a reader's eye
+#: slid past it.
+_SECTION_ID = re.compile(r"^#{2,4}\s+§?(\d+\.[0-9a-z]+)\b", re.MULTILINE)
+
+
+def test_no_doc_reuses_a_section_id() -> None:
+    """A cited id that resolves to two places is a broken cross-reference.
+
+    Found 2026-08-18 by reading, not by a check: ``docs/testing.md`` carried **two**
+    ``5.ag`` sections and **two** ``5.ah`` sections, added five days apart. Three files
+    cite ``§5.ah`` and two cite ``§5.ag``, so every one of those references was
+    ambiguous — and the ambiguity is invisible from either end. The citing file looks
+    correct, each section looks correct, and only counting reveals it.
+
+    This is the same class as the promise-of-completeness sweeps above (§5.af): a
+    numbered section is a *promise that the number identifies it*, and that promise
+    decays silently as sections are appended. Deriving the ids and counting them is the
+    check the parenthetical-comment version of this rule could not be.
+
+    Scoped to headings that carry an ``N.xx`` id, which is the convention that is cited;
+    plain prose headings are unaffected.
+    """
+    offenders: list[str] = []
+    examined = 0
+    for path in sorted(_DOCS.rglob("*.md")) + [_CLAUDE_MD]:
+        ids = _SECTION_ID.findall(path.read_text(encoding="utf-8"))
+        if not ids:
+            continue
+        examined += 1
+        seen: dict[str, int] = {}
+        for ident in ids:
+            seen[ident] = seen.get(ident, 0) + 1
+        for ident, count in sorted(seen.items()):
+            if count > 1:
+                offenders.append(
+                    f"{path.relative_to(_REPO_ROOT)}: §{ident} appears {count} times"
+                )
+
+    # Floor: if no document was found to carry numbered sections, this check examined
+    # nothing and would pass for a repo whose docs had all been deleted.
+    assert examined >= 2, (
+        f"only {examined} document(s) were found carrying `N.xx` section ids — the "
+        "pattern has gone stale and this check is passing by finding nothing"
+    )
+    assert not offenders, (
+        "duplicate section ids — every cross-reference to these is ambiguous:\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+def test_the_duplicate_id_check_would_catch_the_shipped_collision() -> None:
+    """Non-triviality, measured against the exact text that shipped.
+
+    Two headings from `docs/testing.md` as they stood on 2026-08-18, one with the ``§``
+    and one without — the spelling difference is why the collision survived a reader's
+    eye, so the detector has to be blind to it.
+    """
+    shipped = (
+        "### §5.ag — A conformance table is run, not read\n"
+        "body\n"
+        "### 5.ag — An implemented capability is not a capability either\n"
+    )
+    ids = _SECTION_ID.findall(shipped)
+    assert ids.count("5.ag") == 2, (
+        f"the detector does not see the shipped collision; it found {ids}"
+    )

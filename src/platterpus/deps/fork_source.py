@@ -159,6 +159,27 @@ FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
     # Round 7's release, and the first commit whose derived artifacts agree with its
     # own version — see the FORK_PIN note above for why `422d12a` was withdrawn.
     "ddf7ac3": 11,
+    # The fork's CURRENT published release on both channels, read off
+    # `release-manifest.json` at `c455683` (round 11's pin): `release_seq: 16`,
+    # `handshake_round: 10`, `round_closed: true`, version `0.9.4-rc1+platterpus.6`.
+    #
+    # **Recorded even though it is NOT our pin, and that is the point of a map.** A
+    # sequence here says only *"we know where this build sits in their order"* — it
+    # is not an approval, and `handshake_approval` keys on `FORK_PIN` alone. The two
+    # were conflated by omission: with only the pin listed, an operator running the
+    # fork's own current stable release got `release_seq_for_commit` → `None` → *"not
+    # one of the fork's numbered releases — a mid-round test pin, or a commit
+    # installed by hand"*. Every clause of that was wrong about a published release,
+    # and it was the message the maintainer actually received on 2026-08-17 while
+    # running `c4d1a00`.
+    #
+    # Knowing the sequence is what lets the offer say the true thing instead: *you
+    # are on the newest published build, and it is not the one this Platterpus was
+    # verified against* — which is two facts, both checkable, and it points at the
+    # real remedy. Our record approved round 8's release (`ddf7ac3`, seq 11); round
+    # 10 closed here against `56413d2`, not against this commit, so nothing about
+    # listing it moves what a rip may claim.
+    "c4d1a00": 16,
 }
 
 
@@ -680,8 +701,27 @@ def same_commit(a: str, b: str) -> bool:
     return left.startswith(right) or right.startswith(left)
 
 
-def target_for_commit(pin: str) -> ForkTarget:
+def target_for_commit(
+    pin: str,
+    *,
+    version: str | None = None,
+    meson_options: tuple[str, ...] = (),
+) -> ForkTarget:
     """A build target for an ARBITRARY fork commit, for ``--install-ripper <commit>``.
+
+    ``version`` and ``meson_options`` are for the **one caller that genuinely knows
+    them**: the in-app ripper update, which is building a commit the fork's own
+    release manifest described. Everything the manifest states there has already been
+    validated at that boundary (``ripper_manifest._clean_version`` and
+    ``_clean_build_options``), so passing them through is carrying a measured fact
+    rather than widening what an operator can inject — an operator typing a commit on
+    the command line still gets the honest "version not known" default below, because
+    for *them* it genuinely is not.
+
+    ``meson_options`` matters rather than being cosmetic: from schema 2 the manifest
+    names the options a commit needs (``-Ddeclare_released=true``), meson fails the
+    *whole* configure on an unknown ``-D``, and the empty default is what makes older
+    pins still buildable. Threading it here is what lets one install path serve both.
 
     **Why this exists, and it closes a gap in a rule we had already written.**
     `CLAUDE.md` Critical rule #12 says *"a moving pin needs a route to it that does not
@@ -716,22 +756,25 @@ def target_for_commit(pin: str) -> ForkTarget:
         # pin is the fact that matters and it is right here.
         return ForkTarget(
             pin=pin,
-            version="(version not read from the tree; the tag is what we verify)",
+            version=version
+            or "(version not read from the tree; the tag is what we verify)",
             why=(
                 f"commit {pin}, supplied on the command line — and this IS the "
                 f"approved pin ({PRODUCTION_TARGET.pin}), the build a closed round "
                 "approved. Rips with this installed report "
                 "ripper_handshake_approval: approved"
             ),
+            meson_options=meson_options,
         )
     return ForkTarget(
         pin=pin,
-        version="(version not known for an operator-supplied commit)",
+        version=version or "(version not known for an operator-supplied commit)",
         why=(
             f"commit {pin}, supplied on the command line — NOT the approved pin "
             f"({PRODUCTION_TARGET.pin}). Every rip with this installed reports "
             "ripper_handshake_approval: unapproved, which is the correct answer"
         ),
+        meson_options=meson_options,
     )
 
 

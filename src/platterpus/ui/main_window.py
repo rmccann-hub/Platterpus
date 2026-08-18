@@ -18,6 +18,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread, QTimer, Signal
+from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
     QDialog,
     QMainWindow,
@@ -115,6 +116,67 @@ _SCREEN_MARGIN_PX: int = 48
 # Initial share of the splitter for (disc info, track list, controls+progress). Only
 # a STARTING point: the user drags freely afterwards and Qt keeps their sizes.
 _PANE_SHARES: tuple[float, float, float] = (0.20, 0.40, 0.40)
+
+# How long after launch the automatic cyanrip check waits before running. Long
+# enough that the dependency probe and the drive listing — both of which enter the
+# same container — are past their cold start, short enough that a user who sees the
+# offer still connects it to opening the app. Not user-tunable: a knob for it would
+# be a knob for how long to defer being told the ripping path is wrong.
+_RIPPER_CHECK_DELAY_MS: int = 8_000
+
+
+def standard_shortcut(
+    standard: QKeySequence.StandardKey, fallback: str
+) -> QKeySequence:
+    """A ``QKeySequence`` for ``standard``, or ``fallback`` when Qt supplies none.
+
+    **A platform theme is a dependency, and this one moved under us.** Every menu
+    shortcut here is a :class:`QKeySequence.StandardKey` on purpose — the
+    accessibility convention in `CLAUDE.md` names it as the way to avoid a bare
+    single-character shortcut, because it resolves to a modified key per platform.
+    What that convention assumed, and never checked, is that Qt actually *has* a
+    binding for the key we ask about.
+
+    On **PySide6 6.11.2 it stopped having two of them.** Measured on 2026-08-18,
+    same machine, same ``QT_QPA_PLATFORM=offscreen``, only the wheel changed::
+
+        6.11.1   Quit -> 'Exit'     Preferences -> 'Settings'    HelpContents -> 'F1'
+        6.11.2   Quit -> ''         Preferences -> ''            HelpContents -> 'F1'
+
+    So on 6.11.2 the **Quit** and **Settings** menu items shipped with *no keyboard
+    shortcut at all* — a silent WCAG 2.1.1 regression introduced by a routine
+    dependency release, with no change to our code. CI caught it because
+    ``test_everyday_actions_have_keyboard_shortcuts`` asserts the *requirement*
+    rather than the mechanism; that is the test earning its place.
+
+    This is `CLAUDE.md` Critical rule #11 one level out. That rule pins the tools
+    that *gate* CI, on the reasoning that a floating version turns CI red with no
+    change to our code. The same is true of a floating **runtime** dependency, and
+    the consequence is worse: not a red build, a shipped accessibility regression.
+    Pinning PySide6 would stop this instance; asking Qt and then *checking the
+    answer* stops the whole class, on every Qt, forever.
+
+    ``fallback`` must carry a modifier — the a11y sweep in
+    ``tests/test_accessibility_standards.py`` enforces that on the literal, and a
+    bare letter is the thing StandardKey existed to avoid.
+
+    Typed with the real ``QKeySequence`` rather than ``object``. The first version
+    used ``object`` because this module imported ``QKeySequence`` lazily — and that
+    made every ``setShortcut(standard_shortcut(...))`` call a type error, which is
+    the same trap as the ``buttonClicked`` payload one commit earlier. Rule #10 cuts
+    both ways: a type loose enough to be "safe" stops describing the value, and the
+    call site is where that surfaces.
+    """
+    resolved = QKeySequence(standard)
+    if not resolved.isEmpty():
+        return resolved
+    log.warning(
+        "Qt supplied no binding for %s — falling back to %r so the action stays "
+        "keyboard-reachable (PySide6 6.11.2 dropped Quit and Preferences)",
+        standard,
+        fallback,
+    )
+    return QKeySequence(fallback)
 
 
 def _default_window_size() -> tuple[int, int]:
@@ -301,6 +363,10 @@ class MainWindow(
         # second silently no-op while the first was in flight.
         self._ripper_update_worker = None
         self._ripper_update_thread: QThread | None = None
+        self._ripper_check_is_automatic: bool = False
+        self._ripper_offer_box = None  # type on MainWindowShared
+        self._ripper_offer: object = None
+        self._ripper_offer_commit: str = ""
         # In-flight update INSTALL (download+verify+swap); cancelled+joined
         # in closeEvent so a half-downloaded update can't outlive the window.
         self._install_worker = None  # type on MainWindowShared
@@ -618,8 +684,36 @@ class MainWindow(
         # after the window is shown; in tests (no exec loop) it never fires, so
         # it can't interfere — _should_offer_drive_setup() is tested directly.
         QTimer.singleShot(0, self._maybe_offer_first_run_setup)
+        # The automatic cyanrip check is armed by `app.py`, NOT here — see
+        # `schedule_ripper_update_check` below for why constructing a window must
+        # not schedule it.
 
     # --- Top-level lifecycle ------------------------------------------------
+
+    def schedule_ripper_update_check(self) -> None:
+        """Arm the automatic cyanrip check, a few seconds after launch.
+
+        **Called by `app.py`, deliberately not by `__init__`.** Constructing a
+        window must not schedule work that can pop a modal: the suite builds
+        `MainWindow` directly in dozens of tests, several of which then spin a
+        nested event loop for longer than this delay — and when the timer fired,
+        the check found no fork ripper on the test machine, produced a
+        one-click install offer, and `exec()`d a `QMessageBox` **with nobody to
+        click it**. The run hung there, at 56%, indefinitely (measured
+        2026-08-18, while building this).
+
+        That is not a test-only problem dressed up as one, which is why the fix
+        is structural rather than a flag the harness sets: *"a window exists"*
+        and *"the application started"* are different events, and only the second
+        one licenses interrupting somebody. `refresh_drives()` above is called
+        from `app.py` for the same reason and says so in its own docstring.
+
+        The delay lets the launch dependency probe and the drive listing get past
+        their cold `distrobox enter` first — a third one alongside them is slow
+        for everyone, and this check is silent unless it has something to offer,
+        so waiting costs nothing.
+        """
+        QTimer.singleShot(_RIPPER_CHECK_DELAY_MS, self._maybe_check_ripper_updates)
 
     def refresh_drives(self) -> None:
         """Populate the drive picker — `list_drives` runs OFF the GUI thread.
@@ -737,9 +831,17 @@ class MainWindow(
         self._pending_library_move = None
         stop_thread(self._mb_thread, deadline=deadline)  # idle loop quits fast
         stop_thread(self._update_thread, deadline=deadline)  # short HTTP check
-        # One bounded HTTPS GET — but the WORKER is passed, not just the thread:
-        # its `cancel()` closes the socket, which is the only thing that can break a
-        # thread blocked in `read()`. Omitting it would make that cancel dead code.
+        # TWO blocking calls, not one, and the WORKER is passed for both: a bounded
+        # HTTPS GET (its `cancel()` closes the socket — the only thing that can break a
+        # thread blocked in `read()`) *and* a version probe that runs inside a
+        # `distrobox enter` at a 60 s timeout per flag, which only
+        # `cancel_version_probes()` can end. Omitting the worker would make both
+        # interrupters dead code.
+        #
+        # This comment said "One bounded HTTPS GET" for one commit, after the probe was
+        # added — the description of the seam went stale in the same change that
+        # widened it, which is how the worker's `cancel()` came to cover half of what
+        # it blocks on.
         stop_thread(
             self._ripper_update_thread, self._ripper_update_worker, deadline=deadline
         )
@@ -812,12 +914,16 @@ class MainWindow(
         unknown_action.triggered.connect(self._on_rip_as_unknown)
         file_menu.addSeparator()
         quit_action = file_menu.addAction("&Quit")
-        quit_action.setShortcut(QKeySequence.StandardKey.Quit)
+        quit_action.setShortcut(
+            standard_shortcut(QKeySequence.StandardKey.Quit, "Ctrl+Q")
+        )
         quit_action.triggered.connect(self.close)
 
         tools_menu = menubar.addMenu("&Tools")
         settings_action = tools_menu.addAction("&Settings…")
-        settings_action.setShortcut(QKeySequence.StandardKey.Preferences)
+        settings_action.setShortcut(
+            standard_shortcut(QKeySequence.StandardKey.Preferences, "Ctrl+,")
+        )
         settings_action.triggered.connect(self._on_open_settings)
 
         # Host bootstrap (installs the cyanrip container stack) — the
@@ -858,7 +964,9 @@ class MainWindow(
 
         help_menu = menubar.addMenu("&Help")
         guide_action = help_menu.addAction("&User Guide…")
-        guide_action.setShortcut(QKeySequence.StandardKey.HelpContents)
+        guide_action.setShortcut(
+            standard_shortcut(QKeySequence.StandardKey.HelpContents, "F1")
+        )
         guide_action.triggered.connect(self._on_show_help)
         update_action = help_menu.addAction("Check for &updates…")
         update_action.triggered.connect(self._on_check_updates)
