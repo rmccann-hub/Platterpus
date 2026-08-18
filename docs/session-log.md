@@ -189,6 +189,81 @@ to the code that breaks it, a comment asserting the invariant a line below where
 fails, two correct answers to one question by different keys. None is visible from
 inside either half.
 
+### The rig script would have re-triggered a known hardware hang
+
+The hardware round was one command from starting when an audit of the script found
+the reason it could not have worked. Three findings, in ascending order of severity.
+
+**1. A cancelled rip ejected the disc five seconds later.** `_on_rip_cancel` arms a
+5-second force-stop rescue *"in case it doesn't stop on its own"*. When it **does**
+stop on its own — the normal case — nothing disarmed the timer, so `_do_force_stop`
+ran, and its job is *"Eject + kill the in-container reader"*. `stop()` was called in
+exactly two places: the *start of the next rip*, far too late, and inside the rescue
+itself. The only honest test of *"does cancelling release the drive?"* is ripping
+again afterwards, and an unconditional eject-and-kill makes that unanswerable in
+**both** directions — an empty tray is a failure that is not real, a reader freed by
+the rescue is a success the cancel did not earn.
+
+**2. The flag the script tested was the wrong flag, and the right one is a hazard.**
+The script turned Overread on and ripped, under the heading *"`-x` (force overread)
+has NEVER run on a real drive"*. Every clause of that is wrong:
+
+* Overread is **`-O`**, and it **has** run on the BDR-209D — on 2026-07-22 it **hung
+  the drive ~23 minutes**, 13 of 14 tracks then a frozen lead-out.
+* The flag that has never run on any drive is the fork's **`-x` cache probe**, a
+  different thing costing seconds, which the script did not test at all.
+* A third `-x` exists in the fossil record: whipper's `--force-overread`, gone since
+  KDD-18, and the likely origin of the mix-up.
+
+`docs/dependency-contracts.md` has carried a block-quoted hazard table since
+2026-08-07 saying exactly this, and calling the confusion *"a hardware hazard rather
+than a documentation nit… anyone who reads 'the previously-documented `-x`' and
+reaches for the overread toggle on that drive loses the session."* It was right, and
+the correction had reached none of the four surfaces a person acts on: `README.md`,
+`TASKS.md`, `docs/rig-scripts/README.md` — **one screen above that same file's own
+copy of the table** — and the runnable script.
+
+**3. CTDB's "I don't know this disc" was being recorded as "the lookup failed."**
+Measured against the live server, with the control that settles it: a real TOC returns
+200 + XML, the same TOC with +1 frame on every offset returns 404. The 404 is keyed on
+the disc, not the request. Our client funnelled every 4xx into the exception class
+meaning *"can't reach the host"*, which made `Verdict.NOT_IN_DATABASE` **unreachable
+in production** and wrote two false sentences into every archival JSON for a disc CTDB
+does not know. `--doctor`'s CTDB check has consequently **never passed on any machine,
+ever** — its OK branch needs a 2xx that a fabricated probe TOC can never get.
+
+### Why all of this was mine to catch and I did not
+
+The maintainer asked directly: *"you seem to have many issues now, quality,
+regression, not following previous rules or tests, what about the missed gates?"*
+The honest audit:
+
+| I said | The repo said |
+| --- | --- |
+| run `--run-script rigcancelandoverread.txt` | they had no such file; the AppImage does not bundle `docs/` |
+| `-V` will not work | `VERSION_FLAGS = ("-V", "--version")`, `-V` tried **first** |
+| `-x` is force overread | `cyanrip_backend`: `-x` *"does not exist… would abort every rip"* |
+| use `expect-status` | `implemented=False`, with a written reason |
+| 75s is a generous apt bound | two of four legs unfinished; the full sample ran to 103s |
+
+One cause, not five: **I asserted at exactly the points where checking was cheap.**
+Not knowledge gaps — the repo was open the whole time. And stopping mid-task after
+writing "Starting now" was the same reflex in another form: describing the work
+standing in for doing it.
+
+**The missed gate, specifically.** `test_dependency_contract_emitted.py` checks the
+*generated* contract against the parser tables; `test_argv_surface_agreement.py`
+checks our argv against the fork's published table. Neither reads hand-written prose,
+so a document could name a flag that does not exist indefinitely, and the only cost
+was a lost hardware session. `tests/test_documented_ripper_flags_are_real.py` closes
+it — narrowly, and the narrowing is the interesting part: its first version also swept
+for *any* flag a doc attributed to cyanrip, and produced three false positives at once
+(`cd-paranoia -A`, FLAC's `-8 -V -j`, a shell `rm -f`) because prose does not say
+whose flag it is discussing. Making that pass would have needed an allowlist of other
+tools' flags — an exemption list that grows until the check means nothing. A check
+that must be defanged to stay green is worse than no check, so what shipped is the
+assertion that encodes the actual hazard and can be made exactly.
+
 ### v0.6.15 shipped, and the release gate refused me first
 
 The release dispatched seconds after the squash merge, and `release.yml` declined it:
@@ -2838,4 +2913,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.15.*
+*Last updated for Platterpus v0.6.16.*
