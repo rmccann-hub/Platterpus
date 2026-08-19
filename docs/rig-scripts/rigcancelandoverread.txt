@@ -1,5 +1,5 @@
 # =============================================================================
-# RIG TEST — the cache probe's first run, the cancel path, and the dialogs
+# RIG TEST — the cancel path, the drive-open proof, and the dialogs
 # =============================================================================
 #
 #   How to run it:  ./platterpus-x86_64.AppImage --run-script rigcancelandoverread.txt
@@ -69,7 +69,7 @@
 # -----------------------------------------------------------------------------
 
 log =============================================================
-log RIG TEST: cache probe on real hardware, and the cancel path
+log RIG TEST: the cancel path, the drive-open proof, and the dialogs
 log =============================================================
 snapshot atstart
 
