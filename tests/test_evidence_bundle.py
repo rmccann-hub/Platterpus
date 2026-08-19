@@ -12,9 +12,12 @@ from pathlib import Path
 
 from platterpus.evidence_bundle import (
     ALLOWED_SUFFIXES,
+    MAX_BUNDLES_KEPT,
     MAX_FILE_BYTES,
+    MAX_TOTAL_BYTES,
     build_bundle,
     bundle_filename,
+    prune_bundles,
     sha256_of,
 )
 
@@ -399,3 +402,171 @@ def test_an_album_folder_image_is_excluded_while_a_run_folder_image_is_not(
         "an album folder's image entered the bundle — the widened rule has leaked "
         "off the run folder and onto record-label artwork (Critical rule #8)"
     )
+
+
+# --- The caps and the pruning (0.6.18) --------------------------------------
+#
+# The per-file cap alone bounds nothing useful: the app log rotates, so a busy
+# machine presents `log.txt` plus five `log.txt.N` — six files each permitted
+# 16 MiB, all of which the first version held in memory at once, on a machine that
+# has just finished a rip. And nothing ever removed an old bundle.
+
+
+def _big_log_dir(tmp_path: Path, count: int, each_bytes: int) -> Path:
+    """A log directory with rotations, each `each_bytes` long."""
+    d = tmp_path / "logs"
+    d.mkdir()
+    (d / "log.txt").write_bytes(b"a" * each_bytes)
+    for n in range(1, count):
+        (d / f"log.txt.{n}").write_bytes(bytes([0x61 + n]) * each_bytes)
+    return d
+
+
+def test_the_total_budget_is_enforced_and_says_so(tmp_path: Path) -> None:
+    """Over-budget files are refused WITH A REASON, never dropped silently.
+
+    A bundle quietly missing the rotation that contains the failure reads exactly
+    like a complete one — the failure mode the whole manifest exists against.
+    """
+    each = MAX_TOTAL_BYTES // 4 + 1024  # four of these overflow the budget
+    log_dir = _big_log_dir(tmp_path, count=6, each_bytes=each)
+
+    result = build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260819T010000Z",
+        app_version="0.6.18",
+        outcome="success",
+        log_dir=log_dir,
+    )
+
+    assert result.path is not None and not result.error, result.error
+    total_in = sum(e.bytes_written for e in result.included)
+    assert total_in <= MAX_TOTAL_BYTES, (
+        f"{total_in} bytes of payload went in against a {MAX_TOTAL_BYTES} budget"
+    )
+    budget_refusals = [e for e in result.skipped if "budget" in e.reason]
+    assert budget_refusals, (
+        "six oversized rotations fitted inside the budget — either the fixture is "
+        "not oversized or the cap is not enforced"
+    )
+    manifest = _read_from(result.path, "MANIFEST.txt")
+    for entry in budget_refusals:
+        assert entry.name in manifest, (
+            f"{entry.name} was dropped but the manifest does not name it"
+        )
+    assert str(MAX_TOTAL_BYTES) in manifest, (
+        "the manifest does not state the cap that changed what it contains"
+    )
+
+
+def test_a_normal_bundle_is_not_touched_by_the_total_budget(tmp_path: Path) -> None:
+    """Non-triviality floor: the cap must not be refusing ordinary files.
+
+    Without this, a budget of zero would satisfy the test above perfectly.
+    """
+    log_dir = _big_log_dir(tmp_path, count=6, each_bytes=4096)
+
+    result = build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260819T020000Z",
+        app_version="0.6.18",
+        outcome="success",
+        log_dir=log_dir,
+    )
+
+    assert result.path is not None
+    assert len(result.included) == 6, (
+        f"an ordinary log directory lost files: {[e.reason for e in result.skipped]}"
+    )
+    assert not [e for e in result.skipped if "budget" in e.reason]
+
+
+def test_the_manifest_is_present_even_though_it_is_written_last(
+    tmp_path: Path,
+) -> None:
+    """Streaming moved MANIFEST.txt from the first member to the last.
+
+    Member order does not affect extraction, but "the manifest is in there" is the
+    kind of thing a refactor breaks quietly, so it is asserted rather than assumed.
+    """
+    result = build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260819T030000Z",
+        app_version="0.6.18",
+        outcome="cancelled",
+        log_dir=_log_dir(tmp_path),
+    )
+
+    assert result.path is not None
+    assert "MANIFEST.txt" in _names_in(result.path)
+    assert "cancelled" in _read_from(result.path, "MANIFEST.txt")
+
+
+def test_building_a_bundle_prunes_the_oldest_ones(tmp_path: Path) -> None:
+    """The bundles folder is bounded, and the new bundle survives its own prune."""
+    dest = tmp_path / "out"
+    dest.mkdir()
+    # Older than anything build_bundle will write, and more of them than the cap.
+    stale = []
+    for n in range(MAX_BUNDLES_KEPT + 5):
+        p = dest / f"platterpusbundle2026010{n:04d}z.tar.gz"
+        p.write_bytes(b"old")
+        import os
+
+        os.utime(p, (1_000_000 + n, 1_000_000 + n))
+        stale.append(p)
+
+    result = build_bundle(
+        dest_dir=dest,
+        stamp="20260819T040000Z",
+        app_version="0.6.18",
+        outcome="success",
+        log_dir=_log_dir(tmp_path),
+    )
+
+    assert result.path is not None and result.path.exists(), (
+        "the bundle just written was pruned — the one file the user is about to send"
+    )
+    remaining = sorted(p.name for p in dest.glob("platterpusbundle*.tar.gz"))
+    assert len(remaining) == MAX_BUNDLES_KEPT, remaining
+    assert result.path.name in remaining
+    # Oldest-first: the very oldest must be gone and the newest stale one kept.
+    assert not stale[0].exists(), "pruning removed the wrong end of the list"
+    assert stale[-1].exists(), "pruning removed a recent bundle"
+
+
+def test_pruning_never_touches_a_file_it_did_not_write(tmp_path: Path) -> None:
+    """The narrowing that matters, because this function deletes files.
+
+    A `*.tar.gz` glob would have been shorter and would delete a user's own
+    archives, their renamed keepsake copy of a bundle, and any note beside it.
+    """
+    dest = tmp_path / "out"
+    dest.mkdir()
+    bystanders = [
+        dest / "my-important-backup.tar.gz",
+        dest / "platterpusbundle-with-hyphens.tar.gz",
+        dest / "PLATTERPUSBUNDLE20260101Z.tar.gz",
+        dest / "notes.txt",
+        dest / "platterpusbundle20260101z.tar.gz.bak",
+    ]
+    for p in bystanders:
+        p.write_bytes(b"not ours to delete")
+    ours = []
+    for n in range(MAX_BUNDLES_KEPT + 3):
+        p = dest / f"platterpusbundle2026020{n:04d}z.tar.gz"
+        p.write_bytes(b"ours")
+        ours.append(p)
+
+    removed = prune_bundles(dest, keep=MAX_BUNDLES_KEPT)
+
+    assert removed, "nothing was pruned, so this proves nothing about what is safe"
+    for p in bystanders:
+        assert p.exists(), f"pruning deleted {p.name}, which this module never wrote"
+    assert all(r in ours for r in removed), removed
+
+
+def test_pruning_survives_a_missing_directory(tmp_path: Path) -> None:
+    """Housekeeping must never be the thing that takes down a rip."""
+    assert prune_bundles(tmp_path / "does-not-exist") == []
+    assert prune_bundles(tmp_path, keep=0) == []

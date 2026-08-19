@@ -217,7 +217,9 @@ _VERB_LIST: tuple[Verb, ...] = (
         "expect-tracks",
         1,
         1,
-        "expect-tracks <count> — assert how many track rows are loaded",
+        "expect-tracks <count|count+> — assert how many track rows are loaded; "
+        "a trailing '+' means 'at least this many', which is what a script that "
+        "must work on any disc actually wants",
     ),
     # --- cyanrip, passed through for real ------------------------------------
     Verb(

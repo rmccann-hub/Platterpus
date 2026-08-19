@@ -51,6 +51,7 @@ from __future__ import annotations
 import hashlib
 import io
 import logging
+import re
 import tarfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -95,6 +96,23 @@ MAX_FILE_BYTES: Final[int] = 16 * 1024 * 1024
 #: precisely the line that explains the failure (`CLAUDE.md`).
 _KEEP_HEAD_BYTES: Final[int] = 6 * 1024 * 1024
 _KEEP_TAIL_BYTES: Final[int] = 6 * 1024 * 1024
+
+#: Cap on the whole bundle's *uncompressed* payload, enforced as files are
+#: admitted. The per-file cap alone does not bound the archive: the app log
+#: rotates, so a busy machine can present `log.txt` plus five `log.txt.N` — six
+#: files, each allowed 16 MiB, before the album folder is even reached. Files past
+#: the budget are refused **with a counted reason in the manifest**, never dropped
+#: silently, because a bundle that is quietly missing the rotation containing the
+#: failure reads exactly like a complete one.
+MAX_TOTAL_BYTES: Final[int] = 64 * 1024 * 1024
+
+#: How many bundles to keep in the destination directory. One archive per rip
+#: end-state, each carrying a copy of the app log, is real disk on a library-sized
+#: session; nobody should have to sweep a cache directory by hand. Generous
+#: because these are evidence — the point is bounding unlimited growth, not being
+#: frugal — and pruning only ever removes files matching the exact name this
+#: module generates (see :func:`prune_bundles`).
+MAX_BUNDLES_KEPT: Final[int] = 20
 
 
 @dataclass(frozen=True)
@@ -309,6 +327,14 @@ def _render_manifest(
         "artwork.) The per-track CRCs in the logs prove bit-perfection without the",
         "audio.",
         "",
+        # Stated because a reader has to be able to tell a complete bundle from a
+        # capped one, and the caps are the only reason a file above might be
+        # missing for a reason that is not about the file itself. Derived from the
+        # constants for the same reason the allowlist above is.
+        f"Caps in force: {MAX_FILE_BYTES} B per file (head+tail kept, elision",
+        f"marked inline), {MAX_TOTAL_BYTES} B across the whole payload, and the",
+        f"newest {MAX_BUNDLES_KEPT} bundles are kept in the bundles folder.",
+        "",
     ]
     return "\n".join(lines)
 
@@ -344,44 +370,25 @@ def build_bundle(
         dest_dir.mkdir(parents=True, exist_ok=True)
         archive_path = dest_dir / bundle_filename(stamp)
 
-        # Gather and classify FIRST, so the manifest can describe the finished
-        # set. Writing the manifest last would mean describing a tar we are in
-        # the middle of building, and the description would be the thing that
-        # could be wrong.
-        payload: list[tuple[str, bytes]] = []
+        # ONE FILE'S BYTES IN MEMORY AT A TIME, not all of them.
+        #
+        # The first version built a `list[(name, bytes)]` of everything and then
+        # wrote the tar from it. The per-file cap does not bound that: the app log
+        # rotates, so `log.txt` plus five `log.txt.N` is six files each permitted
+        # 16 MiB — 96 MiB resident, on a machine that has just finished a rip and
+        # may be transcoding. So each file is read, written and released in turn,
+        # and the running total is charged against `MAX_TOTAL_BYTES`.
+        #
+        # The manifest is still written from the FINISHED classification, which is
+        # the property that mattered: it is appended as the last member rather than
+        # inserted as the first, because a description composed halfway through the
+        # gather would be the thing that could be wrong. Member order does not
+        # affect extraction.
         entries: list[BundleEntry] = []
-        for name, source, permitted in _collect(album_dir, log_dir, extra_dirs):
-            allowed, why = _is_allowed(source, permitted)
-            if not allowed:
-                entries.append(BundleEntry(name, str(source), False, why))
-                continue
-            try:
-                data, note = _read_bounded(source)
-            except OSError as exc:
-                entries.append(
-                    BundleEntry(name, str(source), False, f"unreadable: {exc}")
-                )
-                continue
-            payload.append((name, data))
-            entries.append(BundleEntry(name, str(source), True, note, len(data)))
-
-        for name, text in sorted(extra_text.items()):
-            blob = text.encode("utf-8", errors="replace")
-            payload.append((name, blob))
-            entries.append(BundleEntry(name, "(generated in-app)", True, "", len(blob)))
-
-        manifest = _render_manifest(
-            stamp=stamp,
-            app_version=app_version,
-            outcome=outcome,
-            facts=facts,
-            album_dir=album_dir,
-            entries=entries,
-        )
-        payload.insert(0, ("MANIFEST.txt", manifest.encode("utf-8")))
-
+        spent = 0
         with tarfile.open(archive_path, "w:gz") as tar:
-            for name, data in payload:
+
+            def _write(name: str, data: bytes) -> None:
                 info = tarfile.TarInfo(name)
                 info.size = len(data)
                 # A fixed mtime and uid/gid: the archive is evidence, and two
@@ -395,6 +402,54 @@ def build_bundle(
                 info.gname = ""
                 tar.addfile(info, io.BytesIO(data))
 
+            for name, source, permitted in _collect(album_dir, log_dir, extra_dirs):
+                allowed, why = _is_allowed(source, permitted)
+                if not allowed:
+                    entries.append(BundleEntry(name, str(source), False, why))
+                    continue
+                try:
+                    data, note = _read_bounded(source)
+                except OSError as exc:
+                    entries.append(
+                        BundleEntry(name, str(source), False, f"unreadable: {exc}")
+                    )
+                    continue
+                if spent + len(data) > MAX_TOTAL_BYTES:
+                    entries.append(
+                        BundleEntry(
+                            name,
+                            str(source),
+                            False,
+                            f"excluded: the bundle's {MAX_TOTAL_BYTES}-byte total "
+                            f"budget was already spent ({spent} bytes) and this "
+                            f"file is {len(data)} bytes. Nothing is dropped "
+                            "silently — this line IS the record that it was.",
+                        )
+                    )
+                    continue
+                _write(name, data)
+                spent += len(data)
+                entries.append(BundleEntry(name, str(source), True, note, len(data)))
+                del data  # release before the next file is read
+
+            for name, text in sorted(extra_text.items()):
+                blob = text.encode("utf-8", errors="replace")
+                _write(name, blob)
+                spent += len(blob)
+                entries.append(
+                    BundleEntry(name, "(generated in-app)", True, "", len(blob))
+                )
+
+            manifest = _render_manifest(
+                stamp=stamp,
+                app_version=app_version,
+                outcome=outcome,
+                facts=facts,
+                album_dir=album_dir,
+                entries=entries,
+            )
+            _write("MANIFEST.txt", manifest.encode("utf-8"))
+
         result.path = archive_path
         result.entries = entries
         log.info(
@@ -404,10 +459,70 @@ def build_bundle(
             len(result.skipped),
             archive_path.stat().st_size,
         )
+        prune_bundles(dest_dir, keep=MAX_BUNDLES_KEPT, protect=archive_path)
     except Exception as exc:  # noqa: BLE001 — a convenience must never crash a rip
         log.exception("could not write the evidence bundle")
         result.error = f"{type(exc).__name__}: {exc}"
     return result
+
+
+#: The exact shape :func:`bundle_filename` produces. Pruning matches on THIS and
+#: nothing looser, so a file a person put in the directory — a note, a rename, a
+#: bundle they saved under a name that means something to them — is never a
+#: candidate. A glob of `*.tar.gz` would have been shorter and would delete other
+#: people's archives.
+_BUNDLE_NAME_RE: Final[re.Pattern[str]] = re.compile(
+    r"^platterpusbundle[a-z0-9]+\.tar\.gz$"
+)
+
+
+def prune_bundles(
+    dest_dir: Path, *, keep: int = MAX_BUNDLES_KEPT, protect: Path | None = None
+) -> list[Path]:
+    """Delete all but the newest ``keep`` bundles. Returns what it removed.
+
+    Never raises: a housekeeping step that takes down a rip is worse than a full
+    disk. Every removal is logged at INFO with its path, so a user who wonders
+    where an old bundle went can find the answer in the log they already have.
+
+    Three deliberate narrowings, because this function deletes files:
+
+    * **Name, not glob.** Only ``platterpusbundle<alnum>.tar.gz`` — the exact
+      spelling this module generates — is a candidate. Anything else in the
+      directory is somebody's, and not ours to tidy.
+    * **``protect`` is never removed**, whatever the sort says. The bundle just
+      written is the one the user is about to be told to send; a clock skew or an
+      equal mtime must not be able to delete it.
+    * **Newest by mtime, ties broken by name.** The names are timestamped and sort
+      chronologically, so the tiebreak agrees with the mtime order rather than
+      being arbitrary — two bundles written inside one filesystem timestamp tick
+      still prune in a defined order.
+    """
+    try:
+        if keep < 1 or not dest_dir.is_dir():
+            return []
+        resolved_protect = protect.resolve() if protect is not None else None
+        candidates = [
+            p
+            for p in dest_dir.iterdir()
+            if p.is_file() and _BUNDLE_NAME_RE.match(p.name)
+        ]
+        candidates.sort(key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
+        removed: list[Path] = []
+        for stale in candidates[keep:]:
+            if resolved_protect is not None and stale.resolve() == resolved_protect:
+                continue
+            try:
+                stale.unlink()
+            except OSError as exc:
+                log.warning("could not prune old bundle %s: %s", stale, exc)
+                continue
+            removed.append(stale)
+            log.info("pruned old report bundle (keeping %d): %s", keep, stale)
+        return removed
+    except OSError:
+        log.exception("could not prune the bundle directory %s", dest_dir)
+        return []
 
 
 def sha256_of(path: Path) -> str:

@@ -317,6 +317,24 @@ class ScriptRunner(QObject):
         self._last_cyanrip_exit: int | None = None
         self._last_cyanrip_output: str = ""
         self._last_cyanrip_argv: list[str] = []
+        #: The installed ripper's build tag, LATCHED — set the first time any
+        #: `cyanrip` verb's output yields one, updated if a later one yields a
+        #: different one, and **never cleared**. `(ripper)` reads this and not
+        #: `_last_cyanrip_output`, which is deliberately invalidated by the very
+        #: next `cyanrip` step (a refusal, a timeout, or just a different
+        #: command) so that `expect-cyanrip`/`expect-exit` can never grade a
+        #: subject two commands old. Those are opposite requirements on one
+        #: field, and in 0.6.17 the assertion half won: the section-C cache-probe
+        #: timeout wrote `job.error` into the slot, so both `album … (ripper)`
+        #: steps in section A's own script failed with "no build tag has been
+        #: captured yet" — while the banner they needed had been captured 20
+        #: minutes earlier and thrown away. The rip then used the default album
+        #: title, which is how a cancelled rip's two FLACs landed in the real
+        #: album folder and produced an overwrite prompt nobody expected.
+        #: Identity is a property of the *installed binary*, not of the last
+        #: command; it gets its own field so no assertion's bookkeeping can
+        #: reach it.
+        self._ripper_build_tag: str = ""
         #: The `cyanrip` verb currently running on a helper thread, if any. While
         #: this is set the tick services it instead of advancing, which is what
         #: keeps a five-minute ripper call off the GUI thread.
@@ -863,6 +881,7 @@ class ScriptRunner(QObject):
             # must never be written as 0.
             self._last_cyanrip_exit = None
             self._last_cyanrip_output = job.error
+            self._latch_ripper_identity(job.error)
             self._record(
                 job.step,
                 Outcome.ERROR,
@@ -873,12 +892,36 @@ class ScriptRunner(QObject):
         code, output = job.result
         self._last_cyanrip_exit = code
         self._last_cyanrip_output = output
+        self._latch_ripper_identity(output)
         self._record(
             job.step,
             Outcome.PASS,
             f"argv: {' '.join(job.argv)}\nexit: {code}\n{_bounded_output(output)}",
             elapsed=elapsed,
         )
+
+    def _latch_ripper_identity(self, text: str) -> None:
+        """Remember the ripper's build tag if ``text`` carries one; never forget.
+
+        Called from **every** place a `cyanrip` verb's output lands, so there is
+        one absorber rather than one reader per consumer. It only ever *sets* the
+        latch: output with no recognisable banner (a probe's error text, a rip's
+        progress spew) leaves the previously captured tag alone.
+
+        Latest-wins rather than first-wins, deliberately: the field answers
+        "which binary is installed", and if a later banner disagrees with an
+        earlier one then the later one is the current truth. Within a single
+        script run the two are the same value, so the choice only matters if a
+        script ever reinstalls the ripper mid-run — in which case naming the new
+        build is the correct answer.
+        """
+        if not text:
+            return
+        from platterpus.ripper_identity import identify_from_banner
+
+        tag = identify_from_banner(text).build_tag
+        if tag:
+            self._ripper_build_tag = tag
 
     def _do_rig_check(self, step: Step) -> None:
         """Run the cyanrip seam check on a helper thread; the tick collects it.
@@ -1110,22 +1153,29 @@ class ScriptRunner(QObject):
         the literal string `(ripper)` in both passes' titles and silently restore
         the collision. So it is a hard failure that names the cause.
 
+        **It reads the LATCH, not the last output (fixed 0.6.18).** The first
+        version read `_last_cyanrip_output`, which every subsequent `cyanrip`
+        step overwrites on purpose — see `_ripper_build_tag` for the measured
+        failure that cost a hardware session. The placeholder now only needs a
+        `cyanrip` step to have run *at some point*, not to be the most recent
+        one, which is the property a two-pass script actually depends on.
+
         Spelled `(ripper)` to match the `(track) - (title)` placeholder syntax
         this project already hands cyanrip in `-F`, rather than inventing a
         second convention for the same idea.
         """
         if "(ripper)" not in value:
             return value, ""
-        from platterpus.ripper_identity import identify_from_banner
-
-        tag = identify_from_banner(self._last_cyanrip_output).build_tag
+        tag = self._ripper_build_tag
         if not tag:
             return value, (
                 "(ripper) could not be expanded: no cyanrip build tag has been "
-                "captured yet. Put a `cyanrip --version` step before this one — "
-                "the placeholder reads that banner. Refusing rather than writing "
-                "the literal text, which would give two passes the same album "
-                "folder and overwrite the first pass's evidence."
+                "captured yet — no `cyanrip` step in this script has produced a "
+                "recognisable version banner. Put a `cyanrip --version` step "
+                "before this one; the tag it captures is latched for the whole "
+                "run, so any later step may follow it. Refusing rather than "
+                "writing the literal text, which would give two passes the same "
+                "album folder and overwrite the first pass's evidence."
             )
         return value.replace("(ripper)", tag), ""
 
@@ -1155,17 +1205,52 @@ class ScriptRunner(QObject):
         The **floor** for everything after it: a script that rips without checking
         this can rip a disc it never identified, and a zero-track "success" reads
         the same as a real one in a transcript.
+
+        Two forms — ``expect-tracks 14`` (exactly) and ``expect-tracks 3+`` (at
+        least). **The at-least form exists because the exact form made a script
+        lie** (0.6.18). ``rigcancelandoverread.txt`` opens by promising it needs no
+        editing and works on any ordinary CD, and it then asserted
+        ``expect-tracks 3`` — meaning "this disc has exactly three tracks" — while
+        *intending* "at least the three I am about to select". On the rig disc (14
+        tracks) it failed every run, twice per run, in a transcript whose purpose
+        was proving the rip worked. Hardcoding ``14`` would have fixed the failure
+        and broken the promise; there was no exact number that could satisfy both.
+
+        A trailing ``+`` rather than a second argument or a new verb: the arity
+        stays 1, every existing script keeps its meaning, and the reader needs no
+        vocabulary they do not already have. `CLAUDE.md`: a capability the script
+        language cannot reach is one the tests cannot reach — so the fix goes in
+        the language, not into an operator's instructions.
         """
+        raw = step.args[0]
+        at_least = raw.endswith("+")
         try:
-            wanted = int(step.args[0])
+            wanted = int(raw[:-1] if at_least else raw)
         except ValueError:
-            self._record(step, Outcome.ERROR, f"{step.args[0]!r} is not a count")
+            self._record(
+                step,
+                Outcome.ERROR,
+                f"{raw!r} is not a count — use a number, or a number with a "
+                "trailing '+' for 'at least this many'",
+            )
             return
         table = getattr(self._window, "_track_table", None)
         if table is None:
             self._record(step, Outcome.ERROR, "no track table on the window")
             return
         actual = len(table.tracks())
+        if at_least:
+            if actual >= wanted:
+                self._record(
+                    step, Outcome.PASS, f"{actual} track rows (at least {wanted})"
+                )
+            else:
+                self._record(
+                    step,
+                    Outcome.FAIL,
+                    f"expected at least {wanted} track rows, found {actual}",
+                )
+            return
         if actual == wanted:
             self._record(step, Outcome.PASS, f"{actual} track rows, as expected")
         else:
@@ -1184,10 +1269,35 @@ class ScriptRunner(QObject):
 
         Refuses when the controls themselves say they cannot start, and says which —
         an unstarted rip that reports PASS is the worst outcome available here.
+
+        **Why an open dialog is one of those refusals (0.6.18).** The two guards
+        below it — "a rip is already running" and `can_start()` — are both read on
+        the GUI thread and **both pass while a modal is up**, because the window
+        opens the overwrite confirmation *before* it creates the worker and the
+        controls are still enabled behind it. Qt delivers this runner's timer
+        events inside a modal's nested event loop (the property that lets a
+        script dismiss a modal at all), so the batch keeps advancing: a second
+        `rip` step reaches here, both guards say yes, and answering the first
+        dialog then launches **two concurrent cyanrip processes against one
+        drive**. `CLAUDE.md`'s recurring trap, in the harness rather than the
+        product — *did I check the preconditions where the thing HAPPENS, or
+        where it was scheduled?*
         """
         controls = getattr(self._window, "_rip_controls", None)
         if controls is None:
             self._record(step, Outcome.ERROR, "no rip controls on the window")
+            return
+        blocking = _active_dialog()
+        if blocking is not None:
+            self._record(
+                step,
+                Outcome.FAIL,
+                f"a dialog is waiting for an answer: "
+                f"{blocking.windowTitle()!r}. Refusing to press Start behind it — "
+                "the previous step's rip may not have been created yet, and "
+                "starting a second one would put two ripper processes on one "
+                "drive. Answer it in the script (`ok` / `cancel`) before ripping.",
+            )
             return
         if getattr(self._window, "_rip_worker", None) is not None:
             self._record(step, Outcome.FAIL, "a rip is already running")
@@ -1427,12 +1537,25 @@ class ScriptRunner(QObject):
         # succeeds by finding nothing is the shape this script's own header
         # forbids in point 3.
         if getattr(window, "_rip_worker", None) is None:
-            self._record(
-                step,
-                Outcome.FAIL,
+            # NAME THE MODAL IF THERE IS ONE. "No rip is running" is true and
+            # useless when the reason is that the app is holding a confirmation
+            # up and waiting for a person: the rip was requested, the worker just
+            # does not exist yet. On the rig that read as an unexplained failure
+            # (0.6.18) — the diagnosis was in the app, on screen, and not in the
+            # transcript.
+            blocking = _active_dialog()
+            detail = (
                 "no rip is running, so there is nothing to wait for — this step "
-                "reports the state it found rather than passing on an empty room",
+                "reports the state it found rather than passing on an empty room"
             )
+            if blocking is not None:
+                detail += (
+                    f". A dialog is waiting for an answer: "
+                    f"{blocking.windowTitle()!r} — the rip was requested but the "
+                    "app is blocked on it, so no worker exists yet. Answer it in "
+                    "the script (`ok` / `cancel`) between `rip` and this step."
+                )
+            self._record(step, Outcome.FAIL, detail)
             return
         self._arm_deadline(
             step, capped, lambda: getattr(window, "_rip_worker", None) is None
