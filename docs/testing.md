@@ -1655,6 +1655,63 @@ sent the fix into the MusicBrainz layer. The screenshots settled it. *Two sympto
 one plausible common cause are still two symptoms* (`CLAUDE.md`: *did I reproduce the
 symptom, or only explain it?*).
 
+### §5.aq — One field, two opposite requirements: the value another feature is *supposed* to destroy
+
+*Rig run of 2026-08-19, app 0.6.17. Two failed steps, and the damage was in the
+file system rather than the transcript.*
+
+`(ripper)` expands a script's album title to the installed ripper's build tag, so a
+two-pass session writes two folders instead of pass 2 landing on pass 1. It read
+`ScriptRunner._last_cyanrip_output`. That field has a **second, deliberate
+requirement**, added two weeks earlier for a good reason: it is **invalidated on
+every new `cyanrip` step** — a refusal, a timeout, a different command — so
+`expect-cyanrip` / `expect-exit` can never grade a subject two commands old (§5.an).
+
+Both requirements are correct. They are incompatible on one field, and the
+assertion half won by being written second. Section C's cache probe timed out, the
+timeout path wrote its own error text into the slot, and both `album … (ripper)`
+steps in section D and E failed with *"no build tag has been captured yet"* — twenty
+minutes after section A had captured it.
+
+**The consequence was not the two failed steps.** With the placeholder refused, the
+rip used the **default album title**, so section D's cancelled rip and section E's
+recovery rip both targeted the disc's real album folder. That is what produced the
+overwrite prompt the maintainer reported as *"that doesn't seem right"*: the dialog
+was correct, the folder collision was real, and the cause was three sections
+upstream in a field nobody had connected to it.
+
+**The question this adds** — a sibling to `CLAUDE.md`'s *what pins my input?*, which
+is about an input frozen by design:
+
+> **What else WRITES to the field I am reading, and does it write for a reason I
+> would not want to override?**
+
+If the answer is "another feature clears it on purpose", you have two facts sharing
+one slot and you need two slots. The tell is a lifetime mismatch stated in the
+field's own docstring: `_last_cyanrip_output` documents itself as *the last*
+invocation's output, and ripper *identity* is a property of the installed binary,
+which does not change per command. A value whose natural lifetime is the run cannot
+live in a field whose contract is per-step.
+
+**Testing note — the fixture was writing the field the reader read.** The existing
+`(ripper)` tests set `runner._last_cyanrip_output = banner` directly. That is
+`CLAUDE.md`'s *what does my stand-in do that the real thing does not?* in its most
+literal form: the helper bypassed the absorber, so it would have kept passing
+against a build where nothing populated the latch at all. The regression test plays
+a real `_CyanripJob` through `_service_cyanrip`, and asserts **survival** rather than
+expansion — a fresh banner expanding proves nothing about a banner surviving the
+traffic that follows it.
+
+**And a recurrence worth naming.** The section-C note this run invalidated was
+itself a *correction*, written 2026-08-18, which fixed a genuine hardware hazard
+(`-O` overread vs the fork's `-x` cache probe) and closed by asserting the probe
+"costs SECONDS". That half was a guess, and it is the half that cost the session:
+`-x` measures the cache and then rips the whole disc. `CLAUDE.md` already carries
+*did a correction get less scrutiny than a claim?* — this is its second instance in
+two weeks, which makes it a pattern. A correction arrives with the authority of
+having been researched; the parts of it that were not researched arrive wearing the
+same authority.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at
@@ -1739,4 +1796,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.17.*
+*Last updated for Platterpus v0.6.18.*

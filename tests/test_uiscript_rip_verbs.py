@@ -25,6 +25,8 @@ from __future__ import annotations
 import dataclasses
 import inspect
 import json
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +34,7 @@ import pytest
 
 from platterpus.config import Config
 from platterpus.uiscript.report import Outcome
-from platterpus.uiscript.runner import ScriptRunner
+from platterpus.uiscript.runner import ScriptRunner, _CyanripJob
 from platterpus.uiscript.script import parse
 
 pytest.importorskip("PySide6.QtWidgets")
@@ -331,6 +333,76 @@ def test_rip_refuses_while_one_is_already_running(qapp, process_until) -> None:
     assert "already running" in record.detail
 
 
+def test_rip_refuses_while_a_dialog_is_waiting_for_an_answer(
+    qapp, process_until
+) -> None:
+    """The 0.6.18 re-entrancy guard, at the state the other two guards cannot see.
+
+    Both pre-existing guards — `_rip_worker is not None` and `can_start()` — say
+    "go ahead" while the window is holding its overwrite confirmation up: the
+    worker is created *after* that dialog is answered, and the controls behind it
+    are still enabled. Qt runs this runner's timer inside the modal's nested event
+    loop, so the batch does not pause there; a script with two `rip` steps reaches
+    the second one and, when the operator finally clicks through, launches **two
+    cyanrip processes against one drive**.
+
+    Asserted on the OUTCOME OF THE PRESS, not only on the record: the thing that
+    must not happen is Start being pressed, and a test that checked the FAIL alone
+    would pass against a guard that recorded FAIL and pressed Start anyway.
+    """
+    from PySide6.QtWidgets import QDialog
+
+    win = _window()
+    dialog = QDialog(win)
+    dialog.setWindowTitle("Album folder already has audio")
+    dialog.setModal(True)
+    dialog.show()
+    try:
+        assert process_until(lambda: dialog.isVisible()), "the stand-in never showed"
+        record, _ = _run_one(win, "rip")
+        assert record.outcome is Outcome.FAIL, record.detail
+        assert "Album folder already has audio" in record.detail, (
+            "the refusal did not name the dialog that caused it — the whole "
+            "point is that the transcript carries the diagnosis"
+        )
+        # Give the deferred `singleShot(0, start)` every chance to land, then
+        # prove it never armed.
+        process_until(lambda: win._rip_controls.started, timeout=0.5)
+        assert not win._rip_controls.started, (
+            "Start was pressed behind an open modal — this is the two-rippers-"
+            "on-one-drive defect"
+        )
+    finally:
+        dialog.close()
+        dialog.deleteLater()
+
+
+def test_wait_for_rip_names_the_modal_that_is_blocking_the_rip(
+    qapp, process_until
+) -> None:
+    """ "No rip is running" is true and useless when a modal is why.
+
+    The rip WAS requested; the worker does not exist yet because the app is
+    blocked on a confirmation. On the rig that rendered as an unexplained
+    failure while the explanation was on screen.
+    """
+    from PySide6.QtWidgets import QDialog
+
+    win = _window()
+    dialog = QDialog(win)
+    dialog.setWindowTitle("Album folder already has audio")
+    dialog.setModal(True)
+    dialog.show()
+    try:
+        assert process_until(lambda: dialog.isVisible())
+        record, _ = _run_one(win, "wait-for-rip 30")
+        assert record.outcome is Outcome.FAIL, record.detail
+        assert "Album folder already has audio" in record.detail, record.detail
+    finally:
+        dialog.close()
+        dialog.deleteLater()
+
+
 def test_cancel_rip_needs_a_rip_to_cancel(qapp, process_until) -> None:
     win = _window()
     record, _ = _run_one(win, "cancel-rip")
@@ -399,6 +471,45 @@ def test_expect_tracks_fails_when_nothing_is_loaded(qapp, process_until) -> None
     """The case the floor exists for: a rip that identified nothing."""
     win = _window(track_table=_TrackTable(count=0))
     assert _run_one(win, "expect-tracks 14")[0].outcome is Outcome.FAIL
+
+
+def test_expect_tracks_at_least_form(qapp, process_until) -> None:
+    """`3+` means at least three, which is what a disc-agnostic script wants.
+
+    Added 0.6.18. `rigcancelandoverread.txt` promises at the top that it needs no
+    editing and works on any ordinary CD, and then asserted `expect-tracks 3` —
+    "this disc has exactly three tracks" — while meaning "at least the three I am
+    about to select". It failed twice per run on the 14-track rig disc, in a
+    transcript whose purpose was proving the rip worked, and there was no exact
+    number that could satisfy both the assertion and the promise.
+    """
+    win = _window()  # 14 rows
+    assert _run_one(win, "expect-tracks 3+")[0].outcome is Outcome.PASS
+    assert _run_one(win, "expect-tracks 14+")[0].outcome is Outcome.PASS
+    assert _run_one(win, "expect-tracks 15+")[0].outcome is Outcome.FAIL
+
+
+def test_the_at_least_form_still_catches_a_disc_that_identified_nothing(
+    qapp, process_until
+) -> None:
+    """The counter-test, and the one that matters most.
+
+    A looser assertion is only worth having if it still fails on the case the
+    strict one existed for. `1+` against an empty table is the vacuous-pass shape
+    the verb's own docstring calls the floor — if the `+` form had been written as
+    "pass unless we can prove otherwise" it would report PASS here, and every
+    script using it would have a check that cannot fail.
+    """
+    win = _window(track_table=_TrackTable(count=0))
+    assert _run_one(win, "expect-tracks 1+")[0].outcome is Outcome.FAIL
+    assert _run_one(win, "expect-tracks 3+")[0].outcome is Outcome.FAIL
+
+
+def test_a_malformed_at_least_count_is_an_error_not_a_pass(qapp, process_until) -> None:
+    """`+` alone, or a word with a `+`, must not read as zero-or-more."""
+    win = _window()
+    assert _run_one(win, "expect-tracks +")[0].outcome is Outcome.ERROR
+    assert _run_one(win, "expect-tracks nine+")[0].outcome is Outcome.ERROR
 
 
 # --- set / expect / expect-contains -----------------------------------------
@@ -995,9 +1106,33 @@ def test_the_no_picker_and_picker_arms_demand_the_same_evidence(
 # the operator between passes — hand-work the software should do (`CLAUDE.md`).
 
 
+def _run_cyanrip_step(runner: ScriptRunner, output: str, exit_code: int = 0) -> None:
+    """Play a completed `cyanrip` verb through the runner's REAL collector.
+
+    Deliberately not `runner._last_cyanrip_output = banner`, which is what this
+    helper used to do. That shortcut is the *"what does my stand-in do that the
+    real thing does not?"* trap in miniature: it wrote the field the reader read,
+    so it would have kept passing against a build where the absorber that
+    populates the latch was never called at all — which is precisely the 0.6.18
+    defect. Constructing the job and calling `_service_cyanrip` exercises the
+    production path from a finished subprocess to the latched tag.
+    """
+    job = _CyanripJob(
+        step=parse("cyanrip --version")[0],
+        argv=["cyanrip", "--version"],
+        started=time.monotonic(),
+        done=threading.Event(),
+        result=(exit_code, output),
+    )
+    job.done.set()
+    runner._pending_cyanrip = job
+    runner._service_cyanrip()
+
+
 def _window_with_banner(runner: ScriptRunner, banner: str) -> None:
     """Give the runner a captured `cyanrip --version` banner, as section A does."""
-    runner._last_cyanrip_output = banner
+    if banner:
+        _run_cyanrip_step(runner, banner)
 
 
 def test_the_ripper_placeholder_expands_to_the_installed_build_tag(qapp) -> None:
@@ -1039,6 +1174,49 @@ def test_two_builds_produce_two_different_album_folders(qapp) -> None:
         "overwrite pass 1's evidence, which is the bug this fixes"
     )
     assert "ddf7ac3" in titles[0] and "c4d1a00" in titles[1], titles
+
+
+def test_a_later_cyanrip_step_cannot_destroy_the_latched_build_tag(qapp) -> None:
+    """The 0.6.18 regression, reproduced from the rig transcript.
+
+    Sequence, exactly as `rigcancelandoverread.txt` runs it: section A captures
+    the `--version` banner, section C runs the cache probe, section D expands
+    `(ripper)` into the album title. On the real rig section C's probe TIMED OUT
+    (`-x` rips the whole disc, so the verb's five-minute ceiling ended it), and
+    the timeout path wrote its own error text into the single
+    `_last_cyanrip_output` slot the placeholder was reading. Both `album …
+    (ripper)` steps then failed with "no build tag has been captured yet" —
+    twenty minutes after the tag had been captured and thrown away.
+
+    The rip fell back to the default album title, which is how a cancelled rip's
+    two FLACs landed in the real album folder and produced the overwrite prompt
+    the maintainer reported as *"that doesn't seem right"*.
+
+    So the assertion is about SURVIVAL, not expansion: the test above already
+    proves a fresh banner expands. This one proves a banner survives the traffic
+    that follows it.
+    """
+    win = _window()
+    runner = ScriptRunner(win)
+    _window_with_banner(
+        runner, "cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)"
+    )
+
+    # Section C: a `cyanrip` step whose output carries no version banner at all.
+    # Both shapes the rig produced, in the order it produced them.
+    _run_cyanrip_step(runner, "Cache probe: 32 sectors\nRipping...", exit_code=1)
+    runner._last_cyanrip_output = ""  # the timeout path's own invalidation
+
+    runner._execute(parse("album cancel me (ripper)")[0])
+
+    record = runner._report.steps[-1]
+    assert record.outcome is Outcome.PASS, record.detail
+    assert win._track_table._album_title_edit.text() == (
+        "cancel me platterpus-fork-gddf7ac3"
+    ), (
+        "a later cyanrip step destroyed the build tag — this is the defect that "
+        "sent a cancelled rip into the real album folder"
+    )
 
 
 def test_an_unresolvable_ripper_placeholder_fails_loudly(qapp) -> None:

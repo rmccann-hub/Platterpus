@@ -1,5 +1,5 @@
 # =============================================================================
-# RIG TEST — the cache probe's first run, the cancel path, and the dialogs
+# RIG TEST — the cancel path, the drive-open proof, and the dialogs
 # =============================================================================
 #
 #   How to run it:  ./platterpus-x86_64.AppImage --run-script rigcancelandoverread.txt
@@ -11,48 +11,65 @@
 # works on the next disc and on somebody else's.
 #
 # -----------------------------------------------------------------------------
-# READ THIS BEFORE CHANGING ANYTHING — the flag correction of 2026-08-18
+# READ THIS BEFORE CHANGING ANYTHING — two flag corrections, 2026-08-18 and -19
 # -----------------------------------------------------------------------------
-# This script USED to turn the Overread setting on and rip with it, under the
-# heading "force overread has never run on a real drive". Every part of that was
-# wrong, and running it would have cost a session:
+# CORRECTION 1 (2026-08-18). This script USED to turn the Overread setting on and
+# rip with it, under the heading "force overread has never run on a real drive".
+# Every part of that was wrong, and running it would have cost a session:
 #
 #   * Overread is `-O`. It HAS run on the BDR-209D, on 2026-07-22, and it HUNG
 #     THE DRIVE for ~23 minutes — 13 of 14 tracks ripped perfectly, then the last
 #     track's lead-out froze the progress bar near 100%. Turning it back on here
 #     would deliberately re-trigger a known hardware hang.
-#   * The flag that has never run on any drive, by anyone, is the FORK'S CACHE
+#   * The flag that had never run on any drive, by anyone, was the FORK'S CACHE
 #     PROBE — also spelled `-x`, which is where the confusion came from. It is a
-#     different flag doing a different thing, and it costs SECONDS.
+#     different flag doing a different thing.
 #   * A third `-x` exists in the fossil record: whipper's `--force-overread`.
 #     That is where the mix-up originated. whipper has been gone since KDD-18.
 #
 # `docs/dependency-contracts.md` carries the hazard table and calls this
 # confusion "a hardware hazard rather than a documentation nit". It was right.
-# So section C now runs the CACHE PROBE, which is the genuinely unproven thing,
-# and overread is never enabled by this script at all.
+# Overread is never enabled by this script at all.
+#
+# CORRECTION 2 (2026-08-19) — AND IT CORRECTS CORRECTION 1. Correction 1 closed
+# by saying the cache probe "costs SECONDS", and section C was written on that
+# claim. IT IS MEASURED FALSE. `cyanrip -x -N -s 0` on the BDR-209D printed its
+# measurement — `32 sectors, 73.5 KiB, uncached read 362.6 ms` — and then WENT ON
+# TO RIP THE WHOLE DISC, ETA 1h 3m. The verb's five-minute ceiling killed it at
+# 300s and the child could not be reaped (`exit: null`), so the drive stayed held
+# for the rest of the run and the two rips that follow had no clean drive to use.
+# That is the most likely reason round 1's evidence came back unusable.
+#
+# Note what happened there: a correction was applied with less scrutiny than the
+# claim it replaced (`CLAUDE.md` names that exact failure). Correction 1 was right
+# about `-O` vs `-x` and guessed about the cost, and the guess is the half that
+# cost a session. So the number above is quoted with its source: it is off the
+# 2026-08-19 rig transcript, not from anyone's reading of the fork's source.
 #
 # WHAT THIS FILE PROVES, then:
 #
-#   1. The fork's `-x` cache probe, executed on real hardware for the first time
-#      in its existence. Any number it prints is the first data point there is —
-#      including an absurd one, which is a finding and a good outcome.
-#   2. The drive-open fix — cancelling a rip must release the reader, not leave
+#   1. The drive-open fix — cancelling a rip must release the reader, not leave
 #      the drive held by a process nobody can see.
 #
-# Both are hardware-only. No amount of suite is evidence for either.
+# That is hardware-only. No amount of suite is evidence for it.
+#
+# The cache probe is NO LONGER RUN HERE. Its first-ever execution succeeded and
+# the number is recorded in section C; re-running it costs five minutes, holds
+# the drive afterwards, and writes a partial album into whatever directory the
+# app was launched from. It comes back when the fork ships a build whose `-x`
+# exits after measuring — which is now an ask on them, not a gap here.
 #
 # THE RULE THAT MAKES THIS SAFE TO LEAVE ALONE: a failing step does NOT stop the
 # batch; only `abort` does. So every check below fails loudly and keeps going. A
 # run that stops at the first problem hides every problem behind it, and a disc
 # pass costs an hour you do not get back.
 #
-# WHAT IT COSTS: roughly 25-40 minutes. It rips a handful of tracks twice, never
+# WHAT IT COSTS: roughly 20-30 minutes. It rips a handful of tracks twice, never
 # the whole disc.
 # -----------------------------------------------------------------------------
 
 log =============================================================
-log RIG TEST: cache probe on real hardware, and the cancel path
+log RIG TEST: the cancel path, the drive-open proof, and the dialogs
 log =============================================================
 snapshot atstart
 
@@ -114,41 +131,49 @@ open dependencies
 cancel
 expect-dialog none
 
-# --- C. THE CACHE PROBE, ON A REAL DRIVE, FOR THE FIRST TIME EVER -----------
-# `-x` / `--cache-probe` measures the drive's readback cache. The fork added it
-# in round 7 lap 1 at our own round-5 request, and as of 2026-08-07 it had never
-# been executed against real hardware by anybody. It costs seconds, not minutes.
+# --- C. THE CACHE PROBE: MEASURED ONCE, AND DELIBERATELY NOT RE-RUN ---------
+# `-x` / `--cache-probe` measures the drive's readback cache. The fork added it in
+# round 7 lap 1 at our own round-5 request, and until 2026-08-19 it had never been
+# executed against real hardware by anybody. It has been now, and this is the
+# result — recorded here so it travels in every transcript rather than living in
+# one session's scrollback:
 #
-# `-N` alongside it is not optional: it disables the ripper's own metadata
-# lookup, which is Critical rule #5 and stops the binary blocking on an
-# interactive prompt with no terminal attached.
+#     Cache probe: 32 sectors, 73.5 KiB, uncached read 362.6 ms
 #
-# NO `expect-exit` HERE, DELIBERATELY. We do not know what this prints or what
-# it returns — that is the entire point of running it. An assertion would be us
-# inventing the answer before measuring it. The transcript captures the exit
-# code, the exact argv and the complete output regardless, which is the evidence.
-#
-# The `Cache probe:` states are all legitimate outcomes and NONE of them means
-# "the cache was defeated": `N sectors measured`, `no readback cache measured`,
-# `not run (disc image has no drive cache)`, and four `unknown (<reason>)` forms.
-#
-# `-s 0` IS REQUIRED, and leaving it out is what wasted this probe's first two
-# attempts (2026-08-18, both runs). cyanrip refuses to open the drive with no
-# offset set and says so itself:
+# `-s 0` was required to get it: without an offset cyanrip refuses to open the
+# drive and says so itself, exiting 1 in two seconds having measured nothing —
 #
 #     Opening drive...
 #     Offset is unset! To continue with an offset of 0, run with -s 0!
 #
-# It exits 1 in two seconds having measured nothing. `-s 0` and not the rig's
-# real `+667` on purpose: the probe measures the drive's readback CACHE, which
-# has nothing to do with where the audio starts, and a hardcoded offset would
-# make this file wrong on every other machine — this script promises to need no
-# editing. Zero is the value cyanrip's own message names.
+# — which is what wasted the probe's first two attempts (2026-08-18, both runs).
+# Zero and not the rig's real `+667` on purpose: the probe measures the drive's
+# readback CACHE, which has nothing to do with where the audio starts.
+#
+# WHY THE STEP IS GONE. On the same run the probe printed the line above and then
+# went on to rip the entire disc (ETA 1h 3m). The verb killed it at 300s; the child
+# could not be reaped, so the drive stayed held for everything after it. Re-running
+# it costs five minutes, wrecks the sections below, and writes a partial album into
+# whatever directory the app was launched from. The measurement is obtained; the
+# cost is all that is left.
+#
+# WHEN IT COMES BACK: when the fork ships a build whose `-x` exits after
+# measuring. That is an ask on them (`docs/cyanrip-handshake.md`), and it is the
+# useful outcome of having run this — "the flag does something nobody expected" is
+# exactly the finding the first execution existed to produce.
+#
+# WHAT WE STILL DO NOT KNOW, said out loud so nobody reads the silence as a pass:
+# whether 32 sectors is the drive's real cache, and which of the `Cache probe:`
+# states a different drive would report. The states are all legitimate outcomes
+# and NONE means "the cache was defeated": `N sectors measured`, `no readback
+# cache measured`, `not run (disc image has no drive cache)`, and four
+# `unknown (<reason>)` forms.
 
-log --- C. cache probe: the first execution of this flag on real hardware ---
-log whatever it prints is the first data point in existence, including an absurd one
-cyanrip -x -N -s 0
-snapshot aftercacheprobe
+log --- C. cache probe: measured 2026-08-19, not re-run (see the note above) ---
+log measured once: 32 sectors, 73.5 KiB, uncached read 362.6 ms
+log the flag then rips the whole disc, so re-running it would hold the drive for
+log everything below. it returns when the fork's -x exits after measuring.
+snapshot beforethecancelpath
 
 # --- D. THE CANCEL PATH, AND THE ONLY HONEST PROOF OF IT --------------------
 # Cancelling is easy to *appear* to fix: the button greys out, the status says
@@ -178,7 +203,7 @@ snapshot aftercacheprobe
 log --- D. start a rip, then cancel it mid-flight ---
 rescan
 pick-release 1 90
-expect-tracks 3
+expect-tracks 3+
 select-tracks 1-3
 album cancel me (ripper)
 rip
@@ -207,7 +232,7 @@ screenshot aftercancel
 log --- E. can we rip again? this is the real drive-open test ---
 rescan
 pick-release 1 90
-expect-tracks 1
+expect-tracks 1+
 select-tracks 1
 album after cancel (ripper)
 rip

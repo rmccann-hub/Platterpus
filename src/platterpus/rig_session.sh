@@ -94,16 +94,34 @@ run "P4  doctor"           "03-doctor.txt"         "$APP" --doctor
 # direct invocations of their binary. Scratch dir; nothing touches the library.
 mkdir -p "$OUT/scratch"
 
-# 5a. -x / --cache-probe. Never executed on a real drive, anywhere, ever (their
-#     AUDIT §3.1). It refuses on a disc image, so a physical disc is the only
-#     way. A HANG IS ALSO A RESULT: beta.3 reports a stall rather than wedging
-#     silently, which is why this is worth a track. Bounded so an unattended run
-#     cannot sit forever.
-run "5a  their cache probe (-x)" "04-cache-probe.txt" \
-    timeout 300 "$RIPPER" -x -D "$OUT/scratch" -o flac -N
-if grep -q "^    exit: 124" "$SUMMARY"; then
-  note "!! A STEP TIMED OUT (exit 124) — if it was -x, that is the wedge case. SEND THIS."
-fi
+# 5a. -x / --cache-probe. NO LONGER RUN — and this is the second site of one fix.
+#
+#     It was executed on a real drive for the first time on 2026-08-19 (BDR-209D,
+#     `platterpus-fork-gddf7ac3`), which is what this step existed for, and it
+#     answered: `Cache probe: 32 sectors, 73.5 KiB, uncached read 362.6 ms`.
+#
+#     **And then it went on to rip the entire disc** — ETA 1h 3m. Which means this
+#     step, in the command a person is told to run *after every rig pass*, spent
+#     five minutes ripping the disc into `$OUT/scratch`, held the drive, and left
+#     an unreapable child behind (`exit: 124`, then nothing to reap). A "probe"
+#     that costs five minutes of drive time and leaves the device busy is not a
+#     diagnostic; it is the thing that breaks the diagnosis after it.
+#
+#     The rig script `docs/rig-scripts/rigcancelandoverread.txt` dropped its own
+#     `-x` step the same day. This is the SAME defect at a second call site, and
+#     finding it required looking for the call rather than fixing the place the
+#     lesson was learned (`docs/testing.md` §5.o). Grep before believing a fix is
+#     complete.
+#
+#     It comes back when the fork ships a build whose `-x` exits after measuring;
+#     that is an ask on them (`docs/cyanrip-handshake.md`). The measurement above
+#     is recorded so the number is not lost with the step, and the single home for
+#     the flag's behaviour is `docs/dependency-contracts.md`.
+say "5a  their cache probe (-x) — NOT RUN, deliberately"
+note "measured once on 2026-08-19: Cache probe: 32 sectors, 73.5 KiB, uncached read 362.6 ms"
+note "it then rips the whole disc (ETA 1h 3m) and leaves the drive held, so this"
+note "harness no longer runs it. Returns when the fork's -x exits after measuring."
+note "This is a recorded omission, not a skipped check: see docs/dependency-contracts.md."
 
 # 5b. -j / --diagnostics. Never written by a rip from a physical drive.
 run "5b  their diagnostics record (-j)" "05-minus-j.txt" \

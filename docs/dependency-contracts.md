@@ -340,9 +340,30 @@ upstream master **as of 2026-07-21**; the whipper-era flag really was
 > above as current** (corrected 2026-08-07). The claim *"`-x` does not exist"* was
 > true when measured and went stale two weeks later: the **fork** added
 > `-x` / `--cache-probe` in round 7 lap 1, at our own round-5 request, and it is
-> the **drive cache probe** — it measures readback cache and costs seconds. It is
+> the **drive cache probe** — it measures readback cache. It is
 > **not** overread. Overread is `-O`, and `-O` is the flag **confirmed to hang the
 > Pioneer BDR-209D for ~23 minutes** (2026-07-22).
+>
+> **⚠ And this correction needed a correction of its own (2026-08-19).** Its first
+> version said the probe "costs seconds". **Measured false**, on the BDR-209D with
+> fork `platterpus-fork-gddf7ac3`: `cyanrip -x -N -s 0` printed
+> `Cache probe: 32 sectors, 73.5 KiB, uncached read 362.6 ms` **and then went on to
+> rip the entire disc** — ETA 1h 3m, killed by the script verb's ceiling at 300 s,
+> and the child could not be reaped (`exit: null`), so the drive stayed held for
+> everything that followed in that session. `-s 0` is required to get that far:
+> without an offset cyanrip refuses to open the drive and exits 1 in two seconds
+> having measured nothing.
+>
+> So `-x` is **not a cheap probe** — it is a whole-disc rip with a measurement
+> printed at the front, and treating it as a quick check costs a hardware session.
+> An ask on the fork to make it exit after measuring is open
+> (`docs/cyanrip-handshake.md`); until then no script here runs it.
+>
+> The instructive part is *how* the wrong claim got in: the 2026-08-18 correction was
+> right about the flag identity (which it had measured) and guessed about the cost
+> (which it had not), and both halves arrived carrying the authority of a correction.
+> `CLAUDE.md`'s *did a correction get less scrutiny than a claim?*, second instance
+> in two weeks — `docs/testing.md` §5.aq.
 >
 > Getting these two confused is a hardware hazard rather than a documentation
 > nit, which is why this correction is a block quote and not an edit in place:
@@ -358,15 +379,18 @@ upstream master **as of 2026-07-21**; the whipper-era flag really was
 >
 > | flag | what it does | who has it |
 > |---|---|---|
-> | `-x` / `--cache-probe` | measure the drive's readback cache, seconds, prints `Cache probe:` lines | the **fork**, from round 7 lap 1 |
+> | `-x` / `--cache-probe` | measure the drive's readback cache (prints `Cache probe:` lines) **and then rip the whole disc** — measured 2026-08-19; needs `-s 0` or it refuses to open the drive | the **fork**, from round 7 lap 1 |
 > | `-O` | overread into lead-in/lead-out | upstream + fork; **hangs the BDR-209D** |
 > | `-x` / `--force-overread` | overread | **whipper only** — never cyanrip |
 >
 > `Cache probe:` states are deliberately distinct and none of them means "the
 > cache was defeated": `N sectors measured (…, uncached read …)`,
 > `no readback cache measured (…)`, `not run (disc image has no drive cache)`,
-> and four `unknown (<reason>)` forms. **As of 2026-08-07 `-x` has never executed
-> on a real drive by anyone**, so every number it can print is unverified.
+> and four `unknown (<reason>)` forms. **`-x` first executed on a real drive on
+> 2026-08-19** — never having run on any drive by anyone before that — and reported
+> `32 sectors measured`. That is one drive, one build, one disc: the other states
+> remain unverified, and whether 32 sectors is this drive's true cache is not
+> something the probe's own output can settle.
 
 **Non-zero exit / errors:** streamed stdout+stderr is captured line-by-line
 (`RipHandle.log_lines`); a start failure raises `RipError` carrying the output.
@@ -543,4 +567,4 @@ outlive the window — see `ui/main_window_rip.py::_stop_rip_on_shutdown`.
 
 ---
 
-*Last updated for Platterpus v0.6.17.*
+*Last updated for Platterpus v0.6.18.*
