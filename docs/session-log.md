@@ -11,6 +11,57 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-19 (last) — the version gate was measuring the wrong thing
+
+**Maintainer ruling, and it corrects a real error of ours:** *"I think your
+current gate to v1.0.0 is passing the tests. The actual goal should be passing
+EVERY test all at once, probably at least twice… we have only tested on my rig,
+my hardware. We need more people, more hardware, more Linux distros, to get up to
+v1.0.0 proper. This should not be only test or gate, though it should be that
+too, it should be encoded in the documentation and testing."*
+
+They are right, and this project has its own measurement to prove it: every
+defect that mattered in August was found on **hardware, by a person**, with the
+suite green throughout — and three of them were inside the feature built the day
+before to make reporting easier. "The suite is green" is a claim about this
+repository on a CI runner. A version number is a claim about software in
+somebody's hands.
+
+Encoded as asked, in both places: `docs/testing.md` **§5B** (the three
+thresholds, the reasoning, and a parsed evidence ledger), KDD-35 in
+`PLANNING.md`, a rule in `CLAUDE.md`, and **§3 of
+`tests/test_no_stale_version_claims.py`**, which refuses a bump the ledger does
+not support. Two details worth keeping:
+
+* **"All at once" is the operative phrase in the 0.9.1 bar.** `pass=55 fail=5`
+  with each failure separately explained is not a pass. Explaining a failure is
+  how you fix it, not how you count it — and on this very day all five of those
+  failures turned out to descend from ONE defect nobody knew existed.
+* **The ledger records partials too.** Three runs, three `partial`, zero
+  full-green: the count toward 0.9.1 is currently **zero**. A ledger holding only
+  successes would make the denominator invisible, which is the same
+  satisfied-by-finding-nothing shape the gate itself guards against.
+
+**1.0.0 is now blocked on something outside the maintainer's sole control** —
+other people running it. That is deliberate and was accepted explicitly: a 1.0
+only its author has ever run is a claim the evidence cannot carry.
+
+### And the console that would not let go
+
+Same session: *"we shouldn't need to hard quit these consoles if they are done
+actually."* `--run-script` ran its batch and left the window open, so the
+launching terminal kept a live Python and Konsole asked *"There is a process
+running in this window"* on close; the rig's process sat idle **5½ minutes** until
+a person clicked through.
+
+The obvious fix is the wrong one, and the same trap as §5.ap: **the batch ending
+is not the work ending.** On that run the script finished at `17:51:15.8` and the
+rip's evidence bundle sealed at `17:51:18.4` — after CTDB, the FLAC verify and the
+checksums landed. Quitting on the runner's `finished` would have truncated exactly
+the artifact this release exists to make trustworthy. The quit is gated on the
+same settlement predicate the bundle waits on, bounded at 900 s, and names the
+step it gave up on if the bound is hit.
+
 ## 2026-08-19 (latest) — the v0.6.18 rig pass: three fixes confirmed, one new defect
 
 The maintainer ran `rigcancelandoverread.txt` on v0.6.18 and uploaded both bundles.

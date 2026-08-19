@@ -227,3 +227,165 @@ def test_the_release_facing_docs_are_stamped_current() -> None:
     assert not stale, (
         f"release-facing docs not stamped v{__version__}: {', '.join(stale)}"
     )
+
+
+# --- §3 A version number must be backed by field evidence --------------------
+#
+# Maintainer ruling, 2026-08-19: the gate to 1.0.0 was implicitly "the suite is
+# green", and that is a claim about this repository on a CI runner rather than
+# about the software in somebody's hands. The thresholds and the reasoning live in
+# `docs/testing.md` §5B; this is the half that runs.
+
+_LEDGER_START = "<!-- FIELD-EVIDENCE-TABLE:"
+_LEDGER_END = "<!-- END-FIELD-EVIDENCE-TABLE -->"
+
+#: Distinct people / machines / distros a 1.0.0 claim needs. A floor, not a
+#: target — raise it freely; it may not be lowered without the maintainer, since
+#: lowering it is how a coverage bar becomes a formality.
+MIN_PEOPLE_FOR_1_0: int = 2
+MIN_MACHINES_FOR_1_0: int = 3
+MIN_DISTROS_FOR_1_0: int = 3
+
+#: Complete hardware passes a 0.9.1 claim needs. Two, because one is a data point
+#: and two is the first evidence it was not luck.
+MIN_FULL_GREEN_FOR_0_9_1: int = 2
+
+
+def _version_tuple(text: str) -> tuple[int, int, int]:
+    """(major, minor, patch) from a version string, ignoring any suffix."""
+    parts = re.split(r"[^0-9]+", text.strip())
+    nums = [int(p) for p in parts if p][:3]
+    while len(nums) < 3:
+        nums.append(0)
+    return (nums[0], nums[1], nums[2])
+
+
+def _read_ledger() -> list[dict[str, str]]:
+    """Parse the field-evidence table out of `docs/testing.md`. Never guesses.
+
+    A row is only counted when it has the full column set, so a malformed line
+    is dropped rather than silently contributing a blank machine or a blank
+    verdict — which is how a coverage count gets inflated by a typo.
+    """
+    doc = (_REPO_ROOT / "docs" / "testing.md").read_text(encoding="utf-8")
+    assert _LEDGER_START in doc and _LEDGER_END in doc, (
+        "the field-evidence table is missing from docs/testing.md — the version "
+        "gate has no input, and a gate with no input passes by finding nothing"
+    )
+    block = doc.split(_LEDGER_START, 1)[1].split(_LEDGER_END, 1)[0]
+    rows: list[dict[str, str]] = []
+    for line in block.splitlines():
+        line = line.strip()
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) != 6:
+            continue
+        if cells[0] in {"date", "---"} or set(cells[0]) <= {"-"}:
+            continue  # header or separator
+        rows.append(
+            dict(
+                zip(
+                    ("date", "version", "person", "machine", "distro", "result"),
+                    cells,
+                    strict=True,
+                )
+            )
+        )
+    return rows
+
+
+def test_the_field_evidence_ledger_parses_and_is_not_empty() -> None:
+    """The floor for the two gates below, and the reason they cannot be vacuous.
+
+    Both gates count rows. A gate that counts rows in a table nobody can parse
+    counts zero and — depending on which way the comparison runs — either fires
+    constantly or never fires at all. So the parse is asserted separately, with a
+    non-emptiness floor, before anything is concluded from the numbers.
+    """
+    rows = _read_ledger()
+    assert rows, (
+        "the field-evidence ledger parsed to ZERO rows. Either the table in "
+        "docs/testing.md §5B is empty or its column layout changed and this "
+        "parser no longer matches it."
+    )
+    assert all(r["result"] in {"full-green", "partial"} for r in rows), (
+        "a ledger row carries a verdict outside {full-green, partial}: "
+        f"{sorted({r['result'] for r in rows})}. An unrecognised verdict is not a "
+        "pass, and spelling it freely is how one becomes one."
+    )
+
+
+def test_a_0_9_x_claim_needs_two_complete_hardware_passes() -> None:
+    """0.9.1+ asserts "internally proven", which means EVERY test green, twice.
+
+    "All at once" is the whole rule. A run of `pass=55 fail=5` whose five failures
+    are each separately explained is not a pass — explaining a failure is how you
+    fix it, not how you count it. Measured reason: the 2026-08-19 run's five
+    failures all descended from ONE defect nobody knew existed, and a looser rule
+    would have waved every one of them through as understood.
+    """
+    if _version_tuple(__version__) < (0, 9, 1):
+        pytest.skip(f"v{__version__} makes no 0.9.x claim yet")
+    passes = [r for r in _read_ledger() if r["result"] == "full-green"]
+    assert len(passes) >= MIN_FULL_GREEN_FOR_0_9_1, (
+        f"v{__version__} claims 0.9.1+ ('feature-complete and internally proven') "
+        f"on {len(passes)} complete hardware pass(es); {MIN_FULL_GREEN_FOR_0_9_1} "
+        "are required. Record them in docs/testing.md §5B, or drop the version "
+        "back. See §5B for why two rather than one."
+    )
+
+
+def test_a_1_0_claim_needs_evidence_from_beyond_the_maintainers_rig() -> None:
+    """1.0.0 asserts "ready for people who are not us", and that is a COVERAGE bar.
+
+    It is the one threshold that more diligence here cannot clear: the maintainer's
+    rig is one configuration out of every configuration a user might have. Written
+    down rather than left to release-time judgement precisely because the
+    temptation at 0.9.9 will be to reason that things seem fine.
+    """
+    if _version_tuple(__version__) < (1, 0, 0):
+        pytest.skip(f"v{__version__} makes no 1.0 claim yet")
+    rows = _read_ledger()
+    people = {r["person"].lower() for r in rows}
+    machines = {r["machine"].lower() for r in rows}
+    distros = {r["distro"].lower() for r in rows}
+    shortfalls = []
+    if len(people) < MIN_PEOPLE_FOR_1_0:
+        shortfalls.append(f"{len(people)} person/people (need {MIN_PEOPLE_FOR_1_0})")
+    if len(machines) < MIN_MACHINES_FOR_1_0:
+        shortfalls.append(f"{len(machines)} machine(s) (need {MIN_MACHINES_FOR_1_0})")
+    if len(distros) < MIN_DISTROS_FOR_1_0:
+        shortfalls.append(f"{len(distros)} distro(s) (need {MIN_DISTROS_FOR_1_0})")
+    assert not shortfalls, (
+        f"v{__version__} claims 1.0.0 — 'ready for people who are not us' — on "
+        + ", ".join(shortfalls)
+        + ". That is a coverage bar, not a quality bar: it moves only with other "
+        "people's hardware. Record real runs in docs/testing.md §5B."
+    )
+
+
+def test_the_version_gates_can_actually_fail() -> None:
+    """Non-triviality floor: both gates above SKIP at the current version.
+
+    A skipped test is indistinguishable from a passing one in a summary, so the
+    thresholds are exercised directly against a ledger that cannot satisfy them.
+    Without this, a parser that returned `[]` forever would leave both gates
+    green the day the version is bumped — the "satisfied by finding nothing"
+    shape §5B was written to avoid.
+    """
+    empty: list[dict[str, str]] = []
+    assert len([r for r in empty if r["result"] == "full-green"]) < (
+        MIN_FULL_GREEN_FOR_0_9_1
+    ), "an empty ledger must not satisfy the 0.9.1 bar"
+    assert len({r["machine"] for r in empty}) < MIN_MACHINES_FOR_1_0, (
+        "an empty ledger must not satisfy the 1.0.0 coverage bar"
+    )
+    # And the real ledger must not *already* satisfy 1.0 — if it did, the gate
+    # would be decorative today and nobody would notice until it mattered.
+    rows = _read_ledger()
+    assert len({r["machine"].lower() for r in rows}) < MIN_MACHINES_FOR_1_0, (
+        "the ledger already meets the 1.0 machine bar; either that is real (in "
+        "which case raise the floor or delete this assertion deliberately) or a "
+        "row is fabricated"
+    )

@@ -11,6 +11,28 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **An unattended `--run-script` run now ends the process itself.** It used to
+  leave the window open after the batch, so the launching terminal kept a live
+  Python and asked *"There is a process running in this window. Do you still want
+  to quit?"* on close — on the rig it sat idle for five and a half minutes until
+  somebody clicked through. An unattended run that needs an attendant to end it is
+  not unattended. **It does not quit when the batch ends**, which is the trap: on
+  that same run the script finished at `17:51:15.8` and the rip's own evidence
+  bundle sealed at `17:51:18.4`, after CTDB, the FLAC verify and the checksums
+  landed. The quit waits for the same settlement predicate the bundle waits on,
+  bounded at 900 s, and says which step it gave up on if the bound is hit.
+
+### Changed
+- **A version number is now a claim about the field, not about CI** (KDD-35;
+  policy, reasoning and evidence ledger in `docs/testing.md` §5B). **0.9.1**
+  requires a complete hardware pass — *every* test green in ONE run — achieved at
+  least **twice**; **1.0.0** additionally requires more than one person, machine
+  and Linux distribution. `tests/test_no_stale_version_claims.py` §3 parses the
+  ledger and refuses a bump it does not support, and an empty ledger fails those
+  gates rather than passing by finding nothing. Recorded honestly: three rig runs
+  so far, **zero** full-green, so the count toward 0.9.1 is currently zero.
+
 ### Fixed
 - **Rescanning a disc while a scan was already running killed the replacement at
   birth.** `cancel()` on the shared probe slot set a *sticky* flag so a cancel

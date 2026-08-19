@@ -1712,6 +1712,68 @@ two weeks, which makes it a pattern. A correction arrives with the authority of
 having been researched; the parts of it that were not researched arrive wearing the
 same authority.
 
+## 5B. What a version number is allowed to claim (the road to 1.0)
+
+**Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is
+passing the tests. The actual goal should be passing EVERY test all at once,
+probably at least twice… we have only tested on my rig, my hardware. We need more
+people, more hardware, more Linux distros, to get up to v1.0.0 proper. This should
+not be only test or gate, though it should be that too, it should be encoded in
+the documentation and testing."*
+
+That correction is worth stating plainly because the implicit gate really was
+wrong. "The suite is green" is a statement about **this repository on a CI
+runner**. A version number is a statement about **the software in somebody's
+hands**, and the two are not the same claim — every defect that mattered this
+month was found on hardware by a person, with a green suite the whole time.
+
+### The three thresholds
+
+| Version | What it claims | What that requires |
+|---|---|---|
+| **0.x** | *"Under development; expect defects."* | The suite is green. Nothing else is asserted, so nothing else is owed. |
+| **0.9.1** | *"Feature-complete and internally proven."* | **A complete hardware pass — EVERY test green in ONE run — achieved at least TWICE.** Not "the failures were understood"; not "green except the known ones". One run with a full green sheet is a data point; two is the first evidence it was not luck. |
+| **1.0.0** | *"Ready for people who are not us."* | Everything above, **plus independent field evidence: more than one person, more than one machine, more than one Linux distribution.** The maintainer's rig is one configuration out of every configuration a user might have, and a single-rig 1.0 is a claim the evidence cannot carry. |
+
+**The 0.9.1 bar is "all at once", and that word is the whole rule.** A run of
+`pass=55 fail=5` where each of the five is separately explained is *not* a pass.
+Explaining a failure is how you fix it; it is not how you count it. The reason to
+insist is measured in this project's own history: the 2026-08-19 run's five
+failures all descended from one defect nobody knew existed, and every one of them
+would have been waved through as "understood" by a looser rule.
+
+**The 1.0.0 bar cannot be met by working harder here.** It is not a quality bar
+that more diligence clears — it is a *coverage* bar, and the only way to move it
+is other people's hardware. That is why it is written down rather than left to
+judgement at release time: the temptation at 0.9.9 will be to reason that things
+seem fine.
+
+### The evidence ledger
+
+Rows are added when a run happens, by whoever ran it. `test_no_stale_version_claims.py`
+parses this table and refuses a version bump that the rows do not support — an
+empty ledger fails the 0.9.1 and 1.0.0 gates rather than passing them by finding
+nothing.
+
+`result` must be exactly `full-green` or `partial`; anything else is read as
+`partial`, because an unrecognised verdict is not a pass. `person` and `machine`
+are free text, and only their *distinctness* is counted.
+
+<!-- FIELD-EVIDENCE-TABLE: parsed by tests/test_no_stale_version_claims.py -->
+
+| date | version | person | machine | distro | result |
+|---|---|---|---|---|---|
+| 2026-08-18 | 0.6.16 | maintainer | bdr209d | bazzite | partial |
+| 2026-08-19 | 0.6.17 | maintainer | bdr209d | bazzite | partial |
+| 2026-08-19 | 0.6.18 | maintainer | bdr209d | bazzite | partial |
+
+<!-- END-FIELD-EVIDENCE-TABLE -->
+
+Three runs, three `partial`. That is the honest state: **no full-green pass has
+been achieved yet**, so 0.9.1 is not reachable today and the count toward it is
+zero. Recording the partials anyway matters — a ledger that held only successes
+would make the denominator invisible.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at

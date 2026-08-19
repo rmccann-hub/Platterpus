@@ -25,6 +25,7 @@ import os
 import signal
 import sys
 import threading
+import time
 import traceback
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -38,6 +39,9 @@ if TYPE_CHECKING:
     # evaluated at runtime).
     from PySide6.QtCore import QCoreApplication, QTimer
     from PySide6.QtWidgets import QWidget
+
+    from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
+    from platterpus.ui.main_window import MainWindow
 from platterpus.build_info import build_fingerprint
 
 log = logging.getLogger(__name__)
@@ -275,6 +279,88 @@ def _install_excepthook() -> None:
         )
 
     threading.excepthook = thread_hook
+
+
+#: How long an unattended run may keep the process alive after its batch ends,
+#: waiting for post-rip work to settle. Generous — a 14-track transcode plus
+#: hashing plus a CTDB round-trip is minutes — and bounded, because a wedged step
+#: must not leave a process behind forever. That is the whole point of the timer.
+UNATTENDED_QUIT_BUDGET_S: float = 900.0
+
+
+def _arm_unattended_quit(
+    app: QCoreApplication, window: MainWindow, console: ScriptConsoleDialog
+) -> None:
+    """Quit once an unattended `--run-script` batch is genuinely finished.
+
+    **The defect this closes** (maintainer, 2026-08-19: *"we shouldn't need to
+    hard quit these consoles if they are done actually"*). `--run-script` ran the
+    batch and then simply left the window open, so the terminal that launched it
+    kept a live `python3.12` and Konsole asked *"There is a process running in
+    this window. Do you still want to quit?"* on close. On the 2026-08-19 rig the
+    process sat idle for **five and a half minutes** after its last step until a
+    person closed the dialog. An unattended run that needs an attendant to end it
+    is not unattended.
+
+    **Why it is a poll and not a `finished` connection.** The batch ending is NOT
+    the work ending. On that same run the script finished at 17:51:15.8 and the
+    rip's own evidence bundle sealed at **17:51:18.4** — after the CTDB verdict,
+    the FLAC verify and the checksums landed. Quitting on `finished` would have
+    truncated exactly the artifact this session spent its time making trustworthy.
+    So the gate is the settlement predicate the bundle itself waits on, and the
+    quit happens when the *last* of those is done.
+
+    Bounded and loud in both directions: it says why it is quitting, and if the
+    budget runs out it says what was still alive rather than leaving silently.
+    """
+    from PySide6.QtCore import QTimer
+
+    deadline = time.monotonic() + UNATTENDED_QUIT_BUDGET_S
+    timer = QTimer(window)  # parented, so the window's teardown owns it
+    timer.setInterval(1000)
+
+    def _tick() -> None:
+        runner = getattr(console, "runner", None)
+        if runner is not None and getattr(runner, "running", False):
+            return  # the batch itself is still going
+        # The batch is done. Wait for everything it STARTED — the same predicate
+        # the evidence bundle is gated on, so the two cannot disagree about what
+        # "finished" means.
+        settled = True
+        try:
+            if getattr(window, "_pending_evidence_bundle", None) is not None:
+                settled = False
+            elif not window._post_rip_work_settled():
+                settled = False
+        except Exception:  # noqa: BLE001 — a quit helper must never be the crash
+            log.exception("could not read post-rip state; quitting anyway")
+            settled = True
+        if settled:
+            timer.stop()
+            log.info(
+                "unattended run finished and post-rip work has settled — quitting. "
+                "Nothing is left running, so the terminal will not ask."
+            )
+            app.quit()
+            return
+        if time.monotonic() >= deadline:
+            timer.stop()
+            still = ""
+            try:
+                still = window._post_rip_still_running()
+            except Exception:  # noqa: BLE001
+                pass
+            log.warning(
+                "unattended run: gave up waiting after %.0fs for post-rip work to "
+                "settle (still running: %s) — quitting anyway. Results already "
+                "written are complete; anything from those steps is not.",
+                UNATTENDED_QUIT_BUDGET_S,
+                still or "(unknown)",
+            )
+            app.quit()
+
+    timer.timeout.connect(_tick)
+    timer.start()
 
 
 def rig_session_script() -> Path:
@@ -986,6 +1072,7 @@ def main(argv: list[str] | None = None) -> int:
                         "--run-script" if _script is not None else "config autorun",
                     )
                     console.run_now()
+                    _arm_unattended_quit(app, window, console)
             except Exception:  # noqa: BLE001 — last-resort guard
                 log.exception("the unattended test script could not be started")
     except Exception as exc:  # noqa: BLE001 — fatal-startup guard
