@@ -2210,6 +2210,25 @@ def write_report(
             secure_rerip=secure_rerip,
             eta_trace=eta_trace,
             checksums=checksums,
+            # FORWARDED, which it was not (fixed 2026-08-19). `write_report`
+            # accepted `audio_md5` and dropped it on the floor here, so every
+            # report ever written carried `audio_md5: null` while the caller had
+            # the value and the GUI logged reading it. A parameter that is
+            # accepted and ignored is the worst shape available: the call site
+            # looks correct, the type checker is satisfied, and the only symptom
+            # is a null in an archival record that reads as "not computed".
+            # Caught on the 2026-08-19 rig, where the app log said "1 FLAC audio
+            # MD5(s) read" two seconds before the report that says it has none.
+            # FORWARDED, which it was not (fixed 2026-08-19). `write_report`
+            # accepted `audio_md5` and dropped it on the floor here, so every
+            # report ever written carried `audio_md5: null` while the caller had
+            # the value and the GUI logged reading it. A parameter that is
+            # accepted and ignored is the worst shape available: the call site
+            # looks correct, the type checker is satisfied, and the only symptom
+            # is a null in an archival record that reads as "not computed".
+            # Caught on the 2026-08-19 rig, where the app log said "1 FLAC audio
+            # MD5(s) read" two seconds before the report that says it has none.
+            audio_md5=audio_md5,
             generated_at=generated_at,
             timing=timing,
             debug_log=debug_log,

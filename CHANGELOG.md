@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.19] — 2026-08-19
+
 ### Added
 - **An unattended `--run-script` run now ends the process itself.** It used to
   leave the window open after the batch, so the launching terminal kept a live
@@ -34,6 +36,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   so far, **zero** full-green, so the count toward 0.9.1 is currently zero.
 
 ### Fixed
+- **Every rip report ever written claimed its audio identity was never computed.**
+  `write_report` accepted an `audio_md5` argument and never forwarded it to
+  `build_report`, so the field was `null` in every `.platterpus.json` while the
+  caller had the value and the GUI logged reading it. A parameter that is accepted
+  and ignored is the worst shape available: the call site looks correct, the type
+  checker is satisfied, and the only symptom is a null in an archival record —
+  where `null` reads as *"not computed"* rather than *"we lost it"*. It survived
+  because every test drove the pure builder, which always handled the field
+  correctly, and nothing drove the wrapper the app actually calls. Found on the
+  2026-08-19 rig, whose app log says *"1 FLAC audio MD5(s) read"* two seconds
+  before the report that says it has none.
 - **Rescanning a disc while a scan was already running killed the replacement at
   birth.** `cancel()` on the shared probe slot set a *sticky* flag so a cancel
   landing between `Popen` and registration is not dropped — correct, and still
@@ -9071,7 +9084,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.18...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.19...HEAD
+[0.6.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.18...v0.6.19
 [0.6.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.17...v0.6.18
 [0.6.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.16...v0.6.17
 [0.6.16]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.15...v0.6.16
@@ -9178,4 +9192,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.18.*
+*Last updated for Platterpus v0.6.19.*
