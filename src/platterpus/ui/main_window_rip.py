@@ -606,6 +606,23 @@ class RipMixin(MainWindowShared):
         self._last_transcode_result = None
         self._last_derived_verify_result = None
         self._last_checksums = None
+        # Reset BESIDE its sibling, which it was not (found 2026-08-19 while
+        # investigating a null `audio_md5` in a rig report). Both are set by the
+        # same handler in the same instant, and only one was cleared here — so a
+        # second rip whose digests step failed or was superseded would have
+        # inherited the PREVIOUS rip's audio identity into its archival record,
+        # under a schema key whose whole purpose is answering "is this the same
+        # audio". A stale answer there is worse than none. The two fields answer
+        # one question together; they get one lifetime.
+        self._last_audio_md5 = None
+        # Reset BESIDE its sibling, which it was not (found 2026-08-19 while
+        # investigating a null `audio_md5` in a rig report). Both are set by the
+        # same handler in the same instant, and only one was cleared here — so a
+        # second rip whose digests step failed or was superseded would have
+        # inherited the PREVIOUS rip's audio identity into its archival record,
+        # under a schema key whose whole purpose is answering "is this the same
+        # audio". A stale answer there is worse than none. The two fields answer
+        # one question together; they get one lifetime.
         # v7 report snapshots (0.4.10): the PROCESS outcome, disc provenance, the
         # effective read offset, and the cover-art / re-compress / secure-re-rip
         # results. Reset per rip so a debounced re-write for a NEW rip can never

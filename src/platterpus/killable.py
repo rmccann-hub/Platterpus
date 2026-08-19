@@ -20,10 +20,13 @@ Three things this gets right that a hand-rolled version tends not to:
   real tool. Signalling only the direct child leaves the actual reader running and
   the disc spinning. Worse, *without* it the child shares **our** group, and a
   `killpg` would signal the GUI itself.
-* **The cancel/startup race is closed.** A cancel arriving between `Popen` and
-  registration would otherwise find nothing registered and be silently dropped —
-  the user presses Cancel and nothing happens. A sticky flag is re-checked right
-  after registering.
+* **The cancel/startup race is closed, and scoped to one run.** A cancel arriving
+  between `Popen` and registration would otherwise find nothing registered and be
+  silently dropped — the user presses Cancel and nothing happens. So each run takes
+  a sequence number before it spawns, `cancel()` records the highest issued so far,
+  and the check is re-run right after registering. The scoping is the half that was
+  missing: a slot-wide flag let a cancel aimed at one probe kill the *replacement*
+  the GUI started immediately afterwards, which is a rescan that never completes.
 * **A timeout kills the child.** `subprocess.run` does that for free; `Popen` does
   not, so migrating to `Popen` for cancellability silently *loses* it and leaves a
   timed-out probe running. That is the "what new state does this fix create"
@@ -67,9 +70,32 @@ class KillableCommand:
         self._name: str = name
         self._lock: threading.Lock = threading.Lock()
         self._proc: subprocess.Popen[str] | None = None
-        # Sticky, so a cancel that lands in the window between `Popen` and
-        # registration is honoured rather than dropped. Cleared when the run ends.
-        self._cancel_requested: bool = False
+        # **A cancel is scoped to a RUN, not to this slot.**
+        #
+        # `_issued` counts runs; each `run()` takes its own sequence number
+        # BEFORE it spawns. `cancel()` records the highest sequence issued so far,
+        # so it cancels the run that is in flight (or the one whose `Popen` has
+        # not finished registering yet) and has NO authority over any run started
+        # afterwards.
+        #
+        # Both halves are load-bearing and the first version had only one. A
+        # single sticky boolean honoured a cancel that landed between `Popen` and
+        # registration — necessary, and pinned by
+        # `test_a_cancel_that_lands_during_startup_is_not_lost` — but it was a
+        # property of the *slot*, and the only thing that cleared it was the
+        # cancelled run's own `finally`, which unwinds on another thread after a
+        # SIGKILL. "Rescan disc" cancels the in-flight probe and starts the
+        # replacement immediately (`stop_thread(..., wait_ms=0)`), so the
+        # replacement could register while the flag was still set for its
+        # predecessor and **kill itself at birth** — measured `returncode -9`
+        # with empty output, which is exactly the signature the 2026-08-19 rig run
+        # recorded for a dead rescan.
+        #
+        # A watermark keeps the startup-race guarantee (a run issued before the
+        # cancel is still cancelled, however late it registers) while making the
+        # scoping explicit rather than temporal.
+        self._issued: int = 0
+        self._cancel_through: int = 0
 
     @property
     def name(self) -> str:
@@ -83,12 +109,12 @@ class KillableCommand:
     def cancel(self) -> None:
         """SIGKILL the running child's process group. Thread-safe, non-blocking.
 
-        Safe to call when nothing is running, and safe to call twice. Sets the
-        sticky flag either way so a child that is *about* to be registered is
-        killed as soon as it appears.
+        Safe to call when nothing is running, and safe to call twice. Raises the
+        watermark either way, so a child that was *issued* before this call is
+        killed as soon as it appears — and a run issued afterwards is untouched.
         """
         with self._lock:
-            self._cancel_requested = True
+            self._cancel_through = self._issued
             proc = self._proc
         if proc is None:
             return
@@ -128,6 +154,11 @@ class KillableCommand:
         the parent's stdin — a tool that reads stdin would otherwise block forever
         on a GUI process with no terminal.
         """
+        # Claim a sequence number BEFORE spawning, so a cancel racing this call
+        # can tell "the run that is starting" from "a run that starts later".
+        with self._lock:
+            self._issued += 1
+            seq = self._issued
         proc = subprocess.Popen(  # noqa: S603 — callers pass a resolved binary
             argv,
             stdin=subprocess.DEVNULL if stdin_devnull else None,
@@ -138,7 +169,7 @@ class KillableCommand:
         )
         with self._lock:
             self._proc = proc
-            cancelled_during_startup = self._cancel_requested
+            cancelled_during_startup = seq <= self._cancel_through
         if cancelled_during_startup:
             self._kill_group(proc)
         try:
@@ -205,9 +236,14 @@ class KillableCommand:
                 # defeats the entire point of the module. Found by audit immediately
                 # after this module was written (2026-07-29): the fix's own new state
                 # needed its own thinking, exactly as the pre-flight checklist asks.
+                #
+                # The cancel watermark is NOT reset here. It is a high-water mark
+                # over issued sequence numbers, so it excludes every later run by
+                # construction — there is nothing to clear, and clearing it was
+                # what made the flag's lifetime depend on which thread unwound
+                # first (see `__init__`).
                 if self._proc is proc:
                     self._proc = None
-                    self._cancel_requested = False
         return subprocess.CompletedProcess(
             args=argv, returncode=proc.returncode, stdout=stdout, stderr=stderr
         )

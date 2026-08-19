@@ -8954,3 +8954,43 @@ def test_the_bundle_follows_the_album_folder_to_its_new_home(
         "the relocation was not recorded; an archive that read a different "
         "directory than its manifest names is the failure being prevented"
     )
+
+
+def test_the_audio_md5_snapshot_is_reset_beside_its_sibling() -> None:
+    """`_last_audio_md5` must be cleared per rip, as `_last_checksums` always was.
+
+    Both are set by `_on_checksums_done` in the same instant and answer one
+    question together — "is this the same file" and "is this the same audio" — but
+    only the SHA256 half was cleared when a new rip began. A second rip whose
+    digests step failed, crashed or was superseded would have carried the FIRST
+    rip's audio MD5 into its own archival record, under the one key whose entire
+    purpose is identifying the audio. A stale answer there is worse than a missing
+    one: `audio_md5: null` reads as "not computed"; a wrong hash reads as fact.
+
+    Asserted against the SOURCE rather than by driving a rip, deliberately. The
+    reset sits behind `_on_rip_requested`'s validation, so reaching it from a test
+    needs a drive, a disc and a backend — and a test that stubbed all three would
+    be pinning the stub. What must hold is narrow and structural: the two fields
+    are reset together, in the same block. Same shape as
+    `tests/test_qthread_ownership.py`, which derives its expectations from the
+    source for the same reason.
+
+    Found 2026-08-19 while investigating a rig report whose `audio_md5` was null.
+    It is NOT the cause of that — a stale value is the opposite symptom — it is a
+    second defect the investigation turned up.
+    """
+    source = (
+        Path(__file__).resolve().parent.parent / "src/platterpus/ui/main_window_rip.py"
+    ).read_text(encoding="utf-8")
+
+    anchor = "self._last_checksums = None"
+    assert source.count(anchor) == 1, (
+        "the per-rip reset of _last_checksums moved or was duplicated; this test "
+        "anchors on it and needs updating with whatever replaced it"
+    )
+    window = source[source.index(anchor) : source.index(anchor) + 1200]
+    assert "self._last_audio_md5 = None" in window, (
+        "_last_audio_md5 is not reset beside _last_checksums. The two are written "
+        "together by _on_checksums_done, so resetting one without the other lets a "
+        "new rip inherit the previous rip's audio identity."
+    )

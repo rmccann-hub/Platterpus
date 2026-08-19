@@ -11,6 +11,28 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Rescanning a disc while a scan was already running killed the replacement at
+  birth.** `cancel()` on the shared probe slot set a *sticky* flag so a cancel
+  landing between `Popen` and registration is not dropped — correct, and still
+  pinned. But the flag belonged to the **slot**, not to a **run**, and the only
+  thing that cleared it was the cancelled run's own `finally`, which unwinds on
+  another thread after a SIGKILL. "Rescan disc" cancels the in-flight probe and
+  starts its replacement immediately, so the replacement could register while the
+  flag was still set for its predecessor and SIGKILL itself. Reproduced at the
+  exact interleaving: `returncode -9`, empty output — the same signature the
+  2026-08-19 rig run recorded, where a rescan five seconds into launch left the
+  panel on *"cyanrip failed (exit -9) with no output"* and no replacement scan
+  ever completed. A cancel is now scoped by a run sequence number, so it stops
+  the run it was aimed at and has no authority over any run started afterwards.
+- **A new rip could inherit the previous rip's audio identity.** `_last_checksums`
+  was cleared at the start of each rip and `_last_audio_md5` — set by the same
+  handler in the same instant — was not, so a rip whose digests step failed or was
+  superseded would carry the earlier rip's `audio_md5` into its own archival
+  report, under the one key whose purpose is answering *"is this the same audio"*.
+  A stale answer there is worse than a missing one: `null` reads as "not
+  computed", a wrong hash reads as fact.
+
 ## [0.6.18] — 2026-08-19
 
 ### Fixed
