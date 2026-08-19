@@ -2438,7 +2438,12 @@ class RipMixin(MainWindowShared):
         log_file = Path(log_path) if log_path else None
         album_dir = log_file.parent if log_file is not None else None
         cancelled = bool(self._rip_cancelled)
-        rip_log = self._last_rip_log if hasattr(self, "_last_rip_log") else None
+        # `_last_rip_log` is cleared at the START of every rip (see
+        # `_begin_rip`), precisely so a late-finishing check cannot grade this
+        # rip against the previous one's log. That reset is what makes `None`
+        # here mean "this rip produced no parsed log", not "we forgot to look".
+        rip_log = self._last_rip_log
+        parsed_a_log = rip_log is not None
         tracks_done = len(getattr(rip_log, "tracks", []) or [])
         expected = int(getattr(self, "_current_num_tracks", 0) or 0)
         post_rip = getattr(self, "_post_rip_thread", None)
@@ -2448,9 +2453,20 @@ class RipMixin(MainWindowShared):
         # The label, and — beside it — the fields it was computed from. A label
         # can be wrong; the fields are what a reader can re-derive from, which is
         # the same reason the report keeps raw counts next to its verdict.
+        #
+        # **Tri-state, as everywhere else in this project.** `_finish_rip` is
+        # wrapped in a try/except, so it can raise before it ever parses the
+        # ripper's log — and this hook still runs, from the `finally`. Without
+        # the middle case that rip is labelled "success" on the strength of an
+        # exit code alone, with `tracks in log 0` sitting in the facts block
+        # contradicting it. Every field true, the sentence false. A rip whose log
+        # we never read is not a success and not a failure; it is not determined,
+        # and that is a real answer.
         if cancelled:
             outcome = "cancelled"
-        elif success and expected and tracks_done and tracks_done < expected:
+        elif not parsed_a_log:
+            outcome = "not determined (no ripper log was parsed)"
+        elif success and expected and tracks_done < expected:
             outcome = "partial"
         elif success:
             outcome = "success"
@@ -2489,6 +2505,7 @@ class RipMixin(MainWindowShared):
                 facts={
                     "ripper exit ok": str(success),
                     "cancel requested": str(cancelled),
+                    "ripper log parsed": str(parsed_a_log),
                     "tracks in log": str(tracks_done),
                     "tracks on disc": str(expected) if expected else "(unknown)",
                     "ripper log path": log_path or "(none written)",
