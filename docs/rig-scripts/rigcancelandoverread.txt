@@ -143,6 +143,17 @@ snapshot aftercacheprobe
 #
 # So the proof is not the cancel — it is the RIP AFTER IT, in section E.
 #
+# WHY `pick-release 1` AND NOT AN MBID, WHEN THE VERB ITSELF ADVISES AN MBID:
+# the verb's warning is right — MusicBrainz ordering is not stable, so row 1 can
+# mean a different release next month, and on 2026-08-18 it resolved to
+# `65282302-…` while the hardware checklist names `d14a7546-…` as this disc's
+# canonical release. Both are releases of the same album. That is an acceptable
+# cost HERE and only here: this script tests the cancel path and the drive, not
+# the tags, and pinning an MBID would break the promise at the top of this file
+# that any ordinary CD works in any drive. If you ever repurpose these sections to
+# test METADATA, swap in an MBID prefix (`pick-release d14a7546 90`) first — the
+# verb accepts one, and for that question row 1 is not good enough.
+#
 # WHY THE WAIT BEFORE CANCELLING IS 90s AND NOT 60s: the cancel has to land
 # mid-track. Three tracks on a fast drive in burst mode can finish inside a
 # minute, and a "cancel" issued after the rip already ended tests nothing while
