@@ -64,7 +64,7 @@ from platterpus.ui.main_window_helpers import (  # noqa: F401
     safe_path_segment as _safe_path_segment,
 )
 from platterpus.ui.main_window_provision import ProvisioningMixin
-from platterpus.ui.main_window_rip import RipMixin
+from platterpus.ui.main_window_rip import RipMixin, _PendingBundle
 from platterpus.ui.main_window_update import UpdateMixin
 from platterpus.ui.release_picker import ReleasePickerDialog
 from platterpus.ui.rip_controls import RipControls
@@ -586,6 +586,13 @@ class MainWindow(
         self._library_move_timer: QTimer = QTimer(self)
         self._library_move_timer.setInterval(500)
         self._library_move_timer.timeout.connect(self._poll_library_move)
+        # Same shape, same interval, same predicate (`_post_rip_work_settled`) —
+        # the report bundle must not seal before the verification results it
+        # exists to carry have landed.
+        self._pending_evidence_bundle: _PendingBundle | None = None
+        self._evidence_bundle_timer: QTimer = QTimer(self)
+        self._evidence_bundle_timer.setInterval(500)
+        self._evidence_bundle_timer.timeout.connect(self._poll_evidence_bundle)
         # Guard so the "no drive — here's the fix" nudge auto-shows at most
         # once per session (refreshing shouldn't re-pop the dialog).
         self._drive_access_nudged: bool = False
@@ -838,6 +845,7 @@ class MainWindow(
         # Disarm a pending library move — the folder simply stays in the output
         # directory (safe default); moving during teardown would race close.
         self._library_move_timer.stop()
+        self._evidence_bundle_timer.stop()
         self._pending_library_move = None
         stop_thread(self._mb_thread, deadline=deadline)  # idle loop quits fast
         stop_thread(self._update_thread, deadline=deadline)  # short HTTP check

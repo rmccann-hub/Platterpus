@@ -111,6 +111,12 @@ if TYPE_CHECKING:
     from platterpus.parsers.rip_log import RipLog
     from platterpus.ui.disc_info_panel import DiscInfoPanel
     from platterpus.ui.drive_picker import DrivePicker
+
+    # TYPE_CHECKING-only, and it has to be: ``main_window_rip`` imports THIS
+    # module at runtime (every mixin inherits the seam), so a real import here
+    # would be a cycle. Under ``from __future__ import annotations`` the
+    # reference below is a string mypy resolves and the interpreter never does.
+    from platterpus.ui.main_window_rip import _PendingBundle
     from platterpus.ui.rip_controls import RipControls
     from platterpus.ui.rip_progress import RipProgress
     from platterpus.ui.track_table import TrackTable
@@ -258,6 +264,13 @@ class MainWindowShared(_SeamBase):
     # fires the move once every post-rip worker above has wound down.
     _pending_library_move: tuple[Path, Path, int] | None
     _library_move_timer: QTimer
+    #: Drives `_poll_evidence_bundle`: a 500 ms GUI-thread settlement poll
+    #: that waits for EVERY post-rip check before the report bundle is
+    #: sealed. v0.6.17 joined one thread of six and then asserted the
+    #: pipeline had finished; see `_arm_evidence_bundle`.
+    _evidence_bundle_timer: QTimer
+    #: The queued bundle's GUI-thread snapshot, or None when none is armed.
+    _pending_evidence_bundle: _PendingBundle | None
 
     # Per-rip result snapshots, reset to None at the start of each finish and
     # filled as each (possibly async) check lands, so the coalesced report

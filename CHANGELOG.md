@@ -11,6 +11,79 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The report bundle sealed before the verification it exists to carry had
+  landed.** v0.6.17 waited on one post-rip thread of six and then wrote *"waited
+  for post-rip: yes — post-rip processing finished first"* into the manifest.
+  Measured from the maintainer's own uploaded bundle: sealed at `22:20:02.314`,
+  the FLAC verify finished `22:20:02.680` and the CTDB verdict `22:20:03.106`, so
+  the archived report carried `checksums: null`, `ctdb: null`, `audio_md5: null`
+  — the exact fidelity evidence a rip report exists to hold — under a line
+  asserting the pipeline had completed. The bundle now arms a GUI-thread
+  settlement poll gated on `_post_rip_work_settled`, the predicate the
+  auto-move-to-library step has always used, and flushes the debounced report
+  before archiving. One predicate, two callers, rather than a second opinion
+  about what "settled" means.
+- **A deliberate single-track rip was archived as `partial`.** The bundle's
+  outcome label compared the ripped track count against the *disc's* 14, so a rip
+  the app's own banner called *"all 1 tracks verified against AccurateRip"* was
+  labelled an incomplete rip in the artifact a bug report is judged from. The
+  denominator is now the requested count (`RipParameters.only_tracks`), falling
+  back to the disc total for a whole-disc rip.
+- **`(ripper)` in a script's album title stopped expanding after any later
+  `cyanrip` step.** It read `_last_cyanrip_output`, a slot every subsequent
+  ripper call overwrites on purpose so that `expect-cyanrip` / `expect-exit` can
+  never grade a subject two commands old. On the rig the section-C cache probe
+  timed out, its error text replaced the banner, and both `album … (ripper)`
+  steps failed with *"no build tag has been captured yet"* twenty minutes after
+  the tag had been captured. The rip then used the default album title — which is
+  why a cancelled rip's two FLACs landed in the real album folder and produced an
+  overwrite prompt nobody expected. The build tag is now latched in its own
+  field, set by any ripper output that yields one and never cleared.
+- **The script `rip` verb could start a second rip behind an open modal.** Its two
+  guards — "a rip is already running" and `can_start()` — both pass while the
+  window is holding its overwrite confirmation up, because the worker is created
+  *after* the dialog is answered; Qt runs the script runner's timer inside the
+  modal's nested event loop, so the batch keeps advancing. Answering the dialog
+  would then have launched two ripper processes against one drive. `rip` now
+  refuses and names the dialog, and `wait-for-rip`'s "no rip is running" failure
+  names the modal that is blocking it instead of leaving the diagnosis on screen
+  and out of the transcript.
+- **The bundle could race the library move of the folder it reads.** Both are
+  500 ms polls on the same settlement predicate, so on any machine with a library
+  folder configured they fire in the same tick in an order Qt does not define —
+  and the loser walks a directory `shutil.move` is relocating, producing a bundle
+  silently missing the album's log, report and cue. The bundle now waits for the
+  move as well, and re-reads the album's location just before archiving so it
+  follows the folder to its new home, recording the relocation in the manifest.
+
+### Changed
+- **`expect-tracks` accepts an at-least form** — `expect-tracks 3+`. The exact
+  form made a script lie: `rigcancelandoverread.txt` promises it needs no editing
+  and works on any ordinary CD, then asserted `expect-tracks 3` while meaning "at
+  least the three I am about to select". It failed twice per run on the 14-track
+  rig disc, and no exact number could satisfy both the assertion and the promise.
+- **The report bundle is bounded and self-pruning.** A 64 MiB cap across the whole
+  payload (the per-file cap bounded nothing useful — the app log rotates, so six
+  files were each permitted 16 MiB), files are now streamed one at a time instead
+  of all being held in memory, and the newest 20 bundles are kept. Over-budget
+  files and the caps themselves are named in `MANIFEST.txt`; pruning only ever
+  removes files matching the exact name the app generates, so a user's own
+  archives in that folder are never candidates.
+- **`--rig-session` no longer runs `cyanrip -x` either.** Same defect, second call
+  site: the harness a person is told to run *after* a rig pass spent five minutes
+  re-ripping the disc into its own scratch directory and left the drive held for
+  every step after it. Found by grepping for the call rather than by fixing the
+  place the lesson was learned. The step now announces itself as a recorded
+  omission — a silent skip and a passed check look identical in a summary.
+- **The rig script no longer runs `cyanrip -x`.** Its first-ever hardware
+  execution succeeded — `32 sectors, 73.5 KiB, uncached read 362.6 ms` — and then
+  went on to rip the whole disc (ETA 1h 3m); the verb killed it at 300 s and the
+  child could not be reaped, so the drive stayed held for the two rips that
+  follow. The measurement is recorded in the script and the step returns when the
+  fork ships a build whose `-x` exits after measuring. This also corrects the
+  script's own 2026-08-18 note claiming the probe "costs SECONDS".
+
 ## [0.6.17] — 2026-08-19
 
 
