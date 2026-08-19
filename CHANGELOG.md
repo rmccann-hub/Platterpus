@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.18] — 2026-08-19
+
 ### Fixed
 - **The report bundle sealed before the verification it exists to carry had
   landed.** v0.6.17 waited on one post-rip thread of six and then wrote *"waited
@@ -9025,7 +9027,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.17...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.18...HEAD
+[0.6.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.17...v0.6.18
 [0.6.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.16...v0.6.17
 [0.6.16]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.15...v0.6.16
 [0.6.15]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.14...v0.6.15
@@ -9131,4 +9134,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.17.*
+*Last updated for Platterpus v0.6.18.*
