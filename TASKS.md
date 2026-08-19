@@ -47,6 +47,18 @@ args`.
 - [x] **The `-x`/overread doc gate derives its file list from disk** (4 files → 60).
   It could not see `PLANNING.md`, which carried the sentence it was written to stop.
 
+- [ ] **The two-pass album-name collision — the one step that resisted automation.**
+  Both rip sections use fixed album names (`cancel me`, `after cancel`), so running
+  the script twice — once on `ddf7ac3`, once on `c4d1a00` — writes both passes into
+  the same two folders, and pass 2's artifacts land on top of pass 1's. The script
+  language has no variable substitution and no verb that can stamp a name with the
+  running ripper build, so today the operator has to move the pass-1 folders aside
+  between passes. That is work handed back, which is exactly what `CLAUDE.md`
+  forbids — naming it here rather than burying it in a procedure. **The fix is a
+  script verb, not a flag** (maintainer directive, 2026-08-11): either `album`
+  learns a `{build}` / `{stamp}` placeholder, or a new verb sets a per-run prefix.
+  Until then, the two-pass runbook carries one `mv`, and it is a symptom.
+
 **Not fixed by this, and it is why the rig has to run again:** the race killed sections
 D and E before they ripped anything, so **task #53 has no cancel/drive-open evidence
 yet**. Re-run on 0.6.17.
