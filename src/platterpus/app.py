@@ -926,6 +926,13 @@ def main(argv: list[str] | None = None) -> int:
         #
         # It runs off-thread, stays silent unless it finds something it can fix in
         # one click, and never blocks the window.
+        # Tell the window it is being driven, before the event loop starts. Every
+        # launch-time modal reads this at the moment it would appear — see
+        # `ProvisioningMixin._maybe_offer_first_run_setup`. Nothing between
+        # `MainWindow(...)` above and here spins the event loop, so the deferred
+        # first-run offers cannot have fired yet.
+        window._unattended = _autorun
+
         if not _autorun:
             try:
                 window.schedule_ripper_update_check()

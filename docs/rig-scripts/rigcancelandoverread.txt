@@ -77,19 +77,26 @@ expect-cyanrip platterpus-fork
 # real font size and DPI, and no assertion here can see it. These are for a
 # person to look at. They cost seconds and they are the only evidence that
 # survives the session.
+#
+# TWO, not four (trimmed 2026-08-19 on the maintainer's "it is a lot"). Every
+# dialog is still OPENED and closed — that is the part that can crash or hang,
+# and it still runs. What was dropped is the *picture* of the two whose text is
+# short and fixed (Set up Platterpus, Dependency check); the clipping report that
+# started this was against the drive dialog, and Settings is the densest text in
+# the app, so those two keep theirs. Fewer screenshots, same coverage of the
+# thing that fails — and from 0.6.17 the ones that remain travel inside the run's
+# single .tar.gz, so "a lot of screenshots" is no longer a lot of uploads.
 
 log --- B. dialogs, for the clipping check (look at these afterwards) ---
 open drive
 screenshot dialogdrive
 cancel
 open setup
-screenshot dialogsetup
 cancel
 open settings
 screenshot dialogsettings
 cancel
 open dependencies
-screenshot dialogdependencies
 cancel
 expect-dialog none
 
@@ -110,10 +117,23 @@ expect-dialog none
 # The `Cache probe:` states are all legitimate outcomes and NONE of them means
 # "the cache was defeated": `N sectors measured`, `no readback cache measured`,
 # `not run (disc image has no drive cache)`, and four `unknown (<reason>)` forms.
+#
+# `-s 0` IS REQUIRED, and leaving it out is what wasted this probe's first two
+# attempts (2026-08-18, both runs). cyanrip refuses to open the drive with no
+# offset set and says so itself:
+#
+#     Opening drive...
+#     Offset is unset! To continue with an offset of 0, run with -s 0!
+#
+# It exits 1 in two seconds having measured nothing. `-s 0` and not the rig's
+# real `+667` on purpose: the probe measures the drive's readback CACHE, which
+# has nothing to do with where the audio starts, and a hardcoded offset would
+# make this file wrong on every other machine — this script promises to need no
+# editing. Zero is the value cyanrip's own message names.
 
 log --- C. cache probe: the first execution of this flag on real hardware ---
 log whatever it prints is the first data point in existence, including an absurd one
-cyanrip -x -N
+cyanrip -x -N -s 0
 snapshot aftercacheprobe
 
 # --- D. THE CANCEL PATH, AND THE ONLY HONEST PROOF OF IT --------------------
@@ -205,5 +225,8 @@ snapshot atend
 # -----------------------------------------------------------------------------
 
 log =============================================================
-log DONE. Now run:  ./platterpus-x86_64.AppImage --rig-session
+log DONE. Everything from this run is now in ONE .tar.gz under
+log ~/.local/share/platterpus/bundles/ - transcript, report, screenshots,
+log app log. Its path is the "SEND THIS ONE FILE" line in the app log.
+log Then run:  ./platterpus-x86_64.AppImage --rig-session
 log =============================================================
