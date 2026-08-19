@@ -156,6 +156,12 @@ class MainWindowShared(_SeamBase):
     _manual_cover_path: str | None
     _current_disc_id: str
     _current_num_tracks: int
+    #: True when this launch is driving the GUI from a script rather than for a
+    #: person (``--run-script``, or the saved autorun pair). Set by ``app.py``
+    #: after the window is built and before the event loop starts; read at the
+    #: moment a spontaneous modal would appear, never at the moment one is
+    #: scheduled. See ``ProvisioningMixin._maybe_offer_first_run_setup``.
+    _unattended: bool
 
     # Active rip's worker/thread (concrete types so member access resolves).
     _rip_worker: RipWorker | None
@@ -307,6 +313,7 @@ class MainWindowShared(_SeamBase):
     flac_recompress_done: Signal
     transcode_done: Signal
     derived_verify_done: Signal
+    evidence_bundle_done: Signal  # (evidence_bundle.BundleResult)
     checksums_done: Signal
     rip_comparison_done: Signal
     library_move_done: Signal

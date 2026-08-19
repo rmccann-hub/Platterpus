@@ -217,4 +217,4 @@ hazard rather than a documentation nit.
 it prints is the first data point in existence — including an absurd number,
 which is a finding and a good outcome.
 
-*Last updated for Platterpus v0.6.16.*
+*Last updated for Platterpus v0.6.17.*

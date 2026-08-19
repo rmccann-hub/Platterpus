@@ -11,6 +11,119 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-19 — the rig run diagnosed, and one file to send
+
+The rig ran `rigcancelandoverread.txt` twice on app 0.6.16 against the fork build
+`platterpus-fork-gddf7ac3`. Second pass: **pass=50 fail=8**. This session was
+diagnosing those eight and shipping v0.6.17.
+
+### All eight failures were one line, and my first diagnosis of it was wrong
+
+The eight are four failures repeated across two sections: `expect-tracks 3` →
+*"found 0"*, then `select-tracks` → *"no tracks are loaded"*, `rip` → *"the Start
+button is not enabled"*, `cancel-rip` → *"no rip is running"*.
+
+I first told the maintainer that **choosing a release never populates the tracks**,
+citing the disc panel reading `musicbrainz: 4 matches found — pick one` in every
+snapshot through `atend`. **That was wrong**, and their screenshots refute it: the
+main window shows a full track table (Roxanne, Can't Stand Losing You, Message in a
+Bottle…), album artist *The Police*, and **"Start rip" enabled** — while that same
+panel line still says "pick one".
+
+Two separate defects, not one:
+
+1. **A race.** `pick-release` returned PASS the instant it called `dialog.accept()`,
+   but `MainWindow._fetch_release_detail` *emits* to the MusicBrainz worker thread
+   rather than calling it. Picker accepted `20:08:25,436`; `expect-tracks` failed
+   `20:08:25,560` — **124 ms**. The tracks were loading correctly the whole time.
+2. **A stale label.** `_on_mb_release_detail` applies the release to the track table
+   and the rip controls and never tells the disc panel, so it goes on instructing the
+   user to pick a release they have already picked.
+
+Graduated to `docs/testing.md` **§5.ap** — asking for a thing is not having it, and
+the three sub-lessons: a verb that ends at a *request* has invented its own definition
+of done; the asymmetry was already in the docstring (the same method's other branch
+demanded positive evidence — §5.o at the scale of one function); and the fixture
+started at the end (`_TrackTable()` constructs with 14 rows, so no test could see an
+empty→full transition).
+
+### The cache probe's first-ever hardware run measured nothing, twice
+
+`cyanrip -x -N` with no `-s`:
+
+    Opening drive...
+    Offset is unset! To continue with an offset of 0, run with -s 0!
+
+Exit 1 in two seconds, both passes. My bug in the script. It now sends `-s 0` —
+zero deliberately, not the rig's real `+667`: the probe measures the drive's readback
+*cache*, which has nothing to do with where the audio starts, and a hardcoded offset
+would make the file wrong on every other machine.
+
+### Two maintainer asks, both about the same thing
+
+*"why make me bundle it into one compressed file? … this should be on a successful
+rip, a partial, a canceled, a failed, etc. so i only need to upload 1 file here."*
+And, separately, of the screenshots: *"it is a lot."*
+
+Both are the instruction-file rule (`CLAUDE.md`: never hand back work) applied to
+*reporting*: every manual step in a report is a thing the software should have done.
+`rig_session.sh` had already learned it and ends by building one archive; an ordinary
+rip had not. New `evidence_bundle.py` + a **Report bundle** button; `--run-script`
+writes one too, with its screenshots inside. The screenshot count went 4 → 2 for the
+dialogs, but the real answer is that the remaining ones now travel *in* the one file.
+
+### The gate written to stop a hazard could not see the copy that already existed
+
+`tests/test_documented_ripper_flags_are_real.py` (added the day before, to stop any
+live doc calling `-x` "overread" — `-x` is the fork's cache probe, overread is `-O`,
+and `-O` **hangs the BDR-209D**) hardcoded four paths. `PLANNING.md` was not among
+them and carried *"re-opening any of them is a fresh cyanrip task (e.g. `-x`
+overread)"* the entire time.
+
+Deriving the list from disk took it from 4 files to 60 and immediately found four more
+offenders — including `docs/hardware-test-checklist.md` item **H10**, a *live* item
+telling the operator to enable overread and rip, calling the flag `-x`, and saying the
+BDR-209D was *"expected to be fine"*. It is measured to hang that exact drive for ~23
+minutes. That item is now ⛔ BLOCKED pending a different drive.
+
+Its exemption for correction notices also changed from matching **keywords**
+("previously", "corrected", "conflat") to requiring the **right answer** — `-O`,
+"cache probe" or "whipper" — in the same paragraph. A keyword list can be satisfied by
+a sentence that apologises for the confusion and then repeats it. (Scoped to the
+paragraph, not an N-line window: prose wraps, and any N is arbitrary in a way a
+paragraph is not.)
+
+### An unattended launch was answering its own dialogs
+
+First run only: `L94 fail: a dialog is open: 'Add to your applications menu?'`, four
+seconds in, followed by the script's next click **relocating the running AppImage out
+of `~/Downloads` mid-batch**. `app.py` already refused to arm the automatic cyanrip
+check on a scripted launch, and the reasoning it wrote down was about *any*
+launch-time modal. The refusal now sits at the gate they all share.
+
+### Still open
+
+- **Task #53** — the run did not produce the cancel/drive-open evidence, because the
+  race killed sections D and E before they ripped anything. It needs re-running on
+  0.6.17.
+- **Pass 2 on `c4d1a00`** — blocked until pass 1 produces usable evidence.
+- **The whipper capability-delta question** — is anything of whipper's genuinely
+  missing versus already native in cyanrip? The agent investigating it died with the
+  container; six things still execute (see the 2026-08-18 entry) and the answer is
+  still not known.
+- **A provenance-label mismatch worth a look, not a blocker.** Three surfaces name
+  three different rounds for one build: our manifest says *"handshake round 8
+  approved … for Platterpus 0.6.12b6"*, the binary's own `argvprobe.json` says
+  *"round 7 lap 39 closed, verdict GO"*, and `--install-ripper` says *"the round-7
+  release … see round-07-lap-40"*. Nothing is wrong — `ddf7ac3` was approved in round
+  7 and carried into 8 — but it is the shape `CLAUDE.md` warns about under *do two
+  surfaces answer this question, and do they use the same key?*. Also: the approval
+  is recorded against app **0.6.12b6** while the rig runs **0.6.16**, and rule #12's
+  obligation (3) says a round approves a pin *for a named app version*. Next round,
+  per S-14 — it does not make the reviewed pin unsafe.
+
+---
+
 ## 2026-08-18 — the autoupdate the ripper never had, and an audit of every "enforced by" claim in this repo
 
 Two halves of one instruction (*"do both"*): build the ripper autoupdate the
@@ -2913,4 +3026,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.16.*
+*Last updated for Platterpus v0.6.17.*

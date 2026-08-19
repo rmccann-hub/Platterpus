@@ -252,6 +252,25 @@ class DiscInfoPanel(QWidget):
         self._mb_match_value.setText(text)
         announce(self._mb_match_value, f"MusicBrainz: {text}")
 
+    def set_mb_applied(self, artist: str, title: str) -> None:
+        """The release whose tags are now loaded — the end of the lookup story.
+
+        **Why this exists (0.6.17).** `set_mb_matches` renders the ambiguous
+        case as *"4 matches found — pick one"*, and nothing replaced it once the
+        user *had* picked one: the panel kept instructing the user to do a thing
+        they had already done, indefinitely, while the track table beside it was
+        full and "Start rip" was enabled. Every word of that label was true when
+        written and the sentence was wrong by the time it was read — the same
+        shape as the dependency dialog that reported `0 missing` about a build it
+        had not checked.
+
+        It is the *outcome* of the identification, so it is announced; the
+        matched-count state it replaces is only ever an intermediate step.
+        """
+        text = f"using: {artist or 'Unknown Artist'} — {title or 'Unknown Title'}"
+        self._mb_match_value.setText(text)
+        announce(self._mb_match_value, f"MusicBrainz: {text}")
+
     def set_mb_error(self, message: str) -> None:
         error_text = f"MusicBrainz error: {message}"
         self._mb_match_value.setText(error_text)

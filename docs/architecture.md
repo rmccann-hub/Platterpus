@@ -989,6 +989,64 @@ Two corollaries, both cheap:
   It still has to *emit* — a worker that never finishes is a thread `stop_thread`
   cannot join (rule 9) — but it emits a verdict with no action attached.
 
+### 3.13 Reporting is a feature: the one file a user sends
+
+**The rule.** *Every manual step in a reporting procedure is a thing the software was
+supposed to do.* `CLAUDE.md` states it for instruction files — *"never hand back an
+instruction file… hand back three steps and a file to run"* — and the same reasoning
+applies to what comes back the other way. "Send me the log, the report, the cue and a
+screenshot" is four manual steps and a compression, and a folder upload that silently
+drops one file is indistinguishable from a step that never ran.
+
+So: **every rip writes one `.tar.gz`, on every outcome**, and the UI hands the user its
+location. `evidence_bundle.py` builds it; `main_window_rip._write_evidence_bundle_async`
+is the only caller for a rip and `uiscript.runner._write_run_bundle` the only one for a
+test-script run.
+
+**If you add an artifact, four things are already decided for you.**
+
+1. **Hook at the single point every outcome passes through, not at the happy one.**
+   The rip's call sits inside `_on_rip_finished`'s `finally`, so it also runs for a
+   cancel, a failure, and the path where the finish handler itself raised. The rips
+   worth sending are exactly the ones a *"write it when we finish nicely"* hook skips.
+   Two call sites — one for success, one for failure — would be two things that can
+   disagree about what a bundle contains.
+
+2. **Filter by allowlist, never denylist.** Critical rule #8 forbids copyrighted media
+   leaving in anything we generate, and the bundle walks a folder that is by definition
+   full of FLACs. A denylist of audio extensions is wrong the first time a format nobody
+   listed appears, it fails **open**, and it fails **silently**. `ALLOWED_SUFFIXES` is
+   text-only; anything else is excluded *and counted*.
+   The widened set that admits our own screenshots (`EXTRA_DIR_SUFFIXES`) applies only
+   to directories a caller names explicitly, and the album folder is never one — an
+   album folder's `cover.jpg` is record-label artwork, so widening globally would sweep
+   it in as an invisible side effect of a screenshot feature.
+
+3. **Name every omission.** A file that was missing, unreadable, over the cap or the
+   wrong type gets a `MANIFEST.txt` row with its reason. A bundle quietly holding eight
+   of eleven artifacts looks exactly like a complete one, and the reader draws
+   conclusions from the gap. Same rule as `diagnostics.py`: *a silent truncation reads
+   as completeness*, and where a file must be bounded it keeps **head and tail** with a
+   counted elision, because a tool's fatal message is the last thing it prints.
+
+4. **Off the GUI thread, and it never raises.** Gzipping a 4 MB log plus its rotations
+   is not a few-milliseconds operation (§3.2), so it runs on a plain daemon thread —
+   not a `QThread`, which would add a `closeEvent` teardown obligation (rule #9) for
+   work that owns no Qt object. And a convenience wrapped around a rip that has already
+   finished must never surface as a crash after a successful one: `build_bundle` returns
+   a `BundleResult` carrying `error`, and the caller reports it.
+
+**Why `evidence_bundle.py` is Qt-free.** The caller passes in whatever in-memory text it
+wants embedded (`extra_text` — the diagnostics blob) rather than the module reaching into
+the UI for it, and owns the thread. That is what makes the whole thing unit-testable
+without a `QApplication`, which is where its audio-exclusion guarantee is actually
+asserted (`tests/test_evidence_bundle.py`).
+
+**The archive's name follows the cross-machine artifact rule** — lowercase ASCII letters
+and digits only (`CLAUDE.md` → *Artifact filenames that cross machines*). It is going to
+be named in a chat message and typed into a file dialog, which is exactly the crossing
+that cost a rig run once.
+
 ## 4. Extension points — how to add things
 
 > The goal: a contributor who has never spoken to the author can add a
@@ -1562,4 +1620,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.6.16.*
+*Last updated for Platterpus v0.6.17.*

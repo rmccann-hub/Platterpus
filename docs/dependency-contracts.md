@@ -331,7 +331,7 @@ pre-emphasis-encoded discs as cyanrip finds them (an archival choice, not an
 oversight) rather than actively de-emphasizing. *(Overread moved out of this
 list 2026-07-21: it's now the opt-in Settings "Overread" toggle → `-O` in the
 table above. Note the flag-letter correction made the same day: earlier
-versions of this doc called overread `-x`, but `-x` did not exist in
+versions of this doc called overread `-x` rather than `-O`, but `-x` did not exist in
 cyanrip's getopt at all — verified against the deployed 0.9.3.1 and
 upstream master **as of 2026-07-21**; the whipper-era flag really was
 `-x/--force-overread`, which is likely where the mix-up came from.)*
@@ -346,7 +346,7 @@ upstream master **as of 2026-07-21**; the whipper-era flag really was
 >
 > Getting these two confused is a hardware hazard rather than a documentation
 > nit, which is why this correction is a block quote and not an edit in place:
-> anyone who reads "the previously-documented `-x`" and reaches for the overread
+> anyone who reads "the previously-documented `-x`" and reaches for the overread flag `-O`
 > toggle on that drive loses the session.
 >
 > This is `CLAUDE.md`'s *"state the range a contract claim covers, not the
@@ -543,4 +543,4 @@ outlive the window — see `ui/main_window_rip.py::_stop_rip_on_shutdown`.
 
 ---
 
-*Last updated for Platterpus v0.6.9.*
+*Last updated for Platterpus v0.6.17.*

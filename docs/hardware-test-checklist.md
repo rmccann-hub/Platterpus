@@ -1083,22 +1083,31 @@ and I would rather not have to find it.
 many discs you tried. "Three discs, all zero" tells the fork something a silent absence does
 not.
 
-### F2 — [ ] H10: the `-x` force-overread log line
+### F2 — [ ] ⛔ H10: the overread log line — **DO NOT RUN ON THE BDR-209D**
 
-**Why it is owed.** We ship the force-overread toggle. We have never captured the line cyanrip
-prints when a drive **accepts** the command, so our parser's handling of it is written against
-their published format string and nothing else.
+**Two corrections, 2026-08-19. Read both before doing anything with this item.**
 
-**What to run.** Settings → enable force-overread, then rip **one track** (right-click the
-track table → rip only track 1). One track is enough; the line is emitted per rip, not per
-track.
+**(1) The flag is `-O`, not `-x`.** This heading said `-x` for months. `-x` is the *fork's*
+`--cache-probe`, a different flag doing a different thing; `-x/--force-overread` was
+**whipper's**, retired with whipper in KDD-18. The hazard table is
+`docs/dependency-contracts.md`.
 
-**What to send.** Just the cyanrip `.log`. The line will be near the top, next to
-`Overread mode:` / `Underread mode:`.
+**(2) It is not "expected to be fine" — it is measured to hang, on this exact drive.**
+The previous version of this item said upstream warns it *can* freeze an unsupporting drive
+and that the BDR-209D was expected to be fine. That was written before we knew: on
+**2026-07-22** overread hung the BDR-209D for roughly 23 minutes — 13 of 14 tracks ripped
+perfectly, then the last track's lead-out froze the progress bar near 100%. This item was
+still instructing an operator to enable it and rip.
 
-**Upstream warns this can freeze a drive that does not support it.** The BDR-209D is expected
-to be fine, but if the rip hangs: cancel, and *that* is the answer — send the log and say it
-hung. A drive that refuses is a documented outcome, not a failed test.
+**So this item is BLOCKED, not pending.** It needs a *different drive*, and it is not worth a
+rig session on the one we have. If a second optical drive ever comes into the picture, the
+procedure is: Settings → Overread on → rip one track → send the cyanrip `.log` (the line is
+near the top, beside `Overread mode:` / `Underread mode:`) → Overread back off.
+
+**Why it is still owed at all.** We ship the toggle, so our parser's handling of the accept
+line is written against the fork's published format string and nothing else. A drive that
+*refuses* is a documented outcome and equally useful — but a drive that *hangs* costs a
+session and tells us nothing we do not already know.
 
 ### F3 — [ ] ⭐⭐⭐ H12/G2/A7: the forced-error corpus — the highest-value artifact we owe
 
@@ -1193,4 +1202,4 @@ with `rip stream error:`** — that is the v0.5.20 fix's signature and I want th
 
 ---
 
-*Last updated for Platterpus v0.6.4b13.*
+*Last updated for Platterpus v0.6.17.*

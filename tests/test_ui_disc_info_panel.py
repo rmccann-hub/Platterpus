@@ -517,3 +517,43 @@ def test_every_value_label_wraps(qapp: QApplication) -> None:
     assert all(label.wordWrap() for label in values), (
         "a value label was built without word wrap — see _value_label()"
     )
+
+
+# --- The MusicBrainz line has to reach an END state ------------------------
+
+
+def test_picking_a_release_clears_the_pick_one_instruction(qapp: QApplication) -> None:
+    """Regression (rig, 2026-08-18, app 0.6.16).
+
+    With four candidates the panel said *"4 matches found — pick one"*. Once the
+    user picked one, nothing replaced that text: the panel went on instructing
+    them to do a thing they had already done, indefinitely, while the track table
+    beside it was full of that release's tags and "Start rip" was enabled. Every
+    word was true when written; the sentence was false by the time it was read.
+    """
+    panel = DiscInfoPanel()
+    panel.set_mb_matches(
+        [
+            _release("aaaa1111-0000-0000-0000-000000000000"),
+            _release("d14a7546-815b-43c6-8af6-35cff6cee1d0"),
+        ]
+    )
+    assert "pick one" in panel._mb_match_value.text()
+
+    panel.set_mb_applied("The Police", "Every Breath You Take: The Classics")
+
+    text = panel._mb_match_value.text()
+    assert "pick one" not in text, f"still telling the user to choose: {text!r}"
+    assert "The Police" in text and "Every Breath You Take" in text, text
+
+
+def test_the_applied_state_survives_empty_fields(qapp: QApplication) -> None:
+    """A release with no artist credit must not render an empty dash sandwich.
+
+    MusicBrainz data is external input; a missing artist or title is a value we
+    receive, not an impossible one.
+    """
+    panel = DiscInfoPanel()
+    panel.set_mb_applied("", "")
+    text = panel._mb_match_value.text()
+    assert "Unknown Artist" in text and "Unknown Title" in text, text
