@@ -11,6 +11,37 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-19 (v0.6.19) — a parameter that was accepted and ignored
+
+`audio_md5` was the one thing left open from the rig pass, and it turned out not
+to be a race at all. **`write_report` accepted an `audio_md5` argument and never
+forwarded it to `build_report`.** Every `.platterpus.json` this project has ever
+written carried `audio_md5: null` — while the caller had the value and the GUI
+logged reading it.
+
+**How it hid for so long.** Every test drove `build_report`, the *pure builder*,
+which always handled the field correctly. Nothing drove `write_report`, the
+wrapper the app actually calls. The seam between a well-tested pure function and
+the thin thing that calls it is where a dropped argument lives forever.
+
+**Why the shape is the worst one available:** the call site reads correctly, the
+type checker is satisfied (the parameter exists and is typed), and the only
+symptom is a `null` in an archival record — where `null` reads as *"not
+computed"* rather than *"we had it and lost it"*.
+
+**Method note.** Two earlier sessions of reasoning about timing produced nothing,
+because the premise was wrong: I kept asking *when* the value was lost. Driving
+the real writer once with both fields set answered it in a single run —
+`checksums` present, `audio_md5` null, deterministic, no threads involved.
+`CLAUDE.md`: *did I reproduce the symptom, or only explain it?* The probe was
+always cheaper than the theory.
+
+A sweep was added for the same shape across `write_report`'s whole signature, and
+then **corrected**: reverting the fix did NOT make the sweep fail, because the
+revert left a comment mentioning `audio_md5` and a mention is all it looks for.
+The docstring now says so and names the forwarding test as the authority — a
+sweep believed stronger than it is, is worse than no sweep.
+
 ## 2026-08-19 (last) — the version gate was measuring the wrong thing
 
 **Maintainer ruling, and it corrects a real error of ours:** *"I think your
@@ -3253,4 +3284,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.18.*
+*Last updated for Platterpus v0.6.19.*
