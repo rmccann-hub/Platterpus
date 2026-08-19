@@ -985,3 +985,92 @@ def test_the_no_picker_and_picker_arms_demand_the_same_evidence(
             f"passed on an empty track table (picker present: {with_picker})"
         )
         runner.stop()
+
+
+# --- `(ripper)` in an album title: the two-pass collision fix ---------------
+#
+# A two-pass hardware session rips the same disc on two ripper builds. The album
+# title decides the output folder, so a fixed title makes pass 2 land on top of
+# pass 1 and destroy the evidence. The workaround was two `mv` commands handed to
+# the operator between passes — hand-work the software should do (`CLAUDE.md`).
+
+
+def _window_with_banner(runner: ScriptRunner, banner: str) -> None:
+    """Give the runner a captured `cyanrip --version` banner, as section A does."""
+    runner._last_cyanrip_output = banner
+
+
+def test_the_ripper_placeholder_expands_to_the_installed_build_tag(qapp) -> None:
+    win = _window()
+    runner = ScriptRunner(win)
+    _window_with_banner(
+        runner, "cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)"
+    )
+
+    runner._execute(parse("album cancel me (ripper)")[0])
+
+    record = runner._report.steps[-1]
+    assert record.outcome is Outcome.PASS, record.detail
+    assert win._track_table._album_title_edit.text() == (
+        "cancel me platterpus-fork-gddf7ac3"
+    )
+
+
+def test_two_builds_produce_two_different_album_folders(qapp) -> None:
+    """The property the whole fix exists for, asserted as a RELATION.
+
+    Testing one expansion alone would pass against a function that returned a
+    constant. What matters is that two different builds give two different
+    titles — that is what stops pass 2 overwriting pass 1.
+    """
+    titles = []
+    for banner in (
+        "cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)",
+        "cyanrip 0.9.4-rc1+platterpus.6 (platterpus-fork-gc4d1a00)",
+    ):
+        win = _window()
+        runner = ScriptRunner(win)
+        _window_with_banner(runner, banner)
+        runner._execute(parse("album cancel me (ripper)")[0])
+        titles.append(win._track_table._album_title_edit.text())
+
+    assert titles[0] != titles[1], (
+        f"both builds produced the album folder {titles[0]!r} — pass 2 would "
+        "overwrite pass 1's evidence, which is the bug this fixes"
+    )
+    assert "ddf7ac3" in titles[0] and "c4d1a00" in titles[1], titles
+
+
+def test_an_unresolvable_ripper_placeholder_fails_loudly(qapp) -> None:
+    """Refusing beats writing the literal text.
+
+    A silently unexpanded `(ripper)` gives both passes the SAME folder name — it
+    restores the exact collision the placeholder exists to prevent, while looking
+    like it worked. The step fails and names the cause instead.
+    """
+    win = _window()
+    runner = ScriptRunner(win)
+    _window_with_banner(runner, "")  # no `cyanrip --version` ran yet
+
+    runner._execute(parse("album cancel me (ripper)")[0])
+
+    record = runner._report.steps[-1]
+    assert record.outcome is Outcome.FAIL, record.detail
+    assert "cyanrip --version" in record.detail
+    assert "(ripper)" not in win._track_table._album_title_edit.text(), (
+        "the literal placeholder was written into the album title"
+    )
+
+
+def test_a_title_without_the_placeholder_is_untouched(qapp) -> None:
+    """Non-triviality: the expansion must not rewrite ordinary titles, and must
+    not require a banner for them."""
+    win = _window()
+    runner = ScriptRunner(win)
+    _window_with_banner(runner, "")
+
+    runner._execute(parse("album Every Breath You Take")[0])
+
+    record = runner._report.steps[-1]
+    assert record.outcome is Outcome.PASS, record.detail
+    assert win._track_table._album_title_edit.text() == "Every Breath You Take"
