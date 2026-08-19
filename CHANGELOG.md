@@ -11,6 +11,79 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+
+### Added
+- **Every rip now writes ONE file to send.** Success, partial, cancelled or failed,
+  the app builds a single `.tar.gz` under `~/.local/share/platterpus/bundles/`
+  holding the app log and its rotations, the rip's `.log` / `.cue` /
+  `.platterpus.json` / EAC export, and the session diagnostics — reachable from a
+  new **Report bundle** button in the rip pane. A test-script run (`--run-script`)
+  writes the same thing, and *its* bundle includes the run's screenshots and
+  transcript, so an hour-long rig pass is one attachment instead of a folder.
+  Prompted by the maintainer: *"why make me bundle it into one compressed file?
+  … so i only need to upload 1 file here."* Every manual step in a reporting
+  procedure is a thing the software should have done.
+  **No audio can enter a bundle**, enforced by an *allowlist* of text extensions
+  rather than a denylist of audio ones — a denylist fails open, and silently, the
+  first time a format nobody listed appears (Critical rule #8). The widened rule
+  that admits our own screenshots applies only to directories the caller names
+  explicitly, never the album folder, where the images are record-label artwork.
+  Every excluded or truncated file is named with its reason in the archive's
+  `MANIFEST.txt`, because a bundle quietly missing three artifacts looks exactly
+  like a complete one.
+
+### Fixed
+- **`pick-release` reported success ~124 ms before the tracks existed, failing every
+  step after it.** `MainWindow._fetch_release_detail` *emits* to the MusicBrainz
+  worker thread rather than calling it, so when the verb accepted the picker dialog
+  no release had been fetched, no tags applied and no track rows built — but the verb
+  returned PASS right there. Measured on the rig (2026-08-18, app 0.6.16): picker
+  accepted at `20:08:25,436`, `expect-tracks 3` failed with *"found 0"* at
+  `20:08:25,560`. **All eight failures in that run descend from this one line**, and
+  the tracks were loading correctly the whole time. The verb now waits for the track
+  table before passing, which also makes its two branches symmetric — the "no picker
+  appeared" arm already demanded loaded tracks as positive evidence while the "picker
+  appeared" arm passed on an empty table. The rule had been applied where it was
+  noticed rather than where it held.
+- **The disc panel kept saying "N matches found — pick one" after the user picked
+  one.** `_on_mb_release_detail` applied the release to the track table and the rip
+  controls and never told the panel, so it went on instructing the user to do a thing
+  they had already done — indefinitely, beside a full track table and an enabled
+  "Start rip". Every word of the label was true when written and the sentence was
+  false by the time it was read.
+- **An unattended launch no longer raises first-run dialogs.** On the rig the
+  AppImage's *"Add to your applications menu?"* offer opened four seconds into a
+  scripted run, failed the step in flight, and was then swept up by the script's next
+  click — relocating the running AppImage out of `~/Downloads` mid-batch. `app.py`
+  already refused to arm the automatic cyanrip check for this exact reason; the
+  refusal now sits at the gate every launch-time offer shares, and is read at the
+  moment a modal would appear rather than when it was scheduled.
+- **The rig script's cache probe ran without `-s`, so it measured nothing, twice.**
+  `cyanrip -x -N` exits 1 in two seconds with *"Offset is unset! To continue with an
+  offset of 0, run with -s 0!"*. The script now sends `-s 0` — zero and not the rig's
+  real `+667` on purpose: the probe measures the drive's readback cache, which has
+  nothing to do with where the audio starts, and a hardcoded offset would make the
+  file wrong on every other machine.
+
+### Changed
+- **`docs/hardware-test-checklist.md` item H10 is now ⛔ BLOCKED, not pending.** It
+  instructed the operator to enable overread and rip, calling the flag `-x` and saying
+  the BDR-209D was *"expected to be fine"*. Overread is `-O`, and it is **measured** to
+  hang that exact drive for ~23 minutes (2026-07-22). The item needs a different drive.
+- **The `-x`/overread doc gate derives its file list from disk** instead of naming four
+  paths. The hardcoded list did not include `PLANNING.md`, which carried the very
+  sentence the gate was written to stop — *"re-opening any of them is a fresh cyanrip
+  task (e.g. `-x` overread)"* — the entire time. The sweep now covers 60 files and
+  immediately found four more offenders, one of them the live hardware-checklist item
+  above. Its exemption for correction notices also changed from matching *keywords*
+  ("previously", "corrected", "conflat") to requiring the **right answer** — `-O`,
+  "cache probe" or "whipper" — in the same paragraph, because a keyword list can be
+  satisfied by a sentence that apologises for the confusion and then repeats it.
+- **The rig script takes two dialog screenshots instead of four** (maintainer:
+  *"it is a lot"*). Every dialog is still opened and closed — that is the part that
+  can crash — but only the drive dialog (where the clipping report originated) and
+  Settings (the densest text in the app) are photographed.
+
 ## [0.6.16] — 2026-08-18
 
 ### Fixed
@@ -8969,4 +9042,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.16.*
+*Last updated for Platterpus v0.6.17.*

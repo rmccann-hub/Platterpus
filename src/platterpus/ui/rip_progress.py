@@ -252,6 +252,11 @@ class RipProgress(QWidget):
         # the cue is produced by cyanrip during the rip and a given rip may not
         # have one.
         self._cue_path: Path | None = None
+        # This rip's single-file report bundle (`evidence_bundle.py`). Written
+        # off-thread after the rip ends — for EVERY outcome, including cancel and
+        # failure — and reported back here by a queued signal, so it is None
+        # until then and None again if the bundle could not be built.
+        self._bundle_path: Path | None = None
         # The last parsed rip log, kept so the CTDB handler (which finishes later,
         # asynchronously) can reconcile its verdict against AccurateRip.
         self._last_rip_log: RipLog | None = None
@@ -590,6 +595,19 @@ class RipProgress(QWidget):
         self._open_folder_button.setEnabled(False)
         self._open_folder_button.clicked.connect(self._on_open_folder_clicked)
         button_row.addWidget(self._open_folder_button)
+        # The one file to send. Every rip — success, partial, cancelled, failed —
+        # writes a single .tar.gz of the text artifacts (`evidence_bundle.py`),
+        # and this reveals it. Without a button the feature is a log line, and
+        # the manual step it exists to remove is "find the files" (maintainer,
+        # 2026-08-19: *"so i only need to upload 1 file here"*).
+        # `&b`, not `&t` — `t` is the Tools menu's mnemonic, and an ambiguous
+        # mnemonic only cycles focus instead of activating, which defeats the
+        # point (gap #4). The first version of this button took `t` and the
+        # accessibility sweep caught it; `b` was free.
+        self._bundle_button: QPushButton = QPushButton("Report &bundle", self)
+        self._bundle_button.setEnabled(False)
+        self._bundle_button.clicked.connect(self._on_bundle_clicked)
+        button_row.addWidget(self._bundle_button)
         root.addLayout(button_row)
 
         # --- Accessibility (docs/ux-design-principles.md #10) ---
@@ -619,6 +637,9 @@ class RipProgress(QWidget):
         )
         self._view_cue_button.setAccessibleName("Open the disc's cue sheet")
         self._open_folder_button.setAccessibleName("Open the folder containing the rip")
+        self._bundle_button.setAccessibleName(
+            "Open the folder holding this rip's single-file report bundle"
+        )
         # The tab strip is now the way to reach two thirds of this pane, so it has
         # to be as reachable as the buttons: each tab carries an Alt+<letter>
         # mnemonic (in its label), the strip is in the tab order, and the widget
@@ -659,6 +680,10 @@ class RipProgress(QWidget):
         self._view_report_button.setEnabled(False)
         self._view_cue_button.setEnabled(False)
         self._open_folder_button.setEnabled(False)
+        # The previous rip's bundle must not be reachable from this rip's pane —
+        # a stale artifact offered as this one's evidence is worse than none.
+        self._bundle_button.setEnabled(False)
+        self._bundle_path = None
         self._log_path = None
         self._live_log_path = None
         self._report_path = None
@@ -1170,6 +1195,31 @@ class RipProgress(QWidget):
             return
         # In-app viewer, not openUrl: a .cue has no default app on a fresh KDE.
         self._view_file(self._cue_path, f"Cue sheet — {self._cue_path.name}")
+
+    def set_bundle_path(self, path: Path | None) -> None:
+        """Point the "Report bundle" button at this rip's archive.
+
+        Called from the GUI thread by a queued signal once the bundle has been
+        written off-thread. `None` disables the button, which is the honest state
+        when the bundle could not be built — a button that opens nothing is the
+        silent-no-op shape this widget's other handlers already guard against.
+        """
+        self._bundle_path = path
+        self._bundle_button.setEnabled(path is not None)
+
+    def _on_bundle_clicked(self) -> None:
+        if self._bundle_path is None:
+            return
+        # Reveal the FOLDER, not the archive: a .tar.gz has no useful default
+        # handler on most desktops (it opens an archive manager at best), and
+        # the user's next action is to attach the file, which needs a file
+        # manager sitting on it.
+        open_path_externally(
+            self._bundle_path.parent,
+            parent=self,
+            open_url=self._open_url,
+            what="report bundle folder",
+        )
 
     def _on_open_folder_clicked(self) -> None:
         if self._rip_dir is None:

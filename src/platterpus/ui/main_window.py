@@ -248,6 +248,10 @@ class MainWindow(
     # thread) with the TranscodeResult, so the FLAC→MP3/WavPack/WAV transcode
     # outcome renders on the GUI thread.
     transcode_done = Signal(object)
+    # Emitted (from the evidence-bundle daemon thread; queued to the GUI thread)
+    # with the BundleResult, so the "Report bundle" button is enabled on the GUI
+    # thread. Fires for EVERY rip outcome — success, partial, cancelled, failed.
+    evidence_bundle_done = Signal(object)  # evidence_bundle.BundleResult
     # Emitted (from the post-transcode derived-verify daemon thread; queued to
     # the GUI thread) with the DerivedVerifyResult, so the per-format proof of
     # the derived MP3/WavPack/WAV files renders on the GUI thread.
@@ -348,6 +352,10 @@ class MainWindow(
         # Track count for the current disc (from cyanrip cd info). Used to
         # render numbered blank rows when MusicBrainz has no match.
         self._current_num_tracks: int = 0
+        # Default False: a window built by a person is the normal case, and a
+        # harness that forgets to say so gets the *interactive* behaviour, which
+        # is the safe direction to be wrong in.
+        self._unattended: bool = False
         # Active rip's worker/thread; set during a rip, cleared on finish.
         self._rip_worker: RipWorker | None = None
         self._rip_thread: QThread | None = None
@@ -648,6 +656,8 @@ class MainWindow(
         self.transcode_done.connect(self._on_transcoded)
         # Derived-file verify outcome (MP3/WavPack/WAV) lands in the rip log view.
         self.derived_verify_done.connect(self._on_derived_verified)
+        # The one-file report bundle — enables the "Report bundle" button.
+        self.evidence_bundle_done.connect(self._on_evidence_bundle_done)
         self.checksums_done.connect(self._on_checksums_done)
         # Re-rip comparison banner (when a prior rip of the same disc exists).
         self.rip_comparison_done.connect(self._on_rip_comparison_done)
@@ -1294,6 +1304,12 @@ class MainWindow(
         self._current_release_id = detail.summary.mbid
         self._track_table.set_release(detail)
         self._rip_controls.set_release_id(detail.summary.mbid)
+        # Close the loop on the disc panel's MusicBrainz line. Without this it
+        # keeps saying "N matches found — pick one" after the user has picked
+        # one and the tags are on screen (rig run 2026-08-18, app 0.6.16).
+        self._disc_info_panel.set_mb_applied(
+            detail.summary.artist_credit, detail.summary.title
+        )
 
     def _on_mb_error(self, context: str, message: str) -> None:
         if self._is_stale_mb_result(context):

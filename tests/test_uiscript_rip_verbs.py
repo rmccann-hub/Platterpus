@@ -854,3 +854,134 @@ def test_a_faulting_predicate_ends_the_step_once(
     assert record.outcome is Outcome.ERROR
     assert "faulted and the step was ended rather than retried" in record.detail
     assert "predicate is broken" in record.detail
+
+
+# --- pick-release phase 2: the tracks have to actually arrive ---------------
+#
+# The rig failure this section pins (2026-08-18, app 0.6.16). `pick-release`
+# returned PASS the instant it called `dialog.accept()`, but the window's
+# `_fetch_release_detail` *emits* to the MusicBrainz worker thread rather than
+# calling it — so at the moment the verb declared success, no release had been
+# fetched, no tags applied and no track rows existed. Measured: picker accepted
+# at 20:08:25,436, `expect-tracks 3` failed with "found 0" at 20:08:25,560 —
+# 124 ms later. All eight failures in that run descend from this one line.
+#
+# Note what the pre-existing tests above could not see: `_TrackTable()` starts
+# with 14 rows, so the stand-in was already in the post-fetch state before the
+# verb ran. The fake was kinder than the product, which is why every one of them
+# passed against the broken verb. These tests start EMPTY.
+
+
+class _LateTrackTable(_TrackTable):
+    """A track table that starts empty and is filled by the test, on cue.
+
+    This is the difference between the harness and the rig that mattered: on the
+    rig the table is empty when the picker closes and fills a network round-trip
+    later. A fixture that is already full cannot express the bug.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(count=0)
+
+    def arrive(self, count: int = 14) -> None:
+        """The MusicBrainz release detail came back and the rows were built."""
+        self._tracks = [_Track(n) for n in range(1, count + 1)]
+
+
+def test_it_does_not_pass_until_the_tracks_actually_load(
+    qapp, process_until, monkeypatch
+) -> None:
+    """The regression. Accepting the dialog is not the end of the work.
+
+    Revert check: with `_try_pick_release` returning True straight after
+    `dialog.accept()`, the first `process_until` below succeeds and the assertion
+    that no step was recorded fails — which is the rig transcript exactly.
+    """
+    table = _LateTrackTable()
+    win = _window(track_table=table)
+    runner = ScriptRunner(win)
+    dialog = ReleasePickerDialog([_Release("d14a7546-815b-43c6-8af6-35cff6cee1d0")])
+    _with_picker(monkeypatch, dialog)
+
+    runner.start(parse("pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 30"))
+
+    # The picker is answered promptly...
+    assert process_until(lambda: dialog.accepted), "the picker was never accepted"
+    # ...and the step is still open, because nothing has loaded yet. This is the
+    # window in which the old verb handed control to `expect-tracks`.
+    assert not process_until(lambda: bool(runner._report.steps), timeout=1.0), (
+        "pick-release reported a result while the track table was still empty — "
+        "the rig race is back"
+    )
+
+    # The MB detail lands.
+    table.arrive(14)
+    assert process_until(lambda: bool(runner._report.steps)), "never resolved"
+
+    record = runner._report.steps[-1]
+    assert record.outcome is Outcome.PASS, record.detail
+    assert "d14a7546-815b-43c6-8af6-35cff6cee1d0" in record.detail
+    assert "14 track(s) loaded" in record.detail, (
+        f"the transcript must record the positive evidence, got {record.detail!r}"
+    )
+
+
+def test_a_release_whose_tracks_never_arrive_fails_and_says_so(
+    qapp, process_until, monkeypatch
+) -> None:
+    """Timing out after a successful pick must not blame the picker.
+
+    The message armed at the start of the verb says "no release picker appeared".
+    Once one has appeared and been answered, that sentence is false, and a report
+    that carries it sends the next reader into the wrong subsystem. The failure
+    is real either way; only the diagnosis differs, and the diagnosis is the
+    whole value of the transcript.
+    """
+    table = _LateTrackTable()  # nothing ever arrives
+    win = _window(track_table=table)
+    runner = ScriptRunner(win)
+    dialog = ReleasePickerDialog([_Release("d14a7546-815b-43c6-8af6-35cff6cee1d0")])
+    _with_picker(monkeypatch, dialog)
+
+    runner.start(parse("pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 1"))
+    assert process_until(lambda: bool(runner._report.steps), timeout=10.0)
+
+    record = runner._report.steps[-1]
+    assert record.outcome is Outcome.FAIL, record.detail
+    assert "no tracks ever loaded" in record.detail, record.detail
+    assert "MusicBrainz" in record.detail, record.detail
+    assert "no release picker appeared" not in record.detail, (
+        "it blamed the picker, which appeared and was answered: " + record.detail
+    )
+
+
+def test_the_no_picker_and_picker_arms_demand_the_same_evidence(
+    qapp, process_until, monkeypatch
+) -> None:
+    """Both branches of the verb must refuse to pass on an empty track table.
+
+    The asymmetry is what shipped: the "no picker appeared" branch already
+    required loaded tracks as positive evidence (a pass that can be satisfied by
+    finding nothing is decoration — `CLAUDE.md`), while the "picker appeared"
+    branch passed on an empty table. The rule had been applied where it was
+    noticed rather than where it held.
+    """
+    for with_picker in (True, False):
+        table = _LateTrackTable()
+        win = _window(track_table=table)
+        runner = ScriptRunner(win)
+        dialog = (
+            ReleasePickerDialog([_Release("d14a7546-815b-43c6-8af6-35cff6cee1d0")])
+            if with_picker
+            else None
+        )
+        _with_picker(monkeypatch, dialog)
+
+        runner.start(parse("pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 30"))
+        # `r=runner` binds this iteration's runner into the lambda. Without it
+        # ruff's B023 fires and, worse, both iterations would poll whichever
+        # runner the loop variable last held.
+        assert not process_until(lambda r=runner: bool(r._report.steps), timeout=1.0), (
+            f"passed on an empty track table (picker present: {with_picker})"
+        )
+        runner.stop()

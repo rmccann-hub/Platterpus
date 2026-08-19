@@ -306,6 +306,12 @@ class ScriptRunner(QObject):
         #: Replaces the generic "still not finished after Ns" when a verb can say
         #: something more useful about having run out of time.
         self._deadline_timeout_detail: str = ""
+        #: `pick-release` phase 2: `(mbid, title, row, of_total)` once a release
+        #: has been chosen and the verb is waiting for the track table to fill.
+        #: `None` means no choice has been made on this arming yet. Cleared in
+        #: `_arm_deadline` for the same reason the two fields above are — one
+        #: verb's half-finished state must never grade the next one.
+        self._picked_release: tuple[str, str, int, int] | None = None
         #: The last `cyanrip` invocation, so `expect-cyanrip` / `expect-exit`
         #: assert against what actually ran rather than re-running it.
         self._last_cyanrip_exit: int | None = None
@@ -531,6 +537,7 @@ class ScriptRunner(QObject):
         self._deadline_outcome = Outcome.PASS
         self._deadline_detail = ""
         self._deadline_timeout_detail = ""
+        self._picked_release = None
 
     def _record(
         self,
@@ -1214,18 +1221,78 @@ class ScriptRunner(QObject):
             "loaded either — the disc scan did not finish, so nothing was chosen"
         )
 
-    def _try_pick_release(self, wanted: str) -> bool:
-        """One poll: choose in the picker if it is up, else look for tracks.
+    def _loaded_track_count(self) -> int:
+        """How many track rows the window is showing right now.
 
-        Returns True when the wait is over — either because a release was chosen
-        (or could not be), or because tracks are loaded and no choice was needed.
-        Sets `_deadline_outcome` / `_deadline_detail` so the transcript records
-        *which* release was taken, out of how many, rather than a bare "ok".
+        One reader, used by both phases of `pick-release`, so "are the tracks
+        there yet" cannot be answered two different ways by the same verb.
         """
+        table = getattr(self._window, "_track_table", None)
+        if table is None:
+            return 0
+        tracks = getattr(table, "tracks", None)
+        return len(tracks()) if callable(tracks) else 0
+
+    def _try_pick_release(self, wanted: str) -> bool:
+        """One poll: choose in the picker if it is up, then wait for the tracks.
+
+        Returns True when the wait is over. Sets `_deadline_outcome` /
+        `_deadline_detail` so the transcript records *which* release was taken,
+        out of how many, rather than a bare "ok".
+
+        **Two phases, and the second one is the bug fix (0.6.17).** Accepting the
+        dialog is not the end of the work: `MainWindow._fetch_release_detail`
+        *emits* to the MusicBrainz worker thread rather than calling it, so when
+        `dialog.accept()` returns, the release detail has not been fetched, the
+        tags are not applied and the track table is still empty. The first
+        version of this verb returned True right there, so every step after it
+        raced a network round-trip it never waited for — and lost, every time.
+        Measured on the rig (2026-08-18, app 0.6.16): the picker was accepted at
+        `20:08:25,436` and `expect-tracks 3` failed with "found 0" at
+        `20:08:25,560` — **124 ms** later, three times in one run across two
+        sections. The tracks did arrive; nothing was watching for them. Eight of
+        that run's eight failures descend from this one line.
+
+        So after choosing we keep polling until the track table is non-empty.
+        That also makes the two arms of this verb symmetric, which is the deeper
+        point: the "no picker appeared" arm already refused to pass on an empty
+        table (see the docstring above — *satisfied by finding nothing*), while
+        the "picker appeared" arm passed on one. A verb that demands positive
+        evidence on one branch and not the other has not applied the rule; it
+        has applied it where it was first noticed.
+        """
+        # Phase 2: a release was chosen on an earlier tick — wait for it to land.
+        if self._picked_release is not None:
+            mbid, title, row, total = self._picked_release
+            loaded = self._loaded_track_count()
+            if loaded == 0:
+                # Re-point the timeout message at where we actually are. The one
+                # set at arming time ("no release picker appeared") would now be
+                # a false statement — the picker appeared and was answered, and
+                # a report that says otherwise sends the next reader looking in
+                # the wrong subsystem.
+                # `LOG_POINTER` names the log FILE, rather than saying "the log"
+                # and leaving the reader to find it — the rule
+                # `tests/test_failure_surfaces.py` enforces, and a transcript
+                # read on another machine is exactly where a bare "check the
+                # log" has no referent.
+                from platterpus.ui.failure_text import LOG_POINTER
+
+                self._deadline_timeout_detail = (
+                    f"chose {mbid} ({title}) — row {row} of {total} — but no "
+                    "tracks ever loaded. The release detail fetch (MusicBrainz) "
+                    f"did not finish or returned nothing. {LOG_POINTER}"
+                )
+                return False  # the MB detail fetch is still in flight
+            self._deadline_detail = (
+                f"chose {mbid} ({title}) — row {row} of {total}; "
+                f"{loaded} track(s) loaded"
+            )
+            return True
+
         dialog = _release_picker()
         if dialog is None:
-            table = getattr(self._window, "_track_table", None)
-            loaded = len(table.tracks()) if table is not None else 0
+            loaded = self._loaded_track_count()
             if loaded > 0:
                 self._deadline_detail = (
                     f"no picker appeared and {loaded} track(s) are loaded — the "
@@ -1272,10 +1339,10 @@ class ScriptRunner(QObject):
         mbid = getattr(chosen, "mbid", "?")
         title = getattr(chosen, "title", "") or "?"
         dialog.accept()
-        self._deadline_detail = (
-            f"chose {mbid} ({title}) — row {index + 1} of {len(releases)}"
-        )
-        return True
+        # Hand off to phase 2 rather than declaring victory: the window has only
+        # just *asked* for the release detail. See this method's docstring.
+        self._picked_release = (mbid, title, index + 1, len(releases))
+        return False
 
     def _do_wait_for_rip(self, step: Step) -> None:
         """Wait for the rip to finish, up to a timeout.
@@ -1529,6 +1596,69 @@ class ScriptRunner(QObject):
             except OSError as exc:
                 log.error("could not write %s: %r", directory / name, exc)
         log.info("ui script run saved to %s", directory)
+        self._write_run_bundle(directory)
+
+    def _write_run_bundle(self, directory: Path) -> None:
+        """Fold the whole run into one archive the operator can attach.
+
+        **Why.** The instruction used to be *"upload this folder"*, and a folder
+        is not a thing a chat client accepts — so the operator selected files,
+        compressed them, and uploaded the result, which is three manual steps the
+        software should have done. The maintainer said both halves of this out
+        loud on 2026-08-19: *"why make me bundle it into one compressed file?"*
+        and, of the screenshots, *"it is a lot"*. Neither is answered by taking
+        fewer measurements; both are answered by there being one file.
+
+        Screenshots go in. They are PNGs, admitted under the widened
+        `EXTRA_DIR_SUFFIXES` because this directory holds pictures *this program
+        took of its own window* — never an album folder, where the images are
+        record-label artwork (Critical rule #8).
+
+        Off the GUI thread: the archive includes the app log, routinely megabytes
+        with its rotations, plus every screenshot the run took. Best-effort — the
+        run is already saved to `directory`, so a failure here costs a
+        convenience and never the evidence.
+        """
+        import threading
+
+        from platterpus import __version__, evidence_bundle
+        from platterpus.paths import LOG_PATH
+
+        log_dir = LOG_PATH.parent
+        counts = self._report.counts() if hasattr(self._report, "counts") else {}
+        stamp = self._report.started_at
+
+        def work() -> None:
+            result = evidence_bundle.build_bundle(
+                dest_dir=log_dir / "bundles",
+                stamp=stamp,
+                app_version=__version__,
+                outcome="test script run",
+                facts={
+                    "steps": str(len(self._report.steps)),
+                    "results": ", ".join(f"{k}={v}" for k, v in sorted(counts.items()))
+                    or "(not counted)",
+                    "run folder": str(directory),
+                },
+                log_dir=log_dir,
+                extra_dirs={"scriptrun": directory},
+            )
+            if result.ok and result.path is not None:
+                log.info(
+                    "SEND THIS ONE FILE: %s (%d file(s) in, %d excluded; no audio)",
+                    result.path,
+                    len(result.included),
+                    len(result.skipped),
+                )
+            else:
+                log.error(
+                    "could not bundle the script run (the folder is still "
+                    "complete at %s): %s",
+                    directory,
+                    result.error,
+                )
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _ensure_artifact_dir(self) -> Path | None:
         if self._artifact_dir is not None:
