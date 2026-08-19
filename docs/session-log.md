@@ -11,6 +11,60 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-19 (latest) — the v0.6.18 rig pass: three fixes confirmed, one new defect
+
+The maintainer ran `rigcancelandoverread.txt` on v0.6.18 and uploaded both bundles.
+**pass=55 fail=5.**
+
+### All three v0.6.18 bundle fixes are confirmed on hardware
+
+From the rip bundle's own `MANIFEST.txt`: `rip outcome success` (0.6.17 said
+`partial`), `tracks requested 1` beside `tracks on disc 14`, and *"waited for
+post-rip: yes — every post-rip check had finished and the report was flushed"*.
+The archived report carries `checksums` and `ctdb` where 0.6.17 wrote `null`, and
+`generated_at` is `17:51:18` against a CTDB verdict at `17:51:17,377` — it really
+waited. `(ripper)` expanded in **both** album titles. `expect-tracks 1+` passed.
+Section E was a clean rip: AccurateRip verified, `rig-check` all OK.
+
+### The five failures were one new product defect, and it is not in anything we changed
+
+Section D's `rescan` fired five seconds into launch, while the **startup** disc
+scan was still running. `cancel()` on the shared `INFO_PROBE` slot set a *sticky*
+flag; the replacement probe registered before the cancelled run's `finally` could
+clear it, read a flag set for its **predecessor**, and SIGKILLed itself at birth.
+The panel sat on *"cyanrip failed (exit -9) with no output"* and no scan ever
+completed — `pick-release` then burned its full 90 s and four steps failed behind
+it. A rescan issued when nothing was in flight worked in 6 seconds.
+
+**Method note, and it is the point of the entry.** The first attempt at a
+regression test *raced* the interleaving — cancel, then start a thread — and
+**passed against the bug**, because the cancelled run's `finally` usually wins.
+Passing was evidence *against* the hypothesis, not for it, and it would have been
+easy to take the green as confirmation and ship the fix. Constructing the exact
+interleaving instead reproduced it immediately: `returncode -9`, empty output —
+the rig's signature exactly. `CLAUDE.md`: *did I reproduce the symptom, or only
+explain it?* A test that cannot lose is not evidence.
+
+Fixed by scoping the cancel to a **run** (a sequence number claimed before
+spawning, and a watermark) rather than to the slot. The startup-race guarantee the
+sticky flag existed for is preserved and still pinned.
+
+### A second defect the investigation turned up
+
+`_last_checksums` was cleared at the start of each rip; `_last_audio_md5` — set by
+the same handler in the same instant — was not, and was undeclared on the typing
+seam. A rip whose digests step failed or was superseded would have carried the
+previous rip's audio identity into its archival report. Two facts, one lifetime.
+
+### Still open
+
+`audio_md5` was `null` in the rig's report though the app logged *"1 FLAC audio
+MD5(s) read"* two seconds before the final flush. Ruled out: the pure builder
+(driven directly, it preserves the value) and the stale-carry-over above (opposite
+symptom). **Mechanism not found — task #109 stays open and no fix was guessed at.**
+And the cancel path is *still* unproven (task #53, third attempt): section D never
+started a rip, so `cancel-rip` had nothing to cancel.
+
 ## 2026-08-19 (later) — v0.6.18: the artifacts the last release produced indicted it
 
 The maintainer ran the v0.6.17 rig pass and uploaded three report bundles plus a

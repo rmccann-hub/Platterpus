@@ -297,6 +297,10 @@ class MainWindowShared(_SeamBase):
     _last_cover_art_result: object | None
     _last_recompress_result: object | None
     _last_checksums: dict | None
+    #: The retag-surviving audio identity, set beside `_last_checksums` by the
+    #: same handler. Declared here for the same reason as its sibling — it was
+    #: reachable only through `getattr`, so nothing held the two in step.
+    _last_audio_md5: dict | None
     _last_dependency_report: DependencyReport | None
 
     # Rip generation guard (drops a stale previous rip's late verify).

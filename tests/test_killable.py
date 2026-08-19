@@ -159,11 +159,26 @@ def test_a_cancel_that_lands_during_startup_is_not_lost(
     cmd.run(["sh", "-c", "sleep 30"], timeout=15)
 
     assert killed, (
-        "a cancel arriving during process startup was dropped — the sticky "
-        "_cancel_requested flag is not being honoured, so a Cancel press would "
-        "silently do nothing."
+        "a cancel arriving during process startup was dropped — the cancel "
+        "watermark is not covering the run that was already issued, so a Cancel "
+        "press would silently do nothing."
     )
-    assert cmd._cancel_requested is False, "the flag was not reset for the next run"
+    # THE PROPERTY, NOT THE MECHANISM. This used to assert
+    # `cmd._cancel_requested is False` — "the flag was reset for the next run" —
+    # which described the old boolean rather than what a caller depends on. That
+    # reset was itself the bug: it made the cancel's lifetime depend on which
+    # thread unwound first, so a replacement probe started before it could kill
+    # itself at birth. A watermark has nothing to reset, so the assertion is now
+    # about the next run's fate, which is what the old one was standing in for.
+    # Drop the patch first: it cancels on EVERY spawn, so leaving it installed
+    # would cancel the follow-up on its own merits and the assertion would be
+    # measuring the fixture rather than the module.
+    monkeypatch.undo()
+    followup = cmd.run(["sh", "-c", "echo next"], timeout=15)
+    assert followup.returncode == 0 and "next" in (followup.stdout or ""), (
+        "the run AFTER a cancelled one was killed too — a cancel must not "
+        "outlive the run it was aimed at"
+    )
 
 
 def test_the_child_is_its_own_process_group_leader() -> None:
@@ -331,3 +346,74 @@ def test_an_overlapping_run_does_not_deregister_the_newer_child() -> None:
     )
     with cmd._lock:
         cmd._proc = None  # don't hand a later test a stale slot
+
+
+def test_a_cancel_aimed_at_one_run_does_not_kill_the_next_one() -> None:
+    """The rescan defect: a cancel must not reach a run started after it.
+
+    `cancel()` is deliberately sticky so a cancel landing between `Popen` and
+    registration is honoured rather than dropped — necessary, and pinned by
+    `test_a_cancel_that_lands_during_startup_is_not_lost`. The first version
+    implemented that as a boolean on the **slot**, cleared only by the cancelled
+    run's own `finally`. That `finally` unwinds on another thread after a SIGKILL,
+    and "Rescan disc" cancels the in-flight probe and starts its replacement
+    immediately (`MainWindow._start_disc_scan` → `stop_thread(..., wait_ms=0)`),
+    so the replacement could register while the flag was still set for its
+    predecessor and kill itself at birth.
+
+    **The interleaving is constructed, not raced.** Racing it — cancel, then start
+    a thread — lets the cancelled run's `finally` win most of the time, and a test
+    that passes against the bug proves nothing. The first attempt at this test did
+    exactly that and passed, which is why the state is set up explicitly instead:
+    `_proc` still points at the SIGKILLed predecessor, the cancel has been
+    recorded, and the replacement then runs. Against the boolean this produced
+    `returncode -9` with empty output — the same signature the 2026-08-19 rig run
+    recorded for a rescan that never completed.
+    """
+    cmd = KillableCommand("test cancel scoping")
+
+    # The predecessor: issued, registered, and already killed — but its `finally`
+    # has not run yet, which is the whole window under test.
+    predecessor = subprocess.Popen(
+        ["sh", "-c", "exit 0"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    predecessor.communicate(timeout=10)
+    with cmd._lock:
+        cmd._issued += 1
+        cmd._proc = predecessor
+    cmd.cancel()
+
+    result = cmd.run(["sh", "-c", "sleep 0.3; echo alive"], timeout=30)
+
+    assert result.returncode == 0, (
+        "the replacement probe was killed at birth by the PREVIOUS run's cancel "
+        f"(returncode {result.returncode!r}). On the rig this is a rescan whose "
+        "scan never completes and which nothing retries."
+    )
+    assert "alive" in (result.stdout or ""), (
+        "the replacement produced no output, so it did not run to completion"
+    )
+
+
+def test_the_cancel_watermark_still_stops_the_run_it_was_aimed_at() -> None:
+    """The counter-test, and the reason the fix is a watermark and not a reset.
+
+    Scoping the cancel must not quietly retire it. A run ISSUED before the cancel
+    is still cancelled however late it registers — that is the startup race the
+    stickiness exists for, and a fix that simply cleared the flag sooner would
+    pass the test above while reopening this one.
+    """
+    cmd = KillableCommand("test cancel still bites")
+    with cmd._lock:
+        cmd._issued += 1  # a run has been issued and is mid-`Popen`
+    cmd.cancel()  # the cancel lands in that window
+
+    # That issued-but-unregistered run is sequence 1; the watermark must cover it.
+    with cmd._lock:
+        assert cmd._cancel_through >= 1, (
+            "the cancel did not cover the run that was already issued — a cancel "
+            "landing between Popen and registration would be silently dropped"
+        )
