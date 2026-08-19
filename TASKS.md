@@ -20,6 +20,60 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Found on the rig, 2026-08-18 — the run that failed 8 steps to one line — **FIXED in 0.6.17**
+
+The run (`20260819T000808+0000`, app 0.6.16, pin `platterpus-fork-gddf7ac3`) finished
+`pass=50 fail=8`. All eight descend from one defect; the rest of the script was fine.
+`rig-check` passed on both halves it can answer: `OK ripper/handshake approved` and
+`OK argv/integrity — -Z, -l, -N, -s present in the binary's own record of 26 composed
+args`.
+
+- [x] **`pick-release` passed 124 ms before the tracks existed.** `_fetch_release_detail`
+  emits to the MusicBrainz worker thread, so accepting the dialog is when the work is
+  *requested*. The verb now waits for the track table. `docs/testing.md` §5.ap.
+- [x] **The disc panel never stopped saying "N matches found — pick one"** after the
+  user picked one. Cosmetic, and it is what made the first diagnosis of the above
+  wrong — it reads exactly like a release choice that never applied.
+- [x] **The cache probe ran with no `-s`**, so cyanrip refused to open the drive and
+  the flag's first-ever hardware run measured nothing, twice. Now `-s 0`.
+- [x] **The AppImage integration dialog opened four seconds into an unattended run**,
+  failed the step in flight, and was answered by the script's next click — relocating
+  the running AppImage out of `~/Downloads` mid-batch. No first-run offers on a
+  scripted launch.
+- [x] **`docs/hardware-test-checklist.md` H10 told the operator to enable overread**
+  on the BDR-209D, calling the flag `-x` and saying the drive was *"expected to be
+  fine"*. It is measured to hang that drive for ~23 minutes. Now ⛔ BLOCKED, needs a
+  different drive.
+- [x] **The `-x`/overread doc gate derives its file list from disk** (4 files → 60).
+  It could not see `PLANNING.md`, which carried the sentence it was written to stop.
+
+- [ ] **The two-pass album-name collision — the one step that resisted automation.**
+  Both rip sections use fixed album names (`cancel me`, `after cancel`), so running
+  the script twice — once on `ddf7ac3`, once on `c4d1a00` — writes both passes into
+  the same two folders, and pass 2's artifacts land on top of pass 1's. The script
+  language has no variable substitution and no verb that can stamp a name with the
+  running ripper build, so today the operator has to move the pass-1 folders aside
+  between passes. That is work handed back, which is exactly what `CLAUDE.md`
+  forbids — naming it here rather than burying it in a procedure. **The fix is a
+  script verb, not a flag** (maintainer directive, 2026-08-11): either `album`
+  learns a `{build}` / `{stamp}` placeholder, or a new verb sets a per-run prefix.
+  Until then, the two-pass runbook carries one `mv`, and it is a symptom.
+
+**Not fixed by this, and it is why the rig has to run again:** the race killed sections
+D and E before they ripped anything, so **task #53 has no cancel/drive-open evidence
+yet**. Re-run on 0.6.17.
+
+- [ ] **Provenance labels disagree across three surfaces — next round, not blocking
+  (S-14).** Our manifest says the build was approved by *"round 8 … for Platterpus
+  0.6.12b6"*; the binary's own `argvprobe.json` says *"round 7 lap 39 closed, verdict
+  GO"*; `--install-ripper` says *"the round-7 release … see round-07-lap-40"*. All
+  three are defensible — `ddf7ac3` was approved in round 7 and carried into 8 — but
+  three answers to one question is the shape `CLAUDE.md` warns about, and the recorded
+  approval names app **0.6.12b6** while the rig runs **0.6.16**, which rule #12's
+  obligation (3) makes a real (if minor) scope gap.
+
+---
+
 ## Queued for the rig, 2026-08-18 — two passes, and a gap the plan exposed
 
 **v0.6.15 is published**, so the hardware round (item 3 / task #53) is unblocked.
@@ -2080,4 +2134,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.16.*
+*Last updated for Platterpus v0.6.17.*

@@ -61,6 +61,20 @@ snapshot atstart
 # result that looks wrong can be attributed rather than guessed at. A build tag
 # we do not recognise must read as "not determined", never as a pass.
 #
+# THE TWO-PASS SESSION NEEDS NO EDITING EITHER, AND THAT IS NEW IN 0.6.17.
+# Both `album` lines below end in `(ripper)`, which expands to the installed
+# build tag — so pass 1 writes "cancel me platterpus-fork-gddf7ac3" and pass 2
+# writes "cancel me platterpus-fork-gc4d1a00". Two folders, no collision, no
+# `mv` between passes. Before this, the fixed titles meant pass 2 landed on top
+# of pass 1 and destroyed the evidence the session existed to produce, and the
+# workaround was two commands handed to the operator.
+#
+# The placeholder reads the banner captured by the `cyanrip --version` step in
+# section A, which is why that step comes first. If it is ever removed, the
+# `album` steps FAIL and say so rather than writing the literal text — an
+# unexpanded placeholder would give both passes the same folder again while
+# looking like it worked.
+#
 # NOTE for a two-pass session (ddf7ac3 then c4d1a00): `expect-cyanrip
 # platterpus-fork` matches BOTH builds deliberately, so this one file runs
 # unedited against either. The build that actually ran is recorded by the
@@ -77,19 +91,26 @@ expect-cyanrip platterpus-fork
 # real font size and DPI, and no assertion here can see it. These are for a
 # person to look at. They cost seconds and they are the only evidence that
 # survives the session.
+#
+# TWO, not four (trimmed 2026-08-19 on the maintainer's "it is a lot"). Every
+# dialog is still OPENED and closed — that is the part that can crash or hang,
+# and it still runs. What was dropped is the *picture* of the two whose text is
+# short and fixed (Set up Platterpus, Dependency check); the clipping report that
+# started this was against the drive dialog, and Settings is the densest text in
+# the app, so those two keep theirs. Fewer screenshots, same coverage of the
+# thing that fails — and from 0.6.17 the ones that remain travel inside the run's
+# single .tar.gz, so "a lot of screenshots" is no longer a lot of uploads.
 
 log --- B. dialogs, for the clipping check (look at these afterwards) ---
 open drive
 screenshot dialogdrive
 cancel
 open setup
-screenshot dialogsetup
 cancel
 open settings
 screenshot dialogsettings
 cancel
 open dependencies
-screenshot dialogdependencies
 cancel
 expect-dialog none
 
@@ -110,10 +131,23 @@ expect-dialog none
 # The `Cache probe:` states are all legitimate outcomes and NONE of them means
 # "the cache was defeated": `N sectors measured`, `no readback cache measured`,
 # `not run (disc image has no drive cache)`, and four `unknown (<reason>)` forms.
+#
+# `-s 0` IS REQUIRED, and leaving it out is what wasted this probe's first two
+# attempts (2026-08-18, both runs). cyanrip refuses to open the drive with no
+# offset set and says so itself:
+#
+#     Opening drive...
+#     Offset is unset! To continue with an offset of 0, run with -s 0!
+#
+# It exits 1 in two seconds having measured nothing. `-s 0` and not the rig's
+# real `+667` on purpose: the probe measures the drive's readback CACHE, which
+# has nothing to do with where the audio starts, and a hardcoded offset would
+# make this file wrong on every other machine — this script promises to need no
+# editing. Zero is the value cyanrip's own message names.
 
 log --- C. cache probe: the first execution of this flag on real hardware ---
 log whatever it prints is the first data point in existence, including an absurd one
-cyanrip -x -N
+cyanrip -x -N -s 0
 snapshot aftercacheprobe
 
 # --- D. THE CANCEL PATH, AND THE ONLY HONEST PROOF OF IT --------------------
@@ -122,6 +156,17 @@ snapshot aftercacheprobe
 # taken right after the cancel cannot tell those apart.
 #
 # So the proof is not the cancel — it is the RIP AFTER IT, in section E.
+#
+# WHY `pick-release 1` AND NOT AN MBID, WHEN THE VERB ITSELF ADVISES AN MBID:
+# the verb's warning is right — MusicBrainz ordering is not stable, so row 1 can
+# mean a different release next month, and on 2026-08-18 it resolved to
+# `65282302-…` while the hardware checklist names `d14a7546-…` as this disc's
+# canonical release. Both are releases of the same album. That is an acceptable
+# cost HERE and only here: this script tests the cancel path and the drive, not
+# the tags, and pinning an MBID would break the promise at the top of this file
+# that any ordinary CD works in any drive. If you ever repurpose these sections to
+# test METADATA, swap in an MBID prefix (`pick-release d14a7546 90`) first — the
+# verb accepts one, and for that question row 1 is not good enough.
 #
 # WHY THE WAIT BEFORE CANCELLING IS 90s AND NOT 60s: the cancel has to land
 # mid-track. Three tracks on a fast drive in burst mode can finish inside a
@@ -135,7 +180,7 @@ rescan
 pick-release 1 90
 expect-tracks 3
 select-tracks 1-3
-album cancel me
+album cancel me (ripper)
 rip
 log letting it read for 90s so the cancel lands mid-track, not at a boundary
 wait 90
@@ -164,7 +209,7 @@ rescan
 pick-release 1 90
 expect-tracks 1
 select-tracks 1
-album after cancel
+album after cancel (ripper)
 rip
 wait-for-rip 1800
 snapshot afterrecovery
@@ -205,5 +250,8 @@ snapshot atend
 # -----------------------------------------------------------------------------
 
 log =============================================================
-log DONE. Now run:  ./platterpus-x86_64.AppImage --rig-session
+log DONE. Everything from this run is now in ONE .tar.gz under
+log ~/.local/share/platterpus/bundles/ - transcript, report, screenshots,
+log app log. Its path is the "SEND THIS ONE FILE" line in the app log.
+log Then run:  ./platterpus-x86_64.AppImage --rig-session
 log =============================================================

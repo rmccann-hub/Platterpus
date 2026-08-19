@@ -1601,6 +1601,60 @@ What to do instead:
   carries its own provenance; "240s" does not, and silently drops the qualifier the
   first time it is quoted onward — the same decay as §5.u.
 
+### §5.ap — Asking for a thing is not having it: the asynchronous seam a step can outrun
+
+*The rig run of 2026-08-18, app 0.6.16. `pass=50 fail=8`, and all eight are one line.*
+
+`pick-release` chose a MusicBrainz release, called `dialog.accept()`, and recorded
+**PASS**. The next step, `expect-tracks 3`, reported *"found 0"* — **124 ms later**.
+Then `select-tracks` found nothing to select, `rip` found the Start button disabled,
+and `cancel-rip` found no rip running. Four failures, twice, in two sections.
+
+Nothing was broken about the release picking. `MainWindow._fetch_release_detail`
+*emits* to the MusicBrainz worker thread rather than calling it, so accepting the
+dialog is the moment the work is **requested**, not the moment it is **done**. The
+tracks arrived a network round-trip later and were on screen the whole time the
+transcript said they were absent — confirmed from the operator's own screenshots,
+which show a full track table and an enabled "Start rip".
+
+**Three things to take from it, in order of how much they generalise.**
+
+**1. A verb that ends at a request has invented its own definition of done.** The
+predicate `_try_pick_release` was written as *"did the dialog close?"*, which is a fact
+about the dialog. The step's actual claim is *"the release is applied"*, which is a
+fact about the window. Whenever those two differ by a thread hop, the step passes
+early and every step after it inherits a state that has not arrived. Ask of any step
+that drives an async subsystem: **what would still be false one millisecond after I
+return True?**
+
+**2. The asymmetry is the tell, and it was in the docstring.** That same method's
+*other* branch — the one for a disc with only one candidate, where no picker appears —
+already refused to pass on an empty track table, and its docstring explained why at
+length: *"a picker that never appears is a PASS, and that needs justifying… it is only
+accepted alongside positive evidence."* The rule was written down, argued for, and
+applied to one of the two branches. This is §5.o (*enforce a rule across the codebase,
+not at the place it was learned*) at its smallest possible scale: **the two halves of
+one function.** When a method takes a principled stance in one branch, read the other
+branch and ask whether the stance holds there too — it usually should, and the branch
+that skipped it is where the bug is.
+
+**3. The fixture was already in the post-fetch state, so no test could see it.** Every
+existing `pick-release` test used `_TrackTable()`, which constructs itself with **14
+rows**. The stand-in was permanently in the condition the product reaches only after a
+successful network fetch, so the empty→full transition — the entire subject — did not
+exist in the harness. This is §5.aj and `CLAUDE.md`'s *what does my stand-in do that
+the real thing does not?*, and the answer here is unusually blunt: **it started at the
+end.** The regression test uses a table that starts empty and is filled by the test on
+cue, which is the only shape that can express the race.
+
+**Method note.** The wrong diagnosis was reached first and it looked solid: the disc
+panel read *"4 matches found — pick one"* in every snapshot through the end of the run,
+which reads exactly like a release choice that never applied. It was a second, separate
+defect — the panel's label was never updated after a pick — and believing it would have
+sent the fix into the MusicBrainz layer. The screenshots settled it. *Two symptoms with
+one plausible common cause are still two symptoms* (`CLAUDE.md`: *did I reproduce the
+symptom, or only explain it?*).
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at
@@ -1685,4 +1739,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.16.*
+*Last updated for Platterpus v0.6.17.*

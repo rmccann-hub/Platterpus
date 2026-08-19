@@ -176,6 +176,7 @@ Platterpus/
         ├── checksums.py                 # per-file SHA256 integrity digests (embedded in the JSON report)
         ├── cue_validate.py              # parse + validate the ripper's .cue (pure, never-raises; the inbound half of the seam)
         ├── eac_log_export.py            # render a RipLog into an EAC-layout log (attributed, never signed)
+        ├── evidence_bundle.py          # one .tar.gz to send: every text artifact, no audio, every omission named
         ├── log_buffer.py                # in-memory session-log capture for the per-album JSON report
         ├── atomic_write.py              # durable atomic file writes (temp → fsync → replace → fsync-dir)
         ├── build_info.py                # build/runtime facts for the JSON report's environment block
@@ -352,6 +353,7 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`rip_timing.py`** — wall-clock rip timing: actual elapsed + a realtime multiplier (elapsed ÷ audio length). cyanrip's own ETA is deliberately not recorded — it's computed per read-pass and badly misleads on marginal `-Z` discs.
 - **`checksums.py`** — per-file SHA256 digests, the "has anything changed since the rip?" integrity record; embedded in the JSON report (not a separate `.sha256` sidecar, per the one-debug-file rule).
 - **`cue_validate.py`** — parses the `.cue` cyanrip writes and judges it against what we know *independently* of it: the ISRCs and titles from the argv we sent, the pre-gap frame counts from the ripper's own log. Pure and never-raises, so it is testable against real committed cues and can never stall a GUI slot. Exists because the cue was **external input nobody read** — the 2026-08-05 rig rip shipped a cue missing 9 of 14 ISRCs and carrying a U+2236 escaping artefact in its album title, and both were derivable from facts already in the report. Also owns `restore_metadata_colons`, which repairs the title in `TITLE`/`PERFORMER`/`REM` lines only — never in `FILE` lines, which name real paths on disk.
+- **`evidence_bundle.py`** — builds the **single file a user sends**: one `.tar.gz` under `~/.local/share/platterpus/bundles/` holding the app log and its rotations, the rip's `.log` / `.cue` / `.platterpus.json` / EAC export, the session diagnostics, and (for a `--run-script` run) the transcript and screenshots. Written automatically on **every** rip outcome — success, partial, cancelled, failed — because the outcomes worth sending are exactly the ones a "write it when we finish nicely" hook skips. Three properties are load-bearing rather than tidy: **no audio can enter**, enforced by an *allowlist* of text extensions (a denylist fails open, and silently, the first time an unlisted format appears — Critical rule #8), with the widened image rule scoped to directories the caller names explicitly so an album folder's record-label artwork is never swept in; **every omission is named** in the archive's `MANIFEST.txt` with its reason, because a bundle quietly missing three artifacts looks exactly like a complete one; and it **never raises**, since a convenience wrapped around a finished rip must not surface as a crash after a successful one. Qt-free and pure enough to unit-test — the caller supplies the in-memory text and owns the daemon thread it runs on (gzipping a 4 MB log is not GUI-thread work).
 - **`eac_log_export.py`** — renders a parsed `RipLog` into an EAC-*layout* text log, conspicuously attributed and **never signed** (signing would forge EAC provenance — see `docs/eac-parity.md`); the human-diffable companion to the JSON report.
 - **`log_buffer.py`** — in-memory capture of this session's log lines (minus lines belonging to a different album's rip) for embedding in the per-album JSON report; the on-disk rolling `log.txt` still records everything.
 - **`drive_profiles.py`** — per-drive profiles keyed by a stable hardware fingerprint (WWN → serial → vendor/model), with provenance + confidence per learned fact; a record/display/**guard** layer, never a second offset authority (KDD-23).
@@ -827,14 +829,33 @@ We benchmark our defaults and exposed settings against the widely-cited "Perfect
 EAC exposes a handful of toggles that whipper *also* supports via CLI flags but that we hadn't surfaced. The audit identified five — each is a small Config field + Settings widget + `RipParameters` plumb-through:
 
 1. Cover art mode (`-C`)
-2. Force overread (`-x`)
+2. Force overread (`-x`) — **whipper's spelling; see the correction below**
 3. Max retries (`-r`)
 4. Keep going on track failure (`-k`)
 5. Continue on CD-R (`--cdr`)
 
 These are listed in TASKS.md under "P1 — EAC bit-perfect parity gaps" and should land before the AppImage's first public release so users coming from EAC find the controls they expect.
 
-*(Resolution, 2026-07: all five shipped 2026-05-29/30. Force-overread, keep-going, and CD-R were whipper-only flags and were retired with whipper on 2026-06-30 (KDD-18); re-opening any of them is a fresh cyanrip task (e.g. `-x` overread) per TASKS.)*
+*(Resolution, 2026-07: all five shipped 2026-05-29/30. Force-overread, keep-going, and CD-R were whipper-only flags and were retired with whipper on 2026-06-30 (KDD-18); re-opening any of them is a fresh cyanrip task per TASKS.)*
+
+> **Flag correction, 2026-08-19 — read this before acting on the list above.**
+> The `-x` in item 2 is **whipper's** `--force-overread`, and whipper has been
+> gone since KDD-18. It is not cyanrip's. Three different things have worn that
+> spelling, and mistaking them costs a hardware session:
+>
+> | flag | tool | what it does |
+> |---|---|---|
+> | `-x` / `--force-overread` | **whipper** (retired) | overread — the item above |
+> | `-O` | **cyanrip** (upstream + fork) | overread — **⚠ hangs the Pioneer BDR-209D**, measured 2026-07-22 |
+> | `-x` / `--cache-probe` | **the cyanrip fork only** | measures the drive's readback cache; costs seconds |
+>
+> An earlier version of this line said re-opening overread meant *"`-x` overread"* —
+> when cyanrip's overread flag is `-O`,
+> as a cyanrip task, which reads as an instruction to send cyanrip a flag that
+> would abort every rip — and the sentence sat one screen from a table that says
+> so. The single home for this is `docs/dependency-contracts.md`; it is repeated
+> here only because this paragraph is where somebody re-opening the task would
+> start, and a pointer at the bottom of a page nobody reaches is not a fix.
 
 **Addendum (2026-06-28, EAC-parity follow-up) — marginal-disc convergence + verification-trust UX:**
 
@@ -1146,4 +1167,4 @@ Three consequences, now standing:
 
 ---
 
-*Last updated for Platterpus v0.6.12.*
+*Last updated for Platterpus v0.6.17.*

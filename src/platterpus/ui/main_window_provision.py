@@ -59,7 +59,32 @@ class ProvisioningMixin(MainWindowShared):
         else works, so offer that first; only once whipper is present does the
         drive-calibration offer make sense. Deferred to the event loop, so in
         tests (no exec loop) neither fires — both are unit-tested directly.
+
+        **Nothing here fires on an unattended launch (0.6.17).** A script drives
+        the real GUI with nobody watching, so a spontaneous modal sits there
+        until a person happens to look — and any answer it gets is an answer
+        nobody gave. On the rig (2026-08-18) the AppImage's *"Add to your
+        applications menu?"* offer opened four seconds into a scripted run,
+        failed the step that was mid-flight, and was then swept up by the
+        script's next click — which relocated the running AppImage out of
+        `~/Downloads` while the batch was using it.
+
+        `app.py` already refused to arm the automatic cyanrip check for exactly
+        this reason, and the reasoning it wrote down is about *any* launch-time
+        modal, not that one dialog — so it belongs at the gate they all share.
+        Enforcing a rule only at the place it was learned is how the last one
+        was missed (`docs/testing.md` §5.o).
+
+        The check is HERE, not at the `singleShot` that schedules this, because
+        the flag is set after the window is built: read a precondition where the
+        thing happens, never where it was queued (`CLAUDE.md`).
         """
+        if self._unattended:
+            log.info(
+                "not making the first-run offers — this launch is running a "
+                "script, so there is nobody to answer them"
+            )
+            return
         # Anything the config load had to throw away comes first: it tells the
         # user their settings are not what the file says, which changes how they
         # read every offer below it (a reset read_offset in particular).

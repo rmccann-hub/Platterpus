@@ -458,6 +458,71 @@ def test_mb_release_detail_populates_track_table(teardown_threads) -> None:
     assert window._current_release_id == "some-mbid"
 
 
+def test_applying_a_release_updates_the_panels_musicbrainz_line(
+    teardown_threads,
+) -> None:
+    """The wiring, not just the method. Regression (rig, 2026-08-18, app 0.6.16).
+
+    `DiscInfoPanel.set_mb_applied` exists and is unit-tested next door, and that
+    proves nothing on its own: this repo has shipped a fully-implemented
+    `RipHandle.cancel` that was *called from nowhere* (`CLAUDE.md` rule #9). The
+    defect here was exactly that shape — the panel kept saying "2 matches found —
+    pick one" after a release had been chosen, its tags applied and the track
+    table filled, because the slot that applies the release never told the panel.
+
+    So this asserts against the panel's rendered text after driving the real
+    slot, which is the only claim that covers both halves.
+    """
+    window = teardown_threads()
+    window._current_disc_id = "mb-id"
+
+    # Put the panel in the ambiguous state directly rather than through
+    # `_on_mb_releases`: with two candidates that slot opens the release picker
+    # with `dialog.exec()`, a MODAL, and an unattended test has nobody to answer
+    # it — the first version of this test hung the suite for exactly that reason.
+    # The state under test is the panel's, and this is the honest way to reach it
+    # without also asserting things about a dialog this test is not about.
+    window._disc_info_panel.set_mb_matches(
+        [
+            ReleaseSummary(mbid="some-mbid", title="Album", artist_credit="Artist"),
+            ReleaseSummary(mbid="other", title="Album B", artist_credit="Artist B"),
+        ]
+    )
+    assert "pick one" in window._disc_info_panel._mb_match_value.text()
+
+    window._on_mb_release_detail("mb-id", _detail())
+
+    text = window._disc_info_panel._mb_match_value.text()
+    assert "pick one" not in text, (
+        f"the panel still instructs the user to choose after they chose: {text!r}"
+    )
+    assert "Artist" in text and "Album" in text, text
+
+
+def test_a_stale_release_detail_does_not_rewrite_the_panel_line(
+    teardown_threads,
+) -> None:
+    """The new panel update must sit INSIDE the staleness guard.
+
+    A fix that makes a slot do more work is a fix that can make it do that work
+    on the path the slot was already built to reject. A late detail for disc A
+    must not relabel disc B's panel any more than it may retag disc B's tracks —
+    the wrong-album bug, arriving through the line added to fix a different one.
+    """
+    window = teardown_threads()
+    window._current_disc_id = "disc-B"
+    window._on_mb_releases(
+        "disc-B", [ReleaseSummary(mbid="b", title="B", artist_credit="Beta")]
+    )
+    before = window._disc_info_panel._mb_match_value.text()
+
+    window._on_mb_release_detail("disc-A", _detail())
+
+    assert window._disc_info_panel._mb_match_value.text() == before, (
+        "a dropped stale result still rewrote the MusicBrainz line"
+    )
+
+
 def test_stale_mb_result_dropped_after_disc_change(teardown_threads) -> None:
     """Regression (#6): a MusicBrainz lookup fired for disc A can return *after*
     the user swapped to disc B. Each result echoes the disc-id it was fired for;
@@ -5660,6 +5725,52 @@ def test_first_run_shows_the_config_reset_notice_first(
     assert len(shown) == 1
     assert "Read offset must be between -5000 and 5000." in shown[0]
     assert "99999" in shown[0]  # so the user can put their real value back
+
+
+def test_an_unattended_launch_makes_no_first_run_offers(
+    teardown_threads, monkeypatch
+) -> None:
+    """Regression (rig, 2026-08-18, app 0.6.16).
+
+    A script drives the real GUI with nobody watching. Four seconds into a
+    scripted run the AppImage's *"Add to your applications menu?"* offer opened
+    on its own, failed the step that happened to be in flight, and was then
+    swept up by the script's next click — which relocated the running AppImage
+    out of `~/Downloads` mid-batch. Any answer such a dialog gets is an answer
+    nobody gave.
+
+    `app.py` had already refused to arm the automatic cyanrip check for exactly
+    this reason. This asserts the rule at the gate every launch-time offer shares
+    rather than at the one dialog where it was noticed (`docs/testing.md` §5.o).
+    """
+    from platterpus import config as config_module
+
+    window = teardown_threads()
+    monkeypatch.setattr(config_module, "take_load_resets", lambda: [])
+    monkeypatch.setattr(window, "_host_stack_ready", lambda: False)
+    fired: list[str] = []
+    monkeypatch.setattr(
+        window, "_maybe_offer_appimage_integration", lambda: fired.append("appimage")
+    )
+    monkeypatch.setattr(window, "_maybe_offer_host_setup", lambda: fired.append("host"))
+    monkeypatch.setattr(
+        window, "_maybe_offer_drive_setup", lambda: fired.append("drive")
+    )
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_provision.QMessageBox.warning",
+        lambda parent, title, text: fired.append("notice"),
+    )
+
+    window._unattended = True
+    window._maybe_offer_first_run_setup()
+    assert fired == [], f"an unattended launch raised offers: {fired}"
+
+    # ...and the same window, told it has a person in front of it, still offers.
+    # Without this the test above passes against a method that does nothing at
+    # all, which is the "satisfied by finding nothing" shape (`CLAUDE.md`).
+    window._unattended = False
+    window._maybe_offer_first_run_setup()
+    assert fired, "the interactive path made no offers either — vacuous test"
 
 
 def test_no_notice_when_nothing_was_reset(teardown_threads, monkeypatch) -> None:

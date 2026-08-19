@@ -37,8 +37,9 @@ import logging
 import threading
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Final, TypeVar
 
 from PySide6.QtCore import QThread, QTimer
 from PySide6.QtWidgets import QDialog, QMessageBox
@@ -1305,6 +1306,12 @@ class RipMixin(MainWindowShared):
             self._rip_worker = None
             self._rip_thread = None
             self._active_rip_params = None
+            # ONE call site, and it is inside the `finally`, so it runs for every
+            # way a rip can end — verified, partial, cancelled, failed, and the
+            # path where `_finish_rip` itself raised. That placement is the whole
+            # design: the outcomes somebody actually needs to send are the ones a
+            # "write it when we finish nicely" hook would skip.
+            self._write_evidence_bundle_async(success, log_path)
             # Hook for tests to know that finish-time post-processing is done.
             self.rip_post_processing_done.emit()
 
@@ -2386,6 +2393,158 @@ class RipMixin(MainWindowShared):
                 failures = {}
                 self._post_rip_failures = failures
             failures[step] = detail
+
+    # --- The one file to send (evidence bundle) -----------------------------
+
+    #: How long the bundle thread will wait for post-rip processing to finish
+    #: before giving up and archiving what exists. Generous, because a 14-track
+    #: transcode is minutes of work; bounded, because an unbounded join on a
+    #: wedged step would leave the bundle permanently unwritten — and the rip it
+    #: describes is already over, so a late bundle is worth more than no bundle.
+    #: The manifest records which of the two happened.
+    _BUNDLE_POST_RIP_WAIT_S: Final[float] = 900.0
+
+    def _write_evidence_bundle_async(self, success: bool, log_path: str) -> None:
+        """Write this rip's single-file report bundle, off the GUI thread.
+
+        **Why it exists.** Maintainer, 2026-08-19: *"why make me bundle it into
+        one compressed file? … this should be on a successful rip, a partial, a
+        canceled, a failed, etc. so i only need to upload 1 file here."* Every
+        manual step in a reporting procedure is a thing the software should have
+        done — the same rule that produced `--rig-session`, applied to the
+        ordinary rip that had never had it.
+
+        **Why off-thread.** It gzips the app log, which is routinely megabytes
+        (4.4 MB in one uploaded session) plus its rotations. That is not a
+        few-milliseconds operation, and the GUI-thread rule has no exception for
+        "it is usually fast" (`CLAUDE.md`). A plain daemon thread, not a
+        ``QThread``: it owns no Qt object, it guards its own emit, and it adds no
+        ``closeEvent`` teardown obligation — the same pattern the cover-art and
+        post-rip workers already use.
+
+        **Why it waits for the post-rip pipeline.** The `.platterpus.json` report
+        and several sidecars are written by that daemon, so bundling the instant
+        the ripper exits would archive an album folder mid-assembly and produce a
+        bundle that is *missing files for a reason that is not a finding*. The
+        wait is bounded and its outcome is written into the manifest, so a bundle
+        built early is legible as one rather than looking complete.
+        """
+        from platterpus import __version__, evidence_bundle
+        from platterpus.paths import LOG_DIR
+
+        # Everything Qt-touching is read HERE, on the GUI thread. The daemon
+        # below closes over plain values only — a worker that reaches back into a
+        # widget is the bug this codebase has fixed before (BUG-1).
+        log_file = Path(log_path) if log_path else None
+        album_dir = log_file.parent if log_file is not None else None
+        cancelled = bool(self._rip_cancelled)
+        # `_last_rip_log` is cleared at the START of every rip (see
+        # `_begin_rip`), precisely so a late-finishing check cannot grade this
+        # rip against the previous one's log. That reset is what makes `None`
+        # here mean "this rip produced no parsed log", not "we forgot to look".
+        rip_log = self._last_rip_log
+        parsed_a_log = rip_log is not None
+        tracks_done = len(getattr(rip_log, "tracks", []) or [])
+        expected = int(getattr(self, "_current_num_tracks", 0) or 0)
+        post_rip = getattr(self, "_post_rip_thread", None)
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        app_version = __version__
+
+        # The label, and — beside it — the fields it was computed from. A label
+        # can be wrong; the fields are what a reader can re-derive from, which is
+        # the same reason the report keeps raw counts next to its verdict.
+        #
+        # **Tri-state, as everywhere else in this project.** `_finish_rip` is
+        # wrapped in a try/except, so it can raise before it ever parses the
+        # ripper's log — and this hook still runs, from the `finally`. Without
+        # the middle case that rip is labelled "success" on the strength of an
+        # exit code alone, with `tracks in log 0` sitting in the facts block
+        # contradicting it. Every field true, the sentence false. A rip whose log
+        # we never read is not a success and not a failure; it is not determined,
+        # and that is a real answer.
+        if cancelled:
+            outcome = "cancelled"
+        elif not parsed_a_log:
+            outcome = "not determined (no ripper log was parsed)"
+        elif success and expected and tracks_done < expected:
+            outcome = "partial"
+        elif success:
+            outcome = "success"
+        else:
+            outcome = "failed"
+
+        try:
+            from platterpus.ui.dialogs.diagnostics_dialog import build_diagnostics_text
+
+            diagnostics = build_diagnostics_text()
+        except Exception as exc:  # noqa: BLE001 — the bundle must survive this
+            log.exception("could not render diagnostics for the bundle")
+            diagnostics = f"(diagnostics could not be rendered: {exc!r})"
+
+        def work() -> None:
+            waited = "not applicable — no post-rip processing ran"
+            if post_rip is not None and post_rip.is_alive():
+                post_rip.join(self._BUNDLE_POST_RIP_WAIT_S)
+                waited = (
+                    "yes — post-rip processing finished first"
+                    if not post_rip.is_alive()
+                    else (
+                        f"NO — gave up after {self._BUNDLE_POST_RIP_WAIT_S:.0f}s; "
+                        "post-rip processing was still running, so late-written "
+                        "artifacts may be absent from this archive"
+                    )
+                )
+            elif post_rip is not None:
+                waited = "yes — post-rip processing had already finished"
+
+            result = evidence_bundle.build_bundle(
+                dest_dir=LOG_DIR / "bundles",
+                stamp=stamp,
+                app_version=app_version,
+                outcome=outcome,
+                facts={
+                    "ripper exit ok": str(success),
+                    "cancel requested": str(cancelled),
+                    "ripper log parsed": str(parsed_a_log),
+                    "tracks in log": str(tracks_done),
+                    "tracks on disc": str(expected) if expected else "(unknown)",
+                    "ripper log path": log_path or "(none written)",
+                    "waited for post-rip": waited,
+                },
+                album_dir=album_dir,
+                log_dir=LOG_DIR,
+                extra_text={"diagnostics.txt": diagnostics},
+            )
+            try:
+                self.evidence_bundle_done.emit(result)
+            except RuntimeError:  # window destroyed while we worked
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_evidence_bundle_done(self, result: object) -> None:
+        """The bundle thread finished — runs on the GUI thread.
+
+        A failure is reported, not swallowed: the button stays disabled (a button
+        that opens nothing is the silent no-op this codebase keeps finding) and
+        the reason reaches the rip log view, where the user is already looking.
+        """
+        path = getattr(result, "path", None)
+        error = getattr(result, "error", "")
+        self._rip_progress.set_bundle_path(path if not error else None)
+        if error:
+            self._rip_progress.append_log_line(
+                f"⚠ Could not build the single-file report bundle: {error}"
+            )
+            return
+        if path is not None:
+            included = len(getattr(result, "included", []) or [])
+            excluded = len(getattr(result, "skipped", []) or [])
+            self._rip_progress.append_log_line(
+                f"ⓘ Report bundle written — {path} "
+                f"({included} file(s) included, {excluded} excluded; no audio). "
+                "This is the one file to send if you are reporting a problem."
+            )
 
     # --- Post-rip CTDB verify (opt-in, KDD-14 Phase 1) ----------------------
 
