@@ -971,8 +971,7 @@ def test_the_unattended_quit_waits_for_post_rip_work_before_quitting(qapp) -> No
     window._post_rip_work_settled = lambda: bool(state["settled"])
     window._post_rip_still_running = lambda: "ctdb"
 
-    _arm_unattended_quit(_App(), window, _Console())
-    timer = window.findChild(__import__("PySide6.QtCore", fromlist=["QTimer"]).QTimer)
+    timer = _arm_unattended_quit(_App(), window, _Console())
     assert timer is not None, "the helper armed no timer"
 
     # 1. Batch still running — must not quit.
@@ -1000,4 +999,9 @@ def test_the_unattended_quit_waits_for_post_rip_work_before_quitting(qapp) -> No
         "everything had settled and the process still did not quit — this is the "
         "'process running in this window' prompt the fix exists to remove"
     )
+    # STOP IT. The first version of this test left the 1000 ms timer running on a
+    # widget it only `deleteLater()`d — a live Qt timer abandoned by the harness,
+    # which is the exact shape `tests/test_harness_fidelity.py` exists to forbid,
+    # and the prime suspect for a CI hang that did not reproduce locally.
+    timer.stop()
     window.deleteLater()

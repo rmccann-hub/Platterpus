@@ -290,7 +290,7 @@ UNATTENDED_QUIT_BUDGET_S: float = 900.0
 
 def _arm_unattended_quit(
     app: QCoreApplication, window: MainWindow, console: ScriptConsoleDialog
-) -> None:
+) -> QTimer:
     """Quit once an unattended `--run-script` batch is genuinely finished.
 
     **The defect this closes** (maintainer, 2026-08-19: *"we shouldn't need to
@@ -361,6 +361,13 @@ def _arm_unattended_quit(
 
     timer.timeout.connect(_tick)
     timer.start()
+    # RETURNED so a caller — in practice a test — can stop it. A test that armed
+    # this and walked away left a live 1000 ms QTimer parented to a widget it then
+    # only `deleteLater()`d, which is precisely the harness-fidelity violation
+    # `CLAUDE.md` forbids: a timer production would own, left running by the
+    # harness. Handing it back is cheaper than making the test guess at
+    # `findChild`.
+    return timer
 
 
 def rig_session_script() -> Path:
