@@ -8716,3 +8716,241 @@ def test_the_rescue_still_fires_for_a_rip_that_never_finishes(
     # No `_on_rip_finished` — the reader is wedged, which is the point.
     assert window._force_stop_timer.isActive()
     assert window._force_stop_done is False
+
+
+# --- The one-file report bundle: three defects the rig's own artifacts found ---
+#
+# All three shipped in v0.6.17 and all three were caught by reading the
+# maintainer's uploaded bundles rather than by any test — which is the reason
+# these exist. Each is asserted at the level the defect lived at.
+
+
+def _armed_bundle(window: MainWindow, tmp_path: Path, **kwargs: Any):
+    """Arm a bundle the way `_on_rip_finished` does, and return the snapshot.
+
+    Returns `window._pending_evidence_bundle`, so a test can read the outcome
+    label and the facts block without the archive ever being built.
+    """
+    log_file = tmp_path / "album" / "album.log"
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    log_file.write_text("stand-in ripper log\n", encoding="utf-8")
+    for name, value in kwargs.items():
+        setattr(window, name, value)
+    window._arm_evidence_bundle(kwargs.get("_success", True), str(log_file))
+    window._evidence_bundle_timer.stop()  # no event loop in this test
+    return window._pending_evidence_bundle
+
+
+def test_a_deliberate_single_track_rip_is_not_labelled_partial(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """v0.6.17 called the maintainer's own clean 1-track rip `partial`.
+
+    The rip's UI said *"Done — all 1 tracks ripped cleanly, no read errors.
+    AccurateRip: all 1 verified"*; the manifest in the archive of that same rip
+    said `outcome: partial`. The denominator was the DISC's track count (14)
+    rather than what the user selected, so every deliberate track selection came
+    out as an incomplete rip — in the artifact a bug report is judged from.
+    """
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = _make_window(qapp)
+    window._current_num_tracks = 14
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="x",
+        output_dir=tmp_path,
+        track_template="t",
+        disc_template="d",
+        only_tracks=(1,),
+    )
+    window._last_rip_log = RipLog(tracks=[TrackResult(number=1)])
+
+    pending = _armed_bundle(window, tmp_path)
+
+    assert pending is not None
+    assert pending.outcome == "success", (
+        f"a 1-of-1 requested-track rip was labelled {pending.outcome!r}"
+    )
+    # The facts must let a reader re-derive the label — a verdict with no figures
+    # beside it is the shape this project keeps replacing.
+    assert pending.facts["tracks requested"] == "1"
+    assert pending.facts["tracks on disc"] == "14"
+
+
+def test_a_genuinely_short_rip_is_still_labelled_partial(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The counter-test: the denominator fix must not retire the label.
+
+    Asking for three tracks and getting one IS a partial rip, and if the fix
+    above had simply stopped comparing counts this would have read `success`.
+    """
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = _make_window(qapp)
+    window._current_num_tracks = 14
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="x",
+        output_dir=tmp_path,
+        track_template="t",
+        disc_template="d",
+        only_tracks=(1, 2, 3),
+    )
+    window._last_rip_log = RipLog(tracks=[TrackResult(number=1)])
+
+    pending = _armed_bundle(window, tmp_path)
+
+    assert pending is not None
+    assert pending.outcome == "partial", pending.outcome
+
+
+def test_a_whole_disc_rip_still_measures_against_the_disc(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """`only_tracks` is empty for a whole-disc rip, which is why the fallback exists."""
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = _make_window(qapp)
+    window._current_num_tracks = 14
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="x",
+        output_dir=tmp_path,
+        track_template="t",
+        disc_template="d",
+        only_tracks=(),
+    )
+    window._last_rip_log = RipLog(tracks=[TrackResult(number=n) for n in range(1, 5)])
+
+    pending = _armed_bundle(window, tmp_path)
+
+    assert pending is not None
+    assert pending.outcome == "partial", (
+        "4 of 14 tracks with no explicit selection is a partial rip"
+    )
+
+
+def test_the_bundle_waits_for_the_post_rip_checks_it_claims_to_have_waited_for(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The headline v0.6.17 defect, asserted as the RELATION that was false.
+
+    Measured on the maintainer's rig: the archive was sealed at 22:20:02.314, the
+    FLAC verify landed at 22:20:02.680 and the CTDB verdict at 22:20:03.106 — so
+    the report inside carried `checksums: null, ctdb: null, audio_md5: null`
+    beneath a manifest line reading *"waited for post-rip: yes — post-rip
+    processing finished first"*. Every field true, the sentence false.
+
+    So the property is not "it waits" but "it does not seal while a check is
+    still running", and the poll is driven directly rather than through a live
+    event loop so the ordering is exact rather than probable.
+    """
+    window = _make_window(qapp)
+    window._last_rip_log = RipLog(tracks=[TrackResult(number=1)])
+    window._current_num_tracks = 1
+    pending = _armed_bundle(window, tmp_path)
+    assert pending is not None
+
+    built: list[Any] = []
+    window._launch_evidence_bundle = lambda p, f: built.append((p, f))  # type: ignore[method-assign]
+
+    # A post-rip check is still running — exactly the state v0.6.17 sealed in.
+    release = threading.Event()
+    worker = threading.Thread(target=release.wait, daemon=True)
+    worker.start()
+    window._ctdb_thread = worker
+    try:
+        window._poll_evidence_bundle()
+        assert not built, (
+            "the bundle was sealed while the CTDB verify was still running — this "
+            "is the defect that archived a report with null verification fields"
+        )
+        assert window._pending_evidence_bundle is not None, "it stopped polling"
+    finally:
+        release.set()
+        worker.join(timeout=5)
+
+    window._poll_evidence_bundle()
+    assert built, "the bundle never sealed after the check finished"
+    _p, facts = built[0]
+    assert facts["waited for post-rip"].startswith("yes"), facts
+
+
+def test_the_bundle_does_not_race_the_library_move_of_the_folder_it_reads(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The new state the settlement fix created, and what tests it.
+
+    `_post_rip_work_settled` is the gate the auto-move-to-library step waits on,
+    so it is True at the instant the move is armed and again while the move's own
+    daemon runs. Sharing it would put both 500 ms polls in the same tick in an
+    order Qt does not define — and the loser walks a directory `shutil.move` is
+    relocating, producing a bundle silently missing the album's log, report and
+    cue. No exception, no manifest line, just fewer files.
+    """
+    window = _make_window(qapp)
+    window._last_rip_log = RipLog(tracks=[TrackResult(number=1)])
+    window._current_num_tracks = 1
+    pending = _armed_bundle(window, tmp_path)
+    assert pending is not None
+
+    built: list[Any] = []
+    window._launch_evidence_bundle = lambda p, f: built.append((p, f))  # type: ignore[method-assign]
+
+    # Nothing is running, so the OLD predicate says "settled" — but a move is
+    # queued against the very folder the bundle would read.
+    assert window._post_rip_work_settled(), "precondition: the old gate is open"
+    window._pending_library_move = (tmp_path / "album", tmp_path / "library", 0)
+
+    window._poll_evidence_bundle()
+    assert not built, (
+        "the bundle sealed with a library move queued — it would read a folder "
+        "that is about to be relocated"
+    )
+    assert "library move (queued)" in window._post_rip_still_running(), (
+        "a bound that cannot name what it is waiting for is a bound nobody can act on"
+    )
+
+    window._pending_library_move = None
+    window._poll_evidence_bundle()
+    assert built, "the bundle never sealed once the move cleared"
+
+
+def test_the_bundle_follows_the_album_folder_to_its_new_home(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """If the move already happened, the archive must read the NEW location.
+
+    `_on_library_moved` repoints `_last_rip_log_file` — the same fact the View
+    log and Open rip folder buttons use — so the bundle asks that rather than
+    keeping its own older answer, and it records the relocation in the facts so a
+    reader is never left guessing which directory was archived.
+    """
+    window = _make_window(qapp)
+    window._last_rip_log = RipLog(tracks=[TrackResult(number=1)])
+    window._current_num_tracks = 1
+    pending = _armed_bundle(window, tmp_path)
+    assert pending is not None
+    assert pending.album_dir == tmp_path / "album"
+
+    built: list[Any] = []
+    window._launch_evidence_bundle = lambda p, f: built.append((p, f))  # type: ignore[method-assign]
+
+    # The move finished between arming and sealing, as it does on a real rip.
+    filed = tmp_path / "library" / "album"
+    filed.mkdir(parents=True)
+    window._last_rip_log_file = filed / "album.log"
+
+    window._poll_evidence_bundle()
+
+    assert built, "the bundle never sealed"
+    sealed, facts = built[0]
+    assert sealed.album_dir == filed, (
+        f"the archive would have read {sealed.album_dir} — a folder that has moved"
+    )
+    assert "album folder moved after the rip" in facts, (
+        "the relocation was not recorded; an archive that read a different "
+        "directory than its manifest names is the failure being prevented"
+    )

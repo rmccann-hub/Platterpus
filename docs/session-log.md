@@ -11,6 +11,106 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-19 (later) — v0.6.18: the artifacts the last release produced indicted it
+
+The maintainer ran the v0.6.17 rig pass and uploaded three report bundles plus a
+full terminal transcript. **Every defect fixed this session was found by reading
+those artifacts**, not by the suite — which is the useful and uncomfortable part:
+0.6.17's headline feature was the bundle, and the bundle's own manifest is what
+proved the bundle wrong.
+
+### Three defects in the bundle code, all mine, all shipped the day before
+
+1. **It sealed before the verification it exists to carry had landed.** v0.6.17
+   joined one post-rip handle (`_post_rip_thread`) and then wrote *"waited for
+   post-rip: yes — post-rip processing finished first"* into the manifest. But CTDB
+   verify, FLAC verify, derived verify and checksums are five *separate* daemons
+   that all block on that same handle, so they **start** at the instant the bundle
+   thread woke. Measured off the uploaded bundle: sealed `22:20:02.314`, FLAC
+   verify `22:20:02.680`, CTDB `22:20:03.106`. The archived report carried
+   `checksums: null, ctdb: null, audio_md5: null`. Every field true, the sentence
+   false.
+   Fix: arm a GUI-thread settlement poll gated on `_post_rip_work_settled` — the
+   predicate the library move has always used — flush the debounced report, then
+   build. One predicate, two callers.
+2. **A deliberate 1-track rip was labelled `partial`**, because the denominator was
+   the disc's 14 rather than `RipParameters.only_tracks`. The app's own banner on
+   that same rip said *"all 1 tracks verified against AccurateRip"*.
+3. **`(ripper)` read a field another feature deliberately destroys** — see below.
+
+### The one that did real damage: two facts sharing one slot
+
+`(ripper)` expanded from `_last_cyanrip_output`, which `expect-cyanrip`/`expect-exit`
+**invalidate on every new `cyanrip` step** on purpose (§5.an). Section C's cache
+probe timed out, its error text replaced the banner, and both `album … (ripper)`
+steps failed *"no build tag has been captured yet"* — 20 minutes after section A
+captured it.
+
+The failed steps were not the damage. With the placeholder refused, both rips fell
+back to the **default album title**, so a cancelled rip's two FLACs landed in the
+disc's real album folder — which is the overwrite prompt the maintainer flagged as
+*"that doesn't seem right"*. **The dialog was correct.** The cause was three
+sections upstream in a field nobody had connected to it.
+
+Graduated to `CLAUDE.md` and `docs/testing.md` **§5.aq**: *what else WRITES to the
+field I'm reading, and does it write for a reason I would not want to override?* The
+tell is a lifetime mismatch in the field's own docstring. Also noted there: the old
+`(ripper)` tests set that field directly, bypassing the absorber — they would have
+passed against a build that never populated the latch at all.
+
+### The headline hardware finding: `cyanrip -x` rips the whole disc
+
+First execution of the fork's cache probe on real hardware, ever. It printed
+`Cache probe: 32 sectors, 73.5 KiB, uncached read 362.6 ms` — **and then went on to
+rip the entire disc**, ETA 1h 3m. The verb killed it at 300 s; the child could not
+be reaped (`exit: null`), so the drive stayed held for the two rips that follow.
+That is the most likely reason round 1's evidence came back unusable.
+
+This also **corrects a correction**: the script's own 2026-08-18 note fixed a
+genuine `-O`-vs-`-x` hardware hazard and closed by asserting the probe "costs
+SECONDS". That half was a guess and it is the half that cost the session. Second
+instance of `CLAUDE.md`'s *did a correction get less scrutiny than a claim?* in two
+weeks, so §5.aq names it as a pattern rather than an incident. The step is removed
+until the fork ships an `-x` that exits after measuring — an ask on them, and the
+useful outcome of having run it.
+
+### What the fixes' own new state needed
+
+* The bundle poll and the library move are now **two 500 ms polls on one
+  predicate**, which on a configured library fire in the same tick in an order Qt
+  does not define — the loser walks a directory `shutil.move` is relocating, for a
+  bundle silently missing the album's log, report and cue. `_album_folder_settled`
+  waits for the move too, and the album path is re-read just before archiving so the
+  bundle follows the folder, recording the relocation in the manifest.
+* The script `rip` verb's two guards both pass while a modal is up (the worker is
+  created *after* the dialog is answered, and Qt ticks the runner inside the nested
+  loop), so two `rip` steps could put two ripper processes on one drive. It now
+  refuses and names the dialog; `wait-for-rip` names the blocking modal too.
+* `expect-tracks` gained an **at-least form** (`3+`). The exact form made the rig
+  script lie: it promises to need no editing on any disc and then asserted
+  `expect-tracks 3` while meaning "at least the three I select". No exact number
+  could satisfy both.
+* The bundle is now **streamed** (one file's bytes resident, not all — six log
+  rotations were each permitted 16 MiB), capped at 64 MiB of payload with every
+  over-budget file named in the manifest, and **self-pruning** to the newest 20 —
+  matching only the exact filename the app generates, so a user's own archives in
+  that folder are never candidates.
+
+Every fix was **revert-checked**: the fix was neutered, the file hash asserted to
+have changed, the reverted tree asserted to still parse, and the test confirmed to
+fail with the rig's own message — then restored and the hash asserted back.
+
+### Still open
+
+* Round 1's evidence is compromised and pass 2 on `c4d1a00` has not been started.
+  `cyanrip --verify-log` rejected the album log (*"checksum mismatch, the file has
+  been modified!"*) and `rig-check` FAILed *"parsed … to ZERO tracks"* — the album
+  folder mixes two rips. Task #53's cancel/drive-open proof still has no clean
+  hardware evidence.
+* The two audit workflows run last session hit the org's monthly spend limit
+  (23/43 and 4/10 agents errored, including both synthesizers), so their findings
+  were never adjudicated.
+
 ## 2026-08-19 — the rig run diagnosed, and one file to send
 
 The rig ran `rigcancelandoverread.txt` twice on app 0.6.16 against the fork build
@@ -100,6 +200,28 @@ seconds in, followed by the script's next click **relocating the running AppImag
 of `~/Downloads` mid-batch**. `app.py` already refused to arm the automatic cyanrip
 check on a scripted launch, and the reasoning it wrote down was about *any*
 launch-time modal. The refusal now sits at the gate they all share.
+
+### The `mv` I nearly handed back, and then didn't
+
+The two-pass procedure I first wrote told the maintainer to `mv` two album folders
+between passes, because the script's album titles were fixed strings and pass 2
+would otherwise overwrite pass 1. I wrote it down as a limitation and filed it in
+`TASKS.md` — which is the *documented* version of handing work back, and the
+maintainer's directive is explicit that the shape of a correct answer is short
+prose plus a file to run, not a checklist with hand-edits in it.
+
+Asked to audit and fix the script, the fix was small: `album` / `album-artist`
+expand `(ripper)` to the installed build tag, taken from the `cyanrip --version`
+banner section A already captures. No new probe, no new verb, no editing between
+passes. Spelled `(ripper)` to match the `(track) - (title)` placeholders we
+already hand cyanrip, rather than inventing a second convention for one idea.
+
+The part worth keeping: an unresolvable placeholder **fails the step**. Writing
+the literal `(ripper)` would have given both passes the same folder again while
+looking like it worked — the collision restored, silently, by the mechanism added
+to prevent it. And the test asserts the *relation* (two banners must give two
+different folders), because asserting one expansion would pass against a function
+that returned a constant.
 
 ### Still open
 
@@ -3026,4 +3148,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.17.*
+*Last updated for Platterpus v0.6.18.*

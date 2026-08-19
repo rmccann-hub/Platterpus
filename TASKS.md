@@ -20,6 +20,73 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Found on the rig, 2026-08-19 — the v0.6.17 pass — **FIXED in 0.6.18**
+
+Every item here was found by **reading the maintainer's uploaded artifacts** (three
+report bundles and the terminal transcript), not by the suite. Three of the five are
+defects in the bundle feature 0.6.17 shipped the day before — the bundle's own
+manifest is what proved the bundle wrong.
+
+- [x] **The bundle sealed before the verification it exists to carry had landed.**
+  0.6.17 joined one post-rip handle of six and then asserted *"post-rip processing
+  finished first"* in the manifest. Measured off the upload: sealed `22:20:02.314`,
+  FLAC verify `22:20:02.680`, CTDB `22:20:03.106`; the archived report carried
+  `checksums: null, ctdb: null, audio_md5: null`. Now a GUI-thread settlement poll
+  gated on `_post_rip_work_settled` — the predicate the library move already used.
+- [x] **A deliberate 1-track rip was archived as `partial`**, because the denominator
+  was the disc's 14 rather than `RipParameters.only_tracks`. The same rip's banner
+  read *"all 1 tracks verified against AccurateRip"*.
+- [x] **`(ripper)` stopped expanding after any later `cyanrip` step**, because it read
+  `_last_cyanrip_output` — a field `expect-cyanrip`/`expect-exit` invalidate on
+  purpose. The cache probe's timeout wiped the banner, both `album … (ripper)` steps
+  failed, the rips fell back to the default album title, and a cancelled rip's FLACs
+  landed in the disc's real album folder. **That is the overwrite prompt the
+  maintainer flagged — the dialog was correct.** The tag is now latched in its own
+  field. `CLAUDE.md` + `docs/testing.md` §5.aq.
+- [x] **The script `rip` verb could start a second rip behind an open modal** — both
+  its guards pass while the overwrite confirmation is up, and Qt ticks the runner
+  inside the modal's nested loop. It now refuses and names the dialog;
+  `wait-for-rip` names the blocking modal too.
+- [x] **`expect-tracks 3` / `1` failed every run against the 14-track disc.** The
+  script promises to need no editing on any disc, so no exact number could work. Added
+  an at-least form: `expect-tracks 3+`.
+- [x] **The bundle was unbounded in memory and on disk** — six log rotations each
+  permitted 16 MiB, all held at once, and nothing ever pruned the folder. Now
+  streamed one file at a time, 64 MiB payload cap with every over-budget file named
+  in the manifest, newest 20 bundles kept.
+
+**And the headline hardware finding, which is an ask on the fork rather than a fix
+here:** `cyanrip -x` printed `Cache probe: 32 sectors, 73.5 KiB, uncached read
+362.6 ms` **and then ripped the whole disc** (ETA 1h 3m). Killed at 300 s, child
+unreapable, drive held for the two rips that follow — the most likely reason round 1's
+evidence came back unusable. The step is removed from the script until `-x` exits
+after measuring. This also corrects the script's own 2026-08-18 claim that the probe
+"costs SECONDS".
+
+- [x] **`--rig-session` ran the same `-x` call, and that is a second call site of one
+  fix.** `rig_session.sh` step 5a is what a person runs *after* a rig pass, so it spent
+  five minutes re-ripping the disc into its own scratch directory and left the drive
+  held for every step after it. Fixing the rig script alone would have left the harness
+  doing the damage — `docs/testing.md` §5.o, *enforce a rule across the codebase, not at
+  the place it was learned*. Found by grepping for the call.
+
+- [ ] **Send the `-x` finding to the fork as round 12 lap 1 — NOT before pass 2's
+  bundle exists.** The finding is real and theirs to fix, and it is tempting to open a
+  round on it today. Don't: opening round 12 now closes the release door (deviation
+  policy) *and* creates a round whose close condition cannot be met without hardware
+  evidence we do not have — the S-13 failure that ran round 7 to 37 laps. The
+  measurement is recorded in `docs/dependency-contracts.md` (single home), the rig
+  script and `docs/rig-scripts/README.md`; it travels when the round opens. All eleven
+  rounds are CLOSED as of this commit, so the release gate itself is clear.
+
+- [ ] **Round 1's evidence is compromised; pass 2 has not been started.**
+  `cyanrip --verify-log` rejected the album log (*"checksum mismatch, the file has
+  been modified!"*) and `rig-check` FAILed *"parsed … to ZERO tracks"* — the folder
+  mixes two rips. Task #53 still has no clean cancel/drive-open proof. Re-run on
+  0.6.18.
+
+---
+
 ## Found on the rig, 2026-08-18 — the run that failed 8 steps to one line — **FIXED in 0.6.17**
 
 The run (`20260819T000808+0000`, app 0.6.16, pin `platterpus-fork-gddf7ac3`) finished
@@ -47,21 +114,24 @@ args`.
 - [x] **The `-x`/overread doc gate derives its file list from disk** (4 files → 60).
   It could not see `PLANNING.md`, which carried the sentence it was written to stop.
 
-- [ ] **The two-pass album-name collision — the one step that resisted automation.**
-  Both rip sections use fixed album names (`cancel me`, `after cancel`), so running
-  the script twice — once on `ddf7ac3`, once on `c4d1a00` — writes both passes into
-  the same two folders, and pass 2's artifacts land on top of pass 1's. The script
-  language has no variable substitution and no verb that can stamp a name with the
-  running ripper build, so today the operator has to move the pass-1 folders aside
-  between passes. That is work handed back, which is exactly what `CLAUDE.md`
-  forbids — naming it here rather than burying it in a procedure. **The fix is a
-  script verb, not a flag** (maintainer directive, 2026-08-11): either `album`
-  learns a `{build}` / `{stamp}` placeholder, or a new verb sets a per-run prefix.
-  Until then, the two-pass runbook carries one `mv`, and it is a symptom.
+- [x] **The two-pass album-name collision — FIXED in 0.6.17, and it was the one step
+  that had resisted automation.** Both rip sections used fixed album names
+  (`cancel me`, `after cancel`), so running the script twice — once on `ddf7ac3`,
+  once on `c4d1a00` — wrote both passes into the same two folders and pass 2 landed
+  on top of pass 1. The workaround was telling the operator to `mv` the pass-1
+  folders aside, which is work handed back and exactly what `CLAUDE.md` forbids.
+  **Fixed as a script capability, not a flag** (maintainer directive, 2026-08-11):
+  `album` / `album-artist` expand **`(ripper)`** to the installed ripper's build tag,
+  read from the `cyanrip --version` banner section A already captures. Pass 1 writes
+  `cancel me platterpus-fork-gddf7ac3`, pass 2 `cancel me platterpus-fork-gc4d1a00`.
+  An unresolvable placeholder FAILS the step rather than writing the literal text,
+  because a silent non-expansion restores the collision while looking like it worked.
+  Spelled to match the `(track) - (title)` placeholders we already hand cyanrip.
 
 **Not fixed by this, and it is why the rig has to run again:** the race killed sections
 D and E before they ripped anything, so **task #53 has no cancel/drive-open evidence
-yet**. Re-run on 0.6.17.
+yet**. The 0.6.17 re-run did not close it either — see the 2026-08-19 section above,
+where `-x` held the drive for the rest of the pass. Re-run on 0.6.18.
 
 - [ ] **Provenance labels disagree across three surfaces — next round, not blocking
   (S-14).** Our manifest says the build was approved by *"round 8 … for Platterpus
@@ -97,23 +167,18 @@ condition cannot be met — the S-13 failure that made round 7 run 37 laps.
 
 ### The gap this exposed: the rig script cannot say which pass it is
 
-- [ ] **`rigcancelandoverread.txt` writes to fixed album names** (`overread on`,
-  `cancel me`, `after cancel`), so a second pass lands **on top of** the first pass's
-  rip folders. The file was written for a single pass and has no pass token; the
-  sibling `police-rerip.txt` solves this by making the operator hand-edit its `album`
-  line, which is exactly the hand-editing this file exists to avoid.
+- [x] **`rigcancelandoverread.txt` wrote to fixed album names — FIXED in 0.6.17.**
+  A second pass landed **on top of** the first pass's rip folders. The mitigation was
+  ordering rather than code (`--rig-session` bundles the newest report by mtime, so it
+  always caught the *right* pass — but pass 1's raw artifacts were gone once pass 2
+  ran), which is a procedure holding a correctness property: the shape this project
+  keeps paying for.
 
-  **Mitigated for now by ordering, not by code:** `--rig-session` discovers the newest
-  `.platterpus.json` by mtime, so it always bundles the *right* pass — but pass 1's raw
-  artifacts are gone once pass 2 runs. So pass 1 must be **completely** finished and its
-  tarball verified before pass 2 begins. That is a procedure holding a correctness
-  property, which is the shape this project keeps paying for.
-
-  **The fix is a script-language change, not an instruction**: a pass token that lands
-  in the album name automatically (the installed ripper's build tag is the obvious
-  value, since it is exactly what distinguishes the two passes). Per `CLAUDE.md`, a new
-  testing capability is a **script verb**, not a flag. Do this after the bundles land —
-  changing the script before the run would invalidate the procedure already sent.
+  Closed by the `(ripper)` placeholder above — the installed build tag lands in the
+  album name automatically, which is exactly what distinguishes the two passes. Per
+  `CLAUDE.md` this went in as a **script capability, not a flag**. The sibling
+  `police-rerip.txt` still makes the operator hand-edit its `album` line and can adopt
+  the same placeholder whenever it is next touched.
 
 ---
 
@@ -2134,4 +2199,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.17.*
+*Last updated for Platterpus v0.6.18.*

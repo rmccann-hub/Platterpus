@@ -39,6 +39,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
+from time import monotonic as _monotonic
 from typing import TYPE_CHECKING, Final, TypeVar
 
 from PySide6.QtCore import QThread, QTimer
@@ -379,6 +380,25 @@ def _ripped_audio_seconds(rip_log: object) -> float | None:
             total += end - start + 1
     # 75 sectors per second (Red Book), the same constant the TOC table uses.
     return total / 75 if total else None
+
+
+@dataclass(frozen=True)
+class _PendingBundle:
+    """The GUI-thread snapshot of a rip, waiting for post-rip work to settle.
+
+    A dataclass rather than a dict because `CLAUDE.md` rule #10 forbids an
+    untyped dict as a pseudo-struct — and because the first version of this was a
+    `dict[str, object]` that mypy could not check the field types of at all.
+    """
+
+    stamp: str
+    app_version: str
+    outcome: str
+    album_dir: Path | None
+    diagnostics: str
+    generation: int
+    deadline: float
+    facts: dict[str, str]
 
 
 class RipMixin(MainWindowShared):
@@ -1303,15 +1323,22 @@ class RipMixin(MainWindowShared):
             self._rip_liveness_timer.stop()  # rip over — disarm the stall watchdog
             self._rip_progress.set_stall_notice(None)  # clear any stall banner
             self._last_rip_signal_at = 0.0
-            self._rip_worker = None
-            self._rip_thread = None
-            self._active_rip_params = None
             # ONE call site, and it is inside the `finally`, so it runs for every
             # way a rip can end — verified, partial, cancelled, failed, and the
             # path where `_finish_rip` itself raised. That placement is the whole
             # design: the outcomes somebody actually needs to send are the ones a
             # "write it when we finish nicely" hook would skip.
-            self._write_evidence_bundle_async(success, log_path)
+            #
+            # BEFORE the three clears below, not after: arming reads
+            # `_active_rip_params.only_tracks` to learn how many tracks the user
+            # actually asked for, and v0.6.17 read the disc's track count instead
+            # — which labelled a deliberate one-track rip "partial" in the same
+            # manifest whose UI said "all 1 tracks ripped cleanly" (rig,
+            # 2026-08-19). Arming only snapshots values; the build happens later.
+            self._arm_evidence_bundle(success, log_path)
+            self._rip_worker = None
+            self._rip_thread = None
+            self._active_rip_params = None
             # Hook for tests to know that finish-time post-processing is done.
             self.rip_post_processing_done.emit()
 
@@ -2396,16 +2423,16 @@ class RipMixin(MainWindowShared):
 
     # --- The one file to send (evidence bundle) -----------------------------
 
-    #: How long the bundle thread will wait for post-rip processing to finish
-    #: before giving up and archiving what exists. Generous, because a 14-track
-    #: transcode is minutes of work; bounded, because an unbounded join on a
-    #: wedged step would leave the bundle permanently unwritten — and the rip it
-    #: describes is already over, so a late bundle is worth more than no bundle.
-    #: The manifest records which of the two happened.
+    #: How long to wait for post-rip work to settle before archiving anyway.
+    #: Generous, because a 14-track transcode plus hashing is minutes of work;
+    #: bounded, because an unbounded wait on a wedged step would leave the bundle
+    #: permanently unwritten — and the rip it describes is already over, so a late
+    #: bundle beats no bundle. The manifest records which of the two happened, and
+    #: names the steps that were still alive when it gave up.
     _BUNDLE_POST_RIP_WAIT_S: Final[float] = 900.0
 
-    def _write_evidence_bundle_async(self, success: bool, log_path: str) -> None:
-        """Write this rip's single-file report bundle, off the GUI thread.
+    def _arm_evidence_bundle(self, success: bool, log_path: str) -> None:
+        """Snapshot this rip and queue its single-file report bundle.
 
         **Why it exists.** Maintainer, 2026-08-19: *"why make me bundle it into
         one compressed file? … this should be on a successful rip, a partial, a
@@ -2422,15 +2449,35 @@ class RipMixin(MainWindowShared):
         ``closeEvent`` teardown obligation — the same pattern the cover-art and
         post-rip workers already use.
 
-        **Why it waits for the post-rip pipeline.** The `.platterpus.json` report
-        and several sidecars are written by that daemon, so bundling the instant
-        the ripper exits would archive an album folder mid-assembly and produce a
-        bundle that is *missing files for a reason that is not a finding*. The
-        wait is bounded and its outcome is written into the manifest, so a bundle
-        built early is legible as one rather than looking complete.
+        **Why it waits, and why the FIRST version of this waited for the wrong
+        thing (fixed 0.6.18, found on the rig).** v0.6.17 joined a single handle,
+        ``_post_rip_thread`` — tagging/cover-art/transcode — and then wrote
+        ``waited for post-rip: yes — post-rip processing finished first`` into the
+        manifest. But CTDB verify, the FLAC encode-verify, the derived-format
+        verify and the checksums are five *separate* daemons that all block on
+        that same handle, so they *start* at the instant the bundle thread woke.
+        Their results then cross three further deferrals: a queued signal to the
+        GUI thread, ``_schedule_rip_report_write``'s 750 ms debounce, and the
+        report writer thread.
+
+        Measured on the maintainer's rig (2026-08-19): bundle sealed at
+        ``22:20:02.314``, FLAC verify finished ``22:20:02.680``, CTDB verdict
+        ``22:20:03.106``. The archived report carried ``checksums: null``,
+        ``ctdb: null``, ``audio_md5: null`` — the exact fidelity evidence a rip
+        report exists to hold — under a manifest line asserting the pipeline had
+        finished. Every field true, the sentence false; the same shape as a
+        dependency dialog reporting ``0 missing`` about a build it never checked.
+
+        So this no longer joins anything itself. It **arms** a settlement poll on
+        the GUI thread and returns; ``_poll_evidence_bundle`` waits for
+        :meth:`_post_rip_work_settled` — the predicate that already enumerates all
+        six threads *and* the debounced report timer, and which the library move
+        has always used — then flushes the report and launches the daemon. One
+        predicate, two callers, rather than a second opinion about what "settled"
+        means (`CLAUDE.md`: two surfaces answering one question by different keys
+        will disagree).
         """
-        from platterpus import __version__, evidence_bundle
-        from platterpus.paths import LOG_DIR
+        from platterpus import __version__
 
         # Everything Qt-touching is read HERE, on the GUI thread. The daemon
         # below closes over plain values only — a worker that reaches back into a
@@ -2445,10 +2492,19 @@ class RipMixin(MainWindowShared):
         rip_log = self._last_rip_log
         parsed_a_log = rip_log is not None
         tracks_done = len(getattr(rip_log, "tracks", []) or [])
-        expected = int(getattr(self, "_current_num_tracks", 0) or 0)
-        post_rip = getattr(self, "_post_rip_thread", None)
+        disc_tracks = int(getattr(self, "_current_num_tracks", 0) or 0)
+        # **The denominator is what the USER ASKED FOR, not what the disc holds.**
+        # v0.6.17 compared against the disc's track count, so a deliberate
+        # single-track selection came out as `partial` — the maintainer's rig
+        # labelled a rip its own UI called *"Done — all 1 tracks ripped cleanly,
+        # no read errors. AccurateRip: all 1 verified"* as a partial rip, in the
+        # manifest, on the same rip (2026-08-19). `only_tracks` is empty when the
+        # whole disc is selected, which is why the fallback is the disc total.
+        requested = getattr(self._active_rip_params, "only_tracks", ()) or ()
+        expected = len(requested) or disc_tracks
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         app_version = __version__
+        generation = self._rip_generation
 
         # The label, and — beside it — the fields it was computed from. A label
         # can be wrong; the fields are what a reader can re-derive from, which is
@@ -2481,36 +2537,195 @@ class RipMixin(MainWindowShared):
             log.exception("could not render diagnostics for the bundle")
             diagnostics = f"(diagnostics could not be rendered: {exc!r})"
 
-        def work() -> None:
-            waited = "not applicable — no post-rip processing ran"
-            if post_rip is not None and post_rip.is_alive():
-                post_rip.join(self._BUNDLE_POST_RIP_WAIT_S)
-                waited = (
-                    "yes — post-rip processing finished first"
-                    if not post_rip.is_alive()
-                    else (
-                        f"NO — gave up after {self._BUNDLE_POST_RIP_WAIT_S:.0f}s; "
-                        "post-rip processing was still running, so late-written "
-                        "artifacts may be absent from this archive"
-                    )
-                )
-            elif post_rip is not None:
-                waited = "yes — post-rip processing had already finished"
+        self._pending_evidence_bundle = _PendingBundle(
+            stamp=stamp,
+            app_version=app_version,
+            outcome=outcome,
+            album_dir=album_dir,
+            diagnostics=diagnostics,
+            generation=generation,
+            deadline=_monotonic() + self._BUNDLE_POST_RIP_WAIT_S,
+            facts={
+                "ripper exit ok": str(success),
+                "cancel requested": str(cancelled),
+                "ripper log parsed": str(parsed_a_log),
+                "tracks in log": str(tracks_done),
+                "tracks requested": str(expected) if expected else "(unknown)",
+                "tracks on disc": str(disc_tracks) if disc_tracks else "(unknown)",
+                "ripper log path": log_path or "(none written)",
+            },
+        )
+        self._evidence_bundle_timer.start()
 
+    def _poll_evidence_bundle(self) -> None:
+        """Settlement-poll slot: build the bundle once every check has landed.
+
+        Runs on the GUI thread every 500 ms while a bundle is queued — the same
+        shape as :meth:`_poll_library_move`, and gated on the same predicate, so
+        the two cannot disagree about what "post-rip is finished" means.
+
+        Three exits, and each one is recorded rather than inferred:
+
+        * **settled** — everything finished; flush the debounced report so the
+          archive gets the FINAL revision, then build.
+        * **deadline** — a step is wedged. Build anyway and name the steps that
+          were still alive, because a late bundle beats no bundle and a silent
+          early bundle is what this replaced.
+        * **superseded** — a newer rip started, so this snapshot describes a
+          folder the new rip is already writing into. Drop it; the new rip arms
+          its own. (Same generation guard as the library move.)
+        """
+        pending = self._pending_evidence_bundle
+        if pending is None:
+            self._evidence_bundle_timer.stop()
+            return
+        if pending.generation != self._rip_generation:
+            self._pending_evidence_bundle = None
+            self._evidence_bundle_timer.stop()
+            log.info("evidence bundle abandoned: a newer rip started")
+            return
+
+        settled = self._album_folder_settled()
+        expired = _monotonic() >= pending.deadline
+        if not settled and not expired:
+            return  # keep polling
+
+        self._pending_evidence_bundle = None
+        self._evidence_bundle_timer.stop()
+        if settled:
+            waited = (
+                "yes — every post-rip check had finished and the report was flushed"
+            )
+        else:
+            waited = (
+                f"NO — gave up after {self._BUNDLE_POST_RIP_WAIT_S:.0f}s. Still "
+                f"running: {self._post_rip_still_running() or '(the report write)'}. "
+                "Results from those steps are absent from the report in this archive."
+            )
+        crashed = self._post_rip_failure_summary()
+        if crashed:
+            waited += f" A post-rip check DIED rather than finishing: {crashed}."
+        # Flush the debounced report so the archive carries the final revision
+        # rather than the one written before any verification landed.
+        try:
+            self._flush_rip_report()
+        except Exception:  # noqa: BLE001 — the bundle must survive this
+            log.exception("could not flush the rip report before bundling")
+            waited += " The final report write could not be flushed."
+        facts = dict(pending.facts)
+        facts["waited for post-rip"] = waited
+        # **READ THE ALBUM'S CURRENT HOME, NOT THE ONE IT HAD AT FINISH.** The
+        # auto-move-to-library step relocates the whole folder, and it is gated on
+        # the same predicate this poll is, so on a configured library the two fire
+        # in the same 500 ms tick — undefined order. `_on_library_moved` is the
+        # code that already answers "where is it now" (it repoints
+        # `_last_rip_log_file` for the View log / Open folder buttons), so this
+        # asks that rather than keeping a second, older answer. `CLAUDE.md`: two
+        # surfaces answering one question by different keys will disagree.
+        pending = self._album_dir_at_bundle_time(pending, facts)
+        self._launch_evidence_bundle(pending, facts)
+
+    def _album_folder_settled(self) -> bool:
+        """True when nothing is still touching *or moving* the album folder.
+
+        :meth:`_post_rip_work_settled` answers "have the post-rip checks
+        finished", which is the gate the library move waits on — so it is
+        deliberately True at the instant the move is armed and again while the
+        move's own daemon is running. The bundle needs the stronger claim: the
+        folder it is about to read has stopped changing *location*.
+
+        Without this the two polls share a predicate and a 500 ms cadence, so on
+        any machine with a library folder configured they fire in the same tick in
+        an order Qt does not define — and the bundle's reader would race a
+        `shutil.move` of the directory it is walking. The failure would be a
+        bundle silently missing the album's log, report and cue: no exception, no
+        manifest line, just fewer files. That is the shape this whole change
+        exists to stop, so it gets closed here rather than left to timer order.
+        """
+        if not self._post_rip_work_settled():
+            return False
+        if self._pending_library_move is not None:
+            return False
+        mover = getattr(self, "_library_move_thread", None)
+        return not (mover is not None and mover.is_alive())
+
+    def _album_dir_at_bundle_time(
+        self, pending: _PendingBundle, facts: dict[str, str]
+    ) -> _PendingBundle:
+        """Re-resolve the album folder just before the archive is built.
+
+        Returns ``pending`` unchanged unless the folder has moved, in which case
+        it returns a copy pointing at the new home **and records both paths in the
+        facts** — a bundle that quietly read a different directory than the one
+        its manifest names is exactly the "every field true, the sentence false"
+        failure this method exists to prevent.
+        """
+        current = self._last_rip_log_file
+        if current is None:
+            return pending
+        new_dir = current.parent
+        if pending.album_dir is None or new_dir == pending.album_dir:
+            return pending
+        facts["album folder moved after the rip"] = (
+            f"{pending.album_dir} → {new_dir} (filed in your library; the bundle "
+            "read the new location)"
+        )
+        return replace(pending, album_dir=new_dir)
+
+    def _post_rip_still_running(self) -> str:
+        """Comma-joined names of the post-rip threads that are still alive.
+
+        Derived from the same attribute list :meth:`_post_rip_work_settled` walks,
+        so the manifest can say *which* step it gave up on instead of "something".
+        A bound that cannot say what it hit is a bound nobody can act on.
+        """
+        alive: list[str] = []
+        for attr in (
+            "_post_rip_thread",
+            "_ctdb_thread",
+            "_flac_verify_thread",
+            "_derived_verify_thread",
+            "_checksums_thread",
+            "_comparison_thread",
+            # Not in `_post_rip_work_settled`'s list — the move is *launched*
+            # after that predicate goes True — but it IS one of the things
+            # `_album_folder_settled` waits for, so a bound that hit the move must
+            # be able to say so.
+            "_library_move_thread",
+        ):
+            thread = getattr(self, attr, None)
+            if thread is not None and thread.is_alive():
+                alive.append(attr.strip("_").removesuffix("_thread"))
+        if self._pending_library_move is not None:
+            alive.append("library move (queued)")
+        return ", ".join(alive)
+
+    def _launch_evidence_bundle(
+        self, pending: _PendingBundle, facts: dict[str, str]
+    ) -> None:
+        """Build the archive on a daemon thread. Every Qt read already happened.
+
+        Off-thread because it gzips the app log and its rotations — routinely tens
+        of megabytes — and the GUI-thread rule has no exception for "usually
+        fast". A plain daemon rather than a ``QThread``: it owns no Qt object and
+        guards its own emit, so it adds no ``closeEvent`` teardown obligation.
+        """
+        from platterpus import evidence_bundle
+        from platterpus.paths import LOG_DIR
+
+        album_dir = pending.album_dir
+        stamp = pending.stamp
+        app_version = pending.app_version
+        outcome = pending.outcome
+        diagnostics = pending.diagnostics
+
+        def work() -> None:
             result = evidence_bundle.build_bundle(
                 dest_dir=LOG_DIR / "bundles",
                 stamp=stamp,
                 app_version=app_version,
                 outcome=outcome,
-                facts={
-                    "ripper exit ok": str(success),
-                    "cancel requested": str(cancelled),
-                    "ripper log parsed": str(parsed_a_log),
-                    "tracks in log": str(tracks_done),
-                    "tracks on disc": str(expected) if expected else "(unknown)",
-                    "ripper log path": log_path or "(none written)",
-                    "waited for post-rip": waited,
-                },
+                facts=facts,
                 album_dir=album_dir,
                 log_dir=LOG_DIR,
                 extra_text={"diagnostics.txt": diagnostics},
