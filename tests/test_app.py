@@ -920,3 +920,84 @@ def test_a_real_commit_still_installs_rather_than_listing(
     assert app_module.main(["--install-ripper", "0badc0de"]) == 0
     target = host_setup_module.HostSetup.last_kwargs.get("fork_target")
     assert target is not None and target.pin == "0badc0de"
+
+
+# --- The unattended run must end itself, but not early -----------------------
+
+
+def test_the_unattended_quit_waits_for_post_rip_work_before_quitting(qapp) -> None:
+    """`--run-script` now ends the process — but the BATCH ending is not the WORK
+    ending, and quitting on the wrong one truncates the evidence.
+
+    Maintainer, 2026-08-19: *"we shouldn't need to hard quit these consoles if
+    they are done actually."* The run left the window open, so the launching
+    terminal kept a live `python3.12` and Konsole asked "There is a process
+    running in this window" on close; on the rig it sat idle five and a half
+    minutes until a person clicked through.
+
+    The trap is the obvious fix. On that same run the script finished at
+    17:51:15.8 and the rip's own evidence bundle sealed at **17:51:18.4** — after
+    CTDB, the FLAC verify and the checksums landed. Connecting to the runner's
+    `finished` would have killed the process in that gap and truncated exactly
+    the artifact this release exists to make trustworthy. So the quit is gated on
+    the same settlement predicate the bundle waits on.
+
+    Driven through the real helper with stand-ins for the three collaborators, so
+    what is under test is the GATE rather than a description of it.
+    """
+    from platterpus.app import _arm_unattended_quit
+
+    quits: list[int] = []
+    state = {"running": True, "pending": object(), "settled": False}
+
+    class _Runner:
+        @property
+        def running(self) -> bool:
+            return bool(state["running"])
+
+    class _Console:
+        @property
+        def runner(self):
+            return _Runner()
+
+    class _App:
+        def quit(self) -> None:
+            quits.append(1)
+
+    from PySide6.QtWidgets import QWidget
+
+    window = QWidget()
+    window._pending_evidence_bundle = state["pending"]
+    window._post_rip_work_settled = lambda: bool(state["settled"])
+    window._post_rip_still_running = lambda: "ctdb"
+
+    _arm_unattended_quit(_App(), window, _Console())
+    timer = window.findChild(__import__("PySide6.QtCore", fromlist=["QTimer"]).QTimer)
+    assert timer is not None, "the helper armed no timer"
+
+    # 1. Batch still running — must not quit.
+    timer.timeout.emit()
+    assert not quits, "quit while the script batch was still running"
+
+    # 2. Batch done, but the bundle is still queued — must STILL not quit. This is
+    #    the 2.6-second window that would have truncated the rig's evidence.
+    state["running"] = False
+    timer.timeout.emit()
+    assert not quits, (
+        "quit with an evidence bundle still queued — the archive would have been "
+        "cut off before its verification landed"
+    )
+
+    # 3. Bundle sealed but a post-rip check still alive — must still not quit.
+    window._pending_evidence_bundle = None
+    timer.timeout.emit()
+    assert not quits, "quit while a post-rip check was still running"
+
+    # 4. Everything settled — now it may quit.
+    state["settled"] = True
+    timer.timeout.emit()
+    assert quits, (
+        "everything had settled and the process still did not quit — this is the "
+        "'process running in this window' prompt the fix exists to remove"
+    )
+    window.deleteLater()

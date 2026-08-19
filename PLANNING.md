@@ -1168,3 +1168,38 @@ Three consequences, now standing:
 ---
 
 *Last updated for Platterpus v0.6.18.*
+### KDD-35 — A version number is a claim about the field, not about CI (decided 2026-08-19)
+
+**Decision.** Version thresholds are gated on *evidence from hardware in people's
+hands*, not on a green suite. **0.9.1** requires a complete hardware pass — every
+test green in one run — achieved **at least twice**. **1.0.0** additionally
+requires independent field evidence: more than one person, more than one machine,
+more than one Linux distribution. The full statement, the reasoning and the
+evidence ledger are `docs/testing.md` §5B; `tests/test_no_stale_version_claims.py`
+§3 refuses a bump the ledger does not support.
+
+**Why.** The implicit gate was "the tests pass", and the maintainer corrected it:
+*"we have only tested on my rig, my hardware. we need more people, more hardware,
+more linux distros, to get up to v1.0.0 proper."* A green suite is a statement
+about this repository on a CI runner; a version number is a statement about the
+software in somebody's hands. This project has the measurement to prove they
+differ — every defect that mattered in August was found on hardware by a person,
+with the suite green throughout, and three of them were in the very feature built
+the day before to make reporting easier.
+
+**Why "all at once" is the operative words in the 0.9.1 bar.** A run of
+`pass=55 fail=5` whose five failures are each separately explained is not a pass.
+On 2026-08-19 those five all descended from **one** defect nobody knew existed
+(the rescan cancel-scoping bug, KDD-none, fixed same day) — so a rule that
+accepted "understood failures" would have accepted five symptoms of a live bug.
+
+**Why 1.0.0 cannot be earned by working harder.** It is a *coverage* bar, not a
+quality bar. No amount of diligence on one rig turns one configuration into many,
+so the requirement is written down rather than left to release-time judgement —
+the temptation at 0.9.9 will be to reason that things seem fine.
+
+**Consequence accepted.** 1.0.0 is now blocked on something outside the
+maintainer's sole control: other people running it. That is the point. A 1.0 that
+only its author has ever run is a claim the evidence cannot carry, and shipping it
+would make the number meaningless for the users it is aimed at.
+
