@@ -47,17 +47,19 @@ args`.
 - [x] **The `-x`/overread doc gate derives its file list from disk** (4 files → 60).
   It could not see `PLANNING.md`, which carried the sentence it was written to stop.
 
-- [ ] **The two-pass album-name collision — the one step that resisted automation.**
-  Both rip sections use fixed album names (`cancel me`, `after cancel`), so running
-  the script twice — once on `ddf7ac3`, once on `c4d1a00` — writes both passes into
-  the same two folders, and pass 2's artifacts land on top of pass 1's. The script
-  language has no variable substitution and no verb that can stamp a name with the
-  running ripper build, so today the operator has to move the pass-1 folders aside
-  between passes. That is work handed back, which is exactly what `CLAUDE.md`
-  forbids — naming it here rather than burying it in a procedure. **The fix is a
-  script verb, not a flag** (maintainer directive, 2026-08-11): either `album`
-  learns a `{build}` / `{stamp}` placeholder, or a new verb sets a per-run prefix.
-  Until then, the two-pass runbook carries one `mv`, and it is a symptom.
+- [x] **The two-pass album-name collision — FIXED in 0.6.17, and it was the one step
+  that had resisted automation.** Both rip sections used fixed album names
+  (`cancel me`, `after cancel`), so running the script twice — once on `ddf7ac3`,
+  once on `c4d1a00` — wrote both passes into the same two folders and pass 2 landed
+  on top of pass 1. The workaround was telling the operator to `mv` the pass-1
+  folders aside, which is work handed back and exactly what `CLAUDE.md` forbids.
+  **Fixed as a script capability, not a flag** (maintainer directive, 2026-08-11):
+  `album` / `album-artist` expand **`(ripper)`** to the installed ripper's build tag,
+  read from the `cyanrip --version` banner section A already captures. Pass 1 writes
+  `cancel me platterpus-fork-gddf7ac3`, pass 2 `cancel me platterpus-fork-gc4d1a00`.
+  An unresolvable placeholder FAILS the step rather than writing the literal text,
+  because a silent non-expansion restores the collision while looking like it worked.
+  Spelled to match the `(track) - (title)` placeholders we already hand cyanrip.
 
 **Not fixed by this, and it is why the rig has to run again:** the race killed sections
 D and E before they ripped anything, so **task #53 has no cancel/drive-open evidence
@@ -97,23 +99,18 @@ condition cannot be met — the S-13 failure that made round 7 run 37 laps.
 
 ### The gap this exposed: the rig script cannot say which pass it is
 
-- [ ] **`rigcancelandoverread.txt` writes to fixed album names** (`overread on`,
-  `cancel me`, `after cancel`), so a second pass lands **on top of** the first pass's
-  rip folders. The file was written for a single pass and has no pass token; the
-  sibling `police-rerip.txt` solves this by making the operator hand-edit its `album`
-  line, which is exactly the hand-editing this file exists to avoid.
+- [x] **`rigcancelandoverread.txt` wrote to fixed album names — FIXED in 0.6.17.**
+  A second pass landed **on top of** the first pass's rip folders. The mitigation was
+  ordering rather than code (`--rig-session` bundles the newest report by mtime, so it
+  always caught the *right* pass — but pass 1's raw artifacts were gone once pass 2
+  ran), which is a procedure holding a correctness property: the shape this project
+  keeps paying for.
 
-  **Mitigated for now by ordering, not by code:** `--rig-session` discovers the newest
-  `.platterpus.json` by mtime, so it always bundles the *right* pass — but pass 1's raw
-  artifacts are gone once pass 2 runs. So pass 1 must be **completely** finished and its
-  tarball verified before pass 2 begins. That is a procedure holding a correctness
-  property, which is the shape this project keeps paying for.
-
-  **The fix is a script-language change, not an instruction**: a pass token that lands
-  in the album name automatically (the installed ripper's build tag is the obvious
-  value, since it is exactly what distinguishes the two passes). Per `CLAUDE.md`, a new
-  testing capability is a **script verb**, not a flag. Do this after the bundles land —
-  changing the script before the run would invalidate the procedure already sent.
+  Closed by the `(ripper)` placeholder above — the installed build tag lands in the
+  album name automatically, which is exactly what distinguishes the two passes. Per
+  `CLAUDE.md` this went in as a **script capability, not a flag**. The sibling
+  `police-rerip.txt` still makes the operator hand-edit its `album` line and can adopt
+  the same placeholder whenever it is next touched.
 
 ---
 

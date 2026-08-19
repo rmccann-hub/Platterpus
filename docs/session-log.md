@@ -101,6 +101,28 @@ of `~/Downloads` mid-batch**. `app.py` already refused to arm the automatic cyan
 check on a scripted launch, and the reasoning it wrote down was about *any*
 launch-time modal. The refusal now sits at the gate they all share.
 
+### The `mv` I nearly handed back, and then didn't
+
+The two-pass procedure I first wrote told the maintainer to `mv` two album folders
+between passes, because the script's album titles were fixed strings and pass 2
+would otherwise overwrite pass 1. I wrote it down as a limitation and filed it in
+`TASKS.md` — which is the *documented* version of handing work back, and the
+maintainer's directive is explicit that the shape of a correct answer is short
+prose plus a file to run, not a checklist with hand-edits in it.
+
+Asked to audit and fix the script, the fix was small: `album` / `album-artist`
+expand `(ripper)` to the installed build tag, taken from the `cyanrip --version`
+banner section A already captures. No new probe, no new verb, no editing between
+passes. Spelled `(ripper)` to match the `(track) - (title)` placeholders we
+already hand cyanrip, rather than inventing a second convention for one idea.
+
+The part worth keeping: an unresolvable placeholder **fails the step**. Writing
+the literal `(ripper)` would have given both passes the same folder again while
+looking like it worked — the collision restored, silently, by the mechanism added
+to prevent it. And the test asserts the *relation* (two banners must give two
+different folders), because asserting one expansion would pass against a function
+that returned a constant.
+
 ### Still open
 
 - **Task #53** — the run did not produce the cancel/drive-open evidence, because the
