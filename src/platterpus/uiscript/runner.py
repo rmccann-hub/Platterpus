@@ -1089,13 +1089,56 @@ class ScriptRunner(QObject):
         """Set the album artist (and propagate it to the per-track artist column)."""
         self._set_album_field(step, "_album_artist_edit", "album artist")
 
+    def _expand_ripper_placeholder(self, value: str) -> tuple[str, str]:
+        """Expand ``(ripper)`` to the installed ripper's build tag.
+
+        Returns ``(expanded, error)``; a non-empty error means the caller must
+        FAIL the step rather than proceed.
+
+        **Why this exists (0.6.17).** A two-pass hardware session rips the same
+        disc on two ripper builds, and the album title is what decides the output
+        folder — so with a fixed title the second pass lands on top of the first
+        and destroys the evidence the session was run to produce. The workaround
+        was telling the operator to `mv` two folders between passes, which is
+        exactly the hand-work `CLAUDE.md` says never to hand back: *"every
+        hand-edit and every 'now run this, then run that' in a written procedure
+        is a thing the software was supposed to do."*
+
+        The tag comes from the `cyanrip --version` banner the script has already
+        captured, so it needs no new probe — but that means ORDER MATTERS, and
+        an unresolved placeholder is not something to paper over: it would put
+        the literal string `(ripper)` in both passes' titles and silently restore
+        the collision. So it is a hard failure that names the cause.
+
+        Spelled `(ripper)` to match the `(track) - (title)` placeholder syntax
+        this project already hands cyanrip in `-F`, rather than inventing a
+        second convention for the same idea.
+        """
+        if "(ripper)" not in value:
+            return value, ""
+        from platterpus.ripper_identity import identify_from_banner
+
+        tag = identify_from_banner(self._last_cyanrip_output).build_tag
+        if not tag:
+            return value, (
+                "(ripper) could not be expanded: no cyanrip build tag has been "
+                "captured yet. Put a `cyanrip --version` step before this one — "
+                "the placeholder reads that banner. Refusing rather than writing "
+                "the literal text, which would give two passes the same album "
+                "folder and overwrite the first pass's evidence."
+            )
+        return value.replace("(ripper)", tag), ""
+
     def _set_album_field(self, step: Step, widget_name: str, label: str) -> None:
         table = getattr(self._window, "_track_table", None)
         edit = getattr(table, widget_name, None) if table is not None else None
         if edit is None:
             self._record(step, Outcome.ERROR, f"no {label} field on the window")
             return
-        value = step.joined()
+        value, placeholder_error = self._expand_ripper_placeholder(step.joined())
+        if placeholder_error:
+            self._record(step, Outcome.FAIL, placeholder_error)
+            return
         edit.setText(value)
         # `editingFinished` is what propagates the artist down the track rows; a
         # bare setText does not emit it, so a scripted edit would behave differently

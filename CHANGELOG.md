@@ -35,6 +35,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   like a complete one.
 
 ### Fixed
+- **A two-pass hardware session overwrote its own evidence.** The rig script's
+  album titles were fixed strings, and the album title decides the output folder
+  — so ripping the same disc on two ripper builds put pass 2 on top of pass 1.
+  The workaround was two `mv` commands handed to the operator between passes,
+  which is the hand-work `CLAUDE.md` says never to hand back. `album` /
+  `album-artist` now expand **`(ripper)`** to the installed ripper's build tag
+  (read from the `cyanrip --version` banner the script already captures), so the
+  two passes write `cancel me platterpus-fork-gddf7ac3` and
+  `cancel me platterpus-fork-gc4d1a00` with no editing and no `mv`. An
+  unresolvable placeholder **fails the step** rather than writing the literal
+  text, because a silently unexpanded `(ripper)` restores the exact collision
+  while looking like it worked. Spelled to match the `(track) - (title)`
+  placeholders this project already hands cyanrip in `-F`.
 - **`pick-release` reported success ~124 ms before the tracks existed, failing every
   step after it.** `MainWindow._fetch_release_detail` *emits* to the MusicBrainz
   worker thread rather than calling it, so when the verb accepted the picker dialog
