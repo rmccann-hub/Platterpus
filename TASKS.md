@@ -187,6 +187,23 @@ after measuring. This also corrects the script's own 2026-08-18 claim that the p
   script and `docs/rig-scripts/README.md`; it travels when the round opens. All eleven
   rounds are CLOSED as of this commit, so the release gate itself is clear.
 
+- [ ] **A second round-12 ask, rides with the `-x` one: `--verify-log` should separate
+  *absent* from *mismatched*, and the discriminator should be an exit code.** Target
+  **NEXT-ROUND** per S-16 — it breaks nothing in any artifact under review, so under
+  S-14 it is not grounds to hold anything. What v0.6.20 had to do: a killed or cancelled
+  rip leaves a log with **no** `Log FUN512:` footer at all, while an altered archival
+  record leaves one that does not match, and *"the ripper was killed mid-write"* and
+  *"this file was modified"* are different findings — only the second is a tamper claim.
+  Their tooling today reports both through message text, and their own lap-12 J4 asked us
+  **not** to key on genopt's `"No FUN512 checksum found"` string because one upstream sync
+  can change it. That left us correct but unaided: we derived the distinction from our own
+  read of the log (`parsers/cyanrip_log.has_log_checksum`), which works and is the right
+  local fix, but means two projects now answer the same question by separate routes — the
+  *"do two surfaces answer this question, and do they use the same key?"* shape. The ask
+  is a **machine-readable discriminator** — distinct exit codes for absent vs mismatched —
+  plus the null case (no footer) stated explicitly in their provider contract, since a
+  null case left silent is one of the two failures `--check` is written to catch.
+
 - [ ] **Round 1's evidence is compromised; pass 2 has not been started.**
   `cyanrip --verify-log` rejected the album log (*"checksum mismatch, the file has
   been modified!"*) and `rig-check` FAILed *"parsed … to ZERO tracks"* — the folder
