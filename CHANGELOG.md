@@ -11,6 +11,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **`scripts/revert_probe.py` — the "would this test fail if I reverted the fix?"
+  check is now a committed tool rather than a habit.** That question has caught a
+  vacuous detector here twice, but each time the check was performed by
+  hand-writing a throwaway script, which meant re-learning the four recorded ways
+  a revert can silently fail to land — and a revert that never landed produces a
+  passing test *indistinguishable from a vacuous one*. The tool refuses instead of
+  guessing: the anchor must appear exactly once (zero means a formatter reflowed
+  it; two means we would not know which site changed), the file hash must change
+  (that is the proof the write landed), a collection or import error is reported as
+  **no evidence** rather than as a detection (a syntax error otherwise reads as
+  *"the test caught the bug"* — how the cyanrip fork lost a session to a stale
+  binary), the original is always restored and the restore verified by hash, and a
+  test that passes anyway is reported as `VACUOUS`.
+  `expect: "unaffected"` asserts the converse — that a *different* test does **not**
+  depend on the reverted line, which is what proves an anchor is narrow rather than
+  merely present.
+  Its own refusal paths are tested (`tests/test_revert_probe.py`, 10 tests), because
+  a verification tool whose failure modes are untested is precisely the thing it
+  exists to catch. The load-bearing one is
+  `test_the_runner_sees_the_reverted_content`: the fake runner reads the file
+  *while* the revert is applied, so a tool that restored too early — or never wrote
+  at all — fails there and nowhere else.
+
 ### Changed
 - **A local test run now prints its own coverage number instead of leaving it to
   be inferred.** `conftest.pytest_sessionfinish` ends the process with
