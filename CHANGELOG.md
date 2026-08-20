@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.20] — 2026-08-20
+
 ### Added
 - **`answer-dialog <ok|cancel> <seconds> <title-substring>` — a script verb that
   WAITS for a named dialog and then answers it.** `ok` / `cancel` act on whatever
@@ -9196,7 +9198,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.19...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.20...HEAD
+[0.6.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.19...v0.6.20
 [0.6.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.18...v0.6.19
 [0.6.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.17...v0.6.18
 [0.6.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.16...v0.6.17
@@ -9304,4 +9307,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.19.*
+*Last updated for Platterpus v0.6.20.*
