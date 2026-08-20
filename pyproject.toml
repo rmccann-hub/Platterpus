@@ -251,13 +251,25 @@ module = [
     "platterpus.ui.main_window_shared",       #  9 — shared-surface report attrs
     "platterpus.ui.main_window",              #  6
     "platterpus.workers.rip_worker",          #  5
-    "platterpus.read_speed_ladder",           #  2
-    "platterpus.config",                      #  2
-    "platterpus.ui.main_window_rip",          #  2
     # RETIRED 2026-07-31: `platterpus.parsers.cyanrip_log` — its single bare
     # `dict` was the in-progress track block, now the typed `_TrackAcc`
     # dataclass, so the parser that produces the bit-perfection claim is fully
     # checked (rule #10's "retire one opt-out per commit").
+    #
+    # RETIRED 2026-08-20, three at once because they were ONE chain: the report's
+    # `read_speed`, `timing` and `debug` blocks were built as bare `dict`s in
+    # `read_speed_ladder` / `main_window_rip`, handed through `rip_report`'s bare
+    # `dict` parameters, and written out — so the `TypedDict`s describing them in
+    # `report_types.py` were never once compared against a producer.
+    #   * `platterpus.read_speed_ladder`  — now returns `ReportReadSpeedBlock`,
+    #     which that type's OWN docstring already said it returned.
+    #   * `platterpus.config`             — the two bare dicts are the raw-TOML
+    #     boundary; named `dict[str, Any]` (see the comment at the function).
+    #   * `platterpus.ui.main_window_rip` — now returns `TimingBlock` / `DebugBlock`.
+    # Typing the chain found a real mismatch nothing else could: `TimingBlock`
+    # declared `realtime_multiplier: NotRequired[float]` while `build_timing` had
+    # been writing `None` into it ever since the cancelled-rip fix. The type
+    # described what we wished the field were.
 ]
 disallow_any_generics = false
 

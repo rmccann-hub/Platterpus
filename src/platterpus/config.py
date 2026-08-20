@@ -22,7 +22,7 @@ import os
 import tomllib
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import tomli_w
 
@@ -557,7 +557,20 @@ def save(cfg: Config) -> None:
     log.debug("config saved to %s", CONFIG_PATH)
 
 
-def _forward_compat_extra() -> dict:
+# `dict[str, Any]`, not `dict[str, object]`, and the difference is a claim about
+# reality rather than a concession to the checker. `tomllib.load` returns
+# unchecked values by construction, so `object` would be STRICTER THAN THE TRUTH:
+# it forces a cast at every use, and a cast is an unchecked assertion wearing a
+# type annotation — noise that reads as safety. The values genuinely are validated,
+# just not here: `settings_validation.py` is this project's stated input boundary
+# (the "validate every input" rule), and `load()` filters to known dataclass
+# fields. Same call as the `musicbrainz_client` opt-out, which the mypy override
+# list already labels "genuine raw-JSON boundary".
+#
+# The win is not these two annotations — it is that naming them let the whole
+# module leave the `disallow_any_generics` opt-out list, so every OTHER generic in
+# `config.py` is now checked instead of none of them.
+def _forward_compat_extra() -> dict[str, Any]:
     """Keys on disk this binary doesn't recognise, to preserve on save.
 
     An older Platterpus loading a config written by a NEWER one drops the newer
@@ -584,7 +597,7 @@ def _forward_compat_extra() -> dict:
     return extra
 
 
-def _migrate(raw: dict) -> dict:
+def _migrate(raw: dict[str, Any]) -> dict[str, Any]:
     """Apply schema migrations in-place, returning the upgraded dict.
 
     Each step reads `raw["schema_version"]`, transforms `raw`, and bumps
