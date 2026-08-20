@@ -26,6 +26,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   bounded at 900 s, and says which step it gave up on if the bound is hit.
 
 ### Changed
+- **A release run now has a failure-derived gate** (`docs/test-plan.md` **Part E**,
+  linked from `docs/testing.md` §5B). Parts 0–D say what to exercise; Part E says
+  what to *disbelieve*, derived from the record rather than imagination: the twelve
+  defect classes that have actually bitten this project (with counts and what
+  catches each), how to tell a **normal** failure — one named expectation, one
+  observed value, batch continues — from an **anomalous run** whose passes cannot
+  be counted either (no output where output was due, a pass count that does not add
+  up, exit 0 on a truncated run, a step that passes faster than the work takes), and
+  what a **pass** must prove before it may be counted. Two counted facts drive it:
+  every failure on both of the last two rig runs descended from a *single* defect
+  (8-of-8, then 5-of-5), so the number of failures carries almost no information;
+  and every defect that mattered this month was found on hardware, by a person, with
+  the suite green throughout.
 - **Three `mypy` strict opt-outs retired, and typing the chain found a real
   mismatch.** The report's `read_speed`, `timing` and `debug` blocks were built as
   bare `dict`s in `read_speed_ladder` / `main_window_rip`, passed through
