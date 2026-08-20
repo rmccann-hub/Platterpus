@@ -58,6 +58,7 @@ text is taken verbatim as one value.
 | `open` | 1 | ready | open <settings|dependencies|about|diagnostics|guide|setup|drive> — open a dialog |
 | `ok` | 0 | ready | ok — accept the dialog on top |
 | `cancel` | 0 | ready | cancel — dismiss the dialog on top |
+| `answer-dialog` | 3+ (rest of line) | ready | answer-dialog <ok|cancel> <seconds> <title-substring> — wait up to <seconds> for a dialog whose title contains <title-substring>, then accept or dismiss it; fails if a different dialog is up at the deadline |
 | `expect-dialog` | 1 | ready | expect-dialog <title-or-none> — assert which dialog is on screen |
 | `set` | 2+ (rest of line) | ready | set <config-field> <value> — change a setting (validated, then saved); booleans take on/off |
 | `expect` | 2+ (rest of line) | ready | expect <config-field> <value> — assert a setting equals a value |
@@ -340,6 +341,7 @@ found nothing wrong*.
     "trailing_free_text_verbs": [
       "log",
       "abort",
+      "answer-dialog",
       "set",
       "expect",
       "expect-contains",
@@ -425,6 +427,15 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "cancel \u2014 dismiss the dialog on top"
+    },
+    {
+      "name": "answer-dialog",
+      "min_args": 3,
+      "max_args": null,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "answer-dialog <ok|cancel> <seconds> <title-substring> \u2014 wait up to <seconds> for a dialog whose title contains <title-substring>, then accept or dismiss it; fails if a different dialog is up at the deadline"
     },
     {
       "name": "expect-dialog",

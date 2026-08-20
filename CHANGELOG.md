@@ -11,6 +11,60 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **`answer-dialog <ok|cancel> <seconds> <title-substring>` — a script verb that
+  WAITS for a named dialog and then answers it.** `ok` / `cancel` act on whatever
+  is on top at the instant they run and fail when nothing is, which is fine for a
+  dialog the script itself opened and wrong for one raised *as a consequence* of
+  an action: `rip` returns as soon as the start is requested, so the confirmation
+  arrives a beat later and `rip` + `ok` is a coin flip. Same defect as v0.6.17's
+  `pick-release` — asserting a thing was *requested* when the claim needed is that
+  it *happened* — arriving through a different door.
+  Measured on the 2026-08-20 cancel-path rig run: `pass=58 fail=2`, and **both**
+  failures descended from one unanswered *"Album already ripped"* modal —
+  `wait-for-rip` found no worker because the app was blocked on it, and
+  `rig-check` then graded the *cancelled* rip because section E never produced
+  one. Third consecutive run whose whole failure set came from a single cause.
+  **The title is mandatory, and that is a safety property, not ergonomics.** An
+  unattended accept will dismiss a dialog nobody predicted — a crash report, an
+  overwrite prompt — with no operator to notice. This verb never touches a dialog
+  it was not told to expect; it leaves it alone, keeps waiting, and names what it
+  found instead. So the step is an assertion as well as an action, and its two
+  timeout messages stay distinct: *nothing opened at all* (the action never ran)
+  is a different finding from *the wrong one opened* (the app did something
+  unexpected).
+
+### Fixed
+- **A cancelled rip is no longer reported as a corrupt archival log.** cyanrip
+  writes its `Log FUN512:` signature last, so a rip stopped part-way has **no**
+  checksum line — and `--verify-log`'s non-zero exit was rendered as *"it does not
+  match its own FUN512 checksum, so it is not a faithful record of this rip and
+  must not be treated as archival evidence"*, at ERROR and in the report's
+  `issues[]`. Nothing had been altered; the footer was never written. Absent and
+  mismatched mean opposite things — one says the ripper was killed mid-write, the
+  other says the file was tampered with after signing — and only the second
+  deserves that sentence. Both still fail (neither is a complete record), and the
+  wording now says which. The discriminator is **our own read of the log** for the
+  footer the parser already knows, not cyanrip's *"No FUN512 checksum found"*
+  text, which the fork's lap-12 J4 asked us not to build on because it is
+  genopt's and one upstream sync from changing.
+- **`rig-check` no longer fails a cancelled rip for having nothing to parse.** The
+  zero-track floor is right and stays — *"a parse that finds nothing is not a
+  parse that found nothing wrong"* — but it never checked its **subject**. A cancel
+  91 s into track 1 of a paranoia-max rip leaves cyanrip's log ending at its
+  `Tracks:` header, so zero tracks is the truth, and calling it a parser failure
+  put noise in one of only two FAILs in a 60-step run. Noise in a FAIL is
+  expensive: a FAIL that turns out to be nothing teaches the reader to discount
+  the next one. The skip requires **positive evidence** of cancellation from the
+  rip's own report (two independent witnesses — `outcome.status` and an issue
+  coded `rip_cancelled`); with no evidence an empty parse is still a FAIL, so a
+  real parser regression cannot hide behind *"maybe it was cancelled"*.
+- **The advice `wait-for-rip` prints no longer reintroduces the bug it reports.**
+  It said to add `ok`, which races the very dialog it is complaining about. It now
+  names `answer-dialog`, quotes the blocking dialog's actual title into the
+  suggested line, and says why the obvious fix is wrong — guidance that is wrong
+  is worse than none, because it gets followed.
+
 ## [0.6.19] — 2026-08-20
 
 ### Added

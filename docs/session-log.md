@@ -11,6 +11,82 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-20 (post-0.6.19) — the rig answered the question, and both its failures were noise
+
+**v0.6.19 shipped, then was tested on the rig the same hour.** `pass=58 fail=2`
+against the previous run's `pass=55 fail=5`.
+
+### The result that matters, which was not in either failure
+
+**The cancel released the drive.** After section D's cancel, section E's `rescan`
+succeeded, MusicBrainz returned the disc, and 14 track rows loaded in 10.8 s. A
+held reader cannot be re-read, so that is the drive-open proof — the question
+**four** rig sessions had failed to reach, because the rescan defect fixed in
+0.6.19 had been killing the scan before a rip existed to cancel. The tray also
+stayed closed, which is the v0.6.16 rescue-timer behaviour holding.
+
+It is worth noting how nearly this was missed: it appears in the transcript as
+four consecutive `[ ok ]` lines, while the two FAILs sat directly beneath it.
+
+### Both failures came from one unanswered dialog — and both were false
+
+Section E re-rips the same disc, so the second `rip` raised **"Album already
+ripped"** and nothing answered it. `wait-for-rip` found no worker (correct, and it
+said so, naming the modal), and `rig-check` then graded the **cancelled** rip
+because section E never produced one. **Third consecutive run whose entire failure
+set descends from a single cause** — exactly the pattern `docs/test-plan.md` Part
+E was written to catch, now observed three times.
+
+Then the interesting part: **neither FAIL was telling the truth about the system.**
+
+* The cancelled rip's log has no `Log FUN512:` footer, so `--verify-log` refused
+  it and we reported *"it does not match its own FUN512 checksum … must not be
+  treated as archival evidence"*. Nothing was altered. *"Does not match"* asserts
+  a comparison that never happened.
+* `rig-check` reported *"parsed to ZERO tracks"* as a parser failure. The cancel
+  landed 91 s into track 1 of a paranoia-max rip; the log ends at its `Tracks:`
+  header and zero is the honest count.
+
+So the run's whole failure set was noise, and the real finding was in the passes.
+Graduated as **`docs/testing.md` §5.as** — *a check that can FAIL for the wrong
+reason costs as much as one that can pass for the wrong reason, because a false
+FAIL devalues every other FAIL in the manifest.*
+
+### The fix had to be a verb, and the app's own advice was part of the bug
+
+The obvious remedy — put `ok` after `rip` — is a race: `rip` returns when the
+start is *requested*, the dialog arrives later, and `ok` fails if nothing is up.
+That is §5.ap's asynchronous seam again. And `wait-for-rip`'s failure message
+**recommended exactly that**, so following it would have reproduced the defect it
+was diagnosing (measured: reverting the new verb to a bare `_dismiss` prints
+`ui script L1 fail: no dialog is open`). Graduated as **§5.at** — *a remediation
+string is a recommendation the reader will execute, so it gets the same review as
+the code path it describes.*
+
+`answer-dialog <ok|cancel> <seconds> <title-substring>` waits, and **requires the
+title**. That is a safety property, not ergonomics: an unattended accept would
+dismiss a crash report or an overwrite prompt with nobody watching, so the verb
+refuses to touch a dialog it was not told to expect and names what it found
+instead. Per CLAUDE.md's standing rule, a new testing capability is a script verb
+— no CLI flag was added or needed.
+
+### Recorded as NOT a defect
+
+`worker thread DiscInfoWorker did not stop within 0ms — abandoning it` fires on
+every rescan and looks alarming. It is deliberate and heavily commented: the old
+2 s wait was a dead stutter on the GUI thread, `quit()` cannot interrupt a mid-read
+subprocess, so the superseded probe is cancelled and abandoned on purpose. Only
+the log line reads like a fault. Left in `TASKS.md` as a wording improvement so
+nobody re-investigates it as a bug — and stated here so the count of real findings
+stays honest.
+
+### Method note
+
+Three fixes, three reverts, each with the revert **proven to have landed** (anchor
+asserted unique, file hash compared, tree re-parsed) before believing the run.
+All three broke their tests, and revert 3 broke them with the operator's own
+error message.
+
 ## 2026-08-20 (v0.6.19) — the crash handler was the crash
 
 **CI hung on all four Python legs, twice, and burned the whole 15-minute step each

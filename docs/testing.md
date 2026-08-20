@@ -1712,6 +1712,84 @@ two weeks, which makes it a pattern. A correction arrives with the authority of
 having been researched; the parts of it that were not researched arrive wearing the
 same authority.
 
+### §5.as — A report that is accurate word-by-word and wrong in kind
+
+Two findings from one rig run (2026-08-20), same shape, different subsystems, and
+both were sentences where **every clause was true and the message was false**.
+
+**One.** A cancelled rip's cyanrip log has no `Log FUN512:` footer, because the
+signature is written last and the ripper was killed before it got there. The
+verifier saw a non-zero `--verify-log` exit and reported *"it does not match its
+own FUN512 checksum, so it is not a faithful record of this rip and must not be
+treated as archival evidence"* — at ERROR, and into the report's `issues[]`. The
+log genuinely is not a complete record, and `--verify-log` genuinely refused it.
+But *"does not match"* asserts a **comparison that never happened**, and the
+difference is the whole finding: a mismatch says somebody altered an archival
+record, an absence says the ripper died mid-write. One is an incident; the other
+is Tuesday.
+
+**Two.** `rig-check` reported *"parsed <log> to ZERO tracks — a parse that finds
+nothing is not a parse that found nothing wrong"*. The floor is correct and was
+added for a good reason (§5's recurring *can this check be satisfied by finding
+nothing?*). It had simply never checked its **subject**: the cancel landed 91 s
+into track 1 of a paranoia-max rip, so the log legitimately ended at its `Tracks:`
+header and zero was the honest count.
+
+**The generalisation, which is the part worth keeping.** We have a well-worn rule
+about a check that can pass for the wrong reason. Its mirror image costs just as
+much: **a check that can FAIL for the wrong reason.** A false FAIL does not merely
+waste an investigation — it *devalues every other FAIL in the same manifest*,
+because the reader learns that a red line here might be nothing. On this run the
+two false reports were **both** of the run's two failures, so the entire failure
+set was noise and the real result (the drive was released after the cancel — the
+question four rig sessions had failed to answer) was the thing nobody was looking
+at.
+
+So, of any negative verdict, ask the question we already ask of positive ones:
+*what are the distinct conditions that produce this message, and do they mean the
+same thing?* If two of them do not, they need two messages. And where the
+distinguishing evidence sits **in the artifact itself** — a `Log FUN512:` line
+that is present or absent; an `outcome.status` field one directory away — read it
+rather than collapsing the cases.
+
+Two corollaries carried over from rules that already existed and applied here:
+
+* **Derive the discriminator from the artifact, not from the dependency's prose.**
+  The easy fix for the first finding is to match cyanrip's *"No FUN512 checksum
+  found"*. That is precisely what the fork's lap-12 J4 asked us not to do — the
+  string is genopt's and one upstream sync from changing. Our own parser already
+  knows what the footer looks like; use that.
+* **An excuse must require positive evidence.** Skipping the zero-track check
+  when a rip *might* have been cancelled would have converted a noisy check into
+  one satisfiable by finding nothing. The skip is gated on the report actually
+  saying cancelled, with two independent witnesses, and absent that evidence the
+  FAIL stands.
+
+### §5.at — The advice a failure prints is code, and it can carry the bug
+
+`wait-for-rip`'s message was excellent: it noticed the app was blocked on a modal,
+named the dialog, explained that the rip had been requested but no worker existed
+yet, and then said what to do — *"Answer it in the script (`ok` / `cancel`)
+between `rip` and this step."*
+
+That last clause was wrong, and wrong in the same way as the defect it was
+diagnosing. `rip` only *requests* the start, so the confirmation appears a beat
+after it returns; `ok` acts on whatever is on top at the instant it runs and fails
+when nothing is. Following the advice literally produces an intermittent *"no
+dialog is open"* — which is the §5.ap asynchronous-seam defect, re-emitted by the
+very message written to help. (Measured: reverting the new verb to a bare
+`_dismiss` reproduces exactly that line.)
+
+The lesson is not "write better prose". It is that **a remediation string is a
+recommendation the reader will execute**, so it is subject to the same review as
+the code path it describes — including *would this work if the thing it mentions
+is asynchronous?* A diagnosis that ships a broken fix is worse than one that
+stops at the diagnosis, because the reader trusts it and spends the next run
+finding out. Where the app can name the exact line to add, it should quote the
+real values it already has (the blocking dialog's actual title) **and** say why
+the tempting shorter form is wrong, so the next reader does not simplify it back
+into the bug.
+
 ### §5.ar — The crash handler was the crash: a modal dialog inside its own event loop
 
 **2026-08-19/20.** CI hung on all four Python legs, twice, and burned the whole
