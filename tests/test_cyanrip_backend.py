@@ -11,6 +11,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from platterpus.adapters.cyanrip_backend import (
     CyanripImpl,
@@ -349,6 +351,103 @@ def test_meta_value_escaping_makes_separators_safe() -> None:
     assert _escape_meta_value("back\\slash") == "back\\\\slash"
     assert _escape_meta_value("It's") == "It\\'s"
     assert _escape_meta_value("plain") == "plain"
+
+
+# --- The injection property: no value can break out of the escaping ---------
+#
+# Added 2026-08-20 during a security audit. The example-based test above pins the
+# five cases we reasoned about; this pins the PROPERTY, which is the part that
+# matters for a value we do not control.
+#
+# Album and track titles come from MusicBrainz — external input — and they are
+# concatenated into cyanrip's `key=value:key=value` blobs. If any input could
+# emit an UNESCAPED `:` or `=`, it could close its own field and open another:
+# a title of `X:album_artist=Someone Else` would silently rewrite a different
+# tag. That is not remote code execution (argv is a list, there is no shell —
+# swept and confirmed in the same audit), but it is silent metadata forgery in
+# an archival record, which for this project is the worse of the two.
+#
+# NOT a second implementation of the escaper. `_unescape` below is a *reader* of
+# the escape convention, so agreement between them is meaningful in the one
+# direction that counts: it shows the escaping is reversible and total. Ground
+# truth for the real tokenizer's behaviour stays the compiled C harness noted
+# further down this file — two agreeing Python functions could share a wrong
+# assumption, and this project has been bitten by exactly that.
+
+
+def _unescape(escaped: str) -> str:
+    """Undo a backslash escape, the way `av_get_token` consumes one."""
+    out: list[str] = []
+    pending = False
+    for ch in escaped:
+        if pending:
+            out.append(ch)
+            pending = False
+        elif ch == "\\":
+            pending = True
+        else:
+            out.append(ch)
+    assert not pending, "trailing lone backslash — the escape is not self-terminating"
+    return "".join(out)
+
+
+def _unescaped_specials(escaped: str) -> list[str]:
+    """Every tokenizer-special character NOT protected by a backslash."""
+    found: list[str] = []
+    pending = False
+    for ch in escaped:
+        if pending:
+            pending = False
+            continue
+        if ch == "\\":
+            pending = True
+            continue
+        if ch in ":='":
+            found.append(ch)
+    return found
+
+
+@settings(max_examples=400, suppress_health_check=[HealthCheck.too_slow])
+@given(st.text(max_size=200))
+def test_no_metadata_value_can_emit_an_unescaped_separator(value: str) -> None:
+    """**The injection property.** Holds for any text, not just our examples."""
+    escaped = _escape_meta_value(value)
+    assert _unescaped_specials(escaped) == [], (
+        f"{value!r} escaped to {escaped!r}, which leaves an unprotected "
+        f"separator — this value could close its own tag and open another"
+    )
+
+
+@settings(max_examples=400, suppress_health_check=[HealthCheck.too_slow])
+@given(st.text(max_size=200))
+def test_escaping_is_lossless(value: str) -> None:
+    """Reversible and total: the tag written is the title we were given.
+
+    The companion to the property above. An escaper could satisfy "no unescaped
+    separators" by DELETING them, which would silently truncate titles — so
+    round-tripping is asserted too, and neither test alone is sufficient.
+    """
+    assert _unescape(_escape_meta_value(value)) == value
+
+
+@given(
+    st.text(alphabet=":='\\", min_size=1, max_size=40),
+)
+def test_the_property_is_not_vacuous_on_adversarial_input(value: str) -> None:
+    """Floor. A string made ONLY of separators is the hostile case.
+
+    Without this, the two properties above are dominated by ordinary text where
+    the escaper has nothing to do, and a broken escaper would still mostly pass.
+    """
+    escaped = _escape_meta_value(value)
+    assert _unescaped_specials(escaped) == [], escaped
+    assert _unescape(escaped) == value
+    # Every character in the input is special, so every one must be escaped:
+    # the output is exactly twice as long. This is what proves the test is
+    # exercising the escape path rather than a no-op.
+    assert len(escaped) == 2 * len(value), (
+        f"{value!r} -> {escaped!r}: not every special character was escaped"
+    )
 
 
 def test_metadata_args_skip_empty_fields() -> None:

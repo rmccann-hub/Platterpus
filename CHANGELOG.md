@@ -13,6 +13,39 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [0.6.20] — 2026-08-20
 
+### Security
+- **The updater now refuses to leave HTTPS.** `asset_url` hardcodes an
+  `https://` URL, so an attacker cannot pick the first hop — but nothing checked
+  the hops after it, and `urllib`'s default redirect handler **permits
+  `https` → `http`** (its `redirect_request` allows http, https and ftp). One
+  plaintext `Location:` and the payload, its checksum, and the executable about
+  to be installed all cross the network in the clear. Redirects off HTTPS are now
+  refused, non-HTTPS request URLs are refused before any connection opens, and
+  the URL the response actually came from is checked as a second, *different*
+  mechanism — `geturl()` is the only thing that can testify to where the bytes
+  originated. A legitimate `https → https` redirect still works, which is
+  asserted, because GitHub asset downloads do redirect and a guard that blocked
+  them all would break every real update while passing every other test.
+  This matters now rather than eventually because the **signature gate is
+  dormant**: `PUBLIC_KEY_B64` ships empty, so SHA-256 is the only check *and* the
+  checksum comes down the same channel as the bytes. Rewrite the transport and
+  you rewrite both. GitHub does not downgrade — but "our dependency happens not
+  to do the dangerous thing" is the assumption that cost this project its
+  `QKeySequence` shortcuts, and the rule from that is that anything we ask a
+  dependency for, we check the answer to.
+- **The metadata escape now has an injection property test, not just examples.**
+  Album and track titles come from MusicBrainz — external input — and are
+  concatenated into cyanrip's `key=value:key=value` blobs. The five reasoned
+  cases were pinned; the *property* was not. A `hypothesis` test now asserts that
+  **no** input can emit an unescaped separator (which would let a title close its
+  own field and rewrite a different tag — silent metadata forgery in an archival
+  record), that the escaping is **lossless** (an escaper could satisfy the first
+  property by deleting separators), and that both hold on strings made
+  *entirely* of separators, where the output must be exactly twice as long — the
+  assertion that proves the test exercises the escape rather than a no-op.
+  Verified by sabotage: dropping `:` from the special set fails two of the three,
+  and notably **not** the lossless one, which is why neither alone is sufficient.
+
 ### Added
 - **`answer-dialog <ok|cancel> <seconds> <title-substring>` — a script verb that
   WAITS for a named dialog and then answers it.** `ok` / `cancel` act on whatever

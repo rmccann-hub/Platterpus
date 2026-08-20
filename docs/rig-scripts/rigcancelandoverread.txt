@@ -234,7 +234,22 @@ rescan
 pick-release 1 90
 expect-tracks 1+
 select-tracks 1
-album after cancel (ripper)
+# THE COLON IS DELIBERATE — IT IS THE ONLY THING THAT EXERCISES THE TAG ESCAPE.
+#
+# `_escape_meta_value` sends a literal ':' to cyanrip as '\:' (round 7 lap 31,
+# replacing the old U+2236 substitution). A safety net still reverses any
+# leftover '∶' in the written tags, and it is armed ONLY when the metadata
+# actually contains a colon. Every scripted rig rip until now set a colon-free
+# album title, so that gate was False on all of them and the escape was never
+# once exercised on hardware — a check waiting on evidence its own harness could
+# not produce (found 2026-08-20).
+#
+# WHAT TO LOOK FOR in the bundle afterwards: this album's tag must read
+# 'after cancel: <build>' with a REAL colon. A '∶' (U+2236 RATIO) there means the
+# escape did not survive and the substitution has to come back. The FOLDER name
+# is expected to differ — cyanrip sanitises ':' out of paths itself, which is a
+# separate concern and not a failure.
+album after cancel: (ripper)
 rip
 # ANSWER THE CONFIRMATION, AND WAIT FOR IT RATHER THAN ASSUMING IT IS THERE.
 #

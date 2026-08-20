@@ -26,6 +26,8 @@ from __future__ import annotations
 import hashlib
 import http.client
 import logging
+import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
@@ -73,12 +75,91 @@ def asset_url(version: str) -> str:
     )
 
 
+class _HttpsOnlyRedirects(urllib.request.HTTPRedirectHandler):
+    """Refuse a redirect that leaves HTTPS.
+
+    **Why this class exists.** `urllib`'s default redirect handler permits
+    ``https`` → ``http`` (and ``ftp``): its `redirect_request` allows any of those
+    three schemes. So a hardcoded HTTPS start URL does **not** guarantee the bytes
+    arrived over TLS — one hop with a plaintext ``Location:`` and the download,
+    its checksum, and the executable we are about to install all cross the network
+    in the clear, forgeable by anyone on the path.
+
+    That matters more here than it would in most places, because of what the
+    update pipeline installs: an executable the user then runs. And it matters
+    *right now* specifically, because the signature gate below is **dormant** —
+    `update_signing.PUBLIC_KEY_B64` ships empty, so SHA-256 is the only check, and
+    the checksum is fetched over the *same* channel as the payload. An attacker
+    who can rewrite the transport can rewrite both and the install succeeds. TLS
+    is what stops that today, which makes "did we actually stay on TLS?" a
+    load-bearing question rather than a formality.
+
+    Found by audit, 2026-08-20. Not known to be exploitable against GitHub, which
+    does not downgrade — but "our dependency happens not to do the dangerous
+    thing" is the same shape as the version-range assumption that cost us the
+    `QKeySequence` shortcuts: an assumption about someone else's behaviour that
+    nothing verifies. Anything we ask a dependency for, we check the answer to.
+    """
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        scheme = urllib.parse.urlsplit(newurl).scheme.lower()
+        if scheme != "https":
+            raise urllib.error.HTTPError(
+                newurl,
+                code,
+                f"refusing a redirect off HTTPS (to {scheme or 'no'}-scheme URL) "
+                "while downloading an update — the bytes we install must arrive "
+                "over TLS",
+                headers,
+                fp,
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+#: Built once. `build_opener` keeps urllib's default handler chain and swaps in
+#: the redirect handler above, so ordinary HTTPS behaviour is unchanged.
+_OPENER: urllib.request.OpenerDirector = urllib.request.build_opener(
+    _HttpsOnlyRedirects
+)
+
+
+def _require_https(url: str, what: str) -> None:
+    """Refuse a non-HTTPS URL. Checked at both ends of the request."""
+    scheme = urllib.parse.urlsplit(url).scheme.lower()
+    if scheme != "https":
+        raise UpdateInstallError(
+            f"refusing to {what} over {scheme or 'a schemeless URL'!r} — an "
+            "update must be fetched over HTTPS"
+        )
+
+
 def _default_open(url: str) -> http.client.HTTPResponse:
-    """Open a streaming HTTP response (callers read() it in chunks)."""
+    """Open a streaming HTTPS response (callers read() it in chunks).
+
+    Both ends are checked: the URL we ask for, and the URL we actually ended on
+    after any redirects. The redirect handler above should make the second check
+    unreachable — it is kept because a belt whose buckle is a *different*
+    mechanism is worth having on the path that installs an executable, and
+    because `geturl()` is the only thing that can testify to where the bytes
+    really came from.
+    """
+    _require_https(url, "fetch an update")
     request = urllib.request.Request(url, headers={"User-Agent": "platterpus"})
-    response: http.client.HTTPResponse = urllib.request.urlopen(
-        request, timeout=_TIMEOUT_S
-    )
+    response: http.client.HTTPResponse = _OPENER.open(request, timeout=_TIMEOUT_S)
+    final = getattr(response, "url", None) or response.geturl()
+    try:
+        _require_https(str(final), "read update bytes served from")
+    except UpdateInstallError:
+        response.close()
+        raise
     return response
 
 
