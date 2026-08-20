@@ -14,6 +14,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [0.6.20] — 2026-08-20
 
 ### Security
+- **No new route to the ripper can bypass the `-N` chokepoint unnoticed.**
+  `CLAUDE.md` requires that any new route — a script verb, a debug console, a CLI
+  flag — *re-establishes the guard by delegating to the chokepoint*. Nothing
+  enforced it: the existing tests are strong but all reach the guard through the
+  two call sites that already exist, so a third added later would bypass it in
+  silence, and the failure is a **hang** rather than an error (without `-N` the
+  ripper does its own lookup and can block on an interactive prompt with no
+  terminal attached). This is the §5.o lesson — *enforce a rule across the
+  codebase, not at the place it was learned* — which the QThread-ownership sweep
+  already closed for threads. `tests/test_ripper_spawn_sites_are_enumerated.py`
+  now derives every spawning module from the AST and requires each to be
+  enumerated with a written reason and classified as reaching the ripper or not;
+  ripper-capable modules must reference the chokepoint. It ratchets both ways —
+  a new spawn site fails until it is classified, and a stale entry fails too, so
+  the list cannot become a standing permission nobody re-examined.
 - **The updater now refuses to leave HTTPS.** `asset_url` hardcodes an
   `https://` URL, so an attacker cannot pick the first hop — but nothing checked
   the hops after it, and `urllib`'s default redirect handler **permits
