@@ -20,6 +20,35 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Audit findings, 2026-08-20 — and one measurement limit worth knowing
+
+- [x] **Updater followed an https→http redirect.** Fixed; see CHANGELOG Security.
+- [x] **The tag escape had examples but no injection property.** Fixed with three
+  hypothesis properties, sabotage-verified.
+- [x] **The `-N` chokepoint was enforced at its two call sites and nowhere else.**
+  Fixed with an AST-derived, two-way ratchet.
+- [x] **A swallow-test that asserted nothing** (shutdown drive-free) now records
+  the attempt.
+- [ ] **COVERAGE CANNOT BE MEASURED IN THIS DEV CONTAINER, and that is a
+  reporting hazard rather than a defect.** The suite runs green — the
+  `.pytest-session-complete` sentinel records a completed session with status 0 —
+  but pytest's **epilogue never runs**, so there is no summary line and no
+  coverage table: the `hard_exit` (`os._exit`) path that exists to make exit safe
+  with an abandoned QThread also skips coverage's writer. CI does not hit that
+  path (nothing gets abandoned there), which is why `--cov-fail-under=91` works
+  in CI and silently does nothing locally.
+  **The hazard:** `pytest --cov-fail-under=91` locally exits 0 whether or not the
+  floor is met, so quoting a local run as "green with the coverage gate" is an
+  overstatement — the tests were green, the floor was never evaluated. It bit
+  this session: two commit messages said exactly that.
+  **What to do:** cite CI for any coverage claim. Worth considering whether the
+  local invocation should *refuse* to accept `--cov-fail-under` when it can
+  detect the hard-exit path, on the same principle as the sentinel — a gate that
+  silently does nothing is worse than one that is absent, because it gets cited.
+- [ ] **The colon safety net still awaits its hardware confirmation** — now
+  obtainable, because section E's album title carries a colon deliberately. Look
+  for a real `:` in the written tag, not `∶`.
+
 ## Rig run 2026-08-20 (v0.6.19) — pass=58 fail=2, and the drive-open question ANSWERED
 
 - [x] **Task #53's core question is answered: the cancel released the drive.**
