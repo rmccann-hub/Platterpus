@@ -26,6 +26,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   bounded at 900 s, and says which step it gave up on if the bound is hit.
 
 ### Changed
+- **A hung test now names itself instead of eating the CI step in silence.** All
+  four CI legs stopped after 3312 tests and burned the whole 15-minute step for a
+  single line of output: *"the action has timed out"*. Which thread and which
+  frame was alive in the stuck process the entire time, and we discarded it — the
+  same failure as capturing a dependency's stderr and never surfacing it. pytest's
+  `faulthandler_timeout` (300 s, with `exit_on_timeout`) now dumps every thread's
+  stack and ends the process there, so the trace is the last thing in the log
+  rather than being buried under ten more minutes of nothing. 300 s cannot fire on
+  a healthy run: the full suite measures 275 s and the slowest CI batch of 72
+  tests was 34 s. Guarded by `tests/test_harness_fidelity.py`, which reads the
+  *effective* pytest config rather than the text of `pyproject.toml`.
 - **A version number is now a claim about the field, not about CI** (KDD-35;
   policy, reasoning and evidence ledger in `docs/testing.md` §5B). **0.9.1**
   requires a complete hardware pass — *every* test green in ONE run — achieved at
