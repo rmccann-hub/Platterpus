@@ -1712,6 +1712,70 @@ two weeks, which makes it a pattern. A correction arrives with the authority of
 having been researched; the parts of it that were not researched arrive wearing the
 same authority.
 
+### §5.ar — The crash handler was the crash: a modal dialog inside its own event loop
+
+**2026-08-19/20.** CI hung on all four Python legs, twice, and burned the whole
+15-minute step each time. The log held progress dots, then nothing, then *"the
+action has timed out"*. Nothing about where.
+
+The suite is green locally — under PySide6 6.11.1 **and** 6.11.2, under the same
+deterministic ordering CI uses (`pytest-randomly` is not installed, so the order is
+the same everywhere; that was checked rather than assumed). So the first move was
+not to explain it but to make the machine that *does* fail say where: pytest's own
+`faulthandler_timeout` + `faulthandler_exit_on_timeout`, which dump every thread's
+stack when one test outruns a bound. One run later:
+
+```
+File "src/platterpus/app.py", line 133 in _show_fatal_dialog
+File "src/platterpus/app.py", line 252 in hook
+File "src/platterpus/app.py", line 133 in _show_fatal_dialog   <- itself, again
+File "src/platterpus/app.py", line 252 in hook
+File "tests/test_ui_drive_setup_dialog.py", line 391 in ...
+```
+
+Line 133 is `box.exec()`. **A modal `exec()` runs a nested event loop**, so Qt
+keeps delivering events while the fatal dialog is up — and an exception escaping
+any callback in that window re-enters `sys.excepthook`, which calls the dialog
+again, *inside* the first one's loop. Nothing raises, so the handler's own
+`except Exception` never sees it: the recursion travels through Qt. Headless there
+is nobody to click OK, so the process parked there until the job died.
+
+Four things this teaches, each already a rule here and each freshly earned:
+
+* **A hang must name itself.** The diagnosis was alive in the stuck process the
+  entire time and we threw it away — the same defect as capturing a dependency's
+  stderr and never surfacing it. The bound is 300 s against a 275 s suite, so it
+  cannot fire on a slow-but-working test; the measurement is written beside the
+  setting.
+* **The stack blamed a different test on 3.11 than on 3.12/3.13/3.14.** That is the
+  signature of *action at a distance*: the failing test is whichever one first
+  pumped the event loop after an earlier test armed the trap. No amount of reading
+  the accused test could have found it, which is why localising by re-deriving
+  CI's progress ladder (46 dot-lines x 72 = test #3313) mattered — it bounded the
+  search to a file, and the file was innocent.
+* **"What new state does this fix create?"** The unattended-quit timer added the
+  day before is what supplied the *exception*: it is armed inside `main()`'s
+  `--run-script` path, four tests drive that path, and its tick reads a window it
+  outlives — a PySide6 wrapper whose C++ side is gone raises `RuntimeError` on
+  attribute access, from a timer callback, straight into the excepthook.
+* **The harness had product crash-handling installed.** Seven tests left
+  `sys.excepthook` pointing at the product handler; three of them restored it and
+  not `threading.excepthook`, and looked correct doing so. `conftest.py` now
+  restores both around every test. This one RESTORES rather than failing the
+  offender, which is the opposite of the `os._exit` and window-thread fixtures —
+  because leaving that hook installed is *correct* in production, so it is
+  ordinary hygiene rather than the harness covering for a product bug.
+
+**Revert-proofing, done by actually reverting.** With the re-entrancy guard removed
+and the removal proven to have landed (anchor asserted, file hash compared), the
+regression test does not merely fail — it dies with `RecursionError: maximum
+recursion depth exceeded`. The nesting is unbounded, which is also what a user
+would have met: a pile of dialogs, each needing the one above it dismissed first,
+every one able to spawn another. The test asserts on the *count of dialogs opened*,
+not on the flag, and then asserts a later unrelated crash still gets its dialog —
+a guard that latched ON would silence every future crash report, which is a worse
+failure than the one it fixes.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is
