@@ -999,9 +999,104 @@ def test_the_unattended_quit_waits_for_post_rip_work_before_quitting(qapp) -> No
         "everything had settled and the process still did not quit — this is the "
         "'process running in this window' prompt the fix exists to remove"
     )
-    # STOP IT. The first version of this test left the 1000 ms timer running on a
-    # widget it only `deleteLater()`d — a live Qt timer abandoned by the harness,
-    # which is the exact shape `tests/test_harness_fidelity.py` exists to forbid,
-    # and the prime suspect for a CI hang that did not reproduce locally.
+    # TEAR IT DOWN HERE, NOT "LATER".
+    #
+    # Three things were wrong with `timer.stop(); window.deleteLater()`:
+    #
+    # 1. `deleteLater()` only POSTS the destruction. With no event-loop turn
+    #    inside this test, the C++ QWidget — plus the QTimer parented to it and
+    #    the closure its connection keeps alive — is destroyed at some arbitrary
+    #    later point in the session, inside a test that has nothing to do with
+    #    this one. That is the harness handing a stranger its cleanup, and a Qt
+    #    object graph torn down inside an unrelated test is the exact shape of
+    #    this suite's historical SIGSEGVs (`conftest.stop_window_threads`).
+    # 2. The graph is a REFERENCE CYCLE — window owns the timer, the timer's
+    #    connection holds `_tick`, and `_tick` closes over the window — so
+    #    dropping the last Python name does not free it either; it waits for the
+    #    cyclic collector, which `conftest._cyclic_gc_paused_during_each_test`
+    #    runs *between* tests. Same problem, different scheduler.
+    # 3. A stopped timer is not a disconnected one. Stopping ends the ticks;
+    #    disconnecting is what actually breaks the cycle above.
+    #
+    # So: disconnect, then let Qt genuinely process the delete before returning.
     timer.stop()
+    timer.timeout.disconnect()
     window.deleteLater()
+    qapp.processEvents()  # runs the posted DeferredDelete, here, in this test
+
+
+# --- The fatal-error dialog must not stack on itself -------------------------
+
+
+def test_a_second_fatal_error_does_not_open_a_second_dialog(qapp) -> None:
+    """A fatal error raised WHILE the fatal dialog is up must not nest.
+
+    **This is the defect that hung CI for 45 minutes across two runs and printed
+    nothing but progress dots.** `_show_fatal_dialog` ends in `box.exec()`, which
+    runs a NESTED EVENT LOOP — so Qt keeps delivering events, and an exception
+    escaping any callback during that window re-enters `sys.excepthook`, which
+    calls this function again, which opens a second modal dialog *inside* the
+    first one's loop. Nothing raises, so the function's `except Exception` never
+    sees it; the recursion goes through Qt.
+
+    The measured evidence is a faulthandler dump from the 2026-08-19 CI run, whose
+    main-thread stack is literally::
+
+        _show_fatal_dialog -> hook -> _show_fatal_dialog -> hook -> <a test>
+
+    two dialogs deep and blocked in the inner `exec()`. Headless, nobody clicks
+    OK, so the process parked there until the job timed out — and a real user gets
+    a pile of dialogs where each must be dismissed before the one under it, with
+    every one of them able to spawn another.
+
+    Driven through the REAL function with only `QMessageBox.exec` replaced, and
+    the stand-in re-enters exactly the way Qt's own loop did: it raises a second
+    fatal error from inside the first `exec()`. Asserting on the count of dialogs
+    rather than on the flag, because the flag is the mechanism and "only one
+    dialog appears" is the property.
+    """
+    from PySide6.QtWidgets import QMessageBox
+
+    from platterpus import app as app_module
+
+    execs: list[int] = []
+
+    def _fake_exec(self: QMessageBox) -> int:
+        execs.append(1)
+        # What Qt's nested event loop did: deliver something that blows up, whose
+        # exception reaches the excepthook and asks for another fatal dialog.
+        app_module._show_fatal_dialog("re-entry", RuntimeError("during exec"))
+        return 0
+
+    original = QMessageBox.exec
+    try:
+        QMessageBox.exec = _fake_exec  # type: ignore[method-assign]  # probe the real fn
+        app_module._show_fatal_dialog("first", ValueError("the real crash"))
+    finally:
+        QMessageBox.exec = original  # type: ignore[method-assign]
+
+    assert execs == [1], (
+        f"{len(execs)} fatal dialogs were opened, not 1. A fatal error arriving "
+        "while the dialog is up must be logged and dropped: a second modal opens "
+        "inside the first one's event loop, and neither can be dismissed before "
+        "the other. This is the CI hang of 2026-08-19."
+    )
+    # And the guard must not latch: a LATER, unrelated crash still gets its dialog.
+    # A re-entrancy flag stuck ON would silence every future crash report, which is
+    # a worse failure than the one it fixes.
+    execs.clear()
+
+    def _quiet_exec(self: QMessageBox) -> int:
+        execs.append(1)
+        return 0
+
+    try:
+        QMessageBox.exec = _quiet_exec  # type: ignore[method-assign]
+        app_module._show_fatal_dialog("later", ValueError("a separate crash"))
+    finally:
+        QMessageBox.exec = original  # type: ignore[method-assign]
+
+    assert execs == [1], (
+        "the re-entrancy guard latched ON: a later, unrelated fatal error got no "
+        "dialog at all. It must clear when the first dialog closes."
+    )

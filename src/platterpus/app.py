@@ -79,6 +79,13 @@ def _prefer_xwayland_on_wayland() -> None:
         )
 
 
+#: True while a fatal dialog is on screen. See `_show_fatal_dialog` — this is a
+#: re-entrancy guard, and it is deliberately a plain module flag rather than
+#: anything cleverer: it is only ever read and written on the GUI thread (the
+#: off-thread path returns before reaching it), so there is nothing to lock.
+_fatal_dialog_open: bool = False
+
+
 def _show_fatal_dialog(title: str, exc: BaseException) -> None:
     """Show a last-resort error dialog so a crash is never silent.
 
@@ -87,7 +94,27 @@ def _show_fatal_dialog(title: str, exc: BaseException) -> None:
     full traceback is already in the log) so a screenshot is actionable.
     A QApplication must already exist; if the GUI itself is what failed
     to come up, this is best-effort and may no-op.
+
+    **ONE AT A TIME, and the guard is load-bearing.** `box.exec()` runs a NESTED
+    EVENT LOOP, which keeps delivering Qt events — so an exception escaping any
+    callback while the dialog is up re-enters `sys.excepthook`, which calls this
+    again, which opens a second modal dialog inside the first one's loop. There is
+    no bound on that: each dialog must be dismissed before the one beneath it can
+    be, and every one of them can spawn another. The `except Exception` below does
+    not help, because nothing *raises* — the recursion goes through Qt's loop.
+
+    Measured, not theorised: the CI stack dump on 2026-08-19 is literally
+    `_show_fatal_dialog → hook → _show_fatal_dialog → hook → <a test>`, two
+    dialogs deep and blocked in the inner `exec()`. On a headless run there is
+    nobody to click OK, so the process parked there until the job timed out — 15
+    minutes a leg, four legs, twice. A user hitting this gets a pile of
+    un-dismissable dialogs instead, which is the same defect with a worse ending.
+
+    So a fatal error arriving while a fatal dialog is open is LOGGED and dropped.
+    The first dialog is the one the user needs; the second is noise raised by the
+    first one's own event loop.
     """
+    global _fatal_dialog_open
     try:
         from PySide6.QtCore import QThread
         from PySide6.QtWidgets import QApplication, QMessageBox
@@ -120,6 +147,18 @@ def _show_fatal_dialog(title: str, exc: BaseException) -> None:
                 exc,
             )
             return
+        # Checked HERE and not earlier so the off-GUI-thread branch above still
+        # logs: that path never opens a dialog, so it can never be the re-entry
+        # this guard is about, and suppressing its log would lose a real report.
+        if _fatal_dialog_open:
+            log.error(
+                "second fatal error while the fatal-error dialog is already open — "
+                "logged only, no second dialog (it would nest inside the first "
+                "one's event loop and neither could be dismissed): %s: %s",
+                type(exc).__name__,
+                exc,
+            )
+            return
         box = QMessageBox()
         box.setIcon(QMessageBox.Icon.Critical)
         box.setWindowTitle(title)
@@ -130,7 +169,15 @@ def _show_fatal_dialog(title: str, exc: BaseException) -> None:
             "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
         )
         box.setInformativeText(f"Details were written to:\n{LOG_PATH}")
-        box.exec()
+        _fatal_dialog_open = True
+        try:
+            box.exec()
+        finally:
+            # `finally`, so a dialog torn down by anything at all — an exception,
+            # the app quitting under it, the window being destroyed — still clears
+            # the flag. A guard that can latch ON permanently would silence every
+            # later crash report, which is a worse failure than the one it fixes.
+            _fatal_dialog_open = False
     except Exception:  # noqa: BLE001 — the crash handler must never crash
         log.exception("failed to show the fatal-error dialog")
 
@@ -320,6 +367,22 @@ def _arm_unattended_quit(
     timer.setInterval(1000)
 
     def _tick() -> None:
+        # EVERY read below touches an object this closure outlives by design — the
+        # console, the window, the app. Once any of their C++ sides is gone, a
+        # PySide6 wrapper raises `RuntimeError` on attribute access, and a raise
+        # from inside a Qt timer callback goes to `sys.excepthook`, i.e. straight
+        # into the fatal-error dialog. A helper whose whole job is ending the
+        # process quietly must not be able to put a modal on screen, so the guard
+        # wraps the WHOLE tick and stops the timer rather than ticking again every
+        # second against the same dead object.
+        try:
+            _tick_body()
+        except RuntimeError:
+            # The specific, expected one: a wrapper whose C++ object is gone.
+            timer.stop()
+            log.debug("unattended-quit timer stopped: its window is already gone")
+
+    def _tick_body() -> None:
         runner = getattr(console, "runner", None)
         if runner is not None and getattr(runner, "running", False):
             return  # the batch itself is still going

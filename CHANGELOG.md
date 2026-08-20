@@ -60,6 +60,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   so far, **zero** full-green, so the count toward 0.9.1 is currently zero.
 
 ### Fixed
+- **The fatal-error dialog could stack on itself without limit, and did.** It ends
+  in a modal `exec()`, which runs a *nested event loop* — so an exception escaping
+  any callback while the dialog is up re-enters the excepthook and opens a second
+  dialog inside the first one's loop, recursively. Nothing raises, so the handler's
+  own `except` never saw it. A user would get a pile of dialogs where each must be
+  dismissed before the one beneath it and every one can spawn another; with the
+  guard reverted the regression test dies with `RecursionError`. A fatal error
+  arriving while a dialog is open is now logged and dropped, and the guard cannot
+  latch on (a stuck flag would silence every later crash report). Found from a
+  faulthandler stack dump, not by reasoning: CI hung for 15 minutes a leg, twice,
+  and the dump read `_show_fatal_dialog → hook → _show_fatal_dialog → hook`.
+- **The unattended-quit timer could raise after its own window was destroyed.**
+  Its tick reads the console, window and app — all objects it outlives by design —
+  and a PySide6 wrapper whose C++ side is gone raises `RuntimeError` on attribute
+  access. From a Qt timer callback that goes to the excepthook, i.e. straight into
+  the dialog above. The tick is now guarded as a whole and stops the timer instead.
+- **Seven tests left the product's crash handler installed for the rest of the
+  suite** (four of them the `--run-script` path through `main()`), so the modal
+  fatal dialog was live in a headless run with nobody to dismiss it. `conftest.py`
+  now restores `sys.excepthook` *and* `threading.excepthook` around every test —
+  three of the seven restored only the first and looked correct doing it.
 - **Every rip report ever written claimed its audio identity was never computed.**
   `write_report` accepted an `audio_md5` argument and never forwarded it to
   `build_report`, so the field was `null` in every `.platterpus.json` while the
