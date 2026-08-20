@@ -259,6 +259,7 @@ The general GitHub mechanics + etiquette live in **[`docs/github-workflow-sop.md
 
 ### Test commands
 
+- **`python3 scripts/check.py` — run this, not an ad-hoc pipeline.** One command for every gate CI runs (`lint`, `format`, `types`, `tests` + the coverage floor), reporting each one's **real** exit code in a final table, with complete output in `.check-logs/`. `--only lint types` for a subset, `--no-coverage` for a faster suite run. It exists because `pytest … | tail` reports *tail's* status — a run with real failures prints `0` — which has been got wrong four times across two sessions **with the warning already written in this file**. So the fix is a command that never needs a pipe, rather than a rule to remember while typing one. It also refuses to call a `tests` run green if `.pytest-session-complete` is missing (the truncated-run shape that once marked CI green at 76%), and treats a timed-out gate as *no verdict*, never a pass. If you do pipe something, read the status with `${PIPESTATUS[0]}` or `set -o pipefail`.
 - `pytest` from repo root (no env vars needed — `pyproject.toml` sets `pythonpath = ["src"]`)
 - **What CI enforces:** branch coverage + a hard floor — `pytest --cov=platterpus --cov-report=term-missing --cov-fail-under=91` on a **Python 3.11–3.14 matrix**. The gate **ratchets up, never down**.
 - Property-based tests (parsers never crash on any input): `pytest tests/test_parsers_property.py` (needs `hypothesis`, in the `dev` extra).

@@ -82,3 +82,7 @@ htmlcov/
 # Local cyanrip soft-fork checkout (scripts/cyanrip/README.md) - never committed.
 # Root-anchored so scripts/cyanrip/ (the contribution kit) stays tracked.
 /cyanrip/
+
+# Per-gate output from `scripts/check.py` (the full logs it keeps so the printed
+# excerpt can stay bounded). Local diagnostics, never committed.
+.check-logs/

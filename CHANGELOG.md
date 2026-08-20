@@ -12,6 +12,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **`scripts/check.py` — one command that runs the CI gates and reports each
+  one's *true* exit status.** The gates were never the problem; *reading* their
+  result was. `python3 -m pytest … | tail -15` followed by `echo $?` reports
+  **tail's** status, so a run with real failures prints `0`. That has happened
+  four times across two sessions, and the standing countermeasure was a sentence
+  in `CLAUDE.md` — the one file every session is guaranteed to read. It was read,
+  and the mistake happened twice more, which makes the countermeasure wrong *in
+  kind*: a rule that has to be remembered at the moment of typing cannot beat a
+  habit. This removes the need to pipe at all.
+  Each gate runs with a fixed argv and `shell=False`, so no pipeline exists whose
+  last stage could shadow the status; complete output goes to `.check-logs/` while
+  the printed excerpt keeps **head and tail** with any elision counted; and the
+  final table names every gate's real exit code beside a `PASS`/`FAIL`.
+  Three refusals matter more than the happy path: a gate with **no verdict**
+  (timeout, or a child that never started) is not a pass; a `tests` run that exits
+  0 without leaving `.pytest-session-complete` is **failed**, because that is the
+  truncated-run shape that once marked a CI job green at 76%; and an unknown
+  `--only` name is refused rather than quietly running nothing and printing
+  "0/0 gates passed".
+  `tests/test_check_script.py` (11 tests) drives it to FAIL far more than to pass.
+  The load-bearing one compares the local coverage floor against
+  `--cov-fail-under` read out of `ci.yml`: one number stated in two places, which
+  is precisely how the release workflow's two tag-shape lists diverged invisibly
+  for the whole v0.x line. A local gate easier than CI's reports green for work CI
+  will reject.
 - **`scripts/revert_probe.py` — the "would this test fail if I reverted the fix?"
   check is now a committed tool rather than a habit.** That question has caught a
   vacuous detector here twice, but each time the check was performed by
