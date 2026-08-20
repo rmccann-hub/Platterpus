@@ -11,6 +11,29 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **A local test run now prints its own coverage number instead of leaving it to
+  be inferred.** `conftest.pytest_sessionfinish` ends the process with
+  `os._exit` (to dodge a PySide teardown abort), and pytest-cov prints its table
+  *after* session-finish — so on a passing run the table was simply lost. The
+  gate itself was never affected: pytest-cov applies `--cov-fail-under` to
+  `session.exitstatus` in a wrapper that completes first, and an unmet floor
+  really does exit non-zero. But *"exit 0 and nothing printed"* is what a passing
+  gate and an **absent** gate both look like, and the absence was duly read as
+  the second — a wrong diagnosis that reached `TASKS.md` and a commit message
+  before two commands disproved it (`.coverage` is written and the tree is at
+  91.51%; `--cov-fail-under=100` exits 1). The session-finish hook already
+  reaches into the terminal reporter to print the test summary itself for exactly
+  this reason; it now renders the coverage report in the same place, so the
+  number is on screen and there is nothing to infer.
+  Pinned by four tests in `tests/test_harness_fidelity.py`: three exercise the
+  helper (including that a missing plugin is not an error, since a bare `pytest`
+  enables no coverage) and a fourth asserts via AST that `pytest_sessionfinish`
+  actually **calls** it — because the first three stay green whether or not
+  anything does. Both reverts were verified to fail their test, with each revert
+  proven to have landed by file hash. Rule graduated to `docs/testing.md` §5.au:
+  to claim a check is inert, make it fail on purpose.
+
 ## [0.6.20] — 2026-08-20
 
 ### Security

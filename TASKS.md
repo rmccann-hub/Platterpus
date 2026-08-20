@@ -29,22 +29,59 @@ When a task changes status, update it here in the same commit as the code change
   Fixed with an AST-derived, two-way ratchet.
 - [x] **A swallow-test that asserted nothing** (shutdown drive-free) now records
   the attempt.
-- [ ] **COVERAGE CANNOT BE MEASURED IN THIS DEV CONTAINER, and that is a
-  reporting hazard rather than a defect.** The suite runs green — the
-  `.pytest-session-complete` sentinel records a completed session with status 0 —
-  but pytest's **epilogue never runs**, so there is no summary line and no
-  coverage table: the `hard_exit` (`os._exit`) path that exists to make exit safe
-  with an abandoned QThread also skips coverage's writer. CI does not hit that
-  path (nothing gets abandoned there), which is why `--cov-fail-under=91` works
-  in CI and silently does nothing locally.
-  **The hazard:** `pytest --cov-fail-under=91` locally exits 0 whether or not the
-  floor is met, so quoting a local run as "green with the coverage gate" is an
-  overstatement — the tests were green, the floor was never evaluated. It bit
-  this session: two commit messages said exactly that.
-  **What to do:** cite CI for any coverage claim. Worth considering whether the
-  local invocation should *refuse* to accept `--cov-fail-under` when it can
-  detect the hard-exit path, on the same principle as the sentinel — a gate that
-  silently does nothing is worse than one that is absent, because it gets cited.
+- [x] **RETRACTED: "coverage cannot be measured in this dev container" was
+  FALSE, and so was the sharpened version of it.** It can. Disproved by
+  measurement 2026-08-20; both wrong versions are kept below because the way
+  this entry was wrong is more instructive than the fact.
+  **What is actually true**, all four measured in a fresh container:
+  - `.coverage` **is** written (1,167,360 bytes), and `python3 -m coverage
+    report` prints the whole table on demand. Current tree: **TOTAL 91.51%**
+    branch coverage against the floor of 91 — so it passes, with 0.51 points of
+    room.
+  - `--cov-fail-under` **is** enforced locally, through the exit code. Proved the
+    only way it can be proved — by making it fail on purpose:
+    `pytest tests/test_app.py --cov=platterpus --cov-fail-under=100` exits **1**
+    and prints `ERROR: Coverage failure: total of 20 is less than fail-under=100`.
+  - pytest's own summary line prints (`4335 passed, 16 skipped … in 320.06s`),
+    because `pytest_sessionfinish` deliberately calls `summary_stats()` itself.
+  - the **only** thing skipped is pytest-cov's printed terminal table **on a
+    passing run**, because `os._exit` fires in the sessionfinish post-yield
+    before pytest-cov prints. The `conftest.py` comment says exactly this, in
+    those words, and has said so all along.
+  - separately and mundanely: `addopts = "-q --strict-markers"` carries no
+    `--cov`, so a bare `pytest` measures no coverage at all. That is not a broken
+    gate, it is an ungated invocation.
+  **How the false version was reached, which is the part worth keeping.** The
+  observation was *no coverage table, exit 0*. The proposed mechanism — `os._exit`
+  skips the epilogue, so the floor is never evaluated — accounts for that
+  observation completely. It is also wrong. **A passing gate and an absent gate
+  produce the identical signature: exit 0 and nothing to look at.** So the
+  observation could not distinguish them, and the inference was never evidence.
+  This is `CLAUDE.md`'s first *"how to stop shipping the next one"* question —
+  *did I reproduce the symptom, or only explain it?* — with the twist that the
+  symptom was never reproduced because it did not exist. Two commands settled
+  what a paragraph of reasoning got backwards.
+  **What it cost, stated so the cost is not hidden:** the false limitation was
+  written into this file, cited in a commit message, and used to retract two
+  earlier commit messages that said *"green with the CI coverage gate"* — a
+  retraction of a claim that, for any run actually invoked with
+  `--cov-fail-under`, was true. Retracting a correct statement for a wrong reason
+  is not a cheaper error than the reverse; it puts a false correction into the
+  permanent record, where the retraction reads as the more careful of the two
+  statements.
+  **Graduated** to `docs/testing.md` as the general rule (an inference from a
+  passing check cannot distinguish *passed* from *absent* — to claim a check is
+  inert, make it fail on purpose). What remains actionable is only the small
+  diagnosability fix, tracked in its own item below.
+
+- [ ] **Print the coverage table before the hard exit, for the same reason the
+  test summary is already printed there.** Not a correctness fix — the gate works
+  — a *diagnosability* one, and it has a measured cost: the missing table is what
+  produced two successive wrong entries above. `pytest_sessionfinish` already
+  reaches into the terminal reporter and calls `summary_stats()` itself, with the
+  comment *"Diagnosability is the whole point of a test run"*; the coverage plugin
+  can be asked to render in the same place. Then a local run shows its own
+  coverage number and nobody has to infer one.
 - [ ] **The colon safety net still awaits its hardware confirmation** — now
   obtainable, because section E's album title carries a colon deliberately. Look
   for a real `:` in the written tag, not `∶`.
