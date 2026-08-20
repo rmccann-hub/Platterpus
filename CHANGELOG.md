@@ -11,7 +11,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
-## [0.6.19] — 2026-08-19
+## [0.6.19] — 2026-08-20
 
 ### Added
 - **An unattended `--run-script` run now ends the process itself.** It used to
