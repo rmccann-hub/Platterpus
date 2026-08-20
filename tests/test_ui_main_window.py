@@ -6422,7 +6422,21 @@ def test_shutdown_drive_free_swallows_a_failing_kill(
     going away and a failed kill has nowhere to be reported."""
     from platterpus import drive_control
 
+    # STRENGTHENED 2026-08-20 (test audit). This test used to call
+    # `_stop_rip_on_shutdown()` and assert NOTHING — the docstring's claim was
+    # "must not raise", and an empty body satisfies that. So it passed equally
+    # well against the defect it exists to prevent: a shutdown path that stops
+    # calling `free_drive` at all raises nothing either, and leaves the drive
+    # spinning with the next track still ripping (the real 2026-07-01 user bug).
+    #
+    # "Nothing was raised" and "nothing was attempted" are indistinguishable
+    # without recording the attempt. So the attempt is recorded, and the swallow
+    # is asserted on top of it — the same "did it HAPPEN, or was it merely
+    # requested" discipline, applied to a test whose subject is an absence.
+    attempts: list[dict[str, object]] = []
+
     def _boom(**kw):
+        attempts.append(kw)
         raise OSError("no such process")
 
     monkeypatch.setattr(drive_control, "free_drive", _boom)
@@ -6431,6 +6445,13 @@ def test_shutdown_drive_free_swallows_a_failing_kill(
     window._rip_worker = None
 
     window._stop_rip_on_shutdown()  # must not raise
+
+    assert attempts, (
+        "shutdown never tried to free the drive — the OSError was 'swallowed' "
+        "only because nothing was attempted. This is the 2026-07-01 bug: the "
+        "window closes, the in-container reader keeps the drive, and the next "
+        "track rips on until the disc is ejected by hand."
+    )
 
 
 def test_rip_error_is_remembered_for_the_failure_report(teardown_threads) -> None:

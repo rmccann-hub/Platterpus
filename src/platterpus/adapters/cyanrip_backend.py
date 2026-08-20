@@ -636,15 +636,41 @@ def _escape_meta_value(value: str) -> str:
 def restore_substituted_colons(
     metaflac: MetaflacAdapter, flac_files: list[Path]
 ) -> int:
-    """Put the real ``:`` back into FLAC tags that `_escape_meta_value` had to
-    write as the U+2236 lookalike for cyanrip's parser.
+    """Put the real ``:`` back into any FLAC tag still carrying the U+2236
+    lookalike. **This is now a safety net, not the design** — and saying so is the
+    point of this paragraph.
 
-    cyanrip can't accept a literal ``:`` in ``-a``/``-t`` (its
-    ``append_missing_keys`` splits on ``:`` before honoring escapes — see
-    `_escape_meta_value`), so we feed it ``∶`` and the *written tags* come out
-    with ``∶`` too. This reverses that in the tags afterward, so a player shows
-    "Album: Subtitle" with a real colon. The folder name keeps cyanrip's own
-    ``∶`` path-sanitization — a filesystem path is a separate concern.
+    **Read the tense carefully.** Until round 7 lap 31 we *substituted* ``∶`` for
+    ``:`` because cyanrip's ``append_missing_keys`` split on ``:`` before honouring
+    escapes, so a real user's album became the folder ``Every Breath You Take∶
+    album_artist= The Classics`` (2026-06-27). Since lap 31 `_escape_meta_value`
+    sends ``\\:`` instead, both trees' pre-splitters are escape-aware, and **nothing
+    in this codebase writes the substitute any more** — grep ``_COLON_SUBSTITUTE``
+    and you will find only this function reading it.
+
+    So this exists to catch the case where that reasoning is wrong on real
+    hardware, and it is armed only when the metadata actually contains a colon
+    (``main_window_rip._metadata_has_colon``), which makes it a no-op for the
+    common album. This docstring previously described the *old* design in the
+    present tense — a reader who opened this function and not its call site would
+    have concluded we still substitute. Two descriptions of one mechanism, one of
+    them stale, is how the substitution would get reintroduced.
+
+    **What would retire it:** one hardware rip whose metadata contains a colon,
+    with the written tag confirmed to hold a real ``:``. That evidence did not
+    exist as of 2026-08-20 and the rig script could not produce it — every scripted
+    rip overrides the album title to a colon-free string, so ``restore_colons`` was
+    False on all of them (fixed in the script the same day by putting a colon in
+    the title deliberately).
+
+    The folder name keeps cyanrip's own ``∶`` path-sanitisation either way — a
+    filesystem path is a separate concern, and that is where U+2236 came from.
+
+    One consequence worth stating, since it is the cost of keeping this armed: a
+    title that legitimately contains U+2236 RATIO would be rewritten to ``:``.
+    That is vanishingly rare and strictly less bad than the folder-name corruption
+    this replaced, but it is not nothing, and it is another reason the net should
+    come down once the evidence exists.
 
     Reads each file and rewrites ONLY the tags that actually contain the
     substitute, so it's a no-op for the (common) colon-free album. Best-effort
