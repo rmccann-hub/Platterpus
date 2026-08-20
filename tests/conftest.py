@@ -13,6 +13,8 @@ real display.
 from __future__ import annotations
 
 import os
+import threading
+from collections.abc import Generator
 from pathlib import Path
 
 # Set before any Qt import. Subsequent imports of QtGui/QtWidgets
@@ -165,6 +167,59 @@ def hard_exit_calls(monkeypatch: pytest.MonkeyPatch) -> list[int]:
 
     monkeypatch.setattr(hard_exit, "_exit_fn", _record_then_stop)
     return codes
+
+
+@pytest.fixture(autouse=True)
+def _no_test_leaves_the_crash_dialog_armed() -> Generator[None, None, None]:
+    """No test may leave the PRODUCT's fatal-error excepthook installed.
+
+    **This is the fixture whose absence hung CI for 45 minutes across two runs
+    with no diagnosis at all.** `app._install_excepthook` points `sys.excepthook`
+    at a handler that opens a **modal** `QMessageBox.exec()`. That is right in
+    production and catastrophic in a test run: under the offscreen platform there
+    is nobody to click OK, so the first exception that escapes a Qt callback after
+    some earlier test leaked the hook parks the whole session inside a nested
+    event loop, forever. The suite printed progress dots and then nothing.
+
+    Two things make it worth policing here rather than trusting each test:
+
+    * It is **action at a distance**. The test that leaks the hook passes; the
+      test that dies is an unrelated one, minutes later, and which one depends on
+      timing — the four CI legs blamed two different files on the same commit
+      (`test_ui_drive_setup_dialog.py` on 3.12/3.13/3.14, `test_scroll_guards.py`
+      on 3.11). No amount of reading the accused test could find it.
+    * It is a **harness-fidelity** failure of the exact shape this project keeps
+      re-learning: the harness had live product crash-handling installed, which
+      looks safer than plain pytest and is strictly worse, because pytest's own
+      hook reports the exception and moves on while this one blocks.
+
+    **Why this RESTORES rather than failing the test that leaked**, which is the
+    opposite of what this file does for `os._exit` and for window threads: there,
+    the harness was covering for something *production* was supposed to do, and
+    tidying up hid a real product bug. Here it is the reverse — leaving that hook
+    installed is CORRECT in production, and it is only a hazard inside a test
+    session. So restoring it is ordinary hygiene for global interpreter state a
+    test dirtied, exactly like `monkeypatch`, and doing it in one place is what
+    makes the hazard impossible for tests nobody has written yet. Seven existing
+    tests leaked it (four of them the `--run-script` path through `main()`); a
+    rule requiring each to remember would have been forgotten by the eighth.
+
+    The PRODUCT half of this defect is fixed separately and does not rely on the
+    harness at all: `app._show_fatal_dialog` now refuses to open a second dialog
+    while one is up, so the recursion this hook fell into cannot happen to a real
+    user either.
+
+    Both hooks, because `_install_excepthook` sets `sys.excepthook` AND
+    `threading.excepthook` — three of the seven leaks were tests that restored
+    only the first and looked correct doing it.
+    """
+    import sys as _sys
+
+    sys_before, thread_before = _sys.excepthook, threading.excepthook
+    try:
+        yield
+    finally:
+        _sys.excepthook, threading.excepthook = sys_before, thread_before
 
 
 def stop_window_threads(window: object) -> None:

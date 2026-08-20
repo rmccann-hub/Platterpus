@@ -49,6 +49,16 @@ from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
 )
 
+# `report_types` is pure typing — no runtime imports of its own — so depending on
+# it here costs nothing and buys the thing a bare `dict` cannot: the report block
+# this module BUILDS and the report block `rip_report` WRITES are now provably the
+# same shape, checked, rather than two descriptions that agree by habit.
+from platterpus.report_types import (
+    ReportReadSpeedBlock,
+    RetriedTrackBlock,
+    SpeedPassBlock,
+)
+
 log = logging.getLogger(__name__)
 
 # The read-speed rungs, fastest → slowest. 0 means "let the drive pick" (its
@@ -291,8 +301,8 @@ def tracks_failing_accuraterip(
 def attempts_to_report(
     attempts: list[SpeedAttempt],
     unstable: list[int] | None = None,
-    retried: list[dict] | None = None,
-) -> dict | None:
+    retried: list[RetriedTrackBlock] | None = None,
+) -> ReportReadSpeedBlock | None:
     """Summarize the escalation history for the JSON report. None if no attempts.
 
     Records every pass (speed + ``-Z`` + whether it read clean), the final
@@ -314,13 +324,13 @@ def attempts_to_report(
         unstable_list = sorted(set(unstable or []))
         return {
             "attempts": [
-                {
-                    "attempt": a.attempt,
-                    "speed": a.speed,
-                    "speed_label": _speed_label(a.speed),
-                    "secure_rerip_matches": a.secure_rerip_matches,
-                    "clean": a.clean,
-                }
+                SpeedPassBlock(
+                    attempt=a.attempt,
+                    speed=a.speed,
+                    speed_label=_speed_label(a.speed),
+                    secure_rerip_matches=a.secure_rerip_matches,
+                    clean=a.clean,
+                )
                 for a in attempts
             ],
             "final_speed": last.speed,
@@ -337,7 +347,20 @@ def attempts_to_report(
             # Per-track auto-fix history: each unstable track re-ripped alone with
             # a harder -Z, whether it then converged, and whether the improved FLAC
             # replaced the original. Empty when nothing was re-ripped.
-            "retried_tracks": [dict(r) for r in (retried or [])],
+            # Copied field-by-field rather than `dict(r)`. The copy is the point —
+            # the report must not alias a caller's live dict — but `dict(r)` throws
+            # the shape away in the process, so the one place that knows what a
+            # retried-track record contains stopped saying it. Naming the fields
+            # keeps the copy AND makes a producer that forgets one fail here.
+            "retried_tracks": [
+                RetriedTrackBlock(
+                    track=r["track"],
+                    reripped_z=r["reripped_z"],
+                    converged=r["converged"],
+                    replaced=r["replaced"],
+                )
+                for r in (retried or [])
+            ],
         }
     except Exception:  # noqa: BLE001 — report helpers never crash a rip
         log.exception("read-speed ladder attempts_to_report failed")

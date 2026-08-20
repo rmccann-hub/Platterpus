@@ -88,7 +88,16 @@ class TimingBlock(TypedDict):
     finished_at: str | None
     # Only present when BOTH elapsed and a positive disc duration are known.
     disc_seconds: NotRequired[int]
-    realtime_multiplier: NotRequired[float]
+    #: `float | None`, and the `None` is deliberate, not sloppiness. A rip that did
+    #: NOT finish writes `null` here plus a `realtime_multiplier_basis` sentence
+    #: saying why — because `elapsed / disc_length` on a cancelled rip is the
+    #: fraction of the disc covered, not a rate, and the rig logged `0.21` for a
+    #: 2-of-14 cancel whose real throughput was ~0.93x. A plausible wrong number is
+    #: worse than none. This was declared `NotRequired[float]` while `build_timing`
+    #: had been writing `None` into it since that fix landed: the type described
+    #: what we wished the field were, and nothing compared the two until this
+    #: module's opt-out was retired (2026-08-20).
+    realtime_multiplier: NotRequired[float | None]
     #: WHICH duration the multiplier is measured against — "audio actually
     #: extracted" for a partial/cancelled rip, the whole disc otherwise. Written by
     #: `rip_report._enrich_timing` and undeclared here until 2026-08-04, so a

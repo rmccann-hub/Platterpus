@@ -89,7 +89,7 @@ Outside this directory:
 | File | What it covers |
 |---|---|
 | [`../CLAUDE.md`](../CLAUDE.md) | Persistent rules and conventions; locked rules section; project operations |
-| [`../PLANNING.md`](../PLANNING.md) | Architecture, directory tree, per-module responsibilities, adapter designs, dependency-manager design, keyed design decisions (KDD-01 … KDD-34) |
+| [`../PLANNING.md`](../PLANNING.md) | Architecture, directory tree, per-module responsibilities, adapter designs, dependency-manager design, keyed design decisions (KDD-01 … KDD-35) |
 | [`../TASKS.md`](../TASKS.md) | Active task checklist — P0 (T01-T32), P1.1 (install/uninstall ease), P1 (broader backlog), P2 (future), Out of scope |
 | [`../DEPENDENCIES.md`](../DEPENDENCIES.md) | Pinned versions, last upstream release dates, retirement-review log |
 | [`../README.md`](../README.md) | User-facing install instructions, troubleshooting, EAC comparison |
@@ -115,4 +115,4 @@ If you needed to start over with a fresh git repository:
 
 ---
 
-*Last updated for Platterpus v0.6.12.*
+*Last updated for Platterpus v0.6.19.*

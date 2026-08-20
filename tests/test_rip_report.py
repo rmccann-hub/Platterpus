@@ -1630,3 +1630,88 @@ def test_a_config_with_no_goal_at_all_reports_none() -> None:
     settings = build_settings(_Empty())
     assert settings["rip_goal"] is None
     assert "rip_goal_stored" not in settings
+
+
+# --- A parameter that is accepted and ignored -------------------------------
+
+
+def test_write_report_forwards_audio_md5_to_the_document(tmp_path) -> None:
+    """The 2026-08-19 rig defect: accepted, then dropped on the floor.
+
+    `write_report` took an `audio_md5` argument and never passed it to
+    `build_report`, so EVERY report ever written carried `audio_md5: null` — while
+    the caller had the value and the GUI logged reading it. The rig's app log said
+    *"1 FLAC audio MD5(s) read"* two seconds before the report that says it has
+    none.
+
+    That shape is the worst one available: the call site looks correct, the type
+    checker is satisfied, and the only symptom is a null in an archival record
+    where null reads as *"not computed"* rather than *"we lost it"*. It survived
+    because every existing test drove `build_report` — the pure builder, which
+    always handled the field correctly — and nothing drove the wrapper the app
+    actually calls.
+    """
+    from platterpus import rip_report
+
+    target = tmp_path / "album.log"
+    target.write_text("stand-in\n", encoding="utf-8")
+
+    rip_report.write_report(
+        None,
+        target,
+        checksums={"01.flac": "sha-aaa"},
+        audio_md5={"01.flac": "md5-bbb"},
+    )
+
+    written = list(tmp_path.glob("*.platterpus.json"))
+    assert written, "write_report produced no document"
+    doc = json.loads(written[0].read_text(encoding="utf-8"))
+    assert doc["checksums"] == {"01.flac": "sha-aaa"}, "precondition"
+    assert doc["audio_md5"] == {"01.flac": "md5-bbb"}, (
+        "write_report accepted audio_md5 and did not forward it — the archival "
+        "record claims the audio identity was never computed"
+    )
+
+
+def test_no_write_report_parameter_is_silently_dropped() -> None:
+    """The sweep, because one dropped parameter means the shape is reachable.
+
+    `write_report` is a wrapper whose whole job is forwarding; a name it accepts
+    and never mentions again is, by construction, a value the caller believes was
+    recorded and was not. Rather than fix the one instance and trust the next
+    reader, every parameter is checked for at least one mention in the body.
+
+    Deliberately a *mention* check, not a data-flow analysis: cheap, and it
+    catches the failure mode that actually happened — a name absent from the body
+    entirely.
+
+    **Its limit, measured rather than assumed.** Reverting the fix above did NOT
+    make this test fail, because the revert left behind a comment that mentions
+    `audio_md5`, and a mention is all this looks for. So this is a *net for the
+    next one*, not the regression test for this one:
+    `test_write_report_forwards_audio_md5_to_the_document` is the authority, and
+    it does fail on that revert. Stated plainly because a sweep believed to be
+    stronger than it is, is worse than no sweep — it is the "check that passes for
+    the wrong reason" this project keeps finding.
+
+    Matched on the bare NAME, not on `name=`. The first version looked for the
+    kwarg spelling and flagged `log_file`, which is used positionally
+    (`target = report_path_for(log_file)`) — a false positive that would have been
+    silenced with an exclusion, and exclusions are where the next real instance
+    hides.
+    """
+    import inspect
+    import re as _re
+
+    from platterpus import rip_report
+
+    src = inspect.getsource(rip_report.write_report)
+    body = src.partition('"""')[2].partition('"""')[2] or src  # skip the docstring
+    params = list(inspect.signature(rip_report.write_report).parameters)
+    dropped = [
+        name for name in params if not _re.search(rf"\b{_re.escape(name)}\b", body)
+    ]
+    assert not dropped, (
+        "write_report accepts these parameters and never uses them, so a caller "
+        f"that supplies one gets silence instead of a record: {dropped}"
+    )

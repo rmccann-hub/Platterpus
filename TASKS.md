@@ -20,6 +20,58 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Doc drift found 2026-08-20 — a stamp can be current while the prose is not
+
+- [ ] **`docs/hardware-test-checklist.md` is titled "v0.6.0" and stamped "v0.6.19".**
+  Both facts are true and together they are the failure `CLAUDE.md` names exactly: *a
+  stamp records when a doc was edited, and a doc nobody rewrites keeps an accurate
+  stamp while its prose quietly expires.* Its narrative still opens on the v0.6.0
+  one-file-upload change and "four releases since your last completed run", which is
+  now nineteen minors stale. The stamp gate cannot see this, and neither can the
+  version-claims gate — they check the footer and the CHANGELOG, not whether the
+  document still describes the release it is for.
+  **Deliberately not rewritten inside this release**: it is a ~700-line run sheet and
+  the release window is the wrong place for it. It is also partly superseded — the
+  *reference* half now lives in `docs/test-plan.md` Part E, so the rewrite should
+  reduce this sheet to the fillable per-release instance Part E describes rather than
+  restate it. Do that before the next hardware pass, and consider whether the
+  promise-of-completeness sweep (§5.af) can be extended to catch a title/stamp
+  mismatch mechanically — the check that would have caught this is "does the version
+  in the H1 match the version in the footer", which is two lines of test.
+
+## Found in CI, 2026-08-20 — the crash handler was the crash — **FIXED in 0.6.19**
+
+- [x] **The fatal-error dialog stacked on itself without limit.** `box.exec()` runs
+  a nested event loop, so an exception escaping any callback while the dialog is up
+  re-enters the excepthook and opens a second dialog inside the first one's loop.
+  Nothing raises, so the handler's own `except` never saw it. Found from a
+  faulthandler stack dump after three wrong hypotheses were each killed by
+  measurement (PySide6 6.11.2: green locally; random ordering: `pytest-randomly` is
+  not installed; a leaked test timer: fixed on merit, CI failed again identically).
+  Reverting the guard makes the regression test die with `RecursionError`.
+  `docs/testing.md` §5.ar.
+- [x] **The unattended-quit timer could raise after its window was destroyed** — a
+  PySide6 wrapper whose C++ side is gone raises on attribute access, from a timer
+  callback, i.e. into the dialog above. This is what SUPPLIED the exception. The
+  checklist question *what new state does this fix create* asked one day late.
+- [x] **Seven tests left the product's excepthook installed** for the rest of the
+  session (four the `--run-script` path through `main()`); three restored
+  `sys.excepthook` and not `threading.excepthook`. `conftest.py` restores both now.
+- [x] **A hang names itself.** `faulthandler_timeout = 300` +
+  `faulthandler_exit_on_timeout`, bounded against a measured 275 s suite so it
+  cannot fire on a slow-but-working test.
+
+- [ ] **An unattended `--run-script` run still blocks on its FIRST fatal dialog.**
+  The re-entrancy guard stops the recursion, not the one dialog. On the rig that
+  means a single uncaught exception parks the batch waiting for somebody to click
+  OK — the same *"an unattended run needs no attendant"* principle as the quit
+  timer, which the maintainer raised on 2026-08-19. Deliberately **not** fixed
+  inside a release: it is a behaviour change (when may the app suppress its own
+  crash dialog?) and it deserves its own decision rather than being wedged in.
+  Shape when it is done: the fatal dialog is non-modal — or auto-dismissed after a
+  bounded wait with the reason logged — when the process was started with
+  `--run-script`, and never when a person is driving.
+
 ## Found on the rig, 2026-08-19 — the v0.6.17 pass — **FIXED in 0.6.18**
 
 Every item here was found by **reading the maintainer's uploaded artifacts** (three
@@ -2199,4 +2251,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.18.*
+*Last updated for Platterpus v0.6.19.*

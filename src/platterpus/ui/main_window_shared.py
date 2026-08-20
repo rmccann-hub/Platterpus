@@ -109,6 +109,7 @@ if TYPE_CHECKING:
     from platterpus.drive_profile_store import DriveProfileStore
     from platterpus.drive_profiles import OffsetSource
     from platterpus.parsers.rip_log import RipLog
+    from platterpus.report_types import TimingBlock
     from platterpus.ui.disc_info_panel import DiscInfoPanel
     from platterpus.ui.drive_picker import DrivePicker
 
@@ -238,7 +239,7 @@ class MainWindowShared(_SeamBase):
     # Wall-clock timing of the in-flight / just-finished rip.
     _rip_started_monotonic: float | None
     _rip_started_at: str
-    _last_rip_timing: dict | None
+    _last_rip_timing: TimingBlock | None
     # Per-rip histories folded into the report at finish.
     _last_speed_attempts: list
     _last_unstable_tracks: list
@@ -297,6 +298,10 @@ class MainWindowShared(_SeamBase):
     _last_cover_art_result: object | None
     _last_recompress_result: object | None
     _last_checksums: dict | None
+    #: The retag-surviving audio identity, set beside `_last_checksums` by the
+    #: same handler. Declared here for the same reason as its sibling — it was
+    #: reachable only through `getattr`, so nothing held the two in step.
+    _last_audio_md5: dict | None
     _last_dependency_report: DependencyReport | None
 
     # Rip generation guard (drops a stale previous rip's late verify).

@@ -11,6 +11,218 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-20 (v0.6.19) — the crash handler was the crash
+
+**CI hung on all four Python legs, twice, and burned the whole 15-minute step each
+time.** The log held progress dots, then nothing, then *"the action has timed out"*.
+The suite was green locally, so the temptation was to keep theorising. Three
+hypotheses were formed and each was killed by measurement rather than argument:
+
+* *"PySide6 6.11.2, which CI installs and this container did not."* Installed
+  6.11.2 locally and ran: **4308 passed, 279 s, green**. Also: `CLAUDE.md` rule #11
+  records 6.11.2 as measured on 2026-08-18, so the green run earlier that evening
+  had already been using it. Not the variable.
+* *"CI's random test ordering."* `pytest-randomly` is not installed at all — the
+  ordering is deterministic and identical everywhere. Checked, not assumed, and it
+  turned the position into something computable.
+* *"My test left a live 1000 ms QTimer."* A real harness defect by this project's
+  own rule, fixed on its own merits — and explicitly **not** claimed as the cause.
+  It was not. CI failed again identically.
+
+**What actually found it: making the machine that fails say where.** pytest has
+`faulthandler_timeout` + `faulthandler_exit_on_timeout` built in, which dump every
+thread's stack when a single test outruns a bound. One run later the main-thread
+stack read `_show_fatal_dialog -> hook -> _show_fatal_dialog -> hook -> <a test>`,
+with the innermost frame on `box.exec()`.
+
+**The defect.** A modal `exec()` runs a *nested event loop*, so Qt keeps delivering
+events while the fatal-error dialog is up; an exception escaping any callback in
+that window re-enters `sys.excepthook`, which opens a second dialog inside the
+first one's loop, recursively. Nothing raises, so the handler's own
+`except Exception` never sees it — the recursion travels through Qt. Headless there
+is nobody to click OK. A real user would get a pile of dialogs, each needing the one
+above it dismissed first. With the guard reverted, the regression test does not
+merely fail: it dies with `RecursionError`.
+
+**Two more things supplied the conditions**, and both are the checklist questions
+asked a day late:
+
+* *What new state does this fix create?* The unattended-quit timer added the day
+  before is armed inside `main()`'s `--run-script` path; four tests drive that path;
+  its tick reads a window it outlives by design, and a PySide6 wrapper whose C++
+  side is gone raises `RuntimeError` on attribute access — from a timer callback,
+  i.e. straight into the dialog.
+* *What does my stand-in do that the real thing does not?* Seven tests left the
+  product's excepthook installed for the rest of the session. Three restored
+  `sys.excepthook` and not `threading.excepthook`, and looked correct doing it.
+
+**Localising it needed arithmetic, and the arithmetic exonerated the accused.**
+Re-deriving CI's own progress ladder (46 dot-lines x 72 = test #3313, with pytest's
+`//` floor division read out of its source rather than guessed) bounded the search
+to one file — and 3.11 blamed a *different* file than 3.12/3.13/3.14 did. That
+disagreement is the signature of action at a distance: the failing test is whichever
+one first pumped the event loop after an earlier test armed the trap. No amount of
+reading either accused test could have found it.
+
+Also this session, on the maintainer's instruction:
+
+* **Three `mypy` strict opt-outs retired** by typing the report's `read_speed`,
+  `timing` and `debug` chain end to end. It found a real mismatch immediately:
+  `TimingBlock` declared `realtime_multiplier: NotRequired[float]` while
+  `build_timing` had been writing `None` into it ever since the cancelled-rip fix.
+  Two descriptions of one shape, never once compared.
+* **`docs/test-plan.md` Part E**, the failure-derived release gate — what to
+  *disbelieve* on a run, the twelve defect classes that have actually bitten here,
+  the normal-vs-anomalous distinction, and what a pass must prove. Derived from the
+  32 cases in `testing.md` §5 rather than from imagination.
+
+**Graduated:** the hang case is `testing.md` §5.ar; the procedure is
+`test-plan.md` Part E; the typing retirement is recorded in the `pyproject.toml`
+override list's own ledger, as its convention requires.
+
+**Still open, deliberately not fixed here:** an *unattended* `--run-script` run
+that hits a single genuine uncaught exception will still open one modal dialog and
+wait forever for somebody to dismiss it. The re-entrancy guard stops the recursion,
+not the first dialog. That is a real defect for the rig — the same "an unattended
+run needs no attendant" principle as the quit timer — and it is a behaviour change
+worth doing deliberately rather than wedged into a release.
+
+## 2026-08-19 (v0.6.19) — a parameter that was accepted and ignored
+
+`audio_md5` was the one thing left open from the rig pass, and it turned out not
+to be a race at all. **`write_report` accepted an `audio_md5` argument and never
+forwarded it to `build_report`.** Every `.platterpus.json` this project has ever
+written carried `audio_md5: null` — while the caller had the value and the GUI
+logged reading it.
+
+**How it hid for so long.** Every test drove `build_report`, the *pure builder*,
+which always handled the field correctly. Nothing drove `write_report`, the
+wrapper the app actually calls. The seam between a well-tested pure function and
+the thin thing that calls it is where a dropped argument lives forever.
+
+**Why the shape is the worst one available:** the call site reads correctly, the
+type checker is satisfied (the parameter exists and is typed), and the only
+symptom is a `null` in an archival record — where `null` reads as *"not
+computed"* rather than *"we had it and lost it"*.
+
+**Method note.** Two earlier sessions of reasoning about timing produced nothing,
+because the premise was wrong: I kept asking *when* the value was lost. Driving
+the real writer once with both fields set answered it in a single run —
+`checksums` present, `audio_md5` null, deterministic, no threads involved.
+`CLAUDE.md`: *did I reproduce the symptom, or only explain it?* The probe was
+always cheaper than the theory.
+
+A sweep was added for the same shape across `write_report`'s whole signature, and
+then **corrected**: reverting the fix did NOT make the sweep fail, because the
+revert left a comment mentioning `audio_md5` and a mention is all it looks for.
+The docstring now says so and names the forwarding test as the authority — a
+sweep believed stronger than it is, is worse than no sweep.
+
+## 2026-08-19 (last) — the version gate was measuring the wrong thing
+
+**Maintainer ruling, and it corrects a real error of ours:** *"I think your
+current gate to v1.0.0 is passing the tests. The actual goal should be passing
+EVERY test all at once, probably at least twice… we have only tested on my rig,
+my hardware. We need more people, more hardware, more Linux distros, to get up to
+v1.0.0 proper. This should not be only test or gate, though it should be that
+too, it should be encoded in the documentation and testing."*
+
+They are right, and this project has its own measurement to prove it: every
+defect that mattered in August was found on **hardware, by a person**, with the
+suite green throughout — and three of them were inside the feature built the day
+before to make reporting easier. "The suite is green" is a claim about this
+repository on a CI runner. A version number is a claim about software in
+somebody's hands.
+
+Encoded as asked, in both places: `docs/testing.md` **§5B** (the three
+thresholds, the reasoning, and a parsed evidence ledger), KDD-35 in
+`PLANNING.md`, a rule in `CLAUDE.md`, and **§3 of
+`tests/test_no_stale_version_claims.py`**, which refuses a bump the ledger does
+not support. Two details worth keeping:
+
+* **"All at once" is the operative phrase in the 0.9.1 bar.** `pass=55 fail=5`
+  with each failure separately explained is not a pass. Explaining a failure is
+  how you fix it, not how you count it — and on this very day all five of those
+  failures turned out to descend from ONE defect nobody knew existed.
+* **The ledger records partials too.** Three runs, three `partial`, zero
+  full-green: the count toward 0.9.1 is currently **zero**. A ledger holding only
+  successes would make the denominator invisible, which is the same
+  satisfied-by-finding-nothing shape the gate itself guards against.
+
+**1.0.0 is now blocked on something outside the maintainer's sole control** —
+other people running it. That is deliberate and was accepted explicitly: a 1.0
+only its author has ever run is a claim the evidence cannot carry.
+
+### And the console that would not let go
+
+Same session: *"we shouldn't need to hard quit these consoles if they are done
+actually."* `--run-script` ran its batch and left the window open, so the
+launching terminal kept a live Python and Konsole asked *"There is a process
+running in this window"* on close; the rig's process sat idle **5½ minutes** until
+a person clicked through.
+
+The obvious fix is the wrong one, and the same trap as §5.ap: **the batch ending
+is not the work ending.** On that run the script finished at `17:51:15.8` and the
+rip's evidence bundle sealed at `17:51:18.4` — after CTDB, the FLAC verify and the
+checksums landed. Quitting on the runner's `finished` would have truncated exactly
+the artifact this release exists to make trustworthy. The quit is gated on the
+same settlement predicate the bundle waits on, bounded at 900 s, and names the
+step it gave up on if the bound is hit.
+
+## 2026-08-19 (latest) — the v0.6.18 rig pass: three fixes confirmed, one new defect
+
+The maintainer ran `rigcancelandoverread.txt` on v0.6.18 and uploaded both bundles.
+**pass=55 fail=5.**
+
+### All three v0.6.18 bundle fixes are confirmed on hardware
+
+From the rip bundle's own `MANIFEST.txt`: `rip outcome success` (0.6.17 said
+`partial`), `tracks requested 1` beside `tracks on disc 14`, and *"waited for
+post-rip: yes — every post-rip check had finished and the report was flushed"*.
+The archived report carries `checksums` and `ctdb` where 0.6.17 wrote `null`, and
+`generated_at` is `17:51:18` against a CTDB verdict at `17:51:17,377` — it really
+waited. `(ripper)` expanded in **both** album titles. `expect-tracks 1+` passed.
+Section E was a clean rip: AccurateRip verified, `rig-check` all OK.
+
+### The five failures were one new product defect, and it is not in anything we changed
+
+Section D's `rescan` fired five seconds into launch, while the **startup** disc
+scan was still running. `cancel()` on the shared `INFO_PROBE` slot set a *sticky*
+flag; the replacement probe registered before the cancelled run's `finally` could
+clear it, read a flag set for its **predecessor**, and SIGKILLed itself at birth.
+The panel sat on *"cyanrip failed (exit -9) with no output"* and no scan ever
+completed — `pick-release` then burned its full 90 s and four steps failed behind
+it. A rescan issued when nothing was in flight worked in 6 seconds.
+
+**Method note, and it is the point of the entry.** The first attempt at a
+regression test *raced* the interleaving — cancel, then start a thread — and
+**passed against the bug**, because the cancelled run's `finally` usually wins.
+Passing was evidence *against* the hypothesis, not for it, and it would have been
+easy to take the green as confirmation and ship the fix. Constructing the exact
+interleaving instead reproduced it immediately: `returncode -9`, empty output —
+the rig's signature exactly. `CLAUDE.md`: *did I reproduce the symptom, or only
+explain it?* A test that cannot lose is not evidence.
+
+Fixed by scoping the cancel to a **run** (a sequence number claimed before
+spawning, and a watermark) rather than to the slot. The startup-race guarantee the
+sticky flag existed for is preserved and still pinned.
+
+### A second defect the investigation turned up
+
+`_last_checksums` was cleared at the start of each rip; `_last_audio_md5` — set by
+the same handler in the same instant — was not, and was undeclared on the typing
+seam. A rip whose digests step failed or was superseded would have carried the
+previous rip's audio identity into its archival report. Two facts, one lifetime.
+
+### Still open
+
+`audio_md5` was `null` in the rig's report though the app logged *"1 FLAC audio
+MD5(s) read"* two seconds before the final flush. Ruled out: the pure builder
+(driven directly, it preserves the value) and the stale-carry-over above (opposite
+symptom). **Mechanism not found — task #109 stays open and no fix was guessed at.**
+And the cancel path is *still* unproven (task #53, third attempt): section D never
+started a rip, so `cancel-rip` had nothing to cancel.
+
 ## 2026-08-19 (later) — v0.6.18: the artifacts the last release produced indicted it
 
 The maintainer ran the v0.6.17 rig pass and uploaded three report bundles plus a
@@ -3148,4 +3360,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.18.*
+*Last updated for Platterpus v0.6.19.*

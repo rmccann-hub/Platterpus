@@ -25,6 +25,7 @@ import os
 import signal
 import sys
 import threading
+import time
 import traceback
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -38,6 +39,9 @@ if TYPE_CHECKING:
     # evaluated at runtime).
     from PySide6.QtCore import QCoreApplication, QTimer
     from PySide6.QtWidgets import QWidget
+
+    from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
+    from platterpus.ui.main_window import MainWindow
 from platterpus.build_info import build_fingerprint
 
 log = logging.getLogger(__name__)
@@ -75,6 +79,13 @@ def _prefer_xwayland_on_wayland() -> None:
         )
 
 
+#: True while a fatal dialog is on screen. See `_show_fatal_dialog` — this is a
+#: re-entrancy guard, and it is deliberately a plain module flag rather than
+#: anything cleverer: it is only ever read and written on the GUI thread (the
+#: off-thread path returns before reaching it), so there is nothing to lock.
+_fatal_dialog_open: bool = False
+
+
 def _show_fatal_dialog(title: str, exc: BaseException) -> None:
     """Show a last-resort error dialog so a crash is never silent.
 
@@ -83,7 +94,27 @@ def _show_fatal_dialog(title: str, exc: BaseException) -> None:
     full traceback is already in the log) so a screenshot is actionable.
     A QApplication must already exist; if the GUI itself is what failed
     to come up, this is best-effort and may no-op.
+
+    **ONE AT A TIME, and the guard is load-bearing.** `box.exec()` runs a NESTED
+    EVENT LOOP, which keeps delivering Qt events — so an exception escaping any
+    callback while the dialog is up re-enters `sys.excepthook`, which calls this
+    again, which opens a second modal dialog inside the first one's loop. There is
+    no bound on that: each dialog must be dismissed before the one beneath it can
+    be, and every one of them can spawn another. The `except Exception` below does
+    not help, because nothing *raises* — the recursion goes through Qt's loop.
+
+    Measured, not theorised: the CI stack dump on 2026-08-19 is literally
+    `_show_fatal_dialog → hook → _show_fatal_dialog → hook → <a test>`, two
+    dialogs deep and blocked in the inner `exec()`. On a headless run there is
+    nobody to click OK, so the process parked there until the job timed out — 15
+    minutes a leg, four legs, twice. A user hitting this gets a pile of
+    un-dismissable dialogs instead, which is the same defect with a worse ending.
+
+    So a fatal error arriving while a fatal dialog is open is LOGGED and dropped.
+    The first dialog is the one the user needs; the second is noise raised by the
+    first one's own event loop.
     """
+    global _fatal_dialog_open
     try:
         from PySide6.QtCore import QThread
         from PySide6.QtWidgets import QApplication, QMessageBox
@@ -116,6 +147,18 @@ def _show_fatal_dialog(title: str, exc: BaseException) -> None:
                 exc,
             )
             return
+        # Checked HERE and not earlier so the off-GUI-thread branch above still
+        # logs: that path never opens a dialog, so it can never be the re-entry
+        # this guard is about, and suppressing its log would lose a real report.
+        if _fatal_dialog_open:
+            log.error(
+                "second fatal error while the fatal-error dialog is already open — "
+                "logged only, no second dialog (it would nest inside the first "
+                "one's event loop and neither could be dismissed): %s: %s",
+                type(exc).__name__,
+                exc,
+            )
+            return
         box = QMessageBox()
         box.setIcon(QMessageBox.Icon.Critical)
         box.setWindowTitle(title)
@@ -126,7 +169,15 @@ def _show_fatal_dialog(title: str, exc: BaseException) -> None:
             "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
         )
         box.setInformativeText(f"Details were written to:\n{LOG_PATH}")
-        box.exec()
+        _fatal_dialog_open = True
+        try:
+            box.exec()
+        finally:
+            # `finally`, so a dialog torn down by anything at all — an exception,
+            # the app quitting under it, the window being destroyed — still clears
+            # the flag. A guard that can latch ON permanently would silence every
+            # later crash report, which is a worse failure than the one it fixes.
+            _fatal_dialog_open = False
     except Exception:  # noqa: BLE001 — the crash handler must never crash
         log.exception("failed to show the fatal-error dialog")
 
@@ -275,6 +326,111 @@ def _install_excepthook() -> None:
         )
 
     threading.excepthook = thread_hook
+
+
+#: How long an unattended run may keep the process alive after its batch ends,
+#: waiting for post-rip work to settle. Generous — a 14-track transcode plus
+#: hashing plus a CTDB round-trip is minutes — and bounded, because a wedged step
+#: must not leave a process behind forever. That is the whole point of the timer.
+UNATTENDED_QUIT_BUDGET_S: float = 900.0
+
+
+def _arm_unattended_quit(
+    app: QCoreApplication, window: MainWindow, console: ScriptConsoleDialog
+) -> QTimer:
+    """Quit once an unattended `--run-script` batch is genuinely finished.
+
+    **The defect this closes** (maintainer, 2026-08-19: *"we shouldn't need to
+    hard quit these consoles if they are done actually"*). `--run-script` ran the
+    batch and then simply left the window open, so the terminal that launched it
+    kept a live `python3.12` and Konsole asked *"There is a process running in
+    this window. Do you still want to quit?"* on close. On the 2026-08-19 rig the
+    process sat idle for **five and a half minutes** after its last step until a
+    person closed the dialog. An unattended run that needs an attendant to end it
+    is not unattended.
+
+    **Why it is a poll and not a `finished` connection.** The batch ending is NOT
+    the work ending. On that same run the script finished at 17:51:15.8 and the
+    rip's own evidence bundle sealed at **17:51:18.4** — after the CTDB verdict,
+    the FLAC verify and the checksums landed. Quitting on `finished` would have
+    truncated exactly the artifact this session spent its time making trustworthy.
+    So the gate is the settlement predicate the bundle itself waits on, and the
+    quit happens when the *last* of those is done.
+
+    Bounded and loud in both directions: it says why it is quitting, and if the
+    budget runs out it says what was still alive rather than leaving silently.
+    """
+    from PySide6.QtCore import QTimer
+
+    deadline = time.monotonic() + UNATTENDED_QUIT_BUDGET_S
+    timer = QTimer(window)  # parented, so the window's teardown owns it
+    timer.setInterval(1000)
+
+    def _tick() -> None:
+        # EVERY read below touches an object this closure outlives by design — the
+        # console, the window, the app. Once any of their C++ sides is gone, a
+        # PySide6 wrapper raises `RuntimeError` on attribute access, and a raise
+        # from inside a Qt timer callback goes to `sys.excepthook`, i.e. straight
+        # into the fatal-error dialog. A helper whose whole job is ending the
+        # process quietly must not be able to put a modal on screen, so the guard
+        # wraps the WHOLE tick and stops the timer rather than ticking again every
+        # second against the same dead object.
+        try:
+            _tick_body()
+        except RuntimeError:
+            # The specific, expected one: a wrapper whose C++ object is gone.
+            timer.stop()
+            log.debug("unattended-quit timer stopped: its window is already gone")
+
+    def _tick_body() -> None:
+        runner = getattr(console, "runner", None)
+        if runner is not None and getattr(runner, "running", False):
+            return  # the batch itself is still going
+        # The batch is done. Wait for everything it STARTED — the same predicate
+        # the evidence bundle is gated on, so the two cannot disagree about what
+        # "finished" means.
+        settled = True
+        try:
+            if getattr(window, "_pending_evidence_bundle", None) is not None:
+                settled = False
+            elif not window._post_rip_work_settled():
+                settled = False
+        except Exception:  # noqa: BLE001 — a quit helper must never be the crash
+            log.exception("could not read post-rip state; quitting anyway")
+            settled = True
+        if settled:
+            timer.stop()
+            log.info(
+                "unattended run finished and post-rip work has settled — quitting. "
+                "Nothing is left running, so the terminal will not ask."
+            )
+            app.quit()
+            return
+        if time.monotonic() >= deadline:
+            timer.stop()
+            still = ""
+            try:
+                still = window._post_rip_still_running()
+            except Exception:  # noqa: BLE001
+                pass
+            log.warning(
+                "unattended run: gave up waiting after %.0fs for post-rip work to "
+                "settle (still running: %s) — quitting anyway. Results already "
+                "written are complete; anything from those steps is not.",
+                UNATTENDED_QUIT_BUDGET_S,
+                still or "(unknown)",
+            )
+            app.quit()
+
+    timer.timeout.connect(_tick)
+    timer.start()
+    # RETURNED so a caller — in practice a test — can stop it. A test that armed
+    # this and walked away left a live 1000 ms QTimer parented to a widget it then
+    # only `deleteLater()`d, which is precisely the harness-fidelity violation
+    # `CLAUDE.md` forbids: a timer production would own, left running by the
+    # harness. Handing it back is cheaper than making the test guess at
+    # `findChild`.
+    return timer
 
 
 def rig_session_script() -> Path:
@@ -986,6 +1142,7 @@ def main(argv: list[str] | None = None) -> int:
                         "--run-script" if _script is not None else "config autorun",
                     )
                     console.run_now()
+                    _arm_unattended_quit(app, window, console)
             except Exception:  # noqa: BLE001 — last-resort guard
                 log.exception("the unattended test script could not be started")
     except Exception as exc:  # noqa: BLE001 — fatal-startup guard

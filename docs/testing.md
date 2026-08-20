@@ -1712,6 +1712,140 @@ two weeks, which makes it a pattern. A correction arrives with the authority of
 having been researched; the parts of it that were not researched arrive wearing the
 same authority.
 
+### §5.ar — The crash handler was the crash: a modal dialog inside its own event loop
+
+**2026-08-19/20.** CI hung on all four Python legs, twice, and burned the whole
+15-minute step each time. The log held progress dots, then nothing, then *"the
+action has timed out"*. Nothing about where.
+
+The suite is green locally — under PySide6 6.11.1 **and** 6.11.2, under the same
+deterministic ordering CI uses (`pytest-randomly` is not installed, so the order is
+the same everywhere; that was checked rather than assumed). So the first move was
+not to explain it but to make the machine that *does* fail say where: pytest's own
+`faulthandler_timeout` + `faulthandler_exit_on_timeout`, which dump every thread's
+stack when one test outruns a bound. One run later:
+
+```
+File "src/platterpus/app.py", line 133 in _show_fatal_dialog
+File "src/platterpus/app.py", line 252 in hook
+File "src/platterpus/app.py", line 133 in _show_fatal_dialog   <- itself, again
+File "src/platterpus/app.py", line 252 in hook
+File "tests/test_ui_drive_setup_dialog.py", line 391 in ...
+```
+
+Line 133 is `box.exec()`. **A modal `exec()` runs a nested event loop**, so Qt
+keeps delivering events while the fatal dialog is up — and an exception escaping
+any callback in that window re-enters `sys.excepthook`, which calls the dialog
+again, *inside* the first one's loop. Nothing raises, so the handler's own
+`except Exception` never sees it: the recursion travels through Qt. Headless there
+is nobody to click OK, so the process parked there until the job died.
+
+Four things this teaches, each already a rule here and each freshly earned:
+
+* **A hang must name itself.** The diagnosis was alive in the stuck process the
+  entire time and we threw it away — the same defect as capturing a dependency's
+  stderr and never surfacing it. The bound is 300 s against a 275 s suite, so it
+  cannot fire on a slow-but-working test; the measurement is written beside the
+  setting.
+* **The stack blamed a different test on 3.11 than on 3.12/3.13/3.14.** That is the
+  signature of *action at a distance*: the failing test is whichever one first
+  pumped the event loop after an earlier test armed the trap. No amount of reading
+  the accused test could have found it, which is why localising by re-deriving
+  CI's progress ladder (46 dot-lines x 72 = test #3313) mattered — it bounded the
+  search to a file, and the file was innocent.
+* **"What new state does this fix create?"** The unattended-quit timer added the
+  day before is what supplied the *exception*: it is armed inside `main()`'s
+  `--run-script` path, four tests drive that path, and its tick reads a window it
+  outlives — a PySide6 wrapper whose C++ side is gone raises `RuntimeError` on
+  attribute access, from a timer callback, straight into the excepthook.
+* **The harness had product crash-handling installed.** Seven tests left
+  `sys.excepthook` pointing at the product handler; three of them restored it and
+  not `threading.excepthook`, and looked correct doing so. `conftest.py` now
+  restores both around every test. This one RESTORES rather than failing the
+  offender, which is the opposite of the `os._exit` and window-thread fixtures —
+  because leaving that hook installed is *correct* in production, so it is
+  ordinary hygiene rather than the harness covering for a product bug.
+
+**Revert-proofing, done by actually reverting.** With the re-entrancy guard removed
+and the removal proven to have landed (anchor asserted, file hash compared), the
+regression test does not merely fail — it dies with `RecursionError: maximum
+recursion depth exceeded`. The nesting is unbounded, which is also what a user
+would have met: a pile of dialogs, each needing the one above it dismissed first,
+every one able to spawn another. The test asserts on the *count of dialogs opened*,
+not on the flag, and then asserts a later unrelated crash still gets its dialog —
+a guard that latched ON would silence every future crash report, which is a worse
+failure than the one it fixes.
+
+## 5B. What a version number is allowed to claim (the road to 1.0)
+
+**Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is
+passing the tests. The actual goal should be passing EVERY test all at once,
+probably at least twice… we have only tested on my rig, my hardware. We need more
+people, more hardware, more Linux distros, to get up to v1.0.0 proper. This should
+not be only test or gate, though it should be that too, it should be encoded in
+the documentation and testing."*
+
+That correction is worth stating plainly because the implicit gate really was
+wrong. "The suite is green" is a statement about **this repository on a CI
+runner**. A version number is a statement about **the software in somebody's
+hands**, and the two are not the same claim — every defect that mattered this
+month was found on hardware by a person, with a green suite the whole time.
+
+### The three thresholds
+
+| Version | What it claims | What that requires |
+|---|---|---|
+| **0.x** | *"Under development; expect defects."* | The suite is green. Nothing else is asserted, so nothing else is owed. |
+| **0.9.1** | *"Feature-complete and internally proven."* | **A complete hardware pass — EVERY test green in ONE run — achieved at least TWICE.** Not "the failures were understood"; not "green except the known ones". One run with a full green sheet is a data point; two is the first evidence it was not luck. |
+| **1.0.0** | *"Ready for people who are not us."* | Everything above, **plus independent field evidence: more than one person, more than one machine, more than one Linux distribution.** The maintainer's rig is one configuration out of every configuration a user might have, and a single-rig 1.0 is a claim the evidence cannot carry. |
+
+**The 0.9.1 bar is "all at once", and that word is the whole rule.** A run of
+`pass=55 fail=5` where each of the five is separately explained is *not* a pass.
+Explaining a failure is how you fix it; it is not how you count it. The reason to
+insist is measured in this project's own history: the 2026-08-19 run's five
+failures all descended from one defect nobody knew existed, and every one of them
+would have been waved through as "understood" by a looser rule.
+
+**The 1.0.0 bar cannot be met by working harder here.** It is not a quality bar
+that more diligence clears — it is a *coverage* bar, and the only way to move it
+is other people's hardware. That is why it is written down rather than left to
+judgement at release time: the temptation at 0.9.9 will be to reason that things
+seem fine.
+
+### The evidence ledger
+
+Rows are added when a run happens, by whoever ran it. `test_no_stale_version_claims.py`
+parses this table and refuses a version bump that the rows do not support — an
+empty ledger fails the 0.9.1 and 1.0.0 gates rather than passing them by finding
+nothing.
+
+`result` must be exactly `full-green` or `partial`; anything else is read as
+`partial`, because an unrecognised verdict is not a pass. `person` and `machine`
+are free text, and only their *distinctness* is counted.
+
+<!-- FIELD-EVIDENCE-TABLE: parsed by tests/test_no_stale_version_claims.py -->
+
+| date | version | person | machine | distro | result |
+|---|---|---|---|---|---|
+| 2026-08-18 | 0.6.16 | maintainer | bdr209d | bazzite | partial |
+| 2026-08-19 | 0.6.17 | maintainer | bdr209d | bazzite | partial |
+| 2026-08-19 | 0.6.18 | maintainer | bdr209d | bazzite | partial |
+
+<!-- END-FIELD-EVIDENCE-TABLE -->
+
+Three runs, three `partial`. That is the honest state: **no full-green pass has
+been achieved yet**, so 0.9.1 is not reachable today and the count toward it is
+zero. Recording the partials anyway matters — a ledger that held only successes
+would make the denominator invisible.
+
+**How a row gets produced** is `docs/test-plan.md` **Part E** — the
+failure-derived gate: the twelve defect classes that have actually bitten here,
+how to tell a normal failure from a run that is not trustworthy at all, and what a
+*pass* has to prove before it may be counted. It exists because of two counted
+facts: every failure on both of the last two rig runs descended from a **single**
+defect, and every defect that mattered this month was found on hardware with the
+suite green throughout.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at
@@ -1796,4 +1930,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.18.*
+*Last updated for Platterpus v0.6.19.*
