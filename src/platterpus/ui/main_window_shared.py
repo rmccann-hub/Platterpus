@@ -109,6 +109,7 @@ if TYPE_CHECKING:
     from platterpus.drive_profile_store import DriveProfileStore
     from platterpus.drive_profiles import OffsetSource
     from platterpus.parsers.rip_log import RipLog
+    from platterpus.report_types import TimingBlock
     from platterpus.ui.disc_info_panel import DiscInfoPanel
     from platterpus.ui.drive_picker import DrivePicker
 
@@ -238,7 +239,7 @@ class MainWindowShared(_SeamBase):
     # Wall-clock timing of the in-flight / just-finished rip.
     _rip_started_monotonic: float | None
     _rip_started_at: str
-    _last_rip_timing: dict | None
+    _last_rip_timing: TimingBlock | None
     # Per-rip histories folded into the report at finish.
     _last_speed_attempts: list
     _last_unstable_tracks: list

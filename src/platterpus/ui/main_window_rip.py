@@ -73,7 +73,7 @@ from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
 from platterpus.parsers.rip_log import RipLog, TrackResult, parse_rip_log
 from platterpus.paths import LOG_PATH
-from platterpus.report_types import ArtifactsBlock
+from platterpus.report_types import ArtifactsBlock, DebugBlock, TimingBlock
 from platterpus.rip_addendum import read_log_with_addendum
 from platterpus.ui.main_window_helpers import (
     _dir_has_audio,
@@ -3044,7 +3044,7 @@ class RipMixin(MainWindowShared):
         self._rip_progress.append_log_line(f"✓ Rip filed in your library: {new_dir}")
         log.info("library move complete: %s", new_dir)
 
-    def _build_rip_timing(self) -> dict | None:
+    def _build_rip_timing(self) -> TimingBlock | None:
         """Build the timing dict for the just-finished rip and log it.
 
         Returns None when no start was stamped (e.g. a finish with no matching
@@ -3132,7 +3132,7 @@ class RipMixin(MainWindowShared):
         )
         timing.update(enriched)
 
-    def _build_rip_debug_log(self) -> dict | None:
+    def _build_rip_debug_log(self) -> DebugBlock | None:
         """Capture this session's log for the report, minus other albums' rips.
 
         Returns a ``{"scope", "truncated", "lines"}`` dict (see

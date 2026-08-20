@@ -32,7 +32,13 @@ from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
 )
-from platterpus.report_types import ArtifactsBlock, EnvironmentBlock
+from platterpus.report_types import (
+    ArtifactsBlock,
+    DebugBlock,
+    EnvironmentBlock,
+    ReportReadSpeedBlock,
+    TimingBlock,
+)
 from platterpus.ripper_identity import RipperIdentity, identify_ripper
 from platterpus.verdict import accuraterip_verdict
 
@@ -264,14 +270,14 @@ def build_report(
     recompress_result: object | None = None,
     cover_art_result: object | None = None,
     tagging_result: object | None = None,
-    read_speed: dict | None = None,
+    read_speed: ReportReadSpeedBlock | None = None,
     secure_rerip: dict | None = None,
     eta_trace: list | None = None,
     checksums: dict | None = None,
     audio_md5: dict | None = None,
     generated_at: str = "",
-    timing: dict | None = None,
-    debug_log: dict | None = None,
+    timing: TimingBlock | None = None,
+    debug_log: DebugBlock | None = None,
     outcome: dict | None = None,
     settings: dict | None = None,
     disc: dict | None = None,
@@ -356,7 +362,7 @@ def build_timing(
     finished_at: str = "",
     audio_seconds_ripped: float | None = None,
     completed: bool | None = None,
-) -> dict:
+) -> TimingBlock:
     """Build the ``timing`` section: actual elapsed + how it compares to the disc.
 
     Pure and never raises. ``elapsed_seconds`` is the GUI-measured wall-clock
@@ -369,7 +375,7 @@ def build_timing(
     """
     from platterpus.rip_timing import format_duration
 
-    timing: dict = {
+    timing: TimingBlock = {
         "elapsed_seconds": (
             round(elapsed_seconds) if isinstance(elapsed_seconds, int | float) else None
         ),
@@ -418,7 +424,7 @@ def build_timing(
     return timing
 
 
-def build_debug_log(lines: list[str], *, truncated: bool = False) -> dict:
+def build_debug_log(lines: list[str], *, truncated: bool = False) -> DebugBlock:
     """Wrap captured session log lines for the report's ``debug`` section.
 
     ``lines`` is this session's log (everything since launch) with other albums'
@@ -776,7 +782,7 @@ def build_gates(
     }
 
 
-def _eta_trace_block(eta_trace: list | None, timing: dict | None) -> dict | None:
+def _eta_trace_block(eta_trace: list | None, timing: TimingBlock | None) -> dict | None:
     """Assemble the report's ``eta_trace`` block from the recorded samples.
 
     Backfills each sample with ``actual_remaining_seconds`` — the time that
@@ -791,7 +797,7 @@ def _eta_trace_block(eta_trace: list | None, timing: dict | None) -> dict | None
     from datetime import datetime
 
     finish_dt = None
-    finished_at = (timing or {}).get("finished_at")
+    finished_at = timing.get("finished_at") if timing else None
     if isinstance(finished_at, str) and finished_at:
         try:
             finish_dt = datetime.fromisoformat(finished_at)
@@ -887,13 +893,13 @@ def _build(
     rip_log: object,
     ctdb_result: object | None,
     generated_at: str,
-    timing: dict | None = None,
-    debug_log: dict | None = None,
+    timing: TimingBlock | None = None,
+    debug_log: DebugBlock | None = None,
     flac_verify_result: object | None = None,
     transcode_result: object | None = None,
     checksums: dict | None = None,
     derived_verify_result: object | None = None,
-    read_speed: dict | None = None,
+    read_speed: ReportReadSpeedBlock | None = None,
     eta_trace: list | None = None,
     *,
     # KEYWORD-ONLY DELIBERATELY. `build_report` calls this positionally up to
@@ -2156,14 +2162,14 @@ def write_report(
     recompress_result: object | None = None,
     cover_art_result: object | None = None,
     tagging_result: object | None = None,
-    read_speed: dict | None = None,
+    read_speed: ReportReadSpeedBlock | None = None,
     secure_rerip: dict | None = None,
     eta_trace: list | None = None,
     checksums: dict | None = None,
     audio_md5: dict | None = None,
     generated_at: str = "",
-    timing: dict | None = None,
-    debug_log: dict | None = None,
+    timing: TimingBlock | None = None,
+    debug_log: DebugBlock | None = None,
     outcome: dict | None = None,
     settings: dict | None = None,
     disc: dict | None = None,

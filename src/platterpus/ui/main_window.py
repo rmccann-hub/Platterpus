@@ -46,6 +46,7 @@ from platterpus.adapters.rip_backend import (
 from platterpus.config import Config
 from platterpus.deps.manager import DependencyManager
 from platterpus.drive_profile_store import DriveProfileStore
+from platterpus.report_types import TimingBlock
 from platterpus.ui.disc_info_panel import DiscInfoPanel
 from platterpus.ui.drive_picker import DrivePicker
 from platterpus.ui.main_window_deps import DependencyMixin
@@ -516,7 +517,7 @@ class MainWindow(
         # finished rip's timing dict, kept so the CTDB re-write preserves it.
         self._rip_started_monotonic: float | None = None
         self._rip_started_at: str = ""
-        self._last_rip_timing: dict | None = None
+        self._last_rip_timing: TimingBlock | None = None
         # The adaptive read-speed ladder's per-pass history for the just-finished
         # rip (read off the worker at finish, before it's cleared), folded into
         # the report so a slow re-read — or a still-unresolved disc — is recorded.

@@ -26,6 +26,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   bounded at 900 s, and says which step it gave up on if the bound is hit.
 
 ### Changed
+- **Three `mypy` strict opt-outs retired, and typing the chain found a real
+  mismatch.** The report's `read_speed`, `timing` and `debug` blocks were built as
+  bare `dict`s in `read_speed_ladder` / `main_window_rip`, passed through
+  `rip_report`'s bare `dict` parameters and written out — so the `TypedDict`s that
+  describe them in `report_types.py` had never once been compared against a
+  producer. They are now typed end to end, which immediately surfaced that
+  `TimingBlock` declared `realtime_multiplier: NotRequired[float]` while
+  `build_timing` has been writing `None` into it ever since the cancelled-rip fix
+  (a partial rip records `null` plus a sentence saying why, because
+  elapsed ÷ disc-length on a cancelled rip is the fraction covered, not a rate).
+  The declaration described what we wished the field were. `read_speed_ladder`,
+  `config` and `ui.main_window_rip` leave the `disallow_any_generics` opt-out list
+  (Critical rule #10's "retire one opt-out per commit, never add one").
 - **A hung test now names itself instead of eating the CI step in silence.** All
   four CI legs stopped after 3312 tests and burned the whole 15-minute step for a
   single line of output: *"the action has timed out"*. Which thread and which
