@@ -251,13 +251,25 @@ module = [
     "platterpus.ui.main_window_shared",       #  9 — shared-surface report attrs
     "platterpus.ui.main_window",              #  6
     "platterpus.workers.rip_worker",          #  5
-    "platterpus.read_speed_ladder",           #  2
-    "platterpus.config",                      #  2
-    "platterpus.ui.main_window_rip",          #  2
     # RETIRED 2026-07-31: `platterpus.parsers.cyanrip_log` — its single bare
     # `dict` was the in-progress track block, now the typed `_TrackAcc`
     # dataclass, so the parser that produces the bit-perfection claim is fully
     # checked (rule #10's "retire one opt-out per commit").
+    #
+    # RETIRED 2026-08-20, three at once because they were ONE chain: the report's
+    # `read_speed`, `timing` and `debug` blocks were built as bare `dict`s in
+    # `read_speed_ladder` / `main_window_rip`, handed through `rip_report`'s bare
+    # `dict` parameters, and written out — so the `TypedDict`s describing them in
+    # `report_types.py` were never once compared against a producer.
+    #   * `platterpus.read_speed_ladder`  — now returns `ReportReadSpeedBlock`,
+    #     which that type's OWN docstring already said it returned.
+    #   * `platterpus.config`             — the two bare dicts are the raw-TOML
+    #     boundary; named `dict[str, Any]` (see the comment at the function).
+    #   * `platterpus.ui.main_window_rip` — now returns `TimingBlock` / `DebugBlock`.
+    # Typing the chain found a real mismatch nothing else could: `TimingBlock`
+    # declared `realtime_multiplier: NotRequired[float]` while `build_timing` had
+    # been writing `None` into it ever since the cancelled-rip fix. The type
+    # described what we wished the field were.
 ]
 disallow_any_generics = false
 
@@ -283,6 +295,30 @@ pythonpath = ["src"]
 # fast and plugin-light. CI adds `--cov ... --cov-fail-under` explicitly
 # (see .github/workflows/ci.yml); the thresholds live there, not here.
 addopts = "-q --strict-markers"
+# A HANG MUST NAME ITSELF.
+#
+# Before this, a test that never returned cost the entire 15-minute CI step and
+# printed one line: "the action has timed out". The diagnosis was sitting in the
+# stuck process — which thread, which frame, which lock — and we threw it away,
+# which is exactly the failure the diagnostic-completeness rule in `CLAUDE.md`
+# is about: a silent truncation reads as an unexplained mystery when the facts
+# were in hand. `faulthandler_timeout` dumps EVERY thread's stack once a single
+# test outruns the bound (which matters here: the things that hang a Qt suite —
+# a `QThread.wait()`, an undrained pipe, a modal `exec()` — are all visible in
+# another thread's frames, not the main one), and `exit_on_timeout` ends the
+# process right there so the stack is the last thing written to the log instead
+# of being buried under ten more minutes of nothing.
+#
+# WHY 300 AND NOT SOMETHING TIGHTER: this bound must not be able to fire on a
+# slow-but-working test, because with `exit_on_timeout` a false positive kills a
+# healthy run. The whole suite is 275 s (4320 tests, pytest 9.1.1, this
+# container, 2026-08-20) and the slowest single CI batch of 72 tests was 34 s, so
+# a single test reaching 300 s is stuck by definition rather than merely slow.
+# It still saves two thirds of the step and, far more to the point, it turns a
+# timeout into a stack trace. Move the number only with a fresh measurement, and
+# write the measurement down next to it.
+faulthandler_timeout = 300
+faulthandler_exit_on_timeout = true
 
 # Coverage config (consumed when CI runs `pytest --cov`). Branch coverage is
 # stricter than line coverage — it requires both sides of every if/try taken.

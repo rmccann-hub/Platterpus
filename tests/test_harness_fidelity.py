@@ -267,3 +267,36 @@ def test_the_by_file_location_idiom_is_actually_used() -> None:
         f"({users}) — the established idiom has eroded; the guard above now "
         "polices a population that barely exists."
     )
+
+
+def test_a_hang_dumps_its_stack_instead_of_eating_the_ci_step(pytestconfig) -> None:
+    """A test that never returns must say WHERE it stopped.
+
+    On 2026-08-19 all four CI legs stopped after 3312 tests and burned the whole
+    15-minute step, and the log said one thing: *"the action has timed out"*. The
+    diagnosis — which thread, which frame — was alive in the stuck process the
+    entire time and was discarded, which is the same failure as capturing a
+    dependency's stderr and never surfacing it: the facts were in hand and the
+    report looked complete without them.
+
+    Read off the EFFECTIVE pytest config rather than by grepping `pyproject.toml`,
+    because what protects a run is the value pytest resolved, not the text of a
+    file that a `-o` override or a stray `pytest.ini` could shadow.
+    """
+    timeout = float(pytestconfig.getini("faulthandler_timeout") or 0.0)
+    assert timeout > 0.0, (
+        "faulthandler_timeout is unset, so a hung test prints nothing and costs "
+        "the entire CI step. Set it in [tool.pytest.ini_options]."
+    )
+    # A bound tight enough to fire on a healthy run is worse than none, because
+    # `exit_on_timeout` makes a false positive kill the run. The suite measured
+    # 275 s end to end, so the floor is stated against that, not against a guess.
+    assert timeout >= 290.0, (
+        f"faulthandler_timeout is {timeout:g}s, which is inside the range a "
+        "healthy full run occupies (275 s measured 2026-08-20) — it would kill "
+        "working runs. Re-measure before lowering it."
+    )
+    assert pytestconfig.getini("faulthandler_exit_on_timeout") is True, (
+        "faulthandler_exit_on_timeout is off, so the stack dump is followed by "
+        "the rest of the step timing out anyway and the trace is buried."
+    )

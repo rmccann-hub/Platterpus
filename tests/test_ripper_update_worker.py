@@ -1103,22 +1103,36 @@ def test_the_shared_version_probe_is_not_left_cancelled_by_a_teardown() -> None:
     from platterpus.deps import checks
     from platterpus.workers.ripper_update_worker import RipperUpdateWorker
 
-    was = checks.VERSION_PROBE._cancel_requested
+    probe = checks.VERSION_PROBE
+    with probe._lock:
+        was_issued, was_through = probe._issued, probe._cancel_through
     try:
-        checks.VERSION_PROBE._cancel_requested = False
+        # Stand in for a run in flight, so "did the cancel reach it" is observable
+        # at all. Without this the watermark cannot move and both halves below
+        # would pass against a cancel() that does nothing.
+        with probe._lock:
+            probe._issued = 7
+            probe._cancel_through = 0
+
         RipperUpdateWorker(channel="stable").cancel()
-        assert checks.VERSION_PROBE._cancel_requested is False, (
-            "a teardown cancel left the shared VERSION_PROBE stickily cancelled, so "
-            "every later dependency version probe in this process would be refused"
+        with probe._lock:
+            reached = probe._cancel_through
+        assert reached == 0, (
+            "a teardown cancel raised the shared VERSION_PROBE's cancel watermark, "
+            "so the next dependency version probe in this process would be killed "
+            "at birth"
         )
-        # Floor: the flag really is reachable and settable, so the assertion above is
-        # about behaviour rather than about an attribute that never changes.
+
+        # Floor: the interrupter really does reach VERSION_PROBE when it should.
         probing = RipperUpdateWorker(channel="stable")
         probing._probing = True
         probing.cancel()
-        assert checks.VERSION_PROBE._cancel_requested is True, (
+        with probe._lock:
+            reached = probe._cancel_through
+        assert reached == 7, (
             "the interrupter never reaches VERSION_PROBE at all — the check above "
             "would pass for a cancel() that does nothing"
         )
     finally:
-        checks.VERSION_PROBE._cancel_requested = was
+        with probe._lock:
+            probe._issued, probe._cancel_through = was_issued, was_through
