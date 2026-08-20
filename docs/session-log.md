@@ -11,6 +11,82 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-20 (v0.6.19) — the crash handler was the crash
+
+**CI hung on all four Python legs, twice, and burned the whole 15-minute step each
+time.** The log held progress dots, then nothing, then *"the action has timed out"*.
+The suite was green locally, so the temptation was to keep theorising. Three
+hypotheses were formed and each was killed by measurement rather than argument:
+
+* *"PySide6 6.11.2, which CI installs and this container did not."* Installed
+  6.11.2 locally and ran: **4308 passed, 279 s, green**. Also: `CLAUDE.md` rule #11
+  records 6.11.2 as measured on 2026-08-18, so the green run earlier that evening
+  had already been using it. Not the variable.
+* *"CI's random test ordering."* `pytest-randomly` is not installed at all — the
+  ordering is deterministic and identical everywhere. Checked, not assumed, and it
+  turned the position into something computable.
+* *"My test left a live 1000 ms QTimer."* A real harness defect by this project's
+  own rule, fixed on its own merits — and explicitly **not** claimed as the cause.
+  It was not. CI failed again identically.
+
+**What actually found it: making the machine that fails say where.** pytest has
+`faulthandler_timeout` + `faulthandler_exit_on_timeout` built in, which dump every
+thread's stack when a single test outruns a bound. One run later the main-thread
+stack read `_show_fatal_dialog -> hook -> _show_fatal_dialog -> hook -> <a test>`,
+with the innermost frame on `box.exec()`.
+
+**The defect.** A modal `exec()` runs a *nested event loop*, so Qt keeps delivering
+events while the fatal-error dialog is up; an exception escaping any callback in
+that window re-enters `sys.excepthook`, which opens a second dialog inside the
+first one's loop, recursively. Nothing raises, so the handler's own
+`except Exception` never sees it — the recursion travels through Qt. Headless there
+is nobody to click OK. A real user would get a pile of dialogs, each needing the one
+above it dismissed first. With the guard reverted, the regression test does not
+merely fail: it dies with `RecursionError`.
+
+**Two more things supplied the conditions**, and both are the checklist questions
+asked a day late:
+
+* *What new state does this fix create?* The unattended-quit timer added the day
+  before is armed inside `main()`'s `--run-script` path; four tests drive that path;
+  its tick reads a window it outlives by design, and a PySide6 wrapper whose C++
+  side is gone raises `RuntimeError` on attribute access — from a timer callback,
+  i.e. straight into the dialog.
+* *What does my stand-in do that the real thing does not?* Seven tests left the
+  product's excepthook installed for the rest of the session. Three restored
+  `sys.excepthook` and not `threading.excepthook`, and looked correct doing it.
+
+**Localising it needed arithmetic, and the arithmetic exonerated the accused.**
+Re-deriving CI's own progress ladder (46 dot-lines x 72 = test #3313, with pytest's
+`//` floor division read out of its source rather than guessed) bounded the search
+to one file — and 3.11 blamed a *different* file than 3.12/3.13/3.14 did. That
+disagreement is the signature of action at a distance: the failing test is whichever
+one first pumped the event loop after an earlier test armed the trap. No amount of
+reading either accused test could have found it.
+
+Also this session, on the maintainer's instruction:
+
+* **Three `mypy` strict opt-outs retired** by typing the report's `read_speed`,
+  `timing` and `debug` chain end to end. It found a real mismatch immediately:
+  `TimingBlock` declared `realtime_multiplier: NotRequired[float]` while
+  `build_timing` had been writing `None` into it ever since the cancelled-rip fix.
+  Two descriptions of one shape, never once compared.
+* **`docs/test-plan.md` Part E**, the failure-derived release gate — what to
+  *disbelieve* on a run, the twelve defect classes that have actually bitten here,
+  the normal-vs-anomalous distinction, and what a pass must prove. Derived from the
+  32 cases in `testing.md` §5 rather than from imagination.
+
+**Graduated:** the hang case is `testing.md` §5.ar; the procedure is
+`test-plan.md` Part E; the typing retirement is recorded in the `pyproject.toml`
+override list's own ledger, as its convention requires.
+
+**Still open, deliberately not fixed here:** an *unattended* `--run-script` run
+that hits a single genuine uncaught exception will still open one modal dialog and
+wait forever for somebody to dismiss it. The re-entrancy guard stops the recursion,
+not the first dialog. That is a real defect for the rig — the same "an unattended
+run needs no attendant" principle as the quit timer — and it is a behaviour change
+worth doing deliberately rather than wedged into a release.
+
 ## 2026-08-19 (v0.6.19) — a parameter that was accepted and ignored
 
 `audio_md5` was the one thing left open from the rig pass, and it turned out not

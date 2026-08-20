@@ -20,6 +20,39 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Found in CI, 2026-08-20 — the crash handler was the crash — **FIXED in 0.6.19**
+
+- [x] **The fatal-error dialog stacked on itself without limit.** `box.exec()` runs
+  a nested event loop, so an exception escaping any callback while the dialog is up
+  re-enters the excepthook and opens a second dialog inside the first one's loop.
+  Nothing raises, so the handler's own `except` never saw it. Found from a
+  faulthandler stack dump after three wrong hypotheses were each killed by
+  measurement (PySide6 6.11.2: green locally; random ordering: `pytest-randomly` is
+  not installed; a leaked test timer: fixed on merit, CI failed again identically).
+  Reverting the guard makes the regression test die with `RecursionError`.
+  `docs/testing.md` §5.ar.
+- [x] **The unattended-quit timer could raise after its window was destroyed** — a
+  PySide6 wrapper whose C++ side is gone raises on attribute access, from a timer
+  callback, i.e. into the dialog above. This is what SUPPLIED the exception. The
+  checklist question *what new state does this fix create* asked one day late.
+- [x] **Seven tests left the product's excepthook installed** for the rest of the
+  session (four the `--run-script` path through `main()`); three restored
+  `sys.excepthook` and not `threading.excepthook`. `conftest.py` restores both now.
+- [x] **A hang names itself.** `faulthandler_timeout = 300` +
+  `faulthandler_exit_on_timeout`, bounded against a measured 275 s suite so it
+  cannot fire on a slow-but-working test.
+
+- [ ] **An unattended `--run-script` run still blocks on its FIRST fatal dialog.**
+  The re-entrancy guard stops the recursion, not the one dialog. On the rig that
+  means a single uncaught exception parks the batch waiting for somebody to click
+  OK — the same *"an unattended run needs no attendant"* principle as the quit
+  timer, which the maintainer raised on 2026-08-19. Deliberately **not** fixed
+  inside a release: it is a behaviour change (when may the app suppress its own
+  crash dialog?) and it deserves its own decision rather than being wedged in.
+  Shape when it is done: the fatal dialog is non-modal — or auto-dismissed after a
+  bounded wait with the reason logged — when the process was started with
+  `--run-script`, and never when a person is driving.
+
 ## Found on the rig, 2026-08-19 — the v0.6.17 pass — **FIXED in 0.6.18**
 
 Every item here was found by **reading the maintainer's uploaded artifacts** (three
