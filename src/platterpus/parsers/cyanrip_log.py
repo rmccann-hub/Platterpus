@@ -458,6 +458,27 @@ _PREPROCESS_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
+def has_log_checksum(text: str) -> bool:
+    """Whether a cyanrip log carries its own ``Log FUN512:`` signature line.
+
+    Public because a **second** caller needs the same question answered and the
+    answer must not be spelled twice: :mod:`platterpus.adapters.ripper_log_verify`
+    uses it to tell a log with *no* checksum (a rip stopped part-way — the ripper
+    was killed before writing its footer) from a log whose checksum *disagrees*
+    with its body (the file was altered after signing). Those are opposite
+    findings, and until 2026-08-20 both rendered as "does not match its own
+    FUN512 checksum", which was false in kind for every cancelled rip.
+
+    Derived from OUR read of the artifact on purpose. The ripper's own
+    "No FUN512 checksum found" wording would be the easy discriminator and is
+    the one the fork asked us not to build on (lap-12 J4: that string is
+    genopt's, not theirs, and one upstream sync from changing).
+
+    Never raises.
+    """
+    return any(_LOG_CHECKSUM.match(line) for line in text.splitlines())
+
+
 def _fold_continuations(text: str) -> list[str]:
     """Lines, with each parenthetical qualifier joined onto the line it qualifies.
 

@@ -484,3 +484,114 @@ class TestAlbumDiscovery:
         rc = rig_check.run_rig_check(tmp_path / "out", sink=lines.append)
         assert rc in (0, 1)
         assert any("could not look" in ln for ln in lines), lines
+
+
+# --- A cancelled rip is not a parser failure --------------------------------
+#
+# Added 2026-08-20. The zero-track floor is correct and stays; what it lacked was
+# any check on its SUBJECT. A cancel that lands 91s into track 1 of a
+# paranoia-max rip leaves cyanrip's log ending at its `Tracks:` header with
+# nothing under it, and `rig-check` called that "parsed to ZERO tracks", i.e. a
+# parser failure. It was one of only two failures in a 60-step rig run, and it
+# was noise — which is expensive, because a FAIL that turns out to be nothing
+# teaches the reader to discount the next one.
+
+
+def _album_with_empty_log(root: Path, *, cancelled: bool) -> Path:
+    """A rip folder whose cyanrip log parses to zero tracks."""
+    import json
+
+    album = root / "album"
+    album.mkdir(parents=True, exist_ok=True)
+    # The real shape: header, then `Tracks:` and nothing after it. Taken from the
+    # 2026-08-20 rig artifact rather than invented.
+    (album / "rip.log").write_text(
+        "cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)\n"
+        "Disc tracks:    14\n"
+        "Tracks to rip:  1, 2, 3\n"
+        "\nTracks:\n",
+        encoding="utf-8",
+    )
+    report: dict[str, object] = {"outcome": {"status": "completed"}, "issues": []}
+    if cancelled:
+        report = {
+            "outcome": {"status": "cancelled"},
+            "issues": [
+                {
+                    "code": "rip_cancelled",
+                    "message": "the rip was cancelled before it finished",
+                }
+            ],
+        }
+    (album / "rip.platterpus.json").write_text(json.dumps(report), encoding="utf-8")
+    return album
+
+
+def test_zero_track_parse_of_a_cancelled_rip_is_skip_not_fail(tmp_path: Path) -> None:
+    """The regression test. Revert the fix and this FAILs, which is the bug."""
+    album = _album_with_empty_log(tmp_path, cancelled=True)
+    manifest = rig_check.Manifest(tmp_path / "m", sink=lambda _line: None)
+    rig_check.check_parsers_against_the_log(manifest, album)
+
+    parser = [r for r in manifest.results if r.name == "parser/log"]
+    assert len(parser) == 1, parser
+    assert parser[0].status == rig_check.SKIP, parser[0].detail
+    assert "CANCELLED" in parser[0].detail, (
+        "the skip must say WHY it skipped — a bare SKIP is indistinguishable "
+        "from a check that quietly stopped working"
+    )
+    assert not manifest.failed, "a cancelled rip must not fail the rig check"
+
+
+def test_zero_track_parse_without_cancellation_evidence_still_fails(
+    tmp_path: Path,
+) -> None:
+    """**The floor the fix must not remove.**
+
+    This is the half that matters: the excuse requires POSITIVE evidence of
+    cancellation. Without it an empty parse is a real parser regression and must
+    still fail — otherwise the fix would have turned a noisy check into one that
+    can be satisfied by finding nothing, which is the defect class this project
+    keeps paying for.
+    """
+    album = _album_with_empty_log(tmp_path, cancelled=False)
+    manifest = rig_check.Manifest(tmp_path / "m", sink=lambda _line: None)
+    rig_check.check_parsers_against_the_log(manifest, album)
+
+    parser = [r for r in manifest.results if r.name == "parser/log"]
+    assert len(parser) == 1, parser
+    assert parser[0].status == rig_check.FAIL, parser[0].detail
+    assert "does not say it was cancelled" in parser[0].detail, parser[0].detail
+    assert manifest.failed
+
+
+def test_cancellation_evidence_survives_a_missing_or_broken_report(
+    tmp_path: Path,
+) -> None:
+    """No report, or an unreadable one, must read as "no excuse" — fail-closed."""
+    album = tmp_path / "nojson"
+    album.mkdir()
+    assert rig_check._rip_was_cancelled(album) is False
+    (album / "rip.platterpus.json").write_text("{not json", encoding="utf-8")
+    assert rig_check._rip_was_cancelled(album) is False
+    (album / "rip.platterpus.json").write_text("[]", encoding="utf-8")
+    assert rig_check._rip_was_cancelled(album) is False
+
+
+def test_either_witness_alone_establishes_cancellation(tmp_path: Path) -> None:
+    """Two independent markers, either sufficient — redundancy against drift."""
+    import json
+
+    only_status = tmp_path / "a"
+    only_status.mkdir()
+    (only_status / "r.platterpus.json").write_text(
+        json.dumps({"outcome": {"status": "cancelled"}}), encoding="utf-8"
+    )
+    assert rig_check._rip_was_cancelled(only_status) is True
+
+    only_issue = tmp_path / "b"
+    only_issue.mkdir()
+    (only_issue / "r.platterpus.json").write_text(
+        json.dumps({"issues": [{"code": "rip_cancelled"}]}), encoding="utf-8"
+    )
+    assert rig_check._rip_was_cancelled(only_issue) is True

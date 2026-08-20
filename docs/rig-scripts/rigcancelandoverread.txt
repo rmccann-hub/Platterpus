@@ -236,6 +236,23 @@ expect-tracks 1+
 select-tracks 1
 album after cancel (ripper)
 rip
+# ANSWER THE CONFIRMATION, AND WAIT FOR IT RATHER THAN ASSUMING IT IS THERE.
+#
+# This disc was just ripped by section D, so starting a second rip raises
+# "Album already ripped". On 2026-08-20 that dialog went unanswered and cost the
+# run BOTH of its failures: `wait-for-rip` found no worker (the app was blocked
+# on the modal), and `rig-check` then graded the *cancelled* rip because section
+# E never produced one. Two failures, one cause — again.
+#
+# It is `answer-dialog` and NOT a bare `ok` on purpose. `rip` only *requests* the
+# start, so the dialog appears a beat after it returns; `ok` answers whatever is
+# on top at the instant it runs and fails when nothing is, which makes `rip` then
+# `ok` a coin flip. Same defect as v0.6.17's `pick-release`, different door. The
+# app's own failure message used to advise the racy form; 0.6.20 fixed that too.
+#
+# Naming the title is not decoration: an unattended accept will happily dismiss a
+# dialog nobody predicted, and this verb refuses to answer anything else.
+answer-dialog ok 60 Album already ripped
 wait-for-rip 1800
 snapshot afterrecovery
 screenshot afterrecovery

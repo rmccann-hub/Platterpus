@@ -1252,3 +1252,161 @@ def test_a_title_without_the_placeholder_is_untouched(qapp) -> None:
     record = runner._report.steps[-1]
     assert record.outcome is Outcome.PASS, record.detail
     assert win._track_table._album_title_edit.text() == "Every Breath You Take"
+
+
+# --- `answer-dialog`: the verb that had to exist ----------------------------
+#
+# Added 2026-08-20 after the cancel-path rig run finished pass=58 fail=2 with
+# BOTH failures descending from one unanswered "Album already ripped" modal. The
+# obvious fix — put `ok` after `rip` — is a race, because `rip` returns as soon
+# as the start is *requested* and the confirmation appears a beat later. These
+# tests pin the waiting and the refusal-to-answer-the-wrong-thing, because those
+# are the two properties a bare `ok` does not have.
+
+
+def _drive_deadline(runner: Any, process_until: Any, timeout: float = 2.0) -> Any:
+    """Pump until the runner's armed deadline resolves; return its record."""
+    process_until(lambda: _service_and_check(runner), timeout=timeout)
+    return runner._report.steps[-1] if runner._report.steps else None
+
+
+def _service_and_check(runner: Any) -> bool:
+    if runner._deadline is None:
+        return True
+    runner._service_deadline()
+    return runner._deadline is None
+
+
+def test_answer_dialog_waits_for_a_dialog_that_is_not_up_yet(
+    qapp, process_until
+) -> None:
+    """**The regression test for the race.**
+
+    A bare `ok` fails here with "no dialog is open", which is the whole reason
+    this verb exists: on the rig the dialog arrives after the step that provoked
+    it has already returned. So the dialog is deliberately created *after* the
+    step is executed, which is the ordering a script actually meets.
+    """
+    from PySide6.QtWidgets import QDialog
+
+    win = _window()
+    record, runner = _run_one(win, "answer-dialog ok 30 Album already ripped")
+    assert record is None, "the verb should arm a deadline, not resolve instantly"
+
+    dialog = QDialog(win)
+    dialog.setWindowTitle("Album already ripped")
+    dialog.setModal(True)
+    dialog.show()
+    try:
+        assert process_until(lambda: dialog.isVisible())
+        resolved = _drive_deadline(runner, process_until)
+        assert resolved is not None, "the deadline never resolved"
+        assert resolved.outcome is Outcome.PASS, resolved.detail
+        assert "accepted" in resolved.detail, resolved.detail
+        assert "Album already ripped" in resolved.detail, (
+            "the transcript must name WHICH dialog was answered — an unattended "
+            "run has no operator to remember"
+        )
+    finally:
+        dialog.close()
+        dialog.deleteLater()
+
+
+def test_answer_dialog_refuses_to_answer_a_dialog_it_was_not_told_to_expect(
+    qapp, process_until
+) -> None:
+    """The property that makes an unattended accept safe.
+
+    A verb that answered whatever was on top would dismiss a crash report, an
+    overwrite prompt, or a "disc has changed" without anyone knowing. This one
+    leaves it alone and says what it saw.
+
+    Asserted on the DIALOG'S STATE, not only on the record: a guard that recorded
+    FAIL and accepted anyway would pass a record-only check.
+    """
+    from PySide6.QtWidgets import QDialog
+
+    win = _window()
+    dialog = QDialog(win)
+    dialog.setWindowTitle("Something nobody predicted")
+    dialog.setModal(True)
+    dialog.show()
+    try:
+        assert process_until(lambda: dialog.isVisible())
+        _, runner = _run_one(win, "answer-dialog ok 1 Album already ripped")
+        resolved = _drive_deadline(runner, process_until, timeout=4.0)
+        assert resolved is not None, "the deadline never resolved"
+        assert resolved.outcome is Outcome.FAIL, resolved.detail
+        assert "Something nobody predicted" in resolved.detail, (
+            "the timeout must name the dialog it found instead — 'no dialog "
+            "appeared' and 'the wrong one appeared' are different findings"
+        )
+        assert dialog.isVisible(), (
+            "the unexpected dialog was ANSWERED; refusing to touch it is the "
+            "entire safety property of this verb"
+        )
+    finally:
+        dialog.close()
+        dialog.deleteLater()
+
+
+def test_answer_dialog_says_no_dialog_opened_at_all_when_none_does(
+    qapp, process_until
+) -> None:
+    """The other half of the timeout, which must not be conflated with the first.
+
+    Nothing opened => the action that should have raised it did not run. A
+    different dialog opened => the app did something unexpected. Reporting both
+    as one message throws away the distinction that tells you which.
+    """
+    win = _window()
+    _, runner = _run_one(win, "answer-dialog ok 1 Album already ripped")
+    resolved = _drive_deadline(runner, process_until, timeout=4.0)
+    assert resolved is not None, "the deadline never resolved"
+    assert resolved.outcome is Outcome.FAIL, resolved.detail
+    assert "no dialog opened at all" in resolved.detail, resolved.detail
+
+
+def test_answer_dialog_rejects_a_zero_timeout_because_that_is_the_race() -> None:
+    """A zero wait is `ok` with extra steps, so it is refused by name."""
+    win = _window()
+    record, _ = _run_one(win, "answer-dialog ok 0 Album already ripped")
+    assert record is not None
+    assert record.outcome is Outcome.ERROR, record.detail
+    assert "race" in record.detail, record.detail
+
+
+def test_answer_dialog_rejects_an_unknown_action() -> None:
+    win = _window()
+    record, _ = _run_one(win, "answer-dialog maybe 30 Album already ripped")
+    assert record is not None
+    assert record.outcome is Outcome.ERROR, record.detail
+    assert "'ok' or 'cancel'" in record.detail, record.detail
+
+
+def test_wait_for_rip_advises_the_non_racy_verb() -> None:
+    """The advice the app prints must not reintroduce the bug.
+
+    Before 0.6.20 this message said to add `ok`, which races the very dialog it
+    is complaining about. Guidance that is wrong is worse than none: it is
+    followed.
+    """
+    from PySide6.QtWidgets import QDialog
+
+    win = _window()
+    dialog = QDialog(win)
+    dialog.setWindowTitle("Album already ripped")
+    dialog.setModal(True)
+    dialog.show()
+    try:
+        record, _ = _run_one(win, "wait-for-rip 30")
+        assert record is not None
+        assert record.outcome is Outcome.FAIL, record.detail
+        assert "answer-dialog" in record.detail, record.detail
+        assert "NOT a bare `ok`" in record.detail, (
+            "the message must say why the obvious fix is wrong, or it will be "
+            "applied anyway"
+        )
+    finally:
+        dialog.close()
+        dialog.deleteLater()

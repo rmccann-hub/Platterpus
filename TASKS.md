@@ -20,6 +20,33 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Rig run 2026-08-20 (v0.6.19) — pass=58 fail=2, and the drive-open question ANSWERED
+
+- [x] **Task #53's core question is answered: the cancel released the drive.**
+  After the cancel, section E's `rescan` succeeded, MusicBrainz returned the disc,
+  and 14 track rows loaded (`pick-release` in 10.8 s). That is the drive-open
+  proof — a held reader cannot be re-read — and it is the first clean evidence for
+  it in four attempts. What is still unproven is the *second rip completing*,
+  because the run stopped on an unanswered modal before it started; the tray also
+  stayed closed, which is the v0.6.16 rescue-timer behaviour holding.
+- [x] Both failures descended from one unanswered "Album already ripped" dialog.
+  Fixed by the `answer-dialog` verb + the script's section E + the corrected
+  advice `wait-for-rip` prints. Third consecutive run with a single-cause failure
+  set, which is exactly what `docs/test-plan.md` Part E predicts.
+- [x] The cancelled rip's FUN512 "rejection" and `rig-check`'s zero-track FAIL
+  were both reports that were accurate word-by-word and wrong in kind. Fixed.
+- [ ] **NOT a defect, recorded so it is not re-investigated:** `worker thread
+  DiscInfoWorker did not stop within 0ms — abandoning it` on every rescan is
+  deliberate and heavily commented (`main_window.py`, the `wait_ms=0` call) — the
+  old 2 s wait was a dead stutter on the GUI thread and `quit()` cannot interrupt
+  a mid-read subprocess, so the probe is cancelled and abandoned by design. Only
+  the log line reads like a fault. Consider phrasing it as an INFO that says
+  "superseded by a newer probe" so a rig transcript does not carry a WARNING for
+  normal operation.
+- [ ] **Still unproven, and it needs the next run:** a *completed* second rip
+  after a cancel, which is what exercises `rig-check`'s parser path against a real
+  subject and what closes Task #53 outright.
+
 ## Doc drift found 2026-08-20 — a stamp can be current while the prose is not
 
 - [ ] **`docs/hardware-test-checklist.md` is titled "v0.6.0" and stamped "v0.6.19".**
