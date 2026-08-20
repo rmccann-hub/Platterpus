@@ -15,6 +15,10 @@
 >   uninstall → fresh install → rip → verify cycle, the **EAC output-parity**
 >   check, and the **distribution + problem-permutation matrices** to spread
 >   across testers.
+> - **Part E** — the *failure-derived gate*: the classes of defect that have
+>   actually bitten this project, how to tell a normal failure from an anomalous
+>   run, and what a **pass** has to prove before it may be counted. Read it before
+>   Parts 0–D on any release run.
 > - **Single-feature cases (Test 1–14)** — the deep, individually-gated cases
 >   (CTDB verify CRC, PyPI go-live, the cyanrip parity run, and the
 >   multi-format output proof). Run one at a time and record the result.
@@ -739,6 +743,134 @@ presets (0.4.0).
 
 ---
 
+## Part E — The failure-derived gate: what actually breaks, and what a pass has to prove
+
+**Maintainer directive, 2026-08-20:** *"look at all past failures, look at what
+normal failures are, look at everything, and devise a procedure to test against,
+and if allowed to pass then it should be scrutinized and documented."*
+
+Parts 0–D say **what to exercise**. This part says **what to disbelieve**, and it
+is derived from the record rather than from imagination: the 32 numbered cases in
+[`testing.md` §5](testing.md), the `[Fixed]` entries in `CHANGELOG.md`, and the
+three rig runs in the [§5B evidence ledger](testing.md). A pass on this project has
+been wrong often enough that "it passed" is the beginning of the check, not the end.
+
+### E0. The two measurements that reframe everything here
+
+Both are counted, not felt, and both come out of the last two hardware runs:
+
+1. **On both rig runs, EVERY failure descended from ONE defect.** v0.6.17: 8 of 8
+   steps, all one race. v0.6.18: `pass=55 fail=5`, all five one latch. So the
+   **number of failures carries almost no information about how much is wrong** —
+   and, more dangerously, five separately-plausible explanations were available and
+   would each have "fixed" one symptom. *Root-cause to a single mechanism before
+   triaging anything.*
+2. **Every defect that mattered in August was found on hardware, by a person, with
+   the suite green throughout** — and three of them were inside the feature built
+   the day before to make reporting easier. A green suite is evidence about this
+   repository on a CI runner. It is not evidence about the software.
+
+### E1. The failure classes that have actually bitten, and what catches each
+
+Read this as a list of things to *check for*, not a history lesson. The right-hand
+column is what makes the class visible; where it says **procedure**, no code check
+exists and a human has to look.
+
+| # | Class | Times | What it looks like | What catches it |
+|---|---|---|---|---|
+| 1 | **A check that cannot fail** — satisfied by finding nothing | 4+ | A gate reports success having examined zero things; "entries were moved" printed by a check that only tested emptiness | A floor: *examined ≥ N*. §5.ae, §5.ad |
+| 2 | **A check that passes for the WRONG reason** | 3 | A required section matched by a stray sentence starting with the same letter; the contract really was present, so the verdict was right and the reason was not | Match the *label* **and** the *subject*. §5.ad |
+| 3 | **Two surfaces answering one question by different keys** | 2 | Each module's own tests green; the defect lives strictly in the relation between them | One predicate, N callers; test the *relation*. §5.al |
+| 4 | **Two witnesses that share an ancestor** | 2 | Cross-checking two builds/fixtures agrees perfectly, and both carry the inherited bug | Assert against the **source artifact**, plus a non-triviality assertion. §5.ac |
+| 5 | **Asking for a thing vs. having it** (async seam) | 2 | A step drives a subsystem, records PASS, and the work lands 124 ms later | Assert the *state*, not the request. §5.ap |
+| 6 | **A frozen or destroyed input** | 2 | A correct detector describing the design, because the value it reads is pinned by a clamp — or overwritten by a second feature that is *supposed* to overwrite it | Ask *what pins / what else writes this?* §5.ah, §5.aq |
+| 7 | **The fix unblocks states that never ran** | 2 | A correctness fix makes a path reachable whose downstream has no tests and arrives already believed-in | Ask what downstream does with answers it never used to receive. §5.ak |
+| 8 | **A GUI-thread block** | 4 | "Not Responding"; a dialog that installs/probes in its own button slot | `CLAUDE.md` rule; **procedure** — click during every long step |
+| 9 | **A run that vanishes or hangs** | 3 | Exit 0 with no summary; progress dots then silence; a job that eats its timeout | Session sentinel; `faulthandler_timeout`. §5.ar |
+| 10 | **A promise of completeness nothing sweeps** | 3 | An index missing 19 of 122 modules, decaying invisibly because a map is only ever wrong by omission | Derive the expected set from the filesystem. §5.af |
+| 11 | **A number quoted from an open population** | 1 | A bound set from the legs that had finished — i.e. the fast tail — landing inside the healthy range | Close the population, or put the qualifier *in* the number. §5.ao |
+| 12 | **A correction trusted more than a claim** | 3 | "You got this wrong", well-argued, applied faster than anything made in-house, and wrong | Scrutinise a correction like a claim. §5.ad |
+
+### E2. What a NORMAL failure looks like — and what is an ANOMALY
+
+This distinction is the point of the directive, because the two need opposite
+responses: a normal failure is *information* and you keep going; an anomaly means
+**the run itself is not trustworthy** and its passes cannot be counted either.
+
+**Normal** — one named expectation, one observed value, and the batch continues:
+
+```
+✗ expect-tracks 3 — found 0
+✗ album "… (ripper)" — no build tag captured yet
+```
+
+Diagnose, fix, re-run. A script step failing does **not** stop the batch (only
+`abort` does), deliberately: a run that stops at the first problem hides every
+problem behind it, and a disc pass costs an hour nobody gets back.
+
+**Anomalous — stop and investigate the RUN, not the feature.** Every one of these
+has happened here:
+
+- **No output where output was due.** Progress and then silence; a timed-out job
+  with no stack. *The diagnosis existed and was discarded.*
+- **A pass count that does not add up.** `passed + failed + skipped` ≠ collected,
+  or a summary line missing entirely. Check `.pytest-session-complete`: absent
+  means the run never reached session finish and **its exit code means nothing**.
+- **Exit 0 with a truncated run.** Historically real: an `os._exit(0)` in product
+  code ended pytest at 76% and CI called it green.
+- **Many failures with one timestamp cluster.** Suspect one cause (E0.1) before
+  writing more than one fix.
+- **A step that passes in less time than the work takes.** A rip step that
+  "passes" in under a second is an async seam (class 5), not a fast disc.
+- **A dialog you did not expect, or one that will not close.** A modal over a live
+  progress view, or a second one on top of the first (§5.ar).
+- **A verdict of `not_determined` reported as a pass.** Tri-state is not boolean;
+  absent evidence is not negative evidence and is certainly not positive.
+
+### E3. The procedure
+
+1. **Record the environment** (§0) and the **exact build**: `--version` output
+   including the fingerprint, plus the AppImage's SHA-256. Two artifacts from two
+   binaries are not interchangeable evidence.
+2. **`--doctor` first.** It costs seconds and it fails on the things that would
+   otherwise waste the disc pass.
+3. **Run the current rig script end to end** (`--run-script`, the file named in
+   `docs/rig-scripts/README.md`). Do not stop at the first failure.
+4. **Upload the evidence bundle**, not a transcript. One file, self-describing,
+   with the exit code (tri-state — `null` for a child never reaped is a real
+   answer), the exact argv as spawned, and complete output with stderr merged and
+   any elision counted.
+5. **Classify every failure against E1**, then **collapse them to root causes**
+   (E0.1). Report the count of *causes*, not the count of *symptoms*.
+6. **Then, and only then, scrutinise the passes** — E4.
+
+### E4. Scrutinising a pass (the part that is usually skipped)
+
+A pass is a claim, and this project's record is that a wrong pass costs more than a
+failure, because **a failure gets investigated and a pass gets cited**. For every
+step that passed, the run report must be able to answer:
+
+- **Could it have failed?** Name the condition that would have made it fail, and
+  whether that condition was reachable in this run. A check satisfied by finding
+  nothing is decoration (class 1).
+- **Did it verify the thing, or the request for the thing?** (class 5)
+- **Was it verified where it could fail?** An invariant confirmed under conditions
+  that arithmetically force it has not been tested.
+- **What was the input, and what pinned it?** (class 6)
+- **If the other side relabelled this without changing the artifact, would the
+  answer change?** If yes, the check is keyed on a label, not an identity (class 3).
+- **Is any verdict `not_determined`?** Those are neither passes nor failures and
+  must be listed separately, never folded into the pass count.
+
+### E5. Documenting it — a run is not finished until it is a ledger row
+
+The output of this procedure is **one row appended to the §5B evidence ledger** in
+`testing.md`, plus the bundle. The row records `partial` unless **every** step
+passed in that single run — that is the maintainer's ruling and the reason the
+ledger holds partials at all: a ledger of successes only makes the denominator
+invisible. `tests/test_no_stale_version_claims.py` parses the table, so the row is
+not decoration — it is what a future version bump is allowed to claim.
+
 ## Reporting template
 
 ```
@@ -763,4 +895,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.6.4b13.*
+*Last updated for Platterpus v0.6.19.*

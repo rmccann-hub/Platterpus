@@ -1838,6 +1838,14 @@ been achieved yet**, so 0.9.1 is not reachable today and the count toward it is
 zero. Recording the partials anyway matters — a ledger that held only successes
 would make the denominator invisible.
 
+**How a row gets produced** is `docs/test-plan.md` **Part E** — the
+failure-derived gate: the twelve defect classes that have actually bitten here,
+how to tell a normal failure from a run that is not trustworthy at all, and what a
+*pass* has to prove before it may be counted. It exists because of two counted
+facts: every failure on both of the last two rig runs descended from a **single**
+defect, and every defect that mattered this month was found on hardware with the
+suite green throughout.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at
