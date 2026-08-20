@@ -278,3 +278,101 @@ def test_the_cyanrip_backend_actually_overrides_it() -> None:
     assert cyanrip_backend.CyanripImpl.verify_log is not RipBackend.verify_log, (
         "the cyanrip backend inherits the no-op default, so no rip ever verifies a log"
     )
+
+
+# --- Absent is not mismatched ------------------------------------------------
+#
+# Added 2026-08-20 from a real rig artifact. A cancelled rip's log stops before
+# cyanrip writes its `Log FUN512:` footer, and the verifier reported *"it does
+# not match its own FUN512 checksum, so it is not a faithful record of this rip
+# and must not be treated as archival evidence"* — at ERROR, and into the
+# report's `issues[]`. Nothing had been altered. That is the project's recurring
+# "every word accurate, the message wrong" defect, and the two cases mean
+# opposite things: one says the file was tampered with, the other says the
+# ripper was killed mid-write.
+
+
+def _unsigned_log(tmp_path: Path) -> Path:
+    """A truncated cyanrip log, shaped like the 2026-08-20 cancelled rig rip."""
+    path = tmp_path / "cancelled.log"
+    path.write_text(
+        "cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)\n"
+        "Disc tracks:    14\n"
+        "\nTracks:\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_a_log_with_no_checksum_line_is_not_called_a_mismatch(tmp_path: Path) -> None:
+    """The regression test: still FAILED, but never "does not match"."""
+    result = rlv.verify_rip_log(
+        _unsigned_log(tmp_path),
+        build_tag=KNOWN_BUILD,
+        runner=_runner(
+            ToolRun(exit_code=1, output='No FUN512 checksum found in "x.log"!')
+        ),
+    )
+    # Still not archival evidence — the verdict is unchanged and must stay so.
+    assert result.verdict == rlv.FAILED
+    assert not result.is_verified
+    assert "NO 'Log FUN512:' checksum line" in result.detail, result.detail
+    assert "does not match" not in result.detail, (
+        "an absent checksum was reported as a mismatch — that accuses an "
+        "untampered file of having been altered"
+    )
+    # The distinguishing fact is stated, not left for the reader to infer.
+    assert "killed before it writes" in result.detail, result.detail
+
+
+def test_a_signed_log_that_fails_is_still_reported_as_altered() -> None:
+    """The other branch, against a REAL signed log from the corpus.
+
+    Without this the fix could have softened every rejection into "no checksum",
+    which would hide the one case that actually matters.
+    """
+    result = rlv.verify_rip_log(
+        _REAL_LOG,
+        build_tag=KNOWN_BUILD,
+        runner=_runner(ToolRun(exit_code=1, output="Log checksum mismatch!")),
+    )
+    assert result.verdict == rlv.FAILED
+    assert "does NOT match" in result.detail, result.detail
+    assert "altered after the ripper signed it" in result.detail, result.detail
+
+
+def test_the_discriminator_is_our_own_read_not_the_rippers_wording(
+    tmp_path: Path,
+) -> None:
+    """Keyed on the artifact, per the fork's lap-12 J4 ask.
+
+    cyanrip's "No FUN512 checksum found" text is genopt's and one upstream sync
+    from changing, so it must not be load-bearing. Proven by giving the runner
+    output that says nothing of the kind and checking the verdict text still
+    follows the FILE.
+    """
+    unsigned = rlv.verify_rip_log(
+        _unsigned_log(tmp_path),
+        build_tag=KNOWN_BUILD,
+        runner=_runner(ToolRun(exit_code=1, output="something else entirely")),
+    )
+    assert "NO 'Log FUN512:' checksum line" in unsigned.detail, unsigned.detail
+
+    signed = rlv.verify_rip_log(
+        _REAL_LOG,
+        build_tag=KNOWN_BUILD,
+        runner=_runner(ToolRun(exit_code=1, output="something else entirely")),
+    )
+    assert "does NOT match" in signed.detail, signed.detail
+
+
+def test_an_unreadable_log_keeps_the_stronger_wording(tmp_path: Path) -> None:
+    """Fail-closed: if we cannot read the file we do not volunteer the excuse."""
+    missing = tmp_path / "sub" / "gone.log"
+    missing.parent.mkdir()
+    missing.write_text("Log FUN512: abc\n", encoding="utf-8")
+    assert rlv._has_checksum_line(missing) is True
+    assert rlv._has_checksum_line(tmp_path / "sub") is True, (
+        "a directory (unreadable as text) must not be reported as an absent "
+        "checksum — that is the gentler claim and we have not established it"
+    )

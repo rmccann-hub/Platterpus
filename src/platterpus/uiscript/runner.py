@@ -739,6 +739,114 @@ class ScriptRunner(QObject):
             step, Outcome.PASS, f"{'accepted' if accept else 'cancelled'} {title!r}"
         )
 
+    def _do_answer_dialog(self, step: Step) -> None:
+        """Wait for a NAMED dialog, then answer it. The waiting is the point.
+
+        `ok` and `cancel` answer whatever is on top at the instant they run, and
+        fail when nothing is. That works for a dialog the script itself opened
+        with `open`, which is synchronous. It does **not** work for a dialog
+        raised as a consequence of an action, because the action only *requests*
+        the work: `rip` returns as soon as the start is posted, and the
+        "Album already ripped" confirmation appears a beat later. `rip` then `ok`
+        is therefore a race, and it is the same defect as v0.6.17's
+        `pick-release` — asserting a thing was REQUESTED when the claim needed is
+        that it HAPPENED.
+
+        Measured, 2026-08-20: section E of the cancel-path script did exactly
+        this. `rip` recorded "start requested", `wait-for-rip` found no worker
+        because the app was blocked on the confirmation, and **both** of that
+        run's two failures followed from it — the second being `rig-check`
+        grading the *cancelled* rip, since no second rip was ever produced. The
+        failure message even advised adding `ok`, which would have raced.
+
+        **Why the title is mandatory.** A bare accept in an unattended run will
+        answer a dialog nobody predicted — a crash report, an overwrite prompt, a
+        "disc has changed" — and there is no operator to notice it happened. So
+        this verb refuses to answer anything but the dialog it was told to
+        expect: a mismatching dialog is never touched, the wait continues, and
+        the timeout names what was sitting there instead. That makes the step an
+        assertion as well as an action, which is what stops "the script clicked
+        OK on something" from being a silent outcome.
+        """
+        action = step.args[0].lower()
+        if action not in ("ok", "cancel"):
+            self._record(
+                step,
+                Outcome.ERROR,
+                f"the first argument must be 'ok' or 'cancel', not {step.args[0]!r}",
+            )
+            return
+        try:
+            seconds = float(step.args[1])
+        except ValueError:
+            self._record(
+                step,
+                Outcome.ERROR,
+                f"{step.args[1]!r} is not a number of seconds",
+            )
+            return
+        if seconds <= 0:
+            self._record(
+                step,
+                Outcome.ERROR,
+                f"the timeout must be positive; got {seconds:g}. A zero wait is "
+                "what `ok`/`cancel` already do, and it is the race this verb "
+                "exists to remove.",
+            )
+            return
+        wanted = " ".join(step.args[2:]).strip()
+        if not wanted:
+            self._record(
+                step,
+                Outcome.ERROR,
+                "a title substring is required (see the verb's help)",
+            )
+            return
+        capped = min(seconds, MAX_WAIT_S)
+        accept = action == "ok"
+        # Names the dialog that WAS there when time ran out. Without it a timeout
+        # reads as "no dialog appeared", which is a different finding from "a
+        # dialog appeared and it was not the one you named" — and only the second
+        # tells you the app did something unexpected.
+        seen: list[str] = []
+
+        def answer_when_it_appears() -> bool:
+            dialog = _active_dialog()
+            if dialog is None:
+                return False
+            title = dialog.windowTitle()
+            if wanted.casefold() not in title.casefold():
+                # Deliberately NOT answered and deliberately not a failure yet:
+                # the dialog we want may still be behind this one.
+                if title not in seen:
+                    seen.append(title)
+                self._deadline_timeout_detail = (
+                    f"waited {capped:.0f}s for a dialog matching {wanted!r} and "
+                    f"never saw one; a dialog WAS open and was left untouched: "
+                    f"{', '.join(repr(t) for t in seen)}. This verb refuses to "
+                    f"answer a dialog it was not told to expect."
+                )
+                return False
+            if accept:
+                dialog.accept()
+            else:
+                dialog.reject()
+            self._deadline_outcome = Outcome.PASS
+            self._deadline_detail = (
+                f"{'accepted' if accept else 'dismissed'} {title!r} "
+                f"(matched {wanted!r})"
+            )
+            return True
+
+        self._arm_deadline(step, capped, answer_when_it_appears)
+        # `_arm_deadline` resets the timeout detail, so the no-dialog-at-all
+        # message is set after it and is overwritten only if one does show up.
+        self._deadline_timeout_detail = (
+            f"waited {capped:.0f}s for a dialog matching {wanted!r} and no dialog "
+            f"opened at all — so the action that was supposed to raise it either "
+            f"did not run or did not need confirming"
+        )
+
     def _do_expect_dialog(self, step: Step) -> None:
         wanted = step.args[0]
         dialog = _active_dialog()
@@ -1552,8 +1660,11 @@ class ScriptRunner(QObject):
                 detail += (
                     f". A dialog is waiting for an answer: "
                     f"{blocking.windowTitle()!r} — the rip was requested but the "
-                    "app is blocked on it, so no worker exists yet. Answer it in "
-                    "the script (`ok` / `cancel`) between `rip` and this step."
+                    "app is blocked on it, so no worker exists yet. Put "
+                    f"`answer-dialog ok 30 {blocking.windowTitle()}` between "
+                    "`rip` and this step. NOT a bare `ok`: the confirmation "
+                    "appears a beat after `rip` returns, so `ok` would race it "
+                    "and fail with 'no dialog is open' about half the time."
                 )
             self._record(step, Outcome.FAIL, detail)
             return

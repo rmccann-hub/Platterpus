@@ -9,10 +9,13 @@ cleans up after itself.
 from __future__ import annotations
 
 import hashlib
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import pytest
 
+from platterpus import update_install
 from platterpus.update_install import (
     UpdateInstallError,
     asset_url,
@@ -372,3 +375,122 @@ def test_unknown_size_reports_indeterminate_progress(tmp_path: Path) -> None:
         "0.2.3", dest_dir=tmp_path, progress=seen.append, opener=open_url
     )
     assert seen and all(p == -1.0 for p in seen)  # busy indicator, no bogus %
+
+
+# --- The transport must stay on TLS -----------------------------------------
+#
+# Added by security audit, 2026-08-20. `asset_url` hardcodes an https:// URL, so
+# an attacker cannot choose the first hop — but nothing checked the hops after
+# it, and `urllib`'s default redirect handler ALLOWS https -> http (its
+# `redirect_request` permits http, https and ftp). One plaintext `Location:` and
+# the payload, its checksum and the executable about to be installed all cross
+# the network in the clear.
+#
+# Why this is worth a guard rather than a shrug: the signature gate is dormant
+# (`PUBLIC_KEY_B64` ships empty), so SHA-256 is the only check AND the checksum
+# comes down the same channel as the bytes. An attacker who can rewrite the
+# transport rewrites both, and the install succeeds. TLS is the whole control.
+#
+# GitHub does not downgrade. That is exactly the kind of "our dependency happens
+# not to do the dangerous thing" assumption that cost this project the
+# QKeySequence shortcuts, and the rule from that is: anything we ask a
+# dependency for, we check the answer to.
+
+
+def test_a_plain_http_url_is_refused_before_any_request() -> None:
+    """The near end. No connection is opened at all."""
+    with pytest.raises(update_install.UpdateInstallError) as exc:
+        update_install._default_open("http://example.invalid/payload")
+    assert "HTTPS" in str(exc.value), exc.value
+
+
+def test_a_schemeless_url_is_refused() -> None:
+    """`urlsplit` gives an empty scheme here — it must not read as 'fine'."""
+    with pytest.raises(update_install.UpdateInstallError):
+        update_install._default_open("example.invalid/payload")
+
+
+def test_a_redirect_off_https_is_refused() -> None:
+    """The far end, and the one a hardcoded start URL cannot protect."""
+    handler = update_install._HttpsOnlyRedirects()
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        handler.redirect_request(
+            urllib.request.Request("https://github.invalid/a"),
+            None,
+            302,
+            "Found",
+            {},
+            "http://evil.invalid/payload",
+        )
+    assert "HTTPS" in str(exc.value), exc.value
+
+
+def test_a_redirect_to_a_non_web_scheme_is_refused() -> None:
+    """`file://` and `ftp://` are schemes urllib would otherwise accept.
+
+    A `file://` redirect would turn "update" into "copy a local path over the
+    installed binary", which is a different bug with the same blast radius.
+    """
+    handler = update_install._HttpsOnlyRedirects()
+    for target in ("file:///etc/passwd", "ftp://evil.invalid/payload"):
+        with pytest.raises(urllib.error.HTTPError):
+            handler.redirect_request(
+                urllib.request.Request("https://github.invalid/a"),
+                None,
+                302,
+                "Found",
+                {},
+                target,
+            )
+
+
+def test_an_https_to_https_redirect_is_still_allowed() -> None:
+    """**The floor.** Without this the guard could be "refuse everything".
+
+    GitHub release downloads DO redirect (to objects.githubusercontent.com), so a
+    handler that blocked all redirects would break every real update while
+    passing all three tests above.
+    """
+    handler = update_install._HttpsOnlyRedirects()
+    result = handler.redirect_request(
+        urllib.request.Request("https://github.invalid/a"),
+        None,
+        302,
+        "Found",
+        {},
+        "https://objects.githubusercontent.invalid/b",
+    )
+    assert result is not None, (
+        "a legitimate https->https redirect was refused — this would break every "
+        "real GitHub asset download"
+    )
+
+
+def test_the_final_url_is_checked_not_only_the_requested_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The belt, exercised: a response claiming a non-HTTPS origin is refused.
+
+    The redirect handler should make this unreachable. It is asserted anyway
+    because the two checks are different mechanisms, and `geturl()` is the only
+    thing that can testify to where the bytes actually came from — a
+    same-mechanism belt would share the buckle's failure.
+    """
+    closed: list[bool] = []
+
+    class _Response:
+        url = "http://downgraded.invalid/payload"
+
+        def geturl(self) -> str:
+            return self.url
+
+        def close(self) -> None:
+            closed.append(True)
+
+    monkeypatch.setattr(
+        update_install._OPENER, "open", lambda *a, **k: _Response(), raising=True
+    )
+    with pytest.raises(update_install.UpdateInstallError) as exc:
+        update_install._default_open("https://github.invalid/ok")
+    assert "HTTPS" in str(exc.value)
+    assert closed, "the response was not closed on refusal — a leaked socket"

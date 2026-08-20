@@ -201,18 +201,84 @@ def verify_rip_log(
             str(path),
             run,
         )
+    # ABSENT IS NOT MISMATCHED, AND THE DIFFERENCE IS THE WHOLE FINDING.
+    #
+    # A log with no `Log FUN512:` line at all and a log whose checksum disagrees
+    # with its body both exit non-zero here, and they mean opposite things:
+    #
+    #   * checksum present, does not match -> the archival record was ALTERED
+    #     after the ripper signed it. Alarming, and correctly alarming.
+    #   * no checksum line at all -> the ripper never got to write the footer.
+    #     Which is exactly what happens when a rip is CANCELLED: cyanrip is
+    #     killed mid-track, so the log stops before its own signature.
+    #
+    # Measured, 2026-08-20: a cancelled rig rip produced *"the ripper REJECTED
+    # <log>: it does not match its own FUN512 checksum, so it is not a faithful
+    # record of this rip and must not be treated as archival evidence"* — logged
+    # at ERROR, written into the report's `issues[]`, and every word of it
+    # untrue in kind. Nothing had been altered; the footer was simply never
+    # written. That is this project's recurring "every word accurate, the
+    # message wrong" defect.
+    #
+    # DERIVED FROM THE ARTIFACT, NOT FROM THE RIPPER'S PROSE. The obvious
+    # implementation — match cyanrip's "No FUN512 checksum found" string — is
+    # precisely what the fork's lap-12 J4 told us not to do, because that text
+    # is genopt's and one upstream sync from changing (see the comment above).
+    # So the discriminator is OUR OWN read of the file for the footer the parser
+    # already knows how to find. A claim about an artifact should be derivable
+    # from the artifact's content.
+    if not _has_checksum_line(path):
+        return LogVerification(
+            verdict=FAILED,
+            detail=(
+                f"{path.name} carries NO 'Log FUN512:' checksum line at all, so the "
+                f"ripper had nothing to verify it against (exit {run.exit_code}). "
+                f"This is what a rip stopped part-way looks like — the ripper is "
+                f"killed before it writes its own signature — and it is a different "
+                f"finding from a checksum that disagrees with the log body: nothing "
+                f"here says the file was altered. Either way it is not a complete "
+                f"archival record, so do not cite it as one"
+            ),
+            log_path=str(path),
+            exit_code=run.exit_code,
+            argv=tuple(run.argv),
+            output=run.output,
+        )
     return LogVerification(
         verdict=FAILED,
         detail=(
-            f"the ripper REJECTED {path.name}: it does not match its own FUN512 "
-            f"checksum, so it is not a faithful record of this rip and must not be "
-            f"treated as archival evidence (exit {run.exit_code})"
+            f"the ripper REJECTED {path.name}: it carries a 'Log FUN512:' checksum "
+            f"and the log body does NOT match it, so the file was altered after the "
+            f"ripper signed it and must not be treated as archival evidence "
+            f"(exit {run.exit_code})"
         ),
         log_path=str(path),
         exit_code=run.exit_code,
         argv=tuple(run.argv),
         output=run.output,
     )
+
+
+def _has_checksum_line(path: Path) -> bool:
+    """Whether the log carries cyanrip's own ``Log FUN512:`` footer.
+
+    Delegates to the parser's own :func:`~platterpus.parsers.cyanrip_log.
+    has_log_checksum` rather than re-spelling the pattern, so the two can never
+    disagree about what the footer looks like — the same one-definition-
+    many-callers rule the offer-vs-verdict split was fixed under.
+
+    Never raises. An unreadable log returns True, not False: we cannot show the
+    footer is absent, and the fail-closed direction is to keep the older,
+    stronger "does not match" wording rather than volunteer a gentler
+    explanation we have not established.
+    """
+    from platterpus.parsers.cyanrip_log import has_log_checksum
+
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return True
+    return has_log_checksum(text)
 
 
 #: What cyanrip prints when it cannot parse an argument (fork ``cyanrip_main.c``).

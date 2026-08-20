@@ -116,6 +116,45 @@ def _ripper_logs(album_dir: Path) -> list[Path]:
     ]
 
 
+def _rip_was_cancelled(album_dir: Path) -> bool:
+    """Whether this rip's own report says it was cancelled. Never raises.
+
+    Read off the artifact rather than inferred from the log's shape, because
+    "the log has no tracks" is the very thing we are trying to explain and
+    explaining it with itself would be circular.
+
+    **Two independent witnesses**, either of which is sufficient: the report's
+    ``outcome.status`` and an issue coded ``rip_cancelled``. One field could be
+    renamed by a schema change and quietly turn this check into "never
+    cancelled", which would restore the false FAIL without anything failing to
+    announce it. Both are written by the same code path today, so this is
+    redundancy against future drift, not against present disagreement.
+
+    Returns False when there is no report, it cannot be read, or it does not say
+    cancelled — the caller treats False as "no excuse for an empty parse", which
+    is the fail-closed direction.
+    """
+    import json
+
+    for report in sorted(album_dir.glob("*.platterpus.json")):
+        try:
+            data = json.loads(report.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        outcome = data.get("outcome")
+        if isinstance(outcome, dict) and outcome.get("status") == "cancelled":
+            return True
+        issues = data.get("issues")
+        if isinstance(issues, list) and any(
+            isinstance(issue, dict) and issue.get("code") == "rip_cancelled"
+            for issue in issues
+        ):
+            return True
+    return False
+
+
 def _compose_reference_argv(binary: str, device: str, build_tag: str) -> list[str]:
     """The argv a real rip would send, built by the REAL builder.
 
@@ -367,12 +406,52 @@ def check_parsers_against_the_log(manifest: Manifest, album_dir: Path | None) ->
         return
     tracks = len(getattr(parsed, "tracks", ()) or ())
     if tracks == 0:
+        # THE FLOOR IS RIGHT; ITS SUBJECT WAS NOT CHECKED.
+        #
+        # "A parse that finds nothing is not a parse that found nothing wrong" is
+        # the correct instinct (CLAUDE.md: *can this check be satisfied by finding
+        # nothing?*) and it stays. But a zero-track parse has two causes, and only
+        # one of them is a defect:
+        #
+        #   * the parser broke, or their log format moved  -> FAIL, as before
+        #   * the rip was CANCELLED before any track finished -> there is no track
+        #     record to find, and saying "ZERO tracks" about it is a FAIL for the
+        #     wrong reason
+        #
+        # Measured, 2026-08-20: a cancel landed 91s into track 1 of a paranoia-max
+        # rip, so cyanrip's log legitimately ended at its `Tracks:` header with
+        # nothing under it. `rig-check` called that a parser failure. It was one of
+        # only two failures in a 60-step run, and it was noise — and noise in a
+        # FAIL is expensive here, because a FAIL that turns out to be nothing
+        # teaches the reader to discount the next one.
+        #
+        # THE SKIP REQUIRES POSITIVE EVIDENCE, never an assumption: we only excuse
+        # the empty parse when the rip's own report says it was cancelled. Absent
+        # that evidence this stays a FAIL, so a real parser regression on a real
+        # rip can never hide behind "maybe it was cancelled" (tri-state, as
+        # everywhere else: not-determined is not a pass).
+        cancelled = _rip_was_cancelled(album_dir)
+        if cancelled:
+            manifest.add(
+                Result(
+                    SKIP,
+                    "parser/log",
+                    f"{logs[-1].name} parsed to zero tracks, and this rip's own "
+                    f"report says it was CANCELLED — the ripper was stopped before "
+                    f"any track record was written, so there is nothing for the "
+                    f"parser to find and this log is not a subject for the check. "
+                    f"Rip a disc to completion to exercise it.",
+                )
+            )
+            return
         manifest.add(
             Result(
                 FAIL,
                 "parser/log",
                 f"parsed {logs[-1].name} to ZERO tracks — a parse that finds "
-                f"nothing is not a parse that found nothing wrong",
+                f"nothing is not a parse that found nothing wrong. This rip's "
+                f"report does not say it was cancelled, so an empty parse is "
+                f"unexplained.",
             )
         )
         return

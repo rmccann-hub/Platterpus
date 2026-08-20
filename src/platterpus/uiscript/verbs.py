@@ -124,6 +124,37 @@ _VERB_LIST: tuple[Verb, ...] = (
     ),
     Verb("ok", 0, 0, "ok — accept the dialog on top"),
     Verb("cancel", 0, 0, "cancel — dismiss the dialog on top"),
+    # `ok` and `cancel` answer whatever is on top RIGHT NOW, and fail if nothing
+    # is. That is the wrong shape for a dialog raised by an action the script just
+    # took: a rip start is *requested* on the GUI thread and the confirmation
+    # appears a beat later, so `rip` followed by `ok` is a race — the same
+    # "asserting it was REQUESTED, not that it HAPPENED" defect that cost eight
+    # steps in v0.6.17, arriving through a different door.
+    #
+    # It bit for real on 2026-08-20: section E of the cancel-path rig script ripped
+    # the same disc twice, the second `rip` raised "Album already ripped", and
+    # `wait-for-rip` failed with *"no rip is running"* — then advised adding `ok`,
+    # which would have raced. Two of that run's two failures came from it (the
+    # second was `rig-check` examining the cancelled rip because no second rip ever
+    # produced one).
+    #
+    # So this verb WAITS, and it NAMES WHAT IT IS ANSWERING. A bare accept in an
+    # unattended run will happily click OK on a dialog nobody predicted — a crash
+    # report, a "disc has changed", an overwrite prompt — and an unattended script
+    # has no operator to notice. Requiring the title makes the step a check as well
+    # as an action: it asserts *which* question it answered, so a different dialog
+    # is a loud failure instead of a silent yes.
+    #
+    # Title last so it can be a bare multi-word substring with no quoting, the same
+    # shape `album` already uses. Case-insensitive substring, like `expect-dialog`.
+    Verb(
+        "answer-dialog",
+        3,
+        None,
+        "answer-dialog <ok|cancel> <seconds> <title-substring> — wait up to "
+        "<seconds> for a dialog whose title contains <title-substring>, then "
+        "accept or dismiss it; fails if a different dialog is up at the deadline",
+    ),
     Verb(
         "expect-dialog",
         1,
