@@ -283,6 +283,30 @@ pythonpath = ["src"]
 # fast and plugin-light. CI adds `--cov ... --cov-fail-under` explicitly
 # (see .github/workflows/ci.yml); the thresholds live there, not here.
 addopts = "-q --strict-markers"
+# A HANG MUST NAME ITSELF.
+#
+# Before this, a test that never returned cost the entire 15-minute CI step and
+# printed one line: "the action has timed out". The diagnosis was sitting in the
+# stuck process — which thread, which frame, which lock — and we threw it away,
+# which is exactly the failure the diagnostic-completeness rule in `CLAUDE.md`
+# is about: a silent truncation reads as an unexplained mystery when the facts
+# were in hand. `faulthandler_timeout` dumps EVERY thread's stack once a single
+# test outruns the bound (which matters here: the things that hang a Qt suite —
+# a `QThread.wait()`, an undrained pipe, a modal `exec()` — are all visible in
+# another thread's frames, not the main one), and `exit_on_timeout` ends the
+# process right there so the stack is the last thing written to the log instead
+# of being buried under ten more minutes of nothing.
+#
+# WHY 300 AND NOT SOMETHING TIGHTER: this bound must not be able to fire on a
+# slow-but-working test, because with `exit_on_timeout` a false positive kills a
+# healthy run. The whole suite is 275 s (4320 tests, pytest 9.1.1, this
+# container, 2026-08-20) and the slowest single CI batch of 72 tests was 34 s, so
+# a single test reaching 300 s is stuck by definition rather than merely slow.
+# It still saves two thirds of the step and, far more to the point, it turns a
+# timeout into a stack trace. Move the number only with a fresh measurement, and
+# write the measurement down next to it.
+faulthandler_timeout = 300
+faulthandler_exit_on_timeout = true
 
 # Coverage config (consumed when CI runs `pytest --cov`). Branch coverage is
 # stricter than line coverage — it requires both sides of every if/try taken.
