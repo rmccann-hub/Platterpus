@@ -20,6 +20,25 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Doc drift found 2026-08-20 — a stamp can be current while the prose is not
+
+- [ ] **`docs/hardware-test-checklist.md` is titled "v0.6.0" and stamped "v0.6.19".**
+  Both facts are true and together they are the failure `CLAUDE.md` names exactly: *a
+  stamp records when a doc was edited, and a doc nobody rewrites keeps an accurate
+  stamp while its prose quietly expires.* Its narrative still opens on the v0.6.0
+  one-file-upload change and "four releases since your last completed run", which is
+  now nineteen minors stale. The stamp gate cannot see this, and neither can the
+  version-claims gate — they check the footer and the CHANGELOG, not whether the
+  document still describes the release it is for.
+  **Deliberately not rewritten inside this release**: it is a ~700-line run sheet and
+  the release window is the wrong place for it. It is also partly superseded — the
+  *reference* half now lives in `docs/test-plan.md` Part E, so the rewrite should
+  reduce this sheet to the fillable per-release instance Part E describes rather than
+  restate it. Do that before the next hardware pass, and consider whether the
+  promise-of-completeness sweep (§5.af) can be extended to catch a title/stamp
+  mismatch mechanically — the check that would have caught this is "does the version
+  in the H1 match the version in the footer", which is two lines of test.
+
 ## Found in CI, 2026-08-20 — the crash handler was the crash — **FIXED in 0.6.19**
 
 - [x] **The fatal-error dialog stacked on itself without limit.** `box.exec()` runs
