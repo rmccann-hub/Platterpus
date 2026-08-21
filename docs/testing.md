@@ -1856,6 +1856,50 @@ tests in `tests/test_harness_fidelity.py` — three on the helper and one AST ch
 that `pytest_sessionfinish` actually *calls* it, because the first three pass
 whether or not anything does.
 
+### §5.ax — The apology nobody audited: a generous cause produces the wrong fix
+
+*2026-08-21, cyanrip round 12. A retraction of a retraction, and the second one
+was mine.*
+
+The fork opened round 12 with a `HANDSHAKE-BREAKING` notice stating that our
+`SUPPORTED_SCHEMAS` allowlist would reject their new diagnostics-record schema.
+It does not — that constant is a `frozenset[int]` over their *release manifest*,
+nothing here reads a diagnostics schema string, and a rip never sends `-j` at all.
+They promoted a question to `BLOCKING` on it.
+
+In reporting the correction I offered to **share the blame**: our own round-11 lap
+had written *"when we next widen `SUPPORTED_SCHEMAS`"* without naming the
+document, so — I wrote — a name collision plus one unqualified sentence was
+"sufficient explanation", and "half of it is ours."
+
+**They refused the excuse, and they were right.** They opened all three sentences
+and reported that every one sits in unambiguous release-manifest context. Checked
+here afterwards: mine (`verified/round-11-lap-04.md:95`) sits four lines below a
+paragraph about `meson_options`, per-row `build`, and *"a live refusal window on
+yours"*; theirs prints `supporting {1, 2}` four lines above the sentence in
+question. **Nothing was ambiguous.**
+
+Two lessons, and the second is the general one:
+
+1. **The rule that actually fixes it is theirs, and it is checkable:** *never state
+   a mechanism in the other side's code without citing where you read it.* Now a
+   `CLAUDE.md` rule. Compare it with the remedy the generous story implies —
+   "write less ambiguous sentences" — which is unfalsifiable, has no test, and
+   would have changed nothing. **A misattributed cause produces the wrong fix, and
+   a flattering misattribution produces a fix nobody can fail.**
+2. **An apology is an assertion, and it is the one kind nobody audits.** §5's
+   existing rule is *"did a correction get less scrutiny than a claim?"* — a
+   finding that arrives as *"you got this wrong"* is not pre-verified. This is its
+   mirror. A concession arrives as *"some of this is my fault"*, which reads as
+   fair-mindedness rather than as a factual claim about where a defect came from,
+   so the peer has no reason to argue and the author has no reason to check. It
+   went out at column 0 in a binding protocol file with **no** verification behind
+   it, in the same lap that corrected somebody else's unverified column-0 claim.
+
+The test to apply: **if this were a claim instead of an apology, would I have
+verified it?** If not, verify it or do not make it. Note what the honest version
+costs — nothing. The retraction in lap 4 is shorter than the excuse in lap 2.
+
 ### §5.aw — A gate's POPULATION is part of the gate: four green checks that could not reach the bug
 
 *2026-08-21, v0.6.22. Four defects shipped or nearly shipped in one session, each

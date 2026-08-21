@@ -200,3 +200,145 @@ def test_fork_only_rows_are_named_and_still_exist() -> None:
         "either the rule was renamed or it was removed."
     )
     assert len(generator._FORK_ONLY_RULES) >= 5
+
+
+#: Rules that match a committed FORK log and no committed STOCK log, yet are not
+#: declared fork-only. Each needs a reason, and the map may **shrink, never grow**.
+#:
+#: **Why an unresolved list rather than just declaring them.** The derivation below
+#: is real evidence but it has one known weakness: only 6 stock logs are committed,
+#: so *"never appears in a stock log"* can be a fact about our sample rather than
+#: about upstream. Declaring a line fork-only when upstream also prints it would
+#: put the fork on the hook for something that is not theirs — an error in the
+#: opposite direction and just as wrong. The answer lives in their tree, so it is
+#: a question for them, not a guess for us.
+_UNRESOLVED_FORK_ATTRIBUTION: dict[str, str] = {
+    "consumer": (
+        "the `Consumer:` line exists because of the fork's --consumer flag, so it "
+        "is almost certainly fork-only; not declared until they confirm, because "
+        "the flag's own P1 row is the evidence and we have not read it for this"
+    ),
+    "handshake_note": (
+        "the `Handshake:` line is the fork's own release-gate note; near-certainly "
+        "fork-only, same reason as `consumer` for not asserting it unilaterally"
+    ),
+    "invoked_as": (
+        "`Invoked as:` was added during the round-4 argv discussion; we believe "
+        "fork-only but have not read the upstream source to confirm upstream "
+        "never prints it"
+    ),
+    "read_stalls": (
+        "`Read stalls:` was our own round-5 ask, so fork-only is the expectation; "
+        "unconfirmed against upstream, which may have adopted it since"
+    ),
+    "secure_rerip_converged": (
+        "the secure re-rip convergence line is a fork feature we asked for; not "
+        "yet confirmed absent from upstream, which has its own -Z handling"
+    ),
+    "swap_addendum_crc": (
+        "the swapped-byte-order addendum CRC; believed fork-only, unconfirmed"
+    ),
+    "release_id": (
+        "genuinely uncertain, and the most likely false positive here: a "
+        "MusicBrainz release id line is the sort of thing upstream would also "
+        "print, and our stock sample is 6 logs"
+    ),
+    "rip_completed": (
+        "genuinely uncertain. Round 12 §D1 reworded this line, which shows the "
+        "fork owns its current WORDING, but not that upstream prints no such "
+        "line at all — a different claim"
+    ),
+}
+
+
+def _rules_matching_only_fork_logs(generator: ModuleType) -> set[str]:
+    """Rule names that match a committed fork log and no committed stock log.
+
+    Derived from the artifacts rather than from anyone's belief about them — the
+    `CLAUDE.md` rule about reading the file that can settle the question. Fork vs
+    stock is decided by the real `ripper_identity` classifier on each log's own
+    banner, not by its filename.
+    """
+    import re
+
+    from platterpus import ripper_identity
+
+    fork_text: list[str] = []
+    stock_text: list[str] = []
+    for path in sorted(_REPO_ROOT.glob("output_reference/**/*.log")) + sorted(
+        _REPO_ROOT.glob("docs/handshake/inbound/artifacts/*.log")
+    ):
+        body = path.read_text(encoding="utf-8", errors="replace")
+        identity = ripper_identity.identify_from_banner(body)
+        (fork_text if getattr(identity, "is_fork", False) else stock_text).append(body)
+
+    # A floor on the CORPUS, because "matched no stock log" is meaningless when
+    # there are no stock logs — the check would then declare everything fork-only.
+    assert len(fork_text) >= 5, f"only {len(fork_text)} fork logs committed"
+    assert len(stock_text) >= 3, f"only {len(stock_text)} stock logs committed"
+
+    only_fork: set[str] = set()
+    for name, pattern, _ in generator._pattern_rows():
+        compiled = re.compile(pattern, re.MULTILINE)
+        if any(compiled.search(body) for body in fork_text) and not any(
+            compiled.search(body) for body in stock_text
+        ):
+            only_fork.add(name)
+    return only_fork
+
+
+def test_a_fork_only_rule_is_declared_or_explicitly_unresolved() -> None:
+    """**The converse of the test above, and the direction that actually failed.**
+
+    That test checks names in `_FORK_ONLY_RULES` still exist. It cannot see a
+    fork-only rule *missing* from the set — and that omission understates the
+    fork's obligation, which is the dangerous direction: they can reword a line
+    believing nothing consumes it.
+
+    Measured 2026-08-21: the four `album_*` rules were added, this set was not,
+    and the contract we publish said *"9 exist only in the fork"* when it was 13
+    — for exactly the four rows we had just made ourselves depend on **in
+    preference to** the FFmpeg block their own P3 disclaims. Everything else on
+    that page is derived; this set is typed, which is why it was the field that
+    rotted.
+    """
+    generator = _load_generator()
+    candidates = _rules_matching_only_fork_logs(generator)
+    assert len(candidates) >= 10, (
+        f"the derivation found only {len(candidates)} fork-only candidates, so it "
+        f"has stopped recognising the logs and a pass proves nothing"
+    )
+    undeclared = candidates - set(generator._FORK_ONLY_RULES)
+    surprises = sorted(undeclared - set(_UNRESOLVED_FORK_ATTRIBUTION))
+    assert not surprises, (
+        "these rules match a committed FORK log and no committed STOCK log, but "
+        f"are neither declared fork-only nor recorded as unresolved: {surprises}.\n"
+        "Add them to `_FORK_ONLY_RULES` in scripts/emit_dependency_contract.py and "
+        "regenerate, or record why the attribution is uncertain in "
+        "`_UNRESOLVED_FORK_ATTRIBUTION` above. Do not delete this assertion: the "
+        "published contract is what tells the fork which lines it is on the hook "
+        "for, and an omission there is silent on both sides."
+    )
+
+
+def test_the_unresolved_attribution_list_only_shrinks() -> None:
+    """A ratchet, and its reasons have to be real.
+
+    An unresolved list is a legitimate answer to *"we do not know"* and an
+    illegitimate place to park work. So: it may not grow past what was measured
+    on 2026-08-21, every entry needs a reason long enough to be one, and an entry
+    that has since been resolved must be **removed** rather than left to imply
+    doubt that no longer exists.
+    """
+    generator = _load_generator()
+    assert len(_UNRESOLVED_FORK_ATTRIBUTION) <= 8, (
+        f"{len(_UNRESOLVED_FORK_ATTRIBUTION)} unresolved attributions; 8 were "
+        f"measured on 2026-08-21 and this list may only shrink. A new fork-only "
+        f"rule of ours is DECLARED, not parked here."
+    )
+    for name, reason in _UNRESOLVED_FORK_ATTRIBUTION.items():
+        assert len(reason) >= 60, f"{name}: the reason is {len(reason)} chars"
+        assert name not in generator._FORK_ONLY_RULES, (
+            f"{name} is both declared fork-only and listed as unresolved — the "
+            f"question has been answered, so delete the unresolved entry"
+        )

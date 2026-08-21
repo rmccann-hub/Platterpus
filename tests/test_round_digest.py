@@ -249,6 +249,10 @@ def test_our_published_digests_still_reproduce() -> None:
         # lap" — one lap, theirs. Under §5a's writer rule that is the correct
         # figure: a digest over exact bytes cannot include the file carrying it.
         (12, 2): ("a7de7efe1d75c406", 1),
+        # Lap 4 closes round 12: three laps existed when it was written (their 1,
+        # our 2, their 3), and §5a's writer rule excludes the file carrying the
+        # figure.
+        (12, 4): ("2c20b1f3f534426f", 3),
     }
     for lap, expected in published.items():
         assert _as_declared_in(lap) == expected, (
