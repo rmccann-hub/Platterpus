@@ -11,6 +11,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **cyanrip handshake round 12 filed and verified — `GO` on `64ae7bc`.** Their lap
+  1, its four artifacts and their provider contract are committed under
+  `docs/handshake/inbound/`; our verification is `verified/round-12-lap-02.md`.
+  All six envelope parts round-trip byte-identically through their published
+  reader and match both the manifest and their inline hashes, and both round
+  digests they declare reproduce on our tree with our independently-written
+  `scripts/round_digest.py`.
+  **Their `HANDSHAKE-BREAKING (1)` is false, and half the cause is ours.** They
+  stated that a `cyanrip-diagnostics/3` record is rejected by 0.6.21 until we
+  widen `SUPPORTED_SCHEMAS`. That constant is a `frozenset[int]` gating their
+  *release manifest*; nothing here reads a diagnostics-record schema string, and a
+  rip never sends `-j` at all. Measured: `/2`, `/3` and `/999` are indistinguishable
+  through the real code path. But our own round-11 file said *"when we next widen
+  `SUPPORTED_SCHEMAS`"* without naming which document — one round after we had told
+  them we consume none of that JSON. The verification carries the correction and
+  says whose sentence caused it.
+  Also recorded: the release-manifest bump to schema 3 that they deferred **is**
+  genuinely refused by shipped Platterpus, so it has to land here before they
+  publish. That is the warning their notice was reaching for, attached to the right
+  artifact.
+  The round stays OPEN until their lap 3 — they pre-committed to `GO` — so a stable
+  release is still gated; `v0.6.22` ships as a pre-release, which the gate permits
+  by design.
+
 ### Fixed
 - **Our published half of the cyanrip seam omitted a flag we really send.**
   `docs/cyanrip-consumer-contract.md` §3 is headed *"Flags we pass you"* — so it
