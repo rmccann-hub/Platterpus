@@ -11,96 +11,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
-### Fixed
-- **A rule about text *we* write was published in the table of lines we ask the
-  cyanrip fork to hold stable.** Answering round 12 lap 4 §C1, the fork reported
-  that `swap_addendum_crc` parses Platterpus's own `[Platterpus auto-fix addendum]`
-  block — the string `addendum` appears zero times in their `src/` and zero times in
-  upstream's. Our own corroboration is the stronger half: the single committed
-  "fork log" that rule matches has its match at line 1150 *inside* our own addendum
-  block opened at line 1145, so the log-corpus derivation was reading our output
-  back and attributing it to them. The rule **stays in the parser** —
-  `rip_addendum.with_addendum` hands the log *plus* its addendum to
-  `parse_cyanrip_log`, and dropping it would resurrect the defect where a re-parse
-  from disk reports the CRCs of the read we discarded — but it is now published in
-  its own **§1a, "Lines we parse that we write — not your obligation"**, naming the
-  module that writes it. §1 means *"change this and you break us"*, which cannot be
-  true of a line another project does not print.
-- **`track_elapsed_clock` retired: it read a shape no cyanrip build has ever
-  emitted.** Our lap 4 asked back about a rule declared fork-only that matched no
-  fork log; the fork answered that they split the line at their `89eb849`
-  (2026-07-31) from `Elapsed:  %s (%.1fx)` into `Extraction speed:  %.1fx` plus
-  `Elapsed:  %.2f s`. Measured here, the retirement is stronger than "it outlived
-  the split": the rule matched **0 of 19** committed fork logs and 0 of 11 stock
-  ones, their published P2 inventory carries exactly one `Elapsed:` format string
-  (the seconds form, `cyanrip_log.c:424`), *and the pre-split combined line does not
-  match it either* — its trailing ` (0.9x)` is refused by the retired pattern's
-  end-of-line anchor. So the archival "never drop a spelling the producer renamed"
-  argument did not apply; nothing ever emitted it. The only producers were two
-  hand-written fixtures, which is `CLAUDE.md`'s *what does my stand-in do that the
-  real thing does not?* keeping a dead rule alive with a green test. Retired **with
-  a gate rather than a hope**, because the indented-residue sweep is deliberately
-  informational and would have skimmed a reappearing clock in silence: every
-  elapsed-family line in the committed corpus (82 across 24 logs) must now be read
-  by `track_elapsed_seconds`, and a clock is pinned as *not read* rather than
-  half-read as a bare `3.0`.
-- **Three cross-references cited a GENERATED document by line number, and all three
-  were already wrong.** `docs/cyanrip-known-issues.md` pointed into the generated
-  consumer contract at line 99, at lines 56/57/59/64/65/66, and at lines 103–105.
-  (Written as prose rather than in the `page.md:NN` citation form, for the same
-  reason `CLAUDE.md` says to name a retired doc as a label and not a path: the
-  citation form reads as a live pointer, and the gate below rightly refuses one.)
-  Checked against that file as committed at `faa2a39` — *before* this change touched
-  it — every one landed on a different row than the prose claimed: line 99 was cited
-  for the AccurateRip result capture group and was `track_pregap_source`; line 56
-  was cited as `Overread mode:` and was `read_offset`; lines 103–105 were cited as
-  the three speed/elapsed regexes and were `track_accurip_offset`,
-  `track_appended_silence`, `track_peak_kind_header`. **Nothing could have caught
-  it**: the contract is regenerated from the parser's enumeration tables on every
-  change, so each number pointed into a file that renumbers itself, and a citation
-  is only ever wrong *by silence* — the sentence keeps reading plausibly. Now cited
-  by **rule name**, which is the key the page is organised by and the only stable
-  part of it, and gated: `tests/test_doc_index_completeness.py` refuses a
-  line-number citation into any generated page, with the population **derived** from
-  each `scripts/emit_*.py`'s own `OUTPUT_PATH` rather than listed — a typed list
-  there would be the same hand-maintained field that rotted in `_FORK_ONLY_RULES`,
-  inside a test written about stale cross-references.
-- **`test_doc_index_completeness.py` errored at collection**, taking the whole
-  module with it: the first version of that derivation *imported* each generator by
-  a hand-built spec, and `scripts/emit_envelope.py` cannot be exec'd that way —
-  `@dataclass` looks its own module up in `sys.modules`, which a bare spec never
-  registers. Read off the source with a regex instead, which is a derivation with
-  none of that surface and does not pull the application (PySide6 included) into
-  collection.
-
-### Changed
-- **Six log lines are now declared as the fork's obligation, and the unresolved-
-  attribution ratchet is at zero.** `consumer`, `handshake_note`, `invoked_as`,
-  `read_stalls`, `secure_rerip_converged` and `rip_completed` were confirmed theirs
-  from *their* trees — `tools/upstream-delta.py` diffs every `cyanrip_log()` format
-  string against their verbatim mirror of upstream at `0.9.4-rc2`, which answers
-  *"does upstream's source print this"* rather than our *"is it absent from the six
-  stock logs we hold"*. `rip_completed` resolved in the direction worth noticing:
-  we had recorded them as owning only the wording, and upstream prints no such line
-  at all. `release_id` is **not** theirs — upstream prints it and the fork merely
-  reworded a sibling message at `38e84cb` — so it is recorded in a third bucket with
-  the evidence, not declared. All eight open attributions were answered the same
-  day, so the ratchet's cap moved 8 → 0; raising it again is a visible edit with a
-  reason, which is the whole mechanism.
-- **Our fork-only declarations are now checked against the fork's own published
-  inventory, in-house.** We cannot verify the upstream-absence half from this
-  repository, and `CLAUDE.md` is explicit that verifying somebody's *description* of
-  their behaviour is a different claim from verifying the behaviour — round 4's "88
-  fatal strings, VERIFIED INDEPENDENTLY" was exactly that mistake. So
-  `tests/test_provider_contract_agreement.py` now requires every line we put the
-  fork on the hook for to appear as a row in the newest provider contract's
-  stable-lines inventory, with an emitting `file:line`. 17 of 18 back, including all
-  six new ones; the one exception is reasoned and is a gap in *their* contract — the
-  `True peak:` / `Sample peak:` sub-headers go out through the generic
-  `cyanrip_log.c:58` `%s%s:` call site with the label as a runtime argument, so
-  there is no literal to match and their P2a does not reconstruct it. Raised for
-  round 13.
-
 ## [0.6.23] — 2026-08-21
 
 *Supersedes 0.6.22, which was prepared and gated but never published — no tag,
@@ -179,6 +89,66 @@ somebody can actually get.*
   by design.
 
 ### Fixed
+- **A rule about text *we* write was published in the table of lines we ask the
+  cyanrip fork to hold stable.** Answering round 12 lap 4 §C1, the fork reported
+  that `swap_addendum_crc` parses Platterpus's own `[Platterpus auto-fix addendum]`
+  block — the string `addendum` appears zero times in their `src/` and zero times in
+  upstream's. Our own corroboration is the stronger half: the single committed
+  "fork log" that rule matches has its match at line 1150 *inside* our own addendum
+  block opened at line 1145, so the log-corpus derivation was reading our output
+  back and attributing it to them. The rule **stays in the parser** —
+  `rip_addendum.with_addendum` hands the log *plus* its addendum to
+  `parse_cyanrip_log`, and dropping it would resurrect the defect where a re-parse
+  from disk reports the CRCs of the read we discarded — but it is now published in
+  its own **§1a, "Lines we parse that we write — not your obligation"**, naming the
+  module that writes it. §1 means *"change this and you break us"*, which cannot be
+  true of a line another project does not print.
+- **`track_elapsed_clock` retired: it read a shape no cyanrip build has ever
+  emitted.** Our lap 4 asked back about a rule declared fork-only that matched no
+  fork log; the fork answered that they split the line at their `89eb849`
+  (2026-07-31) from `Elapsed:  %s (%.1fx)` into `Extraction speed:  %.1fx` plus
+  `Elapsed:  %.2f s`. Measured here, the retirement is stronger than "it outlived
+  the split": the rule matched **0 of 19** committed fork logs and 0 of 11 stock
+  ones, their published P2 inventory carries exactly one `Elapsed:` format string
+  (the seconds form, `cyanrip_log.c:424`), *and the pre-split combined line does not
+  match it either* — its trailing ` (0.9x)` is refused by the retired pattern's
+  end-of-line anchor. So the archival "never drop a spelling the producer renamed"
+  argument did not apply; nothing ever emitted it. The only producers were two
+  hand-written fixtures, which is `CLAUDE.md`'s *what does my stand-in do that the
+  real thing does not?* keeping a dead rule alive with a green test. Retired **with
+  a gate rather than a hope**, because the indented-residue sweep is deliberately
+  informational and would have skimmed a reappearing clock in silence: every
+  elapsed-family line in the committed corpus (82 across 24 logs) must now be read
+  by `track_elapsed_seconds`, and a clock is pinned as *not read* rather than
+  half-read as a bare `3.0`.
+- **Three cross-references cited a GENERATED document by line number, and all three
+  were already wrong.** `docs/cyanrip-known-issues.md` pointed into the generated
+  consumer contract at line 99, at lines 56/57/59/64/65/66, and at lines 103–105.
+  (Written as prose rather than in the `page.md:NN` citation form, for the same
+  reason `CLAUDE.md` says to name a retired doc as a label and not a path: the
+  citation form reads as a live pointer, and the gate below rightly refuses one.)
+  Checked against that file as committed at `faa2a39` — *before* this change touched
+  it — every one landed on a different row than the prose claimed: line 99 was cited
+  for the AccurateRip result capture group and was `track_pregap_source`; line 56
+  was cited as `Overread mode:` and was `read_offset`; lines 103–105 were cited as
+  the three speed/elapsed regexes and were `track_accurip_offset`,
+  `track_appended_silence`, `track_peak_kind_header`. **Nothing could have caught
+  it**: the contract is regenerated from the parser's enumeration tables on every
+  change, so each number pointed into a file that renumbers itself, and a citation
+  is only ever wrong *by silence* — the sentence keeps reading plausibly. Now cited
+  by **rule name**, which is the key the page is organised by and the only stable
+  part of it, and gated: `tests/test_doc_index_completeness.py` refuses a
+  line-number citation into any generated page, with the population **derived** from
+  each `scripts/emit_*.py`'s own `OUTPUT_PATH` rather than listed — a typed list
+  there would be the same hand-maintained field that rotted in `_FORK_ONLY_RULES`,
+  inside a test written about stale cross-references.
+- **`test_doc_index_completeness.py` errored at collection**, taking the whole
+  module with it: the first version of that derivation *imported* each generator by
+  a hand-built spec, and `scripts/emit_envelope.py` cannot be exec'd that way —
+  `@dataclass` looks its own module up in `sys.modules`, which a bare spec never
+  registers. Read off the source with a regex instead, which is a derivation with
+  none of that surface and does not pull the application (PySide6 included) into
+  collection.
 - **I filed five of the fork's round-12 artifacts under the wrong build, an hour
   after reading the rule that forbids it.** `docs/handshake/README.md` says a
   handshake artifact's filename names *"the commit the artifact's own banner
@@ -404,6 +374,32 @@ somebody can actually get.*
   no record is written.
 
 ### Changed
+- **Six log lines are now declared as the fork's obligation, and the unresolved-
+  attribution ratchet is at zero.** `consumer`, `handshake_note`, `invoked_as`,
+  `read_stalls`, `secure_rerip_converged` and `rip_completed` were confirmed theirs
+  from *their* trees — `tools/upstream-delta.py` diffs every `cyanrip_log()` format
+  string against their verbatim mirror of upstream at `0.9.4-rc2`, which answers
+  *"does upstream's source print this"* rather than our *"is it absent from the six
+  stock logs we hold"*. `rip_completed` resolved in the direction worth noticing:
+  we had recorded them as owning only the wording, and upstream prints no such line
+  at all. `release_id` is **not** theirs — upstream prints it and the fork merely
+  reworded a sibling message at `38e84cb` — so it is recorded in a third bucket with
+  the evidence, not declared. All eight open attributions were answered the same
+  day, so the ratchet's cap moved 8 → 0; raising it again is a visible edit with a
+  reason, which is the whole mechanism.
+- **Our fork-only declarations are now checked against the fork's own published
+  inventory, in-house.** We cannot verify the upstream-absence half from this
+  repository, and `CLAUDE.md` is explicit that verifying somebody's *description* of
+  their behaviour is a different claim from verifying the behaviour — round 4's "88
+  fatal strings, VERIFIED INDEPENDENTLY" was exactly that mistake. So
+  `tests/test_provider_contract_agreement.py` now requires every line we put the
+  fork on the hook for to appear as a row in the newest provider contract's
+  stable-lines inventory, with an emitting `file:line`. 17 of 18 back, including all
+  six new ones; the one exception is reasoned and is a gap in *their* contract — the
+  `True peak:` / `Sample peak:` sub-headers go out through the generic
+  `cyanrip_log.c:58` `%s%s:` call site with the label as a runtime argument, so
+  there is no literal to match and their P2a does not reconstruct it. Raised for
+  round 13.
 - **The cancel-path rig script was relying on a *bug* to set up its own test, and
   its overwrite answer would have cancelled the rip it was meant to continue.**
   Two related fixes, both found while adding `answer-dialog click=`:
