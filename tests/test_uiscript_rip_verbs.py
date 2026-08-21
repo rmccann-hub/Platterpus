@@ -1381,7 +1381,329 @@ def test_answer_dialog_rejects_an_unknown_action() -> None:
     record, _ = _run_one(win, "answer-dialog maybe 30 Album already ripped")
     assert record is not None
     assert record.outcome is Outcome.ERROR, record.detail
-    assert "'ok' or 'cancel'" in record.detail, record.detail
+    # Asserted token by token rather than on one phrasing, so growing the
+    # vocabulary again does not silently stop checking the earlier members.
+    for token in ("ok", "cancel", "click="):
+        assert token in record.detail, (
+            f"the refusal must name {token!r} as an accepted form; a script "
+            f"author reads this message instead of the source"
+        )
+
+
+# --- `answer-dialog click=<label>`: two answers were not enough -------------
+#
+# `ok`/`cancel` call accept()/reject(), which is the entire vocabulary a
+# two-button dialog needs. A dialog with three NAMED choices cannot be answered
+# that way at all — and it fails at it *silently*, which is why this needed a
+# verb rather than a note. Added 2026-08-21, before it shipped, by reading
+# `_confirm_known_overwrite`'s fall-through rather than assuming it.
+
+
+def _three_button_box(parent: Any, title: str) -> Any:
+    """A QMessageBox shaped exactly like `_confirm_known_overwrite`'s.
+
+    Built with `addButton` and a `RejectRole` cancel — the shape whose
+    `clickedButton()` stays None after `accept()`. The stand-in must not be
+    kinder than the product, so the buttons are added the same way and in the
+    same order the product adds them.
+    """
+    from PySide6.QtWidgets import QMessageBox
+
+    box = QMessageBox(parent)
+    box.setWindowTitle(title)
+    box.setText("This album already has a rip.")
+    replace = box.addButton("Replace it", QMessageBox.ButtonRole.DestructiveRole)
+    new_folder = box.addButton("Rip to a new folder", QMessageBox.ButtonRole.AcceptRole)
+    cancel = box.addButton(QMessageBox.StandardButton.Cancel)
+    box.setDefaultButton(cancel)
+    box.setModal(True)
+    return box, replace, new_folder, cancel
+
+
+def test_answer_dialog_click_presses_the_named_button(qapp, process_until) -> None:
+    """**The reason this form exists.**
+
+    Asserted on `clickedButton()` — the thing the product branches on — not on
+    the record. A verb that recorded PASS while leaving `clickedButton()` as
+    None is exactly the defect being fixed, and a record-only check would pass
+    against it.
+    """
+    win = _window()
+    box, _replace, new_folder, _cancel = _three_button_box(win, "Album already ripped")
+    box.show()
+    try:
+        assert process_until(lambda: box.isVisible())
+        _, runner = _run_one(win, "answer-dialog click=new 5 Album already ripped")
+        resolved = _drive_deadline(runner, process_until, timeout=6.0)
+        assert resolved is not None, "the deadline never resolved"
+        assert resolved.outcome is Outcome.PASS, resolved.detail
+        assert box.clickedButton() is new_folder, (
+            f"the named button was not the one pressed; clickedButton() is "
+            f"{box.clickedButton()!r}. This is the assertion the whole form "
+            f"exists for — `ok` leaves it None."
+        )
+        assert "Rip to a new folder" in resolved.detail, (
+            "the transcript must name the FULL label that was pressed, not the "
+            "substring the script happened to type — an unattended run's "
+            "transcript is the only record of which choice was taken"
+        )
+    finally:
+        box.close()
+        box.deleteLater()
+
+
+def test_answer_dialog_ok_does_not_choose_a_button_on_this_dialog_shape(
+    qapp, process_until
+) -> None:
+    """**Pins the Qt behaviour that made `ok` unsafe here, so we learn if it moves.**
+
+    `accept()` on a QMessageBox built with `addButton` closes the dialog and
+    leaves `clickedButton()` as **None**. A caller shaped like
+    `_confirm_known_overwrite` — `if clicked is replace … if clicked is new …
+    return None  # Cancel` — therefore falls through to CANCEL. So
+    `answer-dialog ok` on this dialog would have cancelled the rip while the
+    transcript said "accepted", and no assertion in this file would have
+    noticed.
+
+    This test does not assert a bug in our code; it asserts the Qt fact the
+    `click=` form was added because of. If a future PySide6 makes `accept()`
+    populate `clickedButton()`, this fails and the reasoning gets re-read
+    rather than inherited.
+    """
+    win = _window()
+    box, _replace, _new_folder, _cancel = _three_button_box(win, "Album already ripped")
+    box.show()
+    try:
+        assert process_until(lambda: box.isVisible())
+        _, runner = _run_one(win, "answer-dialog ok 5 Album already ripped")
+        resolved = _drive_deadline(runner, process_until, timeout=6.0)
+        assert resolved is not None, "the deadline never resolved"
+        assert resolved.outcome is Outcome.PASS, resolved.detail
+        assert "accepted" in resolved.detail, resolved.detail
+        assert box.clickedButton() is None, (
+            "PySide6 now reports a clicked button after accept() on an "
+            "addButton-built QMessageBox. That is the premise `click=` was "
+            "added on — re-read the reasoning in `_do_answer_dialog` before "
+            "changing this test to match."
+        )
+    finally:
+        box.close()
+        box.deleteLater()
+
+
+def test_answer_dialog_click_names_every_button_when_none_matches(
+    qapp, process_until
+) -> None:
+    """A refusal has to carry the labels, or the author is left guessing.
+
+    The one thing a script author needs at this moment is the text of the
+    buttons that were actually there — that is the input to the fix. Also
+    asserts nothing was clicked: a guard that reported FAIL and pressed
+    something anyway would pass a record-only check.
+    """
+    win = _window()
+    box, _replace, _new_folder, _cancel = _three_button_box(win, "Album already ripped")
+    box.show()
+    try:
+        assert process_until(lambda: box.isVisible())
+        _, runner = _run_one(
+            win, "answer-dialog click=obliterate 1 Album already ripped"
+        )
+        resolved = _drive_deadline(runner, process_until, timeout=4.0)
+        assert resolved is not None, "the deadline never resolved"
+        assert resolved.outcome is Outcome.FAIL, resolved.detail
+        assert "Replace it" in resolved.detail, resolved.detail
+        assert "Rip to a new folder" in resolved.detail, resolved.detail
+        assert box.clickedButton() is None, "a non-matching name pressed something"
+        assert box.isVisible(), "the dialog was answered despite no match"
+    finally:
+        box.close()
+        box.deleteLater()
+
+
+def test_answer_dialog_click_refuses_an_ambiguous_substring(
+    qapp, process_until
+) -> None:
+    """Two matches is a refusal, not a coin flip.
+
+    Same call `uiscript/find_script.py` makes for two files matching one name,
+    and for the same reason: guessing here answers a question the wrong way, and
+    the transcript would say it answered it correctly. `rip` matches both
+    "Rip to a new folder" and "Rip and keep both".
+    """
+    from PySide6.QtWidgets import QMessageBox
+
+    win = _window()
+    box = QMessageBox(win)
+    box.setWindowTitle("Album already ripped")
+    box.addButton("Rip to a new folder", QMessageBox.ButtonRole.AcceptRole)
+    box.addButton("Rip and keep both", QMessageBox.ButtonRole.AcceptRole)
+    box.setModal(True)
+    box.show()
+    try:
+        assert process_until(lambda: box.isVisible())
+        _, runner = _run_one(win, "answer-dialog click=rip 1 Album already ripped")
+        resolved = _drive_deadline(runner, process_until, timeout=4.0)
+        assert resolved is not None, "the deadline never resolved"
+        assert resolved.outcome is Outcome.FAIL, resolved.detail
+        assert "matches 2 buttons" in resolved.detail, resolved.detail
+        assert box.clickedButton() is None, (
+            "an ambiguous substring picked one anyway — the transcript would "
+            "then record a confident answer to the wrong question"
+        )
+    finally:
+        box.close()
+        box.deleteLater()
+
+
+def test_answer_dialog_click_refuses_a_disabled_button(qapp, process_until) -> None:
+    """The failure nobody thinks of, and the only silent one left.
+
+    `QAbstractButton.click()` on a disabled button raises nothing and does
+    nothing. Without this check the step records PASS, the dialog stays on
+    screen, and the NEXT step's failure gets the blame.
+    """
+    from PySide6.QtWidgets import QMessageBox
+
+    win = _window()
+    box = QMessageBox(win)
+    box.setWindowTitle("Album already ripped")
+    disabled = box.addButton("Rip to a new folder", QMessageBox.ButtonRole.AcceptRole)
+    disabled.setEnabled(False)
+    box.addButton(QMessageBox.StandardButton.Cancel)
+    box.setModal(True)
+    box.show()
+    try:
+        assert process_until(lambda: box.isVisible())
+        _, runner = _run_one(win, "answer-dialog click=new 1 Album already ripped")
+        resolved = _drive_deadline(runner, process_until, timeout=4.0)
+        assert resolved is not None, "the deadline never resolved"
+        assert resolved.outcome is Outcome.FAIL, resolved.detail
+        assert "DISABLED" in resolved.detail, resolved.detail
+        assert box.clickedButton() is None
+        assert box.isVisible(), "a disabled button still closed the dialog"
+    finally:
+        box.close()
+        box.deleteLater()
+
+
+def test_answer_dialog_click_says_so_when_the_dialog_has_no_buttons(
+    qapp, process_until
+) -> None:
+    """A plain QDialog cannot be answered by name, and must say that."""
+    from PySide6.QtWidgets import QDialog
+
+    win = _window()
+    dialog = QDialog(win)
+    dialog.setWindowTitle("Album already ripped")
+    dialog.setModal(True)
+    dialog.show()
+    try:
+        assert process_until(lambda: dialog.isVisible())
+        _, runner = _run_one(win, "answer-dialog click=new 1 Album already ripped")
+        resolved = _drive_deadline(runner, process_until, timeout=4.0)
+        assert resolved is not None, "the deadline never resolved"
+        assert resolved.outcome is Outcome.FAIL, resolved.detail
+        assert "no buttons at all" in resolved.detail, resolved.detail
+        assert "'ok' or 'cancel'" in resolved.detail, (
+            "the message must name the form that WOULD work here"
+        )
+    finally:
+        dialog.close()
+        dialog.deleteLater()
+
+
+def test_answer_dialog_rejects_an_empty_click_substring() -> None:
+    """`click=` with nothing after it would match every button."""
+    win = _window()
+    record, _ = _run_one(win, "answer-dialog click= 30 Album already ripped")
+    assert record is not None
+    assert record.outcome is Outcome.ERROR, record.detail
+    assert "substring" in record.detail, record.detail
+
+
+# --- The pure matcher, tested where the refusal branches are reachable ------
+
+
+def test_button_matching_is_case_insensitive_and_refuses_ambiguity() -> None:
+    from platterpus.uiscript.runner import _match_button_label
+
+    labels = ["Replace it", "Rip to a new folder", "Cancel"]
+    assert _match_button_label(labels, "NEW") == (1, "")
+    assert _match_button_label(labels, "replace")[0] == 0
+
+    index, why = _match_button_label(labels, "r")
+    assert index is None, "a one-letter substring matching 3 labels picked one"
+    assert "refuses to guess" in why, why
+
+    index, why = _match_button_label(labels, "nope")
+    assert index is None
+    for label in labels:
+        assert repr(label) in why, f"the refusal dropped {label!r}"
+
+    index, why = _match_button_label([], "new")
+    assert index is None
+    assert "no buttons at all" in why, why
+
+
+def test_one_sweep_finds_the_same_buttons_qmessagebox_reports_itself(qapp) -> None:
+    """**Pins the measurement that deleted a special case.**
+
+    `_dialog_buttons` used to branch on `isinstance(dialog, QMessageBox)` to use
+    the box's own `buttons()`, on the stated grounds that a `findChildren` sweep
+    would additionally pick up the internal "Show Details…" toggle. Measured on
+    PySide6 6.9.1, that is false — `buttons()` reports the toggle too — so the
+    branch distinguished nothing and was removed. The revert-proof had already
+    said so by failing to fail.
+
+    This test is what stops that from being a claim in a comment. A detailed-text
+    box is used deliberately, because the toggle is the only button the two
+    accessors could plausibly disagree about. Compared as SETS, since the two
+    orders genuinely differ and order is not something we depend on.
+    """
+    from PySide6.QtWidgets import QAbstractButton, QMessageBox
+
+    from platterpus.uiscript.runner import _dialog_buttons
+
+    box = QMessageBox()
+    box.setText("hi")
+    box.setDetailedText("the gory details")
+    box.addButton("Replace it", QMessageBox.ButtonRole.DestructiveRole)
+    box.addButton(QMessageBox.StandardButton.Cancel)
+    try:
+        own = {b.text() for b in box.buttons()}
+        swept = {b.text() for b in box.findChildren(QAbstractButton)}
+        assert own == swept, (
+            f"QMessageBox.buttons() and a findChildren sweep now DISAGREE — "
+            f"buttons()={sorted(own)}, sweep={sorted(swept)}. Re-read the "
+            f"docstring of `_dialog_buttons`: the special case was deleted "
+            f"because these were measured equal."
+        )
+        assert len(swept) >= 3, (
+            "fewer than three buttons means the fixture stopped building the "
+            "shape this test is about, and the comparison above is vacuous"
+        )
+        assert {b.text() for b in _dialog_buttons(box)} == own, (
+            "the production accessor no longer returns what the box reports"
+        )
+    finally:
+        box.deleteLater()
+
+
+def test_mnemonic_markers_are_stripped_but_a_literal_ampersand_survives() -> None:
+    """`&Replace` reads as "Replace"; `Save && Close` reads as "Save & Close".
+
+    The second half is why this is not a bare `.replace("&", "")`: that would
+    render the label `Save  Close`, and a script written as `click=&` — or as
+    `click=save & close` — would then match nothing while the button sat right
+    there.
+    """
+    from platterpus.uiscript.runner import _plain_label
+
+    assert _plain_label("&Replace it") == "Replace it"
+    assert _plain_label("Rip to a &new folder") == "Rip to a new folder"
+    assert _plain_label("Save && Close") == "Save & Close"
+    assert _plain_label("Cancel") == "Cancel"
 
 
 def test_wait_for_rip_advises_the_non_racy_verb() -> None:
