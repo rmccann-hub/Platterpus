@@ -16,6 +16,7 @@ escape into."""
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -42,15 +43,65 @@ def _python_files() -> list[Path]:
     return sorted(files)
 
 
+def _looks_like_shell(path: Path) -> bool:
+    """True for a `.sh`, or an EXTENSIONLESS file with a shell shebang.
+
+    The extensionless half is not hypothetical tidiness. `.githooks/pre-commit`
+    is a bash script with no extension, `CLAUDE.md` calls it *"the canonical
+    guard"* for Critical Rule #8 — and a `rglob("*.sh")` never saw it. So the one
+    test checking shell hygiene silently excluded the most consequential shell
+    script in the repository, and an audit later found it failing **open** (a
+    `|| true` that absorbed its producer's failure as well as grep's no-match).
+    A scan that cannot see a file cannot report anything about it.
+    """
+    if path.suffix == ".sh":
+        return True
+    if path.suffix:
+        return False
+    try:
+        first_line = path.open("rb").readline(200).decode("utf-8", "replace")
+    except OSError:
+        return False
+    return first_line.startswith("#!") and "sh" in first_line
+
+
 def _shell_scripts() -> list[Path]:
-    """Every shipped *.sh, minus generated/vendored trees we don't own."""
+    """Every shipped shell script, minus generated/vendored trees we don't own."""
     skip = {".git", "venv", ".venv", "node_modules", "__pycache__"}
     scripts: list[Path] = []
-    for path in _ROOT.rglob("*.sh"):
+    for path in _ROOT.rglob("*"):
+        if not path.is_file():
+            continue
         if _BUILD_LIB in path.parents or skip.intersection(path.parts):
             continue
-        scripts.append(path)
+        if _looks_like_shell(path):
+            scripts.append(path)
     return sorted(scripts)
+
+
+#: Floor for the shell scan. 13 today (12 `*.sh` + `.githooks/pre-commit`). The
+#: previous floor was `assert scripts` — a floor of one, which a glob matching a
+#: single stray file would satisfy.
+_MIN_SHELL_SCRIPTS: int = 10
+
+#: Scripts that legitimately do NOT set `pipefail`, each with the technical reason.
+#: A ratchet: it may shrink, never grow. Both entries are the same real hazard —
+#: `producer | head -1` makes the producer see SIGPIPE when `head` exits early, so
+#: under `pipefail` + `set -e` the script would abort on a working command. That is
+#: a reason to omit pipefail, not an oversight, and it is written down so the next
+#: reader does not "fix" it and break a launcher.
+_NO_PIPEFAIL_ALLOWED: dict[str, str] = {
+    "build/python-appimage/entrypoint.sh": (
+        'line 13 is `ls "$APPDIR"/opt/python*/bin/python* | head -1`; under '
+        "pipefail the early-exiting `head` makes `ls` fail and `set -e` would "
+        "abort the AppImage launcher on a healthy install"
+    ),
+    "docs/rig-scripts/platterpuscollect.sh": (
+        "line 60 is `... | sort -rn | head -1 | cut ...`, the same early-exit "
+        "SIGPIPE shape; the script runs on an operator's machine where aborting "
+        "mid-collection loses the bundle it exists to produce"
+    ),
+}
 
 
 # Floor for the source scans. Without one, every "assert no offenders" test below
@@ -207,17 +258,140 @@ def test_every_subprocess_call_passes_a_list_not_a_built_string() -> None:
     )
 
 
-def test_shell_scripts_enable_errexit() -> None:
-    """Every shipped shell script must enable errexit (``set -e`` / ``-euo
-    pipefail``) so a failed step aborts instead of silently continuing — the
-    shell-side analogue of the no-shell guard. A structural minimum enforced in
-    CI (not a full shellcheck), and a regression lock on the "all scripts use
-    set -euo pipefail" property (audit §B verified-clean)."""
-    scripts = _shell_scripts()
-    assert scripts, "no shell scripts found — scan roots are wrong"
-    offenders = [
-        str(path)
-        for path in scripts
-        if "set -e" not in path.read_text(encoding="utf-8")
+def _set_option_lines(text: str) -> list[str]:
+    """Real `set -...` lines — not comments, not prose that mentions one.
+
+    The previous version of the errexit test asked `"set -e" not in text`, which a
+    **comment** satisfies. Its docstring meanwhile claimed to be "a regression lock
+    on the 'all scripts use set -euo pipefail' property" — a stronger claim than
+    the substring it checked, and the gap is exactly this project's *"can it be
+    satisfied by the wrong thing?"* shape: a label matched where a subject was
+    needed. Anchoring to a statement is the difference between "the file mentions
+    errexit" and "the file enables it".
+    """
+    return [
+        line.strip()
+        for line in text.splitlines()
+        if re.match(r"^\s*set\s+-", line) and not line.lstrip().startswith("#")
     ]
-    assert not offenders, f"shell scripts missing `set -e` (errexit): {offenders}"
+
+
+def test_shell_scripts_enable_errexit() -> None:
+    """Every shipped shell script must ENABLE errexit, in a real `set` statement.
+
+    So a failed step aborts instead of silently continuing — the shell-side
+    analogue of the no-shell guard. A structural minimum, not a full shellcheck.
+    """
+    scripts = _shell_scripts()
+    assert len(scripts) >= _MIN_SHELL_SCRIPTS, (
+        f"the scan found only {len(scripts)} shell scripts (floor "
+        f"{_MIN_SHELL_SCRIPTS}) — the roots or the shebang detection are wrong, "
+        "so every finding here is meaningless"
+    )
+    offenders: list[str] = []
+    for path in scripts:
+        flags = "".join(
+            line.split()[1].lstrip("-")
+            for line in _set_option_lines(path.read_text(encoding="utf-8"))
+            if len(line.split()) > 1
+        )
+        if "e" not in flags:
+            offenders.append(str(path.relative_to(_ROOT)))
+    assert not offenders, (
+        "these shell scripts never enable errexit in a real `set -` statement, so "
+        f"a failed command continues silently: {offenders}"
+    )
+
+
+def test_shell_scripts_enable_pipefail_or_say_why_not() -> None:
+    """`set -e` alone does not catch a failure inside a pipeline.
+
+    This is the half the old test claimed and did not check. It matters here
+    concretely: the media guard's `producer | grep ... || true` discarded the
+    producer's failure, and the guards that must never fail open are shell.
+
+    The allowlist carries a written technical reason per entry and may shrink,
+    never grow — the same ratchet shape as the ripper spawn-site enumeration.
+    """
+    scripts = _shell_scripts()
+    assert len(scripts) >= _MIN_SHELL_SCRIPTS, "scan is broken; see the errexit test"
+
+    missing: list[str] = []
+    for path in scripts:
+        relative = str(path.relative_to(_ROOT))
+        has_pipefail = any(
+            "pipefail" in line
+            for line in _set_option_lines(path.read_text(encoding="utf-8"))
+        )
+        if not has_pipefail and relative not in _NO_PIPEFAIL_ALLOWED:
+            missing.append(relative)
+    assert not missing, (
+        "these shell scripts do not set `pipefail`, so a failure in the middle of "
+        "a pipeline is invisible. Add it, or add an allowlist entry to "
+        "_NO_PIPEFAIL_ALLOWED with the technical reason:\n  " + "\n  ".join(missing)
+    )
+
+    # The other direction of the ratchet: an allowlist entry whose script gained
+    # pipefail (or vanished) must be removed, or the list quietly describes a repo
+    # that has moved on.
+    known = {str(p.relative_to(_ROOT)) for p in scripts}
+    stale = [
+        name
+        for name in _NO_PIPEFAIL_ALLOWED
+        if name not in known
+        or any(
+            "pipefail" in line
+            for line in _set_option_lines((_ROOT / name).read_text(encoding="utf-8"))
+        )
+    ]
+    assert not stale, (
+        "these _NO_PIPEFAIL_ALLOWED entries are stale — the script now sets "
+        f"pipefail, or no longer exists. Remove them: {stale}"
+    )
+    for name, reason in _NO_PIPEFAIL_ALLOWED.items():
+        assert len(reason) >= 40, (
+            f"{name}'s allowlist reason is too short to be a reason: {reason!r}"
+        )
+
+
+def test_a_commented_set_line_does_not_count_as_enabling_anything() -> None:
+    """Pinned directly, because a revert would NOT show this.
+
+    Every script in the tree really does enable errexit, so swapping the anchored
+    matcher back for the old `"set -e" in text` substring breaks nothing today —
+    the weakness only bites the first time somebody writes about `set -e` in a
+    comment without setting it. That is the invisible kind of decay, so the
+    property is asserted against constructed input rather than left to a future
+    accident to reveal.
+    """
+    commented = "#!/usr/bin/env bash\n# set -euo pipefail is the repo rule\necho hi\n"
+    assert _set_option_lines(commented) == [], (
+        "a comment mentioning `set -euo pipefail` was read as enabling it — the "
+        "exact label-instead-of-subject failure this matcher replaced"
+    )
+    real = "#!/usr/bin/env bash\nset -euo pipefail\necho hi\n"
+    assert _set_option_lines(real) == ["set -euo pipefail"], (
+        "a real `set` statement was not recognised, so the check now passes "
+        "nothing and would report every script as an offender"
+    )
+    indented = "#!/bin/sh\n    set -e\n"
+    assert _set_option_lines(indented) == ["set -e"], (
+        "an indented `set -e` (inside a function or an if) was missed"
+    )
+
+
+def test_the_canonical_media_guard_hook_is_in_scope() -> None:
+    """The extensionless hook must be swept, and this says so out loud.
+
+    `rglob("*.sh")` never matched `.githooks/pre-commit`, so the only shell-hygiene
+    test in the repo excluded the script `CLAUDE.md` calls the canonical guard for
+    Critical Rule #8 — and it was later found failing open. A scan's blind spot is
+    invisible by construction, so the fix needs a test that names the file rather
+    than trusting the glob.
+    """
+    hook = _ROOT / ".githooks" / "pre-commit"
+    assert hook.is_file(), "the Rule #8 pre-commit hook is missing entirely"
+    assert hook in _shell_scripts(), (
+        "the shell scan does not include .githooks/pre-commit, so nothing here "
+        "checks the guard that enforces the one rule with legal consequences"
+    )

@@ -244,12 +244,37 @@ jobs:
           else
             base="$PUSH_BEFORE"; head="$GITHUB_SHA"
           fi
+          # THE PRODUCER IS CHECKED SEPARATELY FROM grep. `| grep ... || true`
+          # needs the `|| true` for grep's no-match exit (the normal case), but
+          # `|| true` sits outside the pipeline and so also absorbs a failure of
+          # `git ls-files` / `git diff` themselves — `set -o pipefail` cannot help,
+          # because it is the pipeline's own non-zero status being discarded. The
+          # result is an empty `offenders`, a "No audio/media files. ✅", and a
+          # green gate that inspected nothing: fail-OPEN on the one rule here with
+          # legal consequences.
+          #
+          # This branch has the more reachable trigger of the two: after a
+          # force-push `$PUSH_BEFORE` can name an object that no longer exists, at
+          # which point `git diff` is fatal rather than empty.
+          #
+          # The identical idiom was in `.githooks/pre-commit`, which CLAUDE.md calls
+          # "the canonical guard" — so the two guards meant to be INDEPENDENT
+          # witnesses shared one failure mode, which is exactly what an independent
+          # backstop is for. Found 2026-08-20; both fixed together.
+          #
           # Manual run or a new ref with no base → scan the whole tree instead of a range.
           if [ "$EVENT" = "workflow_dispatch" ] || printf '%s' "$base" | grep -qE '^0+$'; then
-            offenders=$(git ls-files | grep -iE "$pattern" || true)
+            if ! candidates=$(git ls-files); then
+              echo "::error::git ls-files failed, so this gate could not enumerate the tree. Refusing rather than reporting a clean scan it did not perform."
+              exit 1
+            fi
           else
-            offenders=$(git diff --name-only --diff-filter=ACMR "$base" "$head" | grep -iE "$pattern" || true)
+            if ! candidates=$(git diff --name-only --diff-filter=ACMR "$base" "$head"); then
+              echo "::error::git diff $base..$head failed (a force-push can leave \$PUSH_BEFORE naming a vanished object), so this gate could not enumerate the change. Refusing rather than reporting a clean scan it did not perform."
+              exit 1
+            fi
           fi
+          offenders=$(printf '%s\n' "$candidates" | grep -iE "$pattern" || true)
           if [ -n "$offenders" ]; then
             echo "::error::Audio/copyrighted media must never be committed (CLAUDE.md Critical Rule #8). Offenders:"
             printf '%s\n' "$offenders" >&2
