@@ -11,7 +11,7 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
-## 2026-08-21 (v0.6.22) — cyanrip round 12, and four defects the checks could not see
+## 2026-08-21 (v0.6.23) — cyanrip round 12 closed, and six defects the checks could not see
 
 One release and one handshake round, and they are the same story: **every defect
 found this session was found by running an artifact through the real code, and
@@ -83,6 +83,56 @@ it was not tested at all. And a special case justified in a comment —
 `isinstance(dialog, QMessageBox)` to avoid a "Show Details…" toggle a child sweep
 would find — turned out to distinguish nothing, because `buttons()` returns the
 toggle too. Deleted rather than defended; the measurement is now a test.
+
+### Closed the round, and got corrected doing it
+
+Their lap 3 came back `GO` — round 12 closed in four laps against round 7's 37 —
+and it **refused the blame I had offered to share.** I reported their
+`HANDSHAKE-BREAKING (1)` as false and then called it *"half ours"* on a
+name-collision story. They opened all three sentences; every one sits in
+unambiguous release-manifest context. Verified here afterwards rather than
+accepted: mine sits four lines below a paragraph about `meson_options` and
+per-row `build`; theirs prints `supporting {1, 2}` four lines above.
+
+**The generous cause was a fiction, and it would have imported the wrong fix.**
+*"Write less ambiguous sentences"* is unfalsifiable; their remedy is checkable and
+is now a `CLAUDE.md` rule — never state a mechanism in the other side's code
+without citing where you read it. Graduated with its mirror as §5.ax, because the
+excuse cost a second lap: **an apology is the one assertion nobody audits.**
+
+Their own §E1 was worse than we reported: P4's rows were literal strings in the
+generator, and `exit_codes()` scanned integer literals inside `main()`, which
+returns `rc` from `cyanrip_run()` — it reported `1` and missed even `0`.
+
+### Two more defects, found because of that round
+
+5. **"I could not read it" reported as "you altered it."** Their new
+   `--verify-log` code 5 means *unreadable, no verdict reached*, and every
+   non-zero code fell through to the tamper wording. Same defect as #2 from the
+   other side of the seam: there we could not read the file, here they could not.
+6. **A test that lied about its currency for nine rounds.**
+   `test_provider_contract_agreement.py` claimed to re-derive from the newest
+   provider contract and read a hard-coded round 4. So one half of the seam was
+   diffed against round 11/12 while the other was diffed against a document eight
+   rounds older — and the file said the opposite in its own first paragraph, which
+   is why nobody looked. Even repointed it would have read **15 of 25** P3 rows,
+   because its row regex matched `*.c` and ten of the new rows are `genopt.h`.
+
+### And one on our own published half
+
+`_FORK_ONLY_RULES` — the single hand-typed field inside our *generated* consumer
+contract — told the fork *"9 lines exist only in the fork"* when it was 13,
+missing exactly the four rows we had just started preferring over the FFmpeg block
+their P3 disclaims. They could have reworded them believing nothing consumed them.
+The converse check is now derived from artifacts (does a rule match a committed
+fork log and no committed stock log?) and found **eight further** candidates —
+none declared unilaterally, because six stock logs is a thin sample and calling a
+line theirs when upstream also prints it is the same error mirrored. Asked back in
+lap 4 §C1.
+
+**0.6.22 was prepared, gated and superseded before publication** — no tag, no
+artifact — so this shipped as 0.6.23 and the changelog carries one section rather
+than two.
 
 ### Graduated
 
@@ -3641,4 +3691,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.22.*
+*Last updated for Platterpus v0.6.23.*

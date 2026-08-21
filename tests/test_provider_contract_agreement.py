@@ -97,7 +97,9 @@ def _sections() -> dict[str, str]:
     text = CONTRACT.read_text(encoding="utf-8")
     marks = list(_HEADING.finditer(text))
     bounds = [m.start() for m in marks] + [len(text)]
-    return {m.group("label"): text[bounds[i] : bounds[i + 1]] for i, m in enumerate(marks)}
+    return {
+        m.group("label"): text[bounds[i] : bounds[i + 1]] for i, m in enumerate(marks)
+    }
 
 
 def _rows(label: str) -> list[tuple[str, str]]:
@@ -145,6 +147,37 @@ def _top_level_rule_matching(line: str) -> str | None:
     return None
 
 
+def test_the_renderer_handles_length_modifiers() -> None:
+    """An unrendered specifier is a **false pass** in the load-bearing check.
+
+    `_render` turns a C format string into something our patterns can be tried
+    against. It handled `%i`/`%s`/`%f` and *silently* left `%llds`, `%hi` and `%llu`
+    alone — so the string kept a literal `%`, which can stop a pattern matching a
+    line the real log *would* match. Round 12's P3 carries four `%llds` rows
+    (`stall_watchdog.c`) and three `%ll*`/`%h*` rows in its `genopt.h` block, so the
+    gap was live, not hypothetical.
+
+    Pinned as exact equality rather than "contains no %": the fix has to produce a
+    plausible *instance*, and the plain forms must keep working — extending a
+    renderer is how you break the four cases it already handled.
+    """
+    assert (
+        _render("Still waiting: %s has not returned after %llds")
+        == "Still waiting: X has not returned after 7s"
+    )
+    assert _render("(default: %hi)") == "(default: 7)"
+    assert _render("(default: %llu)") == "(default: 7)"
+    assert _render("Track %i - the read for LSN %i returned after %llds") == (
+        "Track 7 - the read for LSN 7 returned after 7s"
+    )
+    # The forms that already worked.
+    assert _render("%s folder: [%s] extension: %s%s") == "X folder: [X] extension: XX"
+    assert _render("Album integrated loudness (R128): %.1f LUFS") == (
+        "Album integrated loudness (R128): 1.5 LUFS"
+    )
+    assert _render('Log \\"%s\\" checksum valid.') == 'Log "X" checksum valid.'
+
+
 def test_the_contract_we_read_is_the_current_rounds_own() -> None:
     """**The regression test for reading round 4 while round 12 was closing.**
 
@@ -187,9 +220,7 @@ def test_every_unstable_row_in_the_document_is_read() -> None:
     # backticked token. Deliberately NOT the same regex `_ROW` uses — a reader
     # checked against itself is consistent, not verified (the round-5 lesson).
     table_rows = [
-        line
-        for line in _sections()["P3"].splitlines()
-        if line.startswith("| `")
+        line for line in _sections()["P3"].splitlines() if line.startswith("| `")
     ]
     parsed = _rows("P3")
     assert len(table_rows) >= 10, f"only {len(table_rows)} rows in P3 at all"
@@ -304,7 +335,8 @@ def _p4_codes() -> dict[int, str]:
     """
     row = re.compile(r"^\| `(?P<code>\d+)` \|(?P<rest>.*)$", re.MULTILINE)
     return {
-        int(m.group("code")): m.group("rest").strip() for m in row.finditer(_sections()["P4"])
+        int(m.group("code")): m.group("rest").strip()
+        for m in row.finditer(_sections()["P4"])
     }
 
 
