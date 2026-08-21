@@ -54,6 +54,57 @@ def _ui_modules() -> list[Path]:
     return sorted(p for p in _UI_DIR.rglob("*.py") if "__pycache__" not in p.parts)
 
 
+#: Floor for the parametrized sweep below. 33 modules today (measured
+#: 2026-08-20); the bar sits below that so ordinary consolidation does not trip
+#: it, and above the 20/15 floors the two sibling sweeps over this same directory
+#: already use. Lowering it is a deliberate act with a re-measured number, never a
+#: way to make a red run green.
+_MIN_UI_MODULES: int = 25
+
+
+def test_the_blocking_call_sweep_examines_the_real_ui_package() -> None:
+    """Floor for the parametrized sweep — which structurally CANNOT floor itself.
+
+    `@pytest.mark.parametrize("path", _ui_modules())` generates one case per
+    module, so an **empty population generates no cases at all**. Measured under
+    this repo's config (`addopts = "-q --strict-markers"`, no
+    `empty_parameter_set_mark`): an empty parametrize reports `1 skipped` and
+    exits **0**. A floor asserted *inside* the parametrized function would be
+    skipped along with it, which is exactly why this test is separate and
+    unparametrized.
+
+    That matters more here than almost anywhere: the sweep guards *"never block
+    the GUI thread"*, a rule `CLAUDE.md` says was **written in blood** and which
+    has bitten three times. The two meta-tests below prove the *detector* works on
+    a planted file in `tmp_path` — a different claim. A perfect detector applied
+    to zero modules passes, and nothing said so.
+
+    The realistic drift is not this directory vanishing; it is modules *leaving*
+    it (a dialog moved to `src/platterpus/dialogs/`), shrinking the population
+    with no count to notice. So the count is asserted — and so is the **subject**,
+    because 25 unrelated files in the right directory would satisfy a count alone.
+    """
+    assert _UI_DIR.is_dir(), (
+        f"the UI package is not at {_UI_DIR}, so the sweep matches nothing and "
+        "every blocking-call case is silently skipped. Fix the path, do not "
+        "delete the test."
+    )
+    modules = _ui_modules()
+    assert len(modules) >= _MIN_UI_MODULES, (
+        f"the sweep reached only {len(modules)} UI modules (floor "
+        f"{_MIN_UI_MODULES}). Either the glob is broken or the package moved. If "
+        "modules legitimately left `ui/`, re-measure and lower _MIN_UI_MODULES "
+        "deliberately — do not treat this as spurious, because the same shrink is "
+        "what a broken sweep looks like."
+    )
+    # The subject, not just the size: this rule exists because of the main window.
+    assert any("main_window" in path.name for path in modules), (
+        "no main_window* module is in the swept population, so whatever this "
+        "sweep is now examining, it is not the surface the GUI-thread rule is "
+        f"about. Population: {[p.name for p in modules[:12]]}"
+    )
+
+
 def _import_aliases(tree: ast.AST) -> tuple[dict[str, str], dict[str, tuple[str, str]]]:
     """Resolve a module's imports so aliased blockers can't slip the guard.
 
