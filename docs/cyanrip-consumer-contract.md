@@ -146,7 +146,7 @@ dropped.
 | `^Tracks:\\s*$` | section marker, no payload |
 | `^Summary:\\s*$` | section marker, no payload |
 
-## 3. Flags we pass you (18)
+## 3. Flags we pass you (19)
 
 Obtained by calling the real argv builder with a maximal parameter set, so
 this is what the adapter emits today rather than what it was documented to
@@ -154,7 +154,7 @@ emit. Per-flag semantics and the exact contract for each are in
 `docs/dependency-contracts.md`.
 
 ```
---verify-log --version -D -F -G -N -O -S -V -Z -a -c -d -l -o -r -s -t
+--verify-log --version -D -F -G -N -O -S -V -Z -a -c -d -j -l -o -r -s -t
 ```
 
 Two of these are load-bearing beyond their own behaviour:

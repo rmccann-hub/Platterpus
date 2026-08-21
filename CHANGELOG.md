@@ -11,6 +11,34 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Our published half of the cyanrip seam omitted a flag we really send.**
+  `docs/cyanrip-consumer-contract.md` §3 is headed *"Flags we pass you"* — so it
+  is read as complete — and listed 18, without `-j`. `rig_check.py` passes `-j` to
+  read our own command line back out of the ripper's diagnostics record, and that
+  invocation was outside the generator's population, which was the rip argv plus
+  two remembered probes. The generator's own comment one screen above said *"The
+  rip is not the only thing we run. Every invocation we make is part of the argv
+  surface"*; this is the third recorded instance of that exact blind spot in that
+  one function, which is what makes a comment there insufficient.
+  Found while checking a cyanrip round-12 claim that turned on which document a
+  schema number belonged to — a claim that was possible partly because **neither**
+  side's published contract described this surface at all.
+  The flag is now a named constant at its call site and the generator *derives* it,
+  so the two cannot drift. `tests/test_dependency_contract_emitted.py` sweeps a
+  registry of every way we run the ripper (four today) against the contract, so a
+  *fifth* invocation shape fails until the generator knows about it — the class,
+  not the instance.
+- **Nothing covered the argv probe's spawn, so a wrong flag would only have
+  surfaced on hardware.** `_compose_reference_argv` was tested; the function that
+  *runs* it was not, and the revert-proof found it — changing the spawned `-j` to
+  `-J` left the whole file green. cyanrip would have rejected the flag and the
+  first sign would have been a red row mid-session with a disc in the drive.
+  `TestTheArgvProbeSpawn` now runs the real spawn against a stub binary that
+  records its own argv, asserts the flag arrives *and* that the rip argv it is
+  supposed to carry arrives with it, and separately proves the check can fail when
+  no record is written.
+
 ### Changed
 - **The cancel-path rig script was relying on a *bug* to set up its own test, and
   its overwrite answer would have cancelled the rip it was meant to continue.**

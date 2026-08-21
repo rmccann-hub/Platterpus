@@ -58,6 +58,7 @@ from platterpus.handshake_approval import (  # noqa: E402
     APPROVED_FOR_PLATTERPUS_VERSION as _APPROVED_FOR,
 )
 from platterpus.parsers import cyanrip_log as _parser  # noqa: E402
+from platterpus.rig_check import DIAGNOSTICS_FLAG  # noqa: E402
 
 OUTPUT_PATH: Path = _REPO_ROOT / "docs" / "cyanrip-consumer-contract.md"
 
@@ -170,6 +171,20 @@ def _emitted_flags() -> list[str]:
     # described only the rip.
     tokens.update(VERSION_FLAGS)
     tokens.add(VERIFY_LOG_FLAG)
+    # FOURTH invocation shape: the rig-check argv probe, which runs the binary with
+    # `-j` to read its own command line back out of the diagnostics record.
+    #
+    # It was missing, so this document — headed "Flags we pass you" and therefore
+    # read as complete — listed 18 and omitted one we really send. The comment
+    # directly above already said every invocation we make belongs here; the
+    # population it was written over did not include this one, which is the same
+    # "scoping a sweep silently while the rule claims everything" defect the
+    # comment above records two earlier instances of. Third time in this function.
+    #
+    # Found 2026-08-21 while checking a cyanrip round-12 claim about the `-j`
+    # record's schema — a claim that was itself possible partly because neither
+    # side's published contract described this surface at all.
+    tokens.add(DIAGNOSTICS_FLAG)
     return sorted(
         {
             token
