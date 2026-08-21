@@ -51,4 +51,4 @@ documents (the interrupted sample carries one) at read time.
 
 ---
 
-*Last updated for Platterpus v0.6.22.*
+*Last updated for Platterpus v0.6.23.*
