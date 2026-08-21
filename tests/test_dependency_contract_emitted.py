@@ -212,41 +212,66 @@ def test_fork_only_rows_are_named_and_still_exist() -> None:
 #: put the fork on the hook for something that is not theirs — an error in the
 #: opposite direction and just as wrong. The answer lives in their tree, so it is
 #: a question for them, not a guess for us.
-_UNRESOLVED_FORK_ATTRIBUTION: dict[str, str] = {
-    "consumer": (
-        "the `Consumer:` line exists because of the fork's --consumer flag, so it "
-        "is almost certainly fork-only; not declared until they confirm, because "
-        "the flag's own P1 row is the evidence and we have not read it for this"
-    ),
-    "handshake_note": (
-        "the `Handshake:` line is the fork's own release-gate note; near-certainly "
-        "fork-only, same reason as `consumer` for not asserting it unilaterally"
-    ),
-    "invoked_as": (
-        "`Invoked as:` was added during the round-4 argv discussion; we believe "
-        "fork-only but have not read the upstream source to confirm upstream "
-        "never prints it"
-    ),
-    "read_stalls": (
-        "`Read stalls:` was our own round-5 ask, so fork-only is the expectation; "
-        "unconfirmed against upstream, which may have adopted it since"
-    ),
-    "secure_rerip_converged": (
-        "the secure re-rip convergence line is a fork feature we asked for; not "
-        "yet confirmed absent from upstream, which has its own -Z handling"
+#:
+#: **EMPTY as of 2026-08-21, and that is the outcome the mechanism was for.** It
+#: held eight entries for a few hours. The fork answered our round-12 lap 4 §C1
+#: from *their* trees — `tools/upstream-delta.py` diffs every `cyanrip_log()`
+#: format string in `platterpus-fork` against their verbatim mirror of upstream at
+#: 0.9.4-rc2 — which answers *"does upstream's source print this"* rather than our
+#: *"is it absent from the six stock logs we hold"*. Six were confirmed theirs and
+#: are now declared; two were not ours to declare at all:
+#:
+#: * ``release_id`` — **upstream's line.** They print it; the fork only *reworded*
+#:   it (at their `38e84cb`), so the wording is theirs and the line is upstream's —
+#:   the exact inverse of ``rip_completed``. Our instinct that this was the likely
+#:   false positive was right, and it is why the map existed instead of a guess.
+#: * ``swap_addendum_crc`` — **ours.** It parses text Platterpus writes. See
+#:   `_OUR_OWN_OUTPUT_RULES` in the generator.
+#:
+#: Kept as an empty map rather than deleted: the two tests below are the mechanism,
+#: and the mechanism is what turned "we do not know" into an answer instead of into
+#: a silent declaration. A future uncertainty gets a row here and a question in a
+#: lap, not a guess in the published contract.
+_UNRESOLVED_FORK_ATTRIBUTION: dict[str, str] = {}
+
+#: Rules the log-corpus derivation flags as fork-only that **are not**, each with
+#: what settled it. This is the bucket that keeps the derivation honest: it has a
+#: measured false-positive rate, and pretending otherwise is how a guess gets
+#: published as a contract claim.
+#:
+#: "Matches a fork log, matches no stock log" is evidence, not proof — our stock
+#: sample is six logs, and one of these two shows the method reading *our own
+#: output* back and calling it the fork's. Both were settled from a source, not
+#: from a bigger sample.
+_NOT_FORK_DESPITE_THE_LOGS: dict[str, str] = {
+    "release_id": (
+        "UPSTREAM'S LINE, per the fork on 2026-08-21 from their verbatim mirror of "
+        "upstream: upstream prints `Release ID unavailable, cannot search Cover Art "
+        "DB!`, `Release ID %s not found in release list for DiscID %s!` and `Found "
+        "MusicBrainz release: %s - %s`. The fork only REWORDED the first (their "
+        "38e84cb), so the wording is theirs and the line is upstream's — the exact "
+        "inverse of `rip_completed`, where they own both. We may therefore depend on "
+        "the line existing and NOT on its exact text.\n"
+        "CAVEAT, RECORDED BECAUSE A CORRECTION IS NOT PRE-VERIFIED (CLAUDE.md): none "
+        "of those three strings is the line THIS rule matches. Our pattern is "
+        "`^Release ID:\\s+(?P<value>\\S+)` — the banner header row, which their own "
+        "P2 inventory puts at `cyanrip_log.c:716` as `Release ID:     %s` and which "
+        "their answer does not mention. Their conclusion is plausible (an echo of a "
+        "release id is exactly what upstream would print) and NOT declaring it "
+        "fork-only errs safe either way, since the error we are avoiding is putting "
+        "them on the hook for a line that is not theirs. Confirming the banner row "
+        "specifically is round 13's. Note our own stock-log absence (0 of 11) is no "
+        "evidence here at all: the row only appears when a release id is known, "
+        "which needs the `-a musicbrainz_albumid=` that only Platterpus sends."
     ),
     "swap_addendum_crc": (
-        "the swapped-byte-order addendum CRC; believed fork-only, unconfirmed"
-    ),
-    "release_id": (
-        "genuinely uncertain, and the most likely false positive here: a "
-        "MusicBrainz release id line is the sort of thing upstream would also "
-        "print, and our stock sample is 6 logs"
-    ),
-    "rip_completed": (
-        "genuinely uncertain. Round 12 §D1 reworded this line, which shows the "
-        "fork owns its current WORDING, but not that upstream prints no such "
-        "line at all — a different claim"
+        "OURS. It parses the `[Platterpus auto-fix addendum]` block that "
+        "`rip_addendum.render_addendum` writes. `addendum` appears zero times in the "
+        "fork's src/ and zero times in upstream's. Our own corroboration is the "
+        "stronger one: the single committed 'fork log' this rule matches has the "
+        "match INSIDE our own addendum block, so the derivation was reading our "
+        "output back and attributing it to them. Published in its own section of the "
+        "contract rather than in the table of lines we depend on THEM for."
     ),
 }
 
@@ -309,7 +334,8 @@ def test_a_fork_only_rule_is_declared_or_explicitly_unresolved() -> None:
         f"has stopped recognising the logs and a pass proves nothing"
     )
     undeclared = candidates - set(generator._FORK_ONLY_RULES)
-    surprises = sorted(undeclared - set(_UNRESOLVED_FORK_ATTRIBUTION))
+    settled = set(_UNRESOLVED_FORK_ATTRIBUTION) | set(_NOT_FORK_DESPITE_THE_LOGS)
+    surprises = sorted(undeclared - settled)
     assert not surprises, (
         "these rules match a committed FORK log and no committed STOCK log, but "
         f"are neither declared fork-only nor recorded as unresolved: {surprises}.\n"
@@ -329,12 +355,20 @@ def test_the_unresolved_attribution_list_only_shrinks() -> None:
     on 2026-08-21, every entry needs a reason long enough to be one, and an entry
     that has since been resolved must be **removed** rather than left to imply
     doubt that no longer exists.
+
+    **The cap is now 0, and moving it down was the point of the ratchet.** It was
+    8 while eight attributions were open; all eight were answered the same day, so
+    a cap of 8 would silently permit re-growing to eight parked questions and the
+    ratchet would have measured nothing. Raising it again is allowed — a genuinely
+    uncertain new rule belongs here rather than being declared on a guess — but it
+    is then a visible edit with a number attached, which is the whole mechanism.
     """
     generator = _load_generator()
-    assert len(_UNRESOLVED_FORK_ATTRIBUTION) <= 8, (
-        f"{len(_UNRESOLVED_FORK_ATTRIBUTION)} unresolved attributions; 8 were "
-        f"measured on 2026-08-21 and this list may only shrink. A new fork-only "
-        f"rule of ours is DECLARED, not parked here."
+    assert len(_UNRESOLVED_FORK_ATTRIBUTION) <= 0, (
+        f"{len(_UNRESOLVED_FORK_ATTRIBUTION)} unresolved attributions; all eight "
+        f"open on 2026-08-21 were answered that day and the cap moved to 0. A new "
+        f"fork-only rule of ours is DECLARED, not parked here — and a genuinely "
+        f"uncertain one raises this number in the same commit, with the reason."
     )
     for name, reason in _UNRESOLVED_FORK_ATTRIBUTION.items():
         assert len(reason) >= 60, f"{name}: the reason is {len(reason)} chars"
@@ -342,3 +376,148 @@ def test_the_unresolved_attribution_list_only_shrinks() -> None:
             f"{name} is both declared fork-only and listed as unresolved — the "
             f"question has been answered, so delete the unresolved entry"
         )
+
+
+def test_the_derivations_known_false_positives_are_named_and_reasoned() -> None:
+    """The bucket that stops a heuristic being published as a contract claim.
+
+    "Matches a fork log, matches no stock log" is evidence with a measured false
+    positive rate — two of ten on 2026-08-21 — and both were settled from a
+    *source* rather than from a larger sample. Requiring a written reason per entry
+    is what keeps this from becoming a place to park anything inconvenient, and
+    asserting they are NOT declared fork-only is what stops the two buckets
+    contradicting each other in the published document.
+    """
+    generator = _load_generator()
+    assert len(_NOT_FORK_DESPITE_THE_LOGS) >= 2, (
+        "the two measured false positives are the argument for this bucket "
+        "existing; removing them removes the record that the derivation can be "
+        "wrong"
+    )
+    for name, why in _NOT_FORK_DESPITE_THE_LOGS.items():
+        assert len(why) >= 120, f"{name}: the reason is {len(why)} chars"
+        assert name not in generator._FORK_ONLY_RULES, (
+            f"{name} is both declared fork-only and recorded as not-fork — the "
+            f"published contract would claim the fork owns a line we have "
+            f"evidence they do not"
+        )
+    # The one that is ours must be published as ours, not merely withheld.
+    assert "swap_addendum_crc" in generator._OUR_OWN_OUTPUT_RULES, (
+        "swap_addendum_crc is recorded as parsing our own output but is not in "
+        "_OUR_OWN_OUTPUT_RULES, so the contract still lists it among the lines we "
+        "ask the fork to hold stable"
+    )
+
+
+def test_the_not_fork_bucket_names_real_rules_the_derivation_really_flags() -> None:
+    """Both halves, or the bucket becomes a place to silence the derivation.
+
+    A name that is not a real rule is a typo that silently exempts nothing; a name
+    the derivation does **not** flag is an exemption for a question nobody asked,
+    which is how an escape hatch turns into a habit. So each entry must be a live
+    rule *and* still be a candidate — when it stops being one, delete the row.
+    """
+    generator = _load_generator()
+    known = {name for name, _, _ in generator._pattern_rows()}
+    unknown = sorted(set(_NOT_FORK_DESPITE_THE_LOGS) - known)
+    assert not unknown, f"_NOT_FORK_DESPITE_THE_LOGS names non-existent rules: {unknown}"
+    candidates = _rules_matching_only_fork_logs(generator)
+    idle = sorted(set(_NOT_FORK_DESPITE_THE_LOGS) - candidates)
+    assert not idle, (
+        f"these rows exempt rules the derivation no longer flags: {idle} — the "
+        f"exemption is doing nothing and should be deleted, so the next reader is "
+        f"not told the derivation has false positives it no longer has"
+    )
+
+
+def test_our_own_output_rules_are_derived_from_our_own_emitter() -> None:
+    """**The check that makes `_OUR_OWN_OUTPUT_RULES` a measurement, not a belief.**
+
+    The claim *"this rule parses text we write, not text cyanrip writes"* is the
+    whole basis for moving a row out of the contract's §1, and the fork found the
+    original mis-filing by reading their own tree. Ours has to be checkable here:
+    render a real addendum with the real emitter and require every declared name to
+    match a line of it. A rule that matches nothing we emit is not ours, and a
+    typo in the set is caught by the same assertion.
+
+    **`track_secure_verdict` must NOT be in the set**, and that is asserted rather
+    than assumed: the addendum deliberately mirrors cyanrip's own `Secure re-read:`
+    label so the supersede is honoured on a re-parse, and the fork really does emit
+    that line (their P2, `cyanrip_log.c:441/444/449`). "Matches our text" is a
+    necessary condition for membership, never a sufficient one.
+    """
+    from platterpus.rip_addendum import SupersededTrack, render_addendum
+
+    generator = _load_generator()
+    rendered = render_addendum(
+        "accuraterip",
+        [
+            SupersededTrack(
+                number=5,
+                filename="05 - Example.flac",
+                crc="E0036697",
+                previous_crc="6902BCF0",
+                accuraterip_v1="ABCD1234 — matched — confidence 7",
+                accuraterip_v2="DEADBEEF — matched — confidence 9",
+                accuraterip_offset="12345678 — matched — confidence 3",
+                secure_reread="converged after 5 reads",
+            )
+        ],
+    )
+    assert rendered.strip(), "render_addendum produced nothing to check against"
+    patterns = {name: pattern for name, pattern, _ in generator._pattern_rows()}
+    assert generator._OUR_OWN_OUTPUT_RULES, (
+        "the set is empty, so this test passes by finding nothing; the addendum "
+        "block is still parsed and still needs to be published as ours"
+    )
+    for name in sorted(generator._OUR_OWN_OUTPUT_RULES):
+        assert name in patterns, f"{name} is not a rule the parser has"
+        compiled = __import__("re").compile(patterns[name])
+        matched = [line for line in rendered.splitlines() if compiled.match(line)]
+        assert matched, (
+            f"`{name}` is declared as parsing Platterpus's own output, but it "
+            f"matches no line that rip_addendum.render_addendum actually writes. "
+            f"Either the emitter's text moved or the declaration is wrong — and a "
+            f"wrong one publishes a cyanrip line as ours, which is the same "
+            f"mis-attribution in the other direction."
+        )
+    assert "track_secure_verdict" not in generator._OUR_OWN_OUTPUT_RULES, (
+        "the addendum mirrors cyanrip's `Secure re-read:` label on purpose; that "
+        "line IS theirs (their P2) and belongs in §1"
+    )
+
+
+def test_a_line_we_write_ourselves_is_not_published_as_one_they_must_hold() -> None:
+    """The published-document half of the fix, asserted on the text we ship.
+
+    §1's own preamble says *"changing the text, indentation, or field order of any
+    of these changes what Platterpus records about a rip"*, and the page tells the
+    fork that a change to a §1 line *"is a breaking change to us and requires a
+    handshake round"*. Applying that to `[Platterpus auto-fix addendum]` — text
+    `rip_addendum.render_addendum` writes — asked another project to keep a line
+    stable that it does not emit and cannot break.
+
+    Checked against the rendered document rather than the sets, because the sets
+    are the input and the document is what the fork actually reads.
+    """
+    generator = _load_generator()
+    text = generator.render()
+    section_1 = text.split("## 1a.")[0]
+    ours_section = text.split("## 1a.")[1].split("## 2.")[0]
+    assert "## 1a." in text, "the 'lines we write' section is missing entirely"
+    for name in sorted(generator._OUR_OWN_OUTPUT_RULES):
+        assert f"`{name}`" not in section_1, (
+            f"`{name}` parses our own text and is still listed in §1, the table of "
+            f"lines we ask the fork to hold stable"
+        )
+        assert f"`{name}`" in ours_section, (
+            f"`{name}` was removed from §1 but is not published in §1a either — it "
+            f"has been made invisible rather than correctly attributed, and the "
+            f"fork will meet it in a rig log with nothing to explain it"
+        )
+    # The section has to say whose it is and where it comes from, or it is a list
+    # of names with no claim attached.
+    assert "rip_addendum" in ours_section, (
+        "§1a does not name the module that writes these lines, so a reader cannot "
+        "check the attribution"
+    )

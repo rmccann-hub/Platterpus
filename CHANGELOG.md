@@ -11,6 +11,29 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **`docs/rig-scripts/fullacceptance.txt` — the whole program in one unattended
+  pass, with a pass/fail verdict.** The 0.7.100 gate (KDD-35: a version number is a
+  claim about the field, not about CI). Ten sections, ~2–2.5 hours: identity,
+  validated settings round-trips, every dialog opened and closed, disc
+  identification, a **full-disc rip**, the seam check, a re-rip onto the same folder
+  so the overwrite prompt actually fires, a mid-track cancel, the drive-open proof,
+  and the overread guard.
+  **Ordered least-likely-to-fail first, and the cost of that order is stated in the
+  file rather than left implicit:** sections A–D are ~4 minutes of near-certain
+  checks, so a broken build is caught before an hour of drive time is spent — but if
+  the rip fails, A–D having passed tells you almost nothing about why. The
+  alternative spends the hour before learning the ripper was not installed.
+  Its four *cannot-assert* limits are stated up front rather than buried, because a
+  verdict that implies more than it checked is worse than a shorter one: it does not
+  grade the audio, it cannot see clipped dialog text, it says nothing about
+  `+platterpus.7` (unreachable until that build tag is in our capability table), and
+  it never touches overread or the cache probe — both of which have hung this drive.
+  Held by the shipped-script gates: 98 steps, zero parse errors, every verb and
+  arity real, and its `answer-dialog` argument checked against the runner's own
+  validator — because that argument is validated at *execution* time, so a bad value
+  parses perfectly and dies an hour into a hardware session with the disc still in.
+
 ### Fixed
 - **I filed five of the fork's round-12 artifacts under the wrong build, an hour
   after reading the rule that forbids it.** `docs/handshake/README.md` says a

@@ -665,15 +665,40 @@ _TRACK_SPEED = re.compile(
     # `[xX]\b` so "1.6x" and "1.6 X" both match while "1.6xyz" does not.
     r"(?P<value>\d{1,6}(?:\.\d{1,3})?)\s?[xX]\b"
 )
-# The elapsed wall-clock. cyanrip's own duration style is a clock ("00:03:13.180"
-# in the committed logs, "03:51.44" in older output), so both an optional-hours
-# clock and a plain seconds form are accepted. NOT routed through
-# `rip_timing.parse_hms_to_seconds`: that helper requires exactly HH:MM:SS and
-# would silently drop the MM:SS form cyanrip also prints.
-_TRACK_ELAPSED_CLOCK = re.compile(
-    r"^\s+(?:Elapsed(?: time)?|Rip time|Extraction time|Time taken):\s+"
-    r"(?:(?P<h>\d{1,3}):)?(?P<m>\d{1,3}):(?P<s>\d{1,2}(?:\.\d{1,6})?)\s*$"
-)
+# The elapsed wall-clock, as PLAIN SECONDS — the only shape any cyanrip has ever
+# emitted for it (`cyanrip_log.c:424`, `Elapsed:            %.2f s`).
+#
+# **A CLOCK-FORM SIBLING USED TO LIVE HERE AND WAS RETIRED 2026-08-21.** It read
+# `Elapsed: (HH:)MM:SS(.mmm)` anchored to end-of-line, written speculatively by
+# analogy with cyanrip's *disc-level* `Duration:` style while §2.3 was still an
+# upstream ask. Three measurements retired it, and the third is the one that
+# matters:
+#
+#   1. It matched **0 of 19** committed fork logs and 0 of 11 stock logs.
+#   2. The fork's own published P2 inventory carries exactly one `Elapsed:`
+#      format string, and it is the seconds form above.
+#   3. The shape it was *supposed* to cover never matched it either. The fork
+#      answered our lap-4 finding by naming the split at their `89eb849`
+#      (2026-07-31), from one combined line `Elapsed:  %s (%.1fx)` into
+#      `Extraction speed:  %.1fx` + `Elapsed:  %.2f s`. That combined line has a
+#      trailing ` (0.9x)`, which the retired pattern's `\s*$` anchor refuses.
+#      Measured: `Elapsed:     00:03:34.240 (0.9x)` matched **none** of the three
+#      patterns here.
+#
+# So this was never "a spelling the producer renamed" — the archival-compatibility
+# argument that keeps the two `Sample peak` spellings above alive does not apply,
+# because no build ever emitted a line the retired rule read. The only things
+# producing that shape were two hand-written test fixtures, which is `CLAUDE.md`'s
+# *"what does my stand-in do that the real thing does not?"* keeping a dead rule
+# alive with a green test.
+#
+# If a clock form ever does appear, `tests/test_parsers_cyanrip_log.py`
+# ::test_every_committed_elapsed_line_is_actually_read fails on it — the retirement
+# comes with a hard gate rather than with a hope, because the indented-residue
+# sweep is informational and would have skimmed it in silence.
+#
+# NOT routed through `rip_timing.parse_hms_to_seconds` for the same reason as
+# before: that helper requires a clock, and this is a scalar with a unit.
 _TRACK_ELAPSED_SECONDS = re.compile(
     r"^\s+(?:Elapsed(?: time)?|Rip time|Extraction time|Time taken):\s+"
     r"(?P<s>\d{1,7}(?:\.\d{1,6})?)\s*(?:s|sec|secs|seconds)\b"
@@ -1595,7 +1620,6 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("track_peak_kind_header", _PEAK_KIND_HEADER),
     ("track_sample_peak", _SAMPLE_PEAK),
     ("track_extraction_speed", _TRACK_SPEED),
-    ("track_elapsed_clock", _TRACK_ELAPSED_CLOCK),
     ("track_elapsed_seconds", _TRACK_ELAPSED_SECONDS),
     ("track_secure_verdict", _TRACK_SECURE_VERDICT),
     ("track_accurip_status", _TRACK_ACCURIP_STATUS),
@@ -2338,20 +2362,13 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 current.extraction_speed = _float_or_none(match.group("value"))
                 continue
 
-            # The per-track elapsed wall-clock, in either shape cyanrip writes
-            # durations. Recorded as seconds; deliberately NOT converted into a
-            # speed multiple (see eac_log_export._track_block for why deriving one
-            # would be a guess about what the interval includes).
-            match = _TRACK_ELAPSED_CLOCK.match(line)
-            if match:
-                hours = int_or_none(match.group("h") or "0", field="cyanrip elapsed h")
-                minutes = int_or_none(match.group("m"), field="cyanrip elapsed m")
-                seconds = _float_or_none(match.group("s"))
-                if hours is not None and minutes is not None and seconds is not None:
-                    current.extraction_elapsed_seconds = (
-                        hours * 3600 + minutes * 60 + seconds
-                    )
-                continue
+            # The per-track elapsed wall-clock, in the one shape cyanrip writes it
+            # (`Elapsed:  214.24 s`). Recorded as seconds; deliberately NOT
+            # converted into a speed multiple (see eac_log_export._track_block for
+            # why deriving one would be a guess about what the interval includes).
+            # A clock-form arm used to sit above this one and read a shape no build
+            # has ever emitted — see the pattern block for the measurements that
+            # retired it on 2026-08-21.
             match = _TRACK_ELAPSED_SECONDS.match(line)
             if match:
                 current.extraction_elapsed_seconds = _float_or_none(match.group("s"))

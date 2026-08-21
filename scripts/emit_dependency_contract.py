@@ -94,7 +94,6 @@ _FORK_ONLY_RULES: frozenset[str] = frozenset(
         "track_peak_kind_header",
         "track_sample_peak",
         "track_extraction_speed",
-        "track_elapsed_clock",
         "track_elapsed_seconds",
         "track_secure_verdict",
         "track_accurip_status",
@@ -107,8 +106,66 @@ _FORK_ONLY_RULES: frozenset[str] = frozenset(
         "album_loudness_range",
         "album_sample_peak_level",
         "album_true_peak_level",
+        # The six the fork CONFIRMED as theirs on 2026-08-21, answering our round-12
+        # lap 4 §C1. They did not answer from a sample of logs (which is all we can
+        # do) — `tools/upstream-delta.py` diffs every `cyanrip_log()` format string
+        # in their tree against their verbatim mirror of `cyanreg/cyanrip` at
+        # 0.9.4-rc2, so the claim is *"upstream's source does not print this"*
+        # rather than *"we have not seen it in six stock logs"*. Each also has a
+        # row in their published P2 inventory naming the emitting `file:line`,
+        # which is the half we can check in-house and
+        # `tests/test_provider_contract_agreement.py` now does.
+        #
+        # `rip_completed` was the surprise, and in the *safe* direction: we had it
+        # recorded as "the fork owns the wording, not the line" because their §D1
+        # reworded it. Measured, upstream prints no `Rip completed:` line at all —
+        # they own both. An uncertainty resolved in favour of MORE fork obligation
+        # is the one worth noticing, because the default drift is the other way.
+        "consumer",
+        "handshake_note",
+        "invoked_as",
+        "read_stalls",
+        "secure_rerip_converged",
+        "rip_completed",
     }
 )
+
+# Rules whose regex matches text **PLATTERPUS ITSELF WRITES**, not text cyanrip
+# emits. Excluded from §1 and published in their own section instead.
+#
+# **Why this category has to exist, and why it is the most useful thing the fork
+# found in round 12.** `swap_addendum_crc` parses the `[Platterpus auto-fix
+# addendum]` block — our own text, written by
+# `src/platterpus/rip_addendum.py:render_addendum`. It was sitting in §1, a table
+# headed *"Log lines we parse"* inside a document whose entire purpose is to tell
+# the fork what we depend on **them** for, under the sentence *"any change to a
+# line in §1 is a breaking change to us and requires a handshake round."* That is
+# a false claim in the worst available direction: it asks another project to hold
+# a line stable that it does not emit and cannot break.
+#
+# The fork settled it from their tree rather than from belief: the string
+# `addendum` appears **zero** times in their `src/` and zero times in upstream's.
+# Our own corroboration is stronger still — the one committed "fork log" the rule
+# matches is `output_reference/cyanrip_fork_flac/cyanrip_fork_police_classics.log`,
+# where the match at line 1150 sits *inside* our own addendum block opened at line
+# 1145. So the log-corpus derivation that flagged it as fork-only was reading our
+# own output back and calling it theirs.
+#
+# **The rule STAYS in the parser** — this is a publication fix, not a deletion.
+# `rip_addendum.with_addendum` deliberately concatenates the sidecar onto the
+# ripper's log and hands the combined text to `parse_cyanrip_log`, so that parser
+# is the parser of the *augmented* log. Dropping the rule would resurrect the
+# 2026-07-28 defect where a re-parse from disk reported the CRCs of the read we
+# discarded (`tests/test_auto_fix_convergence.py`
+# ::test_a_saved_log_reparses_to_the_shipped_crcs_not_the_discarded_ones).
+#
+# Membership is CHECKED, not asserted: the test renders a real addendum with
+# `rip_addendum.render_addendum` and requires each name here to match a line of
+# it, so this set is derived from our own emitter rather than typed. Note
+# `track_secure_verdict` deliberately does **not** belong here — the addendum
+# mirrors cyanrip's own `Secure re-read:` label so the supersede is read, and the
+# fork really does emit that line (their P2, `cyanrip_log.c:441/444/449`).
+_OUR_OWN_OUTPUT_RULES: frozenset[str] = frozenset({"swap_addendum_crc"})
 
 
 def _escape_cell(text: str) -> str:
@@ -240,7 +297,12 @@ def render() -> str:
     Still deterministic for a given (source, version) pair, so `--check` remains a
     valid CI gate.
     """
-    patterns = _pattern_rows()
+    all_patterns = _pattern_rows()
+    # SPLIT BEFORE COUNTING. §1 is read as "lines cyanrip emits that we depend
+    # on", so a rule that parses our *own* text must not be counted there — the
+    # number is the first thing anyone reads and it was one too high.
+    patterns = [row for row in all_patterns if row[0] not in _OUR_OWN_OUTPUT_RULES]
+    ours = [row for row in all_patterns if row[0] in _OUR_OWN_OUTPUT_RULES]
     ignored = _ignored_rows()
     flags = _emitted_flags()
     fork_only = [name for name, _, _ in patterns if name in _FORK_ONLY_RULES]
@@ -260,9 +322,11 @@ def render() -> str:
         "`docs/cyanrip-handshake.md` for the protocol both sides follow.",
         "",
         "**How to use it if you are the fork:** any change to a line in §1 is a",
-        "breaking change to us and requires a handshake round. Anything in §2 is",
-        "safe to change freely — we look at it and throw it away. §3 is the argv we",
-        "will send you; a flag whose meaning changes is also breaking.",
+        "breaking change to us and requires a handshake round. §1a is text **we**",
+        "write, not you — it is listed so you can recognise it in an artifact we",
+        "send you, and you owe nothing for it. Anything in §2 is safe to change",
+        "freely — we look at it and throw it away. §3 is the argv we will send you;",
+        "a flag whose meaning changes is also breaking.",
         "",
         # THE RANGE, NOT THE SNAPSHOT (round 7 lap 10, ask D3 — offered to the fork
         # and therefore owed by us).
@@ -324,6 +388,37 @@ def render() -> str:
         "",
     ]
     lines += [f"- `{name}`" for name in fork_only]
+
+    # §1a — THE LINES THAT ARE OURS. See `_OUR_OWN_OUTPUT_RULES` for the full
+    # reasoning; the short version is that publishing our own text in §1 asks
+    # another project to keep a line stable that it does not emit.
+    lines += [
+        "",
+        f"## 1a. Lines we parse that **we** write — not your obligation ({len(ours)})",
+        "",
+        "These match text **Platterpus** appends beside a rip, not anything cyanrip",
+        "emits. They are listed here rather than in §1 because §1 means *\"change",
+        'this and you break us"*, which cannot be true of a line you do not print.',
+        "You owe nothing for them, and you may see them in a rig log we send you:",
+        "the block is what makes such a log fail `--verify-log`, which is expected",
+        "and is why we now write it to a sidecar file instead of appending it to",
+        "your log.",
+        "",
+        "| name | scope | written by | pattern |",
+        "|---|---|---|---|",
+    ]
+    for name, pattern, scope in ours:
+        lines.append(
+            f"| `{name}` | {scope} | `src/platterpus/rip_addendum.py` "
+            f"(`render_addendum`) | `{_escape_cell(pattern)}` |"
+        )
+    lines += [
+        "",
+        "Kept in the same parser on purpose: reading a rip's log back means reading",
+        "the log **and** its addendum (`rip_addendum.with_addendum`), because the",
+        "addendum is the only statement in the folder about which bytes actually",
+        "shipped after an auto-fix re-rip.",
+    ]
 
     lines += [
         "",
