@@ -39,9 +39,13 @@ ebur128 block is *deleted* from a real artifact to prove the stable rows alone
 suffice, and a synthetic log makes the two sources disagree in both orders.
 
 **And the fallback is pinned too, in the same file.** The ebur128 scrape is not
-legacy dead code: stock cyanrip 0.9.3/0.9.4 — what every AppImage user runs —
-and every fork build before round 8 print it and none of the four rows. A test
-that only proved the new path works would have licensed deleting the old one.
+legacy dead code. Two committed logs print it and none of the four rows:
+`output_reference/cyanrip_flac/cyanrip_flac_police_classics.log` (banner
+`cyanrip 0.9.3 (release)` — the deployed stock package an AppImage user has
+today) and `output_reference/cyanrip_fork_flac/cyanrip_fork_police_classics.log`
+(banner `cyanrip 0.9.4-rc1+platterpus.5-beta.1` — a FORK build from before
+round 8). A test that only proved the new path works would have licensed
+deleting the old one, and blanked the album loudness for both.
 """
 
 from __future__ import annotations
@@ -417,23 +421,46 @@ def test_every_column_zero_line_of_the_r12_artifacts_is_accounted_for(
     )
 
 
-def test_the_parser_logs_no_unclaimed_residue_for_these_artifacts(
+#: The parser's own diagnostic wording for a column-0 line no rule claimed.
+#:
+#: Pinned as a constant because the first version of the test below searched for
+#: the word "unclaimed" — which is what the *variables* are called and what the
+#: *comments* say, while the emitted message says "unrecognised". The filter
+#: therefore matched nothing, on every input, and the assertion "there is no
+#: residue" passed by finding nothing. Caught by asking the question CLAUDE.md
+#: asks of every check, of a check written to fix a silent drop.
+_RESIDUE_MARKER = "unrecognised top-level line"
+
+
+def test_the_parser_itself_reports_no_residue_for_these_artifacts(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """The product's own diagnostic, not just the test's view of it.
+    """The product's own diagnostic, not just this test's classifier.
 
-    `parse_cyanrip_log` counts unclaimed column-0 lines and reports them to the
-    debug log. Asserting on THAT closes the gap between "the test's classifier is
-    happy" and "the shipped parser thinks it understood the file".
+    `parse_cyanrip_log` counts the column-0 lines nothing claimed and reports them
+    to the debug log; asserting on THAT closes the gap between "the test's
+    classifier is happy" and "the shipped parser thinks it understood the file".
+
+    The **floor comes first**: a log with a line nobody can claim must produce the
+    message, or the silence below is not evidence of anything.
     """
     import logging
+
+    with caplog.at_level(logging.DEBUG, logger="platterpus.parsers.cyanrip_log"):
+        parse_cyanrip_log(
+            "cyanrip 0.9.4-rc2+platterpus.7 (x)\nSome row nobody has ever seen: 1\n"
+        )
+    assert any(_RESIDUE_MARKER in r.getMessage() for r in caplog.records), (
+        "the parser did not report an obviously unrecognised column-0 line — the "
+        "silence assertion below would pass for any input"
+    )
 
     for path in (_GOLDEN, _INTERRUPTED):
         caplog.clear()
         with caplog.at_level(logging.DEBUG, logger="platterpus.parsers.cyanrip_log"):
             parse_cyanrip_log(_log_body(path))
         residue = [
-            r.getMessage() for r in caplog.records if "unclaimed" in r.getMessage()
+            r.getMessage() for r in caplog.records if _RESIDUE_MARKER in r.getMessage()
         ]
         assert not residue, (path.name, residue)
 

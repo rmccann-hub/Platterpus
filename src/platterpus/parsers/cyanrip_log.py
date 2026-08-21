@@ -437,13 +437,24 @@ _LOUDNESS_PEAK = re.compile(r"^\s+Peak:\s+(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+dBFS"
 # order of the two blocks in the file cannot change which source wins.
 #
 # **The ebur128 path stays as a fallback, and it is needed** — it is not legacy
-# dead code. These four rows arrived in the fork at handshake round 8; the builds
-# that print the ebur128 block and NOT these rows are: stock cyanrip 0.9.3 /
-# 0.9.4 (what every AppImage user runs today, and the corpus log
-# `output_reference/cyanrip_flac/cyanrip_flac_police_classics.log`) and every fork
-# build up to round 7 (`output_reference/cyanrip_fork_flac/…`, which prints the
-# `Sample peak:` sub-header but none of these rows). Drop the fallback and both of
-# those logs lose their album loudness entirely.
+# dead code. These four rows arrived in the fork at handshake round 8 — their own
+# lap 11 §D lists them under "New stable lines (P2)" and adds that they are
+# "emitted after libavfilter's `Album Loudness Summary:` block, which is unchanged
+# and still there" (`docs/handshake/inbound/round-08-lap-11.md`).
+#
+# **The range this covers, stated as measured rather than as a snapshot.** Two
+# committed logs print the ebur128 block and NONE of these rows, and each is a
+# build somebody still runs:
+#   * `output_reference/cyanrip_flac/cyanrip_flac_police_classics.log` — banner
+#     `cyanrip 0.9.3 (release)`, i.e. the deployed stock package an AppImage user
+#     has today.
+#   * `output_reference/cyanrip_fork_flac/cyanrip_fork_police_classics.log` —
+#     banner `cyanrip 0.9.4-rc1+platterpus.5-beta.1`, a FORK build that prints the
+#     `Sample peak:` sub-header and none of these rows.
+# Drop the fallback and both of those lose their album loudness entirely. Stock
+# 0.9.4 is *expected* to behave like stock 0.9.3 here, since these rows are the
+# fork's addition and upstream has not taken them — but no stock 0.9.4 log is
+# committed, so that is an inference and is not claimed as measured.
 #
 # **Matched at column 0 and NOT gated on the album block's header.** The header
 # (`Album Loudness Summary:`) is itself half-libavfilter wording, so requiring it
@@ -2095,9 +2106,10 @@ def parse_cyanrip_log(text: str) -> RipLog:
             # `record_album_loudness(..., stable=False)` so it can only fill a key
             # the fork's own `Album …` rows have not already claimed. This block's
             # wording is libavfilter's and the fork's P3 disclaims it; it stays
-            # because stock cyanrip 0.9.3/0.9.4 and every fork build before round 8
-            # print this and nothing else. See the `_ALBUM_INTEGRATED_LOUDNESS`
-            # block for the full precedence argument.
+            # because the deployed stock 0.9.3 and every fork build before round 8
+            # print this and nothing else — two committed logs prove it. See the
+            # `_ALBUM_INTEGRATED_LOUDNESS` block for the measured range and the
+            # full precedence argument.
             m_i = _LOUDNESS_I.match(line)
             if m_i:
                 disc.record_album_loudness(

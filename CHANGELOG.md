@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.22] — 2026-08-21
+
 ### Added
 - **cyanrip handshake round 12 filed and verified — `GO` on `64ae7bc`.** Their lap
   1, its four artifacts and their provider contract are committed under
@@ -44,9 +46,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   had gone 117 → 120 → **130** and then round 12's **128**. Counts derived
   mechanically from the committed artifacts, not quoted: round 12's P5 table
   (`docs/handshake/inbound/artifacts/round-12-lap-01-provider-contract-gdef36a6.md`)
-  publishes 128 distinct strings, of which **15** were absent here. Thirteen were
-  still caught by the word-prefix fallback — forward tolerance, not coverage — and
-  **two matched nothing at all**: `Programming error, incorrect type for: %s` and
+  publishes 128 distinct strings, of which **15** were absent here. Of those 15,
+  **12** were matched anyway by the word-prefix fallback — forward tolerance, not
+  coverage, and the reason nobody noticed, since a fallback that half-works hides
+  the gap it fills; **1** was matched by coincidence
+  (`Invalid track number %i for pregap, list has %i tracks!` fell inside the
+  round-6 pattern for `Invalid track number %i, list has %i tracks!`, whose bounded
+  wildcard absorbed `for pregap`); and **two matched nothing at all**:
+  `Programming error, incorrect type for: %s` and
   `Too many values for argument "%s" (at most %i)`, both from `genopt.h`, cyanrip's
   option parser. The second is an ordinary user mistake (one `-t` too many), and
   every argument-parse diagnostic reaches **stdout only**, before the logfile
@@ -74,8 +81,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `No FUN512 checksum found in "%s"!` to P3. Neither is reachable by any word in the
   prefix fallback, so following the generator would have taken two live diagnostics
   straight back to "Rip failed." They are kept in a named `RETAINED_BEYOND_P5` with
-  the round-12 reason attached, asserted against the previous committed contract so
-  the list cannot become a place to smuggle in strings nobody published.
+  the round-12 reason attached, asserted against every committed provider contract
+  so the list cannot become a place to smuggle in strings nobody published.
 - **`Can't init %s handler!` matched nothing, because the prefix list had `Cannot`,
   `Could not` and `Couldn't` but not the contraction.** Published in the fork's P2
   table since round 7 lap 25. Added as a prefix rather than an inventory row —
@@ -98,8 +105,9 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   discarded" shape this parser's whole test history is about, since a silent drop
   and a recorded decision look identical from the outside. The owned rows are now
   the source; the `ebur128` scrape stays as a **documented fallback** because it
-  is the only source stock cyanrip 0.9.3/0.9.4 (every AppImage user) and every
-  fork build before round 8 provide, and precedence is recorded per key rather
+  is the only source the deployed stock `cyanrip 0.9.3` (what an AppImage user
+  runs today) and every fork build before round 8 provide — both cases are
+  committed logs — and precedence is recorded per key rather
   than left to depend on which block the binary printed first. Nothing downstream
   changed shape — same four `album_loudness` keys, same `str` values, same units
   and signs in the report JSON and in the results-pane label.
@@ -9828,7 +9836,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.21...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.22...HEAD
+[0.6.22]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.21...v0.6.22
 [0.6.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.20...v0.6.21
 [0.6.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.19...v0.6.20
 [0.6.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.18...v0.6.19
@@ -9938,4 +9947,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.21.*
+*Last updated for Platterpus v0.6.22.*
