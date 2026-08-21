@@ -375,6 +375,37 @@ class TestShippedScripts:
         )
 
     @pytest.mark.parametrize("script", SCRIPTS, ids=lambda p: p.name)
+    def test_every_shipped_answer_dialog_action_is_one_the_runner_accepts(
+        self, script: Path
+    ) -> None:
+        """The parser cannot catch this, and the run that does costs a disc.
+
+        `answer-dialog` validates its first argument at *execution* time, so
+        `answer-dialog maybe 60 …` parses perfectly and dies an hour into a
+        hardware session with the drive held. Arity is all the parser knows.
+
+        Checked against the REAL `answer_dialog_action_error`, imported rather
+        than restated — a second copy of the accepted vocabulary is a second
+        thing to drift, and it would drift in the direction of being more
+        permissive than the runner, which is the direction that lets a broken
+        script ship. Same reasoning as the `cyanrip` sanitiser above.
+        """
+        from platterpus.uiscript.runner import answer_dialog_action_error
+        from platterpus.uiscript.script import parse
+
+        steps = [
+            s
+            for s in parse(script.read_text(encoding="utf-8"))
+            if s.verb == "answer-dialog" and s.args
+        ]
+        bad = [
+            f"line {s.line_no}: {s.source!r} -> {reason}"
+            for s in steps
+            if (reason := answer_dialog_action_error(s.args[0])) is not None
+        ]
+        assert not bad, f"{script.name} would fail at run time:\n" + "\n".join(bad)
+
+    @pytest.mark.parametrize("script", SCRIPTS, ids=lambda p: p.name)
     def test_the_foreign_refusal_allowance_is_never_larger_than_reality(
         self, script: Path
     ) -> None:
@@ -401,6 +432,29 @@ class TestShippedScripts:
             "refused. If the fork fixed a line, lower the number; the allowance "
             "is a record of a known state, not a budget to spend."
         )
+
+
+def test_at_least_one_shipped_script_answers_a_dialog() -> None:
+    """The floor for the check above, which is otherwise satisfied by nothing.
+
+    A sweep over `answer-dialog` steps passes trivially when no script contains
+    one, and it would keep passing after the verb was renamed out from under it.
+    This is the "can this check be satisfied by finding nothing?" question
+    answered with a number.
+    """
+    from platterpus.uiscript.script import parse
+
+    found = [
+        (script.name, step.args[0])
+        for script in TestShippedScripts.SCRIPTS
+        for step in parse(script.read_text(encoding="utf-8"))
+        if step.verb == "answer-dialog" and step.args
+    ]
+    assert found, (
+        "no shipped script contains an `answer-dialog` step, so the check above "
+        "examined nothing. Either a script lost its dialog answer or the verb "
+        "was renamed — do not delete this floor, find out which."
+    )
 
 
 class TestAlbumDiscovery:
