@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import importlib.util
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Final
@@ -115,6 +116,79 @@ def test_the_local_coverage_floor_matches_ci() -> None:
         f"ci.yml enforces {sorted(found)} but scripts/check.py uses "
         f"{check.COVERAGE_FLOOR}. A local gate that is easier than CI's is worse "
         "than none: it reports green for work CI will reject."
+    )
+
+
+def _git(*args: str) -> str | None:
+    """Run git in the repo root; None on any failure (missing git, no repo, no tag)."""
+    try:
+        result = subprocess.run(  # noqa: S603 — fixed argv, no shell
+            ["git", *args],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def _floor_in(text: str) -> int | None:
+    """The `--cov-fail-under` value in a workflow's text, or None if absent."""
+    found = {int(m) for m in re.findall(r"--cov-fail-under=(\d+)", text)}
+    if len(found) != 1:
+        return None
+    return found.pop()
+
+
+def test_the_coverage_floor_never_ratchets_down() -> None:
+    """`ci.yml` says the gate "ratchets up, never down". Nothing enforced that.
+
+    A committed high-water constant would not be a ratchet: whoever lowers the
+    floor edits it in the same commit, and the check passes. The only value that
+    cannot be edited retroactively is the one in the **last release tag**, so that
+    is what this compares against.
+
+    Honest about the limit: once a release is cut carrying a lowered floor, the
+    ratchet re-bases on it. That is acceptable — cutting a release is a deliberate
+    act with its own gates — but it means this guards the *cycle*, not all history.
+    Saying so beats implying more.
+
+    Skips rather than passes when there is no reachable tag (a shallow clone), on
+    the tri-state rule: no result is not agreement. A skip is visible in the run;
+    a silent pass is not.
+    """
+    tag = _git("describe", "--tags", "--abbrev=0", "--match", "v*")
+    if not tag:
+        pytest.skip("no release tag reachable (shallow clone?) — cannot compare")
+
+    previous_text = _git("show", f"{tag}:.github/workflows/ci.yml")
+    if previous_text is None:
+        pytest.skip(f"cannot read ci.yml at {tag} — cannot compare")
+
+    previous = _floor_in(previous_text)
+    current = _floor_in(
+        (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    )
+    assert current is not None, (
+        "no single --cov-fail-under found in the current ci.yml. Either the gate "
+        "was removed — a release-blocking change — or there are now several and "
+        "this check needs to say which one is authoritative."
+    )
+    assert previous is not None, (
+        f"no single --cov-fail-under found in ci.yml at {tag}, so there is nothing "
+        "to ratchet against. If the gate was introduced after that tag, this test "
+        "starts working at the next release."
+    )
+    assert current >= previous, (
+        f"the coverage floor went DOWN: {previous} at {tag} → {current} now. "
+        "`ci.yml`'s own comment says the gate ratchets up and is never lowered to "
+        "make a red build pass. If the drop is deliberate, say why in the commit "
+        "message and expect this test to be the thing that made you say it."
     )
 
 

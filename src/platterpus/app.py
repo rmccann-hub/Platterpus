@@ -116,7 +116,7 @@ def _show_fatal_dialog(title: str, exc: BaseException) -> None:
     """
     global _fatal_dialog_open
     try:
-        from PySide6.QtCore import QThread
+        from PySide6.QtCore import Qt, QThread
         from PySide6.QtWidgets import QApplication, QMessageBox
 
         from platterpus.paths import LOG_PATH
@@ -161,6 +161,15 @@ def _show_fatal_dialog(title: str, exc: BaseException) -> None:
             return
         box = QMessageBox()
         box.setIcon(QMessageBox.Icon.Critical)
+        # PlainText, because `{exc}` below is EXTERNAL TEXT. Qt's default
+        # `AutoText` auto-detects HTML, so an exception message containing `<` —
+        # a MusicBrainz album title, a cyanrip line, a path — is parsed as markup
+        # and the run of text after it is silently swallowed. That failure has the
+        # worst possible home: this is the dialog whose entire job is giving the
+        # user something accurate to report, and a screenshot missing the middle of
+        # the message is worse than no dialog, because nobody can tell it happened
+        # (Critical rule #12, "the user never learns text went missing").
+        box.setTextFormat(Qt.TextFormat.PlainText)
         box.setWindowTitle(title)
         box.setText(
             f"Platterpus hit an unexpected error.\n\n{type(exc).__name__}: {exc}"

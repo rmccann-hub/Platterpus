@@ -12,6 +12,86 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Security
+- **Three `QMessageBox` surfaces rendered external text as HTML, and the sweep
+  Critical rule #12 claims exists did not.** The rule says, verbatim: *"Every
+  widget carrying dependency output is `PlainText`, swept rather than fixed one at
+  a time."* There was no sweep. Three of the six message boxes in `src/` had been
+  fixed individually; the other three had not — which is the outcome that wording
+  was written to prevent. Under Qt's default `AutoText`, a `<` in the text is
+  parsed as markup and the run after it is dropped **silently**:
+  - `app.py::_show_fatal_dialog` — `setText(f"…{type(exc).__name__}: {exc}")`. The
+    exception text is arbitrary external content. Worst possible home for a silent
+    truncation: the dialog whose entire job is giving the user something accurate
+    to report, so a screenshot would be missing the middle of the message with
+    nothing to indicate it.
+  - `main_window_rip.py::_confirm_known_overwrite` — names a folder built from the
+    album's artist, title and year. Rule #12 names this case directly; a truncated
+    destructive-overwrite prompt while Replace still does the full thing.
+  - `main_window_drive.py::_present_drive_diagnosis` — device paths, group names,
+    and a `fix_command` the user is meant to copy verbatim.
+  All three now pin `PlainText`, and `tests/test_message_boxes_are_plaintext.py`
+  is the sweep: 6 sites, floored, with an empty ratcheted allowlist. Its detector
+  requires the **PlainText** argument rather than a `setTextFormat` call, because
+  `setTextFormat(RichText)` is also a `setTextFormat` call and is the opposite of
+  this rule.
+  `CLAUDE.md` was corrected in the same change to say what is actually swept
+  (`QMessageBox`) and what is not (13 `QLabel(<non-literal>)` sites, tracked in
+  `TASKS.md`). Scoping a sweep is fine; scoping it silently while the rule claims
+  everything is the defect.
+
+### Changed
+- **`tests-touched` is now GATING, and escapable only by saying why.** *"Every
+  shipped bug gets a regression test in the same change"* is the most-cited rule
+  in this repo and had the weakest enforcement of anything an audit examined: a
+  GitHub warning annotation with no `exit 1` on any path. It now fails when
+  `src/platterpus` changes with no change under `tests/` — unless a commit in the
+  range carries `[no-test-needed] <reason>` (a bare marker is refused; the reason
+  must be substantive), or the only src change is a release commit's `__version__`
+  bump. That carve-out is recognised precisely rather than by exempting
+  `__init__.py` wholesale: a bump that also adds real code to that file is still
+  refused. Verified against six synthetic ranges in a scratch repo before being
+  pushed, because a gate that can block every merge should not be tested in
+  production. Added to `release.yml`'s required-check list too — a check that gates
+  a merge and not a release has a hole exactly where the artifact users
+  auto-update to comes out.
+- **`mypy` gains `ignore-without-code` and `possibly-undefined`**, both measured
+  at zero violations first, so they enforce rules the code already follows instead
+  of opening a backlog. `ignore-without-code` makes rule #10's *"no bare
+  `# type: ignore`"* mechanical — it was 100% complied with and 0% enforced.
+  Three flags were measured and **deliberately not** enabled, with counts recorded
+  in `pyproject.toml` so the next reader inherits a number rather than a guess:
+  `disallow_any_explicit` (47), `redundant-expr` (16), `truthy-bool` (3).
+- **ruff's `N` (pep8-naming) is recorded as deliberately absent**, with the
+  measurement: 108 findings, of which **96** are `N802` on Qt API names we do not
+  choose (`isRunning`, `setValue`, `rowCount`, `objectName`). A lint whose main
+  rule needs a permanent blanket ignore teaches nothing, and the remaining 12 are
+  style disagreements (function-local `CEILING` constants) rather than defects. So
+  the naming convention stays reader-enforced *on purpose and with numbers*, rather
+  than being unenforced by omission.
+
+### Fixed
+- **The coverage floor's "ratchets up, never down" is now enforced**, against the
+  value in the **last release tag** — the only one that cannot be edited in the
+  same commit that lowers the floor. A committed high-water constant would not be
+  a ratchet. Honest about its limit, in the test's own docstring: once a release
+  ships a lowered floor the ratchet re-bases on it, so this guards the cycle rather
+  than all history.
+- **The "modal dialog that does its own blocking work" trap now has a sweep.**
+  `CLAUDE.md` calls this *"the recurring trap"* and dates it as having bitten
+  three times, and nothing checked for it. Zero violations today across 7
+  dialog-building functions; this keeps it there.
+  Deliberately **not** done the obvious way: widening the existing GUI-thread sweep
+  from `src/platterpus/ui/` (33 of 154 modules) to the whole package was measured
+  and rejected — 12 non-`ui/` modules make blocking calls and essentially all are
+  correct, because `adapters/`, `deps/`, `ctdb/` and `drive_control.py` are
+  worker-side code that is *supposed* to block. The rule is "never block the GUI
+  **thread**"; a directory is only a proxy for it. Keying on *"this function builds
+  a modal dialog"* covers `app.py` and everything else without inheriting the false
+  positives. The detector deliberately excludes `join` — an earlier version flagged
+  `_show_fatal_dialog` for `"".join(traceback.format_exception(...))`, and a checker
+  that fires on correct code gets deleted.
+
+### Security
 - **Both guards for Critical Rule #8 could pass by failing to look, and they
   shared the same failure mode.** The rule — never commit audio or other
   copyrighted media to this public repository — is enforced by
