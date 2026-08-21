@@ -12,6 +12,28 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **The cancel-path rig script was relying on a *bug* to set up its own test, and
+  its overwrite answer would have cancelled the rip it was meant to continue.**
+  Two related fixes, both found while adding `answer-dialog click=`:
+  Sections D and E carried *different* album titles, so their target folders could
+  never collide and the "Album already ripped" prompt could never fire by design.
+  It fired anyway on 2026-08-20 — because the `(ripper)` placeholder was being
+  refused, both `album` steps failed, and both rips fell back to the disc's real
+  MusicBrainz title. Fixing the placeholder in 0.6.21 made the titles distinct, so
+  on 2026-08-21 the prompt correctly did not appear and the step failed with *"no
+  dialog opened at all"*. The titles are now byte-for-byte identical on purpose —
+  and identical rather than merely equivalent, because our folder preview only
+  *mirrors* cyanrip's path sanitisation. Measured while fixing it: a colon in one
+  title only does **not** collide (`render_preview` maps `:` to U+2236), so the
+  colon that exercises the tag escape had to go in both.
+  And the answer is now `click=new`, not `ok` — see the Added entry above for why
+  `ok` would have cancelled it silently. `Rip to a new folder` rather than
+  `Replace` deliberately: Replace would delete section D's partial cancelled rip,
+  which is the evidence the script exists to produce.
+  `tests/test_rig_check.py` now runs every shipped script's `answer-dialog`
+  argument through the real validator. The parser only knows arity, so a bad value
+  there parses perfectly and fails at run time — which for a rig script means an
+  hour into a hardware session with the disc still in the drive.
 - **`CLAUDE.md`: the next minor is `0.7.100`, and it is gated on a full hardware
   pass** (maintainer, 2026-08-21 — *"fresh start, rip, every test there is, all of
   them"*). The project stays on `0.6.x` until that run exists. This moves the

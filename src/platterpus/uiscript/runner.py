@@ -35,6 +35,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Final
 
 from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
@@ -795,24 +796,13 @@ class ScriptRunner(QObject):
         # A substring rather than a full label because the script language splits
         # args on whitespace with no quoting (`script.parse`: `args = tokens[1:]`),
         # so "Rip to a new folder" cannot be one argument. `click=new` can.
-        click_label = ""
-        if action.startswith("click="):
-            click_label = step.args[0][len("click=") :].strip()
-            if not click_label:
-                self._record(
-                    step,
-                    Outcome.ERROR,
-                    "click= needs a substring of the button's label, e.g. click=new",
-                )
-                return
-        elif action not in ("ok", "cancel"):
-            self._record(
-                step,
-                Outcome.ERROR,
-                f"the first argument must be 'ok', 'cancel' or 'click=<substring>', "
-                f"not {step.args[0]!r}",
-            )
+        refusal = answer_dialog_action_error(step.args[0])
+        if refusal is not None:
+            self._record(step, Outcome.ERROR, refusal)
             return
+        click_label = ""
+        if action.startswith(ANSWER_DIALOG_CLICK_PREFIX):
+            click_label = step.args[0][len(ANSWER_DIALOG_CLICK_PREFIX) :].strip()
         try:
             seconds = float(step.args[1])
         except ValueError:
@@ -2096,6 +2086,40 @@ def _match_release(releases: list[object], wanted: str) -> int | None:
         return ids.index(key)
     hits = [i for i, mbid in enumerate(ids) if mbid.startswith(key)]
     return hits[0] if len(hits) == 1 else None
+
+
+#: The two whole-dialog answers `answer-dialog` accepts, and the prefix of its
+#: third, named-button form.
+ANSWER_DIALOG_ACTIONS: Final[tuple[str, str]] = ("ok", "cancel")
+ANSWER_DIALOG_CLICK_PREFIX: Final[str] = "click="
+
+
+def answer_dialog_action_error(arg: str) -> str | None:
+    """``None`` if `arg` is a usable `answer-dialog` first argument, else why not.
+
+    **Split out so the shipped-script gate can check the real vocabulary rather
+    than a restatement of it.** ``tests/test_rig_check.py`` runs every script
+    under ``docs/rig-scripts/`` through this function, because the script
+    *parser* cannot catch a bad value here — arity is all it knows, so
+    ``answer-dialog maybe 60 …`` parses perfectly and fails at run time, which on
+    a rig script means it fails an hour into a hardware session with a disc in
+    the drive. Same reasoning as the `cyanrip` argv sanitiser being shared with
+    that gate instead of re-implemented beside it.
+    """
+    if arg.lower().startswith(ANSWER_DIALOG_CLICK_PREFIX):
+        if not arg[len(ANSWER_DIALOG_CLICK_PREFIX) :].strip():
+            return (
+                f"{ANSWER_DIALOG_CLICK_PREFIX} needs a substring of the button's "
+                f"label, e.g. {ANSWER_DIALOG_CLICK_PREFIX}new"
+            )
+        return None
+    if arg.lower() in ANSWER_DIALOG_ACTIONS:
+        return None
+    return (
+        f"the first argument must be "
+        f"{' or '.join(repr(a) for a in ANSWER_DIALOG_ACTIONS)} or "
+        f"'{ANSWER_DIALOG_CLICK_PREFIX}<substring>', not {arg!r}"
+    )
 
 
 def _plain_label(text: str) -> str:
