@@ -11,6 +11,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **`CLAUDE.md`: the next minor is `0.7.100`, and it is gated on a full hardware
+  pass** (maintainer, 2026-08-21 — *"fresh start, rip, every test there is, all of
+  them"*). The project stays on `0.6.x` until that run exists. This moves the
+  version gate earlier than KDD-35 put it (0.9.1); the bar is the same in kind — a
+  complete pass in ONE run, not a set of individually-explained failures. The jump
+  to `.100` is the maintainer's numbering and is not to be "corrected" to 0.7.0.
+
 ### Added
 - **`answer-dialog click=<label-substring>` — the script language could not answer
   a three-button dialog at all, and failed at it *silently*.** `answer-dialog ok`
