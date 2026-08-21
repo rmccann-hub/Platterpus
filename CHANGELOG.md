@@ -11,6 +11,42 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The ripper telling us it could not read a log was reported as proof the log had
+  been altered.** Handshake round 12 gave cyanrip's `--verify-log` an exit code per
+  verdict, and one of them — `CRIP_LOG_EXIT_IO_ERROR`, code 5 — means *"unreadable:
+  no verdict was reached."* Every non-zero code fell through to the bottom of
+  `verify_rip_log`, which reports *"the file was altered after the ripper signed it
+  and must not be treated as archival evidence"*. So an answer that explicitly says
+  nothing was determined became the most alarming claim available.
+  This is the **same defect as the unreadable-file fix earlier in this release,
+  arriving from the other side of the seam**: there *we* could not read the file,
+  here *they* could not. Both are the third state and neither is the negative.
+  Reachability is gated — no build in `BUILD_TAGS_ACCEPTING_VERIFY_LOG` emits these
+  codes yet — but correctness is not, so the branch sits before the capability gate
+  and gives the user the ripper's own reason.
+- **A test that lied about its own currency for nine rounds.**
+  `tests/test_provider_contract_agreement.py` opened by saying *"when a new round
+  lands with a new provider contract, this test re-derives from it — no list to
+  maintain here."* It re-derived from nothing: the path was hard-coded to
+  `inbound/round-4.md` and was still the subject when round 12 closed. So the
+  *input* half of the cyanrip seam was being diffed against round 11/12's flag table
+  while the *output* half was diffed against a document from eight rounds earlier —
+  and the file said otherwise in its own first paragraph, which is why nobody
+  looked.
+  Two measured costs. Their P3 grew from 12 rows to 25, ten of them `genopt.h`,
+  while the row regex here matched `*.c` only — so **even pointed at the new file it
+  would have read 15 of 25 and reported a full pass**. And their P4 stopped carrying
+  the sentence this file asserts on, which the fork declared at column 0 because
+  they knew we parse it.
+  The round resolution is now **imported** from the argv-surface test rather than
+  grown here — this repo has broken four independently-written handshake-round
+  parsers on one naming migration — and sections are resolved by their `P<n>` label
+  rather than by heading prose, which moved between rounds. Also fixes `%lld`-style
+  length modifiers going unrendered, which failed in the **false-pass** direction:
+  a leftover `%` can stop a pattern matching a line the real log would match, in the
+  one check this file exists for.
+
 ## [0.6.22] — 2026-08-21
 
 ### Added

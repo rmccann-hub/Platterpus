@@ -34,8 +34,11 @@ put a container exec inside ``write_report``, which runs in a GUI slot.
 checked and **rejected** it — the log is not a faithful record of that rip and
 must not be treated as archival evidence. ``not_determined`` covers every "we
 could not ask": no ripper on this machine, the flag unsupported by that build, a
-timeout, a missing log. Per the standing rule, ``not_determined`` is never
-rendered as the negative — an absent verifier is not a failed verification.
+timeout, a missing log, a log **we** could not read, and — round 12 onward — a log
+**the ripper** could not read (its ``CRIP_LOG_EXIT_IO_ERROR``; see
+:data:`platterpus.cyanrip_cli.VERIFY_LOG_EXIT_NO_VERDICT`). Per the standing rule,
+``not_determined`` is never rendered as the negative — an absent verifier is not a
+failed verification.
 """
 
 from __future__ import annotations
@@ -46,7 +49,7 @@ from pathlib import Path
 from typing import Final
 
 from platterpus.adapters.tool_run import ToolRun, ToolRunner, make_runner
-from platterpus.cyanrip_cli import VERIFY_LOG_FLAG
+from platterpus.cyanrip_cli import VERIFY_LOG_EXIT_NO_VERDICT, VERIFY_LOG_FLAG
 from platterpus.deps import fork_source
 
 log = logging.getLogger(__name__)
@@ -162,6 +165,39 @@ def verify_rip_log(
         return _not_determined(
             f"the ripper's verification of {path.name} never returned an exit status "
             "(the child was not reaped), so the log's integrity is not determined",
+            str(path),
+            run,
+        )
+    if run.exit_code in VERIFY_LOG_EXIT_NO_VERDICT:
+        # THE RIPPER SAID IT COULD NOT LOOK. THAT IS NOT A FINDING ABOUT THE LOG.
+        #
+        # Round 12 gave `--verify-log` a code per verdict, and one of them —
+        # `CRIP_LOG_EXIT_IO_ERROR` — means *"unreadable: no verdict was reached"*.
+        # Without this branch that code fell through to the bottom of this function
+        # and was reported as *"the file was altered after the ripper signed it and
+        # must not be treated as archival evidence"*: an accusation against an
+        # archival record, derived from an answer that explicitly says nothing was
+        # determined.
+        #
+        # This is the SAME defect as the `_read_log_text() is None` case below,
+        # arriving from the other side of the seam: there *we* could not read the
+        # file, here *they* could not. Both are the third state, and neither is the
+        # negative. Fixed 2026-08-21 while checking the fork's round-12 exit codes.
+        #
+        # **Placed before the build-capability gate on purpose.** Both routes return
+        # `not_determined`, so ordering cannot make an outcome worse — but this one
+        # gives the user the ripper's actual reason instead of "we cannot establish
+        # that this build accepts the flag", and it means the fix does not wait on a
+        # build tag being added to `BUILD_TAGS_ACCEPTING_VERIFY_LOG`. Reachability is
+        # gated (no build in that table emits these codes yet); correctness is not.
+        #
+        # The wording attributes the meaning to THEIR document rather than asserting
+        # a fact about the file, because that is all we know: on a build whose
+        # exit-code inventory we have not seen, `5` is either this or unreachable.
+        return _not_determined(
+            f"{path.name} has no verdict: the ripper exited {run.exit_code}, which "
+            "its published exit-code inventory reserves for 'unreadable — no verdict "
+            "was reached', so nothing here says anything about the log's contents",
             str(path),
             run,
         )

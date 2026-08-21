@@ -219,6 +219,51 @@ def _file_round(path: Path) -> int | None:
     return _HS.round_number(path) or _artifact_round(path)
 
 
+def _lap_path_of(path: Path) -> Path:
+    """The path whose name/header decides an inbound file's ``(round, lap)`` order.
+
+    For a lap file that is the file itself. For an **artifact** it is the lap file the
+    artifact is named after, because an artifact carries no wire header and its own name
+    is not the canonical ``round-NN-lap-LL`` form — so :func:`handshake.sort_key` reads
+    every artifact as ``(0, 1, stem)`` and ranks a round-12 contract *below* a round-1
+    lap file. Ordering artifacts by their stem happens to come out right today (the pad
+    width is fixed at two digits) and that is exactly the kind of accidental correctness
+    this repository keeps paying for.
+
+    Resolving through the lap the artifact NAMES keeps the shared parser in charge of
+    what a round and a lap are — the same reason :func:`_artifact_round` exists and does
+    not re-spell the convention.
+    """
+    match = _ARTIFACT_LAP_PREFIX.match(path.name)
+    if match is None:
+        return path
+    return path.with_name(f"{match.group('lap')}.md")
+
+
+def newest_provider_contract() -> Path:
+    """The newest committed provider contract, by the shared round/lap parser.
+
+    **Public, and imported by `tests/test_provider_contract_agreement.py` rather than
+    re-derived there.** That file read a hard-coded `round-4.md` for nine rounds while
+    its own docstring claimed it re-derived from whatever landed last — so the two
+    halves of one seam were being checked against contracts nine rounds apart. One
+    resolver means the argv half and the log-line half cannot disagree about which
+    contract is current, which is the whole point of :func:`_file_round` one screen up.
+
+    Never falls back to an older round silently: the caller asserts the lag against
+    :data:`_MAX_TABLE_LAG`, the same recorded number the flag table is held to.
+    """
+    contracts = sorted(
+        _ARTIFACTS.glob("round-*-provider-contract-*.md"),
+        key=lambda p: _HS.sort_key(_lap_path_of(p)),
+    )
+    assert contracts, (
+        "no provider contract is committed under docs/handshake/inbound/artifacts/ — "
+        "there is nothing to check our parser against"
+    )
+    return contracts[-1]
+
+
 def _group_by_round() -> dict[int, list[Path]]:
     """Inbound files grouped by round. **The one grouping, so a test can check it.**
 
