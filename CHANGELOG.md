@@ -37,6 +37,79 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   by design.
 
 ### Fixed
+- **Two real ripper failures reached the user as a bare "Rip failed", because the
+  fatal-message inventory had been stale for five handshake rounds.**
+  `ripper_message_inventory.py` — the published-format list the error matcher is
+  *built from* — still carried round 6's **115** strings while the fork's contract
+  had gone 117 → 120 → **130** and then round 12's **128**. Counts derived
+  mechanically from the committed artifacts, not quoted: round 12's P5 table
+  (`docs/handshake/inbound/artifacts/round-12-lap-01-provider-contract-gdef36a6.md`)
+  publishes 128 distinct strings, of which **15** were absent here. Thirteen were
+  still caught by the word-prefix fallback — forward tolerance, not coverage — and
+  **two matched nothing at all**: `Programming error, incorrect type for: %s` and
+  `Too many values for argument "%s" (at most %i)`, both from `genopt.h`, cyanrip's
+  option parser. The second is an ordinary user mistake (one `-t` too many), and
+  every argument-parse diagnostic reaches **stdout only**, before the logfile
+  exists, so our capture was its sole route to a bug report — and we threw the
+  sentence away. Capture without surfacing, for the third time in this subsystem.
+  The inventory and `tests/fixtures/cyanrip_fatal_messages.tsv` are regenerated
+  from round 12's table; all 128 now surface through the real matcher, with zero
+  new false positives measured across that contract's whole 296-row P2 table.
+- **The staleness itself had no detector, on the half of the seam that needed one.**
+  The *input* half has had `tests/test_argv_surface_agreement.py` diffing our argv
+  against the newest inbound P1 table every commit since the `-V` blocker. The
+  *output* half's standing test compared this inventory against a fixture generated
+  from **its own round**, so the two agreed perfectly and neither could see that the
+  contract had moved — a list checked against itself, which is the exact defect this
+  file's history is made of, arriving one level out. Round 8 lap 1 §D2 had said so in
+  prose (*"the contract grew by 10 fatal messages, and the program did not"*) and
+  round 9 lap 3 committed the table itself on 2026-08-17.
+  `test_the_inventory_is_not_behind_the_newest_published_contract` now holds the
+  inventory to the newest committed contract row for row — string, site **and**
+  evidence class — and re-uses the argv test's round resolution rather than growing
+  this repo's fifth handshake-round parser.
+- **A string the provider *removes* from P5 is no longer silently dropped.** Round 12
+  moved `Force quitting` to a raw `write(2)` (a signal handler may not use stdio —
+  their §D5 says it *"still appears on stdout"*) and reclassified
+  `No FUN512 checksum found in "%s"!` to P3. Neither is reachable by any word in the
+  prefix fallback, so following the generator would have taken two live diagnostics
+  straight back to "Rip failed." They are kept in a named `RETAINED_BEYOND_P5` with
+  the round-12 reason attached, asserted against the previous committed contract so
+  the list cannot become a place to smuggle in strings nobody published.
+- **`Can't init %s handler!` matched nothing, because the prefix list had `Cannot`,
+  `Could not` and `Couldn't` but not the contraction.** Published in the fork's P2
+  table since round 7 lap 25. Added as a prefix rather than an inventory row —
+  it is not in P5, and P5 is their authority on failure-path reachability, so
+  inventing a row would be the guessing this subsystem was rebuilt to stop. Cost
+  measured before adding it: of 296 P2 rows exactly one has that shape, and no other
+  P2 line began matching.
+- **The album loudness and peak figures were read from wording the ripper
+  disclaims, while the guaranteed rows carrying the same facts were dropped
+  without a trace.** cyanrip prints the whole-disc loudness twice: once as
+  FFmpeg's `ebur128` summary, and once as four column-0 rows of its own —
+  `Album integrated loudness (R128):`, `Album loudness range (R128):`,
+  `Album sample peak level:`, `Album true peak level:`. Their provider contract
+  puts the first in **P3 — unstable wording** ("belongs to libavfilter and moves
+  when FFmpeg does. Prefer the … lines in P2, which are ours") and declares the
+  second in **P2 — stable log lines (the API)**. We were parsing the disclaimed
+  block and **silently dropping** all four owned rows: measured on the round-12
+  artifacts, they were 4 of the 8-9 column-0 lines per log that no rule claimed
+  and no `_IGNORED_DISC_LINES` entry accounted for — the exact "captured and
+  discarded" shape this parser's whole test history is about, since a silent drop
+  and a recorded decision look identical from the outside. The owned rows are now
+  the source; the `ebur128` scrape stays as a **documented fallback** because it
+  is the only source stock cyanrip 0.9.3/0.9.4 (every AppImage user) and every
+  fork build before round 8 provide, and precedence is recorded per key rather
+  than left to depend on which block the binary printed first. Nothing downstream
+  changed shape — same four `album_loudness` keys, same `str` values, same units
+  and signs in the report JSON and in the results-pane label.
+  The other five unclaimed lines were fixed in the same pass rather than left for
+  the next audit to find: the two pre-log replay delimiters, `Opening drive...`,
+  libcdio's `Checking … for cdrom...` and `Stopping, ripping incomplete!` now each
+  carry a written reason. Both round-12 artifacts are committed as fixtures and
+  swept for column-0 completeness, which `output_reference/` could not do — none
+  of those logs contains the four rows, so the older sweep passed the entire time
+  they were being dropped.
 - **An unreadable ripper log was reported as evidence of tampering.**
   `verify_rip_log` split a non-zero `--verify-log` exit on *"does the log carry a
   `Log FUN512:` footer"*. That question has three answers — yes, no, and *we could

@@ -41,7 +41,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (55)
+## 1. Log lines we parse (59)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -69,6 +69,10 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `log_signature` | disc | `^Log FUN512:\\s+(?P<sig>\\S+)` |
 | `handshake_note` | disc | `^Handshake:\\s+(?P<note>\\S.*)$` |
 | `consumer` | disc | `^Consumer:\\s+(?P<consumer>\\S.*)$` |
+| `album_integrated_loudness` | disc | `^Album integrated loudness \\(R128\\):\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+LUFS` |
+| `album_loudness_range` | disc | `^Album loudness range \\(R128\\):\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+LU\\b` |
+| `album_sample_peak_level` | disc | `^Album sample peak level:\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+dBFS` |
+| `album_true_peak_level` | disc | `^Album true peak level:\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+dBFS` |
 | `accuraterip_total` | disc | `^Tracks ripped accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `accuraterip_partial_total` | disc | `^Tracks ripped partially accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `ripping_errors` | disc | `^Ripping errors:\\s+(?P<count>\\d+)` |
@@ -119,7 +123,7 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `track_secure_verdict`
 - `track_accurip_status`
 
-## 2. Log lines we knowingly ignore (17)
+## 2. Log lines we knowingly ignore (22)
 
 An allow-list, not a shrug — each entry is a recorded decision, and the
 parser's own test treats an unrecognised, unlisted line as a failure. So a
@@ -145,6 +149,11 @@ dropped.
 | `^AccurateRip:\\s` | the indented per-track Accurip: row is read |
 | `^Tracks:\\s*$` | section marker, no payload |
 | `^Summary:\\s*$` | section marker, no payload |
+| `^--- output before this log was opened ---\\s*$` | delimiter of the replayed pre-logfile buffer; no payload |
+| `^--- end of pre-log output ---\\s*$` | delimiter of the replayed pre-logfile buffer; no payload |
+| `^Opening drive\\.\\.\\.\\s*$` | progress marker; the drive is on Drive used: and the failure is its own P5 string |
+| `^Checking .{1,200} for cdrom\\.\\.\\.\\s*$` | libcdio image-probe chatter; the path is ours and Invoked as: records it |
+| `^Stopping, ripping incomplete!\\s*$` | abort marker; Rip completed: carries the verdict and ripper_messages surfaces this sentence |
 
 ## 3. Flags we pass you (19)
 

@@ -406,6 +406,78 @@ _LOUDNESS_LRA = re.compile(r"^\s+LRA:\s+(?P<v>-?\d+(?:\.\d+)?)\s+LU")
 # which slipped past the "> 0.0" refusal and computed a concrete peak of exactly
 # 0.0, i.e. digital silence, from unparseable input (audit, 2026-07-31).
 _LOUDNESS_PEAK = re.compile(r"^\s+Peak:\s+(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+dBFS")
+
+# --- The album loudness/peak facts, from the rows cyanrip OWNS ---------------
+#
+# FORK-ONLY, and the reason this block exists: everything above reads the album
+# figures out of FFmpeg's `ebur128` summary (the `Integrated loudness:` /
+# `Sample peak:` sub-headers and their `I:` / `LRA:` / `Peak:` value lines). The
+# fork's provider contract puts that whole block in **P3 — unstable wording**:
+# *"Also unstable, and not ours: the loudness block FFmpeg's `ebur128` filter
+# prints … That wording belongs to libavfilter and moves when FFmpeg does. Prefer
+# the … lines in P2, which are ours."* Meanwhile their **P2 — stable log lines
+# (the API)** declares these four at column 0, from `cyanrip_encode.c:847-853`:
+#
+#     Album integrated loudness (R128): -7.4 LUFS
+#     Album loudness range (R128):      3.0 LU (-10.0 to -6.9 LUFS)
+#     Album sample peak level:          0.0 dBFS
+#     Album true peak level:            0.3 dBFS
+#
+# We were reading the disclaimed wording and dropping the guaranteed one — and
+# dropping it *silently*, with no `_IGNORED_DISC_LINES` entry, which is the exact
+# failure shape this file's whole test history is about. Measured on the round-12
+# artifacts (`golden-reference.log`, `sample-interrupted.log`): 4 of the 8-9
+# unclaimed column-0 lines per log were these rows.
+#
+# **Precedence is explicit, not positional.** In every log we have the ebur128
+# block prints first and these rows print after it, so a plain overwrite would
+# happen to work — but "it happens to come second" is not a rule. Each row below
+# records its value as STABLE (`_Disc.record_album_loudness(..., stable=True)`),
+# and the ebur128 scrape refuses to overwrite a key already marked stable. So the
+# order of the two blocks in the file cannot change which source wins.
+#
+# **The ebur128 path stays as a fallback, and it is needed** — it is not legacy
+# dead code. These four rows arrived in the fork at handshake round 8; the builds
+# that print the ebur128 block and NOT these rows are: stock cyanrip 0.9.3 /
+# 0.9.4 (what every AppImage user runs today, and the corpus log
+# `output_reference/cyanrip_flac/cyanrip_flac_police_classics.log`) and every fork
+# build up to round 7 (`output_reference/cyanrip_fork_flac/…`, which prints the
+# `Sample peak:` sub-header but none of these rows). Drop the fallback and both of
+# those logs lose their album loudness entirely.
+#
+# **Matched at column 0 and NOT gated on the album block's header.** The header
+# (`Album Loudness Summary:`) is itself half-libavfilter wording, so requiring it
+# would re-introduce the dependency this change removes: a build that stops
+# printing the ebur128 summary would still print these four rows, and they would
+# still have to be read.
+#
+# Digits bounded like every pattern in this block, for the reason stated above
+# `_LOUDNESS_PEAK`: an unbounded run of digits reaches `float()`, which has no
+# 4300-digit ceiling and returns `inf` rather than raising.
+#
+# Named groups, never column splits (CLAUDE.md): the label's internal run of
+# spaces is cyanrip's alignment padding and is not a field separator.
+_ALBUM_INTEGRATED_LOUDNESS = re.compile(
+    r"^Album integrated loudness \(R128\):\s+(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+LUFS"
+)
+# Only the range itself is captured. The trailing `(low to high LUFS)` is real and
+# is deliberately NOT folded in: `album_loudness` has exactly the four keys the
+# report schema and the results-pane label already read, and inventing two more
+# here would change what the JSON carries for a reason nothing asked for.
+_ALBUM_LOUDNESS_RANGE = re.compile(
+    r"^Album loudness range \(R128\):\s+(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+LU\b"
+)
+# Two peaks, two rows, two keys — the row says which peak it reports, so unlike
+# the sub-header form there is no state to arm and nothing to get out of sync.
+# That ambiguity (a true peak landing in EAC's sample-peak row) is a whole comment
+# block further up this file; these rows make it unrepresentable.
+_ALBUM_SAMPLE_PEAK_LEVEL = re.compile(
+    r"^Album sample peak level:\s+(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+dBFS"
+)
+_ALBUM_TRUE_PEAK_LEVEL = re.compile(
+    r"^Album true peak level:\s+(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+dBFS"
+)
+
 # cyanrip's own log signature, the last line: "Log FUN512: <base64>".
 _LOG_CHECKSUM = re.compile(r"^Log FUN512:\s+(?P<sig>\S+)")
 
@@ -919,7 +991,35 @@ class _Disc:
     # `tests/test_fork_golden_reference_r6b.py`.
     paranoia_counts: dict[str, int] = field(default_factory=dict)
     album_loudness: dict[str, str] = field(default_factory=dict)
+    #: Which `album_loudness` keys came from a row cyanrip OWNS (their P2
+    #: `Album integrated loudness (R128):` family) rather than from FFmpeg's
+    #: `ebur128` summary, whose wording their P3 disclaims.
+    #:
+    #: Parser-internal provenance — it does NOT reach `RipLog` or the JSON report,
+    #: because its only job is to make the precedence rule non-positional. Both
+    #: sources produce the same string for the same key on every artifact we have
+    #: (verified on the round-12 golden reference: -7.4 / 3.0 / 0.0 / 0.3 from
+    #: either), so there is nothing for a consumer to disambiguate — what there IS
+    #: is a rule that must not silently depend on which block the binary printed
+    #: first. See `record_album_loudness`.
+    album_loudness_stable: set[str] = field(default_factory=set)
     tracks: list[TrackResult] = field(default_factory=list)
+
+    def record_album_loudness(self, key: str, value: str, *, stable: bool) -> None:
+        """Store one album loudness/peak figure, best source wins.
+
+        `stable=True` means the value came off a row cyanrip declares stable in
+        its provider contract; those always win and are remembered as such.
+        `stable=False` is the FFmpeg `ebur128` scrape, which fills a key only
+        while no stable row has claimed it — so the fallback can never overwrite
+        the authoritative figure regardless of which block appeared first in the
+        file.
+        """
+        if stable:
+            self.album_loudness[key] = value
+            self.album_loudness_stable.add(key)
+        elif key not in self.album_loudness_stable:
+            self.album_loudness[key] = value
 
 
 @dataclass
@@ -1313,6 +1413,29 @@ def _take_finished_at(disc: _Disc, match: re.Match[str]) -> bool:
     return True
 
 
+# The four album loudness/peak rows cyanrip owns. Same keys and the same string
+# values the `ebur128` fallback writes, so nothing downstream sees a new shape —
+# only a source that cannot be reworded out from under us. See the pattern block.
+def _take_album_integrated_loudness(disc: _Disc, match: re.Match[str]) -> bool:
+    disc.record_album_loudness("integrated_lufs", match.group("v"), stable=True)
+    return True
+
+
+def _take_album_loudness_range(disc: _Disc, match: re.Match[str]) -> bool:
+    disc.record_album_loudness("lra_lu", match.group("v"), stable=True)
+    return True
+
+
+def _take_album_sample_peak_level(disc: _Disc, match: re.Match[str]) -> bool:
+    disc.record_album_loudness("sample_peak_dbfs", match.group("v"), stable=True)
+    return True
+
+
+def _take_album_true_peak_level(disc: _Disc, match: re.Match[str]) -> bool:
+    disc.record_album_loudness("true_peak_dbfs", match.group("v"), stable=True)
+    return True
+
+
 # --- the tables, and why there are four of them ----------------------------
 # Each table is dispatched at the exact point in the loop where the old if-chain
 # tested those same lines, and the split points are the section-state blocks.
@@ -1355,6 +1478,30 @@ _RULES_BEFORE_TRACKS: tuple[_LineRule, ...] = (
 )
 
 _RULES_AFTER_TRACKS: tuple[_LineRule, ...] = (
+    # FORK-ONLY, harmless on every older build (absent means absent). Placed in
+    # THIS table, the last dispatch point, for two reasons: these rows sit in the
+    # finish report where the rest of this table's rows live, and reaching the last
+    # dispatch means every section block above has already had its chance to end,
+    # so claiming one of these cannot leave a section flag armed. They are NOT
+    # `disc_level_only` — a build that printed them without the (libavfilter-worded)
+    # `Album Loudness Summary:` header would still be inside the last track block,
+    # and these are disc facts written to `disc`, never to the track.
+    _LineRule(
+        "album_integrated_loudness",
+        _ALBUM_INTEGRATED_LOUDNESS,
+        _take_album_integrated_loudness,
+    ),
+    _LineRule(
+        "album_loudness_range", _ALBUM_LOUDNESS_RANGE, _take_album_loudness_range
+    ),
+    _LineRule(
+        "album_sample_peak_level",
+        _ALBUM_SAMPLE_PEAK_LEVEL,
+        _take_album_sample_peak_level,
+    ),
+    _LineRule(
+        "album_true_peak_level", _ALBUM_TRUE_PEAK_LEVEL, _take_album_true_peak_level
+    ),
     _LineRule("accuraterip_total", _ACCURATE_TOTAL, _take_accurate_total),
     _LineRule("accuraterip_partial_total", _PARTIAL_TOTAL, _take_partial_total),
     _LineRule("ripping_errors", _RIP_ERRORS, _take_rip_errors),
@@ -1571,6 +1718,64 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
     # Pure structure: a section marker with no value of its own.
     (re.compile(r"^Tracks:\s*$"), "section marker, no payload"),
     (re.compile(r"^Summary:\s*$"), "section marker, no payload"),
+    # --- the pre-log replay block, and the other rows nothing claimed --------
+    #
+    # Added 2026-08-21 in the same change as the album loudness rows above, for
+    # the reason that change exists: FOUR of the round-12 artifacts' unclaimed
+    # column-0 lines were the loudness rows, and the other four/five were these.
+    # Fixing only the ones the task named would have left the rest dropping
+    # silently, which is the defect, not the symptom.
+    #
+    # cyanrip buffers everything it says before the logfile exists and replays it
+    # into the file between these two delimiters (their P3 legend states the
+    # mechanism and both strings). The delimiters carry no fact themselves; the
+    # content between them is ARBITRARY — anything cyanrip or libcdio emitted
+    # before the open, which is why the two content rows below are listed
+    # individually rather than covered by one wildcard. A wildcard spanning the
+    # block would swallow whatever a future build prints in there, and this
+    # list's whole job is to make a dropped line visible.
+    (
+        re.compile(r"^--- output before this log was opened ---\s*$"),
+        "delimiter of the replayed pre-logfile buffer; no payload",
+    ),
+    (
+        re.compile(r"^--- end of pre-log output ---\s*$"),
+        "delimiter of the replayed pre-logfile buffer; no payload",
+    ),
+    # `Opening drive...` — their P2 `cyanrip_main.c:243`, so a STABLE line, and a
+    # pure progress marker: the drive it opened is `Drive used:` (parsed) and the
+    # failure to open it is a different string entirely (`Unable to open device!`,
+    # in their P5 inventory and matched by `ripper_messages`). Their own contract
+    # warns this one "reads as fatal" to a naive scanner because the next
+    # statement's if-block returns — it is not.
+    (
+        re.compile(r"^Opening drive\.\.\.\s*$"),
+        "progress marker; the drive is on Drive used: and the failure is its own "
+        "P5 string",
+    ),
+    # `Checking pregap.bin for cdrom...` — libcdio's own probe chatter, replayed
+    # inside the pre-log block on an IMAGE rip (`-d file.cue`). NOT in the fork's
+    # P1-P6 contract at all, because it is not cyanrip's string: it names the
+    # image cyanrip was pointed at, which we already hold (we built the argv) and
+    # which `Invoked as:` records verbatim. Listed so the sweep keeps its meaning
+    # on image-based artifacts, which is what the round-12 references are.
+    (
+        re.compile(r"^Checking .{1,200} for cdrom\.\.\.\s*$"),
+        "libcdio image-probe chatter; the path is ours and Invoked as: records it",
+    ),
+    # `Stopping, ripping incomplete!` — their P2 `cyanrip_main.c:815` AND their P5
+    # fatal inventory. NOT parsed here on purpose, and the distinction matters:
+    # this parser's job is the archival record, and the record of an aborted rip is
+    # `Rip completed:  no (interrupted by SIGTERM, 0 of 3 tracks)`, which the
+    # `rip_completed` rule already reads into a tri-state plus its reason and
+    # denominator. SURFACING the ripper's own sentence to the user is a different
+    # subsystem — `ripper_message_inventory` carries this exact string and
+    # `ripper_messages` matches it — so ignoring it here drops nothing.
+    (
+        re.compile(r"^Stopping, ripping incomplete!\s*$"),
+        "abort marker; Rip completed: carries the verdict and ripper_messages "
+        "surfaces this sentence",
+    ),
 )
 
 # How many unclaimed top-level lines to keep as evidence for the debug log. A
@@ -1885,13 +2090,23 @@ def parse_cyanrip_log(text: str) -> RipLog:
             # Peak: values wherever they appear. Nothing after this block carries
             # those lines, so leaving the flag on is safe; the finish handlers
             # below (Tracks ripped…, Paranoia, Log FUN512) still run normally.
+            #
+            # THE FALLBACK SOURCE, and every write below goes through
+            # `record_album_loudness(..., stable=False)` so it can only fill a key
+            # the fork's own `Album …` rows have not already claimed. This block's
+            # wording is libavfilter's and the fork's P3 disclaims it; it stays
+            # because stock cyanrip 0.9.3/0.9.4 and every fork build before round 8
+            # print this and nothing else. See the `_ALBUM_INTEGRATED_LOUDNESS`
+            # block for the full precedence argument.
             m_i = _LOUDNESS_I.match(line)
             if m_i:
-                disc.album_loudness["integrated_lufs"] = m_i.group("v")
+                disc.record_album_loudness(
+                    "integrated_lufs", m_i.group("v"), stable=False
+                )
                 continue
             m_lra = _LOUDNESS_LRA.match(line)
             if m_lra:
-                disc.album_loudness["lra_lu"] = m_lra.group("v")
+                disc.record_album_loudness("lra_lu", m_lra.group("v"), stable=False)
                 continue
             m_pk = _LOUDNESS_PEAK.match(line)
             if m_pk:
@@ -1904,7 +2119,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                     if pending_peak_kind == "sample"
                     else "true_peak_dbfs"
                 )
-                disc.album_loudness[key] = m_pk.group("v")
+                disc.record_album_loudness(key, m_pk.group("v"), stable=False)
                 pending_peak_kind = ""
                 continue
 
