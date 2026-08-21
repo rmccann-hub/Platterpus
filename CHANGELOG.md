@@ -11,6 +11,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **`--rig-session`'s help text advertised a flag the harness deliberately does not
+  run.** It said the harness runs *"the ripper's own `-x` and `-j`"*; step 5a of
+  `rig_session.sh` says in capitals that `-x` is **NOT RUN**, because it measures the
+  drive cache and then rips the whole disc (ETA 1h 3m, measured 2026-08-19) leaving
+  the drive held. The harness was right and the help was stale.
+  Not a typo class: `--help` is what an operator reads *before* a hardware session
+  and the harness is what runs, so this is two surfaces answering one question
+  (`docs/testing.md` §5.al). An operator trusting the help would eject the disc
+  unnecessarily — or, worse, read a future `-x` regression as expected behaviour
+  because the help said it was supposed to happen.
+  The help now says it does **not** run the probe *and why*, because a bare omission
+  invites the next reader to switch it back on.
+  `tests/test_rig_session_help_matches_the_harness.py` compares the two artifacts
+  rather than trusting either, keyed on the harness's own "NOT RUN" phrasing so a
+  second refused flag needs no edit here. Its floor fails loudly if the harness ever
+  stops refusing anything, with instructions rather than an assertion to delete.
+
 ## [0.6.21] — 2026-08-21
 
 ### Added
