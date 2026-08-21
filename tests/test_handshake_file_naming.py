@@ -1412,3 +1412,165 @@ def test_a_superseded_verdict_of_OURS_in_the_other_directory_cannot_close_a_roun
     assert not any(line.endswith("CLOSED") for line in lines), (
         "an older GO of ours in outbound/ closed a round our newest lap HOLDs"
     )
+
+
+# --- Unpacking a RECEIVED envelope -----------------------------------------
+#
+# The inbound direction, added 2026-08-21. `split()` had existed for rounds and
+# was reachable from no CLI, so every actual split was done by hand-writing the
+# regex again — three times in one session. Worse, `split()` parses each part's
+# declared `sha256=` and then ignores it, so the integrity claim the delimiter
+# carries was checked by nothing. Same shape as CLAUDE.md rule #9's
+# fully-implemented `cancel()` called from nowhere: the capability existed and
+# could not be used, and the part that made it trustworthy was absent.
+
+
+def _envelope_of(envelope: ModuleType, parts: dict[str, str]) -> str:
+    """Build a well-formed envelope carrying `parts`, using the real delimiters."""
+    import hashlib
+
+    chunks = []
+    for name, body in parts.items():
+        sha = hashlib.sha256((body + "\n").encode("utf-8")).hexdigest()
+        chunks.append(
+            envelope.BEGIN.format(name=name, sha=sha)
+            + "\n"
+            + body
+            + "\n"
+            + envelope.END.format(name=name)
+        )
+    return "preamble prose\n\n" + "\n\n".join(chunks) + "\n"
+
+
+def test_verify_split_reports_both_hashes_so_a_mismatch_can_be_named(
+    envelope: ModuleType,
+) -> None:
+    """A corrupted transfer must be describable, not just refusable.
+
+    Returning declared AND computed is deliberate: a splitter that says only
+    "failed" leaves two projects unable to tell a truncation from a re-encoding,
+    which need different follow-ups. This is the diagnostic-completeness rule at
+    the size of one function.
+    """
+    good = _envelope_of(envelope, {"a.md": "hello", "b.log": "line one\nline two"})
+    rows = envelope.verify_split(good)
+    assert len(rows) == 2, rows
+    for name, body, declared, computed in rows:
+        assert declared == computed, f"{name}: {declared} != {computed}"
+        assert body.endswith(b"\n"), f"{name}: the trailing newline was dropped"
+
+    # Corrupt ONE part's body, leaving its declared hash in place.
+    tampered = good.replace("line one", "line ONE")
+    rows = envelope.verify_split(tampered)
+    bad = [(n, d, c) for n, _b, d, c in rows if d != c]
+    assert len(bad) == 1, f"expected exactly one mismatch, got {bad}"
+    assert bad[0][0] == "b.log", bad
+    assert bad[0][1] != bad[0][2], "the two hashes are equal, so nothing was detected"
+
+
+def test_split_round_trips_the_envelope_we_ourselves_produce(
+    envelope: ModuleType,
+) -> None:
+    """Our reader must invert our writer — asserted against real repo files.
+
+    `CLAUDE.md`: two implementations agreeing is not either being correct, so this
+    checks the split against the **source artifacts on disk** rather than against
+    another parse of the same text.
+    """
+    parts = envelope.read_parts()
+    assert len(parts) >= 2, f"only {len(parts)} parts to round-trip"
+    rendered = envelope.render(parts)
+    rows = {name: body for name, body, _d, _c in envelope.verify_split(rendered)}
+    assert len(rows) == len(parts), f"{len(parts)} packed, {len(rows)} recovered"
+    for part in parts:
+        source = (envelope.HANDSHAKE_DIR / "verified" / part.name).read_bytes()
+        assert rows[part.name] == source, (
+            f"{part.name} did not survive the round trip byte-identically"
+        )
+
+
+def test_a_file_with_no_delimiters_is_refused_rather_than_read_as_empty(
+    envelope: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Zero parts is a REFUSAL, not a successful split of nothing.
+
+    The "can this check be satisfied by finding nothing?" question, asked of the
+    splitter: an envelope a chat client reflowed produces no matches, and reading
+    that as "unpacked 0 files, done" is exactly how a lost lap looks healthy.
+    """
+    plain = tmp_path / "notanenvelope.md"
+    plain.write_text("just some prose, no delimiters at all\n", encoding="utf-8")
+    out = tmp_path / "out"
+    assert envelope._do_split(plain, out) == 1
+    assert not out.exists(), "a refused split created its output directory anyway"
+    assert "no envelope parts found" in capsys.readouterr().err
+
+
+def test_a_mismatching_part_writes_NOTHING(
+    envelope: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """All-or-nothing, because the next step reads whatever is on disk.
+
+    A half-written split leaves a directory where some files are trustworthy and
+    some are not, with no way to tell them apart afterwards — worse than no split
+    at all.
+    """
+    good = _envelope_of(envelope, {"a.md": "intact", "b.log": "will be corrupted"})
+    tampered = good.replace("will be corrupted", "corrupted!!!!!!!!")
+    src = tmp_path / "envelope.md"
+    src.write_text(tampered, encoding="utf-8")
+    out = tmp_path / "out"
+
+    assert envelope._do_split(src, out) == 1
+    assert not (out / "a.md").exists(), (
+        "the INTACT part was written despite a sibling failing — a later reader "
+        "cannot tell which files in that directory are trustworthy"
+    )
+    err = capsys.readouterr().err
+    assert "1 of 2 parts" in err, err
+    assert "NOTHING was written" in err, err
+
+
+def test_a_part_name_cannot_escape_the_output_directory(
+    envelope: ModuleType, tmp_path: Path
+) -> None:
+    """An envelope is EXTERNAL INPUT from another repository (Critical rule #12).
+
+    A part named `../../etc/passwd` must land as `passwd` inside the target, not
+    two levels up. Nothing crosses that seam unchecked — and a path is the one
+    field where "we trust them" has consequences beyond a wrong verdict.
+    """
+    good = _envelope_of(envelope, {"../../escaped.md": "gotcha"})
+    src = tmp_path / "envelope.md"
+    src.write_text(good, encoding="utf-8")
+    out = tmp_path / "nested" / "out"
+
+    assert envelope._do_split(src, out) == 0
+    assert (out / "escaped.md").is_file(), "the part was not written at all"
+    assert not (tmp_path / "escaped.md").exists(), (
+        "a part name traversed out of the output directory"
+    )
+
+
+def test_split_needs_no_outbound_lap_staged(
+    envelope: ModuleType, tmp_path: Path
+) -> None:
+    """Unpacking what they sent must work when we have nothing staged to send.
+
+    `main()` used to build our own envelope before parsing arguments, so the
+    inbound path would have depended on `PARTS` resolving — which is unrelated
+    state, and exactly the coupling that makes a tool unusable at the moment it
+    is needed.
+    """
+    good = _envelope_of(envelope, {"theirs.md": "their lap"})
+    src = tmp_path / "envelope.md"
+    src.write_text(good, encoding="utf-8")
+    out = tmp_path / "out"
+
+    original = envelope.PARTS
+    try:
+        envelope.PARTS = ()  # nothing of ours staged
+        assert envelope.main(["--split", str(src), "--into", str(out)]) == 0
+    finally:
+        envelope.PARTS = original
+    assert (out / "theirs.md").read_text(encoding="utf-8") == "their lap\n"
