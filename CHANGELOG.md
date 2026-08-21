@@ -68,6 +68,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   weakness only bites the first time somebody writes about `set -e` without
   setting it, which is the invisible kind of decay.
 
+### Fixed
+- **The sweep guarding *"never block the GUI thread"* could examine nothing and
+  pass.** `tests/test_gui_thread_discipline.py` parametrizes over
+  `_ui_modules()` — a live `rglob` of `src/platterpus/ui` — and pytest generates
+  **no cases at all** for an empty population: measured under this repo's config,
+  an empty parametrize reports `1 skipped` and exits **0**. So a rename or a moved
+  package would silently blind the guard on a rule `CLAUDE.md` says was *written
+  in blood* and dates as bitten three times. The module's two meta-tests prove the
+  *detector* works on a planted file in `tmp_path` — a different claim entirely; a
+  perfect detector applied to zero modules passes, and nothing said so.
+  Now floored by an **unparametrized** test, which is structural rather than
+  stylistic: a floor asserted inside the parametrized function is skipped along
+  with it, i.e. exactly when it was needed. It asserts the directory exists, that
+  at least 25 modules are swept (33 today), and — because 25 unrelated files in the
+  right directory would satisfy a count alone — that a `main_window*` module is
+  actually among them.
+  Proven by the same revert twice: pointing `_UI_DIR` at a non-existent path makes
+  the new floor **fail** while the parametrized sweep still **passes**, which is
+  the defect and its fix in one run.
+  Two sibling sweeps over this same directory already had floors
+  (`test_scroll_guards.py` → `examined >= 20`, `test_dialog_lifecycle_logging.py`
+  → `scanned >= 15`), so this was the *"enforce a rule across the codebase, not at
+  the place it was learned"* shape once more.
+
 ### Added
 - **`scripts/check.py` — one command that runs the CI gates and reports each
   one's *true* exit status.** The gates were never the problem; *reading* their
@@ -116,6 +140,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `test_the_runner_sees_the_reverted_content`: the fake runner reads the file
   *while* the revert is applied, so a tool that restored too early — or never wrote
   at all — fails there and nowhere else.
+  Using it immediately turned up a **fifth** way a revert can mislead, which is now
+  written into the tool and into its `VACUOUS` message: a revert can change the
+  file *without changing behaviour*. `X = {` → `X = {} or {` alters the bytes and
+  the hash and evaluates to the **same dict**, because `{}` is falsy. The probe
+  reported `VACUOUS` — correct by its own definition — and the fault was in the
+  spec, not the test. A hash proves the file changed; nothing can prove the
+  *meaning* changed, so the verdict now says to check that before concluding a test
+  is dead.
 
 ### Changed
 - **A local test run now prints its own coverage number instead of leaving it to

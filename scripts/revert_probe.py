@@ -18,6 +18,14 @@ looks exactly like a vacuous test**. All four are on the record here:
 3. `ruff --fix` deleting an import between two halves of a change;
 4. (cyanrip fork, same week) a `sed` that produced non-compiling C while build
    output was suppressed — so the **stale binary** ran the test and passed.
+5. a revert that changed the file **without changing behaviour**. Found by using
+   this tool, 2026-08-20: `X = {` → `X = {} or {` alters the bytes and the hash,
+   and evaluates to the *same* dict, because `{}` is falsy. The probe duly
+   reported `VACUOUS` — correctly, by its own definition — and the real fault was
+   in the spec. So the hash check proves *the file changed*; it cannot prove *the
+   meaning changed*, and no tool can. `VACUOUS` therefore says so in its own
+   message: before believing a test is dead, confirm the replacement is
+   semantically different, not merely textually different.
 
 So this tool refuses rather than guesses, and it proves each step:
 
@@ -286,10 +294,15 @@ def apply_and_probe(revert: Revert, run_tests: TestRunner | None = None) -> Outc
                 revert.label,
                 ok=False,
                 detail=(
-                    "VACUOUS: the test PASSED with the fix reverted, so it does not "
-                    "guard this line. The revert definitely landed "
-                    f"({before} -> {after}), so this is the test's problem, not the "
-                    "probe's.\n" + _excerpt(output)
+                    "VACUOUS: the test PASSED with the fix reverted, so on the "
+                    f"evidence it does not guard this line. The file did change "
+                    f"({before} -> {after}).\n"
+                    "    BEFORE concluding the test is dead, check the ONE thing a "
+                    "hash cannot: that the replacement is semantically different, "
+                    "not merely textually different. `X = {` -> `X = {} or {` "
+                    "changes the bytes and evaluates to the same dict. If the "
+                    "replacement is a no-op, this verdict is about the spec, not "
+                    "the test.\n" + _excerpt(output)
                 ),
             )
         # expect == "unaffected"
