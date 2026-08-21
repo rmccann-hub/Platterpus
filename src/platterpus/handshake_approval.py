@@ -228,7 +228,7 @@ def _why_this_build_is_here(tag: str) -> str:
                 f" {fork_source.FORK_TEST_PIN_ROUND}). Evidence gathered with a"
                 " retired pin is not what the round is waiting for."
             )
-    under_review = fork_source.NEXT_PIN_UNDER_REVIEW
+    under_review = fork_source.PIN_UNDER_REVIEW
     if under_review and under_review.casefold() in lowered:
         return (
             f" That build is the pin an OPEN handshake round proposes"

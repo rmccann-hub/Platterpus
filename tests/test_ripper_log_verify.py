@@ -366,13 +366,102 @@ def test_the_discriminator_is_our_own_read_not_the_rippers_wording(
     assert "does NOT match" in signed.detail, signed.detail
 
 
-def test_an_unreadable_log_keeps_the_stronger_wording(tmp_path: Path) -> None:
-    """Fail-closed: if we cannot read the file we do not volunteer the excuse."""
-    missing = tmp_path / "sub" / "gone.log"
-    missing.parent.mkdir()
-    missing.write_text("Log FUN512: abc\n", encoding="utf-8")
-    assert rlv._has_checksum_line(missing) is True
-    assert rlv._has_checksum_line(tmp_path / "sub") is True, (
-        "a directory (unreadable as text) must not be reported as an absent "
-        "checksum — that is the gentler claim and we have not established it"
+def test_an_unreadable_log_is_not_determined_not_an_accusation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """**An unreadable log is a THIRD state, and it used to be reported as the worst.**
+
+    This test replaces one that asserted the opposite, and the replaced one is
+    worth recording because it would have protected the defect indefinitely. It
+    read: *"Fail-closed: if we cannot read the file we do not volunteer the
+    excuse"*, and pinned `_has_checksum_line(unreadable) is True`.
+
+    The premise was a false dichotomy. It framed the choice as *gentle* ("no
+    checksum line — the rip was probably cancelled") versus *strong* ("the
+    checksum does not match") and picked strong, reasoning that we had not earned
+    the gentle one. Both are claims **about the artifact**, and we had read
+    nothing about the artifact — so the available third option was to make no
+    claim at all. Returning True routed an unopenable file to *"the file was
+    altered after the ripper signed it and must not be treated as archival
+    evidence"*: an accusation of tampering, from a position of total ignorance,
+    written into the report's `issues[]` and logged at ERROR.
+
+    Fail-closed means refusing to certify, which `not_determined` does. It does
+    not mean picking the most alarming available explanation — and this project
+    already has the rule (`not_determined` is never reported as the negative);
+    it was applied to the flag-rejection branch twenty lines up and not to this
+    one. Same shape as `docs/testing.md` §5.o: a principle honoured in one
+    branch of a function and not its sibling.
+
+    **How narrow this actually is, stated rather than implied.** `verify_rip_log`
+    already refuses a path that is not a file, so the reachable case is a log
+    that exists at the `is_file()` check and raises `OSError` at the read. That
+    is not exotic: a removable or network volume unmounted mid-rip (an external
+    USB drive is a normal place to keep a library), an `EIO` off failing storage,
+    or the folder being moved between the two calls. It is, however, not
+    reproducible as root by permissions, so the raise is injected — which is a
+    faithful stand-in, because `OSError` from that one call is precisely the real
+    condition.
+    """
+    signed_but_unreadable = tmp_path / "vanishes.log"
+    signed_but_unreadable.write_text("Log FUN512: abc\n", encoding="utf-8")
+
+    real_read_text = Path.read_text
+
+    def read_text_fails(self: Path, *args: object, **kwargs: object) -> str:
+        if self == signed_but_unreadable:
+            raise OSError(5, "Input/output error")
+        return real_read_text(self, *args, **kwargs)  # type: ignore[arg-type]  # passthrough for every other path
+
+    monkeypatch.setattr(Path, "read_text", read_text_fails)
+    result = rlv.verify_rip_log(
+        signed_but_unreadable,
+        build_tag=KNOWN_BUILD,
+        runner=_runner(ToolRun(exit_code=1, output="something else entirely")),
     )
+    monkeypatch.undo()
+    assert result.verdict == rlv.NOT_DETERMINED, (
+        f"an unreadable log produced a verdict of {result.verdict!r}. The only "
+        f"honest answer is not_determined — we did not read the file."
+    )
+    assert "could not be read" in result.detail, result.detail
+    # The two claims that must NOT appear. Asserted by their text because it is
+    # the text a user reads in the report and screenshots into a bug report.
+    assert "altered" not in result.detail, (
+        f"an unreadable log was reported as ALTERED, which is a claim about the "
+        f"artifact made without reading it: {result.detail}"
+    )
+    assert "NO 'Log FUN512:'" not in result.detail, (
+        f"an unreadable log was reported as having no checksum line, which is "
+        f"also a claim we did not establish: {result.detail}"
+    )
+    # Non-triviality: prove the alarming wording is still reachable, so this test
+    # cannot be satisfied by a build that never says "altered" about anything.
+    real_mismatch = rlv.verify_rip_log(
+        _REAL_LOG,
+        build_tag=KNOWN_BUILD,
+        runner=_runner(ToolRun(exit_code=1, output="something else entirely")),
+    )
+    assert "altered" in real_mismatch.detail, (
+        "the ALTERED wording is now unreachable, so the assertions above prove "
+        "nothing — a genuine checksum mismatch must still say so plainly"
+    )
+
+
+def test_the_footer_check_no_longer_owns_the_unreadable_case(tmp_path: Path) -> None:
+    """The split that made the fix possible, pinned so it is not merged back.
+
+    `_has_checksum_line_in` takes TEXT. It cannot re-acquire an I/O failure mode,
+    which is the whole point: the old single function returned a bool for
+    "is there a footer" and had to answer that question for a file it could not
+    open. Deciding what an unreadable file means is the caller's job.
+    """
+    assert rlv._has_checksum_line_in("Log FUN512: abc\n") is True
+    assert rlv._has_checksum_line_in("no footer here\n") is False
+    assert rlv._read_log_text(tmp_path / "nope.log") is None, (
+        "a missing file must read as None — the signal that there is nothing to "
+        "form a verdict from"
+    )
+    written = tmp_path / "yes.log"
+    written.write_text("Log FUN512: abc\n", encoding="utf-8")
+    assert rlv._read_log_text(written) == "Log FUN512: abc\n"

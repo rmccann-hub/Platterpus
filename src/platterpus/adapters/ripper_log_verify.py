@@ -40,6 +40,7 @@ rendered as the negative — an absent verifier is not a failed verification.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
@@ -47,6 +48,8 @@ from typing import Final
 from platterpus.adapters.tool_run import ToolRun, ToolRunner, make_runner
 from platterpus.cyanrip_cli import VERIFY_LOG_FLAG
 from platterpus.deps import fork_source
+
+log = logging.getLogger(__name__)
 
 #: Generous, because the call may cold-start a container (measured: 3.45 s). Still
 #: bounded — a wedged verifier must degrade to ``not_determined``, not hang a rip's
@@ -227,7 +230,44 @@ def verify_rip_log(
     # So the discriminator is OUR OWN read of the file for the footer the parser
     # already knows how to find. A claim about an artifact should be derivable
     # from the artifact's content.
-    if not _has_checksum_line(path):
+    # UNREADABLE IS A THIRD STATE, AND CALLING IT THE SECOND ONE IS THE WORST
+    # AVAILABLE ERROR.
+    #
+    # The two branches below split on "is there a footer". That question has three
+    # answers, not two — yes, no, and *we could not look* — and the third one used
+    # to be folded into "yes", which routes it to the ALTERED wording at the bottom
+    # of this function. So a log we merely failed to open was reported as *"the file
+    # was altered after the ripper signed it and must not be treated as archival
+    # evidence"*: an accusation about the artifact, from a state where we read
+    # nothing about the artifact at all.
+    #
+    # The old code called that "fail-closed", and the docstring on
+    # `_read_log_text` records why that was the wrong word. Fail-closed means
+    # refusing to certify. It does not mean volunteering the most alarming
+    # explanation available — that is fail-LOUD, and it is exactly the "every word
+    # accurate, the message wrong" shape this function's own comment below was
+    # written to remove, arriving one branch earlier. Two of this project's rules
+    # meet here: a verdict is tri-state, and `not_determined` is never reported as
+    # the negative.
+    #
+    # Found 2026-08-21 while checking the fork's round-12 exit-code work.
+    text = _read_log_text(path)
+    if text is None:
+        # No "this is not an accusation of tampering" disclaimer, deliberately.
+        # It answers a question this message never raises, and a user reading
+        # "could not be read" does not need to be told what it is not. The
+        # reasoning lives in the comment above, where it belongs; the test asserts
+        # the accusatory wording is absent *entirely*, which a disclaimer
+        # mentioning it would have defeated.
+        return _not_determined(
+            f"{path.name} could not be read, so there is no verdict about it: the "
+            f"ripper exited {run.exit_code}, and we cannot say whether its "
+            f"checksum line is present, absent or disagreeing with the log body. "
+            f"See the log for the read error itself",
+            str(path),
+            run,
+        )
+    if not _has_checksum_line_in(text):
         return LogVerification(
             verdict=FAILED,
             detail=(
@@ -259,25 +299,46 @@ def verify_rip_log(
     )
 
 
-def _has_checksum_line(path: Path) -> bool:
-    """Whether the log carries cyanrip's own ``Log FUN512:`` footer.
+def _read_log_text(path: Path) -> str | None:
+    """The log's text, or ``None`` if we could not read it. Never raises.
+
+    **Split from the footer check so "unreadable" stops being an answer about
+    the footer.** This used to be one function returning ``bool``, and an
+    ``OSError`` returned ``True`` — described in its own docstring as
+    "fail-closed". It was not: ``True`` means *there is a checksum line*, which
+    routes the caller to the ALTERED verdict, so a file we never opened was
+    reported as one that had been tampered with. Fail-closed is refusing to
+    certify; this was asserting the worst available explanation from a position
+    of having read nothing.
+
+    ``errors="replace"`` rather than a raise, because a log with one bad byte is
+    still evidence and the footer is ASCII. A decoding problem is not a reason to
+    report an alteration either.
+    """
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        # Logged, not swallowed: CLAUDE.md's diagnostic-completeness rule. The
+        # verdict says "could not be read"; the log file says *why*, which is
+        # what a bug report needs.
+        log.warning("could not read %s for checksum verification: %r", path, exc)
+        return None
+
+
+def _has_checksum_line_in(text: str) -> bool:
+    """Whether log `text` carries cyanrip's own ``Log FUN512:`` footer.
 
     Delegates to the parser's own :func:`~platterpus.parsers.cyanrip_log.
     has_log_checksum` rather than re-spelling the pattern, so the two can never
     disagree about what the footer looks like — the same one-definition-
     many-callers rule the offer-vs-verdict split was fixed under.
 
-    Never raises. An unreadable log returns True, not False: we cannot show the
-    footer is absent, and the fail-closed direction is to keep the older,
-    stronger "does not match" wording rather than volunteer a gentler
-    explanation we have not established.
+    Takes text rather than a path so it cannot re-acquire an I/O failure mode:
+    the caller has already decided what an unreadable file means, and it is not
+    this function's business to answer for one.
     """
     from platterpus.parsers.cyanrip_log import has_log_checksum
 
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return True
     return has_log_checksum(text)
 
 

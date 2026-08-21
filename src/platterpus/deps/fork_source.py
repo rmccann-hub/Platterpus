@@ -282,7 +282,40 @@ FORK_EXPECTED_BANNER: Final[str] = (
 # `src/`, so it is what the version banner resolves to and what a build must use.
 # Their branch tip adds only `tools/release-gate.py` + its test — `meson test`
 # reports 20/20 at the pin and 21/21 at the tip, and the executable is identical.
-NEXT_PIN_UNDER_REVIEW: Final[str] = "5bc654d"
+FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
+
+#: The commit the **currently open** handshake round proposes as the next pin.
+#:
+#: **Split out of the constant above on 2026-08-21, because the two were one slot
+#: holding two facts with different lifetimes** — the `CLAUDE.md` shape whose tell
+#: is a lifetime mismatch stated in the field's own docstring. `5bc654d` is a
+#: *durable* fact: fork release 4, whose published flag table lists `--consumer`
+#: and `--verify-log`, which is why it is a member of both capability sets below
+#: and always will be. "The pin an open round proposes" is a *transient* fact that
+#: changes every round. One name served both, so the capability sets and the
+#: explanation clause could not be updated independently — and the transient half
+#: therefore never was.
+#:
+#: Measured consequence: it sat at the round-7 value for five rounds, with the
+#: comment above it still reading *"round 7 is open"*. So
+#: `handshake_approval._why_this_build_is_here` returned `""` for the round-12
+#: build, and a rip against it reported a bare *"NOT the build this Platterpus was
+#: verified against"* with no reason — the *"every word accurate, the user left
+#: thinking something broke"* failure that function exists to prevent, with the
+#: mechanism working perfectly and its input rotted.
+#:
+#: **This is NOT a capability claim, and it is deliberately absent from both sets
+#: below.** A build we have not been handed a flag table for has unknown
+#: capabilities, and the tri-state's whole point is to say so rather than guess.
+#: Round 12's pin is also, by the fork's own policy, not a release and not to be
+#: installed — so recording capabilities for it would describe a build nobody
+#: runs. The rows go in when it becomes a release or a declared test pin.
+#:
+#: Hand-set but **not hand-trusted**: `tests/test_handshake_pin_under_review.py`
+#: derives the expected value from the newest file in `docs/handshake/inbound/`
+#: and fails if this lags it. A constant is required rather than a runtime read
+#: because `docs/` is not present in an installed AppImage.
+PIN_UNDER_REVIEW: Final[str] = "64ae7bc"
 
 #: The fork's **test pin** — a build designated to gather the hardware evidence a
 #: close requires, which is *not* a release and never moves :data:`FORK_PIN`.
@@ -487,7 +520,7 @@ SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = (
 BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
     {
         FORK_EXPECTED_BUILD_TAG,  # the round-7 release, the current pin
-        f"{FORK_BRANCH}-g{NEXT_PIN_UNDER_REVIEW}",  # r4
+        f"{FORK_BRANCH}-g{FORK_RELEASE_4_COMMIT}",  # fork release 4
         FORK_TEST_BUILD_TAG,  # the round-7 test pin, still on the rig
         *(f"{FORK_BRANCH}-g{pin}" for pin in SUPERSEDED_TEST_PINS),
     }
@@ -512,7 +545,7 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
 BUILD_TAGS_ACCEPTING_VERIFY_LOG: Final[frozenset[str]] = frozenset(
     {
         FORK_EXPECTED_BUILD_TAG,  # the round-6 approved pin
-        f"{FORK_BRANCH}-g{NEXT_PIN_UNDER_REVIEW}",
+        f"{FORK_BRANCH}-g{FORK_RELEASE_4_COMMIT}",  # fork release 4
         FORK_TEST_BUILD_TAG,
         *(f"{FORK_BRANCH}-g{pin}" for pin in SUPERSEDED_TEST_PINS),
     }
