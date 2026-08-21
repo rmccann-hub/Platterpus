@@ -12,6 +12,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **The rig script's on-screen banner named the old test.** Its header comment was
+  retitled for 0.6.21 ("the completed re-rip, and the PlainText fix") and the `log`
+  banner the operator actually reads still said "the drive-open proof, and the
+  dialogs". The comment is for whoever edits the file; the banner is for whoever
+  runs it, and the one that was wrong is the one a person sees.
 - **`--rig-session`'s help text advertised a flag the harness deliberately does not
   run.** It said the harness runs *"the ripper's own `-x` and `-j`"*; step 5a of
   `rig_session.sh` says in capitals that `-x` is **NOT RUN**, because it measures the

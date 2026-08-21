@@ -69,7 +69,7 @@
 # -----------------------------------------------------------------------------
 
 log =============================================================
-log RIG TEST: the cancel path, the drive-open proof, and the dialogs
+log RIG TEST: the cancel path, the completed re-rip, and the PlainText fix
 log =============================================================
 snapshot atstart
 
