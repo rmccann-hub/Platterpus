@@ -11,6 +11,321 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.21] — 2026-08-21
+
+### Added
+- **`docs/cyanrip-handshake.md` §7.6 — a standing status the fork can read between
+  rounds.** Rounds are the formal channel and they cost something: S-13 fixes a
+  round's close conditions at lap 1, and an open round blocks *both* projects'
+  releases, so opening one just to say "here is where we are" is the wrong
+  instrument. §7.6 is that answer instead, rewritten in place rather than growing a
+  file per update.
+  It states: no round is open (all eleven CLOSED, bilateral `GO`); the pin is
+  unchanged (`platterpus-fork-gddf7ac3`, approved by round 8); and — the part worth
+  checking rather than asserting — **the generated consumer contract is
+  byte-identical since v0.6.12b6**, the app version round 8 approved that pin for.
+  Nine app minors and +183 lines across the three seam modules produced **zero**
+  change to the contract they implement, so round 8's evidence still holds here and
+  the fork need not re-derive anything for this release.
+  It also names the caveat rather than letting the gap read as a silent
+  re-approval: `APPROVED_FOR_PLATTERPUS_VERSION` still says `0.6.12b6`, so reports
+  state the pairing was verified at that version while the app is 0.6.21. True
+  historical record, informational only — the verdict keys on the build tag, so no
+  rip is mis-graded.
+  Carries the two open asks (`-x` rips the disc after measuring; `--verify-log`
+  should separate absent from mismatched by exit code), both `NEXT-ROUND` and
+  neither blocking, plus what the next rig run is for and the explicit statement
+  that **nothing is needed from the fork right now**.
+
+### Security
+- **Three `QMessageBox` surfaces rendered external text as HTML, and the sweep
+  Critical rule #12 claims exists did not.** The rule says, verbatim: *"Every
+  widget carrying dependency output is `PlainText`, swept rather than fixed one at
+  a time."* There was no sweep. Three of the six message boxes in `src/` had been
+  fixed individually; the other three had not — which is the outcome that wording
+  was written to prevent. Under Qt's default `AutoText`, a `<` in the text is
+  parsed as markup and the run after it is dropped **silently**:
+  - `app.py::_show_fatal_dialog` — `setText(f"…{type(exc).__name__}: {exc}")`. The
+    exception text is arbitrary external content. Worst possible home for a silent
+    truncation: the dialog whose entire job is giving the user something accurate
+    to report, so a screenshot would be missing the middle of the message with
+    nothing to indicate it.
+  - `main_window_rip.py::_confirm_known_overwrite` — names a folder built from the
+    album's artist, title and year. Rule #12 names this case directly; a truncated
+    destructive-overwrite prompt while Replace still does the full thing.
+  - `main_window_drive.py::_present_drive_diagnosis` — device paths, group names,
+    and a `fix_command` the user is meant to copy verbatim.
+  All three now pin `PlainText`, and `tests/test_message_boxes_are_plaintext.py`
+  is the sweep: 6 sites, floored, with an empty ratcheted allowlist. Its detector
+  requires the **PlainText** argument rather than a `setTextFormat` call, because
+  `setTextFormat(RichText)` is also a `setTextFormat` call and is the opposite of
+  this rule.
+  `CLAUDE.md` was corrected in the same change to say what is actually swept
+  (`QMessageBox`) and what is not (13 `QLabel(<non-literal>)` sites, tracked in
+  `TASKS.md`). Scoping a sweep is fine; scoping it silently while the rule claims
+  everything is the defect.
+
+### Changed
+- **`tests-touched` is now GATING, and escapable only by saying why.** *"Every
+  shipped bug gets a regression test in the same change"* is the most-cited rule
+  in this repo and had the weakest enforcement of anything an audit examined: a
+  GitHub warning annotation with no `exit 1` on any path. It now fails when
+  `src/platterpus` changes with no change under `tests/` — unless a commit in the
+  range carries `[no-test-needed] <reason>` (a bare marker is refused; the reason
+  must be substantive), or the only src change is a release commit's `__version__`
+  bump. That carve-out is recognised precisely rather than by exempting
+  `__init__.py` wholesale: a bump that also adds real code to that file is still
+  refused. Verified against six synthetic ranges in a scratch repo before being
+  pushed, because a gate that can block every merge should not be tested in
+  production. Added to `release.yml`'s required-check list too — a check that gates
+  a merge and not a release has a hole exactly where the artifact users
+  auto-update to comes out.
+- **`mypy` gains `ignore-without-code` and `possibly-undefined`**, both measured
+  at zero violations first, so they enforce rules the code already follows instead
+  of opening a backlog. `ignore-without-code` makes rule #10's *"no bare
+  `# type: ignore`"* mechanical — it was 100% complied with and 0% enforced.
+  Three flags were measured and **deliberately not** enabled, with counts recorded
+  in `pyproject.toml` so the next reader inherits a number rather than a guess:
+  `disallow_any_explicit` (47), `redundant-expr` (16), `truthy-bool` (3).
+- **ruff's `N` (pep8-naming) is recorded as deliberately absent**, with the
+  measurement: 108 findings, of which **96** are `N802` on Qt API names we do not
+  choose (`isRunning`, `setValue`, `rowCount`, `objectName`). A lint whose main
+  rule needs a permanent blanket ignore teaches nothing, and the remaining 12 are
+  style disagreements (function-local `CEILING` constants) rather than defects. So
+  the naming convention stays reader-enforced *on purpose and with numbers*, rather
+  than being unenforced by omission.
+
+### Fixed
+- **The coverage floor's "ratchets up, never down" is now enforced**, against the
+  value in the **last release tag** — the only one that cannot be edited in the
+  same commit that lowers the floor. A committed high-water constant would not be
+  a ratchet. Honest about its limit, in the test's own docstring: once a release
+  ships a lowered floor the ratchet re-bases on it, so this guards the cycle rather
+  than all history.
+- **The "modal dialog that does its own blocking work" trap now has a sweep.**
+  `CLAUDE.md` calls this *"the recurring trap"* and dates it as having bitten
+  three times, and nothing checked for it. Zero violations today across 7
+  dialog-building functions; this keeps it there.
+  Deliberately **not** done the obvious way: widening the existing GUI-thread sweep
+  from `src/platterpus/ui/` (33 of 154 modules) to the whole package was measured
+  and rejected — 12 non-`ui/` modules make blocking calls and essentially all are
+  correct, because `adapters/`, `deps/`, `ctdb/` and `drive_control.py` are
+  worker-side code that is *supposed* to block. The rule is "never block the GUI
+  **thread**"; a directory is only a proxy for it. Keying on *"this function builds
+  a modal dialog"* covers `app.py` and everything else without inheriting the false
+  positives. The detector deliberately excludes `join` — an earlier version flagged
+  `_show_fatal_dialog` for `"".join(traceback.format_exception(...))`, and a checker
+  that fires on correct code gets deleted.
+
+### Security
+- **Both guards for Critical Rule #8 could pass by failing to look, and they
+  shared the same failure mode.** The rule — never commit audio or other
+  copyrighted media to this public repository — is enforced by
+  `.githooks/pre-commit` (which `CLAUDE.md` calls *"the canonical guard"*) and,
+  independently, by `ci.yml`'s `media-guard` job. Both wrote
+
+      offenders=$(<git command> | grep -iE "$pattern" || true)
+
+  where `|| true` is needed for grep's no-match exit — the normal case — but sits
+  **outside** the pipeline and so also absorbs a failure of the *git command
+  itself*. `set -o pipefail` cannot help: it is the pipeline's own status being
+  discarded. A fatal `git diff` therefore yielded an empty offender list, the hook
+  exited 0, and CI printed *"No audio/media files. ✅"* having inspected nothing —
+  **fail-open on the one rule here with legal consequences.** The CI branch has
+  the more reachable trigger: after a force-push, `$PUSH_BEFORE` can name an
+  object that no longer exists, at which point `git diff` is fatal rather than
+  empty.
+  Both now check the producer separately and **refuse** when they cannot enumerate
+  what they are guarding — the same tri-state rule applied everywhere else here:
+  *not determined* is not a pass. Reproduced and pinned by
+  `tests/test_media_guard_hook.py::test_the_hook_refuses_when_it_cannot_list_the_staged_files`,
+  which runs the real hook against a `git` shim that fails only for `diff`.
+  Restoring the old line makes that test fail while the ordinary
+  audio-blocked/text-allowed tests stay green — so the defect was precisely the
+  fail-open branch, not the guard in general.
+  The deeper problem was that the two guards were *supposed* to be independent
+  witnesses and shared one idiom, which is the whole point of a backstop. Their
+  extension patterns are now compared by a test rather than kept in step by a
+  comment saying "same pattern as".
+- **The Rule #8 hook had no test of any kind, and the one shell-hygiene test
+  could not see it.** `tests/test_security_no_shell.py` globbed `*.sh`, and
+  `.githooks/pre-commit` has no extension — so the most consequential shell script
+  in the repo was outside the only check that looks at shell scripts. The scan now
+  detects extensionless files by shebang, a test asserts *by name* that the hook is
+  in scope (a scan's blind spot is invisible by construction, so trusting the glob
+  is not enough), and the hook has behavioural tests: audio blocked, `.FLAC`
+  blocked, ordinary text allowed, and the log/CRC text artifacts the rule tells
+  people to commit still allowed — that last one because a guard that rejects the
+  right thing pushes people to `--no-verify`, which disables it entirely.
+  No audio is created by these tests; the fixtures are text files with audio
+  extensions, written under `tmp_path` and never added to this repository.
+- **`test_shell_scripts_enable_errexit` claimed more than it checked.** Its
+  docstring called itself *"a regression lock on the 'all scripts use `set -euo
+  pipefail`' property"*; the assertion was `"set -e" not in text` — a substring, so
+  a **comment** mentioning `set -e` satisfied it, and `pipefail` was never checked
+  at all. That is the label-instead-of-subject shape: it answers *"does the file
+  mention errexit"*, not *"does the file enable it"*. Now anchored to a real
+  non-comment `set -` statement, with `pipefail` checked separately against a
+  two-entry ratcheted allowlist carrying the technical reason per entry — both are
+  `producer | head -1`, where `head` exiting early gives the producer SIGPIPE, so
+  under `pipefail` + `set -e` a healthy command would abort the script. The
+  anchoring is pinned by its own test against constructed input rather than by a
+  revert, because every script in the tree genuinely enables errexit today: the
+  weakness only bites the first time somebody writes about `set -e` without
+  setting it, which is the invisible kind of decay.
+
+### Fixed
+- **A floor that bounded the wrong direction, and the sweep it starved.**
+  `test_eac_pregap_convention.py::test_tracks_without_a_row_have_no_gap_to_report`
+  asserts only for tracks *without* a pre-gap row — its body opens with
+  `pytest.skip` when the track has one — so the number of cases that actually
+  assert is `_DISC_TRACKS - len(rows)`, four today. The floor sitting beside it is
+  `len(rows) >= 10`, which bounds `rows` from **below**: more rows means *fewer*
+  asserting cases, so that floor is satisfied by exactly the artifact that starves
+  the test. Measured: `rows=10` → 4 assert; `rows=14` → 13 generated, 13 skipped,
+  `13 skipped`, exit 0, green. Reachable without editing any test — swap the
+  committed EAC baseline for a disc whose every track carries a pre-gap.
+  The tell was in the docstring: *"Four tracks of this disc exercise it"* — the
+  number nothing checked. A comment where a check belongs is not a check.
+  Now floored on the complement, and because today's artifact already satisfies
+  that floor (so a revert proves nothing), a companion test drives the floor's
+  predicate with the starving baseline to prove it can actually fail.
+  Notable that seven sibling tests in that module each carry a floor phrased
+  `checked >= 10` / `compared >= 1`: the instinct was right seven times and
+  stopped at the eighth — the one where the floor cannot live inside the
+  parametrized function.
+- **The sweep guarding *"never block the GUI thread"* could examine nothing and
+  pass.** `tests/test_gui_thread_discipline.py` parametrizes over
+  `_ui_modules()` — a live `rglob` of `src/platterpus/ui` — and pytest generates
+  **no cases at all** for an empty population: measured under this repo's config,
+  an empty parametrize reports `1 skipped` and exits **0**. So a rename or a moved
+  package would silently blind the guard on a rule `CLAUDE.md` says was *written
+  in blood* and dates as bitten three times. The module's two meta-tests prove the
+  *detector* works on a planted file in `tmp_path` — a different claim entirely; a
+  perfect detector applied to zero modules passes, and nothing said so.
+  Now floored by an **unparametrized** test, which is structural rather than
+  stylistic: a floor asserted inside the parametrized function is skipped along
+  with it, i.e. exactly when it was needed. It asserts the directory exists, that
+  at least 25 modules are swept (33 today), and — because 25 unrelated files in the
+  right directory would satisfy a count alone — that a `main_window*` module is
+  actually among them.
+  Proven by the same revert twice: pointing `_UI_DIR` at a non-existent path makes
+  the new floor **fail** while the parametrized sweep still **passes**, which is
+  the defect and its fix in one run.
+  Two sibling sweeps over this same directory already had floors
+  (`test_scroll_guards.py` → `examined >= 20`, `test_dialog_lifecycle_logging.py`
+  → `scanned >= 15`), so this was the *"enforce a rule across the codebase, not at
+  the place it was learned"* shape once more.
+
+### Added
+- **`tests/test_dynamic_sweeps_declare_a_floor.py` — every `parametrize` over a
+  population discovered at collection time must name the test that floors it.**
+  The generalisation of the two fixes above, so the next such sweep cannot be
+  written blind. It surveys all 203 test modules for `parametrize` whose values
+  contain a call or comprehension (following one hop through a module-level name
+  binding, since `CASES = _discover()` looks literal at the decorator), and holds
+  each site to a registry entry: either the name of an **unparametrized** test in
+  the same module that bounds the population, or `NO FLOOR NEEDED:` plus an
+  argument. That the floor must be unparametrized is structural, not stylistic —
+  one asserted inside the parametrized function is skipped along with it, i.e.
+  exactly when it was needed — and the registry checks the named test *exists* and
+  is not itself parametrized.
+  Two-way ratchet: a new dynamic sweep fails until registered, a stale entry fails
+  too. Non-triviality is asserted explicitly, because the core check compares two
+  sets and would be green as empty-vs-empty if the AST detection ever broke; and
+  the exemptions are themselves floored, since `NO FLOOR NEEDED` is the easy answer
+  for every entry and a registry that is all exemptions enforces nothing while
+  looking complete.
+  **The counts are the argument for allowing exemptions at all:** of 15 sites, 11
+  already named a correct floor and 4 genuinely need none. Only **two** required
+  work — the GUI-thread sweep, which had no floor, and the EAC pre-gap sweep, whose
+  floor bounded the wrong direction. Padding the other 13 with redundant floors
+  would have hidden those two.
+  One correction worth recording: the screen *"is argvalues a call"* is not the
+  real generalisation. The real question is **"can this test body reach its final
+  assert without executing it"** — which also catches `pytest.skip` on external
+  input, an early `return`, and a `for` over a filesystem-derived list. The EAC
+  case was a false positive on the first screen and a true positive on the second,
+  so both are now surveyed.
+- **`scripts/check.py` — one command that runs the CI gates and reports each
+  one's *true* exit status.** The gates were never the problem; *reading* their
+  result was. `python3 -m pytest … | tail -15` followed by `echo $?` reports
+  **tail's** status, so a run with real failures prints `0`. That has happened
+  four times across two sessions, and the standing countermeasure was a sentence
+  in `CLAUDE.md` — the one file every session is guaranteed to read. It was read,
+  and the mistake happened twice more, which makes the countermeasure wrong *in
+  kind*: a rule that has to be remembered at the moment of typing cannot beat a
+  habit. This removes the need to pipe at all.
+  Each gate runs with a fixed argv and `shell=False`, so no pipeline exists whose
+  last stage could shadow the status; complete output goes to `.check-logs/` while
+  the printed excerpt keeps **head and tail** with any elision counted; and the
+  final table names every gate's real exit code beside a `PASS`/`FAIL`.
+  Three refusals matter more than the happy path: a gate with **no verdict**
+  (timeout, or a child that never started) is not a pass; a `tests` run that exits
+  0 without leaving `.pytest-session-complete` is **failed**, because that is the
+  truncated-run shape that once marked a CI job green at 76%; and an unknown
+  `--only` name is refused rather than quietly running nothing and printing
+  "0/0 gates passed".
+  `tests/test_check_script.py` (11 tests) drives it to FAIL far more than to pass.
+  The load-bearing one compares the local coverage floor against
+  `--cov-fail-under` read out of `ci.yml`: one number stated in two places, which
+  is precisely how the release workflow's two tag-shape lists diverged invisibly
+  for the whole v0.x line. A local gate easier than CI's reports green for work CI
+  will reject.
+- **`scripts/revert_probe.py` — the "would this test fail if I reverted the fix?"
+  check is now a committed tool rather than a habit.** That question has caught a
+  vacuous detector here twice, but each time the check was performed by
+  hand-writing a throwaway script, which meant re-learning the four recorded ways
+  a revert can silently fail to land — and a revert that never landed produces a
+  passing test *indistinguishable from a vacuous one*. The tool refuses instead of
+  guessing: the anchor must appear exactly once (zero means a formatter reflowed
+  it; two means we would not know which site changed), the file hash must change
+  (that is the proof the write landed), a collection or import error is reported as
+  **no evidence** rather than as a detection (a syntax error otherwise reads as
+  *"the test caught the bug"* — how the cyanrip fork lost a session to a stale
+  binary), the original is always restored and the restore verified by hash, and a
+  test that passes anyway is reported as `VACUOUS`.
+  `expect: "unaffected"` asserts the converse — that a *different* test does **not**
+  depend on the reverted line, which is what proves an anchor is narrow rather than
+  merely present.
+  Its own refusal paths are tested (`tests/test_revert_probe.py`, 10 tests), because
+  a verification tool whose failure modes are untested is precisely the thing it
+  exists to catch. The load-bearing one is
+  `test_the_runner_sees_the_reverted_content`: the fake runner reads the file
+  *while* the revert is applied, so a tool that restored too early — or never wrote
+  at all — fails there and nowhere else.
+  Using it immediately turned up a **fifth** way a revert can mislead, which is now
+  written into the tool and into its `VACUOUS` message: a revert can change the
+  file *without changing behaviour*. `X = {` → `X = {} or {` alters the bytes and
+  the hash and evaluates to the **same dict**, because `{}` is falsy. The probe
+  reported `VACUOUS` — correct by its own definition — and the fault was in the
+  spec, not the test. A hash proves the file changed; nothing can prove the
+  *meaning* changed, so the verdict now says to check that before concluding a test
+  is dead.
+
+### Changed
+- **A local test run now prints its own coverage number instead of leaving it to
+  be inferred.** `conftest.pytest_sessionfinish` ends the process with
+  `os._exit` (to dodge a PySide teardown abort), and pytest-cov prints its table
+  *after* session-finish — so on a passing run the table was simply lost. The
+  gate itself was never affected: pytest-cov applies `--cov-fail-under` to
+  `session.exitstatus` in a wrapper that completes first, and an unmet floor
+  really does exit non-zero. But *"exit 0 and nothing printed"* is what a passing
+  gate and an **absent** gate both look like, and the absence was duly read as
+  the second — a wrong diagnosis that reached `TASKS.md` and a commit message
+  before two commands disproved it (`.coverage` is written and the tree is at
+  91.51%; `--cov-fail-under=100` exits 1). The session-finish hook already
+  reaches into the terminal reporter to print the test summary itself for exactly
+  this reason; it now renders the coverage report in the same place, so the
+  number is on screen and there is nothing to infer.
+  Pinned by four tests in `tests/test_harness_fidelity.py`: three exercise the
+  helper (including that a missing plugin is not an error, since a bare `pytest`
+  enables no coverage) and a fourth asserts via AST that `pytest_sessionfinish`
+  actually **calls** it — because the first three stay green whether or not
+  anything does. Both reverts were verified to fail their test, with each revert
+  proven to have landed by file hash. Rule graduated to `docs/testing.md` §5.au:
+  to claim a check is inert, make it fail on purpose.
+
 ## [0.6.20] — 2026-08-20
 
 ### Security
@@ -9246,7 +9561,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.20...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.21...HEAD
+[0.6.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.20...v0.6.21
 [0.6.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.19...v0.6.20
 [0.6.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.18...v0.6.19
 [0.6.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.17...v0.6.18
@@ -9355,4 +9671,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.20.*
+*Last updated for Platterpus v0.6.21.*

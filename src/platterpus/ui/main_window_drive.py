@@ -469,6 +469,12 @@ class DriveMixin(MainWindowShared):
 
     def _present_drive_diagnosis(self, diagnosis: DriveAccessDiagnosis) -> None:
         box = QMessageBox(self)
+        # PlainText: `summary`, `detail` and `fix_command` below are assembled from
+        # what the system told us — device paths, group names, a command line. Qt's
+        # default `AutoText` would interpret any `<` in them as markup and drop the
+        # text after it, and this dialog's whole point is that the user can read and
+        # copy the fix command exactly (Critical rule #12).
+        box.setTextFormat(Qt.TextFormat.PlainText)
         box.setWindowTitle("Drive access")
         box.setIcon(
             QMessageBox.Icon.Information

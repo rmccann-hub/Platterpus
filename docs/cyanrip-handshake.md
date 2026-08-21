@@ -257,6 +257,78 @@ exactly that reason.
 
 ---
 
+## 7.6 Standing status — what the fork can assume between rounds
+
+**Not a round, and not a call for one.** Rounds are the *formal* channel and they
+have a cost (S-13: a round's close conditions are fixed at lap 1, and an open round
+blocks both sides' releases). Between rounds the fork still needs to know where we
+are, so this section is the standing answer, rewritten in place rather than
+accumulating a file per update. Maintainer's framing, 2026-08-21: *"context for the
+next test and what to do (if anything is needed even)."*
+
+**As of Platterpus v0.6.21 (2026-08-21):**
+
+- **No round is open.** All eleven are CLOSED with bilateral `GO`;
+  `scripts/handshake.py --release-gate` prints *"every round is closed — release
+  allowed"*. Nothing on our side is waiting on the fork, and nothing the fork does
+  is currently blocked by us.
+- **The pin is unchanged:** `cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)`,
+  approved by **round 8**. We install it and every rip re-verifies it at the drive.
+- **The seam has not moved, and this is checkable rather than asserted.** The
+  generated `docs/cyanrip-consumer-contract.md` — every log line we parse, every
+  flag we send — is **byte-identical since v0.6.12b6**, the app version round 8
+  approved the pin for, apart from the line naming the round itself. Nine app
+  minors, +183 lines across the three seam modules, and **zero** change to the
+  contract they implement: the additions were internal (an absent-vs-mismatched
+  verdict distinction, a shared `has_log_checksum` helper, escaping property
+  tests). So round 8's evidence still holds for 0.6.21 on the seam axis, and the
+  fork does not need to re-derive anything for this release.
+- **One honest caveat, because rule #12 obligation 3 says artifacts under different
+  app versions are not interchangeable evidence:** `APPROVED_FOR_PLATTERPUS_VERSION`
+  still reads `0.6.12b6`, so every rip report and EAC log states the pairing was
+  verified at that version while the app is 0.6.21. That is a *true historical
+  record*, not a stale pointer — the round and the pin agree — and it is
+  informational: the verdict keys on the build tag, so no rip is mis-graded. It is
+  named here so nobody reads the version gap as a silent re-approval.
+
+**Two asks, both `NEXT-ROUND`, neither blocking anything** (S-14: a finding is not
+grounds to hold a release unless it breaks the artifact under review — neither does):
+
+1. **`-x` measures the cache and then rips the whole disc.** Measured on the rig
+   2026-08-19: `cyanrip -x -N -s 0` printed `Cache probe: 32 sectors, 73.5 KiB,
+   uncached read 362.6 ms` and then continued into a full rip, ETA 1h 3m. Our
+   verb killed it at 300 s and **the child could not be reaped** (`exit: null`), so
+   the drive stayed held for everything after it. We have removed the probe from
+   the rig script until `-x` exits after measuring. Worth saying plainly: this was
+   the *useful* outcome of running the flag for the first time — "it does something
+   nobody expected" is exactly what a first execution is for.
+2. **`--verify-log` should separate *absent* from *mismatched* by exit code.** A
+   killed or cancelled rip leaves a log with **no** `Log FUN512:` footer; an altered
+   archival record leaves one that does not match. *"The ripper was killed
+   mid-write"* and *"this file was modified"* are different findings and only the
+   second is a tamper claim. We fixed our side in 0.6.20 by reading the log
+   ourselves rather than keying on the message text — per the fork's own lap-12 J4,
+   which asked us not to build on genopt's `"No FUN512 checksum found"` string. That
+   works, and it also means two projects now answer *is this log a complete archival
+   record* by separate routes. A machine-readable discriminator plus the null case
+   stated in the provider contract would collapse them back into one.
+
+**What the next hardware run is for, so the fork knows what to expect from it.**
+`docs/rig-scripts/rigcancelandoverread.txt`, revised for 0.6.21, on the pinned
+build. It proves one thing nothing else can: a **completed second rip after a
+mid-rip cancel** — the open half of Task #53. The drive-*open* half is already
+proven (2026-08-20: after a cancel the drive re-scanned and re-identified the disc,
+which a held reader cannot do). Nothing in the run asks anything of the fork, and
+nothing in it is expected to exercise a fork change; if it fails, the finding is
+most likely ours.
+
+**So: nothing is needed from the fork right now.** Round 12 opens when that run
+produces a clean bundle, carrying the two asks above. Opening it earlier would
+create a round whose close condition cannot be met without hardware evidence we do
+not yet have — the S-13 failure that ran round 7 to 37 laps.
+
+---
+
 ## 8. The wire format — the shared protocol file
 
 **The specification is [`handshake-protocol.md`](handshake-protocol.md), and it is
@@ -296,4 +368,4 @@ each side is free to change.
 
 ---
 
-*Last updated for Platterpus v0.6.5.*
+*Last updated for Platterpus v0.6.21.*

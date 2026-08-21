@@ -11,6 +11,124 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-21 (v0.6.20 + v0.6.21) — the enforcement audit, and two of my own claims retracted
+
+Two releases. **v0.6.20** was the cancel-path work already prepared (absent-vs-
+mismatched FUN512, `rig-check` not failing a cancelled rip, the `answer-dialog`
+verb). **v0.6.21** is what came out of the maintainer's instruction that a failure
+seen more than twice gets a global fix rather than a note: *"if its more than even
+twice we need to do a full audit and see what the issue is and resolve it
+globally."*
+
+### What the audit refuted, which is the useful part
+
+My hypothesis was that the most-recurred rules would be the unenforced ones. It is
+**inverted**. *"Never block the GUI thread"* — dated in `CLAUDE.md` as bitten three
+times — **has** a test, and recurred a fourth time. Rules with a single incident got
+tests immediately and stopped recurring.
+
+What predicts prose-only status is the rule's **subject**: a rule about a code shape
+(greppable, AST-visible, derivable from a committed file) reliably got a test — about
+30 such sweeps exist. A rule about a **human act** at commit or release time is
+prose-only without exception.
+
+And it surfaced a third category nobody asked for, which is the one a listing hides:
+**rules that look enforced because a test names them, but whose test is smaller than
+the rule.** Denominator: 126 binding statements read, 47 rejected as unmechanisable,
+79 assessed → 45 enforced, 9 partial, 22 prose-only.
+
+### The most serious finding: both Rule #8 guards were fail-open, and shared one idiom
+
+`.githooks/pre-commit` (which `CLAUDE.md` calls *"the canonical guard"*) and
+`ci.yml`'s `media-guard` both wrote `producer | grep … || true`. The `|| true` is
+**required** for grep's no-match exit — the normal case — but it sits outside the
+pipeline, so it equally absorbs a failure of the git command itself, and
+`set -o pipefail` cannot help because the discarded status *is* the pipeline's. A
+fatal `git diff` yielded an empty offender list and CI printed *"No audio/media
+files ✅"* having inspected nothing.
+
+Two guards meant to be **independent witnesses shared one failure mode**, which is
+the entire point of having a backstop. The hook also had no test of any kind and was
+invisible to the only shell-hygiene test (which globs `*.sh`; the hook has no
+extension) — and that test claimed to check `pipefail` while asserting a `set -e`
+substring a *comment* satisfies.
+
+### Three dialogs rendered external text as HTML
+
+Rule #12 says *"Every widget carrying dependency output is `PlainText`, swept rather
+than fixed one at a time."* There was no sweep; three of six boxes were fixed
+individually and three were not. The worst was `_show_fatal_dialog`, whose
+`f"…{exc}"` is arbitrary external text — a `<` in it silently swallows the rest, in
+the one dialog a user screenshots to report a crash.
+
+Fixed all three, built the sweep, **and corrected `CLAUDE.md` to say what is
+actually swept** (`QMessageBox`) versus not (13 `QLabel` sites, now in `TASKS.md`).
+Scoping a sweep is fine; scoping it silently while the rule claims everything is the
+defect.
+
+### Two claims of mine, retracted before they reached the tree
+
+Both are recorded as `docs/testing.md` §5.au and §5.av, because *how* they were wrong
+is more instructive than the fact.
+
+1. **"The coverage gate is silently inert locally."** False. `.coverage` is written,
+   the tree is at 91.5%, and an impossible floor exits 1. I inferred inertness from
+   *exit 0 and no printed table* — which is exactly what a **passing** gate produces.
+   The signatures are identical, so the observation carried no information. **To claim
+   a check is inert, make it fail on purpose.** I had also used that false conclusion
+   to retract two earlier commit messages that were correct; retracting a true claim
+   for a false reason is not the cheaper error, because the retraction reads as the
+   more careful of the two statements.
+2. **"The handshake filename convention outran its parser."** Also false. Those files
+   are transport envelopes whose first header line is `HANDSHAKE-ROUND: not-a-lap`,
+   and `emit_envelope.py` says the separator-free name is deliberate *precisely so it
+   cannot match* the glob. A subagent measured that my "fix" would flip rounds 9 and
+   11 CLOSED→OPEN and block every stable release.
+
+Both times the answer was in the artifact — a comment one screen above the code, and
+a file's own first line. Both times I had briefed subagents with the premise as
+*"CONFIRMED BY MEASUREMENT … not re-finding it"*, which propagates the error and
+forbids the one check that catches it. **Brief the observation, never the diagnosis.**
+
+### Mechanisms shipped, because prose had measurably failed
+
+- `scripts/check.py` — one command for every gate, real exit codes. The `pytest | tail`
+  trap had been hit four times *with the warning already in the always-loaded file*.
+- `scripts/revert_probe.py` — the revert check as a tool. Using it immediately found
+  two defects **in itself**: a substring match on `SyntaxError` fired on pytest's
+  echoed source, and exit 5 (no tests collected) read as a successful detection.
+- `tests-touched` is now **gating**, escapable only by `[no-test-needed] <reason>`.
+  Tested against six synthetic ranges in a scratch repo first — a gate that can block
+  every merge does not get tested in production.
+- The coverage floor's ratchet now compares against the last release **tag**, the only
+  value that cannot be edited in the same commit that lowers it.
+
+### What I deliberately did not do, with the measurement
+
+Widening the GUI-thread sweep from `ui/` (33 of 154 modules) to the whole package was
+the obvious fix and is **wrong**: 12 non-`ui/` modules block and essentially all are
+correct, because `adapters/`, `deps/`, `ctdb/` and `drive_control.py` are worker-side
+code that is *supposed* to block. Keying on *"this function builds a modal dialog"*
+covers `app.py` without the false positives. The audit had also implied the fourth
+recurrence was caused by that scope gap — it was not; a nested modal `exec()` is a
+shape the detector never looked for, and it already has its own regression test.
+
+Likewise ruff `N` (96 of 108 findings are `N802` on Qt API names we do not choose) and
+three mypy flags (`disallow_any_explicit` 47, `redundant-expr` 16, `truthy-bool` 3) are
+recorded in-file as measured-and-not-enabled, so the next reader inherits numbers
+rather than a guess.
+
+### For the fork
+
+`docs/cyanrip-handshake.md` §7.6 is new: a **standing status** between rounds, because
+opening a round to say "here is where we are" is the wrong instrument when S-13 fixes
+close conditions at lap 1 and an open round blocks both sides. Its load-bearing claim
+is checkable: the generated consumer contract is **byte-identical since v0.6.12b6**,
+so round 8's evidence still holds for 0.6.21 despite nine app minors and +183 lines
+across the seam modules.
+
+---
+
 ## 2026-08-20 (post-0.6.19) — the rig answered the question, and both its failures were noise
 
 **v0.6.19 shipped, then was tested on the rig the same hour.** `pass=58 fail=2`
@@ -3436,4 +3554,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.20.*
+*Last updated for Platterpus v0.6.21.*

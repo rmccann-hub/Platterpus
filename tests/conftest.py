@@ -49,6 +49,50 @@ SESSION_COMPLETE_SENTINEL: Path = (
 )
 
 
+def print_coverage_report(session: pytest.Session, reporter: object) -> None:
+    """Render pytest-cov's terminal report *before* the hard exit below.
+
+    **Why this function exists, and what it is NOT fixing.** The coverage gate
+    already works locally: pytest-cov applies `--cov-fail-under` to
+    `session.exitstatus` in a wrapper that completes before our post-`yield`
+    runs, so an unmet floor really does exit non-zero (proved by making it fail
+    on purpose — `--cov-fail-under=100` exits 1). The `.coverage` data file is
+    written too. **Only the printed table was lost**, because pytest-cov prints
+    from `pytest_terminal_summary`, which runs after session-finish — i.e. after
+    `os._exit` has already ended the process.
+
+    So this is a *diagnosability* fix, exactly like the `summary_stats()` call
+    below it, and it has the same justification: a run that does not show its own
+    numbers gets guessed about. That is not hypothetical either. A passing run
+    printed `4335 passed … exit 0` and no coverage table, and the missing table
+    was read as *"the floor was never evaluated"* — a conclusion that fits the
+    evidence perfectly and is false, because **a passing gate and an absent gate
+    look identical from outside**. It reached `TASKS.md` and a commit message
+    before two commands disproved it (`docs/testing.md` §5.au). Printing the
+    number costs nothing and removes the room for the inference.
+
+    Safe to call unconditionally: `get_plugin` returns None when nothing enabled
+    coverage, and pytest-cov's own hook returns early when it is disabled or has
+    no total. It only writes — it does not touch the exit status, which is
+    already final by this point.
+    """
+    # `_cov` is the name pytest-cov registers itself under, and the name
+    # pytest-cov's own internals use to find it (`getplugin('_cov')`), so it is
+    # as stable as any part of that plugin's surface.
+    cov_plugin = session.config.pluginmanager.get_plugin("_cov")
+    if cov_plugin is None or reporter is None:
+        return
+    try:
+        cov_plugin.pytest_terminal_summary(reporter)
+    except Exception:  # noqa: BLE001 — reporting must never change the status
+        # Same rule as the summary printing below: a reporting failure is worth a
+        # log line and nothing more. Swallowing the exit status to complain about
+        # a table would trade a real verdict for a cosmetic one.
+        __import__("logging").getLogger(__name__).exception(
+            "could not print the coverage report"
+        )
+
+
 def pytest_sessionstart(session: pytest.Session) -> None:
     """Clear the completion sentinel so a stale one can't vouch for this run.
 
@@ -106,6 +150,10 @@ def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201
         except Exception:  # noqa: BLE001 — reporting must never change the status
             log_ = __import__("logging").getLogger(__name__)
             log_.exception("could not print the pytest summary")
+    # And the coverage numbers, for the same reason and in the same place — see
+    # `print_coverage_report` for why the absence of this call was read as a
+    # broken gate rather than an unprinted table.
+    print_coverage_report(session, reporter)
     sys.stdout.flush()
     sys.stderr.flush()
     # Vouch for this run: we reached session finish, so `status` is a real verdict
