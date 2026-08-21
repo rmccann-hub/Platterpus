@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.22] — 2026-08-21
+
 ### Added
 - **cyanrip handshake round 12 is CLOSED — `GO`/`GO` on `64ae7bc`, in four laps**
   (against round 7's 37). Their lap 3 and our closing lap 4 are committed under
@@ -36,32 +38,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   our test parses, which is how we found that
   `tests/test_provider_contract_agreement.py` reads `round-4.md` — nine rounds
   stale — while its own docstring claims it re-derives from the newest round.
-
-### Fixed
-- **The one hand-maintained field in our generated consumer contract had rotted,
-  in the direction that understates the fork's obligation.** `_FORK_ONLY_RULES`
-  marks which parsed lines only the fork emits, so the fork knows what it is on
-  the hook for. The four `Album …` rules landed and the set did not, so the
-  contract we publish said *"9 exist only in the fork"* when it was 13 — for
-  exactly the four rows we had just started reading **in preference to** the
-  FFmpeg block their own P3 disclaims. They could have reworded them believing
-  nothing consumed them. Everything else on that page is derived; this set is
-  typed, which is why it was the field that went stale.
-  The converse check now exists and it is derived from artifacts, not listed: for
-  every rule, does its pattern match a committed **fork** log and no committed
-  **stock** log? That found **eight further** candidates we do not declare. None
-  has been declared unilaterally — our stock sample is six logs, so *"absent from
-  every stock log we hold"* can be a fact about the sample rather than about
-  upstream, and declaring a line theirs when upstream also prints it is the same
-  error in the other direction. They sit in a ratcheted
-  `_UNRESOLVED_FORK_ATTRIBUTION` map with a written reason each, and the question
-  is asked in round 12 lap 4 §C1, since the answer lives in their tree.
-  The same derivation also found `track_elapsed_clock` declared fork-only and
-  matching no fork log we hold — asked back in the same section.
-
-## [0.6.22] — 2026-08-21
-
-### Added
 - **cyanrip handshake round 12 filed and verified — `GO` on `64ae7bc`.** Their lap
   1, its four artifacts and their provider contract are committed under
   `docs/handshake/inbound/`; our verification is `verified/round-12-lap-02.md`.
@@ -87,6 +63,26 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   by design.
 
 ### Fixed
+- **The one hand-maintained field in our generated consumer contract had rotted,
+  in the direction that understates the fork's obligation.** `_FORK_ONLY_RULES`
+  marks which parsed lines only the fork emits, so the fork knows what it is on
+  the hook for. The four `Album …` rules landed and the set did not, so the
+  contract we publish said *"9 exist only in the fork"* when it was 13 — for
+  exactly the four rows we had just started reading **in preference to** the
+  FFmpeg block their own P3 disclaims. They could have reworded them believing
+  nothing consumed them. Everything else on that page is derived; this set is
+  typed, which is why it was the field that went stale.
+  The converse check now exists and it is derived from artifacts, not listed: for
+  every rule, does its pattern match a committed **fork** log and no committed
+  **stock** log? That found **eight further** candidates we do not declare. None
+  has been declared unilaterally — our stock sample is six logs, so *"absent from
+  every stock log we hold"* can be a fact about the sample rather than about
+  upstream, and declaring a line theirs when upstream also prints it is the same
+  error in the other direction. They sit in a ratcheted
+  `_UNRESOLVED_FORK_ATTRIBUTION` map with a written reason each, and the question
+  is asked in round 12 lap 4 §C1, since the answer lives in their tree.
+  The same derivation also found `track_elapsed_clock` declared fork-only and
+  matching no fork log we hold — asked back in the same section.
 - **Two real ripper failures reached the user as a bare "Rip failed", because the
   fatal-message inventory had been stale for five handshake rounds.**
   `ripper_message_inventory.py` — the published-format list the error matcher is
