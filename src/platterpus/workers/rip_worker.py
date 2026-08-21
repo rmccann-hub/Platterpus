@@ -226,6 +226,19 @@ _RIPPER_ERROR_PREFIXES: tuple[str, ...] = (
     "Couldn't",
     "Could not",
     "Cannot",
+    # The contraction, and the omission was measurable rather than theoretical.
+    # `Cannot`, `Could not` and `Couldn't` were all here; `Can't` was not, and
+    # the ripper's P2 table carries `Can't init %s handler!` — a signal-handler
+    # setup failure, published since round 7 lap 25 and matched by NOTHING in
+    # this file until now. Measured against round 12's contract before adding it:
+    # of 296 P2 rows, exactly one has a `Can't`/`Cannot` shape (that one), and
+    # widening to `Can't` fires on zero additional P2 lines. It is a *prefix*
+    # rather than an inventory row on purpose — the prefixes are the forward
+    # tolerance member of the union, and the string is not in P5, which is the
+    # provider's authority on failure-path reachability. Inventing a P5 row for
+    # it would be us guessing again, which is the mistake this whole subsystem
+    # was rebuilt to stop.
+    "Can't",
     "Unsupported",
     "Unknown option",
     "Unrecognized",
@@ -290,6 +303,17 @@ _RIPPER_ERROR_PREFIXES: tuple[str, ...] = (
 # describes one pin; a newer build will say things it does not list, and the
 # prefixes catch the common shapes of those. Inventory for completeness, prefixes
 # for forward tolerance — neither alone was enough, which is the whole lesson.
+#
+# AND THE INVENTORY GOING STALE IS THE SAME BUG A THIRD TIME (2026-08-21). It sat
+# at round 6's 115 strings while rounds 7-11 published 117, 120 and then 130; the
+# 10 `genopt.h` diagnostics round 9 added include two that matched NOTHING here —
+# `Programming error, incorrect type for: %s` and
+# `Too many values for argument "%s" (at most %i)` — so either one was a bare
+# "Rip failed." The forward-tolerance prefixes carried the other eight, which is
+# exactly why nobody noticed: a fallback that half-works hides the gap it is
+# filling. Now round 12's 128, and
+# `tests/test_ripper_error_surfacing.py::test_the_inventory_is_not_behind_the_newest_published_contract`
+# fails when the newest inbound contract publishes a string we do not carry.
 _RIPPER_ERROR_RE, _UNMATCHABLE_RIPPER_FORMATS = build_matcher(
     list(ALL_FORMATS), extra_prefixes=_RIPPER_ERROR_PREFIXES
 )

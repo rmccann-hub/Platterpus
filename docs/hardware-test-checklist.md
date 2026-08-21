@@ -1111,10 +1111,15 @@ session and tells us nothing we do not already know.
 
 ### F3 — [ ] ⭐⭐⭐ H12/G2/A7: the forced-error corpus — the highest-value artifact we owe
 
-**Why it is owed, and why I will not fabricate it.** Their fatal-message inventory is 115
-strings, of which 83 are proven from control flow; the rest rest on the wording of a message
-or on a `goto` label neither side can settle from source. A run that *forces* each state and
-records the string, its exit code and the exact argv settles them empirically.
+**Why it is owed, and why I will not fabricate it.** Their fatal-message inventory is 128
+strings at round 12, of which 84 are proven from control flow; the rest rest on the wording
+of a message, on a `goto` label neither side can settle from source, or on `genopt`'s own
+class. A run that *forces* each state and records the string, its exit code and the exact
+argv settles them empirically. (The numbers move every round — 115/83 was round 6's, and
+this line quoted it four rounds after it expired. The authority is
+`src/platterpus/ripper_message_inventory.py`, which
+`tests/test_ripper_error_surfacing.py::test_the_inventory_is_not_behind_the_newest_published_contract`
+holds to the newest committed contract.)
 
 I could hand-build this corpus from reading their control flow. I deliberately have not,
 because a corpus built from my reading of their code is a fixture carrying **my assumptions
@@ -1202,4 +1207,4 @@ with `rip stream error:`** — that is the v0.5.20 fix's signature and I want th
 
 ---
 
-*Last updated for Platterpus v0.6.20.*
+*Last updated for Platterpus v0.6.21.*

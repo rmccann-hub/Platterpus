@@ -125,6 +125,25 @@ _FRAGMENTS = st.sampled_from(
         "Offset:         +667 samples",
         "Tracks ripped accurately: 1/2",
         "Ripping errors: many",  # bad int
+        # The album loudness/peak rows cyanrip OWNS (their P2, fork round 8+).
+        # Both the well-formed shape and the ways a reworded or corrupted line
+        # can arrive, because these are what the parser now PREFERS over
+        # FFmpeg's disclaimed sub-header block — a new preferred source is a new
+        # never-raises surface.
+        "Album integrated loudness (R128): -7.4 LUFS",
+        "Album loudness range (R128):      3.0 LU (-10.0 to -6.9 LUFS)",
+        "Album sample peak level:          0.0 dBFS",
+        "Album true peak level:            0.3 dBFS",
+        "Album integrated loudness (R128): NaN LUFS",  # not a number
+        "Album loudness range (R128):      -- LU",  # no digits at all
+        "Album sample peak level:          1e400 dBFS",  # overflows float()
+        "Album true peak level:",  # label with no value
+        # The pre-log replay block and its contents (ignored, with reasons).
+        "--- output before this log was opened ---",
+        "Opening drive...",
+        "Checking /dev/sr0 for cdrom...",
+        "--- end of pre-log output ---",
+        "Stopping, ripping incomplete!",
         # EAC log shapes (exercise the eac_log parser).
         "Exact Audio Copy V1.8 from 15. July 2024",
         "Track  1",
@@ -183,6 +202,19 @@ def test_parse_cyanrip_info_never_raises(text: str) -> None:
 def test_parse_cyanrip_log_never_raises(text: str) -> None:
     result = parse_cyanrip_log(text)
     assert isinstance(result, RipLog)
+    # `album_loudness` is `dict[str, str]` all the way to the JSON report and to
+    # `ui.rip_progress.loudness_summary_line`, which interpolates each value into
+    # a label. A non-str (or a stray key) reaching either is a downstream defect
+    # a "never raises" parser can still produce, so the shape is asserted here.
+    assert isinstance(result.album_loudness, dict)
+    for key, value in result.album_loudness.items():
+        assert isinstance(key, str) and isinstance(value, str), (key, value)
+        assert key in {
+            "integrated_lufs",
+            "lra_lu",
+            "sample_peak_dbfs",
+            "true_peak_dbfs",
+        }, key
     for track in result.tracks:
         assert isinstance(track.number, int)
         for ar in (track.accuraterip_v1, track.accuraterip_v2):
