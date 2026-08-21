@@ -133,6 +133,62 @@ def test_a_collection_error_is_no_evidence_rather_than_a_detection(
     assert "NO EVIDENCE" in outcome.detail, outcome.detail
 
 
+def test_no_tests_collected_is_no_evidence_not_a_detection(target: Path) -> None:
+    """Exit code 5 is the dangerous one, and it used to read as success.
+
+    pytest returns 5 for NO_TESTS_COLLECTED — what a mistyped node id gives you.
+    It is non-zero, so a `code != 0` check calls it a detection and certifies a
+    test as guarding a line it never ran against. That is a false POSITIVE, which
+    is worse than the false negative below: it ends the investigation.
+    """
+    outcome = probe.apply_and_probe(
+        _revert(target), run_tests=lambda _t: (5, "no tests ran")
+    )
+    assert outcome.ok is False
+    assert "NO EVIDENCE" in outcome.detail, outcome.detail
+    assert "NO TESTS" in outcome.detail.upper(), (
+        f"the message must name the actual cause: {outcome.detail!r}"
+    )
+
+
+def test_an_error_name_echoed_in_output_is_not_mistaken_for_a_collection_error(
+    target: Path,
+) -> None:
+    """A genuine failure must stay a detection even when the output says "SyntaxError".
+
+    pytest echoes the failing test's SOURCE into its report. A test that itself
+    contains `except SyntaxError:` therefore puts that word in the output of a
+    perfectly good detection — and the first version of this tool substring-matched
+    for it and reported NO EVIDENCE. Found by running the tool on exactly such a
+    test. A substring match where a subject was needed, in the tool built to catch
+    that.
+    """
+    echoed = (
+        "F   [100%]\n"
+        "=== FAILURES ===\n"
+        "    def test_thing():\n"
+        "        try:\n"
+        "            ast.parse(text)\n"
+        "        except SyntaxError:\n"
+        "            continue\n"
+        "E   AssertionError: the real failure\n"
+    )
+    outcome = probe.apply_and_probe(_revert(target), run_tests=lambda _t: (1, echoed))
+    assert outcome.ok is True, (
+        "a real failure was discarded as 'no evidence' because the word "
+        f"SyntaxError appeared in echoed source: {outcome.detail!r}"
+    )
+
+
+def test_an_unrecognised_exit_code_is_no_evidence(target: Path) -> None:
+    """Tri-state again: a code neither pytest nor this tool defines is not a verdict."""
+    outcome = probe.apply_and_probe(
+        _revert(target), run_tests=lambda _t: (137, "killed")
+    )
+    assert outcome.ok is False
+    assert "NO EVIDENCE" in outcome.detail, outcome.detail
+
+
 def test_an_unaffected_expectation_fails_when_the_test_does_depend_on_the_line(
     target: Path,
 ) -> None:

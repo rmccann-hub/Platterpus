@@ -152,6 +152,31 @@ def test_the_committed_baseline_is_the_whole_disc() -> None:
     # At least two distinct values, or "our formula matches" could be one lucky
     # constant rather than a formula.
     assert len({v for _, v in rows.values()}) >= 5
+    # THE COMPLEMENT, and it bounds the opposite direction to the line above.
+    #
+    # `test_tracks_without_a_row_have_no_gap_to_report` asserts only for tracks
+    # WITHOUT a pre-gap row: its body opens with `pytest.skip` when `track in
+    # rows`. So the number of cases that actually assert is
+    # `_DISC_TRACKS - len(rows)` — 4 today — and `len(rows) >= 10` is the WRONG
+    # DIRECTION for it. More rows means fewer asserting cases, so a baseline where
+    # every track carries a row satisfies that floor and starves this one to
+    # nothing. Measured: rows=10 -> 4 assert; rows=14 -> 13 generated, 13 skipped,
+    # `13 skipped`, exit 0, green.
+    #
+    # Reachable without editing any test: swap the committed reference for a disc
+    # whose every track has a pre-gap. On such a swap every other test in this
+    # module fails loudly (the TOC equality, the >= 10, the >= 5 distinct values) —
+    # and that one would go quietly to "13 skipped". This makes it say so too.
+    #
+    # Its docstring already claimed the number: "Four tracks of this disc exercise
+    # it." A comment where a check belongs is not a check (2026-08-20 audit).
+    asserting = _DISC_TRACKS - len(rows)
+    assert asserting >= 3, (
+        f"only {asserting} track(s) lack a pre-gap row, so "
+        "test_tracks_without_a_row_have_no_gap_to_report skips nearly every case "
+        "and proves nothing while reporting green. If the baseline was "
+        "deliberately swapped, re-measure and lower this floor on purpose."
+    )
 
 
 # --- the finding that overturned §H2 -----------------------------------------
@@ -246,6 +271,39 @@ def test_our_renderer_reproduces_every_real_eac_row_byte_for_byte() -> None:
         )
         checked += 1
     assert checked >= 10
+
+
+def test_the_omission_floor_rejects_a_baseline_that_would_starve_the_sweep() -> None:
+    """Prove the floor above can FAIL, since today's artifact satisfies it.
+
+    A floor whose data already passes cannot be revert-proven: deleting the
+    assertion breaks nothing *now*, which is exactly what makes this class of
+    guard rot unnoticed. So instead of reverting the fix, this drives the floor's
+    predicate with the artifact that would starve the sweep — an EAC baseline
+    where **every** track carries a pre-gap row.
+
+    Under such a baseline
+    `test_tracks_without_a_row_have_no_gap_to_report` generates 13 cases and skips
+    all 13, reporting `13 skipped` and exit 0 — green, having asserted nothing.
+    Note the old `len(rows) >= 10` floor is *satisfied* by that same baseline,
+    which is the point: it bounds rows from below, and this test needs them
+    bounded from above.
+    """
+    every_track_has_a_row = {n: ("row", 100) for n in range(1, _DISC_TRACKS + 1)}
+    starved = _DISC_TRACKS - len(every_track_has_a_row)
+    assert starved == 0, "the starving case should leave no track asserting"
+    assert not starved >= 3, (
+        "the omission floor would ACCEPT a baseline in which every track has a "
+        "pre-gap row — so it does not actually guard the sweep it was written for"
+    )
+    # And the converse, so this test is not satisfied by the predicate always
+    # being false: today's real artifact must clear the floor.
+    real = _DISC_TRACKS - len(_eac_pregap_rows())
+    assert real >= 3, (
+        f"today's committed baseline leaves only {real} asserting track(s); the "
+        "floor in test_the_committed_baseline_is_the_whole_disc should already "
+        "have failed, so one of the two is wrong"
+    )
 
 
 @pytest.mark.parametrize("track", sorted(set(range(1, _DISC_TRACKS + 1)) - {1}))

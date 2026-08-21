@@ -87,15 +87,36 @@ REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 #: with no diagnosis — the same reason every CI job here carries a timeout.
 _TEST_TIMEOUT_S: Final[float] = 900.0
 
-#: Substrings that mean pytest never got as far as *running* the test. Kept
-#: separate from "the test failed" because they are opposite findings: a failure
-#: is evidence the detector works, an import error is evidence of nothing.
-_NO_EVIDENCE_MARKERS: Final[tuple[str, ...]] = (
+#: pytest's own exit codes, which are the RELIABLE discriminator between "the test
+#: ran and failed" and "the test never ran".
+#:
+#: The first version of this matched substrings ("SyntaxError", "IndentationError",
+#: …) against the whole captured output, and that was wrong in both directions —
+#: found by using this tool on a test that detects skip-bearing sweeps:
+#:
+#:  * FALSE "no evidence": pytest echoes the failing test's SOURCE in its report,
+#:    and that source contained `except SyntaxError:`. The marker matched the
+#:    echoed code rather than a real collection failure, so a genuine detection
+#:    was reported as unusable. A substring match where a subject was needed —
+#:    precisely the class this tool exists to catch, in the tool itself.
+#:  * MISSED case: exit code 5 is NO_TESTS_COLLECTED, which a mistyped node id
+#:    produces. Non-zero, so the old logic read it as a successful detection —
+#:    a false positive far worse than the false negative above, because it would
+#:    certify a test as guarding a line it never even ran against.
+#:
+#: 0 passed · 1 tests ran and failed · 2 interrupted (collection error) ·
+#: 3 internal error · 4 usage error · 5 no tests collected.
+_RAN_AND_FAILED: Final[int] = 1
+_NO_EVIDENCE_CODES: Final[frozenset[int]] = frozenset({2, 3, 4, 5})
+
+#: Kept as a SECONDARY signal only, and anchored to pytest's own line prefixes so
+#: source echoed into a traceback cannot trigger them. Consulted only when the exit
+#: code is otherwise ambiguous.
+_NO_EVIDENCE_LINE_PREFIXES: Final[tuple[str, ...]] = (
     "ImportError while loading conftest",
     "ERROR collecting",
     "INTERNALERROR",
-    "SyntaxError",
-    "IndentationError",
+    "!!!!! Interrupted",
 )
 
 
@@ -268,18 +289,45 @@ def apply_and_probe(revert: Revert, run_tests: TestRunner | None = None) -> Outc
 
         code, output = runner(revert.tests)
 
-        if any(marker in output for marker in _NO_EVIDENCE_MARKERS):
+        # THE EXIT CODE IS THE DISCRIMINATOR, not a substring of the output. See
+        # `_NO_EVIDENCE_CODES` for the two ways the substring version was wrong.
+        no_evidence_reason = ""
+        if code in _NO_EVIDENCE_CODES:
+            no_evidence_reason = {
+                2: "pytest was interrupted — usually a collection or import error",
+                3: "pytest hit an internal error",
+                4: "pytest rejected the invocation (usage error)",
+                5: (
+                    "pytest collected NO TESTS — check the node id in `tests`. This "
+                    "is the dangerous one: it is non-zero, so a naive check reads it "
+                    "as a successful detection while nothing ran at all"
+                ),
+            }[code]
+        elif code not in (0, _RAN_AND_FAILED):
+            # An exit code neither pytest nor this tool knows how to interpret is
+            # not a verdict. Tri-state: no result is not a pass and not a failure.
+            no_evidence_reason = f"unrecognised pytest exit code {code}"
+        else:
+            for line in output.splitlines():
+                stripped = line.strip()
+                if any(
+                    stripped.startswith(prefix) for prefix in _NO_EVIDENCE_LINE_PREFIXES
+                ):
+                    no_evidence_reason = f"pytest reported: {stripped[:120]}"
+                    break
+
+        if no_evidence_reason:
             return Outcome(
                 revert.label,
                 ok=False,
                 detail=(
-                    "NO EVIDENCE: pytest could not collect or import, so it never "
-                    "ran the test. This is not a detected revert — a syntax error "
-                    f"reads as success otherwise. Exit {code}.\n" + _excerpt(output)
+                    f"NO EVIDENCE: {no_evidence_reason}. The test never ran, so this "
+                    "is neither a detection nor a vacuous test — there is nothing to "
+                    f"conclude. Exit {code}.\n" + _excerpt(output)
                 ),
             )
 
-        detected = code != 0
+        detected = code == _RAN_AND_FAILED
         if revert.expect == "detected":
             if detected:
                 return Outcome(

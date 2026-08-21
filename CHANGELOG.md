@@ -69,6 +69,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   setting it, which is the invisible kind of decay.
 
 ### Fixed
+- **A floor that bounded the wrong direction, and the sweep it starved.**
+  `test_eac_pregap_convention.py::test_tracks_without_a_row_have_no_gap_to_report`
+  asserts only for tracks *without* a pre-gap row — its body opens with
+  `pytest.skip` when the track has one — so the number of cases that actually
+  assert is `_DISC_TRACKS - len(rows)`, four today. The floor sitting beside it is
+  `len(rows) >= 10`, which bounds `rows` from **below**: more rows means *fewer*
+  asserting cases, so that floor is satisfied by exactly the artifact that starves
+  the test. Measured: `rows=10` → 4 assert; `rows=14` → 13 generated, 13 skipped,
+  `13 skipped`, exit 0, green. Reachable without editing any test — swap the
+  committed EAC baseline for a disc whose every track carries a pre-gap.
+  The tell was in the docstring: *"Four tracks of this disc exercise it"* — the
+  number nothing checked. A comment where a check belongs is not a check.
+  Now floored on the complement, and because today's artifact already satisfies
+  that floor (so a revert proves nothing), a companion test drives the floor's
+  predicate with the starving baseline to prove it can actually fail.
+  Notable that seven sibling tests in that module each carry a floor phrased
+  `checked >= 10` / `compared >= 1`: the instinct was right seven times and
+  stopped at the eighth — the one where the floor cannot live inside the
+  parametrized function.
 - **The sweep guarding *"never block the GUI thread"* could examine nothing and
   pass.** `tests/test_gui_thread_discipline.py` parametrizes over
   `_ui_modules()` — a live `rglob` of `src/platterpus/ui` — and pytest generates
@@ -93,6 +112,35 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   the place it was learned"* shape once more.
 
 ### Added
+- **`tests/test_dynamic_sweeps_declare_a_floor.py` — every `parametrize` over a
+  population discovered at collection time must name the test that floors it.**
+  The generalisation of the two fixes above, so the next such sweep cannot be
+  written blind. It surveys all 203 test modules for `parametrize` whose values
+  contain a call or comprehension (following one hop through a module-level name
+  binding, since `CASES = _discover()` looks literal at the decorator), and holds
+  each site to a registry entry: either the name of an **unparametrized** test in
+  the same module that bounds the population, or `NO FLOOR NEEDED:` plus an
+  argument. That the floor must be unparametrized is structural, not stylistic —
+  one asserted inside the parametrized function is skipped along with it, i.e.
+  exactly when it was needed — and the registry checks the named test *exists* and
+  is not itself parametrized.
+  Two-way ratchet: a new dynamic sweep fails until registered, a stale entry fails
+  too. Non-triviality is asserted explicitly, because the core check compares two
+  sets and would be green as empty-vs-empty if the AST detection ever broke; and
+  the exemptions are themselves floored, since `NO FLOOR NEEDED` is the easy answer
+  for every entry and a registry that is all exemptions enforces nothing while
+  looking complete.
+  **The counts are the argument for allowing exemptions at all:** of 15 sites, 11
+  already named a correct floor and 4 genuinely need none. Only **two** required
+  work — the GUI-thread sweep, which had no floor, and the EAC pre-gap sweep, whose
+  floor bounded the wrong direction. Padding the other 13 with redundant floors
+  would have hidden those two.
+  One correction worth recording: the screen *"is argvalues a call"* is not the
+  real generalisation. The real question is **"can this test body reach its final
+  assert without executing it"** — which also catches `pytest.skip` on external
+  input, an early `return`, and a `for` over a filesystem-derived list. The EAC
+  case was a false positive on the first screen and a true positive on the second,
+  so both are now surveyed.
 - **`scripts/check.py` — one command that runs the CI gates and reports each
   one's *true* exit status.** The gates were never the problem; *reading* their
   result was. `python3 -m pytest … | tail -15` followed by `echo $?` reports
