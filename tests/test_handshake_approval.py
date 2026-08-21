@@ -131,11 +131,11 @@ def test_a_retired_test_pin_says_it_is_retired_and_names_the_current_one() -> No
 
 def test_the_pin_under_review_says_the_round_is_open() -> None:
     approval = ha.approve_ripper(
-        f"cyanrip 0.9.4-rc1 (platterpus-fork-g{fork_source.NEXT_PIN_UNDER_REVIEW})"
+        f"cyanrip 0.9.4-rc1 (platterpus-fork-g{fork_source.PIN_UNDER_REVIEW})"
     )
     assert approval.verdict == ha.UNAPPROVED
     assert "open" in approval.detail.lower()
-    assert fork_source.NEXT_PIN_UNDER_REVIEW in approval.detail
+    assert fork_source.PIN_UNDER_REVIEW in approval.detail
 
 
 def test_dirty_suffix_on_the_approved_commit_is_not_approved() -> None:

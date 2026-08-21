@@ -2840,7 +2840,7 @@ class RipMixin(MainWindowShared):
         post-rip check (see :meth:`_launch_post_rip_daemon`). Best-effort: the
         pure ``rip_compare`` helpers never raise.
         """
-        from platterpus import rip_compare, rip_report
+        from platterpus import report_writer, rip_compare, rip_report
 
         report_path = rip_report.report_path_for(log_file)
         output_root = Path(self._config.output_dir)
@@ -2850,6 +2850,40 @@ class RipMixin(MainWindowShared):
         extra_roots = (Path(library_text),) if library_text else ()
 
         def compute() -> object:
+            # WAIT FOR THE REPORT WRITE TO LAND BEFORE READING IT.
+            #
+            # `_write_rip_report` above SUBMITS the write to the report-writer
+            # thread and returns; it does not perform it. So the caller's
+            # ordering —
+            #
+            #     self._write_rip_report(rip_log, log_file)
+            #     if success: self._start_rip_comparison(log_file)
+            #
+            # requests the write before the comparison but does not complete it,
+            # and this function then read the PREVIOUS revision off disk: the
+            # mid-rip snapshot, whose `outcome.status` is still `in_progress`.
+            #
+            # Measured on the rig, 2026-08-21: a rip that finished at 21:46:36.080
+            # with `success=True` produced the banner *"this rip never finished —
+            # its report is an unfinalised mid-rip snapshot"* at 21:46:36.153, 73 ms
+            # later. The report on disk afterwards says `status: 'success'`, so the
+            # contradiction proves the read happened before the write. That phrase
+            # is `_stopped_phrase(OUTCOME_IN_PROGRESS)` — a false "never finished"
+            # claim about a completed, AccurateRip-verified rip, in a banner a user
+            # reads.
+            #
+            # This is `docs/testing.md` §5.ap: asking for a thing is not having it.
+            # Blocking is safe HERE and only here — `compute` runs on the post-rip
+            # daemon thread (`_launch_post_rip_daemon`), never the GUI thread.
+            if not report_writer.writer().flush():
+                # Tri-state: the writer did not go idle, so we do not know which
+                # revision is on disk. Show NO banner rather than a possibly false
+                # one — an absent comparison is honest, a wrong one is not.
+                log.warning(
+                    "re-rip comparison skipped: the rip report was still being "
+                    "written, so any comparison would be against a stale revision"
+                )
+                return None
             current = rip_compare.load_report(report_path)
             if current is None or not current.get("tracks"):
                 return None  # nothing to compare against

@@ -981,8 +981,16 @@ def test_a_bare_peak_line_with_no_header_is_not_a_sample_peak() -> None:
 
 
 # A fork log: every new line present, in the two shapes each could plausibly take.
-# Track 1 uses the sub-header form (how cyanrip already prints `True peak:`) and
-# clock durations; track 2 uses the inline form and a plain-seconds elapsed.
+# Track 1 uses the sub-header form (how cyanrip already prints `True peak:`);
+# track 2 uses the inline form. Both elapsed values are the plain-seconds shape.
+#
+# Track 1's elapsed was `00:02:41.005` until 2026-08-21 — a CLOCK, which no cyanrip
+# build has ever printed for this row. This fixture was the only producer of that
+# shape, and it kept `track_elapsed_clock` looking alive for three weeks after the
+# fork split the line at their `89eb849`. `CLAUDE.md`: *what does my stand-in do
+# that the real thing does not?* — here it emitted a format the real thing does not,
+# which is the same defect pointed the other way. Kept at the same numeric value
+# (161.005 s) so the assertion below still pins a distinct number per track.
 _FORK_LOG = """\
 cyanrip 0.9.3.1-fork (platterpus)
 Offset:         +667 samples
@@ -1006,7 +1014,7 @@ Summary:
     Start LSN:   0 (with offset: 1)
     End LSN:     14486
 
-  Elapsed:     00:02:41.005
+  Elapsed:     161.005 s
   Speed:       1.6x
   EAC CRC32:     B0D122E7 (after 2 rips)
   Secure re-read: converged (2 out of 2 matches for current checksum B0D122E7)
@@ -1134,23 +1142,91 @@ def test_a_fork_per_track_speed_and_elapsed_are_parsed() -> None:
     """§2.3's two halves: the speed multiple (EAC's row) and the wall-clock."""
     by_number = {t.number: t for t in parse_cyanrip_log(_FORK_LOG).tracks}
     assert by_number[1].extraction_speed == pytest.approx(1.6)
-    # 00:02:41.005 → 161.005 s
     assert by_number[1].extraction_elapsed_seconds == pytest.approx(161.005)
     assert by_number[2].extraction_speed == pytest.approx(2.4)
     assert by_number[2].extraction_elapsed_seconds == pytest.approx(161.5)
 
 
-def test_an_mm_ss_elapsed_is_parsed_as_well_as_hh_mm_ss() -> None:
-    """cyanrip writes durations both ways across versions ("03:51.44", "00:03:51.44").
+def test_every_committed_elapsed_line_is_actually_read() -> None:
+    """**The gate that made retiring `track_elapsed_clock` safe.**
 
-    A pattern that only accepted the long form would silently drop the value, which
-    is the failure mode this whole file is a museum of.
+    A clock-form rule sat in this parser reading `Elapsed: (HH:)MM:SS(.mmm)`. It
+    matched 0 of the 19 committed fork logs, 0 of the 11 stock ones, and — measured
+    — it did not match the pre-split shape either: the fork's `89eb849` split
+    `Elapsed:  %s (%.1fx)` into a speed row plus `Elapsed:  %.2f s`, and that
+    combined line's trailing ` (0.9x)` is refused by the retired pattern's
+    end-of-line anchor. So it read a shape nothing has ever emitted.
+
+    Deleting it needed a replacement guard, because the indented-residue sweep in
+    this file is deliberately *informational* — a clock form reappearing upstream
+    would have been skimmed in silence, which is the failure this project calls
+    "absent means absent" only when absence is checked.
+
+    So: every indented line in the corpus whose label is in the elapsed family must
+    be claimed by `track_elapsed_seconds`. Floored on lines examined, because a
+    check that can pass by finding nothing is decoration.
+
+    **Widened past `_corpus_logs()` on purpose.** That helper is three files from
+    `output_reference/`, giving 14 elapsed lines; the handshake artifacts add every
+    golden reference either side has published, which is where a new ripper's output
+    lands FIRST. Measured 2026-08-21: 24 logs, 82 elapsed-family lines. The whole
+    point of this gate is to see a shape change on the round it arrives.
+    """
+    family = re.compile(
+        r"^\s+(?:Elapsed(?: time)?|Rip time|Extraction time|Time taken):", re.MULTILINE
+    )
+    paths = [
+        path
+        for path in sorted(_REPO.glob("output_reference/**/*.log"))
+        + sorted(_REPO.glob("docs/handshake/**/*.log"))
+        if "EACcompatible" not in path.name
+    ]
+    examined = 0
+    unread: list[tuple[str, str]] = []
+    for path in paths:
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not family.match(line):
+                continue
+            examined += 1
+            if not cyanrip_log._TRACK_ELAPSED_SECONDS.match(line):
+                unread.append((path.name, line.strip()))
+    assert len(paths) >= 20, f"only {len(paths)} logs in the widened corpus"
+    assert examined >= 60, (
+        f"only {examined} elapsed-family lines found in the corpus (82 on "
+        f"2026-08-21) — the logs stopped carrying the row, or the family pattern "
+        f"stopped recognising it, and either way a pass here proves nothing"
+    )
+    assert not unread, (
+        "these committed log lines are in the elapsed family and no rule reads "
+        f"them: {unread[:5]}.\nA new shape means the ripper changed the row — add a "
+        "rule for the shape it ACTUALLY prints (and say which build, in the "
+        "pattern's comment). Do not resurrect the clock rule on the strength of a "
+        "different clock."
+    )
+
+
+def test_a_clock_shaped_elapsed_is_not_silently_read_as_a_duration() -> None:
+    """The other half of the retirement: it left nothing behind that half-reads.
+
+    The retired rule shared `extraction_elapsed_seconds` with the seconds rule, so
+    the risk of removing it is not a crash — it is a value quietly becoming `None`
+    somewhere that reads `None` as "the ripper did not report it". This pins the
+    honest answer: a clock is **not** read, and it is not mistaken for a scalar
+    number of seconds either (which is what an unanchored seconds pattern would
+    have done — `03:51.44` would have yielded 3.0).
     """
     log = parse_cyanrip_log(
         "cyanrip 0.9.3-fork\nTrack 1 ripped and encoded successfully!\n"
         "  Elapsed time: 03:51.44\n  EAC CRC32:     B0D122E7\n"
     )
-    assert log.tracks[0].extraction_elapsed_seconds == pytest.approx(231.44)
+    assert log.tracks[0].extraction_elapsed_seconds is None
+    # And the shape that IS emitted still works, in the same test, so this cannot
+    # pass by the parser having stopped reading elapsed lines altogether.
+    live = parse_cyanrip_log(
+        "cyanrip 0.9.3-fork\nTrack 1 ripped and encoded successfully!\n"
+        "  Elapsed:            231.44 s\n  EAC CRC32:     B0D122E7\n"
+    )
+    assert live.tracks[0].extraction_elapsed_seconds == pytest.approx(231.44)
 
 
 def test_an_indented_per_track_speed_is_not_the_disc_speed_capability() -> None:

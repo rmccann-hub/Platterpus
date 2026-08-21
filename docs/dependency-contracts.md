@@ -223,6 +223,36 @@ Three properties of that table are load-bearing, not incidental:
   *capability*; EAC's row asks what the rip *did*. Only the wording that states
   usage may answer it.
 
+**Album loudness and peaks: two sources for the same four facts, and only one of
+them is cyanrip's.** Fixed 2026-08-21; the previous version of this doc said only
+"album loudness" and named no line, which is how the wrong source went unnoticed.
+cyanrip prints the whole-disc figures **twice**:
+
+| Source | Shape | Owned by | Status |
+|---|---|---|---|
+| FFmpeg's `ebur128` summary | `Album Loudness Summary:` then indented `Integrated loudness:` / `Loudness range:` / `Sample peak:` / `True peak:` sub-headers, each with an `I:` / `LRA:` / `Peak:` value line | **libavfilter** | Fork's **P3 — unstable wording**: "moves when FFmpeg does. Prefer the … lines in P2, which are ours" |
+| cyanrip's own rows, at **column 0** | `Album integrated loudness (R128): %.1f LUFS`, `Album loudness range (R128): %.1f LU (%.1f to %.1f LUFS)`, `Album sample peak level: %.1f dBFS`, `Album true peak level: %.1f dBFS` (`cyanrip_encode.c:847-853`) | **cyanrip (fork, round 8+)** | Fork's **P2 — stable log lines (the API)** |
+
+Both fill the same four `album_loudness` keys — `integrated_lufs`, `lra_lu`,
+`sample_peak_dbfs`, `true_peak_dbfs`, all `str`, dBFS for both peaks. Three
+properties of how they are read:
+
+- **The P2 rows win, and the precedence is recorded per key rather than
+  positional.** Every artifact prints the `ebur128` block first, so an overwrite
+  would happen to be right; `_Disc.record_album_loudness(..., stable=)` makes it
+  right on purpose, so a build that reordered the two blocks could not invert it.
+- **The `ebur128` scrape stays as a fallback and is still load-bearing.** The
+  deployed stock `cyanrip 0.9.3` — what an AppImage user runs today — and every
+  fork build before round 8 print it and none of the four rows. Both cases are
+  committed logs (`output_reference/cyanrip_flac/…` and
+  `output_reference/cyanrip_fork_flac/…`), so this is measured, not assumed.
+- **The `(R128)` qualifier is not decoration.** An unqualified
+  `Album integrated loudness:` would collide with libavfilter's own unqualified
+  heading in the same log; the fork added the qualifier for exactly that reason.
+- **Range, not snapshot:** the rows exist from the fork's round-8 builds onward.
+  `output_reference/cyanrip_fork_flac/cyanrip_fork_police_classics.log` is a fork
+  log *without* them, which is why the fallback cannot be deleted.
+
 **Lines cyanrip prints that we knowingly do NOT parse.** Recorded because the
 alternative is what actually kept happening: a row went unparsed by accident and
 nobody could tell the difference (the overread mode twice, the `Gaps:` block, the
@@ -236,8 +266,17 @@ as a red test rather than a silent omission. Deliberately skipped today:
 `Underread:` (the *frame count*, which is derived from the read offset and is
 printed identically whether or not the drive read the lead-in/lead-out — only
 `Overread mode:` answers EAC's question), `AccurateRip:` (whether the *disc* was
-in the database; the per-track lines and the finish summary carry the verdict) and
-the `Tracks:` / `Summary:` section markers. **Candidates that arguably should
+in the database; the per-track lines and the finish summary carry the verdict),
+the `Tracks:` / `Summary:` section markers, and — added 2026-08-21 in the same
+pass as the album loudness rows above — the two pre-log replay delimiters
+(`--- output before this log was opened ---` / `--- end of pre-log output ---`),
+`Opening drive...`, libcdio's `Checking <path> for cdrom...` and
+`Stopping, ripping incomplete!` (the `Rip completed:` row carries that verdict,
+and `ripper_messages` is what surfaces the sentence). Those five were being
+dropped **with no allow-list entry** in 16 committed logs, invisible to the sweep
+because its corpus was only `output_reference/cyanrip_*/*.log`; the round-12
+artifacts under `docs/handshake/inbound/artifacts/` are now swept too.
+**Candidates that arguably should
 become `RippingInfo` / `TrackResult` fields** (each needs a new field, so it is a
 deliberate change, not a silent one): `HDCD decoding:` — an enabled HDCD decode
 *alters samples*, so it bears directly on "is this a bit-perfect copy";
@@ -567,4 +606,4 @@ outlive the window — see `ui/main_window_rip.py::_stop_rip_on_shutdown`.
 
 ---
 
-*Last updated for Platterpus v0.6.20.*
+*Last updated for Platterpus v0.6.23.*

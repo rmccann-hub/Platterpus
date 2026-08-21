@@ -32,6 +32,23 @@ UTF-16/CRLF** — read it via `platterpus.parity.decode_log_bytes`, never
 `read_text("utf-8")` (a UTF-8 copy once hid a real decoding bug in the parity
 checker).
 
+## Handshake artifacts are NOT copied in here (note added 2026-08-21)
+
+A test that needs a real cyanrip log from a handshake round reads it **from
+`docs/handshake/inbound/artifacts/`**, not from a copy placed here.
+
+Written down because the copy was made and then deleted the same hour:
+`tests/test_fork_album_loudness_r12.py` needed the round-12 golden reference and
+interrupted sample, and both were *already* committed under that directory,
+byte-identical. A second copy under `tests/fixtures/` would have been the same
+artifact at the same value in two places — two records of one fact, with nothing
+saying which is current (Critical rule #7). Those files are also **correspondence**:
+a byte-faithful record of what the fork sent, deliberately exempt from our doc
+stamps, so duplicating one risks the copy drifting from the record.
+
+Read them at the path, and strip any delivery header the artifact itself
+documents (the interrupted sample carries one) at read time.
+
 ---
 
-*Last updated for Platterpus v0.6.4b1.*
+*Last updated for Platterpus v0.6.23.*

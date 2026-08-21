@@ -12,9 +12,11 @@ us — and neither half is a handshake on its own. See
 `docs/cyanrip-handshake.md` for the protocol both sides follow.
 
 **How to use it if you are the fork:** any change to a line in §1 is a
-breaking change to us and requires a handshake round. Anything in §2 is
-safe to change freely — we look at it and throw it away. §3 is the argv we
-will send you; a flag whose meaning changes is also breaking.
+breaking change to us and requires a handshake round. §1a is text **we**
+write, not you — it is listed so you can recognise it in an artifact we
+send you, and you owe nothing for it. Anything in §2 is safe to change
+freely — we look at it and throw it away. §3 is the argv we will send you;
+a flag whose meaning changes is also breaking.
 
 ## 0. What range these claims cover
 
@@ -22,7 +24,7 @@ Every row in this document is derived from the Platterpus source at the
 version named below, and describes what **that** app version parses and
 sends. It is not a claim about any other version of either side.
 
-- **Platterpus:** `0.6.21` — the build that
+- **Platterpus:** `0.6.23` — the build that
   generated this file. A row can only have changed with our code, so this
   version *is* the range on our half.
 - **Verified against ripper build:** `cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)` — the build a
@@ -41,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (55)
+## 1. Log lines we parse (57)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -51,7 +53,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | name | scope | pattern |
 |---|---|---|
 | `version_banner` | disc | `^cyanrip\\s+(?P<version>\\S+)(?:\\s+\\((?P<build>[^)]*)\\))?` |
-| `invoked_as` | disc | `^Invoked as:\\s+(?P<argv>\\S.{0,4000}?)\\s*$` |
+| `invoked_as` **(fork-only)** | disc | `^Invoked as:\\s+(?P<argv>\\S.{0,4000}?)\\s*$` |
 | `drive` | disc | `^(?:Drive used\|Device model):\\s+(?P<drive>.+?)\\s*$` |
 | `read_offset` | disc | `^Offset:\\s+(?P<sign>[+-])(?P<value>\\d+)\\s+samples` |
 | `overread_mode` | disc | `^(?:Over\|Under)read mode:\\s+(?P<mode>.+?)\\s*$` |
@@ -59,7 +61,6 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `album_artist` | disc | `^Album artist:\\s+(?P<value>.+?)\\s*$` |
 | `c2_errors` | disc | `^C2 errors:\\s+(?P<text>.+?)\\s*$` |
 | `paranoia_level` | disc | `^Paranoia level:\\s+(?P<text>.+?)\\s*$` |
-| `swap_addendum_crc` | disc | `^\\s+Track (?P<number>\\d+) \\(.*\\): CRC (?P<crc>[0-9A-Fa-f]{8})\\s*$` |
 | `outputs` | disc | `^Outputs:\\s+(?P<value>.+?)\\s*$` |
 | `disc_id` | disc | `^DiscID:\\s+(?P<value>\\S+)` |
 | `cddb_id` | disc | `^CDDB ID:\\s+(?P<value>\\S+)` |
@@ -67,19 +68,23 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `speed_capability` | disc | `^Speed:\\s+(?P<text>.+?)\\s*$` |
 | `total_time` | disc | `^Total time:\\s+(?P<time>\\d{1,3}:\\d{2}(?::\\d{2})?(?:\\.\\d{1,3})?)\\s*$` |
 | `log_signature` | disc | `^Log FUN512:\\s+(?P<sig>\\S+)` |
-| `handshake_note` | disc | `^Handshake:\\s+(?P<note>\\S.*)$` |
-| `consumer` | disc | `^Consumer:\\s+(?P<consumer>\\S.*)$` |
+| `handshake_note` **(fork-only)** | disc | `^Handshake:\\s+(?P<note>\\S.*)$` |
+| `consumer` **(fork-only)** | disc | `^Consumer:\\s+(?P<consumer>\\S.*)$` |
+| `album_integrated_loudness` **(fork-only)** | disc | `^Album integrated loudness \\(R128\\):\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+LUFS` |
+| `album_loudness_range` **(fork-only)** | disc | `^Album loudness range \\(R128\\):\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+LU\\b` |
+| `album_sample_peak_level` **(fork-only)** | disc | `^Album sample peak level:\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+dBFS` |
+| `album_true_peak_level` **(fork-only)** | disc | `^Album true peak level:\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+dBFS` |
 | `accuraterip_total` | disc | `^Tracks ripped accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `accuraterip_partial_total` | disc | `^Tracks ripped partially accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `ripping_errors` | disc | `^Ripping errors:\\s+(?P<count>\\d+)` |
-| `rip_completed` | disc | `^Rip completed:\\s+(?P<verdict>yes\|no)(?:\\s+\\((?:(?P<reason>[^,)]{1,64}),\\s*)?(?P<done>\\d{1,4})\\s+of\\s+(?P<total>\\d{1,4})\\s+tracks?\\))?` |
-| `read_stalls` | disc | `^Read stalls:\\s+(?P<value>\\S.*?)\\s*$` |
+| `rip_completed` **(fork-only)** | disc | `^Rip completed:\\s+(?P<verdict>yes\|no)(?:\\s+\\((?:(?P<reason>[^,)]{1,64}),\\s*)?(?P<done>\\d{1,4})\\s+of\\s+(?P<total>\\d{1,4})\\s+tracks?\\))?` |
+| `read_stalls` **(fork-only)** | disc | `^Read stalls:\\s+(?P<value>\\S.*?)\\s*$` |
 | `finished_at` | disc | `^Ripping finished at\\s+(?P<when>.+?)\\s*$` |
 | `gaps_section` | section header | `^Gaps:\\s*$` |
 | `paranoia_counts_section` | section header | `^Paranoia status counts:\\s*$` |
 | `album_loudness_section` | section header | `^Album Loudness\\b` |
 | `track_block_start` | section header | `^Track (?P<number>\\d+) (?P<what>ripped and encoded successfully!\|ripped and encoded with errors\\.\|is data:)` |
-| `secure_rerip_converged` | section header | `^\\s*Done;\\s+\\((?P<agreed>\\d{1,6})\\s+out of\\s+(?P<total>\\d{1,6})\\s+matches\\b` |
+| `secure_rerip_converged` **(fork-only)** | section header | `^\\s*Done;\\s+\\((?P<agreed>\\d{1,6})\\s+out of\\s+(?P<total>\\d{1,6})\\s+matches\\b` |
 | `secure_rerip_no_match` | section header | `^\\s*Done;\\s+\\(no matches found\\b` |
 | `gaps_value` | indented | `^\\s+(?P<value>\\S.*?)\\s*$` |
 | `paranoia_count` | indented | `^\\s+(?P<key>[A-Z][A-Z_]*):\\s+(?P<count>\\d+)\\s*$` |
@@ -101,25 +106,52 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_peak_kind_header` **(fork-only)** | indented | `^\\s+(?P<kind>True\|Sample) peak:\\s*$` |
 | `track_sample_peak` **(fork-only)** | indented | `^\\s+(?:Sample peak level\|Sample peak\|Peak level):\\s+(?P<value>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s*(?P<unit>dBFS\|%)` |
 | `track_extraction_speed` **(fork-only)** | indented | `^\\s+(?:Extraction speed\|Rip speed\|Read speed\|Speed):\\s+(?P<value>\\d{1,6}(?:\\.\\d{1,3})?)\\s?[xX]\\b` |
-| `track_elapsed_clock` **(fork-only)** | indented | `^\\s+(?:Elapsed(?: time)?\|Rip time\|Extraction time\|Time taken):\\s+(?:(?P<h>\\d{1,3}):)?(?P<m>\\d{1,3}):(?P<s>\\d{1,2}(?:\\.\\d{1,6})?)\\s*$` |
 | `track_elapsed_seconds` **(fork-only)** | indented | `^\\s+(?:Elapsed(?: time)?\|Rip time\|Extraction time\|Time taken):\\s+(?P<s>\\d{1,7}(?:\\.\\d{1,6})?)\\s*(?:s\|sec\|secs\|seconds)\\b` |
 | `track_secure_verdict` **(fork-only)** | indented | `^\\s+Secure re-?read(?:s)?:\\s+(?P<text>\\S.*?)\\s*$` |
 | `track_accurip_status` **(fork-only)** | indented | `^\\s+Accurip:\\s+(?P<status>\\S.*?)\\s*$` |
 
-Of these, **9 exist only in the fork** and match nothing in
+Of these, **18 exist only in the fork** and match nothing in
 stock cyanrip 0.9.3. They are the fork's specific obligation:
 
+- `invoked_as`
+- `handshake_note`
+- `consumer`
+- `album_integrated_loudness`
+- `album_loudness_range`
+- `album_sample_peak_level`
+- `album_true_peak_level`
+- `rip_completed`
+- `read_stalls`
+- `secure_rerip_converged`
 - `track_pregap_length`
 - `track_pregap_source`
 - `track_peak_kind_header`
 - `track_sample_peak`
 - `track_extraction_speed`
-- `track_elapsed_clock`
 - `track_elapsed_seconds`
 - `track_secure_verdict`
 - `track_accurip_status`
 
-## 2. Log lines we knowingly ignore (17)
+## 1a. Lines we parse that **we** write — not your obligation (1)
+
+These match text **Platterpus** appends beside a rip, not anything cyanrip
+emits. They are listed here rather than in §1 because §1 means *"change
+this and you break us"*, which cannot be true of a line you do not print.
+You owe nothing for them, and you may see them in a rig log we send you:
+the block is what makes such a log fail `--verify-log`, which is expected
+and is why we now write it to a sidecar file instead of appending it to
+your log.
+
+| name | scope | written by | pattern |
+|---|---|---|---|
+| `swap_addendum_crc` | disc | `src/platterpus/rip_addendum.py` (`render_addendum`) | `^\\s+Track (?P<number>\\d+) \\(.*\\): CRC (?P<crc>[0-9A-Fa-f]{8})\\s*$` |
+
+Kept in the same parser on purpose: reading a rip's log back means reading
+the log **and** its addendum (`rip_addendum.with_addendum`), because the
+addendum is the only statement in the folder about which bytes actually
+shipped after an auto-fix re-rip.
+
+## 2. Log lines we knowingly ignore (22)
 
 An allow-list, not a shrug — each entry is a recorded decision, and the
 parser's own test treats an unrecognised, unlisted line as a failure. So a
@@ -145,8 +177,13 @@ dropped.
 | `^AccurateRip:\\s` | the indented per-track Accurip: row is read |
 | `^Tracks:\\s*$` | section marker, no payload |
 | `^Summary:\\s*$` | section marker, no payload |
+| `^--- output before this log was opened ---\\s*$` | delimiter of the replayed pre-logfile buffer; no payload |
+| `^--- end of pre-log output ---\\s*$` | delimiter of the replayed pre-logfile buffer; no payload |
+| `^Opening drive\\.\\.\\.\\s*$` | progress marker; the drive is on Drive used: and the failure is its own P5 string |
+| `^Checking .{1,200} for cdrom\\.\\.\\.\\s*$` | libcdio image-probe chatter; the path is ours and Invoked as: records it |
+| `^Stopping, ripping incomplete!\\s*$` | abort marker; Rip completed: carries the verdict and ripper_messages surfaces this sentence |
 
-## 3. Flags we pass you (18)
+## 3. Flags we pass you (19)
 
 Obtained by calling the real argv builder with a maximal parameter set, so
 this is what the adapter emits today rather than what it was documented to
@@ -154,7 +191,7 @@ emit. Per-flag semantics and the exact contract for each are in
 `docs/dependency-contracts.md`.
 
 ```
---verify-log --version -D -F -G -N -O -S -V -Z -a -c -d -l -o -r -s -t
+--verify-log --version -D -F -G -N -O -S -V -Z -a -c -d -j -l -o -r -s -t
 ```
 
 Two of these are load-bearing beyond their own behaviour:

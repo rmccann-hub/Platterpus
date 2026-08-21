@@ -69,7 +69,7 @@
 # -----------------------------------------------------------------------------
 
 log =============================================================
-log RIG TEST: the cancel path, the drive-open proof, and the dialogs
+log RIG TEST: the cancel path, the completed re-rip, and the PlainText fix
 log =============================================================
 snapshot atstart
 
@@ -218,7 +218,34 @@ select-tracks 1-3
 # overwrite prompt must name the folder in full — the 'bracket' AFTER the
 # '<' is the part that used to vanish. In the bundle
 # afterwards, the written tag must contain a real '<'.
-album cancel me angle<bracket (ripper)
+#
+# THE TITLE HERE AND IN SECTION E ARE DELIBERATELY IDENTICAL, CHARACTER FOR
+# CHARACTER. Same string in, same folder out, so section E's rip collides with
+# this one and the overwrite prompt actually fires — which is the only way the
+# PlainText fix above gets exercised on hardware, and the only way section E's
+# `answer-dialog` has anything to answer. Identical is stronger than
+# "equivalent" here on purpose: our folder preview only *mirrors* cyanrip's path
+# sanitisation and is documented as best-effort, so two titles that merely ought
+# to land in one folder might not. Two identical titles land together whatever
+# either side does to them.
+#
+# (Measured, and it is why this says character for character: a colon in only one
+# of the two titles does NOT collide. `render_preview` maps ':' to U+2236 in the
+# folder, so 'cancel me: X' becomes 'cancel me∶ X' and 'cancel me X' stays put.
+# The colon therefore has to be in BOTH — which is fine, and section E explains
+# why it needs to be there at all.)
+#
+# It fired on 2026-08-20 for the WRONG REASON, and that is worth writing down
+# because it is why this now says "deliberately". The two sections used to carry
+# *different* titles, so they could never have collided by design. What made them
+# collide was a defect: the `(ripper)` placeholder was being refused (the build
+# tag it reads had been overwritten by an unrelated cache probe), both `album`
+# steps therefore failed, and both rips fell back to the disc's real MusicBrainz
+# title — which is of course the same for both. Fixing the placeholder in 0.6.21
+# made the titles distinct, so on 2026-08-21 the prompt correctly did not appear
+# and section E's `answer-dialog` failed with "no dialog opened at all". The verb
+# was right both times; the script was relying on a bug to set up its own test.
+album cancel me: angle<bracket (ripper)
 rip
 log letting it read for 90s so the cancel lands mid-track, not at a boundary
 wait 90
@@ -258,11 +285,20 @@ select-tracks 1
 # not produce (found 2026-08-20).
 #
 # WHAT TO LOOK FOR in the bundle afterwards: this album's tag must read
-# 'after cancel: <build>' with a REAL colon. A '∶' (U+2236 RATIO) there means the
+# 'cancel me: <build>' with a REAL colon. A '∶' (U+2236 RATIO) there means the
 # escape did not survive and the substitution has to come back. The FOLDER name
-# is expected to differ — cyanrip sanitises ':' out of paths itself, which is a
-# separate concern and not a failure.
-album after cancel: angle<bracket (ripper)
+# is expected to differ from the tag — cyanrip sanitises ':' out of paths itself,
+# which is a separate concern and not a failure.
+#
+# THE TITLE IS BYTE-FOR-BYTE SECTION D's, ON PURPOSE. That is what makes the
+# target folder collide and the "Album already ripped" prompt fire — see the long
+# note in section D for why this is now stated rather than left to chance, and for
+# the measurement showing that a colon in only one of the two does NOT collide.
+#
+# So the colon is in both titles, and it is *this* rip that proves the escape,
+# because this is the one that completes: section D's is cancelled and may never
+# reach its tag write.
+album cancel me: angle<bracket (ripper)
 rip
 # ANSWER THE CONFIRMATION, AND WAIT FOR IT RATHER THAN ASSUMING IT IS THERE.
 #
@@ -280,7 +316,25 @@ rip
 #
 # Naming the title is not decoration: an unattended accept will happily dismiss a
 # dialog nobody predicted, and this verb refuses to answer anything else.
-answer-dialog ok 60 Album already ripped
+#
+# AND IT IS `click=new`, NOT `ok`. This was `ok` until 2026-08-21, and `ok` would
+# have CANCELLED the rip while the transcript said "accepted" — silently, with
+# nothing downstream able to tell the difference except `wait-for-rip` timing out
+# 30 minutes later for no stated reason.
+#
+# Why: the prompt is a QMessageBox with three ADDED buttons — Replace / Rip to a
+# new folder / Cancel. `ok` calls accept(), and accept() on an addButton-built box
+# leaves clickedButton() as None, so `_confirm_known_overwrite` falls through its
+# two `is` comparisons to `return None  # Cancel`. The verb would have done
+# exactly what it was told and the result would have been the opposite of what was
+# meant. `click=new` names the button instead, and `new` matches only "Rip to a
+# new folder" of the three.
+#
+# "Rip to a new folder" and not "Replace" deliberately: Replace would delete
+# section D's partial cancelled rip, which is the evidence this whole script
+# exists to produce. The new-folder path also exercises `free_album_folder_
+# templates`, which nothing else here reaches.
+answer-dialog click=new 60 Album already ripped
 wait-for-rip 1800
 snapshot afterrecovery
 screenshot afterrecovery

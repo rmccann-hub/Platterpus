@@ -515,3 +515,167 @@ def test_the_duplicate_id_check_would_catch_the_shipped_collision() -> None:
     assert ids.count("5.ag") == 2, (
         f"the detector does not see the shipped collision; it found {ids}"
     )
+
+
+#: Documents that are REGENERATED from code, so a `file.md:NN` citation into them
+#: is a pointer at a line number that moves on the next parser change — silently,
+#: because prose is not diffed against the file it cites.
+#:
+#: **Derived, not listed** — read off each `scripts/emit_*.py`'s own
+#: ``OUTPUT_PATH``, so a third generated page joins this rule the day it is
+#: written. A typed list here would be the same hand-maintained field that rotted
+#: in the consumer contract's own `_FORK_ONLY_RULES`, in a test written *about*
+#: stale cross-references.
+#:
+#: Not taken from `test_doc_version_stamps._EXEMPT_GENERATED`, which looks like the
+#: registry for this and is not: that map answers *"which docs are exempt from a
+#: version stamp"* and carries one of the two generated pages, because the other
+#: embeds `__version__` and therefore does get restamped. Two different questions.
+#: An ``OUTPUT_PATH`` declaration in a generator, e.g.
+#: ``OUTPUT_PATH: Path = _REPO_ROOT / "docs" / "script-language.md"``.
+_GENERATOR_OUTPUT = re.compile(
+    r'^OUTPUT_PATH\b[^\n]*?"(?P<name>[A-Za-z0-9._-]+\.md)"\s*$', re.MULTILINE
+)
+
+
+def _generated_doc_basenames() -> frozenset[str]:
+    """Every ``docs/*.md`` written by a generator script, by basename.
+
+    Read out of each generator's **source** rather than by importing it. Importing
+    was the first version and it is the wrong tool twice over: these scripts pull in
+    the whole application (one of them imports PySide6 transitively) at collection
+    time, and one of them — `emit_envelope.py` — cannot be exec'd from a bare spec
+    at all, because `@dataclass` looks its own module up in `sys.modules` and a
+    hand-built spec is not registered there. A regex over the declaration is a
+    derivation with none of that surface.
+    """
+    found: set[str] = set()
+    for script in sorted((_REPO_ROOT / "scripts").glob("emit_*.py")):
+        for match in _GENERATOR_OUTPUT.finditer(
+            script.read_text(encoding="utf-8", errors="replace")
+        ):
+            found.add(match.group("name"))
+
+    # FLOOR. A regex derivation can stop matching without anything looking wrong —
+    # a generator renaming its constant, or the formatter moving the closing quote
+    # off the end of the line, and this returns an empty set. Every caller then
+    # examines nothing and passes, which is the failure this whole module is about.
+    #
+    # Two is the measured count on 2026-08-21: `emit_dependency_contract.py` ->
+    # cyanrip-consumer-contract.md and `emit_script_language.py` ->
+    # script-language.md.
+    #
+    # KNOWN AND DELIBERATE EXCLUSION: `emit_envelope.py` declares `OUT`, not
+    # `OUTPUT_PATH`, and writes into `docs/handshake/outbound/` rather than
+    # `docs/`. It is out of scope for an index of top-level `docs/*.md` either
+    # way, so the narrower pattern costs nothing here — stated so the next reader
+    # does not have to re-derive that it is an omission on purpose. The
+    # import-based version this replaced also missed it, for the same reason.
+    assert len(found) >= 2, (
+        f"only found {sorted(found)} generated docs. Either a generator renamed "
+        f"its OUTPUT_PATH declaration or the pattern stopped matching it — and an "
+        f"empty set here makes every caller pass having examined nothing."
+    )
+    return frozenset(found)
+
+
+_GENERATED_DOCS: frozenset[str] = _generated_doc_basenames()
+
+#: The citation shape this refuses: ``somepage.md:99``, ``:56,57,59`` or ``:103-105``.
+_LINE_CITATION = re.compile(r"(?P<doc>[a-z0-9-]+\.md):(?P<lines>\d[\d,\s-]*)")
+
+
+def test_no_prose_cites_a_generated_document_by_line_number() -> None:
+    """**Measured drift, not a style preference.**
+
+    `docs/cyanrip-known-issues.md` carried three citations into
+    `docs/cyanrip-consumer-contract.md` by line number, and on 2026-08-21 **all
+    three were already wrong** — checked against the file as committed at
+    `faa2a39`, before that day's change touched it:
+
+    * `:99` was cited for the AccurateRip result capture group; it was
+      `track_pregap_source`.
+    * `:56,57,59,64,65,66` were cited as six specific label rules; `:56` was
+      `read_offset`.
+    * `:103-105` were cited as the three speed/elapsed regexes; they were
+      `track_accurip_offset`, `track_appended_silence`, `track_peak_kind_header`.
+
+    Nothing could have caught it. The contract is regenerated from the parser's
+    enumeration tables on every change, so **each of those numbers is a pointer
+    into a file that renumbers itself**, and a citation is only ever wrong by
+    silence — the prose keeps reading plausibly. This is the *"a comment where a
+    check belongs is not a fix"* shape applied to a cross-reference.
+
+    A rule NAME is the stable key and it is what the cited page is organised by, so
+    the fix is to cite the row rather than its offset. This gate makes the fix
+    stick.
+
+    **How to record a citation you are RETIRING**, since a changelog entry about
+    this very fix has to mention the three numbers and immediately tripped the gate
+    on its own text: write them as prose — *"line 99 of that page"*, *"lines
+    103-105"* — not in the ``page.md:NN`` form. Exactly the rule `CLAUDE.md` already
+    states for a retired document, where a dead file is named as *a label, not a
+    path*, because the path form reads as a live pointer. No allow-list, and
+    deliberately none: an exemption for `CHANGELOG.md` would exempt the one file a
+    stale citation is most likely to be copied onward from.
+    """
+    offenders: list[str] = []
+    examined = 0
+    for path in sorted(_REPO_ROOT.rglob("*.md")):
+        if ".git" in path.parts or "node_modules" in path.parts:
+            continue
+        examined += 1
+        for line_no, line in enumerate(
+            path.read_text(encoding="utf-8", errors="replace").splitlines(), 1
+        ):
+            for match in _LINE_CITATION.finditer(line):
+                if match.group("doc") in _GENERATED_DOCS:
+                    offenders.append(
+                        f"{path.relative_to(_REPO_ROOT)}:{line_no} cites "
+                        f"{match.group('doc')}:{match.group('lines').strip()}"
+                    )
+    assert examined >= 30, (
+        f"only {examined} Markdown files walked — the sweep has stopped finding the "
+        f"docs and would pass for an empty repository"
+    )
+    assert len(_GENERATED_DOCS) >= 2, (
+        f"only {sorted(_GENERATED_DOCS)} derived as generated pages; two were "
+        f"known on 2026-08-21 (the consumer contract and the script language). "
+        f"With an empty population this check cannot fail at all."
+    )
+    assert "cyanrip-consumer-contract.md" in _GENERATED_DOCS, (
+        "the page the three measured offenders cited is not in the derived "
+        "population — the derivation has stopped reading the generators"
+    )
+    assert not offenders, (
+        "these cite a GENERATED document by line number, and that document "
+        "renumbers itself every time the code it is derived from changes:\n  "
+        + "\n  ".join(offenders)
+        + "\nCite the row instead — a rule name, a flag, a section — because that is "
+        "the key the page is organised by and the only part of it that is stable. "
+        "Measured 2026-08-21: three such citations existed and all three were "
+        "already pointing at the wrong rows."
+    )
+
+
+def test_the_line_citation_detector_sees_all_three_shapes_that_shipped() -> None:
+    """Non-triviality, against the exact text that was in the repo.
+
+    A single-number citation, a comma list and a range — the three spellings the
+    three real offenders used. A detector that only caught `:99` would have reported
+    one problem where there were three, which is the failure mode `CLAUDE.md` calls
+    worse than failing.
+    """
+    shipped = [
+        "our own capture group takes the whole field "
+        "(`docs/cyanrip-consumer-contract.md:99`, `\\((?P<result>[^)]*)\\)`)",
+        "declares all six as parsed (`docs/cyanrip-consumer-contract.md:56,57,59,64,65,66`)",
+        "Corroborated by `docs/cyanrip-consumer-contract.md:103-105`, where all three",
+    ]
+    found = [
+        match.group("lines").strip()
+        for line in shipped
+        for match in _LINE_CITATION.finditer(line)
+        if match.group("doc") in _GENERATED_DOCS
+    ]
+    assert found == ["99", "56,57,59,64,65,66", "103-105"], found

@@ -147,13 +147,28 @@ _VERB_LIST: tuple[Verb, ...] = (
     #
     # Title last so it can be a bare multi-word substring with no quoting, the same
     # shape `album` already uses. Case-insensitive substring, like `expect-dialog`.
+    #
+    # `click=` exists because `ok` cannot answer a THREE-button dialog at all, and
+    # fails at it *silently*. `accept()` on a QMessageBox built with `addButton`
+    # leaves `clickedButton()` as None, so a caller shaped like
+    # `_confirm_known_overwrite` — `if clicked is replace: … if clicked is new: …
+    # return None  # Cancel` — falls straight through to the CANCEL branch. So
+    # `answer-dialog ok … Album already ripped` would have CANCELLED the rip while
+    # the transcript recorded "accepted". Found 2026-08-21 while writing the rig
+    # script that would have depended on it, by reading that fall-through instead of
+    # assuming it. A substring rather than the whole label because `script.parse`
+    # splits args on whitespace with no quoting, so "Rip to a new folder" cannot be
+    # one argument — `click=new` can.
     Verb(
         "answer-dialog",
         3,
         None,
-        "answer-dialog <ok|cancel> <seconds> <title-substring> — wait up to "
-        "<seconds> for a dialog whose title contains <title-substring>, then "
-        "accept or dismiss it; fails if a different dialog is up at the deadline",
+        "answer-dialog <ok|cancel|click=<label-substring>> <seconds> "
+        "<title-substring> — wait up to <seconds> for a dialog whose title "
+        "contains <title-substring>, then accept it, dismiss it, or click the "
+        "one button whose label contains <label-substring>; fails if a different "
+        "dialog is up at the deadline, or if the named button is absent, "
+        "ambiguous or disabled",
     ),
     Verb(
         "expect-dialog",

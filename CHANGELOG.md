@@ -11,6 +11,500 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **A rule about text *we* write was published in the table of lines we ask the
+  cyanrip fork to hold stable.** Answering round 12 lap 4 §C1, the fork reported
+  that `swap_addendum_crc` parses Platterpus's own `[Platterpus auto-fix addendum]`
+  block — the string `addendum` appears zero times in their `src/` and zero times in
+  upstream's. Our own corroboration is the stronger half: the single committed
+  "fork log" that rule matches has its match at line 1150 *inside* our own addendum
+  block opened at line 1145, so the log-corpus derivation was reading our output
+  back and attributing it to them. The rule **stays in the parser** —
+  `rip_addendum.with_addendum` hands the log *plus* its addendum to
+  `parse_cyanrip_log`, and dropping it would resurrect the defect where a re-parse
+  from disk reports the CRCs of the read we discarded — but it is now published in
+  its own **§1a, "Lines we parse that we write — not your obligation"**, naming the
+  module that writes it. §1 means *"change this and you break us"*, which cannot be
+  true of a line another project does not print.
+- **`track_elapsed_clock` retired: it read a shape no cyanrip build has ever
+  emitted.** Our lap 4 asked back about a rule declared fork-only that matched no
+  fork log; the fork answered that they split the line at their `89eb849`
+  (2026-07-31) from `Elapsed:  %s (%.1fx)` into `Extraction speed:  %.1fx` plus
+  `Elapsed:  %.2f s`. Measured here, the retirement is stronger than "it outlived
+  the split": the rule matched **0 of 19** committed fork logs and 0 of 11 stock
+  ones, their published P2 inventory carries exactly one `Elapsed:` format string
+  (the seconds form, `cyanrip_log.c:424`), *and the pre-split combined line does not
+  match it either* — its trailing ` (0.9x)` is refused by the retired pattern's
+  end-of-line anchor. So the archival "never drop a spelling the producer renamed"
+  argument did not apply; nothing ever emitted it. The only producers were two
+  hand-written fixtures, which is `CLAUDE.md`'s *what does my stand-in do that the
+  real thing does not?* keeping a dead rule alive with a green test. Retired **with
+  a gate rather than a hope**, because the indented-residue sweep is deliberately
+  informational and would have skimmed a reappearing clock in silence: every
+  elapsed-family line in the committed corpus (82 across 24 logs) must now be read
+  by `track_elapsed_seconds`, and a clock is pinned as *not read* rather than
+  half-read as a bare `3.0`.
+- **Three cross-references cited a GENERATED document by line number, and all three
+  were already wrong.** `docs/cyanrip-known-issues.md` pointed into the generated
+  consumer contract at line 99, at lines 56/57/59/64/65/66, and at lines 103–105.
+  (Written as prose rather than in the `page.md:NN` citation form, for the same
+  reason `CLAUDE.md` says to name a retired doc as a label and not a path: the
+  citation form reads as a live pointer, and the gate below rightly refuses one.)
+  Checked against that file as committed at `faa2a39` — *before* this change touched
+  it — every one landed on a different row than the prose claimed: line 99 was cited
+  for the AccurateRip result capture group and was `track_pregap_source`; line 56
+  was cited as `Overread mode:` and was `read_offset`; lines 103–105 were cited as
+  the three speed/elapsed regexes and were `track_accurip_offset`,
+  `track_appended_silence`, `track_peak_kind_header`. **Nothing could have caught
+  it**: the contract is regenerated from the parser's enumeration tables on every
+  change, so each number pointed into a file that renumbers itself, and a citation
+  is only ever wrong *by silence* — the sentence keeps reading plausibly. Now cited
+  by **rule name**, which is the key the page is organised by and the only stable
+  part of it, and gated: `tests/test_doc_index_completeness.py` refuses a
+  line-number citation into any generated page, with the population **derived** from
+  each `scripts/emit_*.py`'s own `OUTPUT_PATH` rather than listed — a typed list
+  there would be the same hand-maintained field that rotted in `_FORK_ONLY_RULES`,
+  inside a test written about stale cross-references.
+- **`test_doc_index_completeness.py` errored at collection**, taking the whole
+  module with it: the first version of that derivation *imported* each generator by
+  a hand-built spec, and `scripts/emit_envelope.py` cannot be exec'd that way —
+  `@dataclass` looks its own module up in `sys.modules`, which a bare spec never
+  registers. Read off the source with a regex instead, which is a derivation with
+  none of that surface and does not pull the application (PySide6 included) into
+  collection.
+
+### Changed
+- **Six log lines are now declared as the fork's obligation, and the unresolved-
+  attribution ratchet is at zero.** `consumer`, `handshake_note`, `invoked_as`,
+  `read_stalls`, `secure_rerip_converged` and `rip_completed` were confirmed theirs
+  from *their* trees — `tools/upstream-delta.py` diffs every `cyanrip_log()` format
+  string against their verbatim mirror of upstream at `0.9.4-rc2`, which answers
+  *"does upstream's source print this"* rather than our *"is it absent from the six
+  stock logs we hold"*. `rip_completed` resolved in the direction worth noticing:
+  we had recorded them as owning only the wording, and upstream prints no such line
+  at all. `release_id` is **not** theirs — upstream prints it and the fork merely
+  reworded a sibling message at `38e84cb` — so it is recorded in a third bucket with
+  the evidence, not declared. All eight open attributions were answered the same
+  day, so the ratchet's cap moved 8 → 0; raising it again is a visible edit with a
+  reason, which is the whole mechanism.
+- **Our fork-only declarations are now checked against the fork's own published
+  inventory, in-house.** We cannot verify the upstream-absence half from this
+  repository, and `CLAUDE.md` is explicit that verifying somebody's *description* of
+  their behaviour is a different claim from verifying the behaviour — round 4's "88
+  fatal strings, VERIFIED INDEPENDENTLY" was exactly that mistake. So
+  `tests/test_provider_contract_agreement.py` now requires every line we put the
+  fork on the hook for to appear as a row in the newest provider contract's
+  stable-lines inventory, with an emitting `file:line`. 17 of 18 back, including all
+  six new ones; the one exception is reasoned and is a gap in *their* contract — the
+  `True peak:` / `Sample peak:` sub-headers go out through the generic
+  `cyanrip_log.c:58` `%s%s:` call site with the label as a runtime argument, so
+  there is no literal to match and their P2a does not reconstruct it. Raised for
+  round 13.
+
+## [0.6.23] — 2026-08-21
+
+*Supersedes 0.6.22, which was prepared and gated but never published — no tag,
+no artifact, nothing to install. Its entries are below rather than under a
+heading of their own, because a changelog section should describe a release
+somebody can actually get.*
+
+### Added
+- **`docs/rig-scripts/fullacceptance.txt` — the whole program in one unattended
+  pass, with a pass/fail verdict.** The 0.7.100 gate (KDD-35: a version number is a
+  claim about the field, not about CI). Ten sections, ~2–2.5 hours: identity,
+  validated settings round-trips, every dialog opened and closed, disc
+  identification, a **full-disc rip**, the seam check, a re-rip onto the same folder
+  so the overwrite prompt actually fires, a mid-track cancel, the drive-open proof,
+  and the overread guard.
+  **Ordered least-likely-to-fail first, and the cost of that order is stated in the
+  file rather than left implicit:** sections A–D are ~4 minutes of near-certain
+  checks, so a broken build is caught before an hour of drive time is spent — but if
+  the rip fails, A–D having passed tells you almost nothing about why. The
+  alternative spends the hour before learning the ripper was not installed.
+  Its four *cannot-assert* limits are stated up front rather than buried, because a
+  verdict that implies more than it checked is worse than a shorter one: it does not
+  grade the audio, it cannot see clipped dialog text, it says nothing about
+  `+platterpus.7` (unreachable until that build tag is in our capability table), and
+  it never touches overread or the cache probe — both of which have hung this drive.
+  Held by the shipped-script gates: 98 steps, zero parse errors, every verb and
+  arity real, and its `answer-dialog` argument checked against the runner's own
+  validator — because that argument is validated at *execution* time, so a bad value
+  parses perfectly and dies an hour into a hardware session with the disc still in.
+- **cyanrip handshake round 12 is CLOSED — `GO`/`GO` on `64ae7bc`, in four laps**
+  (against round 7's 37). Their lap 3 and our closing lap 4 are committed under
+  `docs/handshake/`. All six envelope parts verified through our own new
+  `--split`, which checks each part against its declared SHA-256.
+  **They refused the blame we offered to share, and they were right to.** We
+  reported their `HANDSHAKE-BREAKING (1)` as false — it named our
+  `SUPPORTED_SCHEMAS` as gating their diagnostics record when it is a
+  `frozenset[int]` over their *release manifest* — and then called it *"half
+  ours"* on a name-collision story. They opened all three sentences and reported
+  that every one sits in unambiguous release-manifest context; checked here
+  afterwards, they are correct. The generous cause was a fiction, and it would
+  have imported the wrong remedy: *"write less ambiguous sentences"* is
+  unfalsifiable, where theirs is checkable and is now a `CLAUDE.md` rule —
+  **never state a mechanism in the other side's code without citing where you
+  read it.** Its mirror sits beside it, because this cost a second lap: **an
+  apology is the one assertion nobody audits.** Graduated as `docs/testing.md`
+  §5.ax.
+  Their `-Y` exit-code fix turned out worse than we reported: P4's rows were
+  literal strings in the generator and `exit_codes()` scanned integer literals
+  inside `main()`, which returns `rc` from `cyanrip_run()` — it reported `1` and
+  missed even `0`. And they declared at column 0 that they had removed a sentence
+  our test parses, which is how we found that
+  `tests/test_provider_contract_agreement.py` reads `round-4.md` — nine rounds
+  stale — while its own docstring claims it re-derives from the newest round.
+- **cyanrip handshake round 12 filed and verified — `GO` on `64ae7bc`.** Their lap
+  1, its four artifacts and their provider contract are committed under
+  `docs/handshake/inbound/`; our verification is `verified/round-12-lap-02.md`.
+  All six envelope parts round-trip byte-identically through their published
+  reader and match both the manifest and their inline hashes, and both round
+  digests they declare reproduce on our tree with our independently-written
+  `scripts/round_digest.py`.
+  **Their `HANDSHAKE-BREAKING (1)` is false, and half the cause is ours.** They
+  stated that a `cyanrip-diagnostics/3` record is rejected by 0.6.21 until we
+  widen `SUPPORTED_SCHEMAS`. That constant is a `frozenset[int]` gating their
+  *release manifest*; nothing here reads a diagnostics-record schema string, and a
+  rip never sends `-j` at all. Measured: `/2`, `/3` and `/999` are indistinguishable
+  through the real code path. But our own round-11 file said *"when we next widen
+  `SUPPORTED_SCHEMAS`"* without naming which document — one round after we had told
+  them we consume none of that JSON. The verification carries the correction and
+  says whose sentence caused it.
+  Also recorded: the release-manifest bump to schema 3 that they deferred **is**
+  genuinely refused by shipped Platterpus, so it has to land here before they
+  publish. That is the warning their notice was reaching for, attached to the right
+  artifact.
+  The round stays OPEN until their lap 3 — they pre-committed to `GO` — so a stable
+  release is still gated; `v0.6.22` ships as a pre-release, which the gate permits
+  by design.
+
+### Fixed
+- **I filed five of the fork's round-12 artifacts under the wrong build, an hour
+  after reading the rule that forbids it.** `docs/handshake/README.md` says a
+  handshake artifact's filename names *"the commit the artifact's own banner
+  asserts, not the commit a lap file names it by — those differ, and only the banner
+  is derivable from the artifact's content."* All five were named `g237a4ff`, the
+  release commit their covering message mentioned, while their own banners say
+  `g6a23662` (the four rip artifacts) and `g8a1a3ee` (the provider contract, which
+  names the commit that generated it). Renamed.
+  **Nothing checked the rule** — it was a table row in a README, which is
+  `CLAUDE.md`'s *a comment where a check belongs is not a fix*, and it is round 6/7's
+  provenance failure in miniature: a claim about an artifact has to come from the
+  artifact. `tests/test_handshake_artifact_naming.py` now derives it, and the
+  enforcement boundary is stated rather than fudged — it binds from round 12 lap 3
+  onward, with the 10 earlier exceptions inventoried in **two named categories with
+  two causes** rather than as nine separate excuses: nine provider contracts whose
+  generator normalised its own build to a `<commit>` placeholder (the defect we
+  reported as round 12 §E3 and they fixed in lap 3), and one round-7 golden
+  reference whose name and banner genuinely disagree — kept under the misleading
+  name deliberately, because renaming it would erase the evidence.
+  The comparison is a **pure function with its own proof**, because the sweep alone
+  could not have one: every committed artifact now agrees or is inventoried, so
+  reverting the sweep's assertion changes nothing and a probe reports it
+  *unaffected* — indistinguishable from a dead check. The proof feeds it the exact
+  2026-08-21 mistake and requires it to be caught, and requires the reason to name
+  **both** commits. The sweep delegates to it rather than restating the comparison.
+- **The ripper telling us it could not read a log was reported as proof the log had
+  been altered.** Handshake round 12 gave cyanrip's `--verify-log` an exit code per
+  verdict, and one of them — `CRIP_LOG_EXIT_IO_ERROR`, code 5 — means *"unreadable:
+  no verdict was reached."* Every non-zero code fell through to the bottom of
+  `verify_rip_log`, which reports *"the file was altered after the ripper signed it
+  and must not be treated as archival evidence"*. So an answer that explicitly says
+  nothing was determined became the most alarming claim available.
+  This is the **same defect as the unreadable-file fix earlier in this release,
+  arriving from the other side of the seam**: there *we* could not read the file,
+  here *they* could not. Both are the third state and neither is the negative.
+  Reachability is gated — no build in `BUILD_TAGS_ACCEPTING_VERIFY_LOG` emits these
+  codes yet — but correctness is not, so the branch sits before the capability gate
+  and gives the user the ripper's own reason.
+- **A test that lied about its own currency for nine rounds.**
+  `tests/test_provider_contract_agreement.py` opened by saying *"when a new round
+  lands with a new provider contract, this test re-derives from it — no list to
+  maintain here."* It re-derived from nothing: the path was hard-coded to
+  `inbound/round-4.md` and was still the subject when round 12 closed. So the
+  *input* half of the cyanrip seam was being diffed against round 11/12's flag table
+  while the *output* half was diffed against a document from eight rounds earlier —
+  and the file said otherwise in its own first paragraph, which is why nobody
+  looked.
+  Two measured costs. Their P3 grew from 12 rows to 25, ten of them `genopt.h`,
+  while the row regex here matched `*.c` only — so **even pointed at the new file it
+  would have read 15 of 25 and reported a full pass**. And their P4 stopped carrying
+  the sentence this file asserts on, which the fork declared at column 0 because
+  they knew we parse it.
+  The round resolution is now **imported** from the argv-surface test rather than
+  grown here — this repo has broken four independently-written handshake-round
+  parsers on one naming migration — and sections are resolved by their `P<n>` label
+  rather than by heading prose, which moved between rounds. Also fixes `%lld`-style
+  length modifiers going unrendered, which failed in the **false-pass** direction:
+  a leftover `%` can stop a pattern matching a line the real log would match, in the
+  one check this file exists for.
+- **The one hand-maintained field in our generated consumer contract had rotted,
+  in the direction that understates the fork's obligation.** `_FORK_ONLY_RULES`
+  marks which parsed lines only the fork emits, so the fork knows what it is on
+  the hook for. The four `Album …` rules landed and the set did not, so the
+  contract we publish said *"9 exist only in the fork"* when it was 13 — for
+  exactly the four rows we had just started reading **in preference to** the
+  FFmpeg block their own P3 disclaims. They could have reworded them believing
+  nothing consumed them. Everything else on that page is derived; this set is
+  typed, which is why it was the field that went stale.
+  The converse check now exists and it is derived from artifacts, not listed: for
+  every rule, does its pattern match a committed **fork** log and no committed
+  **stock** log? That found **eight further** candidates we do not declare. None
+  has been declared unilaterally — our stock sample is six logs, so *"absent from
+  every stock log we hold"* can be a fact about the sample rather than about
+  upstream, and declaring a line theirs when upstream also prints it is the same
+  error in the other direction. They sit in a ratcheted
+  `_UNRESOLVED_FORK_ATTRIBUTION` map with a written reason each, and the question
+  is asked in round 12 lap 4 §C1, since the answer lives in their tree.
+  The same derivation also found `track_elapsed_clock` declared fork-only and
+  matching no fork log we hold — asked back in the same section.
+- **Two real ripper failures reached the user as a bare "Rip failed", because the
+  fatal-message inventory had been stale for five handshake rounds.**
+  `ripper_message_inventory.py` — the published-format list the error matcher is
+  *built from* — still carried round 6's **115** strings while the fork's contract
+  had gone 117 → 120 → **130** and then round 12's **128**. Counts derived
+  mechanically from the committed artifacts, not quoted: round 12's P5 table
+  (`docs/handshake/inbound/artifacts/round-12-lap-01-provider-contract-gdef36a6.md`)
+  publishes 128 distinct strings, of which **15** were absent here. Of those 15,
+  **12** were matched anyway by the word-prefix fallback — forward tolerance, not
+  coverage, and the reason nobody noticed, since a fallback that half-works hides
+  the gap it fills; **1** was matched by coincidence
+  (`Invalid track number %i for pregap, list has %i tracks!` fell inside the
+  round-6 pattern for `Invalid track number %i, list has %i tracks!`, whose bounded
+  wildcard absorbed `for pregap`); and **two matched nothing at all**:
+  `Programming error, incorrect type for: %s` and
+  `Too many values for argument "%s" (at most %i)`, both from `genopt.h`, cyanrip's
+  option parser. The second is an ordinary user mistake (one `-t` too many), and
+  every argument-parse diagnostic reaches **stdout only**, before the logfile
+  exists, so our capture was its sole route to a bug report — and we threw the
+  sentence away. Capture without surfacing, for the third time in this subsystem.
+  The inventory and `tests/fixtures/cyanrip_fatal_messages.tsv` are regenerated
+  from round 12's table; all 128 now surface through the real matcher, with zero
+  new false positives measured across that contract's whole 296-row P2 table.
+- **The staleness itself had no detector, on the half of the seam that needed one.**
+  The *input* half has had `tests/test_argv_surface_agreement.py` diffing our argv
+  against the newest inbound P1 table every commit since the `-V` blocker. The
+  *output* half's standing test compared this inventory against a fixture generated
+  from **its own round**, so the two agreed perfectly and neither could see that the
+  contract had moved — a list checked against itself, which is the exact defect this
+  file's history is made of, arriving one level out. Round 8 lap 1 §D2 had said so in
+  prose (*"the contract grew by 10 fatal messages, and the program did not"*) and
+  round 9 lap 3 committed the table itself on 2026-08-17.
+  `test_the_inventory_is_not_behind_the_newest_published_contract` now holds the
+  inventory to the newest committed contract row for row — string, site **and**
+  evidence class — and re-uses the argv test's round resolution rather than growing
+  this repo's fifth handshake-round parser.
+- **A string the provider *removes* from P5 is no longer silently dropped.** Round 12
+  moved `Force quitting` to a raw `write(2)` (a signal handler may not use stdio —
+  their §D5 says it *"still appears on stdout"*) and reclassified
+  `No FUN512 checksum found in "%s"!` to P3. Neither is reachable by any word in the
+  prefix fallback, so following the generator would have taken two live diagnostics
+  straight back to "Rip failed." They are kept in a named `RETAINED_BEYOND_P5` with
+  the round-12 reason attached, asserted against every committed provider contract
+  so the list cannot become a place to smuggle in strings nobody published.
+- **`Can't init %s handler!` matched nothing, because the prefix list had `Cannot`,
+  `Could not` and `Couldn't` but not the contraction.** Published in the fork's P2
+  table since round 7 lap 25. Added as a prefix rather than an inventory row —
+  it is not in P5, and P5 is their authority on failure-path reachability, so
+  inventing a row would be the guessing this subsystem was rebuilt to stop. Cost
+  measured before adding it: of 296 P2 rows exactly one has that shape, and no other
+  P2 line began matching.
+- **The album loudness and peak figures were read from wording the ripper
+  disclaims, while the guaranteed rows carrying the same facts were dropped
+  without a trace.** cyanrip prints the whole-disc loudness twice: once as
+  FFmpeg's `ebur128` summary, and once as four column-0 rows of its own —
+  `Album integrated loudness (R128):`, `Album loudness range (R128):`,
+  `Album sample peak level:`, `Album true peak level:`. Their provider contract
+  puts the first in **P3 — unstable wording** ("belongs to libavfilter and moves
+  when FFmpeg does. Prefer the … lines in P2, which are ours") and declares the
+  second in **P2 — stable log lines (the API)**. We were parsing the disclaimed
+  block and **silently dropping** all four owned rows: measured on the round-12
+  artifacts, they were 4 of the 8-9 column-0 lines per log that no rule claimed
+  and no `_IGNORED_DISC_LINES` entry accounted for — the exact "captured and
+  discarded" shape this parser's whole test history is about, since a silent drop
+  and a recorded decision look identical from the outside. The owned rows are now
+  the source; the `ebur128` scrape stays as a **documented fallback** because it
+  is the only source the deployed stock `cyanrip 0.9.3` (what an AppImage user
+  runs today) and every fork build before round 8 provide — both cases are
+  committed logs — and precedence is recorded per key rather
+  than left to depend on which block the binary printed first. Nothing downstream
+  changed shape — same four `album_loudness` keys, same `str` values, same units
+  and signs in the report JSON and in the results-pane label.
+  The other five unclaimed lines were fixed in the same pass rather than left for
+  the next audit to find: the two pre-log replay delimiters, `Opening drive...`,
+  libcdio's `Checking … for cdrom...` and `Stopping, ripping incomplete!` now each
+  carry a written reason. Both round-12 artifacts are committed as fixtures and
+  swept for column-0 completeness, which `output_reference/` could not do — none
+  of those logs contains the four rows, so the older sweep passed the entire time
+  they were being dropped.
+- **An unreadable ripper log was reported as evidence of tampering.**
+  `verify_rip_log` split a non-zero `--verify-log` exit on *"does the log carry a
+  `Log FUN512:` footer"*. That question has three answers — yes, no, and *we could
+  not look* — and the third was folded into "yes", which routes to *"the file was
+  altered after the ripper signed it and must not be treated as archival
+  evidence."* So a log we merely failed to open produced an accusation of
+  tampering, written into the report's `issues[]` and logged at ERROR.
+  The old code called that fail-closed. It was fail-**loud**: fail-closed means
+  refusing to certify, which is what `not_determined` does, and this project's own
+  rule (a `not_determined` is never reported as the negative) was already applied
+  to the flag-rejection branch twenty lines above and not to this one — the same
+  one-branch-of-two shape as `docs/testing.md` §5.o.
+  Narrow but not exotic: the reachable case is a log present at the `is_file()`
+  check that raises at the read — a removable or network volume unmounted mid-rip,
+  an `EIO` off failing storage, the folder moved between the two calls.
+  The test that pinned the old behaviour is replaced, and its text is quoted in the
+  new one's docstring, because it would have protected the defect indefinitely: it
+  framed the choice as gentle-versus-strong and never considered saying nothing.
+  Found while checking the fork's round-12 exit-code work, where code 5 means
+  *"unreadable — no verdict reached"* and would have landed in exactly that branch.
+- **The "why is this build here" explanation went silent for five rounds, because
+  one constant held two facts with different lifetimes.**
+  `NEXT_PIN_UNDER_REVIEW` was both a *durable* capability record (fork release 4,
+  whose published flag table lists `--consumer` and `--verify-log`, hence its
+  membership in two capability sets) and a *transient* "the pin an open round
+  proposes". One name, so the two could not be updated independently — and the
+  transient half never was. It sat at the round-7 value with the comment above it
+  still reading *"round 7 is open"*, so `_why_this_build_is_here` returned `""` for
+  the round-12 build and a rip against it reported a bare *"NOT the build this
+  Platterpus was verified against"* with no reason: precisely the *"every word
+  accurate, the user left thinking something broke"* failure that function exists
+  to prevent, with the mechanism working and its input rotted.
+  Split into `FORK_RELEASE_4_COMMIT` (durable, stays in both sets) and
+  `PIN_UNDER_REVIEW` (transient, and **deliberately in neither** — a build we have
+  no published flag table for has unknown capabilities, which is what the tri-state
+  is for). `tests/test_handshake_pin_under_review.py` derives the expected value
+  from the newest inbound round file's own `HANDSHAKE-PIN:` header, so it cannot
+  lag a round again, and asserts the capability absence too — that being the half a
+  future reader is most likely to "fix" by adding a row.
+- **Our published half of the cyanrip seam omitted a flag we really send.**
+  `docs/cyanrip-consumer-contract.md` §3 is headed *"Flags we pass you"* — so it
+  is read as complete — and listed 18, without `-j`. `rig_check.py` passes `-j` to
+  read our own command line back out of the ripper's diagnostics record, and that
+  invocation was outside the generator's population, which was the rip argv plus
+  two remembered probes. The generator's own comment one screen above said *"The
+  rip is not the only thing we run. Every invocation we make is part of the argv
+  surface"*; this is the third recorded instance of that exact blind spot in that
+  one function, which is what makes a comment there insufficient.
+  Found while checking a cyanrip round-12 claim that turned on which document a
+  schema number belonged to — a claim that was possible partly because **neither**
+  side's published contract described this surface at all.
+  The flag is now a named constant at its call site and the generator *derives* it,
+  so the two cannot drift. `tests/test_dependency_contract_emitted.py` sweeps a
+  registry of every way we run the ripper (four today) against the contract, so a
+  *fifth* invocation shape fails until the generator knows about it — the class,
+  not the instance.
+- **Nothing covered the argv probe's spawn, so a wrong flag would only have
+  surfaced on hardware.** `_compose_reference_argv` was tested; the function that
+  *runs* it was not, and the revert-proof found it — changing the spawned `-j` to
+  `-J` left the whole file green. cyanrip would have rejected the flag and the
+  first sign would have been a red row mid-session with a disc in the drive.
+  `TestTheArgvProbeSpawn` now runs the real spawn against a stub binary that
+  records its own argv, asserts the flag arrives *and* that the rip argv it is
+  supposed to carry arrives with it, and separately proves the check can fail when
+  no record is written.
+
+### Changed
+- **The cancel-path rig script was relying on a *bug* to set up its own test, and
+  its overwrite answer would have cancelled the rip it was meant to continue.**
+  Two related fixes, both found while adding `answer-dialog click=`:
+  Sections D and E carried *different* album titles, so their target folders could
+  never collide and the "Album already ripped" prompt could never fire by design.
+  It fired anyway on 2026-08-20 — because the `(ripper)` placeholder was being
+  refused, both `album` steps failed, and both rips fell back to the disc's real
+  MusicBrainz title. Fixing the placeholder in 0.6.21 made the titles distinct, so
+  on 2026-08-21 the prompt correctly did not appear and the step failed with *"no
+  dialog opened at all"*. The titles are now byte-for-byte identical on purpose —
+  and identical rather than merely equivalent, because our folder preview only
+  *mirrors* cyanrip's path sanitisation. Measured while fixing it: a colon in one
+  title only does **not** collide (`render_preview` maps `:` to U+2236), so the
+  colon that exercises the tag escape had to go in both.
+  And the answer is now `click=new`, not `ok` — see the Added entry above for why
+  `ok` would have cancelled it silently. `Rip to a new folder` rather than
+  `Replace` deliberately: Replace would delete section D's partial cancelled rip,
+  which is the evidence the script exists to produce.
+  `tests/test_rig_check.py` now runs every shipped script's `answer-dialog`
+  argument through the real validator. The parser only knows arity, so a bad value
+  there parses perfectly and fails at run time — which for a rig script means an
+  hour into a hardware session with the disc still in the drive.
+- **`CLAUDE.md`: the next minor is `0.7.100`, and it is gated on a full hardware
+  pass** (maintainer, 2026-08-21 — *"fresh start, rip, every test there is, all of
+  them"*). The project stays on `0.6.x` until that run exists. This moves the
+  version gate earlier than KDD-35 put it (0.9.1); the bar is the same in kind — a
+  complete pass in ONE run, not a set of individually-explained failures. The jump
+  to `.100` is the maintainer's numbering and is not to be "corrected" to 0.7.0.
+
+### Added
+- **`answer-dialog click=<label-substring>` — the script language could not answer
+  a three-button dialog at all, and failed at it *silently*.** `answer-dialog ok`
+  calls `accept()`, which on a `QMessageBox` built with `addButton` closes the box
+  and leaves `clickedButton()` as **None**. `_confirm_known_overwrite` branches on
+  exactly that (`if clicked is replace … if clicked is new … return None  # Cancel`),
+  so `answer-dialog ok` on the "Album already ripped" prompt would have **cancelled
+  the rip** while the transcript recorded *"accepted"*. Found 2026-08-21 while
+  writing the rig script that was about to depend on it — before it shipped, and
+  only by reading that fall-through instead of assuming it.
+  A substring rather than a whole label because `script.parse` splits arguments on
+  whitespace with no quoting, so "Rip to a new folder" cannot be one argument;
+  `click=new` can. Case-insensitive, Qt `&` mnemonics stripped (a literal `&&`
+  survives). It **refuses** rather than guesses on an ambiguous substring — the
+  same call `find_script.py` makes for two files matching one name — and refuses on
+  a *disabled* match, which is the only remaining way this step could have recorded
+  a confident PASS with the dialog still on screen. Every refusal names the labels
+  the dialog actually had, because that text is the input to the fix.
+  Pinned by 9 tests asserting on `clickedButton()` — the thing the product branches
+  on — not on the transcript, since a verb that recorded PASS while leaving it None
+  is precisely the defect. One of them pins the Qt fact the whole form exists
+  because of, so a future PySide6 changing it re-opens the reasoning instead of
+  inheriting it.
+  While proving these: the first implementation special-cased `QMessageBox` to use
+  its own `buttons()` rather than a `findChildren` sweep, on the stated grounds that
+  the sweep would additionally find the internal "Show Details…" toggle. The
+  revert-proof reported that branch as making no difference, and measuring it showed
+  why — `buttons()` returns the toggle too. The branch distinguished nothing, so it
+  was deleted rather than explained, and the measurement is now a test.
+
+### Fixed
+- **A re-rip comparison could read the *previous* revision of the rip report and
+  announce that a finished rip "never finished".** Measured on the rig, 2026-08-21:
+  the rip completed at 21:46:36.080 with `success=True`, the comparison banner
+  appeared 73 ms later saying the earlier rip never finished, and the report on
+  disk says `success`. The report is written by a debounced background writer, so
+  the comparison was racing it and losing — it loaded whatever revision happened
+  to be on disk at that instant, which was the `in_progress` one.
+  `_start_rip_comparison` now flushes the report writer first, and **shows no
+  banner at all** if the writer does not go idle: tri-state, because we then do
+  not know which revision is on disk, and an absent comparison is honest where a
+  wrong one is not. A rip that succeeded being reported as abandoned is the worst
+  possible direction for this error — it invites the operator to re-rip a disc
+  that was already archived correctly.
+  `tests/test_ui_main_window.py::test_rip_comparison_waits_for_the_report_write_to_land`
+  writes the stale revision to disk and submits a real, slow writer job, so the
+  race is *present* in the fixture. Revert-proved: removing the flush fails it
+  while **both** pre-existing comparison tests still pass — those construct the
+  report already finalised, so they were structurally blind to the transition the
+  bug lived in.
+- **The rig script's on-screen banner named the old test.** Its header comment was
+  retitled for 0.6.21 ("the completed re-rip, and the PlainText fix") and the `log`
+  banner the operator actually reads still said "the drive-open proof, and the
+  dialogs". The comment is for whoever edits the file; the banner is for whoever
+  runs it, and the one that was wrong is the one a person sees.
+- **`--rig-session`'s help text advertised a flag the harness deliberately does not
+  run.** It said the harness runs *"the ripper's own `-x` and `-j`"*; step 5a of
+  `rig_session.sh` says in capitals that `-x` is **NOT RUN**, because it measures the
+  drive cache and then rips the whole disc (ETA 1h 3m, measured 2026-08-19) leaving
+  the drive held. The harness was right and the help was stale.
+  Not a typo class: `--help` is what an operator reads *before* a hardware session
+  and the harness is what runs, so this is two surfaces answering one question
+  (`docs/testing.md` §5.al). An operator trusting the help would eject the disc
+  unnecessarily — or, worse, read a future `-x` regression as expected behaviour
+  because the help said it was supposed to happen.
+  The help now says it does **not** run the probe *and why*, because a bare omission
+  invites the next reader to switch it back on.
+  `tests/test_rig_session_help_matches_the_harness.py` compares the two artifacts
+  rather than trusting either, keyed on the harness's own "NOT RUN" phrasing so a
+  second refused flag needs no edit here. Its floor fails loudly if the harness ever
+  stops refusing anything, with instructions rather than an assertion to delete.
+
 ## [0.6.21] — 2026-08-21
 
 ### Added
@@ -9561,7 +10055,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.21...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.23...HEAD
+[0.6.23]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.21...v0.6.23
 [0.6.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.20...v0.6.21
 [0.6.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.19...v0.6.20
 [0.6.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.18...v0.6.19
@@ -9671,4 +10166,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.21.*
+*Last updated for Platterpus v0.6.23.*

@@ -137,7 +137,7 @@ def test_every_fork_pin_we_know_about_is_in_the_support_set() -> None:
     """
     pins = {
         "FORK_PIN": fork_source.FORK_PIN,
-        "NEXT_PIN_UNDER_REVIEW": fork_source.NEXT_PIN_UNDER_REVIEW,
+        "FORK_RELEASE_4_COMMIT": fork_source.FORK_RELEASE_4_COMMIT,
         "FORK_TEST_PIN": fork_source.FORK_TEST_PIN,
         **{
             f"SUPERSEDED_TEST_PINS[{i}]": pin
