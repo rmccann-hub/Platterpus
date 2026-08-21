@@ -11,6 +11,33 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **I filed five of the fork's round-12 artifacts under the wrong build, an hour
+  after reading the rule that forbids it.** `docs/handshake/README.md` says a
+  handshake artifact's filename names *"the commit the artifact's own banner
+  asserts, not the commit a lap file names it by — those differ, and only the banner
+  is derivable from the artifact's content."* All five were named `g237a4ff`, the
+  release commit their covering message mentioned, while their own banners say
+  `g6a23662` (the four rip artifacts) and `g8a1a3ee` (the provider contract, which
+  names the commit that generated it). Renamed.
+  **Nothing checked the rule** — it was a table row in a README, which is
+  `CLAUDE.md`'s *a comment where a check belongs is not a fix*, and it is round 6/7's
+  provenance failure in miniature: a claim about an artifact has to come from the
+  artifact. `tests/test_handshake_artifact_naming.py` now derives it, and the
+  enforcement boundary is stated rather than fudged — it binds from round 12 lap 3
+  onward, with the 10 earlier exceptions inventoried in **two named categories with
+  two causes** rather than as nine separate excuses: nine provider contracts whose
+  generator normalised its own build to a `<commit>` placeholder (the defect we
+  reported as round 12 §E3 and they fixed in lap 3), and one round-7 golden
+  reference whose name and banner genuinely disagree — kept under the misleading
+  name deliberately, because renaming it would erase the evidence.
+  The comparison is a **pure function with its own proof**, because the sweep alone
+  could not have one: every committed artifact now agrees or is inventoried, so
+  reverting the sweep's assertion changes nothing and a probe reports it
+  *unaffected* — indistinguishable from a dead check. The proof feeds it the exact
+  2026-08-21 mistake and requires it to be caught, and requires the reason to name
+  **both** commits. The sweep delegates to it rather than restating the comparison.
+
 ## [0.6.23] — 2026-08-21
 
 *Supersedes 0.6.22, which was prepared and gated but never published — no tag,
