@@ -609,6 +609,15 @@ def test_no_prose_cites_a_generated_document_by_line_number() -> None:
     A rule NAME is the stable key and it is what the cited page is organised by, so
     the fix is to cite the row rather than its offset. This gate makes the fix
     stick.
+
+    **How to record a citation you are RETIRING**, since a changelog entry about
+    this very fix has to mention the three numbers and immediately tripped the gate
+    on its own text: write them as prose — *"line 99 of that page"*, *"lines
+    103-105"* — not in the ``page.md:NN`` form. Exactly the rule `CLAUDE.md` already
+    states for a retired document, where a dead file is named as *a label, not a
+    path*, because the path form reads as a live pointer. No allow-list, and
+    deliberately none: an exemption for `CHANGELOG.md` would exempt the one file a
+    stale citation is most likely to be copied onward from.
     """
     offenders: list[str] = []
     examined = 0

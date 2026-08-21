@@ -45,13 +45,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   by `track_elapsed_seconds`, and a clock is pinned as *not read* rather than
   half-read as a bare `3.0`.
 - **Three cross-references cited a GENERATED document by line number, and all three
-  were already wrong.** `docs/cyanrip-known-issues.md` pointed at
-  `docs/cyanrip-consumer-contract.md:99`, `:56,57,59,64,65,66` and `:103-105`.
+  were already wrong.** `docs/cyanrip-known-issues.md` pointed into the generated
+  consumer contract at line 99, at lines 56/57/59/64/65/66, and at lines 103–105.
+  (Written as prose rather than in the `page.md:NN` citation form, for the same
+  reason `CLAUDE.md` says to name a retired doc as a label and not a path: the
+  citation form reads as a live pointer, and the gate below rightly refuses one.)
   Checked against that file as committed at `faa2a39` — *before* this change touched
-  it — every one landed on a different row than the prose claimed: `:99` was cited
-  for the AccurateRip result capture group and was `track_pregap_source`; `:56` was
-  cited as `Overread mode:` and was `read_offset`; `:103-105` were cited as the
-  three speed/elapsed regexes and were `track_accurip_offset`,
+  it — every one landed on a different row than the prose claimed: line 99 was cited
+  for the AccurateRip result capture group and was `track_pregap_source`; line 56
+  was cited as `Overread mode:` and was `read_offset`; lines 103–105 were cited as
+  the three speed/elapsed regexes and were `track_accurip_offset`,
   `track_appended_silence`, `track_peak_kind_header`. **Nothing could have caught
   it**: the contract is regenerated from the parser's enumeration tables on every
   change, so each number pointed into a file that renumbers itself, and a citation
