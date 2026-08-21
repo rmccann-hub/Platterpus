@@ -397,7 +397,7 @@ def render() -> str:
         f"## 1a. Lines we parse that **we** write — not your obligation ({len(ours)})",
         "",
         "These match text **Platterpus** appends beside a rip, not anything cyanrip",
-        "emits. They are listed here rather than in §1 because §1 means *\"change",
+        'emits. They are listed here rather than in §1 because §1 means *"change',
         'this and you break us"*, which cannot be true of a line you do not print.',
         "You owe nothing for them, and you may see them in a rig log we send you:",
         "the block is what makes such a log fail `--verify-log`, which is expected",

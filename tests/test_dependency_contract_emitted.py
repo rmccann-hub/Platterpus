@@ -420,7 +420,9 @@ def test_the_not_fork_bucket_names_real_rules_the_derivation_really_flags() -> N
     generator = _load_generator()
     known = {name for name, _, _ in generator._pattern_rows()}
     unknown = sorted(set(_NOT_FORK_DESPITE_THE_LOGS) - known)
-    assert not unknown, f"_NOT_FORK_DESPITE_THE_LOGS names non-existent rules: {unknown}"
+    assert not unknown, (
+        f"_NOT_FORK_DESPITE_THE_LOGS names non-existent rules: {unknown}"
+    )
     candidates = _rules_matching_only_fork_logs(generator)
     idle = sorted(set(_NOT_FORK_DESPITE_THE_LOGS) - candidates)
     assert not idle, (
@@ -446,6 +448,8 @@ def test_our_own_output_rules_are_derived_from_our_own_emitter() -> None:
     that line (their P2, `cyanrip_log.c:441/444/449`). "Matches our text" is a
     necessary condition for membership, never a sufficient one.
     """
+    import re
+
     from platterpus.rip_addendum import SupersededTrack, render_addendum
 
     generator = _load_generator()
@@ -472,7 +476,7 @@ def test_our_own_output_rules_are_derived_from_our_own_emitter() -> None:
     )
     for name in sorted(generator._OUR_OWN_OUTPUT_RULES):
         assert name in patterns, f"{name} is not a rule the parser has"
-        compiled = __import__("re").compile(patterns[name])
+        compiled = re.compile(patterns[name])
         matched = [line for line in rendered.splitlines() if compiled.match(line)]
         assert matched, (
             f"`{name}` is declared as parsing Platterpus's own output, but it "
