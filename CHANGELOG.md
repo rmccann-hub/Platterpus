@@ -37,6 +37,45 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   by design.
 
 ### Fixed
+- **An unreadable ripper log was reported as evidence of tampering.**
+  `verify_rip_log` split a non-zero `--verify-log` exit on *"does the log carry a
+  `Log FUN512:` footer"*. That question has three answers — yes, no, and *we could
+  not look* — and the third was folded into "yes", which routes to *"the file was
+  altered after the ripper signed it and must not be treated as archival
+  evidence."* So a log we merely failed to open produced an accusation of
+  tampering, written into the report's `issues[]` and logged at ERROR.
+  The old code called that fail-closed. It was fail-**loud**: fail-closed means
+  refusing to certify, which is what `not_determined` does, and this project's own
+  rule (a `not_determined` is never reported as the negative) was already applied
+  to the flag-rejection branch twenty lines above and not to this one — the same
+  one-branch-of-two shape as `docs/testing.md` §5.o.
+  Narrow but not exotic: the reachable case is a log present at the `is_file()`
+  check that raises at the read — a removable or network volume unmounted mid-rip,
+  an `EIO` off failing storage, the folder moved between the two calls.
+  The test that pinned the old behaviour is replaced, and its text is quoted in the
+  new one's docstring, because it would have protected the defect indefinitely: it
+  framed the choice as gentle-versus-strong and never considered saying nothing.
+  Found while checking the fork's round-12 exit-code work, where code 5 means
+  *"unreadable — no verdict reached"* and would have landed in exactly that branch.
+- **The "why is this build here" explanation went silent for five rounds, because
+  one constant held two facts with different lifetimes.**
+  `NEXT_PIN_UNDER_REVIEW` was both a *durable* capability record (fork release 4,
+  whose published flag table lists `--consumer` and `--verify-log`, hence its
+  membership in two capability sets) and a *transient* "the pin an open round
+  proposes". One name, so the two could not be updated independently — and the
+  transient half never was. It sat at the round-7 value with the comment above it
+  still reading *"round 7 is open"*, so `_why_this_build_is_here` returned `""` for
+  the round-12 build and a rip against it reported a bare *"NOT the build this
+  Platterpus was verified against"* with no reason: precisely the *"every word
+  accurate, the user left thinking something broke"* failure that function exists
+  to prevent, with the mechanism working and its input rotted.
+  Split into `FORK_RELEASE_4_COMMIT` (durable, stays in both sets) and
+  `PIN_UNDER_REVIEW` (transient, and **deliberately in neither** — a build we have
+  no published flag table for has unknown capabilities, which is what the tri-state
+  is for). `tests/test_handshake_pin_under_review.py` derives the expected value
+  from the newest inbound round file's own `HANDSHAKE-PIN:` header, so it cannot
+  lag a round again, and asserts the capability absence too — that being the half a
+  future reader is most likely to "fix" by adding a row.
 - **Our published half of the cyanrip seam omitted a flag we really send.**
   `docs/cyanrip-consumer-contract.md` §3 is headed *"Flags we pass you"* — so it
   is read as complete — and listed 18, without `-j`. `rig_check.py` passes `-j` to
