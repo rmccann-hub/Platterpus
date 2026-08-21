@@ -13,6 +13,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [0.6.21] — 2026-08-21
 
+### Added
+- **`docs/cyanrip-handshake.md` §7.6 — a standing status the fork can read between
+  rounds.** Rounds are the formal channel and they cost something: S-13 fixes a
+  round's close conditions at lap 1, and an open round blocks *both* projects'
+  releases, so opening one just to say "here is where we are" is the wrong
+  instrument. §7.6 is that answer instead, rewritten in place rather than growing a
+  file per update.
+  It states: no round is open (all eleven CLOSED, bilateral `GO`); the pin is
+  unchanged (`platterpus-fork-gddf7ac3`, approved by round 8); and — the part worth
+  checking rather than asserting — **the generated consumer contract is
+  byte-identical since v0.6.12b6**, the app version round 8 approved that pin for.
+  Nine app minors and +183 lines across the three seam modules produced **zero**
+  change to the contract they implement, so round 8's evidence still holds here and
+  the fork need not re-derive anything for this release.
+  It also names the caveat rather than letting the gap read as a silent
+  re-approval: `APPROVED_FOR_PLATTERPUS_VERSION` still says `0.6.12b6`, so reports
+  state the pairing was verified at that version while the app is 0.6.21. True
+  historical record, informational only — the verdict keys on the build tag, so no
+  rip is mis-graded.
+  Carries the two open asks (`-x` rips the disc after measuring; `--verify-log`
+  should separate absent from mismatched by exit code), both `NEXT-ROUND` and
+  neither blocking, plus what the next rig run is for and the explicit statement
+  that **nothing is needed from the fork right now**.
+
 ### Security
 - **Three `QMessageBox` surfaces rendered external text as HTML, and the sweep
   Critical rule #12 claims exists did not.** The rule says, verbatim: *"Every
