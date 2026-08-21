@@ -11,6 +11,36 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **`answer-dialog click=<label-substring>` — the script language could not answer
+  a three-button dialog at all, and failed at it *silently*.** `answer-dialog ok`
+  calls `accept()`, which on a `QMessageBox` built with `addButton` closes the box
+  and leaves `clickedButton()` as **None**. `_confirm_known_overwrite` branches on
+  exactly that (`if clicked is replace … if clicked is new … return None  # Cancel`),
+  so `answer-dialog ok` on the "Album already ripped" prompt would have **cancelled
+  the rip** while the transcript recorded *"accepted"*. Found 2026-08-21 while
+  writing the rig script that was about to depend on it — before it shipped, and
+  only by reading that fall-through instead of assuming it.
+  A substring rather than a whole label because `script.parse` splits arguments on
+  whitespace with no quoting, so "Rip to a new folder" cannot be one argument;
+  `click=new` can. Case-insensitive, Qt `&` mnemonics stripped (a literal `&&`
+  survives). It **refuses** rather than guesses on an ambiguous substring — the
+  same call `find_script.py` makes for two files matching one name — and refuses on
+  a *disabled* match, which is the only remaining way this step could have recorded
+  a confident PASS with the dialog still on screen. Every refusal names the labels
+  the dialog actually had, because that text is the input to the fix.
+  Pinned by 9 tests asserting on `clickedButton()` — the thing the product branches
+  on — not on the transcript, since a verb that recorded PASS while leaving it None
+  is precisely the defect. One of them pins the Qt fact the whole form exists
+  because of, so a future PySide6 changing it re-opens the reasoning instead of
+  inheriting it.
+  While proving these: the first implementation special-cased `QMessageBox` to use
+  its own `buttons()` rather than a `findChildren` sweep, on the stated grounds that
+  the sweep would additionally find the internal "Show Details…" toggle. The
+  revert-proof reported that branch as making no difference, and measuring it showed
+  why — `buttons()` returns the toggle too. The branch distinguished nothing, so it
+  was deleted rather than explained, and the measurement is now a test.
+
 ### Fixed
 - **A re-rip comparison could read the *previous* revision of the rip report and
   announce that a finished rip "never finished".** Measured on the rig, 2026-08-21:

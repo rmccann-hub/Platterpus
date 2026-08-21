@@ -31,13 +31,13 @@ import json
 import logging
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QTimer, Signal
-from PySide6.QtWidgets import QApplication, QDialog, QWidget
+from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 
 from platterpus import __version__
 from platterpus.uiscript.report import Outcome, RunReport, StepRecord, render
@@ -767,13 +767,50 @@ class ScriptRunner(QObject):
         the timeout names what was sitting there instead. That makes the step an
         assertion as well as an action, which is what stops "the script clicked
         OK on something" from being a silent outcome.
+
+        **Three answers, not two.** ``ok``/``cancel`` call ``accept()``/
+        ``reject()``, which is the whole vocabulary a two-button dialog needs. A
+        dialog with three *named* choices cannot be answered that way at all —
+        see the ``click=`` comment below for the measured reason — so
+        ``click=<substring>`` names the button instead.
         """
         action = step.args[0].lower()
-        if action not in ("ok", "cancel"):
+        # `click=<substring>` NAMES A BUTTON, and it exists because `ok` cannot
+        # answer a multi-button dialog at all.
+        #
+        # `ok` calls `dialog.accept()`. On a QMessageBox built with `addButton`,
+        # accept() closes the dialog but leaves `clickedButton()` as **None** — so
+        # a caller written as
+        #
+        #     if clicked is replace_btn: ...
+        #     if clicked is new_folder_btn: ...
+        #     return None  # Cancel
+        #
+        # falls through to the CANCEL branch. `_confirm_known_overwrite` is exactly
+        # that shape, so `answer-dialog ok` on "Album already ripped" would silently
+        # CANCEL the rip while the transcript recorded "accepted". Found 2026-08-21
+        # while writing a script that relied on it — before it shipped, and only
+        # because the fall-through was read rather than assumed.
+        #
+        # A substring rather than a full label because the script language splits
+        # args on whitespace with no quoting (`script.parse`: `args = tokens[1:]`),
+        # so "Rip to a new folder" cannot be one argument. `click=new` can.
+        click_label = ""
+        if action.startswith("click="):
+            click_label = step.args[0][len("click=") :].strip()
+            if not click_label:
+                self._record(
+                    step,
+                    Outcome.ERROR,
+                    "click= needs a substring of the button's label, e.g. click=new",
+                )
+                return
+        elif action not in ("ok", "cancel"):
             self._record(
                 step,
                 Outcome.ERROR,
-                f"the first argument must be 'ok' or 'cancel', not {step.args[0]!r}",
+                f"the first argument must be 'ok', 'cancel' or 'click=<substring>', "
+                f"not {step.args[0]!r}",
             )
             return
         try:
@@ -827,6 +864,22 @@ class ScriptRunner(QObject):
                     f"answer a dialog it was not told to expect."
                 )
                 return False
+            if click_label:
+                # The dialog we were told to expect IS on screen, so this is the
+                # last chance to answer it — a refusal here ends the wait with a
+                # FAIL rather than looping, because looping would just re-find
+                # the same dialog and the same wrong button until the deadline,
+                # then report the far less useful "never saw one".
+                clicked, why = _click_named_button(dialog, click_label)
+                if clicked is None:
+                    self._deadline_outcome = Outcome.FAIL
+                    self._deadline_detail = f"{title!r} was up but {why}"
+                    return True
+                self._deadline_outcome = Outcome.PASS
+                self._deadline_detail = (
+                    f"clicked {clicked!r} on {title!r} (matched {wanted!r})"
+                )
+                return True
             if accept:
                 dialog.accept()
             else:
@@ -2043,6 +2096,101 @@ def _match_release(releases: list[object], wanted: str) -> int | None:
         return ids.index(key)
     hits = [i for i, mbid in enumerate(ids) if mbid.startswith(key)]
     return hits[0] if len(hits) == 1 else None
+
+
+def _plain_label(text: str) -> str:
+    """A button's label as a *person* reads it, with Qt's mnemonic markup gone.
+
+    Qt spells a keyboard accelerator with an ampersand — ``&Replace`` underlines
+    the R — and a literal ampersand as ``&&``. A script author reads the button
+    on screen, not the markup behind it, so ``click=replace`` has to match
+    ``&Replace``. Restoring ``&&`` afterwards matters for a label like
+    ``Save && Close``: dropping every ampersand blindly would turn it into
+    ``Save  Close`` and a substring of ``&`` would then match nothing.
+    """
+    return text.replace("&&", "\x00").replace("&", "").replace("\x00", "&")
+
+
+def _dialog_buttons(dialog: QDialog) -> list[QAbstractButton]:
+    """Every clickable button in a dialog — message box or hand-built.
+
+    **One sweep, not a special case for QMessageBox.** The first version of this
+    branched on ``isinstance(dialog, QMessageBox)`` to use its own ``buttons()``,
+    on the stated grounds that a ``findChildren`` sweep would additionally find
+    the box's internal "Show Details…" toggle. That reason is **false, and was
+    measured false rather than reasoned about**: on PySide6 6.9.1
+    ``buttons()`` returns ``['Cancel', 'Replace it', 'Show Details...']`` and the
+    sweep returns the same three. The branch distinguished nothing, and the
+    revert-proof said so — reverting it left every test passing, which is the
+    result worth reporting rather than explaining away.
+
+    So the special case is gone. ``findChildren`` is also the *more* correct of
+    the two for the general case, because it recurses: a hand-built dialog can
+    nest its buttons inside a layout widget, and ``buttons()`` does not exist
+    there at all.
+    """
+    return [w for w in dialog.findChildren(QAbstractButton)]
+
+
+def _match_button_label(labels: Sequence[str], needle: str) -> tuple[int | None, str]:
+    """Index of the ONE button whose label contains `needle`, or why not.
+
+    Pure — labels in, index out — so the matching rule is testable without a
+    live modal on screen, which is the only way to get coverage of the refusal
+    branches. ``(None, reason)`` on every refusal, and the reason **names every
+    label the dialog actually had**: a bare "no match" leaves the script author
+    guessing at the very text they needed to see.
+
+    An ambiguous substring is a **refusal, not a pick**, the same call
+    ``uiscript/find_script.py`` makes for two files matching one name. Guessing
+    would silently answer a question with the wrong answer, and this verb exists
+    precisely because answering the wrong way was indistinguishable from
+    answering the right way (see :meth:`Runner._do_answer_dialog`).
+    """
+    folded = needle.casefold()
+    hits = [i for i, label in enumerate(labels) if folded in label.casefold()]
+    if not hits:
+        if not labels:
+            return None, (
+                f"nothing matches {needle!r}: the dialog has no buttons at all, "
+                f"so only 'ok' or 'cancel' can answer it"
+            )
+        return None, (
+            f"no button matches {needle!r}; this dialog's buttons are "
+            f"{', '.join(repr(label) for label in labels)}"
+        )
+    if len(hits) > 1:
+        return None, (
+            f"{needle!r} matches {len(hits)} buttons — "
+            f"{', '.join(repr(labels[i]) for i in hits)} — and this verb refuses "
+            f"to guess which one was meant; lengthen the substring"
+        )
+    return hits[0], ""
+
+
+def _click_named_button(dialog: QDialog, needle: str) -> tuple[str | None, str]:
+    """Click the one button whose label contains `needle`; return its label.
+
+    Returns ``(None, reason)`` and clicks **nothing** on any refusal, including
+    the one a caller would never think of: a button that matched but is
+    *disabled*. ``QAbstractButton.click()`` on a disabled button is a no-op that
+    raises nothing and returns nothing, so without this check the step would
+    record a confident PASS for a dialog still sitting on screen — and the next
+    step's failure would be blamed on the next step.
+    """
+    buttons = _dialog_buttons(dialog)
+    labels = [_plain_label(button.text()) for button in buttons]
+    index, why = _match_button_label(labels, needle)
+    if index is None:
+        return None, why
+    button = buttons[index]
+    if not button.isEnabled():
+        return None, (
+            f"the button matching {needle!r} is {labels[index]!r}, and it is "
+            f"DISABLED — clicking it would have done nothing at all, silently"
+        )
+    button.click()
+    return labels[index], ""
 
 
 def _is_the_harness(widget: QWidget) -> bool:

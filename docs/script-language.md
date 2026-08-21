@@ -58,7 +58,7 @@ text is taken verbatim as one value.
 | `open` | 1 | ready | open <settings|dependencies|about|diagnostics|guide|setup|drive> — open a dialog |
 | `ok` | 0 | ready | ok — accept the dialog on top |
 | `cancel` | 0 | ready | cancel — dismiss the dialog on top |
-| `answer-dialog` | 3+ (rest of line) | ready | answer-dialog <ok|cancel> <seconds> <title-substring> — wait up to <seconds> for a dialog whose title contains <title-substring>, then accept or dismiss it; fails if a different dialog is up at the deadline |
+| `answer-dialog` | 3+ (rest of line) | ready | answer-dialog <ok|cancel|click=<label-substring>> <seconds> <title-substring> — wait up to <seconds> for a dialog whose title contains <title-substring>, then accept it, dismiss it, or click the one button whose label contains <label-substring>; fails if a different dialog is up at the deadline, or if the named button is absent, ambiguous or disabled |
 | `expect-dialog` | 1 | ready | expect-dialog <title-or-none> — assert which dialog is on screen |
 | `set` | 2+ (rest of line) | ready | set <config-field> <value> — change a setting (validated, then saved); booleans take on/off |
 | `expect` | 2+ (rest of line) | ready | expect <config-field> <value> — assert a setting equals a value |
@@ -435,7 +435,7 @@ found nothing wrong*.
       "unsafe": false,
       "takes_paths": false,
       "implemented": true,
-      "help": "answer-dialog <ok|cancel> <seconds> <title-substring> \u2014 wait up to <seconds> for a dialog whose title contains <title-substring>, then accept or dismiss it; fails if a different dialog is up at the deadline"
+      "help": "answer-dialog <ok|cancel|click=<label-substring>> <seconds> <title-substring> \u2014 wait up to <seconds> for a dialog whose title contains <title-substring>, then accept it, dismiss it, or click the one button whose label contains <label-substring>; fails if a different dialog is up at the deadline, or if the named button is absent, ambiguous or disabled"
     },
     {
       "name": "expect-dialog",
