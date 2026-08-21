@@ -479,3 +479,127 @@ def _tool_run(argv: list[str], code: int) -> object:
     from platterpus.adapters.tool_run import ToolRun
 
     return ToolRun(exit_code=code, output="", argv=tuple(argv))
+
+
+#: Rules declared fork-only that their published inventory does **not** carry as a
+#: literal format string, with why. May shrink, never grow without a written cause.
+#:
+#: One entry, and it is a real property of their generator rather than an excuse:
+#: `track_peak_kind_header` reads the `True peak:` / `Sample peak:` sub-headers,
+#: which cyanrip emits through the generic sub-header call site their P2 lists as
+#: `cyanrip_log.c:58` → `%s%s:`. The label is a runtime argument, so no literal
+#: exists to match and their P2a *Composed lines* section does not reconstruct this
+#: one. That is a small gap in THEIR contract, not a defect in our declaration —
+#: raised as round 13's, since a `%s%s:` row tells a consumer nothing.
+_FORK_ONLY_WITHOUT_A_PUBLISHED_LITERAL: dict[str, str] = {
+    "track_peak_kind_header": (
+        "the peak sub-headers are emitted through the generic `cyanrip_log.c:58` "
+        "`%s%s:` call site with the label as a runtime argument, so their P2 has no "
+        "literal to match and P2a does not reconstruct it; verified against the "
+        "committed logs instead, where both spellings appear"
+    ),
+}
+
+
+def _p2_rows() -> list[tuple[str, str]]:
+    """Every ``(file:line, format string)`` row of their stable-lines inventory.
+
+    P2 *and* P2a: a rule can legitimately be backed by a composed line, and reading
+    P2 alone would report a false gap — the same "narrower than the document"
+    truncation this file's `_ROW` comment records one instance of.
+    """
+    rows = list(_rows("P2"))
+    sections = _sections()
+    if "P2a" in sections:
+        rows += [
+            (m.group("where"), m.group("line")) for m in _ROW.finditer(sections["P2a"])
+        ]
+    return rows
+
+
+def test_every_fork_only_declaration_is_backed_by_their_own_inventory() -> None:
+    """**The in-house half of "which of these lines are yours?".**
+
+    Round 12 lap 4 §C1 asked the fork to attribute eight rules; their standing
+    status of 2026-08-21 confirmed six as theirs, derived by diffing every
+    `cyanrip_log()` format string in their tree against their verbatim mirror of
+    upstream. That is better evidence than anything we can produce — and
+    `CLAUDE.md` is explicit that a *correction* is not pre-verified, and that
+    verifying somebody's **description** of their behaviour is a different claim
+    from verifying the behaviour.
+
+    We cannot check the upstream-absence half from this repository. We can check
+    the half that is committed here: every line we declare fork-only must appear
+    as a row in the newest provider contract's stable-lines inventory, with an
+    emitting `file:line`. So a rule we put the fork on the hook for is one they
+    have published, not one we believe they print.
+
+    Measured 2026-08-21 against `round-12-lap-03-provider-contract-g8a1a3ee.md`:
+    17 of 18 declarations backed, the one exception reasoned above. That included
+    all six of the newly-confirmed rules — `consumer` `cyanrip_log.c:625`,
+    `handshake_note` `:616`, `invoked_as` `:595`, `read_stalls` `:211`,
+    `rip_completed` `:808`, `secure_rerip_converged` `cyanrip_main.c:954`.
+
+    Both indented and column-0 candidates are tried, because a per-track row is
+    printed indented and their inventory records the format string without its
+    indentation — testing only the bare form would report every indented rule as
+    an unbacked declaration.
+    """
+    import importlib.util
+
+    from platterpus.parsers import cyanrip_log as parser_module
+
+    script = (
+        Path(__file__).resolve().parents[1] / "scripts" / "emit_dependency_contract.py"
+    )
+    spec = importlib.util.spec_from_file_location("emit_dependency_contract", script)
+    assert spec is not None and spec.loader is not None
+    generator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generator)
+
+    rows = _p2_rows()
+    assert len(rows) >= 150, (
+        f"only {len(rows)} rows read from their P2/P2a inventory (295 on "
+        f"2026-08-21) — the row reader has stopped matching their table and every "
+        f"declaration below would report as unbacked for the wrong reason"
+    )
+
+    patterns = {name: pattern for name, pattern, _ in generator._pattern_rows()}
+    declared = sorted(generator._FORK_ONLY_RULES)
+    assert len(declared) >= 18, (
+        f"only {len(declared)} fork-only declarations; 18 existed on 2026-08-21"
+    )
+
+    unbacked: list[str] = []
+    for name in declared:
+        compiled = re.compile(patterns[name])
+        if not any(
+            compiled.match(candidate)
+            for _where, fmt in rows
+            for candidate in (_render(fmt), "  " + _render(fmt), "    " + _render(fmt))
+        ):
+            unbacked.append(name)
+
+    surprises = sorted(set(unbacked) - set(_FORK_ONLY_WITHOUT_A_PUBLISHED_LITERAL))
+    assert not surprises, (
+        f"these rules are published as the fork's obligation but appear in no row "
+        f"of their own stable-lines inventory ({CONTRACT.name}): {surprises}.\n"
+        "Either the declaration is wrong — in which case we are asking another "
+        "project to hold a line it does not emit, the `swap_addendum_crc` mistake "
+        "again — or their contract has a gap, which is a round's question. Record "
+        "which in `_FORK_ONLY_WITHOUT_A_PUBLISHED_LITERAL` with the cause; do not "
+        "delete the assertion."
+    )
+    # And the exception list may not outlive its cause.
+    stale = sorted(set(_FORK_ONLY_WITHOUT_A_PUBLISHED_LITERAL) - set(unbacked))
+    assert not stale, (
+        f"these exceptions are no longer needed — their contract now publishes a "
+        f"literal for them: {stale}. Delete the rows."
+    )
+    # The parser is imported so a renamed rule fails here rather than silently
+    # dropping out of `declared` (the set is checked against the parser elsewhere,
+    # but this test's population comes from it and a floor on a shrunken set is not
+    # the same guarantee).
+    assert set(declared) <= {rule.name for rule in parser_module._ALL_LINE_RULES} | {
+        name for name, _ in parser_module._SECTION_LINE_PATTERNS
+    } | {name for name, _ in parser_module._INDENTED_LINE_PATTERNS}

@@ -54,6 +54,16 @@ _NO_FLOOR: Final[str] = "NO FLOOR NEEDED:"
 #: genuinely cannot be floored, say why here in place of a test name — but a
 #: population that cannot state a minimum is usually one nobody has counted.
 _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
+    # Added 2026-08-21 with the artifact-naming check. Parametrizes over
+    # `_artifacts()`, a glob over `docs/handshake/inbound/artifacts/` — so a
+    # directory that moved, or a naming convention that changed, would generate
+    # zero cases and the sweep would pass having examined nothing. That is the
+    # exact failure mode the file it lives in was written about, which is why it
+    # gets a floor rather than an exemption.
+    "test_handshake_artifact_naming.py::"
+    "test_the_filename_names_the_build_the_artifact_itself_asserts": (
+        "test_there_are_artifacts_to_check"
+    ),
     # Added 2026-08-21 with the round-12 exit-code work. Parametrizes over
     # `VERIFY_LOG_EXIT_NO_VERDICT`, so emptying that set would generate no cases
     # and the sweep would pass having examined nothing — which is exactly the
