@@ -72,6 +72,21 @@ _GENERATED_BANNER = (
 # Rows whose regex only ever matches output the fork emits. Marked so the fork
 # knows which lines it is on the hook for, and so an upstream cyanrip release
 # that adopts one can be spotted.
+#
+# **HAND-MAINTAINED, WHICH MAKES IT THE WEAK JOINT IN A GENERATED DOCUMENT.**
+# Everything else on this page is derived; this set is typed, so it goes stale
+# silently and in the direction that *understates* the fork's obligation. It did:
+# the four `album_*` rules landed on 2026-08-21 and this set was not extended, so
+# the contract we publish said "9 exist only in the fork" when it was 13 — for
+# exactly the four rows we had just made ourselves depend on. The fork could have
+# reworded them believing nothing consumed them, which is the failure this whole
+# document exists to prevent, arriving through the one field the document does not
+# derive.
+#
+# Adding a rule that parses fork-only output? Add it here in the same commit.
+# `tests/test_dependency_contract_emitted.py` holds the count against the rules
+# whose patterns mention a fork-only label, so the omission now fails rather than
+# publishing a smaller number.
 _FORK_ONLY_RULES: frozenset[str] = frozenset(
     {
         "track_pregap_length",
@@ -83,6 +98,15 @@ _FORK_ONLY_RULES: frozenset[str] = frozenset(
         "track_elapsed_seconds",
         "track_secure_verdict",
         "track_accurip_status",
+        # The four whole-disc rows the fork declares in P2 as its own API, added
+        # 2026-08-21. We now read these IN PREFERENCE to FFmpeg's `ebur128`
+        # block, which the fork's P3 disclaims as libavfilter's wording — so
+        # these four are the ones where a silent reword costs us the values
+        # outright rather than degrading to a fallback.
+        "album_integrated_loudness",
+        "album_loudness_range",
+        "album_sample_peak_level",
+        "album_true_peak_level",
     }
 )
 

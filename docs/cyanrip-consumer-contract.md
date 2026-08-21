@@ -69,10 +69,10 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `log_signature` | disc | `^Log FUN512:\\s+(?P<sig>\\S+)` |
 | `handshake_note` | disc | `^Handshake:\\s+(?P<note>\\S.*)$` |
 | `consumer` | disc | `^Consumer:\\s+(?P<consumer>\\S.*)$` |
-| `album_integrated_loudness` | disc | `^Album integrated loudness \\(R128\\):\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+LUFS` |
-| `album_loudness_range` | disc | `^Album loudness range \\(R128\\):\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+LU\\b` |
-| `album_sample_peak_level` | disc | `^Album sample peak level:\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+dBFS` |
-| `album_true_peak_level` | disc | `^Album true peak level:\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+dBFS` |
+| `album_integrated_loudness` **(fork-only)** | disc | `^Album integrated loudness \\(R128\\):\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+LUFS` |
+| `album_loudness_range` **(fork-only)** | disc | `^Album loudness range \\(R128\\):\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+LU\\b` |
+| `album_sample_peak_level` **(fork-only)** | disc | `^Album sample peak level:\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+dBFS` |
+| `album_true_peak_level` **(fork-only)** | disc | `^Album true peak level:\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+dBFS` |
 | `accuraterip_total` | disc | `^Tracks ripped accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `accuraterip_partial_total` | disc | `^Tracks ripped partially accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `ripping_errors` | disc | `^Ripping errors:\\s+(?P<count>\\d+)` |
@@ -110,9 +110,13 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_secure_verdict` **(fork-only)** | indented | `^\\s+Secure re-?read(?:s)?:\\s+(?P<text>\\S.*?)\\s*$` |
 | `track_accurip_status` **(fork-only)** | indented | `^\\s+Accurip:\\s+(?P<status>\\S.*?)\\s*$` |
 
-Of these, **9 exist only in the fork** and match nothing in
+Of these, **13 exist only in the fork** and match nothing in
 stock cyanrip 0.9.3. They are the fork's specific obligation:
 
+- `album_integrated_loudness`
+- `album_loudness_range`
+- `album_sample_peak_level`
+- `album_true_peak_level`
 - `track_pregap_length`
 - `track_pregap_source`
 - `track_peak_kind_header`

@@ -11,6 +11,54 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **cyanrip handshake round 12 is CLOSED — `GO`/`GO` on `64ae7bc`, in four laps**
+  (against round 7's 37). Their lap 3 and our closing lap 4 are committed under
+  `docs/handshake/`. All six envelope parts verified through our own new
+  `--split`, which checks each part against its declared SHA-256.
+  **They refused the blame we offered to share, and they were right to.** We
+  reported their `HANDSHAKE-BREAKING (1)` as false — it named our
+  `SUPPORTED_SCHEMAS` as gating their diagnostics record when it is a
+  `frozenset[int]` over their *release manifest* — and then called it *"half
+  ours"* on a name-collision story. They opened all three sentences and reported
+  that every one sits in unambiguous release-manifest context; checked here
+  afterwards, they are correct. The generous cause was a fiction, and it would
+  have imported the wrong remedy: *"write less ambiguous sentences"* is
+  unfalsifiable, where theirs is checkable and is now a `CLAUDE.md` rule —
+  **never state a mechanism in the other side's code without citing where you
+  read it.** Its mirror sits beside it, because this cost a second lap: **an
+  apology is the one assertion nobody audits.** Graduated as `docs/testing.md`
+  §5.ax.
+  Their `-Y` exit-code fix turned out worse than we reported: P4's rows were
+  literal strings in the generator and `exit_codes()` scanned integer literals
+  inside `main()`, which returns `rc` from `cyanrip_run()` — it reported `1` and
+  missed even `0`. And they declared at column 0 that they had removed a sentence
+  our test parses, which is how we found that
+  `tests/test_provider_contract_agreement.py` reads `round-4.md` — nine rounds
+  stale — while its own docstring claims it re-derives from the newest round.
+
+### Fixed
+- **The one hand-maintained field in our generated consumer contract had rotted,
+  in the direction that understates the fork's obligation.** `_FORK_ONLY_RULES`
+  marks which parsed lines only the fork emits, so the fork knows what it is on
+  the hook for. The four `Album …` rules landed and the set did not, so the
+  contract we publish said *"9 exist only in the fork"* when it was 13 — for
+  exactly the four rows we had just started reading **in preference to** the
+  FFmpeg block their own P3 disclaims. They could have reworded them believing
+  nothing consumed them. Everything else on that page is derived; this set is
+  typed, which is why it was the field that went stale.
+  The converse check now exists and it is derived from artifacts, not listed: for
+  every rule, does its pattern match a committed **fork** log and no committed
+  **stock** log? That found **eight further** candidates we do not declare. None
+  has been declared unilaterally — our stock sample is six logs, so *"absent from
+  every stock log we hold"* can be a fact about the sample rather than about
+  upstream, and declaring a line theirs when upstream also prints it is the same
+  error in the other direction. They sit in a ratcheted
+  `_UNRESOLVED_FORK_ATTRIBUTION` map with a written reason each, and the question
+  is asked in round 12 lap 4 §C1, since the answer lives in their tree.
+  The same derivation also found `track_elapsed_clock` declared fork-only and
+  matching no fork log we hold — asked back in the same section.
+
 ## [0.6.22] — 2026-08-21
 
 ### Added
