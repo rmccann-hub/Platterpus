@@ -5301,6 +5301,113 @@ def test_rip_comparison_finds_prior_and_shows_banner(
     assert "differ" in label.text().lower()
 
 
+def _cmp_report_with_outcome(disc_id: str, status: str, crc: str) -> str:
+    """A comparison report carrying an explicit ``outcome.status``.
+
+    The existing `_cmp_report` omits `outcome` entirely, which `outcome_status`
+    reads as "" and `report_completeness` classifies as COMPLETE — so no test
+    built on it can distinguish a finished rip from an unfinalised snapshot. That
+    is precisely the axis the race below lives on.
+    """
+    import json as _json
+
+    return _json.dumps(
+        {
+            "schema_version": 9,
+            "generator": {"name": "platterpus", "version": "0.6.21"},
+            "generated_at": "2026-08-21T00:00:00",
+            "outcome": {"status": status},
+            "rip": {"musicbrainz_disc_id": disc_id, "creation_date": "2026-08-21"},
+            "disc": {"musicbrainz_release_id": "REL"},
+            "tracks": [
+                {
+                    "number": 1,
+                    "filename": "01 - Track.flac",
+                    "copy_crc": crc,
+                    "accuraterip_verified": True,
+                    "accuraterip": {
+                        "v1": {"confidence": 200},
+                        "v2": None,
+                        "offset_450": None,
+                    },
+                }
+            ],
+        }
+    )
+
+
+def test_rip_comparison_waits_for_the_report_write_to_land(
+    teardown_threads, qapp: QApplication, tmp_path: Path
+) -> None:
+    """A finished rip must never be described as "never finished".
+
+    THE BUG, measured on the rig 2026-08-21. `_write_rip_report` SUBMITS the write
+    to the report-writer thread; it does not perform it. The finish handler then
+    calls `_start_rip_comparison` immediately, which read the PREVIOUS revision off
+    disk — the mid-rip snapshot whose `outcome.status` is still `in_progress` — and
+    rendered `_stopped_phrase(OUTCOME_IN_PROGRESS)`:
+
+        "this rip never finished — its report is an unfinalised mid-rip snapshot"
+
+    about a rip that had finished 73 ms earlier with `success=True` and all tracks
+    AccurateRip-verified. The report on disk afterwards said `success`, so the
+    contradiction proved the read beat the write.
+
+    WHY THE EXISTING TESTS COULD NOT SEE IT: they write the final report to disk
+    *before* calling `_start_rip_comparison`, so the fixture starts in the end
+    state and the transition the bug lives in never happens (§5.ap's second
+    corollary). This test reproduces the transition instead: disk holds the STALE
+    revision, and the real writer thread is holding the final one.
+    """
+    import time
+
+    from platterpus import report_writer
+
+    root = tmp_path / "Music"
+    prior_dir = root / "Album"
+    cur_dir = root / "Album (2)"
+    prior_dir.mkdir(parents=True)
+    cur_dir.mkdir(parents=True)
+    (prior_dir / "Album.platterpus.json").write_text(
+        _cmp_report_with_outcome("DISC1", "success", "AAAA"), encoding="utf-8"
+    )
+    log_file = cur_dir / "Album.log"
+    log_file.write_text("", encoding="utf-8")
+    report = cur_dir / "Album.platterpus.json"
+
+    # Disk starts with the MID-RIP snapshot — what the bug read.
+    report.write_text(
+        _cmp_report_with_outcome("DISC1", "in_progress", "BBBB"), encoding="utf-8"
+    )
+
+    # ...and the real writer thread is about to replace it with the final one.
+    # The sleep makes the race deterministic rather than hoping for a scheduling
+    # order: without the flush, the stale read wins every time.
+    def finalise() -> Path:
+        time.sleep(0.4)
+        report.write_text(
+            _cmp_report_with_outcome("DISC1", "success", "BBBB"), encoding="utf-8"
+        )
+        return report
+
+    report_writer.writer().submit(finalise)
+
+    window = teardown_threads(config=Config(output_dir=str(root)))
+    window._start_rip_comparison(log_file)
+    assert window._comparison_thread is not None
+    window._comparison_thread.join(timeout=30)
+    qapp.processEvents()
+
+    text = window._rip_progress._comparison_label.text().lower()
+    assert "never finished" not in text, (
+        "the comparison described a SUCCESSFUL rip as never finished, so it read "
+        f"the report before the write landed: {text!r}"
+    )
+    assert "unfinalised" not in text, (
+        f"the comparison read the mid-rip snapshot rather than the final report: {text!r}"
+    )
+
+
 def test_rip_comparison_no_banner_without_prior(
     teardown_threads, qapp: QApplication, tmp_path: Path
 ) -> None:

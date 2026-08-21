@@ -12,6 +12,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A re-rip comparison could read the *previous* revision of the rip report and
+  announce that a finished rip "never finished".** Measured on the rig, 2026-08-21:
+  the rip completed at 21:46:36.080 with `success=True`, the comparison banner
+  appeared 73 ms later saying the earlier rip never finished, and the report on
+  disk says `success`. The report is written by a debounced background writer, so
+  the comparison was racing it and losing — it loaded whatever revision happened
+  to be on disk at that instant, which was the `in_progress` one.
+  `_start_rip_comparison` now flushes the report writer first, and **shows no
+  banner at all** if the writer does not go idle: tri-state, because we then do
+  not know which revision is on disk, and an absent comparison is honest where a
+  wrong one is not. A rip that succeeded being reported as abandoned is the worst
+  possible direction for this error — it invites the operator to re-rip a disc
+  that was already archived correctly.
+  `tests/test_ui_main_window.py::test_rip_comparison_waits_for_the_report_write_to_land`
+  writes the stale revision to disk and submits a real, slow writer job, so the
+  race is *present* in the fixture. Revert-proved: removing the flush fails it
+  while **both** pre-existing comparison tests still pass — those construct the
+  report already finalised, so they were structurally blind to the transition the
+  bug lived in.
 - **The rig script's on-screen banner named the old test.** Its header comment was
   retitled for 0.6.21 ("the completed re-rip, and the PlainText fix") and the `log`
   banner the operator actually reads still said "the drive-open proof, and the
