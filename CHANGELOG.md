@@ -11,46 +11,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
-### Fixed
-- **A `--verify-log` exit code meaning "unreadable, no verdict was reached" was
-  reported as "the file was altered after the ripper signed it".** Round 12 gave
-  every `--verify-log` verdict its own exit code (their commit `09123c9`), and
-  `CRIP_LOG_EXIT_IO_ERROR` (5) says the ripper never got to look at the log. The
-  classifier had no branch for it, so it fell through to the bottom of
-  `adapters/ripper_log_verify.py` and volunteered the most alarming explanation
-  available from a position of having been told explicitly that nothing was
-  determined — the same fail-LOUD defect fixed the previous day for a log *we*
-  cannot read, arriving from the other side of the seam. The codes now live in
-  one place (`cyanrip_cli.VERIFY_LOG_EXIT_NO_VERDICT`), the branch sits *before*
-  the build-capability gate so the fix does not wait on a pin joining
-  `BUILD_TAGS_ACCEPTING_VERIFY_LOG`, and the wording attributes the meaning to
-  their published inventory rather than asserting a fact about the file.
-  **Reachability is gated, correctness is not**: no build currently in that
-  capability table emits codes above 1, so nothing observable changes today.
-- **`tests/test_provider_contract_agreement.py` claimed to re-derive from the
-  newest provider contract and read a hard-coded `round-4.md` for nine rounds.**
-  The *input* half of the cyanrip seam was being checked against round 12's flag
-  table while the *output* half was checked against a document from eight rounds
-  earlier — and the file said otherwise in its own first paragraph, which is why
-  nobody looked. It now resolves the contract through
-  `test_argv_surface_agreement.newest_provider_contract`, so the two halves
-  cannot be checked against different rounds again, and is held to the same
-  recorded `_MAX_TABLE_LAG`. Three narrowness bugs went with it: sections are
-  keyed on their `P<n>` label instead of prose that moved between rounds
-  (`## P3 - Unstable lines` → `## P3 - Unstable wording, and stdout-only
-  routing`); the row reader accepted `*.c` only and would have read 15 of round
-  12's 25 P3 rows while reporting a clean sweep; and the format-string renderer
-  silently left `%llds`/`%hi`/`%llu` unrendered, which can stop a pattern
-  matching a line the real log *would* match — a false pass in the one check
-  that file exists for. The prose half of P3 (FFmpeg's `ebur128` wording, which
-  no row reader can see) now has a check of its own.
-- **The assertion on the fork's exit-code inventory no longer keys on one
-  sentence of their generated document.** It required the literal *"Distinct
-  exit values found in the tree: `0`, `1`"*, which round 12 removed after
-  deriving 0–5 with a meaning per code. It now reads their P4 *table* and
-  asserts the property we actually depend on: every code they name as "no
-  verdict was reached" is one our classifier refuses to turn into a verdict.
-
 ## [0.6.23] — 2026-08-21
 
 *Supersedes 0.6.22, which was prepared and gated but never published — no tag,
