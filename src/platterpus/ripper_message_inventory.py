@@ -21,16 +21,28 @@ is the argument for never trusting a count:
 128  round 12 — two rows left ``cyanrip_log()`` (see :data:`RETAINED_BEYOND_P5`)
 ===  ============================================================================
 
-**This file sat at round 6's 115 while five newer contracts were published, two of
-them committed in this repository.** Round 8 lap 1 §D2 said so in prose — *"the
-contract grew by 10 fatal messages, and the program did not… if your parser
-matches on our fatal inventory, it now has ten rows it did not have"* — and round
-9 lap 3 attached the table itself. The cost was measured, not feared: two of those
-ten, ``Programming error, incorrect type for: %s`` and
-``Too many values for argument "%s" (at most %i)``, matched **nothing** in our
-surfacing pattern, so a user hitting either one saw a bare "Rip failed." while the
-ripper's own sentence sat in a buffer we had captured. The other eight survived
-only on the word-prefix fallback, which is forward tolerance and not coverage.
+**This file sat at round 6's 115 for five rounds, while SEVEN newer provider
+contracts were committed to this repository** — under
+``docs/handshake/inbound/artifacts/``, at 117, 120 and 130 rows. Round 8 lap 1 §D2
+even said so in prose — *"the contract grew by 10 fatal messages, and the program
+did not… if your parser matches on our fatal inventory, it now has ten rows it did
+not have"* — and round 9 lap 3 attached the table itself, on 2026-08-17.
+
+The cost was measured, not feared. Of the 15 round-12 strings this file was
+missing, 13 were matched anyway and 2 were not:
+
+* **12** by the word-prefix fallback alone — forward tolerance, not coverage, and
+  the reason nobody noticed: a fallback that half-works hides the gap it fills.
+* **1** by coincidence. ``Invalid track number %i for pregap, list has %i tracks!``
+  matched the *round-6* pattern for ``Invalid track number %i, list has %i
+  tracks!``, because the bounded wildcard happily absorbed ``for pregap``. Being
+  matched by the pattern for a different message is not being in the inventory.
+* **2** by nothing at all: ``Programming error, incorrect type for: %s`` and
+  ``Too many values for argument "%s" (at most %i)``, both ``genopt.h``. A user
+  hitting either saw a bare "Rip failed." while the ripper's own sentence sat in a
+  buffer we had captured. The second is an ordinary mistake — one ``-t`` too many —
+  and every argument-parse diagnostic is **stdout-only**, emitted before the
+  logfile exists, so our stdout capture was its only route to a bug report.
 
 The reason it went unnoticed is worth more than the fix. The *input* half of this
 seam has had a mechanical staleness check since the ``-V`` blocker —
@@ -884,8 +896,15 @@ MESSAGES: Final[tuple[RipperMessage, ...]] = (
 #: them would have taken two live diagnostics straight back to "Rip failed."
 #:
 #: Kept as an explicit named tuple with the reason attached, and asserted by a test
-#: against the committed round-11 artifact, so this cannot become a place to smuggle
-#: in strings nobody published.
+#: against every committed provider contract, so this cannot become a place to
+#: smuggle in strings nobody published.
+#:
+#: **The ``site`` on these two is the weakest field here, and says so.** A
+#: ``file:line`` is only checkable against the source anchor it was generated under,
+#: and these rows have no row in the round-12 table to carry one:
+#: ``No FUN512 …`` is cited at its round-12 **P3** line, and ``Force quitting`` at
+#: round 11's, because round 12 stopped listing it anywhere. Treat both as
+#: provenance, not as coordinates.
 RETAINED_BEYOND_P5: Final[tuple[tuple[RipperMessage, str], ...]] = (
     (
         RipperMessage(
