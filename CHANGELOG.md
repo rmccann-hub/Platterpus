@@ -44,6 +44,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   elapsed-family line in the committed corpus (82 across 24 logs) must now be read
   by `track_elapsed_seconds`, and a clock is pinned as *not read* rather than
   half-read as a bare `3.0`.
+- **Three cross-references cited a GENERATED document by line number, and all three
+  were already wrong.** `docs/cyanrip-known-issues.md` pointed at
+  `docs/cyanrip-consumer-contract.md:99`, `:56,57,59,64,65,66` and `:103-105`.
+  Checked against that file as committed at `faa2a39` — *before* this change touched
+  it — every one landed on a different row than the prose claimed: `:99` was cited
+  for the AccurateRip result capture group and was `track_pregap_source`; `:56` was
+  cited as `Overread mode:` and was `read_offset`; `:103-105` were cited as the
+  three speed/elapsed regexes and were `track_accurip_offset`,
+  `track_appended_silence`, `track_peak_kind_header`. **Nothing could have caught
+  it**: the contract is regenerated from the parser's enumeration tables on every
+  change, so each number pointed into a file that renumbers itself, and a citation
+  is only ever wrong *by silence* — the sentence keeps reading plausibly. Now cited
+  by **rule name**, which is the key the page is organised by and the only stable
+  part of it, and gated: `tests/test_doc_index_completeness.py` refuses a
+  line-number citation into any generated page, with the population **derived** from
+  each `scripts/emit_*.py`'s own `OUTPUT_PATH` rather than listed — a typed list
+  there would be the same hand-maintained field that rotted in `_FORK_ONLY_RULES`,
+  inside a test written about stale cross-references.
+- **`test_doc_index_completeness.py` errored at collection**, taking the whole
+  module with it: the first version of that derivation *imported* each generator by
+  a hand-built spec, and `scripts/emit_envelope.py` cannot be exec'd that way —
+  `@dataclass` looks its own module up in `sys.modules`, which a bare spec never
+  registers. Read off the source with a regex instead, which is a derivation with
+  none of that surface and does not pull the application (PySide6 included) into
+  collection.
 
 ### Changed
 - **Six log lines are now declared as the fork's obligation, and the unresolved-

@@ -531,20 +531,51 @@ def test_the_duplicate_id_check_would_catch_the_shipped_collision() -> None:
 #: registry for this and is not: that map answers *"which docs are exempt from a
 #: version stamp"* and carries one of the two generated pages, because the other
 #: embeds `__version__` and therefore does get restamped. Two different questions.
-def _generated_doc_basenames() -> frozenset[str]:
-    """Every ``docs/*.md`` written by a generator script, by basename."""
-    import importlib.util
+#: An ``OUTPUT_PATH`` declaration in a generator, e.g.
+#: ``OUTPUT_PATH: Path = _REPO_ROOT / "docs" / "script-language.md"``.
+_GENERATOR_OUTPUT = re.compile(
+    r'^OUTPUT_PATH\b[^\n]*?"(?P<name>[A-Za-z0-9._-]+\.md)"\s*$', re.MULTILINE
+)
 
+
+def _generated_doc_basenames() -> frozenset[str]:
+    """Every ``docs/*.md`` written by a generator script, by basename.
+
+    Read out of each generator's **source** rather than by importing it. Importing
+    was the first version and it is the wrong tool twice over: these scripts pull in
+    the whole application (one of them imports PySide6 transitively) at collection
+    time, and one of them — `emit_envelope.py` — cannot be exec'd from a bare spec
+    at all, because `@dataclass` looks its own module up in `sys.modules` and a
+    hand-built spec is not registered there. A regex over the declaration is a
+    derivation with none of that surface.
+    """
     found: set[str] = set()
     for script in sorted((_REPO_ROOT / "scripts").glob("emit_*.py")):
-        spec = importlib.util.spec_from_file_location(script.stem, script)
-        if spec is None or spec.loader is None:  # pragma: no cover - defensive
-            continue
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        output = getattr(module, "OUTPUT_PATH", None)
-        if output is not None and str(output).endswith(".md"):
-            found.add(Path(str(output)).name)
+        for match in _GENERATOR_OUTPUT.finditer(
+            script.read_text(encoding="utf-8", errors="replace")
+        ):
+            found.add(match.group("name"))
+
+    # FLOOR. A regex derivation can stop matching without anything looking wrong —
+    # a generator renaming its constant, or the formatter moving the closing quote
+    # off the end of the line, and this returns an empty set. Every caller then
+    # examines nothing and passes, which is the failure this whole module is about.
+    #
+    # Two is the measured count on 2026-08-21: `emit_dependency_contract.py` ->
+    # cyanrip-consumer-contract.md and `emit_script_language.py` ->
+    # script-language.md.
+    #
+    # KNOWN AND DELIBERATE EXCLUSION: `emit_envelope.py` declares `OUT`, not
+    # `OUTPUT_PATH`, and writes into `docs/handshake/outbound/` rather than
+    # `docs/`. It is out of scope for an index of top-level `docs/*.md` either
+    # way, so the narrower pattern costs nothing here — stated so the next reader
+    # does not have to re-derive that it is an omission on purpose. The
+    # import-based version this replaced also missed it, for the same reason.
+    assert len(found) >= 2, (
+        f"only found {sorted(found)} generated docs. Either a generator renamed "
+        f"its OUTPUT_PATH declaration or the pattern stopped matching it — and an "
+        f"empty set here makes every caller pass having examined nothing."
+    )
     return frozenset(found)
 
 
