@@ -262,72 +262,78 @@ exactly that reason.
 **Not a round, and not a call for one.** Rounds are the *formal* channel and they
 have a cost (S-13: a round's close conditions are fixed at lap 1, and an open round
 blocks both sides' releases). Between rounds the fork still needs to know where we
-are, so this section is the standing answer, rewritten in place rather than
+are, so this section is the standing answer, **rewritten in place** rather than
 accumulating a file per update. Maintainer's framing, 2026-08-21: *"context for the
 next test and what to do (if anything is needed even)."*
 
-**As of Platterpus v0.6.21 (2026-08-21):**
+**As of Platterpus v0.6.23 (2026-08-21). Supersedes the v0.6.21 text entirely.**
 
-- **No round is open.** All eleven are CLOSED with bilateral `GO`;
-  `scripts/handshake.py --release-gate` prints *"every round is closed — release
-  allowed"*. Nothing on our side is waiting on the fork, and nothing the fork does
-  is currently blocked by us.
-- **The pin is unchanged:** `cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)`,
-  approved by **round 8**. We install it and every rip re-verifies it at the drive.
-- **The seam has not moved, and this is checkable rather than asserted.** The
-  generated `docs/cyanrip-consumer-contract.md` — every log line we parse, every
-  flag we send — is **byte-identical since v0.6.12b6**, the app version round 8
-  approved the pin for, apart from the line naming the round itself. Nine app
-  minors, +183 lines across the three seam modules, and **zero** change to the
-  contract they implement: the additions were internal (an absent-vs-mismatched
-  verdict distinction, a shared `has_log_checksum` helper, escaping property
-  tests). So round 8's evidence still holds for 0.6.21 on the seam axis, and the
-  fork does not need to re-derive anything for this release.
-- **One honest caveat, because rule #12 obligation 3 says artifacts under different
-  app versions are not interchangeable evidence:** `APPROVED_FOR_PLATTERPUS_VERSION`
-  still reads `0.6.12b6`, so every rip report and EAC log states the pairing was
-  verified at that version while the app is 0.6.21. That is a *true historical
-  record*, not a stale pointer — the round and the pin agree — and it is
-  informational: the verdict keys on the build tag, so no rip is mis-graded. It is
-  named here so nobody reads the version gap as a silent re-approval.
+### The go-ahead you asked for
 
-**Two asks, both `NEXT-ROUND`, neither blocking anything** (S-14: a finding is not
-grounds to hold a release unless it breaks the artifact under review — neither does):
+**Cut `+platterpus.7`.** Round 12 is CLOSED, `GO`/`GO` on `64ae7bc`,
+`scripts/handshake.py --release-gate` prints *"every round is closed — release
+allowed"*, and nothing we found makes that pin unsafe. Your reason for not having
+cut it already is the right one and better stated than ours would have been: *a
+ledger row asserts a build was handed to somebody, and that is an act, not a
+derivation.*
 
-1. **`-x` measures the cache and then rips the whole disc.** Measured on the rig
-   2026-08-19: `cyanrip -x -N -s 0` printed `Cache probe: 32 sectors, 73.5 KiB,
-   uncached read 362.6 ms` and then continued into a full rip, ETA 1h 3m. Our
-   verb killed it at 300 s and **the child could not be reaped** (`exit: null`), so
-   the drive stayed held for everything after it. We have removed the probe from
-   the rig script until `-x` exits after measuring. Worth saying plainly: this was
-   the *useful* outcome of running the flag for the first time — "it does something
-   nobody expected" is exactly what a first execution is for.
-2. **`--verify-log` should separate *absent* from *mismatched* by exit code.** A
-   killed or cancelled rip leaves a log with **no** `Log FUN512:` footer; an altered
-   archival record leaves one that does not match. *"The ripper was killed
-   mid-write"* and *"this file was modified"* are different findings and only the
-   second is a tamper claim. We fixed our side in 0.6.20 by reading the log
-   ourselves rather than keying on the message text — per the fork's own lap-12 J4,
-   which asked us not to build on genopt's `"No FUN512 checksum found"` string. That
-   works, and it also means two projects now answer *is this log a complete archival
-   record* by separate routes. A machine-readable discriminator plus the null case
-   stated in the provider contract would collapse them back into one.
+### One correction to a lap we already sent
 
-**What the next hardware run is for, so the fork knows what to expect from it.**
-`docs/rig-scripts/rigcancelandoverread.txt`, revised for 0.6.21, on the pinned
-build. It proves one thing nothing else can: a **completed second rip after a
-mid-rip cancel** — the open half of Task #53. The drive-*open* half is already
-proven (2026-08-20: after a cancel the drive re-scanned and re-identified the disc,
-which a held reader cannot do). Nothing in the run asks anything of the fork, and
-nothing in it is expected to exercise a fork change; if it fails, the finding is
-most likely ours.
+**Our round-12 lap 4 declares `HANDSHAKE-APP-VERSION: platterpus 0.6.22`, and
+0.6.22 does not exist.** It was prepared, gated and superseded before publication —
+no tag, no artifact, nothing installable — and the release went out as **0.6.23**.
 
-**So: nothing is needed from the fork right now.** Round 12 opens when that run
-produces a clean bundle, carrying the two asks above. Opening it earlier would
-create a round whose close condition cannot be met without hardware evidence we do
-not yet have — the S-13 failure that ran round 7 to 37 laps.
+A sent lap is immutable here (`tests/test_sent_laps_are_immutable.py` pins its
+hash), so the correction lives in this section rather than in an edit. It matters
+because rule #12's third obligation is that a round approves a pin **for a named
+app version**: read every version claim in lap 4 as **0.6.23**. Nothing else in
+that file changes — the tree it describes is the tree 0.6.23 shipped from, plus the
+four items below.
 
----
+### What landed after lap 4 was written
+
+All four are consumer-side and none changes a surface you emit.
+
+1. **Your exit code 5 is handled, and it was a real defect on our side.**
+   `CRIP_LOG_EXIT_IO_ERROR` fell through to the bottom of our verifier and was
+   reported as *"the file was altered after the ripper signed it and must not be
+   treated as archival evidence"* — an accusation derived from an answer that
+   explicitly says nothing was determined. The branch now sits **before** the
+   build-capability gate, so the fix does not wait on the tag: reachability is
+   gated, correctness is not. Named as a set (`VERIFY_LOG_EXIT_NO_VERDICT`) so a
+   second "could not look" code lands in one place, and a test derives the same set
+   from your published P4 and fails if the two disagree.
+2. **The stale test in §B of lap 4 is fixed, and it was worse than we reported.**
+   `test_provider_contract_agreement.py` read a hard-coded round 4. Repointing it
+   revealed a second fault: its row regex matched `*.c` only, and ten of your
+   round-12 P3 rows are `genopt.h` — so **even pointed at the current contract it
+   would have read 15 of 25 rows and reported a full pass**. Also fixed: `%lld`-style
+   length modifiers went unrendered, which fails in the *false-pass* direction.
+   Sections now resolve by their `P<n>` label rather than heading prose, since the
+   prose moved between rounds 4 and 12.
+3. **`_FORK_ONLY_RULES` is fixed and the converse is now derived** — the §C1 ask in
+   lap 4 stands unchanged, and the eight lines named there are still unattributed.
+4. **A registry check of ours caught our own new test on its first run.** The
+   exit-code test above parametrizes over `VERIFY_LOG_EXIT_NO_VERDICT`, so if you
+   ever withdraw `CRIP_LOG_EXIT_IO_ERROR` it would generate zero cases and pass
+   having examined nothing. It now names a floor that derives the set from your P4.
+   Mentioned because it is the shape your round-12 generator work is also about.
+
+### What has not changed
+
+- **The pin we INSTALL is still `cyanrip 0.9.4-rc1+platterpus.5
+  (platterpus-fork-gddf7ac3)`**, approved by round 8, and every rip re-verifies it
+  at the drive. `64ae7bc` is approved and **not installed**: it has no hardware
+  behind it and `ddf7ac3` does. That is our own rule applied to ourselves, not
+  distrust of your testing — 47/47 from a clean clone in four configurations
+  including ASAN+UBSAN is more than we run.
+- **`platterpus-fork-g64ae7bc` is in neither capability table**, so
+  `accepts_verify_log()` returns `not_determined` for it and your five new
+  `--verify-log` codes are unreachable from Platterpus until a released build tag
+  joins the table. Send the SHA when you cut it and the rows go in — that is lap 4
+  §C2 and it is the one thing we are waiting on.
+- **No hardware ask.** Nothing in round 12 needed a drive and nothing here does.
+  Our own next rig run is about our GUI.
 
 ## 8. The wire format — the shared protocol file
 
@@ -368,4 +374,4 @@ each side is free to change.
 
 ---
 
-*Last updated for Platterpus v0.6.21.*
+*Last updated for Platterpus v0.6.23.*

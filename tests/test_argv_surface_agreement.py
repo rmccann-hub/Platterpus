@@ -219,6 +219,59 @@ def _file_round(path: Path) -> int | None:
     return _HS.round_number(path) or _artifact_round(path)
 
 
+def _lap_path_of(path: Path) -> Path:
+    """The path whose name/header decides an inbound file's ``(round, lap)`` order.
+
+    For a lap file that is the file itself. For an **artifact** it is the lap file the
+    artifact is named after, because an artifact carries no wire header and its own name
+    is not the canonical ``round-NN-lap-LL`` form — so :func:`handshake.sort_key` reads
+    every artifact as ``(0, 1, stem)`` and ranks a round-12 contract *below* a round-1
+    lap file. Ordering artifacts by their stem happens to come out right today (the pad
+    width is fixed at two digits) and that is exactly the kind of accidental correctness
+    this repository keeps paying for.
+
+    Resolving through the lap the artifact NAMES keeps the shared parser in charge of
+    what a round and a lap are — the same reason :func:`_artifact_round` exists and does
+    not re-spell the convention.
+
+    **The synthetic path points at `INBOUND`, not at the artifact's own directory.**
+    `_artifact_round` gets away with `path.with_name(...)` because `round_number` reads
+    only the name; `sort_key` reads the file's wire *header*, and a path inside
+    `artifacts/` does not exist, so the lap silently defaulted to 1 — which ordered
+    round 12 lap 3's contract equal to lap 1's. Header-first is kept (the lap file is
+    committed in every case we hold); when it is not, `_round_of` still falls back to
+    the name and the stem tiebreak still orders the laps.
+    """
+    match = _ARTIFACT_LAP_PREFIX.match(path.name)
+    if match is None:
+        return path
+    return INBOUND / f"{match.group('lap')}.md"
+
+
+def newest_provider_contract() -> Path:
+    """The newest committed provider contract, by the shared round/lap parser.
+
+    **Public, and imported by `tests/test_provider_contract_agreement.py` rather than
+    re-derived there.** That file read a hard-coded `round-4.md` for nine rounds while
+    its own docstring claimed it re-derived from whatever landed last — so the two
+    halves of one seam were being checked against contracts nine rounds apart. One
+    resolver means the argv half and the log-line half cannot disagree about which
+    contract is current, which is the whole point of :func:`_file_round` one screen up.
+
+    Never falls back to an older round silently: the caller asserts the lag against
+    :data:`_MAX_TABLE_LAG`, the same recorded number the flag table is held to.
+    """
+    contracts = sorted(
+        _ARTIFACTS.glob("round-*-provider-contract-*.md"),
+        key=lambda p: _HS.sort_key(_lap_path_of(p)),
+    )
+    assert contracts, (
+        "no provider contract is committed under docs/handshake/inbound/artifacts/ — "
+        "there is nothing to check our parser against"
+    )
+    return contracts[-1]
+
+
 def _group_by_round() -> dict[int, list[Path]]:
     """Inbound files grouped by round. **The one grouping, so a test can check it.**
 
@@ -637,3 +690,44 @@ def test_the_table_we_check_against_is_the_current_rounds_own() -> None:
         f"only {len(their)} flag spellings parsed — a 42-row table publishes both a "
         "short and a long form for nearly every row, so this is not the whole table"
     )
+
+
+def test_the_provider_contract_resolver_is_lap_aware() -> None:
+    """**The reason `_lap_path_of` exists, as a test.**
+
+    An artifact carries no wire header and its name is not the canonical
+    `round-NN-lap-LL` form, so `handshake.sort_key` reads every one of them as
+    `(0, 1, stem)` — a bucket in which a round-12 contract sorts *below* a round-1
+    lap file. Resolving through the lap the artifact names puts the shared parser
+    back in charge.
+
+    Asserted three ways so it cannot pass by accident: the naive key really is
+    degenerate (or this helper is unnecessary and should go), the resolved key is
+    the artifact's own round and lap, and the contract chosen is the newest round's.
+    """
+    contract = newest_provider_contract()
+    assert "provider-contract" in contract.name
+
+    # 1. The naive key is degenerate — proving the helper is load-bearing rather
+    #    than decorative. If this ever fails, artifacts have grown a wire header
+    #    and `_lap_path_of` can be deleted.
+    assert _HS.sort_key(contract)[0] == 0, (
+        f"{contract.name} now resolves a round without help: {_HS.sort_key(contract)}"
+    )
+
+    # 2. The lap-aware key agrees with the artifact's name.
+    round_no, lap_no, _ = _HS.sort_key(_lap_path_of(contract))
+    assert (round_no, lap_no) == (
+        _file_round(contract),
+        int(re.search(r"-lap-(\d+)-", contract.name).group(1)),  # type: ignore[union-attr]  # name checked below
+    ), f"{contract.name} orders as round {round_no} lap {lap_no}"
+
+    # 3. And it is the newest round's, within the recorded lag.
+    assert _newest_inbound_round() - round_no <= _MAX_TABLE_LAG, (
+        f"the newest provider contract is round {round_no}'s but the newest inbound "
+        f"round is {_newest_inbound_round()}, past the recorded {_MAX_TABLE_LAG}"
+    )
+
+    # FLOOR: more than one contract on disk, or "the newest" compares nothing.
+    contracts = list(_ARTIFACTS.glob("round-*-provider-contract-*.md"))
+    assert len(contracts) >= 2, f"only {len(contracts)} provider contract(s) committed"

@@ -198,11 +198,94 @@ def read_parts() -> list[Part]:
 
 
 def split(envelope: str) -> dict[str, bytes]:
-    """Envelope text → ``{filename: exact original bytes}``. Never raises."""
+    """Envelope text → ``{filename: exact original bytes}``. Never raises.
+
+    **Parses the hash and does not check it** — deliberately, so this stays a pure
+    inverse of :func:`render`. :func:`verify_split` is the checking form, and it
+    is what the CLI calls. Nothing should use this one to decide whether an
+    envelope arrived intact.
+    """
     return {
         m["name"]: (m["body"] + "\n").encode("utf-8")
         for m in PART_RE.finditer(envelope)
     }
+
+
+def verify_split(envelope: str) -> list[tuple[str, bytes, str, str]]:
+    """Split and check every part. ``[(name, body, declared, computed)]``.
+
+    A part is intact when ``declared == computed``. Returns both rather than a
+    bool per part, because the caller has to be able to *print* the mismatch — a
+    corrupted transfer that reports only "failed" leaves the two projects with no
+    way to tell a truncation from a re-encoding.
+
+    **Why this exists as a checking function at all.** :func:`split` parses the
+    ``sha256=`` out of the delimiter and then ignores it, and until now that was
+    the only splitter — reachable from no CLI, so every actual split was done by
+    hand-writing the regex again (three times on 2026-08-21 alone). A per-part
+    hash that nothing compares is decoration, and the delimiter carries it
+    precisely so an envelope that lost bytes in a chat client cannot be read as
+    complete. Same shape as the rule about a `cancel()` with no call site: the
+    capability was implemented and unreachable.
+    """
+    out: list[tuple[str, bytes, str, str]] = []
+    for match in PART_RE.finditer(envelope):
+        body = (match["body"] + "\n").encode("utf-8")
+        out.append(
+            (match["name"], body, match["sha"], hashlib.sha256(body).hexdigest())
+        )
+    return out
+
+
+def _do_split(envelope_path: Path, into: Path) -> int:
+    """Write every part of `envelope_path` into `into`, verifying each hash.
+
+    Refuses to write anything if any part fails, rather than leaving a directory
+    of files where some are trustworthy and some are not — a half-written split
+    is worse than none, because the next step reads whatever is on disk.
+    """
+    try:
+        text = envelope_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        print(f"cannot read {envelope_path}: {exc}", file=sys.stderr)
+        return 1
+
+    parts = verify_split(text)
+    if not parts:
+        print(
+            f"{envelope_path}: no envelope parts found. Expected column-0 "
+            f"delimiters of the form '<<<<<<<<<< BEGIN <name> sha256=<64 hex> "
+            f">>>>>>>>>>'. A file with none is not an envelope — check whether a "
+            f"chat client reflowed it.",
+            file=sys.stderr,
+        )
+        return 1
+
+    bad = [(n, d, c) for n, _b, d, c in parts if d != c]
+    for name, _body, declared, computed in parts:
+        mark = "OK  " if declared == computed else "BAD "
+        print(
+            f"{mark} {name:44} {declared[:16]} {'==' if declared == computed else '!='} {computed[:16]}"
+        )
+    if bad:
+        print(
+            f"\n{len(bad)} of {len(parts)} parts do not match their declared "
+            f"hash. NOTHING was written. Ask the sender to resend — and say which "
+            f"parts, because a mismatch on one part and on all of them are "
+            f"different problems.",
+            file=sys.stderr,
+        )
+        return 1
+
+    into.mkdir(parents=True, exist_ok=True)
+    for name, body, _declared, _computed in parts:
+        # `Path(name).name` so a part called "../../etc/passwd" cannot escape the
+        # target directory. The envelope is external input from another project;
+        # nothing crosses that seam unchecked (Critical rule #12).
+        target = into / Path(name).name
+        target.write_bytes(body)
+    print(f"\n{len(parts)} parts verified and written to {into}")
+    return 0
 
 
 def render(parts: list[Part]) -> str:
@@ -265,7 +348,31 @@ for m in PART.finditer(open("{OUT.name}", encoding="utf-8").read()):
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="exit 1 if stale")
+    parser.add_argument(
+        "--split",
+        metavar="ENVELOPE",
+        type=Path,
+        help=(
+            "UNPACK a received envelope instead of building ours: verify every "
+            "part against its declared sha256 and write them out. Refuses to "
+            "write anything if any part mismatches."
+        ),
+    )
+    parser.add_argument(
+        "--into",
+        metavar="DIR",
+        type=Path,
+        default=Path("."),
+        help="where --split writes the parts (default: the current directory)",
+    )
     args = parser.parse_args(argv)
+
+    # --split is the INBOUND direction and shares nothing with building ours, so
+    # it returns before any of the outbound machinery runs. In particular it must
+    # not require our own PARTS to exist: unpacking what the fork sent has to work
+    # in a tree where we have no outbound lap staged.
+    if args.split is not None:
+        return _do_split(args.split, args.into)
 
     wanted = render(read_parts())
     assert_not_a_lap(wanted)

@@ -189,7 +189,7 @@ Our guard and the reason for it:
 ### Two corrections we owe you on this one
 
 1. **The checksum-0 branch has never been observed in any artifact this repo holds.** Every real zero-CRC occurrence we have (`docs/handshake/inbound/round-5.md:922, :989, :1054`; `round-6.md:510, :582`; `round-6b.md:319, :391, :461`) is a **bare** `Accurip 450: 00000000` printed under `Accurip:       disabled`, with no parenthetical at all. The evidence here is your format string, not a captured line.
-2. **cyanrip is not withholding anything.** The caveat sits inside the same field, and our own capture group takes the whole field (`docs/cyanrip-consumer-contract.md:99`, `\((?P<result>[^)]*)\)`) with the `00000000` CRC on the same line. The ask is that the *machine-readable shape* agree with the prose, not that information is missing.
+2. **cyanrip is not withholding anything.** The caveat sits inside the same field, and our own capture group takes the whole field (`docs/cyanrip-consumer-contract.md`, rules `track_accurip` / `track_accurip_offset` — `\((?P<result>[^)]*)\)`) with the `00000000` CRC on the same line. The ask is that the *machine-readable shape* agree with the prose, not that information is missing.
 
 ### Why it is yours
 
@@ -461,7 +461,7 @@ The consumer half — `src/platterpus/parsers/cyanrip_log.py`:
 
 and `:107-113` states the load-bearing one explicitly: "THIS line — not the neighbouring `Overread:  +2 frames` — is the one that says whether the drive actually read the disc's outermost samples… Keying on the count would therefore report Yes for every rip".
 
-Our published half declares all six as parsed (`docs/cyanrip-consumer-contract.md:56,57,59,64,65,66`) under `:45-46` "Changing the text, indentation, or field order of any of these changes what Platterpus records about a rip." So the two published halves of the seam disagree on six lines.
+Our published half declares all six as parsed — `docs/cyanrip-consumer-contract.md` §1, rules `overread_mode`, `album`, `album_artist`, `disc_id`, `cddb_id`, `release_id` — under that section's own sentence "Changing the text, indentation, or field order of any of these changes what Platterpus records about a rip." So the two published halves of the seam disagree on six lines.
 
 Not a regression: the same nine labels are absent from all four earlier contracts (round-07 laps 25/30/32/39), so this is a standing gap.
 
@@ -814,7 +814,7 @@ EAC comparator — `output_reference/EAC_flac/eac_baseline_police_classics.log` 
 > `output_reference/cyanrip_fork_flac/cyanrip_fork_police_classics.log:74` `    Extraction speed:  0.9x`
 > `:75` `    Elapsed:            214.59 s`
 
-Corroborated by `docs/cyanrip-consumer-contract.md:103-105`, where all three regexes are tagged **(fork-only)**.
+Corroborated by `docs/cyanrip-consumer-contract.md` §1, where `track_extraction_speed` and `track_elapsed_seconds` are both tagged **(fork-only)**. (This read *"all three regexes"* while a third rule, `track_elapsed_clock`, existed; it was retired 2026-08-21 — it read a `(HH:)MM:SS` clock that no cyanrip build has ever emitted, including the pre-split combined form, whose trailing ` (0.9x)` its end-of-line anchor refused.)
 
 Materiality on our side:
 > `src/platterpus/eac_log_export.py:1244-1250` — renders your number into EAC's own row.
@@ -957,4 +957,4 @@ The one thing worth asking of you, and it is §4 and §5 rather than a new item:
 
 ---
 
-*Last updated for Platterpus v0.6.12.*
+*Last updated for Platterpus v0.6.23.*

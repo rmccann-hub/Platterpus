@@ -564,10 +564,13 @@ def main(argv: list[str] | None = None) -> int:
         metavar="OUTPUT-DIR",
         default=None,
         help="run the unattended rig-session harness into OUTPUT-DIR and exit: "
-        "app and ripper versions, --doctor, the ripper's own -x and -j (which a "
-        "rip never sends), pre-gap screening, --audit-rips, handshake status and "
-        "preflight — one artifact per step, never stopping on a failure. Works "
-        "from the AppImage, so a hardware session needs no source checkout",
+        "app and ripper versions, --doctor, the ripper's own -j (which a rip "
+        "never sends), pre-gap screening, --audit-rips, handshake status and "
+        "preflight — one artifact per step, never stopping on a failure. Does "
+        "NOT run their -x cache probe: it measures and then rips the whole "
+        "disc, holding the drive (measured 2026-08-19), so step 5a of the "
+        "harness deliberately skips it. Works from the AppImage, so a hardware "
+        "session needs no source checkout",
     )
     parser.add_argument(
         "--rig-check",

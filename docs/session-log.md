@@ -11,6 +11,143 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-21 (v0.6.23) — cyanrip round 12 closed, and six defects the checks could not see
+
+One release and one handshake round, and they are the same story: **every defect
+found this session was found by running an artifact through the real code, and
+every one of them sat behind a check that was already green.**
+
+### The round: their breaking notice was about a different document
+
+The fork opened round 12 having merged upstream `0.9.4-rc2`, and declared
+`HANDSHAKE-BREAKING (1)`: a `cyanrip-diagnostics/3` record would be *rejected* by
+0.6.21 until we widened `SUPPORTED_SCHEMAS`. Their J1 promoted it to `BLOCKING`
+under S-14 on the grounds that *"a rip made with the reviewed pin produces a
+record your build refuses."*
+
+It does not. `SUPPORTED_SCHEMAS` is a `frozenset[int]` gating their
+**release-manifest.json**; nothing here reads a diagnostics-record schema string;
+and a rip never sends `-j` at all. Measured through the real path rather than
+argued: `/2`, `/3` and `/999` are indistinguishable.
+
+**Half the cause is ours, and that is the part worth keeping.** We had told them
+the truth in round 10 — *"we have never consumed that JSON"* — and then in round 11
+**both** sides discussed widening `SUPPORTED_SCHEMAS` at length, about the release
+manifest, and **neither named the document**. Our own outbound lap 4 wrote *"when
+we next widen `SUPPORTED_SCHEMAS`"*. A name collision plus one unqualified sentence
+in a file we sent was enough to cost a round. The real warning exists and is now
+attached to the right artifact: the release-manifest bump to schema 3 they deferred
+**is** refused by shipped Platterpus and must land here before they publish.
+
+Verdict `GO on 64ae7bc`, lap 2. Round 12 closed in two laps against round 7's 37,
+and their convergence mechanisms are why: the pre-commit meant we knew before
+writing a word that nothing we found would reopen the round unless it made the pin
+unsafe.
+
+### The four defects, and what was green while each one lived
+
+1. **A finished rip announced as one that "never finished."** The re-rip comparison
+   read the report off disk while a debounced writer was still working on it. Rip
+   finished 21:46:36.080 `success=True`; banner 73 ms later said it never finished.
+   *Both* pre-existing comparison tests still pass with the fix reverted — they
+   construct the report already finalised, so they were structurally blind to the
+   empty→full transition the bug lived in. A fixture that starts in the end state
+   cannot see the transition.
+
+2. **An unreadable log reported as evidence of tampering.** Three answers folded
+   into two: yes, no, and *we could not look*. The third became "yes", which routes
+   to *"the file was altered after the ripper signed it."* The old code called that
+   fail-closed; it was fail-**loud**. The rule was already applied to the
+   flag-rejection branch twenty lines above — §5.o at the scale of one function,
+   again. **The test that pinned the old behaviour would have protected it
+   indefinitely**: it framed the choice as gentle-versus-strong and never considered
+   saying nothing.
+
+3. **Two ripper failures reaching the user as a bare "Rip failed."** The inventory
+   the matcher is *built from* was five rounds stale (115 vs 128). Its standing test
+   compared it against a fixture **generated from its own round**, so the two agreed
+   perfectly and neither could see the contract move. A list checked against itself.
+   The *input* half of that same seam has had a real contract diff every commit since
+   the `-V` blocker; the output half had a mirror.
+
+4. **Album loudness read from wording the ripper disclaims** while the four rows it
+   guarantees were dropped with no rule and no recorded reason. The sweep that should
+   have caught it **passed the entire time**, because no log in `output_reference/`
+   contains those rows. The check was real; its population could not reach the bug.
+
+### Two more, from revert-proofs rather than from reasoning
+
+Proving the `-j` contract fix, reverting the spawned flag to `-J` left the **whole**
+rig-check file green: `_compose_reference_argv` was tested, the function that runs
+it was not tested at all. And a special case justified in a comment —
+`isinstance(dialog, QMessageBox)` to avoid a "Show Details…" toggle a child sweep
+would find — turned out to distinguish nothing, because `buttons()` returns the
+toggle too. Deleted rather than defended; the measurement is now a test.
+
+### Closed the round, and got corrected doing it
+
+Their lap 3 came back `GO` — round 12 closed in four laps against round 7's 37 —
+and it **refused the blame I had offered to share.** I reported their
+`HANDSHAKE-BREAKING (1)` as false and then called it *"half ours"* on a
+name-collision story. They opened all three sentences; every one sits in
+unambiguous release-manifest context. Verified here afterwards rather than
+accepted: mine sits four lines below a paragraph about `meson_options` and
+per-row `build`; theirs prints `supporting {1, 2}` four lines above.
+
+**The generous cause was a fiction, and it would have imported the wrong fix.**
+*"Write less ambiguous sentences"* is unfalsifiable; their remedy is checkable and
+is now a `CLAUDE.md` rule — never state a mechanism in the other side's code
+without citing where you read it. Graduated with its mirror as §5.ax, because the
+excuse cost a second lap: **an apology is the one assertion nobody audits.**
+
+Their own §E1 was worse than we reported: P4's rows were literal strings in the
+generator, and `exit_codes()` scanned integer literals inside `main()`, which
+returns `rc` from `cyanrip_run()` — it reported `1` and missed even `0`.
+
+### Two more defects, found because of that round
+
+5. **"I could not read it" reported as "you altered it."** Their new
+   `--verify-log` code 5 means *unreadable, no verdict reached*, and every
+   non-zero code fell through to the tamper wording. Same defect as #2 from the
+   other side of the seam: there we could not read the file, here they could not.
+6. **A test that lied about its currency for nine rounds.**
+   `test_provider_contract_agreement.py` claimed to re-derive from the newest
+   provider contract and read a hard-coded round 4. So one half of the seam was
+   diffed against round 11/12 while the other was diffed against a document eight
+   rounds older — and the file said the opposite in its own first paragraph, which
+   is why nobody looked. Even repointed it would have read **15 of 25** P3 rows,
+   because its row regex matched `*.c` and ten of the new rows are `genopt.h`.
+
+### And one on our own published half
+
+`_FORK_ONLY_RULES` — the single hand-typed field inside our *generated* consumer
+contract — told the fork *"9 lines exist only in the fork"* when it was 13,
+missing exactly the four rows we had just started preferring over the FFmpeg block
+their P3 disclaims. They could have reworded them believing nothing consumed them.
+The converse check is now derived from artifacts (does a rule match a committed
+fork log and no committed stock log?) and found **eight further** candidates —
+none declared unilaterally, because six stock logs is a thin sample and calling a
+line theirs when upstream also prints it is the same error mirrored. Asked back in
+lap 4 §C1.
+
+**0.6.22 was prepared, gated and superseded before publication** — no tag, no
+artifact — so this shipped as 0.6.23 and the changelog carries one section rather
+than two.
+
+### Graduated
+
+* **A gate's population is part of the gate.** Three of the four defects above lived
+  inside a green check whose *population* excluded them — a fixture from the same
+  round, a reference corpus without the rows, a test of the composer and not the
+  spawn. Recorded in `docs/testing.md`; the question to ask is not *"is this checked"*
+  but *"could the thing I fear be in what this check looked at."*
+* **Two facts in one slot rot the one nobody re-reads.** `NEXT_PIN_UNDER_REVIEW` was
+  a durable capability record *and* a per-round transient; five rounds at a round-7
+  value, so the build-under-review explanation went silent. Split, and the transient
+  half is now derived from the newest inbound round file.
+* **A capability with no caller is not a capability.** `emit_envelope.split()` existed
+  for rounds, was reachable from no CLI, and parsed a hash it never compared.
+
 ## 2026-08-21 (v0.6.20 + v0.6.21) — the enforcement audit, and two of my own claims retracted
 
 Two releases. **v0.6.20** was the cancel-path work already prepared (absent-vs-
@@ -3554,4 +3691,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.21.*
+*Last updated for Platterpus v0.6.23.*

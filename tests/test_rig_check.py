@@ -93,6 +93,104 @@ class TestReferenceArgv:
         assert "--consumer" not in unknown
 
 
+def _stub_ripper(tmp_path: Path) -> Path:
+    """A fake `cyanrip` that writes a real diagnostics record of its own argv.
+
+    A stub *binary* rather than a patched `subprocess.run`, so the assertion
+    covers the actual spawn — the flag, the argument order, and the JSON read
+    back off disk. Patching the call would leave exactly the layer this test
+    exists to check untested.
+    """
+    import sys
+
+    # argv[2] is the record path, because the probe composes
+    # `[binary, DIAGNOSTICS_FLAG, record, *rip_argv]`. The record is written from
+    # `sys.argv` so it reports what ARRIVED rather than a reconstruction — which
+    # is precisely the property the real probe relies on cyanrip having, and the
+    # reason the check can distinguish a transport problem from a composition one.
+    source = f"""#!{sys.executable}
+import json
+import sys
+
+with open(sys.argv[2], "w") as handle:
+    json.dump({{"invocation": " ".join(sys.argv)}}, handle)
+"""
+    stub = tmp_path / "cyanrip-stub"
+    stub.write_text(source, encoding="utf-8")
+    stub.chmod(0o755)
+    return stub
+
+
+class TestTheArgvProbeSpawn:
+    """The spawn itself, which nothing covered until 2026-08-21.
+
+    `_compose_reference_argv` was tested; the function that *runs* it was not. A
+    revert-proof found it: changing the spawned `-j` to `-J` left this whole file
+    green. cyanrip would have rejected the flag, the probe would have failed, and
+    the first anyone would know is a red row in a hardware session.
+    """
+
+    def test_the_probe_spawns_the_diagnostics_flag_from_the_shared_constant(
+        self, tmp_path: Path
+    ) -> None:
+        """The flag reaches the binary, and it is the one the contract publishes.
+
+        Compared against `rig_check.DIAGNOSTICS_FLAG` rather than the literal
+        `-j`, because the generated consumer contract derives from that same
+        constant — so this asserts the two surfaces cannot disagree about what we
+        send, which is the property neither module's own tests can express.
+        """
+        stub = _stub_ripper(tmp_path)
+        out = tmp_path / "out"
+        out.mkdir()
+        lines: list[str] = []
+        manifest = rig_check.Manifest(out, sink=lines.append)
+        rig_check.check_argv_reaches_the_binary(
+            manifest, str(stub), "platterpus-fork-gddf7ac3"
+        )
+        record = out / "argv-probe.json"
+        assert record.is_file(), (
+            f"the stub wrote no record, so the spawn never happened as composed. "
+            f"rows: {lines}"
+        )
+        import json
+
+        invocation = json.loads(record.read_text(encoding="utf-8"))["invocation"]
+        assert rig_check.DIAGNOSTICS_FLAG in invocation.split(), (
+            f"the probe did not spawn {rig_check.DIAGNOSTICS_FLAG!r}; the binary "
+            f"received: {invocation}"
+        )
+        # Non-triviality: the flag alone proves nothing if the rip argv it is
+        # supposed to carry never arrived.
+        for flag in ("-N", "-Z", "-l", "-s"):
+            assert flag in invocation.split(), (
+                f"{flag} did not reach the binary, so this record cannot settle "
+                f"anything about argv transport: {invocation}"
+            )
+        assert not manifest.failed, f"the probe failed against a clean stub: {lines}"
+
+    def test_a_binary_that_writes_no_record_fails_rather_than_passing(
+        self, tmp_path: Path
+    ) -> None:
+        """The other half: prove the check can fail.
+
+        A probe that reports OK when the record is absent would grade every
+        future transport defect as clean — and there is no disc involved, so this
+        is exactly the kind of check that gets trusted.
+        """
+        silent = tmp_path / "silent"
+        silent.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        silent.chmod(0o755)
+        out = tmp_path / "out"
+        out.mkdir()
+        lines: list[str] = []
+        manifest = rig_check.Manifest(out, sink=lines.append)
+        rig_check.check_argv_reaches_the_binary(manifest, str(silent), "")
+        assert manifest.failed, (
+            f"a binary that wrote no diagnostics record was graded as passing: {lines}"
+        )
+
+
 class TestRunRigCheck:
     def test_missing_album_dir_is_skip_not_ok(self, tmp_path: Path) -> None:
         """Without an album folder the log checks must say **SKIP**, not OK.
@@ -375,6 +473,37 @@ class TestShippedScripts:
         )
 
     @pytest.mark.parametrize("script", SCRIPTS, ids=lambda p: p.name)
+    def test_every_shipped_answer_dialog_action_is_one_the_runner_accepts(
+        self, script: Path
+    ) -> None:
+        """The parser cannot catch this, and the run that does costs a disc.
+
+        `answer-dialog` validates its first argument at *execution* time, so
+        `answer-dialog maybe 60 …` parses perfectly and dies an hour into a
+        hardware session with the drive held. Arity is all the parser knows.
+
+        Checked against the REAL `answer_dialog_action_error`, imported rather
+        than restated — a second copy of the accepted vocabulary is a second
+        thing to drift, and it would drift in the direction of being more
+        permissive than the runner, which is the direction that lets a broken
+        script ship. Same reasoning as the `cyanrip` sanitiser above.
+        """
+        from platterpus.uiscript.runner import answer_dialog_action_error
+        from platterpus.uiscript.script import parse
+
+        steps = [
+            s
+            for s in parse(script.read_text(encoding="utf-8"))
+            if s.verb == "answer-dialog" and s.args
+        ]
+        bad = [
+            f"line {s.line_no}: {s.source!r} -> {reason}"
+            for s in steps
+            if (reason := answer_dialog_action_error(s.args[0])) is not None
+        ]
+        assert not bad, f"{script.name} would fail at run time:\n" + "\n".join(bad)
+
+    @pytest.mark.parametrize("script", SCRIPTS, ids=lambda p: p.name)
     def test_the_foreign_refusal_allowance_is_never_larger_than_reality(
         self, script: Path
     ) -> None:
@@ -401,6 +530,29 @@ class TestShippedScripts:
             "refused. If the fork fixed a line, lower the number; the allowance "
             "is a record of a known state, not a budget to spend."
         )
+
+
+def test_at_least_one_shipped_script_answers_a_dialog() -> None:
+    """The floor for the check above, which is otherwise satisfied by nothing.
+
+    A sweep over `answer-dialog` steps passes trivially when no script contains
+    one, and it would keep passing after the verb was renamed out from under it.
+    This is the "can this check be satisfied by finding nothing?" question
+    answered with a number.
+    """
+    from platterpus.uiscript.script import parse
+
+    found = [
+        (script.name, step.args[0])
+        for script in TestShippedScripts.SCRIPTS
+        for step in parse(script.read_text(encoding="utf-8"))
+        if step.verb == "answer-dialog" and step.args
+    ]
+    assert found, (
+        "no shipped script contains an `answer-dialog` step, so the check above "
+        "examined nothing. Either a script lost its dialog answer or the verb "
+        "was renamed — do not delete this floor, find out which."
+    )
 
 
 class TestAlbumDiscovery:

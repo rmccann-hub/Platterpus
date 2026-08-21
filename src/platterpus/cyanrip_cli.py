@@ -195,6 +195,47 @@ VERSION_BANNER_SNIPPET: Final[str] = "\n".join(
 VERIFY_LOG_FLAG: Final[str] = "--verify-log"
 
 
+#: Exit codes from ``--verify-log`` that mean **no verdict was reached** — so they must
+#: never become a claim about the log.
+#:
+#: **Why this exists at all.** Until handshake round 12 cyanrip had exactly one non-zero
+#: exit code, ``1``, for everything. Round 12 (their commit ``09123c9``, *"give every
+#: `--verify-log` verdict its own exit code"*) made this one surface discriminate, and
+#: their P4 states the numbers are **wire format** rather than an implementation detail:
+#:
+#:   ===  ==========================  =======================================
+#:   0    ``CRIP_LOG_EXIT_VALID``     footer present and matching
+#:   1    *(generic failure)*         carries no class
+#:   2    ``CRIP_LOG_EXIT_MISMATCH``  footer present, does not match: modified
+#:   3    ``..._NO_CHECKSUM``         no footer: incomplete, NOT a tamper claim
+#:   4    ``..._TRAILING_DATA``       footer present, content after it: modified
+#:   5    ``..._IO_ERROR``            unreadable: **no verdict was reached**
+#:   ===  ==========================  =======================================
+#:
+#: ``5`` is the one that needed a name here. Every other non-zero value is a statement
+#: *about the log*; ``5`` is a statement that the ripper never got to look at it, which
+#: is the same tri-state distinction :mod:`platterpus.adapters.ripper_log_verify`
+#: already draws for a log **we** cannot read. Without this, that adapter reached its
+#: own final branch and reported *"the file was altered after the ripper signed it and
+#: must not be treated as archival evidence"* — the most alarming explanation available,
+#: from a position of having been told explicitly that nothing was determined. That is
+#: fail-LOUD, not fail-closed, and it is the defect this project keeps re-finding one
+#: branch at a time.
+#:
+#: **A set rather than a bare ``5``** so a future round adding a second "could not look"
+#: code lands in one place. `tests/test_provider_contract_agreement.py` derives the same
+#: set from their published P4 table and fails if the two disagree — the document and
+#: the code, never one checked against itself.
+#:
+#: **RANGE.** These values exist only in builds from round 12 onward; earlier builds,
+#: fork and stock alike, answer ``--verify-log`` with ``0`` or ``1`` only. So this set is
+#: inert on every build named in
+#: :data:`platterpus.deps.fork_source.BUILD_TAGS_ACCEPTING_VERIFY_LOG` today, and
+#: correct the moment a round-12-or-later pin joins it. Stated as a range rather than a
+#: snapshot, per the standing rule about contract claims.
+VERIFY_LOG_EXIT_NO_VERDICT: Final[frozenset[int]] = frozenset({5})
+
+
 # --- The -a / -t metadata blob syntax ----------------------------------------
 #
 # The second fact both layers need, added round 7 lap 31. It lives here for the

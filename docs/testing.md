@@ -1856,6 +1856,99 @@ tests in `tests/test_harness_fidelity.py` — three on the helper and one AST ch
 that `pytest_sessionfinish` actually *calls* it, because the first three pass
 whether or not anything does.
 
+### §5.ax — The apology nobody audited: a generous cause produces the wrong fix
+
+*2026-08-21, cyanrip round 12. A retraction of a retraction, and the second one
+was mine.*
+
+The fork opened round 12 with a `HANDSHAKE-BREAKING` notice stating that our
+`SUPPORTED_SCHEMAS` allowlist would reject their new diagnostics-record schema.
+It does not — that constant is a `frozenset[int]` over their *release manifest*,
+nothing here reads a diagnostics schema string, and a rip never sends `-j` at all.
+They promoted a question to `BLOCKING` on it.
+
+In reporting the correction I offered to **share the blame**: our own round-11 lap
+had written *"when we next widen `SUPPORTED_SCHEMAS`"* without naming the
+document, so — I wrote — a name collision plus one unqualified sentence was
+"sufficient explanation", and "half of it is ours."
+
+**They refused the excuse, and they were right.** They opened all three sentences
+and reported that every one sits in unambiguous release-manifest context. Checked
+here afterwards: mine (`verified/round-11-lap-04.md:95`) sits four lines below a
+paragraph about `meson_options`, per-row `build`, and *"a live refusal window on
+yours"*; theirs prints `supporting {1, 2}` four lines above the sentence in
+question. **Nothing was ambiguous.**
+
+Two lessons, and the second is the general one:
+
+1. **The rule that actually fixes it is theirs, and it is checkable:** *never state
+   a mechanism in the other side's code without citing where you read it.* Now a
+   `CLAUDE.md` rule. Compare it with the remedy the generous story implies —
+   "write less ambiguous sentences" — which is unfalsifiable, has no test, and
+   would have changed nothing. **A misattributed cause produces the wrong fix, and
+   a flattering misattribution produces a fix nobody can fail.**
+2. **An apology is an assertion, and it is the one kind nobody audits.** §5's
+   existing rule is *"did a correction get less scrutiny than a claim?"* — a
+   finding that arrives as *"you got this wrong"* is not pre-verified. This is its
+   mirror. A concession arrives as *"some of this is my fault"*, which reads as
+   fair-mindedness rather than as a factual claim about where a defect came from,
+   so the peer has no reason to argue and the author has no reason to check. It
+   went out at column 0 in a binding protocol file with **no** verification behind
+   it, in the same lap that corrected somebody else's unverified column-0 claim.
+
+The test to apply: **if this were a claim instead of an apology, would I have
+verified it?** If not, verify it or do not make it. Note what the honest version
+costs — nothing. The retraction in lap 4 is shorter than the excuse in lap 2.
+
+### §5.aw — A gate's POPULATION is part of the gate: four green checks that could not reach the bug
+
+*2026-08-21, v0.6.22. Four defects shipped or nearly shipped in one session, each
+one living inside a check that was **green, real, and looking somewhere else**.
+This is not the "no test existed" failure — every one of these had a test.*
+
+The recurring question in `CLAUDE.md` is *"can this check be satisfied by finding
+nothing?"* This is its sibling and it is harder to see, because the check *does*
+find something — just never the thing you fear. **Ask not "is this checked" but
+"could the thing I fear be inside what this check looked at."**
+
+The four, with what each population excluded:
+
+| defect | the green check | what its population could not contain |
+|---|---|---|
+| a finished rip announced as *"never finished"* | two re-rip comparison tests | both construct the report **already finalised**, so the empty→full transition the race lived in does not exist in the fixture |
+| an unreadable log reported as **tampering** | a test asserting exactly that behaviour | it framed the choice as *gentle* vs *strong* wording and **never considered saying nothing**, so it pinned the defect as correct |
+| two ripper failures shown as a bare *"Rip failed"* | the fatal-inventory agreement test | its fixture was **generated from the same round as the inventory**, so the two agreed perfectly and neither could see the contract move 115 → 128 |
+| album loudness read from wording the ripper disclaims | a column-0 completeness sweep over `output_reference/` | **no log in that corpus contains the four rows**, so the sweep passed the whole time they were being dropped |
+
+Three distinct mechanisms, and they are worth naming separately because they are
+recognisable in advance:
+
+1. **A fixture that starts in the end state cannot see the transition.** Any test
+   whose subject is a *change* (empty→full, absent→present, in-progress→final) has
+   to construct the earlier state. This is §5.ap's *"what would still be false one
+   millisecond after I return True?"* arriving from the fixture side rather than
+   the assertion side.
+2. **A list checked against itself is consistent, not verified** — §5's oldest
+   lesson, and it recurred here in the exact shape round 5 warned about. The tell
+   is a fixture and a subject with a **common ancestor**: same round, same
+   generator, same commit. Derive the expected value from the *other side's*
+   artifact or from the source, never from a snapshot taken beside the thing under
+   test. Note the asymmetry that made this one visible: the **input** half of the
+   same seam (our argv vs their flag table) has had a real cross-artifact diff every
+   commit since the `-V` blocker; the output half had a mirror. One seam, two
+   halves, one of them checked properly.
+3. **A test can pin the defect.** The unreadable-log test asserted the wrong
+   behaviour with a confident docstring, so it would have defended the bug against
+   any future fix. When replacing such a test, **quote the old assertion in the new
+   one's docstring** — otherwise the next reader sees only the new belief and cannot
+   tell it was ever contested.
+
+And the corollary for the corpus itself: `output_reference/` grows by whatever real
+discs happen to get ripped, so it is a *sample*, not a specification. A sweep whose
+population is "the logs we happen to have" silently narrows every time the
+dependency emits something new. Where a handshake round commits an artifact, sweep
+**that** — it is the newest statement of what the dependency actually prints.
+
 ### §5.av — The same error, made twice in one hour, on the other side of the repo
 
 Immediately after the above, the same move was made again: `--status` reported
@@ -2118,4 +2211,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.21.*
+*Last updated for Platterpus v0.6.23.*
