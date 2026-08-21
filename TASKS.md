@@ -224,6 +224,19 @@ after measuring. This also corrects the script's own 2026-08-18 claim that the p
   script and `docs/rig-scripts/README.md`; it travels when the round opens. All eleven
   rounds are CLOSED as of this commit, so the release gate itself is clear.
 
+- [ ] **The 13 `QLabel(<non-literal>)` sites are outside the PlainText sweep.**
+  `tests/test_message_boxes_are_plaintext.py` covers `QMessageBox` (6 sites, all
+  pinned). These are not covered, and the reason is honest rather than principled:
+  most build their text from our own constants, so a blanket rule would need a long
+  allowlist, and an allowlist that fills up enforces nothing. Assess them
+  individually and pin the ones that carry external text:
+  `ui/dialogs/manual_install.py:70,75,76,77,92`, `ui/disc_info_panel.py:290`,
+  `ui/drive_setup_dialog.py:173,177,193`, `ui/help_dialogs.py:72`,
+  `ui/host_setup_dialog.py:140`, `ui/release_picker.py:67`,
+  `ui/settings_dialog.py:248`. **`release_picker.py:67` first** — a release picker
+  renders MusicBrainz artist/title directly, which is the exact case Critical rule
+  #12 names.
+
 - [ ] **A second round-12 ask, rides with the `-x` one: `--verify-log` should separate
   *absent* from *mismatched*, and the discriminator should be an exit code.** Target
   **NEXT-ROUND** per S-16 — it breaks nothing in any artifact under review, so under

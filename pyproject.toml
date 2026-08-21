@@ -135,6 +135,22 @@ extend-exclude = ["src/platterpus/adapters/accuraterip_offsets_data.py"]
 # E/W=pycodestyle, F=pyflakes, I=isort (import order), B=flake8-bugbear
 # (likely-bug patterns), UP=pyupgrade (modern 3.11+ syntax).
 select = ["E", "F", "W", "I", "B", "UP"]
+# `N` (pep8-naming) is MEASURED AND DELIBERATELY ABSENT — 2026-08-20, ruff 0.15.22,
+# 108 findings, of which 96 are `N802 invalid-function-name` and every one of those
+# is a Qt API name we do not get to choose: `isRunning`, `setValue`, `setRange`,
+# `setLabelText`, `setData`, `setCancelButton`, `rowCount`, `objectName`. A rule
+# that flags mandatory camelCase overrides in a Qt codebase would need a permanent
+# blanket ignore, and a lint whose main rule is ignored teaches nothing.
+#
+# The remaining 12 are style disagreements rather than defects: mostly
+# function-local constants spelled `CEILING` / `QUEUED_SLOTS`, which `N806` wants
+# lowercased and which are clearer as they are, plus `NS = SimpleNamespace` aliases.
+# One is arguably real — `N818`, `DecoderUnavailable` wanting an `Error` suffix —
+# and is not worth renaming a class over on its own.
+#
+# So Critical rule #10's naming convention stays reader-enforced here, on purpose
+# and with the numbers written down, rather than being called unenforced by
+# omission. `E` does include E722, so "never a bare `except:`" IS linted.
 ignore = [
     # Long lines are largely comments/strings; the formatter wraps code and
     # we don't want it splitting prose or URLs. Keep E501 off.
@@ -159,6 +175,25 @@ extend-immutable-calls = ["PySide6.QtCore.QModelIndex"]
 # `platterpus.ui.main_window_shared.MainWindowShared`, that declares the surface
 # the window exposes to its mixins (see that module + docs/architecture.md §3.6).
 [tool.mypy]
+# Extra error codes, both measured at ZERO violations before being switched on —
+# so these enforce rules the code already follows rather than opening a backlog.
+#
+#   * `ignore-without-code` makes Critical rule #10's "no bare `# type: ignore`"
+#     mechanical. It was 100% complied with and 0% enforced: all 21 real ignores
+#     in src/ already carry a code, and nothing stopped the 22nd from not.
+#   * `possibly-undefined` catches a name used on a path where it was never bound
+#     — the shape a refactor introduces silently.
+#
+# MEASURED AND DELIBERATELY NOT ENABLED (2026-08-20, mypy 2.3.1), with counts so
+# the next reader inherits a number rather than a guess:
+#   * disallow_any_explicit -> 47 errors. Rule #10 says "no bare Any", and some of
+#     these are documented injection seams (a fake response object can be any
+#     object with read()/__enter__). Needs per-site judgement, not a flag flip.
+#   * redundant-expr        -> 16 errors. Same family as `warn_unreachable`, which
+#     is off here with all five of its false positives enumerated; these need the
+#     same case-by-case read before the flag can gate CI.
+#   * truthy-bool           ->  3 errors.
+enable_error_code = ["ignore-without-code", "possibly-undefined"]
 python_version = "3.11"
 files = ["src/platterpus"]
 # NOT `ignore_missing_imports = true` globally, deliberately. That flag made the

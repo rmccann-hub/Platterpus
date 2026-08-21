@@ -320,7 +320,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: Warn if src changed without tests
+      - name: Require a test change, or a stated reason
         env:
           EVENT: ${{ github.event_name }}
           PUSH_BEFORE: ${{ github.event.before }}
@@ -339,11 +339,78 @@ jobs:
           changed=$(git diff --name-only "$base" "$head")
           src=$(printf '%s\n' "$changed" | grep -E '^src/platterpus/.*\.py$' || true)
           tst=$(printf '%s\n' "$changed" | grep -E '^tests/.*\.py$' || true)
-          if [ -n "$src" ] && [ -z "$tst" ]; then
-            echo "::warning::src/ changed but no tests/ change in this range. If this is a behaviour change, add or adjust a test (CLAUDE.md: every bug gets a regression test)."
-          else
+
+          if [ -z "$src" ] || [ -n "$tst" ]; then
             echo "src/tests change balance OK. ✅"
+            exit 0
           fi
+
+          # ---- src/ changed with no tests/ change. Two legitimate cases, then a refusal.
+          #
+          # THIS JOB USED TO ONLY WARN, and CLAUDE.md filed it under "Advisory:
+          # warns (never fails)". An enforcement audit (2026-08-20) measured the
+          # consequence: "every shipped bug gets a regression test in the same
+          # change" is the most-cited rule in the repo and had the WEAKEST
+          # enforcement of any examined — a GitHub annotation with no `exit 1` on
+          # any path. A warning in a log nobody reads is the same as nothing.
+          #
+          # It is gating now, and escapable BY SAYING WHY rather than by silence —
+          # the allowlist-with-a-written-reason pattern used throughout this repo.
+          # That is what keeps it from being a false-failure machine: an author who
+          # genuinely needs no test always has the door, and has to name the reason
+          # in the commit, where review can see it.
+
+          # CASE 1 — a release commit. The version bump touches `__init__.py` and
+          # nothing else in src/, and no test should change for it. Recognised
+          # precisely (only that file, and only the `__version__` line) rather than
+          # by exempting `__init__.py` wholesale, which would let real code through.
+          only_init=$(printf '%s\n' "$src" | grep -vE '^src/platterpus/__init__\.py$' || true)
+          if [ -z "$only_init" ]; then
+            if ! init_diff=$(git diff -U0 "$base" "$head" -- src/platterpus/__init__.py); then
+              echo "::error::could not diff __init__.py, so this gate cannot tell a version bump from a code change. Refusing rather than assuming."
+              exit 1
+            fi
+            # Every added/removed line must be the version assignment.
+            substantive=$(printf '%s\n' "$init_diff" \
+              | grep -E '^[+-]' \
+              | grep -vE '^(\+\+\+|---)' \
+              | grep -vE '^[+-]__version__' || true)
+            if [ -z "$substantive" ]; then
+              echo "Version-bump-only change to __init__.py — no test expected. ✅"
+              exit 0
+            fi
+          fi
+
+          # CASE 2 — the author said why. Read the range's commit messages.
+          if ! messages=$(git log --format=%B "$base..$head"); then
+            echo "::error::could not read the range's commit messages, so this gate cannot find a justification. Refusing rather than passing."
+            exit 1
+          fi
+          reason=$(printf '%s\n' "$messages" | grep -E '^\[no-test-needed\][[:space:]]*.+' || true)
+          if [ -n "$reason" ]; then
+            # Require a REASON, not just the marker — a bare tag is a blank cheque.
+            text=$(printf '%s\n' "$reason" | sed -E 's/^\[no-test-needed\][[:space:]]*//' | head -1)
+            if [ "${#text}" -lt 20 ]; then
+              echo "::error::[no-test-needed] was given with no real reason (${#text} chars: '${text}'). Say what makes a test unnecessary or impossible here."
+              exit 1
+            fi
+            echo "::warning::src/ changed with no test, justified: ${text}"
+            echo "Justified. ✅"
+            exit 0
+          fi
+
+          echo "::error::src/platterpus changed with NO change under tests/, and no justification given."
+          printf '%s\n' "$src" | sed 's/^/    /'
+          echo ""
+          echo "CLAUDE.md, institutional and non-negotiable: every shipped bug gets a"
+          echo "regression test in the same change, and it must fail before the fix."
+          echo "Prove it with:  python3 scripts/revert_probe.py <spec.json>"
+          echo ""
+          echo "If a test genuinely is not the right answer here, add a line to a"
+          echo "commit message in this range saying so, with the reason:"
+          echo ""
+          echo "    [no-test-needed] <why a test cannot or should not cover this>"
+          exit 1
 
   test:
     runs-on: ubuntu-22.04
@@ -362,9 +429,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Full history + tags: the doc-stamp guard
-          # (tests/test_doc_version_stamps.py) diffs against the latest release
-          # tag; on the default shallow clone it would silently skip.
+          # Full history + tags. TWO tests depend on this, and both SKIP rather
+          # than fail without it — so a shallow clone would silently remove them:
+          #   * tests/test_doc_version_stamps.py diffs docs against the latest
+          #     release tag;
+          #   * tests/test_check_script.py::test_the_coverage_floor_never_ratchets_down
+          #     reads the coverage floor AT that tag, because a committed
+          #     high-water constant is not a ratchet (whoever lowers the floor
+          #     edits it in the same commit); the tagged value is the only one
+          #     that cannot be rewritten.
           fetch-depth: 0
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0

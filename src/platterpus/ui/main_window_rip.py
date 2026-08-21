@@ -42,7 +42,7 @@ from pathlib import Path
 from time import monotonic as _monotonic
 from typing import TYPE_CHECKING, Final, TypeVar
 
-from PySide6.QtCore import QThread, QTimer
+from PySide6.QtCore import Qt, QThread, QTimer
 from PySide6.QtWidgets import QDialog, QMessageBox
 
 if TYPE_CHECKING:
@@ -682,6 +682,13 @@ class RipMixin(MainWindowShared):
 
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Icon.Warning)
+        # PlainText: `target.name` below is built from the album's ARTIST, TITLE and
+        # YEAR — MusicBrainz data, not ours. Critical rule #12 names this exact case:
+        # under Qt's default `AutoText` a title containing `<` is swallowed as an
+        # unknown tag and the user never learns text went missing. Here that would
+        # mean a destructive-overwrite prompt naming the wrong folder, or a truncated
+        # one, while the Replace button still does the full thing.
+        box.setTextFormat(Qt.TextFormat.PlainText)
         box.setWindowTitle("Album already ripped")
         box.setText(
             f"“{target.name}” already contains a rip:\n{target}\n\n"

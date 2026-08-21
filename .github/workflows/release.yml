@@ -102,9 +102,18 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          # The contexts that must be green. Named explicitly rather than "all of them":
-          # `tests-touched` is advisory BY DESIGN and must never block a release, and a
-          # future advisory job must not silently acquire veto power over one.
+          # The contexts that must be green. Named explicitly rather than "all of
+          # them", so a future ADVISORY job cannot silently acquire veto power over a
+          # release by existing.
+          #
+          # `tests-touched` is in this list as of 2026-08-20, and that is a reversal
+          # of the comment that used to sit here ("advisory BY DESIGN and must never
+          # block a release"). It became GATING in ci.yml after an enforcement audit
+          # measured that "every shipped bug gets a regression test in the same
+          # change" — the most-cited rule in the repo — was backed only by a GitHub
+          # annotation with no `exit 1` on any path. A check that gates a merge and
+          # not a release is a check with a hole exactly where the artifact users
+          # auto-update to comes out, so the two lists move together.
           #
           # Newline-delimited and read with `while read`, because a check name contains
           # a space ("test (py3.11)") and word-splitting would shred it. This is the
@@ -120,6 +129,7 @@ jobs:
           changelog
           media-guard
           pip-audit
+          tests-touched
           NAMES
           )
           echo "Commit under release: $SHA"
