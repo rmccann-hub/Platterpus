@@ -11,6 +11,63 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Security
+- **Both guards for Critical Rule #8 could pass by failing to look, and they
+  shared the same failure mode.** The rule — never commit audio or other
+  copyrighted media to this public repository — is enforced by
+  `.githooks/pre-commit` (which `CLAUDE.md` calls *"the canonical guard"*) and,
+  independently, by `ci.yml`'s `media-guard` job. Both wrote
+
+      offenders=$(<git command> | grep -iE "$pattern" || true)
+
+  where `|| true` is needed for grep's no-match exit — the normal case — but sits
+  **outside** the pipeline and so also absorbs a failure of the *git command
+  itself*. `set -o pipefail` cannot help: it is the pipeline's own status being
+  discarded. A fatal `git diff` therefore yielded an empty offender list, the hook
+  exited 0, and CI printed *"No audio/media files. ✅"* having inspected nothing —
+  **fail-open on the one rule here with legal consequences.** The CI branch has
+  the more reachable trigger: after a force-push, `$PUSH_BEFORE` can name an
+  object that no longer exists, at which point `git diff` is fatal rather than
+  empty.
+  Both now check the producer separately and **refuse** when they cannot enumerate
+  what they are guarding — the same tri-state rule applied everywhere else here:
+  *not determined* is not a pass. Reproduced and pinned by
+  `tests/test_media_guard_hook.py::test_the_hook_refuses_when_it_cannot_list_the_staged_files`,
+  which runs the real hook against a `git` shim that fails only for `diff`.
+  Restoring the old line makes that test fail while the ordinary
+  audio-blocked/text-allowed tests stay green — so the defect was precisely the
+  fail-open branch, not the guard in general.
+  The deeper problem was that the two guards were *supposed* to be independent
+  witnesses and shared one idiom, which is the whole point of a backstop. Their
+  extension patterns are now compared by a test rather than kept in step by a
+  comment saying "same pattern as".
+- **The Rule #8 hook had no test of any kind, and the one shell-hygiene test
+  could not see it.** `tests/test_security_no_shell.py` globbed `*.sh`, and
+  `.githooks/pre-commit` has no extension — so the most consequential shell script
+  in the repo was outside the only check that looks at shell scripts. The scan now
+  detects extensionless files by shebang, a test asserts *by name* that the hook is
+  in scope (a scan's blind spot is invisible by construction, so trusting the glob
+  is not enough), and the hook has behavioural tests: audio blocked, `.FLAC`
+  blocked, ordinary text allowed, and the log/CRC text artifacts the rule tells
+  people to commit still allowed — that last one because a guard that rejects the
+  right thing pushes people to `--no-verify`, which disables it entirely.
+  No audio is created by these tests; the fixtures are text files with audio
+  extensions, written under `tmp_path` and never added to this repository.
+- **`test_shell_scripts_enable_errexit` claimed more than it checked.** Its
+  docstring called itself *"a regression lock on the 'all scripts use `set -euo
+  pipefail`' property"*; the assertion was `"set -e" not in text` — a substring, so
+  a **comment** mentioning `set -e` satisfied it, and `pipefail` was never checked
+  at all. That is the label-instead-of-subject shape: it answers *"does the file
+  mention errexit"*, not *"does the file enable it"*. Now anchored to a real
+  non-comment `set -` statement, with `pipefail` checked separately against a
+  two-entry ratcheted allowlist carrying the technical reason per entry — both are
+  `producer | head -1`, where `head` exiting early gives the producer SIGPIPE, so
+  under `pipefail` + `set -e` a healthy command would abort the script. The
+  anchoring is pinned by its own test against constructed input rather than by a
+  revert, because every script in the tree genuinely enables errexit today: the
+  weakness only bites the first time somebody writes about `set -e` without
+  setting it, which is the invisible kind of decay.
+
 ### Added
 - **`scripts/check.py` — one command that runs the CI gates and reports each
   one's *true* exit status.** The gates were never the problem; *reading* their
