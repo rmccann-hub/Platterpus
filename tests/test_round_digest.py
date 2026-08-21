@@ -245,6 +245,10 @@ def test_our_published_digests_still_reproduce() -> None:
         # lap 3. Added because the sweep below caught it missing on the very first
         # lap filed after the sweep existed — which is the floor doing its job.
         (11, 4): ("663c687da69fb8e2", 3),
+        # Round 12 lap 2's header declares this as "round 12 as held before this
+        # lap" — one lap, theirs. Under §5a's writer rule that is the correct
+        # figure: a digest over exact bytes cannot include the file carrying it.
+        (12, 2): ("a7de7efe1d75c406", 1),
     }
     for lap, expected in published.items():
         assert _as_declared_in(lap) == expected, (

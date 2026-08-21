@@ -259,11 +259,20 @@ def verify_rip_log(
         # reasoning lives in the comment above, where it belongs; the test asserts
         # the accusatory wording is absent *entirely*, which a disclaimer
         # mentioning it would have defeated.
+        # No "see the log" clause, and NOT because of a test.
+        # `tests/test_failure_surfaces.py` requires any message pointing at "the
+        # log" to name it, via `platterpus.ui.failure_text.LOG_POINTER` — and it
+        # is right, but the fix it names cannot apply here: that is a UI module,
+        # this is an adapter used from workers, and importing the one into the
+        # other inverts the layering. A `LogVerification.detail` is DATA; the
+        # multi-line pointer belongs to whichever surface renders it.
+        #
+        # So the errno goes to the log (see `_read_log_text`), the fact goes here,
+        # and the pointer stays the renderer's job.
         return _not_determined(
             f"{path.name} could not be read, so there is no verdict about it: the "
             f"ripper exited {run.exit_code}, and we cannot say whether its "
-            f"checksum line is present, absent or disagreeing with the log body. "
-            f"See the log for the read error itself",
+            f"checksum line is present, absent or disagreeing with the log body",
             str(path),
             run,
         )
