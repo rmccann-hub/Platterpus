@@ -48,6 +48,23 @@ INFO: Final[str] = "INFO"
 #: Bound on any single probe. A seam check must not become the thing that hangs.
 PROBE_TIMEOUT_S: Final[float] = 120.0
 
+#: cyanrip's diagnostics-record flag, which this module is the **only** caller of.
+#:
+#: Named rather than inlined so `scripts/emit_dependency_contract.py` can *derive*
+#: it. Our published half of the seam has a section headed "Flags we pass you",
+#: generated from the rip argv builder plus the version and `--verify-log` probes —
+#: and this flag was outside that population, so the contract we handed the fork
+#: listed 18 flags and omitted one we really send. Found 2026-08-21, while checking
+#: a round-12 claim that turned on which document a schema number belonged to;
+#: nothing in the fork's contract describes the `-j` record either, so the surface
+#: was undocumented from both ends.
+#:
+#: That generator's own comment says *"The rip is not the only thing we run. Every
+#: invocation we make is part of the argv surface"* — this is the fourth invocation
+#: shape, and the third time that exact blind spot has been recorded there. A rule
+#: stated one screen above the population it does not cover is not enforcement.
+DIAGNOSTICS_FLAG: Final[str] = "-j"
+
 
 @dataclass
 class Result:
@@ -223,7 +240,7 @@ def check_argv_reaches_the_binary(
         )
         return
 
-    full = [binary, "-j", str(record), *argv]
+    full = [binary, DIAGNOSTICS_FLAG, str(record), *argv]
     try:
         proc = subprocess.run(  # noqa: S603 — our own binary, no shell
             full,
