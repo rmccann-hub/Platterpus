@@ -13,7 +13,37 @@ set -euo pipefail
 pattern='\.(flac|wav|mp3|m4a|aac|ogg|oga|opus|wv|ape|wma|aiff|aif|alac|dsf|dff)$'
 
 # Files staged for addition/copy/modify/rename in this commit.
-offenders=$(git diff --cached --name-only --diff-filter=ACMR | grep -iE "$pattern" || true)
+#
+# THE PRODUCER IS CHECKED SEPARATELY FROM grep, and that separation is the whole
+# point. The obvious spelling —
+#
+#     offenders=$(git diff --cached ... | grep -iE "$pattern" || true)
+#
+# — needs the `|| true` because grep exits 1 when it matches nothing, which is
+# the normal case. But `|| true` sits outside the pipeline, so it also absorbs a
+# failure of `git diff` ITSELF, and `set -o pipefail` cannot help: the whole
+# pipeline's non-zero status is what gets swallowed. A `git diff` that goes fatal
+# therefore yields an empty `offenders`, this hook prints nothing, exits 0, and
+# the commit proceeds unchecked — a fail-OPEN guard on the one rule in this
+# project with legal consequences (public repo, Critical Rule #8).
+#
+# So: `git diff` must SUCCEED before its silence means anything, and only grep's
+# exit is absorbed. A guard that cannot enumerate what it is guarding must
+# REFUSE — the same tri-state rule applied everywhere else here: "not determined"
+# is not a pass.
+#
+# Found 2026-08-20 by an audit sweeping for `|| true`; the identical idiom was in
+# `ci.yml`'s media-guard, so the two guards meant to be INDEPENDENT witnesses
+# shared one failure mode. Both fixed together; `tests/test_media_guard_hook.py`
+# pins this branch by running the hook with a broken producer.
+if ! staged=$(git diff --cached --name-only --diff-filter=ACMR); then
+  echo "✖ COMMIT BLOCKED — could not list the staged files (git diff failed)." >&2
+  echo "  This hook enforces Critical Rule #8 and cannot vouch for a commit it" >&2
+  echo "  was unable to inspect, so it refuses rather than passing silently." >&2
+  echo "  Fix the repository state and retry." >&2
+  exit 1
+fi
+offenders=$(printf '%s\n' "$staged" | grep -iE "$pattern" || true)
 
 if [[ -n "$offenders" ]]; then
   echo "✖ COMMIT BLOCKED — audio/copyrighted media must never be committed (CLAUDE.md Critical Rule #8):" >&2

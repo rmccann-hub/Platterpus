@@ -1,5 +1,5 @@
 # =============================================================================
-# RIG TEST — the cancel path, the drive-open proof, and the dialogs
+# RIG TEST — the cancel path, the completed re-rip, and the PlainText fix
 # =============================================================================
 #
 #   How to run it:  ./platterpus-x86_64.AppImage --run-script rigcancelandoverread.txt
@@ -205,7 +205,20 @@ rescan
 pick-release 1 90
 expect-tracks 3+
 select-tracks 1-3
-album cancel me (ripper)
+# THE '<' IS DELIBERATE — IT IS WHAT EXERCISES THE 0.6.21 PLAINTEXT FIX.
+#
+# Three QMessageBox surfaces rendered external text as HTML until 0.6.21, so a
+# '<' in an album-derived string was parsed as an unknown tag and EVERYTHING
+# AFTER IT WAS SILENTLY DROPPED. One of the three is the "Album already ripped"
+# prompt section E answers, and it names this folder. On 0.6.20 and earlier that
+# prompt would have read "<...>" truncated with no indication anything was
+# missing; on 0.6.21 it must show the whole name.
+#
+# WHAT TO LOOK FOR: if you are watching the screen when section E starts, the
+# overwrite prompt must name the folder in full — the 'bracket' AFTER the
+# '<' is the part that used to vanish. In the bundle
+# afterwards, the written tag must contain a real '<'.
+album cancel me angle<bracket (ripper)
 rip
 log letting it read for 90s so the cancel lands mid-track, not at a boundary
 wait 90
@@ -249,7 +262,7 @@ select-tracks 1
 # escape did not survive and the substitution has to come back. The FOLDER name
 # is expected to differ — cyanrip sanitises ':' out of paths itself, which is a
 # separate concern and not a failure.
-album after cancel: (ripper)
+album after cancel: angle<bracket (ripper)
 rip
 # ANSWER THE CONFIRMATION, AND WAIT FOR IT RATHER THAN ASSUMING IT IS THERE.
 #

@@ -300,3 +300,126 @@ def test_a_hang_dumps_its_stack_instead_of_eating_the_ci_step(pytestconfig) -> N
         "faulthandler_exit_on_timeout is off, so the stack dump is followed by "
         "the rest of the step timing out anyway and the trace is buried."
     )
+
+
+# --------------------------------------------------------------------------
+# The harness must report its own coverage number, not leave it to inference.
+#
+# `docs/testing.md` §5.au: a passing gate and an absent gate have the same
+# signature — exit 0 and nothing printed. When the coverage table went missing
+# (pytest-cov prints it *after* session-finish, and conftest `os._exit`s there),
+# the absence was read as "the floor is never evaluated locally". That is false —
+# the floor is applied to `session.exitstatus` before our post-`yield`, and
+# `--cov-fail-under=100` really does exit 1 — but the false version reached
+# TASKS.md and a commit message first. These tests pin the fix that removes the
+# room for that inference.
+# --------------------------------------------------------------------------
+
+
+class _FakeCovPlugin:
+    """Stands in for pytest-cov's plugin, recording what it was asked to do."""
+
+    def __init__(self, *, explode: bool = False) -> None:
+        self.calls: list[object] = []
+        self._explode = explode
+
+    def pytest_terminal_summary(self, terminalreporter: object) -> None:
+        self.calls.append(terminalreporter)
+        if self._explode:
+            raise RuntimeError("the coverage plugin blew up while rendering")
+
+
+class _FakePluginManager:
+    def __init__(self, plugins: dict[str, object]) -> None:
+        self._plugins = plugins
+
+    def get_plugin(self, name: str) -> object | None:
+        return self._plugins.get(name)
+
+
+class _FakeSession:
+    def __init__(self, plugins: dict[str, object]) -> None:
+        class _Config:
+            pluginmanager = _FakePluginManager(plugins)
+
+        self.config = _Config()
+
+
+def test_the_coverage_report_is_rendered_before_the_hard_exit() -> None:
+    """The helper must actually call through to pytest-cov, with the reporter.
+
+    Asserting on the RECORDED CALL rather than on "it did not raise": a function
+    that silently returns also does not raise, and that is precisely the failure
+    mode here — an unprinted table is invisible, so a no-op passes any test that
+    only checks for absence of an exception.
+    """
+    import conftest
+
+    plugin = _FakeCovPlugin()
+    reporter = object()
+    conftest.print_coverage_report(_FakeSession({"_cov": plugin}), reporter)
+
+    assert plugin.calls == [reporter], (
+        "print_coverage_report did not hand the terminal reporter to pytest-cov's "
+        f"summary hook, so no coverage table is rendered. Recorded: {plugin.calls!r}"
+    )
+
+
+def test_no_coverage_plugin_is_not_an_error() -> None:
+    """A bare `pytest` run enables no coverage, and must not break on that.
+
+    `addopts` is `-q --strict-markers` — no `--cov` — so this is the ORDINARY
+    local invocation, not an edge case.
+    """
+    import conftest
+
+    conftest.print_coverage_report(_FakeSession({}), object())  # must not raise
+
+
+def test_a_reporting_failure_never_changes_the_verdict() -> None:
+    """A broken table must not turn a green run red.
+
+    Same rule as the test-summary printing beside it: by this point
+    `session.exitstatus` is final and carries the real verdict, including the
+    coverage gate. Trading that for a cosmetic failure would be the reverse of
+    every other rule in this file.
+    """
+    import conftest
+
+    plugin = _FakeCovPlugin(explode=True)
+    conftest.print_coverage_report(_FakeSession({"_cov": plugin}), object())
+    assert plugin.calls, "the exploding plugin was never even called"
+
+
+def test_session_finish_actually_calls_the_coverage_printer() -> None:
+    """The anti-vacuity guard: the three tests above pass if nothing calls it.
+
+    They exercise `print_coverage_report` directly, so they stay green whether or
+    not `pytest_sessionfinish` ever reaches it — the exact gap
+    `_names_passed_to`'s docstring describes at the top of this file. So this
+    asserts a **Call node**, not a mention: a name appearing in a comment, a
+    docstring, or an `if` guard is not an invocation.
+    """
+    source = (REPO_ROOT / "tests" / "conftest.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+
+    finish = next(
+        (
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name == "pytest_sessionfinish"
+        ),
+        None,
+    )
+    assert finish is not None, "conftest has no pytest_sessionfinish to check"
+
+    called = {
+        node.func.id
+        for node in ast.walk(finish)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+    assert "print_coverage_report" in called, (
+        "pytest_sessionfinish does not CALL print_coverage_report, so the "
+        "coverage table is still lost to the os._exit below it — and the three "
+        "tests above would not notice. Calls found: " + repr(sorted(called))
+    )

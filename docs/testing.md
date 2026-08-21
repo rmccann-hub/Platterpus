@@ -1790,6 +1790,116 @@ real values it already has (the blocking dialog's actual title) **and** say why
 the tempting shorter form is wrong, so the next reader does not simplify it back
 into the bug.
 
+### §5.au — A passing check and an absent check have the same signature, so "it is inert" needs a deliberate failure
+
+**2026-08-20.** A local suite run with `--cov=platterpus --cov-report=term
+--cov-fail-under=91` printed `4335 passed, 16 skipped … in 320.06s`, exited `0`,
+and showed **no coverage table at all** — no `TOTAL` row, no *"Required test
+coverage of 91%…"* line, zero matches for `cov|TOTAL|Required` across the log.
+
+There was a mechanism ready to explain it, and it was a good one: `conftest.py`
+ends the session with `os._exit(status)` to dodge a PySide teardown abort, so
+pytest's epilogue is cut short — therefore the floor is never evaluated and
+`--cov-fail-under` is silently inert locally. That accounts for every symptom.
+It was written into `TASKS.md`, cited in a commit message, and used to retract
+two earlier commit messages as overstatements.
+
+It was wrong. Two commands:
+
+```
+$ ls -la .coverage && python3 -m coverage report | tail -1
+TOTAL   18808   1416   5060   423   91.51%
+$ pytest tests/test_app.py --cov=platterpus --cov-fail-under=100; echo $?
+ERROR: Coverage failure: total of 20 is less than fail-under=100
+1
+```
+
+The data file is written, the number is 91.51% against a floor of 91, the gate
+is enforced through the exit code, and it announces its own failure. The
+`conftest.py` comment said all of this in those words the whole time: only
+pytest-cov's *printed* table is skipped, and only on a passing run, because
+`os._exit` fires before the plugin prints.
+
+**The transferable part.** The observation was *exit 0, nothing to look at*. That
+is what a **passing** gate produces. It is also what an **absent** gate produces.
+The signatures are identical, so the observation carried no information about
+which one it was, and every inference drawn from it was unfounded — however good
+the mechanism sounded. This is the *"can this check be satisfied by finding
+nothing?"* rule turned around and pointed at the reader: **I** was the check, and
+I read a pass as an absence.
+
+So: **to claim a check is inert, make it fail on purpose.** An impossible
+threshold, a deliberately broken input, a reverted fix — the same move this
+project already requires of a new test (*would this fail if I reverted the fix?*),
+owed equally to a claim *about* a check. A gate only demonstrates it is alive by
+refusing something.
+
+Two corollaries, both paid for here:
+
+- **Read the comment before theorising about the code.** The correct answer was
+  in a comment one screen above the `os._exit` call, written by whoever made the
+  trade-off deliberately. A mechanism invented from the outside will sometimes
+  beat the author's own note, and this was not one of those times.
+- **A retraction is a claim and gets the same scrutiny.** Retracting a true
+  statement for a false reason is not the safer error: it puts a wrong correction
+  into the permanent record, where it reads as the *more* careful of the two
+  statements and is that much harder to dislodge. Same shape as §5.ad's *"did a
+  correction get less scrutiny than a claim?"*, arriving from the inside.
+
+The one thing genuinely worth fixing is small and is diagnosability, not
+correctness: `pytest_sessionfinish` already reaches into the terminal reporter to
+print the test summary itself, precisely because losing it made a red run
+undiagnosable. The coverage table deserves the same treatment — a run that shows
+its own number is a run nobody has to infer one from, and inferring one cost two
+successive wrong records. Done: `conftest.print_coverage_report`, pinned by four
+tests in `tests/test_harness_fidelity.py` — three on the helper and one AST check
+that `pytest_sessionfinish` actually *calls* it, because the first three pass
+whether or not anything does.
+
+### §5.av — The same error, made twice in one hour, on the other side of the repo
+
+Immediately after the above, the same move was made again: `--status` reported
+`sent=NO` for handshake rounds 9 and 11 while `outbound/round09lap08platterpus.md`
+and `outbound/round11lap04platterpus.md` sat in the directory. Obvious
+conclusion — the 2026-08-13 separator-free filename convention was applied to the
+artifacts and never taught to the tool that reads them, so files are invisible to
+`glob("round-*.md")`. It was written up with a severity claim attached (*a
+compliance gate silently skipping two of our own artifacts*).
+
+Then the files were opened. Their first header line:
+
+```
+HANDSHAKE-ROUND: not-a-lap (transport envelope)
+```
+
+They are **transport envelopes** — containers carrying byte-identical lap files
+with per-part SHA-256s — and they say so in their own first paragraph. They
+declare `not-a-lap` in the header *and* carry a name outside the lap convention,
+so the header route and the name route exclude them **consistently**. The tool was
+right, the design was coherent, and the "defect" was a container correctly
+declining to be counted as its contents. The named compliance test does not even
+contain a `glob(`.
+
+**Two things generalise, and neither is "read more carefully".**
+
+- **A file the parser skips is not evidence of a parser bug.** Ask what the file
+  *claims to be* before asking why the code disagrees — deliberate exclusion and
+  failed inclusion look identical from outside, which is §5.au's signature problem
+  wearing different clothes. The rule already existed in `CLAUDE.md` (*"am I
+  answering from the artifact, or from my memory of the artifact? If a committed
+  file can settle the question, open it"*), and the cost of not following it was
+  paid twice in one session, on unrelated subsystems, within the hour.
+- **Do not brief a delegate with an unverified premise as settled.** Both
+  investigations were handed to subagents whose instructions said the defect was
+  *"CONFIRMED BY MEASUREMENT … you are mapping its blast radius, not re-finding
+  it."* That sentence does two kinds of damage: it propagates the error, and it
+  explicitly forbids the single check that would have caught it. A delegate given
+  a premise and told not to test it cannot function as an independent witness —
+  it becomes the shared-ancestor problem from the *"two implementations agreeing"*
+  rule, manufactured on purpose. Brief the **observation** (*exit 0 and no table*,
+  *two files the tool does not list*), never the diagnosis, and say plainly that
+  the premise is yours and unconfirmed.
+
 ### §5.ar — The crash handler was the crash: a modal dialog inside its own event loop
 
 **2026-08-19/20.** CI hung on all four Python legs, twice, and burned the whole
@@ -2008,4 +2118,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.20.*
+*Last updated for Platterpus v0.6.21.*
