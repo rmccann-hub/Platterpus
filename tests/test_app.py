@@ -8,6 +8,7 @@ crashes.
 
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 
@@ -986,7 +987,6 @@ def test_the_unattended_quit_waits_for_post_rip_work_before_quitting(qapp) -> No
         "quit with an evidence bundle still queued — the archive would have been "
         "cut off before its verification landed"
     )
-
     # 3. Bundle sealed but a post-rip check still alive — must still not quit.
     window._pending_evidence_bundle = None
     timer.timeout.emit()
@@ -1023,6 +1023,98 @@ def test_the_unattended_quit_waits_for_post_rip_work_before_quitting(qapp) -> No
     timer.timeout.disconnect()
     window.deleteLater()
     qapp.processEvents()  # runs the posted DeferredDelete, here, in this test
+
+
+def test_a_long_batch_does_not_spend_the_post_rip_grace_period(
+    qapp, monkeypatch, caplog
+) -> None:
+    """The grace clock starts when the BATCH ends, not when the timer is armed.
+
+    Measured on the full-acceptance hardware run, 2026-08-23. The budget's own
+    docstring says "after its batch ends"; the code armed it at process start.
+    For any batch longer than the budget the two differ by the whole overrun, and
+    a tick returns early while the batch runs — so nothing noticed until the
+    batch was over, at which point the deadline was long gone. The app quit
+    **3.0 s** into post-rip work, killing the cover-art fetch, the CTDB verify,
+    the FLAC verify and the SHA-256 digests, and left an archival
+    `.platterpus.json` with `cover_art: null` that still reported
+    `health_status: "No errors occurred"`.
+
+    Time is injected rather than slept, so this asserts the arithmetic instead of
+    racing it. Reverting the fix makes step 2 fail: with the deadline armed at
+    `t0 + budget`, a batch that ran past the budget quits on the very first tick
+    after it ends.
+    """
+    from platterpus import app as app_module
+    from platterpus.app import _arm_unattended_quit
+
+    clock: list[float] = [1_000.0]
+    monkeypatch.setattr(app_module.time, "monotonic", lambda: clock[0])
+
+    quits: list[int] = []
+    state = {"running": True}
+
+    class _Runner:
+        @property
+        def running(self) -> bool:
+            return bool(state["running"])
+
+    class _Console:
+        @property
+        def runner(self):
+            return _Runner()
+
+    class _App:
+        def quit(self) -> None:
+            quits.append(1)
+
+    from PySide6.QtWidgets import QWidget
+
+    window = QWidget()
+    window._pending_evidence_bundle = None
+    window._post_rip_work_settled = lambda: False  # post-rip work still going
+    window._post_rip_still_running = lambda: "post_rip, ctdb, flac_verify"
+
+    budget = 60.0
+    timer = _arm_unattended_quit(_App(), window, _Console(), budget_s=budget)
+
+    # 1. The batch runs for two hours — far past the budget. No quit: a tick
+    #    while the batch is live returns before any deadline is consulted.
+    clock[0] += 2 * 60 * 60
+    timer.timeout.emit()
+    assert not quits, "quit while the script batch was still running"
+
+    # 2. The batch ends. THIS is when the grace period starts. Before the fix the
+    #    deadline was already 7140 s in the past and this tick quit immediately —
+    #    on the rig, 3.0 s into a cover-art fetch.
+    state["running"] = False
+    timer.timeout.emit()
+    assert not quits, (
+        "quit on the first tick after a long batch — the batch's own runtime was "
+        "charged against the post-rip grace period, so post-rip work got none"
+    )
+
+    # 3. Part-way through the grace period: still waiting.
+    clock[0] += budget / 2
+    timer.timeout.emit()
+    assert not quits, "quit before the post-rip grace period was spent"
+
+    # 4. Grace exhausted: quit, and say how long we ACTUALLY waited. The old
+    #    message printed the constant, so a give-up 0.55 s in announced itself as
+    #    "after 900s" — the one line that explains missing results, misreporting.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="platterpus.app"):
+        clock[0] += budget
+        timer.timeout.emit()
+    assert quits, "never quit, even after the post-rip grace period was spent"
+    give_up = "\n".join(r.getMessage() for r in caplog.records)
+    assert "90.0s" in give_up, (
+        "the give-up line must report the ELAPSED wait (90.0s here), not the "
+        f"budget — got: {give_up!r}"
+    )
+    assert "post_rip, ctdb, flac_verify" in give_up, (
+        "the give-up line must name what was still running"
+    )
 
 
 # --- The fatal-error dialog must not stack on itself -------------------------
