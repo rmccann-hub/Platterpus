@@ -11,6 +11,29 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **An unattended `--run-script` run gave its post-rip work a grace period of
+  zero seconds, and the log said it had waited 900.** `UNATTENDED_QUIT_BUDGET_S`
+  documents itself as "how long an unattended run may keep the process alive
+  *after its batch ends*", but the deadline was armed when the timer was — at
+  process start. The two agree only for a batch shorter than the budget, and a
+  tick returns early while the batch is running, so nothing ever observed the
+  expiry until the batch was over. On the 2026-08-23 full-acceptance hardware
+  run (1h 49m) the deadline had passed **1h 34m** before the script finished, so
+  the first post-batch tick quit **3.0 s** into post-rip work that had just
+  started — killing the cover-art fetch, the CTDB verify, the FLAC verify and the
+  SHA-256 digests for the final rip. The archival `.platterpus.json` it left
+  behind carries `"cover_art": null` and a missing-addendum warning while still
+  reporting `health_status: "No errors occurred"`. The grace clock now starts on
+  the first tick that sees the batch finished, and the give-up line reports the
+  **elapsed** wait rather than the constant (it printed "after 900s" for a 0.55 s
+  wait — the one line that explains missing results, asserting the opposite of
+  what happened). Nothing bounded the batch itself before and nothing does now:
+  every runner step already carries its own ceiling, and the old arm-time
+  deadline sat behind the `running` early-return, so it never protected against a
+  wedged runner either. Regression test drives injected time through the real
+  helper and is revert-proved.
+
 ### Added
 - **cyanrip handshake round 13 opened — the endgame round, and its blocking ask is
   a defect the first full hardware acceptance pass found.**
