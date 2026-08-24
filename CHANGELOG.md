@@ -11,6 +11,74 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **`expect-status` is implemented, and a batch now says what cannot run before
+  it starts.** The verb sat in the table `implemented=False` with a written
+  reason — there is no single "status line" widget, so any implementation would
+  pick one surface and *silently* mean only that. The objection was about the
+  silence: it now reads `RipProgress.current_status()` (the label under the
+  Overall bar, and the same accessor the desktop notification reads, so the two
+  cannot disagree) and **names that surface** in its help text and in every
+  message it emits. Case-insensitive substring, and a failure quotes the line it
+  actually read — a status assertion reporting only "no match" makes the reader
+  re-run a two-hour rip to find out what it said.
+- **Pre-run preflight now names any step whose verb has no handler**, alongside
+  the `cyanrip` steps it already checked. The full-acceptance run discovered
+  `expect-status` was unimplemented at **step 179 of 288, 1h 49m in**, because the
+  handler lookup happens at dispatch — while the check that fixes it sat one
+  function wide doing the identical job for a different verb, and
+  `uses_unsafe`'s docstring already stated the principle: *"an unattended run
+  that dies two-thirds through is worse than one that never started."* Same shape
+  as `docs/testing.md` §5.o. It still does not filter or reorder the run; a bad
+  step never stops the batch, the notice just arrives in the first seconds.
+
+- **cyanrip handshake round 13 opened — the endgame round, and its blocking ask is
+  a defect the first full hardware acceptance pass found.**
+  `docs/handshake/outbound/round-13-lap-01.md`. The run: 2026-08-23, Bazzite +
+  BDR-209D, 98 steps, 1h 50m, four rips, `pass=94 fail=1 error=3`.
+  **A completed 14-track archival rip was silently overwritten.** Measured, one
+  command: our overwrite guard predicts `…full acceptance∶ angle<bracket…` where
+  cyanrip writes `…angle‹bracket…` (U+2039). We map `:`→`∶` correctly and leave
+  `<` alone, so the guard probed a directory that does not exist, found no audio,
+  and let a 2-track rip write over the finished one and its logfile. Downstream:
+  `flac --test` reported a mid-write file as corrupt, metaflac said
+  `NOT_A_FLAC_FILE`, and three warnings fell back to a folder scan.
+  Our own comment beside the table names the flaw — *"We reproduce the **two** the
+  user will actually hit"* — a hand-picked subset standing in for a dependency's
+  real behaviour. And the seam half: we **never send `-T`/`--sanitize`**, so every
+  rip inherits cyanrip's default mode, and their P1 documents that flag's four
+  modes while documenting **zero** of the substitutions (the glyphs appear 0 times
+  in their contract). **The on-disk path is a value crossing the seam that neither
+  contract describes**, which is what `docs/seam-rules.md` §4's table exists to
+  prevent.
+  Also carried, from the same run: post-rip verification kept running while the
+  next rip overwrote its files — the app logged *"evidence bundle abandoned: a
+  newer rip started"*, so the generation guard exists and one consumer of five
+  honoured it; `expect-status` is in our verb table with no handler, which is a
+  capability our generated `docs/script-language.md` publishes and which returns
+  *"not implemented yet"*; the ETA sanity guard emitted 9 warnings in 100 ms; and
+  `rig_session.sh`'s `git clone` step is the one unbounded step in the harness.
+  And the honest finding the maintainer asked for: **tracker acceptance is
+  unreachable for either project.** OPSnet's Logchecker and hey-bro-check-log
+  apply an accepted-ripper allow-list *before* grading, so a cyanrip log scores
+  zero regardless of rip quality — no work by either side changes it. Recorded so
+  nobody spends effort there; EAC-equivalent rigour in our own voice (KDD-24) is
+  the reachable goal.
+  What the run confirmed working, since a defect list is not a status report:
+  dynamic `-Z` plus our auto-fix re-read tracks 3 and 5 to consistency; 12/14
+  AccurateRip with the offset-variant pair being exactly the re-read pair; the tag
+  escape survived into argv with a real escaped colon; 0.6.23's tri-state
+  `--verify-log` wording appeared verbatim on a cancelled rip; and 0.6.22's
+  re-rip comparison race fix was confirmed on hardware for the first time —
+  *"All 2 track(s) are byte-for-byte identical to the previous rip."*
+
+### Changed
+- `docs/rig-scripts/fullacceptance.txt` asserts `expect-status Done` after the
+  full rip and `expect-status cancelled` after the cancel. The old
+  `expect-status Finished` was wrong on two counts: the verb had no handler, and
+  the status line reads `Done — all N tracks ripped cleanly, …` and has never
+  contained the word "Finished" — so it would have failed even implemented.
+  Assert against the artifact, not against a remembered wording.
 ### Fixed
 - **The EAC-compatible log contradicted itself on a deliberate partial rip.** A
   2-of-14 rip (two boxes ticked in the "Rip?" column) whose *both* tracks matched
@@ -96,48 +164,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   deadline sat behind the `running` early-return, so it never protected against a
   wedged runner either. Regression test drives injected time through the real
   helper and is revert-proved.
-
-### Added
-- **cyanrip handshake round 13 opened — the endgame round, and its blocking ask is
-  a defect the first full hardware acceptance pass found.**
-  `docs/handshake/outbound/round-13-lap-01.md`. The run: 2026-08-23, Bazzite +
-  BDR-209D, 98 steps, 1h 50m, four rips, `pass=94 fail=1 error=3`.
-  **A completed 14-track archival rip was silently overwritten.** Measured, one
-  command: our overwrite guard predicts `…full acceptance∶ angle<bracket…` where
-  cyanrip writes `…angle‹bracket…` (U+2039). We map `:`→`∶` correctly and leave
-  `<` alone, so the guard probed a directory that does not exist, found no audio,
-  and let a 2-track rip write over the finished one and its logfile. Downstream:
-  `flac --test` reported a mid-write file as corrupt, metaflac said
-  `NOT_A_FLAC_FILE`, and three warnings fell back to a folder scan.
-  Our own comment beside the table names the flaw — *"We reproduce the **two** the
-  user will actually hit"* — a hand-picked subset standing in for a dependency's
-  real behaviour. And the seam half: we **never send `-T`/`--sanitize`**, so every
-  rip inherits cyanrip's default mode, and their P1 documents that flag's four
-  modes while documenting **zero** of the substitutions (the glyphs appear 0 times
-  in their contract). **The on-disk path is a value crossing the seam that neither
-  contract describes**, which is what `docs/seam-rules.md` §4's table exists to
-  prevent.
-  Also carried, from the same run: post-rip verification kept running while the
-  next rip overwrote its files — the app logged *"evidence bundle abandoned: a
-  newer rip started"*, so the generation guard exists and one consumer of five
-  honoured it; `expect-status` is in our verb table with no handler, which is a
-  capability our generated `docs/script-language.md` publishes and which returns
-  *"not implemented yet"*; the ETA sanity guard emitted 9 warnings in 100 ms; and
-  `rig_session.sh`'s `git clone` step is the one unbounded step in the harness.
-  And the honest finding the maintainer asked for: **tracker acceptance is
-  unreachable for either project.** OPSnet's Logchecker and hey-bro-check-log
-  apply an accepted-ripper allow-list *before* grading, so a cyanrip log scores
-  zero regardless of rip quality — no work by either side changes it. Recorded so
-  nobody spends effort there; EAC-equivalent rigour in our own voice (KDD-24) is
-  the reachable goal.
-  What the run confirmed working, since a defect list is not a status report:
-  dynamic `-Z` plus our auto-fix re-read tracks 3 and 5 to consistency; 12/14
-  AccurateRip with the offset-variant pair being exactly the re-read pair; the tag
-  escape survived into argv with a real escaped colon; 0.6.23's tri-state
-  `--verify-log` wording appeared verbatim on a cancelled rip; and 0.6.22's
-  re-rip comparison race fix was confirmed on hardware for the first time —
-  *"All 2 track(s) are byte-for-byte identical to the previous rip."*
-
 ## [0.6.23] — 2026-08-21
 
 *Supersedes 0.6.22, which was prepared and gated but never published — no tag,

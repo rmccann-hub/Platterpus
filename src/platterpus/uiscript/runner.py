@@ -43,7 +43,7 @@ from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 from platterpus import __version__
 from platterpus.uiscript.report import Outcome, RunReport, StepRecord, render
 from platterpus.uiscript.script import Step, sanitise_cyanrip_args
-from platterpus.uiscript.verbs import OPENABLE
+from platterpus.uiscript.verbs import OPENABLE, VERBS
 
 log = logging.getLogger(__name__)
 
@@ -242,27 +242,47 @@ class _RigCheckJob:
 
 
 def _preflight(steps: list[Step]) -> list[str]:
-    """Every `cyanrip` step the sanitiser will refuse, found before step 1 runs.
+    """Every step that cannot run as written, found before step 1 runs.
 
-    Pure, and it reruns the **real** sanitiser rather than a summary of its
-    rules — a second description of what is refused would drift from the guard
-    the first time either changed, and the wrong copy is the one the operator
-    would be reading.
+    Two kinds, and both were learned the same way — from a long hardware batch
+    discovering at step N what the file already said at parse time.
 
-    Why it exists: a refusal is a run-time outcome, so on a 60-step hardware
-    batch the operator learns about it forty minutes in, next to a drive, with
-    the disc pass already spent. Every fact needed was in the file before the run
-    started. Found while validating the cyanrip fork's returned round-8 script:
-    three of their six ripper tests would have been refused, and nothing would
-    have said so until each one's turn came round.
+    **`cyanrip` steps the sanitiser will refuse.** Reruns the **real** sanitiser
+    rather than a summary of its rules — a second description of what is refused
+    would drift from the guard the first time either changed, and the wrong copy
+    is the one the operator would be reading. Found while validating the cyanrip
+    fork's returned round-8 script: three of their six ripper tests would have
+    been refused, and nothing would have said so until each one's turn came round.
 
-    Does **not** filter or reorder the run. The refused steps still execute and
-    still record their own failures in place; this only moves the *notice*
-    earlier.
+    **Verbs with no handler.** Added 2026-08-24. The verb table can mark a verb
+    unimplemented and the generated reference prints `NOT IMPLEMENTED`, but that
+    is only read by whoever reads it: the full-acceptance script used
+    `expect-status` and found out at **step 179 of 288, 1h 49m in**, because the
+    handler lookup happens at dispatch. The check that fixes it was already here,
+    one function wide, doing the identical job for a different verb — the same
+    shape as `docs/testing.md` §5.o (enforce a rule across the surface, not at the
+    place it was learned) and as the `-V` half-contract lesson, where the evidence
+    sat in a committed file for a full round. `uiscript.script.uses_unsafe` states
+    the principle outright: *"an unattended run that dies two-thirds through is
+    worse than one that never started."*
+
+    Does **not** filter or reorder the run. Those steps still execute and still
+    record their own failures in place; this only moves the *notice* earlier — the
+    file's contract is that a bad step never stops the batch.
     """
     problems: list[str] = []
     for step in steps:
-        if step.verb != "cyanrip" or not step.ok:
+        if not step.ok:
+            continue
+        verb = VERBS.get(step.verb)
+        if verb is not None and not verb.implemented:
+            problems.append(
+                f"L{step.line_no}: {step.source} — '{step.verb}' is in the verb "
+                "table with no handler, so this step will ERROR. See the "
+                "'NOT IMPLEMENTED' rows in docs/script-language.md"
+            )
+            continue
+        if step.verb != "cyanrip":
             continue
         refusal = sanitise_cyanrip_args(list(step.args))
         if refusal is not None:
@@ -1408,6 +1428,62 @@ class ScriptRunner(QObject):
             self._record(
                 step, Outcome.FAIL, f"expected {wanted} track rows, found {actual}"
             )
+
+    def _do_expect_status(self, step: Step) -> None:
+        """Assert the rip status line contains some text.
+
+        **The surface is named, not implied.** This verb spent its life
+        unimplemented on the argument that there is no single "status line" — the
+        rip pane has one, the disc panel has another — so any implementation would
+        pick one and silently mean only that. The objection is about *silence*, not
+        about ambiguity: the fix is to pick the surface and say which, here, in the
+        help text, and in every message this emits. It reads
+        `RipProgress.current_status()`, the label under the Overall bar, which is
+        also what the desktop notification reads — so the two cannot disagree about
+        what the status is.
+
+        The alternative was deleting the verb. It could not stay as it was: it is
+        published in the generated `docs/script-language.md`, so the full-acceptance
+        rig script used it and got an ERROR back (2026-08-23). A row kept as a
+        marker of a known gap is, from a script author's side, indistinguishable
+        from a capability.
+
+        **Matching is case-insensitive and substring**, like `expect-dialog`: the
+        line carries a `HH:MM:SS ·` stamp and a sentence assembled from several
+        sources, so an exact match would be unusable and a case-sensitive one would
+        fail on sentence capitalisation nobody can predict from a script.
+
+        The whole rest of the line is reported on a failure. A status assertion that
+        says only "no match" makes the reader re-run a two-hour rip to find out what
+        it *did* say.
+        """
+        wanted = " ".join(step.args).strip()
+        if not wanted:
+            self._record(
+                step, Outcome.ERROR, "expect-status needs some text to look for"
+            )
+            return
+        progress = getattr(self._window, "_rip_progress", None)
+        reader = getattr(progress, "current_status", None)
+        if not callable(reader):
+            self._record(
+                step,
+                Outcome.ERROR,
+                "no rip-progress status line on the window to read",
+            )
+            return
+        actual = str(reader() or "")
+        if wanted.casefold() in actual.casefold():
+            self._record(step, Outcome.PASS, f"status line contains {wanted!r}")
+            return
+        self._record(
+            step,
+            Outcome.FAIL,
+            f"the rip status line does not contain {wanted!r} — it reads {actual!r}"
+            if actual
+            else f"the rip status line does not contain {wanted!r} — it is empty "
+            "(no status has been set yet)",
+        )
 
     def _do_rip(self, step: Step) -> None:
         """Press Start.
