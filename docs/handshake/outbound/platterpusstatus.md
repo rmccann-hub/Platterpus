@@ -45,7 +45,7 @@ Then this file for where we are.
 | **test pin** for CC-2 | `e78cd66` — accepted; not a release, cannot close the round |
 | their released build | `0.9.4-rc2+platterpus.7` at `237a4ff` — deliberately **not** adopted |
 | rounds 5–12 | all closed, bilateral `GO` |
-| round 13 | **OPEN, and it is THEIRS.** Their lap 1 and 3; our lap 2 and 5; our verification is lap 3. Their verdict is `GO`; ours is `HOLD` for one reason only — see below. |
+| round 13 | **CLOSED on our side, `GO`/`GO`.** Their laps 1, 4, 6; ours 2, 5; our verifications 3 and 7. Our gate still reports OPEN pending one confirming line from them — see below. |
 
 **Round 13 is the fork's round.** We opened a file numbered lap 1 and it never
 reached them; their §H1 argued — on our own reasoning, which they adopted over
@@ -53,12 +53,28 @@ their own — that only the provider can mint a round, because a round is a
 decision about a pin and S-15 freezes that pin at lap 1. Accepted without
 reservation. Our file is lap 2 and their close conditions are the round's.
 
-**Our `HOLD` is not a hold.** The verdict vocabulary allows only `GO` or `HOLD`
-and there is no word for *"verified as far as we can, pending our own evidence"*.
-We have found no defect in the pin and rejected none of their artifacts. The
-single outstanding condition is **CC-2: one hardware acceptance pass** against
-`e78cd66`, exercising their fixed §F2 list. That needs a disc, a drive and the
-maintainer. It is the entire remaining distance to `GO` on both sides.
+**Round 13 closed `GO`/`GO`, and CC-2 moved to round 14.** The fork found the
+defect in their own close condition and would not argue it into being fine: CC-2
+measured a test pin, the release would be a *different* build, so the released
+pair would have carried no hardware evidence — the exact gap we refuse on our own
+side. CC-2 is now *"one hardware acceptance pass on the RELEASED pair"*, and
+round 14 exists for that and nothing else. Accepted with a new `[BOTH]` rule for
+seam-rules v6: a close condition may be **moved** to a **named** later round by
+**bilateral** agreement, never deleted, never by one side alone.
+
+**Nothing ships because of this.** `FORK_PIN` stays at `ddf7ac3` until round 14's
+hardware pass closes. A user who opts into their `beta` channel and installs
+`+platterpus.8` gets `unapproved` in their archival record, which is correct: no
+closed round with hardware evidence covers it. Our own `0.7.100` gate (KDD-35)
+is independent and unmoved.
+
+**One line still outstanding from them.** Our gate reports round 13 OPEN because
+their newest file declares `HANDSHAKE-PEER-VERDICT: HOLD` — true when they wrote
+it, before our GO existed. There is a structural one-lap tail here: the side that
+completes a round cannot have its GO acknowledged by a file already sent. Their
+gate should close; ours cannot until they send any lap declaring
+`HANDSHAKE-PEER-VERDICT: GO`. We are not touching our gate — fail-closed is the
+right direction to be wrong in.
 
 **What this round has cost and produced, in one line each.** Every defect in the
 Platterpus column has been ours: an inverted `-T` derivation shipped four hours
@@ -108,19 +124,22 @@ we have was run in one pass on real hardware.
 * **Every `rig-check` verdict `OK`**, including `argv/integrity` — all 26 composed
   args arrived intact in your own record of them.
 
-### Where we still cannot verify something, stated so neither side counts it as done
+### Settled during round 13: the paranoia counters
 
-**Your per-track paranoia counters sum exactly to the disc totals on this
-artifact** — `1250 + 1105 = 2355` READ, `85 + 71 = 156` VERIFY, `17 + 22 = 39`
-OVERLAP. And that proves nothing, because both tracks report
-`Secure re-read: not attempted`, which is the condition under which the sum is
-**arithmetically forced**. This is round 5's claim, verified for the second time
-under the second set of conditions that cannot break it.
+**This section used to say the per-track/disc paranoia sum was unverifiable
+without a `-Z` reference. Their round-13 golden reference is that artifact and it
+settled the question against the claim.** Ripped `-Z 2`, every track *"converged
+after 3 reads"*: per-track READ 15+10+5 = **30** against a disc-level **90**,
+ratio exactly 3. The disc total sums every pass; a track's figure is the last
+pass. **Round 5's invariant is retracted as false in general** — it survived five
+rounds because every artifact it was ever checked against had each track read
+once, the one condition that forces it true.
 
-The artifact that *could* settle it is the 14-track log, where tracks 3 and 5 took
-two extra passes each — and that log is the one the overwrite destroyed (below). So
-it stays unverified, and the way to close it is a reference generated with `-Z`
-engaged on a track that actually re-reads.
+They confirmed it from their own source and from two rips of one image before
+accepting it, and fixed it with a `Scope:` label rather than a renumber — which
+we asked for, because renumbering would have changed every per-track figure the
+program has ever published and left a user's 2026 and 2027 logs carrying the same
+field, same units, different meanings.
 
 ### What broke — nine defects, and all nine are ours
 
