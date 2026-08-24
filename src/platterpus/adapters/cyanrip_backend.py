@@ -309,8 +309,29 @@ class CyanripImpl(RipBackend):
             argv += ["-D", scheme_from_template(dir_part, year=year)]
         if file_part:
             argv += ["-F", scheme_from_template(file_part, year=year)]
-        if not cover_art:
-            argv.append("-G")  # disable cover-art embedding
+        # `-G` UNCONDITIONALLY. It used to be `if not cover_art`, which read as
+        # "let the ripper embed art when the user wants art" — but nothing else in
+        # the program agrees with that reading. `main_window_rip` calls
+        # `cover_art.plan_actions(ripper_fetches_art=False)` with the constant
+        # hardcoded, and the GUI does the whole job itself: fetch from the Cover
+        # Art Archive, embed via metaflac, save the folder copy, pull the back
+        # cover and booklet. So with art turned ON we were suppressing nothing and
+        # asking cyanrip to attempt a lookup whose result we would overwrite.
+        #
+        # It cannot succeed anyway, and the archival log carried the proof:
+        # `-N` means cyanrip never resolves a release of its own, so every rip
+        # with art enabled printed
+        #   "No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!"
+        # into the log a user is meant to keep as evidence, followed by
+        # "Album Art: none" (measured 2026-08-23). A scary sentence about a step
+        # that was never ours to run, in the artifact whose job is being
+        # trustworthy.
+        #
+        # The argument does not rest on that measurement, which is the point: we
+        # always do cover art ourselves, so the flag that says "do not do cover
+        # art" is always correct. `cover_art` stays in the signature — it is
+        # recorded in the rip plan the log prints — but it no longer gates this.
+        argv.append("-G")  # we always do cover art ourselves; never the ripper
         # Chokepoint assertion for Critical rule #5. `-N` disables cyanrip's own
         # MusicBrainz lookup, and it is not a preference: without it, a disc the
         # GUI has already resolved sends cyanrip to the network from inside the

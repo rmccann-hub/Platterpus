@@ -94,6 +94,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   contained the word "Finished" — so it would have failed even implemented.
   Assert against the artifact, not against a remembered wording.
 ### Fixed
+- **Every rip with cover art enabled printed a cover-art failure into its own
+  archival log.** `-G` (tell the ripper not to do cover art) was sent only when
+  cover art was turned *off*, on the reading "let the ripper embed art when the
+  user wants art" — which nothing else in the program agreed with:
+  `main_window_rip` calls `cover_art.plan_actions(ripper_fetches_art=False)` with
+  the constant hardcoded, and the GUI does the whole job itself (Cover Art Archive
+  fetch, metaflac embed, folder copy, back cover and booklet). So with art ON we
+  suppressed nothing and asked cyanrip to attempt a lookup whose result we would
+  have overwritten. It cannot succeed in any case — `-N` means it never resolves a
+  release of its own — so the log carried
+  `No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!`
+  and then `Album Art: none` (measured 2026-08-23), a scary sentence about a step
+  that was never the ripper's to run, in the artifact whose job is being
+  trustworthy. `-G` is now unconditional. The argument deliberately does not rest
+  on that measurement: we always do cover art ourselves, so the flag that says
+  "do not do cover art" is always correct.
 - **Post-rip checks kept reading a folder the next rip was overwriting, and one
   of them logged an ERROR saying the user's archival master was corrupt.** The
   rip-generation guard was read at *reporting* time and never at *working* time,
