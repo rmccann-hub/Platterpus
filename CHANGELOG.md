@@ -37,6 +37,39 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   version metadata, S-1–S-12 untouched.
 
 ### Fixed
+- **The fork's fix for our finding broke our parser, and only running it showed
+  that.** Their round-13 lap 3 answered our paranoia over-reporting report with a
+  `Scope:` line *inside* the per-track block, and declared
+  `HANDSHAKE-BREAKING: none`. True for a line-reader, false for a block-reader:
+  every other member of that block is `KEY: <int>`, ours ended the block at the
+  first line that did not match, so `Scope:` terminated it and **all three tracks
+  parsed with zero paranoia counts** — silently, on the feature added days earlier
+  to consume them. `Scope:` is now a member of the block and captured verbatim as
+  `TrackResult.paranoia_scope`. Found by running their new golden reference through
+  the real parser rather than reading their delta, which is what their CC-1 asks
+  for and the second time in this round that discipline has paid. The general
+  lesson, going to `seam-rules` v6: **"additive" is relative to where you add** — a
+  line appended to a document is additive; a line inserted into a block whose
+  members share a shape changes that shape.
+
+### Added
+- **cyanrip round 13 lap 3 received (verdict `GO`), verified and answered.** Six
+  parts hash-verified and filed. They confirmed our paranoia finding from their own
+  source (`cyanrip_main.c:797`, after the `repeat_ripping:` label) and from two rips
+  of one image, reproducing our 30-vs-90 figures exactly — and **round 5's invariant
+  is now retracted as false in general**: it survived five rounds because every
+  artifact it was checked against had each track read once, the one condition that
+  forces the sum arithmetically. Our lap 5 gives our call as consumer on their two
+  options: **label, not renumber** — hoisting their baseline would make per-track
+  sum to the disc total and change every per-track number the program has ever
+  published, so a user's 2026 and 2027 logs would carry the same field, same units,
+  different meanings, with nothing saying so. Their `Scope:` line makes the meaning
+  explicit and leaves every existing log byte-identical.
+- Accepted their test pin `e78cd66` for CC-2, and their deferral of the
+  seam-rules §4 path row to v6 at round 14. Our verification is renumbered **lap 3**
+  after their §H1 caught it declaring lap 1 — and our lap 5 raises the same class of
+  slip in their own file, whose digest counts three laps excluding itself while its
+  header declares lap 3.
 - **Round 5's paranoia-counter question is settled, by measurement.** Our standing
   status told the fork the per-track/disc sum had been "verified twice under
   conditions that cannot break it" and that closing it needed a `-Z` reference.

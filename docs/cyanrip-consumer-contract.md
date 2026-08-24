@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (59)
+## 1. Log lines we parse (60)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -89,6 +89,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `secure_rerip_no_match` | section header | `^\\s*Done;\\s+\\(no matches found\\b` |
 | `gaps_value` | indented | `^\\s+(?P<value>\\S.*?)\\s*$` |
 | `track_paranoia_counts_section` | indented | `^\\s+Paranoia status counts:\\s*$` |
+| `track_paranoia_scope` **(fork-only)** | indented | `^\\s+Scope:\\s+(?P<text>\\S.*?)\\s*$` |
 | `paranoia_count` | indented | `^\\s+(?P<key>[A-Z][A-Z_]*):\\s+(?P<count>\\d+)\\s*$` |
 | `loudness_integrated` | indented | `^\\s+I:\\s+(?P<v>-?\\d+(?:\\.\\d+)?)\\s+LUFS` |
 | `loudness_range` | indented | `^\\s+LRA:\\s+(?P<v>-?\\d+(?:\\.\\d+)?)\\s+LU` |
@@ -112,7 +113,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_secure_verdict` **(fork-only)** | indented | `^\\s+Secure re-?read(?:s)?:\\s+(?P<text>\\S.*?)\\s*$` |
 | `track_accurip_status` **(fork-only)** | indented | `^\\s+Accurip:\\s+(?P<status>\\S.*?)\\s*$` |
 
-Of these, **19 exist only in the fork** and match nothing in
+Of these, **20 exist only in the fork** and match nothing in
 stock cyanrip 0.9.3. They are the fork's specific obligation:
 
 - `invoked_as`
@@ -126,6 +127,7 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `rip_completed`
 - `read_stalls`
 - `secure_rerip_converged`
+- `track_paranoia_scope`
 - `track_pregap_length`
 - `track_pregap_source`
 - `track_peak_kind_header`

@@ -21,13 +21,13 @@ about *now*.
 
 ## Start here — the three things to read, in this order
 
-1. **`docs/handshake/outbound/round-13-lap-01.md`** — round 13 is **OPEN** and
-   this is our lap 1. It has one blocking ask. Everything else in it is context.
+1. **`docs/handshake/inbound/round-13-lap-03.md`** — the fork's newest lap.
+   Round 13 is **theirs**; ours is `outbound/round-13-lap-05.md`.
 2. **`docs/handshake-protocol.md`** — the shared wire format. The *same file* in
    both repositories; neither project owns it. Its §8 is a conformance table that
    is **run, not read**.
-3. **`docs/seam-rules.md`** — the seam rules, byte-identical in both repos, every
-   rule tagged `[BOTH]` / `[PLATTERPUS]` / `[CYANRIP]`. §4 tables every value that
+3. **`docs/seam-rules.md`** — **v5**, byte-identical in both repos, every rule
+   tagged `[BOTH]` / `[PLATTERPUS]` / `[CYANRIP]`. §4 tables every value that
    crosses the seam with its type.
 
 Then this file for where we are.
@@ -39,23 +39,35 @@ Then this file for where we are.
 | | |
 |---|---|
 | our released version | **0.6.23** (pre-release, as all `v0.*` are) |
-| ripper we **pin** | `ddf7ac3` |
+| ripper we **pin** | `ddf7ac3` — still the build on the rig |
 | ripper **installed on the rig** | `cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)` |
-| your newest released build | `0.9.4-rc2+platterpus.7` at `237a4ff` — **released, not adopted** |
+| pin **under review** | `9f8592e`, frozen by S-15 |
+| **test pin** for CC-2 | `e78cd66` — accepted; not a release, cannot close the round |
+| their released build | `0.9.4-rc2+platterpus.7` at `237a4ff` — deliberately **not** adopted |
 | rounds 5–12 | all closed, bilateral `GO` |
-| round 13 | **OPEN.** Opened by us; lap 1 sent. No release from either side while it is open. |
+| round 13 | **OPEN, and it is THEIRS.** Their lap 1 and 3; our lap 2 and 5; our verification is lap 3. Their verdict is `GO`; ours is `HOLD` for one reason only — see below. |
 
-**Every measurement below was taken against `ddf7ac3`.** Not `237a4ff`. Per S-15
-an agreed test pin does not move for the rest of a round, so we did not adopt your
-release mid-round; if you want round 13 conducted against `237a4ff` instead, say so
-in your lap 1 and we will switch once and stay there.
+**Round 13 is the fork's round.** We opened a file numbered lap 1 and it never
+reached them; their §H1 argued — on our own reasoning, which they adopted over
+their own — that only the provider can mint a round, because a round is a
+decision about a pin and S-15 freezes that pin at lap 1. Accepted without
+reservation. Our file is lap 2 and their close conditions are the round's.
 
-**One thing you can fix cheaply and it is not an ask, just a note:** the installed
-build stamps `Handshake: round 7 lap 39 closed, verdict GO` into every logfile it
-writes. We are at round 13. The field is doing its job — it records what the build
-knew when it was built — but a user reading their own archival log sees a round six
-behind the one their app is in. If the line is meant to be current it needs to move
-with the pin; if it is meant to be a build-time fact, ignore this.
+**Our `HOLD` is not a hold.** The verdict vocabulary allows only `GO` or `HOLD`
+and there is no word for *"verified as far as we can, pending our own evidence"*.
+We have found no defect in the pin and rejected none of their artifacts. The
+single outstanding condition is **CC-2: one hardware acceptance pass** against
+`e78cd66`, exercising their fixed §F2 list. That needs a disc, a drive and the
+maintainer. It is the entire remaining distance to `GO` on both sides.
+
+**What this round has cost and produced, in one line each.** Every defect in the
+Platterpus column has been ours: an inverted `-T` derivation shipped four hours
+before their correction arrived; two fields they built at our request that we
+never read; a parser that ended a block at the first unfamiliar line; and a lap
+number. Against that, their P7 answered an ask and two questions we had not
+thought to ask, and our paranoia finding turned out to be a real defect of theirs
+that had survived five rounds of checking because every artifact it was ever
+tested against shared the one condition that forced it true.
 
 ---
 

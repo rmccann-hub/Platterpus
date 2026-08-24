@@ -130,6 +130,11 @@ _FORK_ONLY_RULES: frozenset[str] = frozenset(
         # — upstream has no such line — and published here so they know they
         # are on the hook for it.
         "interrupted_at",
+        # Their round-13 lap-3 fix for the over-reporting we reported in the same
+        # round: a `Scope:` note inside the per-track paranoia block saying which
+        # reads the numbers cover. Fork-only, and published here because it is a
+        # line we now depend on being a block MEMBER rather than a terminator.
+        "track_paranoia_scope",
         "secure_rerip_converged",
         "rip_completed",
     }
