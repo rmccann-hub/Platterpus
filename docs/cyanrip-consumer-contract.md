@@ -24,7 +24,7 @@ Every row in this document is derived from the Platterpus source at the
 version named below, and describes what **that** app version parses and
 sends. It is not a claim about any other version of either side.
 
-- **Platterpus:** `0.6.23` — the build that
+- **Platterpus:** `0.6.24` — the build that
   generated this file. A row can only have changed with our code, so this
   version *is* the range on our half.
 - **Verified against ripper build:** `cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)` — the build a
@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (57)
+## 1. Log lines we parse (60)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -77,6 +77,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `accuraterip_total` | disc | `^Tracks ripped accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `accuraterip_partial_total` | disc | `^Tracks ripped partially accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `ripping_errors` | disc | `^Ripping errors:\\s+(?P<count>\\d+)` |
+| `interrupted_at` **(fork-only)** | disc | `^Interrupted at:\\s+(?P<where>\\S.*?)\\s*$` |
 | `rip_completed` **(fork-only)** | disc | `^Rip completed:\\s+(?P<verdict>yes\|no)(?:\\s+\\((?:(?P<reason>[^,)]{1,64}),\\s*)?(?P<done>\\d{1,4})\\s+of\\s+(?P<total>\\d{1,4})\\s+tracks?\\))?` |
 | `read_stalls` **(fork-only)** | disc | `^Read stalls:\\s+(?P<value>\\S.*?)\\s*$` |
 | `finished_at` | disc | `^Ripping finished at\\s+(?P<when>.+?)\\s*$` |
@@ -87,6 +88,8 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `secure_rerip_converged` **(fork-only)** | section header | `^\\s*Done;\\s+\\((?P<agreed>\\d{1,6})\\s+out of\\s+(?P<total>\\d{1,6})\\s+matches\\b` |
 | `secure_rerip_no_match` | section header | `^\\s*Done;\\s+\\(no matches found\\b` |
 | `gaps_value` | indented | `^\\s+(?P<value>\\S.*?)\\s*$` |
+| `track_paranoia_counts_section` | indented | `^\\s+Paranoia status counts:\\s*$` |
+| `track_paranoia_scope` **(fork-only)** | indented | `^\\s+Scope:\\s+(?P<text>\\S.*?)\\s*$` |
 | `paranoia_count` | indented | `^\\s+(?P<key>[A-Z][A-Z_]*):\\s+(?P<count>\\d+)\\s*$` |
 | `loudness_integrated` | indented | `^\\s+I:\\s+(?P<v>-?\\d+(?:\\.\\d+)?)\\s+LUFS` |
 | `loudness_range` | indented | `^\\s+LRA:\\s+(?P<v>-?\\d+(?:\\.\\d+)?)\\s+LU` |
@@ -110,7 +113,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_secure_verdict` **(fork-only)** | indented | `^\\s+Secure re-?read(?:s)?:\\s+(?P<text>\\S.*?)\\s*$` |
 | `track_accurip_status` **(fork-only)** | indented | `^\\s+Accurip:\\s+(?P<status>\\S.*?)\\s*$` |
 
-Of these, **18 exist only in the fork** and match nothing in
+Of these, **20 exist only in the fork** and match nothing in
 stock cyanrip 0.9.3. They are the fork's specific obligation:
 
 - `invoked_as`
@@ -120,9 +123,11 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `album_loudness_range`
 - `album_sample_peak_level`
 - `album_true_peak_level`
+- `interrupted_at`
 - `rip_completed`
 - `read_stalls`
 - `secure_rerip_converged`
+- `track_paranoia_scope`
 - `track_pregap_length`
 - `track_pregap_source`
 - `track_peak_kind_header`
@@ -183,7 +188,7 @@ dropped.
 | `^Checking .{1,200} for cdrom\\.\\.\\.\\s*$` | libcdio image-probe chatter; the path is ours and Invoked as: records it |
 | `^Stopping, ripping incomplete!\\s*$` | abort marker; Rip completed: carries the verdict and ripper_messages surfaces this sentence |
 
-## 3. Flags we pass you (19)
+## 3. Flags we pass you (20)
 
 Obtained by calling the real argv builder with a maximal parameter set, so
 this is what the adapter emits today rather than what it was documented to
@@ -191,7 +196,7 @@ emit. Per-flag semantics and the exact contract for each are in
 `docs/dependency-contracts.md`.
 
 ```
---verify-log --version -D -F -G -N -O -S -V -Z -a -c -d -j -l -o -r -s -t
+--verify-log --version -D -F -G -N -O -S -T -V -Z -a -c -d -j -l -o -r -s -t
 ```
 
 Two of these are load-bearing beyond their own behaviour:

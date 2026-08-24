@@ -148,3 +148,83 @@ def test_the_eta_sweep_flags_an_absurd_peak_and_reports_unreadable_files(
     assert "good.platterpus.json" in text and "0.17h" in text, (
         f"the sane report was not measured, so the sweep may flag indiscriminately:\n{text}"
     )
+
+
+def test_every_timeout_in_the_harness_escalates_to_sigkill() -> None:
+    """A `timeout` without `-k` is the hang it was written to prevent.
+
+    Plain `timeout N cmd` sends SIGTERM at the deadline and then waits — with no
+    further bound — for a process that may never take it. This harness drives an
+    optical drive, so a child can sit in an ioctl in uninterruptible sleep, which
+    is exactly the case `CLAUDE.md` names: *"bound the post-SIGKILL wait too."*
+
+    MEASURED, 2026-08-23: step 5b (`timeout 600 cyanrip -j … -l 1`) left a 0-byte
+    artifact, no `exit:` line and no `MANIFEST.txt`, because the session never got
+    past it — an unattended run whose whole purpose is that a failing step is data
+    produced no data at all for that step and everything after it.
+
+    A **sweep**, not a pin on the two that were wrong, so the next one added is
+    caught too (`docs/testing.md` §5.o). Asserts the population is non-empty first:
+    a regex that matches nothing would make this pass by finding nothing.
+
+    **What this does NOT catch, stated rather than implied:** a step added with no
+    `timeout` at all. Deleting the bound entirely makes this test pass — verified,
+    `scripts/revert_probe.py` with `expect: "unaffected"`. Requiring a timeout on
+    every command would be noise (most are instant local ones), so the gap is real
+    and deliberate; the reviewer's question for a new step that touches the drive
+    or the network is still "what bounds this?"
+    """
+    import re
+
+    # COMMENTS STRIPPED FIRST. Without this the sweep matched the prose in the
+    # comment that documents the very rule it enforces ("the timeout that exists
+    # to stop a hang IS the hang") and failed on it — a check tripped by its own
+    # explanation, the same shape as the handshake parser matching its own fenced
+    # examples. A shell comment runs to end of line, and this file has no `#`
+    # inside a string that could be eaten wrongly.
+    lines = [
+        ln.split("#", 1)[0] for ln in _SCRIPT.read_text(encoding="utf-8").splitlines()
+    ]
+    text = "\n".join(lines)
+    # Command position only: `timeout` starting a command, not a substring.
+    calls = re.findall(r"(?:^|\|\||&&|;|\s)(timeout\s+[^\n]*)", text, re.MULTILINE)
+    assert calls, (
+        "no `timeout` calls found in rig_session.sh — either the harness stopped "
+        "bounding its steps or this regex has rotted; both need a human"
+    )
+    naked = [c.strip() for c in calls if not re.match(r"timeout\s+-k\s+\d", c.strip())]
+    assert not naked, (
+        "these `timeout` calls send SIGTERM and then wait forever if it does not "
+        "land — add `-k <grace>` so the deadline is actually reachable:\n  "
+        + "\n  ".join(naked)
+    )
+
+
+def test_the_diagnostics_probe_allows_for_a_full_length_first_track() -> None:
+    """The 600 s bound sat inside the healthy range, so it would have killed a
+    working step and called it a finding.
+
+    Step 5b passes `-l 1`, which rips track 1 *in full*. The measured rate on this
+    rig is 0.5x: track 1 of the reference disc (3:13) took **405.74 s** elapsed. A
+    10-minute opener is therefore ~20 minutes before drive spin-up, TOC read and
+    the AccurateRip lookup — so 600 s was a bound derived from one disc's short
+    first track (`docs/testing.md` §5.ao, "is the population I measured closed?").
+
+    Asserts the floor rather than the exact number, so raising it further does not
+    need a test edit but dropping it back under does.
+    """
+    import re
+
+    text = _SCRIPT.read_text(encoding="utf-8")
+    match = re.search(r"timeout\s+-k\s+(\d+)\s+(\d+)\s+\"\$RIPPER\"\s+-j", text)
+    assert match, "could not find the bounded `-j` probe invocation"
+    grace, deadline = int(match.group(1)), int(match.group(2))
+    assert deadline >= 1200, (
+        f"the -j probe's deadline is {deadline}s. It rips track 1 in full at a "
+        "measured 0.5x, so a 10-minute opener needs ~1200s before any drive "
+        "overhead — below that the timeout kills working rips"
+    )
+    assert grace >= 10, (
+        f"a {grace}s SIGKILL grace is too tight to distinguish 'slow to exit' "
+        "from 'wedged'"
+    )

@@ -146,7 +146,18 @@ def test_rip_argv_known_disc_with_offset() -> None:
     # MusicBrainz is ALWAYS off — the GUI feeds tags via -a/-t instead
     # (KDD-18 metadata model; keeps the rip offline + deterministic).
     assert "-N" in argv
-    assert "-G" not in argv  # cover art wanted → keep embedding on
+    # -G IS ALWAYS SENT, cover art wanted or not. It used to be conditional, on
+    # the reading "let the ripper embed art when the user wants art" — which
+    # nothing else in the program agreed with: `main_window_rip` calls
+    # `plan_actions(ripper_fetches_art=False)` with the constant hardcoded and the
+    # GUI does the entire job itself. With `-N` the ripper cannot resolve a release
+    # anyway, so every art-enabled rip printed "No MusicBrainz release ID at cover
+    # art lookup, cannot search Cover Art DB!" into the archival log, followed by
+    # "Album Art: none" (measured 2026-08-23).
+    assert "-G" in argv, (
+        "-G was dropped because the user wants cover art — but Platterpus always "
+        "fetches and embeds art itself, so the ripper must always be told not to"
+    )
 
 
 def test_rip_argv_unknown_disc_disables_musicbrainz() -> None:
@@ -158,7 +169,7 @@ def test_rip_argv_unknown_disc_disables_musicbrainz() -> None:
         read_offset_override=667,
     )
     assert "-N" in argv  # unknown → disable MusicBrainz (no network needed)
-    assert "-G" in argv  # no cover art → disable embedding
+    assert "-G" in argv  # no cover art → disable embedding (as ever)
 
 
 def test_rip_argv_omits_offset_when_none() -> None:

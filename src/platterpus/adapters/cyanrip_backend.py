@@ -60,6 +60,32 @@ log = logging.getLogger(__name__)
 
 _INFO_TIMEOUT_S: float = 120.0
 
+#: The filename-sanitation mode we pin with `-T` on every rip. cyanrip offers
+#: `simple`, `os_simple`, `unicode` and `os_unicode`. Public so the naming preview
+#: and the argv-surface agreement test can name the same value the rip uses,
+#: rather than each carrying its own copy.
+#:
+#: **`unicode`, and the first version of this said `os_unicode` on reasoning that
+#: ran backwards** (corrected 2026-08-24 by the fork's round-13 lap 1, §B1, from a
+#: measurement of all four modes on our own rig's album string). `os_` does NOT
+#: mean "prefer the OS-appropriate substitution". It means *substitute only the
+#: characters this OS forbids* — so a character being **legal** on ext4 is exactly
+#: why an `os_` mode leaves it alone. On a non-Windows build the `os_` modes
+#: substitute one character, `/`, and pass the other eight through.
+#:
+#: So `os_unicode` would have written `full acceptance: angle<bracket …` — a
+#: literal colon and angle bracket on disk — where the rig actually wrote
+#: `full acceptance∶ angle‹bracket …`. That is the `unicode` default, confirmed as
+#: the default at `cyanrip_main.c:1488` and byte-identical between `ddf7ac3` (the
+#: build on the rig) and their round-13 pin. Pinning `unicode` is therefore a true
+#: no-op against what we already ship, which is what pinning a default is for; the
+#: mode I first chose would have renamed every folder Platterpus has ever written
+#: and stopped matching the ones already on users' disks.
+#:
+#: Full per-mode, per-character table: their `PROVIDER-CONTRACT.md` P7, generated
+#: from `naming.c`'s `crip_char_replacement[]`.
+SANITISE_MODE: str = "unicode"
+
 
 class CyanripImpl(RipBackend):
     """Ripping backend that drives the `cyanrip` CLI."""
@@ -67,12 +93,10 @@ class CyanripImpl(RipBackend):
     def __init__(
         self,
         binary_path: Path | str = "cyanrip",
-        working_dir: Path | None = None,
         dev_root: Path = Path("/dev"),
         sys_block: Path = Path("/sys/block"),
     ) -> None:
         self._binary: str = str(binary_path)
-        self._working_dir: Path | None = working_dir
         # Injectable so list_drives() is testable without a real /dev or /sys.
         self._dev_root: Path = dev_root
         self._sys_block: Path = sys_block
@@ -184,6 +208,30 @@ class CyanripImpl(RipBackend):
         if read_offset_override is not None:
             argv += ["-s", str(read_offset_override)]
         argv += ["-o", "flac"]
+        # `-T <mode>`: which filename-sanitation scheme cyanrip applies to tag
+        # values before they become path segments. PINNED, not defaulted.
+        #
+        # We passed nothing here until 2026-08-23, so every rip since the cyanrip
+        # switch used whatever default that build happened to ship — while the
+        # Settings naming preview and the overwrite guard both predicted a
+        # substitution table written from two observed glyphs. A rip titled
+        # `full acceptance: angle<bracket …` landed as `…∶ angle‹bracket …`; the
+        # `<` mapping was not in our table, the guard probed a folder that did
+        # not exist, and a finished 14-track archival rip was overwritten with no
+        # prompt. A default is not a contract, and this one had been selectable
+        # since the fork's round-4 flag table said so.
+        #
+        # `os_unicode` is the observed behaviour of the approved build, derived
+        # rather than assumed: the two mappings we have measured are look-alike
+        # glyphs (so `unicode`, not `simple`) and one of them is `<`, which is
+        # reserved on Windows but perfectly legal on ext4 (so `os_`, not plain).
+        # Pinning it is therefore a no-op on the build we ship against today and
+        # a fence against the default moving underneath us tomorrow — and it is
+        # the mode we WANT regardless: it is the one that keeps a library
+        # copyable to an NTFS/exFAT volume, the residual limitation
+        # `docs/dependency-contracts.md` has carried since the 2026-07-08 naming
+        # audit.
+        argv += ["-T", SANITISE_MODE]
         if max_retries:
             argv += ["-r", str(max_retries)]
         # `-Z N`: re-rip each track until N reads' checksums agree, for
@@ -278,8 +326,29 @@ class CyanripImpl(RipBackend):
             argv += ["-D", scheme_from_template(dir_part, year=year)]
         if file_part:
             argv += ["-F", scheme_from_template(file_part, year=year)]
-        if not cover_art:
-            argv.append("-G")  # disable cover-art embedding
+        # `-G` UNCONDITIONALLY. It used to be `if not cover_art`, which read as
+        # "let the ripper embed art when the user wants art" — but nothing else in
+        # the program agrees with that reading. `main_window_rip` calls
+        # `cover_art.plan_actions(ripper_fetches_art=False)` with the constant
+        # hardcoded, and the GUI does the whole job itself: fetch from the Cover
+        # Art Archive, embed via metaflac, save the folder copy, pull the back
+        # cover and booklet. So with art turned ON we were suppressing nothing and
+        # asking cyanrip to attempt a lookup whose result we would overwrite.
+        #
+        # It cannot succeed anyway, and the archival log carried the proof:
+        # `-N` means cyanrip never resolves a release of its own, so every rip
+        # with art enabled printed
+        #   "No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!"
+        # into the log a user is meant to keep as evidence, followed by
+        # "Album Art: none" (measured 2026-08-23). A scary sentence about a step
+        # that was never ours to run, in the artifact whose job is being
+        # trustworthy.
+        #
+        # The argument does not rest on that measurement, which is the point: we
+        # always do cover art ourselves, so the flag that says "do not do cover
+        # art" is always correct. `cover_art` stays in the signature — it is
+        # recorded in the rip plan the log prints — but it no longer gates this.
+        argv.append("-G")  # we always do cover art ourselves; never the ripper
         # Chokepoint assertion for Critical rule #5. `-N` disables cyanrip's own
         # MusicBrainz lookup, and it is not a preference: without it, a disc the
         # GUI has already resolved sends cyanrip to the network from inside the

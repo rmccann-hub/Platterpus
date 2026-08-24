@@ -583,8 +583,8 @@ allow-list first**, quality second:
 
 | Checker | Accepts | Everything else |
 |---|---|---|
-| [OPSnet/Logchecker](https://github.com/OPSnet/Logchecker) (PHP; what OPS runs) | EAC, XLD, whipper ≥0.7.3 | `UnknownRipperException` → score **0**, "Unrecognized log file" |
-| [ligh7s/hey-bro-check-log](https://github.com/ligh7s/hey-bro-check-log) (Python; "aligned with Redacted standards") | EAC ≥0.99, EAC95, XLD | `UnrecognizedException` — and the version string must be in a hardcoded table |
+| [OPSnet/Logchecker](https://github.com/OPSnet/Logchecker) (PHP; what OPS runs) — read at `ca565479`, 2026-05-31 | EAC, XLD, whipper ≥0.7.3 | `UnknownRipperException` → score **0**, "Unrecognized log file" |
+| [ligh7s/hey-bro-check-log](https://github.com/ligh7s/hey-bro-check-log) (Python; "aligned with Redacted standards" — **unmaintained since 2020-03-31**, read at `d3192ad2`) | EAC ≥0.99, EAC95, XLD | `UnrecognizedException` — and the version string must be in a hardcoded table |
 
 Redacted's own rules name only EAC and XLD, and treat a log from any other tool as
 trumpable ([rules](https://interviewfor.red/en/rules.html),
@@ -729,8 +729,31 @@ disagreement so nobody later "fixes" it by making the string match.
    archival value: it turns a number into a checkable claim. ~40 lines.
 4. **Investigate accurate-stream** — check whether `cd-paranoia -A` output carries a
    usable signal. May be a dead end; investigation before code.
-5. **Do NOT build a whipper-format emitter.** It is the only technically-passing route,
-   and it is the same forgery as EAC-signing: whipper did not do the rip.
+5. **Do NOT build a whipper-format emitter.** It is the only technically-passing
+   route, and it is the same forgery as EAC-signing: whipper did not do the rip.
+
+   **Two additional arguments, added 2026-08-24 after reading the checker's own
+   source** (`OPSnet/Logchecker` @ `ca565479`), because the second does not depend
+   on ethics at all and is therefore the more durable one:
+
+   * The gate is `if (strpos($log, "Log created by: whipper") !== false)`
+     (`src/Check/Ripper.php:18`) — a **24-character substring**, checked before any
+     quality rule runs. That it is trivially forgeable is precisely why doing it is
+     unambiguous forgery rather than a grey area: there is no craftsmanship in
+     which to hide an intention.
+   * **The whipper rubric is 6 checks; the EAC/XLD rubric is about 30** — and the
+     reason is that whipper's log does not *contain* the other 24 fields. Its
+     ripping-phase block has seven rows: drive, extraction engine, cache defeat,
+     read offset, overread, gap detection, CD-R. No read mode, no accurate-stream
+     row, no C2 row, no gap-*handling* row, no null-samples row, no silent-blocks
+     row, no ID3 row. So a perfect whipper log scores 100 having proven **less**
+     than our cyanrip log already records. Emitting their format would mean
+     **discarding evidence in order to score better on a rubric that checks
+     less.** Field-by-field: ours is richer on 14 counts and poorer on 4, and two
+     of the four are our own deliberate refusals (extraction-quality %, which
+     whipper's own source concedes diverges from EAC's at
+     `program/cdparanoia.py:150-153`; and the Test/Copy CRC pair, which `-Z`
+     convergence supersedes and our export already renders honestly).
 
 ---
 
@@ -769,4 +792,4 @@ only EAC and XLD — a policy limit, not a technical one.
 
 ---
 
-*Last updated for Platterpus v0.6.4b1.*
+*Last updated for Platterpus v0.6.24.*

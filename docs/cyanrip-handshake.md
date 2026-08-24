@@ -374,4 +374,4 @@ each side is free to change.
 
 ---
 
-*Last updated for Platterpus v0.6.23.*
+*Last updated for Platterpus v0.6.24.*

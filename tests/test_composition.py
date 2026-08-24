@@ -19,12 +19,13 @@ def test_build_backend_is_cyanrip() -> None:
     assert backend.__class__.__name__ == "CyanripImpl"
 
 
-def test_build_backend_passes_working_dir(tmp_path) -> None:
-    # working_dir is plumbed through to the backend (None when unset).
-    backend, _ = composition.build_backend(Config(working_dir=str(tmp_path)))
-    assert backend._working_dir == tmp_path
-    backend_none, _ = composition.build_backend(Config(working_dir=""))
-    assert backend_none._working_dir is None
+# `test_build_backend_passes_working_dir` lived here until 2026-08-24. It asserted
+# `backend._working_dir == tmp_path` — that the value had been HANDED OVER, which
+# was true and irrelevant: nothing ever read that attribute. `CLAUDE.md` names the
+# shape ("am I asserting that a thing HAPPENED, or that it was REQUESTED?"), and a
+# green test over a dead field is what let the Settings row and the User Guide go
+# on telling users to change it if their disk was short on space. Field, row, guide
+# entry, validator and constructor parameter are all gone; this note is the record.
 
 
 def test_build_musicbrainz_client_is_the_v1_impl() -> None:

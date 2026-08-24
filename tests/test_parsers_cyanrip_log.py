@@ -1823,3 +1823,199 @@ def test_a_released_note_does_not_read_as_unreleased() -> None:
         "an unreleased build no longer reads as unreleased, so the tokens have stopped "
         "matching anything and this test proves nothing"
     )
+
+
+def test_the_per_track_paranoia_counts_are_read_from_the_forks_own_reference() -> None:
+    """We asked for these (W1), the fork built them, and we read none of them.
+
+    Their reference log carries **fourteen** indented `Paranoia status counts:`
+    blocks — one per track — against a single disc-level block at column 0. Our
+    header pattern was anchored at column 0, so all fourteen fell through; and a
+    comment in `parsers/rip_log.py` then explained the absence as an upstream gap,
+    saying cyanrip *"only emits disc-wide today"*. From inside the parser a missing
+    feature and a dropped field look identical. Only the artifact tells them apart,
+    and the artifact was committed in this repository the whole time.
+
+    So this test reads the **committed reference**, not a fixture written from a
+    belief about it (`CLAUDE.md`: when a committed artifact can settle a question,
+    the test should read the artifact).
+    """
+    from pathlib import Path
+
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    reference = (
+        Path(__file__).resolve().parents[1]
+        / "output_reference"
+        / "cyanrip_fork_flac"
+        / "cyanrip_fork_police_classics.log"
+    )
+    assert reference.is_file(), f"the fork's reference log is missing: {reference}"
+    rip_log = parse_cyanrip_log(reference.read_text(encoding="utf-8"))
+
+    with_counts = [t for t in rip_log.tracks if t.paranoia_counts]
+    assert len(with_counts) == 14, (
+        f"{len(with_counts)} of {len(rip_log.tracks)} tracks carry per-track "
+        "paranoia counts; the reference has fourteen blocks, so anything less "
+        "means the indented header is being missed again"
+    )
+    assert with_counts[0].paranoia_counts == {
+        "READ": 1250,
+        "VERIFY": 85,
+        "OVERLAP": 17,
+    }, with_counts[0].paranoia_counts
+
+    # THE RELATION, which is the whole reason the per-track figures matter: on a
+    # rip with no secure re-read the per-track counts must sum to the disc total.
+    # (Under `-Z` they deliberately do NOT — the disc total sums every pass while
+    # a track's figure is the last pass, which is exactly the over-reporting the
+    # disc number alone cannot expose. This reference was ripped without `-Z`.)
+    summed: dict[str, int] = {}
+    for track in with_counts:
+        for key, value in track.paranoia_counts.items():
+            summed[key] = summed.get(key, 0) + value
+    assert summed == rip_log.paranoia_counts, (
+        f"per-track counts sum to {summed} but the disc block says "
+        f"{rip_log.paranoia_counts} — on a rip with no secure re-read these must "
+        "reconcile exactly"
+    )
+    # Non-triviality: two empty dicts also compare equal.
+    assert summed.get("READ", 0) > 0, (
+        "the sum is empty, so it compares equal to anything"
+    )
+
+
+def test_a_log_with_no_per_track_paranoia_block_yields_empty_counts() -> None:
+    """Every whipper log, and every cyanrip log before the fork added these, has
+    none. The field must be empty rather than absent, so a consumer can tell "this
+    log carried no counts" from "this track had none"."""
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    rip_log = parse_cyanrip_log(
+        "cyanrip 0.9.3\n\nTracks:\nTrack 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     B0D122E7\n"
+    )
+    assert rip_log.tracks, "the minimal log parsed no tracks at all"
+    assert rip_log.tracks[0].paranoia_counts == {}
+
+
+def test_the_interrupted_at_line_is_read_from_the_forks_own_sample() -> None:
+    """The line they added to answer OUR ask, parsed the day their lap arrived.
+
+    Round 12 we asked which track was in progress when a rip was interrupted; the
+    log could not say. Round 13 §B4 answers it with `Interrupted at: track 1,
+    mid-read`. Reading it immediately is the point: on the same day we found we
+    had dropped their per-track paranoia counters for months after asking for
+    those too, and "they built it at our request and we read none of it" is not a
+    pattern to repeat while apologising for it.
+
+    Read from their committed sample rather than a hand-written fixture — a
+    fixture here would carry our belief about the wording, and the wording is
+    theirs.
+    """
+    from pathlib import Path
+
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    sample = (
+        Path(__file__).resolve().parents[1]
+        / "docs"
+        / "handshake"
+        / "inbound"
+        / "artifacts"
+        / "round-13-lap-01-sample-interrupted-g673a57b.log"
+    )
+    assert sample.is_file(), f"the fork's interrupted sample is missing: {sample}"
+    rip_log = parse_cyanrip_log(sample.read_text(encoding="utf-8"))
+
+    assert rip_log.interrupted_at == "track 1, mid-read", rip_log.interrupted_at
+    # THEIR stated invariant: the line appears if and only if `Rip completed: no`.
+    # Asserting the pair rather than the line alone is what makes this a check of
+    # the contract instead of a check of one string.
+    assert rip_log.rip_completed is False, (
+        "the sample carries `Interrupted at:` but did not parse as an incomplete "
+        "rip — their §D says the two are always together"
+    )
+
+
+def test_a_completed_rip_carries_no_interrupted_at() -> None:
+    """The other half of their invariant, from the golden reference — so this pair
+    fails if the line ever leaks onto a clean rip, which is the only way it could
+    become misleading."""
+    from pathlib import Path
+
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    golden = (
+        Path(__file__).resolve().parents[1]
+        / "docs"
+        / "handshake"
+        / "inbound"
+        / "artifacts"
+        / "round-13-lap-01-golden-reference-g673a57b.log"
+    )
+    assert golden.is_file(), f"the fork's golden reference is missing: {golden}"
+    rip_log = parse_cyanrip_log(golden.read_text(encoding="utf-8"))
+    assert rip_log.rip_completed is True, "the golden reference should be a clean rip"
+    assert rip_log.interrupted_at is None
+
+
+def test_the_scope_line_is_a_member_of_the_paranoia_block_not_its_end() -> None:
+    """Their fix for our finding broke our parser, and only running it showed that.
+
+    Round 13: we reported that cyanrip's disc-level paranoia totals sum every `-Z`
+    pass while the per-track figures are the last pass, so the disc number
+    over-reports by the re-read factor. Their lap 3 fixed it with a label rather
+    than a renumber — a `Scope:` line inside the per-track block saying which reads
+    the numbers cover — and declared `HANDSHAKE-BREAKING: none`.
+
+    That is true for a line-reader and **false for a block-reader**. Every other
+    member of that block is `KEY: <int>`; ours ended the block at the first line
+    that did not match, so `Scope:` terminated it and the counts after it were
+    dropped — silently, on the feature added days earlier to consume them.
+
+    **"Additive" is relative to where you add.** A line appended to a document is
+    additive; a line inserted into a block whose members share a shape changes that
+    shape.
+
+    Reads their committed lap-3 golden reference, so it is their bytes and not our
+    idea of them.
+    """
+    from pathlib import Path
+
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    golden = (
+        Path(__file__).resolve().parents[1]
+        / "docs"
+        / "handshake"
+        / "inbound"
+        / "artifacts"
+        / "round-13-lap-03-golden-reference-ga494aa7.log"
+    )
+    assert golden.is_file(), f"the fork's lap-3 golden reference is missing: {golden}"
+    rip_log = parse_cyanrip_log(golden.read_text(encoding="utf-8"))
+
+    with_counts = [t for t in rip_log.tracks if t.paranoia_counts]
+    assert len(with_counts) == len(rip_log.tracks) == 3, (
+        f"{len(with_counts)} of {len(rip_log.tracks)} tracks kept their paranoia "
+        "counts — a `Scope:` line ending the block drops every count after it"
+    )
+    assert [t.paranoia_counts["READ"] for t in with_counts] == [15, 10, 5]
+    # The note itself is captured, not merely survived.
+    assert all("the last of 3 reads" in t.paranoia_scope for t in with_counts), [
+        t.paranoia_scope for t in with_counts
+    ]
+
+    # AND the relation this whole exchange was about: on a `-Z` rip the per-track
+    # counts deliberately do NOT sum to the disc total. Asserting the inequality
+    # pins the finding itself, not just the parse — 30 against 90, ratio 3, which
+    # is the number both projects reproduced independently.
+    per_track = sum(t.paranoia_counts["READ"] for t in with_counts)
+    disc = rip_log.paranoia_counts["READ"]
+    assert per_track == 30 and disc == 90, (per_track, disc)
+    assert disc == per_track * 3, (
+        "the disc total is no longer three times the per-track sum on a rip whose "
+        "every track converged after 3 reads — the over-reporting this round "
+        "measured has changed shape"
+    )

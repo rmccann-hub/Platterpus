@@ -18,7 +18,7 @@ it is free.
 | **`[PLATTERPUS]`** | the GUI only | cyanrip, so they know what we promise |
 | **`[CYANRIP]`** | the ripper only | Platterpus, so we know what to expect |
 
-Format version: **4** (`SEAM-RULES-VERSION: 4`). Cite it when you claim
+Format version: **5** (`SEAM-RULES-VERSION: 5`). Cite it when you claim
 conformance.
 
 ---
@@ -195,6 +195,77 @@ said which of the two it was.
 and it is recorded as such — but the message then becomes contract surface, and
 S-11's test asserts on it, so it cannot be reworded freely.
 
+### `[BOTH]` S-13 — A round's close conditions are fixed at its lap 1 and cannot grow
+
+A criterion discovered later belongs to the **next** round, unless it is a
+regression in the pin under review.
+
+Measured from round 7's own record, which is the only reason this is a rule and
+not a preference:
+
+| | round 5 | round 6 | round 7 |
+|---|---|---|---|
+| laps to close | 1 | 1 | **37 and open** |
+| test pins declared | 1 | 1 | **10** |
+| pre-releases shipped inside it | 0 | 0 | **8** |
+| releases produced | 1 | 1 | **0** |
+
+**Nothing in round 7 was bad work.** It found a memory disclosure into an
+archival record, four segfaults, a gate that graded a crash as a clean refusal,
+and a tarball build that could not name itself. It failed anyway, because it
+had no closing condition that could not be extended — and the properties that
+make the work good are exactly the ones that keep extending it. Without this
+rule the finish line moves every time either side is thorough, and thoroughness
+is the one thing neither side will give up.
+
+### `[BOTH]` S-14 — A finding defaults to the next round
+
+Promoting one to blocking requires naming **what it breaks in the artifact
+under review**. *"It is a real defect"* is an argument for fixing it, never on
+its own for holding a release.
+
+None of round 7's findings made the reviewed pin unsafe; they made the *next*
+build better. Every one was promoted to a blocker by reflex.
+
+### `[BOTH]` S-15 — An agreed test pin does not move for the rest of the round
+
+Unless it is found unsafe. Fixes queue for the next round.
+
+A pin that moves whenever something is fixed guarantees that the hardware
+evidence is always about a build nobody is reviewing any more — ten test pins
+in one round, each invalidating the evidence gathered against the last.
+
+### `[BOTH]` S-16 — Questions carry a target, and a questions section may be empty
+
+`BLOCKING` or `NEXT-ROUND`, and `BLOCKING` must satisfy S-14.
+
+The return-file spec *requires* a questions section, so every lap manufactures
+roughly five new open items by construction and a round cannot converge faster
+than it invents work. **"No questions" is a complete section.**
+
+### `[BOTH]` S-17 — A round names its artifact before it opens
+
+Platterpus's rule, offered in round 7 and accepted in lap 38 as **stronger than
+S-13**, which is worth recording because the two look similar and are not.
+S-13 freezes the *conditions*; S-17 fixes the *evidence those conditions are
+about*. Round 7's evidence was "a rip", which is not a thing anyone can be
+finished with, and the ten pins followed from that rather than from the
+criteria.
+
+### `[BOTH]` S-18 — A pre-commit to the close binds
+
+A lap may declare *"our next lap is `GO` unless X"*, naming X. It binds.
+
+It costs nothing and it is the only thing that stops the reflex to find one
+more thing — a reflex that is otherwise unbounded, because there is always one
+more thing and both projects are built to find it. Neither side used it until
+round 7 lap 36; both used it in laps 36–37 and the round closed.
+
+**S-18's content has been in force since round 7 and its NUMBER is new in v5.**
+Said plainly because minting a number for an agreed rule is still minting, and
+§5's *"a rule you have not implemented is not a rule you may cite"* cuts both
+ways: cite it by number only once both sides ship this version.
+
 ---
 
 ## 2. Rules binding Platterpus only
@@ -291,11 +362,19 @@ last read it. Every row names a direction, a type, and what must be checked.
 State the version and which tags you implement:
 
 ```
-SEAM-RULES-VERSION: 4
-IMPLEMENTS: BOTH(S-1..S-12) PLATTERPUS(P-1..P-3)
+SEAM-RULES-VERSION: 5
+IMPLEMENTS: BOTH(S-1..S-18) PLATTERPUS(P-1..P-3)
 ```
 
-A side claiming `BOTH` claims all twelve. Partial conformance names the gaps
+A side claiming `BOTH` claims all eighteen. Partial conformance names the gaps
 explicitly — **a rule you have not implemented is not a rule you may cite.**
+
+**That last clause is why v5 exists.** S-13 through S-17 were agreed in round 7,
+lap 38 recorded that they *"become BOTH(S-13..S-17) at seam-rules v5 in round
+8's first lap"*, and that never happened. Both projects then cited them by
+number through rounds 8, 9, 10, 11, 12 and 13 — against a shared spec that
+defined S-1..S-12 and a conformance block that said claiming `BOTH` claimed
+twelve. Five rounds of correspondence rested on numbers this file did not
+assign, and the rule forbidding exactly that is in this section.
 
 ---

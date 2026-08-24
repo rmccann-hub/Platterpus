@@ -83,6 +83,21 @@ class _RipControls:
         self.config_pushed = config
 
 
+class _RipProgress:
+    """The rip-progress pane, as much of it as `expect-status` needs.
+
+    Mirrors `RipProgress.current_status()` exactly — the floor test in this file
+    checks every faked attribute exists on the real class, which is what stops a
+    stub being kinder than the product.
+    """
+
+    def __init__(self, status: str = "") -> None:
+        self._status = status
+
+    def current_status(self) -> str:
+        return self._status
+
+
 class _DrivePicker:
     def __init__(self, device: str = "/dev/sr0") -> None:
         self._device = device
@@ -101,6 +116,7 @@ def _window(**overrides: Any):
     win._drive_picker = overrides.get("drive_picker", _DrivePicker())
     win._config = overrides.get("config", Config())
     win._rip_worker = overrides.get("rip_worker", None)
+    win._rip_progress = overrides.get("rip_progress", _RipProgress())
     win.rescanned = []
     win.cancelled = False
     win.saved = []
@@ -1732,3 +1748,136 @@ def test_wait_for_rip_advises_the_non_racy_verb() -> None:
     finally:
         dialog.close()
         dialog.deleteLater()
+
+
+# --- expect-status: implemented 2026-08-24, and it names its surface ---------
+
+
+def test_expect_status_matches_the_rip_status_line_case_insensitively(qapp) -> None:
+    """The verb the full-acceptance run needed and got an ERROR from.
+
+    It sat in the table `implemented=False` with a written reason — there is no
+    single "status line" to assert against, so any implementation would pick one
+    surface and *silently* mean only that. The objection was about the silence:
+    the fix is to pick the surface and say which, in the help text and in every
+    message. It reads `RipProgress.current_status()`, which is also what the
+    desktop notification reads, so the two cannot disagree.
+
+    Case-insensitive substring, like `expect-dialog`: the real line carries a
+    `HH:MM:SS ·` stamp and a sentence assembled from several sources, so an exact
+    match is unusable and case is unpredictable from a script.
+    """
+    win = _window(
+        rip_progress=_RipProgress(
+            "Done — all 2 tracks ripped cleanly, no read errors. "
+            "AccurateRip: all 2 verified."
+        )
+    )
+    record, _ = _run_one(win, "expect-status all 2 tracks ripped cleanly")
+    assert record.outcome is Outcome.PASS, record.detail
+    # Case folded in BOTH directions, not just one.
+    record, _ = _run_one(win, "expect-status ACCURATERIP: ALL 2 VERIFIED")
+    assert record.outcome is Outcome.PASS, record.detail
+
+
+def test_expect_status_failure_quotes_the_line_it_actually_read(qapp) -> None:
+    """A status assertion that says only "no match" makes the reader re-run a
+    two-hour rip to discover what it did say."""
+    win = _window(rip_progress=_RipProgress("Rip cancelled by user."))
+    record, _ = _run_one(win, "expect-status ripped cleanly")
+    assert record.outcome is Outcome.FAIL
+    assert "Rip cancelled by user." in record.detail, (
+        f"the failure did not report the line it read: {record.detail!r}"
+    )
+
+
+def test_expect_status_says_so_when_no_status_has_been_set(qapp) -> None:
+    """An empty line is a different fact from a wrong line, and reporting the
+    empty string as the "actual" reads like a rendering bug."""
+    win = _window(rip_progress=_RipProgress(""))
+    record, _ = _run_one(win, "expect-status anything")
+    assert record.outcome is Outcome.FAIL
+    assert "empty" in record.detail and "no status has been set" in record.detail
+
+
+def test_expect_status_errors_rather_than_passing_when_the_pane_is_missing(
+    qapp,
+) -> None:
+    """A missing surface must never read as a satisfied assertion — the
+    "can this check be satisfied by finding nothing?" question."""
+    win = _window()
+    del win._rip_progress
+    record, _ = _run_one(win, "expect-status anything")
+    assert record.outcome is Outcome.ERROR
+    assert "status line" in record.detail
+
+
+def test_the_preflight_names_an_unimplemented_verb_before_step_one_runs() -> None:
+    """MEASURED: the full-acceptance run found this at step 179 of 288, 1h 49m in.
+
+    The verb table was honest and the generated reference printed
+    `NOT IMPLEMENTED`; the handler lookup simply happens at dispatch, so a batch
+    learns about it when it gets there. `_preflight` already did exactly this job
+    for `cyanrip` steps — one function wide — and `uses_unsafe`'s docstring
+    already states the principle: *"an unattended run that dies two-thirds
+    through is worse than one that never started."*
+
+    Uses a verb that is *currently* unimplemented rather than a hardcoded name,
+    so the test keeps testing the mechanism as verbs land. It skips if the table
+    ever has none left, and asserts the population is non-empty rather than
+    passing vacuously on an empty sweep.
+    """
+    from platterpus.uiscript import verbs as verbs_mod
+    from platterpus.uiscript.runner import _preflight
+
+    unimplemented = [n for n, v in verbs_mod.VERBS.items() if not v.implemented]
+    if not unimplemented:
+        pytest.skip("every verb is implemented — the happy future")
+    name = unimplemented[0]
+    steps = parse(f"log fine\n{name} something")
+    problems = _preflight(steps)
+    assert problems, f"preflight said nothing about the unimplemented {name!r}"
+    joined = "\n".join(problems)
+    assert name in joined and "no handler" in joined, joined
+    assert "L2" in joined, f"the notice must name the line: {joined}"
+    # And it must not cry wolf over the implemented verb on line 1.
+    assert len(problems) == 1, f"preflight flagged an implemented verb too: {problems}"
+
+
+def test_an_unimplemented_unsafe_verb_blames_the_missing_handler_not_a_checkbox(
+    qapp,
+) -> None:
+    """`eval` and `call` are BOTH unsafe and unimplemented, and the order of the
+    two refusals decides whether the message is useful.
+
+    With the unsafe gate first, a script using `eval` was told *"this verb needs
+    the 'allow unsafe script verbs' setting, which is off"* — true, and the wrong
+    cause. Ticking that box (in Settings, or the console's own checkbox, both of
+    which advertised the verbs by name) changes nothing: the very next line
+    refuses the same step for having no handler. A true diagnosis of the wrong
+    cause is the expensive kind, because it sends somebody into Settings instead
+    of telling them the verb does not exist.
+
+    Uses whichever unsafe+unimplemented verbs the table actually has, so it keeps
+    testing the property rather than a hardcoded name, and asserts the population
+    is non-empty rather than passing on an empty sweep.
+    """
+    from platterpus.uiscript import verbs as verbs_mod
+
+    candidates = [
+        n for n, v in verbs_mod.VERBS.items() if v.unsafe and not v.implemented
+    ]
+    if not candidates:
+        pytest.skip("no verb is both unsafe and unimplemented — the happy future")
+    win = _window()
+    for name in candidates:
+        record, _ = _run_one(win, f"{name} whatever")
+        assert record.outcome is Outcome.ERROR, (
+            f"{name} is unimplemented, so it must ERROR rather than report as "
+            f"merely gated: got {record.outcome} — {record.detail}"
+        )
+        assert "not implemented" in record.detail, record.detail
+        assert "setting" not in record.detail, (
+            f"{name} blamed a setting the user could tick, which would not have "
+            f"helped: {record.detail!r}"
+        )

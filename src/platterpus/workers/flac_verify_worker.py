@@ -34,8 +34,9 @@ def verify_rip_dir(
     rip_dir: Path,
     *,
     wait_for: threading.Thread | None = None,
+    still_current: Callable[[], bool] | None = None,
     verifier: Callable[[list[Path]], FlacVerifyResult] | None = None,
-) -> FlacVerifyResult:
+) -> FlacVerifyResult | None:
     """Verify every FLAC under ``rip_dir``. Never raises.
 
     Intended to run OFF the GUI thread. ``wait_for`` is the post-rip metaflac
@@ -44,6 +45,14 @@ def verify_rip_dir(
     """
     if wait_for is not None and wait_for.is_alive():
         wait_for.join(_SETTLE_TIMEOUT_S)
+
+    # ABANDON rather than measure a folder that is no longer ours. See the
+    # `still_current` note in the docstring: the launcher discards a stale
+    # result, but the reading is what produced a false ERROR in the user's own
+    # diagnostics. `None` means 'no verdict', which is the truth here.
+    if still_current is not None and not still_current():
+        log.info("flac verify of %s abandoned: a newer rip started", rip_dir)
+        return None
 
     # Verify exactly the masters THIS rip wrote, taken from its own `.log` rather
     # than from the folder listing (see `platterpus.rip_files`). This is the check
