@@ -2209,13 +2209,21 @@ def test_the_overwrite_guard_finds_a_folder_our_glyph_table_cannot_predict(
     from platterpus.ui.main_window_helpers import _dir_has_audio, known_album_folder
 
     root = tmp_path
-    # What cyanrip actually wrote: a glyph for ">" that appears in no table of
-    # ours. Anything the sanitiser might pick must be found without knowing it.
-    real = root / "The Police" / "Louder ›than‹ ever"
+    # The subject is `"` — and since 2026-08-24 that choice is principled rather
+    # than arbitrary. Our table is now derived from the fork's generated contract
+    # (P7b) and covers every substituted character EXCEPT the double quote, which
+    # has TWO rows there (U+201C and U+201D) because the glyph is chosen by a
+    # parity flag that every substituted character toggles and that resets at each
+    # `{tag}` boundary (P7d). A lookup table provably cannot predict it. So this
+    # asserts the resolver handles the one case the contract itself says no table
+    # can — which is the argument for reading the disk rather than predicting.
+    real = root / "The Police" / "Songs “About” Nothing"
     real.mkdir(parents=True)
     (real / "01 - Roxanne.flac").write_bytes(b"audio")
 
-    found = known_album_folder(root, "%A/%d/%d", "The Police", "Louder >than< ever", "")
+    found = known_album_folder(
+        root, "%A/%d/%d", "The Police", 'Songs "About" Nothing', ""
+    )
     assert found == real, (
         "the guard did not find the folder cyanrip actually wrote — this is the "
         "silent-overwrite defect: it would report an empty target and rip over a "
@@ -2238,12 +2246,15 @@ def test_the_overwrite_guard_finds_a_folder_our_glyph_table_cannot_predict(
     )
 
     # Two candidates that could each be the rendering → refuse rather than guess,
-    # and fall back to the literal prediction (no dialog, same as before).
+    # and fall back to the literal prediction (no dialog, same as before). The
+    # quote's two glyphs make this a REAL ambiguity rather than a contrived one:
+    # both are legitimate renderings of the same title, and which one cyanrip
+    # picks depends on parity we cannot see.
     (root / "Ambiguous").mkdir()
-    (root / "Ambiguous" / "a›b").mkdir()
-    (root / "Ambiguous" / "a‹b").mkdir()
-    tied = known_album_folder(root, "%A/%d/%d", "Ambiguous", "a>b", "")
-    assert tied == root / "Ambiguous" / "a>b", (
+    (root / "Ambiguous" / "a“b").mkdir()
+    (root / "Ambiguous" / "a”b").mkdir()
+    tied = known_album_folder(root, "%A/%d/%d", "Ambiguous", 'a"b', "")
+    assert tied == root / "Ambiguous" / 'a"b', (
         "guessed between two equally-plausible folders instead of standing down"
     )
 

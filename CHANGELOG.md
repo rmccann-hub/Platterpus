@@ -186,6 +186,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   contained the word "Finished" — so it would have failed even implemented.
   Assert against the artifact, not against a remembered wording.
 ### Fixed
+- **Corrected the `-T` mode pinned earlier the same day: `unicode`, not
+  `os_unicode`.** The fork measured all four modes against our own rig's album
+  string (round 13 lap 1 §B1) and the derivation behind `os_unicode` ran backwards.
+  `os_` does **not** mean "prefer the OS-appropriate substitution"; it means
+  *substitute only the characters this OS forbids* — so a character being **legal**
+  on ext4 is exactly why an `os_` mode leaves it alone. On a non-Windows build the
+  `os_` modes substitute one character, `/`, and pass the other eight through. So
+  `os_unicode` would have written `full acceptance: angle<bracket …` with a literal
+  colon and angle bracket, where the rig actually wrote
+  `full acceptance∶ angle‹bracket …` — the `unicode` default. **The pin would have
+  renamed every folder Platterpus has ever written and stopped matching the ones
+  already on users' disks**, which is a second route to the very failure it was
+  meant to close. Pinning `unicode` is a true no-op against what we already ship,
+  which is what pinning a default is for. Caught before any release carried it.
+- **The naming preview's substitution table is now derived, not observed.** Read
+  out of the fork's generated `PROVIDER-CONTRACT.md` P7b — itself generated from
+  `crip_char_replacement[]` — so it covers all eight single-glyph substitutions
+  instead of the three we had spotted by eye. `"` is deliberately excluded and the
+  exclusion is the useful part: P7b holds **two** rows for it and P7d states the
+  glyph is chosen by a parity flag that every substituted character toggles and
+  that resets at each `{tag}` boundary. A lookup table provably cannot predict a
+  filename containing a quote — which is the argument *for*
+  `resolve_sanitised_path` reading the disk, not a caveat against it. The
+  regression test now uses `"` as its subject for exactly that reason, so it
+  exercises the one case the contract itself says no table can handle.
 - **We asked the fork for per-track paranoia counts, they built them, and our
   parser dropped all fourteen of them per rip.** The disc-level header pattern is
   anchored at column 0; the fork's per-track blocks are indented inside each track

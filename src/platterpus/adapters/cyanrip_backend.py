@@ -61,11 +61,30 @@ log = logging.getLogger(__name__)
 _INFO_TIMEOUT_S: float = 120.0
 
 #: The filename-sanitation mode we pin with `-T` on every rip. cyanrip offers
-#: `simple`, `os_simple`, `unicode` and `os_unicode` (fork flag table, handshake
-#: round 4). Public so the naming preview and the argv-surface agreement test can
-#: name the same value the rip uses, rather than each carrying its own copy.
-#: Full reasoning at the `-T` call site in `build_rip_argv`.
-SANITISE_MODE: str = "os_unicode"
+#: `simple`, `os_simple`, `unicode` and `os_unicode`. Public so the naming preview
+#: and the argv-surface agreement test can name the same value the rip uses,
+#: rather than each carrying its own copy.
+#:
+#: **`unicode`, and the first version of this said `os_unicode` on reasoning that
+#: ran backwards** (corrected 2026-08-24 by the fork's round-13 lap 1, §B1, from a
+#: measurement of all four modes on our own rig's album string). `os_` does NOT
+#: mean "prefer the OS-appropriate substitution". It means *substitute only the
+#: characters this OS forbids* — so a character being **legal** on ext4 is exactly
+#: why an `os_` mode leaves it alone. On a non-Windows build the `os_` modes
+#: substitute one character, `/`, and pass the other eight through.
+#:
+#: So `os_unicode` would have written `full acceptance: angle<bracket …` — a
+#: literal colon and angle bracket on disk — where the rig actually wrote
+#: `full acceptance∶ angle‹bracket …`. That is the `unicode` default, confirmed as
+#: the default at `cyanrip_main.c:1488` and byte-identical between `ddf7ac3` (the
+#: build on the rig) and their round-13 pin. Pinning `unicode` is therefore a true
+#: no-op against what we already ship, which is what pinning a default is for; the
+#: mode I first chose would have renamed every folder Platterpus has ever written
+#: and stopped matching the ones already on users' disks.
+#:
+#: Full per-mode, per-character table: their `PROVIDER-CONTRACT.md` P7, generated
+#: from `naming.c`'s `crip_char_replacement[]`.
+SANITISE_MODE: str = "unicode"
 
 
 class CyanripImpl(RipBackend):

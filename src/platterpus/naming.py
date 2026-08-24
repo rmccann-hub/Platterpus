@@ -50,44 +50,67 @@ from platterpus import option_labels
 # These mirror what cyanrip fills in at rip time. The preview is a faithful
 # dry-run so the dialog can show the real result without touching a disc.
 
-# cyanrip sanitises path-*illegal* characters inside a tag VALUE (not the
+# cyanrip sanitises path-problematic characters inside a tag VALUE (not the
 # template's own "/" separators) by swapping them for look-alike Unicode glyphs,
 # so "Every Breath You Take: The Classics" lands on disk as "…∶ The Classics".
 #
-# THIS TABLE IS KNOWN-INCOMPLETE, AND THAT IS NOT A BUG TO CLOSE BY GUESSING.
-# It used to hold two entries under a comment saying "the two the user will
-# actually hit". On 2026-08-23 an album titled `full acceptance: angle<bracket …`
-# landed on disk as `full acceptance∶ angle‹bracket …` — the `<` mapped too, to
-# U+2039, which is not in any table on our side. The consequence was not
-# cosmetic: `main_window_helpers.known_album_folder` renders this table to
-# predict where a rip will land, the prediction missed by one character, the
-# "Album already ripped" prompt therefore never fired, and a completed 14-track
-# archival rip was overwritten by a 2-track one with no prompt (measured; the
-# `ls -b` of the folder is the artifact).
+# **This table used to be a guess, and the guess destroyed a rip.** It held two
+# entries under a comment saying "we reproduce the two the user will actually
+# hit". On 2026-08-23 an album titled `full acceptance: angle<bracket …` landed as
+# `full acceptance∶ angle‹bracket …` — the `<` mapped too, to U+2039, which was in
+# no table of ours. `main_window_helpers.known_album_folder` renders this table to
+# predict where a rip will land; the prediction missed by one character, the
+# "Album already ripped" prompt never fired, and a completed 14-track archival rip
+# was overwritten by a 2-track one in silence.
 #
-# Two things follow, and only the second is a real fix:
+# Two things came out of that, and only the second is a real fix:
 #
-#  1. Entries here are MEASURED, each with the artifact that measured it. A
-#     glyph nobody has observed does not get added on the strength of looking
-#     plausible.
-#  2. **Nothing safety-bearing may depend on this table being complete.** The
-#     overwrite guard now resolves its prediction against what is actually on
-#     disk (`main_window_helpers.resolve_sanitised_path`), matching a name that
-#     differs only where a substitution could have happened — which works
-#     whatever glyph cyanrip chose, including ones we have never seen. Same
-#     shape as `uiscript/find_script.py`: legislate the name AND stop depending
-#     on it.
+#  1. The table is now **derived, not observed**: read out of the fork's generated
+#     provider contract (P7b), which is itself generated from
+#     `crip_char_replacement[]` in their source. Guessing one glyph at a time is
+#     what produced the two-entry version.
+#  2. **Nothing safety-bearing may depend on this table at all.** The overwrite
+#     guard resolves its prediction against what is actually on disk
+#     (`main_window_helpers.resolve_sanitised_path`), matching a name that differs
+#     only where a substitution could have happened — so it works whatever glyph
+#     cyanrip chose, including ones no table of ours holds. Same shape as
+#     `uiscript/find_script.py`: legislate the name AND stop depending on it.
+#     P7d proves this was the right call rather than belt-and-braces — see the
+#     note on `"` below, which no lookup table can ever get right.
 #
-# The upstream cause, found the same day: cyanrip takes `-T`/`--sanitize`
-# (`simple`, `os_simple`, `unicode`, `os_unicode` — published in the fork's flag
-# table since handshake round 4) and **we had never passed it**, so every rip
-# used whatever default that build happened to ship. A default is not a
-# contract. `adapters/cyanrip_backend` now pins the mode; this table describes
-# the mode we pin.
+# The upstream cause of the original defect: cyanrip takes `-T`/`--sanitize` and
+# **we had never passed it**, so every rip inherited whatever default that build
+# shipped. A default is not a contract. `adapters/cyanrip_backend.SANITISE_MODE`
+# pins it now — and the first attempt pinned the WRONG mode on inverted reasoning
+# (`os_` means "substitute only what this OS forbids", so on Linux it would have
+# left `<` and `:` alone and renamed every folder we have ever written). The fork
+# caught that in round 13 §B1 by measuring all four modes; the mode we pin is
+# `unicode`, which is their default, so the pin is a true no-op.
+#: Read out of the fork's **generated** provider contract, P7b — the `unicode`
+#: column of `crip_char_replacement[]` — rather than observed one glyph at a time.
+#: `adapters.cyanrip_backend.SANITISE_MODE` pins that mode, so this table and the
+#: rip agree by construction.
+#:
+#: `"` (U+0022) is DELIBERATELY ABSENT, and its absence is the most useful thing
+#: here. P7b holds **two** rows for it — `“` U+201C and `”` U+201D — and P7d says
+#: which one is used is chosen by a parity flag that **every** substituted
+#: character toggles, including characters an `os_` mode then leaves unchanged,
+#: and that the flag resets at every `{tag}` boundary in the naming scheme. A
+#: lookup table cannot express that, so a table-driven prediction of a filename
+#: containing a quote is *provably* incapable of being right in general. Which is
+#: the case for `main_window_helpers.resolve_sanitised_path`, not against it: the
+#: guard reads what is on disk precisely because no table can be complete here.
 _VALUE_SANITISE: dict[str, str] = {
-    ":": "∶",  # RATIO — cyanrip's stand-in for a colon
-    "/": "∕",  # DIVISION SLASH — a "/" inside a tag value, not a separator
-    "<": "‹",  # SINGLE LEFT-POINTING ANGLE QUOTATION MARK (measured 2026-08-23)
+    "<": "‹",  # U+2039 SINGLE LEFT-POINTING ANGLE QUOTATION MARK
+    ">": "›",  # U+203A SINGLE RIGHT-POINTING ANGLE QUOTATION MARK
+    ":": "∶",  # U+2236 RATIO
+    "|": "│",  # U+2502 BOX DRAWINGS LIGHT VERTICAL
+    "?": "？",  # U+FF1F FULLWIDTH QUESTION MARK
+    "*": "∗",  # U+2217 ASTERISK OPERATOR
+    "/": "∕",  # U+2215 DIVISION SLASH — a "/" inside a tag VALUE. A "/" in the
+    #            template itself stays a real separator (P7d: the substitution is
+    #            keyed on whether the text came from a tag, not on the mode).
+    "\\": "⧹",  # U+29F9 BIG REVERSE SOLIDUS
 }
 
 #: Characters at which our prediction and cyanrip's real output may legitimately
