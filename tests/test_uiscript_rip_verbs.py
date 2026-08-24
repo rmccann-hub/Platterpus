@@ -1842,3 +1842,42 @@ def test_the_preflight_names_an_unimplemented_verb_before_step_one_runs() -> Non
     assert "L2" in joined, f"the notice must name the line: {joined}"
     # And it must not cry wolf over the implemented verb on line 1.
     assert len(problems) == 1, f"preflight flagged an implemented verb too: {problems}"
+
+
+def test_an_unimplemented_unsafe_verb_blames_the_missing_handler_not_a_checkbox(
+    qapp,
+) -> None:
+    """`eval` and `call` are BOTH unsafe and unimplemented, and the order of the
+    two refusals decides whether the message is useful.
+
+    With the unsafe gate first, a script using `eval` was told *"this verb needs
+    the 'allow unsafe script verbs' setting, which is off"* — true, and the wrong
+    cause. Ticking that box (in Settings, or the console's own checkbox, both of
+    which advertised the verbs by name) changes nothing: the very next line
+    refuses the same step for having no handler. A true diagnosis of the wrong
+    cause is the expensive kind, because it sends somebody into Settings instead
+    of telling them the verb does not exist.
+
+    Uses whichever unsafe+unimplemented verbs the table actually has, so it keeps
+    testing the property rather than a hardcoded name, and asserts the population
+    is non-empty rather than passing on an empty sweep.
+    """
+    from platterpus.uiscript import verbs as verbs_mod
+
+    candidates = [
+        n for n, v in verbs_mod.VERBS.items() if v.unsafe and not v.implemented
+    ]
+    if not candidates:
+        pytest.skip("no verb is both unsafe and unimplemented — the happy future")
+    win = _window()
+    for name in candidates:
+        record, _ = _run_one(win, f"{name} whatever")
+        assert record.outcome is Outcome.ERROR, (
+            f"{name} is unimplemented, so it must ERROR rather than report as "
+            f"merely gated: got {record.outcome} — {record.detail}"
+        )
+        assert "not implemented" in record.detail, record.detail
+        assert "setting" not in record.detail, (
+            f"{name} blamed a setting the user could tick, which would not have "
+            f"helped: {record.detail!r}"
+        )

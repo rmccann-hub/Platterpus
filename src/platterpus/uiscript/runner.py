@@ -603,6 +603,18 @@ class ScriptRunner(QObject):
         if step.error:
             self._record(step, Outcome.ERROR, step.error)
             return
+        # HANDLER FIRST, then the unsafe gate — the order carries the honesty.
+        # Reversed, a script using `eval` (unsafe AND unimplemented) was told "this
+        # verb needs the 'allow unsafe script verbs' setting, which is off", which
+        # points the reader at a checkbox that would not have helped: with it
+        # ticked the very next line refuses the same step for having no handler.
+        # A true diagnosis of the wrong cause is the expensive kind — it sends
+        # somebody into Settings instead of telling them the verb does not exist
+        # (found 2026-08-24, in the sweep that followed `expect-status`).
+        handler = getattr(self, f"_do_{step.verb.replace('-', '_')}", None)
+        if handler is None:
+            self._record(step, Outcome.ERROR, f"'{step.verb}' is not implemented yet")
+            return
         if step.unsafe and not self._unsafe_allowed:
             self._record(
                 step,
@@ -612,10 +624,6 @@ class ScriptRunner(QObject):
             return
         if step.unsafe:
             self._report.used_unsafe = True
-        handler = getattr(self, f"_do_{step.verb.replace('-', '_')}", None)
-        if handler is None:
-            self._record(step, Outcome.ERROR, f"'{step.verb}' is not implemented yet")
-            return
         handler(step)
 
     # --- Verbs: narration and pacing ----------------------------------------
