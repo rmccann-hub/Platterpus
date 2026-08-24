@@ -44,6 +44,10 @@ class RipBlock(TypedDict):
     # `None` when the log was cut off or predates the fork pin — which is a
     # different fact from `False`, and must not render as one.
     rip_completed: bool | None
+    #: Where an interrupted rip stopped, verbatim (`track 1, mid-read`).
+    #: None on every completed rip and on every log written before the fork
+    #: added the line in round 13, answering our round-12 ask.
+    interrupted_at: str | None
     rip_completed_tracks: int | None
     rip_completed_total: int | None
     rip_completed_reason: str | None

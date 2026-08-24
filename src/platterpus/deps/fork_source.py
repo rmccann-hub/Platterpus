@@ -315,7 +315,7 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: derives the expected value from the newest file in `docs/handshake/inbound/`
 #: and fails if this lags it. A constant is required rather than a runtime read
 #: because `docs/` is not present in an installed AppImage.
-PIN_UNDER_REVIEW: Final[str] = "64ae7bc"
+PIN_UNDER_REVIEW: Final[str] = "9f8592e"
 
 #: The fork's **test pin** — a build designated to gather the hardware evidence a
 #: close requires, which is *not* a release and never moves :data:`FORK_PIN`.

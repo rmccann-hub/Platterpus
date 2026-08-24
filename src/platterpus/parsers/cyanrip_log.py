@@ -373,6 +373,17 @@ _PARTIAL_TOTAL = re.compile(
     r"^Tracks ripped partially accurately:\s+(?P<hit>\d+)/(?P<total>\d+)"
 )
 _RIP_ERRORS = re.compile(r"^Ripping errors:\s+(?P<count>\d+)")
+# "Interrupted at: track 1, mid-read" / "Interrupted at: between tracks, no read
+# in progress" — added by the fork in round 13 to answer OUR round-12 ask: which
+# track was in progress when a rip was interrupted, which the log could not say.
+# Appears if and only if `Rip completed:  no`, so it can never contradict it.
+#
+# Parsed the day their lap arrived, because the alternative is the pattern we had
+# spent that same day apologising for: they build a field at our request and we
+# read none of it. Captured VERBATIM rather than split into track and phase — the
+# two published forms are prose, a third is cheap for them to add, and a consumer
+# that re-derives structure from prose breaks on the third one.
+_INTERRUPTED_AT = re.compile(r"^Interrupted at:\s+(?P<where>\S.*?)\s*$")
 _FINISHED_AT = re.compile(r"^Ripping finished at\s+(?P<when>.+?)\s*$")
 # The "Paranoia status counts:" block header, then indented "KEY:  N" lines.
 _PARANOIA_HEADER = re.compile(r"^Paranoia status counts:\s*$")
@@ -989,6 +1000,9 @@ class _Disc:
     # the footer was absent, which is what a KILLED rip looks like and must not
     # be read as "ran to the end and failed".
     rip_completed: bool | None = None
+    #: Verbatim text of cyanrip's `Interrupted at:` line, or None. Present only
+    #: on a rip that did not complete.
+    interrupted_at: str | None = None
     rip_completed_tracks: int | None = None
     rip_completed_total: int | None = None
     rip_completed_reason: str = ""
@@ -1449,6 +1463,12 @@ def render_partially_accurate_summary(
     return summary
 
 
+def _take_interrupted_at(disc: _Disc, match: re.Match[str]) -> bool:
+    """Record WHERE an interrupted rip stopped, verbatim (round 13, §B4)."""
+    disc.interrupted_at = match.group("where")
+    return True
+
+
 def _take_rip_errors(disc: _Disc, match: re.Match[str]) -> bool:
     count = int_or_none(match.group("count"), field="cyanrip ripping-error count") or 0
     # Same phrasing as whipper's healthy verdict so downstream string checks
@@ -1556,6 +1576,7 @@ _RULES_AFTER_TRACKS: tuple[_LineRule, ...] = (
     _LineRule("accuraterip_total", _ACCURATE_TOTAL, _take_accurate_total),
     _LineRule("accuraterip_partial_total", _PARTIAL_TOTAL, _take_partial_total),
     _LineRule("ripping_errors", _RIP_ERRORS, _take_rip_errors),
+    _LineRule("interrupted_at", _INTERRUPTED_AT, _take_interrupted_at),
     _LineRule("rip_completed", _RIP_COMPLETED, _take_rip_completed),
     _LineRule("read_stalls", _READ_STALLS, _take_read_stalls),
     _LineRule("finished_at", _FINISHED_AT, _take_finished_at),
@@ -2582,6 +2603,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         handshake_note=disc.handshake_note,
         consumer=disc.consumer,
         rip_completed=disc.rip_completed,
+        interrupted_at=disc.interrupted_at,
         rip_completed_tracks=disc.rip_completed_tracks,
         rip_completed_total=disc.rip_completed_total,
         rip_completed_reason=disc.rip_completed_reason,
