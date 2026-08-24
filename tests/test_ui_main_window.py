@@ -2185,6 +2185,69 @@ def test_known_album_folder_matches_cyanrip_folder_derivation(tmp_path) -> None:
     assert folder2 == root / "Air" / "Moon Safari (1998)"
 
 
+def test_the_overwrite_guard_finds_a_folder_our_glyph_table_cannot_predict(
+    tmp_path,
+) -> None:
+    """A completed 14-track archival rip was overwritten because of one character.
+
+    Measured 2026-08-23, full-acceptance hardware run. An album titled
+    ``full acceptance: angle<bracket …`` landed on disk as
+    ``full acceptance∶ angle‹bracket …`` — the ``<`` mapped to U+2039, a mapping
+    absent from `naming._VALUE_SANITISE`. `known_album_folder` therefore named a
+    folder that did not exist, `_dir_has_audio` said "empty", the
+    *"Album already ripped"* prompt never fired, and a 2-track rip replaced the
+    14-track one with no warning. The old docstring called that direction
+    fail-safe: *"it can only ever miss a collision, never invent one."* Missing
+    the collision is the destructive outcome.
+
+    So this test uses ``>`` — deliberately NOT a character our table maps — with a
+    stand-in glyph we have never observed. It therefore exercises the *mechanism*
+    (resolve the prediction against what is on disk) rather than the one table
+    entry added alongside it. Reverting the resolver makes the first assertion
+    return the unsanitised literal, which is the bug.
+    """
+    from platterpus.ui.main_window_helpers import _dir_has_audio, known_album_folder
+
+    root = tmp_path
+    # What cyanrip actually wrote: a glyph for ">" that appears in no table of
+    # ours. Anything the sanitiser might pick must be found without knowing it.
+    real = root / "The Police" / "Louder ›than‹ ever"
+    real.mkdir(parents=True)
+    (real / "01 - Roxanne.flac").write_bytes(b"audio")
+
+    found = known_album_folder(root, "%A/%d/%d", "The Police", "Louder >than< ever", "")
+    assert found == real, (
+        "the guard did not find the folder cyanrip actually wrote — this is the "
+        "silent-overwrite defect: it would report an empty target and rip over a "
+        f"finished archival master (looked at {found})"
+    )
+    assert _dir_has_audio(found), "found the folder but not the audio in it"
+
+    # A DIFFERENT album must not be captured. The two titles differ only in a
+    # non-ASCII character, which is exactly the false match a naive "are both
+    # sides odd glyphs?" rule makes — and the ONLY folder on disk is the other
+    # one, so the scan genuinely runs. (Creating the probe's own folder here made
+    # this assertion vacuous: `resolve_sanitised_path` took the literal branch and
+    # never compared anything. Caught by `scripts/revert_probe.py`.)
+    (root / "The Police" / "Cafè").mkdir()
+    probe = known_album_folder(root, "%A/%d/%d", "The Police", "Café", "")
+    assert probe == root / "The Police" / "Café", (
+        "matched a near-identical title as a substitution — an accented letter is "
+        "not a sanitiser stand-in, and treating it as one would warn about the "
+        f"wrong album (got {probe})"
+    )
+
+    # Two candidates that could each be the rendering → refuse rather than guess,
+    # and fall back to the literal prediction (no dialog, same as before).
+    (root / "Ambiguous").mkdir()
+    (root / "Ambiguous" / "a›b").mkdir()
+    (root / "Ambiguous" / "a‹b").mkdir()
+    tied = known_album_folder(root, "%A/%d/%d", "Ambiguous", "a>b", "")
+    assert tied == root / "Ambiguous" / "a>b", (
+        "guessed between two equally-plausible folders instead of standing down"
+    )
+
+
 def test_suffix_album_folder_template_suffixes_only_the_album_folder() -> None:
     from platterpus.ui.main_window_helpers import suffix_album_folder_template
 

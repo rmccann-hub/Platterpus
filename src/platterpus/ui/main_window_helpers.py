@@ -87,6 +87,107 @@ def unique_album_title(
         return title
 
 
+# A substituted character is replaced one-for-one, so a real rendering and our
+# prediction have the same length and differ only at substitution points. These
+# are the shapes a REPLACEMENT may take: cyanrip's `unicode` modes use look-alike
+# glyphs (all non-ASCII), its `simple` modes use plain ASCII stand-ins. Kept
+# narrow on the ASCII side so a merely-similar album title cannot match.
+_SUBSTITUTION_TARGETS_ASCII: frozenset[str] = frozenset({"_", "-", " "})
+
+
+def _is_sanitised_rendering_of(predicted: str, actual: str) -> bool:
+    """True if ``actual`` could be cyanrip's rendering of ``predicted``.
+
+    Equal strings qualify. Otherwise every differing position must be one where
+    a substitution could plausibly have happened: our character is one a
+    portable sanitiser replaces (:data:`naming.SUBSTITUTION_SOURCES`) *and*
+    theirs looks like a stand-in rather than a different word.
+
+    Deliberately asymmetric — the constraint is on OUR character, not just
+    theirs. A rule that only asked "are both sides odd characters" would match
+    "Café" against "Cafè", two genuinely different titles.
+    """
+    if predicted == actual:
+        return True
+    if len(predicted) != len(actual):
+        return False  # substitution is one-for-one; a length change is a different name
+    # strict=True is free here — the length check above already guarantees it —
+    # and it keeps the guarantee stated where a future edit would break it.
+    for ours, theirs in zip(predicted, actual, strict=True):
+        if ours == theirs:
+            continue
+        if ours not in naming.SUBSTITUTION_SOURCES:
+            return False
+        if theirs.isascii() and theirs not in _SUBSTITUTION_TARGETS_ASCII:
+            return False
+    return True
+
+
+def _sanitised_sibling(parent: Path, name: str) -> Path | None:
+    """The single entry in ``parent`` that is a sanitised rendering of ``name``.
+
+    ``None`` when there is no match, when there is more than one (refuse rather
+    than guess — the same call `uiscript.find_script` makes), or on any OS error.
+    """
+    try:
+        matches = [
+            child
+            for child in parent.iterdir()
+            if _is_sanitised_rendering_of(name, child.name)
+        ]
+    except OSError:
+        return None
+    if len(matches) != 1:
+        if len(matches) > 1:
+            log.warning(
+                "%d folders under %s could each be this album's ('%s'): %s — not "
+                "guessing which, so the overwrite check will not fire",
+                len(matches),
+                parent,
+                name,
+                ", ".join(sorted(m.name for m in matches)),
+            )
+        return None
+    return matches[0]
+
+
+def resolve_sanitised_path(output_root: Path, relative: Path) -> Path:
+    """Map a *predicted* rip path onto the one that actually exists on disk.
+
+    **Why this exists.** cyanrip renders the naming template itself and swaps
+    path-problematic characters in tag values for stand-ins. We predict that
+    rendering (:mod:`platterpus.naming`) so the overwrite guard can look before
+    a rip starts — and on 2026-08-23 the prediction missed by one character
+    (`<` → `‹`, a mapping no table on our side knew about). The guard therefore
+    probed a folder that did not exist, found no audio, asked nothing, and a
+    completed 14-track archival rip was overwritten by a 2-track one.
+
+    The old code documented that risk and called it fail-safe: *"it can only
+    ever miss a collision, never invent one (fail-safe toward not blocking the
+    user)"*. **That reasoning is inverted.** Missing the collision IS the
+    destructive outcome; inventing one costs a dialog. "Fail-safe" had been
+    defined as "never interrupt", for a guard whose whole job is to interrupt
+    before the user's music is destroyed.
+
+    So we stop needing the table to be right. Walk the predicted path segment by
+    segment; take the literal child when it exists, otherwise the one on-disk
+    sibling that could be a sanitised rendering of it, otherwise the literal
+    name (nothing is there — which is the correct answer for a first rip).
+
+    Pure filesystem reads, no Qt, never raises: any error degrades to the
+    literal prediction, i.e. exactly the old behaviour.
+    """
+    current = output_root
+    for segment in relative.parts:
+        literal = current / segment
+        if literal.exists():
+            current = literal
+            continue
+        sibling = _sanitised_sibling(current, segment)
+        current = sibling if sibling is not None else literal
+    return current
+
+
 def known_album_folder(
     output_root: Path, disc_template: str, artist: str, title: str, year: str
 ) -> Path:
@@ -99,10 +200,16 @@ def known_album_folder(
     file's parent directory, so the caller can check whether that folder already
     holds a rip *before* starting.
 
-    Best-effort: exact for ordinary titles; a title with characters cyanrip maps
-    differently than the preview may yield a slightly different folder, in which
-    case the overwrite check simply won't fire — it can only ever *miss* a
-    collision, never invent one (fail-safe toward not blocking the user).
+    The rendered prediction is then resolved against what is actually on disk
+    (:func:`resolve_sanitised_path`), so a character cyanrip maps differently
+    from our table still finds the real folder. Before that it did not: the
+    prediction missed by one glyph, the overwrite prompt never fired, and a
+    14-track archival rip was overwritten without a word (2026-08-23). The
+    docstring here used to argue that a miss was the safe direction; it is the
+    destructive one.
+
+    Never raises. When nothing on disk matches, the literal prediction comes
+    back — which is the right answer for an album that has not been ripped yet.
     """
     sample = naming.SampleTrack(
         album_artist=artist,
@@ -115,7 +222,7 @@ def known_album_folder(
     )
     # render_preview appends ".flac"; the album folder is that file's parent.
     rendered = naming.render_preview(disc_template, sample)
-    return output_root / Path(rendered).parent
+    return resolve_sanitised_path(output_root, Path(rendered).parent)
 
 
 def suffix_album_folder_template(template: str, n: int) -> str:
