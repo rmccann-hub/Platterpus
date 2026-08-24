@@ -11,6 +11,21 @@ inbound/round-NN-lap-LL.md    what the fork sent back (protocol §4)
 verified/round-NN-lap-LL.md   our verification of it  (protocol §2, step 5)
 ```
 
+**Two files here are NOT rounds and must never be counted as one.** Each side's
+**standing status** — what the other can assume *between* rounds, and what a fresh
+session on either side reads to get up to speed. They carry no `HANDSHAKE-*` wire
+headers, which is why the lap-naming test does not bind them, and they are
+**rewritten in place** rather than gaining a sibling per revision (a stale standing
+status is worse than none — the opposite rule from the correspondence above, which
+is append-only). Rounds are the formal channel and they cost something: S-13 fixes
+a round's close conditions at lap 1, and an open round blocks both sides' releases.
+Between rounds each side still needs somewhere to say where it is.
+
+```
+outbound/platterpusstatus.md      ours   — undated; the as-of is in its heading
+inbound/cyanripstatus<date>.md    theirs — filed under the name they used
+```
+
 ## File naming — `round-NN-lap-LL.md`
 
 **Both projects use this.** Agreed 2026-08-04 on a maintainer directive (*"agree on a

@@ -12,6 +12,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **`docs/handshake/outbound/platterpusstatus.md` — our standing status, the file
+  a fresh session on the cyanrip side reads to start.** The mirror of their
+  `cyanripstatus20260821.md`, whose own header credits the convention to us: we
+  sent them one on 2026-08-21 and never committed our half, so the record carried
+  theirs and not ours. Not a round and not a lap — no `HANDSHAKE-*` wire headers,
+  so the lap-naming test does not bind it and `--status` does not count it. It
+  carries the current pins and round state, the full-acceptance run's results
+  including what *their* build got right, the nine defects it found and which are
+  fixed, the one blocking ask with our `-T os_unicode` derivation offered up for
+  correction, and the S-13–S-16 convergence rules restated as binding. Named
+  **undated** and rewritten in place: a dated name means a new sibling every time
+  it goes stale, which is the sprawl rule #7 exists to stop.
 - **`expect-status` is implemented, and a batch now says what cannot run before
   it starts.** The verb sat in the table `implemented=False` with a written
   reason — there is no single "status line" widget, so any implementation would
