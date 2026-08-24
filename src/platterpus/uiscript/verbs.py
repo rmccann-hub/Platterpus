@@ -246,18 +246,30 @@ _VERB_LIST: tuple[Verb, ...] = (
     ),
     Verb("cancel-rip", 0, 0, "cancel-rip — cancel a rip in progress"),
     Verb(
-        # Deliberately still unimplemented, and the reference says so rather than
-        # quietly omitting it. There is no single "status line" widget to assert
-        # against — progress lives in the rip-progress pane and identification in
-        # the disc panel — so a `expect-status` would have to pick one surface and
-        # silently mean only that. `expect-dialog` and `expect-tracks` cover the
-        # cases it was drafted for; this row stays as a marker that the gap is
-        # known, not forgotten.
+        # IMPLEMENTED 2026-08-24. It sat here with `implemented=False` and a
+        # written reason — "there is no single 'status line' widget to assert
+        # against ... so it would have to pick one surface and silently mean only
+        # that" — and the reason was answerable rather than fatal: pick the
+        # surface and SAY WHICH, in the help text and in every failure message.
+        # That is what the rest of this codebase does with a measurement.
+        #
+        # What forced it: the full-acceptance rig script used the verb, because it
+        # is published in `docs/script-language.md` as part of the language, and
+        # got an ERROR back (2026-08-23, transcript L179). A row kept as "a marker
+        # that the gap is known" is indistinguishable, from a script author's
+        # side, from a capability — `CLAUDE.md`'s "capabilities we advertise but
+        # do not deliver". Implement or remove; there is no third state.
+        #
+        # The surface is `RipProgress.current_status()` — the label under the
+        # Overall bar, the one that reads "Idle.", "… · Rip cancelled by user.
+        # Partial files may remain." or "… · Done — all 2 tracks ripped cleanly".
+        # It is already the public accessor the desktop notification reads, so the
+        # verb and the notification cannot disagree about what the status IS.
         "expect-status",
         1,
         None,
-        "expect-status <text> — assert the status line contains text",
-        implemented=False,
+        "expect-status <text> — assert the rip status line (the one under the "
+        "Overall progress bar) contains text, case-insensitively",
     ),
     Verb(
         "expect-tracks",

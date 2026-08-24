@@ -198,12 +198,22 @@ destructive action is unbounded, and all of those are reachable from a GUI a
 person is driving. A script that needs one of them is a script that needs a
 person.
 
-**Does not reach, as a known gap:** `expect-status`. There is no single status
-widget to assert against — progress lives in the rip-progress pane and
-identification in the disc panel — so it would have to pick one surface and
-silently mean only that. `expect-dialog` and `expect-tracks` cover what it was
-drafted for. The row is left in the reference marked *NOT YET IMPLEMENTED* so
-the gap is visible rather than forgotten.
+**`expect-status` now reaches, and the gap it used to be is worth recording.**
+It was unimplemented on the argument that there is no single status widget — the
+rip-progress pane has one, the disc panel another — so any implementation would
+pick one surface and *silently* mean only that. The objection was about the
+silence, not the ambiguity: it now reads `RipProgress.current_status()` (the
+label under the Overall bar, and the same accessor the desktop notification
+reads) and names that surface in its help text and in every failure message.
+
+What forced it: the full-acceptance script *used* the verb, because the generated
+reference lists it, and got an ERROR back at **step 179 of 288, 1h 49m in**. Two
+things came out of that. The verb is implemented; and the pre-run `_preflight`
+now names any step whose verb has no handler, alongside the `cyanrip` steps it
+already checked — so a batch says what cannot run before it spends a disc pass
+finding out. `expect-status Finished` was also simply *wrong*: the line reads
+`Done — all N tracks ripped cleanly, …`, so the assertion would have failed even
+implemented. Assert against the artifact, not against a remembered wording.
 
 ### The cyanrip passthrough is real, and it is still guarded
 
@@ -254,4 +264,4 @@ disappointment is still true. What we still do not know, said out loud so nobody
 the silence as a pass: whether 32 sectors is this drive's real cache, and which of the
 `Cache probe:` states a different drive would report.
 
-*Last updated for Platterpus v0.6.20.*
+*Last updated for Platterpus v0.6.23.*

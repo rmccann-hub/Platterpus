@@ -176,7 +176,10 @@ rip
 wait-for-rip 10800
 snapshot afterfullrip
 screenshot afterfullrip
-expect-status Finished
+# 'Done' is measured, not guessed: the status line after a clean rip reads
+# 'Done - all N tracks ripped cleanly, no read errors. AccurateRip: ...'.
+# Matching one disc-agnostic word keeps this working on any CD.
+expect-status Done
 
 # --- F. POST-RIP VERIFICATION ----------------------------------------------
 # `rig-check` is the seam check the cyanrip fork asked for, reachable both as a
@@ -242,6 +245,8 @@ snapshot beforecancel
 cancel-rip
 log cancel issued; giving the escalation its full window
 wait 30
+# The cancelled line reads 'Rip cancelled by user. Partial files may remain.'
+expect-status cancelled
 snapshot aftercancel
 screenshot aftercancel
 

@@ -71,7 +71,7 @@ text is taken verbatim as one value.
 | `rip` | 0 | ready | rip — start the rip (needs an identified disc) |
 | `wait-for-rip` | 1 | ready | wait-for-rip <seconds> — wait for the rip to finish, up to a timeout |
 | `cancel-rip` | 0 | ready | cancel-rip — cancel a rip in progress |
-| `expect-status` | 1+ (rest of line) | **NOT IMPLEMENTED** | expect-status <text> — assert the status line contains text |
+| `expect-status` | 1+ (rest of line) | ready | expect-status <text> — assert the rip status line (the one under the Overall progress bar) contains text, case-insensitively |
 | `expect-tracks` | 1 | ready | expect-tracks <count|count+> — assert how many track rows are loaded; a trailing '+' means 'at least this many', which is what a script that must work on any disc actually wants |
 | `cyanrip` | 1+ (rest of line) | ready | cyanrip <args…> — run the host-exported ripper for real and capture its exit code, exact argv and complete output |
 | `expect-cyanrip` | 1+ (rest of line) | ready | expect-cyanrip <text> — assert the last cyanrip output contains text |
@@ -551,8 +551,8 @@ found nothing wrong*.
       "max_args": null,
       "unsafe": false,
       "takes_paths": false,
-      "implemented": false,
-      "help": "expect-status <text> \u2014 assert the status line contains text"
+      "implemented": true,
+      "help": "expect-status <text> \u2014 assert the rip status line (the one under the Overall progress bar) contains text, case-insensitively"
     },
     {
       "name": "expect-tracks",
