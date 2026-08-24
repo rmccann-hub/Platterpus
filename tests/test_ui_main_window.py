@@ -7627,7 +7627,18 @@ def test_a_cover_art_crash_becomes_a_reported_result_not_a_dead_daemon(
     teardown_threads, tmp_path: Path, monkeypatch, qapp
 ) -> None:
     """Cover art is the slowest, most failure-prone step (a network GET with a 30 s
-    timeout). A crash there must still produce a result the report can record."""
+    timeout). A crash there must still produce a result the report can record.
+
+    **`save_additional_art=False` is load-bearing, not tidiness.** It defaults to
+    True, and with it on the post-rip thread goes on from the crashed front-cover
+    fetch to `save_additional_covers`, which this test stubs nothing for — so the
+    unit test made a **live Cover Art Archive request**. It won the 10 s join when
+    run alone and lost it under full-suite load, and because the read below is of
+    an attribute that only exists once `_on_cover_art_done` has fired, the failure
+    surfaced as a bare `AttributeError` rather than "the thread never finished".
+    Sibling tests in this file already set this flag off for the same reason
+    (search `save_additional_art=False`); this one had been missed.
+    """
     from platterpus.adapters import cover_art as _ca
 
     album, log_file = _album_with_leftovers(tmp_path)
@@ -7637,7 +7648,9 @@ def test_a_cover_art_crash_becomes_a_reported_result_not_a_dead_daemon(
         lambda *a, **k: (_ for _ in ()).throw(RuntimeError("CAA exploded")),
     )
     window = teardown_threads(
-        config=Config(host_setup_prompted=True, cover_art="embed")
+        config=Config(
+            host_setup_prompted=True, cover_art="embed", save_additional_art=False
+        )
     )
 
     window._start_post_rip_processing(
@@ -7651,6 +7664,14 @@ def test_a_cover_art_crash_becomes_a_reported_result_not_a_dead_daemon(
     )
     assert window._post_rip_thread is not None
     window._post_rip_thread.join(timeout=10)
+    # Say WHICH thing failed. Reading `_last_cover_art_result` straight after a
+    # join that timed out raises AttributeError — the attribute is created by the
+    # signal handler — so a thread that simply had not finished reported itself as
+    # a missing attribute, in a test whose subject is the result object.
+    assert not window._post_rip_thread.is_alive(), (
+        "the post-rip thread was still running after 10s — nothing below is about "
+        "cover art until this passes; check what in the thread is doing real I/O"
+    )
     qapp.processEvents()
 
     result = window._last_cover_art_result
@@ -7744,11 +7765,22 @@ def test_a_slow_cover_fetch_that_lands_after_the_next_rip_is_dropped(
     """Regression (audit 2026-07-28): the cover fetch is the step most likely to
     finish AFTER the user has started the next rip, and `_on_cover_art_done` writes
     straight into whatever album's report is current — naming a release that album
-    never used."""
+    never used.
+
+    `save_additional_art=False` for the reason spelled out in
+    `test_a_cover_art_crash_becomes_a_reported_result_not_a_dead_daemon`: it
+    defaults True, and with a real `release_id` and no local cover the thread goes
+    on to `save_additional_covers`, which nothing here stubs — a live Cover Art
+    Archive request from a unit test. Swept for on 2026-08-24; these two were the
+    only reachable cases (every other post-rip test passes an empty `release_id`
+    or a local cover path, both of which short-circuit that call).
+    """
     from platterpus.adapters import cover_art as _ca
 
     album, log_file = _album_with_leftovers(tmp_path)
-    window = teardown_threads(config=Config(host_setup_prompted=True))
+    window = teardown_threads(
+        config=Config(host_setup_prompted=True, save_additional_art=False)
+    )
     window._last_cover_art_result = None
 
     def _slow(*a, **k):
@@ -7768,6 +7800,13 @@ def test_a_slow_cover_fetch_that_lands_after_the_next_rip_is_dropped(
     )
     assert window._post_rip_thread is not None
     window._post_rip_thread.join(timeout=10)
+    # A thread that never finished also leaves `_last_cover_art_result` at None,
+    # so without this the assertion below passes for the wrong reason — the exact
+    # "can this check be satisfied by finding nothing?" shape.
+    assert not window._post_rip_thread.is_alive(), (
+        "the post-rip thread was still running after 10s, so 'no result was "
+        "written' proves nothing about the generation guard"
+    )
     qapp.processEvents()
 
     assert window._last_cover_art_result is None
