@@ -94,6 +94,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   contained the word "Finished" — so it would have failed even implemented.
   Assert against the artifact, not against a remembered wording.
 ### Fixed
+- **Post-rip checks kept reading a folder the next rip was overwriting, and one
+  of them logged an ERROR saying the user's archival master was corrupt.** The
+  rip-generation guard was read at *reporting* time and never at *working* time,
+  so a stale result was discarded — after the work that produced it had already
+  done the damage. Measured 2026-08-23: the next rip began **2.4 s** after the
+  previous one finished, into the same folder (the overwrite guard had missed —
+  fixed separately). The evidence bundle abandoned itself at +0.1 s and said so
+  in the log; the FLAC verify, CTDB verify and checksum sweep carried on for ten
+  more seconds, lost their file manifest when the new rip truncated the old log
+  (three `falling back to a folder scan` warnings), and the FLAC verify then
+  recorded `flac.verify_failed: 01 - Roxanne.flac: ERROR checking for ID3v2 tag`
+  into the user's own diagnostics — about a file that was simply mid-write.
+  Discarding the verdict afterwards does not unsay that. `CLAUDE.md`'s *"did I
+  check the preconditions where the thing HAPPENS, or where it was scheduled?"*,
+  with the deferral being a daemon thread's whole runtime. `_launch_post_rip_daemon`
+  — documented as the one place this guard lives — now **hands** each worker a
+  `still_current()` predicate rather than only checking after it returns, so a new
+  check cannot omit the guard by not knowing it exists, and an abandoned check
+  logs that it abandoned instead of going quiet. The regression test asserts the
+  verifier is **never called**, not that no result was emitted: the latter passes
+  against the old code, which is the vacuous version of the same test.
 - **`rig_session.sh`'s `-j` probe could hang the whole session, and did.** On the
   2026-08-23 run it left a 0-byte artifact, no `exit:` line and no `MANIFEST.txt`
   — the session never got past it, so an unattended harness whose entire purpose
