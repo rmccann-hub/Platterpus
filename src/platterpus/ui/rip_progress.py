@@ -78,6 +78,8 @@ from platterpus.verdict import (
     AR_STATE_OFFSET_VARIANT,
     AR_STATE_VERIFIED,
     accuraterip_compared,
+    accuraterip_confidence_text,
+    accuraterip_db_max_confidence,
     accuraterip_state,
     accuraterip_verdict,
     reconcile_ar_ctdb,
@@ -1546,7 +1548,18 @@ def _ar_cell(
     if state == _AR_STATE_VERIFIED:
         # A genuine database match, format-agnostic across whipper's "Found,
         # exact match" and cyanrip's "accurately ripped, confidence N".
-        return f"OK ({getattr(result, 'confidence', None)})"
+        #
+        # "N of M", where M is the database's best confidence for this track.
+        # The bare N was close to meaningless on its own: confidence 3 is
+        # excellent on an obscure disc and a warning on a famous one. The pair is
+        # the DIFFERENT-PRESSING signal — a low own-confidence against a high
+        # maximum means most people's discs disagree with yours, which is a
+        # pressing difference rather than a bad rip. cyanrip has printed the
+        # maximum on every per-track `Accurip:` row all along and we read the row
+        # only to answer "did a lookup happen" (2026-08-24). Rendered through the
+        # shared `verdict` helper so the table, the report and any later surface
+        # cannot describe one track's standing three different ways.
+        return f"OK ({accuraterip_confidence_text(result, lookup)})"
     if state == _AR_STATE_OFFSET_VARIANT:
         conf = getattr(offset_result, "confidence", None)
         return (
@@ -1596,4 +1609,50 @@ def _ar_tooltip(
         return NOT_CHECKED_TOOLTIP
     if state == _AR_STATE_NO_MATCH:
         return NO_MATCH_TOOLTIP
+    if state == _AR_STATE_VERIFIED:
+        # A verified track needs no footnote UNLESS its own confidence is far
+        # below the database's best for the same track — which the cell now shows
+        # as "N of M" but has no room to explain. The column is narrow; this is
+        # where the nuance goes, exactly as it does for `in DB, no match`.
+        return _confidence_standing_tooltip(result, lookup)
     return ""
+
+
+#: A verified track whose own confidence is at or below this FRACTION of the
+#: database's best gets the different-pressing footnote. A ratio, not a fixed
+#: number, because the meaning is relative: confidence 3 against a maximum of 3 is
+#: an obscure disc everyone rips identically, and confidence 3 against 200 is a
+#: pressing almost nobody else has. One quarter is a deliberately loose bar — the
+#: footnote is an explanation, not a warning, and it says what the numbers mean
+#: rather than passing judgement on the rip.
+_DIFFERENT_PRESSING_RATIO: float = 0.25
+
+#: The floor below which the ratio says nothing. With a database maximum in single
+#: figures every rip is "far below" something, and a footnote on every track is a
+#: footnote nobody reads.
+_DIFFERENT_PRESSING_MIN_MAX: int = 10
+
+
+def _confidence_standing_tooltip(result: object, lookup: str | None) -> str:
+    """Explain an "N of M" confidence pair when the gap is worth explaining.
+
+    Empty for the ordinary case — a track that matched what most people have, or
+    a disc whose database entry is too thin for the comparison to mean anything.
+    Never raises.
+    """
+    own = getattr(result, "confidence", None)
+    db_max = accuraterip_db_max_confidence(lookup)
+    if own is None or db_max is None:
+        return ""
+    if db_max < _DIFFERENT_PRESSING_MIN_MAX:
+        return ""
+    if own > db_max * _DIFFERENT_PRESSING_RATIO:
+        return ""
+    return (
+        f"This rip is bit-perfect — it matched {own} other submission(s) exactly.\n\n"
+        f"The number after 'of' is the most any single version of this track has "
+        f"({db_max}). Yours matched a much less common one, which usually means "
+        f"you have a different PRESSING of the disc — a different factory or "
+        f"release with slightly different audio. That is normal and is not a "
+        f"problem with your rip or your drive."
+    )

@@ -2129,7 +2129,12 @@ here blocks the v0.6.3 release; round 6 is CLOSED both directions.
       `app.quit()`, synchronously on the GUI thread. Queued rather than half-landed
       because a schema field with no writer is worse than none. This is the
       "confident pass over an incomplete record" shape, which is the worst kind.
-- **[ ] AccurateRip: record the DB's MAX confidence beside each track's OWN confidence.**
+- **[x] AccurateRip: record the DB's MAX confidence beside each track's OWN confidence.**
+      **Done 2026-08-24.** `verdict.accuraterip_db_max_confidence` +
+      `accuraterip_confidence_text` (one predicate, two callers), rendered as
+      `OK (3 of 200)` in the results table with a different-pressing footnote where
+      the gap is worth explaining. The relation between cell and footnote is tested,
+      not just each side. Original entry below for the reasoning.
       The single highest-value item from the whipper capability audit (2026-08-24), and
       nearly free. cyanrip already prints both — `Accurip: disc found in database (max
       confidence: 200)` at disc level and `confidence 3` per track — and we capture the
