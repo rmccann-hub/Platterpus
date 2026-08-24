@@ -322,6 +322,11 @@ class RipLog:
     # (handshake round 4, Q10) this footer is the only structural difference
     # between a truncated log and a short one, because the cue cannot tell.
     rip_completed: bool | None = None
+    #: Where an interrupted rip stopped, verbatim — e.g. `track 1, mid-read` or
+    #: `between tracks, no read in progress`. None when the log carries no such
+    #: line, which is every completed rip and every log written before the fork
+    #: added it (round 13, answering our round-12 ask).
+    interrupted_at: str | None = None
     rip_completed_tracks: int | None = None
     rip_completed_total: int | None = None
     #: Why it did not complete, in the ripper's own words ("interrupted by

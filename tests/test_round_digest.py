@@ -253,6 +253,16 @@ def test_our_published_digests_still_reproduce() -> None:
         # our 2, their 3), and §5a's writer rule excludes the file carrying the
         # figure.
         (12, 4): ("2c20b1f3f534426f", 3),
+        # --- Round 13 ---
+        # DEGENERATE, and pinned precisely because it is. Round 13's only lap when
+        # our verification was written is the one it verifies, so §5a's writer rule
+        # ("every lap of this round the writer holds, excluding this one") leaves an
+        # EMPTY population — and `01ba4719c80b6fe9` is sha256/16 of the empty string.
+        # Pinned rather than exempted so the zero stays visible: an unpinned
+        # degenerate figure is indistinguishable from an unpinned real one, and the
+        # sweep below exists because the newest claim is the one most likely to be
+        # acted on.
+        (13, 1): ("01ba4719c80b6fe9", 0),
     }
     for lap, expected in published.items():
         assert _as_declared_in(lap) == expected, (

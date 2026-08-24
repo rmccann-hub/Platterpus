@@ -125,6 +125,11 @@ _FORK_ONLY_RULES: frozenset[str] = frozenset(
         "handshake_note",
         "invoked_as",
         "read_stalls",
+        # Added by the fork in round 13 to answer our round-12 ask: which track
+        # was in progress when a rip was interrupted. Fork-only by construction
+        # — upstream has no such line — and published here so they know they
+        # are on the hook for it.
+        "interrupted_at",
         "secure_rerip_converged",
         "rip_completed",
     }

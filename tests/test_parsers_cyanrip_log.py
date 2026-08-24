@@ -1897,3 +1897,64 @@ def test_a_log_with_no_per_track_paranoia_block_yields_empty_counts() -> None:
     )
     assert rip_log.tracks, "the minimal log parsed no tracks at all"
     assert rip_log.tracks[0].paranoia_counts == {}
+
+
+def test_the_interrupted_at_line_is_read_from_the_forks_own_sample() -> None:
+    """The line they added to answer OUR ask, parsed the day their lap arrived.
+
+    Round 12 we asked which track was in progress when a rip was interrupted; the
+    log could not say. Round 13 §B4 answers it with `Interrupted at: track 1,
+    mid-read`. Reading it immediately is the point: on the same day we found we
+    had dropped their per-track paranoia counters for months after asking for
+    those too, and "they built it at our request and we read none of it" is not a
+    pattern to repeat while apologising for it.
+
+    Read from their committed sample rather than a hand-written fixture — a
+    fixture here would carry our belief about the wording, and the wording is
+    theirs.
+    """
+    from pathlib import Path
+
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    sample = (
+        Path(__file__).resolve().parents[1]
+        / "docs"
+        / "handshake"
+        / "inbound"
+        / "artifacts"
+        / "round-13-lap-01-sample-interrupted-g673a57b.log"
+    )
+    assert sample.is_file(), f"the fork's interrupted sample is missing: {sample}"
+    rip_log = parse_cyanrip_log(sample.read_text(encoding="utf-8"))
+
+    assert rip_log.interrupted_at == "track 1, mid-read", rip_log.interrupted_at
+    # THEIR stated invariant: the line appears if and only if `Rip completed: no`.
+    # Asserting the pair rather than the line alone is what makes this a check of
+    # the contract instead of a check of one string.
+    assert rip_log.rip_completed is False, (
+        "the sample carries `Interrupted at:` but did not parse as an incomplete "
+        "rip — their §D says the two are always together"
+    )
+
+
+def test_a_completed_rip_carries_no_interrupted_at() -> None:
+    """The other half of their invariant, from the golden reference — so this pair
+    fails if the line ever leaks onto a clean rip, which is the only way it could
+    become misleading."""
+    from pathlib import Path
+
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    golden = (
+        Path(__file__).resolve().parents[1]
+        / "docs"
+        / "handshake"
+        / "inbound"
+        / "artifacts"
+        / "round-13-lap-01-golden-reference-g673a57b.log"
+    )
+    assert golden.is_file(), f"the fork's golden reference is missing: {golden}"
+    rip_log = parse_cyanrip_log(golden.read_text(encoding="utf-8"))
+    assert rip_log.rip_completed is True, "the golden reference should be a clean rip"
+    assert rip_log.interrupted_at is None

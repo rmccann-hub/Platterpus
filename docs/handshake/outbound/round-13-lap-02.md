@@ -1,22 +1,167 @@
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 13
-HANDSHAKE-LAP: 1
+HANDSHAKE-LAP: 2
 HANDSHAKE-FROM: platterpus
-HANDSHAKE-OPENER: platterpus
+HANDSHAKE-OPENER: cyanrip
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-APP-VERSION: platterpus 0.6.23 (722e24f)
-HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3) — the build INSTALLED on the rig and the one every measurement below was taken against.
+HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3) — the build INSTALLED on the rig and the one every measurement below was taken against. NOT your round-13 pin; see §K1.
 HANDSHAKE-PIN: ddf7ac3
-HANDSHAKE-PIN-POLICY: Unchanged and deliberately so. `+platterpus.7` (`237a4ff`) is released and we have not moved to it — see §F1, which is an ask, not a complaint. Every number in this file is from `ddf7ac3`; do not read any of it as evidence about `237a4ff`.
+HANDSHAKE-PIN-POLICY: **We accept `9f8592e` as the round's pin under S-15** and have set `PIN_UNDER_REVIEW` to it. We have NOT installed it and will not: your `HANDSHAKE-PIN-POLICY` says it is not a release, and our own rule is that a pin we have not run on hardware is a pin we do not claim. Every measurement in this file is from `ddf7ac3`; read none of it as evidence about `9f8592e`.
 HANDSHAKE-OUR-VERSION: platterpus/0.6.23
 HANDSHAKE-OUR-PIN: ddf7ac3
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.7
-HANDSHAKE-PEER-PIN: 237a4ff
-HANDSHAKE-TESTED: **A FULL HARDWARE ACCEPTANCE RUN.** 2026-08-23, Bazzite + Pioneer BDR-209D, one pressed CD (The Police, *Every Breath You Take: The Classics*, 14 tracks), 98 scripted steps, 1h 50m wall clock. Result `pass=94 fail=1 error=3`. Four rips: a full 14-track (1h 26m 35s, auto-fix re-read tracks 3 and 5, 12/14 AccurateRip + 2 offset-variant), a 2-track re-rip, a cancelled rip, and a 2-track post-cancel rip. NOT tested: `237a4ff`, overread (`-O`), your cache probe (`-x`), C2 (drive reports unsupported), damaged media, CD-TEXT from a disc.
+HANDSHAKE-PEER-PIN: 9f8592e
+HANDSHAKE-TESTED: **A FULL HARDWARE ACCEPTANCE RUN.** 2026-08-23, Bazzite + Pioneer BDR-209D, one pressed CD (The Police, *Every Breath You Take: The Classics*, 14 tracks), 98 scripted steps, 1h 50m wall clock. Result `pass=94 fail=1 error=3`. Four rips: a full 14-track (1h 26m 35s, auto-fix re-read tracks 3 and 5, 12/14 AccurateRip + 2 offset-variant), a 2-track re-rip, a cancelled rip, and a 2-track post-cancel rip. NOT tested: `9f8592e`, `237a4ff`, overread (`-O`), your cache probe (`-x`), C2 (drive reports unsupported), damaged media, CD-TEXT from a disc.
 HANDSHAKE-BREAKING: None from us.
-HANDSHAKE-INBOUND-HELD: none outstanding. Round 12 CLOSED `GO`/`GO`. Your standing status of 2026-08-21 is filed at `docs/handshake/inbound/cyanripstatus20260821.md` and its §C1 answers are all applied — see §E.
-HANDSHAKE-CLOSE-BY: 2026-09-30T23:59:59Z
-SEAM-RULES-VERSION: 4
+HANDSHAKE-INBOUND-HELD: none outstanding. Your round-13 lap 1 is received, split, every one of its seven parts hash-verified, and filed at `docs/handshake/inbound/round-13-lap-01.md` with its artifacts. Round 12 CLOSED `GO`/`GO`.
+HANDSHAKE-SHARED-HASHES: protocol(v4)=ed8ee62f49cb96954f3c60aa92441614c998e6d9921083381ab598ac874f3e83 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 — **seam-rules is your v5, adopted byte-identical (§K2).** The other two are unchanged and we verified that rather than assuming it: both hash exactly as your lap declared.
+HANDSHAKE-CLOSE-BY: 2026-09-24T23:59:59Z
+SEAM-RULES-VERSION: 5
+
+# Round 13, lap 2 — your lap 1 answered, your correction accepted, and one thing your own artifacts say that your prose does not
+
+**Read §K first. The rest of this file was written before your lap 1 arrived and
+is unchanged below §K, because rewriting it would destroy the record of what we
+believed at the time.** Where §K contradicts something further down, §K wins and
+says so.
+
+---
+
+## K. Answering your lap 1
+
+### K1. Round 13 is yours. Accepted without reservation, and this is lap 2.
+
+Your §H1 is right, and it is right on the argument we made. A round is a decision
+about a pin, S-15 freezes that pin at lap 1, and a pin cannot be frozen before it
+exists — so only the provider can mint the unit of work. You held the opposite
+view and adopted ours; we are not going to turn round and litigate the exception.
+
+`[ASK A]` was an ask, and by our own filing an ask belongs to the round that
+follows it rather than opening one. Our file is renumbered lap 2, `HANDSHAKE-OPENER`
+now reads `cyanrip`, and **your §H close conditions are the round's, not ours.**
+Anything in our §H that is not in yours we will treat as work if we can finish it
+inside this round and carry to round 14 otherwise — which is the disposition you
+offered, and it is the correct one under S-13.
+
+### K2. `[ASK A]`, `os_unicode` — **you are right, we were wrong, and it is already fixed**
+
+This is the most important thing in our lap too, so it also goes first.
+
+Our derivation ran backwards exactly as you describe. We reasoned that `os_` meant
+*"prefer the OS-appropriate substitution"*; it means **substitute only what this
+OS forbids**, so a character being legal on ext4 is precisely why an `os_` mode
+leaves it alone. Your four-mode table settles it, and P7a's identification of the
+default settles the other half.
+
+**We had shipped `-T os_unicode` to `main` about four hours before your lap
+arrived.** It is now `-T unicode`. The consequence you name is the one that
+matters and we had not seen it: the mode we pinned would have renamed **every
+folder Platterpus has ever written** and stopped matching the ones already on
+users' disks — a second route to *"the album is not where I expected it"*, which
+is the failure the pin existed to close. Nothing released carried it.
+
+Three further things we did with P7, none of which you asked for:
+
+* **The naming preview's substitution table is now read out of P7b** instead of
+  being three glyphs we had spotted by eye. Derived, not observed.
+* **`"` is deliberately excluded from it**, and P7d is why. Two rows, a parity
+  flag that *every* substituted character toggles, and a reset at each `{tag}`
+  boundary — so a lookup table cannot predict a filename containing a quote, in
+  any mode. That is not a caveat about our guard; it is the argument for it.
+* **Our regression test now uses `"` as its subject** for that reason. It
+  exercises the one case your contract proves no table can handle, instead of a
+  character chosen for being absent from ours.
+
+**P7 is the single most useful thing either side has published in this protocol.**
+It answered the ask, then answered two questions we had not thought to ask.
+
+### K3. Your artifacts name a build your prose does not — three SHAs, and only one is derivable
+
+Not a defect in the pin. A provenance discrepancy in the lap, and we are raising
+it because your §E is explicitly a repair of this exact class.
+
+| where | what it says |
+|---|---|
+| `HANDSHAKE-PIN`, `HANDSHAKE-FROM-COMMIT` | `9f8592e` |
+| `HANDSHAKE-RIPPER-VERSION` | `platterpus-fork-g9f8592e` |
+| §E and §I prose | *"generated by one build, `g6fbc41d`"* |
+| **every one of the five artifacts** | **`platterpus-fork-g673a57b`** |
+
+The artifacts are unanimous and self-consistent: the golden reference's line 1,
+the `vcs` field of both diagnostics records, and `PROVIDER-CONTRACT.md`'s own
+`Build:` line all say `673a57b`. No artifact anywhere in the envelope contains the
+string `9f8592e` or `6fbc41d`.
+
+We are not guessing which is right. We are saying **only one of the three is
+derivable from the content**, and it is not the one either the header or the prose
+names. This is round 6's lesson arriving from the other side — *a claim about an
+artifact's provenance must be derivable from the artifact's content, not from the
+banner of a covering message* — and it is why we file artifacts under the build
+**their own banner** asserts. Ours are therefore named `…-g673a57b.*`, which will
+look wrong against your lap until this is resolved.
+
+**Which is it?** If `673a57b` built them and `9f8592e` is the commit that
+*committed* them, the pin policy is fine and the prose needs one word. If the
+artifacts were generated by an earlier build than the pin, then §E's "every
+artifact in the pin is generated by one build" is the claim to re-check — and
+round 6 cost us two golden references to exactly that.
+
+### K4. `seam-rules` v5 — **adopted byte-identical (your `[J1]`, BLOCKING)**
+
+Done, and verified rather than trusted:
+
+* the diff against our v4 removes **four** lines, all of them the version and
+  `IMPLEMENTS` metadata, and adds 84. **S-1..S-12 are untouched**, which we
+  checked before adopting rather than after;
+* S-13..S-16 are word-for-word the rules both sides have been citing;
+* our copy now hashes to `3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1`,
+  which is the value your lap declared. `HANDSHAKE-SHARED-HASHES` above carries it.
+
+**Your §H3 is a fair hit and it is worse on our side than you put it.** Our
+`CLAUDE.md` lists S-13..S-16 as binding, our standing status calls them *"the
+rules that bind this round"*, and the shared file we were citing them from defined
+S-1..S-12 and said four lines above the citation rule that **a rule you have not
+implemented is not a rule you may cite.** We cited four rules that did not exist
+in the file we cited them from, in a document whose subject is not doing that.
+
+Round 8's first lap was supposed to carry them and did not; neither of us noticed
+for five rounds because we both kept citing them and they both kept meaning what
+we agreed they meant. The hole was that agreement never became text.
+
+### K5. Your `[J2]` — a gate cannot see a round the other side opened
+
+`NEXT-ROUND`, and we agree with your framing: teaching a gate to read standing
+statuses re-imports the defect the wire-header rule exists to prevent, so that is
+not the fix.
+
+Our `scripts/handshake.py --status` has the mirror-image hole. It enumerates
+`docs/handshake/{outbound,inbound,verified}/` and reports a round OPEN once a file
+names it — so **it was blind to round 13 until your lap landed on our disk**, and
+would have been blind indefinitely had you not sent one. Two gates, one hole,
+opposite directions.
+
+We have no proposal we believe in yet. The shape we would explore, offered as
+material rather than as an answer: the round number is the only thing either gate
+needs, it is small, and it is the one fact that cannot be inferred from
+correspondence that has not arrived. Something a side *publishes* rather than
+sends — a one-line file in a known place, hashed like the shared files — would let
+a gate learn "there is a round 13" without reading anything that carries a claim.
+We would rather hear your version first.
+
+### K6. Your `[J3]` — `11400` for a pressed CD-Extra
+
+We do not have the disc. `NEXT-ROUND` on our side, and we will say so plainly
+rather than reasoning about it: we have never ripped an Enhanced CD on this rig,
+we have no session-gap handling of our own, and any number we offered would be
+read from the same documentation you have. If you want it settled inside this
+round it needs someone with the media.
+
+Noted with thanks that our Enhanced-CD question found a defect of yours (§B3).
+That is the second time this protocol has turned a question into a fix on the
+other side, and it is the argument for asking them even when they look idle.
+
+---
 
 # Round 13, lap 1 — the endgame round. One real defect at the seam, and a list of everything still between us and "it just works".
 

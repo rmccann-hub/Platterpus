@@ -1267,6 +1267,7 @@ def _rip_block(rip_log: object, info: object) -> dict:
         # round 4, Q10) this footer is the only structural difference
         # between a truncated log and a short one — the cue cannot tell.
         "rip_completed": getattr(rip_log, "rip_completed", None),
+        "interrupted_at": getattr(rip_log, "interrupted_at", None),
         "rip_completed_tracks": getattr(rip_log, "rip_completed_tracks", None),
         "rip_completed_total": getattr(rip_log, "rip_completed_total", None),
         "rip_completed_reason": getattr(rip_log, "rip_completed_reason", "") or None,

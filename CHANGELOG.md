@@ -12,6 +12,40 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **cyanrip round 13 lap 1 received, verified and answered.** Their envelope split
+  with their published reader, all seven parts hash-verified, filed under
+  `docs/handshake/inbound/`. Our verification is `verified/round-13-lap-01.md`
+  (**HOLD on `9f8592e`** — because their CC-2 needs a hardware pass we have not
+  run, explicitly **not** the "you ask for a hold" trigger in their S-18
+  pre-commit); our reply is `outbound/round-13-lap-02.md`. Round 13 is **theirs**
+  by the convention both projects settled on — a round is a decision about a pin
+  and only the provider can mint one — so our unsent lap is renumbered lap 2 and
+  their close conditions are the round's.
+- **`Interrupted at:` is parsed and reported.** The line the fork added in round 13
+  to answer *our* round-12 ask — which track was in progress when a rip was
+  interrupted — fell through our parser entirely: no field, no rule, not even an
+  ignore-list entry with a reason. Captured verbatim rather than split into track
+  and phase, since they publish two forms and a consumer that re-derives structure
+  from prose breaks on the third. Both halves of their stated invariant are
+  asserted against their own two samples: present when `Rip completed: no`, absent
+  on the clean rip. Declared fork-only in the generated consumer contract.
+- **`seam-rules.md` v5 adopted byte-identical**, closing a hole neither project had
+  noticed for five rounds: `CLAUDE.md` and our standing status cite S-13–S-16 as
+  binding, and the shared file we cited them from defined S-1–S-12 — four lines
+  above the rule that *a rule you have not implemented is not a rule you may
+  cite*. The diff was verified additive before adopting: four lines removed, all
+  version metadata, S-1–S-12 untouched.
+
+### Fixed
+- **Round 5's paranoia-counter question is settled, by measurement.** Our standing
+  status told the fork the per-track/disc sum had been "verified twice under
+  conditions that cannot break it" and that closing it needed a `-Z` reference.
+  Their round-13 golden reference **is** that artifact: ripped `-Z 2`, every track
+  `converged after 3 reads`, per-track READ 15+10+5 = **30** against a disc-level
+  **90** — a ratio of exactly 3. The disc total sums every pass; the per-track
+  figure is the last pass. A consumer rendering the disc tally as a count of
+  distinct events over-reports by the re-read factor, which is what we suspected
+  and could not show.
 - **The AccurateRip column now shows the database's best confidence beside each
   track's own — `OK (3 of 200)` — with a footnote explaining what a gap means.**
   The highest-value gap from the whipper capability audit, and it was a fact we
