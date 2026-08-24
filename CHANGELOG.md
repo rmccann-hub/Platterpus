@@ -12,6 +12,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **Two unit tests made live Cover Art Archive requests, and one of them
+  intermittently failed the suite because of it.** `save_additional_art` defaults
+  to `True`, so a post-rip test with a real `release_id` and no local cover falls
+  through the stubbed front-cover fetch into `save_additional_covers` — which
+  neither test stubbed. It won its 10 s `join` when run alone and lost it under
+  full-suite load, and because the assertion read an attribute that only exists
+  once the completion signal has fired, a thread that had merely not finished
+  reported itself as a bare `AttributeError` in a test about a result object. Both
+  now set the flag off (sibling tests already did, for this reason), and both
+  assert the thread is actually dead before reading — otherwise "no result was
+  written" is satisfied by the thread never getting there. Swept the file: these
+  two were the only reachable cases; every other post-rip test passes an empty
+  `release_id` or a local cover path, both of which short-circuit the call.
 - **A finished 14-track archival rip was silently overwritten, and the cause was
   a flag we had never passed.** cyanrip takes `-T`/`--sanitize` (`simple`,
   `os_simple`, `unicode`, `os_unicode`) — published in the fork's flag table
