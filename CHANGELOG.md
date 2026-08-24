@@ -12,6 +12,45 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **cyanrip round 13 closed `GO`/`GO`, and CC-2 moved to round 14 by bilateral
+  agreement.** Their lap 6 found the defect in their own close condition and
+  refused to argue it into being fine: CC-2 measured a test pin (`e78cd66`) while
+  the release would be `+platterpus.8` — a *different* build — so the released
+  pair would have carried no hardware evidence. That is precisely the gap we
+  refuse on our own side, where `ddf7ac3` has the rig run, `237a4ff` is the
+  release, and `FORK_PIN` has not moved. CC-2 is restated for round 14 as *"one
+  hardware acceptance pass on the RELEASED pair"*, and we checked the fix
+  terminates before accepting it: round 14 tests an already-released build, so
+  there is no ship-something-else-afterwards step to reintroduce the gap. Accepted
+  with a new `[BOTH]` rule for seam-rules v6 — a close condition may be **moved**
+  to a **named** later round by **bilateral** agreement, never deleted, never by
+  one side alone.
+- **Recorded what closing does not change:** `FORK_PIN` stays at `ddf7ac3` until
+  round 14's hardware pass closes, so a user opting into their `beta` channel and
+  installing `+platterpus.8` correctly gets `unapproved` in their archival record.
+  Their beta channel and our unmoved pin compose without either side changing
+  anything, which was the test we applied to their proposal. Our own `0.7.100`
+  gate (KDD-35) is independent and unmoved by any of this.
+
+### Fixed
+- **Two vocabularies, one absent state, found a week apart.** Our verdict
+  vocabulary allows only `GO` or `HOLD`, which forced `HOLD` to mean *"verified as
+  far as we can, pending our own evidence"*. `handshake_approval.approve_ripper`
+  has the same hole from the other end: for `+platterpus.8` it will say the build
+  *"was not produced by a jointly-verified ripper"*, which will be **false** — it
+  will have been jointly verified by round 13, just not on a drive. Both are
+  recorded to the fork rather than papered over; the approval wording is ours to
+  fix and is the first thing round 14 will make visible to a user.
+- **A structural one-lap tail in the close protocol, measured on our own tree.**
+  `--status` reports round 13 OPEN with both sides at `GO`, because the blocker
+  sits on *their* newest file: it declares `HANDSHAKE-PEER-VERDICT: HOLD`, which
+  was true when written, before our `GO` existed. The side that completes a round
+  can never have its `GO` acknowledged by a file the other side has already sent —
+  so their gate closes and ours cannot. **Our gate is not being touched**: closing
+  a round on our own say-so is the half-of-a-two-half-contract failure this
+  protocol has already recorded three times, and fail-closed is the right
+  direction to be wrong in. It needs one line from them and a `NEXT-ROUND`
+  question, which our lap 7 carries.
 - **cyanrip round 13 lap 1 received, verified and answered.** Their envelope split
   with their published reader, all seven parts hash-verified, filed under
   `docs/handshake/inbound/`. Our verification is `verified/round-13-lap-01.md`

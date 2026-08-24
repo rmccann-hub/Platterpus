@@ -271,6 +271,10 @@ def test_our_published_digests_still_reproduce() -> None:
         # lap 2. Recorded here rather than silently repinned: a declared figure
         # that changes is exactly what this map exists to make visible.
         (13, 3): ("08c8f0eacf1066e4", 2),
+        # Our GO closing round 13. Six laps precede it — their 1, our 2, our
+        # verification 3, their 4, our 5, their 6 — which is the numbering their
+        # lap 6 §N2 confirmed after both sides had got one wrong.
+        (13, 7): ("039cfa03a335266e", 6),
     }
     for lap, expected in published.items():
         assert _as_declared_in(lap) == expected, (
