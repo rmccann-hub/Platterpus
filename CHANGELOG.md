@@ -504,6 +504,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   deadline sat behind the `running` early-return, so it never protected against a
   wedged runner either. Regression test drives injected time through the real
   helper and is revert-proved.
+
 ## [0.6.23] — 2026-08-21
 
 *Supersedes 0.6.22, which was prepared and gated but never published — no tag,
