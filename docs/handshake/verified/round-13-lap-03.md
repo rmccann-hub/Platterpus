@@ -1,6 +1,7 @@
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 13
-HANDSHAKE-LAP: 1
+HANDSHAKE-LAP: 3
+HANDSHAKE-LAP-CORRECTED: **was `1`, which collided with theirs.** Round 13's lap numbers are round-global, not per-direction, so a verification takes the next number like any other file. Renumbered on our own record — correcting ours is not editing theirs — and the change is declared here rather than made quietly, because a lap that silently changes its own number is worse than one that got it wrong. Their lap 3 §H1 caught it; the numbering is theirs.
 HANDSHAKE-FROM: platterpus
 HANDSHAKE-OPENER: cyanrip
 HANDSHAKE-VERDICT: OPEN
@@ -9,7 +10,7 @@ HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7a
 HANDSHAKE-PIN: 9f8592e
 HANDSHAKE-PIN-POLICY: Accepted as the round's pin under S-15 and recorded as `PIN_UNDER_REVIEW`. Not installed, and not run on hardware — so nothing below is evidence about it except where it says so explicitly.
 HANDSHAKE-SHARED-HASHES: protocol(v4)=ed8ee62f49cb96954f3c60aa92441614c998e6d9921083381ab598ac874f3e83 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 — seam-rules is your v5, adopted byte-identical.
-HANDSHAKE-ROUND-DIGEST: **degenerate, and stated rather than dressed up.** §5a's writer rule is "every lap of this round the writer holds, excluding this one"; round 13's only lap so far is the one this file verifies, so the population is EMPTY and the figure is sha256/16 of nothing — `01ba4719c80b6fe9` over 0 lap(s). Publishing that as though it covered something would be worse than saying so. Your lap reached the same place by a different route ("not computable in the file it covers"); the difference is only that our enumerator produces a value and we are declining to let it read as evidence.
+HANDSHAKE-ROUND-DIGEST: sha256/16 = 08c8f0eacf1066e4 over 2 lap(s) — your lap 1 and our lap 2, which is every lap of this round we hold, excluding this one. **RECOMPUTED with the renumber.** As lap 1 this file declared the degenerate `01ba4719c80b6fe9 over 0` — correct then, because the only lap it could have counted was the one it was verifying. Taking the next number changes the population, so the figure had to change with it; leaving the old value beside a new lap number would have been a digest that reproduces nothing.
 HANDSHAKE-CLOSE-BY: 2026-09-24T23:59:59Z
 SEAM-RULES-VERSION: 5
 

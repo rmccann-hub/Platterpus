@@ -399,6 +399,22 @@ _PARANOIA_HEADER = re.compile(r"^Paranoia status counts:\s*$")
 # disc number over-reports distinct events by the re-read factor. The per-track
 # counts are the only thing in the log that can separate them.
 _TRACK_PARANOIA_HEADER = re.compile(r"^\s+Paranoia status counts:\s*$")
+# "    Scope:  the last of 3 reads; the disc totals below sum all of them" — added
+# by the fork in round 13 lap 3 as their fix for the over-reporting we reported in
+# that same round. Printed only when a track was actually re-read.
+#
+# **It broke this parser, and their `HANDSHAKE-BREAKING: none` is right for a
+# line-reader and wrong for a block-reader.** Every other member of this block is
+# `KEY: <int>`; `in_track_paranoia` ended the moment a line stopped matching that
+# shape, so `Scope:` terminated the block and the READ/VERIFY/OVERLAP lines after
+# it were dropped — silently, on the very feature added to consume them. Found by
+# running their new golden reference through the real parser instead of reading
+# the delta, which is what their CC-1 asks for.
+#
+# The general lesson, and it belongs in `docs/seam-rules.md`: **"additive" is
+# relative to where you add.** A line appended to a document is additive; a line
+# inserted into a block whose members share a shape changes that shape.
+_TRACK_PARANOIA_SCOPE = re.compile(r"^\s+Scope:\s+(?P<text>\S.*?)\s*$")
 _PARANOIA_LINE = re.compile(r"^\s+(?P<key>[A-Z][A-Z_]*):\s+(?P<count>\d+)\s*$")
 # Per-track "File(s):" header; the filename is the next indented line.
 _FILES_HEADER = re.compile(r"^\s+File\(s\):\s*$")
@@ -1116,6 +1132,9 @@ class _TrackAcc:
     #: Per-track READ / VERIFY / OVERLAP / FIXUP_ATOM counts, keyed as cyanrip
     #: prints them. Empty for a log that carries no per-track block.
     paranoia_counts: dict[str, int] = field(default_factory=dict)
+    #: The fork's `Scope:` note inside that block, verbatim. Present only when the
+    #: track was actually re-read.
+    paranoia_scope: str = ""
     rip_count: int | None = None
     start_sector: int | None = None
     end_sector: int | None = None
@@ -1638,6 +1657,8 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # tells the fork we consume the per-track block too, rather than publishing
     # only the column-0 rule and leaving them to infer the rest.
     ("track_paranoia_counts_section", _TRACK_PARANOIA_HEADER),
+    # A member of that block, not a terminator — see the pattern's own note.
+    ("track_paranoia_scope", _TRACK_PARANOIA_SCOPE),
     ("paranoia_count", _PARANOIA_LINE),
     ("loudness_integrated", _LOUDNESS_I),
     ("loudness_range", _LOUDNESS_LRA),
@@ -2076,6 +2097,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 accuraterip_offset=current.accuraterip_offset,
                 accuraterip_lookup=current.accuraterip_lookup,
                 paranoia_counts=dict(current.paranoia_counts),
+                paranoia_scope=current.paranoia_scope,
                 rip_count=current.rip_count,
                 secure_rerip_converged=current.secure_rerip_converged,
                 start_sector=current.start_sector,
@@ -2492,6 +2514,11 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 in_track_paranoia = True
                 continue
             if in_track_paranoia:
+                # `Scope:` FIRST: it is a member of the block, not the end of it.
+                match = _TRACK_PARANOIA_SCOPE.match(line)
+                if match:
+                    current.paranoia_scope = match.group("text")
+                    continue
                 match = _PARANOIA_LINE.match(line)
                 if match:
                     current.paranoia_counts[match.group("key")] = (

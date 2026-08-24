@@ -262,7 +262,15 @@ def test_our_published_digests_still_reproduce() -> None:
         # degenerate figure is indistinguishable from an unpinned real one, and the
         # sweep below exists because the newest claim is the one most likely to be
         # acted on.
-        (13, 1): ("01ba4719c80b6fe9", 0),
+        # Renumbered from lap 1 to lap 3 after the fork's lap 3 §H1 pointed out
+        # that round-13 lap numbers are round-global and a verification takes the
+        # next one like any other file. The digest moved WITH the number, because
+        # the population §5a's writer rule enumerates is "every lap of this round
+        # excluding this one" — as lap 1 that was empty (the degenerate sha of
+        # nothing, `01ba4719c80b6fe9 over 0`), as lap 3 it is their lap 1 and our
+        # lap 2. Recorded here rather than silently repinned: a declared figure
+        # that changes is exactly what this map exists to make visible.
+        (13, 3): ("08c8f0eacf1066e4", 2),
     }
     for lap, expected in published.items():
         assert _as_declared_in(lap) == expected, (

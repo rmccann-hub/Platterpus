@@ -172,6 +172,10 @@ class TrackResult:
     #: request; our parser dropped them for months because its header pattern was
     #: anchored at column 0 and theirs are indented inside the track block.
     paranoia_counts: dict[str, int] = field(default_factory=dict)
+    #: cyanrip's `Scope:` note for those counts, verbatim — it says which reads the
+    #: numbers cover when a track was re-read. "" when the log carries none, which
+    #: is every rip that converged on its first read.
+    paranoia_scope: str = ""
     # How many read passes cyanrip needed for this track (its "(after N rips)"
     # suffix). 1 = clean single pass; higher means secure re-reads (-Z N) were
     # needed — the clearest per-track signal of a marginal read region.
