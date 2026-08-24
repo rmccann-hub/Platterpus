@@ -73,6 +73,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   *"All 2 track(s) are byte-for-byte identical to the previous rip."*
 
 ### Changed
+- **Both "Allow the unsafe script verbs (eval, call)" checkboxes said they
+  enabled something they do not.** `eval` and `call` are reserved in the verb
+  table with `implemented=False` and no handler, so ticking either box — the one
+  in Settings or the one in the Script Console — changed nothing. Same defect
+  class as `expect-status`, and worse for being in the GUI where an end user sees
+  it rather than in a generated reference. Both labels now say "not built yet",
+  both tooltips and the User Guide say there is nothing to allow yet, and the
+  setting's plumbing stays because it is the gate the verbs would need.
+- **A script using `eval` blamed the wrong thing.** The unsafe gate ran before the
+  handler lookup, so the step reported *"this verb needs the 'allow unsafe script
+  verbs' setting, which is off"* — true, and the wrong cause: with the box ticked
+  the very next line refuses the same step for having no handler. A true
+  diagnosis of the wrong cause sends somebody into Settings instead of telling
+  them the verb does not exist. Handler lookup now runs first.
 - `docs/rig-scripts/fullacceptance.txt` asserts `expect-status Done` after the
   full rip and `expect-status cancelled` after the cancel. The old
   `expect-status Finished` was wrong on two counts: the verb had no handler, and
