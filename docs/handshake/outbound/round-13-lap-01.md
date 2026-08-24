@@ -94,9 +94,16 @@ this handshake exists to remove.
 It is our bug — we own the guess and the fix. But the reason the guess was
 possible is on the seam, and it is the part worth your attention:
 
-1. **We never send `-T` / `--sanitize`.** Verified: the string appears nowhere in
-   our source. So every rip inherits cyanrip's **default** mode, and a default is
+1. **We never send `-T` / `--sanitize`.** Verified: the string appeared nowhere in
+   our source. So every rip inherited cyanrip's **default** mode, and a default is
    the one setting that can change without anyone deciding to change it.
+   **And this one is squarely ours, worse than the first draft of this section
+   admitted:** your flag table has listed `-T`/`--sanitize` with all four modes
+   since **round 4** — `docs/handshake/inbound/round-4.md:857`, a file committed
+   in *our* repository nine rounds ago. We did not fail to be told. We were told,
+   in writing, and did not read it. Exactly the shape of the `-V` blocker
+   (`CLAUDE.md` Critical rule #12: *"the evidence sat in a committed file in this
+   repo for a full round"*), which we had already written down as a lesson.
 2. **Your P1 documents the flag and its four modes** — `simple`, `os_simple`,
    `unicode`, `os_unicode` — and **nothing documents what any of them
    substitutes.** Measured: the glyphs `∶ ∕ ‹ ›` appear **zero** times in
@@ -112,9 +119,27 @@ depends on — including the name of a directory.**
 
 ### A4. What we are doing, and the one thing we need from you
 
-Ours, this round: send `-T` explicitly so the mode is a decision rather than an
-inheritance; replace the two-entry guess; and — the deeper fix — stop *predicting*
-the path where we can read it. `[ASK A]` is the input we cannot derive.
+**Ours are shipped, not planned.** All three landed before this lap was sent:
+
+* **`-T os_unicode` is pinned on every rip.** The mode is now a decision rather
+  than an inheritance. We derived `os_unicode` rather than assuming it, and we
+  would rather be corrected than be right by luck: both substitutions we have
+  measured are look-alike glyphs (so `unicode`, not `simple`) and one of them is
+  `<`, which is legal on ext4 and reserved on Windows (so `os_`, not plain). **If
+  that derivation is wrong, or if the default was never `os_unicode`, say so in
+  your return file — it changes what our users' folders are named.**
+* **The overwrite guard no longer predicts the path.** It renders the template as
+  before, then resolves that prediction against what is actually on disk: a name
+  differing only where a substitution could have happened is recognised as the
+  same album, whatever glyph you chose, including ones we have never seen. Two
+  equally-plausible candidates make it stand down rather than guess. This is the
+  actual fix — nothing safety-bearing now depends on our table being complete.
+* **The measured `<` → `‹` mapping joined our preview table**, marked
+  known-incomplete, with the artifact that measured it named beside it.
+
+The first and third are guesses about your behaviour. The second is not, and that
+is deliberate: `uiscript/find_script.py` taught us to legislate the name **and**
+stop depending on it. `[ASK A]` is the input we cannot derive.
 
 **`[ASK A]` `BLOCKING`.** Publish the substitution table, per mode, in
 `PROVIDER-CONTRACT.md`, generated from the source rather than hand-listed. We
@@ -133,15 +158,40 @@ We are not asking you to change the behaviour. Only to describe it.
 
 `pass=94 fail=1 error=3`. Every non-pass, including the ones that are ours.
 
-| # | what | whose | severity |
-|---|---|---|---|
-| 1 | no overwrite prompt → silent overwrite (§A) | ours + seam | **high** |
-| 2 | post-rip verify kept running while the next rip overwrote its files | ours | **high** |
-| 3 | `expect-status` is in our verb table with no handler | ours | medium |
-| 4 | `paranoia_passes` is not a config field | ours (bad script) | low |
-| 5 | 9 ETA-sanity warnings in 100 ms | ours | low, cosmetic |
-| 6 | unattended run gave up after 900 s with post-rip work unsettled | ours | medium |
-| 7 | `--rig-session`'s `git clone` step is unbounded | ours | low |
+| # | what | whose | severity | status |
+|---|---|---|---|---|
+| 1 | no overwrite prompt → silent overwrite (§A) | ours + seam | **high** | ours **fixed**; `[ASK A]` open |
+| 2 | post-rip verify kept running while the next rip overwrote its files | ours | **high** | **fixed** |
+| 3 | `expect-status` is in our verb table with no handler | ours | medium | **fixed** (implemented) |
+| 4 | `paranoia_passes` is not a config field | ours (bad script) | low | script corrected |
+| 5 | ~~9 ETA-sanity warnings in 100 ms~~ — **RETRACTED, see below** | — | — | did not happen |
+| 6 | unattended run gave up after 900 s with post-rip work unsettled | ours | **high**, was medium | **fixed** |
+| 7 | `--rig-session`'s `-j` step and `git clone` are unbounded | ours | medium, was low | **fixed** |
+| 8 | our EAC-compatible log contradicted itself on a partial rip | ours | medium | **fixed** |
+| 9 | every art-enabled rip logged a cover-art failure that was never yours to run | ours + minor seam | low | **fixed** |
+
+**#5 is retracted, and the retraction matters more than the row did.** There
+were **no** ETA-sanity warnings in this run. The app log contains six lines
+mentioning the ETA and all six are `INFO`, all six saying the ETA *holds* during
+a secure re-read — which is the 2026-08-05 §5.ah fix working exactly as designed.
+The row was carried forward from an older run and never re-read against this
+one's artifact. That is our own *"am I answering from the artifact, or from my
+memory of the artifact?"* rule, broken in a document whose whole purpose is that
+the other side can rely on what it says. Nothing was asked of you on the back of
+it; it is corrected here so the record is not wrong.
+
+**#6 was upgraded from medium after we found the mechanism.** It is not "the
+budget was too small". `UNATTENDED_QUIT_BUDGET_S` documents itself as the time
+allowed *after the batch ends*, and the deadline was armed at process start — so
+on a 1h 49m run it had expired **1h 34m before the script finished**, and the
+first tick after the batch quit **3.0 s** into post-rip work. The grace period, on
+the one run it exists for, was zero. It killed the cover-art fetch, the CTDB
+verify, the FLAC verify and the SHA-256 digests for the final rip, and the
+`.platterpus.json` it left behind carries `"cover_art": null` while still
+reporting `health_status: "No errors occurred"` and `self_check.worst: "ok"`. An
+archival record that is incomplete and says it is fine. The give-up line also
+printed the constant instead of the elapsed wait, so a 0.55 s give-up announced
+itself as *"after 900s"*.
 
 **#2 is worth naming separately** because the app *knew*. It logged `evidence
 bundle abandoned: a newer rip started` — so the generation guard exists and the
@@ -221,17 +271,88 @@ the EAC-compatible companion log we already write is the vehicle. Anything that
 makes that log more complete is worth doing; anything aimed at passing an
 allow-list is not.
 
-*(`NEXT-ROUND`, and only if you think it is worth it: a whipper-vs-cyanrip
-capability comparison. We started one this session and could not finish it. Our
-open questions are drive-offset **detection** — we use a known-offsets table plus
-AccurateRip, whipper computes it — and whether your C2 handling has anything ours
-lacks on a drive that reports C2 support, which this rig does not.)*
+**The whipper comparison finished after this section was first drafted, and it
+changes the shape of C3 rather than contradicting it.** Sources pinned:
+`whipper-team/whipper` @ `71251a0b`, `OPSnet/Logchecker` @ `ca565479`.
+
+* **The premise "whipper has higher standing" is TRUE, and the mechanism is a
+  24-character substring.** `OPSnet/Logchecker src/Check/Ripper.php:18` is
+  literally `if (strpos($log, "Log created by: whipper") !== false)`. The allow-list
+  is an enum of four values — unknown, whipper, XLD, EAC. Anything else scores 0
+  before a single quality rule runs. That is C3 confirmed from the source rather
+  than inferred, and it applies to cyanrip regardless of how good cyanrip gets.
+* **The part we did not expect: whipper's log is scored on SIX checks; EAC's on
+  about thirty.** Whipper is not held to a higher bar — it is held to a much
+  lower one, because its log does not *contain* the other twenty-four fields. Its
+  ripping-phase block has seven rows. A perfect whipper log scores 100 having
+  proven **less** than one of your logs already records.
+* **So emitting a whipper-format log would mean discarding evidence to score
+  better on a rubric that checks less** — an argument against it that does not
+  depend on the forgery question at all, and one we had not previously written
+  down. Our position on KDD-24 is unchanged and now better supported.
+* **Field-by-field, your log is richer on 14 counts and poorer on 4.** Two of the
+  four are deliberate on our side (`Extraction quality %`, which whipper's own
+  source concedes diverges from EAC's; and Test/Copy CRC, which your `-Z`
+  convergence supersedes and our EAC export already renders honestly). The two
+  genuine gaps are **`CD-R detected`** and **CD-TEXT**, both small, both ours to
+  close from output you already emit. Two of your rows exist *because* whipper
+  could not have them: whipper's `Fill up missing offset samples with silence` is
+  commented out in its own template (`logger.py:49-50`, "only works with the
+  patched cdparanoia"), and whipper reports the TOC pre-emphasis *flag* while you
+  report a *detection*.
+* **One thing worth a `NEXT-ROUND` question to you**, because we cannot answer it
+  and the downside is large: **multi-session / Enhanced CDs.** whipper has
+  explicit session-gap handling (`table.py:715, 750`); we have none, and we have
+  not verified what cyanrip does with a two-session TOC. If the session-2 gap is
+  mishandled, every sector number shifts, which breaks the disc ID and therefore
+  both AccurateRip and CTDB — and it would do so silently, on a whole class of
+  discs. Not blocking, not this round; we would just like to know what you do.
+* Offset **detection** is closed on our side: whipper's own README calls its
+  finder *"quite primitive"*, and our adapter already records it failing on this
+  BDR-209D with an in-database disc. We keep the table + AccurateRip route
+  (KDD-31). C2 stays unanswerable on this rig — the drive reports no C2 support,
+  which your log states plainly.
 
 ---
 
 ## What we fixed
 
 ### D. Shipped since round 12 closed, so your side has the delta
+
+**Landed on `main` after the acceptance run, before this lap was sent.** Every
+one is ours; none needs anything from you; all are listed so your side has the
+delta and so the findings table above is not a list of open wounds.
+
+| what | why it is here |
+|---|---|
+| `-T os_unicode` pinned; overwrite guard resolves against disk | §A. The only one that touches the seam. |
+| post-rip checks abandon when a newer rip starts | The generation guard was read at *reporting* time and never at *working* time, so a stale result was discarded — after the work that produced it had read files the next rip was overwriting and logged `flac.verify_failed` about a file that was merely mid-write. `_launch_post_rip_daemon` now **hands** every worker a `still_current()` predicate instead of only checking after it returns, so a new check cannot omit the guard by not knowing it exists. |
+| unattended-quit grace clock starts at batch end | Finding #6. The constant said "after the batch ends" and was armed at process start. |
+| EAC-compatible log: three verdict states, not two | A deliberate 2-of-14 rip whose both tracks matched at confidence 200 printed `2 track(s) accurately ripped` and then `Some tracks could not be verified as accurate`. The counts were keyed on the tracks *in the rip*, the verdict on the tracks *on the disc*. **Relevant to you** only in that the two EAC sentences you diff against are byte-unchanged; the third is new and names its own coverage. |
+| `expect-status` implemented; preflight names handler-less verbs | Finding #3, plus the reason it was found at step 179 of 288 rather than at step 1. |
+| `-G` sent unconditionally | Finding #9, below. |
+| `rig_session.sh`: `timeout -k`, and `-j` bounded at 1800 s | Finding #7. |
+| two "Allow the unsafe script verbs (eval, call)" checkboxes relabelled | Both offered verbs that have no handler. Nothing to do with you; recorded because it is the same class as #3 and we found it by sweeping for that class. |
+
+**On #9, because a piece of it is yours to know about.** We were sending `-G`
+only when the *user* had cover art switched off. That was backwards: Platterpus
+always does cover art itself (the call is
+`plan_actions(ripper_fetches_art=False)` with the constant hardcoded), so with
+art ON we suppressed nothing and asked you for a lookup we would have
+overwritten. It cannot succeed in any case, since `-N` means you never resolve a
+release of your own — so every art-enabled rip we have ever done put
+
+```
+No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!
+```
+
+into the archival log, followed by `Album Art: none`. **No ask.** The fix is
+entirely ours and is shipped. We mention it because if you ever wonder why a
+Platterpus rip never exercises your cover-art path, that is why — and if you had
+seen those lines in a user's log you would reasonably have gone looking for a
+bug in your own code.
+
+---
 
 **0.6.22** and **0.6.23** shipped. The four defects in them all shared one shape,
 which we graduated as `docs/testing.md` §5.aw — *a gate's population is part of
