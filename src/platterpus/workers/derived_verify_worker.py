@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from pathlib import Path
 
 from platterpus import rip_files
@@ -66,8 +67,9 @@ def verify_rip_dir(
     fmt: str,
     *,
     wait_for: threading.Thread | None = None,
+    still_current: Callable[[], bool] | None = None,
     hasher: PcmHasher | None = None,
-) -> DerivedVerifyResult:
+) -> DerivedVerifyResult | None:
     """Verify the derived ``fmt`` files under ``rip_dir``. Never raises.
 
     Intended to run OFF the GUI thread. ``wait_for`` is the post-rip transcode
@@ -76,6 +78,14 @@ def verify_rip_dir(
     """
     if wait_for is not None and wait_for.is_alive():
         wait_for.join(_SETTLE_TIMEOUT_S)
+
+    # ABANDON rather than measure a folder that is no longer ours. See the
+    # `still_current` note in the docstring: the launcher discards a stale
+    # result, but the reading is what produced a false ERROR in the user's own
+    # diagnostics. `None` means 'no verdict', which is the truth here.
+    if still_current is not None and not still_current():
+        log.info("derived verify of %s abandoned: a newer rip started", rip_dir)
+        return None
 
     ext = extension_for(fmt)
     if ext is None:

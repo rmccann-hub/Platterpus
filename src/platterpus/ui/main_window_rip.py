@@ -2362,19 +2362,39 @@ class RipMixin(MainWindowShared):
 
     def _launch_post_rip_daemon(
         self,
-        compute: Callable[[], object],
+        compute: Callable[[Callable[[], bool]], object],
         signal: object,
         thread_attr: str,
     ) -> threading.Thread:
         """Run a post-rip check on a daemon thread, guarded by the rip generation.
 
-        ``compute`` is a no-arg callable that does the off-thread work (a network
-        lookup + FLAC decode, a hash sweep, …) and returns its result — or
-        ``None`` to signal "skip, don't emit" (e.g. the checksum step when the
-        post-rip work didn't settle in time). If a NEWER rip has started since
-        this was launched, the result is dropped; otherwise it's delivered via
-        ``signal`` (a queued Qt signal), guarded against a destroyed window. The
-        thread is stored on ``self.<thread_attr>`` so tests can join it.
+        ``compute`` takes ONE argument — a ``still_current()`` predicate — does the
+        off-thread work (a network lookup + FLAC decode, a hash sweep, …) and
+        returns its result, or ``None`` to signal "skip, don't emit" (e.g. the
+        checksum step when the post-rip work didn't settle in time). If a NEWER rip
+        has started since this was launched, the result is dropped; otherwise it's
+        delivered via ``signal`` (a queued Qt signal), guarded against a destroyed
+        window. The thread is stored on ``self.<thread_attr>`` so tests can join it.
+
+        **Why ``compute`` is handed the predicate rather than just checked after
+        it** (2026-08-23, measured). The post-hoc check below stops a stale result
+        being *reported*; it does nothing about the work being *done*. On the
+        acceptance run the next rip started **2.4 s** after the previous one
+        finished, into the same folder (the overwrite guard had missed — a separate
+        fix), and for the next ten seconds this rip's FLAC verify, CTDB verify and
+        checksum sweep kept reading files the new rip was overwriting. The evidence
+        bundle abandoned itself correctly at +0.1 s and said so; these four did
+        not, and the FLAC verify logged
+        ``flac.verify_failed: 01 - Roxanne.flac: ERROR checking for ID3v2 tag`` at
+        ERROR into the user's own diagnostics — a claim that their archival master
+        is corrupt, about a file that was simply mid-write. Discarding the result
+        afterwards does not unsay that.
+
+        This is `CLAUDE.md`'s *"did I check the preconditions where the thing
+        HAPPENS, or where it was scheduled?"* The guard was read at reporting time
+        only. The predicate is *passed in* rather than left for each call site to
+        remember, for the same reason this launcher exists at all: a new check must
+        not be able to omit the guard by not knowing about it.
 
         TD-2: this is the ONE place the rip-generation staleness guard lives —
         the correctness property that stops a slow verify from album A writing
@@ -2394,9 +2414,15 @@ class RipMixin(MainWindowShared):
         """
         gen = self._rip_generation  # drop the result if a newer rip starts
 
+        def still_current() -> bool:
+            """False once a newer rip has started. Read from the worker thread;
+            an int attribute read is atomic under CPython and a stale-by-one read
+            only costs one more unit of work, never a wrong answer."""
+            return self._rip_generation == gen
+
         def runner() -> None:
             try:
-                result = compute()
+                result = compute(still_current)
             except Exception as exc:  # noqa: BLE001 — see below
                 # A crashed check must not be INDISTINGUISHABLE from a passed one.
                 # Two things happen here and both matter: it is logged (so the
@@ -2802,8 +2828,11 @@ class RipMixin(MainWindowShared):
         log.info("starting CTDB verify for %s", rip_dir)
         self._rip_progress.set_ctdb_status("Verifying against CTDB…")
         self._launch_post_rip_daemon(
-            compute=lambda: verify_rip_dir(
-                self._ctdb_client, rip_dir, wait_for=wait_for
+            compute=lambda still_current: verify_rip_dir(
+                self._ctdb_client,
+                rip_dir,
+                wait_for=wait_for,
+                still_current=still_current,
             ),
             signal=self.ctdb_verify_done,
             thread_attr="_ctdb_thread",
@@ -2849,7 +2878,7 @@ class RipMixin(MainWindowShared):
         library_text = (self._config.library_dir or "").strip()
         extra_roots = (Path(library_text),) if library_text else ()
 
-        def compute() -> object:
+        def compute(still_current: Callable[[], bool]) -> object:
             # WAIT FOR THE REPORT WRITE TO LAND BEFORE READING IT.
             #
             # `_write_rip_report` above SUBMITS the write to the report-writer
@@ -3053,7 +3082,11 @@ class RipMixin(MainWindowShared):
         from platterpus import library_move
 
         self._launch_post_rip_daemon(
-            compute=lambda: library_move.move_album_folder(rip_dir, library),
+            # The move already has its own generation check, at the timer that
+            # schedules it, so it ignores the predicate.
+            compute=lambda _still_current: library_move.move_album_folder(
+                rip_dir, library
+            ),
             signal=self.library_move_done,
             thread_attr="_library_move_thread",
         )
@@ -3816,7 +3849,7 @@ class RipMixin(MainWindowShared):
         """
         from platterpus import checksums
 
-        def compute() -> object | None:
+        def compute(still_current: Callable[[], bool]) -> object | None:
             if wait_for is not None:
                 wait_for.join(timeout=_CHECKSUM_SETTLE_TIMEOUT_S)
                 # `join(timeout)` returns whether or not the thread finished. If
@@ -3833,6 +3866,16 @@ class RipMixin(MainWindowShared):
                         _CHECKSUM_SETTLE_TIMEOUT_S,
                     )
                     return None
+            # A NEWER RIP MEANS THESE FILES ARE NO LONGER OURS TO HASH. The same
+            # reasoning as the settle check above, one step further out: if the
+            # next rip has started it may be writing into this very folder (it did,
+            # 2.4s after the previous rip, on 2026-08-23), so a digest taken now
+            # describes neither album. The launcher would discard the result
+            # anyway — this just declines to spend a full-album hash sweep reading
+            # files mid-write to produce it.
+            if not still_current():
+                log.info("checksums for %s abandoned: a newer rip started", rip_dir)
+                return None
             # BOTH digests, in one pass off the GUI thread. The SHA256 answers
             # "has this file changed on disk"; the FLAC's own unencoded-audio MD5
             # answers "is this the same audio", and only the second survives a
@@ -3889,7 +3932,9 @@ class RipMixin(MainWindowShared):
         log.info("starting FLAC verify for %s", rip_dir)
         self._rip_progress.append_log_line("Verifying FLAC integrity…")
         self._launch_post_rip_daemon(
-            compute=lambda: verify_flac_dir(rip_dir, wait_for=wait_for),
+            compute=lambda still_current: verify_flac_dir(
+                rip_dir, wait_for=wait_for, still_current=still_current
+            ),
             signal=self.flac_verify_done,
             thread_attr="_flac_verify_thread",
         )
@@ -4023,7 +4068,9 @@ class RipMixin(MainWindowShared):
         log.info("starting derived-file verify (%s) for %s", fmt, rip_dir)
         self._rip_progress.append_log_line(f"Verifying derived {fmt.upper()} files…")
         self._launch_post_rip_daemon(
-            compute=lambda: verify_derived_dir(rip_dir, fmt, wait_for=wait_for),
+            compute=lambda still_current: verify_derived_dir(
+                rip_dir, fmt, wait_for=wait_for, still_current=still_current
+            ),
             signal=self.derived_verify_done,
             thread_attr="_derived_verify_thread",
         )
