@@ -1177,6 +1177,21 @@ def test_the_attested_log_cannot_say_incomplete_at_the_top_and_all_at_the_bottom
     This is the fourth appearance of that denominator (see the three tests above);
     the concept that fixes it — `expected_track_total`, the number the rip was
     ASKED for — already existed and simply wasn't threaded this far.
+
+    **AMENDED 2026-08-24, and the amendment is the interesting part.** This test
+    used to require the sentence ``Some tracks could not be verified as accurate``
+    here. Both ripped tracks in this very artifact matched AccurateRip exactly —
+    the assertion two lines below says so — so that sentence was **also false**.
+    The 2026-08-01 fix correctly found that "All tracks accurately ripped" was a
+    lie and replaced it with a different lie, and nothing caught it because the new
+    one erred in the *pessimistic* direction, which reads as caution rather than as
+    error. The same wrong comparison then made a **deliberate** 2-of-14 rip claim a
+    verification failure on the 2026-08-23 rig run, which is what forced the issue.
+
+    So the property is stated directly instead of via one sentence that happened to
+    satisfy it: the status report must not claim a whole-disc clean sweep, and must
+    not claim a verification failure that did not happen. The banner carries the
+    cancellation; the verdict carries the coverage.
     """
     from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 
@@ -1190,8 +1205,17 @@ def test_the_attested_log_cannot_say_incomplete_at_the_top_and_all_at_the_bottom
     # The banner is the claim we trust; the summary must not contradict it.
     assert "INCOMPLETE RIP (cancelled)" in text
     assert "2 of 14" in text
-    assert "All tracks accurately ripped" not in text
-    assert "Some tracks could not be verified as accurate" in text
+    assert "All tracks accurately ripped" not in text, (
+        "claimed a whole-disc clean sweep over its own INCOMPLETE banner — the "
+        "2026-08-01 defect"
+    )
+    assert "Some tracks could not be verified as accurate" not in text, (
+        "claimed a verification failure on a rip whose every ripped track matched "
+        "AccurateRip exactly — the pessimistic half of the same wrong comparison"
+    )
+    # What it must say instead: true, and unmistakably not a whole-disc claim.
+    assert "All ripped tracks accurately ripped" in text
+    assert "2 of 14 disc tracks" in text
     # The per-count line is still honest about what DID verify — the fix must not
     # turn a truthful count into a pessimistic one.
     assert "2 track(s) accurately ripped" in text

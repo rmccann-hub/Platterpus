@@ -12,6 +12,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **The EAC-compatible log contradicted itself on a deliberate partial rip.** A
+  2-of-14 rip (two boxes ticked in the "Rip?" column) whose *both* tracks matched
+  AccurateRip v2 at confidence 200 rendered `2 track(s) accurately ripped` and
+  then, two lines later, `Some tracks could not be verified as accurate` — both in
+  one SHA-256-attested archival document, the second false on the first's own
+  numbers. Measured on the rig, 2026-08-23. The cause was `total >= expected`
+  standing in for *"did everything verify"*: the per-count lines are keyed on the
+  tracks **in the rip**, the verdict was keyed on the tracks **on the disc**, so
+  two surfaces answered one question with two keys. Ripping fewer tracks than the
+  disc holds is not a verification failure — it is what the "Rip?" column is for.
+  The verdict is now three states rather than two, and the guard the disc-total
+  comparison was really carrying (a track that failed outright produces no
+  AccurateRip result and so is invisible to the counts) is measured directly
+  against the tracks the rip attempted. EAC's own two sentences keep their exact
+  wording — the fork diffs against them — and the new third names its own coverage
+  so it cannot read as a whole-disc claim. Both halves revert-proved; the probe
+  caught the second test being vacuous first, because a fixture track carrying a
+  Copy CRC is counted by `accuraterip_counts` and so was never invisible.
+  The same wrong comparison had a **pessimistic** twin nobody caught: the
+  2026-08-01 fix for a cancelled 2-of-14 rip claiming `All tracks accurately
+  ripped` replaced it with `Some tracks could not be verified as accurate`, which
+  is *also* false when both ripped tracks matched exactly — and it went unnoticed
+  for three weeks because erring toward failure reads as caution rather than as
+  error. Its regression test enshrined that sentence; it now states the property
+  directly (no whole-disc claim, and no verification failure that did not happen).
 - **Two unit tests made live Cover Art Archive requests, and one of them
   intermittently failed the suite because of it.** `save_additional_art` defaults
   to `True`, so a post-rip test with a real `release_id` and no local cover falls

@@ -944,17 +944,51 @@ def _status_report(
         # denominator for a completeness claim. A stopped rip can shrink that
         # list; it cannot shrink the disc.
         expected = disc_track_total or len(rip_log.tracks)
+        attempted = len(rip_log.tracks)
         # `not_verified`, NOT `neither`. An offset-variant match is not an exact
         # match, so a disc where every track matched only the +450 pressing must
         # never announce "All tracks accurately ripped" — which is exactly what
         # keying this on the new disjoint count would have done. The partition fix
         # above created this precondition; this is the line that pays for it.
-        clean_sweep = not not_verified and total >= expected
-        out.append(
-            "All tracks accurately ripped"
-            if clean_sweep
-            else "Some tracks could not be verified as accurate"
-        )
+        every_result_verified = not not_verified
+        # A track that failed outright produces NO AccurateRip result, so it is
+        # invisible to the counts above. Comparing against the tracks the rip
+        # actually attempted is what catches it.
+        every_attempted_track_has_a_result = total >= attempted
+        whole_disc_attempted = attempted >= expected
+        if every_result_verified and every_attempted_track_has_a_result:
+            # THREE STATES, NOT TWO — and the missing third one made this document
+            # contradict itself on the rig (2026-08-23, measured). A deliberate
+            # 2-of-14 rip whose both tracks matched at confidence 200 printed
+            # " 2 track(s) accurately ripped" and then, two lines later, "Some
+            # tracks could not be verified as accurate".
+            #
+            # The bug was `total >= expected` standing in for "did everything
+            # verify". Those are different questions with different denominators:
+            # the per-count lines above are keyed on the tracks IN THIS RIP, the
+            # verdict was keyed on the tracks ON THE DISC. Two surfaces answering
+            # one question with two keys, which is the failure `CLAUDE.md` names
+            # ("do two surfaces answer this question, and do they use the same
+            # key?"). Ripping fewer tracks than the disc holds is not a
+            # verification failure; it is what the "Rip?" column is for.
+            #
+            # The guard that comparison was really carrying — a dead track inside
+            # the rip must not read as a clean sweep — is now
+            # `every_attempted_track_has_a_result`, which measures it directly
+            # instead of inferring it from the disc size.
+            #
+            # EAC's own two sentences keep their exact wording and meaning: the
+            # fork diffs against them and asked that neither side reword them
+            # unilaterally. This adds a third for a state that previously printed
+            # a false one, and marks it as ours by naming the coverage.
+            out.append(
+                "All tracks accurately ripped"
+                if whole_disc_attempted
+                else "All ripped tracks accurately ripped — this log covers "
+                f"{attempted} of {expected} disc tracks"
+            )
+        else:
+            out.append("Some tracks could not be verified as accurate")
         out.append("")
     if rip_log.health_status:
         out.append(rip_log.health_status)
