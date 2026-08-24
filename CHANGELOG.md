@@ -94,6 +94,23 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   contained the word "Finished" — so it would have failed even implemented.
   Assert against the artifact, not against a remembered wording.
 ### Fixed
+- **`rig_session.sh`'s `-j` probe could hang the whole session, and did.** On the
+  2026-08-23 run it left a 0-byte artifact, no `exit:` line and no `MANIFEST.txt`
+  — the session never got past it, so an unattended harness whose entire purpose
+  is that a failing step is *data* produced no data for that step or any after
+  it. Two independent causes, both fixed: `timeout 600` carried no `-k`, so it
+  sent SIGTERM and then waited without bound for a child that may be in a drive
+  ioctl in uninterruptible sleep (the timeout that exists to stop a hang *was*
+  the hang); and 600 s could not cover the work even when nothing wedged — the
+  step passes `-l 1`, which rips track 1 in full, and the measured rate here is
+  0.5x, so the reference disc's 3:13 opener took **405.74 s** and a 10-minute
+  opener needs ~1200 s before drive spin-up. The old bound sat inside the healthy
+  range and would have killed a working step and reported it as a finding. Now
+  `timeout -k 60 1800`, and exit 124 vs 137 is spelled out in the summary —
+  "needed SIGKILL" says the reader was wedged, not merely slow, which "exit: 137"
+  alone does not. The `git clone` in the second half is bounded too. Guarded by a
+  sweep over every `timeout` in the harness, which states the case it cannot
+  catch (a step added with no bound at all) instead of implying completeness.
 - **The EAC-compatible log contradicted itself on a deliberate partial rip.** A
   2-of-14 rip (two boxes ticked in the "Rip?" column) whose *both* tracks matched
   AccurateRip v2 at confidence 200 rendered `2 track(s) accurately ripped` and
