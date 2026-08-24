@@ -152,13 +152,6 @@ def validate_config(config: Config) -> list[ValidationIssue]:
     run(
         "output_dir", _validate_dir, "output_dir", config.output_dir, "Output directory"
     )
-    run(
-        "working_dir",
-        _validate_dir,
-        "working_dir",
-        config.working_dir,
-        "Working directory",
-    )
     # The library folder is OPTIONAL — empty means "leave rips in the output
     # directory" (the feature is off), so only a non-empty value goes through
     # the directory rules. A control char hiding in "whitespace" must still be
@@ -344,7 +337,6 @@ def validated_field_names() -> frozenset[str]:
     return frozenset(
         {
             "output_dir",
-            "working_dir",
             "track_template",
             "disc_template",
             "track_template_unknown",

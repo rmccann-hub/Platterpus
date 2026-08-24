@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from pathlib import Path
 
 from platterpus import rip_files
@@ -51,7 +52,8 @@ def verify_rip_dir(
     decoder: PcmDecoder | None = None,
     samples_probe: SamplesProbe | None = None,
     wait_for: threading.Thread | None = None,
-) -> CtdbVerifyResult:
+    still_current: Callable[[], bool] | None = None,
+) -> CtdbVerifyResult | None:
     """Verify the FLACs in ``rip_dir`` against CTDB. Never raises.
 
     Intended to run OFF the GUI thread (MainWindow calls it on a daemon
@@ -63,6 +65,14 @@ def verify_rip_dir(
     # Let post-rip tagging / cover-art embedding settle first (see above).
     if wait_for is not None and wait_for.is_alive():
         wait_for.join(_SETTLE_TIMEOUT_S)
+
+    # ABANDON rather than measure a folder that is no longer ours. See the
+    # `still_current` note in the docstring: the launcher discards a stale
+    # result, but the reading is what produced a false ERROR in the user's own
+    # diagnostics. `None` means 'no verdict', which is the truth here.
+    if still_current is not None and not still_current():
+        log.info("CTDB verify of %s abandoned: a newer rip started", rip_dir)
+        return None
 
     # The TOC must be exactly THIS disc's tracks, so the file list comes from the
     # rip's own record (its `.log`), not from whatever the folder holds — see

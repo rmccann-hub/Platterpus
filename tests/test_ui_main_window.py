@@ -2185,6 +2185,80 @@ def test_known_album_folder_matches_cyanrip_folder_derivation(tmp_path) -> None:
     assert folder2 == root / "Air" / "Moon Safari (1998)"
 
 
+def test_the_overwrite_guard_finds_a_folder_our_glyph_table_cannot_predict(
+    tmp_path,
+) -> None:
+    """A completed 14-track archival rip was overwritten because of one character.
+
+    Measured 2026-08-23, full-acceptance hardware run. An album titled
+    ``full acceptance: angle<bracket …`` landed on disk as
+    ``full acceptance∶ angle‹bracket …`` — the ``<`` mapped to U+2039, a mapping
+    absent from `naming._VALUE_SANITISE`. `known_album_folder` therefore named a
+    folder that did not exist, `_dir_has_audio` said "empty", the
+    *"Album already ripped"* prompt never fired, and a 2-track rip replaced the
+    14-track one with no warning. The old docstring called that direction
+    fail-safe: *"it can only ever miss a collision, never invent one."* Missing
+    the collision is the destructive outcome.
+
+    So this test uses ``>`` — deliberately NOT a character our table maps — with a
+    stand-in glyph we have never observed. It therefore exercises the *mechanism*
+    (resolve the prediction against what is on disk) rather than the one table
+    entry added alongside it. Reverting the resolver makes the first assertion
+    return the unsanitised literal, which is the bug.
+    """
+    from platterpus.ui.main_window_helpers import _dir_has_audio, known_album_folder
+
+    root = tmp_path
+    # The subject is `"` — and since 2026-08-24 that choice is principled rather
+    # than arbitrary. Our table is now derived from the fork's generated contract
+    # (P7b) and covers every substituted character EXCEPT the double quote, which
+    # has TWO rows there (U+201C and U+201D) because the glyph is chosen by a
+    # parity flag that every substituted character toggles and that resets at each
+    # `{tag}` boundary (P7d). A lookup table provably cannot predict it. So this
+    # asserts the resolver handles the one case the contract itself says no table
+    # can — which is the argument for reading the disk rather than predicting.
+    real = root / "The Police" / "Songs “About” Nothing"
+    real.mkdir(parents=True)
+    (real / "01 - Roxanne.flac").write_bytes(b"audio")
+
+    found = known_album_folder(
+        root, "%A/%d/%d", "The Police", 'Songs "About" Nothing', ""
+    )
+    assert found == real, (
+        "the guard did not find the folder cyanrip actually wrote — this is the "
+        "silent-overwrite defect: it would report an empty target and rip over a "
+        f"finished archival master (looked at {found})"
+    )
+    assert _dir_has_audio(found), "found the folder but not the audio in it"
+
+    # A DIFFERENT album must not be captured. The two titles differ only in a
+    # non-ASCII character, which is exactly the false match a naive "are both
+    # sides odd glyphs?" rule makes — and the ONLY folder on disk is the other
+    # one, so the scan genuinely runs. (Creating the probe's own folder here made
+    # this assertion vacuous: `resolve_sanitised_path` took the literal branch and
+    # never compared anything. Caught by `scripts/revert_probe.py`.)
+    (root / "The Police" / "Cafè").mkdir()
+    probe = known_album_folder(root, "%A/%d/%d", "The Police", "Café", "")
+    assert probe == root / "The Police" / "Café", (
+        "matched a near-identical title as a substitution — an accented letter is "
+        "not a sanitiser stand-in, and treating it as one would warn about the "
+        f"wrong album (got {probe})"
+    )
+
+    # Two candidates that could each be the rendering → refuse rather than guess,
+    # and fall back to the literal prediction (no dialog, same as before). The
+    # quote's two glyphs make this a REAL ambiguity rather than a contrived one:
+    # both are legitimate renderings of the same title, and which one cyanrip
+    # picks depends on parity we cannot see.
+    (root / "Ambiguous").mkdir()
+    (root / "Ambiguous" / "a“b").mkdir()
+    (root / "Ambiguous" / "a”b").mkdir()
+    tied = known_album_folder(root, "%A/%d/%d", "Ambiguous", 'a"b', "")
+    assert tied == root / "Ambiguous" / 'a"b', (
+        "guessed between two equally-plausible folders instead of standing down"
+    )
+
+
 def test_suffix_album_folder_template_suffixes_only_the_album_folder() -> None:
     from platterpus.ui.main_window_helpers import suffix_album_folder_template
 
@@ -4220,7 +4294,14 @@ def test_flac_verify_runs_for_non_self_verifying_backend(
     window._backend.self_verifies = False
     calls: list[Path] = []
 
-    def fake_verify(rip_dir: Path, *, wait_for: object = None) -> FlacVerifyResult:
+    # Mirrors the real `verify_rip_dir` signature INCLUDING `still_current`.
+    # Without it the stub raised TypeError, the launcher's broad `except`
+    # recorded that as 'the check crashed', and this test failed with an empty
+    # call list rather than naming the mismatch — the stub being kinder (or
+    # here, narrower) than the product.
+    def fake_verify(
+        rip_dir: Path, *, wait_for: object = None, still_current: object = None
+    ) -> FlacVerifyResult:
         calls.append(rip_dir)
         return FlacVerifyResult(checked=2)
 
@@ -6311,7 +6392,7 @@ def test_a_crashed_post_rip_check_is_recorded_not_lost(
     had passed."""
     window = teardown_threads()
 
-    def _boom() -> object:
+    def _boom(_still_current) -> object:
         raise RuntimeError("CTDB lookup exploded")
 
     thread = window._launch_post_rip_daemon(
@@ -6336,7 +6417,7 @@ def test_two_post_rip_checks_crashing_are_both_recorded(teardown_threads) -> Non
         ("_checksums_thread", "hashing died"),
     ):
         thread = window._launch_post_rip_daemon(
-            compute=lambda m=message: (_ for _ in ()).throw(RuntimeError(m)),
+            compute=lambda _sc, m=message: (_ for _ in ()).throw(RuntimeError(m)),
             signal=window.checksums_done,
             thread_attr=attr,
         )
@@ -7295,7 +7376,7 @@ def test_a_destroyed_window_does_not_break_a_late_post_rip_emit(
             raise RuntimeError("Internal C++ object already deleted.")
 
     thread = window._launch_post_rip_daemon(
-        compute=lambda: {"ok": "yes"},
+        compute=lambda _sc: {"ok": "yes"},
         signal=_DeadSignal(),
         thread_attr="_checksums_thread",
     )
@@ -7564,7 +7645,18 @@ def test_a_cover_art_crash_becomes_a_reported_result_not_a_dead_daemon(
     teardown_threads, tmp_path: Path, monkeypatch, qapp
 ) -> None:
     """Cover art is the slowest, most failure-prone step (a network GET with a 30 s
-    timeout). A crash there must still produce a result the report can record."""
+    timeout). A crash there must still produce a result the report can record.
+
+    **`save_additional_art=False` is load-bearing, not tidiness.** It defaults to
+    True, and with it on the post-rip thread goes on from the crashed front-cover
+    fetch to `save_additional_covers`, which this test stubs nothing for — so the
+    unit test made a **live Cover Art Archive request**. It won the 10 s join when
+    run alone and lost it under full-suite load, and because the read below is of
+    an attribute that only exists once `_on_cover_art_done` has fired, the failure
+    surfaced as a bare `AttributeError` rather than "the thread never finished".
+    Sibling tests in this file already set this flag off for the same reason
+    (search `save_additional_art=False`); this one had been missed.
+    """
     from platterpus.adapters import cover_art as _ca
 
     album, log_file = _album_with_leftovers(tmp_path)
@@ -7574,7 +7666,9 @@ def test_a_cover_art_crash_becomes_a_reported_result_not_a_dead_daemon(
         lambda *a, **k: (_ for _ in ()).throw(RuntimeError("CAA exploded")),
     )
     window = teardown_threads(
-        config=Config(host_setup_prompted=True, cover_art="embed")
+        config=Config(
+            host_setup_prompted=True, cover_art="embed", save_additional_art=False
+        )
     )
 
     window._start_post_rip_processing(
@@ -7588,6 +7682,14 @@ def test_a_cover_art_crash_becomes_a_reported_result_not_a_dead_daemon(
     )
     assert window._post_rip_thread is not None
     window._post_rip_thread.join(timeout=10)
+    # Say WHICH thing failed. Reading `_last_cover_art_result` straight after a
+    # join that timed out raises AttributeError — the attribute is created by the
+    # signal handler — so a thread that simply had not finished reported itself as
+    # a missing attribute, in a test whose subject is the result object.
+    assert not window._post_rip_thread.is_alive(), (
+        "the post-rip thread was still running after 10s — nothing below is about "
+        "cover art until this passes; check what in the thread is doing real I/O"
+    )
     qapp.processEvents()
 
     result = window._last_cover_art_result
@@ -7681,11 +7783,22 @@ def test_a_slow_cover_fetch_that_lands_after_the_next_rip_is_dropped(
     """Regression (audit 2026-07-28): the cover fetch is the step most likely to
     finish AFTER the user has started the next rip, and `_on_cover_art_done` writes
     straight into whatever album's report is current — naming a release that album
-    never used."""
+    never used.
+
+    `save_additional_art=False` for the reason spelled out in
+    `test_a_cover_art_crash_becomes_a_reported_result_not_a_dead_daemon`: it
+    defaults True, and with a real `release_id` and no local cover the thread goes
+    on to `save_additional_covers`, which nothing here stubs — a live Cover Art
+    Archive request from a unit test. Swept for on 2026-08-24; these two were the
+    only reachable cases (every other post-rip test passes an empty `release_id`
+    or a local cover path, both of which short-circuit that call).
+    """
     from platterpus.adapters import cover_art as _ca
 
     album, log_file = _album_with_leftovers(tmp_path)
-    window = teardown_threads(config=Config(host_setup_prompted=True))
+    window = teardown_threads(
+        config=Config(host_setup_prompted=True, save_additional_art=False)
+    )
     window._last_cover_art_result = None
 
     def _slow(*a, **k):
@@ -7705,6 +7818,13 @@ def test_a_slow_cover_fetch_that_lands_after_the_next_rip_is_dropped(
     )
     assert window._post_rip_thread is not None
     window._post_rip_thread.join(timeout=10)
+    # A thread that never finished also leaves `_last_cover_art_result` at None,
+    # so without this the assertion below passes for the wrong reason — the exact
+    # "can this check be satisfied by finding nothing?" shape.
+    assert not window._post_rip_thread.is_alive(), (
+        "the post-rip thread was still running after 10s, so 'no result was "
+        "written' proves nothing about the generation guard"
+    )
     qapp.processEvents()
 
     assert window._last_cover_art_result is None
@@ -9121,4 +9241,79 @@ def test_the_audio_md5_snapshot_is_reset_beside_its_sibling() -> None:
         "_last_audio_md5 is not reset beside _last_checksums. The two are written "
         "together by _on_checksums_done, so resetting one without the other lets a "
         "new rip inherit the previous rip's audio identity."
+    )
+
+
+def test_a_post_rip_check_stops_working_when_a_newer_rip_starts(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """MEASURED 2026-08-23: the guard was read at REPORTING time, not at WORKING
+    time, and the difference was an ERROR in the user's own diagnostics.
+
+    On the acceptance run the next rip started **2.4 s** after the previous one
+    finished, into the same folder (the overwrite guard had missed — a separate
+    fix). The evidence bundle abandoned itself at +0.1 s and logged that it had.
+    The FLAC verify, CTDB verify and checksum sweep kept reading for another ten
+    seconds, and the FLAC verify logged
+    ``flac.verify_failed: 01 - Roxanne.flac: ERROR checking for ID3v2 tag`` —
+    a claim that the user's archival master is corrupt, about a file that was
+    simply being rewritten underneath it. Discarding the result afterwards does
+    not unsay that.
+
+    So the assertion is about the WORK, not the result: after the generation
+    moves, the verifier must not be called at all. Asserting "no result was
+    emitted" would pass against the old code too, which is the vacuous version.
+    """
+    from platterpus.adapters.flac_verify import FlacVerifyResult
+
+    window = teardown_threads(config=Config(verify_flac_after_rip=True))
+    window._backend.self_verifies = False
+    calls: list[Path] = []
+
+    # Two events instead of a sleep: the daemon must reach its guard AFTER the
+    # generation has moved, and hoping it loses a race is how a test becomes a
+    # coin flip. `entered` says the worker is in; `may_proceed` releases it once
+    # the next rip has been simulated.
+    entered = threading.Event()
+    may_proceed = threading.Event()
+
+    def fake_verify(
+        rip_dir: Path, *, wait_for: object = None, still_current: object = None
+    ) -> FlacVerifyResult | None:
+        entered.set()
+        assert may_proceed.wait(10), "the test never released the worker"
+        # Stand in for the real worker's own guard, so what is under test is that
+        # the predicate ARRIVES and answers False — not a reimplementation of it.
+        if callable(still_current) and not still_current():
+            return None
+        calls.append(rip_dir)
+        return FlacVerifyResult(checked=2)
+
+    monkeypatch.setattr("platterpus.ui.main_window_rip.verify_flac_dir", fake_verify)
+
+    album_dir = tmp_path / "Artist" / "Album"
+    album_dir.mkdir(parents=True)
+    log_file = album_dir / "Album.log"
+    log_file.write_text("", encoding="utf-8")
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, str(log_file))
+    assert window._flac_verify_thread is not None
+    assert entered.wait(10), "the FLAC verify daemon never started"
+    # The next rip starts while the check is in flight — the 2.4 s window.
+    window._rip_generation += 1
+    may_proceed.set()
+    window._flac_verify_thread.join(timeout=10)
+    assert not window._flac_verify_thread.is_alive(), "the verify never finished"
+
+    assert calls == [], (
+        "the FLAC verify read the album folder after a newer rip had started. "
+        "The launcher would discard the verdict, but the reading is what "
+        "produced a false 'your master is corrupt' ERROR on the rig"
+    )
+    # `getattr`: the attribute is created by `_reset_rip_results` on Start, and
+    # this test drives `_on_rip_finished` directly. Reading it bare raises
+    # AttributeError, which is the same illegible failure the cover-art tests hit.
+    assert getattr(window, "_last_flac_verify_result", None) is None, (
+        "a verdict from an abandoned check reached the report"
     )

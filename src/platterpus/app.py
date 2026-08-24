@@ -337,15 +337,22 @@ def _install_excepthook() -> None:
     threading.excepthook = thread_hook
 
 
-#: How long an unattended run may keep the process alive after its batch ends,
+#: How long an unattended run may keep the process alive **after its batch ends**,
 #: waiting for post-rip work to settle. Generous — a 14-track transcode plus
 #: hashing plus a CTDB round-trip is minutes — and bounded, because a wedged step
 #: must not leave a process behind forever. That is the whole point of the timer.
+#:
+#: The emphasis on *after its batch ends* is not decoration: this constant meant
+#: that for four days and was not implemented that way. See `_arm_unattended_quit`.
 UNATTENDED_QUIT_BUDGET_S: float = 900.0
 
 
 def _arm_unattended_quit(
-    app: QCoreApplication, window: MainWindow, console: ScriptConsoleDialog
+    app: QCoreApplication,
+    window: MainWindow,
+    console: ScriptConsoleDialog,
+    *,
+    budget_s: float = UNATTENDED_QUIT_BUDGET_S,
 ) -> QTimer:
     """Quit once an unattended `--run-script` batch is genuinely finished.
 
@@ -368,10 +375,35 @@ def _arm_unattended_quit(
 
     Bounded and loud in both directions: it says why it is quitting, and if the
     budget runs out it says what was still alive rather than leaving silently.
+
+    **When the clock starts, and why that is the whole feature** (measured
+    2026-08-23, the full-acceptance hardware run). The budget above says "after
+    its batch ends" and the first implementation armed it *here*, at process
+    start, before a single step had run. The two agree only for a batch shorter
+    than the budget. The acceptance run took **1h49m**, so the deadline had
+    expired **1h34m before the script finished** — and because a tick returns
+    early while the batch is running, nothing observed it until the batch was
+    over. The first post-batch tick therefore found the deadline already blown
+    and quit **3.0 seconds** into post-rip work that had just started, killing
+    the cover-art fetch, the CTDB verify, the FLAC verify and the SHA-256
+    digests. The grace period, on the one run it exists for, was **zero**.
+
+    So the clock starts when the batch is first *seen* to be finished. Nothing
+    bounds the batch itself here, and nothing should: every step the runner can
+    execute already carries its own ceiling (`uiscript.runner.MAX_WAIT_S`,
+    `MAX_RIP_WAIT_S`, `CYANRIP_VERB_TIMEOUT_S`), so `runner.running` is
+    guaranteed to go False. The old absolute deadline never protected against a
+    wedged runner either — the `running` early-return above sits in front of it —
+    so moving the clock forfeits nothing that was ever there.
+
+    This is `CLAUDE.md`'s *"did I check the preconditions where the thing HAPPENS,
+    or where it was scheduled?"* with the deferral being the batch's own runtime.
     """
     from PySide6.QtCore import QTimer
 
-    deadline = time.monotonic() + UNATTENDED_QUIT_BUDGET_S
+    # None until the batch is first observed finished; then the moment the grace
+    # period began. A single-element list because a closure needs to rebind it.
+    grace_began: list[float | None] = [None]
     timer = QTimer(window)  # parented, so the window's teardown owns it
     timer.setInterval(1000)
 
@@ -395,9 +427,14 @@ def _arm_unattended_quit(
         runner = getattr(console, "runner", None)
         if runner is not None and getattr(runner, "running", False):
             return  # the batch itself is still going
-        # The batch is done. Wait for everything it STARTED — the same predicate
-        # the evidence bundle is gated on, so the two cannot disagree about what
-        # "finished" means.
+        # The batch is done. Start the grace clock on the FIRST tick that sees
+        # that — not at arm time, which is a different instant by however long
+        # the batch took (1h49m on the run that exposed this).
+        if grace_began[0] is None:
+            grace_began[0] = time.monotonic()
+        # Wait for everything the batch STARTED — the same predicate the evidence
+        # bundle is gated on, so the two cannot disagree about what "finished"
+        # means.
         settled = True
         try:
             if getattr(window, "_pending_evidence_bundle", None) is not None:
@@ -415,18 +452,25 @@ def _arm_unattended_quit(
             )
             app.quit()
             return
-        if time.monotonic() >= deadline:
+        waited = time.monotonic() - (grace_began[0] or time.monotonic())
+        if waited >= budget_s:
             timer.stop()
             still = ""
             try:
                 still = window._post_rip_still_running()
             except Exception:  # noqa: BLE001
                 pass
+            # The ELAPSED wait, not the budget. The old message printed the
+            # constant, so a give-up 0.55 s into the grace period reported itself
+            # as "after 900s" — the one line explaining why results are missing,
+            # asserting the opposite of what happened.
             log.warning(
-                "unattended run: gave up waiting after %.0fs for post-rip work to "
-                "settle (still running: %s) — quitting anyway. Results already "
-                "written are complete; anything from those steps is not.",
-                UNATTENDED_QUIT_BUDGET_S,
+                "unattended run: gave up waiting after %.1fs (budget %.0fs) for "
+                "post-rip work to settle (still running: %s) — quitting anyway. "
+                "Results already written are complete; anything from those steps "
+                "is not.",
+                waited,
+                budget_s,
                 still or "(unknown)",
             )
             app.quit()

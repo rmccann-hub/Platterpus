@@ -167,6 +167,15 @@ class TrackResult:
     # it, a disc nobody looked up was reported as "in DB, no match" (audit,
     # 2026-07-31). None for whipper logs and any log that omits the row.
     accuraterip_lookup: str | None = None
+    #: cyanrip's per-track paranoia status counts (READ / VERIFY / OVERLAP /
+    #: FIXUP_ATOM), empty when the log carries none. The fork added these at our
+    #: request; our parser dropped them for months because its header pattern was
+    #: anchored at column 0 and theirs are indented inside the track block.
+    paranoia_counts: dict[str, int] = field(default_factory=dict)
+    #: cyanrip's `Scope:` note for those counts, verbatim — it says which reads the
+    #: numbers cover when a track was re-read. "" when the log carries none, which
+    #: is every rip that converged on its first read.
+    paranoia_scope: str = ""
     # How many read passes cyanrip needed for this track (its "(after N rips)"
     # suffix). 1 = clean single pass; higher means secure re-reads (-Z N) were
     # needed — the clearest per-track signal of a marginal read region.
@@ -317,6 +326,11 @@ class RipLog:
     # (handshake round 4, Q10) this footer is the only structural difference
     # between a truncated log and a short one, because the cue cannot tell.
     rip_completed: bool | None = None
+    #: Where an interrupted rip stopped, verbatim — e.g. `track 1, mid-read` or
+    #: `between tracks, no read in progress`. None when the log carries no such
+    #: line, which is every completed rip and every log written before the fork
+    #: added it (round 13, answering our round-12 ask).
+    interrupted_at: str | None = None
     rip_completed_tracks: int | None = None
     rip_completed_total: int | None = None
     #: Why it did not complete, in the ripper's own words ("interrupted by
@@ -470,10 +484,26 @@ def track_accuraterip_verified(track: object) -> bool:
 # NOTE this is a *complement* to, not a replacement for, the cross-rip
 # comparison (rip_compare): a disc whose paranoia settles on ONE (wrong) answer
 # per pass — no re-reads, no -Z — shows rip_count 1 and converged None, so this
-# helper won't flag it. Catching that needs either a second rip to diff against
-# or per-track paranoia counts, which cyanrip only emits disc-wide today (a
-# tracked upstream JSON-output ask). Kept honest in the docs so nobody reads a
-# clean read-effort result as "provably reproducible".
+# helper won't flag it. Kept honest in the docs so nobody reads a clean
+# read-effort result as "provably reproducible".
+#
+# **CORRECTED 2026-08-24.** This note used to end "...or per-track paranoia
+# counts, which cyanrip only emits disc-wide today (a tracked upstream
+# JSON-output ask)". That was false, and the artifact refuting it was committed
+# in this repository: the fork's own reference log carries **fourteen** per-track
+# `Paranoia status counts:` blocks against one disc-level block, because we asked
+# for them (W1) and they built them. Our parser dropped all fourteen — its header
+# pattern was anchored at column 0 and theirs are indented — so nobody looking at
+# a parsed log could see they existed, and this comment then explained the
+# absence as an upstream gap. A missing feature and a dropped field read
+# identically from inside the parser; only the artifact tells them apart
+# (`CLAUDE.md`: am I answering from the artifact, or from my memory of it?).
+#
+# They are parsed now and land on `TrackResult.paranoia_counts`. Using them to
+# strengthen the flag above is deliberately NOT done here: it needs a threshold,
+# a threshold needs evidence from more than one disc, and inventing one would
+# swap a documented gap for an undocumented guess. `TASKS.md` carries the
+# follow-up now that the data is actually available.
 
 # A track needing this many passes (or more) is called out as "unusually heavy
 # re-reading". 2 passes (one re-read) is common and benign on real hardware, so

@@ -713,6 +713,104 @@ def test_the_status_report_counts_partition_the_disc() -> None:
     )
 
 
+def _verified_track(number: int) -> TrackResult:
+    """A track that matched AccurateRip v2 exactly, at the rig's confidence."""
+    return TrackResult(
+        number=number,
+        copy_crc=f"{number:08x}",
+        accuraterip_v2=AccurateRipResult(
+            version=2, result="accurately ripped, confidence 200", confidence=200
+        ),
+    )
+
+
+def test_a_deliberate_partial_rip_that_verified_does_not_claim_a_failure() -> None:
+    """MEASURED on the rig, 2026-08-23: this document contradicted itself.
+
+    A 2-of-14 rip (the user ticked two boxes in the "Rip?" column) where BOTH
+    tracks matched AccurateRip v2 at confidence 200 rendered::
+
+         2 track(s) accurately ripped
+
+        Some tracks could not be verified as accurate
+
+    Both sentences in one SHA-256-attested archival log, the second false on the
+    first's own numbers.
+
+    The cause was `total >= expected` standing in for "did everything verify".
+    Those are different questions with different denominators — the per-count
+    lines are keyed on the tracks IN THE RIP, the verdict was keyed on the tracks
+    ON THE DISC. Ripping fewer tracks than the disc holds is not a verification
+    failure.
+
+    The three assertions below are the three states, and the middle one is the
+    bug: a partial rip must claim neither a whole-disc sweep nor a failure.
+    """
+    text = render_eac_style_log(
+        _rip_log(_verified_track(1), _verified_track(2)), disc_track_total=14
+    )
+    assert "Some tracks could not be verified as accurate" not in text, (
+        "a 2-of-14 rip whose every track matched exactly still reported a "
+        "verification failure — the defect measured on the rig"
+    )
+    assert "All tracks accurately ripped" not in text, (
+        "claimed a whole-disc clean sweep for a 2-of-14 rip — the opposite "
+        "over-claim, and the reason the disc-total comparison was there"
+    )
+    assert "All ripped tracks accurately ripped" in text, (
+        "said nothing at all about whether the ripped tracks verified"
+    )
+    assert "2 of 14 disc tracks" in text, (
+        "the partial verdict must name its own coverage, or it reads as a "
+        "whole-disc claim"
+    )
+
+
+def test_a_track_that_produced_no_accuraterip_result_still_blocks_a_clean_sweep() -> (
+    None
+):
+    """The guard the disc-total comparison was really carrying, measured directly.
+
+    A track that fails outright produces NO AccurateRip result, so it is invisible
+    to the count lines — `verified` and `not_verified` both miss it. The old code
+    caught this as a side effect of `total >= expected`; removing that comparison
+    would have removed the guard with it, so it is now measured against the tracks
+    the rip ATTEMPTED and asserted here on its own.
+    """
+    # The track must carry NO Copy CRC and no AR result. `accuraterip_counts`
+    # counts anything with *either*, so a `copy_crc="deadbeef"` track lands in
+    # `total` and is caught by `not_verified` instead — which made the first
+    # version of this test vacuous (caught by `scripts/revert_probe.py`: it passed
+    # with the guard replaced by a literal `True`). A track that failed outright
+    # is the case the `accuraterip_counts` docstring describes, and the only one
+    # where `total` is genuinely smaller than the track list.
+    silent = TrackResult(number=2)
+    text = render_eac_style_log(
+        _rip_log(_verified_track(1), silent), disc_track_total=2
+    )
+    assert "accurately ripped" in text  # the one that did verify is still reported
+    assert "All tracks accurately ripped" not in text, (
+        "a rip with a track that returned no AccurateRip result at all announced "
+        "a clean sweep"
+    )
+    assert "All ripped tracks accurately ripped" not in text, (
+        "the partial-coverage wording must not paper over a track that failed "
+        "inside the rip — that is a verification gap, not a narrower scope"
+    )
+    assert "Some tracks could not be verified as accurate" in text
+
+
+def test_a_full_disc_that_verified_still_says_eacs_own_sentence() -> None:
+    """The unchanged happy path. EAC's wording is what the fork diffs against, so
+    the three-state split must leave it byte-identical for a whole-disc sweep."""
+    text = render_eac_style_log(
+        _rip_log(_verified_track(1), _verified_track(2)), disc_track_total=2
+    )
+    assert "All tracks accurately ripped" in text
+    assert "All ripped tracks accurately ripped" not in text
+    assert "Some tracks could not be verified as accurate" not in text
+
+
 def test_a_disc_of_only_offset_variant_matches_is_not_a_clean_sweep() -> None:
     """The precondition the partition fix CREATED, and the reason it is tested.
 

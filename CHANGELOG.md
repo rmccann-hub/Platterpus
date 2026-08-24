@@ -11,6 +11,500 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.24] — 2026-08-24
+
+### Added
+- **cyanrip round 13 closed `GO`/`GO`, and CC-2 moved to round 14 by bilateral
+  agreement.** Their lap 6 found the defect in their own close condition and
+  refused to argue it into being fine: CC-2 measured a test pin (`e78cd66`) while
+  the release would be `+platterpus.8` — a *different* build — so the released
+  pair would have carried no hardware evidence. That is precisely the gap we
+  refuse on our own side, where `ddf7ac3` has the rig run, `237a4ff` is the
+  release, and `FORK_PIN` has not moved. CC-2 is restated for round 14 as *"one
+  hardware acceptance pass on the RELEASED pair"*, and we checked the fix
+  terminates before accepting it: round 14 tests an already-released build, so
+  there is no ship-something-else-afterwards step to reintroduce the gap. Accepted
+  with a new `[BOTH]` rule for seam-rules v6 — a close condition may be **moved**
+  to a **named** later round by **bilateral** agreement, never deleted, never by
+  one side alone.
+- **Recorded what closing does not change:** `FORK_PIN` stays at `ddf7ac3` until
+  round 14's hardware pass closes, so a user opting into their `beta` channel and
+  installing `+platterpus.8` correctly gets `unapproved` in their archival record.
+  Their beta channel and our unmoved pin compose without either side changing
+  anything, which was the test we applied to their proposal. Our own `0.7.100`
+  gate (KDD-35) is independent and unmoved by any of this.
+
+### Fixed
+- **Two vocabularies, one absent state, found a week apart.** Our verdict
+  vocabulary allows only `GO` or `HOLD`, which forced `HOLD` to mean *"verified as
+  far as we can, pending our own evidence"*. `handshake_approval.approve_ripper`
+  has the same hole from the other end: for `+platterpus.8` it will say the build
+  *"was not produced by a jointly-verified ripper"*, which will be **false** — it
+  will have been jointly verified by round 13, just not on a drive. Both are
+  recorded to the fork rather than papered over; the approval wording is ours to
+  fix and is the first thing round 14 will make visible to a user.
+- **A structural one-lap tail in the close protocol, measured on our own tree.**
+  `--status` reports round 13 OPEN with both sides at `GO`, because the blocker
+  sits on *their* newest file: it declares `HANDSHAKE-PEER-VERDICT: HOLD`, which
+  was true when written, before our `GO` existed. The side that completes a round
+  can never have its `GO` acknowledged by a file the other side has already sent —
+  so their gate closes and ours cannot. **Our gate is not being touched**: closing
+  a round on our own say-so is the half-of-a-two-half-contract failure this
+  protocol has already recorded three times, and fail-closed is the right
+  direction to be wrong in. It needs one line from them and a `NEXT-ROUND`
+  question, which our lap 7 carries.
+- **cyanrip round 13 lap 1 received, verified and answered.** Their envelope split
+  with their published reader, all seven parts hash-verified, filed under
+  `docs/handshake/inbound/`. Our verification is `verified/round-13-lap-01.md`
+  (**HOLD on `9f8592e`** — because their CC-2 needs a hardware pass we have not
+  run, explicitly **not** the "you ask for a hold" trigger in their S-18
+  pre-commit); our reply is `outbound/round-13-lap-02.md`. Round 13 is **theirs**
+  by the convention both projects settled on — a round is a decision about a pin
+  and only the provider can mint one — so our unsent lap is renumbered lap 2 and
+  their close conditions are the round's.
+- **`Interrupted at:` is parsed and reported.** The line the fork added in round 13
+  to answer *our* round-12 ask — which track was in progress when a rip was
+  interrupted — fell through our parser entirely: no field, no rule, not even an
+  ignore-list entry with a reason. Captured verbatim rather than split into track
+  and phase, since they publish two forms and a consumer that re-derives structure
+  from prose breaks on the third. Both halves of their stated invariant are
+  asserted against their own two samples: present when `Rip completed: no`, absent
+  on the clean rip. Declared fork-only in the generated consumer contract.
+- **`seam-rules.md` v5 adopted byte-identical**, closing a hole neither project had
+  noticed for five rounds: `CLAUDE.md` and our standing status cite S-13–S-16 as
+  binding, and the shared file we cited them from defined S-1–S-12 — four lines
+  above the rule that *a rule you have not implemented is not a rule you may
+  cite*. The diff was verified additive before adopting: four lines removed, all
+  version metadata, S-1–S-12 untouched.
+
+### Fixed
+- **The fork's fix for our finding broke our parser, and only running it showed
+  that.** Their round-13 lap 3 answered our paranoia over-reporting report with a
+  `Scope:` line *inside* the per-track block, and declared
+  `HANDSHAKE-BREAKING: none`. True for a line-reader, false for a block-reader:
+  every other member of that block is `KEY: <int>`, ours ended the block at the
+  first line that did not match, so `Scope:` terminated it and **all three tracks
+  parsed with zero paranoia counts** — silently, on the feature added days earlier
+  to consume them. `Scope:` is now a member of the block and captured verbatim as
+  `TrackResult.paranoia_scope`. Found by running their new golden reference through
+  the real parser rather than reading their delta, which is what their CC-1 asks
+  for and the second time in this round that discipline has paid. The general
+  lesson, going to `seam-rules` v6: **"additive" is relative to where you add** — a
+  line appended to a document is additive; a line inserted into a block whose
+  members share a shape changes that shape.
+
+### Added
+- **cyanrip round 13 lap 3 received (verdict `GO`), verified and answered.** Six
+  parts hash-verified and filed. They confirmed our paranoia finding from their own
+  source (`cyanrip_main.c:797`, after the `repeat_ripping:` label) and from two rips
+  of one image, reproducing our 30-vs-90 figures exactly — and **round 5's invariant
+  is now retracted as false in general**: it survived five rounds because every
+  artifact it was checked against had each track read once, the one condition that
+  forces the sum arithmetically. Our lap 5 gives our call as consumer on their two
+  options: **label, not renumber** — hoisting their baseline would make per-track
+  sum to the disc total and change every per-track number the program has ever
+  published, so a user's 2026 and 2027 logs would carry the same field, same units,
+  different meanings, with nothing saying so. Their `Scope:` line makes the meaning
+  explicit and leaves every existing log byte-identical.
+- Accepted their test pin `e78cd66` for CC-2, and their deferral of the
+  seam-rules §4 path row to v6 at round 14. Our verification is renumbered **lap 3**
+  after their §H1 caught it declaring lap 1 — and our lap 5 raises the same class of
+  slip in their own file, whose digest counts three laps excluding itself while its
+  header declares lap 3.
+- **Round 5's paranoia-counter question is settled, by measurement.** Our standing
+  status told the fork the per-track/disc sum had been "verified twice under
+  conditions that cannot break it" and that closing it needed a `-Z` reference.
+  Their round-13 golden reference **is** that artifact: ripped `-Z 2`, every track
+  `converged after 3 reads`, per-track READ 15+10+5 = **30** against a disc-level
+  **90** — a ratio of exactly 3. The disc total sums every pass; the per-track
+  figure is the last pass. A consumer rendering the disc tally as a count of
+  distinct events over-reports by the re-read factor, which is what we suspected
+  and could not show.
+- **The AccurateRip column now shows the database's best confidence beside each
+  track's own — `OK (3 of 200)` — with a footnote explaining what a gap means.**
+  The highest-value gap from the whipper capability audit, and it was a fact we
+  already had and threw away: cyanrip prints `max confidence: N` on every
+  per-track `Accurip:` row, and we read that row only to answer *"did a lookup
+  happen at all"*. A bare confidence is close to meaningless — 3 is excellent on
+  an obscure disc and a warning sign on a famous one — and the **pair** is the one
+  AccurateRip fact that changes what a person should do: a low own-confidence
+  against a high maximum means most people's discs disagree with yours, which is a
+  different **pressing**, not a bad rip. The tooltip says exactly that, and says
+  the rip is bit-perfect first, because `3 of 200` unexplained reads as a
+  near-failure when the opposite is true. Both numbers come from one pure helper
+  in `verdict.py` (`accuraterip_confidence_text` /
+  `accuraterip_db_max_confidence`) so the cell and its footnote cannot describe
+  one track's standing two ways, and a test asserts that *relation* rather than
+  each side alone. Nothing is stored: the raw status text is already in the
+  report, so a parsed copy would be one fact in two slots. Three deliberate
+  silences, each revert-proved — a log stating no maximum renders exactly as
+  before (whipper's, hand-trimmed, older cyanrip); a maximum *below* the track's
+  own confidence shows the bare number rather than an ordering we cannot explain;
+  and the footnote stays quiet when the database entry is too thin for the ratio
+  to mean anything, because a footnote on every track is one nobody reads.
+- **`docs/handshake/outbound/platterpusstatus.md` — our standing status, the file
+  a fresh session on the cyanrip side reads to start.** The mirror of their
+  `cyanripstatus20260821.md`, whose own header credits the convention to us: we
+  sent them one on 2026-08-21 and never committed our half, so the record carried
+  theirs and not ours. Not a round and not a lap — no `HANDSHAKE-*` wire headers,
+  so the lap-naming test does not bind it and `--status` does not count it. It
+  carries the current pins and round state, the full-acceptance run's results
+  including what *their* build got right, the nine defects it found and which are
+  fixed, the one blocking ask with our `-T os_unicode` derivation offered up for
+  correction, and the S-13–S-16 convergence rules restated as binding. Named
+  **undated** and rewritten in place: a dated name means a new sibling every time
+  it goes stale, which is the sprawl rule #7 exists to stop.
+- **`expect-status` is implemented, and a batch now says what cannot run before
+  it starts.** The verb sat in the table `implemented=False` with a written
+  reason — there is no single "status line" widget, so any implementation would
+  pick one surface and *silently* mean only that. The objection was about the
+  silence: it now reads `RipProgress.current_status()` (the label under the
+  Overall bar, and the same accessor the desktop notification reads, so the two
+  cannot disagree) and **names that surface** in its help text and in every
+  message it emits. Case-insensitive substring, and a failure quotes the line it
+  actually read — a status assertion reporting only "no match" makes the reader
+  re-run a two-hour rip to find out what it said.
+- **Pre-run preflight now names any step whose verb has no handler**, alongside
+  the `cyanrip` steps it already checked. The full-acceptance run discovered
+  `expect-status` was unimplemented at **step 179 of 288, 1h 49m in**, because the
+  handler lookup happens at dispatch — while the check that fixes it sat one
+  function wide doing the identical job for a different verb, and
+  `uses_unsafe`'s docstring already stated the principle: *"an unattended run
+  that dies two-thirds through is worse than one that never started."* Same shape
+  as `docs/testing.md` §5.o. It still does not filter or reorder the run; a bad
+  step never stops the batch, the notice just arrives in the first seconds.
+
+- **cyanrip handshake round 13 opened — the endgame round, and its blocking ask is
+  a defect the first full hardware acceptance pass found.**
+  `docs/handshake/outbound/round-13-lap-01.md`. The run: 2026-08-23, Bazzite +
+  BDR-209D, 98 steps, 1h 50m, four rips, `pass=94 fail=1 error=3`.
+  **A completed 14-track archival rip was silently overwritten.** Measured, one
+  command: our overwrite guard predicts `…full acceptance∶ angle<bracket…` where
+  cyanrip writes `…angle‹bracket…` (U+2039). We map `:`→`∶` correctly and leave
+  `<` alone, so the guard probed a directory that does not exist, found no audio,
+  and let a 2-track rip write over the finished one and its logfile. Downstream:
+  `flac --test` reported a mid-write file as corrupt, metaflac said
+  `NOT_A_FLAC_FILE`, and three warnings fell back to a folder scan.
+  Our own comment beside the table names the flaw — *"We reproduce the **two** the
+  user will actually hit"* — a hand-picked subset standing in for a dependency's
+  real behaviour. And the seam half: we **never send `-T`/`--sanitize`**, so every
+  rip inherits cyanrip's default mode, and their P1 documents that flag's four
+  modes while documenting **zero** of the substitutions (the glyphs appear 0 times
+  in their contract). **The on-disk path is a value crossing the seam that neither
+  contract describes**, which is what `docs/seam-rules.md` §4's table exists to
+  prevent.
+  Also carried, from the same run: post-rip verification kept running while the
+  next rip overwrote its files — the app logged *"evidence bundle abandoned: a
+  newer rip started"*, so the generation guard exists and one consumer of five
+  honoured it; `expect-status` is in our verb table with no handler, which is a
+  capability our generated `docs/script-language.md` publishes and which returns
+  *"not implemented yet"*; the ETA sanity guard emitted 9 warnings in 100 ms; and
+  `rig_session.sh`'s `git clone` step is the one unbounded step in the harness.
+  And the honest finding the maintainer asked for: **tracker acceptance is
+  unreachable for either project.** OPSnet's Logchecker and hey-bro-check-log
+  apply an accepted-ripper allow-list *before* grading, so a cyanrip log scores
+  zero regardless of rip quality — no work by either side changes it. Recorded so
+  nobody spends effort there; EAC-equivalent rigour in our own voice (KDD-24) is
+  the reachable goal.
+  What the run confirmed working, since a defect list is not a status report:
+  dynamic `-Z` plus our auto-fix re-read tracks 3 and 5 to consistency; 12/14
+  AccurateRip with the offset-variant pair being exactly the re-read pair; the tag
+  escape survived into argv with a real escaped colon; 0.6.23's tri-state
+  `--verify-log` wording appeared verbatim on a cancelled rip; and 0.6.22's
+  re-rip comparison race fix was confirmed on hardware for the first time —
+  *"All 2 track(s) are byte-for-byte identical to the previous rip."*
+
+### Changed
+- **"Archival Exact" was byte-identical to "Fast Verified" and now genuinely
+  differs.** Its one distinguishing field was `recompress_flac_after_rip=True`,
+  and `CyanripImpl.produces_max_compression_flac()` returns True unconditionally —
+  so with cyanrip as the sole backend the re-compress can never run, and the
+  Settings checkbox for it is permanently greyed out saying as much. Selecting the
+  goal changed **nothing at all** while its label promised *"Smallest Lossless
+  Files"*. The difference is now the one an archival goal should have — **effort**:
+  `secure_rerip_dynamic=False` makes it EAC-style Test and Copy (every track read
+  until two reads agree, not only the tracks AccurateRip failed to confirm) and
+  `rerip_offset_variant=True` refuses to accept an offset-variant match on a single
+  read. Both are long-shipped behaviours and both cost rip time, which is the trade
+  the goal exists to make. Relabelled *"Archival Exact — Slower, Every Lossless
+  Track Read Twice"*. Both new fields are wired into `apply_preset`, `detect_goal`
+  and the dialog's controls, so hand-editing either flips the combo to Custom
+  instead of leaving it claiming a preset the settings no longer match.
+  `recompress_flac_after_rip=True` stays on the preset deliberately: inert today,
+  correct in intent for a backend that does not max compression.
+
+### Removed
+- **The `working_dir` setting, which was read nowhere and documented to users in
+  three places.** A whipper-era scratch directory (whipper took one; cyanrip has no
+  working-directory flag and the rip runs with `cwd=output_dir`), carried into the
+  cyanrip backend by KDD-18 and stored on an attribute nothing ever loaded — while
+  its Settings tooltip and the User Guide told users *"a scratch folder used while
+  a rip is in progress… change it only if that disk is short on space."* Someone
+  whose output disk was short on space would have changed it and got nothing. Gone:
+  the config field, the Settings row and browse button, the guide entry, the
+  script-language field, the validator rule and the backend constructor parameter.
+  Old configs carrying the key still load — unknown keys warn, they do not fail.
+  The test that hid it asserted `backend._working_dir == tmp_path`, i.e. that the
+  value had been **handed over**, which was true and irrelevant; a tombstone
+  comment records that in `tests/test_composition.py`.
+- Graduated to `CLAUDE.md` → *How to stop shipping the next one*: **"fail-safe" is
+  defined against the thing being protected, not against the user's convenience.**
+  `known_album_folder` documented its own imprecision as *"it can only ever miss a
+  collision, never invent one (fail-safe toward not blocking the user)"* — both
+  halves true, conclusion inverted, and it cost a finished 14-track archival rip.
+  Missing the collision destroys the user's music; inventing one costs a dialog.
+- **The whipper capability audit landed, and it strengthens KDD-24 rather than
+  challenging it.** Read from source (`whipper-team/whipper` @ `71251a0b`,
+  `OPSnet/Logchecker` @ `ca565479`). The maintainer's premise — whipper has higher
+  tracker standing — is **true**, and the mechanism is a 24-character substring
+  match (`src/Check/Ripper.php:18`) checked before any quality rule runs, so
+  cyanrip scores 0 regardless of how good it gets. The finding we did not expect:
+  **whipper's rubric is 6 checks and EAC's is ~30**, because whipper's log does not
+  *contain* the other 24 fields — so a perfect whipper log scores 100 having proven
+  less than our cyanrip log already records, and emitting their format would mean
+  discarding evidence to score better on a rubric that checks less. That argument
+  does not depend on the forgery question at all, which makes it the more durable
+  one; both are now in `docs/eac-parity.md` Part D §4. Field-by-field ours is
+  richer on 14 counts and poorer on 4, two of which are deliberate refusals.
+  `docs/eac-parity.md` also now pins the revision each checker claim was read at,
+  and flags that `hey-bro-check-log` has been unmaintained since 2020-03-31 — a
+  qualifier its "aligned with Redacted standards" description was missing. Four
+  ranked follow-ups queued in `TASKS.md`; the highest-value is AccurateRip's
+  **DB-max** confidence beside each track's own, which cyanrip already prints and
+  we discard, and which is the one AccurateRip fact that changes what a user
+  should do about a different pressing.
+- **Both "Allow the unsafe script verbs (eval, call)" checkboxes said they
+  enabled something they do not.** `eval` and `call` are reserved in the verb
+  table with `implemented=False` and no handler, so ticking either box — the one
+  in Settings or the one in the Script Console — changed nothing. Same defect
+  class as `expect-status`, and worse for being in the GUI where an end user sees
+  it rather than in a generated reference. Both labels now say "not built yet",
+  both tooltips and the User Guide say there is nothing to allow yet, and the
+  setting's plumbing stays because it is the gate the verbs would need.
+- **A script using `eval` blamed the wrong thing.** The unsafe gate ran before the
+  handler lookup, so the step reported *"this verb needs the 'allow unsafe script
+  verbs' setting, which is off"* — true, and the wrong cause: with the box ticked
+  the very next line refuses the same step for having no handler. A true
+  diagnosis of the wrong cause sends somebody into Settings instead of telling
+  them the verb does not exist. Handler lookup now runs first.
+- `docs/rig-scripts/fullacceptance.txt` asserts `expect-status Done` after the
+  full rip and `expect-status cancelled` after the cancel. The old
+  `expect-status Finished` was wrong on two counts: the verb had no handler, and
+  the status line reads `Done — all N tracks ripped cleanly, …` and has never
+  contained the word "Finished" — so it would have failed even implemented.
+  Assert against the artifact, not against a remembered wording.
+### Fixed
+- **Corrected the `-T` mode pinned earlier the same day: `unicode`, not
+  `os_unicode`.** The fork measured all four modes against our own rig's album
+  string (round 13 lap 1 §B1) and the derivation behind `os_unicode` ran backwards.
+  `os_` does **not** mean "prefer the OS-appropriate substitution"; it means
+  *substitute only the characters this OS forbids* — so a character being **legal**
+  on ext4 is exactly why an `os_` mode leaves it alone. On a non-Windows build the
+  `os_` modes substitute one character, `/`, and pass the other eight through. So
+  `os_unicode` would have written `full acceptance: angle<bracket …` with a literal
+  colon and angle bracket, where the rig actually wrote
+  `full acceptance∶ angle‹bracket …` — the `unicode` default. **The pin would have
+  renamed every folder Platterpus has ever written and stopped matching the ones
+  already on users' disks**, which is a second route to the very failure it was
+  meant to close. Pinning `unicode` is a true no-op against what we already ship,
+  which is what pinning a default is for. Caught before any release carried it.
+- **The naming preview's substitution table is now derived, not observed.** Read
+  out of the fork's generated `PROVIDER-CONTRACT.md` P7b — itself generated from
+  `crip_char_replacement[]` — so it covers all eight single-glyph substitutions
+  instead of the three we had spotted by eye. `"` is deliberately excluded and the
+  exclusion is the useful part: P7b holds **two** rows for it and P7d states the
+  glyph is chosen by a parity flag that every substituted character toggles and
+  that resets at each `{tag}` boundary. A lookup table provably cannot predict a
+  filename containing a quote — which is the argument *for*
+  `resolve_sanitised_path` reading the disk, not a caveat against it. The
+  regression test now uses `"` as its subject for exactly that reason, so it
+  exercises the one case the contract itself says no table can handle.
+- **We asked the fork for per-track paranoia counts, they built them, and our
+  parser dropped all fourteen of them per rip.** The disc-level header pattern is
+  anchored at column 0; the fork's per-track blocks are indented inside each track
+  block, so every one of them fell through unread. Worse, a comment in
+  `parsers/rip_log.py` then *explained* the absence — *"per-track paranoia counts,
+  which cyanrip only emits disc-wide today (a tracked upstream JSON-output ask)"* —
+  which is false, and the artifact refuting it was committed in this repository the
+  whole time: the fork's own reference log carries **14** per-track blocks against
+  one disc-level block. From inside a parser a missing feature and a dropped field
+  look identical; only the artifact tells them apart. They now land on
+  `TrackResult.paranoia_counts` and in the report, per track. **Why it matters
+  rather than being tidiness:** under `-Z` the disc total sums *every* pass while a
+  track's figure is the *last* pass, so the disc number alone over-reports distinct
+  events by the re-read factor — these are the only values that can separate them.
+  The generated consumer contract now declares the per-track rule too, so the fork
+  is not left inferring it from a column-0 pattern. Regression test reads the
+  fork's committed reference rather than a fixture written from a belief about it,
+  and asserts the *relation* (on a rip with no secure re-read the per-track counts
+  must sum to the disc total) with a non-triviality floor, because two empty dicts
+  also compare equal.
+- **`rig-check`'s `argv/integrity` reported "every flag we composed arrived
+  intact" while checking four flags of fifteen, by substring.** Both halves were
+  wrong and the verdict claimed neither. Unchecked were `-T` — the sanitisation
+  mode whose absence cost a finished 14-track archival rip five days earlier —
+  plus `-G`, `-a`, `-t`, `-c`, `-F`, `-o`, `-r`, `-d` and `--consumer`; a
+  transport dropping any of them reported OK. And `flag not in received` was a
+  substring test against the whole invocation *string*, which embeds an
+  operator-supplied output directory — so a rig session run into `~/rig-session/`
+  satisfied the `-s` check with the real `-s 667` absent. `CLAUDE.md`'s *"can it
+  be satisfied by the wrong thing?"*, in the one check whose stated purpose is
+  settling an argv question for the fork without spending a disc pass. Now every
+  flag token is compared, repeats counted (`-t` appears once per track), values
+  deliberately not compared because a value may legitimately be re-quoted in
+  their rendering while a flag may not change — and the verdict says exactly
+  that. Unbalanced quoting in their record now FAILS rather than passing: "could
+  not compare" is a different answer from "they agree".
+- **The same function composed a naming scheme no rip has ever sent.**
+  `_compose_reference_argv` promises *"the argv a real rip would send, built by
+  the REAL builder"*, and the one hand-written input it supplies was in the wrong
+  language: it passed `"{track} - {title}"` — already cyanrip's token syntax —
+  into `_build_rip_argv`, which runs it through `scheme_from_template`, which
+  translates our `%`-tokens *and neutralises literal braces into parens*. Every
+  rig-check probe therefore sent `-F "(track) - (title)"`, visible in the
+  2026-08-23 rig record. Now `%t - %n`, the default preset's file part, so the
+  probe composes what the GUI actually holds. *"What does my stand-in do that the
+  real thing does not?"* — in the function whose entire value is being
+  indistinguishable from the real thing.
+- **Every rip with cover art enabled printed a cover-art failure into its own
+  archival log.** `-G` (tell the ripper not to do cover art) was sent only when
+  cover art was turned *off*, on the reading "let the ripper embed art when the
+  user wants art" — which nothing else in the program agreed with:
+  `main_window_rip` calls `cover_art.plan_actions(ripper_fetches_art=False)` with
+  the constant hardcoded, and the GUI does the whole job itself (Cover Art Archive
+  fetch, metaflac embed, folder copy, back cover and booklet). So with art ON we
+  suppressed nothing and asked cyanrip to attempt a lookup whose result we would
+  have overwritten. It cannot succeed in any case — `-N` means it never resolves a
+  release of its own — so the log carried
+  `No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!`
+  and then `Album Art: none` (measured 2026-08-23), a scary sentence about a step
+  that was never the ripper's to run, in the artifact whose job is being
+  trustworthy. `-G` is now unconditional. The argument deliberately does not rest
+  on that measurement: we always do cover art ourselves, so the flag that says
+  "do not do cover art" is always correct.
+- **Post-rip checks kept reading a folder the next rip was overwriting, and one
+  of them logged an ERROR saying the user's archival master was corrupt.** The
+  rip-generation guard was read at *reporting* time and never at *working* time,
+  so a stale result was discarded — after the work that produced it had already
+  done the damage. Measured 2026-08-23: the next rip began **2.4 s** after the
+  previous one finished, into the same folder (the overwrite guard had missed —
+  fixed separately). The evidence bundle abandoned itself at +0.1 s and said so
+  in the log; the FLAC verify, CTDB verify and checksum sweep carried on for ten
+  more seconds, lost their file manifest when the new rip truncated the old log
+  (three `falling back to a folder scan` warnings), and the FLAC verify then
+  recorded `flac.verify_failed: 01 - Roxanne.flac: ERROR checking for ID3v2 tag`
+  into the user's own diagnostics — about a file that was simply mid-write.
+  Discarding the verdict afterwards does not unsay that. `CLAUDE.md`'s *"did I
+  check the preconditions where the thing HAPPENS, or where it was scheduled?"*,
+  with the deferral being a daemon thread's whole runtime. `_launch_post_rip_daemon`
+  — documented as the one place this guard lives — now **hands** each worker a
+  `still_current()` predicate rather than only checking after it returns, so a new
+  check cannot omit the guard by not knowing it exists, and an abandoned check
+  logs that it abandoned instead of going quiet. The regression test asserts the
+  verifier is **never called**, not that no result was emitted: the latter passes
+  against the old code, which is the vacuous version of the same test.
+- **`rig_session.sh`'s `-j` probe could hang the whole session, and did.** On the
+  2026-08-23 run it left a 0-byte artifact, no `exit:` line and no `MANIFEST.txt`
+  — the session never got past it, so an unattended harness whose entire purpose
+  is that a failing step is *data* produced no data for that step or any after
+  it. Two independent causes, both fixed: `timeout 600` carried no `-k`, so it
+  sent SIGTERM and then waited without bound for a child that may be in a drive
+  ioctl in uninterruptible sleep (the timeout that exists to stop a hang *was*
+  the hang); and 600 s could not cover the work even when nothing wedged — the
+  step passes `-l 1`, which rips track 1 in full, and the measured rate here is
+  0.5x, so the reference disc's 3:13 opener took **405.74 s** and a 10-minute
+  opener needs ~1200 s before drive spin-up. The old bound sat inside the healthy
+  range and would have killed a working step and reported it as a finding. Now
+  `timeout -k 60 1800`, and exit 124 vs 137 is spelled out in the summary —
+  "needed SIGKILL" says the reader was wedged, not merely slow, which "exit: 137"
+  alone does not. The `git clone` in the second half is bounded too. Guarded by a
+  sweep over every `timeout` in the harness, which states the case it cannot
+  catch (a step added with no bound at all) instead of implying completeness.
+- **The EAC-compatible log contradicted itself on a deliberate partial rip.** A
+  2-of-14 rip (two boxes ticked in the "Rip?" column) whose *both* tracks matched
+  AccurateRip v2 at confidence 200 rendered `2 track(s) accurately ripped` and
+  then, two lines later, `Some tracks could not be verified as accurate` — both in
+  one SHA-256-attested archival document, the second false on the first's own
+  numbers. Measured on the rig, 2026-08-23. The cause was `total >= expected`
+  standing in for *"did everything verify"*: the per-count lines are keyed on the
+  tracks **in the rip**, the verdict was keyed on the tracks **on the disc**, so
+  two surfaces answered one question with two keys. Ripping fewer tracks than the
+  disc holds is not a verification failure — it is what the "Rip?" column is for.
+  The verdict is now three states rather than two, and the guard the disc-total
+  comparison was really carrying (a track that failed outright produces no
+  AccurateRip result and so is invisible to the counts) is measured directly
+  against the tracks the rip attempted. EAC's own two sentences keep their exact
+  wording — the fork diffs against them — and the new third names its own coverage
+  so it cannot read as a whole-disc claim. Both halves revert-proved; the probe
+  caught the second test being vacuous first, because a fixture track carrying a
+  Copy CRC is counted by `accuraterip_counts` and so was never invisible.
+  The same wrong comparison had a **pessimistic** twin nobody caught: the
+  2026-08-01 fix for a cancelled 2-of-14 rip claiming `All tracks accurately
+  ripped` replaced it with `Some tracks could not be verified as accurate`, which
+  is *also* false when both ripped tracks matched exactly — and it went unnoticed
+  for three weeks because erring toward failure reads as caution rather than as
+  error. Its regression test enshrined that sentence; it now states the property
+  directly (no whole-disc claim, and no verification failure that did not happen).
+- **Two unit tests made live Cover Art Archive requests, and one of them
+  intermittently failed the suite because of it.** `save_additional_art` defaults
+  to `True`, so a post-rip test with a real `release_id` and no local cover falls
+  through the stubbed front-cover fetch into `save_additional_covers` — which
+  neither test stubbed. It won its 10 s `join` when run alone and lost it under
+  full-suite load, and because the assertion read an attribute that only exists
+  once the completion signal has fired, a thread that had merely not finished
+  reported itself as a bare `AttributeError` in a test about a result object. Both
+  now set the flag off (sibling tests already did, for this reason), and both
+  assert the thread is actually dead before reading — otherwise "no result was
+  written" is satisfied by the thread never getting there. Swept the file: these
+  two were the only reachable cases; every other post-rip test passes an empty
+  `release_id` or a local cover path, both of which short-circuit the call.
+- **A finished 14-track archival rip was silently overwritten, and the cause was
+  a flag we had never passed.** cyanrip takes `-T`/`--sanitize` (`simple`,
+  `os_simple`, `unicode`, `os_unicode`) — published in the fork's flag table
+  since **handshake round 4** — and Platterpus has never sent it, so every rip
+  since the cyanrip switch used whatever default that build happened to ship
+  while our Settings preview and our overwrite guard predicted a substitution
+  table written from two observed glyphs. On 2026-08-23 an album titled
+  `full acceptance: angle<bracket …` landed on disk as
+  `full acceptance∶ angle‹bracket …`; the `<` → U+2039 mapping was in no table of
+  ours, so `known_album_folder` named a folder that does not exist, found no
+  audio, asked nothing, and a 2-track re-rip replaced the 14-track master. Three
+  changes, and only the second is a real fix: `-T os_unicode` is now **pinned**
+  (a default is not a contract — and it is the mode that keeps a library
+  copyable to NTFS/exFAT, the residual limitation
+  `docs/dependency-contracts.md` has carried since 2026-07-08); the overwrite
+  guard now **resolves its prediction against what is actually on disk**, so a
+  glyph we have never seen still finds the real folder, refusing rather than
+  guessing when two candidates tie; and the measured `<` mapping joins the
+  preview table, which is now documented as known-incomplete with nothing
+  safety-bearing depending on its completeness. The old code documented the risk
+  and called a miss fail-safe — *"it can only ever miss a collision, never invent
+  one"* — which is inverted: missing the collision is the destructive outcome,
+  inventing one costs a dialog. Regression test uses a glyph deliberately **not**
+  in our table so it exercises the mechanism rather than the new entry, and both
+  halves are revert-proved (the probe caught one vacuous assertion in it first).
+- **An unattended `--run-script` run gave its post-rip work a grace period of
+  zero seconds, and the log said it had waited 900.** `UNATTENDED_QUIT_BUDGET_S`
+  documents itself as "how long an unattended run may keep the process alive
+  *after its batch ends*", but the deadline was armed when the timer was — at
+  process start. The two agree only for a batch shorter than the budget, and a
+  tick returns early while the batch is running, so nothing ever observed the
+  expiry until the batch was over. On the 2026-08-23 full-acceptance hardware
+  run (1h 49m) the deadline had passed **1h 34m** before the script finished, so
+  the first post-batch tick quit **3.0 s** into post-rip work that had just
+  started — killing the cover-art fetch, the CTDB verify, the FLAC verify and the
+  SHA-256 digests for the final rip. The archival `.platterpus.json` it left
+  behind carries `"cover_art": null` and a missing-addendum warning while still
+  reporting `health_status: "No errors occurred"`. The grace clock now starts on
+  the first tick that sees the batch finished, and the give-up line reports the
+  **elapsed** wait rather than the constant (it printed "after 900s" for a 0.55 s
+  wait — the one line that explains missing results, asserting the opposite of
+  what happened). Nothing bounded the batch itself before and nothing does now:
+  every runner step already carries its own ceiling, and the old arm-time
+  deadline sat behind the `running` early-return, so it never protected against a
+  wedged runner either. Regression test drives injected time through the real
+  helper and is revert-proved.
+
 ## [0.6.23] — 2026-08-21
 
 *Supersedes 0.6.22, which was prepared and gated but never published — no tag,
@@ -7809,7 +8303,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.24.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -10051,7 +10545,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.23...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.24...HEAD
+[0.6.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.23...v0.6.24
 [0.6.23]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.21...v0.6.23
 [0.6.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.20...v0.6.21
 [0.6.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.19...v0.6.20
@@ -10162,4 +10657,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.23.*
+*Last updated for Platterpus v0.6.24.*

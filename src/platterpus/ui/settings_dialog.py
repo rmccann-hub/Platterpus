@@ -105,16 +105,6 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("Output directory:", output_row)
 
-        self._working_dir_edit, working_row = self._build_dir_row(
-            config.working_dir, "Working directory"
-        )
-        self._working_dir_edit.setToolTip(
-            "A scratch folder used while a rip is in progress; the finished "
-            "files are written to the output directory above. The default suits "
-            "almost everyone — change it only if that disk is short on space."
-        )
-        form.addRow("Working directory:", working_row)
-
         # Library folder (optional — empty leaves rips in the output directory).
         # When set, a finished rip's album folder is moved here AFTER every
         # post-rip check settles (see main_window_rip._maybe_schedule_library_move).
@@ -457,16 +447,25 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("", self._test_autorun_check)
 
+        # The label says "not built yet" because they are not built yet, and a
+        # checkbox that promises a capability it cannot deliver is the same defect
+        # as a script verb that does (found 2026-08-24, alongside `expect-status`):
+        # `eval` and `call` carry `implemented=False` and have no handler, so
+        # ticking this changes nothing today. The setting and its plumbing stay —
+        # they are the gate the verbs will need, and the key is already persisted —
+        # but the words a user reads must match what happens.
         self._test_unsafe_check: QCheckBox = QCheckBox(
-            "Allow the unsafe script verbs (eval, call)", self
+            "Allow the unsafe script verbs (eval, call — not built yet)", self
         )
         self._test_unsafe_check.setChecked(config.test_script_allow_unsafe)
         self._test_unsafe_check.setToolTip(
-            "Off by default. The script vocabulary is otherwise a closed list of "
-            "named actions — there is no 'click anything' and nothing that runs "
-            "arbitrary code. This is the escape hatch; a run that used it says so "
-            "at the top of its own transcript, so the evidence is never silently "
-            "of a different kind."
+            "Off by default, and there is nothing to allow yet: eval and call are "
+            "reserved in the script vocabulary but not implemented, so a script "
+            "using either is refused whether this is on or off. The rest of the "
+            "vocabulary is a closed list of named actions — no 'click anything', "
+            "nothing that runs arbitrary code. If the escape hatch is ever built, "
+            "this is its gate, and a run that used it will say so at the top of "
+            "its own transcript."
         )
         form.addRow("", self._test_unsafe_check)
 
@@ -779,7 +778,6 @@ class SettingsDialog(CenteredDialog):
         # invalid value through the UI, so only the free-text edits are marked.)
         self._validated_widgets: dict[str, QWidget] = {
             "output_dir": self._output_dir_edit,
-            "working_dir": self._working_dir_edit,
             "library_dir": self._library_dir_edit,
             "track_template": self._track_template_edit,
             "disc_template": self._disc_template_edit,
@@ -792,7 +790,6 @@ class SettingsDialog(CenteredDialog):
         # textChanged slot — _on_template_text_changed calls _revalidate too).
         for edit in (
             self._output_dir_edit,
-            self._working_dir_edit,
             self._library_dir_edit,
             self._track_template_unknown_edit,
             self._disc_template_unknown_edit,
@@ -918,7 +915,6 @@ class SettingsDialog(CenteredDialog):
         """
         return Config(
             output_dir=self._output_dir_edit.text(),
-            working_dir=self._working_dir_edit.text(),
             library_dir=self._library_dir_edit.text(),
             track_template=self._track_template_edit.text(),
             disc_template=self._disc_template_edit.text(),
@@ -1125,6 +1121,12 @@ class SettingsDialog(CenteredDialog):
         # config no longer matched.
         self._verify_flac_check.toggled.connect(self._on_dependent_changed)
         self._secure_rerip_spin.valueChanged.connect(self._on_dependent_changed)
+        # The two controls that make "Archival Exact" a different rip from "Fast
+        # Verified" rather than a different name for it (2026-08-24). Until the
+        # preset carried them, the archival goal was byte-identical to the fast
+        # one and its label promised smaller files it could not produce.
+        self._verify_every_track_check.toggled.connect(self._on_dependent_changed)
+        self._rerip_offset_variant_check.toggled.connect(self._on_dependent_changed)
         self._read_speed_mode_combo.currentIndexChanged.connect(
             self._on_dependent_changed
         )
@@ -1155,6 +1157,11 @@ class SettingsDialog(CenteredDialog):
             self._verify_flac_check.setChecked(preset.verify_flac_after_rip)
             self._recompress_flac_check.setChecked(preset.recompress_flac_after_rip)
             self._secure_rerip_spin.setValue(preset.secure_rerip_matches)
+            # The checkbox is the INVERSE of the field: ticked means "verify every
+            # track", which is `secure_rerip_dynamic=False`. Getting this backwards
+            # would make picking Archival Exact silently select the fast path.
+            self._verify_every_track_check.setChecked(not preset.secure_rerip_dynamic)
+            self._rerip_offset_variant_check.setChecked(preset.rerip_offset_variant)
             mode_index = self._read_speed_mode_combo.findData(preset.read_speed_mode)
             if mode_index >= 0:
                 self._read_speed_mode_combo.setCurrentIndex(mode_index)

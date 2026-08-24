@@ -2114,6 +2114,70 @@ here blocks the v0.6.3 release; round 6 is CLOSED both directions.
       speeds!` and the `goto end` family need real device states on the BDR-209D, and a
       hand-built corpus would be a fixture carrying my assumptions about their control
       flow — the §4d failure again (`docs/testing.md` §5.ac).
+- **[ ] An archival record must say when its post-rip verification was cut short.**
+      The half of the 2026-08-23 unattended-quit defect that is NOT fixed. The grace
+      clock now starts at the right moment, so the common case is closed — but a
+      genuinely wedged step past the budget still ends the process with checks
+      outstanding, and the `.platterpus.json` left behind says nothing about it. The
+      measured artifact carries `"cover_art": null` beside
+      `health_status: "No errors occurred"`, `self_check.worst: "ok"` and
+      `completeness.complete: true` — every field true, the document's overall claim
+      false. `completeness` is about *tracks*; there is no equivalent for the
+      verification set. `_post_rip_still_running()` already knows what is outstanding
+      at give-up time, so the fix is to write that into the report (an `issues`
+      warning at minimum, ideally a `verification_completeness` block) **before**
+      `app.quit()`, synchronously on the GUI thread. Queued rather than half-landed
+      because a schema field with no writer is worse than none. This is the
+      "confident pass over an incomplete record" shape, which is the worst kind.
+- **[x] AccurateRip: record the DB's MAX confidence beside each track's OWN confidence.**
+      **Done 2026-08-24.** `verdict.accuraterip_db_max_confidence` +
+      `accuraterip_confidence_text` (one predicate, two callers), rendered as
+      `OK (3 of 200)` in the results table with a different-pressing footnote where
+      the gap is worth explaining. The relation between cell and footnote is tested,
+      not just each side. Original entry below for the reasoning.
+      The single highest-value item from the whipper capability audit (2026-08-24), and
+      nearly free. cyanrip already prints both — `Accurip: disc found in database (max
+      confidence: 200)` at disc level and `confidence 3` per track — and we capture the
+      first only as free text (`parsers/cyanrip_log.py:355`) and never compare them.
+      whipper structures both and renders `(confidence 3 of 200)`
+      (`whipper/result/accurip.py:163-166, 229-237`). **A track matching at confidence 3
+      against a DB best of 200 is the "you have a different pressing" signal** — the one
+      AccurateRip fact that changes what a user should do, and we discard it. Directly
+      serves the north star: the difference between "verified" and "verified against an
+      entry almost nobody else shares". Do it as ONE predicate with N callers per
+      `CLAUDE.md` (the verdict banner, the report JSON and the EAC export must not each
+      compute it), and test the *relation*, not the sides.
+- **[ ] Record `CD-R detected` in the log.** whipper does (`result/logger.py:53`); it is
+      an informational row on the real OPS rubric (deduction 0). We handle CD-Rs
+      operationally but the fact never reaches the archival artifact — so an AccurateRip
+      miss on a CD-R, which is *expected* rather than suspicious, reads as unexplained a
+      year later. ~15 lines. From the whipper audit, 2026-08-24.
+- **[ ] Ask the fork what cyanrip does with a two-session (Enhanced CD) TOC.** NOT a
+      code task — a question, queued for handshake round 14 and already written into the
+      round-13 lap-1 §C3. whipper has explicit session-gap handling
+      (`whipper/common/table.py:715, 750`); we have **zero** mentions repo-wide and have
+      never verified cyanrip's behaviour. If a session-2 gap is mishandled every sector
+      number shifts, which breaks the disc ID and therefore both AccurateRip *and* CTDB —
+      silently, across a whole class of discs. Cheap question, large downside; this is a
+      "check where it could have failed" case.
+- **[ ] Assert the read offset is CORRECT, not merely applied.** Already ranked #3 in
+      `docs/eac-parity.md` Part D §4 and still open; the whipper audit re-surfaced it as
+      the second-highest-value gap. We have the drive table
+      (`adapters/accuraterip_offsets_data.py`); the log can say `+667 (matches the
+      AccurateRip database for PIONEER BD-RW BDR-209D)`. Worth −5 on the real rubric, so
+      it is a genuine quality row rather than cosmetics, and a wrong offset silently
+      corrupts every rip. Borrow whipper's *consensus* discipline
+      (`command/offset.py:168` — confirm across tracks 2..n−1, require agreement), **not**
+      its disc-based probe, which its own README calls "quite primitive" and which our
+      adapter records failing on the BDR-209D with an in-database disc (KDD-31 stands).
+- **[ ] Use the per-track paranoia counts to strengthen `track_read_effort_flag`.**
+      The data landed 2026-08-24 (`TrackResult.paranoia_counts`); the *use* did not,
+      deliberately. `rip_log.py`'s note says the flag cannot catch a disc whose
+      paranoia settles on one wrong answer per pass — `rip_count` 1, `converged`
+      None — and per-track READ/VERIFY/OVERLAP is exactly the missing signal. It
+      needs a threshold, a threshold needs evidence from more than one disc, and
+      inventing one would swap a documented gap for an undocumented guess. Gate on
+      a hardware round with a marginal disc.
 - **[ ] Parse `Encoder:` and `CD-TEXT:` into the report schema, then off the ignore list.**
       Both are real archival facts the fork added for us, both currently on
       `_IGNORED_DISC_LINES` with a recorded reason. Queued rather than half-landed because
@@ -2374,4 +2438,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.23.*
+*Last updated for Platterpus v0.6.24.*

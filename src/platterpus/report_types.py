@@ -44,6 +44,10 @@ class RipBlock(TypedDict):
     # `None` when the log was cut off or predates the fork pin — which is a
     # different fact from `False`, and must not render as one.
     rip_completed: bool | None
+    #: Where an interrupted rip stopped, verbatim (`track 1, mid-read`).
+    #: None on every completed rip and on every log written before the fork
+    #: added the line in round 13, answering our round-12 ask.
+    interrupted_at: str | None
     rip_completed_tracks: int | None
     rip_completed_total: int | None
     rip_completed_reason: str | None
@@ -328,6 +332,15 @@ class TrackBlock(TypedDict):
     pregap_unknown_reason: str | None
     replaygain: dict[str, str] | None
     accuraterip_lookup: str | None
+    #: cyanrip's per-track paranoia status counts (READ / VERIFY / OVERLAP /
+    #: FIXUP_ATOM). Empty for a log that carries none — every whipper log, and
+    #: every cyanrip log this project parsed before 2026-08-24, when the
+    #: fourteen blocks the fork emits per disc were found to be falling through
+    #: a column-0-anchored header pattern. Recorded per track because under `-Z`
+    #: the DISC total sums every pass while a track's figure is the last pass:
+    #: the disc number alone over-reports distinct events by the re-read factor,
+    #: and these are the only values that can separate them.
+    paranoia_counts: dict[str, int]
     accuraterip_verified: bool
     accuraterip: TrackAccurateRipBlock
 

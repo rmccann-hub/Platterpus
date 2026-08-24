@@ -191,10 +191,6 @@ named from the album artist/title you type.
   effect on the FLAC master, which is always lossless.
 - **Output folder** and **file-name templates** (separate templates for known
   and unknown discs).
-- **Working directory** — a scratch folder used *while* a rip is in progress;
-  the finished files are written to the output folder above. The default
-  (`~/.cache/platterpus`) suits almost everyone — change it only if that disk
-  is short on space.
 - **Move finished rips to** — optional library folder. When set, a successful
   rip's album folder is moved there automatically — but only once every
   post-rip check has finished (tagging, cover art, verification, checksums),
@@ -429,9 +425,12 @@ a library audit and the handshake status — writing one artifact per step into
 FOLDER. Neither needs a source checkout; they work from the AppImage.
 
 **Allow the unsafe script verbs** (Settings) is off by default and should stay
-that way: everything else in the vocabulary is a fixed list of named actions with
-nothing that can run arbitrary code. A run that used the escape hatch says so at
-the top of its own transcript.
+that way — and as of v0.6.23 there is nothing for it to allow: `eval` and `call`
+are reserved in the script vocabulary but not implemented, so a script using
+either is refused whether the box is ticked or not. Everything else in the
+vocabulary is a fixed list of named actions with nothing that can run arbitrary
+code. If the escape hatch is ever built, this setting is its gate, and a run that
+used it will say so at the top of its own transcript.
 
 ## Checking your rips afterwards
 

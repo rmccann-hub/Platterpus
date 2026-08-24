@@ -658,7 +658,9 @@ def test_the_transcript_puts_the_preflight_above_the_steps() -> None:
     )
     report.steps.append(StepRecord(3, "cyanrip -d /dev/sr0", Outcome.FAIL, "refused"))
     text = report_mod.render(report)
-    assert "will be refused" in text
+    # Wording widened 2026-08-24: the preflight now also names verbs with no
+    # handler, which are not "refused" so much as unable to run.
+    assert "cannot run" in text
     assert text.index("L3: cyanrip -d /dev/sr0 — refused: no -N") < text.index(
         "[ FAIL "
     )

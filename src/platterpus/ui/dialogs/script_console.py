@@ -117,14 +117,20 @@ class ScriptConsoleDialog(CenteredDialog):
         self._editor.setAccessibleName("Test script")
         layout.addWidget(self._editor, stretch=3)
 
+        # "not built yet" for the reason spelled out at the Settings twin: both
+        # verbs are reserved with `implemented=False` and no handler, so this box
+        # currently gates nothing. Same class as the `expect-status` gap — a
+        # control that advertises a capability it cannot deliver.
         self._unsafe_check: QCheckBox = QCheckBox(
-            "Allow the unsafe verbs (eval, call) in this run", self
+            "Allow the unsafe verbs (eval, call — not built yet) in this run", self
         )
         self._unsafe_check.setChecked(allow_unsafe)
         self._unsafe_check.setToolTip(
-            "Off by default. The vocabulary is otherwise a closed list of named "
-            "actions with nothing that can run arbitrary code. A run that used "
-            "these says so at the top of its own transcript."
+            "Off by default, and nothing to allow yet: eval and call are reserved "
+            "but not implemented, so a script using either is refused either way. "
+            "The vocabulary is otherwise a closed list of named actions with "
+            "nothing that can run arbitrary code. A run that used the hatch would "
+            "say so at the top of its own transcript."
         )
         layout.addWidget(self._unsafe_check)
 

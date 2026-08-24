@@ -14,6 +14,7 @@ the per-track checkmarks can never diverge.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 
 from platterpus.parsers.rip_log import accuraterip_is_match, track_accuraterip_verified
@@ -147,6 +148,66 @@ def accuraterip_lookup_happened(lookup: str | None) -> bool | None:
         # it is "happened" — the classifier separates it from a match below.
         return True
     return True
+
+
+#: The database's best confidence for this track, inside cyanrip's per-track
+#: ``Accurip:`` status text: ``disc found in database (max confidence: 200)``.
+_DB_MAX_CONFIDENCE: re.Pattern[str] = re.compile(
+    r"max\s+confidence:\s*(?P<value>\d+)", re.IGNORECASE
+)
+
+
+def accuraterip_db_max_confidence(lookup: str | None) -> int | None:
+    """The highest confidence AccurateRip holds for this track, or ``None``.
+
+    **Why this is worth surfacing at all.** A track's own confidence answers "how
+    many other people got this same checksum". The database's *maximum* answers
+    "how many got the most popular one". Alone, the first is close to
+    meaningless: confidence 3 is excellent on an obscure disc and a warning sign
+    on a famous one. Together they are the **different-pressing** signal — the one
+    AccurateRip fact that changes what a person should actually do, because a
+    low own-confidence against a high maximum means most people's discs disagree
+    with yours, and that is a pressing difference rather than a bad rip.
+
+    We have been throwing it away. cyanrip has printed it on every per-track
+    ``Accurip:`` row all along; we captured the row as free text for the
+    lookup-happened predicate and never read the number (found 2026-08-24 by a
+    capability audit against whipper, which structures both and renders
+    ``(confidence 3 of 200)`` — `whipper/result/accurip.py:229-237`).
+
+    Pure, never raises, and deliberately **not** a stored field: the raw status
+    text is already in the report, so parsing it into a second place would be one
+    fact in two slots — the shape `CLAUDE.md` names as a lifetime mismatch. One
+    function, N callers, derived on demand.
+    """
+    if not lookup:
+        return None
+    match = _DB_MAX_CONFIDENCE.search(lookup)
+    if match is None:
+        return None
+    try:
+        return int(match.group("value"))
+    except ValueError:  # pragma: no cover — the pattern only matches digits
+        return None
+
+
+def accuraterip_confidence_text(result: object, lookup: str | None) -> str:
+    """``"200 of 200"``, or just ``"3"`` when the database maximum is unknown.
+
+    The single renderer for the pair, so the results table, the report and any
+    future surface cannot describe one track's standing three different ways.
+    Returns ``""`` when the track has no confidence of its own to report.
+    """
+    own = getattr(result, "confidence", None)
+    if own is None:
+        return ""
+    db_max = accuraterip_db_max_confidence(lookup)
+    # Only ever "N of M" where M is genuinely the larger figure. A max BELOW the
+    # track's own confidence is not a comparison we can explain, so we show the
+    # number we are sure of rather than an ordering that reads as a bug.
+    if db_max is None or db_max < own:
+        return str(own)
+    return f"{own} of {db_max}"
 
 
 def accuraterip_compared(result: object, lookup: str | None = None) -> bool:

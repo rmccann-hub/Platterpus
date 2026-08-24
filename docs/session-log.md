@@ -11,6 +11,72 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-24 — the first full acceptance run, read properly
+
+**What the run actually found.** The 2026-08-23 hardware pass (98 steps, 1h 49m,
+`pass=94 fail=1 error=3`) reported four non-passes. Reading its *artifacts* rather
+than its summary found **nine** defects, and the two most serious were invisible
+in the pass/fail line because nothing failed — the app just quietly did the wrong
+thing and recorded that it was fine.
+
+**The two that were not in the transcript at all:**
+
+* **The unattended run gave its post-rip work a grace period of zero seconds.**
+  `UNATTENDED_QUIT_BUDGET_S` documents itself as time allowed *after the batch
+  ends*; the deadline was armed at process start. On a 1h 49m run it had expired
+  1h 34m before the script finished, and a tick returns early while the batch is
+  live, so nothing observed it. The first post-batch tick quit **3.0 s** into work
+  that had just started, killing the cover-art fetch, CTDB verify, FLAC verify and
+  SHA-256 digests. The `.platterpus.json` it left carries `"cover_art": null` and a
+  missing-addendum warning while reporting `health_status: "No errors occurred"`
+  and `self_check.worst: "ok"`. **An incomplete archival record asserting it is
+  complete.** The give-up line printed the constant, so a 0.55 s wait announced
+  itself as *"after 900s"*.
+* **Post-rip checks kept reading a folder the next rip was overwriting.** The
+  generation guard was read at *reporting* time, never at *working* time, so a
+  stale result was discarded after the work that produced it had done the damage.
+  The evidence bundle abandoned itself at +0.1 s and logged it; four other workers
+  carried on for ten seconds and `flac --test` recorded
+  `flac.verify_failed: 01 - Roxanne.flac: ERROR checking for ID3v2 tag` into the
+  user's own diagnostics — a claim their archival master was corrupt about a file
+  that was mid-write.
+
+**The overwrite, and its real root cause.** The 14-track rip was overwritten
+because the guard predicted `angle<bracket` where cyanrip wrote `angle‹bracket`.
+The table was not the root cause: **we had never passed `-T`/`--sanitize`**, so we
+were predicting a *default* — and the fork's flag table has listed that flag and
+its four modes since **round 4**, in a file committed to this repository. Fixed
+three ways: pin `-T os_unicode`, resolve the prediction against what is on disk
+(so table completeness stopped being load-bearing), and add the measured mapping.
+
+**Two claims I made and then had to withdraw**, both because I checked:
+`APPROVED_FOR_PLATTERPUS_VERSION` is *not* stale — it deliberately names the app
+version a pin was approved for, is derived from the newest closed round's
+verification file, and `tests/test_fork_source.py` gates it. And the "9 ETA-sanity
+warnings" I had put in the round-13 kickoff **did not happen**: all six ETA lines
+in the log are `INFO`, saying the ETA *holds* during a re-read, which is the §5.ah
+fix working. That row was carried from an older run and never re-read against this
+one's artifact — my own rule, broken in the one document another project relies on.
+
+**`revert_probe.py` earned its keep three times**, catching vacuous assertions in
+tests I had just written to guard fixes I had just made: a false-match assertion
+that never reached the code path it named, a fixture track carrying a Copy CRC so
+`accuraterip_counts` counted it and it was never invisible, and — via a clean
+`NO EVIDENCE` on SIGABRT rather than a false pass — four new tests missing the
+`qapp` fixture.
+
+**Whipper.** The premise is true and the mechanism is a 24-character substring
+(`OPSnet/Logchecker src/Check/Ripper.php:18`) checked before any quality rule. The
+unexpected part: whipper's rubric is 6 checks against EAC's ~30, because its log
+lacks the other 24 fields — so a perfect whipper log proves *less* than ours, and
+emitting their format would mean discarding evidence to score better on a rubric
+that checks less. That argument does not rest on ethics, which makes it the
+durable one; it is now in `docs/eac-parity.md`.
+
+**Graduated:** *"fail-safe" is defined against the thing being protected, not the
+user's convenience* → `CLAUDE.md`, "How to stop shipping the next one". Everything
+else landed as a rule in an existing home, a `TASKS.md` row, or a test.
+
 ## 2026-08-21 (v0.6.23) — cyanrip round 12 closed, and six defects the checks could not see
 
 One release and one handshake round, and they are the same story: **every defect
@@ -3691,4 +3757,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.23.*
+*Last updated for Platterpus v0.6.24.*

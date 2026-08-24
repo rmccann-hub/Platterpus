@@ -124,9 +124,37 @@ note "harness no longer runs it. Returns when the fork's -x exits after measurin
 note "This is a recorded omission, not a skipped check: see docs/dependency-contracts.md."
 
 # 5b. -j / --diagnostics. Never written by a rip from a physical drive.
+#
+# `timeout -k 60 1800`, and BOTH numbers were wrong before (2026-08-23 rig run:
+# this step produced a 0-byte artifact, no exit line, and no MANIFEST, because the
+# session never got past it).
+#
+#   * `-k` is not optional here. Plain `timeout` sends SIGTERM and then waits —
+#     forever — for a process that may never take it. This step rips a track from
+#     a physical drive, so the child can be inside a drive ioctl in
+#     uninterruptible sleep, which is precisely the case `CLAUDE.md` names: "bound
+#     the post-SIGKILL wait too". Without `-k` the timeout that exists to stop a
+#     hang IS the hang.
+#   * 600 s could not cover the work even when it did not wedge. `-l 1` rips
+#     track 1 in full, and the measured rate on this rig is 0.5x — track 1 of the
+#     reference disc (3:13) took 405.74 s elapsed. That is a 3-minute track: a
+#     10-minute track 1 is ~20 minutes of wall clock before drive spin-up, TOC
+#     read and the AccurateRip lookup. The old bound sat inside the healthy range
+#     for any disc whose first track runs past ~4 minutes, so it would have killed
+#     a working step and reported it as a finding. (`docs/testing.md` §5.ao — the
+#     population I measured was one disc's short opener.) 1800 s covers any real
+#     single track with margin; the `-k 60` is what makes the ceiling reachable.
 run "5b  their diagnostics record (-j)" "05-minus-j.txt" \
-    timeout 600 "$RIPPER" -j "$OUT/scratch/diag.json" -D "$OUT/scratch" \
+    timeout -k 60 1800 "$RIPPER" -j "$OUT/scratch/diag.json" -D "$OUT/scratch" \
                 -o flac -N -l 1 -u "platterpus/rig-session"
+# 124 = SIGTERM'd at the deadline, 137 = SIGKILL'd 60 s later because SIGTERM did
+# not land. Say which: they are different findings about the drive, and "exit: 137"
+# alone reads as a crash.
+case "$(tail -n 2 "$SUMMARY" | grep -o 'exit: [0-9]*' | tail -n 1)" in
+  "exit: 124") note "!! timed out at 1800s and exited on SIGTERM" ;;
+  "exit: 137") note "!! timed out at 1800s and needed SIGKILL — SIGTERM did not"
+               note "   land, which means the reader was wedged, not merely slow" ;;
+esac
 if [ -s "$OUT/scratch/diag.json" ]; then
   note "diag.json written: $(wc -c <"$OUT/scratch/diag.json") bytes"
 else
@@ -261,7 +289,10 @@ if command -v git >/dev/null 2>&1; then
   CLONE="$OUT/scratch/cyanrip-clean"
   rm -rf "$CLONE"
   run "    clone the fork" "12-fork-clone.txt" \
-      git clone --quiet https://github.com/rmccann-hub/cyanrip "$CLONE"
+      # Bounded for the same reason as the probe above: an unattended rig
+      # session must not be able to sit on a stalled fetch. `-k` included,
+      # because git spawns children that do not always take SIGTERM.
+      timeout -k 30 300 git clone --quiet https://github.com/rmccann-hub/cyanrip "$CLONE"
   if [ -d "$CLONE" ]; then
     ( cd "$CLONE" && git log --oneline -1 && git branch -a ) \
         >>"$OUT/12-fork-clone.txt" 2>&1 || true

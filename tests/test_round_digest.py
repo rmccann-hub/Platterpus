@@ -253,6 +253,28 @@ def test_our_published_digests_still_reproduce() -> None:
         # our 2, their 3), and §5a's writer rule excludes the file carrying the
         # figure.
         (12, 4): ("2c20b1f3f534426f", 3),
+        # --- Round 13 ---
+        # DEGENERATE, and pinned precisely because it is. Round 13's only lap when
+        # our verification was written is the one it verifies, so §5a's writer rule
+        # ("every lap of this round the writer holds, excluding this one") leaves an
+        # EMPTY population — and `01ba4719c80b6fe9` is sha256/16 of the empty string.
+        # Pinned rather than exempted so the zero stays visible: an unpinned
+        # degenerate figure is indistinguishable from an unpinned real one, and the
+        # sweep below exists because the newest claim is the one most likely to be
+        # acted on.
+        # Renumbered from lap 1 to lap 3 after the fork's lap 3 §H1 pointed out
+        # that round-13 lap numbers are round-global and a verification takes the
+        # next one like any other file. The digest moved WITH the number, because
+        # the population §5a's writer rule enumerates is "every lap of this round
+        # excluding this one" — as lap 1 that was empty (the degenerate sha of
+        # nothing, `01ba4719c80b6fe9 over 0`), as lap 3 it is their lap 1 and our
+        # lap 2. Recorded here rather than silently repinned: a declared figure
+        # that changes is exactly what this map exists to make visible.
+        (13, 3): ("08c8f0eacf1066e4", 2),
+        # Our GO closing round 13. Six laps precede it — their 1, our 2, our
+        # verification 3, their 4, our 5, their 6 — which is the numbering their
+        # lap 6 §N2 confirmed after both sides had got one wrong.
+        (13, 7): ("039cfa03a335266e", 6),
     }
     for lap, expected in published.items():
         assert _as_declared_in(lap) == expected, (

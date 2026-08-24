@@ -182,7 +182,8 @@ def render(report: RunReport) -> str:
         # spending a disc pass finding out the same thing the slow way.
         head.append("")
         head.append(
-            f"read before running — {len(report.preflight)} step(s) will be refused:"
+            f"read before running — {len(report.preflight)} step(s) cannot run "
+            "as written:"
         )
         head.extend(f"  {problem}" for problem in report.preflight)
     head.append("=" * 64)
