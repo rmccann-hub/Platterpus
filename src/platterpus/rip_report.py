@@ -1400,6 +1400,7 @@ def _track(track: object) -> dict:
         # and disagreed" from "never asked", which is the distinction the on-screen
         # cell and the EAC row were both getting wrong.
         "accuraterip_lookup": getattr(track, "accuraterip_lookup", None),
+        "paranoia_counts": dict(getattr(track, "paranoia_counts", {}) or {}),
         "accuraterip": {
             "v1": _ar(getattr(track, "accuraterip_v1", None)),
             "v2": _ar(getattr(track, "accuraterip_v2", None)),

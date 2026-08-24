@@ -186,6 +186,26 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   contained the word "Finished" — so it would have failed even implemented.
   Assert against the artifact, not against a remembered wording.
 ### Fixed
+- **We asked the fork for per-track paranoia counts, they built them, and our
+  parser dropped all fourteen of them per rip.** The disc-level header pattern is
+  anchored at column 0; the fork's per-track blocks are indented inside each track
+  block, so every one of them fell through unread. Worse, a comment in
+  `parsers/rip_log.py` then *explained* the absence — *"per-track paranoia counts,
+  which cyanrip only emits disc-wide today (a tracked upstream JSON-output ask)"* —
+  which is false, and the artifact refuting it was committed in this repository the
+  whole time: the fork's own reference log carries **14** per-track blocks against
+  one disc-level block. From inside a parser a missing feature and a dropped field
+  look identical; only the artifact tells them apart. They now land on
+  `TrackResult.paranoia_counts` and in the report, per track. **Why it matters
+  rather than being tidiness:** under `-Z` the disc total sums *every* pass while a
+  track's figure is the *last* pass, so the disc number alone over-reports distinct
+  events by the re-read factor — these are the only values that can separate them.
+  The generated consumer contract now declares the per-track rule too, so the fork
+  is not left inferring it from a column-0 pattern. Regression test reads the
+  fork's committed reference rather than a fixture written from a belief about it,
+  and asserts the *relation* (on a rip with no secure re-read the per-track counts
+  must sum to the disc total) with a non-triviality floor, because two empty dicts
+  also compare equal.
 - **`rig-check`'s `argv/integrity` reported "every flag we composed arrived
   intact" while checking four flags of fifteen, by substring.** Both halves were
   wrong and the verdict claimed neither. Unchecked were `-T` — the sanitisation
