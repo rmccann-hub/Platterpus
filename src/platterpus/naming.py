@@ -53,12 +53,55 @@ from platterpus import option_labels
 # cyanrip sanitises path-*illegal* characters inside a tag VALUE (not the
 # template's own "/" separators) by swapping them for look-alike Unicode glyphs,
 # so "Every Breath You Take: The Classics" lands on disk as "…∶ The Classics".
-# We reproduce the two the user will actually hit, so the preview matches reality
-# (the surprising ∶ in their first rip's filename is exactly this).
+#
+# THIS TABLE IS KNOWN-INCOMPLETE, AND THAT IS NOT A BUG TO CLOSE BY GUESSING.
+# It used to hold two entries under a comment saying "the two the user will
+# actually hit". On 2026-08-23 an album titled `full acceptance: angle<bracket …`
+# landed on disk as `full acceptance∶ angle‹bracket …` — the `<` mapped too, to
+# U+2039, which is not in any table on our side. The consequence was not
+# cosmetic: `main_window_helpers.known_album_folder` renders this table to
+# predict where a rip will land, the prediction missed by one character, the
+# "Album already ripped" prompt therefore never fired, and a completed 14-track
+# archival rip was overwritten by a 2-track one with no prompt (measured; the
+# `ls -b` of the folder is the artifact).
+#
+# Two things follow, and only the second is a real fix:
+#
+#  1. Entries here are MEASURED, each with the artifact that measured it. A
+#     glyph nobody has observed does not get added on the strength of looking
+#     plausible.
+#  2. **Nothing safety-bearing may depend on this table being complete.** The
+#     overwrite guard now resolves its prediction against what is actually on
+#     disk (`main_window_helpers.resolve_sanitised_path`), matching a name that
+#     differs only where a substitution could have happened — which works
+#     whatever glyph cyanrip chose, including ones we have never seen. Same
+#     shape as `uiscript/find_script.py`: legislate the name AND stop depending
+#     on it.
+#
+# The upstream cause, found the same day: cyanrip takes `-T`/`--sanitize`
+# (`simple`, `os_simple`, `unicode`, `os_unicode` — published in the fork's flag
+# table since handshake round 4) and **we had never passed it**, so every rip
+# used whatever default that build happened to ship. A default is not a
+# contract. `adapters/cyanrip_backend` now pins the mode; this table describes
+# the mode we pin.
 _VALUE_SANITISE: dict[str, str] = {
     ":": "∶",  # RATIO — cyanrip's stand-in for a colon
     "/": "∕",  # DIVISION SLASH — a "/" inside a tag value, not a separator
+    "<": "‹",  # SINGLE LEFT-POINTING ANGLE QUOTATION MARK (measured 2026-08-23)
 }
+
+#: Characters at which our prediction and cyanrip's real output may legitimately
+#: differ: the ASCII characters a portable sanitiser has reason to replace (the
+#: Windows/NTFS-reserved set, which is what the `os_*` modes target), plus the
+#: look-alikes we already substitute ourselves. Used by the overwrite guard to
+#: recognise cyanrip's rendering of a title without knowing its glyph table.
+#:
+#: Deliberately a SUPERSET of what cyanrip is known to map. Being too generous
+#: here can only make the guard match a folder that is very nearly this album's
+#: and ask the user about it; being too narrow is what silently destroyed a rip.
+SUBSTITUTION_SOURCES: frozenset[str] = frozenset('<>:"/\\|?*') | frozenset(
+    _VALUE_SANITISE.values()
+)
 
 
 @dataclass(frozen=True)

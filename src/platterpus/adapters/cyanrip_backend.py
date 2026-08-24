@@ -60,6 +60,13 @@ log = logging.getLogger(__name__)
 
 _INFO_TIMEOUT_S: float = 120.0
 
+#: The filename-sanitation mode we pin with `-T` on every rip. cyanrip offers
+#: `simple`, `os_simple`, `unicode` and `os_unicode` (fork flag table, handshake
+#: round 4). Public so the naming preview and the argv-surface agreement test can
+#: name the same value the rip uses, rather than each carrying its own copy.
+#: Full reasoning at the `-T` call site in `build_rip_argv`.
+SANITISE_MODE: str = "os_unicode"
+
 
 class CyanripImpl(RipBackend):
     """Ripping backend that drives the `cyanrip` CLI."""
@@ -184,6 +191,30 @@ class CyanripImpl(RipBackend):
         if read_offset_override is not None:
             argv += ["-s", str(read_offset_override)]
         argv += ["-o", "flac"]
+        # `-T <mode>`: which filename-sanitation scheme cyanrip applies to tag
+        # values before they become path segments. PINNED, not defaulted.
+        #
+        # We passed nothing here until 2026-08-23, so every rip since the cyanrip
+        # switch used whatever default that build happened to ship — while the
+        # Settings naming preview and the overwrite guard both predicted a
+        # substitution table written from two observed glyphs. A rip titled
+        # `full acceptance: angle<bracket …` landed as `…∶ angle‹bracket …`; the
+        # `<` mapping was not in our table, the guard probed a folder that did
+        # not exist, and a finished 14-track archival rip was overwritten with no
+        # prompt. A default is not a contract, and this one had been selectable
+        # since the fork's round-4 flag table said so.
+        #
+        # `os_unicode` is the observed behaviour of the approved build, derived
+        # rather than assumed: the two mappings we have measured are look-alike
+        # glyphs (so `unicode`, not `simple`) and one of them is `<`, which is
+        # reserved on Windows but perfectly legal on ext4 (so `os_`, not plain).
+        # Pinning it is therefore a no-op on the build we ship against today and
+        # a fence against the default moving underneath us tomorrow — and it is
+        # the mode we WANT regardless: it is the one that keeps a library
+        # copyable to an NTFS/exFAT volume, the residual limitation
+        # `docs/dependency-contracts.md` has carried since the 2026-07-08 naming
+        # audit.
+        argv += ["-T", SANITISE_MODE]
         if max_retries:
             argv += ["-r", str(max_retries)]
         # `-Z N`: re-rip each track until N reads' checksums agree, for

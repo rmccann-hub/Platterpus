@@ -12,6 +12,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A finished 14-track archival rip was silently overwritten, and the cause was
+  a flag we had never passed.** cyanrip takes `-T`/`--sanitize` (`simple`,
+  `os_simple`, `unicode`, `os_unicode`) — published in the fork's flag table
+  since **handshake round 4** — and Platterpus has never sent it, so every rip
+  since the cyanrip switch used whatever default that build happened to ship
+  while our Settings preview and our overwrite guard predicted a substitution
+  table written from two observed glyphs. On 2026-08-23 an album titled
+  `full acceptance: angle<bracket …` landed on disk as
+  `full acceptance∶ angle‹bracket …`; the `<` → U+2039 mapping was in no table of
+  ours, so `known_album_folder` named a folder that does not exist, found no
+  audio, asked nothing, and a 2-track re-rip replaced the 14-track master. Three
+  changes, and only the second is a real fix: `-T os_unicode` is now **pinned**
+  (a default is not a contract — and it is the mode that keeps a library
+  copyable to NTFS/exFAT, the residual limitation
+  `docs/dependency-contracts.md` has carried since 2026-07-08); the overwrite
+  guard now **resolves its prediction against what is actually on disk**, so a
+  glyph we have never seen still finds the real folder, refusing rather than
+  guessing when two candidates tie; and the measured `<` mapping joins the
+  preview table, which is now documented as known-incomplete with nothing
+  safety-bearing depending on its completeness. The old code documented the risk
+  and called a miss fail-safe — *"it can only ever miss a collision, never invent
+  one"* — which is inverted: missing the collision is the destructive outcome,
+  inventing one costs a dialog. Regression test uses a glyph deliberately **not**
+  in our table so it exercises the mechanism rather than the new entry, and both
+  halves are revert-proved (the probe caught one vacuous assertion in it first).
 - **An unattended `--run-script` run gave its post-rip work a grace period of
   zero seconds, and the log said it had waited 900.** `UNATTENDED_QUIT_BUDGET_S`
   documents itself as "how long an unattended run may keep the process alive
