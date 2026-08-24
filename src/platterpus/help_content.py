@@ -191,10 +191,6 @@ named from the album artist/title you type.
   effect on the FLAC master, which is always lossless.
 - **Output folder** and **file-name templates** (separate templates for known
   and unknown discs).
-- **Working directory** — a scratch folder used *while* a rip is in progress;
-  the finished files are written to the output folder above. The default
-  (`~/.cache/platterpus`) suits almost everyone — change it only if that disk
-  is short on space.
 - **Move finished rips to** — optional library folder. When set, a successful
   rip's album folder is moved there automatically — but only once every
   post-rip check has finished (tagging, cover art, verification, checksums),

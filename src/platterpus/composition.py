@@ -55,14 +55,11 @@ def build_backend(cfg: Config) -> tuple[RipBackend, str]:
     shape + ``backend_name`` are kept so a future second backend can slot in
     behind the RipBackend ABC without changing callers.
     """
-    working_dir = Path(cfg.working_dir) if cfg.working_dir else None
     cyanrip_binary: Path | str = (
         CYANRIP_BINARY_DEFAULT if CYANRIP_BINARY_DEFAULT.exists() else "cyanrip"
     )
     log.info("using cyanrip backend (%s)", cyanrip_binary)
-    backend: RipBackend = CyanripImpl(
-        binary_path=cyanrip_binary, working_dir=working_dir
-    )
+    backend: RipBackend = CyanripImpl(binary_path=cyanrip_binary)
     return backend, "cyanrip"
 
 

@@ -35,7 +35,6 @@ from platterpus.help_content import USER_GUIDE
 # that the *concept* is documented.
 _GUIDE_KEYWORDS: dict[str, str] = {
     "output_dir": "Output folder",
-    "working_dir": "Working directory",
     "track_template": "file-name templates",
     "disc_template": "file-name templates",
     "track_template_unknown": "file-name templates",

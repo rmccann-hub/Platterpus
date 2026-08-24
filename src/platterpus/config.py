@@ -44,7 +44,6 @@ SCHEMA_VERSION: int = 8
 # Computed once at import time. If the user's HOME changes mid-process,
 # the GUI needs a restart — same as every other XDG-aware application.
 _DEFAULT_OUTPUT_DIR: Path = Path.home() / "Music" / "rips"
-_DEFAULT_WORKING_DIR: Path = Path.home() / ".cache" / "platterpus"
 
 # Path templates — whipper-style %-tokens (the syntax the GUI exposes),
 # translated to cyanrip's own naming scheme at rip time (see cyanrip_backend).
@@ -104,7 +103,13 @@ class Config:
 
     # --- Output locations ---
     output_dir: str = field(default_factory=lambda: str(_DEFAULT_OUTPUT_DIR))
-    working_dir: str = field(default_factory=lambda: str(_DEFAULT_WORKING_DIR))
+    # `working_dir` lived here until 2026-08-24. It was a whipper-era scratch
+    # directory (whipper took one; cyanrip has no working-directory flag and the
+    # rip runs with `cwd=output_dir`), carried into the cyanrip backend by KDD-18
+    # and stored on an attribute nothing ever read — while its Settings tooltip
+    # and the User Guide told users to change it if their disk was short on
+    # space. An old config carrying the key still loads: unknown keys warn, they
+    # do not fail.
 
     # --- Rip path templates ---
     # Used for discs MusicBrainz identifies (rich, tag-driven names).

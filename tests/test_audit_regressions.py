@@ -322,7 +322,7 @@ def test_one_bad_field_type_cannot_disarm_every_other_rule() -> None:
 
 @pytest.mark.parametrize(
     "field",
-    ["output_dir", "working_dir", "track_template", "disc_template", "metaflac_path"],
+    ["output_dir", "track_template", "disc_template", "metaflac_path"],
 )
 def test_a_non_string_path_field_is_reported_not_skipped(field: str) -> None:
     """Isolating the rules is only half the fix: a rule that raises and is
