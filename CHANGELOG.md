@@ -73,6 +73,26 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   *"All 2 track(s) are byte-for-byte identical to the previous rip."*
 
 ### Changed
+- **The whipper capability audit landed, and it strengthens KDD-24 rather than
+  challenging it.** Read from source (`whipper-team/whipper` @ `71251a0b`,
+  `OPSnet/Logchecker` @ `ca565479`). The maintainer's premise — whipper has higher
+  tracker standing — is **true**, and the mechanism is a 24-character substring
+  match (`src/Check/Ripper.php:18`) checked before any quality rule runs, so
+  cyanrip scores 0 regardless of how good it gets. The finding we did not expect:
+  **whipper's rubric is 6 checks and EAC's is ~30**, because whipper's log does not
+  *contain* the other 24 fields — so a perfect whipper log scores 100 having proven
+  less than our cyanrip log already records, and emitting their format would mean
+  discarding evidence to score better on a rubric that checks less. That argument
+  does not depend on the forgery question at all, which makes it the more durable
+  one; both are now in `docs/eac-parity.md` Part D §4. Field-by-field ours is
+  richer on 14 counts and poorer on 4, two of which are deliberate refusals.
+  `docs/eac-parity.md` also now pins the revision each checker claim was read at,
+  and flags that `hey-bro-check-log` has been unmaintained since 2020-03-31 — a
+  qualifier its "aligned with Redacted standards" description was missing. Four
+  ranked follow-ups queued in `TASKS.md`; the highest-value is AccurateRip's
+  **DB-max** confidence beside each track's own, which cyanrip already prints and
+  we discard, and which is the one AccurateRip fact that changes what a user
+  should do about a different pressing.
 - **Both "Allow the unsafe script verbs (eval, call)" checkboxes said they
   enabled something they do not.** `eval` and `call` are reserved in the verb
   table with `implemented=False` and no handler, so ticking either box — the one
