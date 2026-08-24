@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.24] — 2026-08-24
+
 ### Added
 - **cyanrip round 13 closed `GO`/`GO`, and CC-2 moved to round 14 by bilateral
   agreement.** Their lap 6 found the defect in their own close condition and
@@ -8300,7 +8302,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.12.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.24.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -10542,7 +10544,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.23...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.24...HEAD
+[0.6.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.23...v0.6.24
 [0.6.23]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.21...v0.6.23
 [0.6.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.20...v0.6.21
 [0.6.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.19...v0.6.20
@@ -10653,4 +10656,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.23.*
+*Last updated for Platterpus v0.6.24.*
