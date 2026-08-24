@@ -1621,3 +1621,126 @@ def test_a_caveat_in_the_details_tab_is_marked_on_the_tab_label(
         "clearing the pane must drop the marker, or it points at a caveat that "
         "no longer exists"
     )
+
+
+# --- AccurateRip: the track's own confidence AGAINST the database's best -----
+
+
+class _Conf:
+    """A minimal AR result: only `confidence` and a match-y `result` string."""
+
+    def __init__(self, confidence: int | None) -> None:
+        self.confidence = confidence
+        self.result = "accurately ripped"
+        self.local_crc = "DEADBEEF"
+
+
+_FOUND_200 = "disc found in database (max confidence: 200)"
+
+
+def test_the_ar_cell_shows_the_databases_best_confidence_beside_the_tracks_own() -> (
+    None
+):
+    """Bare confidence is close to meaningless; the PAIR is the signal.
+
+    Confidence 3 is excellent on an obscure disc and a warning sign on a famous
+    one — the difference is what the database's best entry for the same track
+    holds. A low own-confidence against a high maximum means most people's discs
+    disagree with yours, which is a **different pressing**, not a bad rip. That is
+    the one AccurateRip fact that changes what a person should do about it.
+
+    cyanrip has printed the maximum on every per-track `Accurip:` row all along
+    and we read that row only to answer "did a lookup happen" (found 2026-08-24
+    by a capability audit against whipper, which structures both and renders
+    `confidence 3 of 200`).
+    """
+    from platterpus.ui.rip_progress import _ar_cell
+
+    assert _ar_cell(_Conf(3), lookup=_FOUND_200) == "OK (3 of 200)"
+    assert _ar_cell(_Conf(200), lookup=_FOUND_200) == "OK (200 of 200)"
+
+
+def test_the_ar_cell_falls_back_to_the_bare_confidence_when_no_maximum_is_stated() -> (
+    None
+):
+    """Every log that carries no `Accurip:` status row — whipper's, a hand-trimmed
+    one, an older cyanrip — must render exactly as before. The pair is an
+    addition, never a precondition."""
+    from platterpus.ui.rip_progress import _ar_cell
+
+    assert _ar_cell(_Conf(14), lookup=None) == "OK (14)"
+    assert _ar_cell(_Conf(14), lookup="disabled") == "OK (14)"
+    assert _ar_cell(_Conf(14), lookup="disc not found in database") == "OK (14)"
+
+
+def test_a_maximum_below_the_tracks_own_confidence_is_not_rendered_as_a_pair() -> None:
+    """ "9 of 3" reads as a rendering bug, and we cannot explain how it would arise.
+
+    Show the number we are sure of instead of an ordering we cannot account for.
+    """
+    from platterpus.ui.rip_progress import _ar_cell
+
+    assert (
+        _ar_cell(_Conf(9), lookup="disc found in database (max confidence: 3)")
+        == "OK (9)"
+    )
+
+
+def test_a_far_below_maximum_confidence_gets_the_different_pressing_footnote() -> None:
+    """The cell has room for "3 of 200" and no room to say what it means.
+
+    The footnote explains rather than warns: the rip IS bit-perfect, and the
+    likely cause of the gap is a different factory pressing. Saying nothing leaves
+    a user to read "3 of 200" as a near-failure, which is the opposite of true.
+    """
+    from platterpus.ui.rip_progress import _ar_tooltip
+
+    tip = _ar_tooltip(_Conf(3), lookup=_FOUND_200)
+    assert "bit-perfect" in tip, f"the footnote must not read as a failure: {tip!r}"
+    assert "PRESSING" in tip
+    assert "not a problem with your rip" in tip
+
+
+def test_the_footnote_stays_quiet_when_the_comparison_would_mean_nothing() -> None:
+    """Three cases, and each would make the footnote noise rather than signal:
+    a track that matched what most people have; a database entry too thin for the
+    ratio to say anything; and a log that states no maximum at all.
+
+    A footnote on every track is a footnote nobody reads.
+    """
+    from platterpus.ui.rip_progress import _ar_tooltip
+
+    assert _ar_tooltip(_Conf(200), lookup=_FOUND_200) == "", "matched the most common"
+    assert _ar_tooltip(_Conf(60), lookup=_FOUND_200) == "", "well within the norm"
+    assert (
+        _ar_tooltip(_Conf(1), lookup="disc found in database (max confidence: 4)") == ""
+    ), "a maximum of 4 makes 'far below' meaningless"
+    assert _ar_tooltip(_Conf(3), lookup=None) == "", "no maximum stated"
+
+
+def test_the_cell_and_the_footnote_read_the_same_maximum() -> None:
+    """The relation neither side's own test can express.
+
+    Two surfaces answer "how does this track stand against the database" — the
+    cell text and its footnote — and `CLAUDE.md`'s two-surfaces rule is that they
+    must not be able to disagree. Both go through `verdict`, so assert the
+    property rather than trusting the wiring: whenever the footnote fires, the
+    cell it annotates must actually be showing a pair.
+    """
+    from platterpus.ui.rip_progress import _ar_cell, _ar_tooltip
+
+    fired = 0
+    for own in (1, 3, 25, 49, 50, 51, 120, 200):
+        cell = _ar_cell(_Conf(own), lookup=_FOUND_200)
+        tip = _ar_tooltip(_Conf(own), lookup=_FOUND_200)
+        if tip:
+            fired += 1
+            assert " of 200" in cell, (
+                f"confidence {own}: the footnote explains a pair the cell does "
+                f"not show — cell is {cell!r}"
+            )
+            assert str(own) in tip and "200" in tip
+    assert fired >= 2, (
+        f"the footnote fired {fired} time(s) across the sweep — with fewer than "
+        "two this asserts nothing about the relation"
+    )

@@ -12,6 +12,28 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **The AccurateRip column now shows the database's best confidence beside each
+  track's own — `OK (3 of 200)` — with a footnote explaining what a gap means.**
+  The highest-value gap from the whipper capability audit, and it was a fact we
+  already had and threw away: cyanrip prints `max confidence: N` on every
+  per-track `Accurip:` row, and we read that row only to answer *"did a lookup
+  happen at all"*. A bare confidence is close to meaningless — 3 is excellent on
+  an obscure disc and a warning sign on a famous one — and the **pair** is the one
+  AccurateRip fact that changes what a person should do: a low own-confidence
+  against a high maximum means most people's discs disagree with yours, which is a
+  different **pressing**, not a bad rip. The tooltip says exactly that, and says
+  the rip is bit-perfect first, because `3 of 200` unexplained reads as a
+  near-failure when the opposite is true. Both numbers come from one pure helper
+  in `verdict.py` (`accuraterip_confidence_text` /
+  `accuraterip_db_max_confidence`) so the cell and its footnote cannot describe
+  one track's standing two ways, and a test asserts that *relation* rather than
+  each side alone. Nothing is stored: the raw status text is already in the
+  report, so a parsed copy would be one fact in two slots. Three deliberate
+  silences, each revert-proved — a log stating no maximum renders exactly as
+  before (whipper's, hand-trimmed, older cyanrip); a maximum *below* the track's
+  own confidence shows the bare number rather than an ordering we cannot explain;
+  and the footnote stays quiet when the database entry is too thin for the ratio
+  to mean anything, because a footnote on every track is one nobody reads.
 - **`docs/handshake/outbound/platterpusstatus.md` — our standing status, the file
   a fresh session on the cyanrip side reads to start.** The mirror of their
   `cyanripstatus20260821.md`, whose own header credits the convention to us: we
