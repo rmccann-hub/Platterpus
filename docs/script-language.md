@@ -141,7 +141,6 @@ than the UI it stands in for.
 | field | value type |
 |---|---|
 | `output_dir` | text |
-| `working_dir` | text |
 | `track_template` | text |
 | `disc_template` | text |
 | `track_template_unknown` | text |
@@ -650,10 +649,6 @@ found nothing wrong*.
   "settable_fields": [
     {
       "field": "output_dir",
-      "type": "text"
-    },
-    {
-      "field": "working_dir",
       "type": "text"
     },
     {

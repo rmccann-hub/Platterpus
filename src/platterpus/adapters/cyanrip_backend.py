@@ -74,12 +74,10 @@ class CyanripImpl(RipBackend):
     def __init__(
         self,
         binary_path: Path | str = "cyanrip",
-        working_dir: Path | None = None,
         dev_root: Path = Path("/dev"),
         sys_block: Path = Path("/sys/block"),
     ) -> None:
         self._binary: str = str(binary_path)
-        self._working_dir: Path | None = working_dir
         # Injectable so list_drives() is testable without a real /dev or /sys.
         self._dev_root: Path = dev_root
         self._sys_block: Path = sys_block

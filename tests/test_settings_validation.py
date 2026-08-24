@@ -42,7 +42,6 @@ def test_valid_config_with_real_dirs_and_metaflac(tmp_path: Path) -> None:
     metaflac.chmod(0o755)
     cfg = Config(
         output_dir=str(tmp_path / "out"),
-        working_dir=str(tmp_path / "work"),
         metaflac_path=str(metaflac),
     )
     assert sv.validate_config(cfg) == []
@@ -264,7 +263,6 @@ def test_validate_never_raises_on_garbage() -> None:
 # the completeness test below fails loudly if a field is missing here.
 _BAD_VALUES: dict[str, object] = {
     "output_dir": "",  # empty
-    "working_dir": "relative/not/absolute",
     "library_dir": "relative/not/absolute",  # optional, but non-empty must be absolute
     "track_template": "",  # empty
     "disc_template": "/leading/slash",  # absolute

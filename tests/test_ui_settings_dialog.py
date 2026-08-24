@@ -5,7 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import QSize
 from PySide6.QtWidgets import QApplication, QDialogButtonBox
 
-from platterpus import naming, settings_validation
+from platterpus import goal_presets, naming, settings_validation
 from platterpus.config import SCHEMA_VERSION, Config
 from platterpus.goal_presets import GOAL_ARCHIVAL, GOAL_CUSTOM, GOAL_FAST
 from platterpus.ui.settings_dialog import SettingsDialog
@@ -107,7 +107,6 @@ def test_initial_widget_state_matches_input_config(
 ) -> None:
     config = Config(
         output_dir="/music",
-        working_dir="/tmp/work",
         track_template="t/%n",
         disc_template="d/%d",
         track_template_unknown="unk-t",
@@ -120,7 +119,6 @@ def test_initial_widget_state_matches_input_config(
     dialog = SettingsDialog(config)
 
     assert dialog._output_dir_edit.text() == "/music"
-    assert dialog._working_dir_edit.text() == "/tmp/work"
     assert dialog._track_template_edit.text() == "t/%n"
     assert dialog._disc_template_edit.text() == "d/%d"
     assert dialog._track_template_unknown_edit.text() == "unk-t"
@@ -155,7 +153,6 @@ def test_to_config_reflects_user_edits(qapp: QApplication) -> None:
     dialog = SettingsDialog(Config())
 
     dialog._output_dir_edit.setText("/changed/output")
-    dialog._working_dir_edit.setText("/changed/working")
     dialog._track_template_edit.setText("changed-track")
     dialog._disc_template_edit.setText("changed-disc")
     dialog._track_template_unknown_edit.setText("changed-unk-track")
@@ -167,7 +164,6 @@ def test_to_config_reflects_user_edits(qapp: QApplication) -> None:
     out = dialog.to_config()
 
     assert out.output_dir == "/changed/output"
-    assert out.working_dir == "/changed/working"
     assert out.track_template == "changed-track"
     assert out.disc_template == "changed-disc"
     assert out.track_template_unknown == "changed-unk-track"
@@ -324,13 +320,22 @@ def test_verify_every_track_checkbox_drives_secure_rerip_dynamic(
 def test_goal_combo_reflects_the_incoming_config(qapp: QApplication) -> None:
     # Default config == Fast-verified preset.
     assert SettingsDialog(Config())._goal_combo.currentData() == GOAL_FAST
-    # An archival-shaped config shows Archival.
-    archival = Config(
-        output_format="flac",
-        ctdb_verify_after_rip=True,
-        recompress_flac_after_rip=True,
-    )
+    # An archival-shaped config shows Archival. Built from the preset itself
+    # rather than hand-listed fields: this fixture used to spell out
+    # `recompress_flac_after_rip=True` and nothing else, which was an accurate
+    # description of the archival goal right up until the goal gained a real
+    # difference from Fast Verified (2026-08-24) — at which point a hand-listed
+    # fixture is a second definition that drifts silently. `apply_preset` is the
+    # definition; ask it.
+    archival = goal_presets.apply_preset(Config(), GOAL_ARCHIVAL)
     assert SettingsDialog(archival)._goal_combo.currentData() == GOAL_ARCHIVAL
+    # Non-triviality: the round trip would also hold if the two goals were still
+    # identical, so assert they actually differ in the field that makes archival
+    # a different RIP — every track read twice, not just the unverified ones.
+    fast = goal_presets.apply_preset(Config(), GOAL_FAST)
+    assert archival.secure_rerip_dynamic is False
+    assert fast.secure_rerip_dynamic is True
+    assert archival.rerip_offset_variant is not fast.rerip_offset_variant
 
 
 def test_selecting_goal_applies_the_preset_to_controls(qapp: QApplication) -> None:
@@ -660,7 +665,6 @@ def test_composite_row_fields_have_accessible_names(qapp: QApplication) -> None:
 
     dialog = SettingsDialog(Config())
     assert dialog._output_dir_edit.accessibleName() == "Output directory"
-    assert dialog._working_dir_edit.accessibleName() == "Working directory"
     assert dialog._metaflac_path_edit.accessibleName() == "metaflac path"
     assert dialog._read_offset_spin.accessibleName()
     browse_names = [
@@ -672,7 +676,11 @@ def test_composite_row_fields_have_accessible_names(qapp: QApplication) -> None:
     # and the unattended test script. The count is asserted rather than a lower
     # bound so a new composite row cannot be added without someone reading this
     # test and confirming its field got a name too.
-    assert len(browse_names) == 5
+    # Four browse buttons since `working_dir` was removed on 2026-08-24 — it was
+    # a whipper-era scratch directory nothing read, documented to users as if it
+    # did something. Counted rather than listed so a row added without an
+    # accessible name still fails here.
+    assert len(browse_names) == 4
     # All named, all distinct — a screen reader can tell them apart.
     assert all(browse_names)
     assert len(set(browse_names)) == len(browse_names)
@@ -743,7 +751,6 @@ def test_every_documented_setting_has_a_tooltip(qapp: QApplication) -> None:
     # Guide-documented user-facing field → the dialog widget that carries it.
     field_to_widget: dict[str, str] = {
         "output_dir": "_output_dir_edit",
-        "working_dir": "_working_dir_edit",
         "track_template": "_track_template_edit",
         "disc_template": "_disc_template_edit",
         "track_template_unknown": "_track_template_unknown_edit",
@@ -909,7 +916,6 @@ def test_nesting_the_form_did_not_break_the_attribute_api(
         "_cover_art_combo",
         "_read_speed_mode_combo",
         "_output_dir_edit",
-        "_working_dir_edit",
         "_ctdb_verify_check",
         "_secure_rerip_spin",
         "_naming_preview",

@@ -107,6 +107,38 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   *"All 2 track(s) are byte-for-byte identical to the previous rip."*
 
 ### Changed
+- **"Archival Exact" was byte-identical to "Fast Verified" and now genuinely
+  differs.** Its one distinguishing field was `recompress_flac_after_rip=True`,
+  and `CyanripImpl.produces_max_compression_flac()` returns True unconditionally —
+  so with cyanrip as the sole backend the re-compress can never run, and the
+  Settings checkbox for it is permanently greyed out saying as much. Selecting the
+  goal changed **nothing at all** while its label promised *"Smallest Lossless
+  Files"*. The difference is now the one an archival goal should have — **effort**:
+  `secure_rerip_dynamic=False` makes it EAC-style Test and Copy (every track read
+  until two reads agree, not only the tracks AccurateRip failed to confirm) and
+  `rerip_offset_variant=True` refuses to accept an offset-variant match on a single
+  read. Both are long-shipped behaviours and both cost rip time, which is the trade
+  the goal exists to make. Relabelled *"Archival Exact — Slower, Every Lossless
+  Track Read Twice"*. Both new fields are wired into `apply_preset`, `detect_goal`
+  and the dialog's controls, so hand-editing either flips the combo to Custom
+  instead of leaving it claiming a preset the settings no longer match.
+  `recompress_flac_after_rip=True` stays on the preset deliberately: inert today,
+  correct in intent for a backend that does not max compression.
+
+### Removed
+- **The `working_dir` setting, which was read nowhere and documented to users in
+  three places.** A whipper-era scratch directory (whipper took one; cyanrip has no
+  working-directory flag and the rip runs with `cwd=output_dir`), carried into the
+  cyanrip backend by KDD-18 and stored on an attribute nothing ever loaded — while
+  its Settings tooltip and the User Guide told users *"a scratch folder used while
+  a rip is in progress… change it only if that disk is short on space."* Someone
+  whose output disk was short on space would have changed it and got nothing. Gone:
+  the config field, the Settings row and browse button, the guide entry, the
+  script-language field, the validator rule and the backend constructor parameter.
+  Old configs carrying the key still load — unknown keys warn, they do not fail.
+  The test that hid it asserted `backend._working_dir == tmp_path`, i.e. that the
+  value had been **handed over**, which was true and irrelevant; a tombstone
+  comment records that in `tests/test_composition.py`.
 - Graduated to `CLAUDE.md` → *How to stop shipping the next one*: **"fail-safe" is
   defined against the thing being protected, not against the user's convenience.**
   `known_album_folder` documented its own imprecision as *"it can only ever miss a
