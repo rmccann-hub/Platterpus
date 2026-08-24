@@ -2170,6 +2170,14 @@ here blocks the v0.6.3 release; round 6 is CLOSED both directions.
       (`command/offset.py:168` — confirm across tracks 2..n−1, require agreement), **not**
       its disc-based probe, which its own README calls "quite primitive" and which our
       adapter records failing on the BDR-209D with an in-database disc (KDD-31 stands).
+- **[ ] Use the per-track paranoia counts to strengthen `track_read_effort_flag`.**
+      The data landed 2026-08-24 (`TrackResult.paranoia_counts`); the *use* did not,
+      deliberately. `rip_log.py`'s note says the flag cannot catch a disc whose
+      paranoia settles on one wrong answer per pass — `rip_count` 1, `converged`
+      None — and per-track READ/VERIFY/OVERLAP is exactly the missing signal. It
+      needs a threshold, a threshold needs evidence from more than one disc, and
+      inventing one would swap a documented gap for an undocumented guess. Gate on
+      a hardware round with a marginal disc.
 - **[ ] Parse `Encoder:` and `CD-TEXT:` into the report schema, then off the ignore list.**
       Both are real archival facts the fork added for us, both currently on
       `_IGNORED_DISC_LINES` with a recorded reason. Queued rather than half-landed because

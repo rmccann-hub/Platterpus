@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (57)
+## 1. Log lines we parse (58)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -87,6 +87,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `secure_rerip_converged` **(fork-only)** | section header | `^\\s*Done;\\s+\\((?P<agreed>\\d{1,6})\\s+out of\\s+(?P<total>\\d{1,6})\\s+matches\\b` |
 | `secure_rerip_no_match` | section header | `^\\s*Done;\\s+\\(no matches found\\b` |
 | `gaps_value` | indented | `^\\s+(?P<value>\\S.*?)\\s*$` |
+| `track_paranoia_counts_section` | indented | `^\\s+Paranoia status counts:\\s*$` |
 | `paranoia_count` | indented | `^\\s+(?P<key>[A-Z][A-Z_]*):\\s+(?P<count>\\d+)\\s*$` |
 | `loudness_integrated` | indented | `^\\s+I:\\s+(?P<v>-?\\d+(?:\\.\\d+)?)\\s+LUFS` |
 | `loudness_range` | indented | `^\\s+LRA:\\s+(?P<v>-?\\d+(?:\\.\\d+)?)\\s+LU` |

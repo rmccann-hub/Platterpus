@@ -1823,3 +1823,77 @@ def test_a_released_note_does_not_read_as_unreleased() -> None:
         "an unreleased build no longer reads as unreleased, so the tokens have stopped "
         "matching anything and this test proves nothing"
     )
+
+
+def test_the_per_track_paranoia_counts_are_read_from_the_forks_own_reference() -> None:
+    """We asked for these (W1), the fork built them, and we read none of them.
+
+    Their reference log carries **fourteen** indented `Paranoia status counts:`
+    blocks — one per track — against a single disc-level block at column 0. Our
+    header pattern was anchored at column 0, so all fourteen fell through; and a
+    comment in `parsers/rip_log.py` then explained the absence as an upstream gap,
+    saying cyanrip *"only emits disc-wide today"*. From inside the parser a missing
+    feature and a dropped field look identical. Only the artifact tells them apart,
+    and the artifact was committed in this repository the whole time.
+
+    So this test reads the **committed reference**, not a fixture written from a
+    belief about it (`CLAUDE.md`: when a committed artifact can settle a question,
+    the test should read the artifact).
+    """
+    from pathlib import Path
+
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    reference = (
+        Path(__file__).resolve().parents[1]
+        / "output_reference"
+        / "cyanrip_fork_flac"
+        / "cyanrip_fork_police_classics.log"
+    )
+    assert reference.is_file(), f"the fork's reference log is missing: {reference}"
+    rip_log = parse_cyanrip_log(reference.read_text(encoding="utf-8"))
+
+    with_counts = [t for t in rip_log.tracks if t.paranoia_counts]
+    assert len(with_counts) == 14, (
+        f"{len(with_counts)} of {len(rip_log.tracks)} tracks carry per-track "
+        "paranoia counts; the reference has fourteen blocks, so anything less "
+        "means the indented header is being missed again"
+    )
+    assert with_counts[0].paranoia_counts == {
+        "READ": 1250,
+        "VERIFY": 85,
+        "OVERLAP": 17,
+    }, with_counts[0].paranoia_counts
+
+    # THE RELATION, which is the whole reason the per-track figures matter: on a
+    # rip with no secure re-read the per-track counts must sum to the disc total.
+    # (Under `-Z` they deliberately do NOT — the disc total sums every pass while
+    # a track's figure is the last pass, which is exactly the over-reporting the
+    # disc number alone cannot expose. This reference was ripped without `-Z`.)
+    summed: dict[str, int] = {}
+    for track in with_counts:
+        for key, value in track.paranoia_counts.items():
+            summed[key] = summed.get(key, 0) + value
+    assert summed == rip_log.paranoia_counts, (
+        f"per-track counts sum to {summed} but the disc block says "
+        f"{rip_log.paranoia_counts} — on a rip with no secure re-read these must "
+        "reconcile exactly"
+    )
+    # Non-triviality: two empty dicts also compare equal.
+    assert summed.get("READ", 0) > 0, (
+        "the sum is empty, so it compares equal to anything"
+    )
+
+
+def test_a_log_with_no_per_track_paranoia_block_yields_empty_counts() -> None:
+    """Every whipper log, and every cyanrip log before the fork added these, has
+    none. The field must be empty rather than absent, so a consumer can tell "this
+    log carried no counts" from "this track had none"."""
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    rip_log = parse_cyanrip_log(
+        "cyanrip 0.9.3\n\nTracks:\nTrack 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     B0D122E7\n"
+    )
+    assert rip_log.tracks, "the minimal log parsed no tracks at all"
+    assert rip_log.tracks[0].paranoia_counts == {}

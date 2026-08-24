@@ -376,6 +376,18 @@ _RIP_ERRORS = re.compile(r"^Ripping errors:\s+(?P<count>\d+)")
 _FINISHED_AT = re.compile(r"^Ripping finished at\s+(?P<when>.+?)\s*$")
 # The "Paranoia status counts:" block header, then indented "KEY:  N" lines.
 _PARANOIA_HEADER = re.compile(r"^Paranoia status counts:\s*$")
+# The SAME header, indented, inside a track block. The fork emits one per
+# track — 14 of them in `output_reference/cyanrip_fork_flac/…police_classics.log`
+# against a single disc-level block at column 0 — because we asked for them (W1).
+# The column-0 anchor above meant all 14 fell through unread for months, while a
+# comment in `parsers/rip_log.py` asserted cyanrip "only emits disc-wide today".
+# The artifact was in this repository the whole time (found 2026-08-24).
+#
+# Why the distinction matters rather than being tidiness: under `-Z` the
+# DISC total sums every pass while the per-track figure is the LAST pass, so the
+# disc number over-reports distinct events by the re-read factor. The per-track
+# counts are the only thing in the log that can separate them.
+_TRACK_PARANOIA_HEADER = re.compile(r"^\s+Paranoia status counts:\s*$")
 _PARANOIA_LINE = re.compile(r"^\s+(?P<key>[A-Z][A-Z_]*):\s+(?P<count>\d+)\s*$")
 # Per-track "File(s):" header; the filename is the next indented line.
 _FILES_HEADER = re.compile(r"^\s+File\(s\):\s*$")
@@ -1087,6 +1099,9 @@ class _TrackAcc:
     # The verbatim text of this track's "Accurip:" status row — the only thing in
     # the log that says whether a lookup happened. None = the ripper said nothing.
     accuraterip_lookup: str | None = None
+    #: Per-track READ / VERIFY / OVERLAP / FIXUP_ATOM counts, keyed as cyanrip
+    #: prints them. Empty for a log that carries no per-track block.
+    paranoia_counts: dict[str, int] = field(default_factory=dict)
     rip_count: int | None = None
     start_sector: int | None = None
     end_sector: int | None = None
@@ -1596,6 +1611,12 @@ _FRAGMENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("gaps_value", _GAPS_VALUE),
+    # The per-track `Paranoia status counts:` header. Indented, unlike the
+    # disc-level one at column 0 — which is why fourteen of these per rip went
+    # unread until 2026-08-24. Listed here so the generated consumer contract
+    # tells the fork we consume the per-track block too, rather than publishing
+    # only the column-0 rule and leaving them to infer the rest.
+    ("track_paranoia_counts_section", _TRACK_PARANOIA_HEADER),
     ("paranoia_count", _PARANOIA_LINE),
     ("loudness_integrated", _LOUDNESS_I),
     ("loudness_range", _LOUDNESS_LRA),
@@ -1923,6 +1944,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
     # Every indented line of the `Gaps:` block, in order.
     gap_lines: list[str] = []
     in_paranoia = False
+    in_track_paranoia = False
     in_album_loudness = False
     expect_filename = False
     # cyanrip prints a track's secure re-read verdict ("Done; (…)") on the line
@@ -2032,6 +2054,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 accuraterip_v2=current.accuraterip_v2,
                 accuraterip_offset=current.accuraterip_offset,
                 accuraterip_lookup=current.accuraterip_lookup,
+                paranoia_counts=dict(current.paranoia_counts),
                 rip_count=current.rip_count,
                 secure_rerip_converged=current.secure_rerip_converged,
                 start_sector=current.start_sector,
@@ -2438,6 +2461,29 @@ def parse_cyanrip_log(text: str) -> RipLog:
             if match:
                 current.accuraterip_lookup = match.group("status")
                 continue
+
+            # The per-track paranoia block. Handled HERE, inside the track branch,
+            # because the disc-level handler further down is anchored at column 0
+            # and would never see an indented header — which is exactly why these
+            # went unread. `in_track_paranoia` ends the moment a line stops looking
+            # like a count, so the block cannot swallow the rows after it.
+            if _TRACK_PARANOIA_HEADER.match(line):
+                in_track_paranoia = True
+                continue
+            if in_track_paranoia:
+                match = _PARANOIA_LINE.match(line)
+                if match:
+                    current.paranoia_counts[match.group("key")] = (
+                        int_or_none(
+                            match.group("count"),
+                            field=(
+                                f"cyanrip track paranoia count {match.group('key')}"
+                            ),
+                        )
+                        or 0
+                    )
+                    continue
+                in_track_paranoia = False
 
             match = _ACCURIP_OFFSET.match(line)
             if match:
