@@ -154,6 +154,33 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   contained the word "Finished" — so it would have failed even implemented.
   Assert against the artifact, not against a remembered wording.
 ### Fixed
+- **`rig-check`'s `argv/integrity` reported "every flag we composed arrived
+  intact" while checking four flags of fifteen, by substring.** Both halves were
+  wrong and the verdict claimed neither. Unchecked were `-T` — the sanitisation
+  mode whose absence cost a finished 14-track archival rip five days earlier —
+  plus `-G`, `-a`, `-t`, `-c`, `-F`, `-o`, `-r`, `-d` and `--consumer`; a
+  transport dropping any of them reported OK. And `flag not in received` was a
+  substring test against the whole invocation *string*, which embeds an
+  operator-supplied output directory — so a rig session run into `~/rig-session/`
+  satisfied the `-s` check with the real `-s 667` absent. `CLAUDE.md`'s *"can it
+  be satisfied by the wrong thing?"*, in the one check whose stated purpose is
+  settling an argv question for the fork without spending a disc pass. Now every
+  flag token is compared, repeats counted (`-t` appears once per track), values
+  deliberately not compared because a value may legitimately be re-quoted in
+  their rendering while a flag may not change — and the verdict says exactly
+  that. Unbalanced quoting in their record now FAILS rather than passing: "could
+  not compare" is a different answer from "they agree".
+- **The same function composed a naming scheme no rip has ever sent.**
+  `_compose_reference_argv` promises *"the argv a real rip would send, built by
+  the REAL builder"*, and the one hand-written input it supplies was in the wrong
+  language: it passed `"{track} - {title}"` — already cyanrip's token syntax —
+  into `_build_rip_argv`, which runs it through `scheme_from_template`, which
+  translates our `%`-tokens *and neutralises literal braces into parens*. Every
+  rig-check probe therefore sent `-F "(track) - (title)"`, visible in the
+  2026-08-23 rig record. Now `%t - %n`, the default preset's file part, so the
+  probe composes what the GUI actually holds. *"What does my stand-in do that the
+  real thing does not?"* — in the function whose entire value is being
+  indistinguishable from the real thing.
 - **Every rip with cover art enabled printed a cover-art failure into its own
   archival log.** `-G` (tell the ripper not to do cover art) was sent only when
   cover art was turned *off*, on the reading "let the ripper embed art when the

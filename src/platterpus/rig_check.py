@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shlex
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -205,7 +206,16 @@ def _compose_reference_argv(binary: str, device: str, build_tag: str) -> list[st
         cover_art="",
         max_retries=3,
         read_offset_override=667,
-        track_template="{track} - {title}",
+        # A PLATTERPUS template, not a cyanrip one. `_build_rip_argv` runs this
+        # through `scheme_from_template`, which translates our `%`-tokens into
+        # cyanrip's `{}` ones **and neutralises literal braces by turning them
+        # into parens**. Handing it `"{track} - {title}"` — already in cyanrip's
+        # language — therefore produced `-F "(track) - (title)"`, a naming scheme
+        # no real rip has ever sent, in the function whose docstring promises
+        # "the argv a real rip would send" (found 2026-08-24). `%t - %n` is the
+        # default preset's file part (`naming.PRESETS[0]`), so this now composes
+        # what the GUI actually holds.
+        track_template="%t - %n",
         metadata=metadata,
         secure_rerip_matches=3,
         only_tracks=(1, 2),
@@ -280,13 +290,60 @@ def check_argv_reaches_the_binary(
         manifest.add(Result(FAIL, "argv/parse", f"unreadable -j record: {exc!r}", art))
         return
 
-    missing = [flag for flag in ("-Z", "-l", "-N", "-s") if flag not in received]
+    # EVERY flag, compared as a TOKEN. Both halves of that were wrong until
+    # 2026-08-24, and the verdict text claimed neither.
+    #
+    #   * It checked FOUR flags — `-Z -l -N -s` — of the 15 the builder emits,
+    #     and then reported "every flag we composed arrived intact". Unchecked
+    #     were `-T` (the sanitisation mode whose absence cost a finished 14-track
+    #     archival rip five days earlier), `-G`, `-a`, `-t`, `-c`, `-F`, `-o`,
+    #     `-r`, `-d` and `--consumer`. A transport that dropped any of them
+    #     reported OK.
+    #   * `flag not in received` was a SUBSTRING test against the whole
+    #     invocation string, so `-s` is satisfied by any path containing `-s` —
+    #     and the invocation embeds an operator-supplied output directory. A rig
+    #     session run into `~/rig-session/` passes the `-s` check with the real
+    #     `-s 667` absent.
+    #
+    # That is `CLAUDE.md`'s "can it be satisfied by the wrong thing?", in the one
+    # check whose stated purpose is settling an argv question for the fork
+    # without spending a disc pass. A check that passes for the wrong reason is
+    # worse than one that fails, because a failure gets investigated.
+    try:
+        received_tokens = shlex.split(received)
+    except ValueError as exc:
+        # Unbalanced quoting in their record. NOT a pass: we cannot compare, and
+        # "could not compare" is a different answer from "they agree".
+        manifest.add(
+            Result(
+                FAIL,
+                "argv/integrity",
+                f"the binary's own record of its invocation could not be split "
+                f"into tokens ({exc}), so nothing could be compared against the "
+                f"{len(argv)} args we composed. received: {received[:400]}",
+                art,
+            )
+        )
+        return
+    # Flags only. Values may legitimately be re-quoted between our list and their
+    # rendering of it; a flag may not change. `argv[0]` is excluded — it is the
+    # path we spawned, and they record their own resolved binary path.
+    composed_flags = [tok for tok in full[1:] if tok.startswith("-")]
+    received_flags = [tok for tok in received_tokens if tok.startswith("-")]
+    missing: list[str] = []
+    remaining = list(received_flags)
+    for flag in composed_flags:
+        if flag in remaining:
+            remaining.remove(flag)  # count repeats (`-t` appears once per track)
+        else:
+            missing.append(flag)
     if missing:
         manifest.add(
             Result(
                 FAIL,
                 "argv/integrity",
-                f"composed {len(argv)} args; the binary did NOT receive {missing}. "
+                f"composed {len(argv)} args carrying {len(composed_flags)} flag "
+                f"token(s); the binary did NOT receive {missing}. "
                 f"received: {received[:400]}",
                 art,
             )
@@ -296,8 +353,11 @@ def check_argv_reaches_the_binary(
         Result(
             OK,
             "argv/integrity",
-            f"every flag we composed arrived intact (-Z, -l, -N, -s present in the "
-            f"binary's own record of {len(argv)} composed args)",
+            f"all {len(composed_flags)} flag token(s) we composed arrived intact "
+            f"({' '.join(sorted(set(composed_flags)))}) in the binary's own record "
+            f"of the {len(argv)} args we sent. Flag tokens are compared, not "
+            f"values: a value may be re-quoted in their rendering, a flag may not "
+            f"change",
             art,
         )
     )

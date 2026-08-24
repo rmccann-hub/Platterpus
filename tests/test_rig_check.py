@@ -169,6 +169,138 @@ class TestTheArgvProbeSpawn:
             )
         assert not manifest.failed, f"the probe failed against a clean stub: {lines}"
 
+    def test_a_dropped_flag_is_caught_even_when_it_is_not_one_of_the_old_four(
+        self, tmp_path: Path
+    ) -> None:
+        """The check said "every flag we composed arrived intact" while checking
+        FOUR of fifteen.
+
+        Unchecked were `-T` — the sanitisation mode whose absence cost a finished
+        14-track archival rip on 2026-08-23 — plus `-G`, `-a`, `-t`, `-c`, `-F`,
+        `-o`, `-r`, `-d` and `--consumer`. A transport that dropped any of them
+        reported OK, in the one check whose purpose is settling an argv question
+        for the fork without spending a disc pass.
+
+        `-T` is the subject here deliberately: it is the flag whose absence has
+        already cost this project a rip, so a check that cannot see it is not a
+        check of the thing that went wrong.
+        """
+        import sys
+
+        # A stub that silently swallows -T and its value, exactly as a broken
+        # transport would. Everything else arrives.
+        source = f"""#!{sys.executable}
+import json
+import sys
+
+argv = []
+skip = False
+for token in sys.argv:
+    if skip:
+        skip = False
+        continue
+    if token == "-T":
+        skip = True
+        continue
+    argv.append(token)
+with open(sys.argv[2], "w") as handle:
+    json.dump({{"invocation": " ".join(argv)}}, handle)
+"""
+        stub = tmp_path / "cyanrip-drops-T"
+        stub.write_text(source, encoding="utf-8")
+        stub.chmod(0o755)
+        out = tmp_path / "out"
+        out.mkdir()
+        lines: list[str] = []
+        manifest = rig_check.Manifest(out, sink=lines.append)
+        rig_check.check_argv_reaches_the_binary(
+            manifest, str(stub), "platterpus-fork-gddf7ac3"
+        )
+        assert manifest.failed, (
+            f"a binary that swallowed -T was graded as receiving every flag "
+            f"intact: {lines}"
+        )
+        assert any("-T" in line for line in lines), (
+            f"the failure did not name the flag that went missing: {lines}"
+        )
+
+    def test_a_flag_is_matched_as_a_token_not_as_a_substring(
+        self, tmp_path: Path
+    ) -> None:
+        """`-s` used to be satisfied by any path containing `-s`.
+
+        The old test was `flag not in received` against the whole invocation
+        STRING, and the invocation embeds an operator-supplied output directory.
+        A rig session run into `~/rig-session/` therefore satisfied the `-s`
+        check with the real `-s 667` absent — `CLAUDE.md`'s "can it be satisfied
+        by the wrong thing?", in a check the fork relies on.
+
+        Reproduced by swallowing `-s` while leaving a path that contains the
+        literal `-s` in the invocation.
+        """
+        import sys
+
+        source = f"""#!{sys.executable}
+import json
+import sys
+
+argv = []
+skip = False
+for token in sys.argv:
+    if skip:
+        skip = False
+        continue
+    if token == "-s":
+        skip = True
+        continue
+    argv.append(token)
+# A path carrying the literal "-s", as a real rig-session output dir does.
+argv.append("/home/someone/rig-session/scratch")
+with open(sys.argv[2], "w") as handle:
+    json.dump({{"invocation": " ".join(argv)}}, handle)
+"""
+        stub = tmp_path / "cyanrip-drops-s"
+        stub.write_text(source, encoding="utf-8")
+        stub.chmod(0o755)
+        out = tmp_path / "out"
+        out.mkdir()
+        lines: list[str] = []
+        manifest = rig_check.Manifest(out, sink=lines.append)
+        rig_check.check_argv_reaches_the_binary(
+            manifest, str(stub), "platterpus-fork-gddf7ac3"
+        )
+        assert manifest.failed, (
+            f"a dropped -s was satisfied by the substring in a directory name: {lines}"
+        )
+
+    def test_the_composed_argv_is_in_platterpus_template_language(self) -> None:
+        """`_compose_reference_argv` promises "the argv a real rip would send".
+
+        The one hand-written input it supplies was in the WRONG LANGUAGE.
+        `_build_rip_argv` runs the track template through `scheme_from_template`,
+        which translates our `%`-tokens into cyanrip's `{}` ones *and neutralises
+        literal braces by turning them into parens*. It was handed
+        `"{track} - {title}"` — already cyanrip's syntax — and so composed
+        `-F "(track) - (title)"`, a naming scheme no rip has ever sent. Measured
+        in the 2026-08-23 rig record before it was fixed.
+
+        "What does my stand-in do that the real thing does not?", in the function
+        whose entire value is being indistinguishable from the real thing.
+        """
+        argv = rig_check._compose_reference_argv(
+            "cyanrip", "/nonexistent.cue", "platterpus-fork-gddf7ac3"
+        )
+        scheme = argv[argv.index("-F") + 1]
+        assert scheme == "{track} - {title}", (
+            f"-F composed as {scheme!r}. cyanrip's token syntax is braces; parens "
+            "mean a Platterpus template was passed through the translator twice"
+        )
+        # Non-triviality: the flags this check exists to prove reach the binary
+        # must actually be in what we compose, or the assertion above is about an
+        # argv that proves nothing.
+        for flag in ("-T", "-G", "-N", "-Z", "-l", "-s"):
+            assert flag in argv, f"{flag} is not in the composed reference argv"
+
     def test_a_binary_that_writes_no_record_fails_rather_than_passing(
         self, tmp_path: Path
     ) -> None:
