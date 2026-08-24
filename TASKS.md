@@ -2114,6 +2114,21 @@ here blocks the v0.6.3 release; round 6 is CLOSED both directions.
       speeds!` and the `goto end` family need real device states on the BDR-209D, and a
       hand-built corpus would be a fixture carrying my assumptions about their control
       flow — the §4d failure again (`docs/testing.md` §5.ac).
+- **[ ] An archival record must say when its post-rip verification was cut short.**
+      The half of the 2026-08-23 unattended-quit defect that is NOT fixed. The grace
+      clock now starts at the right moment, so the common case is closed — but a
+      genuinely wedged step past the budget still ends the process with checks
+      outstanding, and the `.platterpus.json` left behind says nothing about it. The
+      measured artifact carries `"cover_art": null` beside
+      `health_status: "No errors occurred"`, `self_check.worst: "ok"` and
+      `completeness.complete: true` — every field true, the document's overall claim
+      false. `completeness` is about *tracks*; there is no equivalent for the
+      verification set. `_post_rip_still_running()` already knows what is outstanding
+      at give-up time, so the fix is to write that into the report (an `issues`
+      warning at minimum, ideally a `verification_completeness` block) **before**
+      `app.quit()`, synchronously on the GUI thread. Queued rather than half-landed
+      because a schema field with no writer is worse than none. This is the
+      "confident pass over an incomplete record" shape, which is the worst kind.
 - **[ ] AccurateRip: record the DB's MAX confidence beside each track's OWN confidence.**
       The single highest-value item from the whipper capability audit (2026-08-24), and
       nearly free. cyanrip already prints both — `Accurip: disc found in database (max

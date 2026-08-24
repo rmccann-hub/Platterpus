@@ -73,6 +73,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   *"All 2 track(s) are byte-for-byte identical to the previous rip."*
 
 ### Changed
+- Graduated to `CLAUDE.md` → *How to stop shipping the next one*: **"fail-safe" is
+  defined against the thing being protected, not against the user's convenience.**
+  `known_album_folder` documented its own imprecision as *"it can only ever miss a
+  collision, never invent one (fail-safe toward not blocking the user)"* — both
+  halves true, conclusion inverted, and it cost a finished 14-track archival rip.
+  Missing the collision destroys the user's music; inventing one costs a dialog.
 - **The whipper capability audit landed, and it strengthens KDD-24 rather than
   challenging it.** Read from source (`whipper-team/whipper` @ `71251a0b`,
   `OPSnet/Logchecker` @ `ca565479`). The maintainer's premise — whipper has higher
