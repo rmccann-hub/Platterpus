@@ -5,6 +5,46 @@ argv the app builds, the same ripper binary. There is no simulation layer, which
 is deliberate — a harness that is safer or simpler than the product makes the
 product's gap invisible.
 
+## The overnight path: run the acceptance script, collect in the morning
+
+Two files, in this order.
+
+```sh
+# The night before — any ordinary audio CD in the drive, then walk away.
+~/Applications/platterpus-x86_64.AppImage --run-script fullacceptance.txt
+
+# The morning after — no disc needed, never touches the drive.
+bash platterpusmorning.sh
+```
+
+`platterpusmorning.sh` exists for one reason, and it is worth stating because
+three other collectors look like they already do it: **none of them gathers the
+rips.**
+
+| collector | app log | script transcript + screenshots | the run's SEVEN rip folders |
+|---|---|---|---|
+| the script run's own bundle (*"SEND THIS ONE FILE"*) | ✅ | ✅ | ❌ — `build_bundle()` is called without `album_dir` |
+| `--rig-session` | ✅ | ❌ | ❌ — audits the **newest** `.platterpus.json` only |
+| `platterpuscollect.sh` | ✅ | partial | **newest rip only** |
+| **`platterpusmorning.sh`** | ✅ | ✅ (folds the bundles in) | ✅ **all of them** |
+
+The overnight script performs seven rips. "The newest" is the one beside the
+cache probe — **not** the whole-disc uniform secure re-read from its section N,
+which is the artifact the open cyanrip handshake round is waiting on. Collecting
+the newest loses the night, and loses it *silently*: the bundle arrives looking
+complete.
+
+It never copies audio (Critical rule #8) — only the eight text suffixes the
+app's own bundler admits — and it then sweeps the staged tree and prints **how
+many files it examined**, because a sweep that reports "clean" without a
+denominator is satisfied by an empty directory. Every external command is
+bounded with `timeout -k`; a bare `timeout` waits forever for a SIGTERM a wedged
+drive ioctl will never take.
+
+It prints a count per category and refuses to look healthy on a short bundle:
+zero rip artifacts, or fewer than fourteen, is called out in the summary rather
+than left for you to notice.
+
 ## The normal path: rip by hand, then run one command
 
 **This is what almost everyone should do**, and it needs no script and no
