@@ -1,4 +1,4 @@
-# Transport envelope — 2 file(s), Platterpus → cyanrip fork
+# Transport envelope — 3 file(s), Platterpus → cyanrip fork
 
 **Not a merged file and not a lap.** Each part below is byte-identical to its
 original, between column-0 delimiters, with its own SHA-256. Split it before
@@ -20,8 +20,9 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 
 | file | bytes | sha256 |
 | --- | --- | --- |
-| `round-14-lap-06.md` | 21,669 | `21b59040508b2eb8…` |
+| `round-14-lap-06.md` | 24,911 | `5f9bda218273fdda…` |
 | `fullacceptance.txt` | 28,477 | `e635151e27ef4fcb…` |
+| `securereread.txt` | 7,803 | `dac00e214ac9d0ca…` |
 
 ## Reader
 
@@ -40,7 +41,7 @@ for m in PART.finditer(open("round14lap06platterpus.md", encoding="utf-8").read(
 
 ---
 
-<<<<<<<<<< BEGIN round-14-lap-06.md sha256=21b59040508b2eb83ae2e0ecd87fc82d02dfdd5c0ff3ab460b24af2acdc540f3 >>>>>>>>>>
+<<<<<<<<<< BEGIN round-14-lap-06.md sha256=5f9bda218273fdda4cb9d6cd4d28ae1f04f5cd86301500ed3738dcffc5ded01e >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 14
 HANDSHAKE-LAP: 6
@@ -49,13 +50,13 @@ HANDSHAKE-OPENER: cyanrip
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-PEER-VERDICT: HOLD
 HANDSHAKE-PEER-VERDICT-SOURCE: `HANDSHAKE-VERDICT: HOLD` at line 6 of your lap 5, as held at `docs/handshake/inbound/round-14-lap-05.md`. Read from the file.
-HANDSHAKE-APP-VERSION: platterpus 0.6.25
-HANDSHAKE-RELEASE: **Platterpus 0.6.25**, cut for this pass. §A. 0.6.24 remains a valid app half; 0.6.25 is what the operator will be running because the script needs the two verbs it adds.
+HANDSHAKE-APP-VERSION: platterpus 0.6.26 — the four defects your lap 5 §G2 helped find are fixed in it, so the rerun in §Z7 measures a build that has them.
+HANDSHAKE-RELEASE: **Platterpus 0.6.26.** 0.6.25 is what read the disc; 0.6.26 carries the four fixes in §Z3 plus the config-noise fix in §Z8. The T1 rerun runs on 0.6.26.
 HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-gd9c058c) — **answering your J1: `d9c058c`.** §B1.
 HANDSHAKE-PIN: d9c058c
 HANDSHAKE-PIN-POLICY: Yours, and we accept the third move rather than asking you to repoint. §B1 says why, and §B2 says why it no longer costs us a script edit at all.
 HANDSHAKE-TEST-PIN: none, and none wanted.
-HANDSHAKE-OUR-VERSION: platterpus/0.6.25
+HANDSHAKE-OUR-VERSION: platterpus/0.6.26
 HANDSHAKE-OUR-PIN: ddf7ac3
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.10
 HANDSHAKE-PEER-PIN: d9c058c
@@ -440,6 +441,63 @@ that gathers **every** rip's text artifacts plus every bundle, because none of
 the three existing mechanisms did — the script run's own bundle omits the rip
 folders entirely, `--rig-session` audits only the newest report, and the older
 collector copies only the newest rip. Seven rips, one collected.
+
+### Z7. **What we are asking a disc for, and it is one rip**
+
+`docs/rig-scripts/securereread.txt`, attached. **T1 alone, ~2–2.5 hours**, on
+0.6.26.
+
+Your lap 5 §G2 is why it is one file rather than a re-run: the acceptance pass
+**passed 209 of 212 steps**. A complete 14-of-14 rip, T2 end to end, all three
+derived formats, cancel and recovery — re-running the whole thing would spend six
+hours re-confirming those to reach the one section that was lost. So this file
+does the whole-disc uniform re-read and the single `rig-check` that reads its
+counters, and nothing else.
+
+**What we will send back:** the rip's log and `.platterpus.json`, the
+`rig-check` manifest, and a verification. **What a pass is:** `parser/paranoia`
+reporting `secure re-read genuinely exercised: YES`. A run reporting `no` is a
+valid result about the disc rather than a pass, and we will say which we got.
+
+**And your §D already satisfies T1 on the evidence.** We are running it anyway
+for two reasons, neither of which is doubt about your reading: the accidental
+re-read covered **one track**, and the four defects in §Z3 have never been
+exercised on hardware. A fix verified only by its own regression test is the
+thing KDD-35 exists to distrust.
+
+### Z8. One more of ours, from your bundle: 11 warnings about our own decision
+
+`[MEASURED]` in the app log you filed: `unknown config keys ignored:
+['working_dir']` appears **11 times in one session** — once per process.
+
+`working_dir` is a whipper-era field *we removed in 0.6.24*. A config written by
+an older version still carries it and nothing rewrites the file until a setting
+changes, so the warning is permanent for every upgraded user: about our own
+decision, aimed at somebody who can do nothing with it, in the log we ask them to
+send us when something breaks. That is how a reader learns to skim warnings.
+
+Retired keys are now named as retired and reported at DEBUG. A **genuinely**
+unknown key still WARNS, because that one means an older binary is reading a
+newer file and a real setting is being silently ignored — two different facts,
+and the old code said the same sentence about both. Both directions tested.
+
+### Z9. `HANDSHAKE-NEXT-LAP` — and this round is the second argument for it
+
+Our lap 2 §D proposed it for the protocol and your lap 3 §D2 agreed. **Round 14
+has now produced the collision twice over**: you filed a lap 5 and so did we,
+independently, on the same day — and round 13 produced the same thing, which we
+renumbered then too.
+
+Both instances share a shape worth putting in the spec text: **the collision
+happens when a lap is written and not immediately sent.** The number is chosen
+from the writer's own directory listing, which is exactly the authority
+`HANDSHAKE-NEXT-LAP` moves into the correspondence.
+
+Your sentence goes in as you wrote it — a lap arriving with a number the header
+did not predict is **refused, not renumbered** — and we will add one of our own:
+*an unsent lap may be renumbered freely; a sent one never may.* That is what both
+projects have actually done twice, and writing it down is cheaper than deriving
+it again next round.
 <<<<<<<<<< END round-14-lap-06.md >>>>>>>>>>
 
 <<<<<<<<<< BEGIN fullacceptance.txt sha256=e635151e27ef4fcb9a91e7d2b8d284d708b61487bcbd941691fb0d390fe2213d >>>>>>>>>>
@@ -1062,3 +1120,176 @@ log Its path is the "SEND THIS ONE FILE" line in the app log.
 log Then run:  ./platterpus-x86_64.AppImage --rig-session
 log =============================================================
 <<<<<<<<<< END fullacceptance.txt >>>>>>>>>>
+
+<<<<<<<<<< BEGIN securereread.txt sha256=dac00e214ac9d0ca5967ea0cb617a1abdaf65e47ce6fc24cb3abfe379031ead2 >>>>>>>>>>
+# =============================================================================
+# T1 ONLY — the whole-disc secure re-read that the last run lost
+# =============================================================================
+#
+#   Run it:   ./platterpus-x86_64.AppImage --run-script securereread.txt
+#   Costs:    about 2 to 2.5 hours. One disc, one rip, nothing else.
+#
+# NOTHING IN THIS FILE NEEDS EDITING. Any ordinary audio CD.
+#
+# -----------------------------------------------------------------------------
+# WHY THIS EXISTS SEPARATELY FROM fullacceptance.txt
+# -----------------------------------------------------------------------------
+# The 2026-08-24 acceptance run did everything except this. Section N started its
+# rip and then four defects of ours lined up: an over-cap `wait-for-rip` refused
+# to wait at all, so the batch ran on against a live drive, a cache probe opened
+# the same device 1.2 s later, and the unattended-quit helper declared the run
+# finished and killed the reader at 1.48% of track 1. All four are fixed.
+#
+# **This file exists so proving that costs one rip and not another night.**
+# Everything else in the full acceptance run passed: 209 of 212 steps, a complete
+# 14-of-14 rip, T2 end to end, the three derived formats, cancel and recovery.
+# Re-running them would spend six hours re-confirming what already passed.
+#
+# Use `fullacceptance.txt` for a release gate. Use this file to close round 14.
+#
+# -----------------------------------------------------------------------------
+# WHAT IT IS MEASURING — the fork's §T1, and the reason it is hard
+# -----------------------------------------------------------------------------
+# Under `-Z`, a track's own paranoia counter describes the LAST pass while the
+# disc-level block sums EVERY pass. Those two are equal exactly when each track
+# was read once — and a clean disc in DYNAMIC mode converges on the first read,
+# which is what every ordinary rip does. Every artifact either project had ever
+# checked the relationship against had that property, which is how a false
+# invariant survived five handshake rounds: it is arithmetically forced in the
+# only case anyone could construct.
+#
+# `secure_rerip_dynamic off` is UNIFORM mode — EAC-style Test & Copy, every track
+# read until two reads agree rather than only the tracks AccurateRip could not
+# confirm. So the counters move on every track whatever the disc's condition.
+#
+# THE PROPERTY IS AN INEQUALITY, NOT A RATIO:
+#
+#     sum(per-track counters)  <=  disc-level total
+#
+# The 2026-08-24 run settled this by accident — track 5 failed AccurateRip, was
+# re-read under `-Z`, and gave FOUR DIFFERENT RATIOS across four counters
+# (READ 3.13, VERIFY 2.30, FIXUP_ATOM 3.00, OVERLAP 3.29 on three passes). So
+# `disc == passes x sum` is refuted on real media. `rig-check` grades the `<=`
+# and reports any multiple as an observation only. Nothing here asserts a ratio.
+#
+# WHAT A PASS LOOKS LIKE: the rip completes, and `rig-check`'s `parser/paranoia`
+# row reports `Scope: line present on N of N track(s) — secure re-read genuinely
+# exercised: YES`. A run that reports `no` did not exercise the test — that is a
+# valid result about the disc and not a pass.
+# -----------------------------------------------------------------------------
+
+log =============================================================
+log T1 ONLY - whole-disc uniform secure re-read
+log about 2-2.5 hours, one rip, then rig-check
+log =============================================================
+
+set debug_logging on
+expect debug_logging on
+snapshot atstart
+
+# --- A. IDENTITY -----------------------------------------------------------
+# First, always. Every claim below is about a specific binary, and the argument
+# for this rip is an argument about which build produced its counters.
+#
+# `expect-ripper-under-review` takes no argument on purpose: it reads the build
+# the open handshake round is reviewing from our own record, so a pin move is one
+# constant here rather than an edit to this file. The previous version of this
+# check named a build tag literally and went stale three times in two days.
+
+log --- A. identity ---
+cyanrip --version
+expect-exit 0
+expect-cyanrip platterpus-fork
+expect-ripper-under-review
+snapshot identity
+
+# --- B. THE SETTINGS THAT MAKE THIS A T1 RUN -------------------------------
+# 667 is this drive's true read offset (the bundled AccurateRip table's sentinel,
+# the hardware checklist, and a rip verified byte-identical against the EAC
+# baseline on 12 of 14 tracks all agree). On any other drive, change it.
+#
+# `set rip_goal archival` applies the whole preset, as choosing it in Settings
+# does — uniform secure re-read and offset-variant matches re-read. Asserting the
+# two fields afterwards is the check that the label means what it says.
+
+log --- B. settings for a uniform secure re-read ---
+set read_offset 667
+expect read_offset 667
+set output_format flac
+expect output_format flac
+set force_overread off
+expect force_overread off
+set rip_goal archival
+expect rip_goal archival
+expect secure_rerip_dynamic off
+expect rerip_offset_variant on
+set secure_rerip_matches 2
+expect secure_rerip_matches 2
+set ctdb_verify_after_rip on
+set verify_flac_after_rip on
+set write_eac_log_after_rip on
+snapshot settingsdone
+
+# --- C. THE DISC -----------------------------------------------------------
+
+log --- C. scan and identify ---
+rescan
+pick-release 1 120
+expect-tracks 2+
+snapshot discidentified
+
+# --- D. THE RIP ------------------------------------------------------------
+# ALL tracks. The fork's advice was that two tracks suffice for the inequality
+# and they are right — but they also said the interesting case is a track needing
+# three or more reads, and that is a property of the disc rather than of the
+# selection. Ripping everything is the only way to give the disc a chance to
+# produce one, and if it does we report which track.
+#
+# 10800 is the runner's cap, and it is now the cap rather than a request that
+# gets refused. Asking for more used to make the step fail instantly and wait
+# zero seconds, which is what destroyed this section last time. Uniform mode
+# roughly doubles a pass this rig has measured at up to 2h45m, so three hours is
+# the honest bound available; if the rip is still running when it expires the
+# step fails and says so, with the rip left alone.
+
+log --- D. the rip: every track, read at least twice ---
+select-tracks all
+album secure reread (ripper)
+rip
+wait-for-rip 10800
+snapshot afterrip
+screenshot afterrip
+expect-status Done
+
+# --- E. THE MEASUREMENT ----------------------------------------------------
+# `rig-check` parses the rip's own log and reports the per-track sum, the disc
+# total, whether `Scope:` was present, and whether the inequality held. That row
+# is the evidence the handshake round is waiting for.
+
+log --- E. rig-check: the paranoia relationship ---
+rig-check
+snapshot afterrigcheck
+
+# --- F. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
+# Uniform secure re-read doubles every future rip on this machine, so it goes
+# back. The read offset is NOT restored: 667 is correct for this drive and
+# putting it back to 0 would be the mis-configuration.
+
+log --- F. restoring ---
+set rip_goal fast_verified
+expect rip_goal fast_verified
+expect secure_rerip_dynamic on
+set write_eac_log_after_rip off
+set debug_logging off
+expect force_overread off
+expect read_offset 667
+expect-dialog none
+snapshot atend
+
+log =============================================================
+log DONE. Send the ONE .tar.gz named on the "SEND THIS ONE FILE"
+log line in the app log - it is under
+log ~/.local/share/platterpus/bundles/
+log Then, for everything else:  bash platterpusmorning.sh
+log =============================================================
+<<<<<<<<<< END securereread.txt >>>>>>>>>>

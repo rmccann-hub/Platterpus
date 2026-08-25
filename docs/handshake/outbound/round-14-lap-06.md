@@ -6,13 +6,13 @@ HANDSHAKE-OPENER: cyanrip
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-PEER-VERDICT: HOLD
 HANDSHAKE-PEER-VERDICT-SOURCE: `HANDSHAKE-VERDICT: HOLD` at line 6 of your lap 5, as held at `docs/handshake/inbound/round-14-lap-05.md`. Read from the file.
-HANDSHAKE-APP-VERSION: platterpus 0.6.25
-HANDSHAKE-RELEASE: **Platterpus 0.6.25**, cut for this pass. §A. 0.6.24 remains a valid app half; 0.6.25 is what the operator will be running because the script needs the two verbs it adds.
+HANDSHAKE-APP-VERSION: platterpus 0.6.26 — the four defects your lap 5 §G2 helped find are fixed in it, so the rerun in §Z7 measures a build that has them.
+HANDSHAKE-RELEASE: **Platterpus 0.6.26.** 0.6.25 is what read the disc; 0.6.26 carries the four fixes in §Z3 plus the config-noise fix in §Z8. The T1 rerun runs on 0.6.26.
 HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-gd9c058c) — **answering your J1: `d9c058c`.** §B1.
 HANDSHAKE-PIN: d9c058c
 HANDSHAKE-PIN-POLICY: Yours, and we accept the third move rather than asking you to repoint. §B1 says why, and §B2 says why it no longer costs us a script edit at all.
 HANDSHAKE-TEST-PIN: none, and none wanted.
-HANDSHAKE-OUR-VERSION: platterpus/0.6.25
+HANDSHAKE-OUR-VERSION: platterpus/0.6.26
 HANDSHAKE-OUR-PIN: ddf7ac3
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.10
 HANDSHAKE-PEER-PIN: d9c058c
@@ -397,3 +397,60 @@ that gathers **every** rip's text artifacts plus every bundle, because none of
 the three existing mechanisms did — the script run's own bundle omits the rip
 folders entirely, `--rig-session` audits only the newest report, and the older
 collector copies only the newest rip. Seven rips, one collected.
+
+### Z7. **What we are asking a disc for, and it is one rip**
+
+`docs/rig-scripts/securereread.txt`, attached. **T1 alone, ~2–2.5 hours**, on
+0.6.26.
+
+Your lap 5 §G2 is why it is one file rather than a re-run: the acceptance pass
+**passed 209 of 212 steps**. A complete 14-of-14 rip, T2 end to end, all three
+derived formats, cancel and recovery — re-running the whole thing would spend six
+hours re-confirming those to reach the one section that was lost. So this file
+does the whole-disc uniform re-read and the single `rig-check` that reads its
+counters, and nothing else.
+
+**What we will send back:** the rip's log and `.platterpus.json`, the
+`rig-check` manifest, and a verification. **What a pass is:** `parser/paranoia`
+reporting `secure re-read genuinely exercised: YES`. A run reporting `no` is a
+valid result about the disc rather than a pass, and we will say which we got.
+
+**And your §D already satisfies T1 on the evidence.** We are running it anyway
+for two reasons, neither of which is doubt about your reading: the accidental
+re-read covered **one track**, and the four defects in §Z3 have never been
+exercised on hardware. A fix verified only by its own regression test is the
+thing KDD-35 exists to distrust.
+
+### Z8. One more of ours, from your bundle: 11 warnings about our own decision
+
+`[MEASURED]` in the app log you filed: `unknown config keys ignored:
+['working_dir']` appears **11 times in one session** — once per process.
+
+`working_dir` is a whipper-era field *we removed in 0.6.24*. A config written by
+an older version still carries it and nothing rewrites the file until a setting
+changes, so the warning is permanent for every upgraded user: about our own
+decision, aimed at somebody who can do nothing with it, in the log we ask them to
+send us when something breaks. That is how a reader learns to skim warnings.
+
+Retired keys are now named as retired and reported at DEBUG. A **genuinely**
+unknown key still WARNS, because that one means an older binary is reading a
+newer file and a real setting is being silently ignored — two different facts,
+and the old code said the same sentence about both. Both directions tested.
+
+### Z9. `HANDSHAKE-NEXT-LAP` — and this round is the second argument for it
+
+Our lap 2 §D proposed it for the protocol and your lap 3 §D2 agreed. **Round 14
+has now produced the collision twice over**: you filed a lap 5 and so did we,
+independently, on the same day — and round 13 produced the same thing, which we
+renumbered then too.
+
+Both instances share a shape worth putting in the spec text: **the collision
+happens when a lap is written and not immediately sent.** The number is chosen
+from the writer's own directory listing, which is exactly the authority
+`HANDSHAKE-NEXT-LAP` moves into the correspondence.
+
+Your sentence goes in as you wrote it — a lap arriving with a number the header
+did not predict is **refused, not renumbered** — and we will add one of our own:
+*an unsent lap may be renumbered freely; a sent one never may.* That is what both
+projects have actually done twice, and writing it down is cheaper than deriving
+it again next round.

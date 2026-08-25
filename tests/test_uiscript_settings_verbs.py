@@ -286,3 +286,60 @@ def test_a_version_probe_is_still_allowed_during_a_rip(window: QWidget) -> None:
     assert "READING THE DISC" not in detail, (
         f"a --version probe was refused during a rip: {detail}"
     )
+
+
+# --- A retired setting must not warn on every launch --------------------------
+
+
+def test_a_retired_setting_does_not_warn_every_launch(
+    tmp_path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """**Measured: 11 warnings in one session's log, about our own decision.**
+
+    `working_dir` was removed in 0.6.24. The config on disk still carries it —
+    nothing rewrites the file until a setting changes — so every process logged
+    `unknown config keys ignored: ['working_dir']`. Once per launch, forever, for
+    every user who upgraded, in the log we ask them to send us when something
+    goes wrong. A warning a reader can do nothing about trains them to skim
+    warnings.
+    """
+    import logging
+
+    from platterpus import config as config_mod
+
+    cfg_path = tmp_path / "config.toml"
+    cfg_path.write_text('working_dir = "/tmp/scratch"\n', encoding="utf-8")
+    monkeypatch.setattr(config_mod, "CONFIG_PATH", cfg_path)
+
+    with caplog.at_level(logging.DEBUG, logger=config_mod.log.name):
+        loaded = config_mod.load()
+
+    warnings = [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert not warnings, (
+        f"a retired setting warned on load: {[r.getMessage() for r in warnings]}"
+    )
+    assert not hasattr(loaded, "working_dir"), "the retired field came back"
+
+
+def test_a_GENUINELY_unknown_setting_still_warns(
+    tmp_path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """**The floor, and it is the half that matters more.**
+
+    An unknown key means an older binary is reading a newer file and a setting is
+    being silently ignored — a real warning. Without this assertion the fix above
+    could have been "stop warning about anything", which would hide exactly that.
+    """
+    import logging
+
+    from platterpus import config as config_mod
+
+    cfg_path = tmp_path / "config.toml"
+    cfg_path.write_text("some_future_setting = 1\n", encoding="utf-8")
+    monkeypatch.setattr(config_mod, "CONFIG_PATH", cfg_path)
+
+    with caplog.at_level(logging.DEBUG, logger=config_mod.log.name):
+        config_mod.load()
+
+    messages = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
+    assert any("some_future_setting" in m for m in messages), messages

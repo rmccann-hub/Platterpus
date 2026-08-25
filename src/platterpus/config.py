@@ -421,8 +421,30 @@ def load() -> Config:
         # crash. Log so we know it happened — silent drops would be worse.
         known = {f.name for f in Config.__dataclass_fields__.values()}
         unknown = set(raw) - known
-        if unknown:
-            log.warning("unknown config keys ignored: %s", sorted(unknown))
+        # A KEY *WE* RETIRED IS NOT AN UNKNOWN KEY, and warning about it every
+        # launch is noise that trains a reader to skim warnings.
+        #
+        # Measured on the 2026-08-25 rig bundle: `unknown config keys ignored:
+        # ['working_dir']` appears **11 times in one session's log** — once per
+        # process, forever, for every user who upgraded past 0.6.24. `working_dir`
+        # was a whipper-era field this project deliberately removed; the config on
+        # disk still carries it because nothing rewrites the file until a setting
+        # changes. So the warning is about our own decision, aimed at a user who
+        # can do nothing with it, in the log we ask them to send us.
+        #
+        # Reported once at DEBUG instead, and named separately from a genuinely
+        # unknown key — which is still a WARNING, because that one means an older
+        # binary is reading a newer file and a setting is being silently ignored.
+        # Two different facts; the old code said the same sentence about both.
+        retired = unknown & RETIRED_CONFIG_KEYS
+        genuinely_unknown = unknown - RETIRED_CONFIG_KEYS
+        if retired:
+            log.debug(
+                "config carries setting(s) this version retired, ignored: %s",
+                sorted(retired),
+            )
+        if genuinely_unknown:
+            log.warning("unknown config keys ignored: %s", sorted(genuinely_unknown))
         filtered = {k: v for k, v in raw.items() if k in known}
         cfg = Config(**filtered)
     except (tomllib.TOMLDecodeError, ValueError, TypeError, OSError) as exc:
@@ -600,6 +622,25 @@ def _forward_compat_extra() -> dict[str, Any]:
     except (TypeError, ValueError):
         pass
     return extra
+
+
+#: Settings this project has REMOVED. A config file written by an older version
+#: still carries them, and nothing rewrites the file until the user changes
+#: something — so without this list every launch warns about a decision we made.
+#:
+#: Additive only: a name goes in when the field comes out, and never comes back
+#: out, because an old config can arrive at any time. A retired key is dropped
+#: exactly as an unknown one is; the difference is only what the log calls it.
+RETIRED_CONFIG_KEYS: frozenset[str] = frozenset(
+    {
+        # Removed in 0.6.24. A whipper-era scratch directory: whipper took one,
+        # cyanrip has no working-directory flag, and the rip runs with
+        # `cwd=output_dir`. It was stored on an attribute nothing ever read while
+        # the Settings tooltip told users it was "a scratch folder used while a
+        # rip is in progress".
+        "working_dir",
+    }
+)
 
 
 def _migrate(raw: dict[str, Any]) -> dict[str, Any]:

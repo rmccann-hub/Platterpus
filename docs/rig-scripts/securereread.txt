@@ -1,0 +1,170 @@
+# =============================================================================
+# T1 ONLY — the whole-disc secure re-read that the last run lost
+# =============================================================================
+#
+#   Run it:   ./platterpus-x86_64.AppImage --run-script securereread.txt
+#   Costs:    about 2 to 2.5 hours. One disc, one rip, nothing else.
+#
+# NOTHING IN THIS FILE NEEDS EDITING. Any ordinary audio CD.
+#
+# -----------------------------------------------------------------------------
+# WHY THIS EXISTS SEPARATELY FROM fullacceptance.txt
+# -----------------------------------------------------------------------------
+# The 2026-08-24 acceptance run did everything except this. Section N started its
+# rip and then four defects of ours lined up: an over-cap `wait-for-rip` refused
+# to wait at all, so the batch ran on against a live drive, a cache probe opened
+# the same device 1.2 s later, and the unattended-quit helper declared the run
+# finished and killed the reader at 1.48% of track 1. All four are fixed.
+#
+# **This file exists so proving that costs one rip and not another night.**
+# Everything else in the full acceptance run passed: 209 of 212 steps, a complete
+# 14-of-14 rip, T2 end to end, the three derived formats, cancel and recovery.
+# Re-running them would spend six hours re-confirming what already passed.
+#
+# Use `fullacceptance.txt` for a release gate. Use this file to close round 14.
+#
+# -----------------------------------------------------------------------------
+# WHAT IT IS MEASURING — the fork's §T1, and the reason it is hard
+# -----------------------------------------------------------------------------
+# Under `-Z`, a track's own paranoia counter describes the LAST pass while the
+# disc-level block sums EVERY pass. Those two are equal exactly when each track
+# was read once — and a clean disc in DYNAMIC mode converges on the first read,
+# which is what every ordinary rip does. Every artifact either project had ever
+# checked the relationship against had that property, which is how a false
+# invariant survived five handshake rounds: it is arithmetically forced in the
+# only case anyone could construct.
+#
+# `secure_rerip_dynamic off` is UNIFORM mode — EAC-style Test & Copy, every track
+# read until two reads agree rather than only the tracks AccurateRip could not
+# confirm. So the counters move on every track whatever the disc's condition.
+#
+# THE PROPERTY IS AN INEQUALITY, NOT A RATIO:
+#
+#     sum(per-track counters)  <=  disc-level total
+#
+# The 2026-08-24 run settled this by accident — track 5 failed AccurateRip, was
+# re-read under `-Z`, and gave FOUR DIFFERENT RATIOS across four counters
+# (READ 3.13, VERIFY 2.30, FIXUP_ATOM 3.00, OVERLAP 3.29 on three passes). So
+# `disc == passes x sum` is refuted on real media. `rig-check` grades the `<=`
+# and reports any multiple as an observation only. Nothing here asserts a ratio.
+#
+# WHAT A PASS LOOKS LIKE: the rip completes, and `rig-check`'s `parser/paranoia`
+# row reports `Scope: line present on N of N track(s) — secure re-read genuinely
+# exercised: YES`. A run that reports `no` did not exercise the test — that is a
+# valid result about the disc and not a pass.
+# -----------------------------------------------------------------------------
+
+log =============================================================
+log T1 ONLY - whole-disc uniform secure re-read
+log about 2-2.5 hours, one rip, then rig-check
+log =============================================================
+
+set debug_logging on
+expect debug_logging on
+snapshot atstart
+
+# --- A. IDENTITY -----------------------------------------------------------
+# First, always. Every claim below is about a specific binary, and the argument
+# for this rip is an argument about which build produced its counters.
+#
+# `expect-ripper-under-review` takes no argument on purpose: it reads the build
+# the open handshake round is reviewing from our own record, so a pin move is one
+# constant here rather than an edit to this file. The previous version of this
+# check named a build tag literally and went stale three times in two days.
+
+log --- A. identity ---
+cyanrip --version
+expect-exit 0
+expect-cyanrip platterpus-fork
+expect-ripper-under-review
+snapshot identity
+
+# --- B. THE SETTINGS THAT MAKE THIS A T1 RUN -------------------------------
+# 667 is this drive's true read offset (the bundled AccurateRip table's sentinel,
+# the hardware checklist, and a rip verified byte-identical against the EAC
+# baseline on 12 of 14 tracks all agree). On any other drive, change it.
+#
+# `set rip_goal archival` applies the whole preset, as choosing it in Settings
+# does — uniform secure re-read and offset-variant matches re-read. Asserting the
+# two fields afterwards is the check that the label means what it says.
+
+log --- B. settings for a uniform secure re-read ---
+set read_offset 667
+expect read_offset 667
+set output_format flac
+expect output_format flac
+set force_overread off
+expect force_overread off
+set rip_goal archival
+expect rip_goal archival
+expect secure_rerip_dynamic off
+expect rerip_offset_variant on
+set secure_rerip_matches 2
+expect secure_rerip_matches 2
+set ctdb_verify_after_rip on
+set verify_flac_after_rip on
+set write_eac_log_after_rip on
+snapshot settingsdone
+
+# --- C. THE DISC -----------------------------------------------------------
+
+log --- C. scan and identify ---
+rescan
+pick-release 1 120
+expect-tracks 2+
+snapshot discidentified
+
+# --- D. THE RIP ------------------------------------------------------------
+# ALL tracks. The fork's advice was that two tracks suffice for the inequality
+# and they are right — but they also said the interesting case is a track needing
+# three or more reads, and that is a property of the disc rather than of the
+# selection. Ripping everything is the only way to give the disc a chance to
+# produce one, and if it does we report which track.
+#
+# 10800 is the runner's cap, and it is now the cap rather than a request that
+# gets refused. Asking for more used to make the step fail instantly and wait
+# zero seconds, which is what destroyed this section last time. Uniform mode
+# roughly doubles a pass this rig has measured at up to 2h45m, so three hours is
+# the honest bound available; if the rip is still running when it expires the
+# step fails and says so, with the rip left alone.
+
+log --- D. the rip: every track, read at least twice ---
+select-tracks all
+album secure reread (ripper)
+rip
+wait-for-rip 10800
+snapshot afterrip
+screenshot afterrip
+expect-status Done
+
+# --- E. THE MEASUREMENT ----------------------------------------------------
+# `rig-check` parses the rip's own log and reports the per-track sum, the disc
+# total, whether `Scope:` was present, and whether the inequality held. That row
+# is the evidence the handshake round is waiting for.
+
+log --- E. rig-check: the paranoia relationship ---
+rig-check
+snapshot afterrigcheck
+
+# --- F. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
+# Uniform secure re-read doubles every future rip on this machine, so it goes
+# back. The read offset is NOT restored: 667 is correct for this drive and
+# putting it back to 0 would be the mis-configuration.
+
+log --- F. restoring ---
+set rip_goal fast_verified
+expect rip_goal fast_verified
+expect secure_rerip_dynamic on
+set write_eac_log_after_rip off
+set debug_logging off
+expect force_overread off
+expect read_offset 667
+expect-dialog none
+snapshot atend
+
+log =============================================================
+log DONE. Send the ONE .tar.gz named on the "SEND THIS ONE FILE"
+log line in the app log - it is under
+log ~/.local/share/platterpus/bundles/
+log Then, for everything else:  bash platterpusmorning.sh
+log =============================================================
