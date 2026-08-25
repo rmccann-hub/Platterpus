@@ -1851,6 +1851,24 @@ class ScriptRunner(QObject):
         import dataclasses
 
         candidate = dataclasses.replace(current, **{field: coerced})
+        # `rip_goal` IS NOT A SETTING; IT IS A NAME FOR A SET OF THEM.
+        #
+        # In Settings, choosing a goal calls `apply_preset`, which writes every
+        # field the preset defines. Writing the field alone produced a config no
+        # dialog could ever create: `rip_goal="archival"` beside fast-verified
+        # values, which `detect_goal` then reports as `custom` — the label and the
+        # settings disagreeing, in the one surface this project writes its tests
+        # in. A script could therefore "select the archival goal" and rip with
+        # exactly the settings it was trying not to use.
+        #
+        # Delegated to the real `apply_preset`, never restated here, so the script
+        # surface and the dialog cannot answer "what does this goal mean?"
+        # differently (`CLAUDE.md`: two surfaces, one question, one key).
+        if field == "rip_goal":
+            from platterpus.goal_presets import GOAL_CUSTOM, apply_preset
+
+            if coerced != GOAL_CUSTOM:
+                candidate = apply_preset(current, str(coerced))
         rejection = _validation_error_for(candidate, field)
         if rejection:
             # Refused, and the validator's own sentence is what the transcript
@@ -1881,6 +1899,135 @@ class ScriptRunner(QObject):
             except OSError as exc:
                 saved = f" (in effect for this session; not saved to disk: {exc})"
         self._record(step, Outcome.PASS, f"{field} = {coerced!r}{saved}")
+
+    def _do_expect_ripper_under_review(self, step: Step) -> None:
+        """``expect-ripper-under-review`` — the installed build is the round's subject.
+
+        **Reads the constant, never a literal in the script.** The acceptance
+        script used to assert an exact build tag, and the cyanrip fork published
+        three betas in two days on the channel our own installer resolves — so
+        three times an operator who followed our instructions installed the build
+        we sent them to and was told by our own section A that it was the wrong
+        one. Their lap 4 §C named the shape: *a hardcoded build tag in a committed
+        script is a second copy of a fact that lives in `release-manifest.json`,
+        and only one copy has a checker.*
+
+        `PIN_UNDER_REVIEW` is derived from the newest inbound handshake lap by
+        ``tests/test_handshake_pin_under_review.py``, so this reads one key rather
+        than a duplicate of one, and a pin move now fails in CI rather than on a
+        rig.
+
+        Matches against the previous ``cyanrip`` step's output, exactly as
+        ``expect-cyanrip`` does — the banner is the only statement of identity
+        derivable from the binary itself.
+        """
+        from platterpus.deps import fork_source
+
+        expected = f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}"
+        if not self._last_cyanrip_argv:
+            self._record(
+                step,
+                Outcome.ERROR,
+                "no cyanrip command has run yet — put `cyanrip --version` above "
+                "this step so there is a banner to read",
+            )
+            return
+        if expected in self._last_cyanrip_output:
+            self._record(
+                step,
+                Outcome.PASS,
+                f"installed build is {expected}, the build handshake round "
+                f"{fork_source.PIN_UNDER_REVIEW} is under review in",
+            )
+            return
+        self._record(
+            step,
+            Outcome.FAIL,
+            f"the installed cyanrip is NOT {expected}, the build the open "
+            f"handshake round is reviewing. Every later section would be evidence "
+            f"about a different binary. Install it: Settings -> the ripper beta "
+            f"channel, then take the offer.\n"
+            f"{_bounded_output(self._last_cyanrip_output)}",
+        )
+
+    def _do_expect_refused(self, step: Step) -> None:
+        """``expect-refused <field> <value>`` — assert the validator refuses it.
+
+        **The inverse of :meth:`_do_set`, and the only shape in which a script can
+        test that a guard fired.** `set` records FAIL on a refusal, which is the
+        right report for an accidental bad value and the wrong one for a
+        deliberate probe — so before this verb existed, the acceptance suite
+        exercised none of the input validation `CLAUDE.md` calls institutional.
+
+        **Both halves are asserted.** A refusal that still writes the value is
+        worse than no guard at all, because the log says the input was rejected
+        while the setting reaches cyanrip's argv anyway. Checking only the
+        refusal cannot see that, and *"can this check be satisfied by the wrong
+        thing?"* is the question this project keeps paying for.
+
+        Delegates to the same `_coerce_setting` + `_validation_error_for` pair
+        `_do_set` uses, never a second copy: a validator a test calls differently
+        from the product is a validator two things can disagree about.
+        """
+        field = step.args[0]
+        raw = " ".join(step.args[1:])
+        current = getattr(self._window, "_config", None)
+        if current is None:
+            self._record(step, Outcome.ERROR, "the window has no config")
+            return
+        if not hasattr(current, field):
+            self._record(
+                step,
+                Outcome.ERROR,
+                f"no setting called {field!r} — use the config.toml field name",
+            )
+            return
+        before = getattr(current, field)
+
+        coerced, problem = _coerce_setting(before, raw)
+        if problem:
+            # A value the COERCER rejects never reaches the validator, and that is
+            # still a refusal at the boundary — which is what this verb asserts.
+            # Named separately so the transcript says which layer caught it.
+            self._record(
+                step,
+                Outcome.PASS,
+                f"refused at type coercion: {problem}; {field} is still {before!r}",
+            )
+            return
+
+        import dataclasses
+
+        candidate = dataclasses.replace(current, **{field: coerced})
+        rejection = _validation_error_for(candidate, field)
+        if rejection:
+            # The value is NOT written — `candidate` is a local and nothing above
+            # assigned it to the window. Asserted rather than assumed, because the
+            # whole point of the verb is the pair.
+            still = getattr(getattr(self._window, "_config"), field)  # noqa: B009
+            if still != before:
+                self._record(
+                    step,
+                    Outcome.FAIL,
+                    f"the validator refused {raw!r} — {rejection} — but {field} "
+                    f"CHANGED from {before!r} to {still!r}. A refusal that writes "
+                    f"the value anyway is worse than no guard: the log says the "
+                    f"input was rejected while the setting still reaches the rip.",
+                )
+                return
+            self._record(
+                step,
+                Outcome.PASS,
+                f"refused, and {field} is still {before!r} — {rejection}",
+            )
+            return
+        self._record(
+            step,
+            Outcome.FAIL,
+            f"expected {field}={raw!r} to be REFUSED and it was ACCEPTED. The "
+            f"validator is the source of truth for this input and it let it "
+            f"through; a widget range is a convenience, not the validation.",
+        )
 
     def _do_expect(self, step: Step) -> None:
         """``expect <config-field> <value>`` — assert a setting equals a value."""

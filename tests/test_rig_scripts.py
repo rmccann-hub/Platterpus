@@ -27,6 +27,7 @@ inside a test written about an artifact that rotted.
 from __future__ import annotations
 
 import dataclasses
+import re
 from pathlib import Path
 
 import pytest
@@ -162,3 +163,94 @@ def test_no_step_failed_to_parse(path: Path) -> None:
     steps = uiscript.parse(path.read_text(encoding="utf-8"))
     broken = [f"line {s.line_no}: {s.source!r} -> {s.error}" for s in steps if s.error]
     assert not broken, f"{path.name}\n" + "\n".join(broken)
+
+
+# --- The acceptance script and the pin under review are ONE key ---------------
+
+ACCEPTANCE: Path = RIG_SCRIPTS / "fullacceptance.txt"
+
+#: `expect-cyanrip platterpus-fork-g<sha>` — the build the acceptance run asserts
+#: it is grading. Matched on the whole tail so a prefix cannot satisfy it.
+_ASSERTED_BUILD = re.compile(
+    r"^expect-cyanrip\s+platterpus-fork-g(?P<sha>[0-9a-f]{7,40})\s*$",
+    re.MULTILINE,
+)
+
+
+def test_the_acceptance_script_hardcodes_no_cyanrip_build_tag() -> None:
+    """**The regression test for a defect that recurred three times in two days.**
+
+    Two surfaces answered *"which cyanrip build is this run about?"* with
+    different keys: the script carried a literal `platterpus-fork-g796df32`, while
+    the in-app install route resolves the fork's `release-manifest.json` `beta`
+    channel. They then published `f2c0506` and `d9c058c` on that channel. Each
+    time, an operator following our own instructions installed the build we sent
+    them to and **failed section A in the first four seconds**, told they were on
+    the wrong one.
+
+    Changing the literal three times was not the fix. The fork named the shape in
+    their round-14 lap 4 §C: *"a hardcoded build tag in a committed script is a
+    second copy of a fact that lives in release-manifest.json. Two places holding
+    one fact, and only one of them has a checker."*
+
+    So the script now says `expect-ripper-under-review`, which reads
+    `PIN_UNDER_REVIEW` — itself derived from the newest inbound handshake lap by
+    `tests/test_handshake_pin_under_review.py`. One key, three surfaces. **This
+    test asserts the ABSENCE of the second copy**, because a test that merely
+    checked the literal was current would have passed on all three wrong days.
+    """
+    text = ACCEPTANCE.read_text(encoding="utf-8")
+    steps = uiscript.parse(text)
+    literals = [
+        f"line {s.line_no}: {s.source.strip()}"
+        for s in steps
+        if s.verb == "expect-cyanrip"
+        and s.args
+        and re.fullmatch(r"platterpus-fork-g[0-9a-f]{7,40}", s.args[0] or "")
+    ]
+    assert not literals, (
+        "fullacceptance.txt asserts a LITERAL cyanrip build tag:\n  "
+        + "\n  ".join(literals)
+        + "\nUse `expect-ripper-under-review`, which reads the constant the "
+        "handshake record derives. A literal here is a second copy of a fact "
+        "the fork publishes, and it went stale three times in two days."
+    )
+    assert any(s.verb == "expect-ripper-under-review" for s in steps), (
+        "the acceptance script no longer asserts WHICH cyanrip build it is "
+        "grading. That assertion is what stops a multi-hour pass running against "
+        "the wrong ripper, which is the one mistake that invalidates the run."
+    )
+
+
+def test_the_under_review_verb_matches_the_build_the_record_names() -> None:
+    """The verb's expectation is the record's, not a copy of it.
+
+    Asserted through the same construction the handler uses, so a change to
+    either the branch name or the constant fails here rather than producing an
+    assertion that can never match any real banner.
+    """
+    from platterpus.deps import fork_source
+
+    expected = f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}"
+    assert re.fullmatch(r"platterpus-fork-g[0-9a-f]{7,40}", expected), expected
+
+
+def test_the_pin_under_review_has_a_release_sequence() -> None:
+    """A build the acceptance run installs must be placeable in the fork's order.
+
+    Without a row, `release_seq_for_commit` returns `None` and the ripper offer
+    tells an operator sitting on a **published release** that they are on *"a
+    mid-round test pin, or a commit installed by hand"* — every clause of it wrong.
+    That was reported by the maintainer on 2026-08-17, fixed by adding one row, and
+    the fork quoted our own prediction back a day later when it recurred: *"it
+    returns every time you publish and we do not."* This is the check that stops it
+    returning a third time.
+    """
+    from platterpus.deps import fork_source
+
+    seq = fork_source.release_seq_for_commit(fork_source.PIN_UNDER_REVIEW)
+    assert seq is not None, (
+        f"{fork_source.PIN_UNDER_REVIEW} is the pin under review — the build the "
+        f"acceptance run installs — and it has no row in FORK_RELEASE_SEQ_BY_PIN, "
+        f"so the ripper offer cannot place it in the fork's release order."
+    )

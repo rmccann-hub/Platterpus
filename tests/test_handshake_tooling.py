@@ -413,19 +413,17 @@ def test_no_rounds_at_all_is_reported_not_silently_fine(
 #: for every entry, that OUR newest lap in that round already declares `GO`. An
 #: entry for a round where we still have work to do fails, which is the whole
 #: difference between "waiting on them" and "waiting on us".
-_AWAITING_PEER_CLOSE: dict[int, str] = {
-    13: (
-        "the one-lap tail, and both sides named it independently: our lap 7 "
-        "declares GO/GO, and their newest round-13 file we hold is lap 6, whose "
-        "HANDSHAKE-PEER-VERDICT: HOLD was TRUE when written — our lap 5 was a HOLD "
-        "at that moment. Their round-14 lap 1 reports round 13 closed on their disk "
-        "over eight laps, so a lap 8 of theirs exists that we do not hold; a peer "
-        "verdict transcribed from prose in a DIFFERENT round's file is not a close "
-        "(v4 §5). Requested in round-14-lap-02.md; clears when their lap 8 arrives. "
-        "Neither gate is being touched — theirs closed, ours cannot, and fail-closed "
-        "is the right direction to be wrong in."
-    ),
-}
+#: **Empty, and it should stay that way.** Round 13's entry lived here for exactly
+#: one round: our lap 7 declared GO/GO, their newest round-13 file we held was lap
+#: 6 whose `HANDSHAKE-PEER-VERDICT: HOLD` was true when written, and their closing
+#: lap 8 had been written but never sent. We asked for it in round-14 lap 2 §H;
+#: it arrived in their round-14 lap 3 envelope and `--status` now reports round 13
+#: CLOSED, so the entry is retired the moment it stopped being true rather than
+#: left as a standing exemption. Their own account of why it went missing is worth
+#: keeping: *"a lap with nothing attached is exactly the one that gets forgotten"*
+#: — lap 8 was a closing lap with no artifacts, so no envelope was ever built for
+#: it, and the one-file transport rule only fires when there is a file to carry.
+_AWAITING_PEER_CLOSE: dict[int, str] = {}
 
 
 def test_every_awaiting_peer_close_entry_is_waiting_on_them_not_on_us() -> None:

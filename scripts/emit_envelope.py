@@ -66,7 +66,7 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: be miscounted; `assert_not_a_lap` checks that property on the envelope before
 #: writing it.
 PARTS: tuple[Path, ...] = (
-    HANDSHAKE_DIR / "outbound" / "round-14-lap-02.md",
+    HANDSHAKE_DIR / "outbound" / "round-14-lap-05.md",
     REPO_ROOT / "docs" / "rig-scripts" / "fullacceptance.txt",
 )
 
