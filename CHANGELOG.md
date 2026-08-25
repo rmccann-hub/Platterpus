@@ -11,7 +11,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.26] — 2026-08-25
+
+### Added
+- **`docs/rig-scripts/securereread.txt` — T1 alone, so proving the fix costs one
+  rip instead of another night.** The 2026-08-24 acceptance run passed 209 of 212
+  steps and lost only its final section; re-running the whole file would spend six
+  hours re-confirming a complete 14-of-14 rip, T2 end to end, the three derived
+  formats, and cancel/recovery. This is the whole-disc uniform secure re-read plus
+  the `rig-check` that reads its counters, and nothing else.
+
 ### Fixed
+
 - **An overnight run could quit while writing the one file the operator sends.**
   The unattended-quit helper waited for a live rip and for the *rip's* evidence
   bundle, but not for the **script run's own** bundle — a different mechanism,
@@ -131,18 +142,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   be retroactive, so every log already written by an affected build keeps that
   shape permanently, and a consumer that cannot name it will keep reading those as
   sound for as long as they exist.
-
-## [0.6.26] — 2026-08-25
-
-### Added
-- **`docs/rig-scripts/securereread.txt` — T1 alone, so proving the fix costs one
-  rip instead of another night.** The 2026-08-24 acceptance run passed 209 of 212
-  steps and lost only its final section; re-running the whole file would spend six
-  hours re-confirming a complete 14-of-14 rip, T2 end to end, the three derived
-  formats, and cancel/recovery. This is the whole-disc uniform secure re-read plus
-  the `rig-check` that reads its counters, and nothing else.
-
-### Fixed
 - **A retired setting warned on every launch.** `working_dir` was removed in
   0.6.24, but a config written by an older version still carries it and nothing
   rewrites the file until a setting changes — so every process logged

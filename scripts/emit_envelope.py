@@ -66,11 +66,18 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: be miscounted; `assert_not_a_lap` checks that property on the envelope before
 #: writing it.
 PARTS: tuple[Path, ...] = (
+    HANDSHAKE_DIR / "outbound" / "round-14-lap-13.md",
     HANDSHAKE_DIR / "outbound" / "round-14-lap-12.md",
     REPO_ROOT / "docs" / "rig-scripts" / "fullacceptance.txt",
 )
 
-# WHY THIS MOVED FROM LAP 6 TO LAP 12, and why `securereread.txt` came out.
+# WHY THIS MOVED FROM LAP 6 TO LAP 13, and why `securereread.txt` came out.
+#
+# Lap 13 leads because it CORRECTS lap 12's own header — `0.6.26` was unpublished
+# when lap 12 declared the operator was running it — so the two must travel
+# together or the peer reads the correction after the thing it corrects. The lap-12
+# envelope was superseded before it was sent and is not kept: an envelope on disk
+# that nobody sent is a record of nothing.
 #
 # Laps 8 and 10 were sent BARE and PARTS deliberately stayed on lap 6 through
 # both: an envelope exists to carry a lap *plus artifacts*, and a lap that only
