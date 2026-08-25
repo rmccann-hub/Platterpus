@@ -11,6 +11,93 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **The committed rig scripts are now parsed by the real script language, and the
+  first sweep found a step that had never worked.**
+  `docs/rig-scripts/fullacceptance.txt` carried `set paranoia_passes 3` /
+  `expect paranoia_passes 3`, and `paranoia_passes` has never been a field of
+  `Config` in this repository's history — so both steps recorded ERROR on every
+  run of that script. They are two of the three errors in the 2026-08-23 full
+  acceptance pass, and the summary line reported `error=3` without naming which
+  three, so the defect survived being measured. Nothing checked it: these are
+  committed artifacts that cross machines by hand and **nothing parsed them**.
+  `tests/test_rig_scripts.py` now runs every one through the real parser, verb
+  table, `Config` dataclass and argv sanitiser, with the population derived from
+  the directory rather than listed — the corrected line is the symptom, the sweep
+  is the fix. It immediately found a second thing: our own argv guard refuses
+  round 8's `cyanrip -N -d /dev/sr0 -t 1` step, whose subject is *cyanrip's*
+  refusal of a malformed `-t`. Both behaviours are correct and incompatible in one
+  step; the guard wins. The step carries an `EXPECT-SANITISER-REFUSAL:` marker in
+  the script itself rather than in an allowlist here, and the sweep checks it in
+  **both** directions so a marker left over a step the guard later admits fails
+  too.
+- **`rig-check` reports the paranoia relationship and `Interrupted at:`** — two
+  fields we already parsed and that had still never reached any artifact anyone
+  sends anywhere, which is the same defect from the reader's side. Both carry
+  round 14's hardware evidence: the per-track/disc counters (T1) and cyanrip's own
+  record of where an interrupted rip stopped (T4). The graded half is the
+  **inequality** `sum(per-track) <= disc total` — a violation is a provider-contract
+  break — and the multiple is reported as an observation, never as the property:
+  `disc == passes x sum` holds on the fork's synthetic fixture by construction and
+  will not hold on media, where re-reads exist precisely when passes differ. The
+  first version of the interruption row was **unreachable**: it sat after the
+  early return for a zero-track parse, and a rip stopped mid-track is exactly the
+  rip that parses to zero tracks.
+- **The acceptance script covers all of the fork's §T list it can reach.** New
+  sections for T1 (a two-track rip in uniform secure-re-read mode, so
+  `total_repeats > 1` on every track regardless of how clean the disc is — the
+  previous script ripped only in dynamic mode, where a clean disc converges on the
+  first pass and settles nothing) and T3 (`cyanrip -N -x -I`, run last of the
+  drive work because `-x` once held this drive for an hour). Section A now asserts
+  the *released* build tag by name, so a pass run on the seven-releases-old build
+  fails in four seconds instead of producing two hours of evidence about a build
+  nobody is reviewing.
+
+### Fixed
+- **A handshake envelope round-trip test read every part from
+  `docs/handshake/verified/`**, which was true only while the envelope happened to
+  carry two verification files — a fact about one send, baked into the checker as
+  if it were a rule. The first envelope carrying an outbound lap and a script
+  broke it with `FileNotFoundError`, which is the polite failure: had a same-named
+  file existed under `verified/`, it would have compared the round trip against
+  the wrong document and passed. It now reads each part's real path from `PARTS`.
+- **A stale example inside a docstring that argues against relying on examples.**
+  `accuraterip_is_match` keys on the all-zero local CRC rather than on cyanrip's
+  wording, and has said since a 2026-07-31 audit that this "also covers a backend
+  that omits the caveat" — then quoted the caveat verbatim. The fork's round-14
+  acceptance spec records that wording reworded 24 days later. The quote is
+  dropped rather than updated: quoting a producer's exact text inside a function
+  that deliberately does not depend on it is how the next reader concludes it
+  does.
+
+### Changed
+- **cyanrip round 14 opened by the fork, and both halves of its pairing are now
+  releases.** Their `0.9.4-rc2+platterpus.8` at `796df32` (`release_seq` 18,
+  channel `beta`) is cut and installable; ours is 0.6.24. The round has exactly one
+  close condition — a hardware acceptance pass on that released pair — and they
+  pre-commit under S-18 to `GO` unless it fails on a cause of theirs. Our lap 2
+  carries the full test plan for them to amend, the seam-rules v6 draft, and the
+  proof of round 13's digest divergence: five of six rows are byte-identical and
+  the sixth is a file we renumbered, confirmed from git rather than inferred —
+  neither implementation is wrong and the digest field caught it on its first real
+  use.
+- **`PIN_UNDER_REVIEW` moves to `796df32`, and the fork's two published releases
+  join the release-sequence map** (`237a4ff` = 17, `796df32` = 18). Without those
+  rows an operator on either of the fork's current channel heads is told they are
+  on "a mid-round test pin, or a commit installed by hand" — every clause wrong
+  about a published release, a defect reported on 2026-08-17 and fixed by adding
+  one row, which is why it returns every time they publish and we do not. A
+  sequence is not an approval: `FORK_PIN` stays at `ddf7ac3` until round 14
+  closes, so the acceptance run's own artifacts will correctly report the ripper
+  as `unapproved`.
+- **`Cache probe:` is registered as a knowingly-ignored log line.** The fork's
+  spec records that its value shape changed from a single figure to a range, a
+  lower bound, or an explicit `unknown (<reason>)`, because the old wording
+  claimed a precision the method does not have. We never parsed it so nothing
+  broke — but our enumeration table had no entry at all, leaving the fork to infer
+  our treatment from silence. `rig-check` surfaces the line verbatim, which is
+  where T3's evidence is wanted and which cannot go stale against a reword.
+
 ## [0.6.24] — 2026-08-24
 
 ### Added

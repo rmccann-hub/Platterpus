@@ -414,11 +414,16 @@ def test_no_rounds_at_all_is_reported_not_silently_fine(
 #: entry for a round where we still have work to do fails, which is the whole
 #: difference between "waiting on them" and "waiting on us".
 _AWAITING_PEER_CLOSE: dict[int, str] = {
-    8: (
-        "our lap 10 declares GO; cyanrip's round-9 lap 1 reports their lap 17 "
-        "declared GO and closed it, but we hold none of their laps 3-17 and a "
-        "peer verdict transcribed from prose is not a close (v3 §5). Requested "
-        "in round-09-lap-02.md; clears when their closing lap arrives."
+    13: (
+        "the one-lap tail, and both sides named it independently: our lap 7 "
+        "declares GO/GO, and their newest round-13 file we hold is lap 6, whose "
+        "HANDSHAKE-PEER-VERDICT: HOLD was TRUE when written — our lap 5 was a HOLD "
+        "at that moment. Their round-14 lap 1 reports round 13 closed on their disk "
+        "over eight laps, so a lap 8 of theirs exists that we do not hold; a peer "
+        "verdict transcribed from prose in a DIFFERENT round's file is not a close "
+        "(v4 §5). Requested in round-14-lap-02.md; clears when their lap 8 arrives. "
+        "Neither gate is being touched — theirs closed, ours cannot, and fail-closed "
+        "is the right direction to be wrong in."
     ),
 }
 

@@ -1776,6 +1776,29 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
         "paranoia's MODELLED cache size; our cache-defeat verdict is measured "
         "(cd-paranoia -A, KDD-29) and must not be filled from a model",
     ),
+    # `Cache probe:    2 to 32 sectors (4.6 to 73.5 KiB, uncached read 362.6 ms…)`
+    # — the `-x` probe's own result, and the subject of round 14's T3.
+    #
+    # DELIBERATELY UNPARSED, and the reason is the one this table already gives for
+    # `Encoder:`: a field with no rendered home is dead code that reads as coverage.
+    # `rig_check.check_parsers_against_the_log` surfaces the line **verbatim** into
+    # the manifest the acceptance run sends the fork, which is where T3's evidence
+    # is actually wanted, and a verbatim line cannot go stale against a reworded
+    # value the way a regex can.
+    #
+    # And it would have: the fork's round-14 acceptance spec records that
+    # `%i sectors measured (…)` **no longer exists in any form**, replaced by a
+    # range (`%i to %i sectors`), a lower bound (`at least %i sectors, upper bound
+    # unknown`), or one of two `unknown (<reason>)` forms — because the old wording
+    # claimed a precision the method does not have. Registered here so the
+    # generated consumer contract states that we see this line and choose not to
+    # read it, rather than leaving the fork to infer it from our silence.
+    (
+        re.compile(r"^Cache probe:\s"),
+        "the -x probe's own result; surfaced verbatim by rig-check rather than "
+        "parsed, because it has no rendered home and its value shape is a range, "
+        "a bound, or an explicit unknown (round 14 T3)",
+    ),
     # `Encoder:        libavformat 60.16.100, libavcodec 60.31.102 (6.1.1-3ubuntu5)`
     # Real archival provenance — which ffmpeg built the files — and a candidate
     # for the report's environment block. Listed rather than parsed because a

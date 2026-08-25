@@ -58,15 +58,16 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: (§E). One artifact implying a send that did not happen was half of that
 #: contradiction — see lap 8 §A2.
 #: `PARTS[0]` is the OPERATIVE lap — `lead_identity()` names the envelope after it.
-#: Part 2 is round 8's lap 18, which their round-11 lap 3 §6 asked for: it was
-#: written on 2026-08-16, declares GO transcribing their lap 17, and was never sent.
-#: Enclosing it does not reopen round 8 (closed on both sides, and their rounds 9-11
-#: proceed from it) — the correspondence is append-only and a hole neither side can
-#: reconstruct later is worth one envelope part. It travels **unmodified**: not
-#: back-dated, not amended, not re-verified against today's tree.
+#: Part 2 is `docs/rig-scripts/fullacceptance.txt`, the acceptance script itself.
+#: Round 14's only close condition is a hardware pass, the maintainer asked that the
+#: fork be given *the plan and the script* to amend rather than a description of
+#: them, and lap 2 quotes the file's sha256 — so the file has to travel or that
+#: quote is unverifiable. It is NOT a lap and carries no wire headers, so it cannot
+#: be miscounted; `assert_not_a_lap` checks that property on the envelope before
+#: writing it.
 PARTS: tuple[Path, ...] = (
-    HANDSHAKE_DIR / "verified" / "round-11-lap-04.md",
-    HANDSHAKE_DIR / "verified" / "round-08-lap-18.md",
+    HANDSHAKE_DIR / "outbound" / "round-14-lap-02.md",
+    REPO_ROOT / "docs" / "rig-scripts" / "fullacceptance.txt",
 )
 
 #: The envelope's name, as a template. **Two properties, and both are checked by

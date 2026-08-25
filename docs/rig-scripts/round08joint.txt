@@ -282,6 +282,16 @@ expect-exit 1
 # test that fails loudly rather than a note in a document.
 log C3 -t with no "=" must refuse, not leak adjacent memory at exit 0
 
+# EXPECT-SANITISER-REFUSAL: OUR argv guard now refuses this before the ripper
+# sees it. The step's subject is cyanrip's own refusal of a malformed `-t`, and
+# `sanitise_cyanrip_args` was added afterwards with the same rule — so on any
+# build carrying that guard this step and the two assertions under it record a
+# refusal rather than exercising the binary. Both behaviours are correct and they
+# are incompatible in one step; the guard is the one that must win, because it is
+# the one protecting a user. Left in place, marked, and swept by
+# tests/test_rig_scripts.py in BOTH directions: an unmarked refusal fails, and so
+# does a marker over a step the guard now lets through — a stale marker would
+# quietly re-admit exactly the argv this comment says is refused.
 cyanrip -N -d /dev/sr0 -t 1
 log C3 assertion is quote-free on purpose: the runner strips double quotes,
 log C3 so `Missing "=" in track metadata` can never match. Its own error said
