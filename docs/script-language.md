@@ -53,6 +53,7 @@ text is taken verbatim as one value.
 | `log` | 1+ (rest of line) | ready | log <text> — write a line into the transcript |
 | `wait` | 1 | ready | wait <seconds> — pause (fractions allowed, max 600) |
 | `abort` | 0+ (rest of line) | ready | abort [reason] — stop the batch here (the only verb that does) |
+| `abort-if-failed` | 0+ (rest of line) | ready | abort-if-failed [reason] — stop ONLY if a step has already failed. For a PRECONDITION (am I on the right build?), where continuing gathers hours of evidence about the wrong subject. A finding must never use this. |
 | `screenshot` | 1 | ready | screenshot <name> — save a PNG of the whole app, dialogs included |
 | `snapshot` | 1 | ready | snapshot <name> — record the visible state as text in the transcript |
 | `open` | 1 | ready | open <settings|dependencies|about|diagnostics|guide|setup|drive> — open a dialog |
@@ -331,7 +332,7 @@ found nothing wrong*.
 {
   "language": "platterpus-uiscript",
   "grammar_version": 1,
-  "platterpus_version": "0.6.25",
+  "platterpus_version": "0.6.26",
   "syntax": {
     "one_statement_per_line": true,
     "comment_prefix": "#",
@@ -342,6 +343,7 @@ found nothing wrong*.
     "trailing_free_text_verbs": [
       "log",
       "abort",
+      "abort-if-failed",
       "answer-dialog",
       "set",
       "expect",
@@ -384,6 +386,15 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "abort [reason] \u2014 stop the batch here (the only verb that does)"
+    },
+    {
+      "name": "abort-if-failed",
+      "min_args": 0,
+      "max_args": null,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "abort-if-failed [reason] \u2014 stop ONLY if a step has already failed. For a PRECONDITION (am I on the right build?), where continuing gathers hours of evidence about the wrong subject. A finding must never use this."
     },
     {
       "name": "screenshot",
@@ -835,4 +846,4 @@ found nothing wrong*.
 }
 ```
 
-*Last updated for Platterpus v0.6.25.*
+*Last updated for Platterpus v0.6.26.*

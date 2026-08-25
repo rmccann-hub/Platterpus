@@ -66,9 +66,40 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: be miscounted; `assert_not_a_lap` checks that property on the envelope before
 #: writing it.
 PARTS: tuple[Path, ...] = (
-    HANDSHAKE_DIR / "outbound" / "round-14-lap-05.md",
+    HANDSHAKE_DIR / "outbound" / "round-14-lap-13.md",
+    HANDSHAKE_DIR / "outbound" / "round-14-lap-12.md",
     REPO_ROOT / "docs" / "rig-scripts" / "fullacceptance.txt",
 )
+
+# WHY THIS MOVED FROM LAP 6 TO LAP 13, and why `securereread.txt` came out.
+#
+# Lap 13 leads because it CORRECTS lap 12's own header — `0.6.26` was unpublished
+# when lap 12 declared the operator was running it — so the two must travel
+# together or the peer reads the correction after the thing it corrects. The lap-12
+# envelope was superseded before it was sent and is not kept: an envelope on disk
+# that nobody sent is a record of nothing.
+#
+# Laps 8 and 10 were sent BARE and PARTS deliberately stayed on lap 6 through
+# both: an envelope exists to carry a lap *plus artifacts*, and a lap that only
+# answers a lap would produce a one-part envelope — pointless, and the case
+# `assert_not_a_lap` is tightest against. The fork sends theirs bare for the same
+# reason.
+#
+# Lap 12 is different: it CHANGES `fullacceptance.txt` — a new `abort-if-failed`
+# guard after the identity section, and the fork's C1 detector as section P2 — and
+# that file is the round's only close condition. A lap that alters the script the
+# other side is about to have run, sent without the script, is a description of an
+# artifact instead of the artifact. So the envelope moves with it.
+#
+# **`securereread.txt` is out because it did not change.** The fork's lap 11 §K
+# retires it for this run (`fullacceptance.txt` contains T1 as section N) and it
+# is unchanged since lap 6, so re-sending it is the noise both sides keep
+# declining to send. It stays in the tree for a night when only the close matters.
+#
+# The consequence to keep in view: the published `round14lap06platterpus.md` on
+# disk is now HISTORY, not the current envelope. That is correct — it is the record
+# of what lap 6 sent, and lap 6 sent the file as it then stood. Regenerating it
+# against today's script would falsify what we sent.
 
 #: The envelope's name, as a template. **Two properties, and both are checked by
 #: `tests/test_handshake_file_naming.py` rather than asserted in this comment.**

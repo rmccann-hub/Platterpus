@@ -11,6 +11,125 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-25 (later) — a header that promised a stop it could not perform
+
+**Round 14 lap 11 → 12.** The fork's lap 11 asked one question they wanted answered
+before the disc spins (J6: does the `cyanrip` verb bound its wait?) and one they
+explicitly refused to answer for us (J7: does `fullacceptance.txt` §A do what its
+header says?). **J6: yes** — 300 s, then the child is killed, then 20 s more before
+the runner reports an *unreapable child* with a null exit code. **J7: no.**
+
+**The header said §A *"stops you in the first four seconds"* on the wrong ripper
+build. It did not.** Nothing but `abort` ends a batch and that file never used it,
+so a wrong build produced a FAIL on line ~20 and then six hours of evidence about
+the wrong binary — and the fork had relayed that sentence to the operator as the
+reason an overnight run is safe. Fixed by making it true: `abort-if-failed`, used
+once, immediately after the identity assertions. **Preconditions abort; findings do
+not** — the file's own "a failing step does not stop the batch" rule is right and
+is about findings; a wrong ripper is not a finding but a different subject.
+
+**Two defects in the rig harness, each found by a different part of their lap.**
+Their §D1 disclosed that cyanrip has caught SIGTERM since `+platterpus.7` (handler
+sets a flag; nothing reads it once the rip loop is past), which refutes our
+harness's printed conclusion that exit 137 *"means the reader was wedged"* — SIGKILL
+is the expected terminator, and the finding is the 1800 s, not the signal. Their §C
+established from our own tarball's mtimes that `05-minus-j.txt` never received what
+cyanrip sent. **Their three candidate causes all missed that our ripper path is the
+host-exported Distrobox wrapper**, so a container runtime forwards stdio between
+cyanrip's fd 1 and our redirect while `-j` goes straight to a bind-mounted host
+path. Two channels, one with a container in it. Why the forwarding lost the bytes
+is *not determined* and is not guessed at — instead the harness now cross-checks
+the channels and reports disagreement as its own finding.
+
+**Their §F2 asked us to check our gate for a hole they found in theirs. We had it.**
+`HANDSHAKE-TEST-PIN: none.` read as a build; never fired only because the one
+blocker consulting the field also requires `HANDSHAKE-PIN`. Fixed at the reader,
+without guessing — only an exact `none` reads as an absence.
+
+**Also:** their §K2 C1-detector step added as section P2 (detects; their shell probe
+explains), minus the `-j` they assumed we could write — we have no path placeholder
+and a hard-coded path breaks the file's "nothing needs editing" promise. Their
+`rig-c1-probe.sh` filed as a record; our shell-hygiene sweep now excludes received
+handshake artifacts, scoped to one directory with a test asserting nothing of ours
+can hide behind it — a peer's artifact is evidence, and editing it to satisfy our
+lint would falsify the record.
+
+**A test of mine caught itself being vacuous.** The non-triviality half of the
+declared-absence test (*"a real test pin with no `HANDSHAKE-PIN` must still
+block"*) failed — because `close_blockers` returns early on any non-GO verdict and
+my fixture said `HOLD`, so neither half had ever reached the code under test.
+
+## 2026-08-25 — the cancel that destroyed its own log was ours, twice over
+
+**Round 14 laps 9 → 10.** The fork's lap 9 asked one question — *"how many signals
+reach the cyanrip process on one cancel?"* — and offered `_exit(1)` on a **second**
+signal as a hypothesis explaining all four of the rig's observations (exit 1, no
+`atexit`, no completion footer, no FUN512). Answered by measurement rather than by
+reading source: a stand-in carrying their handler's actual logic, driven by the
+**real** `RipWorker` read loop, the **real** `RipHandle`, real `killpg`, a real
+subprocess with `start_new_session=True`.
+
+**Two, 0.445 ms apart.** Their hypothesis confirmed; the defect ours.
+
+**Defect 1 — three call sites each sent their own SIGTERM,** the third commented
+*"asking again is free and idempotent."* True of `Popen.terminate()`, false of the
+handler it was delivered to. One chokepoint now, at most one signal per
+subprocess, keyed on the **handle's identity** rather than a resettable bool
+(a bool has no correct reset point across passes; identity has no window). The
+escalation is untouched — the reap still bounds at 15 s and still goes
+SIGTERM→SIGKILL on the group. Before/after on the real path: 2 signals → 1, and
+the stand-in's completion footer went from never-written to written.
+
+**Defect 2 — we deleted the ripper's dying words and then everyone reasoned from
+the gap.** The read loop's cancel `break` sat *above* the retention code, so the
+first line after our signal was discarded silently, every time. That line is the
+ripper's answer to being cancelled. It is why the fork, examining our 6.2 MB log,
+found **zero** `"Trying to quit"` in 51,492 captured lines and concluded — with a
+true premise, carefully, marked `[MEASURED]` — that their handler *"did not run at
+all."* Measured directly: yielded to our loop, absent from our capture.
+
+**The naive fix would have passed a weaker test.** cyanrip writes
+`"\r\nTrying to quit\n"` in a *single* `write(2)`, so the first line after the
+signal is the blank terminator of the progress redraw and the sentence is the
+next one — "retain one more line" keeps a bare `\r`. The extra read cannot block
+(sub-`PIPE_BUF` writes are atomic, so the remainder is already buffered) and is
+bounded anyway. Both lines pinned; one-line retention is revert-probed and fails.
+
+**A third thing, found by the fix rather than by the bug.** Extracting the kill
+into `_signal_stop` made `tests/test_qthread_ownership.py` report `RipWorker` as
+having a flag-only `cancel()` — correctly, on its own terms: it reads `cancel()`'s
+body for a real interrupting call. The convenient repair was an allowlist entry
+asserting a flag was sufficient, which is false, **in the file that exists to stop
+exactly that**. Taught the sweep to follow one level of same-class delegation
+instead (matching `_stopped_reachably`, which already did this for teardown
+hooks), and revert-probed that it still catches a genuinely flag-only cancel.
+
+**A third defect, found by answering their J3.** Our rig audit's careful hedge —
+*"we cannot establish that this build accepts `--verify-log`"* — which the fork had
+credited us for in lap 7, was not careful reasoning: it was a lookup miss.
+`BUILD_TAGS_ACCEPTING_VERIFY_LOG`'s coverage test enumerated four pin constants and
+**not `PIN_UNDER_REVIEW`**, so the one build under hardware test was the one build
+the check could not see, and its `>= 4` floor passed all round over four pins that
+were not the one in use. The test's own docstring names that failure mode verbatim.
+A population defect, not a logic one — and it degraded the queued rerun's own
+`ripper_log_verification` row to `not_determined` regardless of the log's contents.
+Fixed in both the set and the population; revert-probed.
+
+**Also this lap:** the fork's J3 answered — no objection to a sixth `--verify-log`
+exit code for *"checksum valid, record incomplete"*, with the one ask that the
+provider contract name **which builds** emit it (a consumer meeting a new code from
+an old build cannot distinguish it from a rejected flag — the `-V` shape again).
+Their lap 2 and lap 9 filed inbound; the round digest now agrees at 10 laps.
+
+**Deliberately NOT done: the rerun does not move to a build carrying these fixes.**
+`securereread.txt` has no cancel step, so neither fix is reachable from T1, and
+swapping the operator's 0.6.26 AppImage would make the queued disc a measurement
+of something else. Same call the fork made in their §B5 and we accepted in lap 8.
+
+Graduated: `CLAUDE.md` "how to stop shipping the next one" gained two entries
+(idempotence is a property of the callee; an absence in a log is a fact about the
+logger); `docs/testing.md` §5.ay and §5.az carry the full reasoning.
+
 ## 2026-08-24 — the first full acceptance run, read properly
 
 **What the run actually found.** The 2026-08-23 hardware pass (98 steps, 1h 49m,
@@ -3757,4 +3876,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.25.*
+*Last updated for Platterpus v0.6.26.*

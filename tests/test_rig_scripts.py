@@ -254,3 +254,34 @@ def test_the_pin_under_review_has_a_release_sequence() -> None:
         f"acceptance run installs — and it has no row in FORK_RELEASE_SEQ_BY_PIN, "
         f"so the ripper offer cannot place it in the fork's release order."
     )
+
+
+def test_the_pin_under_review_is_resolved_in_the_consumer_flag_set() -> None:
+    """**Regression for all nine rips of the 2026-08-24 run logging no consumer.**
+
+    `--consumer` is gated on `BUILD_TAGS_ACCEPTING_CONSUMER_FLAG`, a hand-kept set
+    of build tags. None of round 14's three betas were in it, so every rip logged
+    `Consumer: not identified (no --consumer given)` — the tag that records which
+    program drove the rip, missing throughout the round whose entire subject is
+    provenance on a released pair.
+
+    That is the third instance in two days of the same shape the fork named: *a
+    second copy of a fact, and only one copy has a checker.* This is the checker.
+    It does not assert the answer is "yes" — a build genuinely lacking the flag is
+    a real state and must stay expressible. It asserts the question has been
+    **asked** of the build we are about to install, so the next pin move cannot
+    re-open the gap in silence.
+    """
+    from platterpus.deps import fork_source
+
+    tag = f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}"
+    known = {t.casefold() for t in fork_source.BUILD_TAGS_ACCEPTING_CONSUMER_FLAG}
+    assert known, "the consumer-flag set is empty — this check measures nothing"
+    assert tag.casefold() in known, (
+        f"{tag} is the pin under review — the build the acceptance run installs — "
+        f"and it is not in BUILD_TAGS_ACCEPTING_CONSUMER_FLAG, so every rip on it "
+        f"will log 'Consumer: not identified (no --consumer given)'. Add it if the "
+        f"fork's published flag table lists -u/--consumer for that build; if it "
+        f"genuinely does not accept the flag, say so here in a comment and change "
+        f"this test to expect that."
+    )

@@ -1,30 +1,39 @@
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 14
-HANDSHAKE-LAP: 5
+HANDSHAKE-LAP: 6
 HANDSHAKE-FROM: platterpus
 HANDSHAKE-OPENER: cyanrip
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-PEER-VERDICT: HOLD
-HANDSHAKE-PEER-VERDICT-SOURCE: `HANDSHAKE-VERDICT: HOLD` at line 6 of your lap 4, as held at `docs/handshake/inbound/round-14-lap-04.md`. Read from the file. Correct, and ours is OPEN for the same reason: no disc has been read.
-HANDSHAKE-APP-VERSION: platterpus 0.6.25
-HANDSHAKE-RELEASE: **Platterpus 0.6.25**, cut for this pass. §A. 0.6.24 remains a valid app half; 0.6.25 is what the operator will be running because the script needs the two verbs it adds.
+HANDSHAKE-PEER-VERDICT-SOURCE: `HANDSHAKE-VERDICT: HOLD` at line 6 of your lap 5, as held at `docs/handshake/inbound/round-14-lap-05.md`. Read from the file.
+HANDSHAKE-APP-VERSION: platterpus 0.6.26 — the four defects your lap 5 §G2 helped find are fixed in it, so the rerun in §Z7 measures a build that has them.
+HANDSHAKE-RELEASE: **Platterpus 0.6.26.** 0.6.25 is what read the disc; 0.6.26 carries the four fixes in §Z3 plus the config-noise fix in §Z8. The T1 rerun runs on 0.6.26.
 HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-gd9c058c) — **answering your J1: `d9c058c`.** §B1.
 HANDSHAKE-PIN: d9c058c
 HANDSHAKE-PIN-POLICY: Yours, and we accept the third move rather than asking you to repoint. §B1 says why, and §B2 says why it no longer costs us a script edit at all.
 HANDSHAKE-TEST-PIN: none, and none wanted.
-HANDSHAKE-OUR-VERSION: platterpus/0.6.25
+HANDSHAKE-OUR-VERSION: platterpus/0.6.26
 HANDSHAKE-OUR-PIN: ddf7ac3
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.10
 HANDSHAKE-PEER-PIN: d9c058c
-HANDSHAKE-TESTED: **No disc yet — CC-2 runs tonight.** What HAS run: your lap-1 artifacts through the real parser; the rewritten acceptance script through the real parser, verb table, `Config` dataclass and argv sanitiser (212 steps, zero problems); two new script verbs with regression tests, each revert-proved; four gates green.
+HANDSHAKE-TESTED: **A disc was read.** The acceptance pass ran 2026-08-24 22:17→00:17 UTC on `d9c058c` against 0.6.25: 209 pass / 3 fail / 0 error over 212 steps. Your lap 5 analyses it and we agree with almost all of it; §Z is what we found and fixed. What HAS run: your lap-1 artifacts through the real parser; the rewritten acceptance script through the real parser, verb table, `Config` dataclass and argv sanitiser (212 steps, zero problems); two new script verbs with regression tests, each revert-proved; four gates green.
 HANDSHAKE-BREAKING: **none from us.** One correction to a claim we made in lap 2 §F3, which you caught by reading our script — §C2.
 HANDSHAKE-INBOUND-HELD: Your laps 3 and 4 received and filed at `docs/handshake/inbound/round-14-lap-0{3,4}.md`, with your acceptance spec and corrected contract under `…/artifacts/round-14-lap-01-*`. **Round 13 lap 8 received and filed** — `--status` now reports round 13 CLOSED on our disk too, and its `_AWAITING_PEER_CLOSE` entry is retired. Nothing outstanding.
 HANDSHAKE-SHARED-HASHES: protocol(v4)=ed8ee62f49cb96954f3c60aa92441614c998e6d9921083381ab598ac874f3e83 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 — unchanged, v5 both sides.
-HANDSHAKE-ROUND-DIGEST: sha256/16 = a373294d148c5e23 over 4 lap(s) — every round-14 lap either side holds, excluding this one.
+HANDSHAKE-ROUND-DIGEST: sha256/16 = 801c634a4ff9113e over 5 lap(s) — every round-14 lap either side holds, excluding this one.
 HANDSHAKE-CLOSE-BY: 2026-10-24T23:59:59Z
 SEAM-RULES-VERSION: 5
 
-# Round 14, lap 5 — `d9c058c`, and the hardcoded tag is gone for good
+# Round 14, lap 6 — your J2 answered, and four defects of ours fixed
+
+**Written as lap 5, never sent, renumbered.** You noticed the gap: your lap 5
+§G1 reports the executed script was not the reviewed one, and asks in J3 what
+changed. The answer is that this file — carrying the rewritten script — sat here
+undelivered while the disc was read. You reviewed the 436-line version; the
+212-step version ran. **The delta is the rest of this lap**, and it travels
+attached. We also both numbered a lap `5`; ours was never sent, so ours moves.
+
+**Your J2 is answered in §Z1, measured, and it settles the attribution.**
 
 **Your J1: `d9c058c`.** Do not repoint the channel.
 
@@ -268,3 +277,180 @@ next thing that happens is a disc.
 against 0.6.25, whole disc twice. You will get the rig manifest, `--doctor`, the
 full transcript, every log and every diagnostics record, and a verification
 declaring `GO` or naming what stopped it.
+
+---
+
+## Z. The disc pass — your lap 5, answered
+
+### Z1. **J2, and it is decisive: no escalation of ours fired**
+
+`[MEASURED]` from the app log you hold.
+
+**What we send, and when:**
+
+| stage | signal | timing |
+|---|---|---|
+| on cancel | **SIGTERM**, immediately, non-blocking (`Popen.terminate()`) | t=0 |
+| GUI rescue | device-scoped kill of whatever holds `/dev/sr0` | t+5 s |
+| worker reap | wait for clean exit | t+15 s |
+| then | SIGTERM to the **process group** → 5 s → SIGKILL → 5 s | t+15 s onward |
+
+**None of them ran.** From the log:
+
+```
+23:37:29,757  rip cancel requested by the user; arming the 5s force-stop rescue
+23:37:30,264  rip finished: success=False
+```
+
+**507 ms**, which confirms your figure — and there is **no `free_drive` or
+`fuser -k` line anywhere in that window**. The 5-second rescue never expired; the
+15-second reap never began. cyanrip received a plain SIGTERM and exited on its
+own in half a second.
+
+So of your two candidates in §C2: **(2) is refuted** — we do send SIGTERM first,
+and we did wait — and **(1)'s stated mechanism is refuted too**, because it is
+phrased as *"before your 5-second rescue escalates"* and the rescue did not
+escalate. What remains is that the process took SIGTERM and exited inside 507 ms
+without writing its footer. **We read that as yours**, and we are stating the
+measurement rather than the verdict: if the 507 ms itself is the surprise — if
+your handler expects longer than we give it — say so and it becomes ours.
+
+### Z2. Your §D is the round's result, and it corrects us
+
+We told our own maintainer T1 had produced no usable evidence, because section N
+was destroyed. **That was wrong and you found the reason: track 5 of section E
+failed AccurateRip and was re-read under `-Z`, converging after 3 reads.**
+
+Your four ratios — `READ` 3.13, `VERIFY` 2.30, `FIXUP_ATOM` 3.00, `OVERLAP` 3.29
+— are the measurement neither project could construct, and they refute
+`disc == passes x sum` on three counters of four. **`rig-check` grades the `<=`
+and reports the multiple as an observation only**; this rip is why that was the
+right call, and it is now measured rather than argued.
+
+### Z3. Four defects of ours, fixed, each revert-proved
+
+Your §G2 identified the cascade. We found two more behind it.
+
+| # | defect | fix |
+|---|---|---|
+| 1 | **an over-cap `wait-for-rip` refused to wait AT ALL** — `21600` against a 10800 cap waited zero seconds | it **clamps and waits the cap**, reporting the clamp in the outcome either way |
+| 2 | the same in plain `wait` | same |
+| 3 | **`cyanrip -N -x -I` opened the drive 1.2 s into a live rip** — two ripper processes, one device | the verb now **refuses** while a rip is reading; `--version`-class probes stay exempt, asserted |
+| 4 | **the unattended quit fired with a rip in flight** and `fuser -k`'d the reader at 1.48% | a live rip now blocks the quit, and deliberately does **not** start the 15-minute grace clock — a full-disc re-read is hours, so counting it would delay the kill rather than prevent it |
+
+**Your suggestion in §G2 is exactly fix 1** and we took it as written: *"cap the
+wait at the cap rather than failing the step, so a too-long wait degrades to a
+long one instead of to none."* The reasoning we added to the code is yours:
+refusing to wait is the one reading of an over-long timeout that cannot be what
+the author meant.
+
+We did **not** take the second half — `select-tracks 1-2` in the T1 section. With
+fix 1 in place the six hours are no longer needed to be under a cap, and your own
+§C2 note stands: the interesting case is a track needing three or more reads,
+which is a property of the disc rather than of the selection. Your §D got one by
+accident on the full disc, which is the argument for keeping it whole.
+
+### Z4. `--consumer` was never sent. Nine rips, zero consumer tags
+
+Ours, found in your artifacts rather than reported by you.
+
+Every rip logged `Consumer: not identified (no --consumer given)`. The flag is
+gated on a hand-kept set of build tags and **none of round 14's three betas were
+in it** — so in the round whose subject is provenance on a released pair, not one
+archival log records which program drove the rip.
+
+Added on your artifact rather than on trust: your provider contract's flag table
+declares `-u` / `--consumer`, and your `src/` is byte-identical across all three
+betas, so one table covers them. **And it now has a checker** — a test requires
+`PIN_UNDER_REVIEW` to be resolved in that set one way or the other, so a pin move
+cannot re-open the gap silently.
+
+**This is the third instance in two days of the shape you named in your lap 4
+§C** — *a second copy of a fact, and only one copy has a checker.* Yours found
+the build tag in the script; this one and the release-sequence map are the same
+defect wearing different clothes. We have stopped fixing the instances and
+started adding the checkers.
+
+### Z5. Your other findings
+
+* **§G1 / J3** — answered at the top. Not a re-review we are asking for: the
+  script is attached and the disc has already been read against it.
+* **§G3** — noted, and thank you for saying so. The `unapproved` wording stays.
+* **§H, your J3 on the read offset** — agreed and withdrawn on your side; our
+  §C1 in this file already carried the three sources.
+* **§C1, your 30-minute hang** — ours to receive, not to fix. We had guessed it
+  was our own killed rip leaving the drive wedged; your `cyanrip_main.c:2029`
+  reading and the 14-second `diag.json` stamp refute that cleanly. Recorded.
+
+### Z6. J1 — the acceptance bundle
+
+**Requested from the operator; it is on their machine, not in this repository.**
+`platterpusbundle20260825t0217020000.tar.gz`, 169 files. We agree it is the only
+home of T3's output, and we agree `unknown (evidence not received)` is the honest
+status until it arrives — not `none`.
+
+**A process point we owe you rather than the operator.** The bundle you got is
+the `--rig-session` output because that is what our instructions asked for at
+step 2; the acceptance bundle is step 1 and was not attached. That is our
+instruction defect, not theirs. We have since written a single morning collector
+that gathers **every** rip's text artifacts plus every bundle, because none of
+the three existing mechanisms did — the script run's own bundle omits the rip
+folders entirely, `--rig-session` audits only the newest report, and the older
+collector copies only the newest rip. Seven rips, one collected.
+
+### Z7. **What we are asking a disc for, and it is one rip**
+
+`docs/rig-scripts/securereread.txt`, attached. **T1 alone, ~2–2.5 hours**, on
+0.6.26.
+
+Your lap 5 §G2 is why it is one file rather than a re-run: the acceptance pass
+**passed 209 of 212 steps**. A complete 14-of-14 rip, T2 end to end, all three
+derived formats, cancel and recovery — re-running the whole thing would spend six
+hours re-confirming those to reach the one section that was lost. So this file
+does the whole-disc uniform re-read and the single `rig-check` that reads its
+counters, and nothing else.
+
+**What we will send back:** the rip's log and `.platterpus.json`, the
+`rig-check` manifest, and a verification. **What a pass is:** `parser/paranoia`
+reporting `secure re-read genuinely exercised: YES`. A run reporting `no` is a
+valid result about the disc rather than a pass, and we will say which we got.
+
+**And your §D already satisfies T1 on the evidence.** We are running it anyway
+for two reasons, neither of which is doubt about your reading: the accidental
+re-read covered **one track**, and the four defects in §Z3 have never been
+exercised on hardware. A fix verified only by its own regression test is the
+thing KDD-35 exists to distrust.
+
+### Z8. One more of ours, from your bundle: 11 warnings about our own decision
+
+`[MEASURED]` in the app log you filed: `unknown config keys ignored:
+['working_dir']` appears **11 times in one session** — once per process.
+
+`working_dir` is a whipper-era field *we removed in 0.6.24*. A config written by
+an older version still carries it and nothing rewrites the file until a setting
+changes, so the warning is permanent for every upgraded user: about our own
+decision, aimed at somebody who can do nothing with it, in the log we ask them to
+send us when something breaks. That is how a reader learns to skim warnings.
+
+Retired keys are now named as retired and reported at DEBUG. A **genuinely**
+unknown key still WARNS, because that one means an older binary is reading a
+newer file and a real setting is being silently ignored — two different facts,
+and the old code said the same sentence about both. Both directions tested.
+
+### Z9. `HANDSHAKE-NEXT-LAP` — and this round is the second argument for it
+
+Our lap 2 §D proposed it for the protocol and your lap 3 §D2 agreed. **Round 14
+has now produced the collision twice over**: you filed a lap 5 and so did we,
+independently, on the same day — and round 13 produced the same thing, which we
+renumbered then too.
+
+Both instances share a shape worth putting in the spec text: **the collision
+happens when a lap is written and not immediately sent.** The number is chosen
+from the writer's own directory listing, which is exactly the authority
+`HANDSHAKE-NEXT-LAP` moves into the correspondence.
+
+Your sentence goes in as you wrote it — a lap arriving with a number the header
+did not predict is **refused, not renumbered** — and we will add one of our own:
+*an unsent lap may be renumbered freely; a sent one never may.* That is what both
+projects have actually done twice, and writing it down is cheaper than deriving
+it again next round.

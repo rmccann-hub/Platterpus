@@ -965,6 +965,30 @@ def closed_set_prose(text: str) -> list[str]:
 #: closer to closing a round than the same file without one (rows C17/C18).
 TEST_PIN_FIELD: str = "HANDSHAKE-TEST-PIN"
 
+
+def declares_no_test_pin(value: str) -> bool:
+    """Whether a ``HANDSHAKE-TEST-PIN`` value is a declared ABSENCE, not a build.
+
+    Both projects write ``HANDSHAKE-TEST-PIN: none.`` — *"we considered a test pin
+    and there is not one"*, which is a different claim from a missing field and is
+    the distinction this protocol makes everywhere else. A reader that cannot make
+    it treats the string ``none.`` as a build identifier.
+
+    The fork found it in their gate first and asked us to check ours (round 14
+    lap 11 §F2). **We had it too.** Ours never fired only because the one blocker
+    that consults the field also requires ``HANDSHAKE-PIN``, which both sides
+    always declare — so the latent output was a blocker complaining that a test
+    pin was declared, naming a value that disclaims itself. Nothing was
+    mis-decided; the message would have been false.
+
+    **Only an exact ``none`` reads as an absence.** Trailing periods and case are
+    tolerated because both sides write it as a sentence; ``nonesuch`` stays a pin.
+    A gate that *guesses* at absence is the failure this whole file exists to
+    prevent — an unrecognised value must read as a build, never as nothing.
+    """
+    return value.strip().rstrip(".").strip().casefold() == "none"
+
+
 #: Rounds recorded before the header existed, exempted **by number** — never by a
 #: rule like "a missing verdict is fine for old rounds", which is the fallback that
 #: lets any new round close by omission. Both sets may shrink, never grow.
@@ -1123,7 +1147,11 @@ def close_blockers(text: str, round_hint: int | None = None) -> list[str]:
     # that sweep is round-gated by the grandfather clause, and a test pin is a v2
     # addition that can only appear on files written after it existed.
     test_pin = fields.get(TEST_PIN_FIELD)
-    if test_pin is not None and test_pin != AMBIGUOUS:
+    if (
+        test_pin is not None
+        and test_pin != AMBIGUOUS
+        and not declares_no_test_pin(test_pin)
+    ):
         agreed = fields.get("HANDSHAKE-PIN")
         if agreed is None or agreed == AMBIGUOUS:
             blockers.append(

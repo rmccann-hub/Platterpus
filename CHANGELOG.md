@@ -11,6 +11,227 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.26] — 2026-08-25
+
+### Added
+- **`docs/rig-scripts/securereread.txt` — T1 alone, so proving the fix costs one
+  rip instead of another night.** The 2026-08-24 acceptance run passed 209 of 212
+  steps and lost only its final section; re-running the whole file would spend six
+  hours re-confirming a complete 14-of-14 rip, T2 end to end, the three derived
+  formats, and cancel/recovery. This is the whole-disc uniform secure re-read plus
+  the `rig-check` that reads its counters, and nothing else.
+
+### Fixed
+
+- **An overnight run could quit while writing the one file the operator sends.**
+  The unattended-quit helper waited for a live rip and for the *rip's* evidence
+  bundle, but not for the **script run's own** bundle — a different mechanism,
+  owned by the runner and built on a daemon thread, which interpreter shutdown
+  kills mid-archive without a word in the log. That archive is the entire
+  deliverable of a six-hour pass: transcript, reports, screenshots, app log,
+  rig-check manifest. **It had been winning the race by under a second** — measured
+  on the 2026-08-24 run, batch finished at 00:17:53,606 and the bundle landed at
+  00:17:53,821, 215 ms against a helper that ticks every 1000 ms. It worked;
+  nothing made it work, and a run with more screenshots or a larger rotated log is
+  the one that loses. Same shape as the rip-in-flight gap fixed beside it: a guard
+  written for the deferral its author knew about, blind to a sibling one layer
+  over. The wait stays under the grace budget, so a wedged archiver still cannot
+  hang an unattended rig — asserted separately from the wait itself.
+- **`fullacceptance.txt` promised a stop it could not perform.** Its header said
+  the identity section *"stops you in the first four seconds"* if you are on the
+  wrong ripper build — but nothing except `abort` ends a batch and the file never
+  used it, so a wrong build produced a FAIL on line ~20 and then six hours of
+  evidence about the wrong binary. The cyanrip fork read that sentence and relayed
+  it to the operator as the reason an overnight run is safe (round 14 lap 11 §J7,
+  which asked us to correct them if §A did not do what its header said — it did
+  not). Fixed by making the promise true: a new `abort-if-failed` script verb,
+  used exactly once, right after the identity assertions. **Preconditions abort;
+  findings do not** — the file's existing "a failing step does not stop the batch"
+  rule is right and is about findings, and a wrong ripper is not a finding, it is
+  evidence about a different subject. Counts FAIL and ERROR, never BLOCKED.
+- **The rig harness stated an inference as a measurement, to the operator.** On a
+  timed-out `-j` step exiting 137 it printed *"SIGTERM did not land, which means
+  the reader was wedged, not merely slow."* The fork disclosed that cyanrip has
+  caught SIGTERM since `+platterpus.7` — the handler sets a flag and returns, and
+  nothing reads it once the rip loop is past — so **SIGKILL is the expected
+  terminator** for any cyanrip wedged after a rip and exit 137 says nothing about
+  the drive. The finding is the 1800 s, not the signal. Also a cost of a fix we
+  asked them for, now recorded so nobody restores it.
+- **An empty stdout capture beside a populated `-j` record now reads as a fact
+  about the capture, not about the ripper.** The fork established from our own
+  tarball's mtimes that `05-minus-j.txt` was stamped the second its step began and
+  never written again, while cyanrip's own record held four messages — so the file
+  did not receive what the ripper sent. Their three candidate explanations all
+  missed one thing they had no way to know: **the ripper path is the host-exported
+  Distrobox wrapper, so a container runtime forwards stdio between cyanrip's fd 1
+  and our redirect, while `-j` goes straight to a bind-mounted host path.** Two
+  channels, one with a container in it. Why the forwarding lost the bytes is not
+  determined and is not guessed at; instead the harness now cross-checks the two
+  and reports the disagreement as its own finding, because an empty capture beside
+  a populated record is the one shape that must never read as silence.
+- **Our handshake gate read `HANDSHAKE-TEST-PIN: none.` as a build.** Both projects
+  write that to mean *"we considered a test pin and there is not one"* — a
+  different claim from a missing field, which this protocol distinguishes
+  everywhere else. The fork found it in their gate and asked us to check ours; we
+  had it too, never firing only because the one blocker consulting the field also
+  requires `HANDSHAKE-PIN`, which both sides always declare. Fixed at the reader,
+  and deliberately without guessing: only an exact `none` (case-insensitive,
+  trailing periods tolerated) reads as an absence, so `nonesuch1` stays a pin.
+- **We sent the ripper TWO stop signals per cancel, 0.445 ms apart, and the
+  second one destroyed the log.** `Popen.terminate()` is idempotent, so three call
+  sites in the rip worker each sent their own on the reasoning that a repeat is
+  free — `cancel()`, the startup-window re-check, and `_reap_ripper`'s pre-reap
+  nudge, whose comment read *"asking again is free and idempotent"*. It is
+  idempotent **for us**. cyanrip's signal handler is not: its second-signal branch
+  is `SIG_WRITE_LIT("Force quitting"); _exit(1)` — an escape hatch for a user
+  hammering Ctrl-C — and `_exit` runs no `atexit`, so the ripper writes **neither
+  the completion footer nor the FUN512 checksum** and leaves an unverifiable
+  fragment. That is exactly what the 2026-08-24 rig run's cancelled rip produced
+  (exit 1, no footer, no checksum), and we spent a handshake round attributing the
+  damage to the ripper. Every stop signal now goes through one chokepoint that
+  sends **at most one per subprocess**, keyed on the handle's identity rather than
+  a resettable flag so a second pass cannot inherit the first pass's state. The
+  real escalation is untouched: the reap still bounds its wait and still escalates
+  to SIGTERM→SIGKILL on the process group. Measured on the real path — a real
+  subprocess, the real `RipHandle`, real `killpg` — 2 signals before, 1 after, with
+  the stand-in's completion footer going from never-written to written.
+- **The log-integrity check went silent on the one build being tested.** A build's
+  `--verify-log` support is looked up in `BUILD_TAGS_ACCEPTING_VERIFY_LOG`, whose
+  coverage test exists precisely because *"a missing tag silently downgrades a real
+  `failed` to `not_determined` and the check goes quiet."* That test enumerated four
+  pin constants and **not `PIN_UNDER_REVIEW` — the pin the rig actually runs** — so
+  the single build under hardware test was the single build the check could not see,
+  and its floor of `>= 4` passed the whole time over four pins that were not the one
+  in use. Not hypothetical: the 2026-08-24 cancelled rip's audit reported *"we cannot
+  establish that this build accepts `--verify-log`"* and downgraded its verdict on
+  exactly that ground. The pin under review is now in both the support set and the
+  checked population, document-backed on the same footing as every other entry
+  (every pin post-dates round 4, and no published flag table has withdrawn the flag
+  since). A population defect, not a logic one.
+- **The cancel path threw away the ripper's dying words** — the one line most
+  worth keeping was the one line guaranteed to be dropped. The read loop's
+  `break` sat *above* the retention code, so the line it had just pulled off the
+  pipe was discarded silently on every cancel. That line is the ripper's own
+  account of why it is stopping, and its absence is what led the cyanrip fork to
+  conclude from our log that their signal handler *"did not run at all"*: their
+  `Trying to quit` had been handed to our loop and thrown away. Measured, not
+  reasoned — a stand-in's message was observed being yielded to the loop and
+  absent from `captured_stdout`. Fixed, including the shape that makes the naive
+  fix useless: cyanrip emits `"\r\nTrying to quit\n"` in a *single* `write(2)`, so
+  the first line after the signal is the blank terminator of the progress redraw
+  and the message is the next one — retaining "one more line" keeps a bare `\r`
+  and still loses the sentence. The extra read cannot block (a sub-`PIPE_BUF`
+  write is atomic, so the remainder is already buffered) and is bounded anyway.
+- **A log the ripper SIGNED while incomplete read as sound — "attested
+  truncation", and we had no name for it.** The cyanrip fork root-caused a defect
+  in which `cyanrip_log_finish_report()` sat *above* the `end:` label while
+  twenty-four `goto end` sites jumped past it, so an aborted run wrote a log with
+  no `Ripping errors:`, no `Read stalls:`, no `Rip completed:` and no
+  `Interrupted at:` — and then `cyanrip_log_end()`, which *is* inside `end:`,
+  wrote a FUN512 over that truncated body as though it were a whole record.
+  **Our audit already held both halves and never related them**: one row said
+  `OK — the ripper verified its own log against its own checksum`, another said
+  `NOTE — the footer is absent, the log was cut off or predates the fork pin`.
+  Separately each reads as reassuring; together they mean the producer attested an
+  incomplete record, and a reader citing it as an archival log is citing a signed
+  fragment. A missing footer **with** a verified checksum is now a WARN naming the
+  truncation as attested; **without** one it stays a NOTE, because that case
+  really is ambiguous and warning on it would flag every rip from a build
+  predating the footer and every genuinely killed one. Revert-proved in both
+  directions. **This is ours regardless of what the fork ships**: their fix cannot
+  be retroactive, so every log already written by an affected build keeps that
+  shape permanently, and a consumer that cannot name it will keep reading those as
+  sound for as long as they exist.
+- **A retired setting warned on every launch.** `working_dir` was removed in
+  0.6.24, but a config written by an older version still carries it and nothing
+  rewrites the file until a setting changes — so every process logged
+  `unknown config keys ignored: ['working_dir']`. Measured on the 2026-08-25 rig
+  bundle: **11 times in one session's log**, about our own decision, aimed at a
+  user who can do nothing with it, in the log we ask them to send when something
+  breaks. Retired keys are now named separately and reported at DEBUG; a
+  genuinely unknown key still WARNS, because that one means an older binary is
+  reading a newer file and a real setting is being ignored. Two different facts —
+  the old code said the same sentence about both.
+
+### Fixed
+- **A `wait-for-rip` bound that was too generous became no bound at all, and it
+  destroyed a night of drive time.** `wait-for-rip 21600` against the 10800 s cap
+  recorded FAIL and returned **immediately** — so the wait was zero. Measured on
+  the 2026-08-24 acceptance run: the next step graded a rip 0.4 s old, a
+  `cyanrip -N -x -I` cache probe opened the same drive **1.2 s** later, and the
+  unattended-quit helper declared the batch finished and killed the reader at
+  **1.48% of track 1**. The whole-disc secure re-read that section existed for
+  produced no report and no FUN512 footer; it is not in the library audit at all.
+  An over-long timeout unambiguously means *"wait a long time"*, and refusing to
+  wait is the one reading that cannot be what the author meant. Both
+  `wait-for-rip` and `wait` now **clamp and wait the cap**, reporting the clamp in
+  the transcript on every path — including the no-rip path, where the notice was
+  reaching the app log and not the transcript the other project reads.
+- **The unattended quit fired while a rip was still reading the disc.** Its two
+  gates — a queued evidence bundle, and `_post_rip_work_settled()` — are true and
+  complete answers to a *different* question: there was no post-rip work because
+  the rip had not finished. So it logged *"post-rip work has settled — quitting"*
+  and `closeEvent` reported `rip active=True` one millisecond later. A live rip
+  now blocks the quit and deliberately does **not** start the 15-minute grace
+  clock: a full-disc uniform re-read is hours, so counting it against the budget
+  would delay the kill rather than prevent it.
+- **A scripted `cyanrip` step could open the drive during a rip.** Two ripper
+  processes on one device, measured 1.2 s apart. The verb now refuses while a rip
+  is reading; `--version`-class probes stay exempt, and that exemption is asserted
+  because section A of the acceptance script depends on it.
+- **`--consumer` was never sent — on any of nine rips.** Every log read
+  `Consumer: not identified (no --consumer given)`, in the round whose entire
+  subject is provenance on a released pair, because the flag is gated on a
+  hand-kept set of build tags that none of round 14's three betas had joined.
+  Added on the fork's own artifact (their published flag table lists `-u` /
+  `--consumer`, and their `src/` is byte-identical across all three betas), and
+  the set now has a **checker**: `PIN_UNDER_REVIEW` must be resolved in it one way
+  or the other. The test that previously forbade any capability claim for an
+  under-review build is replaced by one that forbids an *unbacked* claim, checked
+  against the newest provider contract filed in the repository — its own docstring
+  said rows go in *"when it becomes a release … at which point there is a
+  published table to derive them from"*, and round 14's pin is both.
+
+### Changed
+- **cyanrip round 14: a disc was read on the released pair.** 209 pass / 3 fail /
+  0 error over 212 steps. T2 passed end to end — `full acceptance∶ angle‹bracket`
+  on disk, exactly the fork's measured `-T unicode` table, with a real colon
+  surviving into the tags. **T1 delivered by accident**: track 5 failed
+  AccurateRip, was re-read under `-Z` and converged after 3 reads, producing the
+  measurement neither project could construct — `READ` 3.13, `VERIFY` 2.30,
+  `FIXUP_ATOM` 3.00, `OVERLAP` 3.29. **Four counters, four ratios**, so
+  `disc == passes × sum` is refuted on real media while `sum ≤ disc` held on all
+  seven rips. Grading the inequality rather than the quotient was the right call.
+
+### Added
+- **`docs/rig-scripts/platterpusmorning.sh` — the morning-after collector, and it
+  exists because none of the three existing ones gathers the rips.** Measured by
+  reading them: the bundle the script run builds itself calls
+  `evidence_bundle.build_bundle()` **without `album_dir`**, which is the parameter
+  that admits a rip folder's files — so it carries the app log and the script run
+  folder and not one rip log, cue sheet, EAC log or cyanrip `-j` record;
+  `--rig-session` audits the newest `.platterpus.json` in depth and summarises the
+  rest; `platterpuscollect.sh` takes the newest rip folder only. The overnight
+  acceptance script performs **seven** rips, and "the newest" is the one beside the
+  cache probe rather than the whole-disc uniform secure re-read the open handshake
+  round is waiting on. Collecting the newest loses the night *silently* — the
+  bundle arrives looking complete. The new script gathers every text artifact from
+  every rip folder, folds the other mechanisms in rather than reimplementing them,
+  copies no audio, and prints a per-category count with floors that fire on a short
+  bundle instead of leaving the operator to notice.
+
+### Fixed
+- **The `timeout -k` sweep was reading half of every file it swept.** Its regex
+  treated `^`, `||`, `&&`, `;` and whitespace as command positions but **not `(`**,
+  so every `timeout` inside `$(…)` or `<(…)` was invisible — six of the new
+  collector's twelve bounds. Found by revert-probing the widening rather than
+  trusting it: a bare `timeout` planted inside `APP="$(timeout 60 find …)"` did not
+  fail the test, and the hash had moved, so the edit had demonstrably landed and the
+  check was simply blind. The population is also now **derived from the filesystem**
+  (`rig_session.sh` plus every `docs/rig-scripts/*.sh`) rather than one hardcoded
+  path, which is what the sweep's own docstring had promised — *"so the next one
+  added is caught too"* — while looking at exactly one file.
+
 ## [0.6.25] — 2026-08-25
 
 ### Added
@@ -10706,7 +10927,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.25...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.26...HEAD
+[0.6.26]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.25...v0.6.26
 [0.6.25]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.24...v0.6.25
 [0.6.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.23...v0.6.24
 [0.6.23]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.21...v0.6.23
@@ -10819,4 +11041,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.25.*
+*Last updated for Platterpus v0.6.26.*

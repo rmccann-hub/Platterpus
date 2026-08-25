@@ -312,6 +312,16 @@ class ScriptRunner(QObject):
         self._report: RunReport = RunReport(started_at="", app_version=__version__)
         self._unsafe_allowed: bool = False
         self._artifact_dir: Path | None = None
+        #: The daemon thread building this run's single-file evidence bundle, kept
+        #: so the unattended-quit helper can WAIT for it. Retained rather than
+        #: fire-and-forget: `_write_run_bundle` archives the app log (megabytes,
+        #: with rotations) plus every screenshot the run took, and the quit helper
+        #: ticks once a second — measured at **215 ms for 169 files** on the
+        #: 2026-08-24 overnight run, i.e. it finished with under a second to spare
+        #: on a run whose bundle is the entire deliverable. A plain `threading`
+        #: thread, not a QThread, so retaining it carries none of the `~QThread()`
+        #: hazard and abandoning it at exit is safe.
+        self._bundle_thread: threading.Thread | None = None
         #: Set while a `wait`-family step is pending; the tick returns early
         #: until the deadline passes. This is what keeps waiting non-blocking.
         self._deadline: float | None = None
@@ -640,22 +650,71 @@ class ScriptRunner(QObject):
         if seconds < 0:
             self._record(step, Outcome.ERROR, "a negative wait is not a wait")
             return
+        # Same reasoning as `wait-for-rip` above, and fixed in the same change: the
+        # comment "never a silent clamp" was right about the reporting and wrong
+        # about the behaviour — it did not clamp at all, it *refused*, so the
+        # script carried on immediately. A `wait` is almost always there to let
+        # something settle before the next assertion, and skipping it entirely
+        # turns the next step into a measurement of the wrong moment.
         capped = min(seconds, MAX_WAIT_S)
-        if capped < seconds:
-            # Never a silent clamp: the transcript says the wait was shortened.
-            self._record(
-                step,
-                Outcome.FAIL,
-                f"asked for {seconds:.0f}s; the cap is {MAX_WAIT_S:.0f}s",
-            )
-            return
         self._arm_deadline(step, capped)
+        if capped < seconds:
+            note = (
+                f"[CLAMPED: asked for {seconds:.0f}s, the cap is "
+                f"{MAX_WAIT_S:.0f}s — waited the cap, not zero]"
+            )
+            log.warning("ui script L%s: wait %s", step.line_no, note)
+            self._deadline_detail = note
 
     def _do_abort(self, step: Step) -> None:
         self._record(step, Outcome.PASS, step.joined() or "abort")
         reason = step.joined() or f"aborted at line {step.line_no}"
         # Everything after this is recorded as skipped by stop().
         self.stop(reason)
+
+    def _do_abort_if_failed(self, step: Step) -> None:
+        """Stop the batch, but ONLY if something has already failed.
+
+        **A precondition and a finding are different things, and this file's rule
+        that "a failing step does not stop the batch" is about findings.** That
+        rule is right: a run that halts on the first problem hides every problem
+        behind it, and a disc pass costs hours nobody gets back. It is the wrong
+        rule for *"am I even testing the right binary?"* — a wrong ripper does not
+        make the next six hours partially useful, it makes them **evidence about
+        a different subject**, which is precisely what the handshake exists to
+        prevent (`CLAUDE.md` rule 12: two artifacts from the same ripper under
+        different app versions are not interchangeable evidence).
+
+        Written because `fullacceptance.txt` **claimed** the identity section
+        *"stops you in the first four seconds if you are not"* on the right build,
+        and it did not — nothing but `abort` stops a batch, and the file never used
+        it. A header promising a stop that cannot happen is worse than no promise:
+        the cyanrip fork read that sentence and told the operator to run the file
+        overnight partly on the strength of it (round 14 lap 11 §J7, which asked us
+        to correct them if §A did not do what its header said — it did not).
+
+        Counts **FAIL and ERROR, not BLOCKED** — a verb refused for want of a
+        setting has not established that anything is wrong with the rig.
+        """
+        failed = [
+            r for r in self._report.steps if r.outcome in (Outcome.FAIL, Outcome.ERROR)
+        ]
+        if not failed:
+            self._record(
+                step,
+                Outcome.PASS,
+                f"no failures in the {len(self._report.steps)} step(s) so far — "
+                "continuing",
+            )
+            return
+        first = failed[0]
+        detail = (
+            f"{len(failed)} step(s) have failed; the first was L{first.line_no} "
+            f"({first.source!r}: {first.detail}). "
+            + (step.joined() or "stopping rather than spending the run on it")
+        )
+        self._record(step, Outcome.PASS, detail)
+        self.stop(detail)
 
     # --- Verbs: evidence -----------------------------------------------------
 
@@ -963,7 +1022,42 @@ class ScriptRunner(QObject):
         from platterpus.paths import CYANRIP_BINARY_DEFAULT
 
         args = list(step.args)
-        # SANITISE FIRST. This verb is a straight passthrough that bypasses
+        # NOT WHILE A RIP IS READING THE DISC.
+        #
+        # **Measured, 2026-08-24:** `cyanrip -N -x -I` opened /dev/sr0 **1.2
+        # seconds** after a whole-disc rip started on the same device — two ripper
+        # processes on one drive. The script's ordering was correct and assumed
+        # `wait-for-rip` blocks; it did not (an over-cap request refused to wait,
+        # fixed separately), and nothing else stood between a live rip and a step
+        # that opens the drive. A cache probe is the worst possible thing to do to
+        # a drive mid-read: it exists to defeat the readback cache.
+        #
+        # Two independent defects had to line up for that, which is exactly why
+        # the guard belongs HERE rather than only in the wait: this verb knows it
+        # touches the drive, and no ordering assumption elsewhere can be trusted
+        # to hold on a run that has already gone sideways.
+        #
+        # Probe invocations are exempt — `--version` and `--help` print and exit
+        # without opening the device, and the acceptance script's section A runs
+        # one deliberately while nothing else is happening.
+        from platterpus.uiscript.verbs import PROBE_FLAGS
+
+        is_probe = bool(args) and all(arg in PROBE_FLAGS for arg in args)
+        if not is_probe and getattr(self._window, "_rip_worker", None) is not None:
+            self._last_cyanrip_argv = []
+            self._last_cyanrip_output = ""
+            self._last_cyanrip_exit = None
+            self._record(
+                step,
+                Outcome.FAIL,
+                "refusing to run the ripper while a rip is READING THE DISC — "
+                "two ripper processes on one drive. Put a `wait-for-rip` before "
+                "this step, or move it after the rip finishes. (Only "
+                f"{sorted(PROBE_FLAGS)} are exempt: they print and exit without "
+                "opening the device.)",
+            )
+            return
+        # SANITISE NEXT. This verb is a straight passthrough that bypasses
         # `assert_metadata_lookup_disabled`, the one chokepoint every rip argv
         # the application builds must pass. Re-establishing the guard here is
         # not belt-and-braces: without `-N` cyanrip runs its own MusicBrainz
@@ -1752,14 +1846,44 @@ class ScriptRunner(QObject):
         if seconds <= 0:
             self._record(step, Outcome.ERROR, "a rip needs a positive timeout")
             return
+        # A BOUND THAT IS TOO GENEROUS MUST NOT BECOME NO BOUND AT ALL.
+        #
+        # **This cost a night of drive time on 2026-08-24.** The old code recorded
+        # FAIL and `return`ed on an over-cap request, so `wait-for-rip 21600` — six
+        # hours, against a three-hour cap — waited **zero seconds**. The very next
+        # step then graded a rip that had started 0.4 s earlier, the remaining
+        # sections ran against a live drive, a `-x -I` cache probe opened the same
+        # device 1.2 s later, and the unattended-quit helper declared the batch
+        # finished and killed the reader at 1.48% of track 1. The whole-disc secure
+        # re-read that section existed for produced no evidence at all.
+        #
+        # The author's intent in an over-long timeout is unambiguously *"wait a
+        # long time"*. Refusing to wait is the one reading that cannot be what they
+        # meant, and it is the dangerous one: every later step silently becomes a
+        # measurement of a different machine state. So the request is CLAMPED and
+        # the wait happens.
+        #
+        # The clamp is still reported — loudly, in the outcome's detail either way
+        # — because a script asking for more than the cap is a script whose author
+        # believes something false about the harness, and silence would leave them
+        # believing it. Reported and honoured, rather than reported and refused.
+        #
+        # (`CLAUDE.md`: *"fail-safe" is defined against the thing being protected*.
+        # The thing protected here is the disc pass, not the harness's tidiness.)
         capped = min(seconds, MAX_RIP_WAIT_S)
+        clamp_note = ""
         if capped < seconds:
-            self._record(
-                step,
-                Outcome.FAIL,
-                f"asked to wait {seconds:.0f}s; the cap is {MAX_RIP_WAIT_S:.0f}s",
+            clamp_note = (
+                f" [CLAMPED: asked for {seconds:.0f}s, the cap is "
+                f"{MAX_RIP_WAIT_S:.0f}s — waiting the cap, not skipping the wait]"
             )
-            return
+            log.warning(
+                "ui script L%s: wait-for-rip asked for %.0fs; clamping to the "
+                "%.0fs cap and waiting it",
+                step.line_no,
+                seconds,
+                MAX_RIP_WAIT_S,
+            )
         window = self._window
         # NOTHING RUNNING IS A FAILURE, NOT AN INSTANT PASS.
         #
@@ -1793,11 +1917,26 @@ class ScriptRunner(QObject):
                     "appears a beat after `rip` returns, so `ok` would race it "
                     "and fail with 'no dialog is open' about half the time."
                 )
-            self._record(step, Outcome.FAIL, detail)
+            # The clamp travels here too. It is already in the app log, but the
+            # TRANSCRIPT is what the other project reads and what a person greps
+            # at 6am — `CLAUDE.md`: a diagnosis captured and never surfaced is the
+            # same bug from the reader's side.
+            self._record(step, Outcome.FAIL, (detail + clamp_note).strip())
             return
         self._arm_deadline(
             step, capped, lambda: getattr(window, "_rip_worker", None) is None
         )
+        # AFTER arming, which resets both detail fields. Carried into whichever
+        # outcome the wait produces, so the clamp is visible in the transcript on
+        # the success path too — a script that asked for six hours and got three
+        # needs to know that on the run where it did not matter, not only on the
+        # run where it did.
+        if clamp_note:
+            self._deadline_detail = (self._deadline_detail + clamp_note).strip()
+            self._deadline_timeout_detail = (
+                f"the rip was still running when the {capped:.0f}s cap "
+                f"expired{clamp_note}"
+            )
 
     def _do_cancel_rip(self, step: Step) -> None:
         """Cancel a rip in progress, through the window's own Cancel handler."""
@@ -2149,6 +2288,25 @@ class ScriptRunner(QObject):
         log.info("ui script run saved to %s", directory)
         self._write_run_bundle(directory)
 
+    def bundle_in_progress(self) -> bool:
+        """Whether this run's evidence bundle is still being written.
+
+        Read by the unattended-quit helper. **The bundle is the deliverable of an
+        overnight run** — one `.tar.gz` holding the transcript, the reports, the
+        screenshots, the app log and the rig-check manifest — and it is built on a
+        daemon thread, which interpreter shutdown kills mid-archive without a
+        word. Quitting while it runs would leave the operator with a truncated
+        file or none at all, after a six-hour disc pass.
+
+        Never raises: a quit helper that can throw is a quit helper that can put a
+        modal on screen (see `_arm_unattended_quit`).
+        """
+        thread = self._bundle_thread
+        try:
+            return thread is not None and thread.is_alive()
+        except Exception:  # noqa: BLE001 — never block a quit on our own bug
+            return False
+
     def _write_run_bundle(self, directory: Path) -> None:
         """Fold the whole run into one archive the operator can attach.
 
@@ -2209,7 +2367,9 @@ class ScriptRunner(QObject):
                     result.error,
                 )
 
-        threading.Thread(target=work, daemon=True).start()
+        thread = threading.Thread(target=work, daemon=True, name="uiscript-bundle")
+        self._bundle_thread = thread
+        thread.start()
 
     def _ensure_artifact_dir(self) -> Path | None:
         if self._artifact_dir is not None:

@@ -989,3 +989,76 @@ def test_argv_agreement_on_a_single_pass_rip_does_not_mention_a_pass() -> None:
     texts = [f.text for f in album.findings]
     assert not any(f.level == rip_audit.LEVEL_WARN for f in album.findings), texts
     assert not any("pass" in t for t in texts), texts
+
+
+# --- Attested truncation: a signed but incomplete log -------------------------
+#
+# Round 14 lap 7 §B2. The cyanrip fork root-caused a defect in which
+# `cyanrip_log_finish_report()` sat ABOVE the `end:` label while 24 `goto end`
+# sites jumped past it — so an aborted run wrote a log with no completion footer,
+# and `cyanrip_log_end()` (inside `end:`) then signed that truncated body with a
+# FUN512 as if it were whole. Their fix is not in the reviewed pin and cannot be
+# retroactive: every log already written by an affected build keeps this shape.
+
+
+def _truncated(*, verified: bool) -> dict:
+    """A report whose log has NO completion footer, with the checksum verdict set.
+
+    Built from `_healthy()` so it differs from a good report in exactly the two
+    fields under test — anything else would make a pass here evidence about the
+    fixture rather than about the check.
+    """
+    report = _healthy()
+    rip = dict(report.get("rip") or {})
+    rip["rip_completed"] = None
+    rip.pop("rip_completed_reason", None)
+    report["rip"] = rip
+    report["ripper_log_verification"] = {
+        "verdict": "verified" if verified else "failed",
+        "detail": "stand-in",
+    }
+    return report
+
+
+def test_a_signed_log_with_no_footer_is_a_WARNING_not_a_note(tmp_path: Path) -> None:
+    """**The conjunction is the finding, and neither half says it alone.**
+
+    "The ripper verified this log" reads as reassuring. "The footer is absent —
+    cut off, or an old build" reads as ambiguous. Both were true at once and both
+    were friendly, so a signed fragment could be cited as an archival record.
+    """
+    album = rip_audit.AlbumAudit(folder=tmp_path)
+    rip_audit._audit_completion(_truncated(verified=True), album)
+    rows = [f for f in album.findings if "completion footer is absent" in f.text]
+    assert len(rows) == 1, [f.text for f in album.findings]
+    assert rows[0].level == LEVEL_WARN, rows[0].level
+    assert "ATTESTED" in rows[0].text, rows[0].text
+
+
+def test_an_unsigned_log_with_no_footer_stays_a_note(tmp_path: Path) -> None:
+    """**The floor.** Without it the fix could have been "warn on any missing
+    footer", which would flag every rip made by a build predating the footer and
+    every genuinely killed one — the ambiguity the original NOTE exists for."""
+    album = rip_audit.AlbumAudit(folder=tmp_path)
+    rip_audit._audit_completion(_truncated(verified=False), album)
+    rows = [f for f in album.findings if "completion footer is absent" in f.text]
+    assert len(rows) == 1, [f.text for f in album.findings]
+    assert rows[0].level == LEVEL_NOTE, rows[0].level
+    assert "ATTESTED" not in rows[0].text, rows[0].text
+
+
+def test_a_completed_rip_is_unaffected_by_either_verdict(tmp_path: Path) -> None:
+    """A rip that finished must read OK whatever the checksum verdict says — the
+    new branch is reached only when the footer is ABSENT, and a fix that leaked
+    into the healthy path would be the worse defect."""
+    for verified in (True, False):
+        report = _healthy()
+        report["ripper_log_verification"] = {
+            "verdict": "verified" if verified else "failed"
+        }
+        album = rip_audit.AlbumAudit(folder=tmp_path)
+        rip_audit._audit_completion(report, album)
+        assert any(f.level == LEVEL_OK for f in album.findings), (
+            f"a completed rip reported no OK row (verified={verified})"
+        )
+        assert not any("ATTESTED" in f.text for f in album.findings)

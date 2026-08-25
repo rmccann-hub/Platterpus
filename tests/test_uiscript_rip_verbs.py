@@ -464,13 +464,29 @@ def test_wait_for_rip_refuses_a_nonsense_timeout(qapp, process_until) -> None:
 
 
 def test_wait_for_rip_caps_an_absurd_timeout_loudly(qapp, process_until) -> None:
-    """Never a silent clamp: the transcript says the wait was refused."""
+    """Never a silent clamp — and, since 2026-08-24, never a silent SKIP either.
+
+    **This test used to assert the wait was REFUSED, and that behaviour destroyed
+    a night of drive time.** `wait-for-rip 21600` against the 10800 s cap recorded
+    FAIL and returned immediately, so the wait was zero. The next step graded a
+    rip 0.4 s old, a cache probe opened the same drive 1.2 s later, and the
+    unattended-quit helper killed the reader at 1.48% of track 1.
+
+    The transcript must still say the request was clamped — that half was always
+    right, and the word "cap" is still asserted. What changed is that the clamp is
+    now honoured rather than used as a reason not to wait. With no rip running
+    there is nothing to wait *for*, so the outcome here is still FAIL; the
+    behaviour under test is that the detail names the clamp.
+    """
     from platterpus.uiscript.runner import MAX_RIP_WAIT_S
 
     win = _window()
     record, _ = _run_one(win, f"wait-for-rip {int(MAX_RIP_WAIT_S) + 1000}")
     assert record.outcome is Outcome.FAIL
     assert "cap" in record.detail
+    assert "CLAMPED" in record.detail or "no rip is running" in record.detail, (
+        record.detail
+    )
 
 
 # --- expect-tracks ----------------------------------------------------------
@@ -1881,3 +1897,163 @@ def test_an_unimplemented_unsafe_verb_blames_the_missing_handler_not_a_checkbox(
             f"{name} blamed a setting the user could tick, which would not have "
             f"helped: {record.detail!r}"
         )
+
+
+# --- abort-if-failed: preconditions stop, findings do not -------------------
+
+
+def _run_to_end(runner: Any, script: str, process_until: Any) -> Any:
+    """Drive a script to its natural end and return the emitted RunReport."""
+    emitted: list[Any] = []
+    runner.finished.connect(emitted.append)
+    runner.start(parse(script), source=script)
+    assert process_until(lambda: bool(emitted)), "the run never finished"
+    return emitted[0]
+
+
+def test_abort_if_failed_does_not_stop_a_clean_run(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The common case: nothing has failed, so the six-hour run proceeds.
+
+    A precondition guard that stops a healthy run is worse than no guard — it
+    would cost exactly the night it exists to protect.
+    """
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    runner = ScriptRunner(_window())
+    report = _run_to_end(
+        runner, "log first\nabort-if-failed\nlog after the guard", process_until
+    )
+    sources = [s.source for s in report.steps]
+    assert "log after the guard" in sources, (
+        f"the guard stopped a run with no failures; steps were {sources}"
+    )
+    assert all(s.outcome is Outcome.PASS for s in report.steps), [
+        (s.source, s.outcome) for s in report.steps
+    ]
+
+
+def test_abort_if_failed_stops_the_batch_once_something_has_failed(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The identity case, which is why the verb exists.
+
+    `fullacceptance.txt` promised that its identity section *"stops you in the
+    first four seconds"* on the wrong ripper build. It did not: nothing but
+    `abort` stops a batch and the file never used it, so a six-hour unattended
+    run would gather a night of evidence about the wrong binary and report it as
+    a run. The cyanrip fork read that sentence and relayed it to the operator
+    (round 14 lap 11 §J7), which is how a false promise in our own header became
+    an instruction someone was about to follow.
+    """
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    runner = ScriptRunner(_window())
+    # `expect` on a setting that does not hold is a FAIL, which is the shape the
+    # identity assertions produce on the wrong build.
+    report = _run_to_end(
+        runner,
+        "expect output_format definitely-not-a-format\n"
+        "abort-if-failed wrong ripper\n"
+        "log the night that must not be spent",
+        process_until,
+    )
+    # `stop()` RECORDS the unreached steps as skipped rather than dropping them,
+    # so presence in the transcript is not the question — the OUTCOME is. Asserting
+    # on presence passed for a run that executed every step, which is the check
+    # being satisfied by the wrong thing.
+    after = [
+        s for s in report.steps if s.source == "log the night that must not be spent"
+    ]
+    assert after, "the trailing step vanished from the transcript entirely"
+    assert after[0].outcome is Outcome.SKIPPED, (
+        "the batch RAN past a failed precondition; the trailing step recorded "
+        f"{after[0].outcome} rather than SKIPPED"
+    )
+    guard = [s for s in report.steps if s.source.startswith("abort-if-failed")]
+    assert guard, "the guard never executed"
+    # It must name WHICH step failed — a stop with no subject sends the operator
+    # back through a transcript to find out why their night ended.
+    assert "L1" in guard[0].detail and "output_format" in guard[0].detail, (
+        f"the guard stopped without naming the failure: {guard[0].detail!r}"
+    )
+
+
+def test_abort_if_failed_ignores_blocked_steps(qapp, tmp_path, monkeypatch) -> None:
+    """BLOCKED is a setting being off — not evidence the rig is wrong.
+
+    Counting it would let the unsafe-verb opt-in end a six-hour run, which is a
+    completely different claim from "you are on the wrong build".
+
+    Driven through the handler directly, and the reason is worth stating: BLOCKED
+    is **unreachable from a script today** — both unsafe verbs are
+    `implemented=False`, and dispatch looks up the handler before the unsafe gate
+    (deliberately, so the refusal names the real problem). An end-to-end version
+    of this test would therefore skip forever, which is a check satisfied by
+    finding nothing. The branch exists in the handler, so it is asserted there.
+    """
+    from platterpus.uiscript.report import StepRecord
+
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    runner = ScriptRunner(_window())
+    runner.start(parse("log seed"), source="log seed")
+    stopped: list[str] = []
+    monkeypatch.setattr(runner, "stop", lambda reason="": stopped.append(reason))
+
+    runner._report.steps.append(
+        StepRecord(1, "call something", Outcome.BLOCKED, "the setting is off")
+    )
+    runner._do_abort_if_failed(parse("abort-if-failed")[0])
+
+    assert not stopped, f"a BLOCKED step ended the batch: {stopped}"
+    assert "no failures" in runner._report.steps[-1].detail
+
+    # Non-triviality: the same handler MUST stop on a real failure, or the
+    # assertion above is satisfied by a handler that never stops at all.
+    runner._report.steps.append(
+        StepRecord(2, "expect x y", Outcome.FAIL, "expected x, got y")
+    )
+    runner._do_abort_if_failed(parse("abort-if-failed")[0])
+    assert stopped, "the handler did not stop on a genuine FAIL either"
+
+
+def test_the_quit_helpers_predicate_has_a_real_subject(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The RELATION between the two sides of the bundle guard.
+
+    `app._bundle_being_written()` asks the runner; the runner answers from
+    `_bundle_thread`. Each side is testable alone and each passes alone — and the
+    guard is worthless if the runner never populates what the predicate reads,
+    because `bundle_in_progress()` returns False for a `None` thread. That is the
+    "two surfaces, one relation" defect: a property no test of either side can
+    express, so it needs its own.
+
+    Proved by revert: dropping `self._bundle_thread = thread` broke NOTHING until
+    this existed.
+
+    Asserts the thread was *recorded*, not that it is still alive — a fast bundle
+    may finish first, and asserting liveness would be a race the test loses on a
+    quick machine.
+    """
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    runner = ScriptRunner(_window())
+    _run_to_end(runner, "log hello", process_until)
+
+    assert runner._bundle_thread is not None, (
+        "the run finished without recording its bundle thread, so the unattended "
+        "quit helper's guard has no subject and can never fire"
+    )
+    # And the predicate the helper actually calls agrees about liveness.
+    runner._bundle_thread.join(timeout=30)
+    assert not runner.bundle_in_progress(), (
+        "bundle_in_progress() still reports work after the thread joined — the "
+        "helper would hold the process open until its budget expired"
+    )
