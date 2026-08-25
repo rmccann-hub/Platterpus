@@ -20,6 +20,29 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Round 14 lap 12, 2026-08-25 — a header that promised a stop it could not perform
+
+- [x] **`fullacceptance.txt` §A claimed it "stops you in the first four seconds"
+  on the wrong ripper build, and it did not.** New `abort-if-failed` verb, used
+  once after the identity assertions. Preconditions abort; findings do not.
+- [x] **The rig harness printed a false conclusion as a finding** — exit 137
+  "means the reader was wedged". cyanrip has caught SIGTERM since
+  `+platterpus.7`, so SIGKILL is the expected terminator and 137 says nothing
+  about the drive.
+- [x] **An empty stdout capture beside a populated `-j` record** now reports the
+  disagreement as its own finding. The ripper path is a Distrobox wrapper, so a
+  container runtime sits between cyanrip's fd 1 and our redirect; `-j` bypasses
+  it. Why the forwarding lost the bytes is NOT DETERMINED and is not guessed at.
+- [x] **Our handshake gate read `HANDSHAKE-TEST-PIN: none.` as a build** (the
+  fork's §F2 — they found it in theirs and asked). Fixed at the reader; only an
+  exact `none` reads as an absence.
+- [x] Fork's **C1 detector added as section P2**; **J6 answered** (the verb is
+  bounded — 300 s + kill + 20 s, then an unreapable-child report).
+- [ ] **Run `fullacceptance.txt` overnight** — 0.6.26 against `d9c058c`. This is
+  CC-2 and the only thing between round 14 and a close. `securereread.txt` stays
+  in the tree for a night when only the close matters.
+- [ ] Run the fork's `rig-c1-probe.sh` **only if section P2 hangs**.
+
 ## Round 14 lap 10, 2026-08-25 — the cancel that destroyed its own log
 
 - [x] **We sent cyanrip TWO SIGTERMs per cancel, 0.445 ms apart** — the second

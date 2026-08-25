@@ -11,6 +11,54 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-25 (later) — a header that promised a stop it could not perform
+
+**Round 14 lap 11 → 12.** The fork's lap 11 asked one question they wanted answered
+before the disc spins (J6: does the `cyanrip` verb bound its wait?) and one they
+explicitly refused to answer for us (J7: does `fullacceptance.txt` §A do what its
+header says?). **J6: yes** — 300 s, then the child is killed, then 20 s more before
+the runner reports an *unreapable child* with a null exit code. **J7: no.**
+
+**The header said §A *"stops you in the first four seconds"* on the wrong ripper
+build. It did not.** Nothing but `abort` ends a batch and that file never used it,
+so a wrong build produced a FAIL on line ~20 and then six hours of evidence about
+the wrong binary — and the fork had relayed that sentence to the operator as the
+reason an overnight run is safe. Fixed by making it true: `abort-if-failed`, used
+once, immediately after the identity assertions. **Preconditions abort; findings do
+not** — the file's own "a failing step does not stop the batch" rule is right and
+is about findings; a wrong ripper is not a finding but a different subject.
+
+**Two defects in the rig harness, each found by a different part of their lap.**
+Their §D1 disclosed that cyanrip has caught SIGTERM since `+platterpus.7` (handler
+sets a flag; nothing reads it once the rip loop is past), which refutes our
+harness's printed conclusion that exit 137 *"means the reader was wedged"* — SIGKILL
+is the expected terminator, and the finding is the 1800 s, not the signal. Their §C
+established from our own tarball's mtimes that `05-minus-j.txt` never received what
+cyanrip sent. **Their three candidate causes all missed that our ripper path is the
+host-exported Distrobox wrapper**, so a container runtime forwards stdio between
+cyanrip's fd 1 and our redirect while `-j` goes straight to a bind-mounted host
+path. Two channels, one with a container in it. Why the forwarding lost the bytes
+is *not determined* and is not guessed at — instead the harness now cross-checks
+the channels and reports disagreement as its own finding.
+
+**Their §F2 asked us to check our gate for a hole they found in theirs. We had it.**
+`HANDSHAKE-TEST-PIN: none.` read as a build; never fired only because the one
+blocker consulting the field also requires `HANDSHAKE-PIN`. Fixed at the reader,
+without guessing — only an exact `none` reads as an absence.
+
+**Also:** their §K2 C1-detector step added as section P2 (detects; their shell probe
+explains), minus the `-j` they assumed we could write — we have no path placeholder
+and a hard-coded path breaks the file's "nothing needs editing" promise. Their
+`rig-c1-probe.sh` filed as a record; our shell-hygiene sweep now excludes received
+handshake artifacts, scoped to one directory with a test asserting nothing of ours
+can hide behind it — a peer's artifact is evidence, and editing it to satisfy our
+lint would falsify the record.
+
+**A test of mine caught itself being vacuous.** The non-triviality half of the
+declared-absence test (*"a real test pin with no `HANDSHAKE-PIN` must still
+block"*) failed — because `close_blockers` returns early on any non-GO verdict and
+my fixture said `HOLD`, so neither half had ever reached the code under test.
+
 ## 2026-08-25 — the cancel that destroyed its own log was ours, twice over
 
 **Round 14 laps 9 → 10.** The fork's lap 9 asked one question — *"how many signals

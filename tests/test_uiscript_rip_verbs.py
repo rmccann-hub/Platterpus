@@ -1897,3 +1897,126 @@ def test_an_unimplemented_unsafe_verb_blames_the_missing_handler_not_a_checkbox(
             f"{name} blamed a setting the user could tick, which would not have "
             f"helped: {record.detail!r}"
         )
+
+
+# --- abort-if-failed: preconditions stop, findings do not -------------------
+
+
+def _run_to_end(runner: Any, script: str, process_until: Any) -> Any:
+    """Drive a script to its natural end and return the emitted RunReport."""
+    emitted: list[Any] = []
+    runner.finished.connect(emitted.append)
+    runner.start(parse(script), source=script)
+    assert process_until(lambda: bool(emitted)), "the run never finished"
+    return emitted[0]
+
+
+def test_abort_if_failed_does_not_stop_a_clean_run(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The common case: nothing has failed, so the six-hour run proceeds.
+
+    A precondition guard that stops a healthy run is worse than no guard — it
+    would cost exactly the night it exists to protect.
+    """
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    runner = ScriptRunner(_window())
+    report = _run_to_end(
+        runner, "log first\nabort-if-failed\nlog after the guard", process_until
+    )
+    sources = [s.source for s in report.steps]
+    assert "log after the guard" in sources, (
+        f"the guard stopped a run with no failures; steps were {sources}"
+    )
+    assert all(s.outcome is Outcome.PASS for s in report.steps), [
+        (s.source, s.outcome) for s in report.steps
+    ]
+
+
+def test_abort_if_failed_stops_the_batch_once_something_has_failed(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The identity case, which is why the verb exists.
+
+    `fullacceptance.txt` promised that its identity section *"stops you in the
+    first four seconds"* on the wrong ripper build. It did not: nothing but
+    `abort` stops a batch and the file never used it, so a six-hour unattended
+    run would gather a night of evidence about the wrong binary and report it as
+    a run. The cyanrip fork read that sentence and relayed it to the operator
+    (round 14 lap 11 §J7), which is how a false promise in our own header became
+    an instruction someone was about to follow.
+    """
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    runner = ScriptRunner(_window())
+    # `expect` on a setting that does not hold is a FAIL, which is the shape the
+    # identity assertions produce on the wrong build.
+    report = _run_to_end(
+        runner,
+        "expect output_format definitely-not-a-format\n"
+        "abort-if-failed wrong ripper\n"
+        "log the night that must not be spent",
+        process_until,
+    )
+    # `stop()` RECORDS the unreached steps as skipped rather than dropping them,
+    # so presence in the transcript is not the question — the OUTCOME is. Asserting
+    # on presence passed for a run that executed every step, which is the check
+    # being satisfied by the wrong thing.
+    after = [
+        s for s in report.steps if s.source == "log the night that must not be spent"
+    ]
+    assert after, "the trailing step vanished from the transcript entirely"
+    assert after[0].outcome is Outcome.SKIPPED, (
+        "the batch RAN past a failed precondition; the trailing step recorded "
+        f"{after[0].outcome} rather than SKIPPED"
+    )
+    guard = [s for s in report.steps if s.source.startswith("abort-if-failed")]
+    assert guard, "the guard never executed"
+    # It must name WHICH step failed — a stop with no subject sends the operator
+    # back through a transcript to find out why their night ended.
+    assert "L1" in guard[0].detail and "output_format" in guard[0].detail, (
+        f"the guard stopped without naming the failure: {guard[0].detail!r}"
+    )
+
+
+def test_abort_if_failed_ignores_blocked_steps(qapp, tmp_path, monkeypatch) -> None:
+    """BLOCKED is a setting being off — not evidence the rig is wrong.
+
+    Counting it would let the unsafe-verb opt-in end a six-hour run, which is a
+    completely different claim from "you are on the wrong build".
+
+    Driven through the handler directly, and the reason is worth stating: BLOCKED
+    is **unreachable from a script today** — both unsafe verbs are
+    `implemented=False`, and dispatch looks up the handler before the unsafe gate
+    (deliberately, so the refusal names the real problem). An end-to-end version
+    of this test would therefore skip forever, which is a check satisfied by
+    finding nothing. The branch exists in the handler, so it is asserted there.
+    """
+    from platterpus.uiscript.report import StepRecord
+
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    runner = ScriptRunner(_window())
+    runner.start(parse("log seed"), source="log seed")
+    stopped: list[str] = []
+    monkeypatch.setattr(runner, "stop", lambda reason="": stopped.append(reason))
+
+    runner._report.steps.append(
+        StepRecord(1, "call something", Outcome.BLOCKED, "the setting is off")
+    )
+    runner._do_abort_if_failed(parse("abort-if-failed")[0])
+
+    assert not stopped, f"a BLOCKED step ended the batch: {stopped}"
+    assert "no failures" in runner._report.steps[-1].detail
+
+    # Non-triviality: the same handler MUST stop on a real failure, or the
+    # assertion above is satisfied by a handler that never stops at all.
+    runner._report.steps.append(
+        StepRecord(2, "expect x y", Outcome.FAIL, "expected x, got y")
+    )
+    runner._do_abort_if_failed(parse("abort-if-failed")[0])
+    assert stopped, "the handler did not stop on a genuine FAIL either"

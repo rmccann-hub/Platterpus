@@ -65,8 +65,36 @@ def _looks_like_shell(path: Path) -> bool:
     return first_line.startswith("#!") and "sh" in first_line
 
 
+#: Received handshake artifacts. **Excluded from the shell-hygiene sweeps, and the
+#: scope of the exclusion is the reason it is allowed.**
+#:
+#: A file under `docs/handshake/inbound/` is a RECORD of what the other project
+#: sent, byte-identical on purpose — the envelope format carries a SHA-256 per
+#: part precisely so a receiver can prove it did not alter one. Editing such a
+#: file to add `set -e` would falsify the record, and it would falsify it in the
+#: one direction that matters: a peer's artifact is evidence about *them*.
+#:
+#: This is a narrowing of a sweep, so it is written down rather than done quietly
+#: (`CLAUDE.md` — scoping a sweep is fine; scoping it silently while the rule
+#: claims everything is the defect). Two things keep it honest: it covers exactly
+#: one directory, and `test_the_inbound_exclusion_covers_only_received_records`
+#: below asserts nothing of OURS can hide behind it.
+#:
+#: If a received script's hygiene is worth changing, the route is a handshake lap
+#: asking them to change it — not an edit here.
+_INBOUND_RECORDS: str = "docs/handshake/inbound"
+
+
+def _is_received_record(path: Path) -> bool:
+    """Whether `path` is an artifact another project sent us, not code we ship."""
+    return _INBOUND_RECORDS in path.relative_to(_ROOT).as_posix()
+
+
 def _shell_scripts() -> list[Path]:
-    """Every shipped shell script, minus generated/vendored trees we don't own."""
+    """Every shipped shell script, minus generated/vendored trees we don't own.
+
+    "Shipped" excludes received handshake artifacts — see `_INBOUND_RECORDS`.
+    """
     skip = {".git", "venv", ".venv", "node_modules", "__pycache__"}
     scripts: list[Path] = []
     for path in _ROOT.rglob("*"):
@@ -74,9 +102,35 @@ def _shell_scripts() -> list[Path]:
             continue
         if _BUILD_LIB in path.parents or skip.intersection(path.parts):
             continue
+        if _is_received_record(path):
+            continue
         if _looks_like_shell(path):
             scripts.append(path)
     return sorted(scripts)
+
+
+def test_the_inbound_exclusion_covers_only_received_records() -> None:
+    """The exclusion must not be a hole anything of ours can fall through.
+
+    A path-substring skip is exactly the shape that quietly grows to cover code
+    it was never meant to. Asserted two ways: nothing outside the inbound
+    directory is excluded, and the sweep still sees every script we actually ship.
+    """
+    excluded = [
+        p
+        for p in _ROOT.rglob("*")
+        if p.is_file() and _looks_like_shell(p) and _is_received_record(p)
+    ]
+    for path in excluded:
+        rel = path.relative_to(_ROOT).as_posix()
+        assert rel.startswith(_INBOUND_RECORDS + "/"), (
+            f"{rel} is being excluded from the shell-hygiene sweep but is not a "
+            "received handshake record"
+        )
+    ours = {p.relative_to(_ROOT).as_posix() for p in _shell_scripts()}
+    assert not any(o.startswith(_INBOUND_RECORDS) for o in ours)
+    # Floor, so this cannot pass by the sweep having gone blind.
+    assert len(ours) >= _MIN_SHELL_SCRIPTS, sorted(ours)
 
 
 #: Floor for the shell scan. 13 today (12 `*.sh` + `.githooks/pre-commit`). The

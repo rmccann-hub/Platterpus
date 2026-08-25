@@ -66,23 +66,33 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: be miscounted; `assert_not_a_lap` checks that property on the envelope before
 #: writing it.
 PARTS: tuple[Path, ...] = (
-    HANDSHAKE_DIR / "outbound" / "round-14-lap-06.md",
+    HANDSHAKE_DIR / "outbound" / "round-14-lap-12.md",
     REPO_ROOT / "docs" / "rig-scripts" / "fullacceptance.txt",
-    REPO_ROOT / "docs" / "rig-scripts" / "securereread.txt",
 )
 
-# LAP 8 IS SENT BARE, and PARTS deliberately still describes lap 6's exchange.
+# WHY THIS MOVED FROM LAP 6 TO LAP 12, and why `securereread.txt` came out.
 #
-# An envelope exists to carry a lap *plus artifacts* and prove they arrived
-# together. Lap 8 has no artifacts — it answers a lap and asks for one file
-# back — so wrapping it would produce a one-part envelope, which is both
-# pointless and the case `assert_not_a_lap` is tightest against. The fork sent
-# their lap 7 bare for the same reason.
+# Laps 8 and 10 were sent BARE and PARTS deliberately stayed on lap 6 through
+# both: an envelope exists to carry a lap *plus artifacts*, and a lap that only
+# answers a lap would produce a one-part envelope — pointless, and the case
+# `assert_not_a_lap` is tightest against. The fork sends theirs bare for the same
+# reason.
 #
-# PARTS names the newest exchange that actually needed one, so the published
-# `round14lap06platterpus.md` on disk stays consistent with it and the
-# round-trip tests keep a real subject. Repointing it at a lap we did not
-# envelope would leave a stale archive claiming to be current.
+# Lap 12 is different: it CHANGES `fullacceptance.txt` — a new `abort-if-failed`
+# guard after the identity section, and the fork's C1 detector as section P2 — and
+# that file is the round's only close condition. A lap that alters the script the
+# other side is about to have run, sent without the script, is a description of an
+# artifact instead of the artifact. So the envelope moves with it.
+#
+# **`securereread.txt` is out because it did not change.** The fork's lap 11 §K
+# retires it for this run (`fullacceptance.txt` contains T1 as section N) and it
+# is unchanged since lap 6, so re-sending it is the noise both sides keep
+# declining to send. It stays in the tree for a night when only the close matters.
+#
+# The consequence to keep in view: the published `round14lap06platterpus.md` on
+# disk is now HISTORY, not the current envelope. That is correct — it is the record
+# of what lap 6 sent, and lap 6 sent the file as it then stood. Regenerating it
+# against today's script would falsify what we sent.
 
 #: The envelope's name, as a template. **Two properties, and both are checked by
 #: `tests/test_handshake_file_naming.py` rather than asserted in this comment.**
