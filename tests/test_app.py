@@ -1192,3 +1192,74 @@ def test_a_second_fatal_error_does_not_open_a_second_dialog(qapp) -> None:
         "the re-entrancy guard latched ON: a later, unrelated fatal error got no "
         "dialog at all. It must clear when the first dialog closes."
     )
+
+
+def test_the_unattended_quit_never_fires_while_a_rip_is_reading_the_disc(
+    qapp,
+) -> None:
+    """**Regression for the 2026-08-24 rig run, and the defect that killed a rip.**
+
+    The batch ended while a whole-disc secure re-read was 1.48% into track 1. Both
+    existing gates passed — there was no queued bundle and no post-rip work,
+    *because the rip had not finished* — so the helper logged "post-rip work has
+    settled — quitting", `closeEvent` reported `rip active=True` one millisecond
+    later, and `fuser -k /dev/sr0` killed the reader. That rip's log has no FUN512
+    footer and no report; it does not appear in the library audit at all.
+
+    `_post_rip_work_settled()` is a true and complete answer to a different
+    question. This is `CLAUDE.md`'s *did I check the preconditions where the thing
+    HAPPENS?* — the guard was built for the deferral it knew about and never asked
+    the prior one.
+
+    **The budget must not rescue it either.** A live rip deliberately does not
+    start the grace clock: the budget is 15 minutes and a full-disc uniform
+    re-read is hours, so counting a rip against it would delay the kill rather
+    than prevent it. Asserted with a budget of zero, which makes any
+    budget-based expiry fire on the very first tick.
+    """
+    from platterpus.app import _arm_unattended_quit
+
+    quits: list[int] = []
+    state = {"rip": object()}
+
+    class _Runner:
+        running = False
+
+    class _Console:
+        @property
+        def runner(self):
+            return _Runner()
+
+    class _App:
+        def quit(self) -> None:
+            quits.append(1)
+
+    from PySide6.QtWidgets import QWidget
+
+    window = QWidget()
+    window._rip_worker = state["rip"]
+    window._pending_evidence_bundle = None
+    window._post_rip_work_settled = lambda: True
+    window._post_rip_still_running = lambda: ""
+
+    timer = _arm_unattended_quit(_App(), window, _Console(), budget_s=0.0)
+    assert timer is not None
+
+    # A rip is reading. Every other gate says "settled". It must not quit — and a
+    # zero budget must not let it through the give-up path either.
+    for _ in range(5):
+        timer.timeout.emit()
+    assert not quits, (
+        "the app quit while a rip was still reading the disc — this is the defect "
+        "that destroyed the whole-disc secure re-read on 2026-08-24"
+    )
+
+    # THE FLOOR: once the rip ends it must actually quit, or this test would pass
+    # against a helper that never quits at all.
+    window._rip_worker = None
+    timer.timeout.emit()
+    assert quits, (
+        "the helper never quit once the rip ended — the guard has become a hang, "
+        "which is the failure the whole unattended path exists to avoid"
+    )
+    timer.stop()

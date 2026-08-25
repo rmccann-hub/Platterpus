@@ -120,34 +120,59 @@ def test_the_pin_under_review_matches_the_newest_inbound_round() -> None:
     )
 
 
-def test_the_build_under_review_makes_no_capability_claim() -> None:
-    """The one-directional half, asserted so it is not "fixed" by a future reader.
+def test_a_capability_claim_for_the_build_under_review_is_backed_by_a_table() -> None:
+    """A capability row needs a PUBLISHED FLAG TABLE behind it — checked, not assumed.
 
-    A build the fork has proposed but not published a flag table for has
-    capabilities we do not know. `accepts_verify_log` is tri-state precisely so it
-    can answer ``None`` instead of guessing, and round 12's pin is additionally
-    one the fork's own policy says is not a release and must not be installed —
-    so a capability row for it would describe a build nobody runs.
+    **This replaces a test that asserted the pin under review claims no
+    capability at all**, and the replacement is that test's own escape clause
+    firing for the first time. Its docstring said the rows *"go in when it becomes
+    a release or a declared test pin, at which point there is a published table to
+    derive them from."* Round 14's pin is a release (`release_seq` 20, the `beta`
+    channel resolves to it) and the fork ships a generated flag table with every
+    lap, so both halves of that condition are met.
 
-    The rows go in when it becomes a release or a declared test pin, at which
-    point there is a published table to derive them from.
+    Keeping the old assertion would have kept a real defect: the 2026-08-24 rig
+    run produced **nine rips, every one logging** `Consumer: not identified (no
+    --consumer given)` — in the round whose entire subject is provenance on a
+    released pair — because `--consumer` is gated on a set the under-review build
+    was forbidden from joining.
+
+    So the property moves from *"make no claim"* to *"make no UNBACKED claim"*,
+    and it is checked against the **artifact**: the newest provider contract filed
+    under `docs/handshake/inbound/artifacts/` must actually list the flag. That is
+    stronger than the rule it replaces — the old one could only ever say "not
+    yet", and this one fails if we invent a capability the fork never published.
+
+    Tri-state is untouched: a build absent from a set still answers
+    ``not determined`` rather than ``False``.
     """
+    contracts = sorted(
+        (_REPO_ROOT / "docs" / "handshake" / "inbound" / "artifacts").glob(
+            "*provider-contract*.md"
+        )
+    )
+    assert contracts, "no provider contract is filed — this check measures nothing"
+    published = contracts[-1].read_text(encoding="utf-8")
+
     tag = f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}"
-    assert tag not in fork_source.BUILD_TAGS_ACCEPTING_VERIFY_LOG, (
-        f"{tag} claims --verify-log support with no published flag table behind "
-        f"it. Derive the row from the fork's P1 table when the pin becomes a "
-        f"release; until then 'we do not know' is the honest answer and "
-        f"accepts_verify_log() returning None is how it is said."
+    claims = {
+        "--consumer": tag in fork_source.BUILD_TAGS_ACCEPTING_CONSUMER_FLAG,
+        "--verify-log": tag in fork_source.BUILD_TAGS_ACCEPTING_VERIFY_LOG,
+    }
+    assert any(claims.values()), (
+        f"{tag} is the pin under review and claims NO capability at all. That was "
+        f"correct while the fork had published no flag table for it; "
+        f"{contracts[-1].name} is one. A build we install and rip with should "
+        f"have its capabilities derived from it."
     )
-    assert tag not in fork_source.BUILD_TAGS_ACCEPTING_CONSUMER_FLAG, (
-        f"{tag} claims --consumer support with no published flag table behind it"
-    )
-    assert fork_source.accepts_verify_log(tag) is None, (
-        f"accepts_verify_log({tag!r}) is "
-        f"{fork_source.accepts_verify_log(tag)!r}, not None — an unknown build "
-        f"must be not-determined, never False (which would invent evidence of "
-        f"absence) and never True"
-    )
+    for flag, claimed in claims.items():
+        if not claimed:
+            continue  # not claiming it is always honest
+        assert f"`{flag}`" in published, (
+            f"{tag} claims {flag} support, but {contracts[-1].name} — the newest "
+            f"provider contract we hold — does not list it. A capability row must "
+            f"be derived from their published table, never from ours."
+        )
 
 
 def test_the_durable_release_constant_is_still_a_capability_member() -> None:

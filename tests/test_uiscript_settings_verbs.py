@@ -200,3 +200,89 @@ def test_setting_an_ordinary_field_still_writes_only_that_field(
         if getattr(before, name) != getattr(after, name, None)
     }
     assert changed == {"max_retries"}, changed
+
+
+# --- The 2026-08-24 rig run: a bound too generous became no bound -------------
+
+
+def test_an_over_cap_rip_wait_WAITS_THE_CAP_instead_of_skipping(
+    window: QWidget, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """**The regression test for the defect that destroyed a night's disc pass.**
+
+    `wait-for-rip 21600` against a 3-hour cap used to record FAIL and return
+    *immediately*, so no wait happened at all. The next step then graded a rip
+    that had started 0.4 s earlier, a cache probe opened the same drive 1.2 s
+    later, and the unattended-quit helper declared the batch finished and killed
+    the reader at 1.48% of track 1.
+
+    Asserted as the PROPERTY — a deadline is armed for the cap — rather than as
+    "the step did not fail", because the step may still legitimately report the
+    clamp. What must never happen again is *not waiting*.
+    """
+    window._rip_worker = object()  # type: ignore[attr-defined]
+    run = runner_mod.ScriptRunner(window)
+    run.start(_steps("wait-for-rip 21600"))
+    run._tick()
+    assert run._deadline is not None, (
+        "no deadline was armed — the over-cap request was refused rather than "
+        "clamped, which is the defect: the script carries on against a live rip"
+    )
+    armed_for = run._deadline - run._deadline_started
+    assert armed_for == pytest.approx(runner_mod.MAX_RIP_WAIT_S, abs=1.0), armed_for
+    assert "CLAMPED" in run._deadline_detail, run._deadline_detail
+    run.stop("test over")
+
+
+def test_an_over_cap_plain_wait_also_waits_the_cap(window: QWidget) -> None:
+    """Same defect, same file, one verb over. A `wait` exists to let something
+    settle; skipping it entirely makes the next step measure the wrong moment."""
+    run = runner_mod.ScriptRunner(window)
+    run.start(_steps("wait 99999"))
+    run._tick()
+    assert run._deadline is not None, "the over-cap wait was refused, not clamped"
+    armed_for = run._deadline - run._deadline_started
+    assert armed_for == pytest.approx(runner_mod.MAX_WAIT_S, abs=1.0), armed_for
+    assert "CLAMPED" in run._deadline_detail, run._deadline_detail
+    run.stop("test over")
+
+
+def test_a_wait_within_the_cap_is_not_labelled_clamped(window: QWidget) -> None:
+    """The floor. Without it, a verb that clamped *everything* would pass above."""
+    run = runner_mod.ScriptRunner(window)
+    run.start(_steps("wait 1"))
+    run._tick()
+    assert "CLAMPED" not in run._deadline_detail, run._deadline_detail
+    run.stop("test over")
+
+
+def test_the_ripper_verb_refuses_to_open_the_drive_during_a_rip(
+    window: QWidget,
+) -> None:
+    """Two ripper processes on one drive, measured 1.2 s apart on the rig.
+
+    A cache probe is the worst thing to do to a drive mid-read — defeating the
+    readback cache is its entire purpose. The guard lives on the verb that knows
+    it touches the drive rather than only in the wait, because two independent
+    defects had to line up to produce it and neither ordering assumption held.
+    """
+    window._rip_worker = object()  # type: ignore[attr-defined]
+    steps = _run(window, "cyanrip -N -x -I")
+    assert steps[0].outcome is Outcome.FAIL, steps[0].detail
+    assert "READING THE DISC" in steps[0].detail, steps[0].detail
+
+
+def test_a_version_probe_is_still_allowed_during_a_rip(window: QWidget) -> None:
+    """**The floor, and it is not hypothetical.**
+
+    Section A of the acceptance script runs `cyanrip --version` deliberately. A
+    guard that refused every invocation would break the identity check the whole
+    run is attributable through — so the exemption is asserted, not assumed.
+    Probe flags print and exit without opening the device.
+    """
+    window._rip_worker = object()  # type: ignore[attr-defined]
+    steps = _run(window, "cyanrip --version")
+    detail = steps[0].detail
+    assert "READING THE DISC" not in detail, (
+        f"a --version probe was refused during a rip: {detail}"
+    )
