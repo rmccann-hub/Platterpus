@@ -1,0 +1,99 @@
+=== THIS IS A SAMPLE, NOT A GOLDEN REFERENCE. DO NOT DIFF IT. ===
+
+One real rip of tests/fixtures/pregap.cue, stopped with SIGTERM part way
+through track 1, kept so a consumer writing a parser for an interrupted rip has
+an artifact to open instead of a paragraph describing one. The canonical rip in
+docs/golden-reference.log completes and therefore can never show this shape.
+
+Where the signal lands is not reproducible, so how many frames were read, how
+many track blocks exist and every timing differ between runs. Regenerating it
+produces a DIFFERENT and equally correct file. What is checked, by
+`tools/gen-golden-reference.py --interrupted --check`, is that this file still
+carries the line shapes a rip interrupted right now produces -- which catches a
+reworded line and claims nothing about the body.
+
+Everything below this marker is the log byte for byte. It does not verify with
+--verify-log while this header is attached, because the header is not part of
+what the checksum covers; strip everything up to and including the next marker
+line and it does.
+
+Companion record: docs/sample-interrupted.diagnostics.json
+=== END OF HEADER -- THE LOG ITSELF STARTS ON THE NEXT LINE ===
+cyanrip 0.9.4-rc2+platterpus.8 (platterpus-fork-g76a1017)
+Invoked as:     /home/user/cyanrip/build/src/cyanrip -d pregap.cue -N -A -Q -s 0 -o flac -Z 200 -r 200 -G -F {track} -L sample -M sheet -P 0 -u platterpus/0.6.21 -D o -j o/sample.diagnostics.json
+Handshake:      round 14 lap 1 OPEN, verdict OPEN -- NOT a released build
+Consumer:       platterpus/0.6.21
+                (reported by the caller, not verified by cyanrip)
+Drive used:     libcdio CDRWIN (revision 2.1.)
+System device:  pregap.cue
+Offset:         +0 samples
+Overread:       +0 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 60.16.100, libavcodec 60.31.102 (6.1.1-3ubuntu5)
+Paranoia level: none
+Frame retries:  200
+Cache model:    not in use (paranoia disabled)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc tracks:    3
+Tracks to rip:  all
+DiscID:         oMp2k.ixH0QqrdaZzsARoRS.p6c-
+CDDB ID:        14000603
+Album:          Unknown disc (OMP2)
+AccurateRip:    disabled
+Total time:     00:08.00
+
+--- output before this log was opened ---
+Checking pregap.bin for cdrom...
+
+Opening drive...
+No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!
+--- end of pre-log output ---
+Gaps:
+    150 frame pregap in track 1, unmerged
+    75 frame pregap in track 2, merging into track 1
+
+Tracks:
+
+Repeating ripping (0 out of 200 matches for current checksum 2C926D69)
+
+Repeating ripping (1 out of 200 matches for current checksum 2C926D69)
+
+Repeating ripping (2 out of 200 matches for current checksum 2C926D69)
+
+Stopping, ripping incomplete!
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -70.0 LUFS
+    Threshold:   0.0 LUFS
+
+  Loudness range:
+    LRA:         0.0 LU
+    Threshold:   0.0 LUFS
+    LRA low:     0.0 LUFS
+    LRA high:    0.0 LUFS
+
+  Sample peak:
+    Peak:        0.0 dBFS
+
+  True peak:
+    Peak:        0.0 dBFS
+
+Album integrated loudness (R128): -70.0 LUFS
+Album loudness range (R128):      0.0 LU (0.0 to 0.0 LUFS)
+Album sample peak level:          0.0 dBFS
+Album true peak level:            0.0 dBFS
+Paranoia status counts:
+  READ:          49
+
+Ripping errors: 1
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  no (interrupted by SIGTERM, 0 of 3 tracks)
+Interrupted at: track 1, mid-read
+Ripping finished at 2026-08-24T23:19:03
+Log FUN512: drffZ3kH3RgY3ty4wNwPId5OOfpvvoao6HIeJOhRO0lbVHzGRE6lPLtRGQNlPdUL9duGFZlVTMgAujduibSrRA

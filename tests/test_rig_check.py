@@ -879,3 +879,166 @@ def test_either_witness_alone_establishes_cancellation(tmp_path: Path) -> None:
         json.dumps({"issues": [{"code": "rip_cancelled"}]}), encoding="utf-8"
     )
     assert rig_check._rip_was_cancelled(only_issue) is True
+
+
+# --- Round 14 CC-2: the two rows that carry T1 and T4 evidence ---------------
+#
+# Both read the fork's OWN committed artifacts rather than a fixture written from
+# a belief about them (`CLAUDE.md`: *when a committed artifact can settle a
+# question, the test should read the artifact* — anything else pins your belief
+# about it). The golden reference is the only `-Z` log either project holds where
+# tracks genuinely re-read, which is the one condition under which T1's claim is
+# falsifiable at all.
+
+_ARTIFACTS = (
+    Path(__file__).resolve().parents[1] / "docs" / "handshake" / "inbound" / "artifacts"
+)
+_GOLDEN = _ARTIFACTS / "round-14-lap-01-golden-reference-g76a1017.log"
+_INTERRUPTED = _ARTIFACTS / "round-14-lap-01-sample-interrupted-g76a1017.log"
+
+
+def _rows(album: Path, name: str) -> list[object]:
+    manifest = rig_check.Manifest(album.parent / "m", sink=lambda _line: None)
+    rig_check.check_parsers_against_the_log(manifest, album)
+    return [r for r in manifest.results if r.name == name]
+
+
+def _album_from(tmp_path: Path, artifact: Path) -> Path:
+    album = tmp_path / "album"
+    album.mkdir()
+    (album / "rip.log").write_text(
+        artifact.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    return album
+
+
+def test_paranoia_scope_row_reports_the_ratio_and_that_rereads_happened(
+    tmp_path: Path,
+) -> None:
+    """T1's evidence must reach the manifest, with the ratio and a yes/no.
+
+    The numbers are the fork's, measured: per-track counters sum to 30 against a
+    disc block of 90, so the ratio is exactly the re-read count (3). Asserted as
+    the RELATION rather than as three magic numbers, plus a non-triviality floor —
+    two empty tallies also compare equal, and a row saying `0` against `0` would
+    satisfy a laxer assertion while proving the check ran on nothing.
+    """
+    assert _GOLDEN.is_file(), _GOLDEN
+    rows = _rows(_album_from(tmp_path, _GOLDEN), "parser/paranoia")
+    assert len(rows) == 1, rows
+    detail = rows[0].detail  # type: ignore[attr-defined]
+    assert "sum to 30" in detail and "totals 90" in detail, detail
+    assert "Scope: line present on 3 of 3" in detail, detail
+    assert "genuinely exercised: YES" in detail, detail
+    assert rows[0].status == rig_check.INFO, rows[0].status  # type: ignore[attr-defined]
+    # The multiple may be MENTIONED and must not be the property. Asserted as
+    # wording rather than as a number, because the fork's spec asks specifically
+    # whether we encode `disc == passes x sum` — true on their fixture by
+    # construction, false on media, and a row that named it "ratio" invited
+    # exactly that reading.
+    assert "ratio" not in detail.lower(), detail
+    assert "3x the sum on this rip" in detail, detail
+
+
+def test_a_per_track_sum_above_the_disc_total_is_a_failure(tmp_path: Path) -> None:
+    """The one graded half: `sum(per-track) <= disc` cannot be violated by media.
+
+    The disc block sums every pass and the per-track figures are one pass each, so
+    the sum is bounded by the total whatever the drive does. A violation is a
+    provider-contract break. Built by editing the fork's own reference downward
+    rather than hand-writing a log, so the subject is a real document minus one
+    number — `CLAUDE.md`'s *what does my stand-in do that the real thing does not?*
+    """
+    text = _GOLDEN.read_text(encoding="utf-8")
+    # The disc-level block is the one at column 0; drop its total below the
+    # per-track sum of 30 while leaving every per-track block untouched.
+    head, sep, tail = text.rpartition("READ:")
+    assert sep, "the reference no longer has a disc-level READ: row to lower"
+    lowered = head + sep + tail.replace(tail.split("\n")[0], "          1", 1)
+    album = tmp_path / "album"
+    album.mkdir()
+    (album / "rip.log").write_text(lowered, encoding="utf-8")
+    rows = _rows(album, "parser/paranoia")
+    assert len(rows) == 1, rows
+    assert rows[0].status == rig_check.FAIL, rows[0].detail  # type: ignore[attr-defined]
+    assert "EXCEEDS the disc total" in rows[0].detail  # type: ignore[attr-defined]
+
+
+def test_the_interruption_row_survives_a_rip_that_parsed_to_zero_tracks(
+    tmp_path: Path,
+) -> None:
+    """**The placement test, and it is the one that would have caught the bug.**
+
+    A rip stopped mid-track is exactly the rip whose log carries `Interrupted at:`
+    AND exactly the rip that parses to zero tracks — so a row emitted after the
+    zero-track early return is unreachable for every log it describes. The first
+    version of this check was written there. The fork's own interrupted sample is
+    the subject because it is a real one.
+    """
+    assert _INTERRUPTED.is_file(), _INTERRUPTED
+    album = _album_from(tmp_path, _INTERRUPTED)
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    assert not parse_cyanrip_log(_INTERRUPTED.read_text(encoding="utf-8")).tracks, (
+        "this artifact must parse to ZERO tracks or it is not testing the "
+        "early-return path this test exists for"
+    )
+    rows = _rows(album, "parser/interrupted")
+    assert len(rows) == 1, rows
+    assert "track 1, mid-read" in rows[0].detail, rows[0].detail  # type: ignore[attr-defined]
+
+
+def test_a_completed_rip_reports_the_absence_rather_than_going_quiet(
+    tmp_path: Path,
+) -> None:
+    """Tri-state: no `Interrupted at:` is an answer, not a missing row.
+
+    Without this the check could be satisfied by finding nothing — a manifest with
+    no `parser/interrupted` row reads identically whether the rip finished cleanly
+    or the check silently stopped working.
+    """
+    rows = _rows(_album_from(tmp_path, _GOLDEN), "parser/interrupted")
+    assert len(rows) == 1, rows
+    assert "no 'Interrupted at:' line" in rows[0].detail, rows[0].detail  # type: ignore[attr-defined]
+
+
+def test_the_cache_probe_row_says_where_the_evidence_is_when_there_is_none(
+    tmp_path: Path,
+) -> None:
+    """**Regression for a claim we made to the fork that was false.**
+
+    Round 14 lap 2 §F3 told them the `Cache probe:` line *"reaches us because
+    rig-check surfaces it verbatim into the manifest"*. It does not and cannot:
+    `-x` is not in the rip argv builder at all, so no Platterpus rip ever probes,
+    and `rig-check`'s own one invocation targets a device that cannot open. They
+    read the script, saw no `rig-check` after the probe section, and refused to
+    guess at a mechanism in our code — which is how a wrong claim of ours got
+    caught by someone who could not check it.
+
+    An absence that does not say where to look is the defect: a reader of this
+    manifest would conclude the evidence was missing rather than filed elsewhere.
+    """
+    rows = _rows(_album_from(tmp_path, _GOLDEN), "parser/cache-probe")
+    assert len(rows) == 1, rows
+    detail = rows[0].detail  # type: ignore[attr-defined]
+    assert "never will be one" in detail, detail
+    assert "SCRIPT REPORT" in detail, detail
+    assert "-x -I" in detail, detail
+
+
+def test_no_rip_argv_platterpus_builds_ever_carries_the_cache_probe_flag() -> None:
+    """The claim above, asserted against the builder rather than believed.
+
+    `-x` proceeds into a full rip unless paired with `-I`; the fork declined to
+    change that and it once cost this rig an hour. So the reason no rip probes is
+    that the flag is absent from the builder, and that is what is checked here —
+    a docstring saying so is not a check.
+    """
+    from platterpus.adapters import cyanrip_backend
+
+    source = Path(cyanrip_backend.__file__).read_text(encoding="utf-8")
+    assert '"-x"' not in source and "'-x'" not in source, (
+        "the cyanrip argv builder now mentions -x. If a rip can probe the cache, "
+        "the manifest row in rig_check saying it never can is now a lie, and -x "
+        "without -I proceeds into a full rip."
+    )

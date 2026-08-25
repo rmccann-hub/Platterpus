@@ -1476,15 +1476,26 @@ def test_split_round_trips_the_envelope_we_ourselves_produce(
     `CLAUDE.md`: two implementations agreeing is not either being correct, so this
     checks the split against the **source artifacts on disk** rather than against
     another parse of the same text.
+
+    **The source path comes from `PARTS`, not from a rebuilt one.** This test used
+    to read every part from `HANDSHAKE_DIR / "verified"`, which was true only while
+    `PARTS` happened to hold two verification files — a fact about one send, baked
+    into the checker as if it were a rule. The first envelope carrying an outbound
+    lap and a rig script broke it with `FileNotFoundError`, which is the polite
+    version: had a same-named file existed under `verified/`, this would have
+    compared the round trip against **the wrong document** and passed. Re-deriving
+    a location the module already knows is the defect, not the directory it
+    guessed.
     """
     parts = envelope.read_parts()
     assert len(parts) >= 2, f"only {len(parts)} parts to round-trip"
+    assert len(envelope.PARTS) == len(parts), "PARTS and read_parts() disagree"
     rendered = envelope.render(parts)
     rows = {name: body for name, body, _d, _c in envelope.verify_split(rendered)}
     assert len(rows) == len(parts), f"{len(parts)} packed, {len(rows)} recovered"
-    for part in parts:
-        source = (envelope.HANDSHAKE_DIR / "verified" / part.name).read_bytes()
-        assert rows[part.name] == source, (
+    for source_path, part in zip(envelope.PARTS, parts, strict=True):
+        assert source_path.name == part.name, (source_path.name, part.name)
+        assert rows[part.name] == source_path.read_bytes(), (
             f"{part.name} did not survive the round trip byte-identically"
         )
 

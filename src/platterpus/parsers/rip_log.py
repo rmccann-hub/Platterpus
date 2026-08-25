@@ -437,13 +437,22 @@ def accuraterip_is_match(ar: object) -> bool:
     any AR-result shape and never raises.
 
     **An all-zero local CRC can never be a match, whatever the confidence says.**
-    cyanrip itself prints the caveat — "match found, confidence 200, but a
-    checksum of 0 is meaningless" — and without this guard that line parsed as a
+    cyanrip prints a caveat on that line and without this guard it parsed as a
     confidence-200 positive. It matters most on the offset-variant row, where a
     silent or absent track yields `Accurip 450: 00000000` and the cell then
     announced a partially-accurate match for audio nothing was compared against.
     Keying on the zero CRC rather than on cyanrip's wording is the stronger
     invariant: it also covers a backend that omits the caveat (audit, 2026-07-31).
+
+    **That choice has now been paid off, and the wording it avoided has already
+    moved.** This docstring used to quote the caveat as *"match found, confidence
+    200, but a checksum of 0 is meaningless"*; the fork's round-14 acceptance spec
+    reports it reworded to *"no comparison possible, a checksum of 0 is
+    meaningless"*, because the old text asserted a match it could not have
+    established. A string check written in July would have broken in August. The
+    example is dropped rather than updated: quoting a producer's exact wording
+    inside a function that deliberately does not depend on it is how the next
+    reader concludes it does.
     """
     if ar is None:
         return False

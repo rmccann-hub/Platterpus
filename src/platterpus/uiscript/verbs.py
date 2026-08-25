@@ -272,6 +272,56 @@ _VERB_LIST: tuple[Verb, ...] = (
         "Overall progress bar) contains text, case-insensitively",
     ),
     Verb(
+        # `expect-refused` — the ONLY way a script can assert that validation
+        # WORKED. `set` reports FAIL when the pure validator refuses a value, and
+        # a refusal is the correct outcome for a bad input — so a script exercising
+        # the validation subsystem could not tell "the guard fired" from "the run
+        # broke", and the acceptance suite therefore tested none of it.
+        #
+        # `CLAUDE.md` makes input validation institutional and says the pure
+        # validator is the source of truth that tests assert against. This is that
+        # assertion, reachable from the surface this project writes its tests in
+        # rather than from a bespoke flag — the maintainer's 2026-08-11 directive.
+        #
+        # It asserts BOTH halves, because only the pair is a check: the validator
+        # refused, AND the stored value is unchanged. A guard that reports a
+        # refusal and writes the value anyway is the worse defect of the two and a
+        # refusal-only assertion cannot see it.
+        "expect-refused",
+        2,
+        None,
+        "expect-refused <setting> <value> — assert the validator REFUSES this "
+        "value and leaves the setting unchanged (the pass condition is a refusal)",
+    ),
+    Verb(
+        # `expect-ripper-under-review` — the acceptance run's own subject, named
+        # ONCE, in code, rather than copied into a committed text file.
+        #
+        # **Built because the copy went stale three times in two days.** The
+        # acceptance script asserted `expect-cyanrip platterpus-fork-g796df32`;
+        # the cyanrip fork then published `f2c0506` and `d9c058c` on the beta
+        # channel our own in-app installer resolves. Each time, an operator who
+        # followed our instructions installed the build we sent them to and was
+        # told by our script it was the wrong one — in section A, four seconds in,
+        # before any evidence existed.
+        #
+        # The fork proposed the fix in their round-14 lap 4 §C and it is right:
+        # *"a hardcoded build tag in a committed script is a second copy of a fact
+        # that lives in release-manifest.json. Two places holding one fact, and
+        # only one of them has a checker."* This verb reads
+        # `fork_source.PIN_UNDER_REVIEW`, which `tests/test_handshake_pin_under_
+        # review.py` derives from the newest inbound handshake lap — so the chain
+        # is *newest lap -> constant -> assertion*, single-keyed, and a pin move
+        # fails in CI in milliseconds instead of on a rig two hours in.
+        #
+        # No arguments on purpose: a parameter would reintroduce the second copy.
+        "expect-ripper-under-review",
+        0,
+        0,
+        "expect-ripper-under-review — assert the installed cyanrip is the build "
+        "the open handshake round is reviewing (run a `cyanrip --version` first)",
+    ),
+    Verb(
         "expect-tracks",
         1,
         1,
