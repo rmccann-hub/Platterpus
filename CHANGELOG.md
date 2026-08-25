@@ -11,6 +11,28 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.26] — 2026-08-25
+
+### Added
+- **`docs/rig-scripts/securereread.txt` — T1 alone, so proving the fix costs one
+  rip instead of another night.** The 2026-08-24 acceptance run passed 209 of 212
+  steps and lost only its final section; re-running the whole file would spend six
+  hours re-confirming a complete 14-of-14 rip, T2 end to end, the three derived
+  formats, and cancel/recovery. This is the whole-disc uniform secure re-read plus
+  the `rig-check` that reads its counters, and nothing else.
+
+### Fixed
+- **A retired setting warned on every launch.** `working_dir` was removed in
+  0.6.24, but a config written by an older version still carries it and nothing
+  rewrites the file until a setting changes — so every process logged
+  `unknown config keys ignored: ['working_dir']`. Measured on the 2026-08-25 rig
+  bundle: **11 times in one session's log**, about our own decision, aimed at a
+  user who can do nothing with it, in the log we ask them to send when something
+  breaks. Retired keys are now named separately and reported at DEBUG; a
+  genuinely unknown key still WARNS, because that one means an older binary is
+  reading a newer file and a real setting is being ignored. Two different facts —
+  the old code said the same sentence about both.
+
 ### Fixed
 - **A `wait-for-rip` bound that was too generous became no bound at all, and it
   destroyed a night of drive time.** `wait-for-rip 21600` against the 10800 s cap
@@ -10785,7 +10807,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.25...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.26...HEAD
+[0.6.26]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.25...v0.6.26
 [0.6.25]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.24...v0.6.25
 [0.6.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.23...v0.6.24
 [0.6.23]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.21...v0.6.23
@@ -10898,4 +10921,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.25.*
+*Last updated for Platterpus v0.6.26.*

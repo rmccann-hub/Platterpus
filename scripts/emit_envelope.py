@@ -68,6 +68,7 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 PARTS: tuple[Path, ...] = (
     HANDSHAKE_DIR / "outbound" / "round-14-lap-06.md",
     REPO_ROOT / "docs" / "rig-scripts" / "fullacceptance.txt",
+    REPO_ROOT / "docs" / "rig-scripts" / "securereread.txt",
 )
 
 #: The envelope's name, as a template. **Two properties, and both are checked by
