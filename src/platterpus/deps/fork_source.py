@@ -180,6 +180,30 @@ FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
     # 10 closed here against `56413d2`, not against this commit, so nothing about
     # listing it moves what a rip may claim.
     "c4d1a00": 16,
+    # Round 12's release, and round 14's. Read off the fork's round-14 lap 1 wire
+    # header, which names both: `HANDSHAKE-RELEASE: 0.9.4-rc2+platterpus.8 at
+    # 796df32, release_seq 18, channel beta` and *"stable is retained at 237a4ff /
+    # seq 17 so opting in is reversible"*.
+    #
+    # **Recorded because the comment above says exactly what happens when they are
+    # not.** With `c4d1a00` the only listed non-pin build, an operator sitting on
+    # either of the fork's two CURRENT channel heads got `release_seq_for_commit`
+    # → `None` → *"not one of the fork's numbered releases — a mid-round test pin,
+    # or a commit installed by hand"*, every clause of it wrong about a published
+    # release. That was reported by the maintainer on 2026-08-17, fixed by adding
+    # one row, and the fix was one row rather than a mechanism — so it comes back
+    # every time the fork publishes and we do not. `796df32` matters more than the
+    # usual case: round 14's ONLY close condition is a hardware pass on it, so the
+    # operator is being asked to install it deliberately.
+    #
+    # A sequence is NOT an approval. `handshake_approval` keys on `FORK_PIN` alone,
+    # which is still `ddf7ac3`, so both of these still report `unapproved` in a rip
+    # — correctly, because no closed round has verified them yet. Knowing where they
+    # sit in the fork's order is what lets the offer say the true two-part thing:
+    # *this is the newest published build, and it is not the one this Platterpus was
+    # verified against.*
+    "237a4ff": 17,
+    "796df32": 18,
 }
 
 
@@ -315,7 +339,21 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: derives the expected value from the newest file in `docs/handshake/inbound/`
 #: and fails if this lags it. A constant is required rather than a runtime read
 #: because `docs/` is not present in an installed AppImage.
-PIN_UNDER_REVIEW: Final[str] = "9f8592e"
+#:
+#: **Round 14's pin is different in kind from every previous one: it IS a
+#: release** (`0.9.4-rc2+platterpus.8`, `release_seq` 18, channel `beta`), because
+#: round 13's close condition was mis-specified precisely by measuring a build
+#: that could not be the shipped one. So unlike round 12's, this pin is installed
+#: on purpose — CC-2 is a hardware pass on it — and its sequence is recorded in
+#: :data:`FORK_RELEASE_SEQ_BY_PIN` above.
+#:
+#: It still does **not** join the capability sets below, and the reason is
+#: unchanged: those record what a flag table has told us a build accepts, and this
+#: one is under review rather than approved. `approve_ripper` keys on
+#: :data:`FORK_PIN`, which stays at `ddf7ac3` until round 14 closes — so every
+#: artifact the acceptance run produces reports `unapproved`, correctly, because
+#: the run is the evidence that would approve it.
+PIN_UNDER_REVIEW: Final[str] = "796df32"
 
 #: The fork's **test pin** — a build designated to gather the hardware evidence a
 #: close requires, which is *not* a release and never moves :data:`FORK_PIN`.

@@ -46,15 +46,34 @@
 #   * WHETHER DIALOG TEXT IS CLIPPED. That is a rendering fact at your font size
 #     and DPI and no assertion can see it. Section C takes screenshots; a person
 #     has to look at them.
-#   * ANYTHING ABOUT cyanrip 0.9.4-rc2+platterpus.7. This build installs
-#     `ddf7ac3` and section A will say so. The fork's five new `--verify-log`
-#     exit codes are unreachable until that tag is in our capability table.
 #   * OVERREAD (`-O`). It has run on the BDR-209D and it HUNG THE DRIVE ~23
-#     minutes. This script never enables it and section J asserts it is off.
-#   * THE FORK'S CACHE PROBE (`-x`). Measured once (32 sectors, 73.5 KiB,
-#     uncached read 362.6 ms, 2026-08-19) and then it ripped the whole disc,
-#     ETA 1h 3m, leaving the drive held. NOT RUN here. It comes back when the
-#     fork ships a build whose `-x` exits after measuring.
+#     minutes. This script never enables it and section L asserts it is off.
+#
+# -----------------------------------------------------------------------------
+# WHAT THIS RUN IS FOR: cyanrip handshake round 14, close condition CC-2
+# -----------------------------------------------------------------------------
+# CC-2 is the round's ONLY close condition: *one hardware acceptance pass on the
+# RELEASED pair* — cyanrip `0.9.4-rc2+platterpus.8` at `796df32` against
+# Platterpus 0.6.24 — exercising the fork's round-14 lap 1 §T list.
+#
+# Round 13's version of CC-2 measured a mid-round TEST PIN while the release
+# would necessarily be a later commit, so satisfying it would have closed a round
+# on evidence about a build nobody installs. This one tests what ships, which is
+# what makes the round terminate.
+#
+# So section A now asserts the RELEASED build tag, not just "some fork build".
+# If you are on `ddf7ac3` — seven releases behind — section A fails immediately
+# and every later section is about the wrong pairing. Install `+platterpus.8`
+# first: Settings -> the ripper **beta** channel, then take the offer.
+#
+#   §T1  a `-Z` rip that GENUINELY re-reads, and keep the log     -> section J
+#   §T2  `-T unicode` end to end on a title carrying `<` and `:`  -> sections E, G
+#   §T3  `-x -I`, the probe-only cache invocation                 -> section K
+#   §T4  an interrupted rip, on hardware                          -> section H
+#   §T5  an Enhanced CD, if one turns up                          -> not scripted
+#
+# T5 is deliberately absent: it needs a disc we may not own, the fork says it is
+# not a blocker, and "no such disc available" is a different claim from "none".
 # -----------------------------------------------------------------------------
 
 log =============================================================
@@ -78,6 +97,11 @@ log --- A. identity: which ripper is installed ---
 cyanrip --version
 expect-exit 0
 expect-cyanrip platterpus-fork
+# CC-2 is about the RELEASED pair, so the released build tag is asserted by name
+# rather than "a fork build of some kind". A pass here is what makes every later
+# section evidence about the thing round 14 is deciding; a fail here means stop
+# and install `+platterpus.8` before reading anything below.
+expect-cyanrip platterpus-fork-g796df32
 snapshot identity
 
 # --- B. SETTINGS VALIDATION: the cheapest real check in the program --------
@@ -93,8 +117,13 @@ snapshot identity
 log --- B. settings: validated round-trips ---
 set read_offset 667
 expect read_offset 667
-set paranoia_passes 3
-expect paranoia_passes 3
+# `max_retries`, NOT `paranoia_passes`. There has never been a config field by
+# that name, so both steps here recorded ERROR on every run this script has ever
+# had — two of the three errors in the 2026-08-23 full pass. Nothing checked it:
+# the script is a committed artifact and no test parsed it. One now does
+# (tests/test_rig_scripts.py), which is the actual fix; this line is the symptom.
+set max_retries 3
+expect max_retries 3
 set output_format flac
 expect output_format flac
 set force_overread off
@@ -250,6 +279,17 @@ expect-status cancelled
 snapshot aftercancel
 screenshot aftercancel
 
+# §T4's evidence, taken HERE and not later, because `rig-check` reads the NEWEST
+# rip and section I is about to make a newer one. `parser/interrupted` reports
+# cyanrip's own `Interrupted at:` line — the field the fork added at our round-12
+# ask, which we parsed for a round and never put in an artifact anyone sends.
+#
+# It is an INFO row, not a pass/fail. A cancel that lands between tracks can
+# legitimately produce no such line, and grading it would turn drive timing into
+# a verdict. Read the row; it names which case this run got.
+rig-check
+snapshot aftercancelrigcheck
+
 # --- I. THE DRIVE-OPEN PROOF: can we rip again? ----------------------------
 # If this succeeds, the cancel released the reader. If it hangs or cannot
 # identify the disc, it did not — and THAT is the finding, recorded here rather
@@ -273,13 +313,116 @@ snapshot afterrecovery
 screenshot afterrecovery
 rig-check
 
-# --- J. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
-# This script never enables overread, so there is nothing to put back. The
+# --- J. §T1: A SECURE RE-READ THAT GENUINELY RE-READS ----------------------
+# The fork's most-wanted test, and the one the whole round-13 paranoia argument
+# turned on.
+#
+# WHY IT NEEDS ITS OWN SECTION. Under `-Z`, a track's own paranoia counter is the
+# LAST pass while the disc block sums EVERY pass, so the two are equal exactly
+# when each track was read once — and a clean disc in DYNAMIC mode converges on
+# the first read, which is what sections E, G and I do. Every artifact either
+# project has ever checked that claim against had that property, which is why a
+# false invariant survived five handshake rounds: it is arithmetically forced in
+# the only case anyone ever measured.
+#
+# `secure_rerip_dynamic off` is UNIFORM mode — EAC-style Test & Copy, every track
+# read until two reads agree, not only the tracks AccurateRip could not confirm.
+# So `total_repeats > 1` on every track regardless of how clean the disc is, and
+# the fork's `Scope:` line is printed.
+#
+# WHAT THE INVARIANT IS, AND WHAT IT IS NOT. The property is an INEQUALITY:
+#
+#     sum(per-track counters)  <=  disc-level total
+#
+# with equality exactly when every track was read once. The tempting form —
+# `disc == passes x sum` — holds on the fork's synthetic fixture BY CONSTRUCTION,
+# because every pass there does identical work, and it will NOT hold on media,
+# where re-reads exist precisely when passes differ. `rig-check` grades the `<=`
+# and reports the multiple as an observation. Nothing here asserts the ratio.
+#
+# TWO TRACKS, not the disc. Uniform mode doubles the read; on the full disc that
+# is another hour of drive time to demonstrate a property two tracks demonstrate
+# just as well. `rig-check`'s `parser/paranoia` row reports the per-track sum,
+# the disc total, the ratio, and whether `Scope:` was present at all — so a run
+# that failed to re-read says so instead of printing numbers that need reading.
+#
+# `rerip_offset_variant on` comes along because it is the other half of the
+# Archival Exact preset and nothing else in this file reaches it: it refuses to
+# accept an offset-variant AccurateRip match from a single read (real hardware
+# produced a track that offset-variant-matched twice with different audio).
+
+log --- J. T1: uniform secure re-read, so the counters actually move ---
+set secure_rerip_dynamic off
+expect secure_rerip_dynamic off
+set rerip_offset_variant on
+expect rerip_offset_variant on
+rescan
+pick-release 1 120
+expect-tracks 2+
+select-tracks 1-2
+album secure reread (ripper)
+rip
+wait-for-rip 5400
+snapshot aftersecurereread
+screenshot aftersecurereread
+rig-check
+
+# --- K. §T3: THE CACHE PROBE, PROBE-ONLY --------------------------------
+# LAST OF THE DRIVE WORK, DELIBERATELY. `-x` alone has form: measured once on
+# this rig (32 sectors, 73.5 KiB, uncached read 362.6 ms, 2026-08-19) and then it
+# ripped the whole disc, ETA 1h 3m, leaving the drive held. `-x` is a MODIFIER;
+# `-x -I` is the probe-only invocation and writes no audio — the fork's round-13
+# lap 5 and round-14 lap 1 §T3 both state that, and their §F records that `-x`
+# has never completed on a real drive anywhere except this one.
+#
+# So it is real, it is theirs to be right about, and it goes after every rip in
+# this file: if it does hold the drive, it costs the tail of the run and not the
+# rip evidence. `-N` is present because the script sanitiser requires it of any
+# non-probe invocation and it is right to — without it cyanrip runs its own
+# MusicBrainz lookup and can block on a prompt with no terminal attached, which
+# is the unattended hang this whole feature exists to prevent.
+#
+# WHAT A PASS LOOKS LIKE: it exits 0, prints a `Cache probe:` line, and returns
+# the drive. A hang here is a finding and belongs in the round-14 verification.
+#
+# ASSERT THE FIELD NAME, NOT THE VALUE, AND THAT IS DELIBERATE. `796df32` REMOVED
+# the old `%i sectors measured (…)` wording entirely — it claimed a precision the
+# method does not have. The value is now one of five forms, and exactly ONE is
+# ever emitted (they are arms of a switch, each writing the whole buffer):
+#
+#     Cache probe:    %i to %i sectors (…)                    a range
+#     Cache probe:    at least %i sectors, upper bound unknown (…)
+#     Cache probe:    no readback cache measured (…)          measured, found none
+#     Cache probe:    unknown (read failed at %i sectors, …)  could not measure
+#     Cache probe:    unknown (read could not be timed …)     could not measure
+#
+# `no readback cache measured` and `unknown (…)` are NOT the same claim — the
+# first is a measurement that found nothing, the second a measurement that could
+# not be taken. On an image the line reads `not run (disc image has no drive
+# cache)`, so its ABSENCE here is the first sign the probe really ran on metal.
+# A script asserting any one value would fail on a correct probe.
+
+log --- K. T3: the fork's cache probe, probe-only ---
+cyanrip -N -x -I
+expect-exit 0
+expect-cyanrip Cache probe
+snapshot aftercacheprobe
+
+# --- L. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
+# This script never enables overread, so there is nothing to put back there. The
 # assertion stays as a GUARD: if `force_overread` is on here, something else
 # turned it on, and that is worth knowing before the next disc — it reaches
 # cyanrip's argv and on this drive it hangs the read.
+#
+# Section J DID change two settings, so they go back. Restoring is not tidiness:
+# uniform secure re-read doubles every future rip on this machine, and a setting
+# a test left behind is a setting nobody chose.
 
-log --- J. confirming overread is still off ---
+log --- L. restoring what section J changed, and confirming overread is off ---
+set secure_rerip_dynamic on
+expect secure_rerip_dynamic on
+set rerip_offset_variant off
+expect rerip_offset_variant off
 expect force_overread off
 expect read_offset 667
 snapshot atend
