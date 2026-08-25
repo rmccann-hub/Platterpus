@@ -71,6 +71,19 @@ PARTS: tuple[Path, ...] = (
     REPO_ROOT / "docs" / "rig-scripts" / "securereread.txt",
 )
 
+# LAP 8 IS SENT BARE, and PARTS deliberately still describes lap 6's exchange.
+#
+# An envelope exists to carry a lap *plus artifacts* and prove they arrived
+# together. Lap 8 has no artifacts — it answers a lap and asks for one file
+# back — so wrapping it would produce a one-part envelope, which is both
+# pointless and the case `assert_not_a_lap` is tightest against. The fork sent
+# their lap 7 bare for the same reason.
+#
+# PARTS names the newest exchange that actually needed one, so the published
+# `round14lap06platterpus.md` on disk stays consistent with it and the
+# round-trip tests keep a real subject. Repointing it at a lap we did not
+# envelope would leave a stale archive claiming to be current.
+
 #: The envelope's name, as a template. **Two properties, and both are checked by
 #: `tests/test_handshake_file_naming.py` rather than asserted in this comment.**
 #:

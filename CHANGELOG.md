@@ -11,6 +11,28 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **A log the ripper SIGNED while incomplete read as sound — "attested
+  truncation", and we had no name for it.** The cyanrip fork root-caused a defect
+  in which `cyanrip_log_finish_report()` sat *above* the `end:` label while
+  twenty-four `goto end` sites jumped past it, so an aborted run wrote a log with
+  no `Ripping errors:`, no `Read stalls:`, no `Rip completed:` and no
+  `Interrupted at:` — and then `cyanrip_log_end()`, which *is* inside `end:`,
+  wrote a FUN512 over that truncated body as though it were a whole record.
+  **Our audit already held both halves and never related them**: one row said
+  `OK — the ripper verified its own log against its own checksum`, another said
+  `NOTE — the footer is absent, the log was cut off or predates the fork pin`.
+  Separately each reads as reassuring; together they mean the producer attested an
+  incomplete record, and a reader citing it as an archival log is citing a signed
+  fragment. A missing footer **with** a verified checksum is now a WARN naming the
+  truncation as attested; **without** one it stays a NOTE, because that case
+  really is ambiguous and warning on it would flag every rip from a build
+  predating the footer and every genuinely killed one. Revert-proved in both
+  directions. **This is ours regardless of what the fork ships**: their fix cannot
+  be retroactive, so every log already written by an affected build keeps that
+  shape permanently, and a consumer that cannot name it will keep reading those as
+  sound for as long as they exist.
+
 ## [0.6.26] — 2026-08-25
 
 ### Added
