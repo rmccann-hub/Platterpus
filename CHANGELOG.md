@@ -11,6 +11,35 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **`docs/rig-scripts/platterpusmorning.sh` — the morning-after collector, and it
+  exists because none of the three existing ones gathers the rips.** Measured by
+  reading them: the bundle the script run builds itself calls
+  `evidence_bundle.build_bundle()` **without `album_dir`**, which is the parameter
+  that admits a rip folder's files — so it carries the app log and the script run
+  folder and not one rip log, cue sheet, EAC log or cyanrip `-j` record;
+  `--rig-session` audits the newest `.platterpus.json` in depth and summarises the
+  rest; `platterpuscollect.sh` takes the newest rip folder only. The overnight
+  acceptance script performs **seven** rips, and "the newest" is the one beside the
+  cache probe rather than the whole-disc uniform secure re-read the open handshake
+  round is waiting on. Collecting the newest loses the night *silently* — the
+  bundle arrives looking complete. The new script gathers every text artifact from
+  every rip folder, folds the other mechanisms in rather than reimplementing them,
+  copies no audio, and prints a per-category count with floors that fire on a short
+  bundle instead of leaving the operator to notice.
+
+### Fixed
+- **The `timeout -k` sweep was reading half of every file it swept.** Its regex
+  treated `^`, `||`, `&&`, `;` and whitespace as command positions but **not `(`**,
+  so every `timeout` inside `$(…)` or `<(…)` was invisible — six of the new
+  collector's twelve bounds. Found by revert-probing the widening rather than
+  trusting it: a bare `timeout` planted inside `APP="$(timeout 60 find …)"` did not
+  fail the test, and the hash had moved, so the edit had demonstrably landed and the
+  check was simply blind. The population is also now **derived from the filesystem**
+  (`rig_session.sh` plus every `docs/rig-scripts/*.sh`) rather than one hardcoded
+  path, which is what the sweep's own docstring had promised — *"so the next one
+  added is caught too"* — while looking at exactly one file.
+
 ## [0.6.25] — 2026-08-25
 
 ### Added

@@ -38,6 +38,17 @@ _REPO = Path(__file__).resolve().parent.parent
 _SCRIPT = _REPO / "src" / "platterpus" / "rig_session.sh"
 
 
+def _shell_harnesses() -> list[Path]:
+    """Every shell harness in this project whose steps drive a drive or a network.
+
+    Derived from the filesystem, not enumerated: a listed population is the
+    hand-maintained field that rots, and this file's own sweep already promised to
+    catch "the next one added" while looking at exactly one file.
+    """
+    found = [_SCRIPT, *sorted((_REPO / "docs" / "rig-scripts").glob("*.sh"))]
+    return [p for p in found if p.is_file()]
+
+
 def _run(tmp_path: Path) -> tuple[int, Path, str]:
     """Run the script with a fake HOME and a non-existent app, and return the result.
 
@@ -182,17 +193,44 @@ def test_every_timeout_in_the_harness_escalates_to_sigkill() -> None:
     # explanation, the same shape as the handshake parser matching its own fenced
     # examples. A shell comment runs to end of line, and this file has no `#`
     # inside a string that could be eaten wrongly.
-    lines = [
-        ln.split("#", 1)[0] for ln in _SCRIPT.read_text(encoding="utf-8").splitlines()
-    ]
-    text = "\n".join(lines)
-    # Command position only: `timeout` starting a command, not a substring.
-    calls = re.findall(r"(?:^|\|\||&&|;|\s)(timeout\s+[^\n]*)", text, re.MULTILINE)
-    assert calls, (
-        "no `timeout` calls found in rig_session.sh — either the harness stopped "
-        "bounding its steps or this regex has rotted; both need a human"
+    naked: list[str] = []
+    total = 0
+    # EVERY shell harness, DERIVED from the filesystem rather than listed. The
+    # docstring above promised "the next one added is caught too" while the
+    # population was one hardcoded file — and a second harness with its own
+    # timeouts duly arrived (`docs/rig-scripts/platterpusmorning.sh`, the
+    # morning-after collector). Scoping a sweep is fine; scoping it silently
+    # while its own docstring claims otherwise is the defect `CLAUDE.md` names.
+    for script in _shell_harnesses():
+        lines = [
+            ln.split("#", 1)[0]
+            for ln in script.read_text(encoding="utf-8").splitlines()
+        ]
+        text = "\n".join(lines)
+        # Command position only: `timeout` starting a command, not a substring —
+        # and `(` IS a command position, which this regex used to omit.
+        #
+        # **Measured, and it is why the widening above was vacuous on its first
+        # try.** A bare `timeout` planted inside `APP="$(timeout 60 find …)"` did
+        # not fail this test: the character before `timeout` is `(`, which was not
+        # in the boundary set, so every command substitution was invisible. Six of
+        # the morning collector's twelve bounds sat inside `$(…)` or `<(…)`, so the
+        # sweep was reading half the file and reporting on all of it. Caught by
+        # `scripts/revert_probe.py`'s discipline — assert the edit LANDED (the hash
+        # moved) before believing a pass.
+        calls = re.findall(
+            r"(?:^|\|\||&&|;|\(|\s)(timeout\s+[^\n]*)", text, re.MULTILINE
+        )
+        total += len(calls)
+        naked += [
+            f"{script.name}: {c.strip()}"
+            for c in calls
+            if not re.match(r"timeout\s+-k\s+\d", c.strip())
+        ]
+    assert total, (
+        "no `timeout` calls found in ANY shell harness — either they stopped "
+        "bounding their steps or this regex has rotted; both need a human"
     )
-    naked = [c.strip() for c in calls if not re.match(r"timeout\s+-k\s+\d", c.strip())]
     assert not naked, (
         "these `timeout` calls send SIGTERM and then wait forever if it does not "
         "land — add `-k <grace>` so the deadline is actually reachable:\n  "
