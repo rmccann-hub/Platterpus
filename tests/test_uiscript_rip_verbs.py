@@ -464,13 +464,29 @@ def test_wait_for_rip_refuses_a_nonsense_timeout(qapp, process_until) -> None:
 
 
 def test_wait_for_rip_caps_an_absurd_timeout_loudly(qapp, process_until) -> None:
-    """Never a silent clamp: the transcript says the wait was refused."""
+    """Never a silent clamp — and, since 2026-08-24, never a silent SKIP either.
+
+    **This test used to assert the wait was REFUSED, and that behaviour destroyed
+    a night of drive time.** `wait-for-rip 21600` against the 10800 s cap recorded
+    FAIL and returned immediately, so the wait was zero. The next step graded a
+    rip 0.4 s old, a cache probe opened the same drive 1.2 s later, and the
+    unattended-quit helper killed the reader at 1.48% of track 1.
+
+    The transcript must still say the request was clamped — that half was always
+    right, and the word "cap" is still asserted. What changed is that the clamp is
+    now honoured rather than used as a reason not to wait. With no rip running
+    there is nothing to wait *for*, so the outcome here is still FAIL; the
+    behaviour under test is that the detail names the clamp.
+    """
     from platterpus.uiscript.runner import MAX_RIP_WAIT_S
 
     win = _window()
     record, _ = _run_one(win, f"wait-for-rip {int(MAX_RIP_WAIT_S) + 1000}")
     assert record.outcome is Outcome.FAIL
     assert "cap" in record.detail
+    assert "CLAMPED" in record.detail or "no rip is running" in record.detail, (
+        record.detail
+    )
 
 
 # --- expect-tracks ----------------------------------------------------------

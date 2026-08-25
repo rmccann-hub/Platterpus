@@ -11,6 +11,56 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **A `wait-for-rip` bound that was too generous became no bound at all, and it
+  destroyed a night of drive time.** `wait-for-rip 21600` against the 10800 s cap
+  recorded FAIL and returned **immediately** — so the wait was zero. Measured on
+  the 2026-08-24 acceptance run: the next step graded a rip 0.4 s old, a
+  `cyanrip -N -x -I` cache probe opened the same drive **1.2 s** later, and the
+  unattended-quit helper declared the batch finished and killed the reader at
+  **1.48% of track 1**. The whole-disc secure re-read that section existed for
+  produced no report and no FUN512 footer; it is not in the library audit at all.
+  An over-long timeout unambiguously means *"wait a long time"*, and refusing to
+  wait is the one reading that cannot be what the author meant. Both
+  `wait-for-rip` and `wait` now **clamp and wait the cap**, reporting the clamp in
+  the transcript on every path — including the no-rip path, where the notice was
+  reaching the app log and not the transcript the other project reads.
+- **The unattended quit fired while a rip was still reading the disc.** Its two
+  gates — a queued evidence bundle, and `_post_rip_work_settled()` — are true and
+  complete answers to a *different* question: there was no post-rip work because
+  the rip had not finished. So it logged *"post-rip work has settled — quitting"*
+  and `closeEvent` reported `rip active=True` one millisecond later. A live rip
+  now blocks the quit and deliberately does **not** start the 15-minute grace
+  clock: a full-disc uniform re-read is hours, so counting it against the budget
+  would delay the kill rather than prevent it.
+- **A scripted `cyanrip` step could open the drive during a rip.** Two ripper
+  processes on one device, measured 1.2 s apart. The verb now refuses while a rip
+  is reading; `--version`-class probes stay exempt, and that exemption is asserted
+  because section A of the acceptance script depends on it.
+- **`--consumer` was never sent — on any of nine rips.** Every log read
+  `Consumer: not identified (no --consumer given)`, in the round whose entire
+  subject is provenance on a released pair, because the flag is gated on a
+  hand-kept set of build tags that none of round 14's three betas had joined.
+  Added on the fork's own artifact (their published flag table lists `-u` /
+  `--consumer`, and their `src/` is byte-identical across all three betas), and
+  the set now has a **checker**: `PIN_UNDER_REVIEW` must be resolved in it one way
+  or the other. The test that previously forbade any capability claim for an
+  under-review build is replaced by one that forbids an *unbacked* claim, checked
+  against the newest provider contract filed in the repository — its own docstring
+  said rows go in *"when it becomes a release … at which point there is a
+  published table to derive them from"*, and round 14's pin is both.
+
+### Changed
+- **cyanrip round 14: a disc was read on the released pair.** 209 pass / 3 fail /
+  0 error over 212 steps. T2 passed end to end — `full acceptance∶ angle‹bracket`
+  on disk, exactly the fork's measured `-T unicode` table, with a real colon
+  surviving into the tags. **T1 delivered by accident**: track 5 failed
+  AccurateRip, was re-read under `-Z` and converged after 3 reads, producing the
+  measurement neither project could construct — `READ` 3.13, `VERIFY` 2.30,
+  `FIXUP_ATOM` 3.00, `OVERLAP` 3.29. **Four counters, four ratios**, so
+  `disc == passes × sum` is refuted on real media while `sum ≤ disc` held on all
+  seven rips. Grading the inequality rather than the quotient was the right call.
+
 ### Added
 - **`docs/rig-scripts/platterpusmorning.sh` — the morning-after collector, and it
   exists because none of the three existing ones gathers the rips.** Measured by
