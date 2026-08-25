@@ -11,6 +11,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The acceptance script asserted an empty screen that cannot exist.** With a
+  disc in the drive — a precondition of the whole run — the app identifies it at
+  launch and opens the release picker *by itself*, before the script reaches its
+  dialog section. `fullacceptance.txt` then ran `expect-dialog none` at the end of
+  that section and the picker was reported, correctly, as a failure: *"a dialog is
+  open: 'Pick a MusicBrainz release'"*. The assertion was true and the
+  expectation was wrong. Moved to just after `pick-release`, where it says
+  something real — the picker we answered is gone and nothing was left behind it.
+  Measured on the 2026-08-25 run 3.
+
 ## [0.6.26] — 2026-08-25
 
 ### Added

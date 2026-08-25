@@ -236,8 +236,21 @@ open guide
 cancel
 open setup
 cancel
-expect-dialog none
 snapshot dialogsdone
+
+# NO `expect-dialog none` HERE, and the omission is the fix rather than a gap.
+#
+# **Measured, 2026-08-25 (run 3).** With a disc in the drive, the app identifies
+# it at launch and OPENS THE RELEASE PICKER BY ITSELF — before this script
+# reaches section D at all. So the picker sits underneath the whole dialog
+# section, and an `expect-dialog none` here reported it, correctly, as a
+# failure: *"a dialog is open: 'Pick a MusicBrainz release'"*. The assertion was
+# true; the expectation was wrong.
+#
+# The script cannot assert an empty screen before it has answered the picker,
+# because having a disc in the drive is a PRECONDITION of this whole run. So the
+# assertion moves to just after `pick-release`, where it says something real:
+# the picker we answered is gone and nothing else was left behind it.
 
 # --- E. DISC IDENTIFICATION -------------------------------------------------
 # The last cheap section. If this fails, nothing after it can mean anything, and
@@ -246,6 +259,7 @@ snapshot dialogsdone
 log --- E. disc: scan and identify ---
 rescan
 pick-release 1 120
+expect-dialog none
 expect-tracks 2+
 snapshot discidentified
 
