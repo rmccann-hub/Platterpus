@@ -347,6 +347,30 @@ def _install_excepthook() -> None:
 UNATTENDED_QUIT_BUDGET_S: float = 900.0
 
 
+def _bundle_being_written(runner: object) -> bool:
+    """Whether a script run's evidence bundle is still being archived.
+
+    **`getattr`, not a direct call, and the difference is not style.** The first
+    version of this read `runner.bundle_in_progress()` directly; a runner without
+    the method — a stand-in, an older build, a partially-constructed one — raised
+    `AttributeError`, which the caller's blanket `except` turned into
+    `settled = True`. That is the *dangerous* direction: the helper would quit
+    precisely when it could not establish that quitting was safe. Caught by an
+    existing test that uses a minimal runner stub, which is the whole reason that
+    stub is minimal.
+
+    Never raises: a quit helper that can throw can put a modal on screen.
+    """
+    probe = getattr(runner, "bundle_in_progress", None)
+    if not callable(probe):
+        return False
+    try:
+        return bool(probe())
+    except Exception:  # noqa: BLE001 — never block a quit on our own bug
+        log.exception("bundle_in_progress() raised; treating it as finished")
+        return False
+
+
 def _rip_in_flight(window: object) -> bool:
     """Is a rip actively reading the disc right now?
 
@@ -488,6 +512,32 @@ def _arm_unattended_quit(
                 )
             elif getattr(window, "_pending_evidence_bundle", None) is not None:
                 settled = False
+            elif _bundle_being_written(runner):
+                # THE SCRIPT RUN'S OWN BUNDLE, which is a DIFFERENT mechanism from
+                # `_pending_evidence_bundle` above — that one is the *rip's*
+                # bundle, owned by the window; this one is the *batch's*, owned by
+                # the runner and built on a daemon thread.
+                #
+                # It was not checked here, and on an overnight run it is the whole
+                # deliverable: one `.tar.gz` with the transcript, the reports, the
+                # screenshots, the app log and the rig-check manifest. Interpreter
+                # shutdown kills a daemon thread mid-archive silently, so quitting
+                # here would leave a truncated file or none — after a six-hour
+                # disc pass, with nothing in the log to say why.
+                #
+                # **It has been winning this race by under a second.** Measured on
+                # the 2026-08-24 run: the batch finished at 00:17:53,606 and the
+                # bundle landed at 00:17:53,821 — 215 ms, against a helper that
+                # ticks every 1000 ms. It worked. Nothing made it work, and a run
+                # with more screenshots or a larger rotated log is the one that
+                # loses. Same shape as the rip-in-flight gap directly above: a
+                # guard written for the deferral it knew about, blind to a sibling.
+                settled = False
+                log.info(
+                    "unattended run: the batch is finished but its EVIDENCE "
+                    "BUNDLE is still being written — waiting. That archive is "
+                    "the file the operator sends; quitting now would truncate it."
+                )
             elif not window._post_rip_work_settled():
                 settled = False
         except Exception:  # noqa: BLE001 — a quit helper must never be the crash

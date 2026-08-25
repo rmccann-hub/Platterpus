@@ -12,6 +12,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **An overnight run could quit while writing the one file the operator sends.**
+  The unattended-quit helper waited for a live rip and for the *rip's* evidence
+  bundle, but not for the **script run's own** bundle — a different mechanism,
+  owned by the runner and built on a daemon thread, which interpreter shutdown
+  kills mid-archive without a word in the log. That archive is the entire
+  deliverable of a six-hour pass: transcript, reports, screenshots, app log,
+  rig-check manifest. **It had been winning the race by under a second** — measured
+  on the 2026-08-24 run, batch finished at 00:17:53,606 and the bundle landed at
+  00:17:53,821, 215 ms against a helper that ticks every 1000 ms. It worked;
+  nothing made it work, and a run with more screenshots or a larger rotated log is
+  the one that loses. Same shape as the rip-in-flight gap fixed beside it: a guard
+  written for the deferral its author knew about, blind to a sibling one layer
+  over. The wait stays under the grace budget, so a wedged archiver still cannot
+  hang an unattended rig — asserted separately from the wait itself.
 - **`fullacceptance.txt` promised a stop it could not perform.** Its header said
   the identity section *"stops you in the first four seconds"* if you are on the
   wrong ripper build — but nothing except `abort` ends a batch and the file never
