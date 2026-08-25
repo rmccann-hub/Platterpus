@@ -19,8 +19,15 @@
 #    AppImage from the releases page.
 # 2. Be on the newest cyanrip. Settings -> tick the ripper **beta** channel,
 #    then take the install offer. Section A asserts you are on the exact build
-#    the open handshake round is reviewing and stops you in the first four
+#    the open handshake round is reviewing and STOPS THE RUN in the first few
 #    seconds if you are not — before any drive time is spent.
+#
+#    That stop is real as of this version. It used to be a promise this file
+#    could not keep: nothing but `abort` ends a batch and this file never used
+#    it, so a wrong ripper produced a FAIL on line ~20 and then six hours of
+#    evidence about the wrong binary. The cyanrip fork read the old sentence and
+#    relayed it to the operator (round 14 lap 11 §J7). `abort-if-failed` below is
+#    what makes it true.
 #
 # Everything else is in this file.
 #
@@ -130,6 +137,19 @@ expect-exit 0
 expect-cyanrip platterpus-fork
 expect-ripper-under-review
 snapshot identity
+
+# THE ONE PLACE THIS FILE IS ALLOWED TO STOP, and the distinction is the point.
+#
+# The rule above — "a failing step does NOT stop the batch" — is about FINDINGS,
+# and it is right: a run that halts on the first problem hides every problem
+# behind it. It is the wrong rule for a PRECONDITION. A wrong ripper does not
+# make the next six hours partially useful; it makes them evidence about a
+# different subject, which is exactly what the handshake exists to prevent
+# (two artifacts from the same ripper under different app versions are not
+# interchangeable evidence).
+#
+# So: preconditions abort, findings do not. Nothing below this line uses it.
+abort-if-failed the ripper is not the build this round is reviewing — fix that first
 
 # --- B. SETTINGS VALIDATION: the cheapest real check in the program --------
 # Pure round-trips through the REAL validator, which is the source of truth — a
@@ -580,6 +600,54 @@ cyanrip -N -x -I
 expect-exit 0
 expect-cyanrip Cache probe
 snapshot aftercacheprobe
+
+# --- P2. C1: THE THIRTY-MINUTE HANG, DETECTED (NOT DIAGNOSED) ---------------
+# The fork asked for this in round 14 lap 11 §K2, and the split of labour is the
+# point: THIS STEP DETECTS, their `rig-c1-probe.sh` EXPLAINS. Only run their
+# probe if this step hangs; if it does not hang, that is itself worth knowing —
+# it says the hang is not unconditional, which no disc-image fixture could ever
+# establish.
+#
+# WHAT IT PROVOKES. With no `-s`, cyanrip reads the TOC and refuses for want of
+# a read offset. On the 2026-08-25 rig session that refusal wrote its `-j`
+# diagnostics record fourteen seconds in — so the process decided to fail and ran
+# its exit path all the way to completion — and then stayed alive for roughly
+# THIRTY MORE MINUTES holding the drive, needing SIGKILL. Cause not determined,
+# by either project. The branch is gated on a DRIVE CAPABILITY that image drivers
+# do not report, so it is unreachable from every fixture either side has: it
+# needs a real drive, and this is the cheapest place to put one in that state.
+#
+# WHY IT IS SAFE TO HAVE IN AN UNATTENDED RUN. The `cyanrip` verb is bounded —
+# 300 s, then the child is killed, then a further 20 s before the runner stops
+# waiting and reports an UNREAPABLE CHILD with a null exit code rather than 0.
+# A hang here therefore costs five minutes and is recorded as a finding; it
+# cannot eat the night. That bound is the answer to the fork's §J6, which asked
+# before agreeing this step should exist at all.
+#
+# LAST OF THE DRIVE WORK, on §P's reasoning exactly: if it holds the drive it
+# costs the tail of the run and not the rip evidence.
+#
+# `-l 1` is insurance, not intent. If the refusal does NOT fire on this drive,
+# cyanrip would otherwise start ripping; limiting it to one track bounds the
+# damage to something the verb timeout can end. In that case `expect-exit 1`
+# fails and says so, which is the correct result — "it did not refuse" is a real
+# finding about the rig, not a broken step.
+#
+# NO `-j` HERE, and the reason is worth recording rather than leaving as an
+# omission. The fork's §K2 suggested one, to get cyanrip's own record as a
+# channel independent of the capture. Our script language has no path
+# placeholder, so a `-j` would need a hard-coded absolute path in a file whose
+# whole promise is that nothing in it needs editing. It is also less necessary
+# here than in their probe: this verb captures through `run_capture` — a pipe we
+# drain — and not through the shell redirect whose contents went missing in
+# `rig_session.sh` step 5b. Different channel, so an empty capture here would be
+# a NEW finding rather than a repeat of that one.
+
+log --- P2. C1: does a no-offset refusal hang the drive? ---
+cyanrip -N -l 1
+expect-exit 1
+expect-cyanrip Offset is unset
+snapshot afterc1
 
 # --- Q. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
 # Restoring is not tidiness. Uniform secure re-read doubles every future rip on

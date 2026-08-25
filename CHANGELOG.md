@@ -12,6 +12,46 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **`fullacceptance.txt` promised a stop it could not perform.** Its header said
+  the identity section *"stops you in the first four seconds"* if you are on the
+  wrong ripper build — but nothing except `abort` ends a batch and the file never
+  used it, so a wrong build produced a FAIL on line ~20 and then six hours of
+  evidence about the wrong binary. The cyanrip fork read that sentence and relayed
+  it to the operator as the reason an overnight run is safe (round 14 lap 11 §J7,
+  which asked us to correct them if §A did not do what its header said — it did
+  not). Fixed by making the promise true: a new `abort-if-failed` script verb,
+  used exactly once, right after the identity assertions. **Preconditions abort;
+  findings do not** — the file's existing "a failing step does not stop the batch"
+  rule is right and is about findings, and a wrong ripper is not a finding, it is
+  evidence about a different subject. Counts FAIL and ERROR, never BLOCKED.
+- **The rig harness stated an inference as a measurement, to the operator.** On a
+  timed-out `-j` step exiting 137 it printed *"SIGTERM did not land, which means
+  the reader was wedged, not merely slow."* The fork disclosed that cyanrip has
+  caught SIGTERM since `+platterpus.7` — the handler sets a flag and returns, and
+  nothing reads it once the rip loop is past — so **SIGKILL is the expected
+  terminator** for any cyanrip wedged after a rip and exit 137 says nothing about
+  the drive. The finding is the 1800 s, not the signal. Also a cost of a fix we
+  asked them for, now recorded so nobody restores it.
+- **An empty stdout capture beside a populated `-j` record now reads as a fact
+  about the capture, not about the ripper.** The fork established from our own
+  tarball's mtimes that `05-minus-j.txt` was stamped the second its step began and
+  never written again, while cyanrip's own record held four messages — so the file
+  did not receive what the ripper sent. Their three candidate explanations all
+  missed one thing they had no way to know: **the ripper path is the host-exported
+  Distrobox wrapper, so a container runtime forwards stdio between cyanrip's fd 1
+  and our redirect, while `-j` goes straight to a bind-mounted host path.** Two
+  channels, one with a container in it. Why the forwarding lost the bytes is not
+  determined and is not guessed at; instead the harness now cross-checks the two
+  and reports the disagreement as its own finding, because an empty capture beside
+  a populated record is the one shape that must never read as silence.
+- **Our handshake gate read `HANDSHAKE-TEST-PIN: none.` as a build.** Both projects
+  write that to mean *"we considered a test pin and there is not one"* — a
+  different claim from a missing field, which this protocol distinguishes
+  everywhere else. The fork found it in their gate and asked us to check ours; we
+  had it too, never firing only because the one blocker consulting the field also
+  requires `HANDSHAKE-PIN`, which both sides always declare. Fixed at the reader,
+  and deliberately without guessing: only an exact `none` (case-insensitive,
+  trailing periods tolerated) reads as an absence, so `nonesuch1` stays a pin.
 - **We sent the ripper TWO stop signals per cancel, 0.445 ms apart, and the
   second one destroyed the log.** `Popen.terminate()` is idempotent, so three call
   sites in the rip worker each sent their own on the reasoning that a repeat is

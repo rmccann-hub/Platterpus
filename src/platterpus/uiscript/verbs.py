@@ -101,6 +101,14 @@ _VERB_LIST: tuple[Verb, ...] = (
         None,
         "abort [reason] — stop the batch here (the only verb that does)",
     ),
+    Verb(
+        "abort-if-failed",
+        0,
+        None,
+        "abort-if-failed [reason] — stop ONLY if a step has already failed. For a "
+        "PRECONDITION (am I on the right build?), where continuing gathers hours "
+        "of evidence about the wrong subject. A finding must never use this.",
+    ),
     # --- Evidence ------------------------------------------------------------
     Verb(
         "screenshot",

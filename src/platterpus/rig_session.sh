@@ -150,15 +150,62 @@ run "5b  their diagnostics record (-j)" "05-minus-j.txt" \
 # 124 = SIGTERM'd at the deadline, 137 = SIGKILL'd 60 s later because SIGTERM did
 # not land. Say which: they are different findings about the drive, and "exit: 137"
 # alone reads as a crash.
+# 124 = SIGTERM'd at the deadline, 137 = SIGKILL'd 60 s later. Say which — but
+# NOT what we used to say about 137.
+#
+# **The old line here read: "SIGTERM did not land, which means the reader was
+# wedged, not merely slow." That inference is false and this harness printed it
+# to the operator as a finding.** The fork disclosed the mechanism in round 14
+# lap 11 §D1, `[MEASURED]` from their source: cyanrip has caught SIGTERM since
+# `+platterpus.7` — the handler sets a flag and returns — and once the rip loop
+# is behind it, nothing reads that flag again. **A single SIGTERM has not been
+# able to terminate cyanrip since that release**, so exit 137 is the EXPECTED
+# outcome for any cyanrip past its rip loop and carries no information about
+# whether the drive was wedged.
+#
+# It is also a cost of a fix we asked them for: before `+platterpus.7` a kill
+# took the default disposition and the program died where it stood, losing the
+# log footer and the `-j` record. We asked them to stop doing that. This is the
+# other side of it.
 case "$(tail -n 2 "$SUMMARY" | grep -o 'exit: [0-9]*' | tail -n 1)" in
   "exit: 124") note "!! timed out at 1800s and exited on SIGTERM" ;;
-  "exit: 137") note "!! timed out at 1800s and needed SIGKILL — SIGTERM did not"
-               note "   land, which means the reader was wedged, not merely slow" ;;
+  "exit: 137") note "!! timed out at 1800s and needed SIGKILL. This does NOT mean"
+               note "   the reader was wedged: cyanrip's SIGTERM handler only sets"
+               note "   a flag, and nothing reads it once the rip loop is past, so"
+               note "   SIGKILL is the expected terminator. The finding is the"
+               note "   1800s, not the signal." ;;
 esac
 if [ -s "$OUT/scratch/diag.json" ]; then
   note "diag.json written: $(wc -c <"$OUT/scratch/diag.json") bytes"
 else
   note "!! diag.json NOT written — say so; absence is the finding"
+fi
+
+# THE CAPTURE AND THE -j RECORD ARE DIFFERENT CHANNELS, so disagreement between
+# them is a fact about the channel and must never read as a fact about cyanrip.
+#
+# 2026-08-25: this step's artifact was 0 bytes while `diag.json` held 3469 bytes
+# and four messages. The fork read the empty capture and reasoned about what
+# cyanrip had printed; their §C then established from the tarball's own mtimes
+# that the file was stamped the second the step BEGAN and never written again —
+# so it did not receive what cyanrip sent, rather than cyanrip having sent
+# nothing. Same defect class as the `break` that ate the ripper's dying line.
+#
+# **What neither side had said out loud: `$RIPPER` is the host-exported Distrobox
+# wrapper, not cyanrip.** The real ripper runs inside the `ripping` container, so
+# between its fd 1 and this redirect there is a container runtime forwarding
+# stdio — while `-j` is written straight to a bind-mounted host path and never
+# touches that forwarding. Two channels, one of which has a container in it. Why
+# the forwarding lost the bytes is NOT DETERMINED and is not guessed at here.
+#
+# So the contradiction is surfaced as its own finding, because an empty capture
+# beside a populated record is the one shape that must never be read as silence.
+if [ ! -s "$OUT/05-minus-j.txt" ] && [ -s "$OUT/scratch/diag.json" ]; then
+  note "!! CAPTURE/RECORD DISAGREEMENT: 05-minus-j.txt is EMPTY but diag.json"
+  note "   has content. cyanrip spoke and this file did not receive it. Read the"
+  note "   empty capture as a fact about the CAPTURE PATH (a Distrobox wrapper"
+  note "   and a container runtime sit between cyanrip's fd 1 and this file),"
+  note "   NEVER as evidence that cyanrip was silent."
 fi
 
 # ------------------------------------------------------------ A25 screening ---

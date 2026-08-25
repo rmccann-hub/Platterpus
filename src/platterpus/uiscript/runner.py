@@ -662,6 +662,50 @@ class ScriptRunner(QObject):
         # Everything after this is recorded as skipped by stop().
         self.stop(reason)
 
+    def _do_abort_if_failed(self, step: Step) -> None:
+        """Stop the batch, but ONLY if something has already failed.
+
+        **A precondition and a finding are different things, and this file's rule
+        that "a failing step does not stop the batch" is about findings.** That
+        rule is right: a run that halts on the first problem hides every problem
+        behind it, and a disc pass costs hours nobody gets back. It is the wrong
+        rule for *"am I even testing the right binary?"* — a wrong ripper does not
+        make the next six hours partially useful, it makes them **evidence about
+        a different subject**, which is precisely what the handshake exists to
+        prevent (`CLAUDE.md` rule 12: two artifacts from the same ripper under
+        different app versions are not interchangeable evidence).
+
+        Written because `fullacceptance.txt` **claimed** the identity section
+        *"stops you in the first four seconds if you are not"* on the right build,
+        and it did not — nothing but `abort` stops a batch, and the file never used
+        it. A header promising a stop that cannot happen is worse than no promise:
+        the cyanrip fork read that sentence and told the operator to run the file
+        overnight partly on the strength of it (round 14 lap 11 §J7, which asked us
+        to correct them if §A did not do what its header said — it did not).
+
+        Counts **FAIL and ERROR, not BLOCKED** — a verb refused for want of a
+        setting has not established that anything is wrong with the rig.
+        """
+        failed = [
+            r for r in self._report.steps if r.outcome in (Outcome.FAIL, Outcome.ERROR)
+        ]
+        if not failed:
+            self._record(
+                step,
+                Outcome.PASS,
+                f"no failures in the {len(self._report.steps)} step(s) so far — "
+                "continuing",
+            )
+            return
+        first = failed[0]
+        detail = (
+            f"{len(failed)} step(s) have failed; the first was L{first.line_no} "
+            f"({first.source!r}: {first.detail}). "
+            + (step.joined() or "stopping rather than spending the run on it")
+        )
+        self._record(step, Outcome.PASS, detail)
+        self.stop(detail)
+
     # --- Verbs: evidence -----------------------------------------------------
 
     def _do_screenshot(self, step: Step) -> None:
