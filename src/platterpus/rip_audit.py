@@ -327,15 +327,60 @@ def _audit_completion(report: dict[str, Any], album: AlbumAudit) -> None:
         detail = f" — {reason}" if reason else ""
         album.add(LEVEL_WARN, f"rip did NOT complete: {done} of {total} tracks{detail}")
     else:
-        # The footer is absent. Per the fork (Q10) that is what a killed rip
-        # looks like, and the cue cannot tell you — so say so rather than
-        # treating a missing footer as a failure verdict.
+        # The footer is absent — and there are TWO reasons for that, which mean
+        # very different things. Reported separately since round 14 lap 7.
+        #
+        # **ATTESTED TRUNCATION is the one that matters, and we had no name for
+        # it.** The fork root-caused a defect in which
+        # `cyanrip_log_finish_report()` sat *above* the `end:` label while
+        # twenty-four `goto end` sites jumped past it — so an aborted run wrote a
+        # log with no `Ripping errors:`, no `Read stalls:`, no `Rip completed:`
+        # and no `Interrupted at:`, and then `cyanrip_log_end()`, which IS inside
+        # `end:`, **signed that truncated body with a FUN512 as though it were a
+        # whole record.**
+        #
+        # So the ripper verifying its own checksum and the footer being absent are
+        # both true at once, and each on its own reads as reassuring: one says
+        # *"the ripper stands behind this log"*, the other *"it may just be an old
+        # build"*. Together they say something neither says alone — the producer
+        # attested an incomplete record — and a reader who cites it as an archival
+        # log is citing a signed fragment.
+        #
+        # Two facts in one report, never related. Both rows existed and both were
+        # friendly. This is `CLAUDE.md`'s *do two surfaces answer this question* in
+        # its other form: two surfaces answering different questions whose
+        # CONJUNCTION is the finding.
+        #
+        # Their fix is not in the pin and cannot be retroactive: every log already
+        # written by an affected build keeps this shape permanently, so the
+        # consumer has to be able to say it.
         expected = completeness.get("tracks_expected")
-        album.add(
-            LEVEL_NOTE,
-            "the ripper's completion footer is absent — the log was cut off, or "
-            f"predates the fork pin (disc has {expected or '?'} tracks)",
+        verification = report.get("ripper_log_verification")
+        attested = (
+            isinstance(verification, dict)
+            and str(verification.get("verdict") or "") == "verified"
         )
+        if attested:
+            album.add(
+                LEVEL_WARN,
+                "the ripper's completion footer is absent, AND the ripper "
+                "verified this log against its own checksum — so the truncation "
+                "is ATTESTED, not merely observed: the producer signed an "
+                "incomplete record. This is not an old build and it is not a log "
+                "cut off by something else. Do not cite it as a complete archival "
+                f"record (disc has {expected or '?'} tracks). Known defect, "
+                "root-caused by the cyanrip fork in round 14 lap 7 §B2: the "
+                "completion footer sat above the abort label while 24 exit paths "
+                "jumped past it, and the checksum was written inside it.",
+            )
+        else:
+            album.add(
+                LEVEL_NOTE,
+                "the ripper's completion footer is absent — the log was cut off, "
+                f"or predates the fork pin (disc has {expected or '?'} tracks). "
+                "The checksum was not verified either, so this is an incomplete "
+                "record rather than an attested one",
+            )
 
     status = outcome.get("status")
     if status and status != "success":
