@@ -266,3 +266,59 @@ def test_the_diagnostics_probe_allows_for_a_full_length_first_track() -> None:
         f"a {grace}s SIGKILL grace is too tight to distinguish 'slow to exit' "
         "from 'wedged'"
     )
+
+
+# --- The diagnosis file: the short answers, so nobody reads scrollback -------
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash not available")
+def test_the_diagnosis_file_is_written_and_names_its_verdict(tmp_path: Path) -> None:
+    """The operator must not have to find four numbers in a 5 KB chronological log.
+
+    Written after they reported exactly that: *"the questions you asked me i cannot
+    see easily… they might be in there, but not visible to me readily."* Asking a
+    person to eyeball terminal scrollback for an exit code and a duration is work
+    handed back, which `CLAUDE.md` names as a symptom rather than a deliverable.
+
+    Asserts the file exists, carries every heading the answers live under, and
+    reaches a NAMED verdict rather than leaving the reader to infer one — even in
+    this fixture, where no binary exists and the honest verdict is
+    "NOT DETERMINED".
+    """
+    _rc, out, _output = _run(tmp_path)
+    diag = out / "00-diagnosis.txt"
+    assert diag.is_file(), "no diagnosis file was written"
+    text = diag.read_text(encoding="utf-8", errors="replace")
+
+    for heading in ("versions", "C1", "capture integrity", "what to send"):
+        assert heading in text, f"the diagnosis has no {heading!r} section:\n{text}"
+
+    # A verdict, always. Silence is the failure mode this file exists to remove.
+    verdicts = ("NOT DETERMINED", "DID NOT REPRODUCE", "REPRODUCED")
+    assert any(v in text for v in verdicts), (
+        f"the diagnosis reaches no named verdict, so the reader must infer one:\n{text}"
+    )
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash not available")
+def test_every_step_records_a_duration_not_just_an_exit_code() -> None:
+    """`elapsed:` is the number the C1 question turns on, and it was not recorded.
+
+    Fifteen seconds means "the hang did not reproduce"; thirty-one minutes means it
+    did. For three rig sessions this harness logged the exit code and not the
+    duration, so the single datum the investigation needed had to be read out of a
+    terminal by a person and relayed by hand.
+
+    Asserted against the SOURCE rather than a run, so it holds for steps this
+    fixture cannot reach.
+    """
+    text = _SCRIPT.read_text(encoding="utf-8")
+    assert "elapsed: ${secs}s" in text, (
+        "run() does not record elapsed time; the C1 measurement is unanswerable"
+    )
+    # And the pair that makes the measurement a CONTROLLED one rather than an
+    # observation: the bare refusal must run too, or there is nothing to compare.
+    assert "04-bare-refusal.txt" in text, (
+        "the bare offset refusal control step is gone, so a slow -j run cannot be "
+        "distinguished from a slow refusal path — the whole point of the pair"
+    )

@@ -11,6 +11,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **The rig harness now answers the questions instead of asking the operator to
+  read scrollback.** Three things it did not do: it recorded each step's exit code
+  but **not its duration** — and "did step 5b take fifteen seconds or thirty-one
+  minutes?" is the entire C1 question, so the one number the investigation needed
+  had to be eyeballed out of a terminal and relayed by hand. It ran the no-offset
+  refusal *only* with `-j -D -o -u`, so a slow run could not be told apart from a
+  slow refusal path. And its findings were spread through a 5 KB chronological log
+  with seventeen sections. Now: every step records `elapsed:`, a **bare
+  `cyanrip -N -l 1` control step** runs immediately before the `-j` one so the two
+  form a controlled pair, and a short `00-diagnosis.txt` states the versions, a
+  **named C1 verdict** (`NOT DETERMINED` / `DID NOT REPRODUCE` / `REPRODUCED, AND
+  NARROWED` / `REPRODUCED, NOT NARROWED`), the capture-integrity check and the
+  per-step table — echoed to the terminal at the end so nothing has to be opened.
+  Prompted by the operator: *"the questions you asked me i cannot see easily…
+  they might be in there, but not visible to me readily."* Every "now go and read
+  this" in a procedure is a thing the software was supposed to do.
+
 ### Fixed
 - **The acceptance script asserted an empty screen that cannot exist.** With a
   disc in the drive — a precondition of the whole run — the app identifies it at

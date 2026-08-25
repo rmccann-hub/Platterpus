@@ -22,7 +22,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 | --- | --- | --- |
 | `round-14-lap-13.md` | 7,967 | `eecafaf7057e5c55…` |
 | `round-14-lap-12.md` | 16,178 | `e7343272f72caf81…` |
-| `fullacceptance.txt` | 32,458 | `ed78c289a7a24ee0…` |
+| `fullacceptance.txt` | 33,271 | `59d9ba39189231ab…` |
 
 ## Reader
 
@@ -521,7 +521,7 @@ wrong binary. That was the sentence you relayed, and it is finally true.
 that is ours.** §A4 of our lap 10 binds us as you accepted it.
 <<<<<<<<<< END round-14-lap-12.md >>>>>>>>>>
 
-<<<<<<<<<< BEGIN fullacceptance.txt sha256=ed78c289a7a24ee07e63cdeed92c75bfb22aaa7c92cc5cb3a47c796801f1e236 >>>>>>>>>>
+<<<<<<<<<< BEGIN fullacceptance.txt sha256=59d9ba39189231ab5274668e1e35799c2f837b65e4e764a3ec48006bcadafe70 >>>>>>>>>>
 # =============================================================================
 # FULL ACCEPTANCE RUN — end to end, every path the program has, one pass
 # =============================================================================
@@ -760,8 +760,21 @@ open guide
 cancel
 open setup
 cancel
-expect-dialog none
 snapshot dialogsdone
+
+# NO `expect-dialog none` HERE, and the omission is the fix rather than a gap.
+#
+# **Measured, 2026-08-25 (run 3).** With a disc in the drive, the app identifies
+# it at launch and OPENS THE RELEASE PICKER BY ITSELF — before this script
+# reaches section D at all. So the picker sits underneath the whole dialog
+# section, and an `expect-dialog none` here reported it, correctly, as a
+# failure: *"a dialog is open: 'Pick a MusicBrainz release'"*. The assertion was
+# true; the expectation was wrong.
+#
+# The script cannot assert an empty screen before it has answered the picker,
+# because having a disc in the drive is a PRECONDITION of this whole run. So the
+# assertion moves to just after `pick-release`, where it says something real:
+# the picker we answered is gone and nothing else was left behind it.
 
 # --- E. DISC IDENTIFICATION -------------------------------------------------
 # The last cheap section. If this fails, nothing after it can mean anything, and
@@ -770,6 +783,7 @@ snapshot dialogsdone
 log --- E. disc: scan and identify ---
 rescan
 pick-release 1 120
+expect-dialog none
 expect-tracks 2+
 snapshot discidentified
 
