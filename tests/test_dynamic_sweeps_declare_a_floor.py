@@ -74,6 +74,27 @@ _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
     "test_a_no_verdict_exit_code_never_becomes_an_accusation": (
         "test_the_verify_log_exit_codes_are_the_ones_we_classify"
     ),
+    # Added 2026-08-24 with the rig-script sweep. All four parametrize over
+    # `_scripts()`, a glob over `docs/rig-scripts/*.txt` — and the population is
+    # exactly the kind that vanishes quietly: those files are moved and renamed by
+    # hand between rounds, and a directory rename would turn every one of these
+    # into zero cases. The sweep exists because nothing parsed those scripts at
+    # all and a step naming a config field that never existed errored on every run
+    # for months, so a version of it that can examine nothing would repeat the
+    # original defect one level up.
+    "test_rig_scripts.py::test_every_step_names_a_verb_that_exists_and_is_built": (
+        "test_there_are_scripts_to_check"
+    ),
+    "test_rig_scripts.py::test_every_setting_named_is_a_real_config_field": (
+        "test_there_are_scripts_to_check"
+    ),
+    "test_rig_scripts.py::"
+    "test_every_scripted_cyanrip_invocation_survives_the_sanitiser": (
+        "test_there_are_scripts_to_check"
+    ),
+    "test_rig_scripts.py::test_no_step_failed_to_parse": (
+        "test_there_are_scripts_to_check"
+    ),
     # Each value is EITHER the name of the unparametrized test in the same module
     # that floors this population, OR "NO FLOOR NEEDED: <reason>".
     #

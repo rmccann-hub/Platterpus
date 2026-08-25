@@ -792,4 +792,4 @@ only EAC and XLD — a policy limit, not a technical one.
 
 ---
 
-*Last updated for Platterpus v0.6.24.*
+*Last updated for Platterpus v0.6.25.*

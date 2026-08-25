@@ -24,7 +24,7 @@ Every row in this document is derived from the Platterpus source at the
 version named below, and describes what **that** app version parses and
 sends. It is not a claim about any other version of either side.
 
-- **Platterpus:** `0.6.24` — the build that
+- **Platterpus:** `0.6.25` — the build that
   generated this file. A row can only have changed with our code, so this
   version *is* the range on our half.
 - **Verified against ripper build:** `cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)` — the build a
@@ -156,7 +156,7 @@ the log **and** its addendum (`rip_addendum.with_addendum`), because the
 addendum is the only statement in the folder about which bytes actually
 shipped after an auto-fix re-rip.
 
-## 2. Log lines we knowingly ignore (22)
+## 2. Log lines we knowingly ignore (23)
 
 An allow-list, not a shrug — each entry is a recorded decision, and the
 parser's own test treats an unrecognised, unlisted line as a failure. So a
@@ -173,6 +173,7 @@ dropped.
 | `^Total discs:\\s` | our own -a tag echoed back; we hold it |
 | `^.*cannot search Cover Art DB!$` | cyanrip's cover-art path is unused under -N; we fetch art ourselves |
 | `^Cache model:\\s` | paranoia's MODELLED cache size; our cache-defeat verdict is measured (cd-paranoia -A, KDD-29) and must not be filled from a model |
+| `^Cache probe:\\s` | the -x probe's own result; surfaced verbatim by rig-check rather than parsed, because it has no rendered home and its value shape is a range, a bound, or an explicit unknown (round 14 T3) |
 | `^Encoder:\\s` | candidate: encoder provenance, needs a report field before parsing |
 | `^CD-TEXT:\\s` | candidate: tri-state CD-TEXT presence, needs a report field |
 | `^HDCD decoding:\\s` | candidate: alters samples when enabled |

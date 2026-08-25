@@ -11,6 +11,167 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.25] — 2026-08-25
+
+### Added
+- **Two script verbs the acceptance suite needed and could not express.**
+  `expect-refused <setting> <value>` asserts the pure validator **refuses** a
+  value *and leaves the setting unchanged* — input validation is institutional
+  here and none of it was reachable from a script, because `set` records FAIL on
+  a refusal and a script therefore could not tell *"the guard fired"* from *"the
+  run broke"*. Both halves are asserted, because a guard that reports a refusal
+  and writes the value anyway is worse than no guard: the log says the input was
+  rejected while the setting still reaches cyanrip's argv.
+  `expect-ripper-under-review` asserts the installed ripper is the build the open
+  handshake round is reviewing, **taking no argument** — see below.
+- **The acceptance script is now end to end.** Rewritten for an overnight run at
+  the maintainer's instruction (*"this should be an end to end test, do it all"*):
+  212 steps covering validation refusals, every dialog, a full-disc FLAC rip with
+  art + CTDB + FLAC-verify + the EAC log all on, the overwrite prompt, a mid-track
+  cancel, drive recovery, **MP3, WavPack and WAV** (Critical rule #4's derived
+  formats, which nothing had ever exercised on hardware), the goal presets, the
+  naming templates, a **whole-disc** uniform secure re-read, and the probe-only
+  cache invocation.
+- **`set rip_goal` applies the preset**, as choosing a goal in Settings does.
+  Writing the field alone produced a config no dialog could create —
+  `rip_goal="archival"` beside fast-verified values, which `detect_goal` then
+  reports as `custom` — so a script could "select the archival goal" and rip with
+  exactly the settings it was avoiding.
+
+### Fixed
+- **The acceptance script hardcoded a cyanrip build tag, and it went stale three
+  times in two days.** The script asserted `platterpus-fork-g796df32`; the fork
+  then published `f2c0506` and `d9c058c` on the beta channel our own in-app
+  installer resolves. Each time an operator following our instructions installed
+  the build we sent them to and **failed section A in the first four seconds**,
+  told they were on the wrong one. Changing the literal was not the fix — the fork
+  named the shape: *"a hardcoded build tag in a committed script is a second copy
+  of a fact that lives in release-manifest.json, and only one copy has a
+  checker."* The script now carries no tag at all; `expect-ripper-under-review`
+  reads `PIN_UNDER_REVIEW`, which is itself derived from the newest inbound
+  handshake lap, so the chain is single-keyed and a pin move fails in CI instead
+  of at 2am on a rig. **The regression test asserts the ABSENCE of a literal**,
+  because a test checking the literal was current would have passed on all three
+  of the wrong days.
+- **We told the cyanrip fork that `rig-check` surfaces the `Cache probe:` line
+  into its manifest. It cannot, and never could.** `-x` is not in the rip argv
+  builder at all, so no Platterpus rip probes and no rip log we parse can carry
+  that line; `rig-check`'s one invocation targets a device that cannot open. They
+  caught it by reading our committed script, seeing no `rig-check` after the probe
+  section, and refusing to guess at a mechanism in our code — the second time in
+  two laps that a false claim of ours, which all our own green tests agreed with,
+  was found by someone who could not check it. The claim is corrected, the
+  manifest row now names where the evidence actually lands (the script report and
+  transcript, with exact argv, exit code and complete output), and a test asserts
+  `-x` stays absent from the builder so the row cannot become a quiet lie.
+- **A handshake envelope round-trip test read every part from
+  `docs/handshake/verified/`**, true only while the envelope happened to carry two
+  verification files. The first envelope carrying an outbound lap and a script
+  broke it with `FileNotFoundError` — the polite failure, since a same-named file
+  under `verified/` would have made it compare the wrong document and pass.
+
+### Changed
+- **cyanrip round 13 is CLOSED on both disks**, and round 14's pin is `d9c058c`
+  (`0.9.4-rc2+platterpus.10`, `release_seq` 20, channel `beta`). Round 13's lap 8
+  had been written as a closing lap with no artifacts, so no envelope was ever
+  built for it and it never sent — *"a lap with nothing attached is exactly the one
+  that gets forgotten."* It arrived inside their round-14 lap 3 and the
+  `_AWAITING_PEER_CLOSE` entry is retired. `src/` is byte-identical across all
+  three round-14 betas, so no rip behaviour differs between any of them.
+- **The rig's read offset is documented as a guard rather than a value.** The fork
+  asked whether `667` was this drive's true offset or an arbitrary test value they
+  could not distinguish by reading. It is true — the bundled AccurateRip table's
+  regeneration sentinel, `docs/hardware-test-checklist.md`, and a rip verified
+  byte-identical against the EAC baseline on 12 of 14 tracks all agree — and the
+  script now says so with the sources named.
+
+### Added
+- **The committed rig scripts are now parsed by the real script language, and the
+  first sweep found a step that had never worked.**
+  `docs/rig-scripts/fullacceptance.txt` carried `set paranoia_passes 3` /
+  `expect paranoia_passes 3`, and `paranoia_passes` has never been a field of
+  `Config` in this repository's history — so both steps recorded ERROR on every
+  run of that script. They are two of the three errors in the 2026-08-23 full
+  acceptance pass, and the summary line reported `error=3` without naming which
+  three, so the defect survived being measured. Nothing checked it: these are
+  committed artifacts that cross machines by hand and **nothing parsed them**.
+  `tests/test_rig_scripts.py` now runs every one through the real parser, verb
+  table, `Config` dataclass and argv sanitiser, with the population derived from
+  the directory rather than listed — the corrected line is the symptom, the sweep
+  is the fix. It immediately found a second thing: our own argv guard refuses
+  round 8's `cyanrip -N -d /dev/sr0 -t 1` step, whose subject is *cyanrip's*
+  refusal of a malformed `-t`. Both behaviours are correct and incompatible in one
+  step; the guard wins. The step carries an `EXPECT-SANITISER-REFUSAL:` marker in
+  the script itself rather than in an allowlist here, and the sweep checks it in
+  **both** directions so a marker left over a step the guard later admits fails
+  too.
+- **`rig-check` reports the paranoia relationship and `Interrupted at:`** — two
+  fields we already parsed and that had still never reached any artifact anyone
+  sends anywhere, which is the same defect from the reader's side. Both carry
+  round 14's hardware evidence: the per-track/disc counters (T1) and cyanrip's own
+  record of where an interrupted rip stopped (T4). The graded half is the
+  **inequality** `sum(per-track) <= disc total` — a violation is a provider-contract
+  break — and the multiple is reported as an observation, never as the property:
+  `disc == passes x sum` holds on the fork's synthetic fixture by construction and
+  will not hold on media, where re-reads exist precisely when passes differ. The
+  first version of the interruption row was **unreachable**: it sat after the
+  early return for a zero-track parse, and a rip stopped mid-track is exactly the
+  rip that parses to zero tracks.
+- **The acceptance script covers all of the fork's §T list it can reach.** New
+  sections for T1 (a two-track rip in uniform secure-re-read mode, so
+  `total_repeats > 1` on every track regardless of how clean the disc is — the
+  previous script ripped only in dynamic mode, where a clean disc converges on the
+  first pass and settles nothing) and T3 (`cyanrip -N -x -I`, run last of the
+  drive work because `-x` once held this drive for an hour). Section A now asserts
+  the *released* build tag by name, so a pass run on the seven-releases-old build
+  fails in four seconds instead of producing two hours of evidence about a build
+  nobody is reviewing.
+
+### Fixed
+- **A handshake envelope round-trip test read every part from
+  `docs/handshake/verified/`**, which was true only while the envelope happened to
+  carry two verification files — a fact about one send, baked into the checker as
+  if it were a rule. The first envelope carrying an outbound lap and a script
+  broke it with `FileNotFoundError`, which is the polite failure: had a same-named
+  file existed under `verified/`, it would have compared the round trip against
+  the wrong document and passed. It now reads each part's real path from `PARTS`.
+- **A stale example inside a docstring that argues against relying on examples.**
+  `accuraterip_is_match` keys on the all-zero local CRC rather than on cyanrip's
+  wording, and has said since a 2026-07-31 audit that this "also covers a backend
+  that omits the caveat" — then quoted the caveat verbatim. The fork's round-14
+  acceptance spec records that wording reworded 24 days later. The quote is
+  dropped rather than updated: quoting a producer's exact text inside a function
+  that deliberately does not depend on it is how the next reader concludes it
+  does.
+
+### Changed
+- **cyanrip round 14 opened by the fork, and both halves of its pairing are now
+  releases.** Their `0.9.4-rc2+platterpus.8` at `796df32` (`release_seq` 18,
+  channel `beta`) is cut and installable; ours is 0.6.24. The round has exactly one
+  close condition — a hardware acceptance pass on that released pair — and they
+  pre-commit under S-18 to `GO` unless it fails on a cause of theirs. Our lap 2
+  carries the full test plan for them to amend, the seam-rules v6 draft, and the
+  proof of round 13's digest divergence: five of six rows are byte-identical and
+  the sixth is a file we renumbered, confirmed from git rather than inferred —
+  neither implementation is wrong and the digest field caught it on its first real
+  use.
+- **`PIN_UNDER_REVIEW` moves to `796df32`, and the fork's two published releases
+  join the release-sequence map** (`237a4ff` = 17, `796df32` = 18). Without those
+  rows an operator on either of the fork's current channel heads is told they are
+  on "a mid-round test pin, or a commit installed by hand" — every clause wrong
+  about a published release, a defect reported on 2026-08-17 and fixed by adding
+  one row, which is why it returns every time they publish and we do not. A
+  sequence is not an approval: `FORK_PIN` stays at `ddf7ac3` until round 14
+  closes, so the acceptance run's own artifacts will correctly report the ripper
+  as `unapproved`.
+- **`Cache probe:` is registered as a knowingly-ignored log line.** The fork's
+  spec records that its value shape changed from a single figure to a range, a
+  lower bound, or an explicit `unknown (<reason>)`, because the old wording
+  claimed a precision the method does not have. We never parsed it so nothing
+  broke — but our enumeration table had no entry at all, leaving the fork to infer
+  our treatment from silence. `rig-check` surfaces the line verbatim, which is
+  where T3's evidence is wanted and which cannot go stale against a reword.
+
 ## [0.6.24] — 2026-08-24
 
 ### Added
@@ -10545,7 +10706,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.24...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.25...HEAD
+[0.6.25]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.24...v0.6.25
 [0.6.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.23...v0.6.24
 [0.6.23]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.21...v0.6.23
 [0.6.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.20...v0.6.21
@@ -10657,4 +10819,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.24.*
+*Last updated for Platterpus v0.6.25.*

@@ -481,6 +481,16 @@ def check_parsers_against_the_log(manifest: Manifest, album_dir: Path | None) ->
             )
         )
         return
+    # BEFORE the zero-track branch, and that placement is the whole point.
+    #
+    # `_report_interruption` describes a rip that was STOPPED, and a rip stopped
+    # early is precisely the rip whose log ends at its `Tracks:` header with
+    # nothing under it — so a call placed after the early return below would be
+    # unreachable for every log it exists to describe. Written here after putting
+    # it there first: `CLAUDE.md`'s *did I check the preconditions where the thing
+    # HAPPENS, or where it was scheduled?*, with an early return as the deferral.
+    _report_paranoia_scope(manifest, parsed)
+    _report_interruption(manifest, parsed)
     tracks = len(getattr(parsed, "tracks", ()) or ())
     if tracks == 0:
         # THE FLOOR IS RIGHT; ITS SUBJECT WAS NOT CHECKED.
@@ -542,7 +552,127 @@ def check_parsers_against_the_log(manifest: Manifest, album_dir: Path | None) ->
         Result(
             INFO,
             "parser/cache-probe",
-            cache or "no Cache probe: line in this log (the rip did not pass -x)",
+            cache
+            or (
+                "no Cache probe: line in this log, and there never will be one — "
+                "`-x` is not in the rip argv builder at all, so no Platterpus rip "
+                "probes the cache. The probe is a separate `cyanrip -N -x -I` "
+                "invocation (round 14 T3), whose exact argv, exit code and complete "
+                "output are recorded in the SCRIPT REPORT and transcript, not here. "
+                "Look there, not for an absence in this manifest."
+            ),
+        )
+    )
+
+
+def _report_paranoia_scope(manifest: Manifest, parsed: object) -> None:
+    """Surface the per-track/disc paranoia relationship, for round 14's T1.
+
+    **Read off the already-parsed object; nothing here re-reads the log.** Both
+    figures have been parsed since 0.6.24 and neither reached the manifest, which
+    is `CLAUDE.md`'s *a diagnosis we captured but never showed the user is the same
+    bug from their side* — and it bites hardest exactly here, because this manifest
+    is what the acceptance run sends the fork as evidence.
+
+    Why the two numbers and not one: under ``-Z`` a track's own counter is the
+    **last** pass while the disc total sums **every** pass. The fork's round-14
+    lap 1 §D added a ``Scope:`` line saying so after we broke a five-round-old
+    claim that they summed — which had survived because every artifact it was
+    checked against read each track exactly once, the one condition that forces the
+    sum arithmetically. A disc that converges on the first read cannot distinguish
+    the two readings, so this row says which case the run got rather than printing
+    numbers the reader has to interpret.
+
+    **The invariant is an INEQUALITY, and a ratio is not it.** ``sum(per-track) <=
+    disc total``, with equality exactly when every track was read once. The
+    tempting ``disc == passes x sum`` holds on the fork's synthetic fixture *by
+    construction* — every pass there does identical work — and will not hold on
+    media, because re-reads exist precisely when passes differ. Their round-14
+    acceptance spec asks in as many words whether anything here encodes that
+    ratio; it does not, and the first draft of this function did. The multiple is
+    reported as an observation, never as the property, and only the ``<=`` is
+    graded.
+    """
+    tracks = getattr(parsed, "tracks", ()) or ()
+    per_track = 0
+    scoped = 0
+    for track in tracks:
+        per_track += sum((getattr(track, "paranoia_counts", None) or {}).values())
+        if getattr(track, "paranoia_scope", None):
+            scoped += 1
+    disc = sum((getattr(parsed, "paranoia_counts", None) or {}).values())
+    if per_track == 0 and disc == 0:
+        manifest.add(
+            Result(
+                INFO,
+                "parser/paranoia",
+                "this log carries no paranoia counters at all — not a finding on "
+                "its own (a clean read of a clean disc reports none), but it means "
+                "the per-track/disc relationship is untested by this rip",
+            )
+        )
+        return
+    exercised = "YES" if scoped else "no"
+    common = (
+        f"per-track counters sum to {per_track}; the disc block totals {disc}. "
+        f"Scope: line present on {scoped} of {len(tracks)} track(s) — secure "
+        f"re-read genuinely exercised: {exercised}"
+    )
+    if per_track > disc:
+        # THE ONLY GRADED HALF. `sum <= disc` is the fork's published invariant and
+        # it cannot be violated by any amount of re-reading, so a violation is a
+        # contract break rather than a disc property — the one thing here worth
+        # failing a run over.
+        manifest.add(
+            Result(
+                FAIL,
+                "parser/paranoia",
+                f"{common}. The per-track sum EXCEEDS the disc total, which the "
+                f"provider contract says is impossible: the disc block sums every "
+                f"pass and the per-track figures are one pass each, so the sum can "
+                f"only ever be less than or equal to it.",
+            )
+        )
+        return
+    # The multiple is an OBSERVATION and is worded as one. It equals the pass count
+    # only on a fixture where every pass does identical work; on media it will not,
+    # and a reader who takes it for the pass count will mis-read a correct rip.
+    if per_track and disc % per_track == 0 and disc != per_track:
+        note = f" (disc total is {disc // per_track}x the sum on this rip)"
+    else:
+        note = ""
+    manifest.add(Result(INFO, "parser/paranoia", f"{common}{note}"))
+
+
+def _report_interruption(manifest: Manifest, parsed: object) -> None:
+    """Surface ``Interrupted at:``, for round 14's T4. Tri-state, never a pass.
+
+    The fork added this line at our round-12 ask and we did not parse it for a
+    round; we parse it now and it still reached no artifact anyone sends anywhere.
+    A rip that completed has no such line and **that is the ordinary case**, so the
+    absence is reported as an absence rather than graded — the check that matters
+    is whether a rip we *interrupted on hardware* produced one, which only the
+    operator's own cancel step can create.
+    """
+    where = getattr(parsed, "interrupted_at", None)
+    completed = getattr(parsed, "rip_completed", None)
+    if where:
+        manifest.add(
+            Result(
+                INFO,
+                "parser/interrupted",
+                f"the ripper recorded where it stopped: {where!r} "
+                f"(rip_completed={completed!r})",
+            )
+        )
+        return
+    manifest.add(
+        Result(
+            INFO,
+            "parser/interrupted",
+            f"no 'Interrupted at:' line in this log (rip_completed={completed!r}) "
+            f"— expected for a rip that ran to the end; only a cancelled or killed "
+            f"rip produces one",
         )
     )
 
