@@ -552,7 +552,15 @@ def check_parsers_against_the_log(manifest: Manifest, album_dir: Path | None) ->
         Result(
             INFO,
             "parser/cache-probe",
-            cache or "no Cache probe: line in this log (the rip did not pass -x)",
+            cache
+            or (
+                "no Cache probe: line in this log, and there never will be one — "
+                "`-x` is not in the rip argv builder at all, so no Platterpus rip "
+                "probes the cache. The probe is a separate `cyanrip -N -x -I` "
+                "invocation (round 14 T3), whose exact argv, exit code and complete "
+                "output are recorded in the SCRIPT REPORT and transcript, not here. "
+                "Look there, not for an absence in this manifest."
+            ),
         )
     )
 

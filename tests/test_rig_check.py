@@ -1000,3 +1000,45 @@ def test_a_completed_rip_reports_the_absence_rather_than_going_quiet(
     rows = _rows(_album_from(tmp_path, _GOLDEN), "parser/interrupted")
     assert len(rows) == 1, rows
     assert "no 'Interrupted at:' line" in rows[0].detail, rows[0].detail  # type: ignore[attr-defined]
+
+
+def test_the_cache_probe_row_says_where_the_evidence_is_when_there_is_none(
+    tmp_path: Path,
+) -> None:
+    """**Regression for a claim we made to the fork that was false.**
+
+    Round 14 lap 2 §F3 told them the `Cache probe:` line *"reaches us because
+    rig-check surfaces it verbatim into the manifest"*. It does not and cannot:
+    `-x` is not in the rip argv builder at all, so no Platterpus rip ever probes,
+    and `rig-check`'s own one invocation targets a device that cannot open. They
+    read the script, saw no `rig-check` after the probe section, and refused to
+    guess at a mechanism in our code — which is how a wrong claim of ours got
+    caught by someone who could not check it.
+
+    An absence that does not say where to look is the defect: a reader of this
+    manifest would conclude the evidence was missing rather than filed elsewhere.
+    """
+    rows = _rows(_album_from(tmp_path, _GOLDEN), "parser/cache-probe")
+    assert len(rows) == 1, rows
+    detail = rows[0].detail  # type: ignore[attr-defined]
+    assert "never will be one" in detail, detail
+    assert "SCRIPT REPORT" in detail, detail
+    assert "-x -I" in detail, detail
+
+
+def test_no_rip_argv_platterpus_builds_ever_carries_the_cache_probe_flag() -> None:
+    """The claim above, asserted against the builder rather than believed.
+
+    `-x` proceeds into a full rip unless paired with `-I`; the fork declined to
+    change that and it once cost this rig an hour. So the reason no rip probes is
+    that the flag is absent from the builder, and that is what is checked here —
+    a docstring saying so is not a check.
+    """
+    from platterpus.adapters import cyanrip_backend
+
+    source = Path(cyanrip_backend.__file__).read_text(encoding="utf-8")
+    assert '"-x"' not in source and "'-x'" not in source, (
+        "the cyanrip argv builder now mentions -x. If a rip can probe the cache, "
+        "the manifest row in rig_check saying it never can is now a lie, and -x "
+        "without -I proceeds into a full rip."
+    )

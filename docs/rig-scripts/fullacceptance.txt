@@ -1,85 +1,108 @@
 # =============================================================================
-# FULL ACCEPTANCE RUN — every test there is, in one pass, with a pass/fail verdict
+# FULL ACCEPTANCE RUN — end to end, every path the program has, one pass
 # =============================================================================
 #
 #   How to run it:  ./platterpus-x86_64.AppImage --run-script fullacceptance.txt
 #   Where it lives: docs/rig-scripts/fullacceptance.txt
-#   What it costs:  ~2 to 2.5 hours. It rips the WHOLE disc once, then two short
-#                   partial rips. Start it and walk away.
+#   What it costs:  4 to 6 hours. LEAVE IT RUNNING OVERNIGHT.
+#                   It rips the whole disc TWICE (once fast, once with every
+#                   track read at least twice) plus six short partial rips.
 #
-# NOTHING IN THIS FILE NEEDS EDITING. No album name, no track count, no path.
-# Put any ordinary audio CD in the drive and run it.
+# NOTHING IN THIS FILE NEEDS EDITING. No album name, no track count, no path,
+# and — as of this version — no cyanrip build tag either. Put any ordinary
+# audio CD in the drive, start it, and go to bed.
 #
 # -----------------------------------------------------------------------------
-# WHY THIS EXISTS, AND WHY THE ORDER IS WHAT IT IS
+# BEFORE YOU START — two things, and only two
+# -----------------------------------------------------------------------------
+# 1. Be on the newest Platterpus. Help -> Check for updates, or download the
+#    AppImage from the releases page.
+# 2. Be on the newest cyanrip. Settings -> tick the ripper **beta** channel,
+#    then take the install offer. Section A asserts you are on the exact build
+#    the open handshake round is reviewing and stops you in the first four
+#    seconds if you are not — before any drive time is spent.
+#
+# Everything else is in this file.
+#
+# -----------------------------------------------------------------------------
+# WHY THE ORDER IS WHAT IT IS
 # -----------------------------------------------------------------------------
 # Maintainer directive: *"fresh start, rip, every test there is, all of them.
 # this needs to be a good pass fail test"* — the gate on 0.7.100. And KDD-35: a
 # version number is a claim about the field, not about CI. Every defect that
 # mattered in August was found on hardware with the suite green throughout.
 #
-# THE ORDER IS LEAST-LIKELY-TO-FAIL FIRST, and that is a deliberate choice with a
-# cost. Sections A-D are near-certain passes that take about four minutes; the
-# rip is section E. Putting the cheap checks first means a broken build is caught
-# before an hour of drive time is spent, and it means the transcript reads as a
-# widening cone — identity, then settings, then UI, then disc, then audio.
+# LEAST-LIKELY-TO-FAIL FIRST, deliberately, and it has a cost. Sections A-E are
+# near-certain passes that take about five minutes; the first rip is section F.
+# Putting the cheap checks first means a broken build or a wrong ripper is
+# caught before hours of drive time, and the transcript reads as a widening
+# cone — identity, then settings, then validation, then UI, then disc, then
+# audio, then the derived formats, then the long one.
 #
-# The cost of that order: if section E fails, sections A-D having passed tells
-# you almost nothing about why. That is accepted. The alternative — rip first —
-# spends the hour before learning the ripper was not even installed.
+# The cost: if section F fails, A-E having passed tells you almost nothing about
+# why. Accepted. The alternative spends the night before learning the ripper was
+# not installed.
 #
-# THE RULE THAT MAKES THIS SAFE TO LEAVE UNATTENDED: a failing step does NOT stop
-# the batch. Only `abort` does, and this file never uses it. So every check below
-# fails loudly and the run continues. A run that stops at the first problem hides
-# every problem behind it, and a disc pass costs an hour you do not get back.
-#
-# -----------------------------------------------------------------------------
-# WHAT THIS RUN CANNOT ASSERT — read the transcript for these
-# -----------------------------------------------------------------------------
-# Stated up front rather than buried, because a verdict that implies more than it
-# checked is worse than a shorter one.
-#
-#   * THAT THE AUDIO IS BIT-PERFECT. `wait-for-rip` waits for the worker to
-#     disappear; it does not grade the rip. AccurateRip and CTDB verdicts are in
-#     the report and the log — `rig-check` parses them, and the bundle carries
-#     both. Read them.
-#   * WHETHER DIALOG TEXT IS CLIPPED. That is a rendering fact at your font size
-#     and DPI and no assertion can see it. Section C takes screenshots; a person
-#     has to look at them.
-#   * OVERREAD (`-O`). It has run on the BDR-209D and it HUNG THE DRIVE ~23
-#     minutes. This script never enables it and section L asserts it is off.
+# THE RULE THAT MAKES THIS SAFE TO LEAVE UNATTENDED: a failing step does NOT
+# stop the batch. Only `abort` does, and this file never uses it. Every check
+# below fails loudly and the run continues. A run that stops at the first
+# problem hides every problem behind it, and a disc pass costs hours you do not
+# get back.
 #
 # -----------------------------------------------------------------------------
 # WHAT THIS RUN IS FOR: cyanrip handshake round 14, close condition CC-2
 # -----------------------------------------------------------------------------
 # CC-2 is the round's ONLY close condition: *one hardware acceptance pass on the
-# RELEASED pair* — cyanrip `0.9.4-rc2+platterpus.8` at `796df32` against
-# Platterpus 0.6.24 — exercising the fork's round-14 lap 1 §T list.
+# RELEASED pair* — the cyanrip beta the round is reviewing, against the current
+# Platterpus release — exercising the fork's round-14 lap 1 §T list.
 #
 # Round 13's version of CC-2 measured a mid-round TEST PIN while the release
-# would necessarily be a later commit, so satisfying it would have closed a round
-# on evidence about a build nobody installs. This one tests what ships, which is
-# what makes the round terminate.
+# would necessarily be a later commit, so satisfying it would have closed a
+# round on evidence about a build nobody installs. This one tests what ships.
 #
-# So section A now asserts the RELEASED build tag, not just "some fork build".
-# If you are on `ddf7ac3` — seven releases behind — section A fails immediately
-# and every later section is about the wrong pairing. Install `+platterpus.8`
-# first: Settings -> the ripper **beta** channel, then take the offer.
-#
-#   §T1  a `-Z` rip that GENUINELY re-reads, and keep the log     -> section J
-#   §T2  `-T unicode` end to end on a title carrying `<` and `:`  -> sections E, G
-#   §T3  `-x -I`, the probe-only cache invocation                 -> section K
-#   §T4  an interrupted rip, on hardware                          -> section H
+#   §T1  a `-Z` rip that GENUINELY re-reads, and keep the log     -> section N
+#   §T2  `-T unicode` end to end on a title carrying `<` and `:`  -> sections F, H
+#   §T3  `-x -I`, the probe-only cache invocation                 -> section P
+#   §T4  an interrupted rip, on hardware                          -> section I
 #   §T5  an Enhanced CD, if one turns up                          -> not scripted
 #
 # T5 is deliberately absent: it needs a disc we may not own, the fork says it is
 # not a blocker, and "no such disc available" is a different claim from "none".
+#
+# -----------------------------------------------------------------------------
+# WHAT THIS RUN CANNOT ASSERT — read the transcript and the bundle for these
+# -----------------------------------------------------------------------------
+# Stated up front rather than buried, because a verdict implying more than it
+# checked is worse than a shorter one.
+#
+#   * THAT THE AUDIO IS BIT-PERFECT. `wait-for-rip` waits for the worker to
+#     disappear; it does not grade the rip. AccurateRip and CTDB verdicts are in
+#     the report and the log — `rig-check` parses them and the bundle carries
+#     both. Read them.
+#   * WHETHER DIALOG TEXT IS CLIPPED. A rendering fact at your font size and DPI
+#     that no assertion can see. Section D takes screenshots; a person must look.
+#   * OVERREAD (`-O`). It has run on the BDR-209D and it HUNG THE DRIVE ~23
+#     minutes. Never enabled here; section Q asserts it is still off.
+#   * `-f` READ-OFFSET AUTODETECTION. Never run on this rig.
+#   * C2 ERROR REPORTING. This drive reports it unsupported, so a green run is
+#     not evidence about C2.
+#   * DAMAGED MEDIA, and therefore paranoia's actual error correction.
+#   * A NON-ZERO `Read stalls:` COUNT. A silent watchdog is not a working
+#     watchdog; healthy media cannot produce the other branch.
+#   * THE WELL-FORMED ENHANCED CD branch. Exercised by nothing, anywhere.
 # -----------------------------------------------------------------------------
 
 log =============================================================
-log FULL ACCEPTANCE RUN - every test there is, one pass
-log order: cheapest and least likely to fail first; the rip is section E
+log FULL ACCEPTANCE RUN - end to end, one pass
+log order: cheapest and least likely to fail first
+log the first rip is section F; the long one is section N
 log =============================================================
+
+# Debug logging ON for the whole run. A defect found at 4am is only as
+# diagnosable as the log, and this is the one setting that changes how much of
+# the run is recoverable afterwards. Restored in section Q.
+set debug_logging on
+expect debug_logging on
 snapshot atstart
 
 # --- A. IDENTITY: which binary is about to be graded -----------------------
@@ -89,19 +112,23 @@ snapshot atstart
 #
 # This also arms the `(ripper)` placeholder used by the album titles further
 # down: it expands to the installed build tag, read from the banner captured
-# here. If this step is ever removed, those `album` steps FAIL and say so rather
-# than writing the literal text — an unexpanded placeholder would give two rips
-# the same folder while looking like it worked.
+# here. If this step is removed, those `album` steps FAIL and say so rather than
+# writing the literal text — an unexpanded placeholder would give two rips the
+# same folder while looking like it worked.
+#
+# `expect-ripper-under-review` TAKES NO ARGUMENT, and that is the fix for a
+# defect that recurred three times in two days. This file used to name an exact
+# build tag; the fork then published two more betas on the channel our own
+# installer resolves, so an operator who followed our instructions installed the
+# build we sent them to and was told here that it was wrong. The verb now reads
+# the constant the handshake record derives, so a pin move fails in CI instead
+# of at 2am on your rig.
 
 log --- A. identity: which ripper is installed ---
 cyanrip --version
 expect-exit 0
 expect-cyanrip platterpus-fork
-# CC-2 is about the RELEASED pair, so the released build tag is asserted by name
-# rather than "a fork build of some kind". A pass here is what makes every later
-# section evidence about the thing round 14 is deciding; a fail here means stop
-# and install `+platterpus.8` before reading anything below.
-expect-cyanrip platterpus-fork-g796df32
+expect-ripper-under-review
 snapshot identity
 
 # --- B. SETTINGS VALIDATION: the cheapest real check in the program --------
@@ -110,36 +137,67 @@ snapshot identity
 # every input, visibly and to the log).
 #
 # Every `set` here is a value we then read back. A silent coercion would show up
-# as an `expect` failure rather than as a wrong rip an hour later. The read
-# offset is the one that matters most: it reaches cyanrip's argv, and a nudged
-# value rips the next disc wrong with a clean-looking log.
+# as an `expect` failure rather than as a wrong rip hours later.
+#
+# 667 IS THIS DRIVE'S TRUE READ OFFSET, not an arbitrary test value — so this is
+# a guard and section Q is right not to restore it. The Pioneer BDR-209D is +667
+# from three independent places: the bundled AccurateRip drive table (whose
+# regeneration script REFUSES to write unless the BDR-209D=+667 sentinel still
+# passes), `docs/hardware-test-checklist.md` (*"confirmed, two independent
+# sources agree"*), and a rip verified byte-identical against the EAC baseline on
+# 12 of 14 tracks. Said out loud because the cyanrip fork asked (round 14 lap 3
+# §C6) and could not tell a guard from a mistake by reading it.
+#
+# ON ANY OTHER DRIVE, change this to that drive's offset before running.
 
 log --- B. settings: validated round-trips ---
 set read_offset 667
 expect read_offset 667
-# `max_retries`, NOT `paranoia_passes`. There has never been a config field by
-# that name, so both steps here recorded ERROR on every run this script has ever
-# had — two of the three errors in the 2026-08-23 full pass. Nothing checked it:
-# the script is a committed artifact and no test parsed it. One now does
-# (tests/test_rig_scripts.py), which is the actual fix; this line is the symptom.
 set max_retries 3
 expect max_retries 3
 set output_format flac
 expect output_format flac
 set force_overread off
 expect force_overread off
+set auto_eject_after_rip off
+expect auto_eject_after_rip off
+set ripper_channel beta
+expect ripper_channel beta
 snapshot settingsafter
 
-# --- C. DIALOGS: everything that can be opened, opened and closed ----------
+# --- C. VALIDATION REFUSALS: proving the guards actually fire ---------------
+# The half of validation nothing has ever tested on hardware. `expect-refused`
+# asserts the pure validator REJECTS a value **and leaves the setting
+# unchanged** — both halves, because a guard that reports a refusal and writes
+# the value anyway is worse than no guard: the log says the input was rejected
+# while the setting still reaches cyanrip's argv.
+#
+# These are the numbers that become command-line arguments. A read offset out of
+# range rips every subsequent disc wrong with a clean-looking log, which is
+# exactly why the range exists and why it is worth one second to prove it holds.
+
+log --- C. validation: every guard must refuse and not write ---
+expect-refused read_offset 99999
+expect-refused read_offset -99999
+expect-refused max_retries 101
+expect-refused secure_rerip_matches 11
+expect-refused mp3_vbr_quality 10
+# And the floor: the guards must not refuse everything. If these were also
+# refused, every assertion above would pass for the wrong reason.
+expect read_offset 667
+expect max_retries 3
+snapshot validationdone
+
+# --- D. DIALOGS: everything that can be opened, opened and closed ----------
 # Not assertions about text — assertions that opening and closing a dialog does
 # not crash, hang, or leave one on screen. `expect-dialog none` at the end is the
 # one that catches a dialog that failed to close, which is how a modal comes to
 # swallow every later step.
 #
-# Screenshots for the two dense ones only (maintainer: "it is a lot"). Every
-# dialog is still OPENED — that is the part that can crash.
+# Screenshots for the dense ones (maintainer: "it is a lot"). Every dialog is
+# still OPENED — that is the part that can crash.
 
-log --- C. dialogs: open, close, and prove none is left up ---
+log --- D. dialogs: open, close, and prove none is left up ---
 open drive
 screenshot dialogdrive
 cancel
@@ -147,10 +205,12 @@ open settings
 screenshot dialogsettings
 cancel
 open dependencies
+screenshot dialogdependencies
 cancel
 open about
 cancel
 open diagnostics
+screenshot dialogdiagnostics
 cancel
 open guide
 cancel
@@ -159,45 +219,54 @@ cancel
 expect-dialog none
 snapshot dialogsdone
 
-# --- D. DISC IDENTIFICATION -------------------------------------------------
+# --- E. DISC IDENTIFICATION -------------------------------------------------
 # The last cheap section. If this fails, nothing after it can mean anything, and
-# you have spent four minutes rather than an hour finding out.
+# you have spent five minutes rather than a night finding out.
 
-log --- D. disc: scan and identify ---
+log --- E. disc: scan and identify ---
 rescan
 pick-release 1 120
 expect-tracks 2+
 snapshot discidentified
 
-# --- E. THE MAIN EVENT: a full-disc rip ------------------------------------
-# ALL tracks, once. This is the section the whole file exists for, and it is
-# where 0.6.23's parser change lands: whole-disc loudness and peak figures now
-# come from four column-0 rows the fork guarantees (their P2) instead of from
-# FFmpeg's wording, which their P3 explicitly disclaims. Every log we hold is one
-# synthetic 3-track image, so a real disc is the only thing that exercises this.
+# --- F. THE MAIN EVENT: a full-disc rip ------------------------------------
+# ALL tracks, once, FLAC, fast-verified. This is the archival rip and the one
+# whose artifacts matter most.
 #
-# THE TITLE CARRIES A COLON AND A '<', BOTH DELIBERATE.
+# THE TITLE CARRIES A COLON AND A '<', BOTH DELIBERATE — this is §T2.
 #
 #   * The COLON is the only thing that exercises the tag escape.
 #     `_escape_meta_value` sends a literal ':' to cyanrip as '\:'. A safety net
-#     reverses any leftover '∶' (U+2236 RATIO) in the written tags, and it is
-#     armed ONLY when the metadata actually contains a colon — so before
-#     2026-08-20 that gate was False on every scripted rig rip and the escape had
-#     never once run on hardware.
+#     reverses any leftover '∶' (U+2236 RATIO) in the written tags, armed ONLY
+#     when the metadata actually contains a colon — so before 2026-08-20 that
+#     gate was False on every scripted rig rip and the escape had never once run
+#     on hardware.
 #     WHAT TO LOOK FOR: this album's tag must read with a REAL colon. A '∶'
 #     means the escape did not survive. The FOLDER name is expected to differ —
-#     cyanrip sanitises ':' out of paths itself, and so does our preview.
+#     we now pass `-T unicode` and the fork's measured table says the folder
+#     becomes `full acceptance∶ angle‹bracket`.
 #
-#   * The '<' exercises the 0.6.21 PlainText fix. Three QMessageBox surfaces
-#     rendered external text as HTML, so a '<' in an album-derived string was
-#     parsed as an unknown tag and EVERYTHING AFTER IT WAS SILENTLY DROPPED. The
-#     surface that names this folder is the overwrite prompt in section H.
+#   * The '<' exercises the PlainText fix. Three QMessageBox surfaces rendered
+#     external text as HTML, so a '<' in an album-derived string was parsed as an
+#     unknown tag and EVERYTHING AFTER IT WAS SILENTLY DROPPED. The surface that
+#     names this folder is the overwrite prompt in section H.
+#
+# Cover art, CTDB verify, FLAC verify and the EAC-compatible log are all turned
+# ON for this rip. They are the post-rip subsystem and nothing else in this file
+# reaches all four at once.
 #
 # The timeout is three hours because a full disc on this hardware is 50-70
 # minutes and one real session measured 2h45m against cyanrip's own ~35m ETA.
 # Generous and still bounded.
 
-log --- E. the main event: full-disc rip, all tracks ---
+log --- F. the main event: full-disc rip, all tracks, every post-rip check on ---
+set cover_art embed
+expect cover_art embed
+set save_additional_art on
+set ctdb_verify_after_rip on
+set verify_flac_after_rip on
+set write_eac_log_after_rip on
+expect write_eac_log_after_rip on
 select-tracks all
 album full acceptance: angle<bracket (ripper)
 album-artist Platterpus Acceptance
@@ -210,30 +279,33 @@ screenshot afterfullrip
 # Matching one disc-agnostic word keeps this working on any CD.
 expect-status Done
 
-# --- F. POST-RIP VERIFICATION ----------------------------------------------
+# --- G. POST-RIP VERIFICATION ----------------------------------------------
 # `rig-check` is the seam check the cyanrip fork asked for, reachable both as a
 # script verb and as `--rig-check` so both projects append to one manifest. With
 # no argument it DISCOVERS the album folder, which is why it can run here without
 # this file knowing a path.
 #
 # It composes a real rip's argv, runs it against a device that cannot open, reads
-# `invocation` back out of cyanrip's own `-j` record, parses the rip's log, and
-# reads the handshake note. SKIP means "did not run" and is not a pass — that
-# distinction is the whole point of its status vocabulary.
+# `invocation` back out of cyanrip's own `-j` record, parses the rip's log, reads
+# the handshake note, and reports the paranoia counters and any `Interrupted at:`
+# line. SKIP means "did not run" and is not a pass — that distinction is the
+# whole point of its status vocabulary.
+#
+# It also exercises a non-zero exit with a column-0 diagnostic and a complete
+# `-j` record, which the fork's lap 3 §C4 pointed out is a real path this
+# already covers.
 
-log --- F. post-rip: the seam check, and the rip's own log ---
+log --- G. post-rip: the seam check, and the rip's own log ---
 rig-check
 snapshot afterrigcheck
 
-# --- G. RE-RIP ONTO THE SAME FOLDER: the overwrite prompt ------------------
-# The title is BYTE-FOR-BYTE section E's, on purpose. Same string in, same folder
+# --- H. RE-RIP ONTO THE SAME FOLDER: the overwrite prompt ------------------
+# The title is BYTE-FOR-BYTE section F's, on purpose. Same string in, same folder
 # out, so this rip collides and the "Album already ripped" prompt actually fires
-# — which is the only way the PlainText fix gets exercised on hardware.
-#
-# Identical rather than "equivalent" is deliberate and was measured: our folder
-# preview only MIRRORS cyanrip's path sanitisation and is documented best-effort,
-# and a colon in only one of two titles does NOT collide (`render_preview` maps
-# ':' to U+2236). Two identical titles land together whatever either side does.
+# — which is the only way the PlainText fix gets exercised on hardware, and the
+# only test of the guard that resolves the predicted folder against what is on
+# disk. That guard exists because a two-track rip once silently overwrote a
+# finished 14-track archival rip.
 #
 # WHAT TO LOOK FOR if you are watching: the prompt must name the folder IN FULL.
 # The word after the '<' is the part that used to vanish.
@@ -241,13 +313,11 @@ snapshot afterrigcheck
 # `click=new`, NOT `ok`. `ok` calls accept(), and accept() on a QMessageBox built
 # with addButton leaves clickedButton() as None — so the caller falls through to
 # its Cancel branch and the rip is CANCELLED while the transcript says
-# "accepted". "Rip to a new folder" rather than "Replace" so section E's audio
+# "accepted". "Rip to a new folder" rather than "Replace" so section F's audio
 # survives; it also exercises free_album_folder_templates, which nothing else
 # here reaches.
-#
-# Two tracks only. The collision is the subject, not the audio.
 
-log --- G. re-rip the same title: the overwrite prompt must fire ---
+log --- H. re-rip the same title: the overwrite prompt must fire ---
 select-tracks 1-2
 album full acceptance: angle<bracket (ripper)
 rip
@@ -256,15 +326,23 @@ wait-for-rip 3600
 snapshot afteroverwrite
 screenshot afteroverwrite
 
-# --- H. THE CANCEL PATH, AND THE ONLY HONEST PROOF OF IT -------------------
+# --- I. THE CANCEL PATH, AND THE ONLY HONEST PROOF OF IT — §T4 -------------
 # Cancel mid-track, not at a boundary — 90 seconds of reading gets us inside one.
 # Then give the escalation its full SIGTERM-to-SIGKILL window before asking
 # anything.
 #
 # A different album title here on purpose: this section is about the drive, and a
 # collision would add a dialog that has nothing to do with what is being tested.
+#
+# The `rig-check` after it is taken HERE and not later, because `rig-check` reads
+# the NEWEST rip and section J is about to make a newer one. `parser/interrupted`
+# reports cyanrip's own `Interrupted at:` line — the field the fork added at our
+# round-12 ask, which we parsed for a round and never put in an artifact anyone
+# sends. It is an INFO row, not a pass/fail: a cancel that lands between tracks
+# legitimately produces "between tracks, no read in progress", and grading that
+# would turn drive timing into a verdict.
 
-log --- H. cancel a rip in flight ---
+log --- I. cancel a rip in flight ---
 select-tracks 1-3
 album cancel me (ripper)
 rip
@@ -278,19 +356,10 @@ wait 30
 expect-status cancelled
 snapshot aftercancel
 screenshot aftercancel
-
-# §T4's evidence, taken HERE and not later, because `rig-check` reads the NEWEST
-# rip and section I is about to make a newer one. `parser/interrupted` reports
-# cyanrip's own `Interrupted at:` line — the field the fork added at our round-12
-# ask, which we parsed for a round and never put in an artifact anyone sends.
-#
-# It is an INFO row, not a pass/fail. A cancel that lands between tracks can
-# legitimately produce no such line, and grading it would turn drive timing into
-# a verdict. Read the row; it names which case this run got.
 rig-check
 snapshot aftercancelrigcheck
 
-# --- I. THE DRIVE-OPEN PROOF: can we rip again? ----------------------------
+# --- J. THE DRIVE-OPEN PROOF: can we rip again? ----------------------------
 # If this succeeds, the cancel released the reader. If it hangs or cannot
 # identify the disc, it did not — and THAT is the finding, recorded here rather
 # than in somebody's memory of a session.
@@ -301,7 +370,7 @@ snapshot aftercancelrigcheck
 # unanswerable in both directions. If the tray is open when you look, you are on
 # an older build and this section proves nothing.
 
-log --- I. drive-open proof: identify and rip again after the cancel ---
+log --- J. drive-open proof: identify and rip again after the cancel ---
 rescan
 pick-release 1 120
 expect-tracks 2+
@@ -313,17 +382,113 @@ snapshot afterrecovery
 screenshot afterrecovery
 rig-check
 
-# --- J. §T1: A SECURE RE-READ THAT GENUINELY RE-READS ----------------------
+# --- K. THE DERIVED FORMATS — the whole of Critical rule #4 ----------------
+# **Nothing has ever tested this on hardware.** FLAC is the archival master and
+# MP3, WavPack and WAV are DERIVED from it by the single post-rip transcode
+# adapter. Every rip still produces FLAC first; selecting another format keeps
+# that FLAC and derives the chosen one from it.
+#
+# So each of these three sections proves a different thing:
+#
+#   * MP3      — lossy by design, best-practice VBR, and the ONLY one with a
+#                quality knob. `mp3_vbr_quality 2` is a real VBR setting, not the
+#                default, so a knob that reaches nothing would show up.
+#   * WavPack  — the second lossless format. Tags and art survive.
+#   * WAV      — raw PCM, NO tags and NO art. The UI warns about this and the
+#                warning is the point: a format that silently dropped metadata
+#                without saying so is the defect.
+#
+# Two tracks each. The transcode path is per-file and a third track adds a row,
+# not a discriminator.
+#
+# A DIFFERENT ALBUM TITLE PER FORMAT, so the three land in three folders and
+# none of them collides with section F's archival master.
+
+log --- K1. MP3: the lossy derived output, with a real VBR quality ---
+set output_format mp3
+expect output_format mp3
+set mp3_vbr_quality 2
+expect mp3_vbr_quality 2
+select-tracks 1-2
+album derived mp3 (ripper)
+rip
+wait-for-rip 3600
+snapshot aftermp3
+screenshot aftermp3
+rig-check
+
+log --- K2. WavPack: the second lossless format ---
+set output_format wavpack
+expect output_format wavpack
+select-tracks 1-2
+album derived wavpack (ripper)
+rip
+wait-for-rip 3600
+snapshot afterwavpack
+rig-check
+
+log --- K3. WAV: raw PCM, no tags, no art - the UI must say so ---
+set output_format wav
+expect output_format wav
+select-tracks 1-2
+album derived wav (ripper)
+rip
+wait-for-rip 3600
+snapshot afterwav
+screenshot afterwav
+rig-check
+
+log --- K4. back to FLAC, the archival master ---
+set output_format flac
+expect output_format flac
+
+# --- L. THE GOAL PRESETS: a label must mean what it says -------------------
+# A goal is not a setting; it is a NAME for a set of them. Selecting one applies
+# the whole preset, and this section proves the label and the settings agree —
+# because a goal that wrote only its own name would leave the app ripping with
+# exactly the settings the user was trying not to use, under a label promising
+# otherwise. "Archival Exact" was byte-identical to "Fast Verified" until
+# v0.6.24 for a related reason.
+#
+# No drive time: pure settings round-trips through the real preset code.
+
+log --- L. goal presets: selecting a goal applies all of it ---
+set rip_goal archival
+expect rip_goal archival
+expect secure_rerip_dynamic off
+expect rerip_offset_variant on
+set rip_goal portable
+expect rip_goal portable
+expect output_format mp3
+set rip_goal fast_verified
+expect rip_goal fast_verified
+expect secure_rerip_dynamic on
+expect output_format flac
+snapshot goalsdone
+
+# --- M. NAMING TEMPLATES ----------------------------------------------------
+# The templates decide where every file lands, so a template that silently fails
+# to round-trip is a library-wide defect. Pure validation, no drive time — the
+# rip in section N runs on the restored default.
+
+log --- M. naming templates round-trip through the validator ---
+set track_template %A/%d/%t - %n
+expect track_template %A/%d/%t - %n
+set disc_template %A/%d/%d
+expect disc_template %A/%d/%d
+snapshot templatesdone
+
+# --- N. §T1: A SECURE RE-READ THAT GENUINELY RE-READS — THE LONG ONE -------
 # The fork's most-wanted test, and the one the whole round-13 paranoia argument
-# turned on.
+# turned on. **This is the section to leave running overnight.**
 #
 # WHY IT NEEDS ITS OWN SECTION. Under `-Z`, a track's own paranoia counter is the
 # LAST pass while the disc block sums EVERY pass, so the two are equal exactly
 # when each track was read once — and a clean disc in DYNAMIC mode converges on
-# the first read, which is what sections E, G and I do. Every artifact either
-# project has ever checked that claim against had that property, which is why a
-# false invariant survived five handshake rounds: it is arithmetically forced in
-# the only case anyone ever measured.
+# the first read, which is what every other rip in this file does. Every artifact
+# either project has ever checked that claim against had that property, which is
+# why a false invariant survived five handshake rounds: it is arithmetically
+# forced in the only case anyone ever measured.
 #
 # `secure_rerip_dynamic off` is UNIFORM mode — EAC-style Test & Copy, every track
 # read until two reads agree, not only the tracks AccurateRip could not confirm.
@@ -340,55 +505,57 @@ rig-check
 # where re-reads exist precisely when passes differ. `rig-check` grades the `<=`
 # and reports the multiple as an observation. Nothing here asserts the ratio.
 #
-# TWO TRACKS, not the disc. Uniform mode doubles the read; on the full disc that
-# is another hour of drive time to demonstrate a property two tracks demonstrate
-# just as well. `rig-check`'s `parser/paranoia` row reports the per-track sum,
-# the disc total, the ratio, and whether `Scope:` was present at all — so a run
-# that failed to re-read says so instead of printing numbers that need reading.
+# THE WHOLE DISC, not two tracks. The fork said two tracks is sufficient for the
+# inequality and they are right — but they also said the interesting case is *a
+# track that needed three or more reads*, and that is a property of the disc, not
+# of the selection. Ripping every track is the only way to give the disc a
+# chance to produce one. It costs about two hours and this run has all night.
 #
-# `rerip_offset_variant on` comes along because it is the other half of the
-# Archival Exact preset and nothing else in this file reaches it: it refuses to
-# accept an offset-variant AccurateRip match from a single read (real hardware
-# produced a track that offset-variant-matched twice with different audio).
+# Six hours of timeout because uniform mode roughly doubles the read and this
+# rig has measured 2h45m for a single dynamic pass.
 
-log --- J. T1: uniform secure re-read, so the counters actually move ---
-set secure_rerip_dynamic off
+log --- N. T1: uniform secure re-read, WHOLE DISC, so the counters actually move ---
+set rip_goal archival
 expect secure_rerip_dynamic off
-set rerip_offset_variant on
 expect rerip_offset_variant on
+set secure_rerip_matches 2
+expect secure_rerip_matches 2
 rescan
 pick-release 1 120
 expect-tracks 2+
-select-tracks 1-2
+select-tracks all
 album secure reread (ripper)
 rip
-wait-for-rip 5400
+wait-for-rip 21600
 snapshot aftersecurereread
 screenshot aftersecurereread
+expect-status Done
 rig-check
 
-# --- K. §T3: THE CACHE PROBE, PROBE-ONLY --------------------------------
+# --- P. §T3: THE CACHE PROBE, PROBE-ONLY ------------------------------------
 # LAST OF THE DRIVE WORK, DELIBERATELY. `-x` alone has form: measured once on
 # this rig (32 sectors, 73.5 KiB, uncached read 362.6 ms, 2026-08-19) and then it
 # ripped the whole disc, ETA 1h 3m, leaving the drive held. `-x` is a MODIFIER;
-# `-x -I` is the probe-only invocation and writes no audio — the fork's round-13
-# lap 5 and round-14 lap 1 §T3 both state that, and their §F records that `-x`
-# has never completed on a real drive anywhere except this one.
+# `-x -I` is the probe-only invocation and writes no audio — the fork states that
+# in their round-13 lap 5 and round-14 lap 1 §T3, and their lap 3 §C3 confirms
+# they CANNOT promise it returns the drive, because nothing in their suite has
+# ever executed a single timed read (on an image the probe refuses before doing
+# anything).
 #
-# So it is real, it is theirs to be right about, and it goes after every rip in
-# this file: if it does hold the drive, it costs the tail of the run and not the
-# rip evidence. `-N` is present because the script sanitiser requires it of any
-# non-probe invocation and it is right to — without it cyanrip runs its own
-# MusicBrainz lookup and can block on a prompt with no terminal attached, which
-# is the unattended hang this whole feature exists to prevent.
+# So it is real, it is theirs to be right about, they asked for it, and it goes
+# after every rip in this file: if it does hold the drive, it costs the tail of
+# the run and not the rip evidence. A hang here is the finding.
 #
-# WHAT A PASS LOOKS LIKE: it exits 0, prints a `Cache probe:` line, and returns
-# the drive. A hang here is a finding and belongs in the round-14 verification.
+# `-N` is present because the script sanitiser requires it of any non-probe
+# invocation and it is right to — without it cyanrip runs its own MusicBrainz
+# lookup and can block on a prompt with no terminal attached, which is the
+# unattended hang this whole feature exists to prevent.
 #
-# ASSERT THE FIELD NAME, NOT THE VALUE, AND THAT IS DELIBERATE. `796df32` REMOVED
-# the old `%i sectors measured (…)` wording entirely — it claimed a precision the
-# method does not have. The value is now one of five forms, and exactly ONE is
-# ever emitted (they are arms of a switch, each writing the whole buffer):
+# ASSERT THE FIELD NAME, NOT THE VALUE, AND THAT IS DELIBERATE. The build under
+# review REMOVED the old `%i sectors measured (…)` wording — it claimed a
+# precision the method does not have. The value is now one of five forms, and
+# exactly ONE is ever emitted (they are arms of a switch, each writing the whole
+# buffer):
 #
 #     Cache probe:    %i to %i sectors (…)                    a range
 #     Cache probe:    at least %i sectors, upper bound unknown (…)
@@ -401,30 +568,45 @@ rig-check
 # not be taken. On an image the line reads `not run (disc image has no drive
 # cache)`, so its ABSENCE here is the first sign the probe really ran on metal.
 # A script asserting any one value would fail on a correct probe.
+#
+# WHERE THIS EVIDENCE LANDS: the script report and the transcript, NOT the
+# rig-check manifest. `-x` is not in the rip argv builder at all, so no
+# Platterpus rip ever probes and no rip log can carry the line. The `cyanrip`
+# verb records the exact argv, the exit code and the complete output for this
+# step, which is a stronger record than a manifest row would be.
 
-log --- K. T3: the fork's cache probe, probe-only ---
+log --- P. T3: the fork's cache probe, probe-only ---
 cyanrip -N -x -I
 expect-exit 0
 expect-cyanrip Cache probe
 snapshot aftercacheprobe
 
-# --- L. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
-# This script never enables overread, so there is nothing to put back there. The
-# assertion stays as a GUARD: if `force_overread` is on here, something else
-# turned it on, and that is worth knowing before the next disc — it reaches
-# cyanrip's argv and on this drive it hangs the read.
+# --- Q. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
+# Restoring is not tidiness. Uniform secure re-read doubles every future rip on
+# this machine, MP3 would make the next rip lossy, and a setting a test left
+# behind is a setting nobody chose.
 #
-# Section J DID change two settings, so they go back. Restoring is not tidiness:
-# uniform secure re-read doubles every future rip on this machine, and a setting
-# a test left behind is a setting nobody chose.
+# The overread assertion is a GUARD, not a restore: this script never enables it,
+# so if `force_overread` is on here something else turned it on, and that is
+# worth knowing before the next disc — it reaches cyanrip's argv and on this
+# drive it hangs the read.
+#
+# The read offset is NOT restored, because 667 is this drive's true offset (see
+# section B) and putting it back to 0 would be the mis-configuration.
 
-log --- L. restoring what section J changed, and confirming overread is off ---
-set secure_rerip_dynamic on
+log --- Q. restoring what this run changed ---
+set rip_goal fast_verified
+expect rip_goal fast_verified
 expect secure_rerip_dynamic on
-set rerip_offset_variant off
-expect rerip_offset_variant off
+set output_format flac
+expect output_format flac
+set mp3_vbr_quality 0
+set write_eac_log_after_rip off
+set debug_logging off
+expect debug_logging off
 expect force_overread off
 expect read_offset 667
+expect-dialog none
 snapshot atend
 
 log =============================================================

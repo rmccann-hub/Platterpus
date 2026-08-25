@@ -11,6 +11,80 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.25] — 2026-08-25
+
+### Added
+- **Two script verbs the acceptance suite needed and could not express.**
+  `expect-refused <setting> <value>` asserts the pure validator **refuses** a
+  value *and leaves the setting unchanged* — input validation is institutional
+  here and none of it was reachable from a script, because `set` records FAIL on
+  a refusal and a script therefore could not tell *"the guard fired"* from *"the
+  run broke"*. Both halves are asserted, because a guard that reports a refusal
+  and writes the value anyway is worse than no guard: the log says the input was
+  rejected while the setting still reaches cyanrip's argv.
+  `expect-ripper-under-review` asserts the installed ripper is the build the open
+  handshake round is reviewing, **taking no argument** — see below.
+- **The acceptance script is now end to end.** Rewritten for an overnight run at
+  the maintainer's instruction (*"this should be an end to end test, do it all"*):
+  212 steps covering validation refusals, every dialog, a full-disc FLAC rip with
+  art + CTDB + FLAC-verify + the EAC log all on, the overwrite prompt, a mid-track
+  cancel, drive recovery, **MP3, WavPack and WAV** (Critical rule #4's derived
+  formats, which nothing had ever exercised on hardware), the goal presets, the
+  naming templates, a **whole-disc** uniform secure re-read, and the probe-only
+  cache invocation.
+- **`set rip_goal` applies the preset**, as choosing a goal in Settings does.
+  Writing the field alone produced a config no dialog could create —
+  `rip_goal="archival"` beside fast-verified values, which `detect_goal` then
+  reports as `custom` — so a script could "select the archival goal" and rip with
+  exactly the settings it was avoiding.
+
+### Fixed
+- **The acceptance script hardcoded a cyanrip build tag, and it went stale three
+  times in two days.** The script asserted `platterpus-fork-g796df32`; the fork
+  then published `f2c0506` and `d9c058c` on the beta channel our own in-app
+  installer resolves. Each time an operator following our instructions installed
+  the build we sent them to and **failed section A in the first four seconds**,
+  told they were on the wrong one. Changing the literal was not the fix — the fork
+  named the shape: *"a hardcoded build tag in a committed script is a second copy
+  of a fact that lives in release-manifest.json, and only one copy has a
+  checker."* The script now carries no tag at all; `expect-ripper-under-review`
+  reads `PIN_UNDER_REVIEW`, which is itself derived from the newest inbound
+  handshake lap, so the chain is single-keyed and a pin move fails in CI instead
+  of at 2am on a rig. **The regression test asserts the ABSENCE of a literal**,
+  because a test checking the literal was current would have passed on all three
+  of the wrong days.
+- **We told the cyanrip fork that `rig-check` surfaces the `Cache probe:` line
+  into its manifest. It cannot, and never could.** `-x` is not in the rip argv
+  builder at all, so no Platterpus rip probes and no rip log we parse can carry
+  that line; `rig-check`'s one invocation targets a device that cannot open. They
+  caught it by reading our committed script, seeing no `rig-check` after the probe
+  section, and refusing to guess at a mechanism in our code — the second time in
+  two laps that a false claim of ours, which all our own green tests agreed with,
+  was found by someone who could not check it. The claim is corrected, the
+  manifest row now names where the evidence actually lands (the script report and
+  transcript, with exact argv, exit code and complete output), and a test asserts
+  `-x` stays absent from the builder so the row cannot become a quiet lie.
+- **A handshake envelope round-trip test read every part from
+  `docs/handshake/verified/`**, true only while the envelope happened to carry two
+  verification files. The first envelope carrying an outbound lap and a script
+  broke it with `FileNotFoundError` — the polite failure, since a same-named file
+  under `verified/` would have made it compare the wrong document and pass.
+
+### Changed
+- **cyanrip round 13 is CLOSED on both disks**, and round 14's pin is `d9c058c`
+  (`0.9.4-rc2+platterpus.10`, `release_seq` 20, channel `beta`). Round 13's lap 8
+  had been written as a closing lap with no artifacts, so no envelope was ever
+  built for it and it never sent — *"a lap with nothing attached is exactly the one
+  that gets forgotten."* It arrived inside their round-14 lap 3 and the
+  `_AWAITING_PEER_CLOSE` entry is retired. `src/` is byte-identical across all
+  three round-14 betas, so no rip behaviour differs between any of them.
+- **The rig's read offset is documented as a guard rather than a value.** The fork
+  asked whether `667` was this drive's true offset or an arbitrary test value they
+  could not distinguish by reading. It is true — the bundled AccurateRip table's
+  regeneration sentinel, `docs/hardware-test-checklist.md`, and a rip verified
+  byte-identical against the EAC baseline on 12 of 14 tracks all agree — and the
+  script now says so with the sources named.
+
 ### Added
 - **The committed rig scripts are now parsed by the real script language, and the
   first sweep found a step that had never worked.**
@@ -10632,7 +10706,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.24...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.25...HEAD
+[0.6.25]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.24...v0.6.25
 [0.6.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.23...v0.6.24
 [0.6.23]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.21...v0.6.23
 [0.6.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.20...v0.6.21
@@ -10744,4 +10819,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.24.*
+*Last updated for Platterpus v0.6.25.*
