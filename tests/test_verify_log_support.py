@@ -139,6 +139,15 @@ def test_every_fork_pin_we_know_about_is_in_the_support_set() -> None:
         "FORK_PIN": fork_source.FORK_PIN,
         "FORK_RELEASE_4_COMMIT": fork_source.FORK_RELEASE_4_COMMIT,
         "FORK_TEST_PIN": fork_source.FORK_TEST_PIN,
+        # **The pin under review is the build the rig is actually running**, and it
+        # was missing from this population until 2026-08-25 — so the one build being
+        # exercised on hardware was the one build this coverage check could not see.
+        # It is not a hypothetical: the 2026-08-24 cancelled rip's audit reported
+        # *"we cannot establish that this build accepts --verify-log"*, which is the
+        # silent downgrade this test's docstring names as the failure mode that
+        # matters. A floor of ">= 4" passed the whole time, over four pins that were
+        # not the one in use — a population, not a logic, defect.
+        "PIN_UNDER_REVIEW": fork_source.PIN_UNDER_REVIEW,
         **{
             f"SUPERSEDED_TEST_PINS[{i}]": pin
             for i, pin in enumerate(fork_source.SUPERSEDED_TEST_PINS)
@@ -146,6 +155,10 @@ def test_every_fork_pin_we_know_about_is_in_the_support_set() -> None:
     }
     named = {name: pin for name, pin in pins.items() if pin}
     assert len(named) >= 4, f"only {len(named)} pins to check: {named}"
+    assert "PIN_UNDER_REVIEW" in named or not fork_source.PIN_UNDER_REVIEW, (
+        "PIN_UNDER_REVIEW is set but dropped out of the checked population — the "
+        "build on the rig must never be the one this check cannot see"
+    )
 
     tags = {t.casefold() for t in fork_source.BUILD_TAGS_ACCEPTING_VERIFY_LOG}
     for name, pin in named.items():

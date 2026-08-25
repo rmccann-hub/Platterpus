@@ -1777,13 +1777,14 @@ def test_cancel_before_start_stops_the_subprocess_once_it_exists(
     # The subprocess was terminated (non-blocking SIGTERM), not the blocking
     # cancel() — a GUI-thread cancel must never wait.
     #
-    # `>= 1`, not `== 1`: `_reap_ripper` re-sends SIGTERM before waiting, so a
-    # cancelled rip now terminates twice (the startup-window re-check, then the
-    # reap). That is deliberate — SIGTERM is idempotent and free, and it makes the
-    # reap correct on its own rather than only when the caller remembered to
-    # terminate first. The exact count was never what this test was about; the two
-    # claims that matter are "it *was* stopped" and "no blocking call on this path".
-    assert handle.terminate_calls >= 1
+    # `== 1`, and the count IS what this test is about now. This assertion used to
+    # read `>= 1`, with a comment blessing the double-terminate as deliberate
+    # because "SIGTERM is idempotent and free". It is idempotent for `Popen` and
+    # NOT for cyanrip, whose second-signal branch is `_exit(1)` — no `atexit`, so
+    # no completion footer and no FUN512 checksum. See
+    # `test_cancel_sends_exactly_one_sigterm`: the loosened assertion is what let
+    # the defect through, so tightening it is part of the fix.
+    assert handle.terminate_calls == 1
     assert handle.cancel_calls == 0, (
         "the blocking cancel() ran on a path that must stay non-blocking — it is "
         "only reached when a bounded wait has already timed out."
@@ -1873,6 +1874,110 @@ def test_a_ripper_that_survives_sigkill_is_reported_not_hung(
         "must never compare equal to 0."
     )
     assert any("even after SIGKILL" in r.message for r in caplog.records)
+
+
+class _CancellingHandle(_FakeHandle):
+    """Yields real lines, then cancels the worker mid-stream and speaks again.
+
+    Stands in for cyanrip's signal handler, whose first act is a single
+    ``write(2)`` of ``"\\r\\nTrying to quit\\n"`` — so the first line the read loop
+    sees after the cancel is the **blank terminator** of the progress redraw that
+    was mid-line, and the actual message is the one after it.
+
+    A plain list-of-lines fake cannot express this test: the flag has to flip
+    *during* iteration, at a known point, with output still to come. This is the
+    fixture-starts-in-the-end-state trap (`CLAUDE.md`) — a fake that is cancelled
+    before it ever yields cannot see a line be dropped.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(lines=(), exit_code=1)
+        self.worker: RipWorker | None = None
+
+    def log_lines(self):  # type: ignore[no-untyped-def]
+        yield "cyanrip 0.9.4 (platterpus-fork-gTEST)"
+        yield "Ripping and encoding track 1, progress - 39.60%"
+        assert self.worker is not None
+        self.worker.cancel()
+        # cyanrip's handler output, split the way a line iterator splits it.
+        yield "\r"
+        yield "Trying to quit"
+        yield "never reached — the loop must leave after the last words"
+
+
+def test_cancel_sends_exactly_one_sigterm(qapp: QApplication, tmp_path: Path) -> None:
+    """ONE signal per cancel. A second one destroys the ripper's log.
+
+    ``Popen.terminate()`` is idempotent, so three call sites in the worker each
+    sent their own on the reasoning that a repeat is free. **cyanrip's handler is
+    not idempotent**: its second-signal branch is
+    ``SIG_WRITE_LIT("Force quitting"); _exit(1)`` — an escape hatch for a user
+    hammering Ctrl-C. ``_exit`` runs no ``atexit``, so the ripper writes neither
+    the completion footer nor the FUN512 checksum and the log it leaves is an
+    unverifiable fragment.
+
+    Measured on the real code path (a real subprocess, the real ``RipHandle``,
+    real ``killpg``) at **0.445 ms** between the two signals — which is not an
+    impatient human by any reading. It cost the 2026-08-24 rig run's cancelled rip
+    its whole verifiable log, and we spent a handshake round attributing the
+    damage to the ripper (fork round 14 §D; `docs/testing.md` §5.ay).
+    """
+    # Path 1: cancel lands during the startup window (no handle yet), so the
+    # startup re-check sends the only signal and the reap must not add one.
+    handle = _FakeHandle(lines=["a", "b"], exit_code=1)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.cancel()
+    worker.start_rip()
+    assert handle.terminate_calls == 1, (
+        f"a cancelled rip signalled the ripper {handle.terminate_calls}x; cyanrip "
+        "treats the second signal as 'force quit' and skips writing its log's "
+        "completion footer and checksum"
+    )
+
+    # Path 2: cancel lands mid-stream, which is what a user clicking Cancel does.
+    mid = _CancellingHandle()
+    worker2 = RipWorker(_FakeBackend(handle=mid), _params(tmp_path))
+    mid.worker = worker2
+    worker2.start_rip()
+    assert mid.terminate_calls == 1, (
+        f"a mid-stream cancel signalled the ripper {mid.terminate_calls}x"
+    )
+
+
+def test_cancel_keeps_the_rippers_last_words(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The line the ripper printed in answer to our signal must be RETAINED.
+
+    The read loop's cancel `break` sat above the retention code, so the line it
+    had just pulled off the pipe was discarded — silently, every time. The one
+    line guaranteed to be dropped was the ripper's own account of why it was
+    stopping, which is the single most useful line in the capture.
+
+    That is how the fork came to conclude, from our log, that cyanrip's signal
+    handler *"did not run at all"*: its ``"Trying to quit"`` had been handed to
+    this loop and thrown away. Measured — a stand-in's message was seen to be
+    yielded to the loop and absent from ``captured_stdout``.
+
+    Also pins the ``\\r\\n`` shape: retaining only *one* more line keeps a bare
+    ``"\\r"`` and still loses the sentence, so a fix that reads one line would
+    pass a weaker version of this test while losing the same information.
+    """
+    handle = _CancellingHandle()
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    handle.worker = worker
+    worker.start_rip()
+
+    captured = worker.captured_stdout
+    assert "Trying to quit" in captured, (
+        "the ripper's response to our cancel was dropped from the diagnostic "
+        f"record; captured tail was {captured.splitlines()[-3:]!r}"
+    )
+    # And it still LEAVES — the last-words drain is bounded, not a re-drain.
+    assert "never reached" not in captured, (
+        "the cancel path kept reading past the ripper's message; the point of the "
+        "break is that a cancel stops promptly"
+    )
 
 
 def test_cancellation_makes_finished_report_false(

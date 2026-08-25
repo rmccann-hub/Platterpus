@@ -5,6 +5,66 @@ argv the app builds, the same ripper binary. There is no simulation layer, which
 is deliberate — a harness that is safer or simpler than the product makes the
 product's gap invisible.
 
+## Closing round 14: `securereread.txt`
+
+**T1 alone, about 2–2.5 hours.** Use this rather than the full file when the only
+thing outstanding is the whole-disc uniform secure re-read.
+
+```sh
+~/Applications/platterpus-x86_64.AppImage --run-script securereread.txt
+```
+
+The 2026-08-24 acceptance run passed 209 of 212 steps and lost only its last
+section — a complete 14-of-14 rip, `-T unicode` confirmed on disk, all three
+derived formats, cancel and recovery all passed. Re-running the whole file would
+spend six hours re-confirming those. This file rips every track in uniform mode
+and runs the one `rig-check` that reads the counters.
+
+**What a pass looks like:** `rig-check`'s `parser/paranoia` row reporting
+`secure re-read genuinely exercised: YES`. A run reporting `no` is a valid result
+about the disc, not a pass — it means the disc converged on the first read and
+the test did not get to measure anything.
+
+## The overnight path: run the acceptance script, collect in the morning
+
+Two files, in this order.
+
+```sh
+# The night before — any ordinary audio CD in the drive, then walk away.
+~/Applications/platterpus-x86_64.AppImage --run-script fullacceptance.txt
+
+# The morning after — no disc needed, never touches the drive.
+bash platterpusmorning.sh
+```
+
+`platterpusmorning.sh` exists for one reason, and it is worth stating because
+three other collectors look like they already do it: **none of them gathers the
+rips.**
+
+| collector | app log | script transcript + screenshots | the run's SEVEN rip folders |
+|---|---|---|---|
+| the script run's own bundle (*"SEND THIS ONE FILE"*) | ✅ | ✅ | ❌ — `build_bundle()` is called without `album_dir` |
+| `--rig-session` | ✅ | ❌ | ❌ — audits the **newest** `.platterpus.json` only |
+| `platterpuscollect.sh` | ✅ | partial | **newest rip only** |
+| **`platterpusmorning.sh`** | ✅ | ✅ (folds the bundles in) | ✅ **all of them** |
+
+The overnight script performs seven rips. "The newest" is the one beside the
+cache probe — **not** the whole-disc uniform secure re-read from its section N,
+which is the artifact the open cyanrip handshake round is waiting on. Collecting
+the newest loses the night, and loses it *silently*: the bundle arrives looking
+complete.
+
+It never copies audio (Critical rule #8) — only the eight text suffixes the
+app's own bundler admits — and it then sweeps the staged tree and prints **how
+many files it examined**, because a sweep that reports "clean" without a
+denominator is satisfied by an empty directory. Every external command is
+bounded with `timeout -k`; a bare `timeout` waits forever for a SIGTERM a wedged
+drive ioctl will never take.
+
+It prints a count per category and refuses to look healthy on a short bundle:
+zero rip artifacts, or fewer than fourteen, is called out in the summary rather
+than left for you to notice.
+
 ## The normal path: rip by hand, then run one command
 
 **This is what almost everyone should do**, and it needs no script and no
@@ -264,4 +324,4 @@ disappointment is still true. What we still do not know, said out loud so nobody
 the silence as a pass: whether 32 sectors is this drive's real cache, and which of the
 `Cache probe:` states a different drive would report.
 
-*Last updated for Platterpus v0.6.25.*
+*Last updated for Platterpus v0.6.26.*

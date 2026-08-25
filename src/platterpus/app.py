@@ -347,6 +347,51 @@ def _install_excepthook() -> None:
 UNATTENDED_QUIT_BUDGET_S: float = 900.0
 
 
+def _bundle_being_written(runner: object) -> bool:
+    """Whether a script run's evidence bundle is still being archived.
+
+    **`getattr`, not a direct call, and the difference is not style.** The first
+    version of this read `runner.bundle_in_progress()` directly; a runner without
+    the method — a stand-in, an older build, a partially-constructed one — raised
+    `AttributeError`, which the caller's blanket `except` turned into
+    `settled = True`. That is the *dangerous* direction: the helper would quit
+    precisely when it could not establish that quitting was safe. Caught by an
+    existing test that uses a minimal runner stub, which is the whole reason that
+    stub is minimal.
+
+    Never raises: a quit helper that can throw can put a modal on screen.
+    """
+    probe = getattr(runner, "bundle_in_progress", None)
+    if not callable(probe):
+        return False
+    try:
+        return bool(probe())
+    except Exception:  # noqa: BLE001 — never block a quit on our own bug
+        log.exception("bundle_in_progress() raised; treating it as finished")
+        return False
+
+
+def _rip_in_flight(window: object) -> bool:
+    """Is a rip actively reading the disc right now?
+
+    Read from the window's live worker slot — the same attribute `closeEvent`
+    reports as `rip active=` — rather than from any derived "is the app busy"
+    notion, so the quit helper and the teardown path cannot disagree about
+    whether a rip exists. They did on 2026-08-24: the quit helper said the run
+    had settled and `closeEvent`, 1 millisecond later, said `rip active=True`.
+
+    Never raises: a quit helper that crashes leaves the process up forever, which
+    is the failure this whole path exists to avoid. An unreadable window is
+    reported as "no rip", because the alternative — blocking a quit on a state we
+    cannot read — is the hang.
+    """
+    try:
+        return getattr(window, "_rip_worker", None) is not None
+    except Exception:  # noqa: BLE001 — see above
+        log.exception("could not read the rip worker slot; assuming no rip")
+        return False
+
+
 def _arm_unattended_quit(
     app: QCoreApplication,
     window: MainWindow,
@@ -432,13 +477,67 @@ def _arm_unattended_quit(
         # the batch took (1h49m on the run that exposed this).
         if grace_began[0] is None:
             grace_began[0] = time.monotonic()
-        # Wait for everything the batch STARTED — the same predicate the evidence
-        # bundle is gated on, so the two cannot disagree about what "finished"
-        # means.
+        # A RIP IN FLIGHT IS NOT "POST-RIP WORK", AND THAT GAP KILLED ONE.
+        #
+        # **Measured, 2026-08-24.** The batch ended while a whole-disc rip was
+        # 1.48% into track 1 (a `wait-for-rip` over its cap refused to wait at all
+        # — fixed separately). Both checks below passed, because
+        # `_post_rip_work_settled()` describes the checks that run *after* a rip
+        # and there was no post-rip work: the rip had not finished. So this helper
+        # logged *"post-rip work has settled — quitting"*, `closeEvent` reported
+        # `rip active=True`, and `fuser -k /dev/sr0` killed the reader. The log
+        # from that rip has no FUN512 footer and no report; it is not in the
+        # library audit at all.
+        #
+        # This is `CLAUDE.md`'s *did I check the preconditions where the thing
+        # HAPPENS?* — the guard was written for the deferral it knew about
+        # (post-rip work outliving the batch) and never asked the prior question.
+        #
+        # The rip case deliberately does NOT start the grace clock. The budget is
+        # 15 minutes and a full-disc secure re-read is hours; counting a live rip
+        # against it would delay the kill rather than prevent it. A rip carries
+        # its own ceilings, so blocking on one is already bounded — and if it
+        # never ends, an unattended session staying up is strictly better than one
+        # that destroys the disc pass it was there to produce.
         settled = True
         try:
-            if getattr(window, "_pending_evidence_bundle", None) is not None:
+            if _rip_in_flight(window):
                 settled = False
+                grace_began[0] = None  # the grace is for AFTER the rip, not during
+                log.info(
+                    "unattended run: the batch is finished but a RIP IS STILL "
+                    "READING THE DISC — not quitting. Killing it here would "
+                    "destroy the rip and its log. Waiting for the rip to end; it "
+                    "carries its own timeout."
+                )
+            elif getattr(window, "_pending_evidence_bundle", None) is not None:
+                settled = False
+            elif _bundle_being_written(runner):
+                # THE SCRIPT RUN'S OWN BUNDLE, which is a DIFFERENT mechanism from
+                # `_pending_evidence_bundle` above — that one is the *rip's*
+                # bundle, owned by the window; this one is the *batch's*, owned by
+                # the runner and built on a daemon thread.
+                #
+                # It was not checked here, and on an overnight run it is the whole
+                # deliverable: one `.tar.gz` with the transcript, the reports, the
+                # screenshots, the app log and the rig-check manifest. Interpreter
+                # shutdown kills a daemon thread mid-archive silently, so quitting
+                # here would leave a truncated file or none — after a six-hour
+                # disc pass, with nothing in the log to say why.
+                #
+                # **It has been winning this race by under a second.** Measured on
+                # the 2026-08-24 run: the batch finished at 00:17:53,606 and the
+                # bundle landed at 00:17:53,821 — 215 ms, against a helper that
+                # ticks every 1000 ms. It worked. Nothing made it work, and a run
+                # with more screenshots or a larger rotated log is the one that
+                # loses. Same shape as the rip-in-flight gap directly above: a
+                # guard written for the deferral it knew about, blind to a sibling.
+                settled = False
+                log.info(
+                    "unattended run: the batch is finished but its EVIDENCE "
+                    "BUNDLE is still being written — waiting. That archive is "
+                    "the file the operator sends; quitting now would truncate it."
+                )
             elif not window._post_rip_work_settled():
                 settled = False
         except Exception:  # noqa: BLE001 — a quit helper must never be the crash

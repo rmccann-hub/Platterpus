@@ -588,6 +588,28 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         f"{FORK_BRANCH}-g{FORK_RELEASE_4_COMMIT}",  # fork release 4
         FORK_TEST_BUILD_TAG,  # the round-7 test pin, still on the rig
         *(f"{FORK_BRANCH}-g{pin}" for pin in SUPERSEDED_TEST_PINS),
+        # ROUND 14's THREE BETAS. Added on the artifact, not on trust: the provider
+        # contract shipped with their round-14 lap 3 declares `-u` / `--consumer`
+        # in its flag table, and `src/` is byte-identical across `796df32`,
+        # `f2c0506` and `d9c058c` (their source anchor `sha256/16 =
+        # 94f2b1f625e2f63d` in all three), so that one table covers all three.
+        #
+        # **This set going stale is not cosmetic, and the 2026-08-24 rig run is
+        # what it cost.** All nine rips logged `Consumer: not identified (no
+        # --consumer given)`, because the flag is gated here and no beta was in
+        # the set. The consumer tag is how an archival log records which program
+        # drove the rip — in the round whose whole subject is provenance on a
+        # released pair.
+        #
+        # The note above used to say the pin under review is "deliberately absent
+        # … a build we have not been handed a flag table for has unknown
+        # capabilities". Sound, and its precondition no longer holds: the fork
+        # ships a generated flag table with every lap. `tests/test_fork_source.py`
+        # now requires `PIN_UNDER_REVIEW` to be resolved here one way or the
+        # other, so the next pin move cannot re-open the gap in silence.
+        f"{FORK_BRANCH}-g796df32",
+        f"{FORK_BRANCH}-gf2c0506",
+        f"{FORK_BRANCH}-gd9c058c",
     }
 )
 
@@ -613,6 +635,16 @@ BUILD_TAGS_ACCEPTING_VERIFY_LOG: Final[frozenset[str]] = frozenset(
         f"{FORK_BRANCH}-g{FORK_RELEASE_4_COMMIT}",  # fork release 4
         FORK_TEST_BUILD_TAG,
         *(f"{FORK_BRANCH}-g{pin}" for pin in SUPERSEDED_TEST_PINS),
+        # The pin currently under review — i.e. THE BUILD THE RIG IS RUNNING.
+        # Absent until 2026-08-25, which made it the one build not covered by a
+        # set whose whole purpose is to stop the log-integrity check going quiet.
+        # It went quiet exactly there: the 2026-08-24 cancelled rip reported
+        # *"we cannot establish that this build accepts --verify-log"*, so a real
+        # `failed` was downgraded to `not_determined` on the build being tested.
+        # Document-backed on the same footing as every other entry — every pin
+        # here post-dates round 4 and `test_no_published_table_has_ever_withdrawn`
+        # establishes no published table has withdrawn the flag since.
+        f"{FORK_BRANCH}-g{PIN_UNDER_REVIEW}",
     }
 )
 

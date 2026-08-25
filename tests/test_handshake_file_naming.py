@@ -471,7 +471,32 @@ def test_the_artifacts_name_their_round_lap_and_build() -> None:
     artifacts = sorted((_HANDSHAKE / "inbound" / "artifacts").glob("*"))
     assert artifacts, "no inbound artifacts; nothing to check"
     pattern = re.compile(r"^round-\d{2,4}-lap-\d{2,4}-[a-z0-9-]+-g[0-9a-f]{7,40}$")
+    # A RUNNABLE TOOL CARRIES NO BUILD FIELD, and that is not a loosening.
+    #
+    # The `-g<build>` field exists because an artifact's filename must assert a
+    # provenance **the artifact's own content supports** — a golden reference log
+    # names the build in its banner, and `test_handshake_artifact_naming.py`
+    # checks the two agree. A shell script the operator executes describes no
+    # build: it is an instrument, not evidence about a binary. Naming one
+    # `-g29d59b2` made the filename assert something nothing in the file backs,
+    # which is precisely the defect the build field was added to prevent — the
+    # sibling test caught it, correctly, the moment it was tried.
+    #
+    # The fork treats executables as their own category too: `rig-c1-probe.sh`
+    # travelled OUTSIDE their lap-11 envelope, on the stated ground that the one
+    # exception to the one-file transport rule is a file meant to be run.
+    #
+    # Scoped to `.sh`, so it cannot spread to a log or a contract; and such a file
+    # still carries round, lap and kind, so it is placeable in the record.
+    tool = re.compile(r"^round-\d{2,4}-lap-\d{2,4}-[a-z0-9-]+$")
     for path in artifacts:
+        if path.suffix == ".sh":
+            assert tool.match(path.stem), (
+                f"{path.name} is a received tool, so it must be named "
+                "round-NN-lap-LL-<kind>.sh with NO build field — a script asserts "
+                "no build and a filename must not claim what the file cannot back"
+            )
+            continue
         assert pattern.match(path.stem), (
             f"{path.name} does not follow round-NN-lap-LL-<kind>-g<build>.<ext>"
         )

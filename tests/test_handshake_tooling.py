@@ -2012,3 +2012,61 @@ def test_the_evidence_check_accepts_every_record_we_have_already_closed() -> Non
         "the evidence check refuses records that are already closed:\n  "
         + "\n  ".join(refused)
     )
+
+
+# --- A declared absence is not a build -------------------------------------
+
+
+def test_a_declared_none_test_pin_is_not_read_as_a_build(hs: ModuleType) -> None:
+    """`HANDSHAKE-TEST-PIN: none.` declares an ABSENCE, not a build called "none.".
+
+    The cyanrip fork found this in their own gate and asked us to check ours
+    (round 14 lap 11 §F2). We had the same hole. It never fired, because the only
+    blocker consulting the field also requires `HANDSHAKE-PIN` and both sides
+    always declare one — so the latent output was a blocker complaining that a
+    test pin was declared, quoting a value whose entire content disclaims it.
+
+    Same shape as the fork's `Cache defeat:` label and our own `(ripper)`
+    placeholder: a field whose value says "nothing" being rendered as something.
+    """
+    assert hs.declares_no_test_pin("none")
+    assert hs.declares_no_test_pin("none.")
+    assert hs.declares_no_test_pin("  None.  ")
+    assert hs.declares_no_test_pin("NONE")
+
+
+def test_only_an_exact_none_reads_as_an_absence(hs: ModuleType) -> None:
+    """A gate that GUESSES at absence is worse than one that cannot see it.
+
+    An unrecognised value must read as a build. `nonesuch1` is a plausible build
+    tag, and treating it as "no test pin" would let a real designated build vanish
+    from the gate's view — the failure the field exists to prevent.
+    """
+    for value in ("nonesuch1", "none-ish", "9f8592e", "abc none", "no", ""):
+        assert not hs.declares_no_test_pin(value), value
+
+
+def test_a_declared_absence_does_not_demand_an_agreed_pin(hs: ModuleType) -> None:
+    """The blocker must not fire on a file that declared no test pin at all.
+
+    Non-triviality in the same test: a REAL test pin with no `HANDSHAKE-PIN` must
+    still block, so this cannot pass by the blocker never firing.
+    """
+    # **GO, not HOLD.** `close_blockers` returns early on any non-GO verdict, so a
+    # HOLD fixture never reaches the test-pin check at all — both halves of this
+    # test passed for that reason before the non-triviality assertion below caught
+    # it. A fixture that cannot reach the code under test is the vacuous shape
+    # `CLAUDE.md` names; it took an assertion that the blocker DOES fire to see it.
+    absent = (
+        "HANDSHAKE-PROTOCOL: 4\nHANDSHAKE-ROUND: 14\nHANDSHAKE-LAP: 11\n"
+        "HANDSHAKE-FROM: cyanrip-fork\nHANDSHAKE-VERDICT: GO\n"
+        "HANDSHAKE-TEST-PIN: none.\n"
+    )
+    hits = [b for b in hs.close_blockers(absent, 14) if hs.TEST_PIN_FIELD in b]
+    assert not hits, f"a declared absence was treated as a build: {hits}"
+
+    real = absent.replace("HANDSHAKE-TEST-PIN: none.", "HANDSHAKE-TEST-PIN: 9f8592e")
+    assert [b for b in hs.close_blockers(real, 14) if hs.TEST_PIN_FIELD in b], (
+        "a real test pin with no HANDSHAKE-PIN stopped blocking — the recogniser "
+        "is swallowing genuine pins"
+    )
