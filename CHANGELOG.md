@@ -12,6 +12,51 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **We sent the ripper TWO stop signals per cancel, 0.445 ms apart, and the
+  second one destroyed the log.** `Popen.terminate()` is idempotent, so three call
+  sites in the rip worker each sent their own on the reasoning that a repeat is
+  free — `cancel()`, the startup-window re-check, and `_reap_ripper`'s pre-reap
+  nudge, whose comment read *"asking again is free and idempotent"*. It is
+  idempotent **for us**. cyanrip's signal handler is not: its second-signal branch
+  is `SIG_WRITE_LIT("Force quitting"); _exit(1)` — an escape hatch for a user
+  hammering Ctrl-C — and `_exit` runs no `atexit`, so the ripper writes **neither
+  the completion footer nor the FUN512 checksum** and leaves an unverifiable
+  fragment. That is exactly what the 2026-08-24 rig run's cancelled rip produced
+  (exit 1, no footer, no checksum), and we spent a handshake round attributing the
+  damage to the ripper. Every stop signal now goes through one chokepoint that
+  sends **at most one per subprocess**, keyed on the handle's identity rather than
+  a resettable flag so a second pass cannot inherit the first pass's state. The
+  real escalation is untouched: the reap still bounds its wait and still escalates
+  to SIGTERM→SIGKILL on the process group. Measured on the real path — a real
+  subprocess, the real `RipHandle`, real `killpg` — 2 signals before, 1 after, with
+  the stand-in's completion footer going from never-written to written.
+- **The log-integrity check went silent on the one build being tested.** A build's
+  `--verify-log` support is looked up in `BUILD_TAGS_ACCEPTING_VERIFY_LOG`, whose
+  coverage test exists precisely because *"a missing tag silently downgrades a real
+  `failed` to `not_determined` and the check goes quiet."* That test enumerated four
+  pin constants and **not `PIN_UNDER_REVIEW` — the pin the rig actually runs** — so
+  the single build under hardware test was the single build the check could not see,
+  and its floor of `>= 4` passed the whole time over four pins that were not the one
+  in use. Not hypothetical: the 2026-08-24 cancelled rip's audit reported *"we cannot
+  establish that this build accepts `--verify-log`"* and downgraded its verdict on
+  exactly that ground. The pin under review is now in both the support set and the
+  checked population, document-backed on the same footing as every other entry
+  (every pin post-dates round 4, and no published flag table has withdrawn the flag
+  since). A population defect, not a logic one.
+- **The cancel path threw away the ripper's dying words** — the one line most
+  worth keeping was the one line guaranteed to be dropped. The read loop's
+  `break` sat *above* the retention code, so the line it had just pulled off the
+  pipe was discarded silently on every cancel. That line is the ripper's own
+  account of why it is stopping, and its absence is what led the cyanrip fork to
+  conclude from our log that their signal handler *"did not run at all"*: their
+  `Trying to quit` had been handed to our loop and thrown away. Measured, not
+  reasoned — a stand-in's message was observed being yielded to the loop and
+  absent from `captured_stdout`. Fixed, including the shape that makes the naive
+  fix useless: cyanrip emits `"\r\nTrying to quit\n"` in a *single* `write(2)`, so
+  the first line after the signal is the blank terminator of the progress redraw
+  and the message is the next one — retaining "one more line" keeps a bare `\r`
+  and still loses the sentence. The extra read cannot block (a sub-`PIPE_BUF`
+  write is atomic, so the remainder is already buffered) and is bounded anyway.
 - **A log the ripper SIGNED while incomplete read as sound — "attested
   truncation", and we had no name for it.** The cyanrip fork root-caused a defect
   in which `cyanrip_log_finish_report()` sat *above* the `end:` label while

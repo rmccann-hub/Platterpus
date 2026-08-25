@@ -1993,6 +1993,105 @@ contain a `glob(`.
   *two files the tool does not list*), never the diagnosis, and say plainly that
   the premise is yours and unconfirmed.
 
+### §5.ay — "Idempotent" is a property of the CALLEE, and we asserted it about the caller
+
+**2026-08-25.** A cancelled rip on the 2026-08-24 rig run left a log with no
+completion footer and **no FUN512 checksum at all** — an unverifiable fragment
+where an archival record should be. We spent a handshake round attributing it to
+the ripper. It was us, and the defect was one sentence of reasoning in a comment.
+
+Three call sites in `RipWorker` each sent their own SIGTERM on a cancel: the user
+cancel, the startup-window re-check, and the pre-reap nudge in `_reap_ripper`,
+whose comment read *"asking again is free and idempotent, and it guarantees the
+process has been told to stop before we start waiting."*
+
+Every clause of that is true **about `Popen.terminate()`**. None of it is true
+about the process being terminated. cyanrip's handler is:
+
+```c
+if (quit_now) { SIG_WRITE_LIT("Force quitting\n"); _exit(1); }
+```
+
+`_exit` runs no `atexit`, and `atexit` is where cyanrip writes the footer and the
+checksum. So the second signal does not repeat the first — **it replaces a clean
+shutdown with a forced one.** Measured on the real code path (real subprocess,
+real `RipHandle`, real `killpg`): **two signals, 0.445 ms apart.** The escape
+hatch exists for a user hammering Ctrl-C; half a millisecond is not a user.
+
+**The generalisable rule: idempotence is not a property you can establish by
+reading your own call site.** `f(x); f(x)` is safe only if *`f`* is safe to
+repeat, and `f` here was a syscall delivered to somebody else's signal handler,
+whose source was in a repository we had checked out. Ask of any "calling it twice
+is harmless": *harmless to whom — me, or the thing on the other end of it?*
+
+Four things this cost, each worth its own note:
+
+1. **The test asserted the defect was deliberate.** `terminate_calls >= 1`, with
+   a comment explaining that a cancelled rip terminates twice and *"that is
+   deliberate — SIGTERM is idempotent and free."* A loosened assertion with a
+   confident comment is worse than no assertion: it tells the next reader the
+   question has been considered. It is `== 1` now, and tightening it is part of
+   the fix rather than a tidy-up alongside it.
+2. **The fix's own state needed scoping, and a bool was the wrong shape.** "Have
+   we signalled?" is a fact about a *subprocess*, and this worker spawns one per
+   pass (read-speed ladder, per-track auto-fix). A bool needs a reset, and every
+   place to put the reset has a window where a cancel either double-signals the
+   old process or fails to signal the new one. Keyed on the **handle's identity**
+   there is no window: a new handle is a different object. *When a flag needs a
+   reset, ask whether it should have been an identity comparison.*
+3. **Extracting the kill into a chokepoint broke the sweep that guards it.**
+   `tests/test_qthread_ownership.py` reads `cancel()`'s own body looking for a
+   real interrupting call, so moving `terminate()` into `_signal_stop` made
+   `RipWorker` report as flag-only — and the *convenient* repair was an allowlist
+   entry asserting a flag was sufficient, which is false. The right repair was to
+   follow one level of same-class delegation, matching what `_stopped_reachably`
+   already did for teardown hooks. **A refactor that trips a correctness sweep is
+   a prompt to teach the sweep, not to exempt the subject** — and the exemption
+   would have been permanent, silent, and written in the file that exists to stop
+   exactly that.
+4. **The absence of a fifth possible cause was never checked, because the
+   evidence had been censored — see below.**
+
+### §5.az — We deleted the ripper's dying words, then reasoned from the gap
+
+**2026-08-25, found while answering the above.** The cyanrip fork examined the
+6.2 MB app log we sent them, found **zero** occurrences of their handler's
+`"Trying to quit"` across 51,492 captured ripper lines, and concluded — carefully,
+and marked `[MEASURED]` — that *"on the evidence we hold, our handler did not
+run."* The premise was true. The conclusion was wrong, and it was wrong because of
+our code:
+
+```python
+for line in self._handle.log_lines():
+    if self._cancelled:
+        break          # <- the line just read off the pipe is discarded
+```
+
+The check sat **above** the retention code, so the first line the ripper emitted
+after our signal — its answer to being cancelled, the single most informative line
+in the whole capture — was dropped, silently, on every cancel. Measured by
+recording what the iterator *yielded* against what the capture *kept*: yielded
+yes, kept no.
+
+Three lessons, in increasing order of how much they generalise:
+
+* **An "absence" in a log is a fact about the logger, not only about the
+  subject.** Before inferring from a missing line, establish that the capture
+  would have kept it. Both projects skipped that step, and the peer's inference
+  was the better-argued of the two.
+* **The naive fix is useless and would have passed a weaker test.** cyanrip emits
+  `"\r\nTrying to quit\n"` in a *single* `write(2)`; the leading `\r\n` terminates
+  the progress redraw that was mid-line, so the first line after the signal is a
+  blank and the sentence is the *next* one. Retaining "one more line" keeps a bare
+  `\r` and loses the message — so the regression test pins **both** lines, and a
+  revert to one-line retention is probed and fails.
+* **The worst artifact is not a missing diagnostic; it is a diagnostic that looks
+  complete.** `CLAUDE.md` already said *"a silent truncation reads as
+  completeness"* and this is the third violation by code written after the rule.
+  We handed a peer a capture with a hole we had made, they reasoned correctly from
+  it, and it pointed away from the real cause — costing a round. The rule is not
+  "log more"; it is that any deliberate drop is **counted and marked**.
+
 ### §5.ar — The crash handler was the crash: a modal dialog inside its own event loop
 
 **2026-08-19/20.** CI hung on all four Python legs, twice, and burned the whole
@@ -2211,4 +2310,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.24.*
+*Last updated for Platterpus v0.6.26.*

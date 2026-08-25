@@ -20,6 +20,40 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Round 14 lap 10, 2026-08-25 — the cancel that destroyed its own log
+
+- [x] **We sent cyanrip TWO SIGTERMs per cancel, 0.445 ms apart** — the second
+  taking its `_exit(1)` branch, which runs no `atexit` and so writes neither the
+  completion footer nor the FUN512. Three call sites each sent their own, the
+  third commented *"free and idempotent"* (true of `Popen.terminate()`, false of
+  the handler receiving it). One chokepoint now, at most one per subprocess, keyed
+  on the handle's identity. Answers the fork's J1; measured on the real path.
+- [x] **The cancel `break` discarded the ripper's dying line**, silently, every
+  time — the line that is its answer to being cancelled. Why the fork found zero
+  `"Trying to quit"` in 51,492 captured lines and concluded their handler never
+  ran. Both lines of the `\r\n`+message shape now retained and revert-probed.
+- [x] **`test_qthread_ownership.py` now follows one level of same-class
+  delegation**, so extracting a kill into a chokepoint stops reporting the cancel
+  as flag-only. Fixed by teaching the sweep, not by an allowlist entry — the
+  convenient repair would have asserted something false in the file that exists
+  to prevent that.
+- [x] Fork's **J3 answered** — no objection to a sixth `--verify-log` exit code
+  for *"checksum valid, record incomplete"*; one ask, that the provider contract
+  name **which builds** emit it (else it is indistinguishable from a rejected
+  flag, the `-V` shape again). Filed for round 15 by them, not blocking.
+- [ ] **The T1 rerun is still the only thing between round 14 and a close.**
+  `securereread.txt` on `d9c058c` with **0.6.26** — deliberately *not* a build
+  carrying this lap's fixes, because T1 has no cancel step and swapping the
+  operator's AppImage would make the queued disc measure something else.
+- [ ] **Verify §A4's prediction on the next cancel artifact** (any build after
+  these fixes): `Trying to quit` present in the capture, completion footer
+  present, valid FUN512 so `--verify-log` exits 0, exit code 1. Any of those
+  still missing means our fix was not the whole cause.
+- [ ] Still owed by the operator, neither blocking: the T3 acceptance bundle
+  (`platterpusbundle20260825t0217020000.tar.gz`) and the `cancel me
+  platterpus-fork-gd9c058c.log` from the 2026-08-24 run. §A no longer depends on
+  either — J1 is answered from code and measurement.
+
 ## Audit findings, 2026-08-20 — and one measurement limit worth knowing
 
 - [x] **Updater followed an https→http redirect.** Fixed; see CHANGELOG Security.
@@ -2438,4 +2472,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.25.*
+*Last updated for Platterpus v0.6.26.*
