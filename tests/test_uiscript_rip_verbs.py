@@ -2020,3 +2020,40 @@ def test_abort_if_failed_ignores_blocked_steps(qapp, tmp_path, monkeypatch) -> N
     )
     runner._do_abort_if_failed(parse("abort-if-failed")[0])
     assert stopped, "the handler did not stop on a genuine FAIL either"
+
+
+def test_the_quit_helpers_predicate_has_a_real_subject(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The RELATION between the two sides of the bundle guard.
+
+    `app._bundle_being_written()` asks the runner; the runner answers from
+    `_bundle_thread`. Each side is testable alone and each passes alone — and the
+    guard is worthless if the runner never populates what the predicate reads,
+    because `bundle_in_progress()` returns False for a `None` thread. That is the
+    "two surfaces, one relation" defect: a property no test of either side can
+    express, so it needs its own.
+
+    Proved by revert: dropping `self._bundle_thread = thread` broke NOTHING until
+    this existed.
+
+    Asserts the thread was *recorded*, not that it is still alive — a fast bundle
+    may finish first, and asserting liveness would be a race the test loses on a
+    quick machine.
+    """
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    runner = ScriptRunner(_window())
+    _run_to_end(runner, "log hello", process_until)
+
+    assert runner._bundle_thread is not None, (
+        "the run finished without recording its bundle thread, so the unattended "
+        "quit helper's guard has no subject and can never fire"
+    )
+    # And the predicate the helper actually calls agrees about liveness.
+    runner._bundle_thread.join(timeout=30)
+    assert not runner.bundle_in_progress(), (
+        "bundle_in_progress() still reports work after the thread joined — the "
+        "helper would hold the process open until its budget expired"
+    )

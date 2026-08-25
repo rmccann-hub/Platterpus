@@ -1263,3 +1263,161 @@ def test_the_unattended_quit_never_fires_while_a_rip_is_reading_the_disc(
         "which is the failure the whole unattended path exists to avoid"
     )
     timer.stop()
+
+
+def test_the_unattended_quit_waits_for_the_scripts_own_evidence_bundle(qapp) -> None:
+    """**The bundle IS the deliverable of an overnight run, and it was unguarded.**
+
+    Two different bundles exist and only one was checked here. The window's
+    `_pending_evidence_bundle` is the *rip's*; the batch's own single-file
+    archive — transcript, reports, screenshots, app log, rig-check manifest — is
+    the runner's, built on a **daemon thread**, which interpreter shutdown kills
+    mid-archive without a word in the log.
+
+    **It was winning the race by under a second.** Measured on the 2026-08-24
+    overnight run: batch finished 00:17:53,606, bundle landed 00:17:53,821 —
+    215 ms, against a helper ticking every 1000 ms. It worked. Nothing *made* it
+    work, and a run with more screenshots or a bigger rotated log is the one that
+    loses six hours of disc time to a truncated tarball.
+
+    Same shape as the rip-in-flight gap above: a guard written for the deferral
+    its author knew about, blind to a sibling deferral one layer over.
+    """
+    from platterpus.app import _arm_unattended_quit
+
+    quits: list[int] = []
+    writing = {"bundle": True}
+
+    class _Runner:
+        running = False
+
+        def bundle_in_progress(self) -> bool:
+            return writing["bundle"]
+
+    class _Console:
+        @property
+        def runner(self):
+            return _Runner()
+
+    class _App:
+        def quit(self) -> None:
+            quits.append(1)
+
+    from PySide6.QtWidgets import QWidget
+
+    window = QWidget()
+    window._rip_worker = None
+    window._pending_evidence_bundle = None
+    window._post_rip_work_settled = lambda: True
+    window._post_rip_still_running = lambda: ""
+
+    # A REAL budget here, unlike the rip test above, and the difference is
+    # deliberate. A live rip resets the grace clock because it runs for hours
+    # against a 15-minute budget; a bundle takes seconds, so it correctly stays
+    # under the budget — a wedged archiver must not hang the process forever.
+    # `test_the_bundle_wait_is_still_bounded_by_the_budget` pins that other half.
+    timer = _arm_unattended_quit(_App(), window, _Console(), budget_s=600.0)
+    assert timer is not None
+
+    for _ in range(5):
+        timer.timeout.emit()
+    assert not quits, (
+        "the app quit while the run's evidence bundle was still being written — "
+        "the operator's one file would be truncated or absent after a six-hour pass"
+    )
+
+    # THE FLOOR: once the bundle lands it must actually quit, or this passes
+    # against a helper that never quits at all.
+    writing["bundle"] = False
+    timer.timeout.emit()
+    assert quits, (
+        "the helper never quit once the bundle finished — the guard has become a "
+        "hang, which is the failure the unattended path exists to avoid"
+    )
+    timer.stop()
+
+
+def test_a_runner_without_the_predicate_does_not_break_the_quit_helper(qapp) -> None:
+    """A quit helper must never be the crash — including on an older runner.
+
+    The predicate is read off whatever `console.runner` is; a stand-in or a
+    partially-constructed runner that lacks it must leave the helper working
+    rather than raising inside a Qt timer callback, where the exception lands in
+    `sys.excepthook` and puts a modal on screen.
+    """
+    from platterpus.app import _arm_unattended_quit
+
+    quits: list[int] = []
+
+    class _OldRunner:
+        running = False  # no bundle_in_progress at all
+
+    class _Console:
+        @property
+        def runner(self):
+            return _OldRunner()
+
+    class _App:
+        def quit(self) -> None:
+            quits.append(1)
+
+    from PySide6.QtWidgets import QWidget
+
+    window = QWidget()
+    window._rip_worker = None
+    window._pending_evidence_bundle = None
+    window._post_rip_work_settled = lambda: True
+    window._post_rip_still_running = lambda: ""
+
+    timer = _arm_unattended_quit(_App(), window, _Console(), budget_s=0.0)
+    assert timer is not None
+    timer.timeout.emit()
+    assert quits, "the helper stopped working against a runner lacking the predicate"
+    timer.stop()
+
+
+def test_the_bundle_wait_is_still_bounded_by_the_budget(qapp) -> None:
+    """The other half: a wedged bundle thread must not hang the process forever.
+
+    The guard above blocks the quit while the archive is being written. That is
+    only safe because it stays under the grace budget — unlike a live rip, which
+    deliberately resets the clock because it runs for hours. A bundle takes
+    seconds, so a bundle still "in progress" past the budget is a wedged thread,
+    and the honest outcome is to quit and say so rather than leave a process
+    behind on an unattended rig.
+    """
+    from platterpus.app import _arm_unattended_quit
+
+    quits: list[int] = []
+
+    class _Runner:
+        running = False
+
+        def bundle_in_progress(self) -> bool:
+            return True  # never finishes
+
+    class _Console:
+        @property
+        def runner(self):
+            return _Runner()
+
+    class _App:
+        def quit(self) -> None:
+            quits.append(1)
+
+    from PySide6.QtWidgets import QWidget
+
+    window = QWidget()
+    window._rip_worker = None
+    window._pending_evidence_bundle = None
+    window._post_rip_work_settled = lambda: True
+    window._post_rip_still_running = lambda: ""
+
+    timer = _arm_unattended_quit(_App(), window, _Console(), budget_s=0.0)
+    assert timer is not None
+    timer.timeout.emit()
+    assert quits, (
+        "a bundle thread that never finishes held the process open past its "
+        "budget — the guard became a hang"
+    )
+    timer.stop()

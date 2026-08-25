@@ -312,6 +312,16 @@ class ScriptRunner(QObject):
         self._report: RunReport = RunReport(started_at="", app_version=__version__)
         self._unsafe_allowed: bool = False
         self._artifact_dir: Path | None = None
+        #: The daemon thread building this run's single-file evidence bundle, kept
+        #: so the unattended-quit helper can WAIT for it. Retained rather than
+        #: fire-and-forget: `_write_run_bundle` archives the app log (megabytes,
+        #: with rotations) plus every screenshot the run took, and the quit helper
+        #: ticks once a second — measured at **215 ms for 169 files** on the
+        #: 2026-08-24 overnight run, i.e. it finished with under a second to spare
+        #: on a run whose bundle is the entire deliverable. A plain `threading`
+        #: thread, not a QThread, so retaining it carries none of the `~QThread()`
+        #: hazard and abandoning it at exit is safe.
+        self._bundle_thread: threading.Thread | None = None
         #: Set while a `wait`-family step is pending; the tick returns early
         #: until the deadline passes. This is what keeps waiting non-blocking.
         self._deadline: float | None = None
@@ -2278,6 +2288,25 @@ class ScriptRunner(QObject):
         log.info("ui script run saved to %s", directory)
         self._write_run_bundle(directory)
 
+    def bundle_in_progress(self) -> bool:
+        """Whether this run's evidence bundle is still being written.
+
+        Read by the unattended-quit helper. **The bundle is the deliverable of an
+        overnight run** — one `.tar.gz` holding the transcript, the reports, the
+        screenshots, the app log and the rig-check manifest — and it is built on a
+        daemon thread, which interpreter shutdown kills mid-archive without a
+        word. Quitting while it runs would leave the operator with a truncated
+        file or none at all, after a six-hour disc pass.
+
+        Never raises: a quit helper that can throw is a quit helper that can put a
+        modal on screen (see `_arm_unattended_quit`).
+        """
+        thread = self._bundle_thread
+        try:
+            return thread is not None and thread.is_alive()
+        except Exception:  # noqa: BLE001 — never block a quit on our own bug
+            return False
+
     def _write_run_bundle(self, directory: Path) -> None:
         """Fold the whole run into one archive the operator can attach.
 
@@ -2338,7 +2367,9 @@ class ScriptRunner(QObject):
                     result.error,
                 )
 
-        threading.Thread(target=work, daemon=True).start()
+        thread = threading.Thread(target=work, daemon=True, name="uiscript-bundle")
+        self._bundle_thread = thread
+        thread.start()
 
     def _ensure_artifact_dir(self) -> Path | None:
         if self._artifact_dir is not None:
