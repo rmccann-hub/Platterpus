@@ -369,16 +369,36 @@ _FLAG_ONLY_CANCELS: dict[str, str] = {
 
 
 def _worker_cancel_methods() -> dict[str, str]:
-    """``ClassName`` → source of its `cancel` method, for every worker in `src/`."""
+    """``ClassName`` → EFFECTIVE source of its `cancel`, for every worker in `src/`.
+
+    "Effective" means `cancel` plus the body of any method of the *same class* that
+    it calls — one level, the same depth and for the same reason as
+    :func:`_stopped_reachably`. Without it, extracting the kill into a helper turns
+    a working `cancel()` into a reported flag-only one: `RipWorker.cancel` grew a
+    `_signal_stop` chokepoint (so a second SIGTERM could not reach cyanrip and take
+    its `_exit(1)` branch) and this check immediately called it unjustified, which
+    would have been "fixed" by an allowlist entry asserting something false.
+
+    Deliberately **not** "anywhere in the class": the interrupting call has to be
+    reachable *from cancel*, or a killer sitting in an unrelated method would bless
+    a cancel that does nothing.
+    """
     found: dict[str, str] = {}
     for path in sorted((SRC_ROOT / "workers").rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
                 continue
-            for item in node.body:
-                if isinstance(item, ast.FunctionDef) and item.name == "cancel":
-                    found[node.name] = ast.unparse(item)
+            methods: dict[str, str] = {
+                item.name: ast.unparse(item)
+                for item in node.body
+                if isinstance(item, ast.FunctionDef)
+            }
+            if "cancel" not in methods:
+                continue
+            source = methods["cancel"]
+            delegates = _functions_called_in(source) & methods.keys() - {"cancel"}
+            found[node.name] = "\n".join([source, *(methods[d] for d in delegates)])
     return found
 
 

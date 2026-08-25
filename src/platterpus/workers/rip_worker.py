@@ -24,7 +24,9 @@ import logging
 import math
 import re
 import subprocess
+import threading
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -362,6 +364,13 @@ _MAX_STDOUT_LINES: int = 20000
 # lines (the error, and the few lines of context before it), while the head is
 # where the header, argv echo and per-track results live.
 _STDOUT_TAIL_LINES: int = 2000
+
+# How many lines the cancel path may pull off the pipe *after* the cancel flag is
+# seen, to recover the ripper's own account of why it is stopping. Small on
+# purpose: this is a bound on a read that `_retain_last_words` argues cannot
+# block, not a drain budget. Two is the shape cyanrip actually produces (a
+# progress-redraw terminator, then the message); the rest is headroom.
+_CANCEL_LAST_WORDS_LINES: int = 4
 
 # Marker written into the captured stdout in place of the discarded middle. It is
 # a line the *ripper* could not have produced, so a reader (or a parser) can tell
@@ -805,6 +814,21 @@ class RipWorker(QObject):
         # GIL, so reading it from the worker thread while the GUI thread
         # sets it is safe without locks.
         self._cancelled: bool = False
+        # WHICH handle we have already sent a stop signal to — not a bool. "Have
+        # we signalled?" is a fact about a *subprocess*, and this worker spawns one
+        # per pass (the read-speed ladder and the per-track auto-fix each start a
+        # fresh ripper). A bool would need resetting somewhere, and every place to
+        # put that reset has a window in which a cancel either double-signals the
+        # old process or fails to signal the new one. Comparing identity has no
+        # such window: a new handle is a different object and is therefore
+        # un-signalled, automatically.
+        #
+        # The lock makes the compare-and-set atomic across this worker's two
+        # callers — `cancel()` on the GUI thread and `_reap_ripper()` on the
+        # worker's. It is held only across a `killpg` syscall (microseconds), so it
+        # does not engage the never-block-the-GUI rule.
+        self._sigterm_sent_for: RipHandle | None = None
+        self._sigterm_lock: threading.Lock = threading.Lock()
         # Every NON-progress line the ripper printed, kept verbatim.
         #
         # This is the one artifact that survives a kill. cyanrip's logfile is
@@ -1998,16 +2022,34 @@ class RipWorker(QObject):
         # self._handle.wait() would block on a still-running rip ("Cancel did
         # nothing" until the 5s force-stop backstop fired).
         if self._cancelled:
-            try:
-                self._handle.terminate()
-            except Exception:  # noqa: BLE001 — cancel is best-effort
-                log.exception("startup-window terminate() raised; ignored")
+            self._signal_stop("cancel arrived during the startup window")
 
         # Stream output. Iteration ends when the ripper closes its stdout
         # (i.e. exits) or when cancel() flips the flag.
         try:
-            for line in self._handle.log_lines():
+            # Held as an explicit iterator, not just a `for` target, so the cancel
+            # branch below can pull the ripper's last words off the pipe.
+            lines = iter(self._handle.log_lines())
+            for line in lines:
                 if self._cancelled:
+                    # KEEP THIS LINE, THEN LEAVE. It was already read off the pipe
+                    # by the iterator above, and it is the ripper's FIRST output
+                    # after our signal — i.e. its answer to being cancelled. The
+                    # old `break` discarded it, silently, every single time: the
+                    # one line most worth having was the one line guaranteed to be
+                    # dropped. Measured, not reasoned — a stand-in ripper's
+                    # "Trying to quit" was handed to this loop and was absent from
+                    # `captured_stdout` (`docs/testing.md` §5.ay), which is how a
+                    # handshake round came to conclude the ripper's signal handler
+                    # had never run.
+                    #
+                    # Retained WITHOUT the progress filter the rest of the loop
+                    # applies, deliberately: at a cancel, even a bare progress
+                    # redraw is the diagnostic — it says how far the rip had got
+                    # when the user stopped it. One line, and the buffer is
+                    # head+tail bounded anyway.
+                    self._retain_stdout_line(line)
+                    self._retain_last_words(lines, line)
                     break
                 # `_progress_for` both classifies the line (a numeric progress
                 # redraw → not None) AND updates `_current_track` as a side
@@ -2020,19 +2062,7 @@ class RipWorker(QObject):
                 # a *stop*, not a ring buffer, because the head is where the
                 # header and the early tracks are.
                 if not is_progress:
-                    if len(self._stdout_lines) < _MAX_STDOUT_LINES:
-                        self._stdout_lines.append(line)
-                    else:
-                        # Past the head cap: keep a rolling window of the most
-                        # recent lines instead of discarding outright, so the
-                        # ripper's dying message survives. `_stdout_elided`
-                        # counts what fell out of that window, which is what
-                        # `captured_stdout` reports rather than leaving a silent
-                        # hole.
-                        self._stdout_tail.append(line)
-                        if len(self._stdout_tail) > _STDOUT_TAIL_LINES:
-                            self._stdout_tail.pop(0)
-                            self._stdout_elided += 1
+                    self._retain_stdout_line(line)
                 # Forward the line to the GUI's log pane — but RATE-LIMIT the
                 # high-frequency progress redraws. Appending to the log widget
                 # (text layout + repaint) is the expensive per-tick work; at
@@ -2177,10 +2207,7 @@ class RipWorker(QObject):
             # The subprocess is still running (we broke out of the read loop
             # abnormally, before wait()). Stop it so it doesn't keep holding the
             # drive and contend with a retry — best-effort, non-blocking.
-            try:
-                self._handle.terminate()
-            except Exception:  # noqa: BLE001 — cleanup is best-effort
-                log.exception("terminate() after stream error raised; ignored")
+            self._signal_stop("stdout stream error")
             self.error.emit(f"rip stream error: {exc}")
             return None
 
@@ -2206,6 +2233,61 @@ class RipWorker(QObject):
             )
         log_path = self._find_log_path(out_dir, since=self._rip_started_at)
         return success, str(log_path) if log_path else ""
+
+    def _retain_last_words(self, lines: Iterator[str], first: str) -> None:
+        """Pull the ripper's cancel message off the pipe, if it is already there.
+
+        **Why this is not just "read one more line".** cyanrip's signal handler
+        emits ``"\\r\\nTrying to quit\\n"`` in a *single* ``write(2)``. The leading
+        ``\\r\\n`` terminates whatever progress redraw was mid-line, so the first
+        line we read after our signal is that **terminator — blank** — and the
+        message we actually want is the one after it. Retaining "one more line"
+        therefore keeps a bare ``\\r`` and still loses the sentence.
+
+        **Why it cannot block.** We read on only while the line we just took is
+        blank. A blank line is itself proof the ripper just completed a write, and
+        that write was atomic — 17 bytes, far below ``PIPE_BUF`` (4096), so a pipe
+        write of that size is indivisible — which means the remainder of it is
+        **already sitting in the pipe buffer** and the next read is satisfied
+        without waiting on the ripper. A silent ripper produces no blank line and
+        so gets no extra read at all: the cancel stays fast, which is the property
+        the original `break` was protecting.
+
+        Bounded anyway (``_CANCEL_LAST_WORDS_LINES``), because "cannot block"
+        should not be the only thing standing between a cancel and a wedged GUI.
+        """
+        line = first
+        for _ in range(_CANCEL_LAST_WORDS_LINES):
+            if line.strip():
+                # Not a redraw terminator — we already have real text, stop.
+                return
+            nxt = next(lines, None)
+            if nxt is None:  # the ripper exited; nothing more to take
+                return
+            self._retain_stdout_line(nxt)
+            line = nxt
+
+    def _retain_stdout_line(self, line: str) -> None:
+        """Keep one line of the ripper's output in the diagnostic record.
+
+        Bounded head + rolling tail, because the head is where the header and the
+        early tracks are and the tail is where a dying message is — a head-only
+        cap drops precisely the line that explains a failure. Whatever falls out
+        of the middle is *counted* into ``_stdout_elided`` and reported by
+        ``captured_stdout``, never silently dropped: a silent truncation reads as
+        completeness.
+
+        One method rather than two call sites doing it inline, so the cancel path
+        (which has its own reason to retain a line) cannot drift from the main
+        loop's bookkeeping.
+        """
+        if len(self._stdout_lines) < _MAX_STDOUT_LINES:
+            self._stdout_lines.append(line)
+            return
+        self._stdout_tail.append(line)
+        if len(self._stdout_tail) > _STDOUT_TAIL_LINES:
+            self._stdout_tail.pop(0)
+            self._stdout_elided += 1
 
     def _reap_ripper(self) -> int | None:
         """Reap the ripper process, bounded. Returns its exit code, or ``None``.
@@ -2236,14 +2318,14 @@ class RipWorker(QObject):
         handle = self._handle
         if handle is None:  # pragma: no cover — callers hold a handle
             return None
-        # Cancel already sends a non-blocking SIGTERM, but a `break` can also come
-        # from the startup-window race; asking again is free and idempotent, and it
-        # guarantees the process has been told to stop before we start waiting.
+        # Make sure the ripper has been told to stop before we wait on it. This
+        # used to call `handle.terminate()` directly on the reasoning that "asking
+        # again is free and idempotent" — true of `Popen`, FALSE of cyanrip, whose
+        # second signal is `_exit(1)` with no log footer and no checksum. It goes
+        # through `_signal_stop`, which sends at most one per rip; on a cancel the
+        # signal has already gone and this is a no-op.
         if self._cancelled:
-            try:
-                handle.terminate()
-            except Exception:  # noqa: BLE001 — best-effort, must not mask the reap
-                log.exception("terminate() before reap raised; ignored")
+            self._signal_stop("before reaping a cancelled rip")
         try:
             return handle.wait(timeout=_RIPPER_EXIT_GRACE_S)
         except subprocess.TimeoutExpired:
@@ -2792,11 +2874,57 @@ class RipWorker(QObject):
         is now true, but it was documentation describing an intention.
         """
         self._cancelled = True
-        if self._handle is not None:
+        self._signal_stop("user cancel")
+
+    def _signal_stop(self, why: str) -> None:
+        """SIGTERM the ripper's process group — **at most once per rip**.
+
+        The single chokepoint for every stop signal this worker sends. It exists
+        because **a second signal is not a free repeat of the first.**
+
+        ``Popen.terminate()`` is idempotent, and three call sites here reasoned
+        from that: cancel, the startup-window race, and ``_reap_ripper``'s
+        pre-reap "asking again is free" nudge. It is idempotent *for us*. It is
+        not idempotent for **cyanrip**, whose handler is::
+
+            if (quit_now) { SIG_WRITE_LIT("Force quitting\\n"); _exit(1); }
+
+        — an escape hatch for a user hammering Ctrl-C. ``_exit(1)`` runs no
+        ``atexit``, so the ripper writes **no completion footer and no FUN512
+        checksum**, and the log it leaves behind is an unverifiable fragment.
+
+        We were sending two, and not 50 ms apart as a human would: measured at
+        **0.445 ms** on this code path (`docs/testing.md` §5.ay). That destroyed
+        the cancelled rip's log on the 2026-08-24 rig run — exit 1, no footer, no
+        checksum — and we spent a handshake round attributing it to the ripper.
+
+        Suppressing the repeat costs nothing, because the guarantee the pre-reap
+        nudge was there to provide ("the process has been told to stop before we
+        wait on it") is already satisfied by the signal that was actually sent —
+        and the real escalation is untouched: ``_reap_ripper`` still bounds its
+        wait and still escalates to SIGTERM→SIGKILL on the process *group*.
+        """
+        with self._sigterm_lock:
+            handle = self._handle
+            if handle is None:
+                # A cancel during the startup window, before the subprocess exists.
+                # Nothing to signal and nothing recorded, so the startup-window
+                # re-check in `_rip_once` still delivers the first signal.
+                return
+            if self._sigterm_sent_for is handle:
+                log.debug(
+                    "ripper stop already signalled — NOT sending a second SIGTERM "
+                    "(%s). A second signal makes cyanrip _exit(1) without writing "
+                    "its log's completion footer or checksum.",
+                    why,
+                )
+                return
+            self._sigterm_sent_for = handle
+            log.info("signalling the ripper to stop (SIGTERM, %s)", why)
             try:
-                self._handle.terminate()
-            except Exception:  # noqa: BLE001
-                log.exception("terminate() raised; ignored")
+                handle.terminate()
+            except Exception:  # noqa: BLE001 — best-effort, must not mask caller
+                log.exception("terminate() raised; ignored (%s)", why)
 
     # --- Internals ---
 

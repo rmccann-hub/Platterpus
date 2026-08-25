@@ -635,6 +635,16 @@ BUILD_TAGS_ACCEPTING_VERIFY_LOG: Final[frozenset[str]] = frozenset(
         f"{FORK_BRANCH}-g{FORK_RELEASE_4_COMMIT}",  # fork release 4
         FORK_TEST_BUILD_TAG,
         *(f"{FORK_BRANCH}-g{pin}" for pin in SUPERSEDED_TEST_PINS),
+        # The pin currently under review — i.e. THE BUILD THE RIG IS RUNNING.
+        # Absent until 2026-08-25, which made it the one build not covered by a
+        # set whose whole purpose is to stop the log-integrity check going quiet.
+        # It went quiet exactly there: the 2026-08-24 cancelled rip reported
+        # *"we cannot establish that this build accepts --verify-log"*, so a real
+        # `failed` was downgraded to `not_determined` on the build being tested.
+        # Document-backed on the same footing as every other entry — every pin
+        # here post-dates round 4 and `test_no_published_table_has_ever_withdrawn`
+        # establishes no published table has withdrawn the flag since.
+        f"{FORK_BRANCH}-g{PIN_UNDER_REVIEW}",
     }
 )
 
