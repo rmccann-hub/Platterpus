@@ -11,6 +11,39 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **`HANDSHAKE-OUR-PIN` named the cyanrip fork's commit, not ours, in nine sent
+  laps.** The field pairs with `HANDSHAKE-OUR-VERSION` and disambiguates *which
+  build* of a version string, so it is a commit in this repository; we declared
+  `ddf7ac3`, which is the fork's `0.9.4-rc1+platterpus.5` and belongs in
+  `HANDSHAKE-PIN` (where it also, correctly, was). Found by the fork, round 14
+  lap 17 §H2a. **The value was a symptom: the field naming *them* has been read
+  from `deps/fork_source.py` since it was written and cannot drift, while the
+  field naming *us* had no source and was filled by copying the previous lap.**
+  Fixed at the generator — `scripts/handshake.py` gains `our_pin()`, which
+  pickaxes the version literal in `src/platterpus/__init__.py` and raises rather
+  than guessing, and `--emit` now writes the field. Sent laps are exempt on a
+  ratchet with the reason written at the list: they have left the repository and
+  the peer has filed them, so editing them would make the two records disagree,
+  which is exactly what the round digest exists to detect — the correction is
+  made forward, where the peer can see it.
+- **The peer's round-14 lap 16 was never delivered to us**, so our records
+  differed from theirs for three laps and the round digest could only report
+  *that*, never *how*. Recovered and filed; the digest now re-derives their
+  declared `ed6eaf36eee45f08 over 19` exactly, from two independent
+  implementations — the first match of the round. Found by adopting their
+  per-lap holdings enumeration, on its first use.
+
+### Added
+- `docs/OWNERSHIP.md`, the fourth file shared byte-identical with the cyanrip
+  fork and owned by neither project, wired into the `HANDSHAKE-SHARED-HASHES`
+  comparison so a unilateral edit on either side fails the lap.
+- Two tests guarding the pin fields: one holds every new lap to "`OUR-PIN`
+  resolves here, `PEER-PIN` does not", counted **per field** so the exempt
+  `OUR-PIN`s cannot pass on the strength of the never-exempt `PEER-PIN`s; one
+  holds the exemption list itself to being a ratchet, failing on an entry whose
+  file is gone or whose defect is already fixed.
+
 ## [0.6.27] — 2026-08-26
 
 ### Fixed
