@@ -389,6 +389,12 @@ class DriveMixin(MainWindowShared):
         self._current_release_id = ""
         self._current_num_tracks = 0
         self._current_disc_id = ""
+        # Cleared wherever `_current_disc_id` is, never only at the site the bug
+        # was found. It is not load-bearing here — a stale value cannot match a
+        # new disc's context — but two resets that drift are how the *next* one
+        # of these gets written, and `tests/test_ui_main_window.py` now sweeps
+        # for the pairing rather than trusting it.
+        self._mb_release_chosen_for = ""
         self._manual_cover_path = None
         self._rip_controls.set_release_id("")
         self._rip_controls.set_unknown_mode(False)

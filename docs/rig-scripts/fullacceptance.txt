@@ -275,6 +275,24 @@ expect-dialog none
 expect-tracks 2+
 snapshot discidentified
 
+# STOP HERE IF THE DISC WAS NOT IDENTIFIED. The section header above has said
+# "if this fails, nothing after it can mean anything" since the file was written,
+# and until 2026-08-26 it said so and then carried on for six hours — a comment
+# where a check belongs, which is the failure `CLAUDE.md` names by that phrase.
+#
+# What it costs when the check is absent, measured on the rig the same night: the
+# release picker was still open at section F's `rip`, the guard correctly refused
+# to press Start behind a modal, and the operator had to answer the picker BY HAND
+# to unblock a run whose entire purpose is being unattended. Every rip after that
+# point is evidence about a release nobody scripted.
+#
+# `pick-release` already refuses to pass on a picker that never appeared unless
+# tracks are loaded, so a FAIL here is a real one: either the picker did not
+# resolve inside its 120 s, or the disc loaded no tracks. Both mean the night is
+# already lost — five minutes in, which is the whole point of putting the cheap
+# sections first.
+abort-if-failed the disc was never identified — the picker did not resolve or no tracks loaded, so every rip after this would be about an unknown release
+
 # --- F. THE MAIN EVENT: a full-disc rip ------------------------------------
 # ALL tracks, once, FLAC, fast-verified. This is the archival rip and the one
 # whose artifacts matter most.

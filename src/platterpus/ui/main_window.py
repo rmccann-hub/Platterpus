@@ -350,6 +350,7 @@ class MainWindow(
         # *previous* disc's release. Set when a probe identifies a disc, cleared
         # at the start of every new scan.
         self._current_disc_id: str = ""
+        self._mb_release_chosen_for: str = ""
         # Track count for the current disc (from cyanrip cd info). Used to
         # render numbered blank rows when MusicBrainz has no match.
         self._current_num_tracks: int = 0
@@ -1121,6 +1122,10 @@ class MainWindow(
         # *previous* disc is dropped when it lands (its echoed context won't
         # match ""). The new disc's probe sets this again once it identifies it.
         self._current_disc_id = ""
+        # A NEW PROBE MEANS THE USER MAY CHOOSE AGAIN. Cleared here rather than
+        # never, so a deliberate Rescan still offers the picker — the guard below
+        # suppresses a *duplicate* answer, not a *second* question.
+        self._mb_release_chosen_for = ""
         # A hand-picked cover was for the previous disc — forget it so it can't
         # bleed onto a different album.
         self._manual_cover_path = None
@@ -1249,10 +1254,35 @@ class MainWindow(
         if self._is_stale_mb_result(context):
             log.debug("dropping stale MB releases for disc %r", context)
             return
+        # ALREADY ANSWERED IS A DIFFERENT QUESTION FROM STALE, and only the second
+        # one was being asked. `_is_stale_mb_result` compares against the disc on
+        # screen, so two lookups racing for the SAME disc both pass it — and each
+        # one then opens its own modal picker. See `_mb_release_chosen_for` for
+        # the measured cost (rig, 2026-08-26: a second picker 378 ms behind the
+        # first, blocking an unattended run for 53.5 s, and its answer silently
+        # replacing tags already chosen).
+        #
+        # Logged at INFO, not debug: this is the app declining to ask a question
+        # it already has the answer to, and a reader comparing the log against
+        # what they saw on screen needs to see the decision rather than infer it
+        # from a picker that did not appear.
+        if self._mb_release_chosen_for == context:
+            log.info(
+                "MusicBrainz returned %d candidates for disc %r again, but a "
+                "release was already chosen for this disc in this scan — not "
+                "re-opening the picker. Rescan to choose a different release.",
+                len(releases),
+                context,
+            )
+            return
         self._last_mb_releases = list(releases)
         self._disc_info_panel.set_mb_matches(releases)
 
         if len(releases) == 1:
+            # Marked before the fetch, not after: the fetch is an *emit* to a
+            # worker thread, so a duplicate result landing in between would
+            # otherwise slip past the guard and fetch the same release twice.
+            self._mb_release_chosen_for = context
             self._fetch_release_detail(releases[0].mbid, context)
         elif len(releases) > 1:
             # Defer to user. The picker is modal; we block here briefly
@@ -1282,6 +1312,10 @@ class MainWindow(
                 mbid = dialog.selected_mbid()
                 if mbid:
                     log.info("release picker: user chose %s after %.1fs", mbid, waited)
+                    # Same ordering as the single-candidate branch above: mark
+                    # before the emit, because the modal ran a nested event loop
+                    # and a second lookup's result may already be queued behind it.
+                    self._mb_release_chosen_for = context
                     self._fetch_release_detail(mbid, context)
                 else:
                     # Accepted with nothing selected shouldn't happen (the OK
