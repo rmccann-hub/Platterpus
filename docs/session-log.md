@@ -53,10 +53,32 @@ both sides' tests green, the defect strictly in the relation — `CLAUDE.md`'s *
 two surfaces answer this question, and do they use the same key?*, found by asking
 it rather than by anything failing. An operator following the menu would have had
 an unattended overnight run die on its first ripper assertion, hours from anyone
-noticing, disc already in the drive. Read the two docstrings together and they are
-one sentence, so `FORK_TEST_PIN` is now an alias of `PIN_UNDER_REVIEW`, and the
-relation is asserted directly with a floor on the script still making the claim it
-relies on. Revert-proved.
+noticing, disc already in the drive.
+
+**And the first fix for it was wrong in an instructive way.** Reading the two
+docstrings together they are one sentence, so aliasing `FORK_TEST_PIN` to
+`PIN_UNDER_REVIEW` looked like exactly the *one value, N readers* move the rule
+prescribes. Five tests failed in the next run and **two were reporting real
+damage rather than stale fixtures**: the approval text flipped to a branch reading
+*"a test pin is not a release and no round has approved it"* — a false sentence
+about a published release — and `test_a_session_test_pin_is_never_installed_over`
+went from `not_determined` to `up_to_date`, i.e. the guard against a rig being
+silently upgraded off the reviewed pin stopped holding. **Round 14's pin IS a
+release (`release_seq` 20) and a test pin by definition is not; every previous
+test pin was unnumbered, so nothing had ever exercised the difference.** Two
+constants equal in every observed case are not therefore one concept — making
+them identical did not remove a distinction, it hid one. Reverted; the menu gains
+the reviewed build as its own labelled entry instead. Both versions revert-proved.
+
+**The other correction, and it is the same shape twice in one session.** Polling
+CI, I wrote a loop that read `check_runs` from an unauthenticated endpoint and
+reported `ALL_GREEN` — computed from an empty list, minutes after adding a test
+about checks that can be satisfied by finding nothing. Caught by cross-checking
+against the MCP tool, which showed four legs still running. And the local gate
+verdict was misread twice for a related reason: a `4640 passed` line was quoted
+from the run *before* the change under test, while `check.py` was correctly
+reporting `tests FAIL` for the run after it. **Read the tool's verdict, not your
+own summary of its output** — and check *which run* a number came from.
 
 **And the operator's night stopped being three commands.** `platterpusovernight.sh`
 holds sleep/idle/lid off with `systemd-inhibit` — a lock that dies with the child
