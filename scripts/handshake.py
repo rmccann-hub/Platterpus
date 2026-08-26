@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import re
+import subprocess
 import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -553,6 +554,59 @@ def _fork_banner() -> str:
     return fork_source.FORK_EXPECTED_BANNER
 
 
+def our_pin() -> str:
+    """The Platterpus commit that made this tree ``__version__`` — our `OUR-PIN`.
+
+    **This function exists because the field was filled by copying the previous
+    lap, and the value being copied was the wrong project's.** `HANDSHAKE-OUR-PIN`
+    pairs with `HANDSHAKE-OUR-VERSION` (§5): it disambiguates *which build* of a
+    version string, so it is a commit in **this** repository. Nine of our sent laps
+    declared `ddf7ac3` there — the fork's `0.9.4-rc1+platterpus.5`, i.e. the cyanrip
+    build we pin *to*, which belongs in `HANDSHAKE-PIN`. The fork found it in round
+    14 lap 17 §H2a. `_fork_pin()` above has been read from the product since the day
+    it was written for exactly this reason; the field naming *us* had no such
+    source, so it drifted while the field naming *them* could not.
+
+    Derived by pickaxe on the version literal rather than by "the last commit that
+    touched `__init__.py`", which answers a different question and would name an
+    ordinary export change. The pickaxe is self-checking: it can only return a
+    commit that introduced *this* version string.
+
+    Returns a 7-character sha, matching the width already on the wire. Raises
+    rather than guessing: a wrong pin is the defect this replaces, and a skeleton
+    that refuses to emit is cheaper than one that emits a plausible lie.
+    """
+    from platterpus import __version__ as _app_version  # noqa: PLC0415
+
+    # `-S<literal>` finds commits that changed the number of occurrences of the
+    # string; `--pickaxe-regex` is deliberately off so a dotted version is matched
+    # literally. `-1` with default (reverse-chronological) order gives the most
+    # recent introduction, which is the right one if a version were ever re-cut.
+    found = subprocess.run(
+        [
+            "git",
+            "log",
+            "-1",
+            "--format=%h",
+            f"-S{_app_version}",
+            "--",
+            "src/platterpus/__init__.py",
+        ],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    sha = found.stdout.strip()
+    if found.returncode != 0 or not sha:
+        raise RuntimeError(
+            f"cannot resolve HANDSHAKE-OUR-PIN: no commit in this repository "
+            f"introduces __version__ = {_app_version!r} into src/platterpus/"
+            f"__init__.py. If the bump is staged but not committed, commit it "
+            f"first — the field names a commit, and an uncommitted tree has none."
+        )
+    return sha[:7]
+
+
 def emit_outbound(round_number: int) -> str:
     """Build a skeleton outbound handshake file for ``round_number``."""
     sections = "\n\n".join(
@@ -579,6 +633,13 @@ def emit_outbound(round_number: int) -> str:
             f"HANDSHAKE-APP-VERSION: platterpus {_app_version}",
             f"HANDSHAKE-RIPPER-VERSION: {_fork_banner()}",
             f"HANDSHAKE-PIN: {_fork_pin()}",
+            # Not a §3 wire field — emitted anyway, because the *close* fields are
+            # the ones that get filled by copying the previous lap, which is how
+            # `OUR-PIN` carried the fork's commit for nine of them. A value already
+            # on the page cannot be transcribed from the wrong project.
+            f"HANDSHAKE-OUR-VERSION: platterpus/{_app_version}",
+            f"HANDSHAKE-OUR-PIN: {our_pin()}",
+            f"HANDSHAKE-PEER-PIN: {_fork_pin()}",
             "CONSUMER-CONTRACT: docs/cyanrip-consumer-contract.md @ <commit>",
         ]
     )

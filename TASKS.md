@@ -20,6 +20,47 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Bring the overnight run inside the app (maintainer, 2026-08-26)
+
+Standing instruction, given while the shell version was being written: *"we should
+plan for getting some of this internal, such as the compressed single file and
+keeping the sleep mode off ability."* `platterpusovernight.sh` ships now because
+tonight's run needs it, and every line of it is a line the app should own — the
+project's own rule is that a procedure handed back in prose is a symptom, and a
+shell wrapper is one step better than prose, not the destination.
+
+- [ ] **Inhibit sleep from inside a script run, for its duration.** Same
+      mechanism, different owner: take the systemd inhibitor lock when
+      `--run-script` starts and release it when the run ends, including on a
+      crash or a cancel. **The lock must not outlive the run** — that is the whole
+      reason `systemd-inhibit`'s child-lifetime model was chosen over a settings
+      change, and an in-process implementation has to reproduce it deliberately
+      rather than inherit it. Reach it as a **script verb** if it should be
+      per-script (`inhibit-sleep`), not a flag — `CLAUDE.md`'s *a new testing
+      capability is a SCRIPT VERB* — unless the right answer is that every
+      unattended run wants it, in which case it belongs to `--run-script` itself
+      and needs no surface at all. Decide which before writing it.
+- [ ] **Make the run's own bundle the ONE file.** The auto-bundle already exists
+      and already prints *"SEND THIS ONE FILE"*; it calls
+      `evidence_bundle.build_bundle()` **without `album_dir`**, which is the
+      parameter that admits a rip folder's files — so it carries the app log and
+      the script-run folder and **not one rip log, cue sheet, EAC log or `-j`
+      record**. That single omission is the entire reason
+      `platterpusmorning.sh` exists. Passing the run's rip folders would collapse
+      three collectors into the one the app already builds. **Every text artifact
+      from every rip folder, not the newest** — the acceptance run performs seven
+      rips and the one the handshake round is waiting on is not the last of them.
+      Audio never enters the bundle (Critical rule #8); the suffix allowlist and
+      the post-stage sweep in the shell collector are the behaviour to port.
+- [ ] **Write it to `~/Downloads`.** The folder a browser upload dialog opens in.
+      Fall back rather than `mkdir`: inventing the directory puts the file
+      somewhere the operator has no habit of looking.
+- [ ] **Retire `platterpusovernight.sh` and `platterpusmorning.sh` in the same
+      commit that lands the above** — including their rows in
+      `docs/rig-scripts/README.md`. Two routes to one bundle is two answers to
+      *"which file do I upload"*, which is the question this work exists to make
+      unambiguous.
+
 ## Round 14 lap 12, 2026-08-25 — a header that promised a stop it could not perform
 
 - [x] **`fullacceptance.txt` §A claimed it "stops you in the first four seconds"
@@ -2495,4 +2536,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.26.*
+*Last updated for Platterpus v0.6.28.*

@@ -11,6 +11,151 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.28] — 2026-08-26
+
+### Fixed
+- **The app's own install menu offered nothing that could satisfy the app's own
+  acceptance run.** `--install-ripper list` is built from `ripper_choices()`,
+  which offered the approved build and `FORK_TEST_PIN` — a constant last moved in
+  round **8** — while `fullacceptance.txt`'s first ripper assertion,
+  `expect-ripper-under-review`, keys on `PIN_UNDER_REVIEW`, moved every round and
+  now at round 14's `d9c058c`. Both constants were correct about themselves,
+  both sides' tests were green, and the defect lived strictly in the relation: an
+  operator following the menu would have had an unattended overnight run fail on
+  its first ripper assertion, hours from anyone noticing, with a disc already in
+  the drive. Read the two docstrings together and they describe *one* fact — *"a
+  build designated to gather the hardware evidence a close requires"* and *"the
+  build the rig is running"* — so the menu now offers the build under review as
+  its own labelled entry, and the relation is asserted directly (a property no
+  test of either side alone can express), with a floor asserting the acceptance
+  script still makes the claim that relation relies on, and a non-triviality
+  check that the reviewed build is offered as **not** approved.
+- **…and the obvious version of that fix was tried first and reverted, which is
+  the more useful half.** Reading the two docstrings together, `FORK_TEST_PIN`
+  and `PIN_UNDER_REVIEW` describe one sentence, so aliasing them looked like the
+  *one value, N readers* fix the rule prescribes. Five tests disagreed within one
+  run and two were reporting real damage, not stale fixtures: the approval detail
+  flipped to a branch reading *"a test pin is not a release and no round has
+  approved it"* — a **false sentence about a published release** — and the guard
+  that stops a rig being silently upgraded off the pin a round is reviewing went
+  from `not_determined` to `up_to_date`. **Round 14's reviewed pin IS a release
+  (`release_seq` 20); a test pin by definition is not.** Every previous test pin
+  was unnumbered, so nothing had ever exercised the difference — making the two
+  constants identical did not remove a distinction, it hid one. `CLAUDE.md`'s
+  *what does the code downstream do with answers it never used to receive?*, and
+  the narrower fix is what shipped.
+
+### Added
+- **`docs/rig-scripts/platterpusovernight.sh` — the overnight acceptance run is
+  one command.** It holds sleep, idle and lid-suspend off with `systemd-inhibit`
+  for the lifetime of the run, drives the acceptance script, and then runs the
+  collector automatically, so the morning is an upload rather than a second
+  command to remember. **It delegates and reimplements nothing** — the run is
+  still `--run-script fullacceptance.txt` and the collection is still
+  `platterpusmorning.sh`; a test asserts the wrapper builds no archive of its
+  own, because two bundlers means two answers to *"which file do I upload"*. The
+  lock covers the **collection as well as the rip**: a suspend part-way through
+  `tar` yields a truncated archive that still opens and still lists, with the
+  night's most important artifact missing off the end. `systemd-inhibit` rather
+  than a power-settings change because the lock dies with the child process —
+  nothing to undo, nothing left awake if the run dies at 3 a.m. A missing
+  inhibitor downgrades loudly instead of refusing.
+
+### Changed
+- **The morning bundle lands in `~/Downloads`**, the folder a browser upload
+  dialog opens in, instead of `$HOME`. Falls back to `$HOME` rather than
+  creating the directory — inventing one puts the file somewhere the operator
+  has no habit of looking, which is the same problem with an extra step — and
+  the *"SEND THIS ONE FILE"* line prints the real path either way, so the
+  fallback is visible rather than assumed.
+
+### Fixed
+- **`HANDSHAKE-OUR-PIN` named the cyanrip fork's commit, not ours, in nine sent
+  laps.** The field pairs with `HANDSHAKE-OUR-VERSION` and disambiguates *which
+  build* of a version string, so it is a commit in this repository; we declared
+  `ddf7ac3`, which is the fork's `0.9.4-rc1+platterpus.5` and belongs in
+  `HANDSHAKE-PIN` (where it also, correctly, was). Found by the fork, round 14
+  lap 17 §H2a. **The value was a symptom: the field naming *them* has been read
+  from `deps/fork_source.py` since it was written and cannot drift, while the
+  field naming *us* had no source and was filled by copying the previous lap.**
+  Fixed at the generator — `scripts/handshake.py` gains `our_pin()`, which
+  pickaxes the version literal in `src/platterpus/__init__.py` and raises rather
+  than guessing, and `--emit` now writes the field. Sent laps are exempt on a
+  ratchet with the reason written at the list: they have left the repository and
+  the peer has filed them, so editing them would make the two records disagree,
+  which is exactly what the round digest exists to detect — the correction is
+  made forward, where the peer can see it.
+- **The peer's round-14 lap 16 was never delivered to us**, so our records
+  differed from theirs for three laps and the round digest could only report
+  *that*, never *how*. Recovered and filed; the digest now re-derives their
+  declared `ed6eaf36eee45f08 over 19` exactly, from two independent
+  implementations — the first match of the round. Found by adopting their
+  per-lap holdings enumeration, on its first use.
+
+### Added
+- `docs/OWNERSHIP.md`, the fourth file shared byte-identical with the cyanrip
+  fork and owned by neither project, wired into the `HANDSHAKE-SHARED-HASHES`
+  comparison so a unilateral edit on either side fails the lap.
+- Two tests guarding the pin fields: one holds every new lap to "`OUR-PIN`
+  resolves here, `PEER-PIN` does not", counted **per field** so the exempt
+  `OUR-PIN`s cannot pass on the strength of the never-exempt `PEER-PIN`s; one
+  holds the exemption list itself to being a ratchet, failing on an entry whose
+  file is gone or whose defect is already fixed.
+
+## [0.6.27] — 2026-08-26
+
+### Fixed
+- **The acceptance script only worked on a machine that had never run it.** Every
+  album name was a fixed string plus `(ripper)`, so a second run against the same
+  build produced the same folders and the app — correctly — raised *"Album already
+  ripped"* over each one. The file answers that prompt in exactly **one** of its
+  eight `rip` steps (§H, deliberately, to exercise it), so on a re-run the other
+  seven were refused behind an unanswered modal. That cost the 2026-08-25 run
+  **sixteen of its seventeen failures and the whole of T1** — the one thing the
+  open handshake round is waiting for. Fixed with a `(run)` placeholder expanding
+  to the run's own timestamp, so re-runs never collide. **`answer-dialog` after
+  every rip was the obvious repair and is wrong**: it FAILS when the dialog does
+  not appear, so it would break the first run on a clean library — trading one
+  broken case for the other. Uniqueness removes the collision instead of answering
+  it, and §F/§H still name the same album so the deliberate collision survives.
+  The stamp is compact and alphanumeric because the raw ISO `started_at` carries
+  `:` and `+`, which the album sanitiser renders as U+2236.
+- **The rig harness advertised a superseded `-x` measurement as current.** Its note
+  cited *"32 sectors, 73.5 KiB, 2026-08-19"*; the 2026-08-25 run reports **at least
+  2048**. Both are right about their own moment and neither bounds the drive's
+  cache — the first stopped on a failed 64-sector read (a device queue limit), the
+  second on **our own** `PROBE_MAX_SECTORS` ceiling. Now states both, with why each
+  stopped. Raised by the cyanrip fork as round-14 lap 15 J2.
+
+### Added
+- **The rig harness now answers the questions instead of asking the operator to
+  read scrollback.** Three things it did not do: it recorded each step's exit code
+  but **not its duration** — and "did step 5b take fifteen seconds or thirty-one
+  minutes?" is the entire C1 question, so the one number the investigation needed
+  had to be eyeballed out of a terminal and relayed by hand. It ran the no-offset
+  refusal *only* with `-j -D -o -u`, so a slow run could not be told apart from a
+  slow refusal path. And its findings were spread through a 5 KB chronological log
+  with seventeen sections. Now: every step records `elapsed:`, a **bare
+  `cyanrip -N -l 1` control step** runs immediately before the `-j` one so the two
+  form a controlled pair, and a short `00-diagnosis.txt` states the versions, a
+  **named C1 verdict** (`NOT DETERMINED` / `DID NOT REPRODUCE` / `REPRODUCED, AND
+  NARROWED` / `REPRODUCED, NOT NARROWED`), the capture-integrity check and the
+  per-step table — echoed to the terminal at the end so nothing has to be opened.
+  Prompted by the operator: *"the questions you asked me i cannot see easily…
+  they might be in there, but not visible to me readily."* Every "now go and read
+  this" in a procedure is a thing the software was supposed to do.
+
+### Fixed
+- **The acceptance script asserted an empty screen that cannot exist.** With a
+  disc in the drive — a precondition of the whole run — the app identifies it at
+  launch and opens the release picker *by itself*, before the script reaches its
+  dialog section. `fullacceptance.txt` then ran `expect-dialog none` at the end of
+  that section and the picker was reported, correctly, as a failure: *"a dialog is
+  open: 'Pick a MusicBrainz release'"*. The assertion was true and the
+  expectation was wrong. Moved to just after `pick-release`, where it says
+  something real — the picker we answered is gone and nothing was left behind it.
+  Measured on the 2026-08-25 run 3.
+
 ## [0.6.26] — 2026-08-25
 
 ### Added
@@ -8685,7 +8830,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.24.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.27.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -10927,7 +11072,9 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.26...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.28...HEAD
+[0.6.28]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.27...v0.6.28
+[0.6.27]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.26...v0.6.27
 [0.6.26]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.25...v0.6.26
 [0.6.25]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.24...v0.6.25
 [0.6.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.23...v0.6.24
@@ -11041,4 +11188,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.26.*
+*Last updated for Platterpus v0.6.28.*

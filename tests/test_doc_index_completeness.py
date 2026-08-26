@@ -316,6 +316,18 @@ _DELIBERATELY_ABSENT: dict[str, str] = {
     "definitely-not-here.md": "the absent half of "
     "test_the_live_pointer_sweep_catches_a_dead_link_in_code, which proves this "
     "sweep can fail at all",
+    # **A shared file's internal paths are the fork's layout, and we may not edit
+    # them.** `docs/OWNERSHIP.md` is byte-identical in both repositories and owned
+    # by neither, so its hash is compared on every lap; repointing this mention at
+    # our own spelling would break the byte-identity the file exists to have. The
+    # document it names is real and we hold it — at `docs/handshake-protocol.md`,
+    # flat, where the fork keeps it at `docs/handshake/PROTOCOL.md`. Raised with
+    # them in round 14 lap 18: a shared file naming a path that resolves in only
+    # one of the two repositories is a small defect in the shared file, and the
+    # fix is theirs and ours jointly, not a unilateral edit here.
+    "handshake/PROTOCOL.md": "the cyanrip fork's path for the shared protocol "
+    "document, named inside the byte-identical docs/OWNERSHIP.md; ours is at "
+    "docs/handshake-protocol.md and the shared file must not be edited to say so",
 }
 
 
