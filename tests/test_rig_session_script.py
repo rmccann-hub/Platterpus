@@ -322,3 +322,40 @@ def test_every_step_records_a_duration_not_just_an_exit_code() -> None:
         "the bare offset refusal control step is gone, so a slow -j run cannot be "
         "distinguished from a slow refusal path — the whole point of the pair"
     )
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash not available")
+def test_the_harness_emits_no_shell_arithmetic_errors(tmp_path: Path) -> None:
+    """A `[: 0\\n0: integer expected` on a rig session is a bug, not noise.
+
+    `grep -c` PRINTS "0" and EXITS 1 when it matches nothing, so the idiom
+    `x=$(grep -c ... || echo 0)` yields the two-line string "0\\n0" — and the
+    numeric test that follows rejects it. Seen on the 2026-08-25 session. It was
+    harmless *by luck*: the failed comparison fell through to the same branch the
+    correct value would have taken, so the conclusion printed was right and the
+    bug was visible only as a stderr line in the middle of an operator's console.
+
+    Scoped to shell *arithmetic and test* errors, which are always defects, rather
+    than to "any stderr". This fixture deliberately runs with no binaries present,
+    so `command not found` is expected output here and must not fail the test —
+    matching on it would make this a false-failure machine.
+    """
+    _rc, _out, output = _run(tmp_path)
+    # MATCHED AS A PAIR, NOT AS A FIXED STRING, and that is the whole lesson of
+    # this test's first version. It looked for the literal "integer expected" —
+    # which is what bash prints on the rig — while the bash in CI prints "integer
+    # *expression* expected". The substring never matched, so the test passed
+    # against the very bug it was written for, and only `revert_probe` caught it.
+    # A stand-in that words its errors differently from the real thing is the
+    # harness-fidelity trap (`CLAUDE.md`), arriving through a locale string.
+    subjects = ("integer", "unary operator", "binary operator")
+    offenders = [
+        line
+        for line in output.splitlines()
+        if "expected" in line and any(s in line for s in subjects)
+    ]
+    assert not offenders, (
+        "the harness emitted shell test/arithmetic errors, which means a variable "
+        "held something other than the number it was assumed to hold:\n"
+        + "\n".join(offenders[:10])
+    )

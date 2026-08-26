@@ -1126,7 +1126,12 @@ def test_the_envelope_splits_back_into_byte_identical_parts(
     )
     for part in envelope.PARTS:
         assert recovered[part.name] == part.read_bytes(), (
-            f"{part.name} does not survive the round trip byte-for-byte"
+            f"{part.name} does not survive the round trip byte-for-byte — the "
+            "envelope is STALE against the file it carries. Regenerate it:\n"
+            "    python3 scripts/emit_envelope.py\n"
+            "This has now gone stale three times in one session, every time by "
+            "editing a carried file and rediscovering it here. The message names "
+            "the command so the next reader does not have to derive it."
         )
 
 

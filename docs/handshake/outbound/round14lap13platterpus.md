@@ -22,7 +22,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 | --- | --- | --- |
 | `round-14-lap-13.md` | 7,967 | `eecafaf7057e5c55…` |
 | `round-14-lap-12.md` | 16,178 | `e7343272f72caf81…` |
-| `fullacceptance.txt` | 33,271 | `59d9ba39189231ab…` |
+| `fullacceptance.txt` | 34,093 | `fb179fc5d59a30bd…` |
 
 ## Reader
 
@@ -521,7 +521,7 @@ wrong binary. That was the sentence you relayed, and it is finally true.
 that is ours.** §A4 of our lap 10 binds us as you accepted it.
 <<<<<<<<<< END round-14-lap-12.md >>>>>>>>>>
 
-<<<<<<<<<< BEGIN fullacceptance.txt sha256=59d9ba39189231ab5274668e1e35799c2f837b65e4e764a3ec48006bcadafe70 >>>>>>>>>>
+<<<<<<<<<< BEGIN fullacceptance.txt sha256=fb179fc5d59a30bd87ace35f7f4f838f8af7f9dae5a5475312622f322aaa8abb >>>>>>>>>>
 # =============================================================================
 # FULL ACCEPTANCE RUN — end to end, every path the program has, one pass
 # =============================================================================
@@ -535,6 +535,18 @@ that is ours.** §A4 of our lap 10 binds us as you accepted it.
 # NOTHING IN THIS FILE NEEDS EDITING. No album name, no track count, no path,
 # and — as of this version — no cyanrip build tag either. Put any ordinary
 # audio CD in the drive, start it, and go to bed.
+#
+# AND IT IS RE-RUNNABLE, which it was not before. Every `album` line carries
+# `(run)`, expanding to this run's own timestamp, so a second run never lands on
+# the first run's folders. Before that, a re-run raised "Album already ripped"
+# on every rip; the file answers that prompt in exactly ONE place (§H, on
+# purpose), so the other seven rips were refused behind an unanswered modal and
+# the 2026-08-25 attempt lost sixteen of its seventeen failures — and all of T1 —
+# to it. **You no longer need to move the previous run's output aside.**
+#
+# §F and §H still name the SAME album deliberately: §H exists to raise that
+# prompt and answer it with `click=new`, and `(run)` is stable within one run so
+# that collision still happens exactly where it is wanted.
 #
 # -----------------------------------------------------------------------------
 # BEFORE YOU START — two things, and only two
@@ -826,7 +838,7 @@ set verify_flac_after_rip on
 set write_eac_log_after_rip on
 expect write_eac_log_after_rip on
 select-tracks all
-album full acceptance: angle<bracket (ripper)
+album full acceptance: angle<bracket (run) (ripper)
 album-artist Platterpus Acceptance
 rip
 wait-for-rip 10800
@@ -877,7 +889,7 @@ snapshot afterrigcheck
 
 log --- H. re-rip the same title: the overwrite prompt must fire ---
 select-tracks 1-2
-album full acceptance: angle<bracket (ripper)
+album full acceptance: angle<bracket (run) (ripper)
 rip
 answer-dialog click=new 120 Album already ripped
 wait-for-rip 3600
@@ -902,7 +914,7 @@ screenshot afteroverwrite
 
 log --- I. cancel a rip in flight ---
 select-tracks 1-3
-album cancel me (ripper)
+album cancel me (run) (ripper)
 rip
 log reading for 90s so the cancel lands mid-track
 wait 90
@@ -933,7 +945,7 @@ rescan
 pick-release 1 120
 expect-tracks 2+
 select-tracks 1-2
-album after cancel (ripper)
+album after cancel (run) (ripper)
 rip
 wait-for-rip 3600
 snapshot afterrecovery
@@ -968,7 +980,7 @@ expect output_format mp3
 set mp3_vbr_quality 2
 expect mp3_vbr_quality 2
 select-tracks 1-2
-album derived mp3 (ripper)
+album derived mp3 (run) (ripper)
 rip
 wait-for-rip 3600
 snapshot aftermp3
@@ -979,7 +991,7 @@ log --- K2. WavPack: the second lossless format ---
 set output_format wavpack
 expect output_format wavpack
 select-tracks 1-2
-album derived wavpack (ripper)
+album derived wavpack (run) (ripper)
 rip
 wait-for-rip 3600
 snapshot afterwavpack
@@ -989,7 +1001,7 @@ log --- K3. WAV: raw PCM, no tags, no art - the UI must say so ---
 set output_format wav
 expect output_format wav
 select-tracks 1-2
-album derived wav (ripper)
+album derived wav (run) (ripper)
 rip
 wait-for-rip 3600
 snapshot afterwav
@@ -1082,7 +1094,7 @@ rescan
 pick-release 1 120
 expect-tracks 2+
 select-tracks all
-album secure reread (ripper)
+album secure reread (run) (ripper)
 rip
 wait-for-rip 21600
 snapshot aftersecurereread
