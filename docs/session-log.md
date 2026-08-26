@@ -11,6 +11,71 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-26 — one fact in two slots, twice, and the second one would have cost the night
+
+**Round 14 laps 17 → 18, and v0.6.28.** The fork's lap 17 §H2a found that
+`HANDSHAKE-OUR-PIN` had named *their* commit (`ddf7ac3`) in **nine** of our sent
+laps. Confirmed in one command — `git cat-file -t ddf7ac3` → *"Not a valid object
+name"* — and the correction is the small part. **The value was a symptom of an
+asymmetry:** the field naming *them* has been read from `deps/fork_source.py`
+since it was written and cannot drift; the field naming *us* had no source and was
+filled by copying the previous lap. One of two adjacent fields was generated and
+one transcribed, and only the transcribed one was ever wrong. So the fix is
+`our_pin()` and an emitter that writes the field, not a corrected string.
+
+**Sent laps are exempt on a ratchet, and the exemption is itself checked.** They
+have left this repository and the fork has filed them; editing them would make the
+two records disagree, which is what the round digest exists to detect. Two guards,
+both of a shape this file keeps re-learning: the enforcement count is kept **per
+field**, because `PEER-PIN` is never exempt and a combined counter would have sat
+comfortably above zero while every `OUR-PIN` in the repo was allowlisted — the rule
+that broke passing on the strength of the one that did not. That floor **failed on
+its first run**, correctly, until lap 18 gave it a subject. The second guard fails
+on an allowlist entry whose file is gone or whose defect is already fixed, so the
+ratchet can only turn one way.
+
+**Their lap 16 had never reached us.** Their §2a per-lap holdings enumeration named
+it on its first use: we diffed their `lap:sender` block against ours, one entry
+differed, and it said which. Recovered from a flat path in their repo (which is why
+probing our mirror of their `outbound/` layout had 404'd) and filed — and then the
+round digest **matched exactly**, `ed6eaf36eee45f08 over 19`, two independently
+written implementations, first time this round. That is the thing the digest was
+for, and it could not say it while the difference was real: a hash reports *that*
+two records differ and never *how*.
+
+**Then the same shape again, in the product, in the path of tonight's run.**
+Asking *which build does the acceptance script install?* found that
+`--install-ripper list` offered `ddf7ac3` and `cb440bd` — round **8**'s test pin —
+while `fullacceptance.txt`'s first ripper assertion keys on `PIN_UNDER_REVIEW`,
+round **14**'s `d9c058c`. **The app's own menu offered nothing that could satisfy
+the app's own acceptance gate.** Both constants were correct about themselves,
+both sides' tests green, the defect strictly in the relation — `CLAUDE.md`'s *do
+two surfaces answer this question, and do they use the same key?*, found by asking
+it rather than by anything failing. An operator following the menu would have had
+an unattended overnight run die on its first ripper assertion, hours from anyone
+noticing, disc already in the drive. Read the two docstrings together and they are
+one sentence, so `FORK_TEST_PIN` is now an alias of `PIN_UNDER_REVIEW`, and the
+relation is asserted directly with a floor on the script still making the claim it
+relies on. Revert-proved.
+
+**And the operator's night stopped being three commands.** `platterpusovernight.sh`
+holds sleep/idle/lid off with `systemd-inhibit` — a lock that dies with the child
+process, so there is nothing to undo and nothing left awake if the run dies at
+3 a.m. — drives the acceptance script, then runs the collector. It delegates and
+reimplements nothing; a test asserts it builds no archive of its own, because two
+bundlers means two answers to *"which file do I upload"*. **The lock covers the
+collection as well as the rip**, which is not belt-and-braces: an archive
+interrupted mid-`tar` still opens and still lists, with the night's most important
+artifact missing off the end. The bundle now lands in `~/Downloads`.
+
+**Corrected in flight:** `scripts/check.py` reported `tests FAIL` while a summary
+line read *"4634 passed"*, and the first reading was that check.py was wrong. It
+was not — the same log's line 202 said **3 failed**, and the grep that missed it was
+mine. All three were the in-flight work (the pin floor with no subject yet, and the
+new shared file absent from the doc index). *Read the tool's exit code, not your
+own summary of its output* — the rule already in `CLAUDE.md`, arriving through the
+reader rather than the pipeline.
+
 ## 2026-08-25 (later) — a header that promised a stop it could not perform
 
 **Round 14 lap 11 → 12.** The fork's lap 11 asked one question they wanted answered

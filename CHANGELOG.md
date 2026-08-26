@@ -13,6 +13,29 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [0.6.28] — 2026-08-26
 
+### Fixed
+- **The app's own install menu offered nothing that could satisfy the app's own
+  acceptance run.** `--install-ripper list` is built from `ripper_choices()`,
+  which offered the approved build and `FORK_TEST_PIN` — a constant last moved in
+  round **8** — while `fullacceptance.txt`'s first ripper assertion,
+  `expect-ripper-under-review`, keys on `PIN_UNDER_REVIEW`, moved every round and
+  now at round 14's `d9c058c`. Both constants were correct about themselves,
+  both sides' tests were green, and the defect lived strictly in the relation: an
+  operator following the menu would have had an unattended overnight run fail on
+  its first ripper assertion, hours from anyone noticing, with a disc already in
+  the drive. Read the two docstrings together and they describe *one* fact — *"a
+  build designated to gather the hardware evidence a close requires"* and *"the
+  build the rig is running"* — so `FORK_TEST_PIN` is now an alias of
+  `PIN_UNDER_REVIEW`: one value, N readers, per `CLAUDE.md`'s *do two surfaces
+  answer this question, and do they use the same key?* The relation is now
+  asserted directly (a property no test of either side alone can express), with a
+  floor asserting the acceptance script still makes the claim the relation relies
+  on, and a non-triviality check that the reviewed build is offered as **not**
+  approved — round 14's pin is a release, which is exactly the case where *"it is
+  published"* could be misread as *"a round approved it"*. `cb440bd` moves to
+  `SUPERSEDED_TEST_PINS` so a rig that already built it still receives
+  `--consumer`.
+
 ### Added
 - **`docs/rig-scripts/platterpusovernight.sh` — the overnight acceptance run is
   one command.** It holds sleep, idle and lid-suspend off with `systemd-inhibit`
