@@ -470,12 +470,44 @@ PIN_UNDER_REVIEW: Final[str] = "d9c058c"
 #: *publication* of it did not happen. Named here so the value is reachable from code
 #: while their manifest catches up — which is exactly the fallback a machine-readable
 #: channel is supposed to remove the need for, and is worth one line back to them.
-FORK_TEST_PIN: Final[str] = "cb440bd"
-FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.6-beta.1"
+#: **ALIASED TO :data:`PIN_UNDER_REVIEW` on 2026-08-26, because they are one fact
+#: in two slots and only one of them was moving.**
+#:
+#: Read the two docstrings together: this one says *"a build designated to gather
+#: the hardware evidence a close requires"*, and `PIN_UNDER_REVIEW` says *"the
+#: build the rig is running"* for the open round. That is the same sentence. But
+#: `PIN_UNDER_REVIEW` was moved every round and this constant was last touched in
+#: round **8**, so by round 14 the two named different builds — and the two
+#: surfaces that read them had drifted apart with no test comparing them:
+#:
+#:   * `ripper_choices()` — the `--install-ripper list` menu — offered
+#:     `ddf7ac3` (approved) and `cb440bd` (the round-**8** test pin);
+#:   * `fullacceptance.txt` asserts `expect-ripper-under-review`, which keys on
+#:     `PIN_UNDER_REVIEW` (`d9c058c`, round 14).
+#:
+#: **So the app's own menu offered nothing that could satisfy the app's own
+#: acceptance gate.** An operator following the menu would have had the overnight
+#: run fail on its first ripper assertion, on a machine with a disc already in
+#: the drive — the exact "two surfaces answer one question with different keys"
+#: shape `CLAUDE.md` names, found by asking which build tonight's run installs.
+#:
+#: The fix is the one that rule prescribes: **one value, N readers**, so the menu
+#: and the gate cannot disagree again. `test_the_install_menu_offers_the_build_
+#: the_acceptance_gate_demands` asserts the relation, which is a property no test
+#: of either side alone can express.
+#:
+#: History of the constant this replaces is kept above and `cb440bd` moves to
+#: :data:`SUPERSEDED_TEST_PINS`, so a rig that already built it still receives
+#: ``--consumer``.
+FORK_TEST_PIN: Final[str] = PIN_UNDER_REVIEW
+#: Their `0.9.4-rc2+platterpus.10`, read off the fork's own
+#: `HANDSHAKE-RIPPER-VERSION` in round 14 laps 16 and 17 — from the artifact,
+#: not from memory of it.
+FORK_TEST_VERSION: Final[str] = "0.9.4-rc2+platterpus.10"
 #: Which round nominated it. Stated rather than derived from the approved round + 1:
 #: a test pin belongs to *a* round, and arithmetic on the approved round is only
 #: accidentally right — it breaks the first time two rounds pass without a close.
-FORK_TEST_PIN_ROUND: Final[int] = 8
+FORK_TEST_PIN_ROUND: Final[int] = 14
 FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 
 #: Test pins this round has already retired. Listed **only** so a rig that built one
@@ -490,6 +522,11 @@ FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 #: still have built: it was the pin for thirteen laps and it is what the 2026-08-04 rig
 #: session actually ran, so every artifact we hold from real hardware came from it.
 SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = (
+    # Round 8's test pin, retired 2026-08-26 when this constant was aliased to
+    # `PIN_UNDER_REVIEW`. It had remained the app's *offered* test build for six
+    # rounds after round 8 ended — see the note on `FORK_TEST_PIN`. Listed here
+    # for the usual reason: a rig that built it must still receive `--consumer`.
+    "cb440bd",
     # Retired when round 8 opened with `cb440bd`. `104f6d4` was round SEVEN's final test
     # pin (beta.8) and round 7 CLOSED at lap 39 with a mutual GO, so a rig still holding
     # it is not merely stale — it is gathering evidence for a round that is over.

@@ -403,3 +403,71 @@ def test_the_morning_bundle_lands_where_the_operator_looks() -> None:
     assert "SEND THIS ONE FILE" in MORNING.read_text(encoding="utf-8"), (
         "the operator must be told the real path, so the fallback is visible"
     )
+
+
+def test_the_install_menu_offers_the_build_the_acceptance_gate_demands() -> None:
+    """The relation neither side's own tests can express.
+
+    `ripper_choices()` is what `--install-ripper list` prints — the builds the app
+    tells an operator it can install. `fullacceptance.txt` asserts
+    `expect-ripper-under-review`, which keys on `PIN_UNDER_REVIEW`. Both were
+    correct about themselves and their tests were green, and the defect lived
+    strictly in the relation: the menu offered the round-**8** test pin while the
+    gate demanded round **14**'s, so an operator following the app's own menu
+    would have had the overnight run fail on its first ripper assertion — with a
+    disc already in the drive, hours from anyone noticing.
+
+    Exactly the shape `CLAUDE.md` names: *"do two surfaces answer this question,
+    and do they use the same key?"* They now read one constant, and this asserts
+    it, because a shared value with nothing comparing the readers is how the
+    previous pair drifted for six rounds.
+    """
+    from platterpus.deps import fork_source  # noqa: PLC0415
+
+    offered = {c.pin for c in fork_source.ripper_choices()}
+    assert offered, "the install menu is empty — nothing could be offered"
+
+    demanded = fork_source.PIN_UNDER_REVIEW
+    assert any(fork_source.same_commit(pin, demanded) for pin in offered), (
+        f"--install-ripper list offers {sorted(offered)}, none of which is the "
+        f"build under review ({demanded}) that fullacceptance.txt's "
+        "`expect-ripper-under-review` requires. An operator following the menu "
+        "cannot pass the acceptance run."
+    )
+
+    # Non-triviality, and it is the half that matters: the assertion above also
+    # passes if the menu offers EVERY commit it can think of. What makes the menu
+    # trustworthy is that a build under review is labelled as such rather than as
+    # approved — the round-14 pin is a release, which is precisely the case where
+    # "it is published" could be mistaken for "a round approved it".
+    under_review = [
+        c
+        for c in fork_source.ripper_choices()
+        if fork_source.same_commit(c.pin, demanded)
+    ]
+    assert len(under_review) == 1, (
+        f"expected one entry for {demanded}, got {under_review}"
+    )
+    assert not under_review[0].is_approved, (
+        "the build under review is offered as APPROVED. No round has approved it "
+        "— round 14 is the round that would, and it is open."
+    )
+
+
+def test_the_acceptance_script_asserts_the_build_it_was_written_for() -> None:
+    """A floor on the test above: it is worthless if the script stopped asserting.
+
+    `test_the_install_menu_offers_the_build_the_acceptance_gate_demands` compares
+    the menu against `PIN_UNDER_REVIEW` on the strength of the acceptance script
+    keying on it. If that step were dropped, the comparison would still pass and
+    would be checking a relation nothing relies on — the "satisfied by finding
+    nothing" shape, one level up.
+    """
+    text = (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8")
+    steps = [
+        line.strip() for line in text.splitlines() if not line.lstrip().startswith("#")
+    ]
+    assert "expect-ripper-under-review" in steps, (
+        "fullacceptance.txt no longer asserts which build it ran against, so the "
+        "menu/gate relation test above is checking nothing"
+    )
