@@ -2203,6 +2203,64 @@ nothing.
 `partial`, because an unrecognised verdict is not a pass. `person` and `machine`
 are free text, and only their *distinctness* is counted.
 
+### Acceptance severity — which failures block a version, and which do not
+
+**Maintainer ruling, 2026-08-26.** The `0.7.100` gate is *"error free"*, and that
+was sharpened to mean something precise:
+
+> *"If there is something minor like a window size was wrong, then ignore. But
+> critical passing tests for cd accuracy and provenance, etc, for archive level
+> records, if all those pass fine. Difference between not working as intended and
+> not actually doing the job you were built for."*
+
+So the bar is **zero failures in `ARCHIVAL` sections.** `UX` failures are
+recorded, triaged and non-blocking.
+
+**The one property that makes this safe: severity is a property of the SECTION,
+fixed here in advance — never a judgement made about a failure after seeing it.**
+*"The five failures were each understood"* is the exact sentence 2026-08-19
+disproved, when all five descended from one unknown defect; a severity assigned at
+results time is that sentence wearing a better hat. Classify before the disc goes
+in, or the classification is worthless.
+
+**And a `UX` failure is non-blocking only while it is its own defect.** If it
+shares a root cause with an `ARCHIVAL` one, it is archival. That keeps the
+2026-08-19 lesson instead of trading it away — the 2026-08-26 run is the worked
+example, where seven failures across four sections were **one** duplicate-picker
+defect, and two of those sections are archival.
+
+<!-- ACCEPTANCE-SEVERITY-TABLE: swept by tests/test_rig_scripts.py -->
+
+| section | severity | why |
+|---|---|---|
+| A | ARCHIVAL | which binary produced the artifact — provenance, by definition |
+| B | ARCHIVAL | settings reach cyanrip's argv; a nudged read offset rips the next disc wrong with a clean-looking log |
+| C | ARCHIVAL | a guard that fails to refuse writes bad data |
+| D | UX | dialogs open and close; annoying when wrong, not a claim about a disc |
+| E | ARCHIVAL | wrong release → wrong tags → a wrong archival record |
+| F | ARCHIVAL | the rip itself |
+| G | ARCHIVAL | the seam check and the rip's own log — the log *is* the provenance record |
+| H | ARCHIVAL | the overwrite prompt; missing the collision destroys a finished master |
+| I | ARCHIVAL | cancel; the defect this exists for destroyed the log's completion footer |
+| J | ARCHIVAL | identify and rip again after a cancel — a rip, and a drive-state proof |
+| K1 | UX | MP3 is lossy by design and explicitly "not for that use"; the FLAC master is unaffected |
+| K2 | ARCHIVAL | WavPack is lossless — a second archival-grade output |
+| K3 | UX | WAV is raw PCM with no tags or art, and the UI says so |
+| K4 | ARCHIVAL | back to FLAC, the archival master |
+| L | UX | goal presets are a convenience over settings each of which is checked in B |
+| M | UX | naming templates — where a file lands, not whether its bytes are right |
+| N | ARCHIVAL | T1, the whole-disc uniform secure re-read: the accuracy claim itself |
+| P | ARCHIVAL | the cache probe feeds the accuracy model |
+| P2 | ARCHIVAL | C1 — a refusal that hangs the drive costs the disc |
+| Q | UX | restoring settings the run changed; hygiene for the *next* run |
+
+<!-- END-ACCEPTANCE-SEVERITY-TABLE -->
+
+**14 ARCHIVAL, 6 UX.** The table is swept: every `log --- ` section in
+`fullacceptance.txt` must appear, so a **new** section has to be classified
+rather than defaulting to ignorable — the direction that fails safe is the one
+that makes you decide.
+
 <!-- FIELD-EVIDENCE-TABLE: parsed by tests/test_no_stale_version_claims.py -->
 
 | date | version | person | machine | distro | result |

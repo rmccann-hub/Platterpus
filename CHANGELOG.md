@@ -11,6 +11,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **The `0.7.100` gate is now about what a failure MEANS, not how many there
+  are** (maintainer ruling, 2026-08-26): *"if there is something minor like a
+  window size was wrong, then ignore. But critical passing tests for cd accuracy
+  and provenance, etc, for archive level records, if all those pass fine.
+  Difference between not working as intended and not actually doing the job you
+  were built for."* The bar is **zero failures in the ARCHIVAL sections**, with
+  UX failures recorded, triaged and non-blocking — and *"it might take 1 more
+  test, it might take 10, i dont care."* **The safety of this rests entirely on
+  severity being a property of the SECTION, declared before the run** — a
+  severity assigned after seeing a failure is *"the five failures were each
+  understood"*, which 2026-08-19 disproved when all five descended from one
+  unknown defect. So the 20 acceptance sections are classified in advance in
+  `docs/testing.md` → *Acceptance severity* (14 ARCHIVAL, 6 UX), and
+  `tests/test_rig_scripts.py` derives the population from the script so a **new**
+  section must be classified rather than defaulting to ignorable. A UX failure is
+  non-blocking only while it is its own defect: sharing a root cause with an
+  archival one makes it archival — which the 2026-08-26 run demonstrates, where
+  seven failures across four sections were one defect and two of those sections
+  are archival. Revert-proved: deleting a section's row fails the sweep.
+
 ### Fixed
 - **One disc, two MusicBrainz lookups, two modal pickers — and the second one
   blocked an unattended overnight run for 53.5 seconds until a person clicked

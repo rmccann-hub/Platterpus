@@ -471,3 +471,83 @@ def test_the_acceptance_script_asserts_the_build_it_was_written_for() -> None:
         "fullacceptance.txt no longer asserts which build it ran against, so the "
         "menu/gate relation test above is checking nothing"
     )
+
+
+# --- Acceptance severity: which failures block a version ---------------------
+
+_SEVERITY_START = "<!-- ACCEPTANCE-SEVERITY-TABLE:"
+_SEVERITY_END = "<!-- END-ACCEPTANCE-SEVERITY-TABLE -->"
+
+
+def _declared_severities() -> dict[str, str]:
+    """The per-section severity table from `docs/testing.md`, as a dict."""
+    doc = (RIG_SCRIPTS.parent / "testing.md").read_text(encoding="utf-8")
+    assert _SEVERITY_START in doc and _SEVERITY_END in doc, (
+        "the acceptance-severity table markers are gone from docs/testing.md — "
+        "either it was deleted or renamed, and this sweep now checks nothing"
+    )
+    block = doc.split(_SEVERITY_START, 1)[1].split(_SEVERITY_END, 1)[0]
+    out: dict[str, str] = {}
+    for line in block.splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) >= 2 and cells[1] in {"ARCHIVAL", "UX"}:
+            out[cells[0]] = cells[1]
+    return out
+
+
+def _script_sections() -> list[str]:
+    """Section letters derived from the script, not typed here."""
+    text = (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8")
+    found: list[str] = []
+    for line in text.splitlines():
+        m = re.match(r"^log --- ([A-Z][0-9]*)\.\s", line)
+        if m:
+            found.append(m.group(1))
+    return found
+
+
+def test_every_acceptance_section_is_classified_in_advance() -> None:
+    """A new section must be classified, not default to ignorable.
+
+    **The maintainer's 2026-08-26 ruling makes severity load-bearing**: `0.7.100`
+    needs zero failures in the ARCHIVAL sections, and UX failures are recorded but
+    non-blocking. That is only safe while severity is a property of the *section*,
+    fixed before the run — a severity decided after seeing a failure is *"the five
+    failures were each understood"*, which 2026-08-19 disproved when all five
+    descended from one unknown defect.
+
+    So the population is derived from the script and every member must appear in
+    the table. An unclassified section is a FAILURE rather than an implicit UX,
+    because the direction that fails safe is the one that makes you decide.
+    """
+    declared = _declared_severities()
+    sections = _script_sections()
+
+    assert len(sections) >= 15, (
+        f"only {len(sections)} sections parsed out of fullacceptance.txt — if the "
+        "`log --- X.` shape changed, this sweep is checking almost nothing"
+    )
+    assert len(declared) >= 15, f"only {len(declared)} severities declared"
+
+    missing = [s for s in sections if s not in declared]
+    assert not missing, (
+        f"acceptance sections with no declared severity: {missing}. Classify each "
+        "in docs/testing.md → 'Acceptance severity' BEFORE it runs. An "
+        "unclassified section cannot be graded, and deciding after the fact is the "
+        "thing the ruling forbids."
+    )
+
+    stale = [s for s in declared if s not in sections]
+    assert not stale, (
+        f"severities declared for sections that no longer exist: {stale}. A table "
+        "that outlives its subject is the invisible-decay shape — remove them."
+    )
+
+    # NON-TRIVIALITY: a table where everything is UX would satisfy every assertion
+    # above and grade nothing. The archival set is the point of the table.
+    archival = [s for s, v in declared.items() if v == "ARCHIVAL"]
+    assert len(archival) >= 10, (
+        f"only {len(archival)} sections are ARCHIVAL ({sorted(archival)}). The "
+        "gate is 'zero failures in the archival sections'; if almost nothing is "
+        "archival, the gate passes by classifying rather than by working."
+    )
