@@ -68,8 +68,22 @@ set -euo pipefail
 # test is false, which under `-e` aborts the script on a *non*-event.
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+# The staging tree stays in $HOME; only the ONE archive lands where the operator
+# looks for it. Maintainer's instruction, 2026-08-26: the single file goes to
+# ~/Downloads, because that is the folder a browser upload dialog opens in and
+# hunting for it in $HOME is work handed back.
+#
+# Falls back to $HOME rather than creating the directory: on a machine without a
+# Downloads folder, silently inventing one puts the file somewhere the operator
+# has no habit of looking, which is the same problem with an extra step. The
+# "SEND THIS ONE FILE" line prints the real path either way, so the fallback is
+# visible rather than assumed.
 OUT="${HOME}/platterpusmorning${STAMP}"
-ARCHIVE="${OUT}.tar.gz"
+if [ -d "${HOME}/Downloads" ]; then
+  ARCHIVE="${HOME}/Downloads/platterpusmorning${STAMP}.tar.gz"
+else
+  ARCHIVE="${OUT}.tar.gz"
+fi
 
 # The eight suffixes the app's own bundler admits, plus .png for screenshots.
 # Copied from `evidence_bundle.ALLOWED_SUFFIXES` so the two cannot disagree
