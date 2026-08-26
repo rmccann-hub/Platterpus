@@ -578,33 +578,53 @@ def our_pin() -> str:
     """
     from platterpus import __version__ as _app_version  # noqa: PLC0415
 
-    # `-S<literal>` finds commits that changed the number of occurrences of the
-    # string; `--pickaxe-regex` is deliberately off so a dotted version is matched
-    # literally. `-1` with default (reverse-chronological) order gives the most
-    # recent introduction, which is the right one if a version were ever re-cut.
-    found = subprocess.run(
-        [
-            "git",
-            "log",
-            "-1",
-            "--format=%h",
-            f"-S{_app_version}",
-            "--",
-            "src/platterpus/__init__.py",
-        ],
-        cwd=_REPO_ROOT,
-        capture_output=True,
-        text=True,
-    )
-    sha = found.stdout.strip()
-    if found.returncode != 0 or not sha:
-        raise RuntimeError(
-            f"cannot resolve HANDSHAKE-OUR-PIN: no commit in this repository "
-            f"introduces __version__ = {_app_version!r} into src/platterpus/"
-            f"__init__.py. If the bump is staged but not committed, commit it "
-            f"first — the field names a commit, and an uncommitted tree has none."
+    # **THE PUBLISHED HISTORY IS SEARCHED FIRST, and that ordering is the whole
+    # point.** This repository squash-merges, so every commit on a session branch
+    # is DISCARDED at merge and replaced by one new commit on the default branch.
+    # A pin taken from the branch therefore names a commit that exists only in the
+    # author's clone: `git cat-file -e` passes locally and the value is unfetchable
+    # for the peer, which is the opposite of what a pin is for.
+    #
+    # Measured, not reasoned: lap 18 went out declaring `ed4f300`, taken from the
+    # branch by the first version of this function. After the squash-merge that sha
+    # was unreachable from `main`, CI's own pin check failed on all four matrix
+    # legs, and the commit that actually carries `0.6.28` is `b524936`. Same defect
+    # class as the one this function was written to fix — a value that is correct
+    # about the wrong scope.
+    #
+    # `origin/main` before `main` because a local `main` can lag the remote; the
+    # unrestricted search is last and is only reached before a bump is merged, when
+    # a branch sha is the only answer that exists.
+    for scope in (["origin/main"], ["main"], []):
+        found = subprocess.run(
+            [
+                "git",
+                "log",
+                "-1",
+                "--format=%h",
+                # `-S<literal>` counts occurrences of the string; `--pickaxe-regex`
+                # is deliberately off so a dotted version matches literally. `-1` in
+                # reverse-chronological order gives the most recent introduction,
+                # which is the right one if a version were ever re-cut.
+                f"-S{_app_version}",
+                *scope,
+                "--",
+                "src/platterpus/__init__.py",
+            ],
+            cwd=_REPO_ROOT,
+            capture_output=True,
+            text=True,
         )
-    return sha[:7]
+        sha = found.stdout.strip()
+        if found.returncode == 0 and sha:
+            return sha[:7]
+
+    raise RuntimeError(
+        f"cannot resolve HANDSHAKE-OUR-PIN: no commit in this repository "
+        f"introduces __version__ = {_app_version!r} into src/platterpus/"
+        f"__init__.py. If the bump is staged but not committed, commit it "
+        f"first — the field names a commit, and an uncommitted tree has none."
+    )
 
 
 def emit_outbound(round_number: int) -> str:
