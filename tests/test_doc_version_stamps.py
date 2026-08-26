@@ -100,13 +100,47 @@ _EXEMPT_CORRESPONDENCE: str = "docs/handshake/"
 # byte-identical document is itself the drift the document exists to prevent. Same
 # lesson as `docs/testing.md` §5.o: a rule enforced at the place it was learned is
 # not enforced.
+#
+# **And it happened again with the fourth file, in the same commit that added it.**
+# `docs/OWNERSHIP.md` (round 14 lap 17, `OWNERSHIP-VERSION: 1`) was wired into the
+# *other* list of shared files — `test_handshake_tooling._SHARED_FILE_PATHS`, the
+# one that compares hashes — and not into this one, so the stamp gate demanded a
+# footer for a file that must not carry ours. Two lists answering "which files are
+# shared" with no tie between them is the "do two surfaces answer this question?"
+# shape; `test_the_two_shared_file_lists_agree` below is now that tie.
 _EXEMPT_SHARED_FILES: frozenset[str] = frozenset(
     {
         "docs/handshake-protocol.md",
         "docs/seam-rules.md",
         "docs/seam-commands.md",
+        "docs/OWNERSHIP.md",
     }
 )
+
+
+def test_the_two_shared_file_lists_agree() -> None:
+    """One question, two lists, no tie — until this test.
+
+    `_EXEMPT_SHARED_FILES` here decides *"do not stamp it"*; `_SHARED_FILE_PATHS`
+    in `test_handshake_tooling.py` decides *"compare its hash with the fork's"*.
+    Both are answering "which files are shared and owned by neither project", and
+    a file in one but not the other is always a defect: shared-but-stamped forks
+    the document, shared-but-unhashed means a unilateral edit passes the lap.
+
+    Adding the fourth shared file put it in one list only, which is what this
+    test now makes impossible. Compared as sets, in both directions — a one-way
+    subset check would pass with the second list empty.
+    """
+    from test_handshake_tooling import _SHARED_FILE_PATHS  # noqa: PLC0415
+
+    hashed = set(_SHARED_FILE_PATHS.values())
+    assert hashed, "the hash-comparison list is empty — nothing would be checked"
+    assert hashed == set(_EXEMPT_SHARED_FILES), (
+        "the two shared-file lists disagree. Hashed but stampable: "
+        f"{sorted(hashed - _EXEMPT_SHARED_FILES)}; stamp-exempt but never hashed: "
+        f"{sorted(set(_EXEMPT_SHARED_FILES) - hashed)}. A shared file must be in "
+        "both: our footer forks it, and an unhashed one can be edited unilaterally."
+    )
 
 
 def _is_exempt(rel_path: str) -> bool:
