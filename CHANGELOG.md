@@ -12,6 +12,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **One disc, two MusicBrainz lookups, two modal pickers — and the second one
+  blocked an unattended overnight run for 53.5 seconds until a person clicked
+  it.** Measured on the rig 2026-08-26: a single rescan produced two disc probes
+  whose lookups returned **407 ms apart** for the same disc-id; the script
+  answered the first picker in 27 ms and a second opened 378 ms later. It then
+  refused every step behind it — **all seven of that run's seven failures descend
+  from it**, including the whole of section F (the main full-disc rip) and
+  section H. **`_is_stale_mb_result` could not catch it, and that is the lesson**:
+  it asks *"is this result for the disc on screen?"*, which guards against a
+  lookup landing after the user swapped discs. Both of these were for the disc on
+  screen. *"Have I already answered this one?"* is a different question and
+  nothing was asking it. **This is worse for an ordinary user than for the rig**:
+  they are asked twice for one disc, and the second answer silently replaces the
+  tags the first one committed — on the rig the two answers were *different
+  releases*. Fixed with a per-scan marker, cleared by every new disc probe so a
+  deliberate Rescan still offers the picker; the test asserts both halves, since
+  a guard that suppressed the *question* rather than the *duplicate* would pass
+  the first half alone. Revert-proved.
 - **The acceptance script promised a stop it never performed, and it cost a live
   rig run.** Section E's header has said *"if this fails, nothing after it can
   mean anything, and you have spent five minutes rather than a night finding

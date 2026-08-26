@@ -9317,3 +9317,123 @@ def test_a_post_rip_check_stops_working_when_a_newer_rip_starts(
     assert getattr(window, "_last_flac_verify_result", None) is None, (
         "a verdict from an abandoned check reached the report"
     )
+
+
+# --- A second MusicBrainz lookup for one disc must not re-ask ----------------
+
+
+def test_a_second_lookup_for_the_same_disc_does_not_open_a_second_picker(
+    teardown_threads: Any,
+) -> None:
+    """Two lookups raced for one disc and each opened its own modal picker.
+
+    **Measured on the rig, 2026-08-26.** One `rescan` produced two disc probes;
+    their MusicBrainz lookups returned **407 ms apart** for the same disc-id. The
+    first picker was answered in 27 ms, the second opened 378 ms later, and it
+    blocked every subsequent step of an *unattended* overnight run for **53.5 s**
+    until a person clicked it — choosing a different release, which silently
+    replaced the tags the first answer had already committed. Seven of that run's
+    seven failures descend from this one thing.
+
+    **`_is_stale_mb_result` could not catch it, and that is the lesson.** It asks
+    *"is this result for the disc on screen?"* — a guard against a lookup landing
+    after the user swapped discs. Both of these results were for the disc on
+    screen, so both passed. "Already answered" is a different question and nothing
+    was asking it.
+
+    The picker is driven, not stubbed at the boundary: `exec` is patched so the
+    test observes how many times the app tries to *present* a picker, which is the
+    thing a user experiences.
+    """
+    from PySide6.QtWidgets import QDialog  # noqa: PLC0415
+
+    from platterpus.ui.release_picker import ReleasePickerDialog  # noqa: PLC0415
+
+    window = teardown_threads()
+    disc = "pNtImOkdBm9RMBIalzx0w9cfsYY-"
+    window._current_disc_id = disc
+    window._mb_release_chosen_for = ""
+
+    presented: list[int] = []
+
+    def _fake_exec(self: object) -> int:
+        presented.append(1)
+        return int(QDialog.DialogCode.Accepted)
+
+    original_exec = ReleasePickerDialog.exec
+    original_selected = ReleasePickerDialog.selected_mbid
+    ReleasePickerDialog.exec = _fake_exec  # type: ignore[method-assign]
+    ReleasePickerDialog.selected_mbid = lambda self: (
+        "aaaaaaaa-0000-0000-0000-000000000001"
+    )  # type: ignore[method-assign,assignment]
+    try:
+        # Two candidates so the >1 branch (the picker) is the one taken; a single
+        # candidate auto-fetches and would not exercise the modal at all.
+        releases = [
+            ReleaseSummary(
+                mbid=f"aaaaaaaa-0000-0000-0000-00000000000{n}",
+                title=f"Candidate {n}",
+                artist_credit="The Police",
+                date="2003",
+                country="GB",
+                track_count=14,
+            )
+            for n in (1, 2)
+        ]
+
+        window._on_mb_releases(disc, releases)
+        assert presented == [1], f"first lookup should present the picker: {presented}"
+
+        # The duplicate. Same disc, same candidates, arriving after the first was
+        # answered — exactly the 407 ms race from the rig.
+        window._on_mb_releases(disc, releases)
+        assert presented == [1], (
+            "a SECOND picker was presented for a disc already answered — this is "
+            "the rig defect: an unattended run blocks on it, and a user is asked "
+            "twice for one disc with the second answer overwriting the first"
+        )
+
+        # NON-TRIVIALITY, and it is the half that matters: the guard must suppress
+        # a duplicate *answer*, not a deliberate second *question*. A new probe
+        # clears it, and the picker must come back.
+        window._mb_release_chosen_for = ""
+        window._on_mb_releases(disc, releases)
+        assert presented == [1, 1], (
+            "after a rescan cleared the marker the picker did not re-open, so the "
+            "guard is suppressing the question rather than the duplicate"
+        )
+    finally:
+        ReleasePickerDialog.exec = original_exec  # type: ignore[method-assign]
+        ReleasePickerDialog.selected_mbid = original_selected  # type: ignore[method-assign]
+
+
+def test_every_place_that_clears_the_disc_id_also_clears_the_chosen_marker() -> None:
+    """Two reset sites; updating one and not the other is how the next bug lands.
+
+    `_current_disc_id` is cleared in two places (the disc probe in
+    `main_window.py`, and the drive-state reset in `main_window_drive.py`). The
+    "already chose a release" marker has to travel with it, or a stale value
+    outlives the disc it described. It is not load-bearing today — a stale id
+    cannot match a new disc's context — which is exactly why nothing would notice
+    it drifting. `docs/testing.md` §5.o: enforce a rule across the codebase, not
+    at the place it was learned.
+    """
+    import re  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+
+    ui = Path(__file__).resolve().parents[1] / "src" / "platterpus" / "ui"
+    sites: list[str] = []
+    for path in sorted(ui.glob("main_window*.py")):
+        text = path.read_text(encoding="utf-8")
+        for m in re.finditer(r'^\s*self\._current_disc_id = ""', text, re.M):
+            after = text[m.end() : m.end() + 700]
+            sites.append(path.name)
+            assert 'self._mb_release_chosen_for = ""' in after, (
+                f"{path.name} clears _current_disc_id near offset {m.start()} but "
+                "does not clear _mb_release_chosen_for within the same block — the "
+                "marker would outlive the disc it describes"
+            )
+    assert len(sites) >= 2, (
+        f"expected at least two reset sites to check, found {sites} — if the "
+        "sweep stopped matching, it is asserting nothing"
+    )
