@@ -2077,6 +2077,27 @@ def test_a_declared_absence_does_not_demand_an_agreed_pin(hs: ModuleType) -> Non
     )
 
 
+def _history_is_available() -> bool:
+    """False in a shallow clone, where git can answer nothing about the past.
+
+    **A check that cannot see its subject must say so, not pass.** CI's default
+    `actions/checkout` is `fetch-depth: 1` — one commit, no tags — so every
+    question these tests ask git ("which commit introduced this version?", "does
+    this sha resolve?") comes back empty. Returning "no problems found" from an
+    empty record is the satisfied-by-finding-nothing shape, so the tests below
+    skip instead; `ci.yml` sets `fetch-depth: 0` so the skip is not the normal
+    path. Measured 2026-08-26 by reproducing the shallow clone locally, after a
+    branch run went green and the same tests went red against main.
+    """
+    shallow = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    return shallow.stdout.strip() != "true"
+
+
 # --- OUR-PIN is a commit in OUR repo; PEER-PIN is not ------------------------
 
 
@@ -2133,6 +2154,8 @@ def test_our_pin_resolves_here_and_peer_pin_does_not() -> None:
     The check is theirs, three lines, and it is offline: our own pin must resolve
     in this repository and the peer's must not. It would have fired in round 7.
     """
+    if not _history_is_available():
+        pytest.skip("shallow clone: git cannot resolve historical commits")
     outbound = sorted(
         (_REPO_ROOT / "docs" / "handshake" / "outbound").glob("round-*.md")
     )
@@ -2255,6 +2278,8 @@ def test_the_emitter_fills_our_pin_with_a_commit_that_resolves_here(
     filled both fields from `FORK_PIN` would satisfy "a value is present" and be
     the exact bug.
     """
+    if not _history_is_available():
+        pytest.skip("shallow clone: our_pin() has no history to pickaxe")
     pin = hs.our_pin()
     assert re.fullmatch(r"[0-9a-f]{7}", pin), f"not a short sha: {pin!r}"
     assert _resolves_in_repo(pin), f"our_pin() returned {pin}, which is not our commit"
@@ -2267,3 +2292,58 @@ def test_the_emitter_fills_our_pin_with_a_commit_that_resolves_here(
     m = re.search(r"^HANDSHAKE-OUR-PIN:\s*([0-9a-f]{7,40})\b", skeleton, re.M)
     assert m is not None, "the emitted skeleton declares no HANDSHAKE-OUR-PIN"
     assert m.group(1) == pin, "the skeleton's OUR-PIN disagrees with our_pin()"
+
+
+def test_our_pin_names_a_commit_that_survives_the_squash_merge(hs: ModuleType) -> None:
+    """`resolves locally` is weaker than `resolves for the peer`, and it shipped.
+
+    This repository squash-merges, so every commit on a session branch is
+    discarded at merge and replaced by one new commit on the default branch. The
+    first `our_pin()` pickaxed the version literal with no scope, so on a branch
+    it returned a branch commit: `git cat-file -e` passed in the author's clone
+    and the sha was **unfetchable for the cyanrip fork**, which is the opposite of
+    what a pin is for. Lap 18 went out with `ed4f300`; after the merge, all four
+    CI matrix legs failed on this file's own pin check, and the commit that
+    actually carries 0.6.28 is `b524936`.
+
+    Same defect class as the one `our_pin()` was written to fix — a value that is
+    correct about the wrong scope — which is why this is a test and not a comment.
+
+    Asserted as a property of the search rather than against a fixed sha: the pin
+    must be reachable from the default branch whenever the default branch is
+    available here. Skipped rather than passed when it is not, because a check
+    that quietly succeeds on a clone with no `origin/main` is the "satisfied by
+    finding nothing" shape — and this test exists because of that shape.
+    """
+    if not _history_is_available():
+        pytest.skip("shallow clone: reachability is unanswerable")
+    default = None
+    for ref in ("origin/main", "main"):
+        if (
+            subprocess.run(
+                ["git", "rev-parse", "--verify", "--quiet", ref],
+                cwd=_REPO_ROOT,
+                capture_output=True,
+            ).returncode
+            == 0
+        ):
+            default = ref
+            break
+    if default is None:
+        pytest.skip("no local main/origin-main to check reachability against")
+
+    pin = hs.our_pin()
+    reachable = (
+        subprocess.run(
+            ["git", "merge-base", "--is-ancestor", pin, default],
+            cwd=_REPO_ROOT,
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+    assert reachable, (
+        f"our_pin() returned {pin}, which is NOT reachable from {default}. A "
+        "squash-merge discards branch commits, so a pin taken from a branch names "
+        "a commit only this clone has — the peer cannot fetch it. Take the pin "
+        "after the merge, or search the published history first."
+    )
