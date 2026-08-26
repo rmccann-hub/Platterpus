@@ -285,3 +285,189 @@ def test_the_pin_under_review_is_resolved_in_the_consumer_flag_set() -> None:
         f"genuinely does not accept the flag, say so here in a comment and change "
         f"this test to expect that."
     )
+
+
+# --- The shell wrappers around those scripts ---------------------------------
+#
+# The `.txt` files above are checked by the real parser. The two `.sh` files that
+# *drive* them had nothing checking anything, and they are the half the operator
+# actually types.
+
+OVERNIGHT: Path = RIG_SCRIPTS / "platterpusovernight.sh"
+MORNING: Path = RIG_SCRIPTS / "platterpusmorning.sh"
+
+
+def test_the_overnight_wrapper_delegates_and_never_reimplements() -> None:
+    """One caller of two existing scripts — not a third copy of either.
+
+    The whole reason the wrapper is safe to add is that it contains no logic of
+    its own: the acceptance run stays `--run-script`, the collection stays
+    `platterpusmorning.sh`. If either job were re-expressed here it would be a
+    second implementation to drift, and the drift would surface at 3 a.m. on a
+    machine with a disc in it.
+
+    So: it must *invoke* both, and must not contain the marker of having
+    reimplemented the collector (a `tar` of its own).
+    """
+    text = OVERNIGHT.read_text(encoding="utf-8")
+    assert "--run-script" in text, "the wrapper does not start an acceptance run"
+    assert "platterpusmorning.sh" in text, "the wrapper does not run the collector"
+    # Comments are stripped first: this file *discusses* tarring in its header,
+    # and a substring match against prose is the "satisfied by the wrong thing"
+    # shape CLAUDE.md names.
+    code = "\n".join(
+        line for line in text.splitlines() if not line.lstrip().startswith("#")
+    )
+    assert "tar " not in code, (
+        "the wrapper builds its own archive. Collection belongs to "
+        "platterpusmorning.sh; two bundlers means two answers to 'which file do "
+        "I upload'."
+    )
+
+
+def test_the_sleep_lock_covers_the_collection_too_not_just_the_rip() -> None:
+    """A suspend during `tar` yields a truncated archive that still looks like one.
+
+    The obvious version of this wrapper holds the lock over the rip and drops it
+    before collecting, because the rip is the long part. But the collector tars
+    up to a few hundred megabytes, and an archive interrupted mid-write is the
+    silent-partial shape: it opens, it lists, and the artifact the night was for
+    is missing from the end of it.
+
+    Non-triviality: the inhibit prefix must be *used* more than once, not merely
+    defined. A test that only asserted `systemd-inhibit` appears would pass
+    against a wrapper that inhibits nothing.
+    """
+    code = "\n".join(
+        line
+        for line in OVERNIGHT.read_text(encoding="utf-8").splitlines()
+        if not line.lstrip().startswith("#")
+    )
+    assert "systemd-inhibit" in code, "no sleep inhibitor at all"
+    uses = code.count('"${INHIBIT[@]}"')
+    assert uses >= 2, (
+        f"the inhibit prefix is applied {uses} time(s); it must cover both the "
+        "acceptance run and the collection"
+    )
+    assert "--what=idle:sleep:handle-lid-switch" in code, (
+        "the lock must cover idle, explicit suspend and the lid — those are the "
+        "three ways this machine stops mid-rip"
+    )
+
+
+def test_the_wrapper_survives_a_missing_inhibitor_rather_than_refusing() -> None:
+    """A run that happens and might suspend beats a run that did not happen.
+
+    But the downgrade must be *loud*: a silent one spends a night and teaches
+    nothing. Asserted as a real behaviour rather than by reading the source —
+    the script is invoked with no AppImage present, which is the earliest hard
+    exit, proving the argument checks run before anything touches the drive.
+    """
+    import subprocess
+
+    result = subprocess.run(
+        ["bash", str(OVERNIGHT)],
+        capture_output=True,
+        text=True,
+        env={"HOME": "/nonexistent-home-for-this-test", "PATH": "/usr/bin:/bin"},
+    )
+    assert result.returncode != 0, "a missing AppImage must be a hard, early exit"
+    assert "AppImage" in result.stdout + result.stderr, (
+        "the failure must name what is missing, not just exit non-zero"
+    )
+
+
+def test_the_morning_bundle_lands_where_the_operator_looks() -> None:
+    """The ONE file goes to ~/Downloads — the folder an upload dialog opens in.
+
+    And it falls back to $HOME rather than creating the directory: inventing a
+    Downloads folder on a machine that has none puts the file somewhere the
+    operator has no habit of looking, which is the same problem with a step
+    added. Both branches asserted, because a fallback nothing exercises is a
+    fallback nobody has run.
+    """
+    code = "\n".join(
+        line
+        for line in MORNING.read_text(encoding="utf-8").splitlines()
+        if not line.lstrip().startswith("#")
+    )
+    assert "${HOME}/Downloads" in code, "the archive does not target ~/Downloads"
+    assert 'if [ -d "${HOME}/Downloads" ]' in code, (
+        "the Downloads path is used unconditionally — on a machine without one, "
+        "tar would fail at the very end of the night"
+    )
+    assert "mkdir" not in code.split("ARCHIVE=")[0], (
+        "the script creates the Downloads directory; the fallback exists so it "
+        "does not have to"
+    )
+    assert "SEND THIS ONE FILE" in MORNING.read_text(encoding="utf-8"), (
+        "the operator must be told the real path, so the fallback is visible"
+    )
+
+
+def test_the_install_menu_offers_the_build_the_acceptance_gate_demands() -> None:
+    """The relation neither side's own tests can express.
+
+    `ripper_choices()` is what `--install-ripper list` prints — the builds the app
+    tells an operator it can install. `fullacceptance.txt` asserts
+    `expect-ripper-under-review`, which keys on `PIN_UNDER_REVIEW`. Both were
+    correct about themselves and their tests were green, and the defect lived
+    strictly in the relation: the menu offered the round-**8** test pin while the
+    gate demanded round **14**'s, so an operator following the app's own menu
+    would have had the overnight run fail on its first ripper assertion — with a
+    disc already in the drive, hours from anyone noticing.
+
+    Exactly the shape `CLAUDE.md` names: *"do two surfaces answer this question,
+    and do they use the same key?"* They now read one constant, and this asserts
+    it, because a shared value with nothing comparing the readers is how the
+    previous pair drifted for six rounds.
+    """
+    from platterpus.deps import fork_source  # noqa: PLC0415
+
+    offered = {c.pin for c in fork_source.ripper_choices()}
+    assert offered, "the install menu is empty — nothing could be offered"
+
+    demanded = fork_source.PIN_UNDER_REVIEW
+    assert any(fork_source.same_commit(pin, demanded) for pin in offered), (
+        f"--install-ripper list offers {sorted(offered)}, none of which is the "
+        f"build under review ({demanded}) that fullacceptance.txt's "
+        "`expect-ripper-under-review` requires. An operator following the menu "
+        "cannot pass the acceptance run."
+    )
+
+    # Non-triviality, and it is the half that matters: the assertion above also
+    # passes if the menu offers EVERY commit it can think of. What makes the menu
+    # trustworthy is that a build under review is labelled as such rather than as
+    # approved — the round-14 pin is a release, which is precisely the case where
+    # "it is published" could be mistaken for "a round approved it".
+    under_review = [
+        c
+        for c in fork_source.ripper_choices()
+        if fork_source.same_commit(c.pin, demanded)
+    ]
+    assert len(under_review) == 1, (
+        f"expected one entry for {demanded}, got {under_review}"
+    )
+    assert not under_review[0].is_approved, (
+        "the build under review is offered as APPROVED. No round has approved it "
+        "— round 14 is the round that would, and it is open."
+    )
+
+
+def test_the_acceptance_script_asserts_the_build_it_was_written_for() -> None:
+    """A floor on the test above: it is worthless if the script stopped asserting.
+
+    `test_the_install_menu_offers_the_build_the_acceptance_gate_demands` compares
+    the menu against `PIN_UNDER_REVIEW` on the strength of the acceptance script
+    keying on it. If that step were dropped, the comparison would still pass and
+    would be checking a relation nothing relies on — the "satisfied by finding
+    nothing" shape, one level up.
+    """
+    text = (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8")
+    steps = [
+        line.strip() for line in text.splitlines() if not line.lstrip().startswith("#")
+    ]
+    assert "expect-ripper-under-review" in steps, (
+        "fullacceptance.txt no longer asserts which build it ran against, so the "
+        "menu/gate relation test above is checking nothing"
+    )

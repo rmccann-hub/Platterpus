@@ -65,11 +65,32 @@ run() {
   # absent, at least one non-zero exit must be recorded" — which is the only
   # assertion that could have caught it, since the artifacts were all present and
   # the script exited 0 either way.
-  local rc=0
+  #
+  # ELAPSED TIME IS RECORDED, and it is not decoration. The C1 investigation
+  # turns entirely on *how long* step 5b took — 15 seconds is "the hang did not
+  # reproduce", 31 minutes is "it did" — and for three sessions this harness
+  # logged the exit code and not the duration, so the one number the question
+  # needed had to be eyeballed out of terminal scrollback by a person. That is
+  # work handed back (`CLAUDE.md`: every "now go and read this" in a procedure is
+  # a thing the software was supposed to do).
+  local rc=0 t0 t1
+  t0=$(date -u +%s)
   "$@" >"$OUT/$file" 2>&1 || rc=$?
-  note "exit: $rc   artifact: $file ($(wc -c <"$OUT/$file") bytes)"
+  t1=$(date -u +%s)
+  local secs=$((t1 - t0))
+  LAST_SECS=$secs
+  LAST_RC=$rc
+  note "exit: $rc   elapsed: ${secs}s   artifact: $file ($(wc -c <"$OUT/$file") bytes)"
   return 0   # never propagate: the caller reads the artifact, not our status
 }
+
+#: Facts the diagnosis block reports, filled in as the run goes. Empty means the
+#: step never ran, which is a different answer from a step that ran and found
+#: nothing — the tri-state this project applies everywhere else.
+LAST_SECS=""
+LAST_RC=""
+C1_BARE_SECS=""; C1_BARE_RC=""
+C1_DIAG_SECS=""; C1_DIAG_RC=""
 
 say "rig session $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 note "app:    $APP"
@@ -118,7 +139,12 @@ mkdir -p "$OUT/scratch"
 #     is recorded so the number is not lost with the step, and the single home for
 #     the flag's behaviour is `docs/dependency-contracts.md`.
 say "5a  their cache probe (-x) — NOT RUN, deliberately"
-note "measured once on 2026-08-19: Cache probe: 32 sectors, 73.5 KiB, uncached read 362.6 ms"
+note "2026-08-19: at least 32 sectors (73.5 KiB, uncached read 362.6 ms) — the"
+note "  64-sector READ FAILED, so 32 was the device queue limit, not the cache."
+note "2026-08-25: at least 2048 sectors (uncached read 362.8 ms) — OUR ceiling was"
+note "  reached, so 2048 is our bound and not the drive's. Timing stable to 0.2 ms"
+note "  across both; the search bound moved 64x after a kernel change. NEITHER"
+note "  number bounds this drive's cache (fork lap 15 D2)."
 note "it then rips the whole disc (ETA 1h 3m) and leaves the drive held, so this"
 note "harness no longer runs it. Returns when the fork's -x exits after measuring."
 note "This is a recorded omission, not a skipped check: see docs/dependency-contracts.md."
@@ -144,9 +170,34 @@ note "This is a recorded omission, not a skipped check: see docs/dependency-cont
 #     a working step and reported it as a finding. (`docs/testing.md` §5.ao — the
 #     population I measured was one disc's short opener.) 1800 s covers any real
 #     single track with margin; the `-k 60` is what makes the ceiling reachable.
+# 5a2. THE BARE OFFSET REFUSAL — the control for 5b, and the whole reason C1 can
+# be narrowed rather than just observed.
+#
+# 5b hits the no-`-s` offset refusal *with* `-j -D -o -u`. This runs the SAME
+# refusal with none of them. Two measurements, one variable group:
+#
+#   both fast          → the hang did not reproduce this session
+#   bare fast, -j slow → the hang is NOT the offset refusal; it is in -j/-D/-o/-u
+#   both slow          → the refusal path itself, whatever the extra flags do
+#
+# The middle row is the valuable one and it is already half-observed: the
+# acceptance script's section P2 runs exactly this argv and exited 1 in about two
+# seconds on 2026-08-25, in the same session where 5b needed a SIGKILL after
+# thirty minutes. Measuring both *here*, back to back on one drive state, turns
+# that from two runs compared by hand into one controlled pair.
+#
+# Bounded at 120 s, not 1800: if the bare refusal is slow, that is itself the
+# finding and there is no reason to spend half an hour confirming it.
+run "5a2 the bare offset refusal (control for 5b)" "04-bare-refusal.txt" \
+    timeout -k 10 120 "$RIPPER" -N -l 1
+C1_BARE_SECS=$LAST_SECS
+C1_BARE_RC=$LAST_RC
+
 run "5b  their diagnostics record (-j)" "05-minus-j.txt" \
     timeout -k 60 1800 "$RIPPER" -j "$OUT/scratch/diag.json" -D "$OUT/scratch" \
                 -o flac -N -l 1 -u "platterpus/rig-session"
+C1_DIAG_SECS=$LAST_SECS
+C1_DIAG_RC=$LAST_RC
 # 124 = SIGTERM'd at the deadline, 137 = SIGKILL'd 60 s later because SIGTERM did
 # not land. Say which: they are different findings about the drive, and "exit: 137"
 # alone reads as a crash.
@@ -220,7 +271,14 @@ if ! grep -h "Pregap source:" "${LOGS[@]}" 2>/dev/null \
      >"$OUT/06-pregap-sources.txt"; then
   note "no Pregap source: lines in the retained log — recorded, not skipped"
 fi
-TOC_HITS=$(grep -c "Pregap source: TOC" "$OUT/06-pregap-sources.txt" 2>/dev/null || echo 0)
+# `grep -c` PRINTS "0" and EXITS 1 when it matches nothing, so `|| echo 0`
+# appended a SECOND line and TOC_HITS became the two-line string "0\n0" — which
+# the `[ ... -gt ]` below then rejected with "integer expected" (seen on the
+# 2026-08-25 rig session). The conclusion it printed was right by luck: the
+# failed comparison fell through to the same branch. `|| true` swallows the
+# exit status without adding output, and the guard covers grep being absent.
+TOC_HITS=$(grep -c "Pregap source: TOC" "$OUT/06-pregap-sources.txt" 2>/dev/null || true)
+[ -n "$TOC_HITS" ] || TOC_HITS=0
 note "artifact: 06-pregap-sources.txt"
 if [ "${TOC_HITS:-0}" -gt 0 ]; then
   note "** A TOC-SOURCED PRE-GAP EXISTS — that is the C1 candidate. Name the disc."
@@ -510,6 +568,79 @@ note "Every file matters, including the empty ones — an artifact that exists a
 note "is empty is a measurement; a missing artifact is a step that did not run,"
 note "and only one of those is a result."
 
+# ---- the short answers -----------------------------------------------------
+#
+# **A NEW FILE, and the homes it was weighed against.** `00-summary.txt` already
+# holds every fact below — and that is precisely the problem the operator
+# reported: *"the questions you asked me i cannot see easily… they might be in
+# there, but not visible to me readily."* A 5 KB chronological log with seventeen
+# sections is not a place to find four numbers. Appending a block to its end was
+# the other candidate and is still done (a pointer, not a copy), but a file that
+# is read by scrolling is not a file that answers a question.
+#
+# So: this file contains ONLY the answers, it is generated rather than written,
+# and it is echoed to the terminal so the operator can copy it without opening
+# anything at all. No fact lives here that is not derived from the run.
+DIAG="$OUT/00-diagnosis.txt"
+{
+  echo "PLATTERPUS RIG SESSION — DIAGNOSIS"
+  echo "generated $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo
+  echo "-- versions ------------------------------------------------------------"
+  echo "app:    $(head -n 1 "$OUT/01-app-version.txt" 2>/dev/null || echo '(not captured)')"
+  echo "ripper: $(head -n 1 "$OUT/02-ripper-version.txt" 2>/dev/null || echo '(not captured)')"
+  echo
+  echo "-- C1: does a no-offset invocation hang the drive? ---------------------"
+  if [ -z "$C1_BARE_SECS" ] || [ -z "$C1_DIAG_SECS" ]; then
+    echo "NOT DETERMINED — one or both measurements did not complete."
+    echo "  bare refusal (no -j): ${C1_BARE_SECS:-not measured}"
+    echo "  with -j:             ${C1_DIAG_SECS:-not measured}"
+  else
+    echo "  bare refusal  cyanrip -N -l 1            : exit $C1_BARE_RC, ${C1_BARE_SECS}s"
+    echo "  with -j -D -o -u (step 5b)               : exit $C1_DIAG_RC, ${C1_DIAG_SECS}s"
+    echo
+    # 60s is not a tuned threshold and is not pretending to be one: the observed
+    # values are ~2s and ~1800s, so anything between them separates the two
+    # populations. Stated so nobody reads it as a measurement.
+    if [ "$C1_DIAG_SECS" -ge 60 ] && [ "$C1_BARE_SECS" -lt 60 ]; then
+      echo "  VERDICT: REPRODUCED, AND NARROWED."
+      echo "  The bare offset refusal returned promptly; the same refusal with"
+      echo "  -j/-D/-o/-u did not. So the hang is NOT the offset refusal itself."
+      echo "  -j is the standout: it registers the atexit handler that writes"
+      echo "  diag.json, and the fork measured that record being written ~14s in"
+      echo "  with the process then staying alive for ~30 more minutes."
+    elif [ "$C1_DIAG_SECS" -ge 60 ] && [ "$C1_BARE_SECS" -ge 60 ]; then
+      echo "  VERDICT: REPRODUCED, NOT NARROWED."
+      echo "  Both invocations were slow, so the extra flags are not the variable."
+      echo "  The refusal path itself is implicated."
+    else
+      echo "  VERDICT: DID NOT REPRODUCE this session."
+      echo "  Both returned promptly. This is a real result, not an absence: the"
+      echo "  hang is not unconditional on this drive and disc."
+    fi
+  fi
+  echo
+  echo "-- capture integrity ---------------------------------------------------"
+  if [ ! -s "$OUT/05-minus-j.txt" ] && [ -s "$OUT/scratch/diag.json" ]; then
+    echo "  DISAGREEMENT: the stdout capture is EMPTY but diag.json has content."
+    echo "  cyanrip spoke and the capture did not receive it. Read the empty file"
+    echo "  as a fact about the CAPTURE PATH (a Distrobox wrapper and a container"
+    echo "  runtime sit between cyanrip's fd 1 and it), never as ripper silence."
+  else
+    echo "  OK — the stdout capture and the -j record agree about whether the"
+    echo "  ripper produced output."
+  fi
+  echo
+  echo "-- every step: exit code and duration ----------------------------------"
+  grep -E "^=== |^    exit: " "$SUMMARY" 2>/dev/null | sed "s/^/  /" || true
+  echo
+  echo "-- what to send --------------------------------------------------------"
+  echo "  the single .tar.gz named at the end of 00-summary.txt"
+} >"$DIAG"
+
+note ""
+note "the short answers are in 00-diagnosis.txt (printed below; nothing to hunt for)"
+
 # ---- one file to send ------------------------------------------------------
 #
 # The last manual step this script can remove. "Send the whole directory" means
@@ -533,3 +664,16 @@ if command -v tar >/dev/null 2>&1; then
 else
   note "tar is absent; send the directory instead: $OUT"
 fi
+
+# ---- print the answers, so nothing has to be opened ------------------------
+#
+# The operator is watching a terminal. A file they must locate and open is one
+# more step than a block they can select and paste, so the diagnosis is echoed
+# here as the last thing the run does — after the archive line, so the two things
+# worth copying sit together at the bottom of the scroll.
+printf '\n'
+printf '================= COPY FROM HERE =================\n'
+cat "$DIAG"
+printf '================== TO HERE ======================\n'
+printf '\n'
+printf 'Also saved as: %s\n' "$DIAG"

@@ -1437,6 +1437,38 @@ class ScriptRunner(QObject):
         this project already hands cyanrip in `-F`, rather than inventing a
         second convention for the same idea.
         """
+        # `(run)` FIRST, and it never fails: it is a fact about this run, always
+        # available, where `(ripper)` is a fact about a binary that may not have
+        # been probed yet.
+        #
+        # **Why it exists.** Every album name in an acceptance script is a fixed
+        # string plus `(ripper)`, so a second run against the same build produces
+        # the same folders — and the app, correctly, raises "Album already ripped"
+        # over each one. On the 2026-08-25 run that cost sixteen of seventeen
+        # failures and the whole of T1: the script answers that prompt at exactly
+        # one of its eight rips, so the other seven were refused behind an
+        # unanswered modal. An acceptance script that only works on a machine that
+        # has never run it is not an acceptance script.
+        #
+        # `answer-dialog` after every rip is the obvious repair and is WRONG: it
+        # FAILS when the dialog does not appear, so it would break the first run on
+        # a clean library — trading one broken case for the other. Making the names
+        # unique removes the collision instead of answering it, and the deliberate
+        # intra-run collision (§H rips the same album name twice on purpose, to
+        # exercise the prompt) still works, because both steps expand to the same
+        # value within one run.
+        if "(run)" in value:
+            # A COMPACT, FILESYSTEM-SAFE STAMP, not the raw ISO string.
+            # `started_at` is `...isoformat(timespec="seconds")`, so it carries
+            # `:` and `+` — and the album sanitiser would render those as `∶`
+            # (U+2236) and friends, giving a folder named `22∶57∶21+00∶00`. That
+            # is legal and horrible, and it drags a Unicode substitution into the
+            # one string whose whole job is to be boringly unique. Digits and one
+            # `t`, matching `CLAUDE.md`'s cross-machine artifact spelling.
+            stamp = "".join(
+                ch for ch in self._report.started_at.split("+")[0] if ch.isalnum()
+            ).lower()
+            value = value.replace("(run)", stamp)
         if "(ripper)" not in value:
             return value, ""
         tag = self._ripper_build_tag

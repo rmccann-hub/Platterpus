@@ -25,9 +25,22 @@ and runs the one `rig-check` that reads the counters.
 about the disc, not a pass — it means the disc converged on the first read and
 the test did not get to measure anything.
 
-## The overnight path: run the acceptance script, collect in the morning
+## The overnight path: one command
 
-Two files, in this order.
+Put an ordinary audio CD in the drive and run this. Nothing else.
+
+```sh
+bash platterpusovernight.sh
+```
+
+It holds sleep, idle and lid-suspend off for the whole run (`systemd-inhibit`,
+so the lock dies with the process — nothing to undo), drives the acceptance
+script, and then runs the collector for you. **In the morning there is one file
+in `~/Downloads` to upload**, named on the `SEND THIS ONE FILE` line.
+
+It is a caller, not a third implementation: the run is still `--run-script
+fullacceptance.txt` and the collection is still `platterpusmorning.sh`. Run
+either by hand if you want to:
 
 ```sh
 # The night before — any ordinary audio CD in the drive, then walk away.
@@ -36,6 +49,11 @@ Two files, in this order.
 # The morning after — no disc needed, never touches the drive.
 bash platterpusmorning.sh
 ```
+
+**The sleep lock covers the collection as well as the rip.** That is not
+belt-and-braces: the collector tars up to a few hundred megabytes, and an
+archive interrupted mid-write still opens and still lists — the night's most
+important artifact simply is not in it.
 
 `platterpusmorning.sh` exists for one reason, and it is worth stating because
 three other collectors look like they already do it: **none of them gathers the
@@ -324,4 +342,4 @@ disappointment is still true. What we still do not know, said out loud so nobody
 the silence as a pass: whether 32 sectors is this drive's real cache, and which of the
 `Cache probe:` states a different drive would report.
 
-*Last updated for Platterpus v0.6.26.*
+*Last updated for Platterpus v0.6.28.*

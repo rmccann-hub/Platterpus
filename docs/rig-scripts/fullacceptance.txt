@@ -12,6 +12,18 @@
 # and — as of this version — no cyanrip build tag either. Put any ordinary
 # audio CD in the drive, start it, and go to bed.
 #
+# AND IT IS RE-RUNNABLE, which it was not before. Every `album` line carries
+# `(run)`, expanding to this run's own timestamp, so a second run never lands on
+# the first run's folders. Before that, a re-run raised "Album already ripped"
+# on every rip; the file answers that prompt in exactly ONE place (§H, on
+# purpose), so the other seven rips were refused behind an unanswered modal and
+# the 2026-08-25 attempt lost sixteen of its seventeen failures — and all of T1 —
+# to it. **You no longer need to move the previous run's output aside.**
+#
+# §F and §H still name the SAME album deliberately: §H exists to raise that
+# prompt and answer it with `click=new`, and `(run)` is stable within one run so
+# that collision still happens exactly where it is wanted.
+#
 # -----------------------------------------------------------------------------
 # BEFORE YOU START — two things, and only two
 # -----------------------------------------------------------------------------
@@ -236,8 +248,21 @@ open guide
 cancel
 open setup
 cancel
-expect-dialog none
 snapshot dialogsdone
+
+# NO `expect-dialog none` HERE, and the omission is the fix rather than a gap.
+#
+# **Measured, 2026-08-25 (run 3).** With a disc in the drive, the app identifies
+# it at launch and OPENS THE RELEASE PICKER BY ITSELF — before this script
+# reaches section D at all. So the picker sits underneath the whole dialog
+# section, and an `expect-dialog none` here reported it, correctly, as a
+# failure: *"a dialog is open: 'Pick a MusicBrainz release'"*. The assertion was
+# true; the expectation was wrong.
+#
+# The script cannot assert an empty screen before it has answered the picker,
+# because having a disc in the drive is a PRECONDITION of this whole run. So the
+# assertion moves to just after `pick-release`, where it says something real:
+# the picker we answered is gone and nothing else was left behind it.
 
 # --- E. DISC IDENTIFICATION -------------------------------------------------
 # The last cheap section. If this fails, nothing after it can mean anything, and
@@ -246,6 +271,7 @@ snapshot dialogsdone
 log --- E. disc: scan and identify ---
 rescan
 pick-release 1 120
+expect-dialog none
 expect-tracks 2+
 snapshot discidentified
 
@@ -288,7 +314,7 @@ set verify_flac_after_rip on
 set write_eac_log_after_rip on
 expect write_eac_log_after_rip on
 select-tracks all
-album full acceptance: angle<bracket (ripper)
+album full acceptance: angle<bracket (run) (ripper)
 album-artist Platterpus Acceptance
 rip
 wait-for-rip 10800
@@ -339,7 +365,7 @@ snapshot afterrigcheck
 
 log --- H. re-rip the same title: the overwrite prompt must fire ---
 select-tracks 1-2
-album full acceptance: angle<bracket (ripper)
+album full acceptance: angle<bracket (run) (ripper)
 rip
 answer-dialog click=new 120 Album already ripped
 wait-for-rip 3600
@@ -364,7 +390,7 @@ screenshot afteroverwrite
 
 log --- I. cancel a rip in flight ---
 select-tracks 1-3
-album cancel me (ripper)
+album cancel me (run) (ripper)
 rip
 log reading for 90s so the cancel lands mid-track
 wait 90
@@ -395,7 +421,7 @@ rescan
 pick-release 1 120
 expect-tracks 2+
 select-tracks 1-2
-album after cancel (ripper)
+album after cancel (run) (ripper)
 rip
 wait-for-rip 3600
 snapshot afterrecovery
@@ -430,7 +456,7 @@ expect output_format mp3
 set mp3_vbr_quality 2
 expect mp3_vbr_quality 2
 select-tracks 1-2
-album derived mp3 (ripper)
+album derived mp3 (run) (ripper)
 rip
 wait-for-rip 3600
 snapshot aftermp3
@@ -441,7 +467,7 @@ log --- K2. WavPack: the second lossless format ---
 set output_format wavpack
 expect output_format wavpack
 select-tracks 1-2
-album derived wavpack (ripper)
+album derived wavpack (run) (ripper)
 rip
 wait-for-rip 3600
 snapshot afterwavpack
@@ -451,7 +477,7 @@ log --- K3. WAV: raw PCM, no tags, no art - the UI must say so ---
 set output_format wav
 expect output_format wav
 select-tracks 1-2
-album derived wav (ripper)
+album derived wav (run) (ripper)
 rip
 wait-for-rip 3600
 snapshot afterwav
@@ -544,7 +570,7 @@ rescan
 pick-release 1 120
 expect-tracks 2+
 select-tracks all
-album secure reread (ripper)
+album secure reread (run) (ripper)
 rip
 wait-for-rip 21600
 snapshot aftersecurereread

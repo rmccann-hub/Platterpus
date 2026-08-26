@@ -1647,6 +1647,11 @@ _SHARED_FILE_PATHS: dict[str, str] = {
     "protocol(v4)": "docs/handshake-protocol.md",
     "seam-rules": "docs/seam-rules.md",
     "seam-commands": "docs/seam-commands.md",
+    # Adopted round 14 lap 17. Same mechanism as the three above: a file NEITHER
+    # project owns, held byte-identical in both repos, so a divergence is a
+    # comparison rather than a promise. Fetched from the fork's branch and its
+    # hash verified against their declaration before it was committed.
+    "ownership": "docs/OWNERSHIP.md",
 }
 
 
@@ -2070,3 +2075,195 @@ def test_a_declared_absence_does_not_demand_an_agreed_pin(hs: ModuleType) -> Non
         "a real test pin with no HANDSHAKE-PIN stopped blocking — the recogniser "
         "is swallowing genuine pins"
     )
+
+
+# --- OUR-PIN is a commit in OUR repo; PEER-PIN is not ------------------------
+
+
+#: Laps that were **already sent** carrying the fork's commit in `HANDSHAKE-OUR-PIN`.
+#:
+#: **A ratchet: it may shrink, never grow.** Every entry is a file that has left
+#: this repository and been filed by the other side — a record of what we said, not
+#: a draft. Editing one now would make our copy disagree with theirs, which §5a's
+#: whole checksum mechanism exists to detect; "both gates reported healthy while the
+#: records differed" is the failure that produced §5a in the first place. So the
+#: wrong value stays on the wire and the correction is made *forward*, in lap 18,
+#: where the fork can see the transition rather than find our history quietly
+#: rewritten under them.
+#:
+#: The defect is one value repeated: `ddf7ac3` is cyanrip's `0.9.4-rc1+platterpus.5`,
+#: which `deps/fork_source.py` holds as `FORK_PIN` and which belongs in
+#: `HANDSHAKE-PIN`. It reached us correctly — their `PEER-PIN` named it and the
+#: protocol says to transcribe — and landed in the wrong field, which is ours.
+#: Found by the fork, round 14 lap 17 §H2a, after nine laps.
+#:
+#: Two older laps predate the round-13 value and are wrong the same way:
+#: `round09lap08platterpus.md` (`a26d381`) and `round11lap04platterpus.md`
+#: (`e0bd975`) are *envelopes*, not laps, so the `round-*.md` glob does not reach
+#: them; they are named here so the record is not silently narrower than the defect.
+_PIN_FIELD_SENT_WRONG: frozenset[tuple[str, str]] = frozenset(
+    (name, "HANDSHAKE-OUR-PIN")
+    for name in (
+        "round-13-lap-02.md",
+        "round-13-lap-05.md",
+        "round-14-lap-02.md",
+        "round-14-lap-06.md",
+        "round-14-lap-08.md",
+        "round-14-lap-10.md",
+        "round-14-lap-12.md",
+        "round-14-lap-13.md",
+        "round-14-lap-16.md",
+    )
+)
+
+
+def test_our_pin_resolves_here_and_peer_pin_does_not() -> None:
+    """`HANDSHAKE-OUR-PIN` must name a Platterpus commit. Ours named a cyanrip one.
+
+    **Found by the fork, round 14 lap 17 §H2a, after it stood in nine of our laps.**
+    `ddf7ac3` is *their* `0.9.4-rc1+platterpus.5` — the value our `fork_source.py`
+    holds as `FORK_PIN`, i.e. the cyanrip build we pin *to*. We put it in the field
+    that names our own commit, so every lap declared their commit as ours.
+
+    **They shipped the value first** — their `PEER-PIN` named it in eleven sent
+    laps, two of which closed rounds — and we transcribed it correctly, because
+    the protocol says to transcribe. A wrong value that survives transcription
+    belongs to the sender; the *field* it landed in belongs to us.
+
+    The check is theirs, three lines, and it is offline: our own pin must resolve
+    in this repository and the peer's must not. It would have fired in round 7.
+    """
+    outbound = sorted(
+        (_REPO_ROOT / "docs" / "handshake" / "outbound").glob("round-*.md")
+    )
+    assert len(outbound) >= 5, f"only {len(outbound)} outbound laps to check"
+
+    def _resolves(sha: str) -> bool:
+        return (
+            subprocess.run(
+                ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+                cwd=_REPO_ROOT,
+                capture_output=True,
+            ).returncode
+            == 0
+        )
+
+    enforced: dict[str, int] = {"HANDSHAKE-OUR-PIN": 0, "HANDSHAKE-PEER-PIN": 0}
+    for path in outbound:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for field, must_resolve in (
+            ("HANDSHAKE-OUR-PIN", True),
+            ("HANDSHAKE-PEER-PIN", False),
+        ):
+            m = re.search(rf"^{field}:\s*([0-9a-f]{{7,40}})\b", text, re.M)
+            if m is None:
+                continue
+            sha = m.group(1)
+            if (path.name, field) in _PIN_FIELD_SENT_WRONG:
+                continue
+            enforced[field] += 1
+            if must_resolve:
+                assert _resolves(sha), (
+                    f"{path.name} declares {field}: {sha}, which does NOT resolve in "
+                    "this repository — so it names somebody else's commit. "
+                    "OUR-PIN is a Platterpus commit; the cyanrip build we pin TO "
+                    "belongs in HANDSHAKE-PIN. `scripts/handshake.py --emit` fills "
+                    "this field from `our_pin()`; do not retype it."
+                )
+            else:
+                assert not _resolves(sha), (
+                    f"{path.name} declares {field}: {sha}, which DOES resolve here — "
+                    "the peer's pin must not be one of our own commits"
+                )
+
+    # **The floor that matters here is not "did we look", it is "did we look at
+    # anything the allowlist does not cover".** With every historical lap exempt,
+    # the loop above runs to completion asserting nothing — the decoration shape
+    # `CLAUDE.md` names ("can this check be satisfied by finding nothing?"). This
+    # is the check on the check: at least one lap outside the allowlist, or the
+    # exemption has quietly swallowed the rule.
+    # Per field, not in total: `PEER-PIN` is never exempt, so a single combined
+    # counter would sit comfortably above zero while every `OUR-PIN` in the repo
+    # was allowlisted — the rule that actually broke, passing on the strength of
+    # the one that did not.
+    for field, count in enforced.items():
+        assert count >= 1, (
+            f"every {field} in all {len(outbound)} outbound laps is on "
+            "_PIN_FIELD_SENT_WRONG, so this test asserted nothing about it. The "
+            "allowlist is a record of already-sent files; it cannot also be the "
+            "whole population."
+        )
+
+
+def test_the_sent_wrong_allowlist_is_a_ratchet_not_a_hiding_place() -> None:
+    """The exemption above may shrink, never grow — and every entry must be real.
+
+    Two ways an allowlist stops being a ratchet, both of which have happened in
+    this repo: an entry for a file that no longer exists (so nobody notices the
+    list is stale), and an entry for a file that *does not have the defect* (so
+    the list is granting permission nothing asked for). Either one turns "9 known
+    historical offenders" into "9 unexamined lines", which is the state the
+    allowlist was supposed to replace.
+    """
+    outbound = _REPO_ROOT / "docs" / "handshake" / "outbound"
+    for name, field in _PIN_FIELD_SENT_WRONG:
+        path = outbound / name
+        assert path.is_file(), (
+            f"_PIN_FIELD_SENT_WRONG exempts {name}, which does not exist. Remove "
+            "the entry — the list may shrink, never grow."
+        )
+        m = re.search(
+            rf"^{field}:\s*([0-9a-f]{{7,40}})\b",
+            path.read_text(encoding="utf-8", errors="replace"),
+            re.M,
+        )
+        assert m is not None, (
+            f"_PIN_FIELD_SENT_WRONG exempts {name} for {field}, which the file does "
+            "not declare. Remove the entry."
+        )
+        assert not _resolves_in_repo(m.group(1)), (
+            f"{name} declares {field}: {m.group(1)}, which resolves here — the file "
+            "is CORRECT and does not need an exemption. Remove the entry; that is "
+            "the ratchet turning."
+        )
+
+
+def _resolves_in_repo(sha: str) -> bool:
+    """Shared by the two tests above so they cannot disagree about 'resolves'."""
+    return (
+        subprocess.run(
+            ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+            cwd=_REPO_ROOT,
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+
+
+def test_the_emitter_fills_our_pin_with_a_commit_that_resolves_here(
+    hs: ModuleType,
+) -> None:
+    """The durable half of the §H2a fix: the value is generated, not retyped.
+
+    Scoping the check to new laps stops the defect *recurring in a file somebody
+    hand-writes*. It does nothing about the reason it happened, which is that
+    `OUR-PIN` had no source and `HANDSHAKE-PIN` did — so the field naming the fork
+    was read from `fork_source.py` and could not drift, while the field naming us
+    was copied from the previous lap and did. `our_pin()` closes that asymmetry.
+
+    Non-triviality: the emitted pin must differ from the fork pin. A generator that
+    filled both fields from `FORK_PIN` would satisfy "a value is present" and be
+    the exact bug.
+    """
+    pin = hs.our_pin()
+    assert re.fullmatch(r"[0-9a-f]{7}", pin), f"not a short sha: {pin!r}"
+    assert _resolves_in_repo(pin), f"our_pin() returned {pin}, which is not our commit"
+    assert pin != hs._fork_pin()[: len(pin)], (
+        "our_pin() returned the fork pin — the field naming us must not be sourced "
+        "from the field naming them"
+    )
+
+    skeleton = hs.emit_outbound(99)
+    m = re.search(r"^HANDSHAKE-OUR-PIN:\s*([0-9a-f]{7,40})\b", skeleton, re.M)
+    assert m is not None, "the emitted skeleton declares no HANDSHAKE-OUR-PIN"
+    assert m.group(1) == pin, "the skeleton's OUR-PIN disagrees with our_pin()"
