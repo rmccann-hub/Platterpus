@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.28] — 2026-08-26
+
 ### Fixed
 - **`our_pin()` returned a commit the squash-merge was about to delete.** It
   pickaxed the version literal with no scope, so on a session branch it named a
@@ -36,10 +38,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   the depth: answering *"no problems found"* from a record that contains nothing
   is the satisfied-by-finding-nothing shape, and a green tick from a check that
   could not see its subject is worse than a red one.
-
-## [0.6.28] — 2026-08-26
-
-### Fixed
 - **The app's own install menu offered nothing that could satisfy the app's own
   acceptance run.** `--install-ripper list` is built from `ripper_choices()`,
   which offered the approved build and `FORK_TEST_PIN` — a constant last moved in
