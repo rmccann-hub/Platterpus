@@ -24,7 +24,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   severity assigned after seeing a failure is *"the five failures were each
   understood"*, which 2026-08-19 disproved when all five descended from one
   unknown defect. So the 20 acceptance sections are classified in advance in
-  `docs/testing.md` → *Acceptance severity* (14 ARCHIVAL, 6 UX), and
+  `docs/testing.md` → *Acceptance severity* (**17 ARCHIVAL, 3 UX** — the first draft said 14/6 and the maintainer corrected three of them; `K3` was an outright inconsistency, since "lossless → archival" had been applied to WavPack and not to WAV, which is also lossless), and
   `tests/test_rig_scripts.py` derives the population from the script so a **new**
   section must be classified rather than defaulting to ignorable. A UX failure is
   non-blocking only while it is its own defect: sharing a root cause with an

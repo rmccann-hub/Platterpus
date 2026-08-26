@@ -2243,11 +2243,11 @@ defect, and two of those sections are archival.
 | H | ARCHIVAL | the overwrite prompt; missing the collision destroys a finished master |
 | I | ARCHIVAL | cancel; the defect this exists for destroyed the log's completion footer |
 | J | ARCHIVAL | identify and rip again after a cancel — a rip, and a drive-state proof |
-| K1 | UX | MP3 is lossy by design and explicitly "not for that use"; the FLAC master is unaffected |
+| K1 | ARCHIVAL | when a user selects MP3 the MP3 *is* their library entry — the thing they play, with its tags and art. "Lossy by design" describes the codec, not the importance of deriving it correctly |
 | K2 | ARCHIVAL | WavPack is lossless — a second archival-grade output |
-| K3 | UX | WAV is raw PCM with no tags or art, and the UI says so |
+| K3 | ARCHIVAL | **WAV is raw PCM, i.e. lossless** — those bytes *are* the audio. Classified UX in the first draft, which contradicted K2: "lossless → archival" was applied to WavPack and not to WAV. The maintainer caught it |
 | K4 | ARCHIVAL | back to FLAC, the archival master |
-| L | UX | goal presets are a convenience over settings each of which is checked in B |
+| L | ARCHIVAL | a preset applies a *bundle* of settings, several reaching cyanrip's argv. B checks each setting round-trips; that a preset applies **all** of it is a different claim, and a preset that silently under-applies hands the user a fast rip they believe is a paranoid one |
 | M | UX | naming templates — where a file lands, not whether its bytes are right |
 | N | ARCHIVAL | T1, the whole-disc uniform secure re-read: the accuracy claim itself |
 | P | ARCHIVAL | the cache probe feeds the accuracy model |
@@ -2256,7 +2256,7 @@ defect, and two of those sections are archival.
 
 <!-- END-ACCEPTANCE-SEVERITY-TABLE -->
 
-**14 ARCHIVAL, 6 UX.** The table is swept: every `log --- ` section in
+**17 ARCHIVAL, 3 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The three that remain are genuinely about the program rather than the disc — dialog plumbing (`D`), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), and hygiene for the *next* run (`Q`). The table is swept: every `log --- ` section in
 `fullacceptance.txt` must appear, so a **new** section has to be classified
 rather than defaulting to ignorable — the direction that fails safe is the one
 that makes you decide.
