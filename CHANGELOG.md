@@ -25,16 +25,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   its first ripper assertion, hours from anyone noticing, with a disc already in
   the drive. Read the two docstrings together and they describe *one* fact — *"a
   build designated to gather the hardware evidence a close requires"* and *"the
-  build the rig is running"* — so `FORK_TEST_PIN` is now an alias of
-  `PIN_UNDER_REVIEW`: one value, N readers, per `CLAUDE.md`'s *do two surfaces
-  answer this question, and do they use the same key?* The relation is now
-  asserted directly (a property no test of either side alone can express), with a
-  floor asserting the acceptance script still makes the claim the relation relies
-  on, and a non-triviality check that the reviewed build is offered as **not**
-  approved — round 14's pin is a release, which is exactly the case where *"it is
-  published"* could be misread as *"a round approved it"*. `cb440bd` moves to
-  `SUPERSEDED_TEST_PINS` so a rig that already built it still receives
-  `--consumer`.
+  build the rig is running"* — so the menu now offers the build under review as
+  its own labelled entry, and the relation is asserted directly (a property no
+  test of either side alone can express), with a floor asserting the acceptance
+  script still makes the claim that relation relies on, and a non-triviality
+  check that the reviewed build is offered as **not** approved.
+- **…and the obvious version of that fix was tried first and reverted, which is
+  the more useful half.** Reading the two docstrings together, `FORK_TEST_PIN`
+  and `PIN_UNDER_REVIEW` describe one sentence, so aliasing them looked like the
+  *one value, N readers* fix the rule prescribes. Five tests disagreed within one
+  run and two were reporting real damage, not stale fixtures: the approval detail
+  flipped to a branch reading *"a test pin is not a release and no round has
+  approved it"* — a **false sentence about a published release** — and the guard
+  that stops a rig being silently upgraded off the pin a round is reviewing went
+  from `not_determined` to `up_to_date`. **Round 14's reviewed pin IS a release
+  (`release_seq` 20); a test pin by definition is not.** Every previous test pin
+  was unnumbered, so nothing had ever exercised the difference — making the two
+  constants identical did not remove a distinction, it hid one. `CLAUDE.md`'s
+  *what does the code downstream do with answers it never used to receive?*, and
+  the narrower fix is what shipped.
 
 ### Added
 - **`docs/rig-scripts/platterpusovernight.sh` — the overnight acceptance run is

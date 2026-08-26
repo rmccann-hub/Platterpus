@@ -470,44 +470,39 @@ PIN_UNDER_REVIEW: Final[str] = "d9c058c"
 #: *publication* of it did not happen. Named here so the value is reachable from code
 #: while their manifest catches up — which is exactly the fallback a machine-readable
 #: channel is supposed to remove the need for, and is worth one line back to them.
-#: **ALIASED TO :data:`PIN_UNDER_REVIEW` on 2026-08-26, because they are one fact
-#: in two slots and only one of them was moving.**
+#: **NOT the same thing as :data:`PIN_UNDER_REVIEW`, and aliasing them was tried
+#: and reverted on 2026-08-26.** Worth the paragraph, because the two docstrings
+#: read as one sentence and the merge looked obviously right:
 #:
-#: Read the two docstrings together: this one says *"a build designated to gather
-#: the hardware evidence a close requires"*, and `PIN_UNDER_REVIEW` says *"the
-#: build the rig is running"* for the open round. That is the same sentence. But
-#: `PIN_UNDER_REVIEW` was moved every round and this constant was last touched in
-#: round **8**, so by round 14 the two named different builds — and the two
-#: surfaces that read them had drifted apart with no test comparing them:
+#: The real defect found that day was that `ripper_choices()` — the
+#: ``--install-ripper list`` menu — offered this constant and the approved build,
+#: while `fullacceptance.txt` asserts `expect-ripper-under-review`, which keys on
+#: :data:`PIN_UNDER_REVIEW`. **The app's own menu offered nothing that could
+#: satisfy the app's own acceptance gate**, so an operator following it would have
+#: had an unattended run die on its first ripper assertion. That is real and it is
+#: fixed — by `ripper_choices()` offering the build under review as its own
+#: labelled entry, *not* by declaring the two constants equal.
 #:
-#:   * `ripper_choices()` — the `--install-ripper list` menu — offered
-#:     `ddf7ac3` (approved) and `cb440bd` (the round-**8** test pin);
-#:   * `fullacceptance.txt` asserts `expect-ripper-under-review`, which keys on
-#:     `PIN_UNDER_REVIEW` (`d9c058c`, round 14).
+#: **Why the alias was wrong: round 14's pin under review IS a published release**
+#: (`release_seq` 20, channel `beta`) and a test pin, by definition, is not. Five
+#: tests said so within one run, and two of them were reporting real damage rather
+#: than a stale fixture: the approval detail flipped to a branch whose text reads
+#: *"a test pin is not a release and no round has approved it"* — a false sentence
+#: about a release — and `test_a_session_test_pin_is_never_installed_over` went
+#: from `not_determined` to `up_to_date`, i.e. the guard that stops a rig being
+#: silently upgraded off the pin a round is reviewing stopped holding.
 #:
-#: **So the app's own menu offered nothing that could satisfy the app's own
-#: acceptance gate.** An operator following the menu would have had the overnight
-#: run fail on its first ripper assertion, on a machine with a disc already in
-#: the drive — the exact "two surfaces answer one question with different keys"
-#: shape `CLAUDE.md` names, found by asking which build tonight's run installs.
-#:
-#: The fix is the one that rule prescribes: **one value, N readers**, so the menu
-#: and the gate cannot disagree again. `test_the_install_menu_offers_the_build_
-#: the_acceptance_gate_demands` asserts the relation, which is a property no test
-#: of either side alone can express.
-#:
-#: History of the constant this replaces is kept above and `cb440bd` moves to
-#: :data:`SUPERSEDED_TEST_PINS`, so a rig that already built it still receives
-#: ``--consumer``.
-FORK_TEST_PIN: Final[str] = PIN_UNDER_REVIEW
-#: Their `0.9.4-rc2+platterpus.10`, read off the fork's own
-#: `HANDSHAKE-RIPPER-VERSION` in round 14 laps 16 and 17 — from the artifact,
-#: not from memory of it.
-FORK_TEST_VERSION: Final[str] = "0.9.4-rc2+platterpus.10"
+#: The general lesson, which is `CLAUDE.md`'s *what does the code downstream do
+#: with answers it never used to receive?*: **two constants that have always been
+#: equal in every observed case are not therefore one concept.** Every previous
+#: test pin was unnumbered, so nothing had ever exercised the difference; making
+#: them identical did not remove a distinction, it hid one.
+FORK_TEST_PIN: Final[str] = "cb440bd"
+FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.6-beta.1"
 #: Which round nominated it. Stated rather than derived from the approved round + 1:
 #: a test pin belongs to *a* round, and arithmetic on the approved round is only
 #: accidentally right — it breaks the first time two rounds pass without a close.
-FORK_TEST_PIN_ROUND: Final[int] = 14
+FORK_TEST_PIN_ROUND: Final[int] = 8
 FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 
 #: Test pins this round has already retired. Listed **only** so a rig that built one
@@ -522,11 +517,6 @@ FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 #: still have built: it was the pin for thirteen laps and it is what the 2026-08-04 rig
 #: session actually ran, so every artifact we hold from real hardware came from it.
 SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = (
-    # Round 8's test pin, retired 2026-08-26 when this constant was aliased to
-    # `PIN_UNDER_REVIEW`. It had remained the app's *offered* test build for six
-    # rounds after round 8 ended — see the note on `FORK_TEST_PIN`. Listed here
-    # for the usual reason: a rig that built it must still receive `--consumer`.
-    "cb440bd",
     # Retired when round 8 opened with `cb440bd`. `104f6d4` was round SEVEN's final test
     # pin (beta.8) and round 7 CLOSED at lap 39 with a mutual GO, so a rig still holding
     # it is not merely stale — it is gathering evidence for a round that is over.
@@ -822,6 +812,33 @@ TEST_TARGET: Final[ForkTarget] = ForkTarget(
     why=(
         f"the round-{FORK_TEST_PIN_ROUND} test pin, nominated by both projects for "
         "the joint hardware session — NOT a release, and no round has approved it"
+    ),
+)
+
+#: The build the **currently open round** is reviewing — what `fullacceptance.txt`
+#: asserts with `expect-ripper-under-review`, and therefore what an operator must
+#: have installed before an acceptance run is worth starting.
+#:
+#: **Separate from :data:`TEST_TARGET` on purpose.** A test pin is a build
+#: nominated to gather evidence and is *not* a release; round 14's reviewed pin is
+#: a release (`release_seq` 20, channel `beta`), which is why round 13's close
+#: condition was rewritten to measure the shipped artifact. Collapsing the two
+#: constants was tried on 2026-08-26 and reverted — see :data:`FORK_TEST_PIN`.
+#:
+#: The version is **read off the fork's own `HANDSHAKE-RIPPER-VERSION`** in round
+#: 14 laps 16 and 17 (`cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-gd9c058c)`)
+#: — from the artifact, not from memory of it, and it is a pairing they stated
+#: rather than one we inferred. The verify step still keys on the build tag, so a
+#: wrong version string here would be caught rather than believed.
+UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
+    pin=PIN_UNDER_REVIEW,
+    version="0.9.4-rc2+platterpus.10",
+    why=(
+        "the build round 14 is reviewing — what an acceptance run must be on. "
+        "It IS a published release (release_seq 20, channel beta), unlike a test "
+        "pin, but no round has approved it: round 14 is the round that would, "
+        "and it is open. A rip with this installed reports `unapproved`, which "
+        "is the correct answer rather than a defect"
     ),
 )
 
@@ -1472,7 +1489,27 @@ def ripper_choices() -> list[RipperChoice]:
     """
     seen: set[str] = set()
     out: list[RipperChoice] = []
-    for target, kind in ((PRODUCTION_TARGET, "approved"), (TEST_TARGET, "test-pin")):
+    for target, kind in (
+        (PRODUCTION_TARGET, "approved"),
+        # **THE BUILD AN OPEN ROUND IS REVIEWING, added 2026-08-26.** Without it
+        # this menu offered nothing that could satisfy `fullacceptance.txt`'s
+        # `expect-ripper-under-review`, which keys on `PIN_UNDER_REVIEW` — so an
+        # operator who followed the app's own menu would have had an unattended
+        # acceptance run die on its first ripper assertion, hours from anyone
+        # noticing, with a disc already in the drive. Two surfaces answering
+        # "which build should be installed" with different keys, which is the
+        # shape `CLAUDE.md` names; the relation is now asserted by a test.
+        #
+        # It is a THIRD entry rather than a re-pointing of `TEST_TARGET`, and
+        # that distinction was paid for: aliasing `FORK_TEST_PIN` to
+        # `PIN_UNDER_REVIEW` was tried first and reverted, because round 14's pin
+        # is a published release while a test pin is by definition not one — the
+        # merge made the approval text say *"a test pin is not a release"* about a
+        # release, and dropped the guard that stops a rig being upgraded off the
+        # reviewed pin mid-round. See the note on `FORK_TEST_PIN`.
+        (UNDER_REVIEW_TARGET, "under-review"),
+        (TEST_TARGET, "test-pin"),
+    ):
         if target.pin in seen:
             # The two constants coincide whenever a round has just closed and the
             # test pin has been promoted. Showing one build twice under two names
