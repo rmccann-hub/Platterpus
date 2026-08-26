@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.28] — 2026-08-26
+
 ### Fixed
 - **`HANDSHAKE-OUR-PIN` named the cyanrip fork's commit, not ours, in nine sent
   laps.** The field pairs with `HANDSHAKE-OUR-VERSION` and disambiguates *which
@@ -11014,7 +11016,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.27...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.28...HEAD
+[0.6.28]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.27...v0.6.28
 [0.6.27]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.26...v0.6.27
 [0.6.26]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.25...v0.6.26
 [0.6.25]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.24...v0.6.25
@@ -11129,4 +11132,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.27.*
+*Last updated for Platterpus v0.6.28.*
