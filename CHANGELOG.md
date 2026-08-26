@@ -13,6 +13,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [0.6.28] — 2026-08-26
 
+### Added
+- **`docs/rig-scripts/platterpusovernight.sh` — the overnight acceptance run is
+  one command.** It holds sleep, idle and lid-suspend off with `systemd-inhibit`
+  for the lifetime of the run, drives the acceptance script, and then runs the
+  collector automatically, so the morning is an upload rather than a second
+  command to remember. **It delegates and reimplements nothing** — the run is
+  still `--run-script fullacceptance.txt` and the collection is still
+  `platterpusmorning.sh`; a test asserts the wrapper builds no archive of its
+  own, because two bundlers means two answers to *"which file do I upload"*. The
+  lock covers the **collection as well as the rip**: a suspend part-way through
+  `tar` yields a truncated archive that still opens and still lists, with the
+  night's most important artifact missing off the end. `systemd-inhibit` rather
+  than a power-settings change because the lock dies with the child process —
+  nothing to undo, nothing left awake if the run dies at 3 a.m. A missing
+  inhibitor downgrades loudly instead of refusing.
+
+### Changed
+- **The morning bundle lands in `~/Downloads`**, the folder a browser upload
+  dialog opens in, instead of `$HOME`. Falls back to `$HOME` rather than
+  creating the directory — inventing one puts the file somewhere the operator
+  has no habit of looking, which is the same problem with an extra step — and
+  the *"SEND THIS ONE FILE"* line prints the real path either way, so the
+  fallback is visible rather than assumed.
+
 ### Fixed
 - **`HANDSHAKE-OUR-PIN` named the cyanrip fork's commit, not ours, in nine sent
   laps.** The field pairs with `HANDSHAKE-OUR-VERSION` and disambiguates *which

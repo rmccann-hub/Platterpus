@@ -285,3 +285,121 @@ def test_the_pin_under_review_is_resolved_in_the_consumer_flag_set() -> None:
         f"genuinely does not accept the flag, say so here in a comment and change "
         f"this test to expect that."
     )
+
+
+# --- The shell wrappers around those scripts ---------------------------------
+#
+# The `.txt` files above are checked by the real parser. The two `.sh` files that
+# *drive* them had nothing checking anything, and they are the half the operator
+# actually types.
+
+OVERNIGHT: Path = RIG_SCRIPTS / "platterpusovernight.sh"
+MORNING: Path = RIG_SCRIPTS / "platterpusmorning.sh"
+
+
+def test_the_overnight_wrapper_delegates_and_never_reimplements() -> None:
+    """One caller of two existing scripts — not a third copy of either.
+
+    The whole reason the wrapper is safe to add is that it contains no logic of
+    its own: the acceptance run stays `--run-script`, the collection stays
+    `platterpusmorning.sh`. If either job were re-expressed here it would be a
+    second implementation to drift, and the drift would surface at 3 a.m. on a
+    machine with a disc in it.
+
+    So: it must *invoke* both, and must not contain the marker of having
+    reimplemented the collector (a `tar` of its own).
+    """
+    text = OVERNIGHT.read_text(encoding="utf-8")
+    assert "--run-script" in text, "the wrapper does not start an acceptance run"
+    assert "platterpusmorning.sh" in text, "the wrapper does not run the collector"
+    # Comments are stripped first: this file *discusses* tarring in its header,
+    # and a substring match against prose is the "satisfied by the wrong thing"
+    # shape CLAUDE.md names.
+    code = "\n".join(
+        line for line in text.splitlines() if not line.lstrip().startswith("#")
+    )
+    assert "tar " not in code, (
+        "the wrapper builds its own archive. Collection belongs to "
+        "platterpusmorning.sh; two bundlers means two answers to 'which file do "
+        "I upload'."
+    )
+
+
+def test_the_sleep_lock_covers_the_collection_too_not_just_the_rip() -> None:
+    """A suspend during `tar` yields a truncated archive that still looks like one.
+
+    The obvious version of this wrapper holds the lock over the rip and drops it
+    before collecting, because the rip is the long part. But the collector tars
+    up to a few hundred megabytes, and an archive interrupted mid-write is the
+    silent-partial shape: it opens, it lists, and the artifact the night was for
+    is missing from the end of it.
+
+    Non-triviality: the inhibit prefix must be *used* more than once, not merely
+    defined. A test that only asserted `systemd-inhibit` appears would pass
+    against a wrapper that inhibits nothing.
+    """
+    code = "\n".join(
+        line
+        for line in OVERNIGHT.read_text(encoding="utf-8").splitlines()
+        if not line.lstrip().startswith("#")
+    )
+    assert "systemd-inhibit" in code, "no sleep inhibitor at all"
+    uses = code.count('"${INHIBIT[@]}"')
+    assert uses >= 2, (
+        f"the inhibit prefix is applied {uses} time(s); it must cover both the "
+        "acceptance run and the collection"
+    )
+    assert "--what=idle:sleep:handle-lid-switch" in code, (
+        "the lock must cover idle, explicit suspend and the lid — those are the "
+        "three ways this machine stops mid-rip"
+    )
+
+
+def test_the_wrapper_survives_a_missing_inhibitor_rather_than_refusing() -> None:
+    """A run that happens and might suspend beats a run that did not happen.
+
+    But the downgrade must be *loud*: a silent one spends a night and teaches
+    nothing. Asserted as a real behaviour rather than by reading the source —
+    the script is invoked with no AppImage present, which is the earliest hard
+    exit, proving the argument checks run before anything touches the drive.
+    """
+    import subprocess
+
+    result = subprocess.run(
+        ["bash", str(OVERNIGHT)],
+        capture_output=True,
+        text=True,
+        env={"HOME": "/nonexistent-home-for-this-test", "PATH": "/usr/bin:/bin"},
+    )
+    assert result.returncode != 0, "a missing AppImage must be a hard, early exit"
+    assert "AppImage" in result.stdout + result.stderr, (
+        "the failure must name what is missing, not just exit non-zero"
+    )
+
+
+def test_the_morning_bundle_lands_where_the_operator_looks() -> None:
+    """The ONE file goes to ~/Downloads — the folder an upload dialog opens in.
+
+    And it falls back to $HOME rather than creating the directory: inventing a
+    Downloads folder on a machine that has none puts the file somewhere the
+    operator has no habit of looking, which is the same problem with a step
+    added. Both branches asserted, because a fallback nothing exercises is a
+    fallback nobody has run.
+    """
+    code = "\n".join(
+        line
+        for line in MORNING.read_text(encoding="utf-8").splitlines()
+        if not line.lstrip().startswith("#")
+    )
+    assert "${HOME}/Downloads" in code, "the archive does not target ~/Downloads"
+    assert 'if [ -d "${HOME}/Downloads" ]' in code, (
+        "the Downloads path is used unconditionally — on a machine without one, "
+        "tar would fail at the very end of the night"
+    )
+    assert "mkdir" not in code.split("ARCHIVE=")[0], (
+        "the script creates the Downloads directory; the fallback exists so it "
+        "does not have to"
+    )
+    assert "SEND THIS ONE FILE" in MORNING.read_text(encoding="utf-8"), (
+        "the operator must be told the real path, so the fallback is visible"
+    )
