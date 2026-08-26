@@ -156,3 +156,68 @@ def test_every_dialog_in_the_app_inherits_the_logging_base() -> None:
         "these dialogs subclass QDialog directly, so they inherit neither the "
         "centring nor the presented/closed log lines:\n  " + "\n  ".join(offenders)
     )
+
+
+def test_the_runner_names_the_release_picker_by_its_real_title(qapp: object) -> None:
+    """Two descriptions of one string, tied so they cannot drift.
+
+    `uiscript.runner._RELEASE_PICKER_TITLE` exists so a blocked `rip` can point the
+    operator at `pick-release` instead of the generic `ok` / `cancel` — which is
+    *wrong* for this dialog, because `answer-dialog` presses a button and the picker
+    needs a row selected. Reported from the rig on 2026-08-26, where the generic
+    message sent someone to the wrong verb: a diagnosis accurate about the problem
+    and wrong about the remedy.
+
+    The constant is a literal rather than an import, so `rip`'s guard does not pull
+    a widget module in on every step. That is only safe with this test: if the
+    dialog is ever retitled, the guard would silently fall back to the generic
+    advice and nobody would notice, because the fallback still *reads* correctly.
+    """
+    from platterpus.uiscript.runner import _RELEASE_PICKER_TITLE  # noqa: PLC0415
+
+    dialog = ReleasePickerDialog([])
+    try:
+        assert dialog.windowTitle() == _RELEASE_PICKER_TITLE, (
+            f"the picker's title is {dialog.windowTitle()!r} but the runner "
+            f"compares against {_RELEASE_PICKER_TITLE!r}, so a blocked rip would "
+            "give the generic ok/cancel advice — which cannot answer this dialog"
+        )
+    finally:
+        dialog.deleteLater()
+
+
+def test_both_blocked_step_messages_send_the_operator_to_pick_release(
+    qapp: object,
+) -> None:
+    """Two sites gave the same wrong remedy; fix both, and assert both.
+
+    `rip`'s guard and `wait-for-rip`'s no-worker branch each name a verb for the
+    dialog they found blocking. Both said `answer-dialog` unconditionally, which
+    cannot answer the release picker: it presses a button, and the picker needs a
+    row selected. Reported from the rig 2026-08-26.
+
+    Asserted by reading the source of both handlers rather than by driving a modal,
+    because the point is that **neither** site is left behind — `docs/testing.md`
+    §5.o, a rule enforced where it was learned is not enforced. A behavioural test
+    of one handler would have passed while the other stayed wrong, which is exactly
+    the state this replaces.
+    """
+    import inspect  # noqa: PLC0415
+
+    from platterpus.uiscript import runner as runner_mod  # noqa: PLC0415
+
+    handlers = {
+        "rip": runner_mod.ScriptRunner._do_rip,
+        "wait-for-rip": runner_mod.ScriptRunner._do_wait_for_rip,
+    }
+    for name, fn in handlers.items():
+        src = inspect.getsource(fn)
+        assert "_RELEASE_PICKER_TITLE" in src, (
+            f"`{name}` does not special-case the release picker, so a blocked run "
+            "there still tells the operator to use `answer-dialog` — which cannot "
+            "resolve a dialog that needs a row selected"
+        )
+        assert "pick-release" in src, (
+            f"`{name}` names the picker but never names `pick-release`, so its "
+            "advice still points at the wrong verb"
+        )

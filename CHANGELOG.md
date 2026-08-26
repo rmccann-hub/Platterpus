@@ -11,6 +11,29 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The acceptance script promised a stop it never performed, and it cost a live
+  rig run.** Section E's header has said *"if this fails, nothing after it can
+  mean anything, and you have spent five minutes rather than a night finding
+  out"* since the file was written — and then carried on regardless. On
+  2026-08-26 the MusicBrainz release picker was still open when section F reached
+  `rip`; the guard correctly refused to press Start behind a modal, and **the
+  operator had to answer the picker by hand** to unblock a run whose entire point
+  is being unattended. A comment where a check belongs is not a fix (`CLAUDE.md`),
+  so section E now ends in `abort-if-failed`.
+- **Both "a dialog is blocking this step" messages named the wrong verb for the
+  release picker.** `rip`'s guard and `wait-for-rip`'s no-worker branch each told
+  the operator to use `answer-dialog`, which presses a *button*; the picker needs
+  a *row selected*, which only `pick-release` does — so following the advice would
+  have pressed Ok on a picker with nothing chosen. Every word of the diagnosis was
+  true and the remedy was wrong, which is the shape `CLAUDE.md` warns about. Fixed
+  at **both** sites in one change, with a test that reads both handlers: a
+  behavioural test of one would have passed while the other stayed wrong
+  (`docs/testing.md` §5.o — a rule enforced where it was learned is not enforced).
+  `wait-for-rip`'s version also corrects *where* the fix goes: the picker opens
+  from the disc scan, so `pick-release` belongs **before** `rip`, not between
+  `rip` and the wait.
+
 ## [0.6.28] — 2026-08-26
 
 ### Fixed
