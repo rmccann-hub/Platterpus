@@ -11,6 +11,32 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **`our_pin()` returned a commit the squash-merge was about to delete.** It
+  pickaxed the version literal with no scope, so on a session branch it named a
+  branch commit: `git cat-file -e` passed in this clone and the sha was
+  **unfetchable for the cyanrip fork**, which is the opposite of what a pin is
+  for. Round-14 lap 18 went out declaring `ed4f300`; after the merge all four CI
+  matrix legs failed on the pin check this same release added, and the commit
+  that actually carries 0.6.28 is `b524936`. **Same defect class as the one the
+  function was written to fix — a value that is correct about the wrong scope.**
+  The search now goes `origin/main`, then `main`, and only falls back to the
+  branch before a bump is merged; a new test asserts the pin is reachable from
+  the default branch, skipping rather than passing when no default branch is
+  present locally.
+- **…and the tests that check it were reading an empty git history in CI.**
+  `actions/checkout` defaults to `fetch-depth: 1` — one commit, no tags — so
+  every question the suite asks git about the past came back empty on the runner.
+  That is why a branch run went green and the identical tests went red the moment
+  they ran against `main`. Reproduced by cloning `--depth 1` locally rather than
+  reasoned about. Two fixes, because either alone is wrong: the `test` job now
+  sets `fetch-depth: 0` (the `changelog` and `media-guard` jobs already did — the
+  precedent was in the same file), **and** the history-dependent checks now
+  **skip, loudly**, when the repository is shallow. Skipping matters as much as
+  the depth: answering *"no problems found"* from a record that contains nothing
+  is the satisfied-by-finding-nothing shape, and a green tick from a check that
+  could not see its subject is worse than a red one.
+
 ## [0.6.28] — 2026-08-26
 
 ### Fixed

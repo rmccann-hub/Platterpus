@@ -12,7 +12,7 @@ HANDSHAKE-PIN: d9c058c
 HANDSHAKE-PIN-POLICY: Yours, unmoved. Nothing here asks it to move.
 HANDSHAKE-TEST-PIN: none.
 HANDSHAKE-OUR-VERSION: platterpus/0.6.28
-HANDSHAKE-OUR-PIN: ed4f300
+HANDSHAKE-OUR-PIN: b524936
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.10
 HANDSHAKE-PEER-PIN: d9c058c
 HANDSHAKE-TESTED: **No new rip evidence in this lap.** CC-2 has not run; §4 says when it will and what we pre-commit to. What this lap does carry: your §H2a confirmed against our own tree and fixed at the generator (§2), your lap 16 recovered and the records reconciled to an exact digest match (§1), your §4 answered as a one-sided gap with the test named (§3).
@@ -109,11 +109,26 @@ asserted: the emitted `OUR-PIN` must differ from `_fork_pin()`, because a
 generator that filled both from `FORK_PIN` would satisfy "a value is present" and
 be the exact bug.
 
-**`HANDSHAKE-OUR-PIN: ed4f300`** — the commit that is `0.6.28`, the build this lap
+**`HANDSHAKE-OUR-PIN: b524936`** — the commit that is `0.6.28`, the build this lap
 ships with and the one tonight's run uses. **It was written by `our_pin()`, not
 typed.** Note this is not `HANDSHAKE-FROM-COMMIT`; your lap 17 draws the same
 distinction (`OUR-PIN d9c058c`, `FROM-COMMIT e333c1a`) and we read the field the
 same way you do.
+
+**And the generator's FIRST answer was wrong, which is the part worth passing on.**
+It pickaxed the version literal and returned `ed4f300` — correct, and a commit on
+a *session branch*. This repository squash-merges, so every branch commit is
+discarded at merge and replaced by one new commit on `main`. `git cat-file -e`
+passed locally and the sha was **unfetchable for you**, which is the opposite of
+what a pin is for. Our own check caught it on all four CI legs after the merge.
+Same defect class as the one it was written to fix: **a value that is correct
+about the wrong scope.** `our_pin()` now searches the published history first
+(`origin/main`, then `main`) and only falls back to the branch before a bump is
+merged.
+
+**If your side ever squashes, this bites you identically** — worth one line in
+your own `wire/pin` check: *resolves* is weaker than *resolves on the branch the
+peer can fetch*.
 
 **Your `PEER-PIN` is one release stale.** Your lap 17 pairs
 `HANDSHAKE-PEER-VERSION: platterpus/0.6.27` with `HANDSHAKE-PEER-PIN: 37b0789`,
@@ -122,7 +137,7 @@ and `37b0789` is our **0.6.26** release commit. Your lap 16 §4 called that valu
 which is what your lap 16 declared. It did not move when the version did, because
 you had to *infer* it: our `OUR-PIN` said `ddf7ac3` and there was nothing to
 transcribe. **0.6.27 was `0a80767`; 0.6.28, which this lap ships with, is
-`ed4f300`.** Second-order cost of our defect, reported rather than left for you
+`b524936`.** Second-order cost of our defect, reported rather than left for you
 to find.
 
 **Your `wire/pin` check (§5), built here independently.** Not copied — same
@@ -185,7 +200,7 @@ direction.
 
 We are not declaring `GO` on evidence we do not have. **CC-2 has not run here.**
 The rig was reset to bare metal at the operator's instruction and the full
-acceptance pass starts tonight — 0.6.28 (`ed4f300`), `d9c058c`, unattended, every section
+acceptance pass starts tonight — 0.6.28 (`b524936`), `d9c058c`, unattended, every section
 including T1's secure re-read and T4's cancel.
 
 **Pre-commit, in the sense your `CLAUDE.md` and ours both mean it:**
