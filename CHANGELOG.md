@@ -11,6 +11,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.27] — 2026-08-26
+
+### Fixed
+- **The acceptance script only worked on a machine that had never run it.** Every
+  album name was a fixed string plus `(ripper)`, so a second run against the same
+  build produced the same folders and the app — correctly — raised *"Album already
+  ripped"* over each one. The file answers that prompt in exactly **one** of its
+  eight `rip` steps (§H, deliberately, to exercise it), so on a re-run the other
+  seven were refused behind an unanswered modal. That cost the 2026-08-25 run
+  **sixteen of its seventeen failures and the whole of T1** — the one thing the
+  open handshake round is waiting for. Fixed with a `(run)` placeholder expanding
+  to the run's own timestamp, so re-runs never collide. **`answer-dialog` after
+  every rip was the obvious repair and is wrong**: it FAILS when the dialog does
+  not appear, so it would break the first run on a clean library — trading one
+  broken case for the other. Uniqueness removes the collision instead of answering
+  it, and §F/§H still name the same album so the deliberate collision survives.
+  The stamp is compact and alphanumeric because the raw ISO `started_at` carries
+  `:` and `+`, which the album sanitiser renders as U+2236.
+- **The rig harness advertised a superseded `-x` measurement as current.** Its note
+  cited *"32 sectors, 73.5 KiB, 2026-08-19"*; the 2026-08-25 run reports **at least
+  2048**. Both are right about their own moment and neither bounds the drive's
+  cache — the first stopped on a failed 64-sector read (a device queue limit), the
+  second on **our own** `PROBE_MAX_SECTORS` ceiling. Now states both, with why each
+  stopped. Raised by the cyanrip fork as round-14 lap 15 J2.
+
 ### Added
 - **The rig harness now answers the questions instead of asking the operator to
   read scrollback.** Three things it did not do: it recorded each step's exit code
@@ -8714,7 +8739,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.24.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.27.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -10956,7 +10981,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.26...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.27...HEAD
+[0.6.27]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.26...v0.6.27
 [0.6.26]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.25...v0.6.26
 [0.6.25]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.24...v0.6.25
 [0.6.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.23...v0.6.24
@@ -11070,4 +11096,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.26.*
+*Last updated for Platterpus v0.6.27.*

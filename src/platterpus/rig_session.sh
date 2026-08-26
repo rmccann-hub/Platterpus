@@ -139,7 +139,12 @@ mkdir -p "$OUT/scratch"
 #     is recorded so the number is not lost with the step, and the single home for
 #     the flag's behaviour is `docs/dependency-contracts.md`.
 say "5a  their cache probe (-x) — NOT RUN, deliberately"
-note "measured once on 2026-08-19: Cache probe: 32 sectors, 73.5 KiB, uncached read 362.6 ms"
+note "2026-08-19: at least 32 sectors (73.5 KiB, uncached read 362.6 ms) — the"
+note "  64-sector READ FAILED, so 32 was the device queue limit, not the cache."
+note "2026-08-25: at least 2048 sectors (uncached read 362.8 ms) — OUR ceiling was"
+note "  reached, so 2048 is our bound and not the drive's. Timing stable to 0.2 ms"
+note "  across both; the search bound moved 64x after a kernel change. NEITHER"
+note "  number bounds this drive's cache (fork lap 15 D2)."
 note "it then rips the whole disc (ETA 1h 3m) and leaves the drive held, so this"
 note "harness no longer runs it. Returns when the fork's -x exits after measuring."
 note "This is a recorded omission, not a skipped check: see docs/dependency-contracts.md."
@@ -266,7 +271,14 @@ if ! grep -h "Pregap source:" "${LOGS[@]}" 2>/dev/null \
      >"$OUT/06-pregap-sources.txt"; then
   note "no Pregap source: lines in the retained log — recorded, not skipped"
 fi
-TOC_HITS=$(grep -c "Pregap source: TOC" "$OUT/06-pregap-sources.txt" 2>/dev/null || echo 0)
+# `grep -c` PRINTS "0" and EXITS 1 when it matches nothing, so `|| echo 0`
+# appended a SECOND line and TOC_HITS became the two-line string "0\n0" — which
+# the `[ ... -gt ]` below then rejected with "integer expected" (seen on the
+# 2026-08-25 rig session). The conclusion it printed was right by luck: the
+# failed comparison fell through to the same branch. `|| true` swallows the
+# exit status without adding output, and the guard covers grep being absent.
+TOC_HITS=$(grep -c "Pregap source: TOC" "$OUT/06-pregap-sources.txt" 2>/dev/null || true)
+[ -n "$TOC_HITS" ] || TOC_HITS=0
 note "artifact: 06-pregap-sources.txt"
 if [ "${TOC_HITS:-0}" -gt 0 ]; then
   note "** A TOC-SOURCED PRE-GAP EXISTS — that is the C1 candidate. Name the disc."

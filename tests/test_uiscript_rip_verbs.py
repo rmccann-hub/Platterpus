@@ -2057,3 +2057,79 @@ def test_the_quit_helpers_predicate_has_a_real_subject(
         "bundle_in_progress() still reports work after the thread joined — the "
         "helper would hold the process open until its budget expired"
     )
+
+
+# --- (run): an acceptance script must be re-runnable ------------------------
+
+
+def test_the_run_placeholder_expands_to_a_filesystem_safe_stamp(
+    qapp, tmp_path, monkeypatch
+) -> None:
+    """`(run)` makes each run's album folders unique, so re-runs do not collide.
+
+    **The defect it removes.** Every album name was a fixed string plus
+    `(ripper)`, so a second run against the same build produced the same folders
+    and the app — correctly — raised "Album already ripped" over each one. On the
+    2026-08-25 run that cost sixteen of seventeen failures and the whole of T1:
+    the script answers that prompt at exactly one of its eight rips, so the other
+    seven were refused behind an unanswered modal.
+
+    `answer-dialog` after every rip is the obvious repair and is wrong — it FAILS
+    when the dialog does not appear, so it breaks the first run on a clean
+    library. Uniqueness removes the collision instead of answering it.
+
+    The stamp must also be safe in a folder name: `started_at` is an ISO string
+    carrying `:` and `+`, which the album sanitiser renders as `∶` (U+2236), so a
+    raw expansion would name a folder `22∶57∶21+00∶00`.
+    """
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    runner = ScriptRunner(_window())
+    runner.start(parse("log seed"), source="log seed")
+
+    expanded, err = runner._expand_ripper_placeholder("album (run) x")
+    assert not err, err
+    stamp = expanded.replace("album ", "").replace(" x", "")
+    assert stamp and stamp.isalnum(), (
+        f"the run stamp {stamp!r} is not alphanumeric, so it will be mangled by "
+        "the album sanitiser into a folder name with U+2236 in it"
+    )
+    assert stamp == stamp.lower()
+
+    # STABLE WITHIN A RUN. §H rips the same album name as §F on purpose, to raise
+    # the overwrite prompt; if `(run)` drifted between the two, that deliberate
+    # collision would stop happening and the prompt would never be exercised.
+    again, _ = runner._expand_ripper_placeholder("album (run) x")
+    assert again == expanded, "(run) is not stable within a single run"
+
+
+def test_the_acceptance_script_still_collides_with_itself_on_purpose() -> None:
+    """§F and §H must name the SAME album, or the overwrite prompt is never raised.
+
+    Making names unique per run fixes cross-run collisions. It must not silently
+    disable the one collision the script *wants*: §H exists to answer
+    "Album already ripped" with `click=new`, and that prompt only appears because
+    §F ripped the same name first. A `(run)` that differed between them would turn
+    a deliberate test into a step that quietly passes by never firing.
+    """
+    script = (
+        Path(__file__).resolve().parents[1]
+        / "docs"
+        / "rig-scripts"
+        / "fullacceptance.txt"
+    )
+    albums = [
+        ln.strip()
+        for ln in script.read_text(encoding="utf-8").splitlines()
+        if ln.startswith("album ")
+    ]
+    assert len(albums) >= 8, f"only {len(albums)} album lines found: {albums}"
+    duplicated = [a for a in albums if albums.count(a) > 1]
+    assert duplicated, (
+        "no album name is used twice, so nothing raises the overwrite prompt and "
+        f"§H's `answer-dialog click=new` can never fire. Albums: {albums}"
+    )
+    # And every one must carry the stamp, or that section re-collides across runs.
+    missing = [a for a in albums if "(run)" not in a]
+    assert not missing, f"album lines without (run) will collide on a re-run: {missing}"
