@@ -184,6 +184,16 @@ def _parse_track_spec(spec: str) -> tuple[list[int], str]:
 #: this is generous and still refuses a pasted typo.
 _MAX_TRACK_RANGE: int = 200
 
+#: The MusicBrainz release picker's window title, used to point a blocked `rip`
+#: at the verb that actually answers it.
+#:
+#: **A second description of one fact, which is only safe because a test ties
+#: them**: `tests/test_uiscript_runner.py` asserts this equals the title
+#: `ui.release_picker.ReleasePicker` really sets. Read here rather than imported
+#: because `rip`'s guard runs on every rip step and must not pull a widget module
+#: in to compare a string.
+_RELEASE_PICKER_TITLE: Final[str] = "Pick a MusicBrainz release"
+
 
 @dataclass
 class _CyanripJob:
@@ -1650,14 +1660,29 @@ class ScriptRunner(QObject):
             return
         blocking = _active_dialog()
         if blocking is not None:
+            title = blocking.windowTitle()
+            # **NAME THE VERB THAT ANSWERS *THIS* DIALOG.** The generic advice was
+            # `ok` / `cancel`, which is wrong for the release picker: `answer-dialog`
+            # presses a button, and the picker needs a ROW CHOSEN, which only
+            # `pick-release` does. An operator who followed the message would press
+            # Ok on a picker with no selection. Reported from the rig on 2026-08-26,
+            # where this exact message sent someone to the wrong verb — a diagnosis
+            # that is accurate about the problem and wrong about the remedy is the
+            # shape `CLAUDE.md` warns about (every word true, the message wrong).
+            fix = (
+                "Answer it in the script with `pick-release <mbid|N>` — "
+                "`answer-dialog` presses a button and this dialog needs a row "
+                "selected, so Ok alone would not resolve it."
+                if title == _RELEASE_PICKER_TITLE
+                else "Answer it in the script (`ok` / `cancel`) before ripping."
+            )
             self._record(
                 step,
                 Outcome.FAIL,
-                f"a dialog is waiting for an answer: "
-                f"{blocking.windowTitle()!r}. Refusing to press Start behind it — "
-                "the previous step's rip may not have been created yet, and "
-                "starting a second one would put two ripper processes on one "
-                "drive. Answer it in the script (`ok` / `cancel`) before ripping.",
+                f"a dialog is waiting for an answer: {title!r}. Refusing to press "
+                "Start behind it — the previous step's rip may not have been "
+                "created yet, and starting a second one would put two ripper "
+                f"processes on one drive. {fix}",
             )
             return
         if getattr(self._window, "_rip_worker", None) is not None:
@@ -1940,14 +1965,32 @@ class ScriptRunner(QObject):
                 "reports the state it found rather than passing on an empty room"
             )
             if blocking is not None:
+                title = blocking.windowTitle()
+                # SAME CORRECTION AS `rip`'s GUARD, APPLIED HERE TOO. Both sites
+                # named `answer-dialog` unconditionally, and for the release picker
+                # that is the wrong verb: `answer-dialog` presses a button and the
+                # picker needs a ROW SELECTED, so Ok alone resolves nothing. Fixed
+                # in both places at once rather than at the one an operator
+                # happened to hit — `CLAUDE.md` / `docs/testing.md` §5.o: a rule
+                # enforced at the place it was learned is not enforced.
+                if title == _RELEASE_PICKER_TITLE:
+                    remedy = (
+                        "Put `pick-release <mbid|N> 120` BEFORE `rip`, not after: "
+                        "this dialog opens from the disc scan rather than from the "
+                        "rip, and it needs a row chosen — `answer-dialog ok` "
+                        "presses a button and would leave it unresolved."
+                    )
+                else:
+                    remedy = (
+                        f"Put `answer-dialog ok 30 {title}` between `rip` and this "
+                        "step. NOT a bare `ok`: the confirmation appears a beat "
+                        "after `rip` returns, so `ok` would race it and fail with "
+                        "'no dialog is open' about half the time."
+                    )
                 detail += (
-                    f". A dialog is waiting for an answer: "
-                    f"{blocking.windowTitle()!r} — the rip was requested but the "
-                    "app is blocked on it, so no worker exists yet. Put "
-                    f"`answer-dialog ok 30 {blocking.windowTitle()}` between "
-                    "`rip` and this step. NOT a bare `ok`: the confirmation "
-                    "appears a beat after `rip` returns, so `ok` would race it "
-                    "and fail with 'no dialog is open' about half the time."
+                    f". A dialog is waiting for an answer: {title!r} — the rip was "
+                    "requested but the app is blocked on it, so no worker exists "
+                    f"yet. {remedy}"
                 )
             # The clamp travels here too. It is already in the app log, but the
             # TRANSCRIPT is what the other project reads and what a person greps

@@ -11,6 +11,68 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **The `0.7.100` gate is now about what a failure MEANS, not how many there
+  are** (maintainer ruling, 2026-08-26): *"if there is something minor like a
+  window size was wrong, then ignore. But critical passing tests for cd accuracy
+  and provenance, etc, for archive level records, if all those pass fine.
+  Difference between not working as intended and not actually doing the job you
+  were built for."* The bar is **zero failures in the ARCHIVAL sections**, with
+  UX failures recorded, triaged and non-blocking — and *"it might take 1 more
+  test, it might take 10, i dont care."* **The safety of this rests entirely on
+  severity being a property of the SECTION, declared before the run** — a
+  severity assigned after seeing a failure is *"the five failures were each
+  understood"*, which 2026-08-19 disproved when all five descended from one
+  unknown defect. So the 20 acceptance sections are classified in advance in
+  `docs/testing.md` → *Acceptance severity* (**17 ARCHIVAL, 3 UX** — the first draft said 14/6 and the maintainer corrected three of them; `K3` was an outright inconsistency, since "lossless → archival" had been applied to WavPack and not to WAV, which is also lossless), and
+  `tests/test_rig_scripts.py` derives the population from the script so a **new**
+  section must be classified rather than defaulting to ignorable. A UX failure is
+  non-blocking only while it is its own defect: sharing a root cause with an
+  archival one makes it archival — which the 2026-08-26 run demonstrates, where
+  seven failures across four sections were one defect and two of those sections
+  are archival. Revert-proved: deleting a section's row fails the sweep.
+
+### Fixed
+- **One disc, two MusicBrainz lookups, two modal pickers — and the second one
+  blocked an unattended overnight run for 53.5 seconds until a person clicked
+  it.** Measured on the rig 2026-08-26: a single rescan produced two disc probes
+  whose lookups returned **407 ms apart** for the same disc-id; the script
+  answered the first picker in 27 ms and a second opened 378 ms later. It then
+  refused every step behind it — **all seven of that run's seven failures descend
+  from it**, including the whole of section F (the main full-disc rip) and
+  section H. **`_is_stale_mb_result` could not catch it, and that is the lesson**:
+  it asks *"is this result for the disc on screen?"*, which guards against a
+  lookup landing after the user swapped discs. Both of these were for the disc on
+  screen. *"Have I already answered this one?"* is a different question and
+  nothing was asking it. **This is worse for an ordinary user than for the rig**:
+  they are asked twice for one disc, and the second answer silently replaces the
+  tags the first one committed — on the rig the two answers were *different
+  releases*. Fixed with a per-scan marker, cleared by every new disc probe so a
+  deliberate Rescan still offers the picker; the test asserts both halves, since
+  a guard that suppressed the *question* rather than the *duplicate* would pass
+  the first half alone. Revert-proved.
+- **The acceptance script promised a stop it never performed, and it cost a live
+  rig run.** Section E's header has said *"if this fails, nothing after it can
+  mean anything, and you have spent five minutes rather than a night finding
+  out"* since the file was written — and then carried on regardless. On
+  2026-08-26 the MusicBrainz release picker was still open when section F reached
+  `rip`; the guard correctly refused to press Start behind a modal, and **the
+  operator had to answer the picker by hand** to unblock a run whose entire point
+  is being unattended. A comment where a check belongs is not a fix (`CLAUDE.md`),
+  so section E now ends in `abort-if-failed`.
+- **Both "a dialog is blocking this step" messages named the wrong verb for the
+  release picker.** `rip`'s guard and `wait-for-rip`'s no-worker branch each told
+  the operator to use `answer-dialog`, which presses a *button*; the picker needs
+  a *row selected*, which only `pick-release` does — so following the advice would
+  have pressed Ok on a picker with nothing chosen. Every word of the diagnosis was
+  true and the remedy was wrong, which is the shape `CLAUDE.md` warns about. Fixed
+  at **both** sites in one change, with a test that reads both handlers: a
+  behavioural test of one would have passed while the other stayed wrong
+  (`docs/testing.md` §5.o — a rule enforced where it was learned is not enforced).
+  `wait-for-rip`'s version also corrects *where* the fix goes: the picker opens
+  from the disc scan, so `pick-release` belongs **before** `rip`, not between
+  `rip` and the wait.
+
 ## [0.6.28] — 2026-08-26
 
 ### Fixed

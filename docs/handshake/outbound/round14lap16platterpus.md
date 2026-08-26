@@ -21,7 +21,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 | file | bytes | sha256 |
 | --- | --- | --- |
 | `round-14-lap-16.md` | 17,475 | `de58b0dce37bdd35…` |
-| `fullacceptance.txt` | 34,093 | `fb179fc5d59a30bd…` |
+| `fullacceptance.txt` | 35,296 | `721dca41d9879051…` |
 
 ## Reader
 
@@ -381,7 +381,7 @@ now starts.
 **The disc is the only thing left on our side.** The round is yours to close.
 <<<<<<<<<< END round-14-lap-16.md >>>>>>>>>>
 
-<<<<<<<<<< BEGIN fullacceptance.txt sha256=fb179fc5d59a30bd87ace35f7f4f838f8af7f9dae5a5475312622f322aaa8abb >>>>>>>>>>
+<<<<<<<<<< BEGIN fullacceptance.txt sha256=721dca41d9879051da7c38bf16ef2312275022b12c599d021098d3227a2a52eb >>>>>>>>>>
 # =============================================================================
 # FULL ACCEPTANCE RUN — end to end, every path the program has, one pass
 # =============================================================================
@@ -658,6 +658,24 @@ pick-release 1 120
 expect-dialog none
 expect-tracks 2+
 snapshot discidentified
+
+# STOP HERE IF THE DISC WAS NOT IDENTIFIED. The section header above has said
+# "if this fails, nothing after it can mean anything" since the file was written,
+# and until 2026-08-26 it said so and then carried on for six hours — a comment
+# where a check belongs, which is the failure `CLAUDE.md` names by that phrase.
+#
+# What it costs when the check is absent, measured on the rig the same night: the
+# release picker was still open at section F's `rip`, the guard correctly refused
+# to press Start behind a modal, and the operator had to answer the picker BY HAND
+# to unblock a run whose entire purpose is being unattended. Every rip after that
+# point is evidence about a release nobody scripted.
+#
+# `pick-release` already refuses to pass on a picker that never appeared unless
+# tracks are loaded, so a FAIL here is a real one: either the picker did not
+# resolve inside its 120 s, or the disc loaded no tracks. Both mean the night is
+# already lost — five minutes in, which is the whole point of putting the cheap
+# sections first.
+abort-if-failed the disc was never identified — the picker did not resolve or no tracks loaded, so every rip after this would be about an unknown release
 
 # --- F. THE MAIN EVENT: a full-disc rip ------------------------------------
 # ALL tracks, once, FLAC, fast-verified. This is the archival rip and the one
