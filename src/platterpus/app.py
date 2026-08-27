@@ -866,6 +866,7 @@ def main(argv: list[str] | None = None) -> int:
     # hand-copied shell snippet in the docs would be a second description of the
     # install that drifts the first time the pin or a build dep changes.
     if args.install_ripper is not None:
+        from platterpus.deps import fork_source
         from platterpus.deps.fork_source import (
             PRODUCTION_TARGET,
             WIZARD_TARGET,
@@ -925,12 +926,31 @@ def main(argv: list[str] | None = None) -> int:
         # the same binary minutes later (measured on the rig, 2026-08-14).
         # Approval is a property of the commit; only the commit may decide it.
         if not same_commit(target.pin, PRODUCTION_TARGET.pin):
+            # **THE REASON IS DERIVED, NOT ASSERTED.** This used to end "the round
+            # is open and no round has approved a test pin" — unconditionally,
+            # which is false whenever no round is open, and *between* rounds is
+            # exactly when an operator reaches for a newer build by hand. It was
+            # one of three surfaces carrying its own sentence about round state,
+            # two of which were wrong within an hour on 2026-08-27. One predicate
+            # now, in `fork_source`, and every surface delegates to it.
+            if fork_source.a_round_is_reviewing_a_build():
+                because = (
+                    f"a round is open and is reviewing "
+                    f"{fork_source.PIN_UNDER_REVIEW}; nothing has approved this "
+                    f"build yet"
+                )
+            else:
+                because = (
+                    f"no round is open, so {PRODUCTION_TARGET.pin} is the newest "
+                    f"build our record approves; this one is ahead of it and "
+                    f"unreviewed"
+                )
             print(
                 f"NOTE: this is not the handshake-approved build "
                 f"({PRODUCTION_TARGET.pin}). Every rip will report\n"
                 f"      'ripper handshake approval: unapproved' — that is correct, "
-                f"not a fault: the\n"
-                f"      round is open and no round has approved a test pin.\n"
+                f"not a fault:\n"
+                f"      {because}.\n"
             )
         # A step can take minutes (an image pull, a dnf transaction, a meson
         # build). Print each result as it lands rather than batching at the end,

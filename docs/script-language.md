@@ -74,7 +74,7 @@ text is taken verbatim as one value.
 | `cancel-rip` | 0 | ready | cancel-rip — cancel a rip in progress |
 | `expect-status` | 1+ (rest of line) | ready | expect-status <text> — assert the rip status line (the one under the Overall progress bar) contains text, case-insensitively |
 | `expect-refused` | 2+ (rest of line) | ready | expect-refused <setting> <value> — assert the validator REFUSES this value and leaves the setting unchanged (the pass condition is a refusal) |
-| `expect-ripper-under-review` | 0 | ready | expect-ripper-under-review — assert the installed cyanrip is the build the open handshake round is reviewing (run a `cyanrip --version` first) |
+| `expect-ripper-under-review` | 0 | ready | expect-ripper-under-review — assert the installed cyanrip is the build the handshake record names: the build under review while a round is open, and the approved production pin between rounds (run a `cyanrip --version` first) |
 | `expect-tracks` | 1 | ready | expect-tracks <count|count+> — assert how many track rows are loaded; a trailing '+' means 'at least this many', which is what a script that must work on any disc actually wants |
 | `cyanrip` | 1+ (rest of line) | ready | cyanrip <args…> — run the host-exported ripper for real and capture its exit code, exact argv and complete output |
 | `expect-cyanrip` | 1+ (rest of line) | ready | expect-cyanrip <text> — assert the last cyanrip output contains text |
@@ -332,7 +332,7 @@ found nothing wrong*.
 {
   "language": "platterpus-uiscript",
   "grammar_version": 1,
-  "platterpus_version": "0.6.29",
+  "platterpus_version": "0.6.30",
   "syntax": {
     "one_statement_per_line": true,
     "comment_prefix": "#",
@@ -583,7 +583,7 @@ found nothing wrong*.
       "unsafe": false,
       "takes_paths": false,
       "implemented": true,
-      "help": "expect-ripper-under-review \u2014 assert the installed cyanrip is the build the open handshake round is reviewing (run a `cyanrip --version` first)"
+      "help": "expect-ripper-under-review \u2014 assert the installed cyanrip is the build the handshake record names: the build under review while a round is open, and the approved production pin between rounds (run a `cyanrip --version` first)"
     },
     {
       "name": "expect-tracks",
@@ -846,4 +846,4 @@ found nothing wrong*.
 }
 ```
 
-*Last updated for Platterpus v0.6.29.*
+*Last updated for Platterpus v0.6.30.*

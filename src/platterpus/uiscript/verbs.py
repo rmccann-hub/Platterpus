@@ -326,8 +326,16 @@ _VERB_LIST: tuple[Verb, ...] = (
         "expect-ripper-under-review",
         0,
         0,
+        # The help text says "the handshake record names", NOT "the open round is
+        # reviewing". Between rounds there is no open round — the pin the record
+        # names is then the approved production pin — and the old wording made
+        # this page state something false for exactly the period in which an
+        # operator is most likely to be reading it. The failing step itself prints
+        # the derived sentence (`fork_source.pin_under_review_role`).
         "expect-ripper-under-review — assert the installed cyanrip is the build "
-        "the open handshake round is reviewing (run a `cyanrip --version` first)",
+        "the handshake record names: the build under review while a round is "
+        "open, and the approved production pin between rounds (run a "
+        "`cyanrip --version` first)",
     ),
     Verb(
         "expect-tracks",

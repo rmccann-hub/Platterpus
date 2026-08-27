@@ -2019,3 +2019,100 @@ def test_the_scope_line_is_a_member_of_the_paranoia_block_not_its_end() -> None:
         "every track converged after 3 reads — the over-reporting this round "
         "measured has changed shape"
     )
+
+
+# --- FUN512 signature shape --------------------------------------------------
+
+
+def test_every_committed_fun512_signature_is_well_formed() -> None:
+    """Read the artifacts, not a belief about them.
+
+    `CLAUDE.md`: *when a committed artifact can settle a question, the test should
+    read the artifact* — anything else pins your belief about it. The expected
+    length is DERIVED (a 512-bit digest in a 64-character alphabet needs
+    ``ceil(512/6) == 86``), and this confirms the derivation against every real
+    signature the repository holds.
+    """
+    root = Path(__file__).resolve().parents[1]
+    found: list[tuple[str, str]] = []
+    for directory in ("tests/fixtures", "output_reference"):
+        for path in sorted((root / directory).rglob("*")):
+            if not path.is_file() or path.suffix not in {".log", ".json", ".txt"}:
+                continue
+            for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+                m = cyanrip_log._LOG_CHECKSUM.match(line.strip())
+                if m:
+                    found.append((path.name, m.group("sig")))
+
+    assert len(found) >= 3, (
+        f"only {len(found)} committed FUN512 signature(s) found — if the log shape "
+        "changed, this check has gone vacuous"
+    )
+    bad = [
+        f"{name}: {cyanrip_log.fun512_signature_is_malformed(sig)}"
+        for name, sig in found
+        if cyanrip_log.fun512_signature_is_malformed(sig) is not None
+    ]
+    assert not bad, (
+        "committed signatures that do not match the derived shape: " + "; ".join(bad)
+    )
+
+    lengths = {len(sig) for _, sig in found}
+    assert lengths == {cyanrip_log.FUN512_SIGNATURE_LENGTH}, (
+        f"committed signatures have lengths {sorted(lengths)}, but the constant "
+        f"says {cyanrip_log.FUN512_SIGNATURE_LENGTH} — the derivation and the "
+        "artifacts disagree, and the artifacts win"
+    )
+
+
+def test_an_extra_iteration_over_the_digest_is_caught() -> None:
+    """**The fork's surviving mutant, made to fail on our side.**
+
+    Their mutation sweep (relayed 2026-08-27) found
+    ``for (int j = 0; j < strlen(digest_str); j++)`` in `fun512.c` mutated to
+    ``<=`` and **survived** — an extra iteration over the digest string that no
+    test of theirs noticed.
+
+    It would have survived on our side too, and more quietly: `_LOG_CHECKSUM`
+    captures `\\S+`, any run of non-whitespace of any length, so an 87-character
+    digest was recorded, rendered and archived as though nothing were wrong. Their
+    output is external input and its *shape* is ours to validate — the inbound half
+    of the seam.
+
+    Both directions asserted: one character too many is caught, and the real
+    signature still passes, so the check is not a wall.
+    """
+    real = "Yj6zP.wOTgWK84xTQcMMohMy92CU0tYda_daK1POfq.jChOJH.ajjlt5kmh2lfUVYBvsct0fkSKR9cTf8NITJg"
+    assert len(real) == cyanrip_log.FUN512_SIGNATURE_LENGTH
+    assert cyanrip_log.fun512_signature_is_malformed(real) is None
+
+    one_too_many = real + "A"
+    reason = cyanrip_log.fun512_signature_is_malformed(one_too_many)
+    assert reason is not None and "87" in reason, (
+        f"an extra iteration over the digest must be caught and counted: {reason!r}"
+    )
+
+
+def test_a_malformed_signature_is_not_reported_as_a_MISSING_one() -> None:
+    """Two different claims, and conflating them misdirects the reader.
+
+    A log with no signature means the ripper never reached `atexit` — a killed or
+    truncated rip. A log with a *wrong-shaped* signature means the digest was
+    computed wrongly. Tightening `_LOG_CHECKSUM` would have turned the second into
+    the first, which is why the pattern stays permissive and the shape is checked
+    separately. `none` and `unknown (reason)` are different claims.
+    """
+    text = "Log FUN512: " + "A" * 87 + "\n"
+    assert cyanrip_log.has_log_checksum(text), (
+        "a malformed signature must still register as PRESENT — reporting it as "
+        "absent would send a reader looking for a truncated rip"
+    )
+    assert cyanrip_log.fun512_signature_is_malformed("A" * 87) is not None
+
+
+def test_the_shape_check_never_raises_on_arbitrary_input() -> None:
+    """A parser of external output returns a best-effort answer; it does not raise."""
+    for value in ("", " ", "\x00" * 86, "é" * 86, "A" * 10_000, "-" * 86):
+        assert isinstance(
+            cyanrip_log.fun512_signature_is_malformed(value), (str, type(None))
+        )

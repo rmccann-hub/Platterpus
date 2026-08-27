@@ -374,4 +374,69 @@ each side is free to change.
 
 ---
 
-*Last updated for Platterpus v0.6.24.*
+## 9. Challenge ledger
+
+**Why this table exists, and why it is a table.** On 2026-08-26 the maintainer
+told the fork they are *"the adult in the room"* — as the ripping engine, most of
+the accuracy burden is theirs, so they are to double-check, fact-check and
+question us. The instruction that came with it was explicitly *measured*, not
+felt:
+
+> *"if they tend to be more correct than wrong, you should find out why and adopt
+> the logic if possible, but let them try it out until you have measurable
+> results either way."*
+
+So: **do not pre-judge it in either direction, and do not decide it from the feel
+of the last lap.** That is the same discipline as round 7's lap count, where the
+fork tabled the numbers and we had the same numbers and had not looked. One row
+per substantive challenge, cited to the lap that made it and the artifact that
+settled it — never to a memory of either.
+
+**What counts as a row.** A *substantive* challenge: one side asserting the other
+is wrong about a fact, a mechanism or a contract, where the disagreement was
+actually resolved. Not a question, not a preference, not an ask. A challenge
+neither side settled stays out until it is settled — an unresolved row would be
+scored by whoever last edited the table.
+
+**Two things this ledger is NOT.** It is not a scoreboard to win: the whole
+point of the mandate is a second validator, and *"neither side treats the other's
+checking as a reason to skip its own"* (`CLAUDE.md` rule #12) is unaffected by
+whatever this table says. And it is not a licence to weigh a challenge by its
+author's record — **adopt the mechanism, not the conclusion.** A peer who is
+right more often is running a better procedure, and the procedure is the
+transferable part.
+
+| # | round · lap | the challenge | who was right | settled by | mechanism worth taking |
+|---|---|---|---|---|---|
+| 1 | **r3 §H2** → retracted **r4 §H2** | Fork proposed changing our `Pregap length` derivation (subtract, uniformly) | **US** | `inbound/round-4.md:408` — *"my subtraction proposal was not [correct], and I have made no change"* | Both sides had reasoned from EAC's **cue** and applied it to EAC's **log**, and *"neither of us opened the log"*. Graduated as *answer from the artifact, and name which file* |
+| 2 | **r4 §H3** | Fork warned our `Ripper build:` classifier would meet a fourth case: a tarball build emits `platterpus-fork-grelease` | **THEM** (advisory — we were safe, but only by accident of tokenising) | `inbound/round-4.md:419` | A warning about a case you are *currently* safe from is worth more than one about a case you are already failing. Filed as a test case, not as a fix |
+| 3 | **r4 flag table** | Their published table said `-v`/`--version` with **no `-V` row**; every version probe we shipped sent `-V` | **THEM**, and the evidence sat in a committed file in this repo for a full round | `tests/test_argv_surface_agreement.py` now diffs it mechanically | *If the contract has two halves, check both.* We had verified their log lines against our parser and never their flag table against our argv |
+| 4 | **r5** | Their fatal-message inventory was published as 88 strings; we reported it "VERIFIED INDEPENDENTLY" | **US** — re-deriving from their source found **16 more**, hidden by a hand-maintained prefix allowlist in their generator | `inbound/round-5.md:252` — *"Derive the fatal inventory from control flow, not a prefix allowlist"* | *Verify the behaviour, not the other side's description of it.* A list checked against itself is consistent, not verified |
+| 5 | **r5** | Their statement that per-track paranoia counters *"sum exactly to the disc totals"* | **US**, conditionally — true without `-Z`, false under it, where per-track is the last pass and the disc total is every pass | our re-derivation, recorded in `CLAUDE.md` *"did I verify this where it could have failed?"* | Name the condition that would break a claim, then check **there**. We had "verified" it on an artifact where the sum is arithmetically forced |
+| 6 | **r7 lap 2** | Fork corrected us that the `HH:MM:SS.mmm` → `MM:SS.FF` duration change is **upstream's** (PR #130), not theirs | **THEM** | `inbound/round-07-lap-02.md:141` | *An upstream change cannot be escaped by rolling back to upstream.* We had it filed as a fork change, which made "revert to stock" look like a mitigation it never was |
+| 7 | **r7 convergence** | Fork tabled that round 7 had run 37 laps, 10 test pins and 8 pre-releases to produce **0 releases**, where rounds 5 and 6 took one lap each | **THEM**, and we held the same numbers and had not looked | their round-7 convergence proposal, adopted verbatim as **S-13 … S-16** | *Counted, not felt.* Also the substantive lesson: release-grade rigour applied to the **round** rather than to the **release** |
+| 8 | **r12 lap 1 → withdrawn lap 3** | Fork declared, at column 0 as `HANDSHAKE-BREAKING`, that our `SUPPORTED_SCHEMAS` allowlists *schema strings* and would reject their diagnostics record — then promoted a question to `BLOCKING` on it | **US** | `inbound/round-12-lap-03.md:49` — they opened their own record and found **two artifacts in their repository** contradicting the claim before it was made — ours, filed on their side as inbound: `verified/round-10-lap-04.md:58` and `verified/round-11-lap-02.md:84` **in this tree** | *Never state a mechanism in the other side's code without citing where you read it.* Adopted verbatim from their write-up — a `HANDSHAKE-BREAKING` line about someone else's build is a guess unless it names the artifact |
+| 9 | **r12 lap 3** | We offered a shared-blame explanation for row 8 — *"a name collision plus one unqualified sentence"*, and offered to take half. **They refused it** | **THEM** | `inbound/round-12-lap-03.md:76` — they opened all three cited sentences and tabled the context of each; every one sat in unambiguous release-manifest context | *An apology can get less scrutiny than a claim, for the same reason nobody argues with it* — and **a misattributed cause produces the wrong fix**: "write less ambiguous sentences" is unfalsifiable, where row 8's rule is checkable |
+| 10 | **relayed 2026-08-27** | Their mutation sweep found `for (int j = 0; j < strlen(digest_str); j++)` in `fun512.c` mutated to `<=` and **surviving** | **THEM**, and it landed on us too: our own pattern captured `\S+`, so an 87-character digest would have entered an archival log looking correct | `CHANGELOG.md` (v0.6.30) + `parsers/cyanrip_log.fun512_signature_is_malformed` | **Mutation sweeps in a detached git worktree** — their fix for a recurring dirty tree, and the reason the finding exists at all. A surviving mutant is a test-suite defect reported as a code fact |
+
+**Standing count as of round 14's close: fork right 5, us right 5, of 10
+resolved.** Read it with three qualifications, all of which cut against treating
+it as a verdict:
+
+* **The sample is not closed and it is not the sample the mandate is about.** The
+  challenge mandate was issued **2026-08-26**; rows 1–9 predate it. Only row 10
+  was made under it. *Is the population I measured closed?* — nine of these ten
+  are the *before* picture, so the answer to the maintainer's question is **not
+  yet measurable**, and saying so is the honest reading.
+* **Neither side's errors are of one kind.** Ours cluster in *verification*
+  (rows 4, 5 — checking a description, or checking under conditions that force
+  the result); theirs cluster in *attribution* (rows 6, 8 — a mechanism stated
+  without opening the artifact it belongs to). Those want different remedies,
+  which is why the mechanism column matters more than the tally.
+* **Self-correction is in the record on both sides** (rows 1, 8), and it arrived
+  faster than either side's peer review. Row 8 is the strongest single entry in
+  this table and the fork wrote it *against themselves*.
+
+---
+
+*Last updated for Platterpus v0.6.30.*

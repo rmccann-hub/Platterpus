@@ -99,15 +99,62 @@ printf '=============================================================\n\n'
 # THE SLEEP LOCK. Resolved into an argv prefix rather than branching around the
 # whole run twice — two copies of the same long command line is two things to
 # keep in step, and only one of them would get the next fix.
+#
+# **PRESENT IS NOT THE SAME AS WORKING, and the difference cost a whole run in
+# this test suite before it could cost one on the rig.** The first version
+# checked `command -v systemd-inhibit` only. But `systemd-inhibit` fails with
+# *"Failed to connect to bus: No such file or directory"* and **exit 1** whenever
+# there is no session bus to talk to — an ssh login, a cron job, a container, a
+# user systemd unit without `DBUS_SESSION_BUS_ADDRESS`. It is installed on all of
+# those. So the prefix would be adopted, the very first command under it would
+# fail instantly, and `RUN_STATUS` would be **1 from the inhibitor** — with the
+# AppImage never executed at all. A night spent doing nothing, and (worse, after
+# the banner below was added) reported as a probable wrong-ripper abort. A
+# misdiagnosis is worse than no diagnosis.
+#
+# So the capability is PROBED, not inferred from the binary existing: run the
+# real thing over `true` and adopt the prefix only if that actually worked.
+#
+# **AND THE PROBE MUST ASK FOR EXACTLY WHAT THE RUN ASKS FOR.** The first probe
+# used `--what=idle` while the run used `--what=idle:sleep:handle-lid-switch`, so
+# it tested a WEAKER capability than the one that matters — and CI caught it
+# within the hour on a GitHub runner, which is the awkward middle case neither
+# earlier version handled:
+#
+#     Failed to inhibit: Access denied
+#     RUN FINISHED — exit 1 after 0s
+#
+# The runner HAS a session bus, so the weak probe succeeded; the real lock then
+# failed because that session has no polkit privilege for `sleep`/
+# `handle-lid-switch`. Same outcome as the no-bus case — a night consumed by the
+# inhibitor with the AppImage never executed, reported as a probable wrong-ripper
+# abort — reached by a different route. "Installed" was not enough; neither is
+# "can inhibit something".
+#
+# It is also the exact question `CLAUDE.md` asks: *did I verify this where it
+# could have failed?* An invariant confirmed under conditions weaker than the ones
+# that matter has not been tested. So `WHAT` is defined ONCE and both the probe
+# and the real prefix use it — a probe that can drift from its subject is not a
+# probe of that subject.
 INHIBIT=()
-if command -v systemd-inhibit >/dev/null 2>&1; then
+INHIBIT_WHAT="--what=idle:sleep:handle-lid-switch"
+if command -v systemd-inhibit >/dev/null 2>&1 &&
+   systemd-inhibit "$INHIBIT_WHAT" --who=Platterpus --why="capability probe" \
+                   --mode=block true >/dev/null 2>&1; then
   INHIBIT=(systemd-inhibit
-    --what=idle:sleep:handle-lid-switch
+    "$INHIBIT_WHAT"
     --who=Platterpus
     --why="overnight acceptance run"
     --mode=block)
   printf 'Sleep/idle/lid suspend is HELD OFF for the duration of this run.\n'
   printf 'The lock is released automatically when it finishes — nothing to undo.\n\n'
+elif command -v systemd-inhibit >/dev/null 2>&1; then
+  printf '!! systemd-inhibit is installed but could not take the lock this run\n'
+  printf '!! needs (%s).\n' "$INHIBIT_WHAT"
+  printf '!! Usually no session bus (an ssh or cron invocation), or no polkit\n'
+  printf '!! privilege for sleep/lid in this session. The run will proceed WITHOUT\n'
+  printf '!! the lock, so this machine MAY SUSPEND mid-rip. Run it from a desktop\n'
+  printf '!! terminal, or disable sleep by hand, if you can.\n\n'
 else
   printf '!! systemd-inhibit not found. The run will proceed, but this machine\n'
   printf '!! MAY SUSPEND mid-rip. Disable sleep by hand if you can.\n\n'
@@ -119,12 +166,48 @@ fi
 # after a failed run loses the evidence that would explain the failure, which is
 # the worst of the three possible outcomes.
 RUN_STATUS=0
+STARTED_AT="$(date -u +%s)"
 "${INHIBIT[@]}" "$APPIMAGE" --run-script "$SCRIPT" || RUN_STATUS=$?
+ELAPSED=$(( $(date -u +%s) - STARTED_AT ))
 
 printf '\n'
 printf '=============================================================\n'
-printf '  RUN FINISHED — exit %s. Collecting artifacts...\n' "$RUN_STATUS"
+printf '  RUN FINISHED — exit %s after %ss. Collecting artifacts...\n' \
+       "$RUN_STATUS" "$ELAPSED"
 printf '=============================================================\n\n'
+
+# **A TWO-SECOND ABORT AND A SIX-HOUR RUN LOOK THE SAME AT 2AM.** On 2026-08-27
+# the acceptance script aborted correctly at its section-A precondition — wrong
+# ripper installed — in about two seconds, printed the reason, and the operator
+# went to bed on a run that had already stopped. Nothing was broken; the whole
+# night was spent because a real abort scrolled past like progress.
+#
+# This is presentation, NOT a second check: the wrapper does not re-decide
+# anything about the ripper. It reads the exit status the run already produced
+# and the wall-clock it already knows, and refuses to let the pair go unnoticed.
+# Adding a ripper check here would be the "two surfaces, one question" defect
+# this very run was aborted by.
+#
+# The threshold is deliberately generous. Section A alone takes seconds; the
+# first rip takes many minutes. Anything under two minutes did not reach a rip,
+# whatever the reason, and the operator needs to know that BEFORE going to bed.
+if [ "$RUN_STATUS" -ne 0 ] && [ "$ELAPSED" -lt 120 ]; then
+  printf '#############################################################\n'
+  printf '##  STOP — READ THIS BEFORE GOING TO BED                   ##\n'
+  printf '#############################################################\n'
+  printf '##  The run exited %-3s after only %ss. It did NOT reach a\n' \
+         "$RUN_STATUS" "$ELAPSED"
+  printf '##  rip — it stopped on a PRECONDITION, and the reason is\n'
+  printf '##  printed above this banner (scroll up).\n'
+  printf '##\n'
+  printf '##  The commonest cause is the wrong cyanrip build installed.\n'
+  printf '##  The failing step prints the ONE command that fixes it.\n'
+  printf '##  Fix that, then run this script again.\n'
+  printf '##\n'
+  printf '##  Artifacts are still being collected, so the bundle below\n'
+  printf '##  is worth uploading either way — it carries the reason.\n'
+  printf '#############################################################\n\n'
+fi
 
 # The collector, run under the same lock: it tars up to a few hundred megabytes
 # and a suspend part-way through a `tar` produces a truncated archive that still
