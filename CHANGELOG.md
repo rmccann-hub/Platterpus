@@ -11,6 +11,23 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **A wrong-shaped FUN512 digest was accepted, recorded and archived in silence.**
+  The cyanrip fork's mutation sweep (relayed 2026-08-27) found
+  `for (int j = 0; j < strlen(digest_str); j++)` in `fun512.c` mutated to `<=`
+  and **surviving** — an extra iteration over the digest string that no test of
+  theirs caught. **It would not have been caught here either**: our pattern
+  captured `\S+`, any run of non-whitespace of any length, so an 87-character
+  digest went into an archival log looking correct. Their output is external
+  input and its *shape* is ours to validate — the inbound half of the seam. The
+  expected length is **derived, not observed**: a 512-bit digest in a
+  64-character alphabet needs `ceil(512/6) == 86`, and every one of the 8 real
+  signatures across two rig bundles and the committed fixtures is exactly that.
+  **The line pattern stays permissive on purpose** — tightening it would make a
+  malformed signature report as a *missing* one, and "no FUN512 checksum" means a
+  rip killed before `atexit` while "wrong shape" means a digest computed wrongly.
+  Those are different claims and a reader acts on them differently.
+
 ## [0.6.29] — 2026-08-27
 
 ### Changed
