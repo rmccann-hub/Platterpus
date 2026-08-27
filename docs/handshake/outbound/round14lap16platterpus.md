@@ -21,7 +21,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 | file | bytes | sha256 |
 | --- | --- | --- |
 | `round-14-lap-16.md` | 17,475 | `de58b0dce37bdd35…` |
-| `fullacceptance.txt` | 35,296 | `721dca41d9879051…` |
+| `fullacceptance.txt` | 35,356 | `b9344292cbdc398a…` |
 
 ## Reader
 
@@ -381,7 +381,7 @@ now starts.
 **The disc is the only thing left on our side.** The round is yours to close.
 <<<<<<<<<< END round-14-lap-16.md >>>>>>>>>>
 
-<<<<<<<<<< BEGIN fullacceptance.txt sha256=721dca41d9879051da7c38bf16ef2312275022b12c599d021098d3227a2a52eb >>>>>>>>>>
+<<<<<<<<<< BEGIN fullacceptance.txt sha256=b9344292cbdc398a11c33f71d76edb835e2cdc34a5b329af50f7e25c5894f283 >>>>>>>>>>
 # =============================================================================
 # FULL ACCEPTANCE RUN — end to end, every path the program has, one pass
 # =============================================================================
@@ -545,7 +545,7 @@ snapshot identity
 # interchangeable evidence).
 #
 # So: preconditions abort, findings do not. Nothing below this line uses it.
-abort-if-failed the ripper is not the build this round is reviewing — fix that first
+abort-if-failed the installed ripper is not the build the handshake record names — fix that first, the failing step above prints the one command
 
 # --- B. SETTINGS VALIDATION: the cheapest real check in the program --------
 # Pure round-trips through the REAL validator, which is the source of truth — a
