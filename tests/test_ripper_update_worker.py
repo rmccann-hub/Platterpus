@@ -1028,7 +1028,19 @@ def test_the_install_never_borrows_a_manifest_row_for_a_DIFFERENT_commit() -> No
     # THE CONVERSE, so this cannot pass by `build_hint` always returning nothing:
     # when the row really does describe the commit, schema 2's options must flow
     # through (round 11 §J1 asked for exactly that).
-    upgrade = evaluate_offer(manifest, "stable", installed_commit=fork_source.FORK_PIN)
+    # **An OLDER commit than the row, named rather than `FORK_PIN`.** This used
+    # `FORK_PIN`, which worked only while the production pin sat below the row's
+    # `release_seq`. Round 14's close rolled it to `d9c058c` (seq 20) — above the
+    # row's 16 — so no upgrade is offered and `install_commit` is empty. The arm
+    # was testing "options flow through on a real upgrade" and had quietly become
+    # a test of whichever side of the row the pin happened to be on. `ddf7ac3` is
+    # seq 11 and is below it by construction, with the floor below asserting so.
+    older = "ddf7ac3"
+    assert fork_source.release_seq_for_commit(older) < row["release_seq"], (
+        "floor: the installed commit must really be older than the row, or the "
+        "converse arm proves nothing about upgrades"
+    )
+    upgrade = evaluate_offer(manifest, "stable", installed_commit=older)
     assert upgrade.install_commit == "c4d1a00"
     assert upgrade.build_hint() == (
         "0.9.4-rc1+platterpus.6",

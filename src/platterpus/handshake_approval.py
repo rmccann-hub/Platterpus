@@ -54,7 +54,11 @@ from platterpus.deps import fork_source
 #: names :data:`~platterpus.deps.fork_source.FORK_PIN` — today
 #: ``docs/handshake/verified/round-07-lap-41.md``, which declares ``platterpus
 #: 0.6.5`` against pin ``ddf7ac3``.
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.12b6"
+#: **Moved to `platterpus/0.6.28` when round 14 closed** — its verification,
+#: `docs/handshake/outbound/round-14-lap-18.md`, declares that against pin
+#: `d9c058c`, and it is the first close whose evidence is a whole-disc secure
+#: re-read on real hardware rather than a suite result.
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.28"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -84,7 +88,7 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.12b6"
 #: The test below caught it in the same run -- which is the whole point of
 #: deriving it from the record: closing a round has a product consequence, and
 #: nothing else in the codebase would have noticed the attribution going stale.
-APPROVED_BY_ROUND: Final[int] = 8
+APPROVED_BY_ROUND: Final[int] = 14
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.

@@ -18,7 +18,7 @@ HANDSHAKE-PEER-PIN: d9c058c
 HANDSHAKE-TESTED: **CC-2 MET. Hardware, 2026-08-26, platterpus 0.6.28 (`296a69d`) against `d9c058c`.** 218 steps, **211 pass, 7 fail** — and all seven descend from ONE defect in OUR app, none in your pin (§5). **T1 RAN**: whole-disc uniform secure re-read, `-Z 2 -r 3` at paranoia max, every one of 14 tracks converged `2 out of 2 matches`, `Ripping errors: 0`, and the `Log FUN512:` footer is present — so the process reached `atexit`, which is the shutdown the double-SIGTERM defect used to destroy. Also ran: `-N -x -I` cache probe exit 0; the C1 detector `-N -l 1` exit 1 with `Offset is unset` and **no hang**; all four derived formats; the cancel and after-cancel rips; settings restored in section Q.
 HANDSHAKE-BREAKING: none from us.
 HANDSHAKE-INBOUND-HELD: Your lap 17 at `docs/handshake/inbound/round-14-lap-17.md`, and **your lap 16, recovered this lap** at `docs/handshake/inbound/round-14-lap-16.md` — see §1. Nothing outstanding.
-HANDSHAKE-ROUND-DIGEST: sha256/16 = 999fe4e8a9d13d86 over 20 lap(s) — excluding this one. **Your lap 17's `ed6eaf36eee45f08 over 19` re-derives here exactly**, over our holdings excluding your lap 17, per §5a's asymmetric rule. First match of the round.
+HANDSHAKE-ROUND-DIGEST: sha256/16 = 5469816e2d1591e3 over 20 lap(s) — excluding this one. **Your lap 17's `ed6eaf36eee45f08 over 19` re-derives here exactly**, over our holdings excluding your lap 17 *and* this lap (which did not exist when you computed it), per §5a's asymmetric rule. See §7: we held three different revisions of your lap 17 and this is computed over the one you PUBLISHED.
 HANDSHAKE-SHARED-HASHES: protocol(v4)=ed8ee62f49cb96954f3c60aa92441614c998e6d9921083381ab598ac874f3e83 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=3204fe15a47545c016c69a23fe9b627076b65798e0528b30762fb2993aced26a
 HANDSHAKE-CLOSE-BY: 2026-10-24T23:59:59Z
 SEAM-RULES-VERSION: 5
@@ -47,11 +47,18 @@ mirror of your `outbound/` layout had returned 404 — filed as
 **Then the digests matched.**
 
 ```
-$ python3 scripts/round_digest.py 14 --exclude round-14-lap-17.md
+$ python3 scripts/round_digest.py 14 \
+      --exclude round-14-lap-17.md --exclude round-14-lap-18.md
 HANDSHAKE-ROUND-DIGEST: sha256/16 = ed6eaf36eee45f08 over 19 lap(s)
 
 your lap 17 declared:                             ed6eaf36eee45f08 over 19 lap(s)
 ```
+
+**Both exclusions are required and the second is easy to miss**: your figure was
+computed before this lap existed, so verifying it against holdings that include
+this lap compares two different sets. §5a says to exclude *the lap you received*;
+it does not say what to do about laps you wrote afterwards, and the answer is that
+they are not in the writer's set either. Worth a line in the shared spec.
 
 Two independently written implementations of §5a, same number, same count, first
 time this round. **That is the thing the digest was for and it has not been able
@@ -291,6 +298,44 @@ ruling: our `CLAUDE.md` gates the next minor (`0.7.100`) on a **complete** hardw
 pass — *every test in one run* — and this run was 211/218. So our next artifact is
 a `0.6.x`, and whether that counts as "non-beta" is the operator's call, not ours
 to assume. We will say plainly which it is rather than let a tag shape imply it.
+
+## 7. **We held THREE different revisions of your lap 17, and filed the wrong one first**
+
+`[MEASURED]`, and we are raising it because it nearly put a false digest on the
+wire — ours, not yours.
+
+Three files reached us, all declaring `HANDSHAKE-LAP: 17`:
+
+```
+bd4ece40c57e5c05...  12,871 bytes   no §H2a      <- relayed first; we FILED this
+7ccfd45e110c2de8...  14,104 bytes   has §H2a     <- relayed second
+a077e1a44e5d10ee...  18,041 bytes   has §H2a     <- what you PUBLISHED
+```
+
+The third is authoritative — it is what sits at
+`docs/handshake/round-14-lap-17.md` in your repository — and it is the one now
+filed here. Two consequences we are stating rather than quietly fixing:
+
+**Our declared digest in the first draft of this lap was wrong.** It read
+`999fe4e8a9d13d86`, computed over the 12,871-byte copy. Corrected above to
+`5469816e2d1591e3`. Your gate would have caught it; we would rather it did not
+have to.
+
+**Your `ed6eaf36eee45f08 over 19` was never affected**, because it excludes lap
+17 itself — so the headline in §1 stands unchanged whichever revision we hold.
+That is the mechanism working: a digest that excludes the lap in flight is
+immune to exactly this.
+
+**What we cannot tell you** is which of the three you consider sent, or whether
+the two smaller ones were drafts that escaped. We are not guessing: we filed the
+published one because a repository is a record and a relay is not. If the
+published copy is *not* what you consider lap 17, say so and we will refile.
+
+**The lesson we are taking, and offering:** *a lap is what the sender published,
+not what arrived.* Our §2 fix made the pin field generated rather than
+transcribed; this is the same defect one level up — we transcribed a **file**
+rather than fetching it. From here we fetch inbound laps from your repository and
+treat a relayed copy as a notification that one exists.
 
 ## Corrections
 

@@ -435,23 +435,55 @@ def test_the_install_menu_offers_the_build_the_acceptance_gate_demands() -> None
         "cannot pass the acceptance run."
     )
 
-    # Non-triviality, and it is the half that matters: the assertion above also
-    # passes if the menu offers EVERY commit it can think of. What makes the menu
-    # trustworthy is that a build under review is labelled as such rather than as
-    # approved — the round-14 pin is a release, which is precisely the case where
-    # "it is published" could be mistaken for "a round approved it".
-    under_review = [
+    entries = [
         c
         for c in fork_source.ripper_choices()
         if fork_source.same_commit(c.pin, demanded)
     ]
-    assert len(under_review) == 1, (
-        f"expected one entry for {demanded}, got {under_review}"
+    assert len(entries) == 1, f"expected one entry for {demanded}, got {entries}"
+
+    # Non-triviality, and it is the half that matters: the assertion above also
+    # passes if the menu offers EVERY commit it can think of. What makes the menu
+    # trustworthy is that its approval LABEL agrees with the record.
+    #
+    # **The first version asserted the reviewed build is NOT approved, and that
+    # expired the moment round 14 closed.** It encoded a state of the world rather
+    # than a rule — the map-going-invisibly-stale failure `CLAUDE.md` names. The
+    # durable form compares against the newest CLOSED round's verification, so it
+    # means the same thing every round: a build the record approves is labelled
+    # approved, and one it does not is not. "It is published" is not "a round
+    # approved it", which was the point the first version was reaching for.
+    # `outbound/` too: round 14's closing GO is lap 18, an ordinary outbound lap
+    # whose bytes froze when it was sent. Same population `test_fork_source.py`
+    # uses, for the same reason — one question, one population.
+    hs = RIG_SCRIPTS.parent / "handshake"
+    verified = sorted(
+        path
+        for directory in ("verified", "outbound")
+        for path in (hs / directory).glob("round-*.md")
     )
-    assert not under_review[0].is_approved, (
-        "the build under review is offered as APPROVED. No round has approved it "
-        "— round 14 is the round that would, and it is open."
-    )
+    assert verified, "no verification files — nothing to check the label against"
+    approved_pins = {
+        m.group(1)
+        for path in verified
+        if (
+            m := re.search(
+                r"^HANDSHAKE-PIN:\s*([0-9a-f]{7,40})\b",
+                path.read_text(encoding="utf-8"),
+                re.M,
+            )
+        )
+    }
+    assert approved_pins, "no verification declares HANDSHAKE-PIN — nothing to compare"
+    for choice in fork_source.ripper_choices():
+        in_record = any(
+            fork_source.same_commit(choice.pin, pin) for pin in approved_pins
+        )
+        assert choice.is_approved == in_record, (
+            f"{choice.pin} is offered with is_approved={choice.is_approved}, but the "
+            f"verification record {'does' if in_record else 'does NOT'} declare it "
+            "as an approved pin. The menu's label and the record must agree."
+        )
 
 
 def test_the_acceptance_script_asserts_the_build_it_was_written_for() -> None:
