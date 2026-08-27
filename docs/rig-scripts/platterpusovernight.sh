@@ -113,25 +113,48 @@ printf '=============================================================\n\n'
 # misdiagnosis is worse than no diagnosis.
 #
 # So the capability is PROBED, not inferred from the binary existing: run the
-# real thing over `true` and adopt the prefix only if that actually worked. Two
-# lines, and it converts an unrecoverable silent failure into the loud downgrade
-# that was always intended.
+# real thing over `true` and adopt the prefix only if that actually worked.
+#
+# **AND THE PROBE MUST ASK FOR EXACTLY WHAT THE RUN ASKS FOR.** The first probe
+# used `--what=idle` while the run used `--what=idle:sleep:handle-lid-switch`, so
+# it tested a WEAKER capability than the one that matters — and CI caught it
+# within the hour on a GitHub runner, which is the awkward middle case neither
+# earlier version handled:
+#
+#     Failed to inhibit: Access denied
+#     RUN FINISHED — exit 1 after 0s
+#
+# The runner HAS a session bus, so the weak probe succeeded; the real lock then
+# failed because that session has no polkit privilege for `sleep`/
+# `handle-lid-switch`. Same outcome as the no-bus case — a night consumed by the
+# inhibitor with the AppImage never executed, reported as a probable wrong-ripper
+# abort — reached by a different route. "Installed" was not enough; neither is
+# "can inhibit something".
+#
+# It is also the exact question `CLAUDE.md` asks: *did I verify this where it
+# could have failed?* An invariant confirmed under conditions weaker than the ones
+# that matter has not been tested. So `WHAT` is defined ONCE and both the probe
+# and the real prefix use it — a probe that can drift from its subject is not a
+# probe of that subject.
 INHIBIT=()
+INHIBIT_WHAT="--what=idle:sleep:handle-lid-switch"
 if command -v systemd-inhibit >/dev/null 2>&1 &&
-   systemd-inhibit --what=idle --who=Platterpus --why="capability probe" \
+   systemd-inhibit "$INHIBIT_WHAT" --who=Platterpus --why="capability probe" \
                    --mode=block true >/dev/null 2>&1; then
   INHIBIT=(systemd-inhibit
-    --what=idle:sleep:handle-lid-switch
+    "$INHIBIT_WHAT"
     --who=Platterpus
     --why="overnight acceptance run"
     --mode=block)
   printf 'Sleep/idle/lid suspend is HELD OFF for the duration of this run.\n'
   printf 'The lock is released automatically when it finishes — nothing to undo.\n\n'
 elif command -v systemd-inhibit >/dev/null 2>&1; then
-  printf '!! systemd-inhibit is installed but could not take a lock (usually no\n'
-  printf '!! session bus — an ssh or cron invocation). The run will proceed\n'
-  printf '!! WITHOUT the lock, so this machine MAY SUSPEND mid-rip. Run it from a\n'
-  printf '!! desktop terminal, or disable sleep by hand, if you can.\n\n'
+  printf '!! systemd-inhibit is installed but could not take the lock this run\n'
+  printf '!! needs (%s).\n' "$INHIBIT_WHAT"
+  printf '!! Usually no session bus (an ssh or cron invocation), or no polkit\n'
+  printf '!! privilege for sleep/lid in this session. The run will proceed WITHOUT\n'
+  printf '!! the lock, so this machine MAY SUSPEND mid-rip. Run it from a desktop\n'
+  printf '!! terminal, or disable sleep by hand, if you can.\n\n'
 else
   printf '!! systemd-inhibit not found. The run will proceed, but this machine\n'
   printf '!! MAY SUSPEND mid-rip. Disable sleep by hand if you can.\n\n'

@@ -75,6 +75,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
     work-handed-back shape in miniature.
   - The acceptance script's `abort-if-failed` line carried the same stale claim
     and now names the record rather than a round.
+- **And the fix's own probe asked for LESS than the run asks for.** It tested
+  `--what=idle` while the run requests `--what=idle:sleep:handle-lid-switch`, so a
+  session that permits one and refuses the other passed the probe and then failed
+  the real lock: *"Failed to inhibit: Access denied"*, exit 1, AppImage never
+  executed, blamed on the ripper. Caught on CI within the hour — a GitHub runner
+  is exactly that middle case, and the **development container has no session bus
+  at all, so the local suite was structurally unable to tell the fix from the
+  bug**. `CLAUDE.md`: *did I verify this where it could have failed?* The `--what`
+  set is now defined once and both the probe and the prefix use it, with a stub
+  that grants `idle` and refuses the rest as the regression test.
 - **`systemd-inhibit` being *installed* was taken as it being *usable*, and on a
   bus-less session that silently consumed the entire run.** It exits **1** with
   *"Failed to connect to bus"* whenever there is no session bus — an ssh login,

@@ -890,7 +890,7 @@ def test_a_present_but_broken_inhibitor_downgrades_instead_of_killing_the_run(
         "the run did NOT happen — a broken inhibitor consumed it. "
         f"exit={result.returncode}\n{out[-1200:]}"
     )
-    assert "could not take a lock" in out, (
+    assert "could not take the lock" in out, (
         f"the downgrade was silent; it must be loud:\n{out[-1200:]}"
     )
     assert "STOP — READ THIS" not in out, (
@@ -900,4 +900,160 @@ def test_a_present_but_broken_inhibitor_downgrades_instead_of_killing_the_run(
     assert result.returncode == 0, (
         f"a successful run under a broken inhibitor must still exit 0, got "
         f"{result.returncode}\n{out[-1200:]}"
+    )
+
+
+def test_the_inhibitor_probe_asks_for_EXACTLY_what_the_run_asks_for() -> None:
+    """A probe of a weaker capability is not a probe of the one that matters.
+
+    **Measured on CI within an hour of the probe being added.** The probe used
+    `--what=idle` while the run used `--what=idle:sleep:handle-lid-switch`. A
+    GitHub runner HAS a session bus, so the weak probe succeeded — and the real
+    lock then failed:
+
+        Failed to inhibit: Access denied
+        RUN FINISHED — exit 1 after 0s
+
+    …because that session has no polkit privilege for `sleep`/
+    `handle-lid-switch`. Same outcome as the no-bus case the probe was written
+    for — a night consumed by the inhibitor with the AppImage never executed,
+    then blamed on the ripper — reached by a different route. "Installed" was not
+    enough; neither is "can inhibit *something*".
+
+    `CLAUDE.md`: *did I verify this where it could have failed?* An invariant
+    confirmed under weaker conditions than the ones that matter has not been
+    tested. Asserted on the SOURCE rather than behaviourally on purpose: the
+    claim is that one definition feeds both call sites, and no runner
+    configuration can demonstrate that — the local container has no bus at all,
+    which is why this escaped locally in the first place.
+    """
+    body = OVERNIGHT.read_text(encoding="utf-8")
+    code = "\n".join(
+        line for line in body.splitlines() if not line.lstrip().startswith("#")
+    )
+
+    match = re.search(r'^INHIBIT_WHAT="(?P<what>[^"]+)"', code, re.M)
+    assert match is not None, (
+        "the --what set is no longer defined once as INHIBIT_WHAT; the probe and "
+        "the real lock can now disagree about what is being tested"
+    )
+    what = match.group("what")
+    assert "sleep" in what and "handle-lid-switch" in what and "idle" in what, (
+        f"the lock must cover idle, explicit suspend and the lid; got {what!r}"
+    )
+
+    # BOTH argv sites must use the variable. Counted by site rather than by total
+    # mentions, because the downgrade message legitimately prints it too — telling
+    # the operator WHICH lock could not be taken is the point of that branch.
+    assert (
+        'systemd-inhibit "$INHIBIT_WHAT" --who=Platterpus --why="capability' in code
+    ), (
+        "the capability probe does not use $INHIBIT_WHAT, so it can test a "
+        "different (weaker) capability than the run requests — the exact defect "
+        "CI caught with 'Failed to inhibit: Access denied'"
+    )
+    prefix = code[code.index("INHIBIT=(systemd-inhibit") :]
+    assert '"$INHIBIT_WHAT"' in prefix.split(")")[0], (
+        "the real lock prefix does not use $INHIBIT_WHAT; the probe would then be "
+        "testing something the run does not ask for"
+    )
+    # The definition itself is the one legitimate literal.
+    literals = [
+        m
+        for line in code.splitlines()
+        if not line.startswith("INHIBIT_WHAT=")
+        for m in re.findall(r"--what=\S+", line)
+    ]
+    assert literals == [], (
+        f"a literal --what survives outside INHIBIT_WHAT: {literals}. That is the "
+        "weaker-probe defect returning — the probe would test one set while the "
+        "run requests another"
+    )
+
+
+def test_a_partly_privileged_inhibitor_downgrades_rather_than_eating_the_run(
+    tmp_path: Path,
+) -> None:
+    """**The regression test for the CI failure of 2026-08-27, reproduced exactly.**
+
+    The GitHub runner is the awkward middle case: `systemd-inhibit` is installed,
+    a session bus exists, `--what=idle` is permitted — and `sleep` /
+    `handle-lid-switch` are **not**, so the real lock returns
+    *"Failed to inhibit: Access denied"* and exit 1. With a weak probe, the prefix
+    was adopted, the AppImage never ran, and the wrapper's own banner blamed the
+    ripper.
+
+    **Why this test has to exist rather than trusting the source check above.**
+    The development container has NO session bus at all, so *both* the buggy and
+    the fixed probe fail there and take the same downgrade path — the local suite
+    was structurally unable to tell them apart. That is `CLAUDE.md`'s *what pins
+    my input?*: a stub that grants `idle` and refuses the rest is the only thing
+    here that can see the difference.
+    """
+    import subprocess
+
+    home = tmp_path / "home"
+    (home / "Applications").mkdir(parents=True)
+    stub_app = home / "Applications" / "platterpus-x86_64.AppImage"
+    stub_app.write_text(
+        "#!/bin/sh\n"
+        'case "$1" in --version) echo "platterpus 0.0.0 (stub)"; exit 0;; esac\n'
+        'echo "THE-APPIMAGE-RAN"\nexit 0\n',
+        encoding="utf-8",
+    )
+    stub_app.chmod(0o755)
+
+    # The runner, in four lines: `--what=idle` alone is fine, anything naming
+    # sleep or the lid is refused the way polkit refuses it.
+    fakebin = tmp_path / "bin"
+    fakebin.mkdir()
+    partial = fakebin / "systemd-inhibit"
+    partial.write_text(
+        "#!/bin/sh\n"
+        'for a in "$@"; do\n'
+        '  case "$a" in\n'
+        "    --what=*sleep*|--what=*handle-lid-switch*)\n"
+        '      echo "Failed to inhibit: Access denied" >&2; exit 1;;\n'
+        "  esac\n"
+        "done\n"
+        "# Permitted: drop our own flags and run the command, as the real one does.\n"
+        'while [ $# -gt 0 ]; do case "$1" in --*) shift;; *) break;; esac; done\n'
+        'exec "$@"\n',
+        encoding="utf-8",
+    )
+    partial.chmod(0o755)
+
+    work = tmp_path / "scripts"
+    work.mkdir()
+    (work / "platterpusovernight.sh").write_text(
+        OVERNIGHT.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (work / "platterpusmorning.sh").write_text(
+        "#!/usr/bin/env bash\necho '(stub collector)'\n", encoding="utf-8"
+    )
+    (work / "fullacceptance.txt").write_text("log stub\n", encoding="utf-8")
+
+    result = subprocess.run(
+        ["bash", str(work / "platterpusovernight.sh")],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env={"HOME": str(home), "PATH": f"{fakebin}:/usr/bin:/bin"},
+    )
+    out = result.stdout + result.stderr
+
+    assert "THE-APPIMAGE-RAN" in out, (
+        "the run did NOT happen — a partly-privileged inhibitor consumed it, "
+        f"which is the CI failure this test pins. exit={result.returncode}\n"
+        f"{out[-1500:]}"
+    )
+    assert "could not take the lock" in out, (
+        f"the downgrade must be loud, and must say which lock:\n{out[-1500:]}"
+    )
+    assert "STOP — READ THIS" not in out, (
+        "a successful run was flagged as a precondition abort — the exact "
+        f"misdiagnosis that made this worse than a plain failure:\n{out[-1500:]}"
+    )
+    assert result.returncode == 0, (
+        f"expected exit 0; got {result.returncode}\n{out[-1500:]}"
     )
