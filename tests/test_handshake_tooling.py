@@ -2340,6 +2340,22 @@ def test_our_pin_names_a_commit_that_survives_the_squash_merge(hs: ModuleType) -
     available here. Skipped rather than passed when it is not, because a check
     that quietly succeeds on a clone with no `origin/main` is the "satisfied by
     finding nothing" shape — and this test exists because of that shape.
+
+    **WHY THE MAIN-REACHABILITY CLAIM IS GATED ON HEAD BEING PUBLISHED.** The
+    first version asserted it unconditionally, and that made it fail on **every
+    release PR** — necessarily, and by construction: a release commit bumps
+    `__version__`, so the commit `our_pin()` finds for the new version is the one
+    on the unmerged branch, which cannot be on `main` until the PR lands. It cost
+    a red run on 2026-08-27 with nothing wrong. `CLAUDE.md` names this shape when
+    it explains why the `tests-touched` gate is escapable by saying why rather
+    than by silence: *what stops it being a false-failure machine*.
+
+    So the claim is stated for the state in which it is answerable — "once this
+    commit is published, the pin must name a published commit" — and the mid-
+    flight case keeps its own, weaker, still-real assertion rather than becoming
+    a bare skip. The original defect is untouched: `ed4f300` was found **after**
+    its merge, when HEAD *was* published and the full assertion runs, which is
+    exactly the state that caught it on all four matrix legs.
     """
     if not _history_is_available():
         pytest.skip("shallow clone: reachability is unanswerable")
@@ -2358,16 +2374,37 @@ def test_our_pin_names_a_commit_that_survives_the_squash_merge(hs: ModuleType) -
     if default is None:
         pytest.skip("no local main/origin-main to check reachability against")
 
+    def _is_ancestor(rev: str, of: str) -> bool:
+        return (
+            subprocess.run(
+                ["git", "merge-base", "--is-ancestor", rev, of],
+                cwd=_REPO_ROOT,
+                capture_output=True,
+            ).returncode
+            == 0
+        )
+
     pin = hs.our_pin()
-    reachable = (
-        subprocess.run(
-            ["git", "merge-base", "--is-ancestor", pin, default],
-            cwd=_REPO_ROOT,
-            capture_output=True,
-        ).returncode
-        == 0
-    )
-    assert reachable, (
+
+    if not _is_ancestor("HEAD", default):
+        # MID-FLIGHT: an unmerged branch, so the version's own commit is not on
+        # the default branch yet and cannot be. The weaker claim is still real and
+        # still fails on a broken search — the unscoped pickaxe that caused the
+        # original defect could return a commit from an unrelated local branch,
+        # which is NOT reachable from HEAD.
+        assert _is_ancestor(pin, "HEAD"), (
+            f"our_pin() returned {pin}, which is not even reachable from HEAD. "
+            "The search has found a commit on some other branch — a pin no peer "
+            "could fetch and no reader could locate."
+        )
+        pytest.skip(
+            f"HEAD is not published on {default} yet (an unmerged branch, e.g. a "
+            f"release PR), so the pin naming an unpublished commit is expected. "
+            f"Verified what is answerable here: {pin} is reachable from HEAD. The "
+            f"full claim is asserted once this commit lands."
+        )
+
+    assert _is_ancestor(pin, default), (
         f"our_pin() returned {pin}, which is NOT reachable from {default}. A "
         "squash-merge discards branch commits, so a pin taken from a branch names "
         "a commit only this clone has — the peer cannot fetch it. Take the pin "

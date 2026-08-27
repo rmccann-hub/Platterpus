@@ -75,6 +75,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
     work-handed-back shape in miniature.
   - The acceptance script's `abort-if-failed` line carried the same stale claim
     and now names the record rather than a round.
+- **The pin-reachability test failed on every release PR, necessarily.** It
+  asserted that `our_pin()` names a commit reachable from `origin/main` — but a
+  release commit *bumps* `__version__`, so the commit it finds is the one on the
+  unmerged branch, which cannot be on `main` until the PR lands. Red run, nothing
+  wrong: the false-failure shape `CLAUDE.md` describes when it explains why the
+  `tests-touched` gate is escapable by saying why rather than by silence. The
+  claim is now stated for the state in which it is answerable, and the mid-flight
+  case keeps its own weaker-but-real assertion (the pin must at least be reachable
+  from `HEAD`, which a search straying onto another branch would fail) rather than
+  becoming a bare skip. **The original catch is intact and that was verified in a
+  scratch repo, not assumed**: post-merge the full assertion runs, the old branch
+  sha fails, the squashed sha passes. It had to be checked that way because **this
+  development clone is shallow**, so the test has never once executed here — it
+  skips on `_history_is_available()` for an unrelated reason, which is why the
+  defect reached CI twice.
 - **And the fix's own probe asked for LESS than the run asks for.** It tested
   `--what=idle` while the run requests `--what=idle:sleep:handle-lid-switch`, so a
   session that permits one and refuses the other passed the probe and then failed
