@@ -1476,3 +1476,45 @@ def test_the_round_claim_sweep_would_catch_all_three_strings_that_shipped() -> N
         assert not _ROUND_IS_OPEN_CLAIM.search(_logical_text(text)), (
             f"the sweep FALSELY flags a correct conditional: {text!r}"
         )
+
+
+def test_installing_the_approved_pin_by_name_names_its_KNOWN_banner() -> None:
+    """`--install-ripper d9c058c` printed a false sentence about our own pin.
+
+    The preamble reads `target.expectation`, and for a hand-supplied commit that
+    used to be *"the version string is not predictable for a commit we do not
+    pin"* — printed for the commit we DO pin, in the preamble of the exact command
+    an operator is told to run.
+
+    The pairing is measured, not inferred: `FORK_EXPECTED_VERSION` with `FORK_PIN`
+    is what both projects declared at column 0 in round 14 laps 17, 18 and 19. So
+    the assertion is against `FORK_EXPECTED_BANNER` rather than a typed string —
+    one source, and it cannot drift when the pin next moves.
+    """
+    target = fork_source.target_for_commit(fork_source.FORK_PIN)
+    assert target.version_known is True, (
+        "the approved pin's version is a fact this repository holds; reporting it "
+        "as unknown makes `expectation` claim we do not pin our own pin"
+    )
+    assert target.expectation == fork_source.FORK_EXPECTED_BANNER, (
+        f"expectation is {target.expectation!r}, not the banner our record pairs "
+        f"with the pin ({fork_source.FORK_EXPECTED_BANNER!r})"
+    )
+    assert "we do not pin" not in target.expectation, target.expectation
+
+
+def test_an_arbitrary_commit_still_declares_its_version_unknown() -> None:
+    """The other half, and the half that must NOT be relaxed.
+
+    An operator-supplied commit's `meson.build` is genuinely unknown to us, and
+    inventing a number would put an unmeasured value into a banner comparison.
+    Both branches asserted, because a fix that made the first one honest by making
+    the second one dishonest would pass the test above.
+    """
+    target = fork_source.target_for_commit("0123abc")
+    assert target.version_known is False
+    assert "not predictable" in target.expectation, target.expectation
+    assert "platterpus-fork-g0123abc" in target.expectation, (
+        "the build TAG is still verified for an arbitrary commit — that is what "
+        "makes the honest 'version unknown' safe rather than a hole"
+    )

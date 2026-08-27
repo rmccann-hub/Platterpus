@@ -1028,8 +1028,19 @@ def target_for_commit(
         # pin is the fact that matters and it is right here.
         return ForkTarget(
             pin=pin,
-            version=version
-            or "(version not read from the tree; the tag is what we verify)",
+            # **THE VERSION IS KNOWN HERE, AND SAYING OTHERWISE PRINTED A FALSE
+            # SENTENCE ABOUT OUR OWN PIN.** The default used to be a placeholder,
+            # which makes `version_known` False, which makes `expectation` read
+            # *"the version string is not predictable for a commit we do not
+            # pin"* — about the commit we DO pin, in the preamble of the exact
+            # command an operator is told to run. The general rule from the same
+            # hour: a sentence false in a small way is how a night gets lost.
+            #
+            # It is a measured pairing, not a guess: `FORK_EXPECTED_VERSION` and
+            # `FORK_PIN` are the pair both projects declared at column 0 in round
+            # 14 laps 17, 18 and 19. An explicit `version=` still wins, and the
+            # arbitrary-commit branch below keeps its honest "not known".
+            version=version or FORK_EXPECTED_VERSION,
             why=(
                 f"commit {pin}, supplied on the command line — and this IS the "
                 f"approved pin ({PRODUCTION_TARGET.pin}), the build a closed round "

@@ -34,6 +34,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   one document class where a line citation is both legitimate and checkable.
 
 ### Fixed
+- **`--install-ripper d9c058c` printed *"the version string is not predictable
+  for a commit we do not pin"* — about the commit we do pin.** The preamble reads
+  `ForkTarget.expectation`, and a hand-supplied commit defaulted to an
+  unknown-version placeholder even when it matched `FORK_PIN`, in the preamble of
+  the exact command an operator is told to run. The pairing is a *measured* fact —
+  `FORK_EXPECTED_VERSION` with `FORK_PIN` is what both projects declared at column
+  0 in round 14 laps 17, 18 and 19 — so the approved pin now names its real
+  banner, asserted against `FORK_EXPECTED_BANNER` rather than a typed string. The
+  other branch keeps its honest "version not known": an arbitrary commit's
+  `meson.build` genuinely is unknown to us, and both branches are tested, because
+  making the first honest by making the second dishonest would have passed.
 - **The wrong-ripper abort claimed a handshake round was open when none was, and
   handed back a GUI path instead of the one command that fixes it.** Both halves
   bit on the 2026-08-27 overnight attempt, in the single message an operator reads
