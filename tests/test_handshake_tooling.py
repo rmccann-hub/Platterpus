@@ -1656,11 +1656,37 @@ _SHARED_FILE_PATHS: dict[str, str] = {
 
 
 def _latest_lap_with_shared_hashes() -> tuple[Path, dict[str, str]] | None:
-    """Our newest verification file that declares `HANDSHAKE-SHARED-HASHES`."""
-    for path in sorted(
-        (_REPO_ROOT / "docs" / "handshake" / "verified").glob("round-*.md"),
-        reverse=True,
-    ):
+    """Our newest SENT file that declares `HANDSHAKE-SHARED-HASHES`.
+
+    **`outbound/` as well as `verified/`, and the omission was not cosmetic.** This
+    read `verified/` alone, whose newest declaring file is `round-13-lap-07.md` —
+    so across the whole of round 14 our **eight** outbound laps each declared these
+    hashes and *not one of them was checked*. The docstring below says "our own
+    declaration must be true of our own tree"; it was true of a round-13 file and
+    silent about every lap since.
+
+    Found 2026-08-26 while adopting `OWNERSHIP.md` v2, immediately after telling
+    the fork (lap 18 §3) that we *do* compare these — a claim that was overstated
+    by exactly this gap. Same shape as the message-box sweep `CLAUDE.md` names:
+    scoping a sweep is fine, scoping it silently while the rule claims everything
+    is the defect.
+
+    Sorted by (round, lap) rather than filename so `round-14-lap-9` cannot sort
+    above `round-14-lap-18`.
+    """
+
+    def _key(path: Path) -> tuple[int, int, str]:
+        m = re.search(r"round-(\d+)(?:-lap-(\d+))?", path.name)
+        if not m:
+            return (0, 0, path.name)
+        return (int(m.group(1)), int(m.group(2) or 0), path.name)
+
+    candidates = [
+        path
+        for directory in ("outbound", "verified")
+        for path in (_REPO_ROOT / "docs" / "handshake" / directory).glob("round-*.md")
+    ]
+    for path in sorted(candidates, key=_key, reverse=True):
         match = re.search(
             r"^HANDSHAKE-SHARED-HASHES: (.+)$", path.read_text(encoding="utf-8"), re.M
         )

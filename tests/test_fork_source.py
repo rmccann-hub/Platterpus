@@ -79,8 +79,23 @@ def test_the_pin_is_the_one_the_newest_closed_handshake_round_verified() -> None
       conflating them is what let an open round's file stand in for an approval.
     """
     handshake = _handshake()
-    verified_dir = REPO_ROOT / "docs" / "handshake" / "verified"
-    verified = sorted(verified_dir.glob("round-*.md"), key=handshake.sort_key)
+    # **`outbound/` AS WELL AS `verified/`, because our closing GO does not always
+    # live in the latter.** Round 14 closed with lap 18, an ordinary outbound lap
+    # carrying `HANDSHAKE-VERDICT: GO` — and once SENT its bytes were frozen (the
+    # fork's lap 19 digest covers them), so it could not be moved into `verified/`,
+    # whose files must additionally open with a bolded `**GO on <pin>` line.
+    # `handshake.py --status` already reads our verdict correctly from `outbound/`;
+    # only this check looked at one directory, so two surfaces answered "is round
+    # 14 verified by us?" differently. One question, one population.
+    root = REPO_ROOT / "docs" / "handshake"
+    verified = sorted(
+        [
+            path
+            for directory in ("verified", "outbound")
+            for path in (root / directory).glob("round-*.md")
+        ],
+        key=handshake.sort_key,
+    )
     assert verified, "no verification files — cannot check the pin against the record"
 
     # Which rounds are CLOSED, read off the tooling rather than re-derived here.
@@ -101,10 +116,32 @@ def test_the_pin_is_the_one_the_newest_closed_handshake_round_verified() -> None
     )
     newest = candidates[-1]
     text = newest.read_text(encoding="utf-8")
-    assert fork_source.FORK_PIN in text, (
-        f"{newest.name} — the newest CLOSED round's verification — does not mention "
-        f"pin {fork_source.FORK_PIN!r}; the wizard would build a commit no closed "
-        f"round approved"
+
+    # **THE DECLARED FIELD, NOT A SUBSTRING**, and the difference is not academic.
+    # This read `FORK_PIN in text` — a bare substring — so any mention anywhere in
+    # a 19 KB prose file satisfied it. Round 14's verification discusses `ddf7ac3`
+    # at length *precisely because it was the wrong value*: it had stood in our
+    # `HANDSHAKE-OUR-PIN` for nine laps and §2 is the correction. So the check
+    # passed on the strength of the defect it should have caught, while the round
+    # actually approved `d9c058c`.
+    #
+    # Exactly `CLAUDE.md`'s *"can it be satisfied by the wrong thing?"* — the same
+    # shape as the handshake gate whose §I was satisfied by the sentence *"I wrote,
+    # of your continuation-line sweep:"*. Where a check matches on a label, make it
+    # require the subject; only the pair is a check.
+    declared = re.search(r"^HANDSHAKE-PIN:\s*([0-9a-f]{7,40})\b", text, re.M)
+    assert declared is not None, (
+        f"{newest.name} — the newest CLOSED round's verification — declares no "
+        "HANDSHAKE-PIN, so there is nothing to hold the production pin to"
+    )
+    assert declared.group(1).startswith(fork_source.FORK_PIN) or (
+        fork_source.FORK_PIN.startswith(declared.group(1))
+    ), (
+        f"{newest.name} declares HANDSHAKE-PIN: {declared.group(1)}, but "
+        f"FORK_PIN is {fork_source.FORK_PIN!r}. A CLOSED round approves the pin it "
+        "DECLARES — so either the production pin has not been rolled forward after "
+        "the close, or the wizard builds a commit no closed round approved. "
+        "Rolling it forward is the post-close step; do not relax this check."
     )
 
 
@@ -117,8 +154,23 @@ def _newest_closed_round_verification() -> tuple[int, Path]:
     in lap 41, and the correction is the one that describes what we install.
     """
     handshake = _handshake()
-    verified_dir = REPO_ROOT / "docs" / "handshake" / "verified"
-    verified = sorted(verified_dir.glob("round-*.md"), key=handshake.sort_key)
+    # **`outbound/` AS WELL AS `verified/`, because our closing GO does not always
+    # live in the latter.** Round 14 closed with lap 18, an ordinary outbound lap
+    # carrying `HANDSHAKE-VERDICT: GO` — and once SENT its bytes were frozen (the
+    # fork's lap 19 digest covers them), so it could not be moved into `verified/`,
+    # whose files must additionally open with a bolded `**GO on <pin>` line.
+    # `handshake.py --status` already reads our verdict correctly from `outbound/`;
+    # only this check looked at one directory, so two surfaces answered "is round
+    # 14 verified by us?" differently. One question, one population.
+    root = REPO_ROOT / "docs" / "handshake"
+    verified = sorted(
+        [
+            path
+            for directory in ("verified", "outbound")
+            for path in (root / directory).glob("round-*.md")
+        ],
+        key=handshake.sort_key,
+    )
     closed_rounds = {
         int(match.group(1))
         for line in handshake.round_status()
@@ -1092,8 +1144,28 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     current pin* unbuildable, and would kill the downgrade path to the one build with
     rig evidence behind it. This asserts the default is the safe one.
     """
-    assert fork_source.PRODUCTION_TARGET.pin == "ddf7ac3", (
-        "the pin moved — re-check whether it still predates meson_options.txt"
+    # **THE TRIPWIRE FIRED WHEN THE PIN ROLLED TO `d9c058c`, AND THE ANSWER
+    # CHANGED — which is exactly what it is for.** Re-checked against the fork's
+    # tree rather than assumed: `meson_options.txt` at `d9c058c` is **present**,
+    # 973 bytes, and declares `declare_released`. So the old reason for the empty
+    # default — *"the pin cannot accept the option and meson fails the entire
+    # configure on an unknown -D"* — no longer holds.
+    #
+    # The default stays empty for a BETTER reason, and it is a provenance one.
+    # Their own comment on that option says it is *"a CLAIM, not a measurement"*
+    # that the build is a published release. **We build from source, in a
+    # container, on the operator's machine — our binary is not their published
+    # release artifact even when it is built from the released commit.** Passing
+    # `-Ddeclare_released=true` would stamp a claim we are not entitled to make
+    # into an archival log. Declining is the honest default.
+    #
+    # Keyed on the CURRENT production pin so the next roll asks the question again.
+    assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
+    assert fork_source.PRODUCTION_TARGET.pin == "d9c058c", (
+        "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
+        "whether we are entitled to any option it declares. Presence is not "
+        "permission: `declare_released` is a claim about provenance, and a build "
+        "we compiled is not the fork's published artifact."
     )
     assert fork_source.PRODUCTION_TARGET.meson_options == ()
 

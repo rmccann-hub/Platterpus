@@ -95,7 +95,11 @@ def test_an_exclusion_that_matches_nothing_refuses(tree: Path) -> None:
     """
     with pytest.raises(rd.UnmatchedExclusion) as caught:
         rd.laps_for_round(9, tree, exclude=("some/path/round-09-lap-02.md",))
-    assert "Basenames only" in str(caught.value)
+    # The message changed in round 14 lap 19: a repo-relative path is now a LEGAL
+    # way to disambiguate two same-numbered laps, so "basenames only" stopped being
+    # true. A path that matches nothing is still a refusal — for the original
+    # reason, not for being a path.
+    assert "does not contain" in str(caught.value)
 
     # A name that DOES match still works, or the fix is a wall rather than a guard.
     assert len(rd.laps_for_round(9, tree, exclude=("round-09-lap-02.md",))) == 2
@@ -192,8 +196,15 @@ def _as_declared_in(lap: tuple[int, int]) -> tuple[str, int]:
     root = REPO_ROOT / "docs" / "handshake"
     round_no, lap_no = lap
     stem = f"round-{round_no:02d}-lap-"
+    # **BY PATH, not by basename**, and this is the caller the cyanrip fork's round
+    # 14 lap 19 §5 predicted: *"the one caller that legitimately wants both
+    # same-numbered laps names them by path."* Round 13 holds `round-13-lap-03.md`
+    # in BOTH `inbound/` and `verified/`; enumerating basenames yielded that name
+    # twice, and the tool now refuses an ambiguous exclusion rather than dropping
+    # both silently. Naming paths is also the more honest enumeration — this helper
+    # is listing *files it found*, and a basename is a lossy rendering of one.
     later = tuple(
-        path.name
+        path.relative_to(root).as_posix()
         for directory in ("inbound", "outbound", "verified")
         for path in (root / directory).glob(f"{stem}*.md")
         if (m := re.fullmatch(rf"{re.escape(stem)}(\d+)\.md", path.name))
@@ -303,4 +314,62 @@ def test_our_published_digests_still_reproduce() -> None:
         f"these laps of ours declare a round digest that nothing pins: {unpinned}. "
         "Add each one's declared value — an unpinned figure is one the fork can act "
         "on and we cannot prove we still reproduce."
+    )
+
+
+def test_an_exclusion_matching_TWO_files_refuses_instead_of_dropping_both(
+    tmp_path: Path,
+) -> None:
+    """The mirror of this file's founding defect, and neither project asked it.
+
+    Round 9 found that `--exclude` matching **nothing** silently dropped nothing
+    and printed a confident digest over the full set. The cyanrip fork shipped our
+    fix — and **neither of us then asked it the other way round.** An exclusion
+    matching **more than one** file dropped all of them, just as silently. It was
+    unreachable until two laps shared a number, which is why it survived nine
+    rounds.
+
+    Found by the fork (round 14 lap 19 §5) and **confirmed against our own record
+    before being believed**: `--exclude round-14-lap-16.md` matched the inbound and
+    outbound lap 16, removed both, and returned `710ed2493fccd59c over 19` — a
+    confident answer over a population nobody asked for, exit 0.
+
+    They sent the **specification, not their code**, deliberately: a test does not
+    travel, its specification does, and two implementations sharing an ancestor
+    share its bugs. This is that specification, implemented independently.
+    """
+    inbound = tmp_path / "inbound"
+    outbound = tmp_path / "outbound"
+    inbound.mkdir()
+    outbound.mkdir()
+    # The collision: one lap number, two senders, same basename.
+    (inbound / "round-09-lap-02.md").write_text(
+        _lap(9, 2, "cyanrip-fork"), encoding="utf-8"
+    )
+    (outbound / "round-09-lap-02.md").write_text(
+        _lap(9, 2, "platterpus"), encoding="utf-8"
+    )
+    (inbound / "round-09-lap-01.md").write_text(
+        _lap(9, 1, "cyanrip-fork"), encoding="utf-8"
+    )
+
+    # PASS = it refuses, naming both files.
+    with pytest.raises(rd.UnmatchedExclusion) as caught:
+        rd.laps_for_round(9, tmp_path, exclude=("round-09-lap-02.md",))
+    message = str(caught.value)
+    assert "AMBIGUOUS" in message, message
+    assert "inbound" in message and "outbound" in message, (
+        "the refusal must NAME both files — a refusal that does not say which two "
+        "leaves the caller unable to disambiguate, which is the whole remedy: "
+        f"{message}"
+    )
+
+    # NON-BLANKET, and this half is what stops the fix being a wall: an exclusion
+    # naming exactly one of them must still work, and must drop exactly that one.
+    kept = rd.laps_for_round(9, tmp_path, exclude=("outbound/round-09-lap-02.md",))
+    assert len(kept) == 2, f"expected 2 laps kept, got {[str(k.path) for k in kept]}"
+    senders = sorted(k.sender for k in kept)
+    assert senders == ["cyanrip-fork", "cyanrip-fork"], (
+        f"the wrong lap was dropped — kept senders {senders}; the platterpus lap 2 "
+        "was the one named"
     )

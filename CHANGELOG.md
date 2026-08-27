@@ -12,6 +12,63 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **Round 14 CLOSED (GO/GO), so the production pin rolls forward to `d9c058c`** —
+  the build the round approved, and the first production pin that was already a
+  published release when it was reviewed. Its evidence is a whole-disc uniform
+  secure re-read on hardware: 14/14 tracks converged, zero ripping errors,
+  completion footer intact. `APPROVED_BY_ROUND` → 14, `APPROVED_FOR_PLATTERPUS_
+  VERSION` → 0.6.28.
+
+### Fixed
+- **The gate that should have demanded that roll passed instead, because it was
+  satisfied by the wrong thing.** `test_the_pin_is_the_one_the_newest_closed_
+  handshake_round_verified` asserted `FORK_PIN in text` — a bare substring against
+  a 19 KB prose file. Round 14's verification discusses `ddf7ac3` at length
+  *precisely because it was the wrong value*, so the check passed on the strength
+  of the defect it existed to catch. It now reads the declared `HANDSHAKE-PIN:`
+  field. `CLAUDE.md`'s *"can it be satisfied by the wrong thing?"*
+- **Rolling the pin silently dropped `ddf7ac3` from the `--consumer` capability
+  set**, because it was present only by way of `FORK_EXPECTED_BUILD_TAG`. A rig
+  still holding the previous production build would have gone back to logging
+  `Consumer: not identified` — the same failure that cost the 2026-08-24 run, but
+  arriving by a new route: not a set nobody updated, but one updated *correctly*
+  that lost an entry as a side effect. Superseded **production** pins are now
+  retained explicitly, as superseded *test* pins already were; that asymmetry was
+  the bug.
+- **Two surfaces disagreed about where our verification lives.** Round 14 closed
+  with lap 18, an ordinary outbound lap — and once sent its bytes are frozen (the
+  fork's lap 19 digest covers them), so it cannot be moved into `verified/`, whose
+  files must additionally open with a bolded `**GO on <pin>` line.
+  `handshake.py --status` read it correctly; the pin checks looked at one
+  directory only. One question, one population.
+- **`round_digest.py --exclude` silently dropped BOTH files when a basename
+  matched two laps.** The exact mirror of the defect we found in round 9 and the
+  cyanrip fork shipped our fix for — there, an exclusion matching *nothing*
+  dropped nothing and printed a confident digest over the full set. **Neither
+  project then asked it the other way round**, and matching *more than one* was
+  unreachable until two laps shared a number, which is why it survived nine
+  rounds. Found by the fork (round 14 lap 19 §5), who sent the **specification
+  rather than their code** — a test does not travel, its specification does, and
+  two implementations sharing an ancestor share its bugs. **Confirmed against our
+  own record before being believed**: `--exclude round-14-lap-16.md` matched the
+  inbound and outbound copies, removed both, and returned `710ed2493fccd59c over
+  19`, exit 0. An ambiguous exclusion is now a refusal naming both files; a
+  root- or repo-relative path disambiguates; the one caller that legitimately
+  wants both same-numbered laps names them by path. Every previously-published
+  digest still reproduces, so no sent number moved. Revert-proved.
+- **The shared-hash sweep read only `verified/`, so all eight of our round-14
+  laps went unchecked** — including the one in which we told the fork we *do*
+  compare these hashes. The newest declaring file it could see was
+  `round-13-lap-07.md`, so the claim *"our own declaration must be true of our own
+  tree"* was true of a round-13 file and silent about every lap since. Found while
+  adopting `OWNERSHIP.md` v2, one lap after making the overstated claim. Same
+  shape `CLAUDE.md` names about the message-box sweep: scoping a sweep is fine,
+  scoping it silently while the rule claims everything is the defect. Now reads
+  the newest sent file across `outbound/` **and** `verified/`, ordered by (round,
+  lap) so `lap-9` cannot sort above `lap-18`. Revert-proved against a drifted
+  `seam-rules.md`.
+
+### Changed
 - **The `0.7.100` gate is now about what a failure MEANS, not how many there
   are** (maintainer ruling, 2026-08-26): *"if there is something minor like a
   window size was wrong, then ignore. But critical passing tests for cd accuracy
