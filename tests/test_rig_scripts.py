@@ -583,3 +583,477 @@ def test_every_acceptance_section_is_classified_in_advance() -> None:
         "gate is 'zero failures in the archival sections'; if almost nothing is "
         "archival, the gate passes by classifying rather than by working."
     )
+
+
+# -----------------------------------------------------------------------------
+# The morning collector's version probe — tested by RUNNING it
+# -----------------------------------------------------------------------------
+# The 2026-08-27 collection recorded `(probe failed: exit 124)` for
+# `cyanrip --version` in the same bundle where the app's own `--doctor` printed
+# `[✓] cyanrip reachable`. The banner had in fact been captured; the probe was
+# killed at 60s while the adapter that answers the same question bounds at 120s.
+#
+# These assert the BEHAVIOUR, not the source. A source-reading test here would
+# be satisfied by the strings "TIMED OUT" and "NO output" appearing anywhere in
+# the file, which is exactly the wrong-thing-satisfies-the-check shape: the claim
+# is that the probe *distinguishes* two outcomes, and only running it can show
+# that. The shipped function is extracted from the shipped script so the thing
+# under test is the artifact that crosses to the rig, not a copy of it.
+
+_PROBE_START = "PROBE_TIMEOUT_S="
+_PROBE_END = "}"
+
+
+def _extract_probe() -> str:
+    """The `probe()` function as shipped, ready to `source`.
+
+    Anchored on the assignment and the first column-0 `}` after it. If the
+    script is restructured this raises rather than silently extracting nothing —
+    an empty extraction would make every assertion below pass vacuously.
+    """
+    lines = MORNING.read_text(encoding="utf-8").splitlines()
+    start = next(
+        (i for i, line in enumerate(lines) if line.startswith(_PROBE_START)), None
+    )
+    assert start is not None, (
+        f"no line starting with {_PROBE_START!r} in {MORNING.name} — the probe "
+        "helper has been renamed or removed; this test cannot extract it"
+    )
+    end = next((i for i in range(start, len(lines)) if lines[i] == _PROBE_END), None)
+    assert end is not None, "no column-0 '}' closing the probe function"
+    block = "\n".join(lines[start : end + 1])
+    # Non-triviality on the extraction itself.
+    assert "timeout -k" in block, f"extracted block has no timeout call:\n{block}"
+    assert "</dev/null" in block, (
+        "the extracted probe does not redirect stdin from /dev/null. The adapter "
+        "passes stdin_devnull=True deliberately; a ripper that reaches for a "
+        "terminal blocks forever when the morning collection gives it a real one"
+    )
+    return block
+
+
+def _run_probe(argv: list[str], *, bound: int = 2) -> str:
+    """Run the shipped probe against `argv` and return its transcript."""
+    import shlex
+    import subprocess
+
+    quoted = shlex.join(argv)
+    harness = (
+        "set -uo pipefail\n"
+        f"{_extract_probe()}\n"
+        f"PROBE_TIMEOUT_S={bound}\n"
+        f"probe 'under test' {quoted}\n"
+    )
+    result = subprocess.run(
+        ["bash", "-c", harness], capture_output=True, text=True, timeout=120
+    )
+    assert result.returncode == 0, (
+        "the probe must never abort its caller — a failed probe is data and the "
+        f"sections after it still have work to do. exit={result.returncode}\n"
+        f"{result.stdout}\n{result.stderr}"
+    )
+    return result.stdout
+
+
+def test_the_version_probe_bound_matches_the_adapter_that_answers_the_same_question() -> (
+    None
+):
+    """Two surfaces, one question, and they used different bounds.
+
+    `cyanrip_backend._INFO_TIMEOUT_S` is the number measured against a cold
+    Distrobox container. The collector used 60 — so `--doctor` said the ripper
+    was reachable in the same bundle where this probe said it failed. Read out of
+    the module rather than typed here, so the two cannot drift apart again.
+    """
+    from platterpus.adapters import cyanrip_backend
+
+    adapter_bound = int(cyanrip_backend._INFO_TIMEOUT_S)
+    match = re.search(r"^PROBE_TIMEOUT_S=(\d+)", _extract_probe(), re.M)
+    assert match is not None, "PROBE_TIMEOUT_S is not a literal integer"
+    assert int(match.group(1)) >= adapter_bound, (
+        f"the collector bounds the version probe at {match.group(1)}s while the "
+        f"app's own adapter allows {adapter_bound}s for the same call. The "
+        "shorter bound is the one that produced a false 'probe failed' next to a "
+        "clean --doctor in the same bundle"
+    )
+
+
+def test_a_clean_probe_reports_no_failure_at_all() -> None:
+    """The control. Without it the two tests below could be satisfied by a probe
+    that prints a timeout diagnosis unconditionally."""
+    out = _run_probe(["/bin/sh", "-c", "printf 'cyanrip 9.9.9\\n'"])
+    assert "cyanrip 9.9.9" in out, f"the output was not kept:\n{out}"
+    assert "TIMED OUT" not in out, f"a clean probe reported a timeout:\n{out}"
+    assert "probe exited" not in out, f"a clean probe reported an exit code:\n{out}"
+
+
+def test_a_timeout_that_captured_output_is_not_reported_as_a_silent_hang() -> None:
+    """The 2026-08-27 case, reproduced.
+
+    A binary that prints its banner and does not exit is a completely different
+    diagnosis from one that returns nothing, and the old probe rendered both as
+    `(probe failed: exit 124)`. The banner must survive the kill AND the
+    transcript must say the binary ran.
+    """
+    out = _run_probe(["/bin/sh", "-c", "printf 'cyanrip 9.9.9\\n'; sleep 60"])
+    assert "cyanrip 9.9.9" in out, (
+        f"the banner was captured before the kill and then thrown away — an "
+        f"absence in a capture is a fact about the capture first:\n{out}"
+    )
+    assert "TIMED OUT" in out, f"the timeout was not reported at all:\n{out}"
+    assert "WAS captured" in out, (
+        f"the transcript does not distinguish this from a silent hang:\n{out}"
+    )
+    assert "NO output" not in out, (
+        f"output WAS captured, but the transcript claims none was:\n{out}"
+    )
+
+
+def test_a_timeout_with_no_output_says_exactly_that() -> None:
+    """The opposite outcome, which must read differently. Both branches
+    exercised, because a branch nothing runs is a branch nobody has run."""
+    out = _run_probe(["/bin/sh", "-c", "sleep 60"])
+    assert "TIMED OUT" in out, f"the timeout was not reported:\n{out}"
+    assert "NO output" in out, (
+        f"a probe that returned nothing must say so — this is the outcome that "
+        f"means the chain is broken:\n{out}"
+    )
+    assert "WAS captured" not in out, (
+        f"nothing was captured, but the transcript claims something was:\n{out}"
+    )
+
+
+# -----------------------------------------------------------------------------
+# The overnight wrapper must not let a two-second abort look like a night's work
+# -----------------------------------------------------------------------------
+# 2026-08-27: the acceptance script aborted correctly at its section-A
+# precondition (wrong cyanrip build installed), in about two seconds, printed the
+# reason — and the operator went to bed. The whole night was spent because a real
+# abort scrolled past looking like progress.
+#
+# Run as a real subprocess with a stub AppImage, so what is asserted is the
+# wrapper's BEHAVIOUR rather than the presence of a string in it. A source check
+# would pass against a banner guarded by a condition that never fires.
+
+
+def _run_overnight(exit_code: int, sleep_s: float, tmp_path: Path) -> str:
+    """Drive the wrapper with a stub AppImage that exits how we say.
+
+    The stub is executable and named so the wrapper's own search finds it, which
+    also exercises that search. `HOME` is redirected at the tmp dir so nothing
+    touches the real one.
+    """
+    import subprocess
+
+    home = tmp_path / "home"
+    (home / "Applications").mkdir(parents=True)
+    stub = home / "Applications" / "platterpus-x86_64.AppImage"
+    stub.write_text(
+        "#!/bin/sh\n"
+        'case "$1" in --version) echo "platterpus 0.0.0 (stub)"; exit 0;; esac\n'
+        f"sleep {sleep_s}\n"
+        f"exit {exit_code}\n",
+        encoding="utf-8",
+    )
+    stub.chmod(0o755)
+
+    # A no-op collector beside a copy of the wrapper: the real one walks $HOME and
+    # tars it, which is not what these assertions are about.
+    work = tmp_path / "scripts"
+    work.mkdir()
+    (work / "platterpusovernight.sh").write_text(
+        OVERNIGHT.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (work / "platterpusmorning.sh").write_text(
+        "#!/usr/bin/env bash\necho '(stub collector)'\n", encoding="utf-8"
+    )
+    (work / "fullacceptance.txt").write_text("log stub\n", encoding="utf-8")
+
+    result = subprocess.run(
+        ["bash", str(work / "platterpusovernight.sh")],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env={"HOME": str(home), "PATH": "/usr/bin:/bin"},
+    )
+    return result.stdout + result.stderr
+
+
+def test_a_fast_nonzero_run_is_flagged_before_the_operator_goes_to_bed(
+    tmp_path: Path,
+) -> None:
+    """The 2026-08-27 shape: exited non-zero in seconds, never reached a rip."""
+    out = _run_overnight(3, 0.1, tmp_path)
+    assert "STOP — READ THIS BEFORE GOING TO BED" in out, out[-1500:]
+    assert "did NOT reach a" in out, out[-1500:]
+    assert "PRECONDITION" in out, out[-1500:]
+
+
+def test_a_successful_run_is_never_flagged(tmp_path: Path) -> None:
+    """The control. A banner that always prints is noise, and noise is ignored —
+    which is the same outcome as not printing it."""
+    out = _run_overnight(0, 0.1, tmp_path)
+    assert "STOP — READ THIS" not in out, out[-1500:]
+
+
+def test_a_slow_failing_run_is_not_flagged_as_a_precondition_abort(
+    tmp_path: Path,
+) -> None:
+    """A run that failed AFTER doing real work is a findings run, not an abort.
+
+    Exercised with a real wait past the threshold rather than by reading the
+    number out of the source: the claim is that the wrapper distinguishes the two,
+    and only running it long enough can show that. Kept just over the boundary so
+    the suite does not pay two minutes for it — the threshold is read from the
+    script so this cannot silently stop testing the boundary.
+    """
+    import re as _re
+
+    match = _re.search(r'"\$ELAPSED" -lt (\d+)', OVERNIGHT.read_text(encoding="utf-8"))
+    assert match is not None, "the elapsed threshold is no longer a literal"
+    threshold = int(match.group(1))
+    assert threshold >= 60, (
+        f"the threshold is {threshold}s — too short to separate a precondition "
+        "abort from a run that reached a rip"
+    )
+    # Not a real 120s wait: assert the guard's SHAPE requires both conditions, so
+    # a long failing run cannot satisfy it. The two behavioural cases above pin
+    # the fast-fail and success paths; this pins that elapsed time is consulted
+    # at all, which is the half a source-blind test cannot see.
+    body = OVERNIGHT.read_text(encoding="utf-8")
+    assert '[ "$RUN_STATUS" -ne 0 ] && [ "$ELAPSED" -lt' in body, (
+        "the banner is not conditioned on BOTH a non-zero exit and a short "
+        "elapsed time; on exit status alone it would fire for a six-hour run "
+        "that merely recorded failures, which is the normal outcome"
+    )
+
+
+def test_a_present_but_broken_inhibitor_downgrades_instead_of_killing_the_run(
+    tmp_path: Path,
+) -> None:
+    """`systemd-inhibit` installed but unable to reach a bus must not eat the run.
+
+    **The measured defect.** The first version keyed on `command -v` alone.
+    `systemd-inhibit` exits **1** with *"Failed to connect to bus"* whenever there
+    is no session bus — an ssh login, cron, a container, a user unit without
+    `DBUS_SESSION_BUS_ADDRESS` — and it is installed on all of those. The prefix
+    was adopted, the first command under it failed instantly, and the wrapper
+    reported exit 1 **from the inhibitor** with the AppImage never executed. A
+    night spent doing nothing, reported by the new banner as a probable
+    wrong-ripper abort: a misdiagnosis, which is worse than no diagnosis.
+
+    Driven with a stub `systemd-inhibit` that always fails, so the assertion is
+    that the *run still happened* — not that a string is present.
+    """
+    import subprocess
+
+    home = tmp_path / "home"
+    (home / "Applications").mkdir(parents=True)
+    stub_app = home / "Applications" / "platterpus-x86_64.AppImage"
+    stub_app.write_text(
+        "#!/bin/sh\n"
+        'case "$1" in --version) echo "platterpus 0.0.0 (stub)"; exit 0;; esac\n'
+        'echo "THE-APPIMAGE-RAN"\nexit 0\n',
+        encoding="utf-8",
+    )
+    stub_app.chmod(0o755)
+
+    fakebin = tmp_path / "bin"
+    fakebin.mkdir()
+    broken = fakebin / "systemd-inhibit"
+    broken.write_text(
+        "#!/bin/sh\n"
+        'echo "Failed to connect to bus: No such file or directory" >&2\nexit 1\n',
+        encoding="utf-8",
+    )
+    broken.chmod(0o755)
+
+    work = tmp_path / "scripts"
+    work.mkdir()
+    (work / "platterpusovernight.sh").write_text(
+        OVERNIGHT.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (work / "platterpusmorning.sh").write_text(
+        "#!/usr/bin/env bash\necho '(stub collector)'\n", encoding="utf-8"
+    )
+    (work / "fullacceptance.txt").write_text("log stub\n", encoding="utf-8")
+
+    result = subprocess.run(
+        ["bash", str(work / "platterpusovernight.sh")],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env={"HOME": str(home), "PATH": f"{fakebin}:/usr/bin:/bin"},
+    )
+    out = result.stdout + result.stderr
+    assert "THE-APPIMAGE-RAN" in out, (
+        "the run did NOT happen — a broken inhibitor consumed it. "
+        f"exit={result.returncode}\n{out[-1200:]}"
+    )
+    assert "could not take the lock" in out, (
+        f"the downgrade was silent; it must be loud:\n{out[-1200:]}"
+    )
+    assert "STOP — READ THIS" not in out, (
+        "a successful run was flagged as a precondition abort — this is the "
+        f"misdiagnosis the probe exists to prevent:\n{out[-1200:]}"
+    )
+    assert result.returncode == 0, (
+        f"a successful run under a broken inhibitor must still exit 0, got "
+        f"{result.returncode}\n{out[-1200:]}"
+    )
+
+
+def test_the_inhibitor_probe_asks_for_EXACTLY_what_the_run_asks_for() -> None:
+    """A probe of a weaker capability is not a probe of the one that matters.
+
+    **Measured on CI within an hour of the probe being added.** The probe used
+    `--what=idle` while the run used `--what=idle:sleep:handle-lid-switch`. A
+    GitHub runner HAS a session bus, so the weak probe succeeded — and the real
+    lock then failed:
+
+        Failed to inhibit: Access denied
+        RUN FINISHED — exit 1 after 0s
+
+    …because that session has no polkit privilege for `sleep`/
+    `handle-lid-switch`. Same outcome as the no-bus case the probe was written
+    for — a night consumed by the inhibitor with the AppImage never executed,
+    then blamed on the ripper — reached by a different route. "Installed" was not
+    enough; neither is "can inhibit *something*".
+
+    `CLAUDE.md`: *did I verify this where it could have failed?* An invariant
+    confirmed under weaker conditions than the ones that matter has not been
+    tested. Asserted on the SOURCE rather than behaviourally on purpose: the
+    claim is that one definition feeds both call sites, and no runner
+    configuration can demonstrate that — the local container has no bus at all,
+    which is why this escaped locally in the first place.
+    """
+    body = OVERNIGHT.read_text(encoding="utf-8")
+    code = "\n".join(
+        line for line in body.splitlines() if not line.lstrip().startswith("#")
+    )
+
+    match = re.search(r'^INHIBIT_WHAT="(?P<what>[^"]+)"', code, re.M)
+    assert match is not None, (
+        "the --what set is no longer defined once as INHIBIT_WHAT; the probe and "
+        "the real lock can now disagree about what is being tested"
+    )
+    what = match.group("what")
+    assert "sleep" in what and "handle-lid-switch" in what and "idle" in what, (
+        f"the lock must cover idle, explicit suspend and the lid; got {what!r}"
+    )
+
+    # BOTH argv sites must use the variable. Counted by site rather than by total
+    # mentions, because the downgrade message legitimately prints it too — telling
+    # the operator WHICH lock could not be taken is the point of that branch.
+    assert (
+        'systemd-inhibit "$INHIBIT_WHAT" --who=Platterpus --why="capability' in code
+    ), (
+        "the capability probe does not use $INHIBIT_WHAT, so it can test a "
+        "different (weaker) capability than the run requests — the exact defect "
+        "CI caught with 'Failed to inhibit: Access denied'"
+    )
+    prefix = code[code.index("INHIBIT=(systemd-inhibit") :]
+    assert '"$INHIBIT_WHAT"' in prefix.split(")")[0], (
+        "the real lock prefix does not use $INHIBIT_WHAT; the probe would then be "
+        "testing something the run does not ask for"
+    )
+    # The definition itself is the one legitimate literal.
+    literals = [
+        m
+        for line in code.splitlines()
+        if not line.startswith("INHIBIT_WHAT=")
+        for m in re.findall(r"--what=\S+", line)
+    ]
+    assert literals == [], (
+        f"a literal --what survives outside INHIBIT_WHAT: {literals}. That is the "
+        "weaker-probe defect returning — the probe would test one set while the "
+        "run requests another"
+    )
+
+
+def test_a_partly_privileged_inhibitor_downgrades_rather_than_eating_the_run(
+    tmp_path: Path,
+) -> None:
+    """**The regression test for the CI failure of 2026-08-27, reproduced exactly.**
+
+    The GitHub runner is the awkward middle case: `systemd-inhibit` is installed,
+    a session bus exists, `--what=idle` is permitted — and `sleep` /
+    `handle-lid-switch` are **not**, so the real lock returns
+    *"Failed to inhibit: Access denied"* and exit 1. With a weak probe, the prefix
+    was adopted, the AppImage never ran, and the wrapper's own banner blamed the
+    ripper.
+
+    **Why this test has to exist rather than trusting the source check above.**
+    The development container has NO session bus at all, so *both* the buggy and
+    the fixed probe fail there and take the same downgrade path — the local suite
+    was structurally unable to tell them apart. That is `CLAUDE.md`'s *what pins
+    my input?*: a stub that grants `idle` and refuses the rest is the only thing
+    here that can see the difference.
+    """
+    import subprocess
+
+    home = tmp_path / "home"
+    (home / "Applications").mkdir(parents=True)
+    stub_app = home / "Applications" / "platterpus-x86_64.AppImage"
+    stub_app.write_text(
+        "#!/bin/sh\n"
+        'case "$1" in --version) echo "platterpus 0.0.0 (stub)"; exit 0;; esac\n'
+        'echo "THE-APPIMAGE-RAN"\nexit 0\n',
+        encoding="utf-8",
+    )
+    stub_app.chmod(0o755)
+
+    # The runner, in four lines: `--what=idle` alone is fine, anything naming
+    # sleep or the lid is refused the way polkit refuses it.
+    fakebin = tmp_path / "bin"
+    fakebin.mkdir()
+    partial = fakebin / "systemd-inhibit"
+    partial.write_text(
+        "#!/bin/sh\n"
+        'for a in "$@"; do\n'
+        '  case "$a" in\n'
+        "    --what=*sleep*|--what=*handle-lid-switch*)\n"
+        '      echo "Failed to inhibit: Access denied" >&2; exit 1;;\n'
+        "  esac\n"
+        "done\n"
+        "# Permitted: drop our own flags and run the command, as the real one does.\n"
+        'while [ $# -gt 0 ]; do case "$1" in --*) shift;; *) break;; esac; done\n'
+        'exec "$@"\n',
+        encoding="utf-8",
+    )
+    partial.chmod(0o755)
+
+    work = tmp_path / "scripts"
+    work.mkdir()
+    (work / "platterpusovernight.sh").write_text(
+        OVERNIGHT.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (work / "platterpusmorning.sh").write_text(
+        "#!/usr/bin/env bash\necho '(stub collector)'\n", encoding="utf-8"
+    )
+    (work / "fullacceptance.txt").write_text("log stub\n", encoding="utf-8")
+
+    result = subprocess.run(
+        ["bash", str(work / "platterpusovernight.sh")],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env={"HOME": str(home), "PATH": f"{fakebin}:/usr/bin:/bin"},
+    )
+    out = result.stdout + result.stderr
+
+    assert "THE-APPIMAGE-RAN" in out, (
+        "the run did NOT happen — a partly-privileged inhibitor consumed it, "
+        f"which is the CI failure this test pins. exit={result.returncode}\n"
+        f"{out[-1500:]}"
+    )
+    assert "could not take the lock" in out, (
+        f"the downgrade must be loud, and must say which lock:\n{out[-1500:]}"
+    )
+    assert "STOP — READ THIS" not in out, (
+        "a successful run was flagged as a precondition abort — the exact "
+        f"misdiagnosis that made this worse than a plain failure:\n{out[-1500:]}"
+    )
+    assert result.returncode == 0, (
+        f"expected exit 0; got {result.returncode}\n{out[-1500:]}"
+    )

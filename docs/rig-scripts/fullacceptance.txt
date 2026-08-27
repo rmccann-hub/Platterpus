@@ -161,7 +161,7 @@ snapshot identity
 # interchangeable evidence).
 #
 # So: preconditions abort, findings do not. Nothing below this line uses it.
-abort-if-failed the ripper is not the build this round is reviewing — fix that first
+abort-if-failed the installed ripper is not the build the handshake record names — fix that first, the failing step above prints the one command
 
 # --- B. SETTINGS VALIDATION: the cheapest real check in the program --------
 # Pure round-trips through the REAL validator, which is the source of truth — a

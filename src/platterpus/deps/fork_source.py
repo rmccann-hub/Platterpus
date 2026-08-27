@@ -828,6 +828,76 @@ class ForkTarget:
         )
 
 
+# --- Round state: ONE predicate, and every surface delegates to it ------------
+# `same_commit` used to live 70 lines below this point. It moved up because the
+# constants here need it at import time, and because the alternative — a second
+# prefix comparison inlined where it was needed — is exactly the "two surfaces
+# answering one question" shape that `CLAUDE.md` names. One implementation, one
+# place, called by everything.
+
+
+def same_commit(a: str, b: str) -> bool:
+    """Whether two git revisions name the same commit, allowing for short SHAs.
+
+    Git abbreviations are prefixes, so ``ddf7ac3`` and a full 40-character SHA
+    beginning ``ddf7ac3`` are the same commit and must compare equal. Comparison
+    is case-insensitive because git accepts either case.
+
+    **A prefix match is not proof of identity** — two commits can share a short
+    prefix — but the alternative here is a bare ``==``, which reports *different*
+    for two spellings of the same revision, and that is the error this exists to
+    stop. The tighter check belongs to the build step, which reads the tag off the
+    binary it just produced; this only decides which sentence to print.
+
+    Empty strings never match: an unset pin is not "the same as" anything, and
+    returning True there would silently approve a build nobody named.
+    """
+    left, right = a.strip().lower(), b.strip().lower()
+    if not left or not right:
+        return False
+    return left.startswith(right) or right.startswith(left)
+
+
+def a_round_is_reviewing_a_build() -> bool:
+    """Whether a handshake round is currently reviewing a ripper build.
+
+    **Derived from the pins, not from a flag anyone has to remember to clear.**
+    A round under review means `PIN_UNDER_REVIEW` names something other than the
+    approved production pin; the moment a round closes, the reviewed build *is*
+    the approved build and the two coincide.
+
+    Written after the alternative failed twice in one hour on 2026-08-27. Two
+    separate user-facing strings — the acceptance script's wrong-ripper FAIL and
+    :data:`UNDER_REVIEW_TARGET`'s own `why` — each carried a hard-coded sentence
+    saying a round was open. Round 14 had closed. An operator who had installed
+    the fork's *newer* release read that they had the wrong build for a round
+    that was not running: every word deliberate, the sentence false, and false in
+    the direction that tells someone they are behind when they are ahead.
+    """
+    return not same_commit(PIN_UNDER_REVIEW, FORK_PIN)
+
+
+def pin_under_review_role() -> str:
+    """What `PIN_UNDER_REVIEW` *is* right now, in words true either way.
+
+    The single sentence every surface prints about the pin's standing. A caller
+    that wants to say this must call here rather than compose its own — a second
+    copy is a second thing to go stale, which is the whole history of this
+    function.
+    """
+    return f"{PIN_UNDER_REVIEW} {_pin_under_review_role_clause()}"
+
+
+def _pin_under_review_role_clause() -> str:
+    """The clause alone, for a caller that has already named the pin."""
+    if a_round_is_reviewing_a_build():
+        return "is the build the open handshake round is reviewing"
+    return (
+        "is the APPROVED production pin (no handshake round is open, so there is "
+        "no build under review)"
+    )
+
+
 #: The pin a **closed** round approved. Moves only when a round closes.
 PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
@@ -870,13 +940,16 @@ TEST_TARGET: Final[ForkTarget] = ForkTarget(
 UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     pin=PIN_UNDER_REVIEW,
     version="0.9.4-rc2+platterpus.10",
-    why=(
-        "the build round 14 is reviewing — what an acceptance run must be on. "
-        "It IS a published release (release_seq 20, channel beta), unlike a test "
-        "pin, but no round has approved it: round 14 is the round that would, "
-        "and it is open. A rip with this installed reports `unapproved`, which "
-        "is the correct answer rather than a defect"
-    ),
+    # **DERIVED, NOT ASSERTED.** This sentence used to read "round 14 is the round
+    # that would [approve it], and it is open" — a hard-coded claim about round
+    # state, which went false the moment round 14 closed and `PIN_UNDER_REVIEW`
+    # became the approved production pin. It was the SAME defect, in the same
+    # hour, as the acceptance script's wrong-ripper message, which asserted an
+    # open round to an operator who was in fact ahead of it. `docs/testing.md`
+    # §5.o: enforce a rule across the codebase, not at the place it was learned —
+    # so both surfaces now call `pin_under_review_role()` rather than each
+    # carrying their own sentence about the same fact.
+    why=f"what an acceptance run must be on — it {_pin_under_review_role_clause()}",
 )
 
 #: **What the setup wizard and ``--install-ripper`` build by default.**
@@ -898,28 +971,6 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
 #: note above says it would be. Round 7 closed with GO on both sides, so the test
 #: pin has done its job and the wizard builds the release again.
 WIZARD_TARGET: Final[ForkTarget] = PRODUCTION_TARGET
-
-
-def same_commit(a: str, b: str) -> bool:
-    """Whether two git revisions name the same commit, allowing for short SHAs.
-
-    Git abbreviations are prefixes, so ``ddf7ac3`` and a full 40-character SHA
-    beginning ``ddf7ac3`` are the same commit and must compare equal. Comparison
-    is case-insensitive because git accepts either case.
-
-    **A prefix match is not proof of identity** — two commits can share a short
-    prefix — but the alternative here is a bare ``==``, which reports *different*
-    for two spellings of the same revision, and that is the error this exists to
-    stop. The tighter check belongs to the build step, which reads the tag off the
-    binary it just produced; this only decides which sentence to print.
-
-    Empty strings never match: an unset pin is not "the same as" anything, and
-    returning True there would silently approve a build nobody named.
-    """
-    left, right = a.strip().lower(), b.strip().lower()
-    if not left or not right:
-        return False
-    return left.startswith(right) or right.startswith(left)
 
 
 def target_for_commit(
@@ -977,8 +1028,19 @@ def target_for_commit(
         # pin is the fact that matters and it is right here.
         return ForkTarget(
             pin=pin,
-            version=version
-            or "(version not read from the tree; the tag is what we verify)",
+            # **THE VERSION IS KNOWN HERE, AND SAYING OTHERWISE PRINTED A FALSE
+            # SENTENCE ABOUT OUR OWN PIN.** The default used to be a placeholder,
+            # which makes `version_known` False, which makes `expectation` read
+            # *"the version string is not predictable for a commit we do not
+            # pin"* — about the commit we DO pin, in the preamble of the exact
+            # command an operator is told to run. The general rule from the same
+            # hour: a sentence false in a small way is how a night gets lost.
+            #
+            # It is a measured pairing, not a guess: `FORK_EXPECTED_VERSION` and
+            # `FORK_PIN` are the pair both projects declared at column 0 in round
+            # 14 laps 17, 18 and 19. An explicit `version=` still wins, and the
+            # arbitrary-commit branch below keeps its honest "not known".
+            version=version or FORK_EXPECTED_VERSION,
             why=(
                 f"commit {pin}, supplied on the command line — and this IS the "
                 f"approved pin ({PRODUCTION_TARGET.pin}), the build a closed round "
