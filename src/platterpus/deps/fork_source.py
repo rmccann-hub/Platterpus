@@ -129,7 +129,19 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: **The rule both projects took from it:** choose the released commit *after* the
 #: derived artifacts agree, never at the version bump. Bump-then-regenerate
 #: guarantees one commit exists whose own suite fails.
-FORK_PIN: Final[str] = "ddf7ac3"
+#: **Rolled forward to `d9c058c` on 2026-08-26, when round 14 CLOSED with GO/GO.**
+#: That is the post-close step the cycle turns on: the pin a closed round approved
+#: becomes the production pin, and the next round reviews what both sides then
+#: release. Permitted because the round is closed — the deviation policy forbids
+#: moving it only while one is OPEN.
+#:
+#: The gate that should have demanded this roll passed instead, and the reason is
+#: worth keeping: it asserted `FORK_PIN in text` against the verification file, a
+#: bare substring, and round 14's verification discusses `ddf7ac3` at length
+#: *because it was the wrong value* — nine laps of our `HANDSHAKE-OUR-PIN`. So the
+#: check was satisfied by the defect it existed to catch. It now reads the
+#: declared `HANDSHAKE-PIN:` field.
+FORK_PIN: Final[str] = "d9c058c"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -230,6 +242,11 @@ FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
     # This map is why that commitment costs us one line instead of a broken run:
     # see `expect-ripper-under-review`, which removed the hardcoded tag the three
     # moves kept invalidating.
+    #
+    # **From round 14's close (2026-08-26) this is also `FORK_PIN`** — the first
+    # production pin that was already a published release when it was reviewed,
+    # which is why round 14 is the first round whose reviewed artifact, rig
+    # artifact and shipped artifact were one object.
     "d9c058c": 20,
 }
 
@@ -288,7 +305,10 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: harness staler than the product, which is the failure mode CLAUDE.md's "what does
 #: my stand-in do that the real thing does not" question exists to catch.
 #: Round 7's release drops the `-beta.N` suffix: `0.9.4-rc1+platterpus.5`.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc1+platterpus.5"
+#: Read off the fork's own `HANDSHAKE-RIPPER-VERSION` in round 14 laps 16-19 —
+#: `cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-gd9c058c)` — a pairing they
+#: stated rather than one we inferred.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.10"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -611,7 +631,21 @@ SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = (
 #: does not accept the flag, and a rig still running it must not be sent one.
 BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
     {
-        FORK_EXPECTED_BUILD_TAG,  # the round-7 release, the current pin
+        FORK_EXPECTED_BUILD_TAG,  # the current production pin
+        # **SUPERSEDED PRODUCTION PINS STAY, and this one nearly did not.**
+        # `ddf7ac3` was in this set only by way of `FORK_EXPECTED_BUILD_TAG`, so
+        # rolling the pin forward at round 14's close removed it — silently, and
+        # a rig still holding the previous production build would have gone back
+        # to logging `Consumer: not identified`. That is precisely the failure the
+        # note below records from 2026-08-24, arriving a second time by a
+        # different route: not a set that was never updated, but one that was
+        # updated *correctly* and lost an entry as a side effect.
+        #
+        # Superseded test pins already had this protection (`SUPERSEDED_TEST_PINS`
+        # is splatted in below) and superseded PRODUCTION pins had none, which is
+        # the asymmetry. A pin we shipped is at least as likely to still be on a
+        # rig as a test pin nobody was told to keep.
+        f"{FORK_BRANCH}-gddf7ac3",  # round 7's release; production until round 14
         f"{FORK_BRANCH}-g{FORK_RELEASE_4_COMMIT}",  # fork release 4
         FORK_TEST_BUILD_TAG,  # the round-7 test pin, still on the rig
         *(f"{FORK_BRANCH}-g{pin}" for pin in SUPERSEDED_TEST_PINS),
@@ -799,9 +833,12 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the round-7 release, built from the code round 7 approved at 104f6d4 "
-        f"(Platterpus {FORK_EXPECTED_VERSION}) — see docs/handshake/verified/"
-        "round-07-lap-40.md §A for why the released commit and not the pin"
+        "the build round 14 approved, GO on both sides — and the first production "
+        f"pin that was already a release when it was reviewed (cyanrip "
+        f"{FORK_EXPECTED_VERSION}, release_seq 20). Its evidence is a whole-disc "
+        "uniform secure re-read on hardware: 14/14 tracks converged, zero ripping "
+        "errors, completion footer intact. See docs/handshake/outbound/"
+        "round-14-lap-18.md"
     ),
 )
 
