@@ -11,7 +11,93 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.30] — 2026-08-27
+
+### Added
+- **The fork challenge ledger** — `docs/cyanrip-handshake.md` §9, required by
+  `CLAUDE.md` rule #12 since the maintainer gave the cyanrip fork a standing
+  challenge mandate on 2026-08-26. Ten resolved challenges, one row each, cited
+  to the lap that made it and the artifact that settled it. The count is **5–5**,
+  and it is reported with the qualification that matters more than the tally:
+  **nine of the ten predate the mandate**, so the question *"are they more often
+  right?"* is **not yet measurable** — saying so is the honest reading, and the
+  instruction was explicitly to measure rather than to decide from the feel of
+  the last lap. The mechanism column is the useful part: our errors cluster in
+  *verification*, theirs in *attribution*, and those want different remedies.
+- **A sweep that every citation into the handshake record must resolve in *this*
+  tree.** Written because §9 got it wrong on the first draft, twice: two rows
+  cited `inbound/round-10-lap-04.md` and `inbound/round-11-lap-02.md` — the paths
+  the *fork* uses for them. Both are ours and sit in `verified/`, because the
+  inbound/outbound roles **reverse** across the seam, so a path copied out of a
+  peer's lap points at nothing here and points at nothing *silently*. A third was
+  off by one line. Round files are immutable correspondence, which makes them the
+  one document class where a line citation is both legitimate and checkable.
+
 ### Fixed
+- **The wrong-ripper abort claimed a handshake round was open when none was, and
+  handed back a GUI path instead of the one command that fixes it.** Both halves
+  bit on the 2026-08-27 overnight attempt, in the single message an operator reads
+  at 2am: round 14 had *closed*, so "the build the open handshake round is
+  reviewing" was false — and false in the direction that misdirects, because it
+  implies the operator is behind when they were ahead — and the remedy said
+  "Settings → the ripper beta channel, then take the offer" when
+  `platterpus --install-ripper <pin>` exists. The abort itself was correct and
+  worth keeping: it cost two seconds instead of a night on the wrong binary. What
+  cost the attempt was advice that did not match the assertion.
+  - **"Is a round open?" is now ONE predicate with every surface delegating**
+    (`fork_source.a_round_is_reviewing_a_build` / `pin_under_review_role`), and it
+    is derived from the two pins rather than from a sentence someone must
+    remember to rewrite — closing a round *is* the act of making
+    `PIN_UNDER_REVIEW` and `FORK_PIN` the same commit. Three surfaces had been
+    answering it with three implementations and **two were wrong within the same
+    hour**: the acceptance script's FAIL text, and
+    `fork_source.UNDER_REVIEW_TARGET.why`, which read *"round 14 is the round that
+    would [approve], and it is open"* — install-time text, with a hard-coded round
+    number in it. Fixed across the codebase rather than at the place it was
+    learned (`docs/testing.md` §5.o), with the *relation* asserted, since no test
+    of one surface can express it.
+  - The remedy's invocation comes from `build_info.self_invocation()`. The first
+    draft hardcoded `platterpus …` and `./platterpus-x86_64.AppImage …` joined by
+    an "or"; `tests/test_self_invocation_sweep.py` refused it — there is no
+    `platterpus` on `PATH` for an AppImage install, this project's primary
+    channel, and handing an operator two commands one of which fails is the same
+    work-handed-back shape in miniature.
+  - The acceptance script's `abort-if-failed` line carried the same stale claim
+    and now names the record rather than a round.
+- **`systemd-inhibit` being *installed* was taken as it being *usable*, and on a
+  bus-less session that silently consumed the entire run.** It exits **1** with
+  *"Failed to connect to bus"* whenever there is no session bus — an ssh login,
+  cron, a container, a user unit without `DBUS_SESSION_BUS_ADDRESS` — and it is
+  installed on all of those. So the prefix was adopted, the first command under it
+  died instantly, and `platterpusovernight.sh` reported exit 1 **from the
+  inhibitor** with the AppImage never executed: a night spent doing nothing, and
+  (after the banner below) reported as a probable wrong-ripper abort. A
+  misdiagnosis is worse than no diagnosis. The capability is now **probed** — run
+  the real thing over `true` — and a present-but-unusable inhibitor gets its own
+  loud downgrade, which is what the absent case always got. Found by a test
+  written for something else, in a container with no bus.
+- **A two-second precondition abort and a six-hour run looked identical at 2am.**
+  The 2026-08-27 attempt stopped correctly at section A, printed why, and the
+  operator went to bed on a run that had already ended. `platterpusovernight.sh`
+  now times the run and prints a blocking banner when a non-zero exit arrives in
+  under two minutes — it cannot have reached a rip. Deliberately **presentation
+  only**: it re-decides nothing about the ripper, because a second opinion on that
+  question is the defect the run was aborted by.
+- **The morning collector reported `cyanrip --version` as failed in the same
+  bundle where `--doctor` called the ripper reachable.** Two surfaces answering
+  one question with different bounds: the adapter allows
+  `_INFO_TIMEOUT_S == 120.0` for that call — the number measured against a cold
+  Distrobox container — and the collector killed it at 60. Worse, the banner
+  *had* arrived before the kill, and `(probe failed: exit 124)` rendered that
+  identically to a probe that returned nothing at all. Those are opposite
+  diagnoses: one says the binary works and did not exit, the other says the
+  host → container → cyanrip chain is broken. The probe is now one function
+  which takes its bound from the adapter's (asserted, not copied), redirects
+  stdin from `/dev/null` the way the adapter deliberately does, keeps whatever
+  output arrived before a kill, and names *which* of the two outcomes it saw.
+  Tested by running it against all three — clean, timeout-with-output,
+  timeout-with-silence — because the claim is that it *distinguishes* them and
+  only running it can show that.
 - **A wrong-shaped FUN512 digest was accepted, recorded and archived in silence.**
   The cyanrip fork's mutation sweep (relayed 2026-08-27) found
   `for (int j = 0; j < strlen(digest_str); j++)` in `fun512.c` mutated to `<=`
@@ -11233,7 +11319,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.29...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.30...HEAD
+[0.6.30]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.29...v0.6.30
 [0.6.29]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.28...v0.6.29
 [0.6.28]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.27...v0.6.28
 [0.6.27]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.26...v0.6.27
@@ -11350,4 +11437,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.29.*
+*Last updated for Platterpus v0.6.30.*

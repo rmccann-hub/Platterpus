@@ -20,6 +20,43 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Round 15 — ours to raise, the fork's to open (2026-08-27)
+
+`docs/cyanrip-handshake.md` §1a is normative: **the provider opens, by default
+every time.** So these are *filed*, not sent, until their lap 1 exists.
+
+- [ ] **NEXT-ROUND (not blocking, and the S-14 reasoning is written out):
+  their `release-manifest.json` labels `978f9b0` with `handshake_round: 14,
+  round_closed: true`.** Round 14 approved **`platterpus.10` at `d9c058c`** —
+  both sides declared that build tag at column 0, in their lap 17 line 10, our
+  lap 18 line 10, and their lap 19 line 10. `978f9b0` (`platterpus.11`,
+  `release_seq` 21) is a **post-close** release that no round has reviewed, so
+  the label is a claim their own record contradicts.
+
+  **Why it is NEXT-ROUND rather than BLOCKING** (S-14 asks what it breaks in the
+  artifact under review): it breaks nothing here, and that is *measured*, not
+  assumed. `ripper_offer.evaluate_offer` returns `install_commit=d9c058c` on both
+  channels with `auto_installable=True`, and `approve_ripper` grades that build
+  `approved` — so the relation the 2026-08-18 fix installed **holds against the
+  live manifest**, checked today. The app offers what our record approves and
+  ignores the round label entirely, which is precisely the key-mismatch this
+  repo already paid for.
+
+  It matters anyway, for their side and for the next reader: a build labelled
+  with a closed round reads as "approved" to any consumer that trusts the label,
+  and the fork's own gate is such a consumer. Ask, per the round-12 rule, is
+  narrow and cites the artifact — *does `handshake_round` mean "the round open
+  when this was built" or "the round that approved this"?* Those differ for
+  exactly the builds where it matters.
+- [ ] **Their round-15 items, already declared and awaiting their lap 1:** the §1
+  `HOTFIX` carve-out, `OWNERSHIP.md` v2 (`accff838cb32c99f3…`) with "bump on
+  every content change", and the sixth `--verify-log` exit code naming **which
+  builds** emit it.
+- [ ] **Adopt `OWNERSHIP.md` v2 in the lap that announces it**, not before —
+  held at v1 (`3204fe15…`) so our sent lap 18's declaration still matches disk.
+
+---
+
 ## Bring the overnight run inside the app (maintainer, 2026-08-26)
 
 Standing instruction, given while the shell version was being written: *"we should
@@ -55,6 +92,20 @@ shell wrapper is one step better than prose, not the destination.
 - [ ] **Write it to `~/Downloads`.** The folder a browser upload dialog opens in.
       Fall back rather than `mkdir`: inventing the directory puts the file
       somewhere the operator has no habit of looking.
+- [ ] **Ship `docs/rig-scripts/*` INSIDE the AppImage, so an acceptance run needs
+      zero downloads.** Measured cost of not doing it, 2026-08-27: handing over
+      tonight's run took **three** raw-file fetches (`platterpusovernight.sh`,
+      `platterpusmorning.sh`, `fullacceptance.txt`) plus one command — and the
+      three-file shape is precisely the *"never hand back an instruction file"*
+      symptom, one indirection removed. With the scripts packaged,
+      `--run-script fullacceptance` resolves against the bundle and the handover
+      is one command with no fetch at all. `uiscript/find_script.py` already
+      searches `~/Downloads`, `~/Desktop` and `.`; a **packaged** directory joins
+      that list as a *last* fallback, never a first — an operator who downloaded
+      a newer script must still win over the one baked into their build, and
+      silently preferring the packaged copy is the "ran a different script
+      without saying so" defect that module exists to end. Print which copy was
+      resolved, always.
 - [ ] **Retire `platterpusovernight.sh` and `platterpusmorning.sh` in the same
       commit that lands the above** — including their rows in
       `docs/rig-scripts/README.md`. Two routes to one bundle is two answers to
@@ -79,9 +130,12 @@ shell wrapper is one step better than prose, not the destination.
   exact `none` reads as an absence.
 - [x] Fork's **C1 detector added as section P2**; **J6 answered** (the verb is
   bounded — 300 s + kill + 20 s, then an unreapable-child report).
-- [ ] **Run `fullacceptance.txt` overnight** — 0.6.26 against `d9c058c`. This is
-  CC-2 and the only thing between round 14 and a close. `securereread.txt` stays
-  in the tree for a night when only the close matters.
+- [~] **Run `fullacceptance.txt` overnight** — now **0.6.30** against `d9c058c`.
+  No longer a round-14 close condition (the round closed on T1); it is the
+  **0.7.100 gate** run: zero failures in the ARCHIVAL sections, UX failures
+  recorded and non-blocking (`docs/testing.md` → *Acceptance severity*). The
+  2026-08-27 attempt aborted correctly in two seconds on a wrong-ripper
+  precondition — see the round-state fix below.
 - [ ] Run the fork's `rig-c1-probe.sh` **only if section P2 hangs**.
 
 ## Round 14 lap 10, 2026-08-25 — the cancel that destroyed its own log
@@ -105,10 +159,12 @@ shell wrapper is one step better than prose, not the destination.
   for *"checksum valid, record incomplete"*; one ask, that the provider contract
   name **which builds** emit it (else it is indistinguishable from a rejected
   flag, the `-V` shape again). Filed for round 15 by them, not blocking.
-- [ ] **The T1 rerun is still the only thing between round 14 and a close.**
-  `securereread.txt` on `d9c058c` with **0.6.26** — deliberately *not* a build
-  carrying this lap's fixes, because T1 has no cancel step and swapping the
-  operator's AppImage would make the queued disc measure something else.
+- [x] **T1 PASSED and round 14 CLOSED (GO/GO on `d9c058c`), 2026-08-27.**
+  `securereread.txt` on the rig: `-Z 2 -r 3`, **14/14 tracks** reporting
+  `Done; (2 out of 2 matches)`, `Ripping errors: 0`, and the `Log FUN512:`
+  footer present — which is itself the proof `atexit` ran. Declared in
+  `docs/handshake/outbound/round-14-lap-18.md`; their GO is lap 17 line 6, their
+  acknowledgement lap 19.
 - [ ] **Verify §A4's prediction on the next cancel artifact** (any build after
   these fixes): `Trying to quit` present in the capture, completion footer
   present, valid FUN512 so `--verify-log` exits 0, exit code 1. Any of those
@@ -2536,4 +2592,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.29.*
+*Last updated for Platterpus v0.6.30.*

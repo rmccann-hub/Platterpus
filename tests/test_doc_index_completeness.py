@@ -691,3 +691,153 @@ def test_the_line_citation_detector_sees_all_three_shapes_that_shipped() -> None
         if match.group("doc") in _GENERATED_DOCS
     ]
     assert found == ["99", "56,57,59,64,65,66", "103-105"], found
+
+
+# -----------------------------------------------------------------------------
+# Citations INTO the handshake record must resolve
+# -----------------------------------------------------------------------------
+# The test above forbids line citations into a *generated* page, because such a
+# page renumbers itself. The handshake round files are the opposite class: once
+# filed they are immutable correspondence — the record of what each side actually
+# sent — so a line citation into one is both legitimate and, unusually, checkable.
+#
+# WHY THIS EXISTS. `docs/cyanrip-handshake.md` §9 (the challenge ledger) is
+# nothing but such citations, and writing it produced the failure on the first
+# attempt: two rows cited `inbound/round-10-lap-04.md` and
+# `inbound/round-11-lap-02.md` because those are the paths the FORK used when
+# quoting them. Both are OURS — they sit in `verified/` in this tree. The role
+# flips across the seam (our outbound is their inbound), so a path copied out of
+# a peer's lap points at nothing here, and points at nothing *silently*: the
+# prose still reads correctly. A third row was off by one line.
+#
+# A ledger whose citations do not resolve is the invisible-decay shape the whole
+# of this file is about — a map is only ever wrong by omission, and nobody reviews
+# a table for the pointer that no longer lands.
+
+_HANDSHAKE_DIR = _REPO_ROOT / "docs" / "handshake"
+
+
+def _handshake_citations() -> list[tuple[Path, int, str, int]]:
+    """Every ``round-*.md:NN`` citation in prose, as (citing file, line, target, N).
+
+    Population derived from the filesystem, never listed: the sweep walks every
+    Markdown file in the repository and keys on the round-file naming shape.
+    """
+    pattern = re.compile(
+        r"(?P<dir>inbound/|outbound/|verified/)?"
+        r"(?P<doc>round-?\d+[a-z]?(?:-lap-?\d+)?\.md):(?P<line>\d+)"
+    )
+    found: list[tuple[Path, int, str, int]] = []
+    for path in sorted(_REPO_ROOT.rglob("*.md")):
+        if ".git" in path.parts:
+            continue
+        # Skip the round files themselves: a lap quoting a lap uses the OTHER
+        # side's layout by design, and rewriting a received artifact to suit our
+        # directory names would falsify the record.
+        if _HANDSHAKE_DIR in path.parents:
+            continue
+        for line_no, line in enumerate(
+            path.read_text(encoding="utf-8", errors="replace").splitlines(), 1
+        ):
+            for match in pattern.finditer(line):
+                target = (match.group("dir") or "") + match.group("doc")
+                found.append((path, line_no, target, int(match.group("line"))))
+    return found
+
+
+def test_every_handshake_citation_in_prose_resolves_in_THIS_tree() -> None:
+    """A pointer into the correspondence must land, and land here.
+
+    Two ways it fails, both measured while writing the challenge ledger:
+
+    * **the wrong directory** — a path copied out of a peer's lap, where the
+      inbound/outbound roles are reversed. Reads perfectly, resolves nowhere.
+    * **the wrong line** — off by one, because the section header was read from a
+      `grep` of a different pattern than the one that produced the number.
+
+    **Scope, stated rather than implied.** Only *resolution* is asserted, not
+    content: a test that also pinned the text at each line would fail on a reflow
+    and teach nothing. And an unqualified basename is accepted if it resolves in
+    **any** of the three role directories — `cyanrip-known-issues.md` cites laps
+    by bare basename throughout, which is unambiguous to a reader, and demanding
+    a prefix there would be a doc rewrite for no gain. So the claim being checked
+    is exactly *"this pointer lands somewhere in the record"* — which is the claim
+    that decays — and not *"it lands in the file the writer meant"*.
+    """
+    citations = _handshake_citations()
+
+    # FLOOR. This whole test passes for an empty repository otherwise, and the
+    # ledger it was written for is the population.
+    assert len(citations) >= 8, (
+        f"only {len(citations)} handshake line-citations found in prose. The "
+        f"challenge ledger in docs/cyanrip-handshake.md §9 carries at least eight; "
+        f"a sweep that has stopped finding them cannot fail"
+    )
+
+    broken: list[str] = []
+    for citing, citing_line, target, target_line in citations:
+        where = f"{citing.relative_to(_REPO_ROOT)}:{citing_line}"
+        if "/" in target:
+            candidates = [_HANDSHAKE_DIR / target]
+        else:
+            # An unqualified basename is ambiguous across the three role
+            # directories; accept it if it resolves in any one of them, and say
+            # so, because forcing the prefix everywhere would be noise.
+            candidates = [
+                _HANDSHAKE_DIR / role / target
+                for role in ("inbound", "outbound", "verified")
+            ]
+        resolved = [c for c in candidates if c.is_file()]
+        if not resolved:
+            tried = ", ".join(str(c.relative_to(_REPO_ROOT)) for c in candidates)
+            broken.append(
+                f"{where} cites {target}:{target_line} — no such file ({tried})"
+            )
+            continue
+        # ANY, not ALL. An unqualified basename names one of three role
+        # directories and the citation is satisfied by whichever one holds it;
+        # requiring every namesake to be long enough would report a working
+        # pointer as broken, which is the wrong-reason pass in reverse.
+        lengths = {
+            c: len(c.read_text(encoding="utf-8", errors="replace").splitlines())
+            for c in resolved
+        }
+        if not any(target_line <= n for n in lengths.values()):
+            detail = ", ".join(
+                f"{c.relative_to(_REPO_ROOT)} has {n} lines"
+                for c in resolved
+                for n in [lengths[c]]
+            )
+            broken.append(
+                f"{where} cites {target}:{target_line} — out of range everywhere "
+                f"({detail})"
+            )
+
+    assert not broken, (
+        "these citations into the handshake record do not resolve in this tree:\n  "
+        + "\n  ".join(broken)
+        + "\n\nThe commonest cause is a path copied out of a peer's lap: the "
+        "inbound/outbound roles are REVERSED across the seam, so their "
+        "`inbound/round-N.md` is our `verified/round-N.md`. Re-resolve it against "
+        "this repository's layout rather than trusting the quoted path."
+    )
+
+
+def test_the_handshake_citation_sweep_catches_the_role_flip_that_shipped() -> None:
+    """Non-triviality, against the exact two paths that were wrong.
+
+    `inbound/round-10-lap-04.md` and `inbound/round-11-lap-02.md` are the real
+    first-draft citations. Both are ours and live in `verified/`. A sweep that
+    accepted a bare basename anywhere would have passed on both — which is why
+    the check honours an explicit directory prefix instead of searching past it.
+    """
+    for wrong in ("inbound/round-10-lap-04.md", "inbound/round-11-lap-02.md"):
+        assert not (_HANDSHAKE_DIR / wrong).is_file(), (
+            f"{wrong} now exists, so it is no longer evidence of the role flip; "
+            "pick a different pair or drop this test"
+        )
+        right = wrong.replace("inbound/", "verified/")
+        assert (_HANDSHAKE_DIR / right).is_file(), (
+            f"{right} is missing — the file this citation should have named is "
+            "gone, and the ledger row citing it is now unverifiable"
+        )

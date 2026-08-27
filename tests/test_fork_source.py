@@ -1212,3 +1212,267 @@ def test_the_build_script_never_interpolates_a_command_string() -> None:
     assert script.count("$meson_opts") == 2, (
         "expected the options in both the --wipe and the fresh-configure branch"
     )
+
+
+# -----------------------------------------------------------------------------
+# "Is a handshake round open?" — ONE predicate, and every surface delegates
+# -----------------------------------------------------------------------------
+# Three surfaces answered this question with three implementations, and two of
+# them were wrong inside the same hour on 2026-08-27, hours after round 14 closed:
+#
+#   * `uiscript.runner._pin_role_phrase()` — computed it itself. Correct, and it
+#     was the third implementation, added because the second was wrong.
+#   * `fork_source.UNDER_REVIEW_TARGET.why` — a hard-coded sentence reading
+#     "round 14 is the round that would [approve], and it is open". Stale.
+#   * the acceptance script's wrong-ripper FAIL — a hard-coded sentence saying
+#     the installed build was not "the build the open handshake round is
+#     reviewing". Stale, and it is the one an operator reads at 2am.
+#
+# The last one is why this matters rather than being a wording nit: it told an
+# operator who had installed the fork's *newer* release that they had the wrong
+# build for a round that was not running. Every word deliberate, the sentence
+# false, and false in the direction that says you are behind when you are ahead.
+#
+# These test the RELATION, which is a property no test of a single surface can
+# express (`CLAUDE.md`: *"do two surfaces answer this question, and do they use
+# the same key?"*).
+
+
+class TestTheRoundStatePredicate:
+    def test_the_predicate_is_derived_from_the_pins_not_from_a_remembered_flag(
+        self,
+    ) -> None:
+        """A flag someone must clear when a round closes is a flag that stays set.
+
+        The two pins already carry the fact: a round is reviewing something
+        exactly when `PIN_UNDER_REVIEW` names a build other than the approved
+        one, because closing a round *is* the act of making them the same.
+        """
+        expected = not fork_source.same_commit(
+            fork_source.PIN_UNDER_REVIEW, fork_source.FORK_PIN
+        )
+        assert fork_source.a_round_is_reviewing_a_build() is expected
+
+    def test_the_phrase_and_the_predicate_cannot_disagree(self) -> None:
+        """Both directions, so neither branch can rot unnoticed.
+
+        Asserted as an if-and-only-if rather than one implication: a phrase that
+        says "open" while the predicate says closed and one that says "closed"
+        while the predicate says open are both this defect.
+        """
+        phrase = fork_source.pin_under_review_role()
+        says_open = "open handshake round is reviewing" in phrase
+        says_closed = "no handshake round is open" in phrase
+        assert says_open != says_closed, (
+            f"the phrase must say exactly one of the two things: {phrase!r}"
+        )
+        assert says_open is fork_source.a_round_is_reviewing_a_build(), (
+            f"the phrase and the predicate disagree: predicate="
+            f"{fork_source.a_round_is_reviewing_a_build()}, phrase={phrase!r}"
+        )
+
+    def test_the_phrase_always_names_the_pin_it_is_about(self) -> None:
+        """A standing claim with no subject is the shape that misled twice.
+
+        "the build the open handshake round is reviewing" does not say *which*
+        build, so a reader cannot check it against what they installed.
+        """
+        assert fork_source.PIN_UNDER_REVIEW in fork_source.pin_under_review_role()
+
+    def test_the_install_menus_reason_delegates_rather_than_restating(self) -> None:
+        """`UNDER_REVIEW_TARGET.why` is text an operator reads at install time.
+
+        Asserted as a substring relation, not by reading the source: the claim is
+        that the two cannot diverge, and a source check would pass against a
+        second copy that happened to match today.
+        """
+        assert (
+            fork_source._pin_under_review_role_clause()
+            in fork_source.UNDER_REVIEW_TARGET.why
+        ), (
+            "UNDER_REVIEW_TARGET.why no longer contains the derived clause, so it "
+            f"is carrying its own sentence again: {fork_source.UNDER_REVIEW_TARGET.why!r}"
+        )
+        assert "round 14" not in fork_source.UNDER_REVIEW_TARGET.why, (
+            "a hard-coded round NUMBER is the stale-sentence defect returning: it "
+            "is correct only until the next round opens"
+        )
+
+    def test_the_script_runners_phrase_is_the_same_function_not_a_copy(self) -> None:
+        """The surface that produced the 2am message.
+
+        Byte-identical output is the assertion, because "equivalent logic" is
+        what the three implementations each believed they had.
+        """
+        from platterpus.uiscript import runner
+
+        assert runner._pin_role_phrase() == fork_source.pin_under_review_role()
+
+    def test_the_predicate_reports_OPEN_for_a_pin_that_is_not_the_approved_one(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Both branches exercised, because today only one of them is reachable.
+
+        With round 14 closed the pins coincide, so every assertion above runs
+        against the "closed" branch only — and a branch nothing runs is a branch
+        nobody has run. This drives the other one.
+        """
+        monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", "0000000")
+        assert fork_source.a_round_is_reviewing_a_build() is True
+        phrase = fork_source.pin_under_review_role()
+        assert "open handshake round is reviewing" in phrase, phrase
+        assert "0000000" in phrase, phrase
+        assert "no handshake round is open" not in phrase, phrase
+
+
+#: Declarative assertions that a round IS OPEN. A CONDITIONAL phrasing —
+#: "during an open round", "while a round is open" — states when something holds
+#: and is correct; `rig_check.py` has one. So the lookbehinds are load-bearing:
+#: without them the sweep would demand a rewrite of a right string, and a false
+#: positive is how a sweep acquires an allowlist and stops meaning anything.
+_ROUND_IS_OPEN_CLAIM: re.Pattern[str] = re.compile(
+    # Shape 1: "the round is open" / "the open handshake round is reviewing".
+    r"(?<!\bduring an )(?<!\bwhile )"
+    r"the (open )?(handshake )?round is (open|reviewing)"
+    r"|the open handshake round is reviewing"
+    r"|round is open and no round has approved"
+    # Shape 2: a literal round NUMBER with a present-tense claim about its
+    # state. This is the one `UNDER_REVIEW_TARGET.why` used — "round 14 is the
+    # round that would [approve], and it is open" — and it needs its own branch
+    # because it never contains the phrase from shape 1.
+    #
+    # Scoped to PRESENT TENSE on purpose. `round 14 approved`, `round 7 lap 10
+    # H1`, `round 12 §D5` are historical PROVENANCE citations: they name a past
+    # round as the source of a fact, they are correct, and there are 14 of them
+    # in the package. A blanket ban on a literal round number would flag every
+    # one, and a sweep that needs a 14-entry allowlist enforces nothing.
+    r"|round \d+ is (the round|open|reviewing|currently|still)"
+)
+
+
+def _logical_text(source: str) -> str:
+    """`source` with comments dropped and split string literals rejoined.
+
+    **Why rejoining matters, measured.** The first version of this sweep matched
+    line by line and MISSED the very string it was written for, because
+    `ruff format` had split it:
+
+        f"the installed cyanrip is NOT {expected}, the build the open "
+        f"handshake round is reviewing. Every later section would be ..."
+
+    Neither line contains the phrase; the string does. That is the same
+    formatter-reflow hazard `CLAUDE.md` records for revert anchors, arriving in a
+    detector instead of a patch — and a sweep defeated by an automatic reformat is
+    a sweep that goes quiet without anyone touching the string.
+
+    Comments are dropped because a comment is not what a user reads, and because
+    the comments explaining this very defect would otherwise trip it. That has
+    already happened once in this session.
+    """
+    kept: list[str] = []
+    for line in source.splitlines():
+        kept.append("" if line.strip().startswith("#") else line)
+    text = "\n".join(kept)
+    # Collapse implicit concatenation: a closing quote, whitespace (possibly a
+    # newline and an `f` prefix), then an opening quote. Repeat to catch chains.
+    joiner = re.compile(r"""(['"])\s*(?:[frbu]{0,2})(['"])""")
+    for _ in range(8):
+        collapsed = joiner.sub("", text)
+        if collapsed == text:
+            break
+        text = collapsed
+    return text
+
+
+def test_no_module_asserts_a_handshake_round_IS_OPEN_in_a_user_facing_string() -> None:
+    """The sweep, because fixing this at three sites is not fixing it.
+
+    Round 14 closed on 2026-08-27 and **three** separate user-facing strings said
+    a round was open. Two were wrong within the hour:
+
+    * the acceptance script's wrong-ripper FAIL — the one an operator reads at 2am;
+    * `fork_source.UNDER_REVIEW_TARGET.why` — install-time text with a hard-coded
+      round *number* in it;
+    * `app.py`'s `--install-ripper` note — *"the round is open and no round has
+      approved a test pin"*, printed unconditionally for any non-approved build,
+      and **between rounds is exactly when an operator installs one by hand**.
+
+    `docs/testing.md` §5.o: enforce a rule across the codebase, not at the place it
+    was learned. This is that enforcement.
+
+    Every string that legitimately needs to say a round is open must route
+    through :func:`fork_source.pin_under_review_role`, which decides it from the
+    pins rather than from what somebody typed.
+    """
+    src_root = Path(fork_source.__file__).resolve().parents[1]
+    modules = sorted(src_root.rglob("*.py"))
+    assert len(modules) >= 120, (
+        f"only {len(modules)} modules under {src_root} — the sweep is not reaching "
+        "the package, so a clean result means nothing"
+    )
+
+    offenders: list[str] = []
+    for path in modules:
+        # The predicate's own definition is the one place the sentence belongs.
+        if path.name == "fork_source.py":
+            continue
+        text = _logical_text(path.read_text(encoding="utf-8"))
+        for match in _ROUND_IS_OPEN_CLAIM.finditer(text):
+            line_no = text.count("\n", 0, match.start()) + 1
+            offenders.append(
+                f"{path.relative_to(src_root.parent)}:~{line_no}: "
+                f"...{text[max(0, match.start() - 40) : match.end() + 40]}..."
+            )
+
+    assert not offenders, (
+        "these assert that a handshake round IS OPEN, which is false between "
+        "rounds — and between rounds is when an operator most often reads them:\n  "
+        + "\n  ".join(offenders)
+        + "\n\nCall fork_source.pin_under_review_role() (or "
+        "a_round_is_reviewing_a_build()) instead of writing the sentence. A "
+        "CONDITIONAL phrasing — 'during an open round', 'while a round is open' — "
+        "is fine and is not matched."
+    )
+
+
+def test_the_round_claim_sweep_would_catch_all_three_strings_that_shipped() -> None:
+    """Non-triviality, against the exact text of each of the three sites.
+
+    A sweep that caught only one spelling would report one problem where there
+    were three, which `CLAUDE.md` calls worse than failing. Case 1 is given in the
+    **reflowed** form it actually had in the file, which is the form the first
+    version of this sweep could not see — so this also pins `_logical_text`.
+
+    The last two cases must NOT match: without them the sweep would demand a
+    rewrite of correct strings.
+    """
+    shipped_and_wrong = [
+        # Case 1, exactly as `ruff format` had left it: split mid-phrase.
+        'f"the installed cyanrip is NOT {expected}, the build the open "\n'
+        '            f"handshake round is reviewing. Every later section would be "',
+        # Case 2: UNDER_REVIEW_TARGET.why.
+        '"pin, but no round has approved it: round 14 is the round that would, "\n'
+        '        "and it is open. A rip with this installed reports `unapproved`"',
+        # Case 3: app.py's install note.
+        'f"      round is open and no round has approved a test pin.\\n"',
+    ]
+    for i, text in enumerate(shipped_and_wrong, 1):
+        assert _ROUND_IS_OPEN_CLAIM.search(_logical_text(text)), (
+            f"the sweep would MISS shipped case {i}: {text!r}"
+        )
+
+    correct_and_conditional = [
+        'f"pin is expected to differ during an open round.",',
+        '"no release, no pin switch while a round is open"',
+        # Historical PROVENANCE citations — past tense, naming a past round as
+        # the source of a fact. There are 14 of these in the package and every
+        # one is correct; flagging them would force an allowlist, and a sweep
+        # with a list of excuses enforces nothing.
+        '"the build round 14 approved, GO on both sides"',
+        '"root-caused by the cyanrip fork in round 14 lap 7 B2"',
+        '"a bound, or an explicit unknown (round 14 T3)"',
+    ]
+    for text in correct_and_conditional:
+        assert not _ROUND_IS_OPEN_CLAIM.search(_logical_text(text)), (
+            f"the sweep FALSELY flags a correct conditional: {text!r}"
+        )
