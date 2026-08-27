@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.29] — 2026-08-27
+
 ### Changed
 - **Round 14 CLOSED (GO/GO), so the production pin rolls forward to `d9c058c`** —
   the build the round approved, and the first production pin that was already a
@@ -11215,7 +11217,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.28...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.29...HEAD
+[0.6.29]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.28...v0.6.29
 [0.6.28]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.27...v0.6.28
 [0.6.27]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.26...v0.6.27
 [0.6.26]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.25...v0.6.26
@@ -11331,4 +11334,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.28.*
+*Last updated for Platterpus v0.6.29.*
