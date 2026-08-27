@@ -551,6 +551,96 @@ def test_stale_mb_result_dropped_after_disc_change(teardown_threads) -> None:
     assert window._current_release_id == "some-mbid"
 
 
+def test_a_rescan_between_opening_the_picker_and_answering_it_keeps_the_answer(
+    teardown_threads,
+) -> None:
+    """**The rig failure of 2026-08-27, and it cost the whole run.**
+
+    Measured from the operator's log:
+
+        19:43:06,182  drive changed -> `_start_disc_info` clears
+                      `_current_disc_id` and starts a fresh DiscInfoWorker
+        19:43:06,432  the release picker (already open) is answered
+        19:43:06,435  the release fetch is emitted for that disc
+        19:43:06,928  the detail lands, `_current_disc_id` is STILL "" because
+                      the new worker has not finished -> dropped as stale
+
+    Zero track rows ever loaded and the script aborted at section E's
+    precondition. The disc never changed: a rescan of the SAME disc landed
+    inside the window between opening the picker and answering it.
+
+    The predicate asked *"is this for the disc on screen?"* and got *"there is
+    no disc on screen"*, which is not the same as *"this is for a different
+    disc"* — and only the second is stale. `CLAUDE.md`: *what pins my input?*
+    """
+    window = teardown_threads()
+
+    # The picker was opened and answered for this disc.
+    window._current_disc_id = "disc-A"
+    window._mb_release_chosen_for = "disc-A"
+
+    # A concurrent rescan of the SAME disc empties the field mid-flight.
+    window._current_disc_id = ""
+
+    window._on_mb_release_detail("disc-A", _detail())
+    assert window._current_release_id == "some-mbid", (
+        "the detail we ourselves asked for was dropped while a rescan had the "
+        "disc-id transiently empty — this is the rig failure"
+    )
+    assert len(window._track_table.tracks()) > 0, "no track rows loaded"
+
+
+def test_a_real_disc_swap_still_rejects_the_previous_discs_detail(
+    teardown_threads,
+) -> None:
+    """The half the fix must not trade away.
+
+    Relaxing staleness for `_mb_release_chosen_for` would be a wrong-album bug if
+    that marker survived a disc change. It does not — `_start_disc_info` clears it
+    alongside `_current_disc_id` — so this drives the real swap path rather than
+    asserting the pairing by reading the source.
+    """
+    window = teardown_threads()
+    window._current_disc_id = "disc-A"
+    window._mb_release_chosen_for = "disc-A"
+
+    # A genuine swap goes through the reset that clears BOTH.
+    window._start_disc_info("/dev/sr0")
+    assert window._current_disc_id == ""
+    assert window._mb_release_chosen_for == "", (
+        "the chosen-release marker survived a disc change; disc A's detail could "
+        "now tag disc B"
+    )
+
+    window._current_disc_id = "disc-B"
+    window._on_mb_release_detail("disc-A", _detail())
+    assert window._current_release_id == "", "disc A's detail tagged disc B"
+    assert len(window._track_table.tracks()) == 0
+
+
+def test_a_dropped_detail_unanswers_the_disc_so_the_picker_can_reopen(
+    teardown_threads,
+) -> None:
+    """The belt, and the half that turned a duplicate picker into NO tracks.
+
+    The already-answered guard added 2026-08-26 refuses a second picker for a
+    disc a release was chosen for. That is right — but if the first choice's
+    detail is then discarded, nothing loads the tracks and nothing can ask again.
+    On the rig the recovery lookup arrived 5 seconds later and was suppressed by
+    our own guard. A dropped answer must un-answer the question.
+    """
+    window = teardown_threads()
+    window._current_disc_id = "disc-B"  # a different disc is on screen
+    window._mb_release_chosen_for = "disc-A"  # but disc A was answered earlier
+
+    window._on_mb_release_detail("disc-A", _detail())
+    assert window._current_release_id == "", "stale detail was applied"
+    assert window._mb_release_chosen_for == "", (
+        "the disc is still marked answered after its answer was thrown away, so "
+        "the recovery picker stays suppressed and no tracks can ever load"
+    )
+
+
 # --- Rip request: validation gate ---------------------------------------
 
 

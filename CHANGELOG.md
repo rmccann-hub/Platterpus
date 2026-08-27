@@ -12,6 +12,41 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A rescan of the SAME disc, landing between the release picker opening and
+  being answered, threw the answer away — and this morning's duplicate-picker
+  guard then suppressed the recovery.** Measured on the rig 2026-08-27; it cost
+  the whole run, which aborted at section E with *"no tracks ever loaded"* and
+  *"expected at least 2 track rows, found 0"*:
+
+      19:43:06,182  drive changed -> `_start_disc_info` clears `_current_disc_id`
+      19:43:06,432  the picker (already open) is answered — row 1 of 4
+      19:43:06,435  the release fetch is emitted for that disc
+      19:43:06,928  the detail lands; `_current_disc_id` is still "" -> DROPPED
+      19:43:11,899  the recovery lookup is suppressed by the already-answered guard
+
+  `_is_stale_mb_result` asked *"is this for the disc on screen?"* and got *"there
+  is no disc on screen"* — which is **not** the same as *"this is for a different
+  disc"*, and only the second is stale. `CLAUDE.md`: *what pins my input?* The
+  predicate read a field a concurrent rescan deliberately empties.
+- **The guard added on 2026-08-26 turned a duplicate picker into no tracks at
+  all**, and that is the half worth recording. It correctly declines a second
+  picker for a disc a release was already chosen for — but if the first choice's
+  detail is then discarded, nothing loads the tracks and nothing can ask again.
+  Before it, the second picker *was* the recovery. A dropped answer now
+  un-answers the disc. *"What does the code downstream do with answers it never
+  used to receive?"*, asked one day late.
+- **The first version of this fix re-opened the wrong-album bug, and the belt test
+  caught it before it shipped.** Relaxing staleness whenever the detail matched
+  `_mb_release_chosen_for` is unsafe: `_on_disc_info_ready` sets
+  `_current_disc_id` to a new disc **without** clearing that marker, so
+  marker=`disc-A` with `disc-B` on screen is reachable and disc A's release would
+  have tagged disc B — the exact bug the predicate exists to prevent. The
+  relaxation is now scoped to the *transient empty* window, which is precisely
+  what the rig hit and cannot be a different disc. Three reverts probed, three
+  detected, none vacuous.
+
+
+### Fixed
 - **The README's front page was out of date, and every gate that should have said
   so was green.** The maintainer found it by reading it. The status blockquote
   asserted five things and all five were false: the version (`v0.6.27` against
