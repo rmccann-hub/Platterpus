@@ -18,6 +18,9 @@ So this file is the gate in **both** directions:
 
 * **§1 — no doc may claim a version older than the current one** (the bug
   above), and
+* **§4 — the front page's FACTS, not merely its version number**: the pin it
+  says is installed, and whether it asserts a handshake round is open. Added
+  2026-08-27 after the README was found stale with every existing gate green.
 * **§2 — bumping `__version__` forces the release-facing docs to follow.** The
   CHANGELOG must have a section and a compare link for the new version; the
   README's status banner and SECURITY.md's supported-versions line must name
@@ -392,7 +395,11 @@ def test_the_version_gates_can_actually_fail() -> None:
 
 
 # =============================================================================
-# §3 — the front page's FACTS, not just its version number
+# §4 — the front page's FACTS, not just its version number
+# (§3 is the field-evidence ledger, above. This was numbered §3 when it landed
+#  in 4d85884 — a collision in the same file, found by the doc audit an hour
+#  later. Section numbers in a 700-line file are exactly the kind of fact that
+#  is easier to duplicate than to notice.)
 # =============================================================================
 # **Why this section exists, and why it belongs in THIS file rather than a new
 # one.** On 2026-08-27 the maintainer read the README and found it out of date.

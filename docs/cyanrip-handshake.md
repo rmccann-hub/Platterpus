@@ -257,83 +257,28 @@ exactly that reason.
 
 ---
 
-## 7.6 Standing status — what the fork can assume between rounds
+## 7.6 Standing status — one home, and it is not this file
 
 **Not a round, and not a call for one.** Rounds are the *formal* channel and they
-have a cost (S-13: a round's close conditions are fixed at lap 1, and an open round
-blocks both sides' releases). Between rounds the fork still needs to know where we
-are, so this section is the standing answer, **rewritten in place** rather than
-accumulating a file per update. Maintainer's framing, 2026-08-21: *"context for the
-next test and what to do (if anything is needed even)."*
+have a cost (S-13: close conditions are fixed at lap 1, and an open round blocks
+both sides' releases). Between rounds the fork still needs to know where we are.
 
-**As of Platterpus v0.6.23 (2026-08-21). Supersedes the v0.6.21 text entirely.**
+**That answer lives in
+[`docs/handshake/outbound/platterpusstatus.md`](handshake/outbound/platterpusstatus.md),
+and only there.** It is the file that goes over the wire, it is what
+`docs/handshake/README.md` designates, and it is the mirror of the fork's own
+`cyanripstatus*.md`. Rewritten in place, never appended to, undated in its
+filename — a stale standing status is worse than none.
 
-### The go-ahead you asked for
-
-**Cut `+platterpus.7`.** Round 12 is CLOSED, `GO`/`GO` on `64ae7bc`,
-`scripts/handshake.py --release-gate` prints *"every round is closed — release
-allowed"*, and nothing we found makes that pin unsafe. Your reason for not having
-cut it already is the right one and better stated than ours would have been: *a
-ledger row asserts a build was handed to somebody, and that is an act, not a
-derivation.*
-
-### One correction to a lap we already sent
-
-**Our round-12 lap 4 declares `HANDSHAKE-APP-VERSION: platterpus 0.6.22`, and
-0.6.22 does not exist.** It was prepared, gated and superseded before publication —
-no tag, no artifact, nothing installable — and the release went out as **0.6.23**.
-
-A sent lap is immutable here (`tests/test_sent_laps_are_immutable.py` pins its
-hash), so the correction lives in this section rather than in an edit. It matters
-because rule #12's third obligation is that a round approves a pin **for a named
-app version**: read every version claim in lap 4 as **0.6.23**. Nothing else in
-that file changes — the tree it describes is the tree 0.6.23 shipped from, plus the
-four items below.
-
-### What landed after lap 4 was written
-
-All four are consumer-side and none changes a surface you emit.
-
-1. **Your exit code 5 is handled, and it was a real defect on our side.**
-   `CRIP_LOG_EXIT_IO_ERROR` fell through to the bottom of our verifier and was
-   reported as *"the file was altered after the ripper signed it and must not be
-   treated as archival evidence"* — an accusation derived from an answer that
-   explicitly says nothing was determined. The branch now sits **before** the
-   build-capability gate, so the fix does not wait on the tag: reachability is
-   gated, correctness is not. Named as a set (`VERIFY_LOG_EXIT_NO_VERDICT`) so a
-   second "could not look" code lands in one place, and a test derives the same set
-   from your published P4 and fails if the two disagree.
-2. **The stale test in §B of lap 4 is fixed, and it was worse than we reported.**
-   `test_provider_contract_agreement.py` read a hard-coded round 4. Repointing it
-   revealed a second fault: its row regex matched `*.c` only, and ten of your
-   round-12 P3 rows are `genopt.h` — so **even pointed at the current contract it
-   would have read 15 of 25 rows and reported a full pass**. Also fixed: `%lld`-style
-   length modifiers went unrendered, which fails in the *false-pass* direction.
-   Sections now resolve by their `P<n>` label rather than heading prose, since the
-   prose moved between rounds 4 and 12.
-3. **`_FORK_ONLY_RULES` is fixed and the converse is now derived** — the §C1 ask in
-   lap 4 stands unchanged, and the eight lines named there are still unattributed.
-4. **A registry check of ours caught our own new test on its first run.** The
-   exit-code test above parametrizes over `VERIFY_LOG_EXIT_NO_VERDICT`, so if you
-   ever withdraw `CRIP_LOG_EXIT_IO_ERROR` it would generate zero cases and pass
-   having examined nothing. It now names a floor that derives the set from your P4.
-   Mentioned because it is the shape your round-12 generator work is also about.
-
-### What has not changed
-
-- **The pin we INSTALL is still `cyanrip 0.9.4-rc1+platterpus.5
-  (platterpus-fork-gddf7ac3)`**, approved by round 8, and every rip re-verifies it
-  at the drive. `64ae7bc` is approved and **not installed**: it has no hardware
-  behind it and `ddf7ac3` does. That is our own rule applied to ourselves, not
-  distrust of your testing — 47/47 from a clean clone in four configurations
-  including ASAN+UBSAN is more than we run.
-- **`platterpus-fork-g64ae7bc` is in neither capability table**, so
-  `accepts_verify_log()` returns `not_determined` for it and your five new
-  `--verify-log` codes are unreachable from Platterpus until a released build tag
-  joins the table. Send the SHA when you cut it and the rows go in — that is lap 4
-  §C2 and it is the one thing we are waiting on.
-- **No hardware ask.** Nothing in round 12 needed a drive and nothing here does.
-  Our own next rig run is about our GUI.
+**Why this section is a pointer and not the text.** It *was* the text, and so was
+the status file: two documents both describing themselves as "the standing answer,
+rewritten in place", both going stale independently. This one had drifted four
+releases and two rounds behind (it still announced *"As of Platterpus v0.6.23"*,
+round 12, and a pin of `ddf7ac3`) while the other announced 0.6.23 and round 13.
+`CLAUDE.md` rule #7 names that exactly: **a second doc that duplicates a home is
+worse than one long home**, because the reader now holds two maps with no way to
+tell which is current. Collapsed 2026-08-27; the content was moved, not summarised
+away.
 
 ## 8. The wire format — the shared protocol file
 
@@ -350,10 +295,10 @@ What lives where:
 |---|---|
 | the specification | [`handshake-protocol.md`](handshake-protocol.md) — shared, verbatim, both repos |
 | our gate | `scripts/handshake.py` (`--status`, `--check`, `--release-gate`) |
-| our conformance tests | `tests/test_handshake_conformance.py`, **one test per §8 row** |
+| our conformance tests | `tests/test_handshake_conformance.py` — one test per row of the shared conformance table (C1–C36 plus C13a; the count moves with the protocol, so read the table, not this cell) |
 | their gate | `tools/release-gate.py`; their tests are `tests/release_gate.py` |
 
-**Current protocol version: 2.** A gate reading a *higher* number than it
+**Current protocol version: 4** — `handshake.PROTOCOL_VERSION` is the authority and the shared spec is titled *Handshake protocol v4*. (This said **2** until 2026-08-27, through the whole of v3 and v4: v3 added §3a addressing, §4a's legal state machine — with `CLOSED → OPEN` removed — §4b `WITHDRAWN`, §5a's digest and §6a-bis; v4 added §5a's one-lap rule. Read the number from the code, never from this sentence.) A gate reading a *higher* number than it
 implements must refuse the round rather than guess — it cannot know which of that
 version's rules it is silently not applying. `handshake.PROTOCOL_VERSION` is ours.
 
