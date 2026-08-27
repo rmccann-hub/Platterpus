@@ -70,7 +70,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   lap) so `lap-9` cannot sort above `lap-18`. Revert-proved against a drifted
   `seam-rules.md`.
 
-### Changed
 - **The `0.7.100` gate is now about what a failure MEANS, not how many there
   are** (maintainer ruling, 2026-08-26): *"if there is something minor like a
   window size was wrong, then ignore. But critical passing tests for cd accuracy
