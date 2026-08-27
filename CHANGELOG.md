@@ -11,6 +11,42 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The README's front page was out of date, and every gate that should have said
+  so was green.** The maintainer found it by reading it. The status blockquote
+  asserted five things and all five were false: the version (`v0.6.27` against
+  `0.6.30`), the round range, the round state (*"round 14 is open"* — it had closed
+  GO/GO), the installed ripper (`ddf7ac3`, three pins behind `d9c058c`), and the
+  remedy it handed the user — which was **verbatim the advice 0.6.30 had just
+  removed from the app** for being wrong. Two more claims were stale
+  (`0.7.100`'s bar, superseded by the 2026-08-26 sharpening; the `-x` cache probe)
+  and two were understated by measurement (`2,000+ tests` against 4,678;
+  `~93% branch coverage` against 91.64%). Also fixed: a setup snippet told the
+  user to run `cyanrip -V` and expect `0.9.3.1`, contradicting the README's own
+  flag table **35 lines above it**, which says `-V` fails on that build line.
+- **Why no gate caught it, and the gate that now does.** The doc-stamp gate passed
+  because the stamp *was* correct — the file had been restamped in the release
+  commit, and a stamp records when a doc was **edited**. `test_no_stale_version_
+  claims.py` §1 passed because it compares **minors**: `(0,6) < (0,6)` is false, so
+  it is structurally blind to patch drift. That is defensible as designed — the bug
+  it was built for was `v0.5.x` surviving the whole `v0.6` line — but the status
+  banner carries the pin and the round state beside the number, and those move with
+  patch releases. New §3 in the same file (not a new one) checks the **facts**: the
+  banner names the exact `__version__`; a present-tense install claim names
+  `FORK_PIN` and not a retired pin; and an open-round assertion is **delegated to
+  `fork_source.a_round_is_reviewing_a_build()`** — the same predicate three code
+  surfaces were unified onto the same day. The front page does not get its own
+  opinion about whether a round is open. Conditionals (*"while a round is open"*)
+  are rules and are deliberately not matched.
+- **The claim window was too narrow three times, each differently, and a tool found
+  all three.** `[^.\n]` died at the first full stop of `0.9.4-rc2`; `[^\n]` died at
+  the README's hard wrap, with the sha on the next line — `scripts/revert_probe.py`
+  reported that one **VACUOUS** rather than letting it stand as a guard; and the
+  subject extractor missed `platterpus-fork-g<sha>`, the build-tag form, because it
+  only knew backtick-delimited shas. The branch prefix is now read from
+  `fork_source.FORK_BRANCH` so a fork rename cannot switch the check off silently.
+
+
 ## [0.6.30] — 2026-08-27
 
 ### Added
