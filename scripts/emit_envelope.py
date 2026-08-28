@@ -58,7 +58,8 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: (§E). One artifact implying a send that did not happen was half of that
 #: contradiction — see lap 8 §A2.
 #: `PARTS[0]` is the OPERATIVE lap — `lead_identity()` names the envelope after it.
-#: Part 2 is `docs/rig-scripts/fullacceptance.txt`, the acceptance script itself.
+#: Part 2 is `src/platterpus/rig_scripts/fullacceptance.txt`, the acceptance script
+#: itself (it moved into the package on 2026-08-28 so the app can open it).
 #: Round 14's only close condition is a hardware pass, the maintainer asked that the
 #: fork be given *the plan and the script* to amend rather than a description of
 #: them, and lap 2 quotes the file's sha256 — so the file has to travel or that
@@ -67,7 +68,7 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: writing it.
 PARTS: tuple[Path, ...] = (
     HANDSHAKE_DIR / "outbound" / "round-14-lap-16.md",
-    REPO_ROOT / "docs" / "rig-scripts" / "fullacceptance.txt",
+    REPO_ROOT / "src" / "platterpus" / "rig_scripts" / "fullacceptance.txt",
 )
 
 # WHY THIS MOVED FROM LAP 6 TO LAP 13, and why `securereread.txt` came out.

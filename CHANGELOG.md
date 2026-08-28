@@ -11,6 +11,46 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **The rig scripts ship INSIDE the package** (`src/platterpus/rig_scripts/`),
+  so the running program can open them. They used to live under `docs/`, which
+  put the acceptance test — the thing a hardware session exists to run — outside
+  the artifact the operator actually has: an AppImage user had **no copy of it
+  at all**, so "run the acceptance test" began with "download three files from
+  GitHub". Maintainer, 2026-08-28: *"this was supposed to be a no cli program,
+  not give me commands to use"* and *"i should just be able to run this with an
+  specific script file i can use with the settings window, and run it, not a ton
+  of scripts and shit in bash, make it all verify and do it itself"*. Same
+  reasoning that already put `rig_session.sh` in the package; one step further.
+- **`sleep_inhibit.py`** — the sleep/idle/lid lock, moved out of
+  `platterpusovernight.sh` and into the program. It **probes then adopts**:
+  `systemd-inhibit` exists and still fails with *"Failed to connect to bus"* (no
+  session bus) or *"Access denied"* (a bus with no polkit privilege), so the
+  capability is measured by running the real thing over `true` rather than
+  inferred from the binary existing. The probe asks for **byte-identical**
+  `--what` to the real lock — the bash got that wrong once and CI caught it
+  within the hour — and the regression test reads the value out of *both
+  recorded argvs*, because the constant was never what drifted; the call sites
+  were. Tri-state (`held` / `unavailable` / `not_installed`), never a bool: a
+  missing tool and a refused lock need different advice. The lock is a `Popen`
+  child with `start_new_session=True` and a `release()` that escalates to a
+  group kill with a bounded wait, per Critical rule #9.
+- **Settings → Test script now has a "Use built-in" button.** One click fills
+  the field with the acceptance batch that ships inside Platterpus; press OK,
+  then Tools → Run test script…. It deliberately does *not* start anything, so
+  the field stays the single answer to "which script runs". When the script is
+  missing from a build — one `pyproject.toml` line away, and *"nothing happened
+  when I clicked"* is the least diagnosable way to hear about it — it says so in
+  a **PlainText** box, because the reason embeds a path and Qt's default
+  `AutoText` swallows a `<` as markup (Critical rule #12, inbound half).
+- **`test_session.py`** — the Qt-free core of an in-app acceptance session: plan
+  the folder (a **pure** function, so it is assertable), prepare it, gather the
+  sources, and pack **one** file for the operator to send. It delegates the
+  archive to the existing `evidence_bundle.build_bundle` rather than growing a
+  second tar-and-allowlist — the allowlist of text extensions, the manifest that
+  names every omission, and the never-raises contract are all inherited rather
+  than restated.
+
 ### Fixed
 - **Mutation testing has never run. Seven weekly jobs reported `success` while
   measuring nothing**, and the job was structurally incapable of saying so.

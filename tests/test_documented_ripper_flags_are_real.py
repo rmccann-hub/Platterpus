@@ -248,7 +248,12 @@ def test_the_sweep_actually_finds_the_documents() -> None:
         "CLAUDE.md",
         "docs/dependency-contracts.md",
         "docs/rig-scripts/README.md",
-        "docs/rig-scripts/rigcancelandoverread.txt",
+        # The rig scripts moved INTO the package on 2026-08-28 so the running
+        # program can open them. The sweep above is a whole-tree rglob, so it
+        # followed them without being told; this named assertion is the half
+        # that had to be moved by hand, and it is named precisely because it is
+        # one of the surfaces that was actually wrong.
+        "src/platterpus/rig_scripts/rigcancelandoverread.txt",
     ):
         assert required in docs, f"{required} fell out of the live-doc sweep"
     # ...and the dated record really is excluded, or the exclusion is decoration.

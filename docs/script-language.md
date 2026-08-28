@@ -266,7 +266,7 @@ screenshot after-rip
 ```
 
 A fuller one, kept current and runnable, is
-`docs/rig-scripts/police-rerip.txt`.
+`src/platterpus/rig_scripts/police-rerip.txt`.
 
 ## Recipes
 

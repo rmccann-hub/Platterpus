@@ -75,7 +75,7 @@ _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
         "test_the_verify_log_exit_codes_are_the_ones_we_classify"
     ),
     # Added 2026-08-24 with the rig-script sweep. All four parametrize over
-    # `_scripts()`, a glob over `docs/rig-scripts/*.txt` — and the population is
+    # `_scripts()`, a glob over `src/platterpus/rig_scripts/*.txt` — and the population is
     # exactly the kind that vanishes quietly: those files are moved and renamed by
     # hand between rounds, and a directory rename would turn every one of these
     # into zero cases. The sweep exists because nothing parsed those scripts at
