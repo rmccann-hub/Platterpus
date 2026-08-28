@@ -40,7 +40,7 @@ from typing import Final
 from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 
-from platterpus import __version__
+from platterpus import __version__, build_info
 from platterpus.uiscript.report import Outcome, RunReport, StepRecord, render
 from platterpus.uiscript.script import Step, sanitise_cyanrip_args
 from platterpus.uiscript.verbs import OPENABLE, VERBS
@@ -183,6 +183,16 @@ def _parse_track_spec(spec: str) -> tuple[list[int], str]:
 #: Widest range a single `select-tracks` chunk may expand to. A CD holds 99 tracks;
 #: this is generous and still refuses a pasted typo.
 _MAX_TRACK_RANGE: int = 200
+
+#: The MusicBrainz release picker's window title, used to point a blocked `rip`
+#: at the verb that actually answers it.
+#:
+#: **A second description of one fact, which is only safe because a test ties
+#: them**: `tests/test_uiscript_runner.py` asserts this equals the title
+#: `ui.release_picker.ReleasePicker` really sets. Read here rather than imported
+#: because `rip`'s guard runs on every rip step and must not pull a widget module
+#: in to compare a string.
+_RELEASE_PICKER_TITLE: Final[str] = "Pick a MusicBrainz release"
 
 
 @dataclass
@@ -1650,14 +1660,29 @@ class ScriptRunner(QObject):
             return
         blocking = _active_dialog()
         if blocking is not None:
+            title = blocking.windowTitle()
+            # **NAME THE VERB THAT ANSWERS *THIS* DIALOG.** The generic advice was
+            # `ok` / `cancel`, which is wrong for the release picker: `answer-dialog`
+            # presses a button, and the picker needs a ROW CHOSEN, which only
+            # `pick-release` does. An operator who followed the message would press
+            # Ok on a picker with no selection. Reported from the rig on 2026-08-26,
+            # where this exact message sent someone to the wrong verb — a diagnosis
+            # that is accurate about the problem and wrong about the remedy is the
+            # shape `CLAUDE.md` warns about (every word true, the message wrong).
+            fix = (
+                "Answer it in the script with `pick-release <mbid|N>` — "
+                "`answer-dialog` presses a button and this dialog needs a row "
+                "selected, so Ok alone would not resolve it."
+                if title == _RELEASE_PICKER_TITLE
+                else "Answer it in the script (`ok` / `cancel`) before ripping."
+            )
             self._record(
                 step,
                 Outcome.FAIL,
-                f"a dialog is waiting for an answer: "
-                f"{blocking.windowTitle()!r}. Refusing to press Start behind it — "
-                "the previous step's rip may not have been created yet, and "
-                "starting a second one would put two ripper processes on one "
-                "drive. Answer it in the script (`ok` / `cancel`) before ripping.",
+                f"a dialog is waiting for an answer: {title!r}. Refusing to press "
+                "Start behind it — the previous step's rip may not have been "
+                "created yet, and starting a second one would put two ripper "
+                f"processes on one drive. {fix}",
             )
             return
         if getattr(self._window, "_rip_worker", None) is not None:
@@ -1940,14 +1965,32 @@ class ScriptRunner(QObject):
                 "reports the state it found rather than passing on an empty room"
             )
             if blocking is not None:
+                title = blocking.windowTitle()
+                # SAME CORRECTION AS `rip`'s GUARD, APPLIED HERE TOO. Both sites
+                # named `answer-dialog` unconditionally, and for the release picker
+                # that is the wrong verb: `answer-dialog` presses a button and the
+                # picker needs a ROW SELECTED, so Ok alone resolves nothing. Fixed
+                # in both places at once rather than at the one an operator
+                # happened to hit — `CLAUDE.md` / `docs/testing.md` §5.o: a rule
+                # enforced at the place it was learned is not enforced.
+                if title == _RELEASE_PICKER_TITLE:
+                    remedy = (
+                        "Put `pick-release <mbid|N> 120` BEFORE `rip`, not after: "
+                        "this dialog opens from the disc scan rather than from the "
+                        "rip, and it needs a row chosen — `answer-dialog ok` "
+                        "presses a button and would leave it unresolved."
+                    )
+                else:
+                    remedy = (
+                        f"Put `answer-dialog ok 30 {title}` between `rip` and this "
+                        "step. NOT a bare `ok`: the confirmation appears a beat "
+                        "after `rip` returns, so `ok` would race it and fail with "
+                        "'no dialog is open' about half the time."
+                    )
                 detail += (
-                    f". A dialog is waiting for an answer: "
-                    f"{blocking.windowTitle()!r} — the rip was requested but the "
-                    "app is blocked on it, so no worker exists yet. Put "
-                    f"`answer-dialog ok 30 {blocking.windowTitle()}` between "
-                    "`rip` and this step. NOT a bare `ok`: the confirmation "
-                    "appears a beat after `rip` returns, so `ok` would race it "
-                    "and fail with 'no dialog is open' about half the time."
+                    f". A dialog is waiting for an answer: {title!r} — the rip was "
+                    "requested but the app is blocked on it, so no worker exists "
+                    f"yet. {remedy}"
                 )
             # The clamp travels here too. It is already in the app log, but the
             # TRANSCRIPT is what the other project reads and what a person greps
@@ -2107,17 +2150,41 @@ class ScriptRunner(QObject):
             self._record(
                 step,
                 Outcome.PASS,
-                f"installed build is {expected}, the build handshake round "
-                f"{fork_source.PIN_UNDER_REVIEW} is under review in",
+                f"installed build is {expected} — {_pin_role_phrase()}",
             )
             return
+        # **NAME THE COMMAND, AND DO NOT CLAIM A ROUND IS OPEN WHEN NONE IS.**
+        # This said "the build the open handshake round is reviewing" and pointed at
+        # "Settings -> the ripper beta channel, then take the offer". Both went wrong
+        # on 2026-08-27, minutes apart, in the one message an operator reads at 2am:
+        #
+        #   * round 14 had CLOSED, so no round was reviewing anything — the sentence
+        #     was false, and it is the kind of false that misdirects, because it
+        #     implies the operator is behind rather than ahead;
+        #   * the remedy named a GUI path when a one-line command exists. `CLAUDE.md`
+        #     is explicit that a procedure handed back in prose is work handed back;
+        #     an operator who can paste one command should be given one command.
+        #
+        # The run itself was fine — it aborted in two seconds rather than spending a
+        # night on the wrong binary, which is the abort machinery working. What cost
+        # the attempt was advice that did not match the assertion.
+        #
+        # And the invocation comes from `build_info.self_invocation()` rather than
+        # the literal `platterpus`: there is no such command on PATH for an AppImage
+        # install, which is this project's PRIMARY channel. The first draft of this
+        # message hardcoded both spellings joined by an "or", and
+        # `tests/test_self_invocation_sweep.py` refused it — correctly, and for a
+        # second reason it does not state: handing an operator a choice of two
+        # commands, one of which will fail, is the "work handed back" shape again.
         self._record(
             step,
             Outcome.FAIL,
-            f"the installed cyanrip is NOT {expected}, the build the open "
-            f"handshake round is reviewing. Every later section would be evidence "
-            f"about a different binary. Install it: Settings -> the ripper beta "
-            f"channel, then take the offer.\n"
+            f"the installed cyanrip is NOT {expected} — {_pin_role_phrase()}. "
+            f"Every later section would be evidence about a different binary.\n"
+            f"Install it with ONE command:\n"
+            f"    {build_info.self_invocation()} --install-ripper "
+            f"{fork_source.PIN_UNDER_REVIEW}\n"
+            f"then re-run this script.\n"
             f"{_bounded_output(self._last_cyanrip_output)}",
         )
 
@@ -2709,6 +2776,25 @@ def _panel_fields(window: QWidget) -> dict[str, str]:
         if callable(text):
             fields[label] = text()
     return fields
+
+
+def _pin_role_phrase() -> str:
+    """What `PIN_UNDER_REVIEW` *is* right now, in words that are true either way.
+
+    **A thin delegate, deliberately.** The first version of this function
+    computed the answer itself — and `fork_source.UNDER_REVIEW_TARGET` carried a
+    third copy of the same sentence, hard-coded, which had already gone stale.
+    Three surfaces answering *"is a round open?"* with three implementations is
+    the shape `CLAUDE.md` names; two of them were wrong within the same hour on
+    2026-08-27. So the predicate lives in `fork_source` beside the pins it reads,
+    and this exists only so the call site stays readable.
+
+    Imported locally because `fork_source` reaches the network stack for release
+    metadata and this module is imported by the script parser, which must not.
+    """
+    from platterpus.deps import fork_source  # noqa: PLC0415
+
+    return fork_source.pin_under_review_role()
 
 
 def _bounded_output(text: str) -> str:

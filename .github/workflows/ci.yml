@@ -42,6 +42,20 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # **The suite reads git history, and the default checkout has none.**
+          # `actions/checkout` defaults to `fetch-depth: 1` — one commit, no tags
+          # — so every test that asks git a question about the past was answering
+          # from an empty record. `scripts/handshake.py::our_pin()` pickaxes the
+          # version literal to find the commit a release was cut at, and the pin
+          # checks resolve the shas our handshake laps declare; in a depth-1 clone
+          # neither can see anything, which is how a green branch run turned red
+          # the moment the same tests ran against main (2026-08-26, measured by
+          # reproducing the shallow clone locally). `test_doc_version_stamps`
+          # wants the release tags for the same reason. `changelog` and
+          # `media-guard` already set this; the precedent was here and the test
+          # job did not follow it.
+          fetch-depth: 0
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:

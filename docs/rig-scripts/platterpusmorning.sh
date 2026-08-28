@@ -129,19 +129,66 @@ fi
 # A result that looks wrong must be attributable rather than guessed at, and the
 # two version strings are the only things that say WHICH pair produced the night.
 say "1  version probes"
+
+# WHY THIS IS A FUNCTION AND NOT TWO INLINE `timeout` CALLS. The 2026-08-27
+# collection killed `cyanrip --version` at 60s having ALREADY captured its
+# banner, and recorded that as `(probe failed: exit 124)`. Three things were
+# wrong, and the third is the one that matters:
+#
+#   1. THE BOUND DID NOT MATCH THE APP'S. `cyanrip_backend._INFO_TIMEOUT_S` is
+#      120.0 — the number measured against a cold Distrobox container. This
+#      script used 60, so the app's own `--doctor` printed `[✓] cyanrip
+#      reachable` in the same collection where this probe reported a failure.
+#      Two surfaces answering one question with different bounds; the bound is
+#      now taken from the app's, cited, so they cannot drift apart silently.
+#   2. NO STDIN REDIRECT. The adapter passes `stdin_devnull=True` deliberately:
+#      a ripper that reaches for a terminal it should not have blocks forever
+#      when one is attached, and the morning collection runs on a real tty.
+#   3. A KILL AFTER THE OUTPUT ARRIVED WAS REPORTED IDENTICALLY TO SILENCE.
+#      "exit 124" covered both, and they are opposite diagnoses — one says the
+#      binary works and did not exit, the other says nothing came back at all.
+#      An absence in a capture is a fact about the capture first, so the probe
+#      now states which of the two it saw, and keeps whatever did arrive.
+PROBE_TIMEOUT_S=120        # = cyanrip_backend._INFO_TIMEOUT_S
+probe() {
+  # $1 = label for the transcript, rest = argv. Never aborts the script: a
+  # failed probe is DATA and the next section still has work to do.
+  local label="$1"; shift
+  local scratch rc
+  scratch="$(mktemp)"
+  printf '$ %s\n' "$label"
+  rc=0
+  timeout -k 10 "$PROBE_TIMEOUT_S" "$@" </dev/null >"$scratch" 2>&1 || rc=$?
+  cat "$scratch"
+  if [ "$rc" -eq 0 ]; then
+    :
+  elif [ "$rc" -ge 124 ] && [ -s "$scratch" ]; then
+    printf '(probe TIMED OUT after %ss — but output above WAS captured, so the\n' \
+           "$PROBE_TIMEOUT_S"
+    printf ' binary ran and did not exit; this is not a silent hang)\n'
+  elif [ "$rc" -ge 124 ]; then
+    printf '(probe TIMED OUT after %ss with NO output at all)\n' "$PROBE_TIMEOUT_S"
+  else
+    printf '(probe exited %s — output above is everything it printed)\n' "$rc"
+  fi
+  rm -f "$scratch"
+  return 0
+}
+
 {
   printf '# collected %s\n\n' "$STAMP"
   if [ -n "$APP" ]; then
-    printf '$ platterpus --version\n'
-    timeout -k 10 60 "$APP" --version 2>&1 || printf '(probe failed: exit %s)\n' "$?"
+    probe 'platterpus --version' "$APP" --version
   else
     printf '(no AppImage located)\n'
   fi
-  printf '\n$ cyanrip --version\n'
-  timeout -k 10 60 "$HOME/.local/bin/cyanrip" --version 2>&1 \
-    || printf '(probe failed: exit %s)\n' "$?"
+  printf '\n'
+  probe 'cyanrip --version' "$HOME/.local/bin/cyanrip" --version
 } >"$OUT/probes/versions.txt" 2>&1
 sed 's/^/   /' "$OUT/probes/versions.txt"
+# An EMPTY transcript is the one outcome the sections below cannot work around:
+# every artifact they collect is attributable only via these two strings.
+[ -s "$OUT/probes/versions.txt" ] || bad "version probes produced an EMPTY transcript"
 
 # --- 2. --doctor: the environment as it stood in the morning -----------------
 say "2  --doctor (no disc needed)"

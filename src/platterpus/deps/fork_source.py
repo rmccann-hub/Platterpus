@@ -129,7 +129,19 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: **The rule both projects took from it:** choose the released commit *after* the
 #: derived artifacts agree, never at the version bump. Bump-then-regenerate
 #: guarantees one commit exists whose own suite fails.
-FORK_PIN: Final[str] = "ddf7ac3"
+#: **Rolled forward to `d9c058c` on 2026-08-26, when round 14 CLOSED with GO/GO.**
+#: That is the post-close step the cycle turns on: the pin a closed round approved
+#: becomes the production pin, and the next round reviews what both sides then
+#: release. Permitted because the round is closed — the deviation policy forbids
+#: moving it only while one is OPEN.
+#:
+#: The gate that should have demanded this roll passed instead, and the reason is
+#: worth keeping: it asserted `FORK_PIN in text` against the verification file, a
+#: bare substring, and round 14's verification discusses `ddf7ac3` at length
+#: *because it was the wrong value* — nine laps of our `HANDSHAKE-OUR-PIN`. So the
+#: check was satisfied by the defect it existed to catch. It now reads the
+#: declared `HANDSHAKE-PIN:` field.
+FORK_PIN: Final[str] = "d9c058c"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -230,6 +242,11 @@ FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
     # This map is why that commitment costs us one line instead of a broken run:
     # see `expect-ripper-under-review`, which removed the hardcoded tag the three
     # moves kept invalidating.
+    #
+    # **From round 14's close (2026-08-26) this is also `FORK_PIN`** — the first
+    # production pin that was already a published release when it was reviewed,
+    # which is why round 14 is the first round whose reviewed artifact, rig
+    # artifact and shipped artifact were one object.
     "d9c058c": 20,
 }
 
@@ -288,7 +305,10 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: harness staler than the product, which is the failure mode CLAUDE.md's "what does
 #: my stand-in do that the real thing does not" question exists to catch.
 #: Round 7's release drops the `-beta.N` suffix: `0.9.4-rc1+platterpus.5`.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc1+platterpus.5"
+#: Read off the fork's own `HANDSHAKE-RIPPER-VERSION` in round 14 laps 16-19 —
+#: `cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-gd9c058c)` — a pairing they
+#: stated rather than one we inferred.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.10"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -611,7 +631,21 @@ SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = (
 #: does not accept the flag, and a rig still running it must not be sent one.
 BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
     {
-        FORK_EXPECTED_BUILD_TAG,  # the round-7 release, the current pin
+        FORK_EXPECTED_BUILD_TAG,  # the current production pin
+        # **SUPERSEDED PRODUCTION PINS STAY, and this one nearly did not.**
+        # `ddf7ac3` was in this set only by way of `FORK_EXPECTED_BUILD_TAG`, so
+        # rolling the pin forward at round 14's close removed it — silently, and
+        # a rig still holding the previous production build would have gone back
+        # to logging `Consumer: not identified`. That is precisely the failure the
+        # note below records from 2026-08-24, arriving a second time by a
+        # different route: not a set that was never updated, but one that was
+        # updated *correctly* and lost an entry as a side effect.
+        #
+        # Superseded test pins already had this protection (`SUPERSEDED_TEST_PINS`
+        # is splatted in below) and superseded PRODUCTION pins had none, which is
+        # the asymmetry. A pin we shipped is at least as likely to still be on a
+        # rig as a test pin nobody was told to keep.
+        f"{FORK_BRANCH}-gddf7ac3",  # round 7's release; production until round 14
         f"{FORK_BRANCH}-g{FORK_RELEASE_4_COMMIT}",  # fork release 4
         FORK_TEST_BUILD_TAG,  # the round-7 test pin, still on the rig
         *(f"{FORK_BRANCH}-g{pin}" for pin in SUPERSEDED_TEST_PINS),
@@ -794,14 +828,87 @@ class ForkTarget:
         )
 
 
+# --- Round state: ONE predicate, and every surface delegates to it ------------
+# `same_commit` used to live 70 lines below this point. It moved up because the
+# constants here need it at import time, and because the alternative — a second
+# prefix comparison inlined where it was needed — is exactly the "two surfaces
+# answering one question" shape that `CLAUDE.md` names. One implementation, one
+# place, called by everything.
+
+
+def same_commit(a: str, b: str) -> bool:
+    """Whether two git revisions name the same commit, allowing for short SHAs.
+
+    Git abbreviations are prefixes, so ``ddf7ac3`` and a full 40-character SHA
+    beginning ``ddf7ac3`` are the same commit and must compare equal. Comparison
+    is case-insensitive because git accepts either case.
+
+    **A prefix match is not proof of identity** — two commits can share a short
+    prefix — but the alternative here is a bare ``==``, which reports *different*
+    for two spellings of the same revision, and that is the error this exists to
+    stop. The tighter check belongs to the build step, which reads the tag off the
+    binary it just produced; this only decides which sentence to print.
+
+    Empty strings never match: an unset pin is not "the same as" anything, and
+    returning True there would silently approve a build nobody named.
+    """
+    left, right = a.strip().lower(), b.strip().lower()
+    if not left or not right:
+        return False
+    return left.startswith(right) or right.startswith(left)
+
+
+def a_round_is_reviewing_a_build() -> bool:
+    """Whether a handshake round is currently reviewing a ripper build.
+
+    **Derived from the pins, not from a flag anyone has to remember to clear.**
+    A round under review means `PIN_UNDER_REVIEW` names something other than the
+    approved production pin; the moment a round closes, the reviewed build *is*
+    the approved build and the two coincide.
+
+    Written after the alternative failed twice in one hour on 2026-08-27. Two
+    separate user-facing strings — the acceptance script's wrong-ripper FAIL and
+    :data:`UNDER_REVIEW_TARGET`'s own `why` — each carried a hard-coded sentence
+    saying a round was open. Round 14 had closed. An operator who had installed
+    the fork's *newer* release read that they had the wrong build for a round
+    that was not running: every word deliberate, the sentence false, and false in
+    the direction that tells someone they are behind when they are ahead.
+    """
+    return not same_commit(PIN_UNDER_REVIEW, FORK_PIN)
+
+
+def pin_under_review_role() -> str:
+    """What `PIN_UNDER_REVIEW` *is* right now, in words true either way.
+
+    The single sentence every surface prints about the pin's standing. A caller
+    that wants to say this must call here rather than compose its own — a second
+    copy is a second thing to go stale, which is the whole history of this
+    function.
+    """
+    return f"{PIN_UNDER_REVIEW} {_pin_under_review_role_clause()}"
+
+
+def _pin_under_review_role_clause() -> str:
+    """The clause alone, for a caller that has already named the pin."""
+    if a_round_is_reviewing_a_build():
+        return "is the build the open handshake round is reviewing"
+    return (
+        "is the APPROVED production pin (no handshake round is open, so there is "
+        "no build under review)"
+    )
+
+
 #: The pin a **closed** round approved. Moves only when a round closes.
 PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the round-7 release, built from the code round 7 approved at 104f6d4 "
-        f"(Platterpus {FORK_EXPECTED_VERSION}) — see docs/handshake/verified/"
-        "round-07-lap-40.md §A for why the released commit and not the pin"
+        "the build round 14 approved, GO on both sides — and the first production "
+        f"pin that was already a release when it was reviewed (cyanrip "
+        f"{FORK_EXPECTED_VERSION}, release_seq 20). Its evidence is a whole-disc "
+        "uniform secure re-read on hardware: 14/14 tracks converged, zero ripping "
+        "errors, completion footer intact. See docs/handshake/outbound/"
+        "round-14-lap-18.md"
     ),
 )
 
@@ -833,13 +940,16 @@ TEST_TARGET: Final[ForkTarget] = ForkTarget(
 UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     pin=PIN_UNDER_REVIEW,
     version="0.9.4-rc2+platterpus.10",
-    why=(
-        "the build round 14 is reviewing — what an acceptance run must be on. "
-        "It IS a published release (release_seq 20, channel beta), unlike a test "
-        "pin, but no round has approved it: round 14 is the round that would, "
-        "and it is open. A rip with this installed reports `unapproved`, which "
-        "is the correct answer rather than a defect"
-    ),
+    # **DERIVED, NOT ASSERTED.** This sentence used to read "round 14 is the round
+    # that would [approve it], and it is open" — a hard-coded claim about round
+    # state, which went false the moment round 14 closed and `PIN_UNDER_REVIEW`
+    # became the approved production pin. It was the SAME defect, in the same
+    # hour, as the acceptance script's wrong-ripper message, which asserted an
+    # open round to an operator who was in fact ahead of it. `docs/testing.md`
+    # §5.o: enforce a rule across the codebase, not at the place it was learned —
+    # so both surfaces now call `pin_under_review_role()` rather than each
+    # carrying their own sentence about the same fact.
+    why=f"what an acceptance run must be on — it {_pin_under_review_role_clause()}",
 )
 
 #: **What the setup wizard and ``--install-ripper`` build by default.**
@@ -861,28 +971,6 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
 #: note above says it would be. Round 7 closed with GO on both sides, so the test
 #: pin has done its job and the wizard builds the release again.
 WIZARD_TARGET: Final[ForkTarget] = PRODUCTION_TARGET
-
-
-def same_commit(a: str, b: str) -> bool:
-    """Whether two git revisions name the same commit, allowing for short SHAs.
-
-    Git abbreviations are prefixes, so ``ddf7ac3`` and a full 40-character SHA
-    beginning ``ddf7ac3`` are the same commit and must compare equal. Comparison
-    is case-insensitive because git accepts either case.
-
-    **A prefix match is not proof of identity** — two commits can share a short
-    prefix — but the alternative here is a bare ``==``, which reports *different*
-    for two spellings of the same revision, and that is the error this exists to
-    stop. The tighter check belongs to the build step, which reads the tag off the
-    binary it just produced; this only decides which sentence to print.
-
-    Empty strings never match: an unset pin is not "the same as" anything, and
-    returning True there would silently approve a build nobody named.
-    """
-    left, right = a.strip().lower(), b.strip().lower()
-    if not left or not right:
-        return False
-    return left.startswith(right) or right.startswith(left)
 
 
 def target_for_commit(
@@ -940,8 +1028,19 @@ def target_for_commit(
         # pin is the fact that matters and it is right here.
         return ForkTarget(
             pin=pin,
-            version=version
-            or "(version not read from the tree; the tag is what we verify)",
+            # **THE VERSION IS KNOWN HERE, AND SAYING OTHERWISE PRINTED A FALSE
+            # SENTENCE ABOUT OUR OWN PIN.** The default used to be a placeholder,
+            # which makes `version_known` False, which makes `expectation` read
+            # *"the version string is not predictable for a commit we do not
+            # pin"* — about the commit we DO pin, in the preamble of the exact
+            # command an operator is told to run. The general rule from the same
+            # hour: a sentence false in a small way is how a night gets lost.
+            #
+            # It is a measured pairing, not a guess: `FORK_EXPECTED_VERSION` and
+            # `FORK_PIN` are the pair both projects declared at column 0 in round
+            # 14 laps 17, 18 and 19. An explicit `version=` still wins, and the
+            # arbitrary-commit branch below keeps its honest "not known".
+            version=version or FORK_EXPECTED_VERSION,
             why=(
                 f"commit {pin}, supplied on the command line — and this IS the "
                 f"approved pin ({PRODUCTION_TARGET.pin}), the build a closed round "

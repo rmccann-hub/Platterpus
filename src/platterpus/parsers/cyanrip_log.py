@@ -68,6 +68,7 @@ import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
+from typing import Final
 
 from platterpus.parsers.rip_log import (
     AccurateRipResult,
@@ -529,7 +530,58 @@ _ALBUM_TRUE_PEAK_LEVEL = re.compile(
 )
 
 # cyanrip's own log signature, the last line: "Log FUN512: <base64>".
+#
+# **Deliberately permissive, with the shape checked SEPARATELY** — see
+# :func:`fun512_signature_is_malformed`. Tightening this pattern would collapse two
+# different claims into one: a signature of the wrong shape would stop matching, and
+# `has_log_checksum` would then report *"no FUN512 checksum"* about a log that
+# plainly has one. `none` and `unknown (reason)` are different claims (seam rules),
+# and for a log-integrity line the difference decides whether a reader suspects a
+# truncated rip or a wrong digest.
 _LOG_CHECKSUM = re.compile(r"^Log FUN512:\s+(?P<sig>\S+)")
+
+#: The exact length of a well-formed FUN512 signature, and it is DERIVED rather
+#: than observed: a 512-bit digest in a 64-character alphabet needs
+#: ``ceil(512 / 6) == 86`` characters. Measured agreement, on 8 signatures from two
+#: separate rig bundles (2026-08-23 and 2026-08-26): every one is exactly 86.
+#:
+#: **Why we check a length at all.** The fork's own mutation sweep (relayed
+#: 2026-08-27) found that `for (int j = 0; j < strlen(digest_str); j++)` in
+#: `fun512.c` mutated to `<=` **survived** — an extra iteration over the digest
+#: string that no test of theirs noticed. Our side accepted it silently too:
+#: `(?P<sig>\S+)` takes any run of non-whitespace of any length, so an 87-character
+#: digest would have been recorded, rendered and archived as if it were fine. Their
+#: output is external input (seam rules, inbound half) and its *shape* is part of
+#: what we validate.
+FUN512_SIGNATURE_LENGTH: Final[int] = 86
+
+#: The alphabet, measured over the same 8 signatures: base64url with `.` for `-`.
+_FUN512_ALPHABET: re.Pattern[str] = re.compile(r"\A[A-Za-z0-9._]+\Z")
+
+
+def fun512_signature_is_malformed(signature: str) -> str | None:
+    """Why ``signature`` is not a well-formed FUN512 digest, or ``None`` if it is.
+
+    Returns a *reason*, never a bare bool, because the caller has to be able to say
+    which of two very different things happened — a log with no signature at all
+    (a rip killed before `atexit`) versus a log whose signature is the wrong shape
+    (a digest computed wrongly). Reporting the second as the first is the exact
+    conflation this project's rules forbid.
+
+    Never raises: it is a parser of external output.
+    """
+    if not signature:
+        return "empty"
+    if len(signature) != FUN512_SIGNATURE_LENGTH:
+        return (
+            f"{len(signature)} characters, expected {FUN512_SIGNATURE_LENGTH} "
+            f"(a 512-bit digest in a 64-character alphabet needs exactly that many)"
+        )
+    if _FUN512_ALPHABET.match(signature) is None:
+        bad = sorted({ch for ch in signature if not _FUN512_ALPHABET.match(ch)})
+        return f"characters outside the base64url alphabet: {bad!r}"
+    return None
+
 
 # FORK-ONLY (round 7). `Handshake:      round 7 lap 7 OPEN, verdict HOLD -- NOT a
 # released build`. Anything after the label, to end of line: see `_take_handshake_note`
@@ -1647,6 +1699,12 @@ _FRAGMENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # `read_stall_count`). The line itself is claimed by the `read_stalls` rule.
     ("read_stalls_count", _READ_STALLS_COUNT),
     ("read_stalls_none", _READ_STALLS_NONE),
+    # The alphabet a FUN512 signature must be drawn from, applied to the `sig`
+    # group captured by `_LOG_CHECKSUM` — a fragment, not a line. Declared here
+    # because this module's enumeration is what the generated consumer contract
+    # publishes: the fork should be able to read that we check the digest's SHAPE
+    # and not only its presence, which is the half their `<=` mutant slipped past.
+    ("fun512_alphabet", _FUN512_ALPHABET),
 )
 
 _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (

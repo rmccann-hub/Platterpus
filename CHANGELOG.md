@@ -11,9 +11,365 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.31] — 2026-08-28
+
+### Fixed
+- **A rescan of the SAME disc, landing between the release picker opening and
+  being answered, threw the answer away — and this morning's duplicate-picker
+  guard then suppressed the recovery.** Measured on the rig 2026-08-27; it cost
+  the whole run, which aborted at section E with *"no tracks ever loaded"* and
+  *"expected at least 2 track rows, found 0"*:
+
+      19:43:06,182  drive changed -> `_start_disc_info` clears `_current_disc_id`
+      19:43:06,432  the picker (already open) is answered — row 1 of 4
+      19:43:06,435  the release fetch is emitted for that disc
+      19:43:06,928  the detail lands; `_current_disc_id` is still "" -> DROPPED
+      19:43:11,899  the recovery lookup is suppressed by the already-answered guard
+
+  `_is_stale_mb_result` asked *"is this for the disc on screen?"* and got *"there
+  is no disc on screen"* — which is **not** the same as *"this is for a different
+  disc"*, and only the second is stale. `CLAUDE.md`: *what pins my input?* The
+  predicate read a field a concurrent rescan deliberately empties.
+- **The guard added on 2026-08-26 turned a duplicate picker into no tracks at
+  all**, and that is the half worth recording. It correctly declines a second
+  picker for a disc a release was already chosen for — but if the first choice's
+  detail is then discarded, nothing loads the tracks and nothing can ask again.
+  Before it, the second picker *was* the recovery. A dropped answer now
+  un-answers the disc. *"What does the code downstream do with answers it never
+  used to receive?"*, asked one day late.
+- **The first version of this fix re-opened the wrong-album bug, and the belt test
+  caught it before it shipped.** Relaxing staleness whenever the detail matched
+  `_mb_release_chosen_for` is unsafe: `_on_disc_info_ready` sets
+  `_current_disc_id` to a new disc **without** clearing that marker, so
+  marker=`disc-A` with `disc-B` on screen is reachable and disc A's release would
+  have tagged disc B — the exact bug the predicate exists to prevent. The
+  relaxation is now scoped to the *transient empty* window, which is precisely
+  what the rig hit and cannot be a different disc. Three reverts probed, three
+  detected, none vacuous.
+
+
+### Fixed
+- **The README's front page was out of date, and every gate that should have said
+  so was green.** The maintainer found it by reading it. The status blockquote
+  asserted five things and all five were false: the version (`v0.6.27` against
+  `0.6.30`), the round range, the round state (*"round 14 is open"* — it had closed
+  GO/GO), the installed ripper (`ddf7ac3`, three pins behind `d9c058c`), and the
+  remedy it handed the user — which was **verbatim the advice 0.6.30 had just
+  removed from the app** for being wrong. Two more claims were stale
+  (`0.7.100`'s bar, superseded by the 2026-08-26 sharpening; the `-x` cache probe)
+  and two were understated by measurement (`2,000+ tests` against 4,678;
+  `~93% branch coverage` against 91.64%). Also fixed: a setup snippet told the
+  user to run `cyanrip -V` and expect `0.9.3.1`, contradicting the README's own
+  flag table **35 lines above it**, which says `-V` fails on that build line.
+- **Why no gate caught it, and the gate that now does.** The doc-stamp gate passed
+  because the stamp *was* correct — the file had been restamped in the release
+  commit, and a stamp records when a doc was **edited**. `test_no_stale_version_
+  claims.py` §1 passed because it compares **minors**: `(0,6) < (0,6)` is false, so
+  it is structurally blind to patch drift. That is defensible as designed — the bug
+  it was built for was `v0.5.x` surviving the whole `v0.6` line — but the status
+  banner carries the pin and the round state beside the number, and those move with
+  patch releases. New §3 in the same file (not a new one) checks the **facts**: the
+  banner names the exact `__version__`; a present-tense install claim names
+  `FORK_PIN` and not a retired pin; and an open-round assertion is **delegated to
+  `fork_source.a_round_is_reviewing_a_build()`** — the same predicate three code
+  surfaces were unified onto the same day. The front page does not get its own
+  opinion about whether a round is open. Conditionals (*"while a round is open"*)
+  are rules and are deliberately not matched.
+- **The claim window was too narrow three times, each differently, and a tool found
+  all three.** `[^.\n]` died at the first full stop of `0.9.4-rc2`; `[^\n]` died at
+  the README's hard wrap, with the sha on the next line — `scripts/revert_probe.py`
+  reported that one **VACUOUS** rather than letting it stand as a guard; and the
+  subject extractor missed `platterpus-fork-g<sha>`, the build-tag form, because it
+  only knew backtick-delimited shas. The branch prefix is now read from
+  `fork_source.FORK_BRANCH` so a fork rename cannot switch the check off silently.
+
+
+## [0.6.30] — 2026-08-27
+
+### Added
+- **The fork challenge ledger** — `docs/cyanrip-handshake.md` §9, required by
+  `CLAUDE.md` rule #12 since the maintainer gave the cyanrip fork a standing
+  challenge mandate on 2026-08-26. Ten resolved challenges, one row each, cited
+  to the lap that made it and the artifact that settled it. The count is **5–5**,
+  and it is reported with the qualification that matters more than the tally:
+  **nine of the ten predate the mandate**, so the question *"are they more often
+  right?"* is **not yet measurable** — saying so is the honest reading, and the
+  instruction was explicitly to measure rather than to decide from the feel of
+  the last lap. The mechanism column is the useful part: our errors cluster in
+  *verification*, theirs in *attribution*, and those want different remedies.
+- **A sweep that every citation into the handshake record must resolve in *this*
+  tree.** Written because §9 got it wrong on the first draft, twice: two rows
+  cited `inbound/round-10-lap-04.md` and `inbound/round-11-lap-02.md` — the paths
+  the *fork* uses for them. Both are ours and sit in `verified/`, because the
+  inbound/outbound roles **reverse** across the seam, so a path copied out of a
+  peer's lap points at nothing here and points at nothing *silently*. A third was
+  off by one line. Round files are immutable correspondence, which makes them the
+  one document class where a line citation is both legitimate and checkable.
+
+### Fixed
+- **`--install-ripper d9c058c` printed *"the version string is not predictable
+  for a commit we do not pin"* — about the commit we do pin.** The preamble reads
+  `ForkTarget.expectation`, and a hand-supplied commit defaulted to an
+  unknown-version placeholder even when it matched `FORK_PIN`, in the preamble of
+  the exact command an operator is told to run. The pairing is a *measured* fact —
+  `FORK_EXPECTED_VERSION` with `FORK_PIN` is what both projects declared at column
+  0 in round 14 laps 17, 18 and 19 — so the approved pin now names its real
+  banner, asserted against `FORK_EXPECTED_BANNER` rather than a typed string. The
+  other branch keeps its honest "version not known": an arbitrary commit's
+  `meson.build` genuinely is unknown to us, and both branches are tested, because
+  making the first honest by making the second dishonest would have passed.
+- **The wrong-ripper abort claimed a handshake round was open when none was, and
+  handed back a GUI path instead of the one command that fixes it.** Both halves
+  bit on the 2026-08-27 overnight attempt, in the single message an operator reads
+  at 2am: round 14 had *closed*, so "the build the open handshake round is
+  reviewing" was false — and false in the direction that misdirects, because it
+  implies the operator is behind when they were ahead — and the remedy said
+  "Settings → the ripper beta channel, then take the offer" when
+  `platterpus --install-ripper <pin>` exists. The abort itself was correct and
+  worth keeping: it cost two seconds instead of a night on the wrong binary. What
+  cost the attempt was advice that did not match the assertion.
+  - **"Is a round open?" is now ONE predicate with every surface delegating**
+    (`fork_source.a_round_is_reviewing_a_build` / `pin_under_review_role`), and it
+    is derived from the two pins rather than from a sentence someone must
+    remember to rewrite — closing a round *is* the act of making
+    `PIN_UNDER_REVIEW` and `FORK_PIN` the same commit. Three surfaces had been
+    answering it with three implementations and **two were wrong within the same
+    hour**: the acceptance script's FAIL text, and
+    `fork_source.UNDER_REVIEW_TARGET.why`, which read *"round 14 is the round that
+    would [approve], and it is open"* — install-time text, with a hard-coded round
+    number in it. Fixed across the codebase rather than at the place it was
+    learned (`docs/testing.md` §5.o), with the *relation* asserted, since no test
+    of one surface can express it.
+  - The remedy's invocation comes from `build_info.self_invocation()`. The first
+    draft hardcoded `platterpus …` and `./platterpus-x86_64.AppImage …` joined by
+    an "or"; `tests/test_self_invocation_sweep.py` refused it — there is no
+    `platterpus` on `PATH` for an AppImage install, this project's primary
+    channel, and handing an operator two commands one of which fails is the same
+    work-handed-back shape in miniature.
+  - The acceptance script's `abort-if-failed` line carried the same stale claim
+    and now names the record rather than a round.
+- **The pin-reachability test failed on every release PR, necessarily.** It
+  asserted that `our_pin()` names a commit reachable from `origin/main` — but a
+  release commit *bumps* `__version__`, so the commit it finds is the one on the
+  unmerged branch, which cannot be on `main` until the PR lands. Red run, nothing
+  wrong: the false-failure shape `CLAUDE.md` describes when it explains why the
+  `tests-touched` gate is escapable by saying why rather than by silence. The
+  claim is now stated for the state in which it is answerable, and the mid-flight
+  case keeps its own weaker-but-real assertion (the pin must at least be reachable
+  from `HEAD`, which a search straying onto another branch would fail) rather than
+  becoming a bare skip. **The original catch is intact and that was verified in a
+  scratch repo, not assumed**: post-merge the full assertion runs, the old branch
+  sha fails, the squashed sha passes. It had to be checked that way because **this
+  development clone is shallow**, so the test has never once executed here — it
+  skips on `_history_is_available()` for an unrelated reason, which is why the
+  defect reached CI twice.
+- **And the fix's own probe asked for LESS than the run asks for.** It tested
+  `--what=idle` while the run requests `--what=idle:sleep:handle-lid-switch`, so a
+  session that permits one and refuses the other passed the probe and then failed
+  the real lock: *"Failed to inhibit: Access denied"*, exit 1, AppImage never
+  executed, blamed on the ripper. Caught on CI within the hour — a GitHub runner
+  is exactly that middle case, and the **development container has no session bus
+  at all, so the local suite was structurally unable to tell the fix from the
+  bug**. `CLAUDE.md`: *did I verify this where it could have failed?* The `--what`
+  set is now defined once and both the probe and the prefix use it, with a stub
+  that grants `idle` and refuses the rest as the regression test.
+- **`systemd-inhibit` being *installed* was taken as it being *usable*, and on a
+  bus-less session that silently consumed the entire run.** It exits **1** with
+  *"Failed to connect to bus"* whenever there is no session bus — an ssh login,
+  cron, a container, a user unit without `DBUS_SESSION_BUS_ADDRESS` — and it is
+  installed on all of those. So the prefix was adopted, the first command under it
+  died instantly, and `platterpusovernight.sh` reported exit 1 **from the
+  inhibitor** with the AppImage never executed: a night spent doing nothing, and
+  (after the banner below) reported as a probable wrong-ripper abort. A
+  misdiagnosis is worse than no diagnosis. The capability is now **probed** — run
+  the real thing over `true` — and a present-but-unusable inhibitor gets its own
+  loud downgrade, which is what the absent case always got. Found by a test
+  written for something else, in a container with no bus.
+- **A two-second precondition abort and a six-hour run looked identical at 2am.**
+  The 2026-08-27 attempt stopped correctly at section A, printed why, and the
+  operator went to bed on a run that had already ended. `platterpusovernight.sh`
+  now times the run and prints a blocking banner when a non-zero exit arrives in
+  under two minutes — it cannot have reached a rip. Deliberately **presentation
+  only**: it re-decides nothing about the ripper, because a second opinion on that
+  question is the defect the run was aborted by.
+- **The morning collector reported `cyanrip --version` as failed in the same
+  bundle where `--doctor` called the ripper reachable.** Two surfaces answering
+  one question with different bounds: the adapter allows
+  `_INFO_TIMEOUT_S == 120.0` for that call — the number measured against a cold
+  Distrobox container — and the collector killed it at 60. Worse, the banner
+  *had* arrived before the kill, and `(probe failed: exit 124)` rendered that
+  identically to a probe that returned nothing at all. Those are opposite
+  diagnoses: one says the binary works and did not exit, the other says the
+  host → container → cyanrip chain is broken. The probe is now one function
+  which takes its bound from the adapter's (asserted, not copied), redirects
+  stdin from `/dev/null` the way the adapter deliberately does, keeps whatever
+  output arrived before a kill, and names *which* of the two outcomes it saw.
+  Tested by running it against all three — clean, timeout-with-output,
+  timeout-with-silence — because the claim is that it *distinguishes* them and
+  only running it can show that.
+- **A wrong-shaped FUN512 digest was accepted, recorded and archived in silence.**
+  The cyanrip fork's mutation sweep (relayed 2026-08-27) found
+  `for (int j = 0; j < strlen(digest_str); j++)` in `fun512.c` mutated to `<=`
+  and **surviving** — an extra iteration over the digest string that no test of
+  theirs caught. **It would not have been caught here either**: our pattern
+  captured `\S+`, any run of non-whitespace of any length, so an 87-character
+  digest went into an archival log looking correct. Their output is external
+  input and its *shape* is ours to validate — the inbound half of the seam. The
+  expected length is **derived, not observed**: a 512-bit digest in a
+  64-character alphabet needs `ceil(512/6) == 86`, and every one of the 8 real
+  signatures across two rig bundles and the committed fixtures is exactly that.
+  **The line pattern stays permissive on purpose** — tightening it would make a
+  malformed signature report as a *missing* one, and "no FUN512 checksum" means a
+  rip killed before `atexit` while "wrong shape" means a digest computed wrongly.
+  Those are different claims and a reader acts on them differently.
+
+## [0.6.29] — 2026-08-27
+
+### Changed
+- **Round 14 CLOSED (GO/GO), so the production pin rolls forward to `d9c058c`** —
+  the build the round approved, and the first production pin that was already a
+  published release when it was reviewed. Its evidence is a whole-disc uniform
+  secure re-read on hardware: 14/14 tracks converged, zero ripping errors,
+  completion footer intact. `APPROVED_BY_ROUND` → 14, `APPROVED_FOR_PLATTERPUS_
+  VERSION` → 0.6.28.
+
+### Fixed
+- **The gate that should have demanded that roll passed instead, because it was
+  satisfied by the wrong thing.** `test_the_pin_is_the_one_the_newest_closed_
+  handshake_round_verified` asserted `FORK_PIN in text` — a bare substring against
+  a 19 KB prose file. Round 14's verification discusses `ddf7ac3` at length
+  *precisely because it was the wrong value*, so the check passed on the strength
+  of the defect it existed to catch. It now reads the declared `HANDSHAKE-PIN:`
+  field. `CLAUDE.md`'s *"can it be satisfied by the wrong thing?"*
+- **Rolling the pin silently dropped `ddf7ac3` from the `--consumer` capability
+  set**, because it was present only by way of `FORK_EXPECTED_BUILD_TAG`. A rig
+  still holding the previous production build would have gone back to logging
+  `Consumer: not identified` — the same failure that cost the 2026-08-24 run, but
+  arriving by a new route: not a set nobody updated, but one updated *correctly*
+  that lost an entry as a side effect. Superseded **production** pins are now
+  retained explicitly, as superseded *test* pins already were; that asymmetry was
+  the bug.
+- **Two surfaces disagreed about where our verification lives.** Round 14 closed
+  with lap 18, an ordinary outbound lap — and once sent its bytes are frozen (the
+  fork's lap 19 digest covers them), so it cannot be moved into `verified/`, whose
+  files must additionally open with a bolded `**GO on <pin>` line.
+  `handshake.py --status` read it correctly; the pin checks looked at one
+  directory only. One question, one population.
+- **`round_digest.py --exclude` silently dropped BOTH files when a basename
+  matched two laps.** The exact mirror of the defect we found in round 9 and the
+  cyanrip fork shipped our fix for — there, an exclusion matching *nothing*
+  dropped nothing and printed a confident digest over the full set. **Neither
+  project then asked it the other way round**, and matching *more than one* was
+  unreachable until two laps shared a number, which is why it survived nine
+  rounds. Found by the fork (round 14 lap 19 §5), who sent the **specification
+  rather than their code** — a test does not travel, its specification does, and
+  two implementations sharing an ancestor share its bugs. **Confirmed against our
+  own record before being believed**: `--exclude round-14-lap-16.md` matched the
+  inbound and outbound copies, removed both, and returned `710ed2493fccd59c over
+  19`, exit 0. An ambiguous exclusion is now a refusal naming both files; a
+  root- or repo-relative path disambiguates; the one caller that legitimately
+  wants both same-numbered laps names them by path. Every previously-published
+  digest still reproduces, so no sent number moved. Revert-proved.
+- **The shared-hash sweep read only `verified/`, so all eight of our round-14
+  laps went unchecked** — including the one in which we told the fork we *do*
+  compare these hashes. The newest declaring file it could see was
+  `round-13-lap-07.md`, so the claim *"our own declaration must be true of our own
+  tree"* was true of a round-13 file and silent about every lap since. Found while
+  adopting `OWNERSHIP.md` v2, one lap after making the overstated claim. Same
+  shape `CLAUDE.md` names about the message-box sweep: scoping a sweep is fine,
+  scoping it silently while the rule claims everything is the defect. Now reads
+  the newest sent file across `outbound/` **and** `verified/`, ordered by (round,
+  lap) so `lap-9` cannot sort above `lap-18`. Revert-proved against a drifted
+  `seam-rules.md`.
+
+- **The `0.7.100` gate is now about what a failure MEANS, not how many there
+  are** (maintainer ruling, 2026-08-26): *"if there is something minor like a
+  window size was wrong, then ignore. But critical passing tests for cd accuracy
+  and provenance, etc, for archive level records, if all those pass fine.
+  Difference between not working as intended and not actually doing the job you
+  were built for."* The bar is **zero failures in the ARCHIVAL sections**, with
+  UX failures recorded, triaged and non-blocking — and *"it might take 1 more
+  test, it might take 10, i dont care."* **The safety of this rests entirely on
+  severity being a property of the SECTION, declared before the run** — a
+  severity assigned after seeing a failure is *"the five failures were each
+  understood"*, which 2026-08-19 disproved when all five descended from one
+  unknown defect. So the 20 acceptance sections are classified in advance in
+  `docs/testing.md` → *Acceptance severity* (**17 ARCHIVAL, 3 UX** — the first draft said 14/6 and the maintainer corrected three of them; `K3` was an outright inconsistency, since "lossless → archival" had been applied to WavPack and not to WAV, which is also lossless), and
+  `tests/test_rig_scripts.py` derives the population from the script so a **new**
+  section must be classified rather than defaulting to ignorable. A UX failure is
+  non-blocking only while it is its own defect: sharing a root cause with an
+  archival one makes it archival — which the 2026-08-26 run demonstrates, where
+  seven failures across four sections were one defect and two of those sections
+  are archival. Revert-proved: deleting a section's row fails the sweep.
+
+### Fixed
+- **One disc, two MusicBrainz lookups, two modal pickers — and the second one
+  blocked an unattended overnight run for 53.5 seconds until a person clicked
+  it.** Measured on the rig 2026-08-26: a single rescan produced two disc probes
+  whose lookups returned **407 ms apart** for the same disc-id; the script
+  answered the first picker in 27 ms and a second opened 378 ms later. It then
+  refused every step behind it — **all seven of that run's seven failures descend
+  from it**, including the whole of section F (the main full-disc rip) and
+  section H. **`_is_stale_mb_result` could not catch it, and that is the lesson**:
+  it asks *"is this result for the disc on screen?"*, which guards against a
+  lookup landing after the user swapped discs. Both of these were for the disc on
+  screen. *"Have I already answered this one?"* is a different question and
+  nothing was asking it. **This is worse for an ordinary user than for the rig**:
+  they are asked twice for one disc, and the second answer silently replaces the
+  tags the first one committed — on the rig the two answers were *different
+  releases*. Fixed with a per-scan marker, cleared by every new disc probe so a
+  deliberate Rescan still offers the picker; the test asserts both halves, since
+  a guard that suppressed the *question* rather than the *duplicate* would pass
+  the first half alone. Revert-proved.
+- **The acceptance script promised a stop it never performed, and it cost a live
+  rig run.** Section E's header has said *"if this fails, nothing after it can
+  mean anything, and you have spent five minutes rather than a night finding
+  out"* since the file was written — and then carried on regardless. On
+  2026-08-26 the MusicBrainz release picker was still open when section F reached
+  `rip`; the guard correctly refused to press Start behind a modal, and **the
+  operator had to answer the picker by hand** to unblock a run whose entire point
+  is being unattended. A comment where a check belongs is not a fix (`CLAUDE.md`),
+  so section E now ends in `abort-if-failed`.
+- **Both "a dialog is blocking this step" messages named the wrong verb for the
+  release picker.** `rip`'s guard and `wait-for-rip`'s no-worker branch each told
+  the operator to use `answer-dialog`, which presses a *button*; the picker needs
+  a *row selected*, which only `pick-release` does — so following the advice would
+  have pressed Ok on a picker with nothing chosen. Every word of the diagnosis was
+  true and the remedy was wrong, which is the shape `CLAUDE.md` warns about. Fixed
+  at **both** sites in one change, with a test that reads both handlers: a
+  behavioural test of one would have passed while the other stayed wrong
+  (`docs/testing.md` §5.o — a rule enforced where it was learned is not enforced).
+  `wait-for-rip`'s version also corrects *where* the fix goes: the picker opens
+  from the disc scan, so `pick-release` belongs **before** `rip`, not between
+  `rip` and the wait.
+
 ## [0.6.28] — 2026-08-26
 
 ### Fixed
+- **`our_pin()` returned a commit the squash-merge was about to delete.** It
+  pickaxed the version literal with no scope, so on a session branch it named a
+  branch commit: `git cat-file -e` passed in this clone and the sha was
+  **unfetchable for the cyanrip fork**, which is the opposite of what a pin is
+  for. Round-14 lap 18 went out declaring `ed4f300`; after the merge all four CI
+  matrix legs failed on the pin check this same release added, and the commit
+  that actually carries 0.6.28 is `b524936`. **Same defect class as the one the
+  function was written to fix — a value that is correct about the wrong scope.**
+  The search now goes `origin/main`, then `main`, and only falls back to the
+  branch before a bump is merged; a new test asserts the pin is reachable from
+  the default branch, skipping rather than passing when no default branch is
+  present locally.
+- **…and the tests that check it were reading an empty git history in CI.**
+  `actions/checkout` defaults to `fetch-depth: 1` — one commit, no tags — so
+  every question the suite asks git about the past came back empty on the runner.
+  That is why a branch run went green and the identical tests went red the moment
+  they ran against `main`. Reproduced by cloning `--depth 1` locally rather than
+  reasoned about. Two fixes, because either alone is wrong: the `test` job now
+  sets `fetch-depth: 0` (the `changelog` and `media-guard` jobs already did — the
+  precedent was in the same file), **and** the history-dependent checks now
+  **skip, loudly**, when the repository is shallow. Skipping matters as much as
+  the depth: answering *"no problems found"* from a record that contains nothing
+  is the satisfied-by-finding-nothing shape, and a green tick from a check that
+  could not see its subject is worse than a red one.
 - **The app's own install menu offered nothing that could satisfy the app's own
   acceptance run.** `--install-ripper list` is built from `ripper_choices()`,
   which offered the approved build and `FORK_TEST_PIN` — a constant last moved in
@@ -11072,7 +11428,10 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.28...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.31...HEAD
+[0.6.31]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.30...v0.6.31
+[0.6.30]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.29...v0.6.30
+[0.6.29]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.28...v0.6.29
 [0.6.28]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.27...v0.6.28
 [0.6.27]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.26...v0.6.27
 [0.6.26]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.25...v0.6.26
@@ -11188,4 +11547,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.28.*
+*Last updated for Platterpus v0.6.31.*

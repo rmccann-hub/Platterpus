@@ -11,6 +11,172 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-28 — the front page was stale, and my own fix cost the run
+
+**v0.6.31.** Two things happened, and they are connected by the same question.
+
+**The rig failure.** The overnight attempt followed the procedure and installed
+the *correct* pin — and still stopped at section E in five seconds:
+
+    19:43:06,182  drive changed -> `_start_disc_info` clears `_current_disc_id`
+    19:43:06,432  the release picker (already open) is answered, row 1 of 4
+    19:43:06,435  the release fetch is emitted for that disc
+    19:43:06,928  the detail lands; `_current_disc_id` is STILL "" -> DROPPED
+    19:43:11,899  the recovery lookup is suppressed by the already-answered guard
+
+The disc never changed. A rescan of the **same** disc landed between opening the
+picker and answering it. `_is_stale_mb_result` asked *"is this for the disc on
+screen?"* and got *"there is no disc on screen"* — not the same as *"this is for a
+different disc"*, and only the second is stale.
+
+**The uncomfortable half: yesterday's duplicate-picker guard is part of it.** The
+second lookup *was* the recovery. Before the guard, it would have re-opened the
+picker and the tracks would have loaded. I turned an annoying duplicate into no
+tracks at all — the exact question `CLAUDE.md` asks of a correctness fix (*what
+does the code downstream do with answers it never used to receive?*), asked a day
+late. Two of yesterday's changes did work and are why it was diagnosable in one
+pass: the guard logged its decision at INFO, and the strengthened `pick-release`
+refused to report PASS without loaded tracks.
+
+**And my first fix re-opened the wrong-album bug.** Relaxing staleness whenever
+the detail matched `_mb_release_chosen_for` is unsafe: `_on_disc_info_ready` sets
+`_current_disc_id` without clearing that marker, so `marker=disc-A` with `disc-B`
+on screen is reachable. The belt test written for something else caught it. Scoped
+to the transient-empty window instead.
+
+**The documentation audit, prompted by the maintainer reading the README.** Every
+gate was green and the front page asserted five false things in one sentence — the
+version, the round range, the round state, the installed pin, and a remedy that
+was *verbatim the advice 0.6.30 had removed from the app for being wrong*. The
+stamp gate passed because the stamp was **correct**: the file had been restamped in
+the release commit, and a stamp records when a doc was *edited*. §1 passed because
+it compares **minors** — `(0,6) < (0,6)` is false.
+
+11 audit slices with an adversarial verify pass: 142 raw findings, **87 confirmed,
+2 refuted, 30 the auditors missed**. Three verify agents died on the org's monthly
+spend limit, so 52 findings across `dependency-contracts.md`,
+`hardware-test-checklist.md`, `eac-parity.md` and others are **unverified and not
+applied** — a false finding corrupts a correct document.
+
+**What the audit found that matters beyond the numbers.** `CLAUDE.md` contradicted
+itself on what closes a round (*"until OUR verification declares GO"* against
+obligation (1) one line above saying **both**) — the one-half-of-a-two-half-contract
+failure, inside the sentence naming it. The handshake doc said *"protocol version:
+2"* through all of v3 and v4. And **two documents both described themselves as "the
+standing answer, rewritten in place"**, drifting independently; rule #7 says a
+second doc duplicating a home is worse than one long home, so §7.6 became a pointer
+and the wire-facing status file was rewritten.
+
+**The systemic pattern, and the durable lesson:** index rows *quote* counts and
+versions from the files they describe — "seven universal rules" (18),
+`SEAM-RULES-VERSION: 1` (5), "20-row conformance table" (37). A quoted number in a
+map is a guaranteed drift. Those rows now point at the source, which is the same
+delegate-don't-restate move made in the code the same morning. That measurement
+also exposed a real gap now filed rather than papered over: we claim *"one test per
+conformance row"* in two places and it is 37 rows, 24 tests.
+
+**And the enforcement, because a text fix rots.** `test_no_stale_version_claims.py`
+§4 checks the front page's *facts*: the exact `__version__`, that install claims
+name `FORK_PIN` and not a retired pin, and — delegated to
+`fork_source.a_round_is_reviewing_a_build()` — that no doc asserts an open round
+when none is. The README does not get its own opinion about whether a round is
+open. The claim window was too narrow **three times, each differently**, and a tool
+found all three: `[^.\n]` died at the version string's first full stop, `[^\n]` at
+the README's hard wrap (reported **VACUOUS** by `revert_probe.py` rather than
+passing), and the subject extractor missed the `platterpus-fork-g<sha>` form.
+
+## 2026-08-27 — the abort worked; the advice beside it did not
+
+**v0.6.30.** The overnight acceptance attempt aborted in two seconds at
+section A, correctly, on a wrong-ripper precondition. The bundle showed
+`platterpus 0.6.29 (43a33b4)` and `cyanrip 0.9.4-rc2+platterpus.11
+(platterpus-fork-g978f9b0)` both installed cleanly and **zero rips**. Nothing was
+broken. What cost the night was one sentence:
+
+> the installed cyanrip is NOT platterpus-fork-gd9c058c, the build the **open
+> handshake round** is reviewing. […] Install it: Settings → the ripper beta
+> channel, then take the offer.
+
+Round 14 had closed hours earlier. Two defects in one message, and I had also
+told the operator to install `978f9b0` while shipping a script that demands
+`d9c058c` — so the wrong-ripper abort was firing on advice I gave.
+
+**The stale-round claim existed in THREE places, and two were wrong.** Fixing it
+where it was reported would have left the other one. `docs/testing.md` §5.o
+again, and this is the third time that section has been the operative rule:
+
+| surface | what it said | state |
+|---|---|---|
+| the acceptance script's FAIL text | *"the build the open handshake round is reviewing"* | **wrong** |
+| `fork_source.UNDER_REVIEW_TARGET.why` | *"round 14 is the round that would [approve], and it is open"* — install-time text, with a hard-coded round **number** | **wrong** |
+| `runner._pin_role_phrase()` | derived it correctly | right, and it was the *third* implementation, added because the second was wrong |
+
+So: **one predicate, every surface delegating.**
+`fork_source.a_round_is_reviewing_a_build()` reads it off the two pins, because
+closing a round *is* the act of making `PIN_UNDER_REVIEW` and `FORK_PIN` the same
+commit — there is no flag anyone must remember to clear. `same_commit` moved up 70
+lines so the constants can call it at import time, rather than a second prefix
+comparison being inlined where it was needed. The **relation** is asserted, which
+is a property no test of a single surface can express.
+
+**Two of this session's fixes were caught by the project's own sweeps, not by
+me.** Both are worth recording because in both cases my draft was defensible and
+the sweep was right:
+
+* `tests/test_self_invocation_sweep.py` refused the new remedy text: I had
+  hardcoded `platterpus --install-ripper` **and** `./platterpus-x86_64.AppImage
+  --install-ripper` joined by an "or". There is no `platterpus` on `PATH` for an
+  AppImage install — the primary channel — and handing an operator two commands
+  one of which fails is the work-handed-back shape in miniature.
+  `build_info.self_invocation()` prints the one that works on the machine reading
+  it.
+* the new handshake-citation sweep failed on its own first run, against the
+  challenge ledger it was written for. Two rows cited
+  `inbound/round-10-lap-04.md` and `inbound/round-11-lap-02.md` — the paths the
+  **fork** uses for them. Both are ours and sit in `verified/`, because the roles
+  reverse across the seam. A third row was off by one line. **A path copied out of
+  a peer's lap points at nothing here, and points at nothing silently.**
+
+**Two surfaces, one bound.** The morning collector reported `cyanrip --version`
+as `(probe failed: exit 124)` in the same bundle where the app's own `--doctor`
+printed `[✓] cyanrip reachable`. The adapter allows
+`_INFO_TIMEOUT_S == 120.0` for that call, measured against a cold Distrobox
+container; the collector killed it at **60**. And the banner had already arrived
+before the kill, rendered identically to a probe that returned *nothing* — which
+is the opposite diagnosis. The probe now takes its bound from the adapter's
+(asserted, not copied), redirects stdin from `/dev/null` the way the adapter
+deliberately does, keeps whatever arrived, and says which of the two it saw.
+Tested by running it against all three outcomes, because the claim is that it
+*distinguishes* them.
+
+**FUN512 shape validation, from the fork's mutation sweep.** They found
+`for (int j = 0; j < strlen(digest_str); j++)` mutated to `<=` and **surviving**.
+It would not have been caught here either: our pattern captured `\S+`, so an
+87-character digest went into an archival log looking correct. The expected
+length is **derived** — a 512-bit digest in a 64-character alphabet needs
+`ceil(512/6) == 86` — and the line pattern stays permissive on purpose, because
+tightening it would make a malformed signature report as a *missing* one, and
+those are different claims a reader acts on differently.
+
+**The challenge ledger now exists** (`docs/cyanrip-handshake.md` §9), required by
+rule #12 since the fork got its standing challenge mandate. Ten resolved
+challenges, **5–5**, reported with the qualification that matters more than the
+tally: **nine of the ten predate the mandate**, so the maintainer's question is
+*not yet measurable*. The instruction was to measure rather than to decide from
+the feel of a lap, and the honest answer today is "too early". The useful column
+is the mechanism one: our errors cluster in *verification*, theirs in
+*attribution*.
+
+**Filed for round 15, NEXT-ROUND not BLOCKING, with the S-14 reasoning written
+out.** The fork's `release-manifest.json` labels `978f9b0` with
+`handshake_round: 14, round_closed: true`. Round 14 approved **`platterpus.10` at
+`d9c058c`** — both sides declared that build tag at column 0 in laps 17, 18 and
+19. It breaks nothing here, and that is *measured*: `evaluate_offer` returns
+`install_commit=d9c058c` on both channels and `approve_ripper` grades it
+`approved`, so the relation the 2026-08-18 key-mismatch fix installed **holds
+against the live manifest**. The app ignores the round label and keys on build
+identity, which is exactly why that fix exists.
+
 ## 2026-08-26 — one fact in two slots, twice, and the second one would have cost the night
 
 **Round 14 laps 17 → 18, and v0.6.28.** The fork's lap 17 §H2a found that
@@ -3963,4 +4129,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.28.*
+*Last updated for Platterpus v0.6.31.*

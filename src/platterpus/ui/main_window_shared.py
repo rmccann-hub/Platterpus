@@ -162,6 +162,24 @@ class MainWindowShared(_SeamBase):
     _last_mb_releases: list[ReleaseSummary]
     _manual_cover_path: str | None
     _current_disc_id: str
+    #: The disc-id we have already committed a MusicBrainz release for, in the
+    #: current scan. Empty until one is chosen; reset by every new disc probe.
+    #:
+    #: **Not the same question as `_current_disc_id`, and that is the whole
+    #: point.** `_is_stale_mb_result` asks *"is this result for the disc on
+    #: screen?"*, which protects against a lookup landing after the user swapped
+    #: discs. It has no opinion on a **second** result for the disc you are still
+    #: looking at — so two lookups that race for one disc both pass it, and each
+    #: opens its own modal picker.
+    #:
+    #: Measured on the rig 2026-08-26: a rescan produced two disc probes, their
+    #: MusicBrainz lookups returned **407 ms apart** for the same disc-id, and the
+    #: second picker opened 378 ms after the first was answered. It blocked every
+    #: step for **53.5 s** until a person clicked it — in an unattended overnight
+    #: run — and they picked a *different* release than the first answer, which
+    #: silently replaced the tags already chosen. Seven of that run's seven
+    #: failures descend from it.
+    _mb_release_chosen_for: str
     _current_num_tracks: int
     #: True when this launch is driving the GUI from a script rather than for a
     #: person (``--run-script``, or the saved autorun pair). Set by ``app.py``
