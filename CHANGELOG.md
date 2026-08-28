@@ -11,6 +11,54 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The acceptance script's own header sent the operator to the wrong cyanrip
+  build**, and would have aborted the run in about five seconds — the same
+  five-second abort that cost the 2026-08-27 night. It said *"Be on the newest
+  cyanrip. Settings → tick the ripper **beta** channel"*, and both halves are
+  now wrong: the fork has published `0.9.4-rc2+platterpus.11` (`978f9b0`) since,
+  which is **newer and unreviewed**, so taking it makes every rip report
+  `unapproved` and section A refuses to run. Naming a *channel* is what made it
+  hard to spot — `d9c058c` **is** a beta-channel build, so ticking beta looks
+  right and only the "newest" part breaks.
+
+  It was written while a round was open, and read correctly then. With rounds
+  1–14 all closed, *"the build the open handshake round is reviewing"* resolves
+  to the approved production pin instead. **The app had this right the whole
+  time** — `ripper_offer.auto_installable` is true only for a build our own
+  record approves, so the one-click offer is already the correct one — but the
+  file a person reads did not. The header now points at
+  Help → Check for cyanrip updates and says plainly that the wanted build is not
+  always the newest, rather than restating a channel that drifts. Found by
+  checking the instruction against `fork_source` before handing it over, not by
+  reading it.
+
+### Added
+- **`tests/test_rig_scripts.py` now checks the acceptance script's PROSE against
+  the pin it depends on**, because the steps were swept and the header was not.
+  Two gates: the header must name `FORK_PIN` and `FORK_EXPECTED_VERSION` (so a
+  moved pin fails here and says what the text must now say — the old header
+  could not go stale *detectably*), and it must not instruct the operator onto
+  the newest ripper. **The second one over-fired on its first run**, on the
+  header's own opening line *"Be on the newest Platterpus"* — which is correct
+  advice, because the app has no reviewed-build constraint and the ripper does.
+  It now requires the subject to be named. A check that fires on correct text is
+  a check somebody deletes, so the narrowing is pinned by a twin that asserts
+  that exact line stays allowed. 3 reverts probed: both gates fire, and an
+  unrelated edit to the Platterpus line leaves them unaffected.
+- The round-14 transport envelope is repacked, because it carries the acceptance
+  script as exact bytes and a part of it changed. Caught by
+  `test_the_envelope_splits_back_into_byte_identical_parts`, which is the check
+  working as designed: an artifact that embeds a file must not drift from it.
+  Worth stating for anyone comparing copies — **the envelope the fork already
+  holds carries the pre-correction header**, so a re-send is what delivers the
+  fix; the envelope is a packing of current parts, not a dated record of a send.
+  The record of what was sent is the lap file, which is unchanged.
+- The same header still told a reader the script lives at
+  `docs/rig-scripts/fullacceptance.txt` and is run with `--run-script`. It has
+  shipped **inside the app** since v0.6.32 and is reached from
+  Tools → Run acceptance test.
+
 ## [0.6.32] — 2026-08-28
 
 ### Fixed

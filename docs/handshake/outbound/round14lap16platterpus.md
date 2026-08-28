@@ -21,7 +21,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 | file | bytes | sha256 |
 | --- | --- | --- |
 | `round-14-lap-16.md` | 17,475 | `de58b0dce37bdd35…` |
-| `fullacceptance.txt` | 35,356 | `b9344292cbdc398a…` |
+| `fullacceptance.txt` | 36,215 | `eeba82b87e515cc1…` |
 
 ## Reader
 
@@ -381,13 +381,15 @@ now starts.
 **The disc is the only thing left on our side.** The round is yours to close.
 <<<<<<<<<< END round-14-lap-16.md >>>>>>>>>>
 
-<<<<<<<<<< BEGIN fullacceptance.txt sha256=b9344292cbdc398a11c33f71d76edb835e2cdc34a5b329af50f7e25c5894f283 >>>>>>>>>>
+<<<<<<<<<< BEGIN fullacceptance.txt sha256=eeba82b87e515cc1bea4c7322f26632536a3a2d510df2debb760db968512a50a >>>>>>>>>>
 # =============================================================================
 # FULL ACCEPTANCE RUN — end to end, every path the program has, one pass
 # =============================================================================
 #
-#   How to run it:  ./platterpus-x86_64.AppImage --run-script fullacceptance.txt
-#   Where it lives: docs/rig-scripts/fullacceptance.txt
+#   How to run it:  Tools -> Run acceptance test...  (the app does the rest:
+#                   session folder, sleep lock, the run, and one file to send)
+#   Where it lives: INSIDE the app, since v0.6.32 — there is nothing to download.
+#                   Source: src/platterpus/rig_scripts/fullacceptance.txt
 #   What it costs:  4 to 6 hours. LEAVE IT RUNNING OVERNIGHT.
 #                   It rips the whole disc TWICE (once fast, once with every
 #                   track read at least twice) plus six short partial rips.
@@ -413,10 +415,21 @@ now starts.
 # -----------------------------------------------------------------------------
 # 1. Be on the newest Platterpus. Help -> Check for updates, or download the
 #    AppImage from the releases page.
-# 2. Be on the newest cyanrip. Settings -> tick the ripper **beta** channel,
-#    then take the install offer. Section A asserts you are on the exact build
-#    the open handshake round is reviewing and STOPS THE RUN in the first few
-#    seconds if you are not — before any drive time is spent.
+# 2. Be on the cyanrip build THIS Platterpus expects — which is **not** always
+#    the newest one. Help -> Check for cyanrip updates..., and take the offer it
+#    presents as a plain one-click install. An offer that WARNS you first is a
+#    newer build no closed round has reviewed: taking it makes every rip report
+#    `unapproved`, and section A will refuse to run on it.
+#
+#    Do not reach for a channel toggle to decide this. The app already knows the
+#    answer and the answer moves: as of v0.6.32 the wanted build is
+#    `0.9.4-rc2+platterpus.10` (`d9c058c`), the approved production pin with no
+#    round open — while the fork has published `+platterpus.11` since, which is
+#    newer and would abort the run. This comment named a channel until
+#    2026-08-28 and was already pointing at the wrong build.
+#
+#    Section A asserts the exact expected build and STOPS THE RUN in the first
+#    few seconds if you are not on it — before any drive time is spent.
 #
 #    That stop is real as of this version. It used to be a promise this file
 #    could not keep: nothing but `abort` ends a batch and this file never used

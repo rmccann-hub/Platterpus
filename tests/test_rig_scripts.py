@@ -1071,3 +1071,122 @@ def test_a_partly_privileged_inhibitor_downgrades_rather_than_eating_the_run(
     assert result.returncode == 0, (
         f"expected exit 0; got {result.returncode}\n{out[-1500:]}"
     )
+
+
+# ==========================================================================
+# The acceptance script's PROSE, checked against the pin it depends on
+# ==========================================================================
+#
+# Everything above checks the script's *steps*. Its header is prose, and on
+# 2026-08-28 the prose was the defect: it told the operator
+#
+#     Be on the newest cyanrip. Settings -> tick the ripper **beta** channel
+#
+# and both halves had gone wrong. The fork had published `+platterpus.11`
+# (`978f9b0`) since, which is newer and reviewed by no closed round — so taking
+# it makes every rip report `unapproved` and section A refuses to run, aborting
+# the night in about five seconds. That is the same five-second abort that cost
+# the 2026-08-27 run.
+#
+# What made it hard to see is that naming a CHANNEL was not obviously false:
+# `d9c058c` **is** a beta-channel build, so "tick beta" reads correctly and only
+# "the newest" breaks. The sentence was written while a round was open, when
+# "the build the open round is reviewing" *was* the newest; with rounds 1-14 all
+# closed it resolves to the approved production pin instead.
+#
+# The app was right the whole time — `ripper_offer.auto_installable` is true only
+# for a build our own record approves. The gap was between a constant the code
+# reads and a paragraph a person reads, with nothing comparing them. So: tie the
+# prose to the constant, and let the pin moving be what fails this test.
+
+
+#: "Take the newest one" as an INSTRUCTION, and only about the ripper. The
+#: subject has to be named: the header's first line says "Be on the newest
+#: Platterpus", which is correct advice — the app has no reviewed-build
+#: constraint, the ripper does.
+_TAKE_THE_NEWEST: re.Pattern[str] = re.compile(
+    r"\b(be on|take|install|use|get)\b[^.]{0,40}\bnewest\b[^.]{0,40}"
+    r"\b(cyanrip|ripper)\b",
+    re.IGNORECASE,
+)
+
+
+def _acceptance_header() -> str:
+    """The comment block before the first executable step."""
+    lines = ACCEPTANCE.read_text(encoding="utf-8").splitlines()
+    header: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            break
+        header.append(line)
+    return "\n".join(header)
+
+
+def test_the_header_names_the_build_the_app_actually_expects() -> None:
+    """Tie the prose to `fork_source`, so a moved pin fails here.
+
+    Asserted on the CONSTANTS rather than on a copy of them: when the pin moves,
+    this goes red and names what the header must now say. That is the whole
+    mechanism — the previous header could not go stale *detectably*.
+    """
+    from platterpus.deps.fork_source import FORK_EXPECTED_VERSION, FORK_PIN
+
+    header = _acceptance_header()
+    assert len(header) > 500, (
+        f"the acceptance header is only {len(header)} characters — the block "
+        f"detector has stopped finding it and this check is measuring nothing"
+    )
+    for value, label in ((FORK_PIN, "pin"), (FORK_EXPECTED_VERSION, "version")):
+        assert value in header, (
+            f"the acceptance script's header does not name the {label} the app "
+            f"expects ({value!r}). Section A refuses to run on anything else, so "
+            f"a header naming a different build — or none — sends the operator to "
+            f"a five-second abort. Update the header, not this test."
+        )
+
+
+def test_the_header_does_not_tell_the_operator_to_take_the_NEWEST_ripper() -> None:
+    """The regression test for the 2026-08-28 defect.
+
+    Narrow in TWO directions, and the second was found by running it. The header
+    legitimately *discusses* newer builds — it has to, to explain why they abort
+    — so this cannot flag the word "newest" anywhere. And its first line is
+    "Be on the newest Platterpus", which is **correct**: for the app, newest is
+    right, because the app is not the thing a closed round approved. Only the
+    RIPPER has a reviewed build that is not always the latest.
+
+    So the match requires the subject to be named. A check that fires on correct
+    advice is a check somebody deletes.
+    """
+    header = _acceptance_header()
+    offenders = [
+        line.strip() for line in header.splitlines() if _TAKE_THE_NEWEST.search(line)
+    ]
+    assert not offenders, (
+        "the acceptance header instructs the operator onto the NEWEST cyanrip. "
+        "The newest is not always the reviewed one — a build no closed round has "
+        "approved makes every rip report `unapproved` and section A aborts the "
+        "run:\n  " + "\n  ".join(offenders)
+    )
+
+
+def test_the_newest_ripper_check_can_fire_and_does_not_over_fire() -> None:
+    """Non-triviality, both directions — the second half is why it is a regex
+    over verbs rather than a search for one word."""
+    pattern = _TAKE_THE_NEWEST
+    assert pattern.search("# 2. Be on the newest cyanrip. Settings -> tick the"), (
+        "the exact sentence this test exists for is no longer detected"
+    )
+    for allowed in (
+        "#    the newest one. Help -> Check for cyanrip updates...",
+        "#    which is **not** always the newest build.",
+        "#    An offer that WARNS you is a newer build no closed round reviewed.",
+        # CORRECT ADVICE, and the reason this pattern names its subject: for the
+        # APP, newest is always right. This line is in the real header.
+        "# 1. Be on the newest Platterpus. Help -> Check for updates, or download",
+    ):
+        assert not pattern.search(allowed), (
+            f"prose explaining WHY the newest is wrong is being flagged as the "
+            f"instruction to take it: {allowed}"
+        )
