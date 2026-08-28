@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.31] — 2026-08-28
+
 ### Fixed
 - **A rescan of the SAME disc, landing between the release picker opening and
   being answered, threw the answer away — and this morning's duplicate-picker
@@ -11426,7 +11428,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.30...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.31...HEAD
+[0.6.31]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.30...v0.6.31
 [0.6.30]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.29...v0.6.30
 [0.6.29]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.28...v0.6.29
 [0.6.28]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.27...v0.6.28
@@ -11544,4 +11547,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.30.*
+*Last updated for Platterpus v0.6.31.*
