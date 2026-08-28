@@ -253,6 +253,19 @@ class MainWindow(
     # with the BundleResult, so the "Report bundle" button is enabled on the GUI
     # thread. Fires for EVERY rip outcome — success, partial, cancelled, failed.
     evidence_bundle_done = Signal(object)  # evidence_bundle.BundleResult
+    # Emitted (from the acceptance session's sleep-lock daemon thread; queued to
+    # the GUI thread) with a sleep_inhibit.InhibitOutcome — the TRI-STATE verdict
+    # on whether idle/sleep/lid suspend is actually held off for the run.
+    # `acquire()` runs a real probe with a 10 s budget, so it cannot be called on
+    # the GUI thread; this signal is how its answer gets back. The run starts when
+    # it lands, whatever the verdict says (a downgrade must not abort the night —
+    # it must be reported).
+    acceptance_inhibitor_done = Signal(object)  # sleep_inhibit.InhibitOutcome
+    # Emitted (from the acceptance session's bundle daemon thread; queued to the
+    # GUI thread) with the BundleResult for the whole session, so the "send this
+    # one file" dialog opens on the GUI thread. Fires whether the archive was
+    # written or failed — `.error` is a real answer and reaches the user.
+    acceptance_bundle_done = Signal(object)  # evidence_bundle.BundleResult
     # Emitted (from the post-transcode derived-verify daemon thread; queued to
     # the GUI thread) with the DerivedVerifyResult, so the per-format proof of
     # the derived MP3/WavPack/WAV files renders on the GUI thread.
@@ -667,6 +680,11 @@ class MainWindow(
         self.derived_verify_done.connect(self._on_derived_verified)
         # The one-file report bundle — enables the "Report bundle" button.
         self.evidence_bundle_done.connect(self._on_evidence_bundle_done)
+        # The overnight acceptance session's two off-thread steps: the sleep lock
+        # (its verdict starts the batch) and the session bundle (its result names
+        # the one file to send). Both daemons emit these; the slots run here.
+        self.acceptance_inhibitor_done.connect(self._on_acceptance_inhibitor_ready)
+        self.acceptance_bundle_done.connect(self._on_acceptance_bundle_done)
         self.checksums_done.connect(self._on_checksums_done)
         # Re-rip comparison banner (when a prior rip of the same disc exists).
         self.rip_comparison_done.connect(self._on_rip_comparison_done)
@@ -826,6 +844,18 @@ class MainWindow(
             self._rip_worker is not None,
         )
 
+        # The overnight acceptance session, if one is armed. Disarmed and its
+        # sleep lock released BEFORE the console is closed, and that order is
+        # load-bearing on both counts:
+        #
+        #   * The lock is a `systemd-inhibit` CHILD PROCESS. A leaked one keeps
+        #     the machine awake until reboot, with nothing left on screen to say
+        #     why — so it is dropped on every exit path, this one included.
+        #   * Closing the console *ends the run*, which fires `run_finished`,
+        #     which would otherwise start a bundle daemon in the middle of a
+        #     teardown. Clearing the session first makes that slot a no-op.
+        self._end_acceptance_session("the window was closed")
+
         # The test-script console holds a QTimer-driven runner and, possibly, a
         # ripper subprocess. Close it FIRST: its own closeEvent stops the run and
         # kills any in-flight child, so the teardown below is not racing a script
@@ -972,6 +1002,15 @@ class MainWindow(
         # rather than a package (docs/testing.md §5.p).
         script_action = tools_menu.addAction("Run &test script…")
         script_action.triggered.connect(self.open_script_console)
+
+        # The whole overnight acceptance session, as one menu item. It used to be
+        # two bash scripts and a thing to remember in the morning; the maintainer's
+        # ruling was that a program that hands back commands is handing back work
+        # ("this was supposed to be a no cli program"). See the block comment above
+        # `ProvisioningMixin.run_acceptance_session`.
+        #
+        acceptance_action = tools_menu.addAction("Run &acceptance test…")
+        acceptance_action.triggered.connect(self.run_acceptance_session)
         # The dependency check lives only on the Settings dialog's
         # "Check dependencies" button (it also runs automatically at
         # launch) — no duplicate Tools-menu entry.
@@ -1011,6 +1050,10 @@ class MainWindow(
             uninstall_action,
             update_action,
             ripper_update_action,
+            # Locked during a rip like the rest: an acceptance session rips
+            # discs itself, so starting one on top of a live rip would have two
+            # sessions driving one drive.
+            acceptance_action,
         ]
         logs_action = help_menu.addAction("Open &logs folder…")
         logs_action.triggered.connect(self._on_open_logs_folder)

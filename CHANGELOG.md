@@ -12,6 +12,33 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **Tools → "Run acceptance test…" — the app runs the whole session itself.**
+  Maintainer, 2026-08-28: *"make the app make the rig folder and anything else,
+  this was supposed to be a no cli program, not give me commands to use"*. It
+  makes the session folder, takes the sleep/idle/lid lock, drives the built-in
+  acceptance batch, releases the lock, and packs **one** file — with a button
+  that opens its folder. `platterpusovernight.sh` and `platterpusmorning.sh` are
+  what it replaces.
+  - **The lock verdict is reported, never silently downgraded**, and an
+    `unavailable` / `not_installed` lock does **not** abort the run — a run that
+    happens and might get suspended beats a run that did not happen, which is
+    the shell script's own reasoning, kept.
+  - **Nothing modal is shown while the batch runs.** A message box during a run
+    is found by the script's own `expect-dialog` / `cancel` verbs — the
+    2026-08-18 defect where a timer's modal landed over a live rip. The sleep
+    verdict goes to the log, the live log view and the end-of-session dialog
+    instead.
+  - **Both the lock probe and the bundle run off the GUI thread**, on daemon
+    threads reporting back through queued signals, and the tests assert *thread
+    identity* rather than that a thread was mentioned.
+  - **It does not call `open_script_console(autorun=True)`**, deliberately: that
+    starts whatever the editor already holds, *before* our script is loaded —
+    the 2026-08-13 rig defect that produced a clean transcript of a nine-line
+    sample nobody asked for. It uses the same load-then-run pair `--run-script`
+    uses, so there is still one start path, not two.
+  - `ScriptConsoleDialog` grows a `run_finished` signal, emitted on **every**
+    path including a payload it cannot narrow — a holder of a released resource
+    must hear about the run ending on the untidy paths too.
 - **The rig scripts ship INSIDE the package** (`src/platterpus/rig_scripts/`),
   so the running program can open them. They used to live under `docs/`, which
   put the acceptance test — the thing a hardware session exists to run — outside
