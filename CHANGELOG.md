@@ -52,6 +52,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   than restated.
 
 ### Fixed
+- **59 documentation defects across 13 files**, each verified against the
+  artifact rather than against the finding's description of it, and applied by a
+  tool that refuses any anchor which is absent or occurs more than once and
+  asserts the file's hash changed. Six further findings were **refuted** and one
+  was already fixed — recorded here because a correction that gets less scrutiny
+  than a claim is its own failure mode (`CLAUDE.md`). The one that matters most:
+  **`SECURITY.md` promised that "Platterpus never deletes or overwrites your
+  existing files"**, and cited as its evidence the v0.4.22/v0.4.23 overwrite
+  guards — the exact guard that failed on 2026-08-23, when a one-character
+  prediction miss (`<` → U+2039) let a 2-track re-rip replace a finished
+  14-track archival master. Every word of the citation was true and it pointed
+  the reader at the failure. It now states what the software does, names the
+  v0.6.24 hardening that made the prediction resolve against what is on disk,
+  and keeps the earlier review as the earlier review.
+- **`docs/cyanrip-fork.md` §4 — the *executable* half of the fork runbook — told
+  a reader to `git switch platterpus`.** There is no such branch on
+  `rmccann-hub/cyanrip`; there is `master` and `platterpus-fork`. The recipe
+  failed at its second line. The app has always known the answer
+  (`deps/fork_source.FORK_BRANCH` is what `git clone --branch` is handed), so
+  the fix is the gate rather than the corrected string: a new sweep in
+  `tests/test_documented_ripper_flags_are_real.py` derives the expected branch
+  from that constant. **Scoped to fork context on purpose** — the first draft
+  swept every `git switch` in every doc and immediately flagged a correct,
+  generic `git switch my-branch` in a contributor example, and a check that
+  fires on correct text is a check somebody deletes.
 - **Mutation testing has never run. Seven weekly jobs reported `success` while
   measuring nothing**, and the job was structurally incapable of saying so.
   Found 2026-08-28 by reading the run *durations* instead of the conclusions:

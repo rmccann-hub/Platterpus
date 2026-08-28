@@ -2,10 +2,14 @@
 
 Platterpus rips audio CDs and can update itself from GitHub Releases. Two things
 matter most for security: the **integrity of the released binary** and the
-**safety of your music library** (Platterpus never deletes or overwrites your
-existing files — see the overwrite guards shipped in v0.4.22/v0.4.23: the
-unknown-disc auto-suffix and the known-disc re-rip Replace / Rip-to-new-folder /
-Cancel confirmation, both recorded in `CHANGELOG.md` and the 2026-07-08 trust
+**safety of your music library** (Platterpus does not delete or overwrite your
+existing files without asking — see the overwrite guards shipped in
+v0.4.22/v0.4.23: the unknown-disc auto-suffix and the known-disc re-rip
+Replace / Rip-to-new-folder / Cancel confirmation, hardened in v0.6.24 after
+the known-disc guard predicted the destination folder from an incomplete
+character table, missed a real collision, and let a finished rip be
+overwritten — it now resolves that prediction against what is on disk. All
+recorded in `CHANGELOG.md`, with the earlier review in the 2026-07-08 trust
 audit).
 
 ## Reporting a vulnerability

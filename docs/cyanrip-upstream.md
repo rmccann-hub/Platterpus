@@ -14,8 +14,8 @@ Consolidated from four separate documents so the subject has one home. Content i
 
 | Part | Was | Written |
 |---|---|---|
-| A | `docs/cyanrip-upstream.md` | 2026-07-31 |
-| B | `docs/cyanrip-upstream.md` | 2026-07-24 |
+| A | the former `cyanrip-improvements-wanted.md` | 2026-07-31 |
+| B | the former `upstream-pr-roadmap.md` | 2026-07-24 |
 
 ---
 
@@ -35,7 +35,7 @@ Consolidated from four separate documents so the subject has one home. Content i
 >
 > | Document | Owns |
 > |---|---|
-> | [`cyanrip-upstream.md`](cyanrip-upstream.md) | The **process** — do you need collaborator access (no), who the maintainer is, upstream style/CI/responsiveness, and the ranked *PR* list as of 2026-07-07 |
+> | **Part B of this file** (below) | The **process** — do you need collaborator access (no), who the maintainer is, upstream style/CI/responsiveness, and the ranked *PR* list as of 2026-07-07 |
 > | [`cyanrip-fork.md`](cyanrip-fork.md) | The **runbook** — fork/branch layout, re-merge discipline, and the two already-prepared patches |
 > | [`scripts/cyanrip/`](../scripts/cyanrip/) | The **execution kit** — the canonical paste-ready issue/PR bodies, the verified patcher, the build script |
 > | [`cyanrip-fork.md`](cyanrip-fork.md) | The **long-horizon options** — fork/combine feasibility, licensing, the §10 per-gap menu |
@@ -389,14 +389,17 @@ proposes, from any of several plausible labels:
 
 ```
     Extraction speed:  1.6 X        # also: Rip speed / Read speed / Speed
-    Elapsed:           00:03:13.180 # also: Elapsed time / Rip time /
-    Elapsed:           193.18 s     #       Extraction time / Time taken
+    Elapsed:           193.18 s     # also: Elapsed time / Rip time /
+                                    #       Extraction time / Time taken
 ```
 
 The speed multiple fills EAC's `Extraction speed` row directly. The elapsed gets
 its own field (`extraction_elapsed_seconds`, serialized in the JSON report from
-schema v10) and a row of its own, rendered only when measured. Clock forms with
-and without hours are both accepted, as is a plain seconds form with a unit.
+schema v10) and a row of its own, rendered only when measured. **A scalar with a
+unit only** — `s`/`sec`/`secs`/`seconds`. The `(HH:)MM:SS` clock rule was retired
+2026-08-21: no cyanrip build has ever emitted it, and the fork's pre-split
+combined form `Elapsed:  %s (%.1fx)` was refused by its end-of-line anchor. The
+shipped build emits `Elapsed:  %.2f s`.
 
 **We deliberately do not derive one from the other.** If the fork prints only the
 elapsed, EAC's speed row stays labelled rather than filled: what the interval
@@ -432,6 +435,14 @@ number from the ripper is the better answer.
 tells us whether a track's reads ever agreed — may be printed to stdout only and
 **not** written into cyanrip's own `.log`. If so, a cyanrip log re-parsed from
 disk later silently loses the strongest evidence in the whole rip.
+
+**⚠ Correction to our own record — the question is settled, and against this
+premise.** `Done;` was **never** stdout-only: `cyanrip_log()` writes the logfile
+before stdout, so the line was always in the log at 0.9.3 and at `master` — it
+was merely un-indented. The fork settled it from the source. The reasoning, and
+the one-track-offset bug the false premise caused once the fork indented the
+string in place, are recorded in `parsers/cyanrip_log.py` beside
+`_TRACK_SECURE_VERDICT`.
 
 **Evidence, and its limits.** This is the one item I could not settle from
 committed artifacts, and the reason is itself the finding:
@@ -577,16 +588,24 @@ pointers, so a "used" line would contradict the engine. **Do not print one.**
 
 #### 2.6 A cache-defeat report from the rip itself (low priority)
 
-**Gap.** cyanrip has no cache-defeat flag and emits **no cache line at all**, so
-its log alone yields `(unknown)` for EAC's `Defeat audio cache` row. Its engine,
-libcdio-paranoia, *attempts* cache defeat every rip (readahead exhaustion, plus
-FUA where the drive advertises it), but nothing in cyanrip's output confirms it
-happened.
+**Gap — partly delivered, and by the fork rather than upstream.** Upstream
+cyanrip has no cache flag and emits no cache line at all. The fork has a cache
+*probe* — `-x`/`--cache-probe`, from round 7 lap 1 — and emits `Cache probe:`
+(its own measurement: a range, a bound, or an explicit unknown) alongside
+`Cache model:` (paranoia's *modelled* size, renamed from `Cache defeat:` in round
+6 because the old label asserted an outcome the value disclaims). Neither is a
+cache-**defeat** verdict, so a log alone still yields `(unknown)` for EAC's
+`Defeat audio cache` row. Its engine, libcdio-paranoia, *attempts* cache defeat
+every rip (readahead exhaustion, plus FUA where the drive advertises it), but
+nothing in cyanrip's output confirms it happened.
 
-**Evidence** (**measured**): the committed reference log's banner has no
-cache-related row, and `parsers/cyanrip_log.py` has no cache pattern to remove —
-there is nothing to parse. The exporter therefore renders `(unknown)` rather than
-a fabricated `Yes` (KDD-25's rule, which survived KDD-29 intact).
+**Evidence** (**measured**): the committed 0.9.3 reference log's banner has no
+cache-related row; the fork's two rows are registered in `parsers/cyanrip_log.py`
+as *knowingly unparsed* — `Cache model:` because filling a measured field from a
+modelled figure is the fabricated `Yes` KDD-25 forbids, `Cache probe:` because it
+has no rendered home and is surfaced verbatim by `rig_check` instead. The
+exporter therefore renders `(unknown)` rather than a fabricated `Yes` (KDD-25's
+rule, which survived KDD-29 intact).
 
 **Affects.** **RECORD only.**
 
@@ -932,7 +951,7 @@ absence of any real `-Z` rip log in the repository.
 
 ---
 
-*Companion to [`cyanrip-upstream.md`](cyanrip-upstream.md) (process + the
+*Companion to **Part B below** (process + the
 2026-07 ranked PR list), [`cyanrip-fork.md`](cyanrip-fork.md)
 (runbook + prepared patches), [`scripts/cyanrip/`](../scripts/cyanrip/)
 (execution kit), and
@@ -1297,11 +1316,13 @@ Everything above is point-in-time. Before spending build/test hours:
 - [ ] **whipper native-YAML → Logchecker recognition** — re-verify empirically
       with the `analyze` command before relying on it as the fallback. *(Needs a
       local whipper + Logchecker run — hardware/tooling-gated.)*
-- [ ] **cyanrip release cadence** — **re-confirmed 2026-07-21: last tag still
-      0.9.3.1 (Jun 2024); `master` live** (commits into Mar 2026 per the dep
-      review + `cyanrip-fork.md` Part A §6). A merged cyanrip PR would be
-      consumed from `master` in the container — still an explicit, unmade
-      maintenance decision, not a verification to tick.
+- [x] **cyanrip release cadence** — **decided and executed (KDD-32,
+      2026-07-24).** Upstream's last tag is still 0.9.3.1 (Jun 2024) and it no
+      longer gates us: the `ripping` container builds the fork from a **pinned
+      commit** (`deps/fork_source.py` → `FORK_PIN`, `fork_build_commands`),
+      installed over the COPR package, with `platterpus --install-ripper` as the
+      out-of-release route because the pin moves faster than we ship. Nothing
+      left to tick.
 
 ---
 
@@ -1312,4 +1333,4 @@ never fake provenance — the signed EAC checksum stays permanently out of scope
 
 ---
 
-*Last updated for Platterpus v0.6.4b1.*
+*Last updated for Platterpus v0.6.31.*

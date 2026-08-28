@@ -8,14 +8,14 @@ For the **binding release protocol** with the fork see [`cyanrip-handshake.md`](
 
 ## Where this came from
 
-Consolidated from four separate documents so the subject has one home. Content is unchanged — each part below is the original file, whole, with its headings demoted one level.
+Consolidated from two separate documents so the subject has one home — part of a four-document merge that also produced `cyanrip-upstream.md`. Content is unchanged — each part below is the original file, whole, with its headings demoted one level.
 
 **Parts are lettered, not numbered, on purpose:** the originals number their own sections from 0, so a numbered wrapper would make a reference like *§2.1* ambiguous. `Part A §8` reads exactly one way.
 
 | Part | Was | Written |
 |---|---|---|
-| A | `docs/cyanrip-fork.md` | — |
-| B | `docs/cyanrip-fork.md` | — |
+| A | the former `ripper-engine-strategy.md` | 2026-06-23, living |
+| B | the former `cyanrip-soft-fork.md` | 2026-07-08 |
 
 ---
 
@@ -404,10 +404,15 @@ read offset, overread, C2, AccurateRip, etc.), scoring tools against it.
 **The finding.** Neither engine in our current lineage gives us a *measured*
 cache-defeat verdict:
 
-- **cyanrip** has no cache-defeat flag and prints no cache line in its log at
-  all (confirmed against `adapters/cyanrip_backend.py`'s argv builder and the
-  `parsers/cyanrip_log.py` finish-log parser — no cache-related field exists on
-  the banner to parse; it reads the offset, speed capability, and disc IDs).
+- **cyanrip** has no cache-**defeat** flag, and nothing it prints answers
+  "was the cache defeated". Upstream prints no cache line at all; **the fork
+  prints two** — `Cache model:` in every rip's banner (added round 5 as
+  `Cache defeat:`, renamed in round 6 because the old label asserted an outcome
+  the value disclaims) and, under `-x`/`--cache-probe` (added round 7 lap 1, at
+  our own round-5 request), a `Cache probe:` line. One is what paranoia
+  *models*, the other measures readback size, so neither may fill EAC's row:
+  both are registered in `parsers/cyanrip_log.py`'s knowingly-ignored table
+  with that reason recorded.
 - Its engine, **libcdio-paranoia**, *attempts* cache defeat every rip —
   readahead cache-exhaustion reads, plus FUA (Force Unit Access) where the
   drive advertises support — but this is **best-effort and drive-dependent**,
@@ -868,7 +873,7 @@ binary moves from a package to our build):
 ```sh
 # inside the `ripping` container
 git clone https://github.com/rmccann-hub/cyanrip && cd cyanrip
-git switch platterpus                 # our integration branch (master + patches)
+git switch platterpus-fork            # our integration branch (master + patches)
 meson setup build && ninja -C build
 # install/export build/src/cyanrip to the host ~/.local/bin/cyanrip (host_setup step)
 ```
@@ -896,4 +901,4 @@ cyanrip built it.
 
 ---
 
-*Last updated for Platterpus v0.6.4b1.*
+*Last updated for Platterpus v0.6.31.*
