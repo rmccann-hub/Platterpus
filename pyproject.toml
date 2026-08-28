@@ -369,3 +369,47 @@ exclude_also = [
     "if TYPE_CHECKING:",
     "\\.\\.\\.",  # `...` stub bodies on Protocol/ABC methods
 ]
+
+# Mutation testing (the weekly, non-gating test-EFFICACY audit —
+# .github/workflows/mutation.yml, whose header is the full story).
+#
+# THIS BLOCK EXISTS BECAUSE THE SCOPE USED TO LIVE ON THE COMMAND LINE, as
+# `mutmut run --paths-to-mutate "..."`. That is mutmut 2.x syntax; 3.0 removed
+# the flag, `mutmut` was installed unpinned, and the job then exited 2 in one
+# second for seven consecutive weekly runs — every one of them reporting
+# `success`, because both commands were suffixed `|| true`. Config in a file the
+# tool reads is harder to get silently wrong than a flag in a shell line, and
+# the pin in the workflow is what stops the file's schema moving under us.
+[tool.mutmut]
+# The trust-bearing pure logic, unchanged in intent from the old flag: the
+# parsers of external output, the AccurateRip verdict, and the CTDB CRC. These
+# are the modules where a wrong answer is silently archived rather than
+# crashing, which is what makes them worth mutating first.
+source_paths = ["src/platterpus"]
+only_mutate = [
+    "src/platterpus/parsers/*",
+    "src/platterpus/verdict.py",
+    "src/platterpus/ctdb/crc.py",
+]
+# Only the tests that exercise the above. Running all 4,686 per mutant is not a
+# 90-minute job; this selection is what makes the audit finish at all.
+pytest_add_cli_args_test_selection = [
+    "tests/test_verdict.py",
+    "tests/test_parsers_cd_info.py",
+    "tests/test_parsers_cyanrip_info.py",
+    "tests/test_parsers_cyanrip_log.py",
+    "tests/test_parsers_drive_list.py",
+    "tests/test_parsers_eac_log.py",
+    "tests/test_parsers_pregap_state.py",
+    "tests/test_parsers_rip_log.py",
+    # There is no `test_ctdb_crc.py`; `crc.py` is exercised through its callers.
+    # Derived by grepping for the import rather than assumed from the module
+    # name — the first draft of this list named a file that does not exist, and
+    # mutmut would have taken the selection at face value.
+    "tests/test_ctdb_verify.py",
+    "tests/test_ctdb_calibrate.py",
+    "tests/test_ctdb_diagnose.py",
+    "tests/test_ctdb_worker.py",
+    # The hypothesis "never raises" properties over the parsers.
+    "tests/test_parsers_property.py",
+]
