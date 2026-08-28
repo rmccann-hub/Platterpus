@@ -20,6 +20,7 @@ archive with nothing in it at all.
 
 from __future__ import annotations
 
+import os
 import tarfile
 from datetime import UTC, datetime
 from pathlib import Path
@@ -39,6 +40,7 @@ from platterpus.test_session import (
     finish_session,
     plan_session,
     prepare_session,
+    session_album_dirs,
     session_sources,
     session_stamp,
 )
@@ -530,3 +532,110 @@ def test_finish_session_returns_an_error_instead_of_raising(tmp_path: Path) -> N
     # the operator to fall back to.
     assert layout.root.is_dir()
     assert layout.transcript.is_file()
+
+
+# ==========================================================================
+# session_album_dirs — which rips belong to THIS session
+# ==========================================================================
+#
+# Discovered from disk rather than remembered as rips finish, because a run that
+# crashes or is cancelled still leaves finished rips and those are exactly the
+# ones somebody needs to send. `CLAUDE.md`: why am I predicting this at all when
+# I could read it?
+
+
+def _rip(root: Path, name: str, *, mtime: float) -> Path:
+    folder = root / name
+    folder.mkdir(parents=True, exist_ok=True)
+    report = folder / "disc.platterpus.json"
+    report.write_text("{}", encoding="utf-8")
+    os.utime(report, (mtime, mtime))
+    return folder
+
+
+def test_only_rips_from_this_session_are_collected(tmp_path: Path) -> None:
+    """The library the session wrote into is full of previous rips. Sending them
+    all would bloat the archive and imply the session produced them."""
+    old = _rip(tmp_path / "out", "Old Album", mtime=1_000.0)
+    new = _rip(tmp_path / "out", "New Album", mtime=3_000.0)
+
+    found = session_album_dirs([tmp_path / "out"], since=2_000.0)
+
+    assert found == [new], f"expected only the session's own rip, got {found}"
+    assert old not in found
+
+
+def test_both_the_output_and_library_folders_are_searched(tmp_path: Path) -> None:
+    """A finished rip is MOVED to the library folder, so a bundle that searched
+    only the output directory would miss exactly the rips that succeeded."""
+    staged = _rip(tmp_path / "out", "Still Working", mtime=3_000.0)
+    filed = _rip(tmp_path / "library", "Finished", mtime=3_100.0)
+
+    found = session_album_dirs([tmp_path / "out", tmp_path / "library"], since=2_000.0)
+
+    assert set(found) == {staged, filed}, f"a search root was ignored: {found}"
+
+
+def test_a_missing_search_root_does_not_lose_the_others(tmp_path: Path) -> None:
+    """A root we cannot read is a fact about this machine, not a reason to drop
+    the roots we can."""
+    real = _rip(tmp_path / "out", "Album", mtime=3_000.0)
+    found = session_album_dirs(
+        [tmp_path / "does-not-exist", tmp_path / "out"], since=2_000.0
+    )
+    assert found == [real]
+
+
+def test_the_cap_keeps_the_NEWEST_rips(tmp_path: Path) -> None:
+    """A misconfigured output directory pointing at a whole library would
+    otherwise put hundreds of folders through the bundler. What survives the cap
+    must be the most recent work, not an arbitrary slice."""
+    for index in range(6):
+        _rip(tmp_path / "out", f"Album {index}", mtime=3_000.0 + index)
+
+    found = session_album_dirs([tmp_path / "out"], since=2_000.0, limit=2)
+
+    assert len(found) == 2, f"the cap was not applied: {found}"
+    assert [p.name for p in found] == ["Album 5", "Album 4"], (
+        f"the cap kept an arbitrary slice rather than the newest: {found}"
+    )
+
+
+def test_a_folder_with_no_rip_report_is_not_an_album_folder(tmp_path: Path) -> None:
+    """The report file is the app's own evidence that a rip landed there. A
+    folder name is MusicBrainz metadata and is not ours to predict — that
+    prediction is what cost a 14-track master on 2026-08-23."""
+    plain = tmp_path / "out" / "Just A Folder"
+    plain.mkdir(parents=True)
+    (plain / "notes.txt").write_text("x", encoding="utf-8")
+
+    assert session_album_dirs([tmp_path / "out"], since=0.0) == []
+
+
+def test_album_dirs_reach_the_bundle_under_the_strict_allowlist(
+    tmp_path: Path,
+) -> None:
+    """End to end, and the half that matters: artwork from a discovered rip
+    folder must NOT enter the archive (Critical rule #8)."""
+    rip = _rip(tmp_path / "out", "Album", mtime=3_000.0)
+    (rip / "disc.log").write_text("RIPPER LOG", encoding="utf-8")
+    (rip / "cover.png").write_bytes(b"")
+
+    layout = plan_session(home=tmp_path / "home", stamp="20260828T000000Z")
+    prepare_session(layout)
+
+    result = finish_session(
+        layout,
+        sources=[],
+        album_dirs=session_album_dirs([tmp_path / "out"], since=2_000.0),
+    )
+    assert result.ok, result.error
+
+    with tarfile.open(result.path) as tar:
+        names = tar.getnames()
+    assert any(n.endswith("disc.log") for n in names), (
+        f"the rip's own log did not reach the bundle: {names}"
+    )
+    assert not [n for n in names if n.endswith(".png")], (
+        f"cover art entered the archive from a rip folder: {names}"
+    )

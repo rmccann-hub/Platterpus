@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
@@ -89,6 +90,12 @@ class ProvisioningMixin(MainWindowShared):
     #: The console we connected :attr:`ScriptConsoleDialog.run_finished` on, so a
     #: second session against the same console does not connect the slot twice.
     _acceptance_console: ScriptConsoleDialog | None = None
+    #: When the session started, as a POSIX timestamp. It decides which rip
+    #: folders belong to THIS session rather than to the library it wrote into —
+    #: read off the disk at the end rather than remembered as rips finish,
+    #: because a run that crashes or is cancelled still leaves finished rips and
+    #: those are the ones somebody needs to send.
+    _acceptance_started_at: float = 0.0
     #: The daemon that packs the bundle. Retained so a test can join it; nothing
     #: in production waits on it (it is fire-and-forget by design — see
     #: :meth:`_launch_acceptance_bundle`).
@@ -509,6 +516,7 @@ class ProvisioningMixin(MainWindowShared):
 
         self._acceptance_layout = layout
         self._acceptance_root = layout.root
+        self._acceptance_started_at = time.time()
         self._acceptance_script = script
         self._acceptance_inhibit_note = ""
         log.info(
@@ -771,13 +779,34 @@ class ProvisioningMixin(MainWindowShared):
         failure still arrives as a `BundleResult.error` the user is shown rather
         than as a traceback nobody sees.
         """
+        from pathlib import Path
+
         from platterpus.evidence_bundle import BundleResult
         from platterpus.paths import CONFIG_PATH, LOG_PATH
-        from platterpus.test_session import finish_session, session_sources
+        from platterpus.test_session import (
+            finish_session,
+            session_album_dirs,
+            session_sources,
+        )
 
         extra: list[Path] = [CONFIG_PATH]
         if artifact_dir is not None:
             extra.append(artifact_dir)
+
+        # WHERE THE RIPS LANDED. Read on the GUI thread (config access), used on
+        # the worker. `output_dir` is where a rip is written and `library_dir` is
+        # where a finished one is moved to, so a session's albums can be under
+        # either — and a bundle that searched only the first would be missing
+        # exactly the rips that completed successfully.
+        cfg = getattr(self, "_config", None)
+        roots: list[Path] = []
+        for value in (
+            getattr(cfg, "output_dir", "") or "",
+            getattr(cfg, "library_dir", "") or "",
+        ):
+            if value:
+                roots.append(Path(value))
+        since = self._acceptance_started_at
 
         def work() -> None:
             result = BundleResult()
@@ -793,11 +822,13 @@ class ProvisioningMixin(MainWindowShared):
                         layout.transcript,
                         exc,
                     )
+                albums = session_album_dirs(roots, since=since)
                 result = finish_session(
                     layout,
                     sources=session_sources(layout, log_path=LOG_PATH, extra=extra),
                     outcome="acceptance test session",
                     facts=facts,
+                    album_dirs=albums,
                 )
             except Exception as exc:  # noqa: BLE001 — must never crash the session
                 log.exception("could not pack the acceptance session")

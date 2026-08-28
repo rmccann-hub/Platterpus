@@ -12,6 +12,33 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **The session bundle now carries the rip folders**, which was the one thing
+  keeping the in-app path from replacing `platterpusmorning.sh`. `build_bundle`
+  admitted a single `album_dir` and an acceptance run produces several, so its
+  archive held the app log, transcript and screenshots but **none of the
+  per-album rip logs, cue sheets, reports or checksums** — the actual evidence a
+  session exists to produce.
+  - **The hazard was not an error.** `tarfile` accepts a duplicate member name:
+    it writes both and extraction keeps whichever landed last. Every rip folder
+    contains a `rip.log`, so without distinct prefixes one album silently
+    replaces another inside an archive that still opens and still lists — *a
+    silent truncation reads as completeness*, in the module whose own docstring
+    says so. The test asserts the **payloads** differ, not just the names, since
+    a name-only check would miss exactly that.
+  - **A single folder keeps the layout it has always had.** Adding the prefix
+    unconditionally would move every member of an ordinary rip's bundle one
+    directory deeper — a breaking change to an artifact people already have,
+    made as a side effect of a feature for a different caller.
+  - **The safe route is the only route.** Passing the folders through the
+    existing `extra_dirs` would have worked and widened their allowlist to admit
+    `.png` — record-label cover art, which Critical rule #8 forbids leaving the
+    machine. Hence a separate parameter on the strict channel, with tests
+    asserting artwork and audio are still refused *and* that each exclusion is
+    named in the manifest.
+  - **The folders are discovered from disk, not remembered as rips finish.** A
+    run that crashes or is cancelled still leaves finished rips, and those are
+    the ones somebody needs to send. Both the output *and* library folders are
+    searched, because a successful rip is moved to the second one.
 - **Tools → "Run acceptance test…" — the app runs the whole session itself.**
   Maintainer, 2026-08-28: *"make the app make the rig folder and anything else,
   this was supposed to be a no cli program, not give me commands to use"*. It

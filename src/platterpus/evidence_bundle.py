@@ -211,8 +211,57 @@ def _read_bounded(path: Path) -> tuple[bytes, str]:
     return head + marker + tail, note
 
 
+def _album_prefixes(album_dirs: Sequence[Path]) -> list[tuple[str, Path]]:
+    """Give each album folder a DISTINCT archive prefix. Pure; no disk access.
+
+    **Why this is its own function rather than an f-string in the loop.** With
+    one album folder the prefix could be the constant ``album``. With several —
+    an acceptance run rips the same disc repeatedly under different settings —
+    two folders routinely contain a file at the same relative path (``rip.log``,
+    ``cover.jpg``). ``tarfile`` does not refuse a duplicate member name: it
+    writes both, and extraction keeps whichever landed last. So the failure mode
+    is not an error, it is **one album silently replacing another inside an
+    archive that still opens and still lists** — the exact shape `CLAUDE.md`
+    names when it says *a silent truncation reads as completeness*.
+
+    So the prefix is the folder's own name, and a name that repeats is
+    disambiguated with an index rather than allowed to collide. The index is
+    positional and therefore stable for a given input order, which keeps the
+    archive reproducible.
+
+    **The single-folder case keeps the layout it has always had** — a bare
+    ``album/<relative path>``, no folder name inserted. That is not tidiness: an
+    ordinary rip's bundle is an artifact people already have, and quietly moving
+    every member one directory deeper because a *different* caller now passes
+    two folders would be a breaking change made as a side effect. The prefix
+    appears only when there is genuinely something to disambiguate.
+    """
+    if len(album_dirs) <= 1:
+        return [("", directory) for directory in album_dirs]
+    prefixes: list[tuple[str, Path]] = []
+    seen: dict[str, int] = {}
+    for index, directory in enumerate(album_dirs):
+        base = _member_component(directory.name) or f"album{index}"
+        count = seen.get(base, 0)
+        seen[base] = count + 1
+        prefixes.append((base if count == 0 else f"{base}-{count + 1}", directory))
+    return prefixes
+
+
+def _member_component(name: str) -> str:
+    """One path component, reduced to what is safe inside an archive name.
+
+    An album folder is named from MusicBrainz metadata, so it can contain
+    anything a title can — including ``/`` lookalikes, control characters and a
+    leading ``..``. None of that may reach a member name.
+    """
+    cleaned = "".join(ch if ch.isalnum() or ch in "-_. " else "_" for ch in name)
+    cleaned = cleaned.strip(". ")
+    return cleaned[:64]
+
+
 def _collect(
-    album_dir: Path | None,
+    album_dirs: Sequence[Path],
     log_dir: Path,
     extra_dirs: Mapping[str, Path] | None = None,
 ) -> list[tuple[str, Path, frozenset[str]]]:
@@ -226,18 +275,22 @@ def _collect(
     the point of the check, so a file's permission is fixed by *where it came
     from*. That is what stops the widened image rule leaking onto the album
     folder: there is no code path where an album file is judged by anything but
-    the strict set.
+    the strict set — and that stays true for N folders exactly as it was for one,
+    because the strict set is written at each append rather than chosen later.
     """
     found: list[tuple[str, Path, frozenset[str]]] = []
     if log_dir.is_dir():
         for entry in sorted(log_dir.iterdir()):
             if entry.is_file():
                 found.append((f"applog/{entry.name}", entry, ALLOWED_SUFFIXES))
-    if album_dir is not None and album_dir.is_dir():
+    for prefix, album_dir in _album_prefixes(album_dirs):
+        if not album_dir.is_dir():
+            continue
+        head = f"album/{prefix}" if prefix else "album"
         for entry in sorted(album_dir.rglob("*")):
             if entry.is_file():
                 relative = entry.relative_to(album_dir)
-                found.append((f"album/{relative.as_posix()}", entry, ALLOWED_SUFFIXES))
+                found.append((f"{head}/{relative.as_posix()}", entry, ALLOWED_SUFFIXES))
     for prefix, directory in sorted((extra_dirs or {}).items()):
         if not directory.is_dir():
             continue
@@ -250,13 +303,32 @@ def _collect(
     return found
 
 
+def _album_folder_lines(album_dirs: Sequence[Path]) -> list[str]:
+    """The manifest's album-folder block: EVERY path, never a count.
+
+    A manifest saying *"3 album folders"* is a claim the reader cannot check.
+    The paths are what they can compare against the discs they expected to be
+    ripped — and a missing one is the finding.
+    """
+    if not album_dirs:
+        return ["album folder       (none)"]
+    if len(album_dirs) == 1:
+        return [f"album folder       {album_dirs[0]}"]
+    lines = [f"album folders      {len(album_dirs)}, each archived under album/:"]
+    lines += [
+        f"  {prefix or '(root)':<20} {directory}"
+        for prefix, directory in _album_prefixes(album_dirs)
+    ]
+    return lines
+
+
 def _render_manifest(
     *,
     stamp: str,
     app_version: str,
     outcome: str,
     facts: Mapping[str, str],
-    album_dir: Path | None,
+    album_dirs: Sequence[Path],
     entries: Sequence[BundleEntry],
 ) -> str:
     """The human-readable index, and the honest one.
@@ -277,7 +349,7 @@ def _render_manifest(
         f"created            {stamp}",
         f"platterpus         {app_version}",
         f"rip outcome        {outcome}",
-        f"album folder       {album_dir if album_dir is not None else '(none)'}",
+        *_album_folder_lines(album_dirs),
         "",
         "Raw facts this outcome was derived from (a label can be wrong; these",
         "are what it was computed from):",
@@ -347,6 +419,7 @@ def build_bundle(
     outcome: str,
     facts: Mapping[str, str] | None = None,
     album_dir: Path | None = None,
+    album_dirs: Sequence[Path] | None = None,
     log_dir: Path,
     extra_dirs: Mapping[str, Path] | None = None,
     extra_text: Mapping[str, str] | None = None,
@@ -360,12 +433,29 @@ def build_bundle(
     `extra_dirs` maps an archive prefix to a directory whose contents are
     admitted under the *widened* `EXTRA_DIR_SUFFIXES` — used for the test-script
     run folder, whose PNGs are screenshots this program took of its own window.
-    The album folder is never passed here; see `EXTRA_DIR_SUFFIXES` for why that
+    An album folder is never passed here; see `EXTRA_DIR_SUFFIXES` for why that
     distinction is load-bearing rather than tidy.
+
+    `album_dir` (one) and `album_dirs` (several) are the same channel — the
+    STRICT allowlist, always. `album_dir` is kept because an ordinary rip has
+    exactly one and every existing caller passes it that way; `album_dirs` exists
+    because an **acceptance session rips several discs**, and routing those
+    through `extra_dirs` to get more than one would have widened their allowlist
+    to admit `.png` — i.e. cover art, which Critical rule #8 forbids leaving the
+    machine. Two parameters rather than one so the safe route is the *only* route
+    for an album folder, whatever the count.
     """
     result = BundleResult()
     facts = dict(facts or {})
     extra_text = dict(extra_text or {})
+    # One list from here down, so nothing below has to ask which spelling the
+    # caller used. Order is preserved (it decides the disambiguating index) and
+    # duplicates are dropped, because passing the same folder twice would
+    # otherwise archive it twice under two names and inflate the byte budget.
+    albums: list[Path] = []
+    for candidate in [album_dir, *(album_dirs or [])]:
+        if candidate is not None and candidate not in albums:
+            albums.append(candidate)
     try:
         dest_dir.mkdir(parents=True, exist_ok=True)
         archive_path = dest_dir / bundle_filename(stamp)
@@ -402,7 +492,7 @@ def build_bundle(
                 info.gname = ""
                 tar.addfile(info, io.BytesIO(data))
 
-            for name, source, permitted in _collect(album_dir, log_dir, extra_dirs):
+            for name, source, permitted in _collect(albums, log_dir, extra_dirs):
                 allowed, why = _is_allowed(source, permitted)
                 if not allowed:
                     entries.append(BundleEntry(name, str(source), False, why))
@@ -445,7 +535,7 @@ def build_bundle(
                 app_version=app_version,
                 outcome=outcome,
                 facts=facts,
-                album_dir=album_dir,
+                album_dirs=albums,
                 entries=entries,
             )
             _write("MANIFEST.txt", manifest.encode("utf-8"))
