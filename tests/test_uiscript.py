@@ -763,3 +763,61 @@ def test_the_raw_tail_strips_the_verb_and_the_comment_and_nothing_else() -> None
     assert (
         script_mod.parse('album "Greatest Hits #2"')[0].raw_tail == '"Greatest Hits #2"'
     )
+
+
+def test_the_pin_role_phrase_never_claims_an_open_round_between_rounds() -> None:
+    """The message an operator reads at 2am must not tell them a falsehood.
+
+    `expect-ripper-under-review` said *"the build the open handshake round is
+    reviewing"* unconditionally. On 2026-08-27 round 14 had **closed** — the pin
+    under review had become the approved production pin — and an operator who had
+    just installed the fork's *newer* release read a sentence implying they were
+    behind when they were ahead. The run aborted correctly in two seconds; what
+    misdirected was the explanation.
+
+    Both branches asserted, because a phrase that is right in one state and silent
+    about the other is the same defect with better odds.
+    """
+    from platterpus.deps import fork_source  # noqa: PLC0415
+    from platterpus.uiscript.runner import _pin_role_phrase  # noqa: PLC0415
+
+    phrase = _pin_role_phrase()
+    closed = fork_source.same_commit(fork_source.PIN_UNDER_REVIEW, fork_source.FORK_PIN)
+    if closed:
+        assert "APPROVED production pin" in phrase, phrase
+        assert "open" not in phrase.replace("no handshake round is open", ""), (
+            f"claims a round is open while the pin equals the production pin: {phrase}"
+        )
+    else:
+        assert "open handshake round is reviewing" in phrase, phrase
+    assert fork_source.PIN_UNDER_REVIEW in phrase, (
+        f"the phrase must name the pin it is talking about: {phrase}"
+    )
+
+
+def test_the_wrong_ripper_failure_names_a_command_not_a_gui_path() -> None:
+    """`CLAUDE.md`: a procedure handed back in prose is work handed back.
+
+    The failure pointed at *"Settings -> the ripper beta channel, then take the
+    offer"* when a single pasteable command exists. An operator at 2am with a disc
+    in the drive should get the command.
+    """
+    import inspect  # noqa: PLC0415
+
+    from platterpus.uiscript import runner as runner_mod  # noqa: PLC0415
+
+    src = inspect.getsource(runner_mod.ScriptRunner._do_expect_ripper_under_review)
+    # **Comments stripped before matching.** The first version of this assertion
+    # failed on the comment that *documents* the old wording — a test tripped by
+    # prose about its own subject, which is the same "satisfied by the wrong thing"
+    # shape read backwards. What matters is the string the operator sees.
+    code = "\n".join(
+        line for line in src.splitlines() if not line.lstrip().startswith("#")
+    )
+    assert "--install-ripper" in code, (
+        "the failure must name the one-command remedy, not a menu path"
+    )
+    assert "the ripper beta channel" not in code, (
+        "the GUI-path remedy is still in the message — an operator who can paste a "
+        "command should be given a command"
+    )

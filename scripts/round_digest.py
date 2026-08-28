@@ -166,8 +166,30 @@ def laps_for_round(
     and the single-valued form could not express it — which meant the natural
     command for re-checking a past number quietly returned a different one.
     """
+    # **AN EXCLUSION THAT MATCHES MORE THAN ONE FILE IS A REFUSAL, NOT A DROP OF
+    # BOTH.** This is the exact mirror of the defect we found in round 9 and they
+    # shipped our fix for: there, `--exclude` matching *nothing* silently dropped
+    # nothing and printed a confident digest over the full set. **Neither project
+    # then asked it the other way round** — matching *more than one* dropped all of
+    # them, just as silently — and it stayed unreachable until two laps shared a
+    # number, which is why it survived nine rounds.
+    #
+    # Found by the cyanrip fork, round 14 lap 19 §5, and confirmed here against our
+    # own record before believing it: `--exclude round-14-lap-16.md` matched the
+    # inbound and outbound lap 16, removed both, and returned `710ed2493fccd59c
+    # over 19` — a confident answer over a population nobody asked for, exit 0.
+    #
+    # They sent the SPECIFICATION rather than their code, deliberately: a test does
+    # not travel, its specification does. Two implementations that share an ancestor
+    # share its bugs, which is what the round-9 half already proved.
+    #
+    # A repo-relative path now disambiguates, so a caller who genuinely wants one of
+    # two same-numbered laps can say which. That reverses the old message's advice
+    # ("Basenames only… not a path"), which was written when a basename could not be
+    # ambiguous.
+    repo_root = root.parent.parent
     wanted_out = set(exclude)
-    matched: set[str] = set()
+    hits: dict[str, list[Path]] = {name: [] for name in wanted_out}
     found: list[LapFile] = []
     for path in sorted(root.rglob("*.md")):
         if NON_LAP_DIRS & set(path.parts):
@@ -178,8 +200,21 @@ def laps_for_round(
             continue
         if _declarations(text, "HANDSHAKE-ROUND")[0] != str(number):
             continue
-        if path.name in wanted_out:
-            matched.add(path.name)
+        # Three spellings accepted, because the caller's frame of reference varies:
+        # the bare basename (the common case), the path relative to the handshake
+        # ROOT (`inbound/round-14-lap-16.md` — what a test with its own tree can
+        # express), and the path relative to the REPO (`docs/handshake/inbound/…` —
+        # what a person copies out of an error message). All three name one file
+        # unambiguously; only the basename can collide.
+        spellings = {path.name, path.relative_to(root).as_posix()}
+        try:
+            spellings.add(path.relative_to(repo_root).as_posix())
+        except ValueError:  # pragma: no cover - root outside the repo
+            pass
+        keys = spellings & wanted_out
+        if keys:
+            for k in keys:
+                hits[k].append(path)
             continue
         found.append(
             LapFile(
@@ -189,12 +224,28 @@ def laps_for_round(
                 sha256=hashlib.sha256(data).hexdigest(),
             )
         )
-    missing = wanted_out - matched
+
+    ambiguous = {k: v for k, v in hits.items() if len(v) > 1}
+    if ambiguous:
+        detail = "; ".join(
+            f"{k!r} matches "
+            + ", ".join(p.relative_to(repo_root).as_posix() for p in sorted(paths))
+            for k, paths in sorted(ambiguous.items())
+        )
+        raise UnmatchedExclusion(
+            f"--exclude is AMBIGUOUS: {detail}. Two laps share that number — one "
+            "from each sender — so dropping both would answer over a population "
+            "you did not ask for. Name the one you mean by its repo-relative "
+            "path, or pass both paths if you really want both."
+        )
+
+    missing = sorted(k for k, v in hits.items() if not v)
     if missing:
         raise UnmatchedExclusion(
-            f"--exclude named {sorted(missing)}, which round {number} does not "
-            f"contain. Basenames only, e.g. round-09-lap-04.md — not a path. "
-            "Refusing rather than printing a digest over a set you did not ask for."
+            f"--exclude named {missing}, which round {number} does not "
+            "contain. Use a basename (round-09-lap-04.md) or, when two senders "
+            "share a lap number, the repo-relative path. Refusing rather than "
+            "printing a digest over a set you did not ask for."
         )
     return found
 

@@ -24,12 +24,12 @@ Every row in this document is derived from the Platterpus source at the
 version named below, and describes what **that** app version parses and
 sends. It is not a claim about any other version of either side.
 
-- **Platterpus:** `0.6.28` — the build that
+- **Platterpus:** `0.6.31` — the build that
   generated this file. A row can only have changed with our code, so this
   version *is* the range on our half.
-- **Verified against ripper build:** `cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)` — the build a
-  closed handshake round approved (round 8, for Platterpus
-  `0.6.12b6`). Rows in §1 were checked against that build's output;
+- **Verified against ripper build:** `cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-gd9c058c)` — the build a
+  closed handshake round approved (round 14, for Platterpus
+  `0.6.28`). Rows in §1 were checked against that build's output;
   a newer ripper may emit lines this document does not list, which is a
   handshake event rather than a defect.
 - **Ripper build under review:** see `HANDSHAKE-PIN` /

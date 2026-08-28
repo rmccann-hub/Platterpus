@@ -130,12 +130,41 @@ def test_a_retired_test_pin_says_it_is_retired_and_names_the_current_one() -> No
 
 
 def test_the_pin_under_review_says_the_round_is_open() -> None:
-    approval = ha.approve_ripper(
-        f"cyanrip 0.9.4-rc1 (platterpus-fork-g{fork_source.PIN_UNDER_REVIEW})"
+    """A build under review is unapproved — **and between rounds there is none.**
+
+    This asserted `PIN_UNDER_REVIEW` reports `unapproved`, which held only while a
+    round was open with a subject distinct from production. Round 14 closed on
+    2026-08-26 with GO/GO and the production pin rolled forward onto that very
+    commit, so `PIN_UNDER_REVIEW == FORK_PIN` and it now reports `approved` —
+    correctly. The old assertion encoded a phase of the cycle rather than the rule,
+    which is the map-going-stale failure `CLAUDE.md` names.
+
+    The rule that survives every phase: **approval keys on the production pin.** A
+    build that is not it is unapproved, whatever else is true of it; a build that
+    is it, is approved. Expressed against a commit that is definitionally not the
+    production pin, so this test cannot expire again.
+    """
+    # Distinct from FORK_PIN by construction — a 7-hex string that is not it.
+    other = "0" * 7 if fork_source.FORK_PIN != "0" * 7 else "1" * 7
+    approval = ha.approve_ripper(f"cyanrip 0.9.4-rc2 (platterpus-fork-g{other})")
+    assert approval.verdict == ha.UNAPPROVED, (
+        "a build that is not the production pin must never read as approved"
     )
-    assert approval.verdict == ha.UNAPPROVED
-    assert "open" in approval.detail.lower()
-    assert fork_source.PIN_UNDER_REVIEW in approval.detail
+    assert other in approval.detail, (
+        "the detail must name the build it is judging, or a report cannot be traced "
+        f"back to a binary: {approval.detail!r}"
+    )
+
+    # The other arm, so this cannot pass by refusing everything — the shape a
+    # one-sided approval check always has.
+    good = ha.approve_ripper(
+        f"cyanrip {fork_source.FORK_EXPECTED_VERSION} "
+        f"({fork_source.FORK_EXPECTED_BUILD_TAG})"
+    )
+    assert good.verdict == ha.APPROVED, (
+        "the production pin — approved by the newest CLOSED round — must read as "
+        f"approved, or nothing ever can: {good.detail!r}"
+    )
 
 
 def test_dirty_suffix_on_the_approved_commit_is_not_approved() -> None:

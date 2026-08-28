@@ -257,83 +257,28 @@ exactly that reason.
 
 ---
 
-## 7.6 Standing status — what the fork can assume between rounds
+## 7.6 Standing status — one home, and it is not this file
 
 **Not a round, and not a call for one.** Rounds are the *formal* channel and they
-have a cost (S-13: a round's close conditions are fixed at lap 1, and an open round
-blocks both sides' releases). Between rounds the fork still needs to know where we
-are, so this section is the standing answer, **rewritten in place** rather than
-accumulating a file per update. Maintainer's framing, 2026-08-21: *"context for the
-next test and what to do (if anything is needed even)."*
+have a cost (S-13: close conditions are fixed at lap 1, and an open round blocks
+both sides' releases). Between rounds the fork still needs to know where we are.
 
-**As of Platterpus v0.6.23 (2026-08-21). Supersedes the v0.6.21 text entirely.**
+**That answer lives in
+[`docs/handshake/outbound/platterpusstatus.md`](handshake/outbound/platterpusstatus.md),
+and only there.** It is the file that goes over the wire, it is what
+`docs/handshake/README.md` designates, and it is the mirror of the fork's own
+`cyanripstatus*.md`. Rewritten in place, never appended to, undated in its
+filename — a stale standing status is worse than none.
 
-### The go-ahead you asked for
-
-**Cut `+platterpus.7`.** Round 12 is CLOSED, `GO`/`GO` on `64ae7bc`,
-`scripts/handshake.py --release-gate` prints *"every round is closed — release
-allowed"*, and nothing we found makes that pin unsafe. Your reason for not having
-cut it already is the right one and better stated than ours would have been: *a
-ledger row asserts a build was handed to somebody, and that is an act, not a
-derivation.*
-
-### One correction to a lap we already sent
-
-**Our round-12 lap 4 declares `HANDSHAKE-APP-VERSION: platterpus 0.6.22`, and
-0.6.22 does not exist.** It was prepared, gated and superseded before publication —
-no tag, no artifact, nothing installable — and the release went out as **0.6.23**.
-
-A sent lap is immutable here (`tests/test_sent_laps_are_immutable.py` pins its
-hash), so the correction lives in this section rather than in an edit. It matters
-because rule #12's third obligation is that a round approves a pin **for a named
-app version**: read every version claim in lap 4 as **0.6.23**. Nothing else in
-that file changes — the tree it describes is the tree 0.6.23 shipped from, plus the
-four items below.
-
-### What landed after lap 4 was written
-
-All four are consumer-side and none changes a surface you emit.
-
-1. **Your exit code 5 is handled, and it was a real defect on our side.**
-   `CRIP_LOG_EXIT_IO_ERROR` fell through to the bottom of our verifier and was
-   reported as *"the file was altered after the ripper signed it and must not be
-   treated as archival evidence"* — an accusation derived from an answer that
-   explicitly says nothing was determined. The branch now sits **before** the
-   build-capability gate, so the fix does not wait on the tag: reachability is
-   gated, correctness is not. Named as a set (`VERIFY_LOG_EXIT_NO_VERDICT`) so a
-   second "could not look" code lands in one place, and a test derives the same set
-   from your published P4 and fails if the two disagree.
-2. **The stale test in §B of lap 4 is fixed, and it was worse than we reported.**
-   `test_provider_contract_agreement.py` read a hard-coded round 4. Repointing it
-   revealed a second fault: its row regex matched `*.c` only, and ten of your
-   round-12 P3 rows are `genopt.h` — so **even pointed at the current contract it
-   would have read 15 of 25 rows and reported a full pass**. Also fixed: `%lld`-style
-   length modifiers went unrendered, which fails in the *false-pass* direction.
-   Sections now resolve by their `P<n>` label rather than heading prose, since the
-   prose moved between rounds 4 and 12.
-3. **`_FORK_ONLY_RULES` is fixed and the converse is now derived** — the §C1 ask in
-   lap 4 stands unchanged, and the eight lines named there are still unattributed.
-4. **A registry check of ours caught our own new test on its first run.** The
-   exit-code test above parametrizes over `VERIFY_LOG_EXIT_NO_VERDICT`, so if you
-   ever withdraw `CRIP_LOG_EXIT_IO_ERROR` it would generate zero cases and pass
-   having examined nothing. It now names a floor that derives the set from your P4.
-   Mentioned because it is the shape your round-12 generator work is also about.
-
-### What has not changed
-
-- **The pin we INSTALL is still `cyanrip 0.9.4-rc1+platterpus.5
-  (platterpus-fork-gddf7ac3)`**, approved by round 8, and every rip re-verifies it
-  at the drive. `64ae7bc` is approved and **not installed**: it has no hardware
-  behind it and `ddf7ac3` does. That is our own rule applied to ourselves, not
-  distrust of your testing — 47/47 from a clean clone in four configurations
-  including ASAN+UBSAN is more than we run.
-- **`platterpus-fork-g64ae7bc` is in neither capability table**, so
-  `accepts_verify_log()` returns `not_determined` for it and your five new
-  `--verify-log` codes are unreachable from Platterpus until a released build tag
-  joins the table. Send the SHA when you cut it and the rows go in — that is lap 4
-  §C2 and it is the one thing we are waiting on.
-- **No hardware ask.** Nothing in round 12 needed a drive and nothing here does.
-  Our own next rig run is about our GUI.
+**Why this section is a pointer and not the text.** It *was* the text, and so was
+the status file: two documents both describing themselves as "the standing answer,
+rewritten in place", both going stale independently. This one had drifted four
+releases and two rounds behind (it still announced *"As of Platterpus v0.6.23"*,
+round 12, and a pin of `ddf7ac3`) while the other announced 0.6.23 and round 13.
+`CLAUDE.md` rule #7 names that exactly: **a second doc that duplicates a home is
+worse than one long home**, because the reader now holds two maps with no way to
+tell which is current. Collapsed 2026-08-27; the content was moved, not summarised
+away.
 
 ## 8. The wire format — the shared protocol file
 
@@ -350,10 +295,10 @@ What lives where:
 |---|---|
 | the specification | [`handshake-protocol.md`](handshake-protocol.md) — shared, verbatim, both repos |
 | our gate | `scripts/handshake.py` (`--status`, `--check`, `--release-gate`) |
-| our conformance tests | `tests/test_handshake_conformance.py`, **one test per §8 row** |
+| our conformance tests | `tests/test_handshake_conformance.py` — one test per row of the shared conformance table (C1–C36 plus C13a; the count moves with the protocol, so read the table, not this cell) |
 | their gate | `tools/release-gate.py`; their tests are `tests/release_gate.py` |
 
-**Current protocol version: 2.** A gate reading a *higher* number than it
+**Current protocol version: 4** — `handshake.PROTOCOL_VERSION` is the authority and the shared spec is titled *Handshake protocol v4*. (This said **2** until 2026-08-27, through the whole of v3 and v4: v3 added §3a addressing, §4a's legal state machine — with `CLOSED → OPEN` removed — §4b `WITHDRAWN`, §5a's digest and §6a-bis; v4 added §5a's one-lap rule. Read the number from the code, never from this sentence.) A gate reading a *higher* number than it
 implements must refuse the round rather than guess — it cannot know which of that
 version's rules it is silently not applying. `handshake.PROTOCOL_VERSION` is ours.
 
@@ -374,4 +319,69 @@ each side is free to change.
 
 ---
 
-*Last updated for Platterpus v0.6.24.*
+## 9. Challenge ledger
+
+**Why this table exists, and why it is a table.** On 2026-08-26 the maintainer
+told the fork they are *"the adult in the room"* — as the ripping engine, most of
+the accuracy burden is theirs, so they are to double-check, fact-check and
+question us. The instruction that came with it was explicitly *measured*, not
+felt:
+
+> *"if they tend to be more correct than wrong, you should find out why and adopt
+> the logic if possible, but let them try it out until you have measurable
+> results either way."*
+
+So: **do not pre-judge it in either direction, and do not decide it from the feel
+of the last lap.** That is the same discipline as round 7's lap count, where the
+fork tabled the numbers and we had the same numbers and had not looked. One row
+per substantive challenge, cited to the lap that made it and the artifact that
+settled it — never to a memory of either.
+
+**What counts as a row.** A *substantive* challenge: one side asserting the other
+is wrong about a fact, a mechanism or a contract, where the disagreement was
+actually resolved. Not a question, not a preference, not an ask. A challenge
+neither side settled stays out until it is settled — an unresolved row would be
+scored by whoever last edited the table.
+
+**Two things this ledger is NOT.** It is not a scoreboard to win: the whole
+point of the mandate is a second validator, and *"neither side treats the other's
+checking as a reason to skip its own"* (`CLAUDE.md` rule #12) is unaffected by
+whatever this table says. And it is not a licence to weigh a challenge by its
+author's record — **adopt the mechanism, not the conclusion.** A peer who is
+right more often is running a better procedure, and the procedure is the
+transferable part.
+
+| # | round · lap | the challenge | who was right | settled by | mechanism worth taking |
+|---|---|---|---|---|---|
+| 1 | **r3 §H2** → retracted **r4 §H2** | Fork proposed changing our `Pregap length` derivation (subtract, uniformly) | **US** | `inbound/round-4.md:408` — *"my subtraction proposal was not [correct], and I have made no change"* | Both sides had reasoned from EAC's **cue** and applied it to EAC's **log**, and *"neither of us opened the log"*. Graduated as *answer from the artifact, and name which file* |
+| 2 | **r4 §H3** | Fork warned our `Ripper build:` classifier would meet a fourth case: a tarball build emits `platterpus-fork-grelease` | **THEM** (advisory — we were safe, but only by accident of tokenising) | `inbound/round-4.md:419` | A warning about a case you are *currently* safe from is worth more than one about a case you are already failing. Filed as a test case, not as a fix |
+| 3 | **r4 flag table** | Their published table said `-v`/`--version` with **no `-V` row**; every version probe we shipped sent `-V` | **THEM**, and the evidence sat in a committed file in this repo for a full round | `tests/test_argv_surface_agreement.py` now diffs it mechanically | *If the contract has two halves, check both.* We had verified their log lines against our parser and never their flag table against our argv |
+| 4 | **r5** | Their fatal-message inventory was published as 88 strings; we reported it "VERIFIED INDEPENDENTLY" | **US** — re-deriving from their source found **16 more**, hidden by a hand-maintained prefix allowlist in their generator | `inbound/round-5.md:252` — *"Derive the fatal inventory from control flow, not a prefix allowlist"* | *Verify the behaviour, not the other side's description of it.* A list checked against itself is consistent, not verified |
+| 5 | **r5** | Their statement that per-track paranoia counters *"sum exactly to the disc totals"* | **US**, conditionally — true without `-Z`, false under it, where per-track is the last pass and the disc total is every pass | our re-derivation, recorded in `CLAUDE.md` *"did I verify this where it could have failed?"* | Name the condition that would break a claim, then check **there**. We had "verified" it on an artifact where the sum is arithmetically forced |
+| 6 | **r7 lap 2** | Fork corrected us that the `HH:MM:SS.mmm` → `MM:SS.FF` duration change is **upstream's** (PR #130), not theirs | **THEM** | `inbound/round-07-lap-02.md:141` | *An upstream change cannot be escaped by rolling back to upstream.* We had it filed as a fork change, which made "revert to stock" look like a mitigation it never was |
+| 7 | **r7 convergence** | Fork tabled that round 7 had run 37 laps, 10 test pins and 8 pre-releases to produce **0 releases**, where rounds 5 and 6 took one lap each | **THEM**, and we held the same numbers and had not looked | their round-7 convergence proposal, adopted verbatim as **S-13 … S-16** | *Counted, not felt.* Also the substantive lesson: release-grade rigour applied to the **round** rather than to the **release** |
+| 8 | **r12 lap 1 → withdrawn lap 3** | Fork declared, at column 0 as `HANDSHAKE-BREAKING`, that our `SUPPORTED_SCHEMAS` allowlists *schema strings* and would reject their diagnostics record — then promoted a question to `BLOCKING` on it | **US** | `inbound/round-12-lap-03.md:49` — they opened their own record and found **two artifacts in their repository** contradicting the claim before it was made — ours, filed on their side as inbound: `verified/round-10-lap-04.md:58` and `verified/round-11-lap-02.md:84` **in this tree** | *Never state a mechanism in the other side's code without citing where you read it.* Adopted verbatim from their write-up — a `HANDSHAKE-BREAKING` line about someone else's build is a guess unless it names the artifact |
+| 9 | **r12 lap 3** | We offered a shared-blame explanation for row 8 — *"a name collision plus one unqualified sentence"*, and offered to take half. **They refused it** | **THEM** | `inbound/round-12-lap-03.md:76` — they opened all three cited sentences and tabled the context of each; every one sat in unambiguous release-manifest context | *An apology can get less scrutiny than a claim, for the same reason nobody argues with it* — and **a misattributed cause produces the wrong fix**: "write less ambiguous sentences" is unfalsifiable, where row 8's rule is checkable |
+| 10 | **relayed 2026-08-27** | Their mutation sweep found `for (int j = 0; j < strlen(digest_str); j++)` in `fun512.c` mutated to `<=` and **surviving** | **THEM**, and it landed on us too: our own pattern captured `\S+`, so an 87-character digest would have entered an archival log looking correct | `CHANGELOG.md` (v0.6.30) + `parsers/cyanrip_log.fun512_signature_is_malformed` | **Mutation sweeps in a detached git worktree** — their fix for a recurring dirty tree, and the reason the finding exists at all. A surviving mutant is a test-suite defect reported as a code fact |
+
+**Standing count as of round 14's close: fork right 5, us right 5, of 10
+resolved.** Read it with three qualifications, all of which cut against treating
+it as a verdict:
+
+* **The sample is not closed and it is not the sample the mandate is about.** The
+  challenge mandate was issued **2026-08-26**; rows 1–9 predate it. Only row 10
+  was made under it. *Is the population I measured closed?* — nine of these ten
+  are the *before* picture, so the answer to the maintainer's question is **not
+  yet measurable**, and saying so is the honest reading.
+* **Neither side's errors are of one kind.** Ours cluster in *verification*
+  (rows 4, 5 — checking a description, or checking under conditions that force
+  the result); theirs cluster in *attribution* (rows 6, 8 — a mechanism stated
+  without opening the artifact it belongs to). Those want different remedies,
+  which is why the mechanism column matters more than the tally.
+* **Self-correction is in the record on both sides** (rows 1, 8), and it arrived
+  faster than either side's peer review. Row 8 is the strongest single entry in
+  this table and the fork wrote it *against themselves*.
+
+---
+
+*Last updated for Platterpus v0.6.31.*

@@ -350,6 +350,7 @@ class MainWindow(
         # *previous* disc's release. Set when a probe identifies a disc, cleared
         # at the start of every new scan.
         self._current_disc_id: str = ""
+        self._mb_release_chosen_for: str = ""
         # Track count for the current disc (from cyanrip cd info). Used to
         # render numbered blank rows when MusicBrainz has no match.
         self._current_num_tracks: int = 0
@@ -1121,6 +1122,10 @@ class MainWindow(
         # *previous* disc is dropped when it lands (its echoed context won't
         # match ""). The new disc's probe sets this again once it identifies it.
         self._current_disc_id = ""
+        # A NEW PROBE MEANS THE USER MAY CHOOSE AGAIN. Cleared here rather than
+        # never, so a deliberate Rescan still offers the picker — the guard below
+        # suppresses a *duplicate* answer, not a *second* question.
+        self._mb_release_chosen_for = ""
         # A hand-picked cover was for the previous disc — forget it so it can't
         # bleed onto a different album.
         self._manual_cover_path = None
@@ -1242,6 +1247,45 @@ class MainWindow(
         would tag the current disc with the previous disc's release — the
         wrong-album bug. Mirror of `_is_stale_disc_result`, for the MB path.
         """
+        # **A DETAIL WE ASKED FOR IS NEVER STALE, even while `_current_disc_id`
+        # is transiently empty.** Measured on the rig 2026-08-27, and it cost the
+        # whole run:
+        #
+        #   19:43:06,182  drive changed -> `_start_disc_info` clears
+        #                 `_current_disc_id` and starts a fresh DiscInfoWorker
+        #   19:43:06,432  the release picker (already open) is answered
+        #   19:43:06,435  we emit the release fetch for that disc
+        #   19:43:06,928  the detail lands. `_current_disc_id` is still "" —
+        #                 the new DiscInfoWorker has not finished — so
+        #                 `context != ""` and the detail is DROPPED as stale.
+        #
+        # Zero tracks ever loaded, and the run aborted at section E. The disc had
+        # never changed; a rescan of the SAME disc landed inside the window
+        # between opening the picker and answering it.
+        #
+        # `CLAUDE.md`: *what pins my input?* This predicate reads a field that a
+        # concurrent rescan deliberately empties, so "is this for the disc on
+        # screen?" answers "there is no disc on screen" — which is not the same
+        # as "this is for a different disc", and only the second one is stale.
+        #
+        # `_mb_release_chosen_for` is the safe key because it is set only when we
+        # opened a picker for THAT disc and got an answer, and it is cleared by
+        # every real disc change alongside `_current_disc_id`. So a genuine disc
+        # swap still rejects the old detail — the wrong-album guard this method
+        # exists for is untouched.
+        # SCOPED TO THE EMPTY WINDOW, and the scope is load-bearing. Relaxing on
+        # `_mb_release_chosen_for` ALONE re-opens the wrong-album bug: this method
+        # exists to stop disc A's detail tagging disc B, and `_on_disc_info_ready`
+        # sets `_current_disc_id` to a new disc WITHOUT clearing the marker — so
+        # marker="disc-A" with "disc-B" on screen is reachable, and a late disc-A
+        # detail would have been applied to disc B. My own belt test caught that
+        # before it shipped, which is the only reason it is not in this commit.
+        #
+        # So: relax only while there is NO disc on screen. That is precisely the
+        # rescan window the rig hit, and it cannot be a different disc, because a
+        # different disc would have set `_current_disc_id` to a non-empty value.
+        if context and not self._current_disc_id:
+            return context != self._mb_release_chosen_for
         return context != self._current_disc_id
 
     def _on_mb_releases(self, context: str, releases: list[ReleaseSummary]) -> None:
@@ -1249,10 +1293,35 @@ class MainWindow(
         if self._is_stale_mb_result(context):
             log.debug("dropping stale MB releases for disc %r", context)
             return
+        # ALREADY ANSWERED IS A DIFFERENT QUESTION FROM STALE, and only the second
+        # one was being asked. `_is_stale_mb_result` compares against the disc on
+        # screen, so two lookups racing for the SAME disc both pass it — and each
+        # one then opens its own modal picker. See `_mb_release_chosen_for` for
+        # the measured cost (rig, 2026-08-26: a second picker 378 ms behind the
+        # first, blocking an unattended run for 53.5 s, and its answer silently
+        # replacing tags already chosen).
+        #
+        # Logged at INFO, not debug: this is the app declining to ask a question
+        # it already has the answer to, and a reader comparing the log against
+        # what they saw on screen needs to see the decision rather than infer it
+        # from a picker that did not appear.
+        if self._mb_release_chosen_for == context:
+            log.info(
+                "MusicBrainz returned %d candidates for disc %r again, but a "
+                "release was already chosen for this disc in this scan — not "
+                "re-opening the picker. Rescan to choose a different release.",
+                len(releases),
+                context,
+            )
+            return
         self._last_mb_releases = list(releases)
         self._disc_info_panel.set_mb_matches(releases)
 
         if len(releases) == 1:
+            # Marked before the fetch, not after: the fetch is an *emit* to a
+            # worker thread, so a duplicate result landing in between would
+            # otherwise slip past the guard and fetch the same release twice.
+            self._mb_release_chosen_for = context
             self._fetch_release_detail(releases[0].mbid, context)
         elif len(releases) > 1:
             # Defer to user. The picker is modal; we block here briefly
@@ -1282,6 +1351,10 @@ class MainWindow(
                 mbid = dialog.selected_mbid()
                 if mbid:
                     log.info("release picker: user chose %s after %.1fs", mbid, waited)
+                    # Same ordering as the single-candidate branch above: mark
+                    # before the emit, because the modal ran a nested event loop
+                    # and a second lookup's result may already be queued behind it.
+                    self._mb_release_chosen_for = context
                     self._fetch_release_detail(mbid, context)
                 else:
                     # Accepted with nothing selected shouldn't happen (the OK
@@ -1307,6 +1380,20 @@ class MainWindow(
 
     def _on_mb_release_detail(self, context: str, detail: ReleaseDetail) -> None:
         if self._is_stale_mb_result(context):
+            # RELEASE THE SUPPRESSION WHEN WE DROP THE ANSWER. Belt to the fix in
+            # `_is_stale_mb_result`, and it is the half that turned a duplicate
+            # picker into no tracks at all: the already-answered guard added
+            # 2026-08-26 stops a second picker for a disc we chose for, so if the
+            # first choice's detail is discarded there is nothing left to load the
+            # tracks and no way to ask again. A dropped answer must un-answer the
+            # question.
+            if context and context == self._mb_release_chosen_for:
+                log.info(
+                    "the release detail for disc %r was dropped, so the disc is "
+                    "no longer answered — a later lookup may re-open the picker",
+                    context,
+                )
+                self._mb_release_chosen_for = ""
             log.debug("dropping stale MB release detail for disc %r", context)
             return
         self._current_release_detail = detail

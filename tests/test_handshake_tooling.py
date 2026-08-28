@@ -1656,11 +1656,37 @@ _SHARED_FILE_PATHS: dict[str, str] = {
 
 
 def _latest_lap_with_shared_hashes() -> tuple[Path, dict[str, str]] | None:
-    """Our newest verification file that declares `HANDSHAKE-SHARED-HASHES`."""
-    for path in sorted(
-        (_REPO_ROOT / "docs" / "handshake" / "verified").glob("round-*.md"),
-        reverse=True,
-    ):
+    """Our newest SENT file that declares `HANDSHAKE-SHARED-HASHES`.
+
+    **`outbound/` as well as `verified/`, and the omission was not cosmetic.** This
+    read `verified/` alone, whose newest declaring file is `round-13-lap-07.md` —
+    so across the whole of round 14 our **eight** outbound laps each declared these
+    hashes and *not one of them was checked*. The docstring below says "our own
+    declaration must be true of our own tree"; it was true of a round-13 file and
+    silent about every lap since.
+
+    Found 2026-08-26 while adopting `OWNERSHIP.md` v2, immediately after telling
+    the fork (lap 18 §3) that we *do* compare these — a claim that was overstated
+    by exactly this gap. Same shape as the message-box sweep `CLAUDE.md` names:
+    scoping a sweep is fine, scoping it silently while the rule claims everything
+    is the defect.
+
+    Sorted by (round, lap) rather than filename so `round-14-lap-9` cannot sort
+    above `round-14-lap-18`.
+    """
+
+    def _key(path: Path) -> tuple[int, int, str]:
+        m = re.search(r"round-(\d+)(?:-lap-(\d+))?", path.name)
+        if not m:
+            return (0, 0, path.name)
+        return (int(m.group(1)), int(m.group(2) or 0), path.name)
+
+    candidates = [
+        path
+        for directory in ("outbound", "verified")
+        for path in (_REPO_ROOT / "docs" / "handshake" / directory).glob("round-*.md")
+    ]
+    for path in sorted(candidates, key=_key, reverse=True):
         match = re.search(
             r"^HANDSHAKE-SHARED-HASHES: (.+)$", path.read_text(encoding="utf-8"), re.M
         )
@@ -2077,6 +2103,27 @@ def test_a_declared_absence_does_not_demand_an_agreed_pin(hs: ModuleType) -> Non
     )
 
 
+def _history_is_available() -> bool:
+    """False in a shallow clone, where git can answer nothing about the past.
+
+    **A check that cannot see its subject must say so, not pass.** CI's default
+    `actions/checkout` is `fetch-depth: 1` — one commit, no tags — so every
+    question these tests ask git ("which commit introduced this version?", "does
+    this sha resolve?") comes back empty. Returning "no problems found" from an
+    empty record is the satisfied-by-finding-nothing shape, so the tests below
+    skip instead; `ci.yml` sets `fetch-depth: 0` so the skip is not the normal
+    path. Measured 2026-08-26 by reproducing the shallow clone locally, after a
+    branch run went green and the same tests went red against main.
+    """
+    shallow = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    return shallow.stdout.strip() != "true"
+
+
 # --- OUR-PIN is a commit in OUR repo; PEER-PIN is not ------------------------
 
 
@@ -2133,6 +2180,8 @@ def test_our_pin_resolves_here_and_peer_pin_does_not() -> None:
     The check is theirs, three lines, and it is offline: our own pin must resolve
     in this repository and the peer's must not. It would have fired in round 7.
     """
+    if not _history_is_available():
+        pytest.skip("shallow clone: git cannot resolve historical commits")
     outbound = sorted(
         (_REPO_ROOT / "docs" / "handshake" / "outbound").glob("round-*.md")
     )
@@ -2255,6 +2304,8 @@ def test_the_emitter_fills_our_pin_with_a_commit_that_resolves_here(
     filled both fields from `FORK_PIN` would satisfy "a value is present" and be
     the exact bug.
     """
+    if not _history_is_available():
+        pytest.skip("shallow clone: our_pin() has no history to pickaxe")
     pin = hs.our_pin()
     assert re.fullmatch(r"[0-9a-f]{7}", pin), f"not a short sha: {pin!r}"
     assert _resolves_in_repo(pin), f"our_pin() returned {pin}, which is not our commit"
@@ -2267,3 +2318,95 @@ def test_the_emitter_fills_our_pin_with_a_commit_that_resolves_here(
     m = re.search(r"^HANDSHAKE-OUR-PIN:\s*([0-9a-f]{7,40})\b", skeleton, re.M)
     assert m is not None, "the emitted skeleton declares no HANDSHAKE-OUR-PIN"
     assert m.group(1) == pin, "the skeleton's OUR-PIN disagrees with our_pin()"
+
+
+def test_our_pin_names_a_commit_that_survives_the_squash_merge(hs: ModuleType) -> None:
+    """`resolves locally` is weaker than `resolves for the peer`, and it shipped.
+
+    This repository squash-merges, so every commit on a session branch is
+    discarded at merge and replaced by one new commit on the default branch. The
+    first `our_pin()` pickaxed the version literal with no scope, so on a branch
+    it returned a branch commit: `git cat-file -e` passed in the author's clone
+    and the sha was **unfetchable for the cyanrip fork**, which is the opposite of
+    what a pin is for. Lap 18 went out with `ed4f300`; after the merge, all four
+    CI matrix legs failed on this file's own pin check, and the commit that
+    actually carries 0.6.28 is `b524936`.
+
+    Same defect class as the one `our_pin()` was written to fix — a value that is
+    correct about the wrong scope — which is why this is a test and not a comment.
+
+    Asserted as a property of the search rather than against a fixed sha: the pin
+    must be reachable from the default branch whenever the default branch is
+    available here. Skipped rather than passed when it is not, because a check
+    that quietly succeeds on a clone with no `origin/main` is the "satisfied by
+    finding nothing" shape — and this test exists because of that shape.
+
+    **WHY THE MAIN-REACHABILITY CLAIM IS GATED ON HEAD BEING PUBLISHED.** The
+    first version asserted it unconditionally, and that made it fail on **every
+    release PR** — necessarily, and by construction: a release commit bumps
+    `__version__`, so the commit `our_pin()` finds for the new version is the one
+    on the unmerged branch, which cannot be on `main` until the PR lands. It cost
+    a red run on 2026-08-27 with nothing wrong. `CLAUDE.md` names this shape when
+    it explains why the `tests-touched` gate is escapable by saying why rather
+    than by silence: *what stops it being a false-failure machine*.
+
+    So the claim is stated for the state in which it is answerable — "once this
+    commit is published, the pin must name a published commit" — and the mid-
+    flight case keeps its own, weaker, still-real assertion rather than becoming
+    a bare skip. The original defect is untouched: `ed4f300` was found **after**
+    its merge, when HEAD *was* published and the full assertion runs, which is
+    exactly the state that caught it on all four matrix legs.
+    """
+    if not _history_is_available():
+        pytest.skip("shallow clone: reachability is unanswerable")
+    default = None
+    for ref in ("origin/main", "main"):
+        if (
+            subprocess.run(
+                ["git", "rev-parse", "--verify", "--quiet", ref],
+                cwd=_REPO_ROOT,
+                capture_output=True,
+            ).returncode
+            == 0
+        ):
+            default = ref
+            break
+    if default is None:
+        pytest.skip("no local main/origin-main to check reachability against")
+
+    def _is_ancestor(rev: str, of: str) -> bool:
+        return (
+            subprocess.run(
+                ["git", "merge-base", "--is-ancestor", rev, of],
+                cwd=_REPO_ROOT,
+                capture_output=True,
+            ).returncode
+            == 0
+        )
+
+    pin = hs.our_pin()
+
+    if not _is_ancestor("HEAD", default):
+        # MID-FLIGHT: an unmerged branch, so the version's own commit is not on
+        # the default branch yet and cannot be. The weaker claim is still real and
+        # still fails on a broken search — the unscoped pickaxe that caused the
+        # original defect could return a commit from an unrelated local branch,
+        # which is NOT reachable from HEAD.
+        assert _is_ancestor(pin, "HEAD"), (
+            f"our_pin() returned {pin}, which is not even reachable from HEAD. "
+            "The search has found a commit on some other branch — a pin no peer "
+            "could fetch and no reader could locate."
+        )
+        pytest.skip(
+            f"HEAD is not published on {default} yet (an unmerged branch, e.g. a "
+            f"release PR), so the pin naming an unpublished commit is expected. "
+            f"Verified what is answerable here: {pin} is reachable from HEAD. The "
+            f"full claim is asserted once this commit lands."
+        )
+
+    assert _is_ancestor(pin, default), (
+        f"our_pin() returned {pin}, which is NOT reachable from {default}. A "
+        "squash-merge discards branch commits, so a pin taken from a branch names "
+        "a commit only this clone has — the peer cannot fetch it. Take the pin "
+        "after the merge, or search the published history first."
+    )
