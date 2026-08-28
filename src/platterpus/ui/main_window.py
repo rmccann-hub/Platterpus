@@ -1247,6 +1247,45 @@ class MainWindow(
         would tag the current disc with the previous disc's release — the
         wrong-album bug. Mirror of `_is_stale_disc_result`, for the MB path.
         """
+        # **A DETAIL WE ASKED FOR IS NEVER STALE, even while `_current_disc_id`
+        # is transiently empty.** Measured on the rig 2026-08-27, and it cost the
+        # whole run:
+        #
+        #   19:43:06,182  drive changed -> `_start_disc_info` clears
+        #                 `_current_disc_id` and starts a fresh DiscInfoWorker
+        #   19:43:06,432  the release picker (already open) is answered
+        #   19:43:06,435  we emit the release fetch for that disc
+        #   19:43:06,928  the detail lands. `_current_disc_id` is still "" —
+        #                 the new DiscInfoWorker has not finished — so
+        #                 `context != ""` and the detail is DROPPED as stale.
+        #
+        # Zero tracks ever loaded, and the run aborted at section E. The disc had
+        # never changed; a rescan of the SAME disc landed inside the window
+        # between opening the picker and answering it.
+        #
+        # `CLAUDE.md`: *what pins my input?* This predicate reads a field that a
+        # concurrent rescan deliberately empties, so "is this for the disc on
+        # screen?" answers "there is no disc on screen" — which is not the same
+        # as "this is for a different disc", and only the second one is stale.
+        #
+        # `_mb_release_chosen_for` is the safe key because it is set only when we
+        # opened a picker for THAT disc and got an answer, and it is cleared by
+        # every real disc change alongside `_current_disc_id`. So a genuine disc
+        # swap still rejects the old detail — the wrong-album guard this method
+        # exists for is untouched.
+        # SCOPED TO THE EMPTY WINDOW, and the scope is load-bearing. Relaxing on
+        # `_mb_release_chosen_for` ALONE re-opens the wrong-album bug: this method
+        # exists to stop disc A's detail tagging disc B, and `_on_disc_info_ready`
+        # sets `_current_disc_id` to a new disc WITHOUT clearing the marker — so
+        # marker="disc-A" with "disc-B" on screen is reachable, and a late disc-A
+        # detail would have been applied to disc B. My own belt test caught that
+        # before it shipped, which is the only reason it is not in this commit.
+        #
+        # So: relax only while there is NO disc on screen. That is precisely the
+        # rescan window the rig hit, and it cannot be a different disc, because a
+        # different disc would have set `_current_disc_id` to a non-empty value.
+        if context and not self._current_disc_id:
+            return context != self._mb_release_chosen_for
         return context != self._current_disc_id
 
     def _on_mb_releases(self, context: str, releases: list[ReleaseSummary]) -> None:
@@ -1341,6 +1380,20 @@ class MainWindow(
 
     def _on_mb_release_detail(self, context: str, detail: ReleaseDetail) -> None:
         if self._is_stale_mb_result(context):
+            # RELEASE THE SUPPRESSION WHEN WE DROP THE ANSWER. Belt to the fix in
+            # `_is_stale_mb_result`, and it is the half that turned a duplicate
+            # picker into no tracks at all: the already-answered guard added
+            # 2026-08-26 stops a second picker for a disc we chose for, so if the
+            # first choice's detail is discarded there is nothing left to load the
+            # tracks and no way to ask again. A dropped answer must un-answer the
+            # question.
+            if context and context == self._mb_release_chosen_for:
+                log.info(
+                    "the release detail for disc %r was dropped, so the disc is "
+                    "no longer answered — a later lookup may re-open the picker",
+                    context,
+                )
+                self._mb_release_chosen_for = ""
             log.debug("dropping stale MB release detail for disc %r", context)
             return
         self._current_release_detail = detail

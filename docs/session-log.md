@@ -11,6 +11,80 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-28 — the front page was stale, and my own fix cost the run
+
+**v0.6.31.** Two things happened, and they are connected by the same question.
+
+**The rig failure.** The overnight attempt followed the procedure and installed
+the *correct* pin — and still stopped at section E in five seconds:
+
+    19:43:06,182  drive changed -> `_start_disc_info` clears `_current_disc_id`
+    19:43:06,432  the release picker (already open) is answered, row 1 of 4
+    19:43:06,435  the release fetch is emitted for that disc
+    19:43:06,928  the detail lands; `_current_disc_id` is STILL "" -> DROPPED
+    19:43:11,899  the recovery lookup is suppressed by the already-answered guard
+
+The disc never changed. A rescan of the **same** disc landed between opening the
+picker and answering it. `_is_stale_mb_result` asked *"is this for the disc on
+screen?"* and got *"there is no disc on screen"* — not the same as *"this is for a
+different disc"*, and only the second is stale.
+
+**The uncomfortable half: yesterday's duplicate-picker guard is part of it.** The
+second lookup *was* the recovery. Before the guard, it would have re-opened the
+picker and the tracks would have loaded. I turned an annoying duplicate into no
+tracks at all — the exact question `CLAUDE.md` asks of a correctness fix (*what
+does the code downstream do with answers it never used to receive?*), asked a day
+late. Two of yesterday's changes did work and are why it was diagnosable in one
+pass: the guard logged its decision at INFO, and the strengthened `pick-release`
+refused to report PASS without loaded tracks.
+
+**And my first fix re-opened the wrong-album bug.** Relaxing staleness whenever
+the detail matched `_mb_release_chosen_for` is unsafe: `_on_disc_info_ready` sets
+`_current_disc_id` without clearing that marker, so `marker=disc-A` with `disc-B`
+on screen is reachable. The belt test written for something else caught it. Scoped
+to the transient-empty window instead.
+
+**The documentation audit, prompted by the maintainer reading the README.** Every
+gate was green and the front page asserted five false things in one sentence — the
+version, the round range, the round state, the installed pin, and a remedy that
+was *verbatim the advice 0.6.30 had removed from the app for being wrong*. The
+stamp gate passed because the stamp was **correct**: the file had been restamped in
+the release commit, and a stamp records when a doc was *edited*. §1 passed because
+it compares **minors** — `(0,6) < (0,6)` is false.
+
+11 audit slices with an adversarial verify pass: 142 raw findings, **87 confirmed,
+2 refuted, 30 the auditors missed**. Three verify agents died on the org's monthly
+spend limit, so 52 findings across `dependency-contracts.md`,
+`hardware-test-checklist.md`, `eac-parity.md` and others are **unverified and not
+applied** — a false finding corrupts a correct document.
+
+**What the audit found that matters beyond the numbers.** `CLAUDE.md` contradicted
+itself on what closes a round (*"until OUR verification declares GO"* against
+obligation (1) one line above saying **both**) — the one-half-of-a-two-half-contract
+failure, inside the sentence naming it. The handshake doc said *"protocol version:
+2"* through all of v3 and v4. And **two documents both described themselves as "the
+standing answer, rewritten in place"**, drifting independently; rule #7 says a
+second doc duplicating a home is worse than one long home, so §7.6 became a pointer
+and the wire-facing status file was rewritten.
+
+**The systemic pattern, and the durable lesson:** index rows *quote* counts and
+versions from the files they describe — "seven universal rules" (18),
+`SEAM-RULES-VERSION: 1` (5), "20-row conformance table" (37). A quoted number in a
+map is a guaranteed drift. Those rows now point at the source, which is the same
+delegate-don't-restate move made in the code the same morning. That measurement
+also exposed a real gap now filed rather than papered over: we claim *"one test per
+conformance row"* in two places and it is 37 rows, 24 tests.
+
+**And the enforcement, because a text fix rots.** `test_no_stale_version_claims.py`
+§4 checks the front page's *facts*: the exact `__version__`, that install claims
+name `FORK_PIN` and not a retired pin, and — delegated to
+`fork_source.a_round_is_reviewing_a_build()` — that no doc asserts an open round
+when none is. The README does not get its own opinion about whether a round is
+open. The claim window was too narrow **three times, each differently**, and a tool
+found all three: `[^.\n]` died at the version string's first full stop, `[^\n]` at
+the README's hard wrap (reported **VACUOUS** by `revert_probe.py` rather than
+passing), and the subject extractor missed the `platterpus-fork-g<sha>` form.
+
 ## 2026-08-27 — the abort worked; the advice beside it did not
 
 **v0.6.30.** The overnight acceptance attempt aborted in two seconds at
@@ -4055,4 +4129,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.30.*
+*Last updated for Platterpus v0.6.31.*

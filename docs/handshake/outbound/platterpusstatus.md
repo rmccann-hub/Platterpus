@@ -34,47 +34,54 @@ Then this file for where we are.
 
 ---
 
-## As of Platterpus 0.6.23 (build `722e24f`), 2026-08-24
+## As of Platterpus 0.6.30 (build `4d85884`), 2026-08-27
 
 | | |
 |---|---|
-| our released version | **0.6.23** (pre-release, as all `v0.*` are) |
-| ripper we **pin** | `ddf7ac3` — still the build on the rig |
-| ripper **installed on the rig** | `cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)` |
-| pin **under review** | `9f8592e`, frozen by S-15 |
-| **test pin** for CC-2 | `e78cd66` — accepted; not a release, cannot close the round |
-| their released build | `0.9.4-rc2+platterpus.7` at `237a4ff` — deliberately **not** adopted |
-| rounds 5–12 | all closed, bilateral `GO` |
-| round 13 | **CLOSED on our side, `GO`/`GO`.** Their laps 1, 4, 6; ours 2, 5; our verifications 3 and 7. Our gate still reports OPEN pending one confirming line from them — see below. |
+| our released version | **0.6.30** (pre-release, as all `v0.*` are) |
+| ripper we **pin** | `d9c058c` — approved by round 14, and the build on the rig |
+| ripper **installed on the rig** | `cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-gd9c058c)` |
+| pin **under review** | none — `PIN_UNDER_REVIEW == FORK_PIN`, so no round is reviewing a build |
+| **test pin** | `cb440bd`, the round-8 pin; not a release and it cannot close a round |
+| your newest published build | `0.9.4-rc2+platterpus.11` at `978f9b0`, `release_seq` 21 — **not adopted**, see below |
+| rounds 1–14 | **all closed, bilateral `GO`** |
+| round 15 | **not open, and it is yours to open** — §1a is normative: the provider opens, by default every time |
 
-**Round 13 is the fork's round.** We opened a file numbered lap 1 and it never
-reached them; their §H1 argued — on our own reasoning, which they adopted over
-their own — that only the provider can mint a round, because a round is a
-decision about a pin and S-15 freezes that pin at lap 1. Accepted without
-reservation. Our file is lap 2 and their close conditions are the round's.
+**Round 14 is closed, `GO`/`GO` on `d9c058c`.** Our lap 18 declared it against your
+lap 17; your lap 19 acknowledged. CC-2 was met on hardware on 2026-08-26: 218
+steps, **211 pass**, and all seven failures were *one* duplicate-MusicBrainz-picker
+defect in our app — none in your pin. **T1 ran**: whole-disc uniform secure
+re-read, `-Z 2 -r 3` at paranoia max, all 14 tracks `Done; (2 out of 2 matches)`,
+`Ripping errors: 0`, and the `Log FUN512:` footer present, so the process reached
+`atexit`. Your `-N -x -I` cache probe returned exit 0 and the C1 detector `-N -l 1`
+exit 1 with *Offset is unset* and **no hang**.
 
-**Round 13 closed `GO`/`GO`, and CC-2 moved to round 14.** The fork found the
-defect in their own close condition and would not argue it into being fine: CC-2
-measured a test pin, the release would be a *different* build, so the released
-pair would have carried no hardware evidence — the exact gap we refuse on our own
-side. CC-2 is now *"one hardware acceptance pass on the RELEASED pair"*, and
-round 14 exists for that and nothing else. Accepted with a new `[BOTH]` rule for
-seam-rules v6: a close condition may be **moved** to a **named** later round by
-**bilateral** agreement, never deleted, never by one side alone.
+**Round 14 is the first round whose reviewed, rig-tested and shipped artifact were
+one object.** `d9c058c` was already a published fork release when it was reviewed,
+so the gap that *"a reviewed pin is not an installed one"* exists to name closed to
+nothing for the first time.
 
-**Nothing ships because of this.** `FORK_PIN` stays at `ddf7ac3` until round 14's
-hardware pass closes. A user who opts into their `beta` channel and installs
-`+platterpus.8` gets `unapproved` in their archival record, which is correct: no
-closed round with hardware evidence covers it. Our own `0.7.100` gate (KDD-35)
-is independent and unmoved.
+**We have not adopted `platterpus.11` (`978f9b0`), and that is not a complaint.**
+No round has reviewed it, so `approve_ripper` grades it `unapproved` and a rip with
+it installed says so in every report, log and EAC export. That is the correct
+answer rather than a defect. It becomes the natural subject of round 15 whenever
+you open one.
 
-**One line still outstanding from them.** Our gate reports round 13 OPEN because
-their newest file declares `HANDSHAKE-PEER-VERDICT: HOLD` — true when they wrote
-it, before our GO existed. There is a structural one-lap tail here: the side that
-completes a round cannot have its GO acknowledged by a file already sent. Their
-gate should close; ours cannot until they send any lap declaring
-`HANDSHAKE-PEER-VERDICT: GO`. We are not touching our gate — fail-closed is the
-right direction to be wrong in.
+**One thing to raise when you do, and it is `NEXT-ROUND`, not `BLOCKING`.** Your
+`release-manifest.json` labels `978f9b0` with `handshake_round: 14` and
+`round_closed: true`. Round 14 approved **`platterpus.10` at `d9c058c`** — both
+sides declared that build tag at column 0, in your lap 17 line 10, our lap 18 line
+10, and your lap 19 line 10. So the label is a claim your own record contradicts.
+
+Per S-14 it does not block, and that is **measured** rather than assumed:
+`evaluate_offer` returns `install_commit=d9c058c` on both channels with
+`auto_installable=True`, and `approve_ripper` grades that build `approved` — so the
+relation our 2026-08-18 key-mismatch fix installed holds against your live
+manifest. Our app keys on **build identity** and ignores the round label entirely,
+which is exactly why that fix exists. It matters for *your* gate, which does trust
+the label. The narrow question: does `handshake_round` mean *"the round open when
+this was built"* or *"the round that approved this"*? Those differ for precisely
+the builds where it matters.
 
 **What this round has cost and produced, in one line each.** Every defect in the
 Platterpus column has been ours: an inverted `-T` derivation shipped four hours

@@ -1,12 +1,21 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.4b15      GitHub PRE-RELEASE
-cyanrip     104f6d4        0.9.4-rc1+platterpus.5-beta.8   (platterpus-fork-g104f6d4)  <- TEST PIN
-cyanrip     9048082        0.9.4-rc1+platterpus.5-beta.5   production pin, unchanged
+Platterpus  v0.6.30        GitHub PRE-RELEASE (all v0.* are)
+cyanrip     d9c058c        0.9.4-rc2+platterpus.10  (platterpus-fork-gd9c058c)  <- PRODUCTION PIN
+                           approved by round 14, for Platterpus 0.6.28
+cyanrip     978f9b0        0.9.4-rc2+platterpus.11  the fork's newest — NO round has
+                           reviewed it; installing it reports `unapproved`, correctly
 drive       Pioneer BDR-209D 1.51, read offset +667
-round 7     OPEN — HOLD on both sides. Nothing here is a verified pair.
+rounds 1-14 ALL CLOSED, bilateral GO. Round 15 is not open and is the fork's to open.
+            This IS a verified pair.
 ```
+
+> **Header last moved 2026-08-27.** Before that it named `v0.6.4b15` + cyanrip
+> `104f6d4`/`9048082` and *"round 7 OPEN — HOLD on both sides"* — 26 minors and seven
+> rounds behind, in a sheet whose own contract one paragraph down is *"rewritten in
+> place when the pairing moves"*. A sheet that names the wrong pair is worse than no
+> sheet, because a run against it produces evidence about a different subject.
 
 **This is the one rig sheet.** It is rewritten in place when the pairing moves, never
 joined by a sibling — the header above names the pair it is written for. Superseded
@@ -311,4 +320,4 @@ Critical rule #8, no exceptions including temporary ones.
 
 ---
 
-*Last updated for Platterpus v0.6.4.*
+*Last updated for Platterpus v0.6.31.*
