@@ -545,6 +545,7 @@ def finish_session(
     app_version: str = __version__,
     outcome: str = "acceptance test session",
     facts: Mapping[str, str] | None = None,
+    album_dirs: Sequence[Path] = (),
 ) -> BundleResult:
     """Pack the session into **one file**. Never raises.
 
@@ -564,6 +565,14 @@ def finish_session(
     :func:`_stage` — a directory source is admitted under the *widened* allowlist
     that exists for this program's own screenshots, and an album folder's `.png`
     is record-label artwork. Audio cannot get in either way; artwork can.
+
+    ``album_dirs`` is the safe route for exactly that, and it is why the parameter
+    exists separately: it goes to ``build_bundle``'s own album channel, which is
+    held to the STRICT allowlist however many folders are passed. An acceptance
+    session rips several discs, and without this its bundle carried the app log
+    and the transcript but **none of the per-album text artifacts** the shell
+    collector it replaces had always gathered — the rip logs, cue sheets, reports
+    and checksums that are the actual evidence a session exists to produce.
 
     A failure comes back as :attr:`BundleResult.error`. An overnight session that
     has just finished six hours of ripping must not lose its evidence to a bug in
@@ -586,7 +595,9 @@ def finish_session(
                 "sources collected": str(staged.present),
                 "sources absent": str(staged.absent),
                 "sources failed": str(staged.failed),
+                "album folders": str(len(album_dirs)),
             },
+            album_dirs=list(album_dirs),
             log_dir=_NO_LOG_SWEEP,
             extra_dirs=staged.extra_dirs,
             extra_text=text,
@@ -603,3 +614,61 @@ def finish_session(
             result.error,
         )
     return result
+
+
+#: What marks a directory as a rip's album folder. Every finished rip writes
+#: one beside its log, so its presence is the app's own evidence that a rip
+#: landed there — rather than a guess from the folder's name, which comes from
+#: MusicBrainz metadata and is not ours to predict (the 2026-08-23 defect where
+#: a predicted folder name missed by one glyph and a finished rip was
+#: overwritten).
+RIP_REPORT_GLOB: Final[str] = "*.platterpus.json"
+
+
+def session_album_dirs(
+    search_roots: Sequence[Path], *, since: float, limit: int = 40
+) -> list[Path]:
+    """Album folders that received a rip DURING this session. Never raises.
+
+    **Why discovered and not remembered.** The obvious alternative is for the
+    session to record each folder as its rips finish. That fails exactly when it
+    matters: a run that crashes, is cancelled, or ends in a way the bookkeeping
+    did not anticipate still leaves finished rips on disk, and those are the ones
+    somebody needs to send. Reading the disk answers "what is actually there",
+    which is a different and more reliable question than "what do we think we
+    did" (`CLAUDE.md`: *why am I predicting this at all when I could read it?*).
+
+    ``since`` is a POSIX timestamp taken when the session started, passed in
+    rather than read from a clock here so a test can pin it. A folder is included
+    when its report file was modified at or after that moment — so a library full
+    of previous rips does not end up in the archive, and a rip from this session
+    does even if its folder existed before.
+
+    ``limit`` bounds a pathological case rather than a normal one: a
+    misconfigured output directory pointing at a whole music library would
+    otherwise put hundreds of folders through the bundler. **The truncation is
+    returned to the caller's attention by being ordered newest-first**, so what
+    survives a cap is the most recent work rather than an arbitrary slice — and
+    `build_bundle`'s manifest names every folder it did receive, so the archive
+    never implies it covers more than it does.
+    """
+    found: dict[Path, float] = {}
+    for root in search_roots:
+        try:
+            if not root.is_dir():
+                continue
+            for report in root.rglob(RIP_REPORT_GLOB):
+                try:
+                    modified = report.stat().st_mtime
+                except OSError:
+                    continue
+                if modified < since:
+                    continue
+                folder = report.parent
+                found[folder] = max(found.get(folder, 0.0), modified)
+        except OSError as exc:
+            # A search root we cannot read is a fact about this machine, not a
+            # reason to lose the roots we can.
+            log.warning("could not scan %s for rip folders: %r", root, exc)
+    newest_first = sorted(found.items(), key=lambda item: item[1], reverse=True)
+    return [folder for folder, _ in newest_first[:limit]]
