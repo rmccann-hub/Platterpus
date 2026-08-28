@@ -20,6 +20,175 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+
+## The lesson→gate audit backlog (2026-08-28)
+
+**130 gaps, from the 187-item audit written up in `docs/testing.md` §5C.**
+Every row carries a concrete breaking change and a proposed gate in the audit
+data; the one-liners here are the index. Effort: **72 small, 51 medium, 7
+large**. Two were fixed on the day (`from __future__ import annotations`,
+`Signal(object)` payloads) and are not listed.
+
+**Read the shape before the list:** 52 of the *existing* gates can be satisfied
+by finding nothing — present, green, passing on an empty population. That is
+more than the 54 that genuinely work, so section 5 below outranks the rest.
+
+### 5. Existing gates satisfiable by finding nothing (20)
+
+- [ ] **`vacuity:tests/test_accessibility_standards.py::test_no_explicit_size_drops_below_the_floor`** (partial, small) — WCAG 2.5.8 target-size sweep has no match floor and cannot see setFixedSize
+- [ ] **`vacuity:tests/test_dialog_lifecycle_logging.py::test_every_dialog_in_the_app_inherits_the_logging_base`** (partial, small) — The dialog-opt-out sweep has a provably empty candidate set today
+- [ ] **`vacuity:tests/test_handshake_file_naming.py::test_no_two_files_in_a_directory_claim_the_same_lap`** (partial, small) — Doubly-nested assertion with a continue above it and no examined counter
+- [ ] **`vacuity:tests/test_handshake_protocol.py::test_it_states_that_the_release_is_gated_on_both`** (partial, small) — assert "both" in text, against a 29 KB document containing it 21 times
+- [ ] **`vacuity:tests/test_no_stale_version_claims.py::test_the_status_banner_names_the_EXACT_current_version`** (partial, small) — The floor covers a copy of the regex, not the regex the sweep uses
+- [ ] **`vacuity:tests/test_preflight.py::test_the_build_check_is_actually_run_by_the_doctor`** (partial, small) — 'Actually run by the doctor' asserts a substring in run_preflight's source
+- [ ] **`vacuity:tests/test_report_types_completeness.py::test_no_declared_key_is_unemitted`** (partial, small) — The converse completeness sweep has no floor on the declared side
+- [ ] **`vacuity:tests/test_rip_addendum.py::test_the_module_never_imports_qt`** (partial, small) — Every assertion lives inside a walk that can yield no Import nodes
+- [ ] **`vacuity:tests/test_rip_audit.py::test_the_cli_flag_is_wired`** (ungated, small) — A wiring test satisfied by a commented-out call
+- [ ] **`vacuity:tests/test_ripper_update_worker.py::test_the_launch_path_does_arm_it`** (partial, small) — 'The launch path does arm it' is a substring search over app.py's whole text
+- [ ] **`vacuity:tests/test_script_language_emitted.py::test_an_unimplemented_verb_is_marked_not_omitted`** (partial, small) — Skips itself the moment its population is empty, and nothing registers that
+- [ ] **`vacuity:tests/test_surface_consistency.py::test_every_track_crc_is_identical_in_the_log_and_the_report`** (partial, small) — Archival CRC-agreement sweep counts no comparisons
+- [ ] **`vacuity:tests/test_uiscript.py::test_the_production_adapter_really_does_omit_dash_N`** (partial, small) — The floor under a seam exemption is an exact-source-string match
+- [ ] **`vacuity:tests/test_uiscript_settings.py::test_a_warning_does_not_block_a_set`** (partial, small) — Picks its subject from a live computation and skips when the list comes back empty
+- [ ] **`vacuity:tests/test_doc_version_stamps.py::test_docs_changed_since_last_release_are_stamped_current`** (partial, medium) — A release-checklist gate that skips itself whenever git cannot answer
+- [ ] **`vacuity:tests/test_handshake_protocol.py::test_the_cyanrip_return_spec_enumerates_every_section`** (partial, medium) — Nine markers checked anywhere in a 29 KB doc, none tied to the return spec
+- [ ] **`vacuity:tests/test_report_writer.py::test_close_waits_for_the_pending_write`** (partial, medium) — The final-report-survives-close guard is a substring match on closeEvent's text
+- [ ] **`vacuity:tests/test_scroll_guards.py::test_every_module_with_a_value_widget_installs_the_guard`** (partial, medium) — The wheel-guard sweep tests for a name in the file, not a call in the constructor
+- [ ] **`vacuity:tests/test_scroll_guards.py::test_the_settings_dialog_installs_the_wheel_guard`** (partial, medium) — A class literally named TestItIsActuallyWiredIn verifies a MENTION, not a call
+- [ ] **`vacuity:tests/test_dynamic_sweeps_declare_a_floor.py::test_every_computed_parametrize_is_registered`** (partial, large) — The anti-vacuity meta-gate polices parametrize only — plain rglob loops are unpoliced
+
+### 1. Critical rules with no gate (16)
+
+- [ ] **`rule-1.adapters`** (ungated, small) — Critical rule #1 — external/unmaintained deps must go through an adapter module
+- [ ] **`rule-1.composition-root`** (ungated, small) — Critical rule #1 / architecture §2 — adapters are constructed only at the composition root
+- [ ] **`rule-10.future-annotations`** (ungated, small) — Critical rule #10 — `from __future__ import annotations` in every module
+- [ ] **`rule-10.signal-payloads`** (ungated, small) — Critical rule #10 — Signal payload types are named in a comment beside `Signal(object)`
+- [ ] **`rule-2.appimage-builder`** (partial, small) — Critical rule #2 — python-appimage is the builder; appimage-builder needs sign-off
+- [ ] **`rule-3.routing`** (partial, small) — Critical rule #3 — the GUI calls the host-exported ~/.local/bin ripper
+- [ ] **`rule-5.mb-adapter`** (ungated, small) — Critical rule #5 — no bypass of the MusicBrainzClient query path
+- [ ] **`rule-7.new-file-last-resort`** (ungated, small) — Critical rule #7 obligation 4 — a NEW doc is the last resort and the commit names the homes it rejected
+- [ ] **`rule-9.detach`** (partial, small) — Critical rule #9 — never say "detach"; abandon and retain the reference
+- [ ] **`rule-10.no-bare-any`** (partial, medium) — Critical rule #10 — no bare Any, and no bare `# type: ignore`
+- [ ] **`rule-12.challenge-ledger`** (ungated, medium) — Critical rule #12 — the fork's challenge mandate is settled by COUNTING, in a ledger
+- [ ] **`rule-12.inbound-sanitising`** (ungated, medium) — Critical rule #12 — the INBOUND half: control characters and NULs flagged, line lengths bounded
+- [ ] **`rule-12.plaintext`** (partial, medium) — Critical rule #12 — every widget carrying dependency output is PlainText
+- [ ] **`rule-4.one-transcode-adapter`** (partial, medium) — Critical rule #4 — one transcode adapter, no bespoke per-encoder install code
+- [ ] **`rule-6.one-subsystem`** (ungated, medium) — Critical rule #6 — dependency self-management is one subsystem, not scattered checks
+- [ ] **`rule-7.session-log`** (ungated, medium) — Critical rule #7 obligation 2 — a session-log entry before ending a session
+
+### 2. §5 cases with no gate (14)
+
+- [ ] **`§5.ac`** (partial, small) — Two witnesses that share an ancestor are one witness
+- [ ] **`§5.am`** (partial, small) — A conformance table is run, not read
+- [ ] **`§5.x`** (partial, small) — Test the wiring, at the call site
+- [ ] **`§5.al`** (partial, medium) — Two surfaces answering one question by different keys will disagree
+- [ ] **`§5.an`** (partial, medium) — A gate that picks its subject by chance is not a gate
+- [ ] **`§5.ao`** (ungated, medium) — A number read from a run still in flight is the fast tail, not the range
+- [ ] **`§5.at`** (partial, medium) — The advice a failure prints is code, and it can carry the bug
+- [ ] **`§5.aw`** (partial, medium) — A gate's POPULATION is part of the gate
+- [ ] **`§5.ax`** (ungated, medium) — The apology nobody audited: a generous cause produces the wrong fix
+- [ ] **`§5.o`** (partial, medium) — Enforce a rule across the codebase, not at the place it was learned
+- [ ] **`§5.p`** (partial, medium) — A documented capability is not a capability
+- [ ] **`§5.s`** (ungated, medium) — A fix is a change, and changes have their own failure modes
+- [ ] **`§5.t`** (partial, medium) — Harness fidelity — a stand-in must not be better than the real thing
+- [ ] **`§5.av`** (partial, large) — A file the parser skips is not evidence of a parser bug
+
+### 3. "Stop shipping the next one" bullets (15)
+
+- [ ] **`checklist-14`** (partial, small) — Two implementations agreeing is not either one being correct
+- [ ] **`checklist-18`** (partial, small) — Is the user's symptom gone, or just the mechanism I named?
+- [ ] **`checklist-25`** (ungated, small) — An apology can get less scrutiny than a claim
+- [ ] **`checklist-5`** (partial, small) — Am I asserting that a thing HAPPENED, or that it was REQUESTED?
+- [ ] **`checklist-7`** (partial, small) — What else WRITES to the field I'm reading, and does it write for a reason I would not want to override?
+- [ ] **`checklist-8`** (partial, small) — "Fail-safe" is defined against the thing being protected
+- [ ] **`checklist-1`** (ungated, medium) — Did I reproduce the symptom, or only explain it?
+- [ ] **`checklist-11`** (partial, medium) — Can this check be satisfied by finding nothing?
+- [ ] **`checklist-15`** (ungated, medium) — Is the population I measured closed?
+- [ ] **`checklist-17`** (partial, medium) — What does my stand-in do that the real thing does not?
+- [ ] **`checklist-2`** (partial, medium) — What new state does this fix create — and what state does it UNBLOCK?
+- [ ] **`checklist-23`** (partial, medium) — Did a correction get less scrutiny than a claim?
+- [ ] **`checklist-24`** (ungated, medium) — Never state a mechanism in the other side's code without citing where you read it
+- [ ] **`checklist-3`** (partial, medium) — Preconditions checked where the thing HAPPENS, not where it was scheduled
+- [ ] **`checklist-4`** (ungated, large) — Would this test fail if I reverted the fix? (and did the revert actually land?)
+
+### 4. Code conventions (8)
+
+- [ ] **`conv.a11y-target-size`** (partial, small) — Code convention / WCAG 2.5.8 — an explicit size is a size you own (24 px floor, 44 px to commit)
+- [ ] **`conv.argv-range`** (partial, small) — Code convention — range checks enforced by CODE at the argv chokepoint
+- [ ] **`conv.error-handling`** (partial, small) — Code convention — catch specific exceptions, never a bare except; log with logging, not print
+- [ ] **`conv.module-size`** (ungated, small) — Code convention — small focused modules, split past ~300 lines
+- [ ] **`conv.named-group-regex`** (ungated, small) — Code convention — named-group regexes, not column-index splits
+- [ ] **`conv.naming`** (ungated, small) — Code convention — snake_case functions/modules, PascalCase classes, SCREAMING_SNAKE constants
+- [ ] **`conv.no-metaprogramming`** (ungated, small) — Code convention — no clever metaprogramming
+- [ ] **`conv.a11y-colour`** (partial, medium) — Code convention / WCAG 1.4.1 — status is never colour alone
+
+### 6. Mutation-testing scope (22)
+
+- [ ] **`mutation:_documented_command`** (ungated, small) — CLAUDE.md and docs/testing.md still publish the mutmut 2.x command that exits 2
+- [ ] **`mutation:_scope_config`** (partial, small) — No test asserts WHICH modules are mutated — the scope can shrink to one 104-line parser and stay green
+- [ ] **`mutation:adapters/cyanrip_backend.py`** (ungated, small) — The argv chokepoint — 5 fix commits, pure, and the best single addition to scope
+- [ ] **`mutation:ctdb/decode.py+toc.py+diagnose.py`** (ungated, small) — Inside ctdb/, the ONE module in scope (crc.py) is the one with no shipped bug
+- [ ] **`mutation:eac_log_export.py`** (ungated, small) — The archival EAC artifact — 4 fix commits, fully pure, 1,450 lines
+- [ ] **`mutation:handshake_approval.py`** (ungated, small) — The per-rip approval verdict stamped into every archival record — 491 lines, outside scope
+- [ ] **`mutation:naming.py`** (ungated, small) — 315 lines, the substitution table that cost a finished 14-track rip
+- [ ] **`mutation:rig_check.py`** (ungated, small) — Flag-token comparison — 773 lines, 2 fix commits, the exact bug mutmut kills
+- [ ] **`mutation:ripper_identity.py`** (ungated, small) — The single shared provenance classifier — 247 lines, in nothing
+- [ ] **`mutation:settings_validation.py`** (ungated, small) — The pure validator CLAUDE.md mandates — 879 lines, 120 tests, outside scope
+- [ ] **`mutation:_proposed_expansion`** (ungated, medium) — Concrete proposal: tier A now (+~2,900 mutants), tier B next, measured test cost 14.5 s
+- [ ] **`mutation:_runner_checks_nothing`** (partial, medium) — The mutation audit checks ZERO mutants today — measured, not inferred
+- [ ] **`mutation:deps/fork_source.py`** (ungated, medium) — Ripper build offers and pins — 6 fix commits, pure, and the two-surfaces-one-key defect lives here
+- [ ] **`mutation:parsers/cyanrip_log.py`** (partial, medium) — In scope on paper, 6 fix commits, 1,357 mutants — none checked
+- [ ] **`mutation:report_types.py`** (ungated, medium) — The report dataclasses/schema — 3 fix commits, 667 pure lines, one test file
+- [ ] **`mutation:rip_audit.py+evidence_bundle.py+checksums.py+parity.py`** (ungated, medium) — Four small pure archival modules, 3 fix commits between them, none in scope
+- [ ] **`mutation:rip_compare.py`** (ungated, medium) — 1,404 pure lines comparing two rips — 2 fix commits, outside scope
+- [ ] **`mutation:rip_report.py`** (ungated, medium) — The JSON report of record — 5 fix commits, pure, 2,302 lines, largest single addition
+- [ ] **`mutation:verdict.py`** (partial, medium) — In scope, 348 mutants, 0 checked — and the thinnest test selection in the config
+- [ ] **`mutation:app.py`** (ungated, large) — 6 fix commits, second-highest count — and not a mutmut candidate
+- [ ] **`mutation:ui/main_window*.py`** (ungated, large) — 16 fix-commit touches across the main-window mixins — outside scope and outside mutmut's reach
+- [ ] **`mutation:uiscript/runner.py`** (ungated, large) — Top shipped-bug module in the window (11 fix commits) and the worst mutmut candidate
+
+### 7. Boundary functions with no property test (23)
+
+- [ ] **`fuzz:adapters.cyanrip_backend._metadata_args`** (ungated, small) — Outbound -a/-t blob: control chars and newlines are only rejected on 4 of 11 metadata fields
+- [ ] **`fuzz:adapters.cyanrip_backend.scheme_from_template`** (ungated, small) — The whipper-template to cyanrip -D/-F translator has no property test
+- [ ] **`fuzz:adapters.ripper_log_verify.verify_rip_log`** (partial, small) — The adapter that turns a ripper exit code into an accusation about an archival file is fuzzed on no axis
+- [ ] **`fuzz:ctdb.crc.ctdb_crc`** (partial, small) — The CTDB CRC's only property test can never reach the CRC — every draw returns None
+- [ ] **`fuzz:ctdb.crc.ctdb_crc_offset0_streaming`** (partial, small) — Streaming CRC equivalence is proven on one buffer with one chunking
+- [ ] **`fuzz:ctdb.toc.parse_cue_index01_sectors`** (partial, small) — The .cue INDEX reader is pinned only at the integer-digit boundary
+- [ ] **`fuzz:cue_validate.sent_track_metadata`** (partial, small) — The argv readers in cue_validate are excluded from the module's own never-raises property
+- [ ] **`fuzz:diagnostics.bounded_output`** (ungated, small) — The head-and-tail helper on every external-tool capture path has no test at all; the one test targets a duplicate
+- [ ] **`fuzz:eac_log_export.render_eac_style_log`** (ungated, small) — The EAC-compatible archival log emitter has no never-raises property test
+- [ ] **`fuzz:naming._sanitise_value`** (partial, small) — The preview's value sanitiser is covered by a never-raises property that never fuzzes the value
+- [ ] **`fuzz:offset_config.read_drive_offsets`** (partial, small) — The whipper.conf offset scanner is pinned at one boundary and otherwise unfuzzed
+- [ ] **`fuzz:parity.decode_log_bytes`** (partial, small) — The multi-encoding log decoder and cross-backend CRC extractor take arbitrary bytes with no property test
+- [ ] **`fuzz:ripper_identity._tag_matches`** (ungated, small) — Build-tag classification is cubic in hyphen count — 27 seconds on the GUI thread for a 2000-hyphen banner
+- [ ] **`fuzz:settings_validation.cross_fs_hazards`** (ungated, small) — Cross-filesystem hazard scan has no property test, and its %%-unfold runs before token blanking
+- [ ] **`fuzz:settings_validation.validate_config`** (partial, small) — "Validator never raises on garbage" is three hand-set fields, not the field space
+- [ ] **`fuzz:ui.main_window_helpers.safe_path_segment`** (ungated, small) — The unknown-album path sanitiser is example-tested only
+- [ ] **`fuzz:uiscript.script.parse`** (ungated, small) — The rig-script tokeniser and parser have no property test and are absent from the never-raises roster
+- [ ] **`fuzz:uiscript.script.sanitise_cyanrip_args`** (partial, small) — Scripted argv log-forgery check covers \n, \r, \x00 — and misses every other line terminator our own parser splits on
+- [ ] **`fuzz:naming._VALUE_SANITISE`** (ungated, medium) — The substitution table is documented as "derived, not observed" from the fork's contract P7b — and nothing compares it to P7b
+- [ ] **`fuzz:rip_report.build_report`** (ungated, medium) — The JSON rip report has no never-raises property test over parser output
+- [ ] **`fuzz:ripper_messages.format_to_pattern`** (ungated, medium) — The fatal-message matcher builds regexes from external format strings with no property test
+- [ ] **`fuzz:scripts.handshake._strip_fences`** (ungated, medium) — An illustrated close inside an UNTERMINATED or INDENTED fence is adopted as a real declaration — a round closes on a fabricated…
+- [ ] **`fuzz:ui.main_window_helpers._is_sanitised_rendering_of`** (partial, medium) — The overwrite guard's match rule is exercised on exactly one character and one glyph pair
+
+### 8. Event-ordering / stateful testing (12)
+
+- [ ] **`stateful:answered-implies-answerable`** (partial, small) — The app must never believe a disc is answered while holding no answer and refusing to ask again
+- [ ] **`stateful:no-modal-during-rip`** (ungated, small) — A spontaneous modal must not open over a running rip
+- [ ] **`stateful:non-triviality-floor`** (ungated, small) — The machine must prove it reached the interesting states, or it is decoration
+- [ ] **`stateful:release-detail-never-cleared`** (ungated, small) — `_current_release_detail` is assigned in one place and cleared in none
+- [ ] **`stateful:table-immutable-during-rip`** (ungated, small) — The track table must not be rewritten under a running rip
+- [ ] **`stateful:auto-insert-clears-identity`** (ungated, medium) — The auto-detect insertion path does NOT clear the previous disc's release id or track rows
+- [ ] **`stateful:detail-not-dropped`** (partial, medium) — A detail the app itself requested must load tracks — the 2026-08-27 rig failure
+- [ ] **`stateful:missed-swap`** (partial, medium) — A disc swap the poller does not observe leaves the whole app describing the wrong disc
+- [ ] **`stateful:one-picker-per-scan`** (partial, medium) — At most one release picker per disc per scan
+- [ ] **`stateful:rip-identity`** (ungated, medium) — The argv the ripper receives must describe the disc in the drive
+- [ ] **`stateful:staleness-key-is-a-value`** (ungated, medium) — The disc/MB pipeline keys staleness on a mutable value; the rip pipeline uses a monotonic generation, and only one of them has …
+- [ ] **`stateful:harness`** (ungated, large) — No test anywhere explores event ORDERING; every fixture starts in an end state
+
+---
+
 ## Round 15 — ours to raise, the fork's to open (2026-08-27)
 
 - [ ] **We claim "one test per conformance row" and it is not true: 37 rows, 24

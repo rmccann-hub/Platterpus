@@ -12,6 +12,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **`ripper_identity._tag_matches` was cubic in the build tag's separator count,
+  on a value read straight from the ripper's version banner.** It generated
+  every contiguous run of hyphen-separated parts — two nested loops with an
+  O(n) join inside — and is reached by every rip through `rip_report` and the
+  EAC-compatible log emitter. Measured 2026-08-28: 400 parts 0.11 s, 800 parts
+  0.87 s, 1600 parts 7.1 s, **3000 parts 45 s** — eight times the work for twice
+  the input. A garbled banner does not have to be malicious to be long, and
+  nothing validated the tag's shape. Rewritten to iterate the small `wanted`
+  set instead: **0.00007 s**, with 90,000 generated tags agreeing with the
+  original on every answer. The equivalence test keeps the old implementation as
+  an oracle and says plainly that it pins *equivalence, not correctness* —
+  `CLAUDE.md` warns that two implementations agreeing is not either one being
+  right — and the timing guard has a twin that times the oracle, so it cannot
+  degrade into "a fast thing is fast".
+
 - **A dead button in the update dialog, found by auditing our own rules against
   our own tests.** *"Open the download page?"* → **Yes** called
   `QDesktopServices.openUrl` and discarded the returned bool — the only signal

@@ -2284,6 +2284,102 @@ facts: every failure on both of the last two rig runs descended from a **single*
 defect, and every defect that mattered this month was found on hardware with the
 suite green throughout.
 
+## 5C. The lesson→gate audit — how much of this file is actually enforced
+
+**Run 2026-08-28, after the maintainer asked how to "gate or test for these
+things moving forward, especially problems we've already solved".** Every §5
+case above, every *"How to stop shipping the next one"* bullet, every Critical
+rule and Code convention in `CLAUDE.md`, plus the existing suite's own vacuity
+risk — **187 items**, each held to one question:
+
+> Invent a concrete breaking change that violates this rule. Read the gate that
+> supposedly covers it. **Would a named assertion fail?**
+
+Not *"is there a test about this topic"*. This project has been burned by that
+distinction specifically — a detector that looked for a *mention* of a thread
+rather than a *call* that stops one passed against the very bug it was written
+for (§5.au). So a verdict of GATED required naming the assertion.
+
+### The numbers
+
+| | count | share |
+|---|---:|---:|
+| **GATED** — a named assertion fails on the breaking change | 54 | 29% |
+| **PARTIAL** — a gate exists and the breaking change survives it | 69 | 37% |
+| **UNGATED** — nothing would fail | 61 | 33% |
+| genuinely needs a person or hardware | 3 | 2% |
+
+And the figure that reframes the rest: **52 existing gates can be satisfied by
+finding nothing** — present, green, passing on an empty population. That is
+*more than the 54 that work*.
+
+| area | gated | partial | ungated |
+|---|---:|---:|---:|
+| Critical rules | 17 | 6 | **10** |
+| §5 case log | 17 | 11 | 3 |
+| "stop shipping the next one" | 10 | 10 | 5 |
+| Code conventions | 9 | 4 | 4 |
+| mutation scope | 0 | 4 | **18** |
+| property/fuzz targets | 0 | 11 | **12** |
+| existing tests: vacuity risk | 0 | **19** | 1 |
+| stateful / event-ordering | 0 | 4 | 8 |
+
+### Two findings proved by construction, not argued
+
+The value of the audit is that it did not stop at reading:
+
+1. **`test_never_raises_contract.py` sweeps a hand-written 16-entry roster.** A
+   new parser was added with a live `ValueError` on an unbounded `int()` — the
+   exact defect that file exists for — and it **passed**. Its floor asserts
+   `len(_PARSER_MODULES) >= 15`, which bounds the roster's *length*, not its
+   *coverage*. The file's own comments admit this twice.
+2. **A discarded `QDesktopServices.openUrl` passed all 4,679 tests** — and a
+   live instance was already shipping (below).
+
+### What it found in shipped code
+
+- **A dead button.** The update dialog's *"Open the download page?"* → **Yes**
+  discarded `openUrl`'s bool — the only signal that nothing on the system claims
+  the URL — so on a desktop with no browser handler it silently did nothing.
+  `ui/external_open.py` exists to prevent this and cites §5.o in its own
+  docstring; it was applied at three call sites and a **fourth** was written
+  without it. **§5.o landing on the module written to answer §5.o.**
+- **A cubic hang on external input.** `ripper_identity._tag_matches` generated
+  every contiguous run of hyphen-separated parts: O(n³) in the separator count,
+  on a value read from the ripper's version banner and reached by every rip
+  through `rip_report` and the EAC log emitter. Measured: 400 parts 0.11 s,
+  800 parts 0.87 s, 1600 parts 7.1 s, **3000 parts 45 s**. Rewritten to iterate
+  the small `wanted` set instead — 0.00007 s, with 90,000 generated tags
+  agreeing with the original on every answer.
+- **Sixteen `noqa: N802` markers suppressing a rule that was never enabled**, so
+  five genuine framework overrides had never acquired one: nothing ever asked.
+- **Nine modules without `from __future__ import annotations`**, which Critical
+  rule #10 requires of all of them.
+
+### The lesson the audit taught about itself
+
+An interim tally at 8 of 12 agents read *54 gated / 31 partial / 22 ungated*,
+and was quoted as "roughly a fifth is unenforced". The complete run is **61
+ungated — a third**. GATED stayed frozen at 54 while the other columns nearly
+tripled: the agents that finished first finished first *because* their subjects
+were already covered.
+
+That is **§5.ao** — *a number read from a run still in flight is the fast tail,
+not the range* — reproduced by the audit written to check whether §5.ao was
+enforced, and quoted anyway by someone who had just written the warning down.
+Knowing the trap does not help if you cite the figure regardless. **Close the
+population before quoting it, or put the qualifier inside the number.**
+
+### Where the rest lives
+
+Every UNGATED and PARTIAL item carries a concrete breaking change, a proposed
+gate and an effort estimate (**72 small, 51 medium, 7 large**). They are filed
+in `TASKS.md` rather than left here, because a list of known gaps inside a
+testing document is exactly the *"comment where a check belongs"* this section
+is about. The gates written on the day are
+`tests/test_critical_rules_are_enforced.py` and
+`tests/test_mutation_audit_can_report_its_own_absence.py`.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at
