@@ -750,17 +750,19 @@ normal failures are, look at everything, and devise a procedure to test against,
 and if allowed to pass then it should be scrutinized and documented."*
 
 Parts 0–D say **what to exercise**. This part says **what to disbelieve**, and it
-is derived from the record rather than from imagination: the 32 numbered cases in
+is derived from the record rather than from imagination: the numbered cases in
 [`testing.md` §5](testing.md), the `[Fixed]` entries in `CHANGELOG.md`, and the
 three rig runs in the [§5B evidence ledger](testing.md). A pass on this project has
 been wrong often enough that "it passed" is the beginning of the check, not the end.
 
 ### E0. The two measurements that reframe everything here
 
-Both are counted, not felt, and both come out of the last two hardware runs:
+Both are counted, not felt, and both come out of the hardware runs:
 
-1. **On both rig runs, EVERY failure descended from ONE defect.** v0.6.17: 8 of 8
-   steps, all one race. v0.6.18: `pass=55 fail=5`, all five one latch. So the
+1. **On three rig runs, EVERY failure descended from ONE defect.** v0.6.17: 8 of
+   8 steps, all one race. v0.6.18: `pass=55 fail=5`, all five one latch. v0.6.28,
+   2026-08-26: 218 steps, 211 pass and 7 fail, all seven one duplicate-picker
+   defect. So the
    **number of failures carries almost no information about how much is wrong** —
    and, more dangerously, five separately-plausible explanations were available and
    would each have "fixed" one symptom. *Root-cause to a single mechanism before
@@ -789,7 +791,7 @@ exists and a human has to look.
 | 9 | **A run that vanishes or hangs** | 3 | Exit 0 with no summary; progress dots then silence; a job that eats its timeout | Session sentinel; `faulthandler_timeout`. §5.ar |
 | 10 | **A promise of completeness nothing sweeps** | 3 | An index missing 19 of 122 modules, decaying invisibly because a map is only ever wrong by omission | Derive the expected set from the filesystem. §5.af |
 | 11 | **A number quoted from an open population** | 1 | A bound set from the legs that had finished — i.e. the fast tail — landing inside the healthy range | Close the population, or put the qualifier *in* the number. §5.ao |
-| 12 | **A correction trusted more than a claim** | 3 | "You got this wrong", well-argued, applied faster than anything made in-house, and wrong | Scrutinise a correction like a claim. §5.ad |
+| 12 | **A correction trusted more than a claim** | 3 | "You got this wrong", well-argued, applied faster than anything made in-house, and wrong | Scrutinise a correction like a claim. §5.u, §5.ax |
 
 ### E2. What a NORMAL failure looks like — and what is an ANOMALY
 
@@ -895,4 +897,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.6.20.*
+*Last updated for Platterpus v0.6.32.*

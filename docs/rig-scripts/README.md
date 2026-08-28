@@ -5,7 +5,7 @@ argv the app builds, the same ripper binary. There is no simulation layer, which
 is deliberate — a harness that is safer or simpler than the product makes the
 product's gap invisible.
 
-## Closing round 14: `securereread.txt`
+## The T1-only path: `securereread.txt`
 
 **T1 alone, about 2–2.5 hours.** Use this rather than the full file when the only
 thing outstanding is the whole-disc uniform secure re-read.
@@ -68,9 +68,9 @@ rips.**
 
 The overnight script performs seven rips. "The newest" is the one beside the
 cache probe — **not** the whole-disc uniform secure re-read from its section N,
-which is the artifact the open cyanrip handshake round is waiting on. Collecting
-the newest loses the night, and loses it *silently*: the bundle arrives looking
-complete.
+which is the artifact round 14 closed on, and the one the next round will ask
+for again. Collecting the newest loses the night, and loses it *silently*: the
+bundle arrives looking complete.
 
 It never copies audio (Critical rule #8) — only the eight text suffixes the
 app's own bundler admits — and it then sweeps the staged tree and prints **how
@@ -342,4 +342,4 @@ disappointment is still true. What we still do not know, said out loud so nobody
 the silence as a pass: whether 32 sectors is this drive's real cache, and which of the
 `Cache probe:` states a different drive would report.
 
-*Last updated for Platterpus v0.6.31.*
+*Last updated for Platterpus v0.6.32.*

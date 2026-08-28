@@ -713,10 +713,14 @@ class UpdateMixin(MainWindowShared):
             QMessageBox.StandardButton.Yes,
         )
         if choice == QMessageBox.StandardButton.Yes:
-            from PySide6.QtCore import QUrl
-            from PySide6.QtGui import QDesktopServices
+            # NOT `QDesktopServices.openUrl` directly: its bool is the only
+            # signal that nothing on this system claims the URL, and throwing it
+            # away makes the one button offering the user their update a button
+            # that silently does nothing on a desktop with no browser handler.
+            # `open_web_url` checks it and shows the address to copy instead.
+            from platterpus.ui.external_open import open_web_url
 
-            QDesktopServices.openUrl(QUrl(url))
+            open_web_url(url, parent=self, what="download page")
 
     def _begin_update_install(self, version: str) -> None:
         """Download + verify + install `version` off-thread with progress.

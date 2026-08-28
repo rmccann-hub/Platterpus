@@ -8,11 +8,16 @@
 > proposed remedies — §4a and §5 — would not have worked, and the fork said which
 > half of each it accepted.
 >
-> **Three of them are fixed *after* the round-8 pin, so they are still present in
-> `ddf7ac3`:** §7, **§8** and §9. Their live home is
-> `docs/handshake/verified/round-08-lap-10.md` §C and §O, which carries the
-> disposition table and the round-9 asks. **§8 is also now detected on our side**
-> (`platterpus.cue_validate`, finding `cue_index00_orphaned`).
+> **Three of them were fixed *after* the round-8 pin, so at `ddf7ac3` they were
+> still open:** §7, **§8** and §9. The fork delivered all three in round 9 lap 1
+> — "Ten defects fixed since `ddf7ac3`, eight from your known-issues hand-off"
+> (`docs/handshake/inbound/round-09-lap-01.md:207-220`) — and the pin has moved
+> to `d9c058c` (`cyanrip 0.9.4-rc2+platterpus.10`) since round 14 closed GO/GO,
+> so nothing in this file describes a defect in the build we install. The
+> round-8 disposition table and the round-9 asks are in
+> `docs/handshake/verified/round-08-lap-10.md` §C and §O. **§8 is also now
+> detected on our side** (`platterpus.cue_validate`, finding
+> `cue_index00_orphaned`).
 >
 > **Why this file is kept rather than deleted:** each finding's evidence — the
 > cited artifacts, the line numbers, the refutation record — is the reason the
@@ -120,7 +125,7 @@ Nothing here is wrong in the artifact under review today: at the current FFmpeg 
 
 ## 2. `C2 errors:` prints a drive *capability*, never whether the rip *used* C2 — EAC's "Make use of C2 pointers" row stays unanswerable
 
-**Severity: low (unobservable on our current drive). Origin: upstream. Standing round-1 §1.4 ask, still unacknowledged at `ddf7ac3`.**
+**Severity: low (unobservable on our current drive). Origin: upstream. Round-1 §1.4 ask — STRUCK: the line has read `supported by drive, not used` since `8499890`, before this document was written.**
 
 ### What it is
 
@@ -294,7 +299,7 @@ Two defects in one artifact and one generator, both provable from the delivered 
 > …
 > **`cyanrip_main.c:2056`** - reaches logfile: yes
 > ```
-> (next heading is `## P3` at `:445` — nothing else in P2a.)
+> (next heading is `## P3` at `:442` — nothing else in P2a.)
 
 > `docs/handshake/inbound/round-07-lap-14.md:159-162` (the four `Read stalls:` wordings, prose only)
 > ```
@@ -434,7 +439,7 @@ The promise — `docs/handshake/inbound/artifacts/round-08-lap-01-provider-contr
 > "## P2 - Outputs: stable log lines (the API)
 > Every line below reaches **both stdout and the logfile**. Changing the text, indentation, field order or units of any of them is a breaking change and requires a handshake round."
 
-`:414` "**268 distinct stable lines.**" Nothing in the file disclaims completeness for the banner block; the only stated carve-outs are P2a (two rows) and P3.
+`:408` "**268 distinct stable lines.**" Nothing in the file disclaims completeness for the banner block; the only stated carve-outs are P2a (two rows) and P3.
 
 The gap, measured. Scripted match of every `^[A-Z][A-Za-z0-9 /-]*:` banner label in `docs/handshake/artifactsround08/round08riplog.log:2-31` (real rig rip, fork g2ce8993) against the full contract text. **ABSENT:** `Overread:` (log:9), `Overread mode:` (log:10), `Disc number:` (log:21), `Total discs:` (log:22), `DiscID:` (log:25), `Release ID:` (log:26), `CDDB ID:` (log:27), `Album:` (log:28), `Album artist:` (log:29). Every other banner label (`Invoked as:`, `Offset:`, `Speed:`, `C2 errors:`, `Cache model:`, `Album Art:`, `Outputs:`, `Disc tracks:`, `Tracks to rip:`, `AccurateRip:`, `Total time:`) IS enumerated, so the sweep really does land partway.
 
@@ -957,4 +962,4 @@ The one thing worth asking of you, and it is §4 and §5 rather than a new item:
 
 ---
 
-*Last updated for Platterpus v0.6.24.*
+*Last updated for Platterpus v0.6.32.*

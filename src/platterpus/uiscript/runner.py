@@ -2589,7 +2589,7 @@ def answer_dialog_action_error(arg: str) -> str | None:
 
     **Split out so the shipped-script gate can check the real vocabulary rather
     than a restatement of it.** ``tests/test_rig_check.py`` runs every script
-    under ``docs/rig-scripts/`` through this function, because the script
+    under ``rig_scripts/`` through this function, because the script
     *parser* cannot catch a bad value here — arity is all it knows, so
     ``answer-dialog maybe 60 …`` parses perfectly and fails at run time, which on
     a rig script means it fails an hour into a hardware session with a disc in

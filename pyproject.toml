@@ -111,7 +111,17 @@ where = ["src"]
 # needed a source clone at the right commit to run the harness — and the rig
 # sheet's instruction was literally `bash ~/path/to/Platterpus/scripts/…`, a
 # placeholder nobody could paste. One file, two ways to reach it.
-platterpus = ["resources/*.svg", "rig_session.sh"]
+#
+# `rig_scripts/*.txt` ships for the same reason, one step further. They used to
+# live under `docs/`, which put the acceptance test — the thing a hardware
+# session exists to run — outside the artifact the operator actually has. An
+# AppImage user had no copy of it at all, so "run the acceptance test" began
+# with "download three files from GitHub". The maintainer's ruling (2026-08-28):
+# *"this was supposed to be a no cli program, not give me commands to use"* and
+# *"i should just be able to run this with an specific script file i can use
+# with the settings window"*. A test the program cannot reach is a test the
+# operator has to assemble by hand.
+platterpus = ["resources/*.svg", "rig_session.sh", "rig_scripts/*.txt"]
 
 # Single source of truth for the version: the build reads __version__ from the
 # package itself, so `pyproject.toml` never duplicates it. Everything else
@@ -134,28 +144,52 @@ extend-exclude = ["src/platterpus/adapters/accuraterip_offsets_data.py"]
 [tool.ruff.lint]
 # E/W=pycodestyle, F=pyflakes, I=isort (import order), B=flake8-bugbear
 # (likely-bug patterns), UP=pyupgrade (modern 3.11+ syntax).
-select = ["E", "F", "W", "I", "B", "UP"]
-# `N` (pep8-naming) is MEASURED AND DELIBERATELY ABSENT — 2026-08-20, ruff 0.15.22,
-# 108 findings, of which 96 are `N802 invalid-function-name` and every one of those
-# is a Qt API name we do not get to choose: `isRunning`, `setValue`, `setRange`,
-# `setLabelText`, `setData`, `setCancelButton`, `rowCount`, `objectName`. A rule
-# that flags mandatory camelCase overrides in a Qt codebase would need a permanent
-# blanket ignore, and a lint whose main rule is ignored teaches nothing.
+select = ["E", "F", "W", "I", "B", "UP", "N801", "N802", "N804", "N805"]
+# `N` (pep8-naming) WAS measured and deliberately absent — 2026-08-20, ruff
+# 0.15.22, 108 findings, of which 96 were `N802 invalid-function-name` and every
+# one of those a Qt API name we do not get to choose: `isRunning`, `setValue`,
+# `setRange`, `setLabelText`, `setData`, `setCancelButton`, `rowCount`,
+# `objectName`. The conclusion — a rule needing a permanent blanket ignore
+# teaches nothing — was right about the population it measured.
 #
-# The remaining 12 are style disagreements rather than defects: mostly
-# function-local constants spelled `CEILING` / `QUEUED_SLOTS`, which `N806` wants
-# lowercased and which are clearer as they are, plus `NS = SimpleNamespace` aliases.
-# One is arguably real — `N818`, `DecoderUnavailable` wanting an `Error` suffix —
-# and is not worth renaming a class over on its own.
+# NARROWED AND TURNED ON, 2026-08-28, ruff 0.15.22. The original number covered
+# `src` and `tests` TOGETHER, and the two are not alike: nearly all the
+# unavoidable camelCase is in test-local Qt stubs and in test *names* that use
+# capitals for emphasis (`test_..._PlainText`). Measured separately, `src` under
+# N801/N802/N804/N805 is **0 findings** — the sixteen real Qt/stdlib overrides
+# there each carry an individual `# noqa: N802` with a reason. So no blanket
+# ignore is needed where it would have hurt; `tests` keeps the exemption below.
 #
-# So Critical rule #10's naming convention stays reader-enforced here, on purpose
-# and with the numbers written down, rather than being called unenforced by
-# omission. `E` does include E722, so "never a bare `except:`" IS linted.
+# The reason this matters is not tidiness. Before today those sixteen markers
+# suppressed a rule that **was not enabled**, so they were documentation wearing
+# the costume of enforcement — and five genuine overrides had never acquired one,
+# because nothing ever asked. That is the same shape as a weekly job reporting
+# success while measuring nothing. `tests/test_critical_rules_are_enforced.py`
+# is the belt; this is the braces, and it is the one that runs on every commit.
+#
+# STILL OUT, with reasons: `N806` (function-local constants spelled `CEILING` /
+# `_MARK`, clearer as they are — Critical rule #10 asks for SCREAMING_SNAKE at
+# *module* level and says nothing about locals), `N812`/`N814` (import aliases),
+# and `N818` (`DecoderUnavailable` wanting an `Error` suffix — arguably real, not
+# worth renaming a class over on its own). `E` includes E722, so "never a bare
+# `except:`" is linted independently.
 ignore = [
     # Long lines are largely comments/strings; the formatter wraps code and
     # we don't want it splitting prose or URLs. Keep E501 off.
     "E501",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# The naming rules above are enforced on `src`, where every unavoidable Qt or
+# stdlib override carries an individual `# noqa: N802` naming the framework.
+# `tests` is exempt for two reasons that do not apply to shipped code:
+#   * test-local Qt stubs must spell the API they stand in for — a fake with a
+#     `set_value` where Qt calls `setValue` is not a stub, it is a bug;
+#   * test NAMES use capitals to mark what is under test
+#     (`test_the_missing_branch_message_box_is_PlainText`), which is this repo's
+#     established habit and reads better than the alternative.
+# Measured 2026-08-28: 113 findings in `tests`, 0 in `src`.
+"tests/**" = ["N801", "N802", "N804", "N805"]
 
 [tool.ruff.lint.flake8-bugbear]
 # Qt's model/view override signatures legitimately default index args to a
@@ -368,4 +402,48 @@ exclude_also = [
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
     "\\.\\.\\.",  # `...` stub bodies on Protocol/ABC methods
+]
+
+# Mutation testing (the weekly, non-gating test-EFFICACY audit —
+# .github/workflows/mutation.yml, whose header is the full story).
+#
+# THIS BLOCK EXISTS BECAUSE THE SCOPE USED TO LIVE ON THE COMMAND LINE, as
+# `mutmut run --paths-to-mutate "..."`. That is mutmut 2.x syntax; 3.0 removed
+# the flag, `mutmut` was installed unpinned, and the job then exited 2 in one
+# second for seven consecutive weekly runs — every one of them reporting
+# `success`, because both commands were suffixed `|| true`. Config in a file the
+# tool reads is harder to get silently wrong than a flag in a shell line, and
+# the pin in the workflow is what stops the file's schema moving under us.
+[tool.mutmut]
+# The trust-bearing pure logic, unchanged in intent from the old flag: the
+# parsers of external output, the AccurateRip verdict, and the CTDB CRC. These
+# are the modules where a wrong answer is silently archived rather than
+# crashing, which is what makes them worth mutating first.
+source_paths = ["src/platterpus"]
+only_mutate = [
+    "src/platterpus/parsers/*",
+    "src/platterpus/verdict.py",
+    "src/platterpus/ctdb/crc.py",
+]
+# Only the tests that exercise the above. Running all 4,686 per mutant is not a
+# 90-minute job; this selection is what makes the audit finish at all.
+pytest_add_cli_args_test_selection = [
+    "tests/test_verdict.py",
+    "tests/test_parsers_cd_info.py",
+    "tests/test_parsers_cyanrip_info.py",
+    "tests/test_parsers_cyanrip_log.py",
+    "tests/test_parsers_drive_list.py",
+    "tests/test_parsers_eac_log.py",
+    "tests/test_parsers_pregap_state.py",
+    "tests/test_parsers_rip_log.py",
+    # There is no `test_ctdb_crc.py`; `crc.py` is exercised through its callers.
+    # Derived by grepping for the import rather than assumed from the module
+    # name — the first draft of this list named a file that does not exist, and
+    # mutmut would have taken the selection at face value.
+    "tests/test_ctdb_verify.py",
+    "tests/test_ctdb_calibrate.py",
+    "tests/test_ctdb_diagnose.py",
+    "tests/test_ctdb_worker.py",
+    # The hypothesis "never raises" properties over the parsers.
+    "tests/test_parsers_property.py",
 ]

@@ -10,3 +10,5 @@ The lookup transport lives in `platterpus.adapters.ctdb_client` (Critical
 Rule #1). The audio-CRC algorithm (`crc.py`) is hardware-validation-gated —
 see `docs/test-plan.md`.
 """
+
+from __future__ import annotations

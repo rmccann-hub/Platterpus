@@ -12,7 +12,10 @@ signal; the caller wires it to the DependencyManager.
 
 from __future__ import annotations
 
-from PySide6.QtCore import QSize, Signal
+import logging
+from collections.abc import Sequence
+
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -25,6 +28,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -42,10 +46,13 @@ from platterpus import (
 from platterpus.config import Config
 from platterpus.paths import LOG_PATH
 from platterpus.settings_validation import ValidationIssue
+from platterpus.test_session import builtin_acceptance_script
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.ui.scroll_guards import WheelGuard, protect_value_widgets
 from platterpus.update_check import CHANNEL_BETA, CHANNEL_STABLE
+
+log: logging.Logger = logging.getLogger(__name__)
 
 
 class SettingsDialog(CenteredDialog):
@@ -420,8 +427,32 @@ class SettingsDialog(CenteredDialog):
         # Tools → Run test script… loads this file; `--run-script` overrides it for
         # one launch. The validator refuses a path that is not a readable file, so
         # a typo is a visible error here rather than an empty transcript tomorrow.
+        #
+        # THE ACCEPTANCE TEST IS ONE CLICK, NOT A DOWNLOAD.
+        #
+        # Until 2026-08-28 the acceptance script lived under `docs/` in the git
+        # repository, so an AppImage user had no copy of it at all: "run the
+        # acceptance test" began with finding the right file on GitHub at the
+        # right commit, next to two shell scripts. The maintainer's ruling was
+        # blunt — *"this was supposed to be a no cli program, not give me
+        # commands to use"*, *"i should just be able to run this with an
+        # specific script file i can use with the settings window"* — so the
+        # scripts ship inside the package and this button is the whole
+        # "obtaining" step.
+        #
+        # It FILLS the field rather than running anything. The field stays the
+        # single answer to "which script runs", so there are not two.
+        builtin_button = QPushButton("Use built-in")
+        builtin_button.setAccessibleName("Use the built-in acceptance test script")
+        builtin_button.setToolTip(
+            "Fill the box beside this with the full acceptance test that ships "
+            "inside Platterpus — the unattended batch a hardware session runs."
+            "\n\nIt does not start anything: press OK, then Tools → Run test "
+            "script…"
+        )
+        builtin_button.clicked.connect(self._use_builtin_acceptance_script)
         self._test_script_edit, test_script_row = self._build_file_row(
-            config.test_script_path, "Test script"
+            config.test_script_path, "Test script", extra_buttons=(builtin_button,)
         )
         self._test_script_edit.setPlaceholderText("(none — the console starts blank)")
         self._test_script_edit.setToolTip(
@@ -1200,11 +1231,21 @@ class SettingsDialog(CenteredDialog):
         return edit, row
 
     def _build_file_row(
-        self, initial_path: str, accessible_name: str
+        self,
+        initial_path: str,
+        accessible_name: str,
+        extra_buttons: Sequence[QPushButton] = (),
     ) -> tuple[QLineEdit, QWidget]:
         """Build a row: QLineEdit + 'Browse…' button (for an executable).
 
         Same accessible-name reasoning as `_build_dir_row`.
+
+        ``extra_buttons`` are appended after Browse. They are passed IN rather
+        than added by the caller afterwards because `QWidget.layout()` is typed
+        `QLayout | None` — a caller reaching back through it either writes an
+        assertion it cannot justify or silences the checker, and Critical rule
+        #10 says not to weaken a type to make a checker pass. Here the layout is
+        in scope and known non-None, so the seam is typed honestly.
         """
         row = QWidget(self)
         layout = QHBoxLayout(row)
@@ -1218,6 +1259,9 @@ class SettingsDialog(CenteredDialog):
 
         layout.addWidget(edit, stretch=1)
         layout.addWidget(button)
+        for extra in extra_buttons:
+            extra.setParent(row)
+            layout.addWidget(extra)
         return edit, row
 
     def _pick_directory(self, edit: QLineEdit) -> None:
@@ -1229,3 +1273,31 @@ class SettingsDialog(CenteredDialog):
         path, _ = QFileDialog.getOpenFileName(self, "Choose binary", edit.text())
         if path:
             edit.setText(path)
+
+    def _use_builtin_acceptance_script(self) -> None:
+        """Point the Test script field at the acceptance batch we ship.
+
+        **Says why when it cannot.** `builtin_acceptance_script` returns a
+        *reason* alongside the path precisely so a missing file produces a
+        sentence rather than a field that silently stays empty — a build whose
+        package data did not make it in is a real failure mode (it is one
+        `pyproject.toml` line), and "nothing happened when I clicked" is the
+        least diagnosable way to report it.
+
+        PlainText on the message box, because the reason embeds a filesystem
+        path and Qt's default `AutoText` would try to interpret a path
+        containing `<` as markup and swallow it (Critical rule #12, inbound
+        half).
+        """
+        path, reason = builtin_acceptance_script()
+        if path is None:
+            log.error("the built-in acceptance script is unavailable: %s", reason)
+            box = QMessageBox(self)
+            box.setIcon(QMessageBox.Icon.Warning)
+            box.setWindowTitle("Built-in test script unavailable")
+            box.setTextFormat(Qt.TextFormat.PlainText)
+            box.setText(reason)
+            box.exec()
+            return
+        log.info("test script set to the built-in acceptance batch: %s", path)
+        self._test_script_edit.setText(str(path))

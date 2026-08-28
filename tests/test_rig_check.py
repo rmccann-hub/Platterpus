@@ -559,7 +559,9 @@ class TestShippedScripts:
     """
 
     SCRIPTS = sorted(
-        (Path(__file__).resolve().parent.parent / "docs/rig-scripts").glob("*.txt")
+        (Path(__file__).resolve().parent.parent / "src/platterpus/rig_scripts").glob(
+            "*.txt"
+        )
     )
 
     def test_there_are_scripts_to_check(self) -> None:

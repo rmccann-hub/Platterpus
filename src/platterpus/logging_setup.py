@@ -91,7 +91,7 @@ class _BannerRotatingFileHandler(RotatingFileHandler):
         except OSError:
             pass
 
-    def doRollover(self) -> None:
+    def doRollover(self) -> None:  # noqa: N802 — RotatingFileHandler override
         # Re-stamp the banner onto the freshly-opened file after each rotation
         # (see the class docstring).
         super().doRollover()

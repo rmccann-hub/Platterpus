@@ -167,6 +167,9 @@ Platterpus/
         │   ├── report.py               # the transcript, for the console and the rip JSON
         │   └── find_script.py          # resolve a typed script path, ignoring case/separators
         ├── settings_validation.py       # pure Settings/Config input validation (type/range/charset/format)
+        ├── sleep_inhibit.py             # hold off sleep/idle/lid for an unattended run (probe, then adopt)
+        ├── test_session.py              # plan/prepare/collect an in-app acceptance session into ONE sendable file
+        ├── rig_scripts/                 # the acceptance + situational test scripts, shipped INSIDE the package
         ├── verdict.py                   # the single pure AccurateRip trust verdict (shared by every surface)
         ├── tool_paths.py                # resolve an external tool off PATH (~/.local/bin distrobox exports)
         ├── read_speed_ladder.py         # adaptive read-speed ladder decision logic (pure, never-raises)
@@ -344,6 +347,8 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`naming.py`** — file-naming presets (the `%`-token path templates for the rip's folder+file layout) plus a pure `render_preview()` so the Settings dialog shows the exact filename before the user commits.
 - **`goal_presets.py`** — the three rip "goal" presets (Fast Verified / Archival Exact / Portable); each just bundles existing `Config` fields (progressive disclosure — the rip still reads the individual fields, presets are never a new code path).
 - **`settings_validation.py`** — the pure validator for Settings/Config inputs (type, range, character set, format) — the "validate every input" boundary; returns a list of `ValidationIssue`, no Qt and no persistence, so tests assert against it directly (Code conventions).
+- **`sleep_inhibit.py`** — holds sleep, idle and lid-suspend off for the duration of an unattended run, and reports **tri-state** whether it managed to (`held` / `unavailable` / `not_installed`) because a missing tool and a refused lock need different advice. It **probes then adopts**: `systemd-inhibit` is frequently present and non-functional (no session bus over ssh or cron; no polkit privilege on a CI runner), so the capability is measured by running the real thing over `true` rather than inferred from the binary existing — and the probe asks for *byte-identical* `--what` to the real lock, which the shell version got wrong once. Moved here out of `platterpusovernight.sh` (2026-08-28) so the program holds its own lock.
+- **`test_session.py`** — the Qt-free core of an in-app acceptance session: decide the folder layout (`plan_session` is **pure**, so it is assertable without a filesystem), create it, gather the sources, and pack **one** file for the operator to send. The archive itself is delegated to `evidence_bundle.build_bundle` rather than reimplemented, so the text-extension allowlist, the manifest that names every omission and the never-raises contract are inherited, not restated. This is what lets the GUI absorb what three shell scripts used to hand back.
 - **`update_signing.py`** — ed25519 (minisign-format) verification of a release's signature, used **fail-closed** by `update_install.py`: a present-but-invalid signature aborts the update (KDD-26). Dormant until `PUBLIC_KEY_B64` is baked in; until then the gate is SHA-256 only, which `SECURITY.md` states plainly.
 - **`tool_paths.py`** — one search order for every external binary: `PATH`, then `~/.local/bin` (where `distrobox-export` puts the container's tools), then the usual system directories, then the bare name. A GUI launched from a desktop icon does not inherit a login shell's `PATH`, so without this the wizard could report a tool installed while the dependency probe reported it missing.
 - **`verdict.py`** — the single, pure, Qt-free AccurateRip "is this rip trustworthy?" whole-disc verdict, so every surface (results-pane banner, JSON report) shares one definition; builds on `parsers/rip_log.track_accuraterip_verified` (confidence ≥ 1).
@@ -1167,7 +1172,7 @@ Three consequences, now standing:
 
 ---
 
-*Last updated for Platterpus v0.6.20.*
+*Last updated for Platterpus v0.6.32.*
 ### KDD-35 — A version number is a claim about the field, not about CI (decided 2026-08-19)
 
 **Decision.** Version thresholds are gated on *evidence from hardware in people's

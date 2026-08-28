@@ -14,3 +14,5 @@ feasible without rewriting the GUI. The adapters in this package:
   the unmaintained list, but kept consistent with the adapter pattern
   so subprocess details stay out of the GUI.
 """
+
+from __future__ import annotations

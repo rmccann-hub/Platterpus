@@ -9,3 +9,5 @@ unexpected input.
 The data types returned by these parsers (DriveDescriptor, DiscInfo,
 RipLog, etc.) are imported by the RipBackend adapter and the UI.
 """
+
+from __future__ import annotations

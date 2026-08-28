@@ -248,7 +248,12 @@ def test_the_sweep_actually_finds_the_documents() -> None:
         "CLAUDE.md",
         "docs/dependency-contracts.md",
         "docs/rig-scripts/README.md",
-        "docs/rig-scripts/rigcancelandoverread.txt",
+        # The rig scripts moved INTO the package on 2026-08-28 so the running
+        # program can open them. The sweep above is a whole-tree rglob, so it
+        # followed them without being told; this named assertion is the half
+        # that had to be moved by hand, and it is named precisely because it is
+        # one of the surfaces that was actually wrong.
+        "src/platterpus/rig_scripts/rigcancelandoverread.txt",
     ):
         assert required in docs, f"{required} fell out of the live-doc sweep"
     # ...and the dated record really is excluded, or the exclusion is decoration.
@@ -287,3 +292,123 @@ def test_the_check_can_actually_fail() -> None:
         assert _NAMES_THE_RIGHT_ANSWER.search(allowed), (
             f"a line whose purpose is to forbid the pairing is being flagged: {allowed}"
         )
+
+
+# ==========================================================================
+# The fork's BRANCH NAME, checked against the constant the app actually clones
+# ==========================================================================
+#
+# `docs/cyanrip-fork.md` §4 is the executable half of the fork runbook — a
+# copy-pasteable block a person runs inside the `ripping` container. It carried
+#
+#     git clone https://github.com/rmccann-hub/cyanrip && cd cyanrip
+#     git switch platterpus                 # our integration branch
+#
+# and there is no `platterpus` branch on that remote; there is `master` and
+# `platterpus-fork`. So the runbook's own recipe fails at its second line, in
+# the document `CLAUDE.md` calls *"Part B, the executable soft-fork runbook"*.
+#
+# Same shape as everything else in this file: a documented fact about the
+# dependency that nothing compared against the dependency. The app has always
+# known the answer — `deps/fork_source.FORK_BRANCH` is what `git clone --branch`
+# is handed, and what the per-rip build-tag verification derives its expected
+# value from — so the fix is not "correct the branch name" but "make the doc
+# answerable from the constant". One predicate, N callers, applied to prose.
+#
+# SCOPED TO THE FORK, DELIBERATELY. The first draft swept every `git switch` in
+# every live doc and immediately flagged `git switch my-branch` in
+# `docs/architecture.md`'s contributor git example — a placeholder that is
+# correct as written. A check that fires on correct text gets defanged or
+# deleted, which is the failure mode this file's own docstring warns about. So
+# the sweep only judges a checkout that sits in the same block as a mention of
+# `cyanrip`, which is exactly the claim being made.
+
+#: How far above a `git switch` to look for the repo it belongs to. A fenced
+#: shell block, not a prose paragraph — `git clone …cyanrip` is one line above
+#: the switch in the runbook, and blank lines are rare inside such a block.
+_BRANCH_CONTEXT_LINES: Final[int] = 8
+
+#: Branches a fork-context block may name besides `FORK_BRANCH`. `master` is
+#: upstream's own; the two topic branches belong to the *proposed*, explicitly
+#: optional layout in §1, which describes a scheme rather than the remote's
+#: current state. Deliberately short and individually justified — an allowlist
+#: is how a check like this rots into decoration.
+_ALLOWED_FORK_BRANCHES: Final[frozenset[str]] = frozenset(
+    {"master", "main", "fix/meta-colon", "feat/encoder-opts"}
+)
+
+_GIT_SWITCH: Final[re.Pattern[str]] = re.compile(
+    r"^\s*git\s+(?:switch|checkout)\s+(?:-[bc]\s+)?(?P<branch>[\w./-]+)"
+)
+
+
+def _fork_branch_checkouts(text: str) -> list[str]:
+    """Branches named by a `git switch`/`checkout` in a cyanrip-fork context."""
+    lines = text.splitlines()
+    found: list[str] = []
+    for index, line in enumerate(lines):
+        match = _GIT_SWITCH.match(line)
+        if match is None:
+            continue
+        window = "\n".join(lines[max(0, index - _BRANCH_CONTEXT_LINES) : index + 1])
+        if "cyanrip" not in window.lower():
+            continue
+        found.append(match.group("branch"))
+    return found
+
+
+def test_no_doc_tells_a_reader_to_check_out_a_fork_branch_that_does_not_exist() -> None:
+    """The regression test for `git switch platterpus` (fixed 2026-08-28).
+
+    Derived from `FORK_BRANCH` rather than restating it, so renaming the branch
+    updates the check instead of quietly invalidating it.
+    """
+    from platterpus.deps.fork_source import FORK_BRANCH
+
+    offenders: list[str] = []
+    examined = 0
+    for rel in LIVE_DOCS:
+        text = (REPO_ROOT / rel).read_text(encoding="utf-8", errors="replace")
+        for branch in _fork_branch_checkouts(text):
+            examined += 1
+            if branch == FORK_BRANCH or branch in _ALLOWED_FORK_BRANCHES:
+                continue
+            offenders.append(f"{rel}: git switch {branch}")
+
+    # The floor. A pattern that stopped matching would pass this silently, which
+    # is the shape the rest of this file exists to refuse.
+    assert examined >= 1, (
+        "no fork-context `git switch`/`git checkout` was found in any live doc — "
+        "the pattern has stopped matching and this check measures nothing"
+    )
+    assert not offenders, (
+        f"these docs tell a reader to check out a cyanrip branch that is neither "
+        f"the fork's ({FORK_BRANCH!r}) nor an allowed one:\n  " + "\n  ".join(offenders)
+    )
+
+
+def test_the_fork_branch_check_can_actually_fail() -> None:
+    """Non-triviality, both directions, against constructed text.
+
+    The second half is the one that matters: the first draft of this check fired
+    on `git switch my-branch` in an unrelated git example, and a check that
+    flags correct text is a check somebody deletes.
+    """
+    runbook = (
+        "```sh\n"
+        "git clone https://github.com/rmccann-hub/cyanrip && cd cyanrip\n"
+        "git switch platterpus                 # our integration branch\n"
+    )
+    assert _fork_branch_checkouts(runbook) == ["platterpus"], (
+        "the defect this test exists for is no longer detected"
+    )
+
+    unrelated = "Make a branch for your work:\n\n```sh\ngit switch my-branch\n"
+    assert _fork_branch_checkouts(unrelated) == [], (
+        "a generic git example with no cyanrip in scope is being harvested — "
+        "that is the false positive that made the first draft unusable"
+    )
+
+    # Prose that merely uses the words is not a command: the pattern anchors at
+    # the start of a line, so a sentence containing them yields nothing.
+    assert _fork_branch_checkouts("You can git switch between cyanrip builds.") == []

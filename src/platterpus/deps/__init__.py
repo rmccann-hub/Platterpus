@@ -16,3 +16,5 @@ Public surface:
 - `deps.resolvers` — three resolvers, one per tier (auto / queued / manual)
 - `deps.version` — version-string parsing helpers
 """
+
+from __future__ import annotations

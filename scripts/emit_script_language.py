@@ -375,7 +375,7 @@ def _document() -> str:
     add("```")
     add("")
     add("A fuller one, kept current and runnable, is")
-    add("`docs/rig-scripts/police-rerip.txt`.")
+    add("`src/platterpus/rig_scripts/police-rerip.txt`.")
     add("")
 
     add("## Recipes")

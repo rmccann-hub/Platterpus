@@ -1,10 +1,10 @@
 # Manual CTDB repair — the power-user escape hatch (CUETools / `ctdb-cli`)
 
 **Status:** how-to (2026-07-21). This is the manual repair workflow that
-[`eac-parity.md`](eac-parity.md) (Part B)
-and [`eac-parity.md`](eac-parity.md) (P2b) have
-recommended documenting since 2026-06-28. It is assembled **strictly from the
-project's research record** — those two docs plus the archived
+[`eac-parity.md`](eac-parity.md) has recommended documenting since
+2026-06-28 — in Part C's *Part B — In-app CUETools / CTDB repair* and in
+Part A's *P2(b)*. It is assembled **strictly from the
+project's research record** — that doc plus the archived
 [`archive/upstream-modification-investigation.md`](archive/upstream-modification-investigation.md)
 — and **none of it has been executed on project hardware yet**: every claim we
 have not proven ourselves is marked *(unverified)*. In-app repair remains
@@ -100,4 +100,4 @@ mathematically, without re-reading the disc. It operates on the **whole disc**
 
 ---
 
-*Last updated for Platterpus v0.6.4b1.*
+*Last updated for Platterpus v0.6.32.*

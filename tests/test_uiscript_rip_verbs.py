@@ -2115,8 +2115,9 @@ def test_the_acceptance_script_still_collides_with_itself_on_purpose() -> None:
     """
     script = (
         Path(__file__).resolve().parents[1]
-        / "docs"
-        / "rig-scripts"
+        / "src"
+        / "platterpus"
+        / "rig_scripts"
         / "fullacceptance.txt"
     )
     albums = [

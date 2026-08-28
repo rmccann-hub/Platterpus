@@ -77,3 +77,41 @@ def open_path_externally(
         "the path above into Files/Dolphin.)",
     )
     return False
+
+
+def open_web_url(
+    url: str,
+    *,
+    parent: QWidget | None = None,
+    open_url: OpenUrlFn | None = None,
+    what: str = "page",
+) -> bool:
+    """Ask the desktop to open a WEB url; report it honestly if it won't.
+
+    The sibling of :func:`open_path_externally`, and it exists because that one
+    builds its `QUrl` with `fromLocalFile` — correct for a rip folder, wrong for
+    `https://…`. Without it a caller with a web link had no honest route and
+    reached for `QDesktopServices.openUrl` directly, which is exactly what
+    happened: the update dialog's *"Open the download page?"* → **Yes** threw the
+    bool away, so on a desktop with no browser handler the one button offering
+    the user their update silently did nothing (found 2026-08-28 by the
+    lesson-to-gate audit; the module docstring above had described this failure
+    for three other call sites and a fourth was written without it — `§5.o`
+    landing on the very module written to answer §5.o).
+
+    The recovery differs from the local-path case in the one way that matters:
+    the URL is short enough to read, so the dialog shows it for copying into a
+    browser rather than pointing at a file manager.
+    """
+    opener: OpenUrlFn = open_url or QDesktopServices.openUrl
+    if opener(QUrl(url)):
+        return True
+    log.warning("desktop declined to open %s: %s", what, url)
+    QMessageBox.information(
+        parent,
+        f"Open {what}",
+        f"The {what} is here:\n{url}\n\n"
+        "(Nothing on this system is set up to open it automatically — copy "
+        "the address above into your browser.)",
+    )
+    return False
