@@ -11,6 +11,79 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.31] — 2026-08-28
+
+### Fixed
+- **A rescan of the SAME disc, landing between the release picker opening and
+  being answered, threw the answer away — and this morning's duplicate-picker
+  guard then suppressed the recovery.** Measured on the rig 2026-08-27; it cost
+  the whole run, which aborted at section E with *"no tracks ever loaded"* and
+  *"expected at least 2 track rows, found 0"*:
+
+      19:43:06,182  drive changed -> `_start_disc_info` clears `_current_disc_id`
+      19:43:06,432  the picker (already open) is answered — row 1 of 4
+      19:43:06,435  the release fetch is emitted for that disc
+      19:43:06,928  the detail lands; `_current_disc_id` is still "" -> DROPPED
+      19:43:11,899  the recovery lookup is suppressed by the already-answered guard
+
+  `_is_stale_mb_result` asked *"is this for the disc on screen?"* and got *"there
+  is no disc on screen"* — which is **not** the same as *"this is for a different
+  disc"*, and only the second is stale. `CLAUDE.md`: *what pins my input?* The
+  predicate read a field a concurrent rescan deliberately empties.
+- **The guard added on 2026-08-26 turned a duplicate picker into no tracks at
+  all**, and that is the half worth recording. It correctly declines a second
+  picker for a disc a release was already chosen for — but if the first choice's
+  detail is then discarded, nothing loads the tracks and nothing can ask again.
+  Before it, the second picker *was* the recovery. A dropped answer now
+  un-answers the disc. *"What does the code downstream do with answers it never
+  used to receive?"*, asked one day late.
+- **The first version of this fix re-opened the wrong-album bug, and the belt test
+  caught it before it shipped.** Relaxing staleness whenever the detail matched
+  `_mb_release_chosen_for` is unsafe: `_on_disc_info_ready` sets
+  `_current_disc_id` to a new disc **without** clearing that marker, so
+  marker=`disc-A` with `disc-B` on screen is reachable and disc A's release would
+  have tagged disc B — the exact bug the predicate exists to prevent. The
+  relaxation is now scoped to the *transient empty* window, which is precisely
+  what the rig hit and cannot be a different disc. Three reverts probed, three
+  detected, none vacuous.
+
+
+### Fixed
+- **The README's front page was out of date, and every gate that should have said
+  so was green.** The maintainer found it by reading it. The status blockquote
+  asserted five things and all five were false: the version (`v0.6.27` against
+  `0.6.30`), the round range, the round state (*"round 14 is open"* — it had closed
+  GO/GO), the installed ripper (`ddf7ac3`, three pins behind `d9c058c`), and the
+  remedy it handed the user — which was **verbatim the advice 0.6.30 had just
+  removed from the app** for being wrong. Two more claims were stale
+  (`0.7.100`'s bar, superseded by the 2026-08-26 sharpening; the `-x` cache probe)
+  and two were understated by measurement (`2,000+ tests` against 4,678;
+  `~93% branch coverage` against 91.64%). Also fixed: a setup snippet told the
+  user to run `cyanrip -V` and expect `0.9.3.1`, contradicting the README's own
+  flag table **35 lines above it**, which says `-V` fails on that build line.
+- **Why no gate caught it, and the gate that now does.** The doc-stamp gate passed
+  because the stamp *was* correct — the file had been restamped in the release
+  commit, and a stamp records when a doc was **edited**. `test_no_stale_version_
+  claims.py` §1 passed because it compares **minors**: `(0,6) < (0,6)` is false, so
+  it is structurally blind to patch drift. That is defensible as designed — the bug
+  it was built for was `v0.5.x` surviving the whole `v0.6` line — but the status
+  banner carries the pin and the round state beside the number, and those move with
+  patch releases. New §3 in the same file (not a new one) checks the **facts**: the
+  banner names the exact `__version__`; a present-tense install claim names
+  `FORK_PIN` and not a retired pin; and an open-round assertion is **delegated to
+  `fork_source.a_round_is_reviewing_a_build()`** — the same predicate three code
+  surfaces were unified onto the same day. The front page does not get its own
+  opinion about whether a round is open. Conditionals (*"while a round is open"*)
+  are rules and are deliberately not matched.
+- **The claim window was too narrow three times, each differently, and a tool found
+  all three.** `[^.\n]` died at the first full stop of `0.9.4-rc2`; `[^\n]` died at
+  the README's hard wrap, with the sha on the next line — `scripts/revert_probe.py`
+  reported that one **VACUOUS** rather than letting it stand as a guard; and the
+  subject extractor missed `platterpus-fork-g<sha>`, the build-tag form, because it
+  only knew backtick-delimited shas. The branch prefix is now read from
+  `fork_source.FORK_BRANCH` so a fork rename cannot switch the check off silently.
+
+
 ## [0.6.30] — 2026-08-27
 
 ### Added
@@ -11355,7 +11428,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.30...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.31...HEAD
+[0.6.31]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.30...v0.6.31
 [0.6.30]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.29...v0.6.30
 [0.6.29]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.28...v0.6.29
 [0.6.28]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.27...v0.6.28
@@ -11473,4 +11547,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.30.*
+*Last updated for Platterpus v0.6.31.*
