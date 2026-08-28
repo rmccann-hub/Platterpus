@@ -128,9 +128,10 @@ mkdir -p "$OUT/scratch"
 #     that costs five minutes of drive time and leaves the device busy is not a
 #     diagnostic; it is the thing that breaks the diagnosis after it.
 #
-#     The rig script `docs/rig-scripts/rigcancelandoverread.txt` dropped its own
-#     `-x` step the same day. This is the SAME defect at a second call site, and
-#     finding it required looking for the call rather than fixing the place the
+#     The rig script `rig_scripts/rigcancelandoverread.txt` (beside this file in
+#     the package since 2026-08-28) dropped its own `-x` step the same day. This
+#     is the SAME defect at a second call site, and finding it required looking
+#     for the call rather than fixing the place the
 #     lesson was learned (`docs/testing.md` §5.o). Grep before believing a fix is
 #     complete.
 #

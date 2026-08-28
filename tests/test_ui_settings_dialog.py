@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QSize
+from pathlib import Path
+
+import pytest
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import QApplication, QDialogButtonBox
 
 from platterpus import goal_presets, naming, settings_validation
@@ -965,3 +968,83 @@ def test_the_opening_size_is_the_form_not_the_scroll_areas_own_hint(
         "it would scroll on a screen with plenty of room"
     )
     assert opened.width() >= content.width()
+
+
+# --- The built-in acceptance script ---------------------------------------
+#
+# The maintainer's ruling, 2026-08-28: *"this was supposed to be a no cli
+# program, not give me commands to use"* and *"i should just be able to run this
+# with an specific script file i can use with the settings window"*. Before this,
+# obtaining the acceptance test meant finding it on GitHub at the right commit;
+# an AppImage user had no copy at all. These pin the one-click replacement.
+
+
+def test_the_builtin_button_fills_the_field_with_a_script_that_exists(
+    qapp: QApplication,
+) -> None:
+    """The whole point: no download, no path typed by hand.
+
+    Asserts the file is really there rather than that *some* text arrived — the
+    failure this replaces was a path nobody could open, so a test happy with any
+    non-empty string would be measuring the wrong thing.
+    """
+    dialog = SettingsDialog(Config())
+    assert dialog._test_script_edit.text() == "", "fixture is not starting empty"
+
+    dialog._use_builtin_acceptance_script()
+
+    chosen = Path(dialog._test_script_edit.text())
+    assert chosen.is_file(), f"the button set a path that does not exist: {chosen}"
+    assert chosen.name == "fullacceptance.txt"
+    # A floor: an empty script would satisfy every assertion above.
+    assert len(chosen.read_text(encoding="utf-8").splitlines()) > 100
+
+
+def test_the_button_says_why_when_the_script_is_missing(
+    qapp: QApplication, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A build whose package data did not ship is a real failure mode — it is one
+    `pyproject.toml` line — and *"nothing happened when I clicked"* is the least
+    diagnosable way to report it. So the missing branch must surface a sentence
+    and must NOT leave a half-set field.
+    """
+    import platterpus.ui.settings_dialog as module
+
+    monkeypatch.setattr(
+        module, "builtin_acceptance_script", lambda: (None, "it is not in this build")
+    )
+    shown: list[str] = []
+    monkeypatch.setattr(
+        module.QMessageBox, "exec", lambda self: shown.append(self.text())
+    )
+
+    dialog = SettingsDialog(Config())
+    dialog._use_builtin_acceptance_script()
+
+    assert shown == ["it is not in this build"], "the reason was not shown to the user"
+    assert dialog._test_script_edit.text() == "", (
+        "the field was set even though the script is unavailable"
+    )
+
+
+def test_the_missing_branch_message_box_is_PlainText(
+    qapp: QApplication, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Critical rule #12, inbound half. The reason embeds a filesystem path, and
+    Qt's default ``AutoText`` auto-detects HTML — so a path containing ``<`` is
+    swallowed as an unknown tag and the user never learns text went missing."""
+    import platterpus.ui.settings_dialog as module
+
+    monkeypatch.setattr(
+        module,
+        "builtin_acceptance_script",
+        lambda: (None, "missing: /tmp/<odd>/fullacceptance.txt"),
+    )
+    formats: list[Qt.TextFormat] = []
+    monkeypatch.setattr(
+        module.QMessageBox, "exec", lambda self: formats.append(self.textFormat())
+    )
+
+    SettingsDialog(Config())._use_builtin_acceptance_script()
+
+    assert formats == [Qt.TextFormat.PlainText]

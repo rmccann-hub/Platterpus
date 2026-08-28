@@ -111,7 +111,17 @@ where = ["src"]
 # needed a source clone at the right commit to run the harness — and the rig
 # sheet's instruction was literally `bash ~/path/to/Platterpus/scripts/…`, a
 # placeholder nobody could paste. One file, two ways to reach it.
-platterpus = ["resources/*.svg", "rig_session.sh"]
+#
+# `rig_scripts/*.txt` ships for the same reason, one step further. They used to
+# live under `docs/`, which put the acceptance test — the thing a hardware
+# session exists to run — outside the artifact the operator actually has. An
+# AppImage user had no copy of it at all, so "run the acceptance test" began
+# with "download three files from GitHub". The maintainer's ruling (2026-08-28):
+# *"this was supposed to be a no cli program, not give me commands to use"* and
+# *"i should just be able to run this with an specific script file i can use
+# with the settings window"*. A test the program cannot reach is a test the
+# operator has to assemble by hand.
+platterpus = ["resources/*.svg", "rig_session.sh", "rig_scripts/*.txt"]
 
 # Single source of truth for the version: the build reads __version__ from the
 # package itself, so `pyproject.toml` never duplicates it. Everything else

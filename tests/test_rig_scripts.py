@@ -1,15 +1,20 @@
 """The committed rig scripts are checked by the real language, not by eye.
 
-**Why this file exists.** `docs/rig-scripts/*.txt` are the tests this project
-actually runs on hardware — `CLAUDE.md`'s *a new testing capability is a SCRIPT
-VERB* means the script language is where the acceptance suite is written. They
-are committed artifacts, they cross machines by hand, and until now **nothing
-parsed them**. So a step naming a setting that does not exist looked identical to
-one that works, right up until an unattended two-hour run recorded an ERROR for
-it — and then the run's own summary line reported `error=3` without saying which
-three, so the defect survived being measured.
+**Why this file exists.** `src/platterpus/rig_scripts/*.txt` are the tests this
+project actually runs on hardware — `CLAUDE.md`'s *a new testing capability is a
+SCRIPT VERB* means the script language is where the acceptance suite is written.
+They are committed artifacts and until now **nothing parsed them**. So a step
+naming a setting that does not exist looked identical to one that works, right up
+until an unattended two-hour run recorded an ERROR for it — and then the run's own
+summary line reported `error=3` without saying which three, so the defect survived
+being measured.
 
-Found the way it always is: `docs/rig-scripts/fullacceptance.txt` carried
+They moved out of `docs/` and INTO the package on 2026-08-28, which is why the
+constant below points where it does. A test the program cannot open is a test the
+operator has to fetch by hand, and an AppImage user had no copy of the acceptance
+script at all — see the `package-data` note in `pyproject.toml`.
+
+Found the way it always is: the acceptance script carried
 
     set paranoia_passes 3
     expect paranoia_passes 3
@@ -36,7 +41,16 @@ from platterpus.config import Config
 from platterpus.uiscript import script as uiscript
 from platterpus.uiscript import verbs
 
-RIG_SCRIPTS: Path = Path(__file__).resolve().parents[1] / "docs" / "rig-scripts"
+#: The scripts themselves, INSIDE the package so the running program can open
+#: them (`platterpus.test_session.builtin_acceptance_script`).
+RIG_SCRIPTS: Path = (
+    Path(__file__).resolve().parents[1] / "src" / "platterpus" / "rig_scripts"
+)
+#: The prose + the shell wrappers, which stay under `docs/`. Two constants
+#: rather than one plus `.parent` arithmetic: the old single constant was used
+#: BOTH as "where the scripts are" and, via `.parent`, as "the docs root", so
+#: moving the scripts would have silently repointed the doc lookups too.
+DOCS: Path = Path(__file__).resolve().parents[1] / "docs"
 
 #: Verbs that only make sense as a `set`/`expect` subject if the name is a real
 #: config field. Kept as a tuple rather than inlined so a new settings verb has
@@ -293,8 +307,8 @@ def test_the_pin_under_review_is_resolved_in_the_consumer_flag_set() -> None:
 # *drive* them had nothing checking anything, and they are the half the operator
 # actually types.
 
-OVERNIGHT: Path = RIG_SCRIPTS / "platterpusovernight.sh"
-MORNING: Path = RIG_SCRIPTS / "platterpusmorning.sh"
+OVERNIGHT: Path = DOCS / "rig-scripts" / "platterpusovernight.sh"
+MORNING: Path = DOCS / "rig-scripts" / "platterpusmorning.sh"
 
 
 def test_the_overnight_wrapper_delegates_and_never_reimplements() -> None:
@@ -456,7 +470,7 @@ def test_the_install_menu_offers_the_build_the_acceptance_gate_demands() -> None
     # `outbound/` too: round 14's closing GO is lap 18, an ordinary outbound lap
     # whose bytes froze when it was sent. Same population `test_fork_source.py`
     # uses, for the same reason — one question, one population.
-    hs = RIG_SCRIPTS.parent / "handshake"
+    hs = DOCS / "handshake"
     verified = sorted(
         path
         for directory in ("verified", "outbound")
@@ -513,7 +527,7 @@ _SEVERITY_END = "<!-- END-ACCEPTANCE-SEVERITY-TABLE -->"
 
 def _declared_severities() -> dict[str, str]:
     """The per-section severity table from `docs/testing.md`, as a dict."""
-    doc = (RIG_SCRIPTS.parent / "testing.md").read_text(encoding="utf-8")
+    doc = (DOCS / "testing.md").read_text(encoding="utf-8")
     assert _SEVERITY_START in doc and _SEVERITY_END in doc, (
         "the acceptance-severity table markers are gone from docs/testing.md — "
         "either it was deleted or renamed, and this sweep now checks nothing"
