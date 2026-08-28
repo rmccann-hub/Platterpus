@@ -53,7 +53,7 @@ rule #3). Argv is built in `adapters/cyanrip_backend.py::_build_rip_argv`.
 | `-o flac` | output codec | always (FLAC is the archival master, Critical rule #4) |
 | `-r <int>` | max retries per track | when `max_retries > 0` |
 | `-Z <int>` | re-rip a track until N reads' checksums agree | only when `secure_rerip_matches > 0`; the user's number is the ceiling (dynamic mode applies it only to AccurateRip-failing tracks) |
-| `-O` | overread into the lead-in/lead-out (upstream help: "may freeze if unsupported by drive") | only when the Settings "Overread" toggle (`force_overread`) is on — off by default, matching EAC's baseline "overread: No". **Flag verified against 0.9.3.1 + master (2026-07-21); the previously-documented `-x` does not exist in cyanrip.** **⚠ CONFIRMED to hang the Pioneer BDR-209D (real-hardware finding, 2026-07-22): 13 of 14 tracks ripped perfectly, then the drive hung ~23 min reading the last track's lead-out with the progress bar frozen near 100 %, exactly the upstream-warned failure. Overread should stay OFF on this drive; the GUI default is off.** |
+| `-O` | overread into the lead-in/lead-out (upstream help: "may freeze if unsupported by drive") | only when the Settings "Overread" toggle (`force_overread`) is on — off by default, matching EAC's baseline "overread: No". **Flag verified against 0.9.3.1 + master (2026-07-21); `-x` did not exist in cyanrip at that date — it does now, in the fork, as the *cache probe* and not overread (see the `-x` block quote below).** **⚠ CONFIRMED to hang the Pioneer BDR-209D (real-hardware finding, 2026-07-22): 13 of 14 tracks ripped perfectly, then the drive hung ~23 min reading the last track's lead-out with the progress bar frozen near 100 %, exactly the upstream-warned failure. Overread should stay OFF on this drive; the GUI default is off.** |
 | `-S <int>` | cap read speed (× multiplier) | only when a positive fixed speed is requested. **⚠ ABORTS the rip (`EINVAL`) on a drive that reports speed as "unchangeable"** (the Pioneer BDR-209D does) — so the ladder parses `speed_changeable` and never sends `-S` to a speed-locked drive (real-hardware finding, 2026-07-01) |
 | `-l <n,n,…>` | rip only these 1-based track numbers | **two producers:** the user's per-track "Rip?" checkboxes (a deliberate partial rip, since v0.5.7) and the per-track auto-fix re-rip (a cheap targeted re-read). Empty = whole disc, which is also what "every track ticked" sends. |
 | `-N` | disable cyanrip's own MusicBrainz lookup | **always** (Critical rule #5 — the GUI feeds tags via `-a`/`-t`, so cyanrip stays offline and never shows its interactive prompt) |
@@ -61,6 +61,9 @@ rule #3). Argv is built in `adapters/cyanrip_backend.py::_build_rip_argv`.
 | `-t <n=k=v:…>` | per-track tags (1-based) | from the GUI's metadata |
 | `-D <scheme>` / `-F <scheme>` | directory / filename naming scheme | translated from the whipper-style template (`scheme_from_template`) |
 | `-G` | disable cover-art embedding | when cover art is not being embedded |
+| `-T <mode>` | filename-sanitation scheme applied to tag values before they become path segments | **always, pinned to `unicode`** (`SANITISE_MODE`). Never defaulted: we passed nothing here until 2026-08-23, so every rip inherited whatever default the build shipped while the naming preview and the overwrite guard predicted a two-glyph table — an unpredicted `<` → `‹` silently overwrote a finished 14-track rip. `unicode` is the fork's own default, so the pin is a no-op today and a fence tomorrow; the `os_*` modes substitute *fewer* characters (only those the build's OS forbids), so they are not a way to ask for the look-alikes |
+| `-c <n>/<m>` | disc number / total discs | whenever the release carries a usable disc position, including `-c 1/1` on a single disc. Range-checked in `_disc_args` before it becomes argv — cyanrip refuses the whole rip on a bad value |
+| `--consumer <name>/<version>` | who drove the rip, recorded verbatim in cyanrip's logfile | only when the ripper build is known to accept it (`consumer_tag_for_build` → `fork_source.accepts_consumer_flag`, keyed on the build tag, not the version). Fork-only; the tag is validated at the argv chokepoint |
 
 **Gap/pregap handling (`-p`) — deliberately never passed.** cyanrip's default
 gap behaviour already matches EAC's, so we pass **no `-p`**. Verified against
@@ -88,8 +91,10 @@ Other tokenizer-special chars (`\ = '`) are backslash-escaped.
 
 **Filename / path cross-filesystem safety (the `-D`/`-F` output on disk).**
 cyanrip builds each folder/file segment from the naming template with the fetched
-tag values substituted in, and sanitises the characters illegal in a *path
-segment* on the primary Linux target by swapping them for Unicode look-alikes:
+tag values substituted in, and sanitises them with the scheme `-T` selects: we
+pin `unicode`, which swaps the ten characters of `crip_char_replacement[]` for
+Unicode look-alikes (full table in the cross-filesystem paragraph below, and in
+`naming._VALUE_SANITISE`). The two that matter most on the primary Linux target:
 `:` → `∶` (U+2236) and a `/` *inside a value* → `∕` (U+2215) (a `/` in the
 template itself stays a real separator). On ext4/btrfs — the Bazzite target — the
 only truly-illegal filename bytes are `/` and NUL, and both are covered: `/` is
@@ -119,11 +124,21 @@ Rule #3 forbids. Values that only ever become tags (genre, barcode, catalog
 number, ISRC, label) are not path-bearing and are not checked.
 
 **Not sanitised — a documented cross-filesystem limitation, not a silent bug**
-(naming audit, 2026-07-08). cyanrip does *not* remap the other
-Windows/NTFS/exFAT-reserved characters (`< > " \ | ? *`), the reserved device
-names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`9`, `LPT1`–`9`), or trailing
-dots/spaces, and those filesystems are case-insensitive (two titles differing
-only in case collide). All of these are legal on Linux, so a rip to the native
+(naming audit, 2026-07-08; the character half corrected 2026-08-23). cyanrip
+*does* remap the other Windows/NTFS/exFAT-reserved characters. Under
+`-T unicode` — the mode `cyanrip_backend.SANITISE_MODE` pins —
+`crip_char_replacement[]` substitutes `<` → `‹` (U+2039), `>` → `›` (U+203A),
+`|` → `│` (U+2502), `?` → `？` (U+FF1F), `*` → `∗` (U+2217), `\` → `⧹` (U+29F9)
+and `"` → `“`/`”` (U+201C/U+201D, chosen by a parity flag no lookup table can
+express), alongside the `:` and `/` above. That table is read out of the fork's
+generated provider contract P7b and mirrored in `naming._VALUE_SANITISE`, never
+observed one glyph at a time — the two-entry guess it replaced is what let an
+unpredicted `<` → `‹` silently overwrite a finished 14-track rip on 2026-08-23.
+What genuinely is *not* remapped: the reserved device
+names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`9`, `LPT1`–`9`), trailing
+dots/spaces, and case collisions (two titles differing
+only in case collide on those case-insensitive filesystems). All of these are
+legal on Linux, so a rip to the native
 library succeeds; they bite only when the output directory is on a mounted
 NTFS/exFAT volume or the library is later copied to Windows/macOS. Platterpus
 deliberately does **not** re-sanitise the names cyanrip produces — Critical Rule
@@ -137,12 +152,14 @@ are produced at rip time by cyanrip's own sanitiser — so this paragraph stays
 the honest record of that residual limitation.
 
 **Info / probe flags:** `-I -N` (info-only, computes DiscID/CDDB locally, no
-network — `disc_info`); `-V` (version). **Both probes are strict about the exit
+network — `disc_info`); `-V` then `--version` (version — `cyanrip_cli.VERSION_FLAGS`,
+and the probe table below says why two). **Both probes are strict about the exit
 code** (`CyanripImpl._run(strict=True)`): a non-zero exit is logged with
-cyanrip's own output *and* raised as `RipError`, never returned as text. `-V`
-prints `cyanrip <version> (<vcstag>)` and returns **0** on success (its
-`case 'V':` logs the banner and returns 0 — verified against 0.9.3.1), so a
-non-zero exit there came from the host export / container, not from cyanrip. The
+cyanrip's own output *and* raised as `RipError`, never returned as text. A
+recognised version flag prints `cyanrip <version> (<vcstag>)` and returns **0**
+(0.9.3.1's `case 'V':` logs the banner and returns 0), so a run in which *every*
+flag failed points at the host export / container — but a single non-zero exit
+does not, because stock builds after 0.9.3 reject `-V` themselves. The
 `--doctor` routing check additionally requires a *recognisable version* in that
 output (`preflight.version_banner`, which reuses the dependency subsystem's
 `parse_version`) — output with no version means the check FAILS, because the
@@ -180,9 +197,13 @@ and — added with the v0.5.12 EAC-layout work — `album`, `album_artist`,
 C2 was used), `paranoia_level`, `overread_mode`, `gap_detection` (the `Gaps:`
 block) and `output_formats`. Per-track, the parser also yields `start_sector`
 / `end_sector` (`Start LSN:` / `End LSN:`, which build the EAC-layout TOC
-table) and `pregap_sectors` (`Pregap LSN:`). cyanrip prints **no cache line at
-all**, so there is no `cache` field to parse (see the cache-handling note
-below; this corrects an earlier version of this doc that implied one).
+table) and `pregap_sectors` (`Pregap LSN:`). cyanrip prints **two cache lines,
+and neither is a cache-defeat verdict** — which is why there is no `cache` field
+to parse: `Cache model:` is libcdio-paranoia's *modelled* size, and
+`Cache probe:` is the `-x` probe's own measured readback result (fork). Both are
+in `parsers/cyanrip_log.py`'s `_IGNORED_DISC_LINES` with a reason (see the
+cache-handling note below; this corrects two earlier versions of this doc — one
+that implied a `cache` field, one that said cyanrip prints no cache line at all).
 
 Two corrections to the paragraph above, both from the 2026-07-31 pass:
 
@@ -204,7 +225,7 @@ per row: [`cyanrip-upstream.md`](cyanrip-upstream.md).
 |---|---|---|---|
 | `Sample peak:  -0.5 dBFS` — or a `Sample peak:` sub-header followed by `Peak:  -0.5 dBFS`, cyanrip's existing style for `True peak:`. Unit (`dBFS` or `%`) **required**; a value above full scale is refused and logged | `peak_level` (linear fraction) | `Peak level` | §2.1 |
 | `Speed:  1.6x` / `Extraction speed: 1.6 X` (indented — the column-0 `Speed:` row is the drive's speed-changeability and is unaffected) | `extraction_speed` | `Extraction speed` | §2.3 |
-| `Elapsed:  00:02:41.005` / `03:51.44` / `Extraction time: 161 s` (also `Rip time:`, `Time taken:`) | `extraction_elapsed_seconds` | *none* — rendered as an extra `Extraction time` row, never converted into a speed | §2.3 |
+| `Elapsed:  161.00 s` (also `Elapsed time:`, `Rip time:`, `Extraction time:`, `Time taken:`; unit `s`/`sec`/`secs`/`seconds`) — **a scalar with a unit, not a clock.** The `(HH:)MM:SS` sibling rule was retired 2026-08-21: it matched 0 of 19 committed fork logs and 0 of 11 stock logs, and the fork's pre-split combined line `Elapsed:  %s (%.1fx)` was refused by its end-of-line anchor anyway. The shipped build emits `Elapsed:  %.2f s`, split from that combined form at their `89eb849` | `extraction_elapsed_seconds` | *none* — rendered as an extra `Extraction time` row, never converted into a speed | §2.3 |
 | `Secure re-read: converged (2 out of 2 matches)` / `did NOT converge (…)` / `not attempted`; or the existing `Done; (…)` text routed through the log so it arrives **indented** | `secure_rerip_converged` (True / False / left alone) | drives the `Test CRC`/`Copy CRC` pair vs the "re-reads did NOT agree" caveat | §2.4 |
 | `C2 errors:  supported by drive, not used` (column 0) | `c2_pointers` = `False` | `Make use of C2 pointers` | §2.5 |
 
@@ -241,8 +262,10 @@ properties of how they are read:
   positional.** Every artifact prints the `ebur128` block first, so an overwrite
   would happen to be right; `_Disc.record_album_loudness(..., stable=)` makes it
   right on purpose, so a build that reordered the two blocks could not invert it.
-- **The `ebur128` scrape stays as a fallback and is still load-bearing.** The
-  deployed stock `cyanrip 0.9.3` — what an AppImage user runs today — and every
+- **The `ebur128` scrape stays as a fallback and is still load-bearing.** Stock
+  `cyanrip 0.9.3` — what a user is left on when the wizard's fork build fails,
+  reported as "you are on stock cyanrip"; the successful path builds the fork at
+  `FORK_PIN` (`deps/fork_source.py`) — and every
   fork build before round 8 print it and none of the four rows. Both cases are
   committed logs (`output_reference/cyanrip_flac/…` and
   `output_reference/cyanrip_fork_flac/…`), so this is measured, not assumed.
@@ -393,10 +416,15 @@ upstream master **as of 2026-07-21**; the whipper-era flag really was
 > without an offset cyanrip refuses to open the drive and exits 1 in two seconds
 > having measured nothing.
 >
-> So `-x` is **not a cheap probe** — it is a whole-disc rip with a measurement
+> So bare `-x` is **not a cheap probe** — it is a whole-disc rip with a measurement
 > printed at the front, and treating it as a quick check costs a hardware session.
-> An ask on the fork to make it exit after measuring is open
-> (`docs/cyanrip-handshake.md`); until then no script here runs it.
+> **Answered 2026-08-25, and the answer is a flag rather than a fork change:** `-x`
+> is a *modifier*, and `cyanrip -N -x -I` is the probe-only invocation — it measures
+> and exits without writing audio (the fork states this in round 13 lap 5 and round
+> 14 lap 1 §T3; it returned in 15.9 s with the drive alive on the BDR-209D at round
+> 14 lap 16). That is §P of `docs/rig-scripts/fullacceptance.txt`, placed after
+> every rip in the file because the fork could not promise the drive comes back.
+> No script here runs bare `-x`.
 >
 > The instructive part is *how* the wrong claim got in: the 2026-08-18 correction was
 > right about the flag identity (which it had measured) and guessed about the cost
@@ -422,10 +450,17 @@ upstream master **as of 2026-07-21**; the whipper-era flag really was
 > | `-O` | overread into lead-in/lead-out | upstream + fork; **hangs the BDR-209D** |
 > | `-x` / `--force-overread` | overread | **whipper only** — never cyanrip |
 >
-> `Cache probe:` states are deliberately distinct and none of them means "the
-> cache was defeated": `N sectors measured (…, uncached read …)`,
-> `no readback cache measured (…)`, `not run (disc image has no drive cache)`,
-> and four `unknown (<reason>)` forms. **`-x` first executed on a real drive on
+> `Cache probe:` states are deliberately distinct, none of them means "the
+> cache was defeated", and they are **alternatives — exactly one is emitted**
+> (arms of a switch, each `snprintf` writing the whole buffer). Nine of them, from
+> the fork's generated provider contract at `cache_probe.c:232`: a range
+> `%i to %i sectors (…)`; a bound `at least %i sectors, upper bound unknown (…)`;
+> `no readback cache measured (uncached read %.1f ms…)`, a measurement that found
+> nothing; five `unknown (<reason>)` forms, a measurement that could not be taken;
+> and `not run (disc image has no drive cache)`, whose *absence* is the first sign
+> the probe ran on metal. The `N sectors measured (…)` wording was **removed** by
+> the fork for claiming a precision the method lacks, so a script asserts the
+> field name and never one value. **`-x` first executed on a real drive on
 > 2026-08-19** — never having run on any drive by anyone before that — and reported
 > `32 sectors measured`. That is one drive, one build, one disc: the other states
 > remain unverified, and whether 32 sectors is this drive's true cache is not
@@ -534,7 +569,7 @@ contract has three parts.
 
 | Tool | Probe invocation | Notes |
 |---|---|---|
-| cyanrip | `cyanrip -V` | single dash, capital V — **not** `--version` |
+| cyanrip | `cyanrip -V`, then `cyanrip --version` | **two flags, in that order** (`cyanrip_cli.VERSION_FLAGS`, the single home both this probe and the wizard's shell snippet read). 0.9.3.x has `case 'V':` and no long options; upstream's genopt replacement after 0.9.3 deleted `-V`; the fork restored it as an alias from pin `e1d800e`. The loop reports absence only when *every* flag fails — on a 0.9.4 build the first failure is expected and is not the reason |
 | cd-paranoia | `cd-paranoia --version` | banner goes to **stderr** |
 | metaflac | `metaflac --version` | |
 | flac | `flac --version` | |
@@ -560,7 +595,7 @@ have to re-derive it:
 
 | Tool | Exit on version flag | Source evidence |
 |---|---|---|
-| cyanrip | **0** | `src/cyanrip_main.c` (v0.9.3.1, the deployed build): `case 'V': cyanrip_log(…); return 0;` |
+| cyanrip | **0** on every build, from three different mechanisms — say which | 0.9.3.x: `src/cyanrip_main.c` `case 'V': cyanrip_log(…); return 0;`. Stock after 0.9.3: `genopt.h:497` special-cases `-v`/`--version`, and **`-V` exits 1**. The fork from `e1d800e` — the deployed build, `d9c058c` / `0.9.4-rc2+platterpus.10` — accepts all three spellings and exits 0 |
 | cd-paranoia | **0** | libcdio-paranoia `src/cd-paranoia.c`: `case 'V': fprintf(stderr, PARANOIA_VERSION); … exit(0);` |
 | flac | **0** | flac `src/flac/main.c` → `do_it()`: `if(option_values.show_version) { show_version(); return 0; }` |
 | metaflac | **0** | flac `src/metaflac/operations.c` → `do_operations()` prints the banner and returns success |
@@ -606,4 +641,4 @@ outlive the window — see `ui/main_window_rip.py::_stop_rip_on_shutdown`.
 
 ---
 
-*Last updated for Platterpus v0.6.24.*
+*Last updated for Platterpus v0.6.31.*

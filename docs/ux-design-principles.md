@@ -161,7 +161,7 @@ silently and *a comment where a check belongs is not a fix*.
 | Criterion | Level | Result | Held by |
 |---|---|---|---|
 | **1.4.1 Use of Color** | A | **pass** — every verdict level carries `✓` / `⚠` / `ⓘ`; colour is reinforcement | test calls the real `accuraterip_verdict` across five branches and requires distinct markers per level |
-| **2.1.4 Character Key Shortcuts** | A | **pass** — zero single-key shortcuts; all three are `QKeySequence.StandardKey` | source sweep, with a floor asserting the sweep reaches the package *and* finds shortcuts at all |
+| **2.1.4 Character Key Shortcuts** | A | **pass** — zero single-key shortcuts; all three go through `main_window.standard_shortcut()`, which asks Qt for a `QKeySequence.StandardKey` and falls back to a modifier-bearing literal when Qt supplies none | source sweep, with a floor asserting the sweep reaches the package *and* finds shortcuts at all; plus `test_every_fallback_carries_a_modifier`, so the fallback cannot reintroduce a bare letter |
 | **3.2.6 Consistent Help** | A | **pass** — one Help menu, platform Help key | test pins both |
 | **4.1.3 Status Messages** | AA | **pass** — `ui/accessibility.announce()`, used, and it does not `setFocus()` | test pins the no-focus half, which is the part that gets lost |
 | **2.5.8 Target Size** | AA | **pass** for our explicit sizing (24 px floor) | sweep over `setFixed/MinimumHeight/Width` |
@@ -216,4 +216,4 @@ finished — put the explanation *in the product*.
 
 ---
 
-*Last updated for Platterpus v0.6.20.*
+*Last updated for Platterpus v0.6.31.*

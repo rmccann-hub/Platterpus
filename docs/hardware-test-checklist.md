@@ -1,4 +1,4 @@
-# Hardware test checklist — v0.6.0
+# Hardware test checklist
 
 > **Everything that still needs testing, in one place.** Anything that has already passed
 > is gone from this sheet — the record of what passed and when lives in
@@ -67,7 +67,7 @@
 | Drive | `PIONEER  BD-RW   BDR-209D 1.51` on `/dev/sr0` |
 | Read offset | **+667** — confirmed, two independent sources agree |
 | Cache defeat | **Yes** — measured (`cd-paranoia -A`: 140-sector cache, backseek flushes) |
-| Tools | cyanrip 0.9.3 · flac/metaflac 1.5.0 · ffmpeg 8.1.2 · cd-paranoia 10.2 · Picard 2.13.3 |
+| Tools | cyanrip `0.9.4-rc2+platterpus.10`, build tag `platterpus-fork-gd9c058c` — the handshake-pinned fork, not stock 0.9.3; the tag identifies it, the version cannot (KDD-33) · flac/metaflac 1.5.0 · ffmpeg 8.1.2 · cd-paranoia 10.2 · Picard 2.13.3 |
 | Settings | Overread **off** · offset-variant re-read **on** · verify-every-track **off** · max reads 2 · max retries 5 · adaptive ladder · EAC log **on** · debug log **on** |
 
 **Test disc:** *The Police — Every Breath You Take: The Classics* — 14 tracks,
@@ -119,7 +119,7 @@ one CRC over the whole disc, so one differing track changes it. Either outcome i
   rendered as "in DB, no match", which claimed a comparison that never took place.
 * **A `Pre-gap length` row can appear where it never did**, and any that appears is now much
   shorter — see A24's warning. It was being computed from the wrong quantity.
-* The `.platterpus.json` report is **schema v12**. Two new blocks: `artifacts`, which holds
+* The `.platterpus.json` report is **schema v24**. Two new blocks: `artifacts`, which holds
   the full text of the three files written beside it, and `completeness`, which finally
   states the **disc's** track count instead of leaving you to infer it from the track list.
   See A24 — a two-minute file check, not a rip.
@@ -131,9 +131,11 @@ one CRC over the whole disc, so one differing track changes it. Either outcome i
 
 ---
 
-## 0 — [ ] Update to v0.6.0
+## 0 — [ ] Update to the release under test
 
-*Help → Check for updates…* → download → verify → restart. *Help → About* says **0.6.0**.
+*Help → Check for updates…* → download → verify → restart. *Help → About* names the version —
+write it into the **App version tested** blank at the top of this sheet, because every result
+below is about that build.
 Nothing else to set up — your settings are already right (see above).
 
 **Result:** ☐ PASS ☐ FAIL — version shown: ____________
@@ -509,7 +511,7 @@ The simplest provocation is A21's (a tagging failure). If you'd rather not fiddl
 **Result:** ☐ PASS ☐ FAIL — banner ever reverted to green: ☐ y ☐ n · reasons listed:
 ____________
 
-### A24 — [ ] ⭐ Two-minute file check: schema v12 (no rip needed)
+### A24 — [ ] ⭐ Two-minute file check: the report schema (no rip needed)
 
 **Do this one first.** It needs no disc, and it proves the thing that makes every *other*
 test on this sheet cheaper for you: that one file is now enough.
@@ -526,7 +528,7 @@ JSON="$(ls -t "$HOME"/Music/rips/*/*/*.platterpus.json | head -1)"; echo "$JSON"
 python3 - "$JSON" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
-print("schema:      ", d["schema_version"])            # 12
+print("schema:      ", d["schema_version"])            # expect 24
 print("completeness:", d["completeness"])              # expected / in_report / complete
 for name, a in d["artifacts"].items():
     if name == "note":
@@ -536,7 +538,9 @@ for name, a in d["artifacts"].items():
 PY
 ```
 
-- Expected: `schema: 12`.
+- Expected: `schema: 24` — that is `REPORT_SCHEMA_VERSION` in `src/platterpus/rip_report.py`,
+  which moves most releases. A *lower* number means the report was written by an older build
+  than the one you are testing.
 - Expected: `completeness` names **the disc's count, not the log's**. On the cancelled rip
   that is `tracks_expected: 14, tracks_in_report: 2, complete: False`. On a whole rip,
   `14 / 14 / True`. **If a cancelled rip ever says `complete: True`, that is a bug and I
@@ -856,8 +860,9 @@ Rip the same disc twice (A then B), then:
 4. Highlight 2–3 rows → **right-click**. Expected: *Rip only these* / include / exclude /
    select all / none, each working.
 
-> Do **A10** as well if you have an unknown disc — same selection feature, but A10 is where
-> the silent tag bug lived.
+> The unknown-disc half of this feature is where the silent tag bug lived. That was **A10**,
+> retired after it passed on 2026-07-30 — worth five minutes with an unknown disc if you have
+> one, but it is not an open item.
 
 **Result:** ☐ PASS ☐ FAIL — notes: ____________
 
@@ -968,7 +973,7 @@ cache-defeat **Yes** measurement.
       CTDB verification is **on by default**
 - [ ] Every Settings control shows a tooltip on hover; the CTDB tooltip also says "on by
       default"
-- [ ] *Help → About* shows **0.5.18** and correct Qt/Python info
+- [ ] *Help → About* shows the version you recorded in §0, and correct Qt/Python info
 - [ ] Disc-panel values can be selected and copied with the mouse. Selecting a MusicBrainz
       ID and pasting must still give the whole ID.
 - [ ] Force-stop a disc scan: the message says *"click Rescan disc to try again"* and does
@@ -1043,22 +1048,23 @@ Defensible either way, so it's your decision rather than something I'll just cha
 
 ---
 
-## E — [ ] Required, and do it LAST: build cyanrip `master` for INDEX 00
+## E — retired: the setup wizard builds the pinned fork (KDD-33)
 
-Unchanged from the previous sheet. Do this after everything above, because it changes the
-binary everything else was tested against.
-
-**Result:** ☐ PASS ☐ FAIL — notes: ____________
+There is no hand-build step any more. *Tools → Set up Platterpus…* clones the fork, detaches
+onto the handshake-verified pin, compiles it and re-exports it, and `--install-ripper` is the
+same step engine from a terminal — so the `INDEX 00` work arrives with the pin. Do **not**
+build upstream `master` over it: that replaces the binary every other result on this sheet is
+about, and moving the ripper build is a handshake event rather than a test step.
 
 ---
 
-## F — ⭐ The three things we OWE the cyanrip fork (handshake round 7)
+## F — ⭐ The three things we OWE the cyanrip fork
 
-**Read this if you have a disc and half an hour.** Round 7 of the cyanrip handshake is open,
-and it stays open until both projects verify each other. Three of the items we owe them can
-only be produced on your rig — they are not "nice to have", they are the reason the round
-cannot close. Each one below says exactly what to run and exactly what to send, so nothing
-has to be re-derived at the time.
+**Read this if you have a disc and half an hour.** Rounds 1–14 are closed, GO on both sides,
+so nothing here is gating a release. Three of the items we owe them can
+only be produced on your rig — they are not "nice to have", they are the artifacts no fixture
+can stand in for, and the next round will ask for them. Each one below says exactly what to
+run and exactly what to send, so nothing has to be re-derived at the time.
 
 Everything here is **text only**. Never send audio (Critical rule #8) — the logs and CRCs
 prove what is needed.
@@ -1165,9 +1171,10 @@ the next easier.
 6. **D1b** — one subset rip of the Police disc; still the last thing gating the #55 fix.
 7. **F3** — the forced-error corpus. Five one-line commands, no disc needed for the first,
    nothing written to disk. **This is the single highest-value thing on the whole list right
-   now**, because handshake round 7 cannot close without it and neither project can release
-   while it is open. Roughly ten minutes.
-8. **F2** — the `-x` line. One track, one log.
+   now**, because it is the one artifact no fixture can fabricate and the next round will ask
+   for it. Roughly ten minutes.
+8. **F2** — ⛔ **blocked; do not run it on this drive.** Overread is `-O`, not `-x`, and it
+   hung the BDR-209D for ~23 minutes on 2026-07-22. Read F2 before touching overread at all.
 9. **F1** — a non-zero pre-gap disc. Free if you are already hunting one for A25.
 
 *If the hour runs out: A24 + A26 cost about five minutes together and answer the two things
@@ -1198,13 +1205,13 @@ album's JSON.
 CRCs prove bit-perfection without it.
 
 **From section F, separately, because it goes to a different place:** F1/F2/F3's output is
-forwarded to the cyanrip fork as part of handshake round 7, so keep it in its own file(s) and
-say which case each one is. Exit codes included — a message without its exit code is half the
-answer.
+forwarded to the cyanrip fork as an input to the next handshake round, so keep it in its own
+file(s) and say which case each one is. Exit codes included — a message without its exit code
+is half the answer.
 
 Plus anything surprising, even on a test that passed. And specifically: **any rip that dies
 with `rip stream error:`** — that is the v0.5.20 fix's signature and I want the log at once.
 
 ---
 
-*Last updated for Platterpus v0.6.24.*
+*Last updated for Platterpus v0.6.31.*
