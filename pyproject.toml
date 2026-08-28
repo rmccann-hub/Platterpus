@@ -144,28 +144,52 @@ extend-exclude = ["src/platterpus/adapters/accuraterip_offsets_data.py"]
 [tool.ruff.lint]
 # E/W=pycodestyle, F=pyflakes, I=isort (import order), B=flake8-bugbear
 # (likely-bug patterns), UP=pyupgrade (modern 3.11+ syntax).
-select = ["E", "F", "W", "I", "B", "UP"]
-# `N` (pep8-naming) is MEASURED AND DELIBERATELY ABSENT — 2026-08-20, ruff 0.15.22,
-# 108 findings, of which 96 are `N802 invalid-function-name` and every one of those
-# is a Qt API name we do not get to choose: `isRunning`, `setValue`, `setRange`,
-# `setLabelText`, `setData`, `setCancelButton`, `rowCount`, `objectName`. A rule
-# that flags mandatory camelCase overrides in a Qt codebase would need a permanent
-# blanket ignore, and a lint whose main rule is ignored teaches nothing.
+select = ["E", "F", "W", "I", "B", "UP", "N801", "N802", "N804", "N805"]
+# `N` (pep8-naming) WAS measured and deliberately absent — 2026-08-20, ruff
+# 0.15.22, 108 findings, of which 96 were `N802 invalid-function-name` and every
+# one of those a Qt API name we do not get to choose: `isRunning`, `setValue`,
+# `setRange`, `setLabelText`, `setData`, `setCancelButton`, `rowCount`,
+# `objectName`. The conclusion — a rule needing a permanent blanket ignore
+# teaches nothing — was right about the population it measured.
 #
-# The remaining 12 are style disagreements rather than defects: mostly
-# function-local constants spelled `CEILING` / `QUEUED_SLOTS`, which `N806` wants
-# lowercased and which are clearer as they are, plus `NS = SimpleNamespace` aliases.
-# One is arguably real — `N818`, `DecoderUnavailable` wanting an `Error` suffix —
-# and is not worth renaming a class over on its own.
+# NARROWED AND TURNED ON, 2026-08-28, ruff 0.15.22. The original number covered
+# `src` and `tests` TOGETHER, and the two are not alike: nearly all the
+# unavoidable camelCase is in test-local Qt stubs and in test *names* that use
+# capitals for emphasis (`test_..._PlainText`). Measured separately, `src` under
+# N801/N802/N804/N805 is **0 findings** — the sixteen real Qt/stdlib overrides
+# there each carry an individual `# noqa: N802` with a reason. So no blanket
+# ignore is needed where it would have hurt; `tests` keeps the exemption below.
 #
-# So Critical rule #10's naming convention stays reader-enforced here, on purpose
-# and with the numbers written down, rather than being called unenforced by
-# omission. `E` does include E722, so "never a bare `except:`" IS linted.
+# The reason this matters is not tidiness. Before today those sixteen markers
+# suppressed a rule that **was not enabled**, so they were documentation wearing
+# the costume of enforcement — and five genuine overrides had never acquired one,
+# because nothing ever asked. That is the same shape as a weekly job reporting
+# success while measuring nothing. `tests/test_critical_rules_are_enforced.py`
+# is the belt; this is the braces, and it is the one that runs on every commit.
+#
+# STILL OUT, with reasons: `N806` (function-local constants spelled `CEILING` /
+# `_MARK`, clearer as they are — Critical rule #10 asks for SCREAMING_SNAKE at
+# *module* level and says nothing about locals), `N812`/`N814` (import aliases),
+# and `N818` (`DecoderUnavailable` wanting an `Error` suffix — arguably real, not
+# worth renaming a class over on its own). `E` includes E722, so "never a bare
+# `except:`" is linted independently.
 ignore = [
     # Long lines are largely comments/strings; the formatter wraps code and
     # we don't want it splitting prose or URLs. Keep E501 off.
     "E501",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# The naming rules above are enforced on `src`, where every unavoidable Qt or
+# stdlib override carries an individual `# noqa: N802` naming the framework.
+# `tests` is exempt for two reasons that do not apply to shipped code:
+#   * test-local Qt stubs must spell the API they stand in for — a fake with a
+#     `set_value` where Qt calls `setValue` is not a stub, it is a bug;
+#   * test NAMES use capitals to mark what is under test
+#     (`test_the_missing_branch_message_box_is_PlainText`), which is this repo's
+#     established habit and reads better than the alternative.
+# Measured 2026-08-28: 113 findings in `tests`, 0 in `src`.
+"tests/**" = ["N801", "N802", "N804", "N805"]
 
 [tool.ruff.lint.flake8-bugbear]
 # Qt's model/view override signatures legitimately default index args to a

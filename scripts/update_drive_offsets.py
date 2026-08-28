@@ -117,6 +117,13 @@ def write_module(entries: dict[str, int]) -> None:
         "not as packaged data, so it ships reliably in the AppImage and works\n"
         'offline). Decoded lazily by accuraterip_offsets.py.\n"""\n'
         "\n"
+        # Critical rule #10 says every module carries this, and a GENERATED
+        # module is exactly the one that silently stops: hand-adding it to the
+        # output would be undone by the next regeneration, with no failure in
+        # between. So it belongs in the template, not in the file.
+        # `tests/test_critical_rules_are_enforced.py` sweeps the result.
+        "from __future__ import annotations\n"
+        "\n"
         "DRIVES: int = " + str(len(entries)) + "\n"
         'GENERATED: str = "' + today + '"\n'
         "\n"

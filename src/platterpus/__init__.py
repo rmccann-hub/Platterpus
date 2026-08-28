@@ -1,5 +1,7 @@
 """Platterpus — Linux GUI front-end for the cyanrip audio-CD ripping CLI."""
 
+from __future__ import annotations
+
 # ── Canonical version: the single source of truth ──────────────────────────
 # This string is THE version of Platterpus. Bump it here and nowhere else:
 #   * the build reads it via `[tool.setuptools.dynamic]` in pyproject.toml, so

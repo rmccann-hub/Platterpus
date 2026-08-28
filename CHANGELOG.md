@@ -11,6 +11,44 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **A dead button in the update dialog, found by auditing our own rules against
+  our own tests.** *"Open the download page?"* → **Yes** called
+  `QDesktopServices.openUrl` and discarded the returned bool — the only signal
+  that nothing on the system claims the URL. On a desktop with no browser
+  handler the one button offering a user their update did nothing: no error, no
+  log line, nothing to report. `ui/external_open.py` exists to prevent exactly
+  this and its own docstring cites `docs/testing.md` §5.o — *enforce a rule
+  across the codebase, not at the place it was learned*. It was applied at three
+  call sites; a **fourth** was written without it. **§5.o landing on the module
+  written to answer §5.o**, which is the argument for the sweep rather than a
+  fourth careful fix. `open_web_url()` joins `open_path_externally()` (the
+  latter builds its URL with `fromLocalFile`, so a caller with an `https://`
+  link had no honest route), and an AST sweep now refuses any `openUrl` call
+  whose result is a bare expression statement — AST and not grep, because
+  `if openUrl(u):` and `ok = openUrl(u)` are correct and a text search cannot
+  tell them apart.
+- **Nine modules had no `from __future__ import annotations`**, which Critical
+  rule #10 requires of every module — including `src/platterpus/__init__.py`,
+  the one file the release checklist edits every cycle. The generated
+  `accuraterip_offsets_data.py` was fixed in
+  `scripts/update_drive_offsets.py`'s **template**, not its output: editing the
+  output would be undone by the next regeneration, with no failure in between.
+- **`checksums_done` named no payload type.** Its comment described the value
+  (*"the {relpath: sha256} digest map"*) rather than naming `dict[str, str]`,
+  and Critical rule #10 asks for the type because Qt's queued connections force
+  `Signal(object)` and the comment is the only type information left.
+- **Ruff's naming rules were never enabled, so sixteen `noqa` markers in `src`
+  suppressed a rule that did not run** — documentation wearing the costume of
+  enforcement, which is why five genuine framework overrides had never acquired
+  one: nothing ever asked. `pyproject.toml` now selects N801/N802/N804/N805.
+  The existing note explaining the omission was **right about the population it
+  measured** (`src` and `tests` together, 108 findings, 96 of them unavoidable
+  Qt names); it had simply never measured them apart. Separately: `src` is **0**
+  and `tests` is **113**, so the rule binds where every override is individually
+  marked and `tests` — whose Qt stubs must spell the API they stand in for, and
+  whose test names use capitals for emphasis — keeps the exemption.
+
 ### Added
 - **The session bundle now carries the rip folders**, which was the one thing
   keeping the in-app path from replacing `platterpusmorning.sh`. `build_bundle`

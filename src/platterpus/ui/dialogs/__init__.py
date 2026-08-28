@@ -3,3 +3,5 @@
 `manual_install` — tier (c) of the dependency self-management subsystem.
 `pending_installs` — tier (b) of the dependency self-management subsystem.
 """
+
+from __future__ import annotations
