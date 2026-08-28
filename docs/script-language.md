@@ -266,7 +266,7 @@ screenshot after-rip
 ```
 
 A fuller one, kept current and runnable, is
-`docs/rig-scripts/police-rerip.txt`.
+`src/platterpus/rig_scripts/police-rerip.txt`.
 
 ## Recipes
 
@@ -332,7 +332,7 @@ found nothing wrong*.
 {
   "language": "platterpus-uiscript",
   "grammar_version": 1,
-  "platterpus_version": "0.6.31",
+  "platterpus_version": "0.6.32",
   "syntax": {
     "one_statement_per_line": true,
     "comment_prefix": "#",
@@ -846,4 +846,4 @@ found nothing wrong*.
 }
 ```
 
-*Last updated for Platterpus v0.6.31.*
+*Last updated for Platterpus v0.6.32.*

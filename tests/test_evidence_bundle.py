@@ -7,6 +7,7 @@ goes wrong: it quietly leaves something out, or it quietly puts something in.
 
 from __future__ import annotations
 
+import io
 import tarfile
 from pathlib import Path
 
@@ -570,3 +571,175 @@ def test_pruning_survives_a_missing_directory(tmp_path: Path) -> None:
     """Housekeeping must never be the thing that takes down a rip."""
     assert prune_bundles(tmp_path / "does-not-exist") == []
     assert prune_bundles(tmp_path, keep=0) == []
+
+
+# ==========================================================================
+# SEVERAL album folders — the acceptance session's case
+# ==========================================================================
+#
+# An ordinary rip has one album folder. An acceptance session rips the same disc
+# several times under different settings, so its bundle has to carry several —
+# and the tempting way to do that (pass them through `extra_dirs`) would widen
+# their allowlist to admit `.png`, i.e. the record label's cover art, which
+# Critical rule #8 forbids leaving the machine. So they get their own parameter
+# on the STRICT route.
+#
+# The hazard these tests exist for is not an error. `tarfile` accepts a duplicate
+# member name: it writes both and extraction keeps whichever landed last. Two rips
+# of one disc both contain `rip.log`, so without distinct prefixes one album
+# silently replaces another inside an archive that still opens and still lists —
+# "a silent truncation reads as completeness", in the module whose docstring says
+# that.
+
+
+def _album(root: Path, name: str, *, log_text: str) -> Path:
+    folder = root / name
+    folder.mkdir(parents=True)
+    (folder / "rip.log").write_text(log_text, encoding="utf-8")
+    return folder
+
+
+def test_two_album_folders_do_not_collide_in_the_archive(tmp_path: Path) -> None:
+    """The whole reason this parameter exists. Both files must survive."""
+    first = _album(tmp_path / "a", "Album", log_text="FIRST RIP")
+    second = _album(tmp_path / "b", "Album", log_text="SECOND RIP")
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+
+    result = build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260828T000000Z",
+        app_version="0.0.0",
+        outcome="success",
+        album_dirs=[first, second],
+        log_dir=log_dir,
+    )
+    assert result.ok, result.error
+
+    with tarfile.open(result.path) as tar:
+        names = tar.getnames()
+        bodies = {
+            n: (tar.extractfile(n) or io.BytesIO()).read().decode()
+            for n in names
+            if n.endswith("rip.log")
+        }
+
+    logs = sorted(n for n in names if n.endswith("rip.log"))
+    assert len(logs) == 2, f"one album folder overwrote the other: {names}"
+    assert len(set(logs)) == 2, f"two members share one archive name: {logs}"
+    assert sorted(bodies.values()) == ["FIRST RIP", "SECOND RIP"], (
+        "both members exist but one file's CONTENT was lost — the archive names "
+        "differ and the payloads do not, which a name-only check would miss"
+    )
+
+
+def test_a_single_album_folder_keeps_the_layout_it_has_always_had(
+    tmp_path: Path,
+) -> None:
+    """No member moves one directory deeper because a different caller passes two.
+
+    An ordinary rip's bundle is an artifact people already have. Changing its
+    layout as a side effect of adding a feature is a breaking change nobody asked
+    for, so the prefix appears only when there is something to disambiguate.
+    """
+    only = _album(tmp_path / "a", "Album", log_text="ONLY")
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+
+    result = build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260828T000000Z",
+        app_version="0.0.0",
+        outcome="success",
+        album_dirs=[only],
+        log_dir=log_dir,
+    )
+    assert result.ok, result.error
+    with tarfile.open(result.path) as tar:
+        names = tar.getnames()
+    assert "album/rip.log" in names, f"the single-folder layout changed: {names}"
+
+
+def test_album_dirs_are_held_to_the_STRICT_allowlist(tmp_path: Path) -> None:
+    """Critical rule #8, at the seam this change created.
+
+    The point of a separate parameter is that more-than-one does not buy a
+    caller the widened `extra_dirs` rule. Cover art and audio must both be
+    refused from an album folder however many were passed.
+    """
+    first = _album(tmp_path / "a", "One", log_text="X")
+    second = _album(tmp_path / "b", "Two", log_text="Y")
+    (first / "cover.png").write_bytes(b"")
+    (second / "01.flac").write_bytes(b"")
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+
+    result = build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260828T000000Z",
+        app_version="0.0.0",
+        outcome="success",
+        album_dirs=[first, second],
+        log_dir=log_dir,
+    )
+    assert result.ok, result.error
+    with tarfile.open(result.path) as tar:
+        names = tar.getnames()
+
+    assert not [n for n in names if n.endswith((".png", ".flac"))], (
+        f"artwork or audio entered the archive from an album folder: {names}"
+    )
+    # And the exclusion is NAMED, not silent — the module's third property.
+    skipped = " ".join(f"{e.name} {e.reason}" for e in result.skipped)
+    assert "cover.png" in skipped and "01.flac" in skipped, (
+        f"an exclusion happened without a manifest row saying so: {skipped}"
+    )
+
+
+def test_the_same_folder_passed_twice_is_archived_once(tmp_path: Path) -> None:
+    """Otherwise it is read twice, archived under two names, and charged twice
+    against the byte budget — pushing a later, real artifact out."""
+    only = _album(tmp_path / "a", "Album", log_text="ONE")
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+
+    result = build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260828T000000Z",
+        app_version="0.0.0",
+        outcome="success",
+        album_dir=only,
+        album_dirs=[only],
+        log_dir=log_dir,
+    )
+    assert result.ok, result.error
+    with tarfile.open(result.path) as tar:
+        logs = [n for n in tar.getnames() if n.endswith("rip.log")]
+    assert logs == ["album/rip.log"], f"the folder was archived twice: {logs}"
+
+
+def test_the_manifest_names_every_album_folder_not_a_count(tmp_path: Path) -> None:
+    """A manifest saying "3 album folders" is a claim the reader cannot check."""
+    first = _album(tmp_path / "a", "First", log_text="X")
+    second = _album(tmp_path / "b", "Second", log_text="Y")
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+
+    result = build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260828T000000Z",
+        app_version="0.0.0",
+        outcome="success",
+        album_dirs=[first, second],
+        log_dir=log_dir,
+    )
+    assert result.ok, result.error
+    with tarfile.open(result.path) as tar:
+        member = tar.extractfile("MANIFEST.txt")
+        manifest = (member or io.BytesIO()).read().decode()
+
+    for folder in (first, second):
+        assert str(folder) in manifest, (
+            f"the manifest does not name {folder} — a reader cannot tell which "
+            f"discs the bundle covers:\n{manifest}"
+        )

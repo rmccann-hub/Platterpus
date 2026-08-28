@@ -102,6 +102,16 @@ SPAWN_SITES: dict[str, tuple[str, str]] = {
     ),
     "killable.py": ("other", "the killable-child primitive itself"),
     "rig_check.py": ("other", "read-only seam check; composes a SYNTHETIC argv"),
+    "sleep_inhibit.py": (
+        "other",
+        "holds the sleep/idle/lid lock for an unattended run. It CANNOT reach "
+        "the ripper: the EXECUTED part of both argvs it builds is entirely "
+        "module constants — `systemd-inhibit`, the `--what` capability set, and "
+        "the trailing `sleep <int>` / `true` — so there is no caller-supplied "
+        "component in the command position. The one caller-supplied value is "
+        "`--why=<text>`, which systemd records as a human-readable description "
+        "and never executes.",
+    ),
     "ui/main_window_update.py": ("other", "relaunch after an in-app update"),
     "ui/unknown_album.py": ("other", "launches MusicBrainz Picard, fire-and-forget"),
 }

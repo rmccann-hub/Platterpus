@@ -139,7 +139,7 @@ def test_the_shipped_example_script_only_uses_verbs_that_exist() -> None:
     """
     from platterpus.uiscript.script import parse
 
-    example = REPO_ROOT / "docs" / "rig-scripts" / "police-rerip.txt"
+    example = REPO_ROOT / "src" / "platterpus" / "rig_scripts" / "police-rerip.txt"
     assert example.exists(), "the shipped example script is missing"
     steps = parse(example.read_text(encoding="utf-8"))
     assert steps, "the example parsed to no steps at all"
@@ -154,7 +154,7 @@ def test_the_shipped_example_has_a_floor() -> None:
     happened to have loaded — including nothing — and reports success. If the
     example ever loses that line, every script copied from it loses it too.
     """
-    example = REPO_ROOT / "docs" / "rig-scripts" / "police-rerip.txt"
+    example = REPO_ROOT / "src" / "platterpus" / "rig_scripts" / "police-rerip.txt"
     lines = [
         line.split("#", 1)[0].strip()
         for line in example.read_text(encoding="utf-8").splitlines()

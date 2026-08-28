@@ -17,11 +17,15 @@ confidence-200 match, ``Pregap LSN: unknown`` read as ``none``.
 from __future__ import annotations
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from platterpus.eac_log_export import render_eac_style_log
 from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 from platterpus.ripper_identity import (
     FORK_BUILD_TAGS,
+    STOCK_BUILD_TAGS,
+    _tag_matches,
     identify_from_banner,
     identify_ripper,
 )
@@ -281,3 +285,119 @@ def test_a_dirty_build_is_indistinguishable_and_that_is_recorded() -> None:
     # byte-identical to this, so this test exists to carry the sentence above.
     assert clean.kind == "fork"
     assert "ga835052" in clean.build_tag
+
+
+# ==========================================================================
+# The build tag is EXTERNAL INPUT, and matching it used to be cubic
+# ==========================================================================
+#
+# `_tag_matches` generated every contiguous run of hyphen-separated parts —
+# two nested loops with an O(n) join inside, so O(n³) in the number of
+# separators. The tag is whatever the ripper's version banner said, and it is
+# reached on every rip through `rip_report` and the EAC-compatible log emitter.
+#
+# Measured 2026-08-28 on the old implementation: 400 parts 0.11 s, 800 parts
+# 0.87 s, 1600 parts 7.1 s, **3000 parts 45 s** — eight times the work for twice
+# the input, which is the cubic signature. A garbled banner does not have to be
+# malicious to be long, and nothing validated the tag's shape before this.
+#
+# Found by the 2026-08-28 lesson-to-gate audit while asking a different
+# question — "which boundary functions have no property test?" — which is the
+# argument for asking it of every boundary rather than the ones that have burned
+# us. It is also `CLAUDE.md`'s *validate every input and every dependency
+# output*, applied to a field nobody thought of as an input because it is "just
+# a version string".
+
+
+def _reference_tag_matches(tag: str, wanted: frozenset[str]) -> bool:
+    """The ORIGINAL implementation, kept as the oracle for the rewrite.
+
+    **This is an equivalence test, not a correctness test, and the difference
+    matters** — `CLAUDE.md` warns that two implementations agreeing is not
+    either one being correct, because they share an ancestor. Correctness is
+    established by the example tests above, which assert real banners against
+    real expectations. What this pins is that making the function fast did not
+    make it answer differently, which is the one thing a rewrite can break and
+    example tests spot-check.
+    """
+    import re
+
+    if tag in wanted:
+        return True
+    tokens = {t for t in re.split(r"[\s,;+/]+", tag) if t}
+    if tokens & wanted:
+        return True
+    for token in tokens:
+        parts = re.split(r"[-_]", token)
+        for width in range(len(parts), 0, -1):
+            for start in range(len(parts) - width + 1):
+                if "-".join(parts[start : start + width]) in wanted:
+                    return True
+    return False
+
+
+@given(
+    st.lists(
+        st.sampled_from(
+            ["platterpus", "fork", "cyanrip", "g1a2b3c4", "a", "", "dirty", "0.9.4"]
+        ),
+        max_size=7,
+    ),
+    st.sampled_from(["-", "_", " ", "+", ",", ";", "/"]),
+)
+@settings(max_examples=400, deadline=None)
+def test_the_fast_tag_matcher_answers_exactly_as_the_original(
+    words: list[str], separator: str
+) -> None:
+    """Equivalence over generated tags, both sets."""
+    tag = separator.join(words)
+    for wanted in (FORK_BUILD_TAGS, STOCK_BUILD_TAGS):
+        assert _tag_matches(tag, wanted) == _reference_tag_matches(tag, wanted), (
+            f"the rewrite changed the answer for {tag!r} against {sorted(wanted)}"
+        )
+
+
+def test_a_long_build_tag_does_not_hang_the_program() -> None:
+    """The regression test for the cubic blow-up.
+
+    The bound is deliberately loose — this is a *complexity* assertion, not a
+    benchmark, and a slow CI runner must not turn it into a flake. The old
+    implementation took 45 SECONDS on this input; anything under a second is
+    unambiguously not cubic, and the measurement below is ~0.0001 s.
+    """
+    import time
+
+    tag = "-".join(["a"] * 3000)
+    started = time.perf_counter()
+    assert _tag_matches(tag, FORK_BUILD_TAGS) is False
+    elapsed = time.perf_counter() - started
+    assert elapsed < 1.0, (
+        f"classifying a 3000-part build tag took {elapsed:.2f}s — the matcher has "
+        f"gone superlinear again. This value comes off the ripper's version "
+        f"banner on every rip; the original cost 45s here."
+    )
+
+
+def test_the_timing_guard_would_have_caught_the_original() -> None:
+    """Non-triviality: prove the bound is meaningful by timing the ORACLE.
+
+    Without this the assertion above is just "a fast thing is fast" — it would
+    pass against any implementation, including one that never matched anything.
+    A smaller input keeps this test quick while still showing the growth.
+    """
+    import time
+
+    tag = "-".join(["a"] * 400)
+    started = time.perf_counter()
+    _reference_tag_matches(tag, FORK_BUILD_TAGS)
+    old_cost = time.perf_counter() - started
+
+    started = time.perf_counter()
+    _tag_matches(tag, FORK_BUILD_TAGS)
+    new_cost = time.perf_counter() - started
+
+    assert old_cost > new_cost * 10, (
+        f"the original ({old_cost:.4f}s) is no longer dramatically slower than "
+        f"the rewrite ({new_cost:.4f}s) on 400 parts — either the oracle has "
+        f"been changed, or this guard is measuring nothing"
+    )

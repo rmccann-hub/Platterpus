@@ -9,6 +9,8 @@ not as packaged data, so it ships reliably in the AppImage and works
 offline). Decoded lazily by accuraterip_offsets.py.
 """
 
+from __future__ import annotations
+
 DRIVES: int = 4804
 GENERATED: str = "2026-06-05"
 

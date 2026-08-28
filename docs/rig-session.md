@@ -121,14 +121,14 @@ which build did what.
 
 Then:
 
-- **Help → About** must read **0.6.4b15**.
+- **Help → About** must read **0.6.30**.
 - **Tools → Check dependencies** — the cyanrip row must read
-  `cyanrip 0.9.4-rc1+platterpus.5-beta.8 (the Platterpus fork; build tag "platterpus-fork-g104f6d4")`.
+  `cyanrip 0.9.4-rc2+platterpus.10 (the Platterpus fork; build tag "platterpus-fork-gd9c058c")`.
 
-If the ripper still says beta.5/`9048082`, install the test pin — no source checkout needed:
+If the ripper says anything else, install the production pin — no source checkout needed:
 
 ```sh
-~/Applications/platterpus-x86_64.AppImage --install-ripper 104f6d4
+~/Applications/platterpus-x86_64.AppImage --install-ripper d9c058c
 ```
 
 ---
@@ -312,12 +312,13 @@ Critical rule #8, no exceptions including temporary ones.
 - **The `[Debugging]`-on-the-Goal-row half of your naming ask is not done, and needs your
   decision.** It is a design question (which fields a label may speak for), not an oversight.
 - **The +450 AccurateRip question is open on the fork's side.** Our half is ruled out.
-- **Round 7 is still OPEN and both sides are on HOLD**, so `v0.6.4b15` is a pre-release and
-  not a claim that the pair is verified. Every rip it makes says so in its own report.
+- **Round 14 is CLOSED — GO on both sides**, so `d9c058c` is a jointly verified pin and every
+  rip's report says so. `v0.6.30` is a pre-release because every `v0.*` is, not because a
+  round is open.
 - **The `-j` record still comes only from the harness**, not from a rip. We do not send it
   and are not proposing to: adding a flag to every rip's argv to satisfy one round's evidence
   need is the wrong trade. Step 5 produces the record.
 
 ---
 
-*Last updated for Platterpus v0.6.31.*
+*Last updated for Platterpus v0.6.32.*

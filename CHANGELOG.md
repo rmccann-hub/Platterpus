@@ -11,6 +11,238 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.32] — 2026-08-28
+
+### Fixed
+- **`ripper_identity._tag_matches` was cubic in the build tag's separator count,
+  on a value read straight from the ripper's version banner.** It generated
+  every contiguous run of hyphen-separated parts — two nested loops with an
+  O(n) join inside — and is reached by every rip through `rip_report` and the
+  EAC-compatible log emitter. Measured 2026-08-28: 400 parts 0.11 s, 800 parts
+  0.87 s, 1600 parts 7.1 s, **3000 parts 45 s** — eight times the work for twice
+  the input. A garbled banner does not have to be malicious to be long, and
+  nothing validated the tag's shape. Rewritten to iterate the small `wanted`
+  set instead: **0.00007 s**, with 90,000 generated tags agreeing with the
+  original on every answer. The equivalence test keeps the old implementation as
+  an oracle and says plainly that it pins *equivalence, not correctness* —
+  `CLAUDE.md` warns that two implementations agreeing is not either one being
+  right — and the timing guard has a twin that times the oracle, so it cannot
+  degrade into "a fast thing is fast".
+
+- **A dead button in the update dialog, found by auditing our own rules against
+  our own tests.** *"Open the download page?"* → **Yes** called
+  `QDesktopServices.openUrl` and discarded the returned bool — the only signal
+  that nothing on the system claims the URL. On a desktop with no browser
+  handler the one button offering a user their update did nothing: no error, no
+  log line, nothing to report. `ui/external_open.py` exists to prevent exactly
+  this and its own docstring cites `docs/testing.md` §5.o — *enforce a rule
+  across the codebase, not at the place it was learned*. It was applied at three
+  call sites; a **fourth** was written without it. **§5.o landing on the module
+  written to answer §5.o**, which is the argument for the sweep rather than a
+  fourth careful fix. `open_web_url()` joins `open_path_externally()` (the
+  latter builds its URL with `fromLocalFile`, so a caller with an `https://`
+  link had no honest route), and an AST sweep now refuses any `openUrl` call
+  whose result is a bare expression statement — AST and not grep, because
+  `if openUrl(u):` and `ok = openUrl(u)` are correct and a text search cannot
+  tell them apart.
+- **Nine modules had no `from __future__ import annotations`**, which Critical
+  rule #10 requires of every module — including `src/platterpus/__init__.py`,
+  the one file the release checklist edits every cycle. The generated
+  `accuraterip_offsets_data.py` was fixed in
+  `scripts/update_drive_offsets.py`'s **template**, not its output: editing the
+  output would be undone by the next regeneration, with no failure in between.
+- **`checksums_done` named no payload type.** Its comment described the value
+  (*"the {relpath: sha256} digest map"*) rather than naming `dict[str, str]`,
+  and Critical rule #10 asks for the type because Qt's queued connections force
+  `Signal(object)` and the comment is the only type information left.
+- **Ruff's naming rules were never enabled, so sixteen `noqa` markers in `src`
+  suppressed a rule that did not run** — documentation wearing the costume of
+  enforcement, which is why five genuine framework overrides had never acquired
+  one: nothing ever asked. `pyproject.toml` now selects N801/N802/N804/N805.
+  The existing note explaining the omission was **right about the population it
+  measured** (`src` and `tests` together, 108 findings, 96 of them unavoidable
+  Qt names); it had simply never measured them apart. Separately: `src` is **0**
+  and `tests` is **113**, so the rule binds where every override is individually
+  marked and `tests` — whose Qt stubs must spell the API they stand in for, and
+  whose test names use capitals for emphasis — keeps the exemption.
+
+### Added
+- **The session bundle now carries the rip folders**, which was the one thing
+  keeping the in-app path from replacing `platterpusmorning.sh`. `build_bundle`
+  admitted a single `album_dir` and an acceptance run produces several, so its
+  archive held the app log, transcript and screenshots but **none of the
+  per-album rip logs, cue sheets, reports or checksums** — the actual evidence a
+  session exists to produce.
+  - **The hazard was not an error.** `tarfile` accepts a duplicate member name:
+    it writes both and extraction keeps whichever landed last. Every rip folder
+    contains a `rip.log`, so without distinct prefixes one album silently
+    replaces another inside an archive that still opens and still lists — *a
+    silent truncation reads as completeness*, in the module whose own docstring
+    says so. The test asserts the **payloads** differ, not just the names, since
+    a name-only check would miss exactly that.
+  - **A single folder keeps the layout it has always had.** Adding the prefix
+    unconditionally would move every member of an ordinary rip's bundle one
+    directory deeper — a breaking change to an artifact people already have,
+    made as a side effect of a feature for a different caller.
+  - **The safe route is the only route.** Passing the folders through the
+    existing `extra_dirs` would have worked and widened their allowlist to admit
+    `.png` — record-label cover art, which Critical rule #8 forbids leaving the
+    machine. Hence a separate parameter on the strict channel, with tests
+    asserting artwork and audio are still refused *and* that each exclusion is
+    named in the manifest.
+  - **The folders are discovered from disk, not remembered as rips finish.** A
+    run that crashes or is cancelled still leaves finished rips, and those are
+    the ones somebody needs to send. Both the output *and* library folders are
+    searched, because a successful rip is moved to the second one.
+- **Tools → "Run acceptance test…" — the app runs the whole session itself.**
+  Maintainer, 2026-08-28: *"make the app make the rig folder and anything else,
+  this was supposed to be a no cli program, not give me commands to use"*. It
+  makes the session folder, takes the sleep/idle/lid lock, drives the built-in
+  acceptance batch, releases the lock, and packs **one** file — with a button
+  that opens its folder. `platterpusovernight.sh` and `platterpusmorning.sh` are
+  what it replaces.
+  - **The lock verdict is reported, never silently downgraded**, and an
+    `unavailable` / `not_installed` lock does **not** abort the run — a run that
+    happens and might get suspended beats a run that did not happen, which is
+    the shell script's own reasoning, kept.
+  - **Nothing modal is shown while the batch runs.** A message box during a run
+    is found by the script's own `expect-dialog` / `cancel` verbs — the
+    2026-08-18 defect where a timer's modal landed over a live rip. The sleep
+    verdict goes to the log, the live log view and the end-of-session dialog
+    instead.
+  - **Both the lock probe and the bundle run off the GUI thread**, on daemon
+    threads reporting back through queued signals, and the tests assert *thread
+    identity* rather than that a thread was mentioned.
+  - **It does not call `open_script_console(autorun=True)`**, deliberately: that
+    starts whatever the editor already holds, *before* our script is loaded —
+    the 2026-08-13 rig defect that produced a clean transcript of a nine-line
+    sample nobody asked for. It uses the same load-then-run pair `--run-script`
+    uses, so there is still one start path, not two.
+  - `ScriptConsoleDialog` grows a `run_finished` signal, emitted on **every**
+    path including a payload it cannot narrow — a holder of a released resource
+    must hear about the run ending on the untidy paths too.
+- **The rig scripts ship INSIDE the package** (`src/platterpus/rig_scripts/`),
+  so the running program can open them. They used to live under `docs/`, which
+  put the acceptance test — the thing a hardware session exists to run — outside
+  the artifact the operator actually has: an AppImage user had **no copy of it
+  at all**, so "run the acceptance test" began with "download three files from
+  GitHub". Maintainer, 2026-08-28: *"this was supposed to be a no cli program,
+  not give me commands to use"* and *"i should just be able to run this with an
+  specific script file i can use with the settings window, and run it, not a ton
+  of scripts and shit in bash, make it all verify and do it itself"*. Same
+  reasoning that already put `rig_session.sh` in the package; one step further.
+- **`sleep_inhibit.py`** — the sleep/idle/lid lock, moved out of
+  `platterpusovernight.sh` and into the program. It **probes then adopts**:
+  `systemd-inhibit` exists and still fails with *"Failed to connect to bus"* (no
+  session bus) or *"Access denied"* (a bus with no polkit privilege), so the
+  capability is measured by running the real thing over `true` rather than
+  inferred from the binary existing. The probe asks for **byte-identical**
+  `--what` to the real lock — the bash got that wrong once and CI caught it
+  within the hour — and the regression test reads the value out of *both
+  recorded argvs*, because the constant was never what drifted; the call sites
+  were. Tri-state (`held` / `unavailable` / `not_installed`), never a bool: a
+  missing tool and a refused lock need different advice. The lock is a `Popen`
+  child with `start_new_session=True` and a `release()` that escalates to a
+  group kill with a bounded wait, per Critical rule #9.
+- **Settings → Test script now has a "Use built-in" button.** One click fills
+  the field with the acceptance batch that ships inside Platterpus; press OK,
+  then Tools → Run test script…. It deliberately does *not* start anything, so
+  the field stays the single answer to "which script runs". When the script is
+  missing from a build — one `pyproject.toml` line away, and *"nothing happened
+  when I clicked"* is the least diagnosable way to hear about it — it says so in
+  a **PlainText** box, because the reason embeds a path and Qt's default
+  `AutoText` swallows a `<` as markup (Critical rule #12, inbound half).
+- **`test_session.py`** — the Qt-free core of an in-app acceptance session: plan
+  the folder (a **pure** function, so it is assertable), prepare it, gather the
+  sources, and pack **one** file for the operator to send. It delegates the
+  archive to the existing `evidence_bundle.build_bundle` rather than growing a
+  second tar-and-allowlist — the allowlist of text extensions, the manifest that
+  names every omission, and the never-raises contract are all inherited rather
+  than restated.
+
+### Fixed
+- **59 documentation defects across 13 files**, each verified against the
+  artifact rather than against the finding's description of it, and applied by a
+  tool that refuses any anchor which is absent or occurs more than once and
+  asserts the file's hash changed. Six further findings were **refuted** and one
+  was already fixed — recorded here because a correction that gets less scrutiny
+  than a claim is its own failure mode (`CLAUDE.md`). The one that matters most:
+  **`SECURITY.md` promised that "Platterpus never deletes or overwrites your
+  existing files"**, and cited as its evidence the v0.4.22/v0.4.23 overwrite
+  guards — the exact guard that failed on 2026-08-23, when a one-character
+  prediction miss (`<` → U+2039) let a 2-track re-rip replace a finished
+  14-track archival master. Every word of the citation was true and it pointed
+  the reader at the failure. It now states what the software does, names the
+  v0.6.24 hardening that made the prediction resolve against what is on disk,
+  and keeps the earlier review as the earlier review.
+- **`docs/cyanrip-fork.md` §4 — the *executable* half of the fork runbook — told
+  a reader to `git switch platterpus`.** There is no such branch on
+  `rmccann-hub/cyanrip`; there is `master` and `platterpus-fork`. The recipe
+  failed at its second line. The app has always known the answer
+  (`deps/fork_source.FORK_BRANCH` is what `git clone --branch` is handed), so
+  the fix is the gate rather than the corrected string: a new sweep in
+  `tests/test_documented_ripper_flags_are_real.py` derives the expected branch
+  from that constant. **Scoped to fork context on purpose** — the first draft
+  swept every `git switch` in every doc and immediately flagged a correct,
+  generic `git switch my-branch` in a contributor example, and a check that
+  fires on correct text is a check somebody deletes.
+- **Mutation testing has never run. Seven weekly jobs reported `success` while
+  measuring nothing**, and the job was structurally incapable of saying so.
+  Found 2026-08-28 by reading the run *durations* instead of the conclusions:
+  every scheduled run since 2026-07-13 finished in **under 90 seconds**, for a
+  job whose selected suite takes minutes to run once. Reproducing the exact
+  command line explained it in one second:
+
+      $ mutmut run --paths-to-mutate "src/platterpus/parsers/,..."
+      Error: No such option '--paths-to-mutate'   # exit 2
+
+  `--paths-to-mutate` is mutmut 2.x. mutmut 3.0 removed it, `mutmut` was
+  installed **unpinned**, and both commands were suffixed `|| true` — so
+  somebody else's major release retired this project's test-efficacy audit and a
+  hard `exit 2` produced the same green tick as a completed one.
+
+  Three of this repo's own rules were in play and none fired, each because it
+  was written about something slightly different: Critical rule #11 (*a tool
+  that gates CI must not float*) was read as being about **gating** tools, and
+  this one gates nothing; `docs/testing.md` §5.au (*a passing check and an
+  absent check have the same signature*) is the exact defect, written down, in
+  the file this job serves; and `scripts/check.py` already refuses to grade a
+  timed-out gate as a pass — the reasoning had just never reached a workflow.
+  **A floating tool can retire a *signal* as easily as a gate, and a signal
+  nobody can tell is off is worse than no signal — its silence reads as good
+  news.**
+- **The scope moved from a shell flag into `[tool.mutmut]`,** mutmut is pinned
+  to the minor, the blanket `|| true` is gone, and the job now asserts a
+  **floor on mutants that reached a verdict** — killed + survived, never
+  generated. That distinction is the whole gate and it is not pedantry: mutmut
+  today generates 348 mutants for `verdict.py`, runs **none** of them and exits
+  0, so a floor on the *generated* count would have passed on the broken run.
+  *Can this check be satisfied by finding nothing?* — asked of the check written
+  to answer it.
+- **The audit is still not running, and the job is now red rather than green
+  about that.** With the config corrected, mutmut 3.7 generates mutants, passes
+  its stats run and then checks none of them; its own diagnostic names the cause
+  (*"tests import the source under a different module path than mutmut sees…
+  common causes: a pythonpath setting in pytest config"*), and this repo has
+  both `pythonpath = ["src"]` and an editable install. Overriding with
+  `-o pythonpath=` does not help — it moves the import back to the *unmutated*
+  source. Left visibly failing on purpose: a red job says "the audit is not
+  running", which is the true statement, and the green tick said the opposite.
+  Tracked in `TASKS.md`.
+
+### Added
+- **`tests/test_mutation_audit_can_report_its_own_absence.py`** — the gate for
+  the class rather than the instance. It holds the config to naming files that
+  exist (the first draft of the new `[tool.mutmut]` block listed a
+  `tests/test_ctdb_crc.py` that has never existed in this repository, and mutmut
+  takes a selection at face value), holds the workflow to a version bound, to
+  reading `PIPESTATUS[0]` rather than `tee`'s status, to not swallowing the
+  tool's exit code, and to counting *verdicts*. Every assertion carries a
+  non-triviality twin proving it can fire — including that the `|| true` sweep
+  does **not** flag the legitimate `grep … || true`, since a false-failure
+  machine gets deleted rather than obeyed. Six reverts probed with
+  `scripts/revert_probe.py`, six detected, none vacuous.
+
 ## [0.6.31] — 2026-08-28
 
 ### Fixed
@@ -11428,7 +11660,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.31...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.32...HEAD
+[0.6.32]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.31...v0.6.32
 [0.6.31]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.30...v0.6.31
 [0.6.30]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.29...v0.6.30
 [0.6.29]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.28...v0.6.29
@@ -11547,4 +11780,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.31.*
+*Last updated for Platterpus v0.6.32.*

@@ -334,13 +334,13 @@ class TrackTableModel(QAbstractTableModel):
 
     # --- QAbstractTableModel overrides ---
 
-    def rowCount(self, parent: _Index = QModelIndex()) -> int:
+    def rowCount(self, parent: _Index = QModelIndex()) -> int:  # noqa: N802 — Qt override
         return 0 if parent.isValid() else len(self._tracks)
 
-    def columnCount(self, parent: _Index = QModelIndex()) -> int:
+    def columnCount(self, parent: _Index = QModelIndex()) -> int:  # noqa: N802 — Qt override
         return 0 if parent.isValid() else len(_COLUMNS)
 
-    def headerData(
+    def headerData(  # noqa: N802 — QAbstractTableModel override
         self,
         section: int,
         orientation: Qt.Orientation,
@@ -392,7 +392,7 @@ class TrackTableModel(QAbstractTableModel):
             )
         return None
 
-    def setData(
+    def setData(  # noqa: N802 — QAbstractTableModel override
         self,
         index: _Index,
         value: object,
