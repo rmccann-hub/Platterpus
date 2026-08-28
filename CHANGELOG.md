@@ -11,6 +11,64 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Mutation testing has never run. Seven weekly jobs reported `success` while
+  measuring nothing**, and the job was structurally incapable of saying so.
+  Found 2026-08-28 by reading the run *durations* instead of the conclusions:
+  every scheduled run since 2026-07-13 finished in **under 90 seconds**, for a
+  job whose selected suite takes minutes to run once. Reproducing the exact
+  command line explained it in one second:
+
+      $ mutmut run --paths-to-mutate "src/platterpus/parsers/,..."
+      Error: No such option '--paths-to-mutate'   # exit 2
+
+  `--paths-to-mutate` is mutmut 2.x. mutmut 3.0 removed it, `mutmut` was
+  installed **unpinned**, and both commands were suffixed `|| true` — so
+  somebody else's major release retired this project's test-efficacy audit and a
+  hard `exit 2` produced the same green tick as a completed one.
+
+  Three of this repo's own rules were in play and none fired, each because it
+  was written about something slightly different: Critical rule #11 (*a tool
+  that gates CI must not float*) was read as being about **gating** tools, and
+  this one gates nothing; `docs/testing.md` §5.au (*a passing check and an
+  absent check have the same signature*) is the exact defect, written down, in
+  the file this job serves; and `scripts/check.py` already refuses to grade a
+  timed-out gate as a pass — the reasoning had just never reached a workflow.
+  **A floating tool can retire a *signal* as easily as a gate, and a signal
+  nobody can tell is off is worse than no signal — its silence reads as good
+  news.**
+- **The scope moved from a shell flag into `[tool.mutmut]`,** mutmut is pinned
+  to the minor, the blanket `|| true` is gone, and the job now asserts a
+  **floor on mutants that reached a verdict** — killed + survived, never
+  generated. That distinction is the whole gate and it is not pedantry: mutmut
+  today generates 348 mutants for `verdict.py`, runs **none** of them and exits
+  0, so a floor on the *generated* count would have passed on the broken run.
+  *Can this check be satisfied by finding nothing?* — asked of the check written
+  to answer it.
+- **The audit is still not running, and the job is now red rather than green
+  about that.** With the config corrected, mutmut 3.7 generates mutants, passes
+  its stats run and then checks none of them; its own diagnostic names the cause
+  (*"tests import the source under a different module path than mutmut sees…
+  common causes: a pythonpath setting in pytest config"*), and this repo has
+  both `pythonpath = ["src"]` and an editable install. Overriding with
+  `-o pythonpath=` does not help — it moves the import back to the *unmutated*
+  source. Left visibly failing on purpose: a red job says "the audit is not
+  running", which is the true statement, and the green tick said the opposite.
+  Tracked in `TASKS.md`.
+
+### Added
+- **`tests/test_mutation_audit_can_report_its_own_absence.py`** — the gate for
+  the class rather than the instance. It holds the config to naming files that
+  exist (the first draft of the new `[tool.mutmut]` block listed a
+  `tests/test_ctdb_crc.py` that has never existed in this repository, and mutmut
+  takes a selection at face value), holds the workflow to a version bound, to
+  reading `PIPESTATUS[0]` rather than `tee`'s status, to not swallowing the
+  tool's exit code, and to counting *verdicts*. Every assertion carries a
+  non-triviality twin proving it can fire — including that the `|| true` sweep
+  does **not** flag the legitimate `grep … || true`, since a false-failure
+  machine gets deleted rather than obeyed. Six reverts probed with
+  `scripts/revert_probe.py`, six detected, none vacuous.
+
 ## [0.6.31] — 2026-08-28
 
 ### Fixed
