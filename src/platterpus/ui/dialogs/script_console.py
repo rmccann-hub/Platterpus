@@ -35,7 +35,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -76,6 +76,27 @@ log finished
 
 class ScriptConsoleDialog(CenteredDialog):
     """Paste a batch, run it against the live window, read the transcript."""
+
+    #: Emitted once per run, when the run is over, carrying the
+    #: :class:`~platterpus.uiscript.report.RunReport` the runner produced.
+    #:
+    #: **Why this exists rather than reaching for ``dialog.runner``.** The runner
+    #: is built lazily, inside :meth:`_on_run` — so a caller that wants to know
+    #: when a run it started has finished cannot connect to ``runner().finished``
+    #: *before* starting it, and the only alternative is to poke ``._runner``
+    #: from outside and race the construction. That would make this dialog's
+    #: internals part of another module's contract; this signal is the seam
+    #: instead, and it re-emits what the runner already reports.
+    #:
+    #: Typed ``object`` because Qt's queued connections force it (`CLAUDE.md`'s
+    #: typing rule: name the payload in a comment, since the type is gone). It is
+    #: emitted **whatever** the runner sent — including a payload this dialog
+    #: could not narrow to a ``RunReport`` — because a listener holding a
+    #: resource for the duration of the run (the acceptance session holds a
+    #: sleep-inhibitor child process) must be told the run is over on *every*
+    #: path, not only the tidy one. A signal that fires on the happy path alone
+    #: is a leak with a clean-looking transcript.
+    run_finished = Signal(object)  # RunReport (or whatever the runner emitted)
 
     def __init__(
         self,
@@ -306,12 +327,19 @@ class ScriptConsoleDialog(CenteredDialog):
     def _on_finished(self, report: object) -> None:
         self._run_button.setEnabled(True)
         self._stop_button.setEnabled(False)
-        if not isinstance(report, RunReport):
+        if isinstance(report, RunReport):
+            # The full render, not a summary line: this is the thing the
+            # maintainer pastes back, and a verdict without the steps under it is
+            # half a report.
+            self._transcript.setPlainText(render(report))
+        else:
             log.warning("script console got a non-RunReport payload: %r", type(report))
-            return
-        # The full render, not a summary line: this is the thing the maintainer
-        # pastes back, and a verdict without the steps under it is half a report.
-        self._transcript.setPlainText(render(report))
+        # Re-emit LAST, and on every path. Last, because a listener's first act is
+        # usually to read `transcript_text()` — emitting before the render above
+        # would hand it the streaming lines rather than the finished report. Every
+        # path, because the unnarrowable payload is still the end of the run, and
+        # whoever is holding something open for its duration has to hear about it.
+        self.run_finished.emit(report)
 
     def _on_load(self) -> None:
         start = self._script_path or str(Path.home())
