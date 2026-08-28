@@ -270,10 +270,10 @@ class MainWindow(
     # the GUI thread) with the DerivedVerifyResult, so the per-format proof of
     # the derived MP3/WavPack/WAV files renders on the GUI thread.
     derived_verify_done = Signal(object)
-    # Emitted (from a daemon thread; queued to the GUI thread) with the
-    # {relpath: sha256} digest map, once every audio file (masters + any
-    # derived) has been hashed, so the report's checksums land on the GUI thread.
-    checksums_done = Signal(object)
+    # Emitted (from a daemon thread; queued to the GUI thread) once every audio
+    # file (masters + any derived) has been hashed, so the report's checksums
+    # land on the GUI thread. The payload is the {relpath: sha256} digest map.
+    checksums_done = Signal(object)  # dict[str, str]
     # Emitted (from the re-rip-comparison daemon thread; queued to the GUI
     # thread) with a rip_compare.RipComparison when a prior rip of the same disc
     # was found in the library, so the comparison banner renders on the GUI

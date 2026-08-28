@@ -5,6 +5,8 @@ AppImage's AppRun script have a single stable target to invoke. All real
 startup logic lives in `platterpus.app.main`.
 """
 
+from __future__ import annotations
+
 from platterpus.app import main
 
 if __name__ == "__main__":
