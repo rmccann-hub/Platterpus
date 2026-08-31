@@ -16,6 +16,7 @@ patch script that asserted after it edited, so the write never happened).
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from typing import Final
@@ -267,3 +268,86 @@ def test_a_spec_naming_a_file_outside_the_repo_is_refused(
     )
     with pytest.raises(probe.ProbeError):
         probe._parse_spec(spec)
+
+
+# ==========================================================================
+# A FIFTH WAY TO GET A FALSE VERDICT: stale bytecode
+# ==========================================================================
+#
+# CPython's default `.pyc` invalidation compares the source's SIZE and its mtime
+# TRUNCATED TO WHOLE SECONDS. The probe writes a file, runs pytest, and writes it
+# back — routinely inside one second — and a revert is frequently the same length
+# as the line it replaces. `MAX_RIP_WAIT_S: float = 6 * 60 * 60` and its `3 * 60
+# * 60` revert are **35 characters each**, so both halves of the check saw no
+# change and the stale bytecode was reused.
+#
+# Measured 2026-08-29: after the probe restored the 6-hour source,
+# `from platterpus.uiscript import runner; runner.MAX_RIP_WAIT_S` still returned
+# `10800`. The suite then went red on a value that was not in any file, with
+# nothing in `git diff` to explain it.
+#
+# Both directions are wrong and the quiet one is worse: a revert that never
+# reaches the interpreter makes a LIVE test look VACUOUS.
+
+
+def test_a_same_size_revert_is_invisible_to_cpython_cache_invalidation(
+    tmp_path: Path,
+) -> None:
+    """The mechanism itself, reproduced — not the purge call, the FAILURE.
+
+    Asserting that `_purge_bytecode` is invoked would pass against a purge that
+    deleted the wrong tree. This pins the property that made the purge necessary:
+    two same-length sources written inside one second are indistinguishable to the
+    cache check, so nothing but deleting the cache is reliable.
+    """
+    import py_compile
+
+    module = tmp_path / "subject.py"
+    original = "VALUE: int = 6 * 60 * 60\n"
+    reverted = "VALUE: int = 3 * 60 * 60\n"
+    assert len(original) == len(reverted), (
+        "this test's premise is that the two sources are the SAME LENGTH; if they "
+        "differ, CPython's size check would notice and the bug would not exist"
+    )
+
+    module.write_text(original, encoding="utf-8")
+    cached = Path(py_compile.compile(str(module), doraise=True))
+    assert cached.is_file()
+
+    # The revert, written with the SAME mtime — which is what an apply/restore
+    # inside one second amounts to.
+    stat = module.stat()
+    module.write_text(reverted, encoding="utf-8")
+    os.utime(module, (stat.st_atime, stat.st_mtime))
+
+    header = cached.read_bytes()[:16]
+    recompiled = Path(py_compile.compile(str(module), doraise=True))
+    assert recompiled.read_bytes()[:16] == header, (
+        "the cache header changed, so this platform DOES distinguish the two "
+        "writes and the premise no longer holds — re-check whether the purge is "
+        "still needed rather than deleting this test"
+    )
+
+
+def test_the_probe_purges_bytecode_around_every_run(tmp_path: Path) -> None:
+    """Both sides: before running the child, and after restoring the original.
+
+    The `finally` half is the one that bit. Bytecode written while the revert was
+    in place outlives the restore, so the operator's NEXT command imports the
+    reverted module — a defect with nothing in `git diff` to explain it.
+    """
+    source = (REPO_ROOT / "scripts" / "revert_probe.py").read_text(encoding="utf-8")
+    assert "def _purge_bytecode()" in source, "the purge helper is gone"
+    # Called from the runner (before the child) and from the restore path.
+    assert source.count("_purge_bytecode()") >= 3, (
+        "the purge must run BEFORE the child and AFTER the restore; only one "
+        f"call site is present: {source.count('_purge_bytecode()')}"
+    )
+    assert 'env["PYTHONDONTWRITEBYTECODE"] = "1"' in source, (
+        "the child may still write a .pyc that a later run inherits"
+    )
+    restore_block = source[source.index("    finally:\n        path.write_text(") :]
+    assert "_purge_bytecode()" in restore_block[:900], (
+        "the restore path does not purge, so the REVERTED bytecode outlives the "
+        "probe — which is the half that actually caused the incident"
+    )

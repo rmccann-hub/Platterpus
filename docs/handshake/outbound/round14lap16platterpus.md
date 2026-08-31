@@ -21,7 +21,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 | file | bytes | sha256 |
 | --- | --- | --- |
 | `round-14-lap-16.md` | 17,475 | `de58b0dce37bdd35…` |
-| `fullacceptance.txt` | 36,215 | `eeba82b87e515cc1…` |
+| `fullacceptance.txt` | 37,036 | `fbd143dd117d1a1b…` |
 
 ## Reader
 
@@ -381,7 +381,7 @@ now starts.
 **The disc is the only thing left on our side.** The round is yours to close.
 <<<<<<<<<< END round-14-lap-16.md >>>>>>>>>>
 
-<<<<<<<<<< BEGIN fullacceptance.txt sha256=eeba82b87e515cc1bea4c7322f26632536a3a2d510df2debb760db968512a50a >>>>>>>>>>
+<<<<<<<<<< BEGIN fullacceptance.txt sha256=fbd143dd117d1a1b541f4543101ffaf2f10a545fc5952c7ad9bf34577217ba3d >>>>>>>>>>
 # =============================================================================
 # FULL ACCEPTANCE RUN — end to end, every path the program has, one pass
 # =============================================================================
@@ -1119,10 +1119,22 @@ expect-dialog none
 snapshot atend
 
 log =============================================================
-log DONE. Everything from this run is in ONE .tar.gz under
-log ~/.local/share/platterpus/bundles/ - transcript, reports,
-log screenshots, app log, rig-check manifest.
-log Its path is the "SEND THIS ONE FILE" line in the app log.
-log Then run:  ./platterpus-x86_64.AppImage --rig-session
+log DONE. There is nothing left for you to run.
+log Platterpus packs this run into ONE .tar.gz and names it in a
+log dialog when the window comes back - with a button that opens
+log the folder. Send that file. It carries the transcript, the app
+log log, the settings, the screenshots and every rip folder's text
+log artifacts (logs, cue sheets, reports, checksums). No audio.
+log If the dialog is gone, the same path is on the SEND THIS ONE FILE
+log line in the app log.
 log =============================================================
+# WHY THIS DOES NOT NAME A FOLDER. It used to say the bundle was under
+# `~/.local/share/platterpus/bundles/` and to then run `--rig-session`. Both were
+# wrong after v0.6.32 moved the session into the app: the deliverable lands in
+# `~/Downloads` (or `$HOME` when there is no Downloads folder), and there is no
+# second command. Two surfaces answering "where is my file?" with different
+# answers is `docs/testing.md` §5.al, and the one a tired operator reads at 7am
+# was the stale one. So this text now points at the surface that COMPUTES the
+# answer instead of restating it - the dialog cannot drift from the path it was
+# handed.
 <<<<<<<<<< END fullacceptance.txt >>>>>>>>>>

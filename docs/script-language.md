@@ -102,7 +102,7 @@ paste accident cannot strand an unattended run.
 | `max_script_lines` | 2000 |
 | `max_line_characters` | 4000 |
 | `max_wait_seconds` | 600.0 |
-| `max_wait_for_rip_seconds` | 10800 |
+| `max_wait_for_rip_seconds` | 21600 |
 | `cyanrip_timeout_seconds` | 300.0 |
 | `cyanrip_unreapable_grace_seconds` | 20.0 |
 | `max_captured_output_characters` | 8000 |
@@ -669,7 +669,7 @@ found nothing wrong*.
     "max_script_lines": 2000,
     "max_line_characters": 4000,
     "max_wait_seconds": 600.0,
-    "max_wait_for_rip_seconds": 10800,
+    "max_wait_for_rip_seconds": 21600,
     "cyanrip_timeout_seconds": 300.0,
     "cyanrip_unreapable_grace_seconds": 20.0,
     "max_captured_output_characters": 8000,

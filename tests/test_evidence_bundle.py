@@ -11,6 +11,9 @@ import io
 import tarfile
 from pathlib import Path
 
+import pytest
+
+from platterpus import evidence_bundle
 from platterpus.evidence_bundle import (
     ALLOWED_SUFFIXES,
     MAX_BUNDLES_KEPT,
@@ -743,3 +746,120 @@ def test_the_manifest_names_every_album_folder_not_a_count(tmp_path: Path) -> No
             f"the manifest does not name {folder} — a reader cannot tell which "
             f"discs the bundle covers:\n{manifest}"
         )
+
+
+# ==========================================================================
+# THE ORDER IS THE BUDGET — rotations must not crowd out the rip evidence
+# ==========================================================================
+#
+# `MAX_TOTAL_BYTES` is spent walking `_collect`'s list, so whatever sorts last is
+# what gets refused when the archive fills. The app-log handler is
+# `maxBytes=8 MiB, backupCount=10`, so `applog/` can present **88 MiB** against a
+# **64 MiB** budget — and it used to be collected in one block ahead of
+# everything. A long acceptance run could spend the whole archive on log
+# rotations and refuse EVERY rip folder: no rip log, no cue, no report, no
+# checksum. Each refusal writes a manifest line, so it was never silent — but a
+# reader still receives a file that looks complete and answers nothing.
+#
+# Found 2026-08-29 by an audit lens asking what the bundle actually contains,
+# while a real 6-hour acceptance run was in flight on the maintainer's rig.
+
+
+def test_log_rotations_do_not_crowd_out_the_rip_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The regression test, written as the real failure rather than as an
+    ordering assertion: fill the budget with rotations and demand the album
+    survive. An ordering check alone would pass on a build that ordered
+    correctly and still dropped the evidence for some other reason.
+    """
+    # THE SIZES ARE THE TEST, and the first draft of this got them wrong in a
+    # way the revert probe caught: the budget check REFUSES an over-large file
+    # and keeps walking, so a few tiny album files simply slipped into the
+    # headroom the refused rotations left behind, and the test passed against
+    # the broken order. Reproducing the symptom means the rotations must fill
+    # the budget to within LESS than one album file — which is exactly the real
+    # shape, where 8 MiB rotations exhaust 64 MiB and a 50 KB rip log then has
+    # nowhere to go.
+    monkeypatch.setattr(evidence_bundle, "MAX_TOTAL_BYTES", 8_000)
+
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    (log_dir / "log.txt").write_text("C" * 12, encoding="utf-8")
+    # 4 x 1900 = 7600; with the 12-byte current log that leaves 388 bytes.
+    for n in range(1, 6):
+        (log_dir / f"log.txt.{n}").write_text("R" * 1_900, encoding="utf-8")
+
+    album = tmp_path / "out" / "Album"
+    album.mkdir(parents=True)
+    # 500 > 388, so under the old order these do not fit and are refused.
+    (album / "disc.log").write_text("L" * 500, encoding="utf-8")
+    (album / "disc.cue").write_text("Q" * 500, encoding="utf-8")
+
+    result = build_bundle(
+        dest_dir=tmp_path / "dest",
+        stamp="20260829T000000Z",
+        app_version="0.0.0",
+        outcome="acceptance test session",
+        album_dirs=[album],
+        log_dir=log_dir,
+    )
+    assert result.ok, result.error
+
+    with tarfile.open(result.path) as tar:
+        names = tar.getnames()
+
+    assert "album/disc.log" in names, (
+        "the ripper's own log was crowded out of the bundle by app-log "
+        f"rotations — this is the whole evidence the run exists to produce: {names}"
+    )
+    assert "album/disc.cue" in names, f"the cue sheet was crowded out: {names}"
+    assert "applog/log.txt" in names, (
+        "the CURRENT app log must still come first — it is the artifact that "
+        f"exists for every outcome, including runs that produced no album: {names}"
+    )
+    # Non-triviality: the budget must actually have bitten, or this test proves
+    # nothing about ordering — it would pass on a bundle that fitted everything.
+    refused = [e for e in result.skipped if "budget" in e.reason]
+    assert refused, (
+        "nothing was refused for budget, so the pressure this test exists to "
+        "create did not happen and the ordering was never exercised"
+    )
+    assert all(e.name.startswith("applog/log.txt.") for e in refused), (
+        "something other than a log rotation was refused for budget; the "
+        f"rotations must absorb the shortfall: {[e.name for e in refused]}"
+    )
+
+
+def test_the_current_log_still_outranks_the_album_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other direction, and it is not symmetric.
+
+    A run that produced NO album folder is exactly the failure worth sending, so
+    the current log keeps its place at the front. Moving the whole `applog/`
+    block to the back would have fixed the crowding and broken this.
+    """
+    monkeypatch.setattr(evidence_bundle, "MAX_TOTAL_BYTES", 200)
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    (log_dir / "log.txt").write_text("W" * 150, encoding="utf-8")
+    album = tmp_path / "out" / "Album"
+    album.mkdir(parents=True)
+    (album / "disc.log").write_text("Z" * 150, encoding="utf-8")
+
+    result = build_bundle(
+        dest_dir=tmp_path / "dest",
+        stamp="20260829T000000Z",
+        app_version="0.0.0",
+        outcome="failed",
+        album_dirs=[album],
+        log_dir=log_dir,
+    )
+    assert result.ok, result.error
+    with tarfile.open(result.path) as tar:
+        names = tar.getnames()
+    assert "applog/log.txt" in names, (
+        f"the current app log lost its priority — a no-rip failure would now "
+        f"send an archive with no log in it: {names}"
+    )

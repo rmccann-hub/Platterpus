@@ -793,6 +793,28 @@ class ProvisioningMixin(MainWindowShared):
         if artifact_dir is not None:
             extra.append(artifact_dir)
 
+        # THE DIAGNOSTICS BLOB, rendered HERE on the GUI thread and carried into
+        # the archive as text — the same thing every per-rip evidence bundle has
+        # carried since 0.6.19, and which the session bundle was silently missing.
+        #
+        # It is the version PAIR (ours and the ripper's), the environment block
+        # and the dependency states. The app log holds most of that scattered
+        # across six hours of lines; this is the one place it is assembled, and
+        # assembling it is exactly what a person should not have to do from a
+        # transcript at 7am.
+        #
+        # On the GUI thread deliberately, and measured before deciding: it is
+        # pure — no subprocess, no network — and renders in 29 ms. `build_bundle`
+        # takes it as `extra_text` precisely so a Qt-free module never has to
+        # reach into the UI for it.
+        try:
+            from platterpus.ui.dialogs.diagnostics_dialog import build_diagnostics_text
+
+            diagnostics = build_diagnostics_text()
+        except Exception as exc:  # noqa: BLE001 — the bundle must survive this
+            log.exception("could not render diagnostics for the session bundle")
+            diagnostics = f"(diagnostics could not be rendered: {exc!r})"
+
         # WHERE THE RIPS LANDED. Read on the GUI thread (config access), used on
         # the worker. `output_dir` is where a rip is written and `library_dir` is
         # where a finished one is moved to, so a session's albums can be under
@@ -829,6 +851,7 @@ class ProvisioningMixin(MainWindowShared):
                     outcome="acceptance test session",
                     facts=facts,
                     album_dirs=albums,
+                    embedded_text={"DIAGNOSTICS.txt": diagnostics},
                 )
             except Exception as exc:  # noqa: BLE001 — must never crash the session
                 log.exception("could not pack the acceptance session")

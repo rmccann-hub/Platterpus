@@ -728,3 +728,44 @@ def test_a_run_that_finishes_after_the_session_ended_builds_nothing(
     console.run_finished.emit(RunReport(started_at="t", app_version="v"))
 
     assert win._acceptance_bundle_thread is None
+
+
+def test_the_session_bundle_carries_the_diagnostics_blob(
+    window, session, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every per-rip evidence bundle has carried the rendered diagnostics since
+    0.6.19; the session bundle was silently missing it.
+
+    It is the version PAIR, the environment and the dependency states — assembled
+    in one place. The app log holds the same facts scattered across six hours of
+    lines, and assembling them from a transcript is exactly the work this whole
+    feature exists to stop handing back.
+
+    Asserted on what reaches `finish_session`, not on the archive, because the
+    archive is `evidence_bundle`'s contract and is tested there. This test's
+    question is narrower and is the one that was wrong: *does the caller pass it
+    at all?*
+    """
+    captured: dict[str, object] = {}
+
+    def fake_finish(layout: object, **kwargs: object) -> BundleResult:
+        captured.update(kwargs)
+        return BundleResult(path=Path("/dev/null"))
+
+    monkeypatch.setattr("platterpus.test_session.finish_session", fake_finish)
+    win = _start(window, session, process_until)
+    _finish(win, process_until)
+
+    embedded = captured.get("embedded_text")
+    assert isinstance(embedded, dict) and embedded, (
+        f"the session bundle was built with no embedded text: {captured.keys()}"
+    )
+    assert "DIAGNOSTICS.txt" in embedded, (
+        f"the diagnostics blob is absent from the session bundle: {sorted(embedded)}"
+    )
+    body = str(embedded["DIAGNOSTICS.txt"])
+    # A floor: an empty string is a dict entry and proves nothing.
+    assert len(body) > 100, f"the diagnostics blob is suspiciously short: {body!r}"
+    assert "Platterpus" in body, (
+        f"the blob does not look like diagnostics: {body[:200]!r}"
+    )
