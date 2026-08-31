@@ -55,9 +55,34 @@ TICK_MS: int = 120
 #: strand an unattended run for a day.
 MAX_WAIT_S: float = 600.0
 
-#: Hard ceiling on `wait-for-rip`. A full disc is ~50-70 minutes on this
-#: hardware; three hours is generous and still bounded.
-MAX_RIP_WAIT_S: float = 3 * 60 * 60
+#: Hard ceiling on `wait-for-rip`. Bounded so an unattended batch cannot be
+#: stranded by a wedged rip that never finishes.
+#:
+#: **SIX HOURS, RAISED FROM THREE ON 2026-08-29, AND THE OLD VALUE WAS SET
+#: AGAINST THE WRONG OPERATION.** Its note read *"a full disc is ~50-70 minutes
+#: on this hardware; three hours is generous"* — true of an ordinary rip and not
+#: of the longest wait the suite actually performs. `fullacceptance.txt` §N is a
+#: whole-disc **uniform secure re-read**, which this project's own rig sheet puts
+#: at **2 to 2.5 hours**, and that section asks for `wait-for-rip 21600` — six
+#: hours, because its author meant *"wait a long time"*. So the cap sat barely
+#: above the expected duration of the very step most likely to exceed it.
+#:
+#: What the clamp then does is honest — it logs, it marks the outcome `[CLAMPED
+#: …]`, and it waits the cap rather than skipping the wait — but honesty is not
+#: safety here. **Past the cap the batch continues while the rip is still
+#: running**, and §N is followed by `rig-check` (which would read a half-written
+#: album) and then §P's `cyanrip -x -I` (which touches the drive the ripper still
+#: holds). Every step after the timeout measures a machine state the script does
+#: not think it is in — the same failure `abort-if-failed`'s docstring describes
+#: for a wrong ripper: not partially useful, but *evidence about a different
+#: subject*.
+#:
+#: The rule that replaces the guess: **the cap is at least as large as the
+#: longest wait any committed script asks for**, which
+#: `tests/test_rig_scripts.py` now enforces by deriving both sides. A cap chosen
+#: from a remembered duration is a number nobody re-checks when the suite grows a
+#: slower step; a cap checked against the scripts fails in CI the day it does.
+MAX_RIP_WAIT_S: float = 6 * 60 * 60
 
 #: Timeout for a scripted `cyanrip` invocation. Generous enough for a cold
 #: container exec (measured at 3.45 s) and a `-x` cache probe, bounded so an

@@ -1190,3 +1190,93 @@ def test_the_newest_ripper_check_can_fire_and_does_not_over_fire() -> None:
             f"prose explaining WHY the newest is wrong is being flagged as the "
             f"instruction to take it: {allowed}"
         )
+
+
+# ==========================================================================
+# A WAIT THE HARNESS WILL CLAMP IS A WAIT THAT LIES
+# ==========================================================================
+#
+# `wait-for-rip 21600` in §N of `fullacceptance.txt` met a `MAX_RIP_WAIT_S` of
+# three hours. The clamp is honest about itself — it logs, it marks the outcome
+# `[CLAMPED …]`, and it waits the cap rather than skipping the wait — but past
+# the cap **the batch keeps going while the rip is still running**, and §N is
+# followed by `rig-check` (reading a half-written album) and §P's `cyanrip -x -I`
+# (touching the drive the ripper still holds). Every step after the timeout
+# measures a state the script does not think it is in.
+#
+# The old cap's own note said *"a full disc is ~50-70 minutes on this hardware;
+# three hours is generous"* — true of an ordinary rip, and set against the wrong
+# operation: §N is a whole-disc uniform secure re-read, which the rig sheet puts
+# at 2 to 2.5 hours. The cap sat barely above the expected duration of the step
+# most likely to exceed it.
+#
+# So the number is no longer chosen from a remembered duration. BOTH SIDES ARE
+# DERIVED — the constant from the runner, the requests from the committed
+# scripts — so a suite that grows a slower step fails here rather than on a rig
+# at 3am.
+
+
+def _wait_requests(text: str, verb: str) -> list[tuple[int, float]]:
+    """Every `(line number, seconds)` a script asks of one waiting verb."""
+    found: list[tuple[int, float]] = []
+    for step in uiscript.parse(text):
+        if step.verb != verb or not step.args:
+            continue
+        try:
+            found.append((step.line_no, float(step.args[0])))
+        except ValueError:
+            # A non-numeric argument is a different defect and belongs to the
+            # verb-and-argument sweeps above; ignoring it here keeps this test
+            # about the one question it asks.
+            continue
+    return found
+
+
+@pytest.mark.parametrize(
+    ("verb", "cap_name"),
+    [("wait-for-rip", "MAX_RIP_WAIT_S"), ("wait", "MAX_WAIT_S")],
+)
+def test_no_script_asks_for_a_wait_the_runner_will_clamp(
+    verb: str, cap_name: str
+) -> None:
+    """The cap must be at least as large as the longest wait any script requests.
+
+    Derived from the runner rather than restated, so lowering the constant fails
+    here instead of silently shortening a rig night.
+    """
+    from platterpus.uiscript import runner
+
+    cap = float(getattr(runner, cap_name))
+    assert cap > 0, f"{cap_name} is not a positive number"
+
+    offenders: list[str] = []
+    examined = 0
+    for path in _scripts():
+        for line_no, seconds in _wait_requests(path.read_text(encoding="utf-8"), verb):
+            examined += 1
+            if seconds > cap:
+                offenders.append(
+                    f"{path.name}:{line_no} asks {seconds:.0f}s, cap is {cap:.0f}s"
+                )
+    # The floor. If the parse stopped yielding these steps this test would pass
+    # having compared nothing — the shape this file's own header refuses.
+    assert examined >= 1, (
+        f"no `{verb}` step was found in any committed script, so this check "
+        f"compared nothing against {cap_name}"
+    )
+    assert not offenders, (
+        f"these steps ask for longer than {cap_name} and would be CLAMPED — past "
+        f"the clamp the batch continues while the rip runs, so every later step "
+        f"measures a state the script does not think it is in:\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+def test_the_clamp_check_can_actually_fail() -> None:
+    """Non-triviality: the comparison must fire on a script that over-asks."""
+    over = "rip\nwait-for-rip 999999\n"
+    assert _wait_requests(over, "wait-for-rip") == [(2, 999999.0)]
+    under = "rip\nwait-for-rip 60\n"
+    assert _wait_requests(under, "wait-for-rip") == [(2, 60.0)]
+    # And it must not harvest a DIFFERENT waiting verb into the same budget.
+    assert _wait_requests("wait 30\n", "wait-for-rip") == []

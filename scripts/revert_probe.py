@@ -72,6 +72,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import shutil
 import subprocess
 import sys
 from collections.abc import Callable
@@ -212,6 +214,40 @@ def _parse_spec(spec_path: Path) -> list[Revert]:
     return reverts
 
 
+def _purge_bytecode() -> int:
+    """Delete every `__pycache__` under the tree. Returns how many were removed.
+
+    **A FIFTH WAY TO GET A FALSE VERDICT, and it lives in the tool written to
+    catch the other four.** CPython's default `.pyc` invalidation compares the
+    source's *size* and its mtime **truncated to whole seconds**. This probe
+    writes a file, runs pytest, and writes it back — often inside one second —
+    and a revert is frequently the *same length* as the line it replaces
+    (`6 * 60 * 60` → `3 * 60 * 60` is 35 characters either way). Both halves of
+    the invalidation check therefore see no change, the stale bytecode is reused,
+    and the run measures code that is not on disk.
+
+    Both directions are wrong and the quiet one is worse. A revert that never
+    reaches the interpreter makes a *live* test look VACUOUS; and the restore
+    leaves the reverted bytecode behind, so the **next** unrelated run silently
+    executes the defect — which is how a `MAX_RIP_WAIT_S` of 3 h kept being
+    imported after the source said 6 h, and turned a green suite red one command
+    later with nothing in the diff to explain it.
+
+    Deleting the caches is deterministic where touching mtimes is not: bumping a
+    timestamp still collides inside the same second, and `importlib.invalidate_
+    caches()` only affects *this* process, never the pytest child.
+    """
+    removed = 0
+    for cache in REPO_ROOT.rglob("__pycache__"):
+        if not cache.is_dir():
+            continue
+        if any(part in {".git", ".venv", "node_modules"} for part in cache.parts):
+            continue
+        shutil.rmtree(cache, ignore_errors=True)
+        removed += 1
+    return removed
+
+
 def _run_tests(tests: tuple[str, ...]) -> tuple[int, str]:
     """Run pytest on the given node ids and return `(returncode, combined output)`.
 
@@ -219,7 +255,16 @@ def _run_tests(tests: tuple[str, ...]) -> tuple[int, str]:
     through `cmd | tail` reports the *pipe's* last stage, so a real failure prints
     `0`; that mistake has been made four times across two sessions in this project
     and is precisely the class of thing a committed tool should make unreachable.
+
+    Bytecode is purged first and the child is told not to write any (see
+    :func:`_purge_bytecode`) — otherwise a same-size edit inside one second is
+    invisible to CPython's cache check and the run grades the wrong source.
     """
+    _purge_bytecode()
+    env = dict(os.environ)
+    # Belt as well as braces: with no `.pyc` written, a later run cannot inherit
+    # a stale one from this probe even if the purge misses a tree.
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
     proc = subprocess.run(  # noqa: S603 — fixed argv, no shell
         [
             sys.executable,
@@ -235,6 +280,7 @@ def _run_tests(tests: tuple[str, ...]) -> tuple[int, str]:
         text=True,
         timeout=_TEST_TIMEOUT_S,
         check=False,
+        env=env,
     )
     return proc.returncode, proc.stdout + proc.stderr
 
@@ -371,6 +417,13 @@ def apply_and_probe(revert: Revert, run_tests: TestRunner | None = None) -> Outc
         )
     finally:
         path.write_text(original, encoding="utf-8")
+        # PURGE AFTER RESTORING TOO, and this half is the one that bit. The
+        # bytecode written while the revert was in place survives the restore —
+        # same size, same whole-second mtime — so the NEXT command in the
+        # operator's session imports the reverted module and grades it. That is
+        # how a `MAX_RIP_WAIT_S` of 3 h kept being imported after the source said
+        # 6 h, turning a green suite red with nothing in `git diff` to explain it.
+        _purge_bytecode()
         restored = _digest(path)
         if restored != before:
             # Loud, and not swallowed by the return value: the operator's working

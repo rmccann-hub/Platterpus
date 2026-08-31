@@ -12,6 +12,78 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **The bundle's byte budget was spent on log rotations before it reached the rip
+  evidence.** `MAX_TOTAL_BYTES` is 64 MiB and is spent walking `_collect`'s list;
+  the app-log handler is `maxBytes=8 MiB, backupCount=10`, so `applog/` can
+  present **88 MiB** — and it was collected in one block ahead of everything. A
+  long acceptance run could therefore spend the whole archive on rotations and
+  refuse **every rip folder**: no rip log, no cue sheet, no report, no checksum,
+  which is the entire evidence the run exists to produce. Each refusal writes a
+  manifest line, so it was never *silent* — but "not silent" is a poor second to
+  "not lost", and the reader still receives a file that looks complete and
+  answers nothing. Rotations now sort **last**; the *current* log keeps its place
+  at the front, because a run that produced no album folder is exactly the
+  failure worth sending. Found by an audit lens while a real 6-hour run was in
+  flight on the maintainer's rig.
+- **`wait-for-rip 21600` in §N met a three-hour cap, and past the cap the batch
+  kept going while the rip ran.** The clamp itself is honest — it logs, it stamps
+  `[CLAMPED …]` on the outcome, and it waits the cap rather than skipping the
+  wait — so the defect was never the reporting; it was the **number**. The cap's
+  own note read *"a full disc is ~50-70 minutes; three hours is generous"*, which
+  is true of an ordinary rip and was set against the wrong operation: §N is a
+  whole-disc uniform secure re-read, which this project's rig sheet puts at **2
+  to 2.5 hours**. So the ceiling sat barely above the expected duration of the
+  step most likely to exceed it — and past it came `rig-check` (reading a
+  half-written album) and §P's `cyanrip -x -I` (touching the drive the ripper
+  still holds). Raised to six hours, matching what the script asks for, and
+  `tests/test_rig_scripts.py` now derives **both sides** — the constant from the
+  runner, the requests from the committed scripts — so a suite that grows a
+  slower step fails in CI rather than at 3am on a rig.
+- **The packaged acceptance script's closing banner sent the operator to the
+  wrong folder and then handed them a command.** It named
+  `~/.local/share/platterpus/bundles/` (the *per-rip* bundle location) and ended
+  *"Then run: --rig-session"* — both stale since v0.6.32 moved the session into
+  the app, where the deliverable lands in `~/Downloads` and there is no second
+  command. Two surfaces answering *"where is my file?"* differently is
+  `docs/testing.md` §5.al, and the one a tired operator reads at 7am was the
+  stale one. It now points at the dialog that **computes** the answer instead of
+  restating a path. (The repo's own `test_every_step_names_a_verb_that_exists`
+  caught the first draft of this edit — an unterminated quote split across two
+  `log` lines — which is the sweep doing exactly the job it was written for.)
+
+### Added
+- **The session bundle carries the rendered diagnostics blob**, as every per-rip
+  evidence bundle has since 0.6.19. It is the version pair, the environment and
+  the dependency states assembled in one place; the app log holds the same facts
+  scattered across six hours of lines, and assembling them from a transcript at
+  7am is precisely the work this feature exists to stop handing back. Rendered on
+  the GUI thread deliberately and measured before deciding — pure, no subprocess,
+  no network, **29 ms**.
+
+### Changed
+- **`scripts/revert_probe.py` purges bytecode around every run — a FIFTH way to
+  get a false revert verdict, in the tool written to catch the other four.**
+  CPython's default `.pyc` invalidation compares the source's *size* and its
+  mtime **truncated to whole seconds**. The probe writes a file, runs pytest and
+  writes it back, routinely inside one second, and a revert is often the same
+  length as the line it replaces — `6 * 60 * 60` and `3 * 60 * 60` are **35
+  characters each**. Both halves of the check therefore saw no change and the
+  stale bytecode was reused. Measured: after the probe restored the six-hour
+  source, `runner.MAX_RIP_WAIT_S` still imported as `10800`, and the suite went
+  red on a value that was in no file, with nothing in `git diff` to explain it.
+  Both directions are wrong and the quiet one is worse — a revert that never
+  reaches the interpreter makes a **live** test look VACUOUS. The regression test
+  reproduces the *mechanism* (two same-length sources, one mtime, identical cache
+  header) rather than asserting the purge is called, because that assertion would
+  pass against a purge of the wrong tree.
+- **`test_an_over_cap_rip_wait_WAITS_THE_CAP_instead_of_skipping` derives its
+  request from the cap** instead of hardcoding `21600`. That literal was chosen
+  because it exceeded the three-hour ceiling; when the ceiling moved to six hours
+  the literal became exactly *equal* to it, no clamp fired, and a test about
+  over-cap behaviour failed for a reason unrelated to its subject. Its sibling in
+  `test_uiscript_rip_verbs.py` already derived; now both do.
+
+### Fixed
 - **The acceptance script's own header sent the operator to the wrong cyanrip
   build**, and would have aborted the run in about five seconds — the same
   five-second abort that cost the 2026-08-27 night. It said *"Be on the newest

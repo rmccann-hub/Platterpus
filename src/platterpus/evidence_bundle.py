@@ -267,9 +267,32 @@ def _collect(
 ) -> list[tuple[str, Path, frozenset[str]]]:
     """Decide what to look for. Returns (archive name, source, allowed suffixes).
 
-    The app log comes first because it is the artifact that exists for *every*
-    outcome — including the ones where the rip produced no album folder at all,
-    which are precisely the failures worth sending.
+    **THE ORDER IS THE BUDGET.** :data:`MAX_TOTAL_BYTES` is spent walking this
+    list, so whatever sorts last is what gets refused when the archive fills.
+    That makes this function's ordering a decision about *which evidence
+    survives*, not a detail.
+
+    The order is: the **current** app log, then the album folders, then the
+    caller's extra directories, then the app log's **rotations**.
+
+    The current log stays first for the reason it always did — it is the one
+    artifact that exists for *every* outcome, including the runs that produced no
+    album folder at all, which are precisely the failures worth sending.
+
+    The rotations moved to last on 2026-08-29, and the numbers are why. The
+    handler is ``maxBytes=8 MiB, backupCount=10``, so ``applog/`` can present
+    **88 MiB** against a **64 MiB** budget — and it was collected in one block,
+    ahead of everything. A long acceptance run could therefore spend the entire
+    archive on log rotations and refuse **every rip folder**: the bundle would
+    contain no rip log, no cue sheet, no report and no checksum, which is the
+    whole evidence the run exists to produce. Each refusal writes a manifest
+    line, so it was never *silent* — but "not silent" is a poor second to "not
+    lost", and a reader who receives that archive has a file that looks complete
+    and answers nothing.
+
+    A rotation is old context; the disc is the point. Ordering costs nothing and
+    needs no new cap, which is why it is the fix rather than a reserved share
+    per category — a share is another number to get wrong, and this needed none.
 
     The third element travels with each candidate rather than being decided at
     the point of the check, so a file's permission is fixed by *where it came
@@ -279,10 +302,19 @@ def _collect(
     because the strict set is written at each append rather than chosen later.
     """
     found: list[tuple[str, Path, frozenset[str]]] = []
+    rotations: list[tuple[str, Path, frozenset[str]]] = []
     if log_dir.is_dir():
         for entry in sorted(log_dir.iterdir()):
-            if entry.is_file():
-                found.append((f"applog/{entry.name}", entry, ALLOWED_SUFFIXES))
+            if not entry.is_file():
+                continue
+            row = (f"applog/{entry.name}", entry, ALLOWED_SUFFIXES)
+            # `log.txt` is current; `log.txt.1`, `log.txt.2`… are its rotations.
+            # Keyed on the same stems `_is_allowed` uses, so "what counts as a
+            # rotation" has one definition rather than two that can disagree.
+            if any(entry.name.startswith(f"{stem}.") for stem in _ROTATION_STEMS):
+                rotations.append(row)
+            else:
+                found.append(row)
     for prefix, album_dir in _album_prefixes(album_dirs):
         if not album_dir.is_dir():
             continue
@@ -300,6 +332,8 @@ def _collect(
                 found.append(
                     (f"{prefix}/{relative.as_posix()}", entry, EXTRA_DIR_SUFFIXES)
                 )
+    # Last, deliberately — see the ordering note above.
+    found.extend(rotations)
     return found
 
 
