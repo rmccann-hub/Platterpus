@@ -422,7 +422,7 @@ upstream master **as of 2026-07-21**; the whipper-era flag really was
 > is a *modifier*, and `cyanrip -N -x -I` is the probe-only invocation — it measures
 > and exits without writing audio (the fork states this in round 13 lap 5 and round
 > 14 lap 1 §T3; it returned in 15.9 s with the drive alive on the BDR-209D at round
-> 14 lap 16). That is §P of `docs/rig-scripts/fullacceptance.txt`, placed after
+> 14 lap 16). That is §P of `src/platterpus/rig_scripts/fullacceptance.txt`, placed after
 > every rip in the file because the fork could not promise the drive comes back.
 > No script here runs bare `-x`.
 >

@@ -27,6 +27,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   Archive has the wrong sleeve, or nothing) were absent from the Guide entirely.
   Both are now documented where a reader would look for them.
 
+- **Five surfaces still pointed at the rig scripts' former location**, four days
+  after they moved into the package — `docs/dependency-contracts.md`, `TASKS.md`,
+  `docs/rig-scripts/README.md` and two of the scripts' own headers, which told a
+  reader to `--run-script docs/rig-scripts/police-rerip.txt`. A path is an
+  exact-match string, and the reader most likely to follow a stale one is the
+  reader who does not already know where the file lives. They now name the bare
+  script name, which is the spelling that actually works: `--run-script` resolves
+  it against the packaged scripts, and an AppImage user has no checkout for a
+  repo-relative path to mean.
+- **`docs/rig-scripts/README.md` still led with `bash platterpusovernight.sh`** as
+  *"the overnight path: one command"* — the route the app replaced. It now opens
+  with the menu action and marks the shell wrappers as the legacy path, kept
+  because they are what has real rig hours behind them.
+
 ### Added
 - **`tests/test_help_documents_the_menu.py`** — every Tools action a person can
   click must be findable in the User Guide, with the menu **derived from
