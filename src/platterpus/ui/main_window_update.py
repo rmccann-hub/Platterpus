@@ -259,7 +259,9 @@ class UpdateMixin(MainWindowShared):
 
         The three conditions of `docs/architecture.md` §3.12a — *a person is here*,
         *they are not busy*, *nothing else has the floor* — as a value rather than as
-        three copies of an ``if``.
+        three copies of an ``if``. "Busy" covers a rip **and** an unattended
+        acceptance session; see the comment at that check for why the second is
+        not implied by the first.
 
         **It returns a reason instead of a bool** so every refusal can name itself in
         the log. A skipped interruption that logs "skipped" is indistinguishable from
@@ -290,6 +292,29 @@ class UpdateMixin(MainWindowShared):
             return "the window is not shown"
         if self._rip_thread is not None:
             return "a rip is running"
+        # **An acceptance session is a rip and then some.** The overnight batch
+        # drives the real window unattended for hours — it opens dialogs, checks
+        # what is on screen, and dismisses what it finds — so a modal that
+        # appears while it runs is both an interruption nobody is there to answer
+        # AND a dialog the script's own `cancel` verb may sweep up. That is
+        # exactly the 2026-08-18 rig defect (an AppImage-integration offer opened
+        # four seconds into a scripted run, failed the step in flight, and was
+        # then clicked away by the script), and this offer is worse than that one
+        # was: it would replace the ripper binary the batch is measuring, so
+        # every section after it would be evidence about a different subject.
+        #
+        # `_rip_thread` above does not cover it. A session spends most of its
+        # hours between rips — probing, comparing, waiting — and the window is
+        # every bit as unavailable then.
+        #
+        # Read through `getattr` because `_acceptance_layout` is declared on
+        # `ProvisioningMixin`: the concrete `MainWindow` inherits both mixins, but
+        # this one must not import that one to see it. A window without the
+        # provisioning mixin has no session, so `None` is the right default
+        # rather than a fail-open.
+        session: object | None = getattr(self, "_acceptance_layout", None)
+        if session is not None:
+            return "an acceptance test session is running"
         modal = QApplication.activeModalWidget()
         if modal is not None:
             # **Including one of ours.** The first draft of this excluded

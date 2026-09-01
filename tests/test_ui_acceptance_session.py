@@ -53,7 +53,12 @@ from platterpus.sleep_inhibit import (
 )
 from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
 from platterpus.ui.main_window import MainWindow
-from platterpus.uiscript.report import RunReport
+from platterpus.uiscript.report import Outcome, RunReport, StepRecord
+
+#: The real `run_now`, captured at import time — BEFORE any fixture patches the
+#: class. `live_run` needs the genuine article, and reading it off the class
+#: inside that fixture would hand back whatever `session` had already installed.
+_REAL_RUN_NOW = ScriptConsoleDialog.run_now
 
 # --- Fakes ----------------------------------------------------------------
 
@@ -241,10 +246,49 @@ def session(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     # The batch itself is not the subject of this file — `test_uiscript.py` owns
     # that — and letting it drive the real window here would make every test in
     # this module depend on the acceptance script's contents.
-    monkeypatch.setattr(
-        ScriptConsoleDialog, "run_now", lambda self: state.runs.append(self)
-    )
+    #
+    # **The stub returns True**, because the real `run_now()` returns whether a
+    # run actually started and the window now branches on that. A stub returning
+    # `None` would make every test in this file take the refusal path — and,
+    # worse, a stub that returned True *unconditionally* would hide a window that
+    # stopped checking. `live_run` below is the fixture that uses the real thing.
+    def fake_run_now(self: ScriptConsoleDialog) -> bool:
+        state.runs.append(self)
+        return True
+
+    monkeypatch.setattr(ScriptConsoleDialog, "run_now", fake_run_now)
     return state
+
+
+@pytest.fixture()
+def live_run(session, monkeypatch: pytest.MonkeyPatch):
+    """Un-stub `run_now`, so the console really starts a real `ScriptRunner`.
+
+    **Why this exists.** `session` patches `run_now` to a recorder, which is right
+    for every test whose subject is the wiring. It is fatal for the one test whose
+    subject is what happens when a *live* run ends during window teardown: with no
+    runner, closing the console emits no `run_finished`, so the guard that test
+    claims to cover is never reached and the test passes with the guard deleted.
+    Measured, not assumed — the guard was deleted and the test stayed green.
+
+    So this fixture keeps the recorder (the `_start` helper waits on it) and
+    **delegates to the real method**, and it swaps in a script that takes long
+    enough that the run is still in flight when the window closes. `wait` is
+    serviced by the runner's own tick, so this holds the run open without
+    blocking anything.
+    """
+    session.script.write_text(
+        "log an acceptance batch that is still running\nwait 60\nlog never reached\n",
+        encoding="utf-8",
+    )
+
+    def recording_run_now(self: ScriptConsoleDialog) -> bool:
+        started = _REAL_RUN_NOW(self)
+        session.runs.append(self)
+        return started
+
+    monkeypatch.setattr(ScriptConsoleDialog, "run_now", recording_run_now)
+    return session
 
 
 def _start(window_factory, session, process_until) -> MainWindow:
@@ -304,6 +348,52 @@ def test_the_console_emits_after_the_transcript_is_rendered(
     assert seen_text and "9.9.9" in seen_text[0], (
         f"the transcript was not rendered before the emit: {seen_text!r}"
     )
+    console.close()
+    holder.close()
+
+
+def test_run_now_says_whether_a_run_actually_started(qapp: QApplication) -> None:
+    """`run_now()` is a REQUEST to start; the answer is whether one is running.
+
+    The console refuses a second run while one is in flight — correctly, since
+    two runners driving one window is a race with no useful outcome. Until this
+    returned a value, that refusal was invisible to the caller, and a caller that
+    arms something for the duration of the run (the acceptance session holds a
+    `systemd-inhibit` child) recorded the batch as started and then waited for a
+    `run_finished` belonging to a different script.
+    """
+    holder = QWidget()
+    console = ScriptConsoleDialog(holder)
+    console.set_script_text("log a batch that stays in flight\nwait 60\n")
+
+    assert console.run_now() is True, "a first run did not report that it started"
+    assert console.runner is not None and console.runner.running
+
+    assert console.run_now() is False, (
+        "a run that was REFUSED was reported as a run that STARTED — a caller "
+        "would arm a session around a batch that never began"
+    )
+
+    console.close()
+    holder.close()
+
+
+def test_run_now_reports_a_start_once_the_previous_run_is_over(
+    qapp: QApplication,
+) -> None:
+    """Non-vacuous companion: the False above must be about the run in flight,
+    not about `run_now` always saying no after the first call."""
+    holder = QWidget()
+    console = ScriptConsoleDialog(holder)
+    console.set_script_text("log a batch that stays in flight\nwait 60\n")
+    assert console.run_now() is True
+    assert console.runner is not None
+    console.runner.stop("test")
+
+    assert console.run_now() is True, (
+        "no run was in flight, so this start should have been reported as one"
+    )
+
     console.close()
     holder.close()
 
@@ -407,6 +497,57 @@ def test_a_script_that_will_not_load_stops_the_session_and_frees_the_lock(
     assert session.runs == [], "the batch ran anyway"
     assert win._acceptance_layout is None
     assert session.inhibitors[-1].releases == 1, "the sleep lock was left held"
+
+
+def test_a_batch_that_will_not_start_does_not_leave_a_session_armed(
+    window, session, process_until, shown_boxes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The seam the acceptance session added: `run_now()` can decline.
+
+    A session armed around a batch that never began holds the sleep lock, keeps
+    `_acceptance_layout` set (so a later, unrelated `run_finished` packs a bundle
+    for it) and waits forever for a signal that is never coming. Asserting that a
+    thing was REQUESTED where the claim is that it HAPPENED — `CLAUDE.md`.
+    """
+    monkeypatch.setattr(ScriptConsoleDialog, "run_now", lambda self: False)
+    win = window()
+
+    assert win.run_acceptance_session() is True
+    assert process_until(lambda: bool(shown_boxes)), "the refusal was never shown"
+
+    assert win._acceptance_layout is None, (
+        "a session stayed armed around a batch that never started"
+    )
+    assert session.inhibitors[-1].releases == 1, (
+        "the sleep lock was left held for a run that never began — the machine "
+        "stays awake until reboot with nothing on screen to say why"
+    )
+    assert "Nothing was run" in shown_boxes[-1].text()
+
+
+def test_the_refusal_names_the_run_that_is_already_in_progress(
+    window, live_run, process_until, shown_boxes
+) -> None:
+    """End to end, with a real runner: a console already running somebody's
+    script refuses the acceptance batch, and the message says so.
+
+    "It did not start" tells nobody what to do; naming the cause is what makes
+    the message actionable, and the operator's next move (stop that run) is in
+    the same box.
+    """
+    win = window()
+    console = win.open_script_console()
+    console.set_script_text("log a script started by hand\nwait 60\n")
+    assert console.run_now() is True, "the hand-started run did not begin"
+
+    assert win.run_acceptance_session() is True
+    assert process_until(lambda: bool(shown_boxes)), "the refusal was never shown"
+
+    text = shown_boxes[-1].text()
+    assert "ALREADY RUNNING" in text, f"the cause was not named:\n{text}"
+    assert "Stop" in text, f"the message does not say what to do:\n{text}"
+    assert win._acceptance_layout is None
+    assert live_run.inhibitors[-1].releases == 1, "the sleep lock was left held"
 
 
 # --- The sleep lock -------------------------------------------------------
@@ -612,6 +753,247 @@ def test_the_bundle_collects_the_app_log_and_the_transcript(
     assert STATE_HELD in facts["sleep lock"]
 
 
+# --- What the closing dialog says about the RUN ---------------------------
+#
+# The bundle succeeding and the run passing are two different facts, and the
+# dialog used to report the first while looking like it reported the second: it
+# opened with "✓ Send this one file" whenever the archive was written. An
+# operator who aborted in section A, or whose batch recorded forty failures, got
+# a tick. Every field true, the sentence false.
+
+
+@pytest.fixture()
+def quick_bundle(monkeypatch: pytest.MonkeyPatch):
+    """Make `finish_session` succeed instantly — these tests are about the RUN."""
+    monkeypatch.setattr(
+        "platterpus.test_session.finish_session",
+        lambda layout, **kwargs: BundleResult(path=Path("/dev/null")),
+    )
+
+
+def _steps(*outcomes: Outcome) -> list[StepRecord]:
+    return [
+        StepRecord(index, f"log step {index}", outcome)
+        for index, outcome in enumerate(outcomes, start=1)
+    ]
+
+
+def test_a_run_with_failures_is_not_stamped_with_a_tick(
+    window, session, process_until, shown_boxes, quick_bundle
+) -> None:
+    win = _start(window, session, process_until)
+
+    _finish(
+        win,
+        process_until,
+        RunReport(
+            started_at="t",
+            app_version="v",
+            steps=_steps(Outcome.PASS, Outcome.FAIL, Outcome.ERROR),
+        ),
+    )
+
+    text = shown_boxes[-1].text()
+    assert not text.startswith("✓"), f"a failed run was stamped with a tick:\n{text}"
+    assert "2 FAILURE(S)" in text, f"the run's own outcome is missing:\n{text}"
+    # The file line STAYS. A failed run's evidence is exactly what has to be
+    # sent, so a dialog that withheld the path on a failure would lose the run.
+    assert "/dev/null" in text, f"the file to send was dropped:\n{text}"
+
+
+def test_a_run_that_was_aborted_says_it_did_not_complete(
+    window, session, process_until, shown_boxes, quick_bundle
+) -> None:
+    """An abort is not a failure count — the steps after it measured nothing,
+    which is a different thing to tell somebody."""
+    win = _start(window, session, process_until)
+
+    _finish(
+        win,
+        process_until,
+        RunReport(
+            started_at="t",
+            app_version="v",
+            ended_reason="stopped from the console",
+            steps=_steps(Outcome.PASS, Outcome.SKIPPED, Outcome.SKIPPED),
+        ),
+    )
+
+    text = shown_boxes[-1].text()
+    assert "DID NOT COMPLETE" in text, f"an aborted run read as a finished one:\n{text}"
+    assert "stopped from the console" in text, (
+        f"the run's own reason for stopping was dropped:\n{text}"
+    )
+    assert not text.startswith("✓")
+
+
+def test_a_clean_run_is_reported_as_passed(
+    window, session, process_until, shown_boxes, quick_bundle
+) -> None:
+    """The control that makes the two above non-vacuous: a run that really did
+    pass must still say so, or the dialog has simply stopped saying anything."""
+    win = _start(window, session, process_until)
+
+    _finish(
+        win,
+        process_until,
+        RunReport(
+            started_at="t",
+            app_version="v",
+            steps=_steps(Outcome.PASS, Outcome.PASS, Outcome.PASS),
+        ),
+    )
+
+    text = shown_boxes[-1].text()
+    assert text.startswith("✓ The run PASSED"), f"a clean run was not reported:\n{text}"
+    assert "3 step(s)" in text
+
+
+def test_a_report_with_no_steps_is_not_reported_as_a_pass(
+    window, session, process_until, shown_boxes, quick_bundle
+) -> None:
+    """The floor. "All 0 step(s) passed" is a verdict satisfied by finding
+    nothing, and this is the dialog somebody acts on."""
+    win = _start(window, session, process_until)
+
+    _finish(win, process_until, RunReport(started_at="t", app_version="v"))
+
+    text = shown_boxes[-1].text()
+    assert "NOT DETERMINED" in text, f"an empty report read as a verdict:\n{text}"
+    assert not text.startswith("✓")
+
+
+def test_an_unreadable_report_is_reported_as_not_determined(
+    window, session, process_until, shown_boxes, quick_bundle
+) -> None:
+    """Tri-state, as everywhere else here: a payload we cannot read is never a
+    pass, and never a crash on top of a finished six-hour run."""
+    win = _start(window, session, process_until)
+
+    _finish(win, process_until, "not a RunReport at all")
+
+    text = shown_boxes[-1].text()
+    assert "NOT DETERMINED" in text
+    assert not text.startswith("✓")
+
+
+def test_a_failed_bundle_also_states_the_runs_outcome(
+    window, session, process_until, shown_boxes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ "The bundle failed" is not an answer to "did the run pass" either."""
+    monkeypatch.setattr(
+        "platterpus.test_session.finish_session",
+        lambda layout, **kwargs: BundleResult(error="OSError: No space left on device"),
+    )
+    win = _start(window, session, process_until)
+
+    _finish(
+        win,
+        process_until,
+        RunReport(
+            started_at="t", app_version="v", steps=_steps(Outcome.PASS, Outcome.FAIL)
+        ),
+    )
+
+    text = shown_boxes[-1].text()
+    assert "1 FAILURE(S)" in text, f"the run's outcome is missing:\n{text}"
+    assert "No space left on device" in text
+
+
+def test_a_second_session_does_not_inherit_the_first_ones_verdict(
+    window, session, process_until, shown_boxes, quick_bundle
+) -> None:
+    """A stale verdict stamped on a new session is the same defect wearing a
+    different hat: every field true, the sentence about the wrong run."""
+    win = _start(window, session, process_until)
+    _finish(
+        win,
+        process_until,
+        RunReport(started_at="t", app_version="v", steps=_steps(Outcome.PASS)),
+    )
+    assert shown_boxes[-1].text().startswith("✓")
+
+    assert win.run_acceptance_session() is True
+    assert win._acceptance_run_verdict == "", (
+        "the new session started holding the previous run's verdict"
+    )
+
+
+# --- Nothing may interrupt a running session ------------------------------
+
+
+def test_an_acceptance_session_blocks_a_launch_armed_modal(
+    window, session, process_until
+) -> None:
+    """`_interruption_blocker` is the one place that answers "may we raise a
+    dialog right now", and an unattended acceptance session was not one of its
+    reasons — so the automatic cyanrip check could open a window-modal install
+    offer over a live overnight batch, with "Install it now" pre-selected. That
+    is the 2026-08-18 rig defect (a modal over a running script, then swept up by
+    the script's own `cancel`), against the one binary the batch is measuring.
+
+    `_rip_thread` does not cover it: a session spends most of its hours between
+    rips, and the window is every bit as unavailable then.
+    """
+    win = _start(window, session, process_until)
+    win.show()
+
+    assert win._interruption_blocker() == "an acceptance test session is running"
+
+    # The control, and it is what makes the assertion above about the SESSION
+    # rather than about some other condition that happened to be true: with the
+    # session ended and nothing else changed, this window is interruptible.
+    win._end_acceptance_session("test")
+    assert win._interruption_blocker() == ""
+
+
+def test_the_install_offer_does_not_surface_over_a_running_session(
+    window, session, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Checked where the modal would SURFACE, not only where it was armed.
+
+    The automatic check is armed at launch and its worker answers tens of seconds
+    later — a manifest fetch plus a `distrobox enter` probe — so a session can
+    begin in the gap. `_on_ripper_update_result` is where the offer actually
+    opens, and it is the instant the condition has to hold at.
+    """
+    from platterpus.deps.ripper_offer import OFFER_AVAILABLE
+
+    win = _start(window, session, process_until)
+    win.show()
+    offered: list[object] = []
+    monkeypatch.setattr(
+        MainWindow,
+        "_offer_ripper_install",
+        lambda self, offer, detail, commit: offered.append(offer),
+    )
+    offer = SimpleNamespace(
+        verdict=OFFER_AVAILABLE,
+        detail="a newer cyanrip build is available",
+        install_commit="abc1234",
+        auto_installable=True,
+    )
+
+    win._ripper_check_is_automatic = True
+    win._on_ripper_update_result(offer)
+
+    assert offered == [], (
+        "a one-click ripper install offer opened over a running acceptance "
+        "session — it would replace the binary the batch is measuring"
+    )
+
+    # Control: the same offer, the same window, no session. If this did not
+    # surface either, the assertion above would prove nothing.
+    win._end_acceptance_session("test")
+    win._ripper_check_is_automatic = True
+    win._on_ripper_update_result(offer)
+
+    assert offered == [offer], (
+        "the offer did not surface with no session running, so the assertion "
+        "above was not about the session"
+    )
+
+
 # --- Releasing the lock ---------------------------------------------------
 
 
@@ -693,17 +1075,53 @@ def test_the_lock_is_released_when_the_window_closes(
 
 
 def test_closing_the_window_does_not_start_a_bundle_daemon(
-    window, session, process_until
+    window, live_run, process_until
 ) -> None:
-    """Closing the window closes the console, which ends the run — and that must
-    not start a pack in the middle of a teardown."""
-    win = _start(window, session, process_until)
+    """Closing the window closes the console, which ends a LIVE run — and that
+    must not start a pack in the middle of a teardown.
+
+    **This test was vacuous until 2026-09-01, and the fixture is why.** The
+    `session` fixture stubs `run_now`, so no `ScriptRunner` ever exists; closing
+    the console then emits no `run_finished`, `_on_acceptance_run_finished` is
+    never called, and the guard it opens with —
+
+        layout = self._acceptance_layout
+        if layout is None:
+            return
+
+    — could be deleted with the test still green. Measured by deleting it. So
+    this one uses `live_run`: a real runner, a real script, really still running
+    when the window closes.
+
+    Three assertions, and the first two exist so the third cannot pass by
+    accident (`CLAUDE.md` — can this check be satisfied by finding nothing?):
+    the run really was in flight, the end-of-run signal really did arrive, and
+    only then does "no daemon" mean the guard did its job.
+    """
+    win = _start(window, live_run, process_until)
+    console = win._acceptance_console
+    assert console is not None
+    runner = console.runner
+    assert runner is not None and runner.running, (
+        "the batch was not actually running — this test cannot see the guard "
+        "unless a live run ends during the close"
+    )
+    finished: list[object] = []
+    console.run_finished.connect(finished.append)
 
     win.close()
 
+    assert finished, (
+        "closing the window did not end the run — nothing reached the guard, so "
+        "this assertion would hold with the guard deleted"
+    )
     assert win._acceptance_bundle_thread is None, (
         "a bundle daemon was started during window teardown"
     )
+    # Best-effort tidy-up: the runner persists its own transcript on stop, which
+    # spawns a short-lived archiving daemon. Drained here rather than left to
+    # race the tmp_path teardown.
+    process_until(lambda: not runner.bundle_in_progress(), timeout=5.0)
 
 
 def test_a_second_session_is_refused_while_one_is_running(

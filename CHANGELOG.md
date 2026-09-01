@@ -12,6 +12,88 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A six-lens audit of the in-app acceptance session, adversarially verified:
+  60 findings, 23 refuted, 6 overstated, 11 confirmed.** The refutation stage
+  earned its place — most findings were wrong, several confidently so, and
+  applying them would have degraded correct code while looking like diligence.
+  One lens called the `wait-for-rip` clamp *"silent"* when the runner logs a
+  warning **and** stamps `[CLAMPED …]` on the outcome; its proposed fix would
+  have changed code that already did exactly that and left the real defect (the
+  cap's **value**) untouched. Two findings were established by **measurement
+  rather than reading**: the vacuous test below, proved by deleting the guard and
+  watching it pass, and the symlink hole, reproduced.
+- **The app-log rotations could spend the whole archive and leave the rip
+  evidence out of it.** `MAX_TOTAL_BYTES` is 64 MiB and the handler is
+  `maxBytes=8 MiB, backupCount=10`, so `applog/` can present **88 MiB** — and it
+  was collected first, in one block, ahead of everything. A long acceptance run
+  could therefore produce a bundle carrying no rip log, no cue sheet, no report
+  and no checksum. Each refusal wrote a manifest line, so it was never *silent* —
+  but "not silent" is a poor second to "not lost", and a reader who receives that
+  archive has a file that looks complete and answers nothing. Rotations are now
+  charged **last**; the current log keeps its place at the front, because it is
+  the artifact that exists for every outcome including the runs that produced no
+  album at all.
+- **The same defect at a second site, found by an agent refuting the first fix's
+  scope.** The *session* bundle passes `log_dir=_NO_LOG_SWEEP`, so its rotations
+  never reach that ordering — they are staged inside the session folder and
+  walked with `sorted(rglob("*"))`, which put `artifacts/…/log.txt.1` ahead of
+  `transcript.txt`: every rotation charged before the one file that records
+  whether a six-hour run passed. `docs/testing.md` §5.o — *enforce a rule across
+  the codebase, not at the place it was learned* — landing on the very change
+  that cited it.
+- **`wait-for-rip 21600` met a three-hour cap.** §N is a whole-disc uniform
+  secure re-read, which this project's own rig sheet puts at **2 to 2.5 hours**,
+  so the cap sat barely above the expected duration of the step most likely to
+  exceed it — and its note explained itself against an *ordinary* rip
+  (*"~50-70 minutes… three hours is generous"*). Past the clamp the batch
+  continues while the rip runs: `rig-check` reads a half-written album and §P
+  sends `cyanrip -x -I` to the drive the ripper still holds. The cap is now six
+  hours, and **both sides are derived** — a script asking for more than the cap,
+  or a cap lowered below a script, fails in CI.
+- **`run_now()` could not report that it had not run.** It was `-> None` and
+  returned silently when a run was already in flight, so the session logged
+  *"starting the batch"*, armed the sleep lock, and waited for a `run_finished`
+  belonging to a different script. *Asking for a thing is not having it*, at the
+  one seam this feature added.
+- **The closing dialog stamped ✓ on a failed run.** The *bundle* succeeding says
+  nothing about whether the *run* passed; an abort in section A got a green tick.
+  It now states the run's outcome as well as the file — and "not determined" when
+  the report gives no verdict, because that is a real answer.
+- **A launch-armed modal could open over the live batch.** `_interruption_blocker`
+  enumerated four reasons to suppress the automatic cyanrip check and *"an
+  acceptance session is running"* was not one — the 2026-08-18 rig defect
+  recurring at a new call site.
+- **A symlink defeated the audio allowlist.** `_is_allowed` was a pure *name*
+  test while `_read_bounded` opens by *content*, so a link called `notes.log`
+  pointing at `track01.flac` was admitted on its own name and archived with the
+  track's bytes. Critical rule #8 is absolute about what leaves the machine. The
+  link is now judged by its target's name too, unresolvable links are refused
+  rather than guessed, and the legitimate case — an operator symlinking the app
+  log at storage elsewhere — still passes.
+- **The manifest named an album folder it had silently skipped.** `if not
+  album_dir.is_dir(): continue` while `_album_folder_lines` reported it as
+  archived. The refusal is now a manifest row **naming the path**, because a
+  bundle from an eight-rip session that says "an album folder was absent" without
+  saying *which* is the same silence one step further on.
+- **The 40-folder scan cap dropped rips with no count.** `session_album_dirs`
+  now returns an `AlbumScan` carrying `examined` and `dropped`, rendered into the
+  bundle's facts — tri-state, so a caller passing a plain list gets *"not
+  determined"* rather than a comforting `0`.
+- **The session bundle was missing the diagnostics blob** every per-rip bundle
+  has carried since 0.6.19 — the version pair, the environment and the dependency
+  states, assembled in one place instead of scattered across six hours of log.
+- **The acceptance script's closing banner sent the operator to the wrong folder
+  and then handed them a command.** It named
+  `~/.local/share/platterpus/bundles/` and said *"Then run: --rig-session"* —
+  both wrong since the session moved into the app, and the second is the CLI step
+  this whole feature removed. It now points at the surface that *computes* the
+  answer rather than restating a path that can drift.
+- **`test_closing_the_window_does_not_start_a_bundle_daemon` was vacuous.**
+  Proved by deleting the guard it claimed to cover and watching it pass. The
+  fixture patching `run_now` was what hid it; that test now uses the real thing.
+
+
+### Fixed
 - **The bundle's byte budget was spent on log rotations before it reached the rip
   evidence.** `MAX_TOTAL_BYTES` is 64 MiB and is spent walking `_collect`'s list;
   the app-log handler is `maxBytes=8 MiB, backupCount=10`, so `applog/` can
