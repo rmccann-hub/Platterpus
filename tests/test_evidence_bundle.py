@@ -831,6 +831,251 @@ def test_log_rotations_do_not_crowd_out_the_rip_evidence(
     )
 
 
+def _member_bytes(archive: Path) -> dict[str, bytes]:
+    """Every member's actual payload, for assertions about CONTENT not names."""
+    with tarfile.open(archive, "r:gz") as tar:
+        return {
+            name: (tar.extractfile(name) or io.BytesIO()).read()
+            for name in tar.getnames()
+        }
+
+
+# ==========================================================================
+# A folder the manifest CLAIMS was archived, and was not
+# ==========================================================================
+#
+# `_collect` skipped an album folder that was not a directory with a bare
+# `continue`, while `_album_folder_lines` rendered every path in `album_dirs`
+# under a heading saying they were archived. A folder that vanished between
+# discovery and archiving — moved by the library-filing step, deleted, unmounted
+# — was therefore NAMED as present and ABSENT from the tar, with nothing
+# connecting the two. That is this module's own third property ("every omission
+# is named") broken by the code that renders the completeness claim.
+
+
+def test_an_album_folder_that_vanished_is_refused_not_silently_skipped(
+    tmp_path: Path,
+) -> None:
+    """The regression test, written as the real sequence: discovered, then gone.
+
+    The folder is created (so it is a legitimate thing to have been named) and
+    then removed before the bundle is built, which is exactly what the
+    library-filing step does to a rip folder while a session is still running.
+    """
+    survivor = _album(tmp_path / "a", "Survivor", log_text="STILL HERE")
+    vanished = _album(tmp_path / "b", "Vanished", log_text="MOVED AWAY")
+    (vanished / "rip.log").unlink()
+    vanished.rmdir()
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+
+    result = build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260901T000000Z",
+        app_version="0.0.0",
+        outcome="acceptance test session",
+        album_dirs=[survivor, vanished],
+        log_dir=log_dir,
+    )
+    assert result.ok, result.error
+    assert result.path is not None
+
+    # FLOOR FIRST. The surviving folder really was archived, so what follows is
+    # about the missing one and not about a bundle that collected nothing.
+    names = _names_in(result.path)
+    assert [n for n in names if n.endswith("rip.log")], (
+        f"nothing was archived at all, so this proves nothing: {names}"
+    )
+
+    refusals = [e for e in result.skipped if e.source == str(vanished)]
+    assert len(refusals) == 1, (
+        "the vanished album folder produced no NOT-INCLUDED row — it was skipped "
+        f"silently: {[(e.name, e.source) for e in result.skipped]}"
+    )
+    assert "not there" in refusals[0].reason, refusals[0].reason
+
+    manifest = _read_from(result.path, "MANIFEST.txt")
+    assert str(vanished) in manifest, "the folder is not named in the manifest at all"
+    # The claim itself, which is the actual defect: the album block must not say
+    # this folder was archived. The path is listed AND marked.
+    album_block = manifest.split("Raw facts")[0]
+    marked = [line for line in album_block.splitlines() if str(vanished) in line]
+    assert marked and "NOT ARCHIVED" in marked[0], (
+        "the manifest still lists the vanished folder under a heading saying it "
+        f"was archived:\n{album_block}"
+    )
+    # And the folder that WAS archived carries no such mark — otherwise the mark
+    # is decoration that says nothing about either folder.
+    kept = [line for line in album_block.splitlines() if str(survivor) in line]
+    assert kept and "NOT ARCHIVED" not in kept[0], kept
+
+
+def test_a_requested_extra_directory_that_is_absent_is_named(tmp_path: Path) -> None:
+    """The same rule at the other silent `continue` (§5.o — enforce it across the
+    codebase, not only where it was learned).
+
+    A caller naming a screenshot folder that never got created has evidence
+    missing from the bundle, and used to have no way to tell.
+    """
+    present = tmp_path / "run"
+    present.mkdir()
+    (present / "run.log").write_text("ran", encoding="utf-8")
+
+    result = build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260901T000000Z",
+        app_version="0.0.0",
+        outcome="test script run",
+        log_dir=_log_dir(tmp_path),
+        extra_dirs={"scriptrun": present, "screenshots": tmp_path / "never-made"},
+    )
+    assert result.ok, result.error
+    assert result.path is not None
+    assert "scriptrun/run.log" in _names_in(result.path), "the floor is missing"
+
+    missing = [e for e in result.skipped if e.source == str(tmp_path / "never-made")]
+    assert len(missing) == 1, (
+        f"an absent named directory left no trace: {[e.name for e in result.skipped]}"
+    )
+    assert "never-made" in _read_from(result.path, "MANIFEST.txt")
+
+
+# ==========================================================================
+# Critical rule #8 vs. a NAME test — the symlink, and the bytes
+# ==========================================================================
+#
+# `_is_allowed` was a pure name test (`path.suffix.lower() in permitted`) while
+# `_read_bounded` opened the file and read it by CONTENT. So a symlink called
+# `notes.log` pointing at `track01.flac` was admitted on the strength of the
+# link's own name and its AUDIO BYTES were written into the archive.
+#
+# An album folder is written by cyanrip and is unlikely to contain a hostile
+# symlink, so the reach is small — but Critical rule #8 is absolute about what
+# may leave the machine, and a guard that is a name test standing in for a
+# content guarantee will be wrong for some reason nobody predicted. The fix is
+# two layers: a link is judged by its target's name as well as its own, and every
+# file's first bytes are checked against the audio signatures.
+#
+# Every "audio" file below is a few bytes generated inside `tmp_path`. No real
+# track is ever written, and nothing goes anywhere near the repository.
+
+
+def test_a_symlink_cannot_smuggle_audio_past_the_name_test(tmp_path: Path) -> None:
+    """The reproduction, asserted on the archive's BYTES rather than its names.
+
+    Checking that `notes.log` is absent from the listing would pass against a
+    build that archived the audio under some other member name. What must be true
+    is that the track's payload is in no member at all.
+    """
+    album = tmp_path / "album"
+    album.mkdir()
+    payload = b"fLaC\x00\x00\x00\x22PAYLOAD-THAT-MUST-NEVER-LEAVE"
+    (album / "track01.flac").write_bytes(payload)
+    (album / "rip.log").write_text("track 1 CRC ABCD1234", encoding="utf-8")
+    (album / "notes.log").symlink_to(album / "track01.flac")
+
+    result = build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260901T010000Z",
+        app_version="0.0.0",
+        outcome="success",
+        album_dir=album,
+        log_dir=_log_dir(tmp_path),
+    )
+    assert result.ok, result.error
+    assert result.path is not None
+
+    bodies = _member_bytes(result.path)
+    # FLOOR: the genuine ripper log did get in, so the absence below is the
+    # filter working rather than an empty walk.
+    assert any(name.endswith("rip.log") for name in bodies), sorted(bodies)
+    assert b"PAYLOAD-THAT-MUST-NEVER-LEAVE" not in b"".join(bodies.values()), (
+        "a symlink with an allowed NAME carried audio bytes into the archive — "
+        "Critical rule #8"
+    )
+    refused = [e for e in result.skipped if e.name.endswith("notes.log")]
+    assert refused, f"the symlink was dropped without a manifest row: {sorted(bodies)}"
+    assert "symbolic link" in refused[0].reason, refused[0].reason
+    assert "track01.flac" in refused[0].reason, (
+        "the refusal does not name what the link pointed at, so a reader cannot "
+        f"tell why it was refused: {refused[0].reason}"
+    )
+
+
+def test_a_symlinked_log_pointing_at_a_text_file_is_still_archived(
+    tmp_path: Path,
+) -> None:
+    """The legitimate case the guard must not break.
+
+    An operator may point `~/.local/share/platterpus/log.txt` at storage
+    elsewhere. That link resolves to a `.txt` and must still be collected — a
+    guard that refused every symlink would silently empty the log directory of
+    the one artifact that exists for every outcome.
+    """
+    elsewhere = tmp_path / "storage"
+    elsewhere.mkdir()
+    (elsewhere / "stored.txt").write_text("REAL APP LOG LINE\n", encoding="utf-8")
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    (logs / "log.txt").symlink_to(elsewhere / "stored.txt")
+
+    result = build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260901T020000Z",
+        app_version="0.0.0",
+        outcome="failed",
+        log_dir=logs,
+    )
+    assert result.ok, result.error
+    assert result.path is not None
+    assert "applog/log.txt" in _names_in(result.path), (
+        "a symlinked app log was refused — the whole log directory would be empty "
+        f"on that machine: {[(e.name, e.reason) for e in result.skipped]}"
+    )
+    assert "REAL APP LOG LINE" in _read_from(result.path, "applog/log.txt")
+
+
+def test_a_file_whose_bytes_are_audio_is_refused_however_it_is_named(
+    tmp_path: Path,
+) -> None:
+    """The layer that makes "no audio" a claim about CONTENT.
+
+    Resolving a symlink and re-reading its target's name is still a name test.
+    This is the check that does not depend on anyone having named the file
+    honestly — and it is a denylist deliberately used as the *second* layer, so
+    the allowlist above it still fails closed on a format nobody enumerated.
+    """
+    album = tmp_path / "album"
+    album.mkdir()
+    (album / "rip.log").write_text("genuine ripper log\n", encoding="utf-8")
+    (album / "sneaky.log").write_bytes(b"fLaC\x00\x00\x00\x22SMUGGLED-BYTES")
+    (album / "report.json").write_bytes(b"OggS\x00SMUGGLED-BYTES")
+
+    result = build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260901T030000Z",
+        app_version="0.0.0",
+        outcome="success",
+        album_dir=album,
+        log_dir=_log_dir(tmp_path),
+    )
+    assert result.ok, result.error
+    assert result.path is not None
+
+    bodies = _member_bytes(result.path)
+    # FLOOR: ordinary text with an allowed name still goes in. Without this, a
+    # sniff that refused everything would pass.
+    assert "album/rip.log" in bodies, sorted(bodies)
+    assert b"genuine ripper log" in bodies["album/rip.log"]
+    assert b"SMUGGLED-BYTES" not in b"".join(bodies.values()), (
+        "a file named as text but holding audio bytes entered the archive"
+    )
+    refused = {e.name: e.reason for e in result.skipped}
+    assert "album/sneaky.log" in refused and "FLAC" in refused["album/sneaky.log"]
+    assert "album/report.json" in refused and "Ogg" in refused["album/report.json"]
+    assert "first bytes" in _read_from(result.path, "MANIFEST.txt")
+
+
 def test_the_current_log_still_outranks_the_album_evidence(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

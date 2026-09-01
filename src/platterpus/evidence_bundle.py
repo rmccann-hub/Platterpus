@@ -164,16 +164,49 @@ def bundle_filename(stamp: str) -> str:
     return f"platterpusbundle{cleaned}.tar.gz"
 
 
-def _is_allowed(
-    path: Path, permitted: frozenset[str] = ALLOWED_SUFFIXES
-) -> tuple[bool, str]:
-    """May this file enter the bundle? Returns (verdict, reason-if-not).
+#: First bytes of the audio containers a rip folder can hold. **This is a
+#: DENYLIST, and it is deliberately the second layer, never the first** — the
+#: allowlist above is what admits a file; this only refuses one that got past it
+#: by name. A denylist alone fails open on the format nobody listed, which is why
+#: `ALLOWED_SUFFIXES` exists; a name test alone cannot see what is *inside* a
+#: file, which is why this does. The two fail in opposite directions, so a file
+#: has to satisfy both.
+#:
+#: Every signature is anchored at a fixed offset and is 3–4 bytes, which no log,
+#: cue sheet, JSON report or checksum sidecar begins with. `RIFF`/`FORM` are the
+#: containers WAV and AIFF live in; refusing anything RIFF-headed that arrived
+#: named `.log` is right whatever else it might have been.
+_AUDIO_MAGIC: Final[tuple[tuple[int, bytes, str], ...]] = (
+    (0, b"fLaC", "FLAC"),
+    (0, b"OggS", "Ogg (Vorbis/Opus/FLAC)"),
+    (0, b"wvpk", "WavPack"),
+    (0, b"MAC ", "Monkey's Audio"),
+    (0, b"RIFF", "a RIFF container (WAV lives in one)"),
+    (0, b"FORM", "an IFF container (AIFF lives in one)"),
+    (0, b"ID3", "MP3 (ID3v2 tag)"),
+    (0, b"DSD ", "DSF"),
+    (0, b".snd", "Sun/NeXT audio"),
+    (0, b"\xff\xfb", "MP3 (MPEG audio frame)"),
+    (0, b"\xff\xf3", "MP3 (MPEG audio frame)"),
+    (0, b"\xff\xf2", "MP3 (MPEG audio frame)"),
+    (0, b"\xff\xf1", "AAC (ADTS frame)"),
+    (4, b"ftyp", "an MP4/M4A container"),
+)
 
-    `permitted` defaults to the strict text-only set. The caller widens it ONLY
-    for directories it named explicitly (see `EXTRA_DIR_SUFFIXES`); the album
-    folder is always judged by the default, because that is where record-label
-    artwork lives.
-    """
+#: Enough head bytes to test every signature above (the deepest starts at 4).
+_MAGIC_SNIFF_BYTES: Final[int] = 12
+
+
+def _audio_signature(head: bytes) -> str:
+    """Name the audio format these first bytes are, or ``""``. Pure; never raises."""
+    for offset, magic, label in _AUDIO_MAGIC:
+        if head[offset : offset + len(magic)] == magic:
+            return label
+    return ""
+
+
+def _name_is_allowed(path: Path, permitted: frozenset[str]) -> tuple[bool, str]:
+    """The NAME half of the check, on its own so a symlink's target gets it too."""
     if path.suffix.lower() in permitted:
         return True, ""
     # `log.txt.3` — a rotation. Its suffix is `.3`; judge it by the stem.
@@ -185,6 +218,62 @@ def _is_allowed(
         "this part of the bundle may contain (audio and everything else is "
         "refused by allowlist — Critical rule #8)"
     )
+
+
+def _is_allowed(
+    path: Path, permitted: frozenset[str] = ALLOWED_SUFFIXES
+) -> tuple[bool, str]:
+    """May this file enter the bundle? Returns (verdict, reason-if-not).
+
+    `permitted` defaults to the strict text-only set. The caller widens it ONLY
+    for directories it named explicitly (see `EXTRA_DIR_SUFFIXES`); the album
+    folder is always judged by the default, because that is where record-label
+    artwork lives.
+
+    **A NAME TEST CANNOT SEE THROUGH A LINK.** Everything below the name check
+    reads the file by *content* (`_read_bounded` opens it), so a symlink called
+    `notes.log` pointing at `track01.flac` used to be admitted on the strength of
+    the link's own name and archived with the track's bytes in it. Critical rule
+    #8 is absolute about what may leave the machine, so the link is judged by the
+    name of the file it actually points at as well as by its own.
+
+    The legitimate case is kept, and it is a real one: an operator may symlink
+    the app log (`paths.LOG_PATH`) at storage elsewhere. That link resolves to a
+    `.txt` and still passes. What is refused is a link whose *target* the
+    allowlist would not have taken — which is exactly the smuggling shape and
+    nothing else.
+
+    (Named by constant rather than spelled out, because
+    `tests/test_failure_surfaces.py::test_no_module_hardcodes_the_log_path_literal`
+    sweeps for that literal and is right to: a path written into a module is a
+    path that goes stale when the real one moves, and a docstring goes stale just
+    as silently as code.)
+    """
+    allowed, why = _name_is_allowed(path, permitted)
+    if not allowed:
+        return False, why
+    try:
+        if not path.is_symlink():
+            return True, ""
+        target = path.resolve()
+    except (OSError, RuntimeError) as exc:
+        # A symlink loop raised `RuntimeError` before Python 3.13 and `OSError`
+        # after, so both are caught. Unresolvable means we cannot say what would
+        # be read, and "cannot say" is refused rather than guessed.
+        return False, (
+            f"excluded: {path.name!r} is a symbolic link that could not be "
+            f"resolved ({exc}), so what its bytes would be is unknown — refused "
+            "rather than guessed (Critical rule #8)"
+        )
+    target_allowed, _ = _name_is_allowed(target, permitted)
+    if not target_allowed:
+        return False, (
+            f"excluded: {path.name!r} is a symbolic link to {target}. The link's "
+            "own name passes the allowlist and the file whose bytes would be read "
+            f"is {target.suffix or '(no extension)'!r}, which does not — a name "
+            "test cannot see through a link (Critical rule #8)"
+        )
+    return True, ""
 
 
 def _read_bounded(path: Path) -> tuple[bytes, str]:
@@ -260,12 +349,59 @@ def _member_component(name: str) -> str:
     return cleaned[:64]
 
 
+@dataclass(frozen=True)
+class _Plan:
+    """What :func:`_collect` decided: the candidates AND the refusals it already
+    knows about.
+
+    The refusals travel back rather than being handled where they were noticed,
+    because the manifest is written from ONE finished classification. A directory
+    that was not there is the same kind of finding as a file that was the wrong
+    type, and both have to reach the same list or the second one reads as the
+    whole story.
+    """
+
+    candidates: list[tuple[str, Path, frozenset[str]]]
+    refusals: list[BundleEntry]
+    #: Album folders that could not be walked, so the manifest's album block can
+    #: mark them instead of claiming they were archived.
+    missing_album_dirs: list[Path]
+
+
+def _missing_dir_reason(kind: str, directory: Path) -> str:
+    """Why a named directory contributed nothing — as a sentence, not a silence.
+
+    Distinguishes *not there* from *there but not a directory*, because those are
+    different findings: the first is a folder that moved, was deleted or lives on
+    something unmounted; the second is a caller pointing at a file.
+    """
+    exists = directory.exists()
+    what = (
+        "it exists but is not a directory"
+        if exists
+        else "it was not there when the bundle was written — moved, deleted or on "
+        "something no longer mounted"
+    )
+    return (
+        # THE PATH IS IN THE REASON, and it has to be. The manifest renders an
+        # excluded row as `name  reason`, and a missing directory's `name` is its
+        # archive prefix — `album`, or whatever the caller keyed `extra_dirs` by.
+        # Those identify a SLOT, not a folder, so a reader of a bundle from an
+        # eight-rip acceptance session would learn that "an album folder" was
+        # absent without learning WHICH. Naming the omission is the requirement;
+        # naming it unidentifiably is the same silence one step further on.
+        f"excluded: nothing from this {kind} ({directory}) is in the archive "
+        f"because {what}. It is named here rather than skipped silently, because "
+        "a bundle quietly missing a whole folder reads exactly like a complete one."
+    )
+
+
 def _collect(
     album_dirs: Sequence[Path],
     log_dir: Path,
     extra_dirs: Mapping[str, Path] | None = None,
-) -> list[tuple[str, Path, frozenset[str]]]:
-    """Decide what to look for. Returns (archive name, source, allowed suffixes).
+) -> _Plan:
+    """Decide what to look for. Returns candidates plus the refusals it found.
 
     **THE ORDER IS THE BUDGET.** :data:`MAX_TOTAL_BYTES` is spent walking this
     list, so whatever sorts last is what gets refused when the archive fills.
@@ -300,8 +436,22 @@ def _collect(
     folder: there is no code path where an album file is judged by anything but
     the strict set — and that stays true for N folders exactly as it was for one,
     because the strict set is written at each append rather than chosen later.
+
+    **A DIRECTORY THAT IS NOT THERE IS A REFUSAL, NOT A `continue`.** An album
+    folder can vanish between the rip and the bundle — the library-filing step
+    moves it, a user deletes it, a share unmounts — and the manifest lists every
+    path in ``album_dirs`` under a heading saying they were archived. Skipping it
+    silently made that heading a false claim, in the module whose own third
+    property is that every omission is named. One exception, stated rather than
+    left implicit: ``log_dir`` keeps its plain skip, because a caller may pass
+    ``os.devnull`` to disable the sweep deliberately (``test_session._NO_LOG_SWEEP``
+    does, so the session's log arrives once through ``sources`` instead of twice).
+    Reporting that as a missing directory would put an invented omission in every
+    acceptance-session bundle — every word accurate and the message wrong.
     """
     found: list[tuple[str, Path, frozenset[str]]] = []
+    refusals: list[BundleEntry] = []
+    missing_album_dirs: list[Path] = []
     rotations: list[tuple[str, Path, frozenset[str]]] = []
     if log_dir.is_dir():
         for entry in sorted(log_dir.iterdir()):
@@ -316,15 +466,36 @@ def _collect(
             else:
                 found.append(row)
     for prefix, album_dir in _album_prefixes(album_dirs):
-        if not album_dir.is_dir():
-            continue
         head = f"album/{prefix}" if prefix else "album"
+        if not album_dir.is_dir():
+            missing_album_dirs.append(album_dir)
+            refusals.append(
+                BundleEntry(
+                    head,
+                    str(album_dir),
+                    False,
+                    _missing_dir_reason("album folder", album_dir),
+                )
+            )
+            continue
         for entry in sorted(album_dir.rglob("*")):
             if entry.is_file():
                 relative = entry.relative_to(album_dir)
                 found.append((f"{head}/{relative.as_posix()}", entry, ALLOWED_SUFFIXES))
     for prefix, directory in sorted((extra_dirs or {}).items()):
         if not directory.is_dir():
+            # Same reasoning as the album folder above: the caller named this
+            # directory, so its absence is a fact about the evidence and not a
+            # detail of the walk. (§5.o — enforce a rule across the codebase, not
+            # only at the place it was learned.)
+            refusals.append(
+                BundleEntry(
+                    prefix,
+                    str(directory),
+                    False,
+                    _missing_dir_reason("requested directory", directory),
+                )
+            )
             continue
         for entry in sorted(directory.rglob("*")):
             if entry.is_file():
@@ -334,23 +505,44 @@ def _collect(
                 )
     # Last, deliberately — see the ordering note above.
     found.extend(rotations)
-    return found
+    return _Plan(found, refusals, missing_album_dirs)
 
 
-def _album_folder_lines(album_dirs: Sequence[Path]) -> list[str]:
+#: Appended to any album-folder line whose folder contributed nothing. Plain
+#: ASCII words, not a colour or a symbol: this is read in a terminal, a text
+#: editor and a chat client, and status is never carried by appearance alone
+#: (`CLAUDE.md` → accessibility).
+_NOT_ARCHIVED_MARK: Final[str] = "   -- NOT ARCHIVED (see NOT INCLUDED below)"
+
+
+def _album_folder_lines(
+    album_dirs: Sequence[Path], *, missing: Sequence[Path] = ()
+) -> list[str]:
     """The manifest's album-folder block: EVERY path, never a count.
 
     A manifest saying *"3 album folders"* is a claim the reader cannot check.
     The paths are what they can compare against the discs they expected to be
     ripped — and a missing one is the finding.
+
+    ``missing`` names the folders that could not be walked, so this block marks
+    them instead of listing them under a heading that says they were archived.
+    That heading was a **false claim** for any folder which vanished between the
+    rip and the bundle, and the reader had no way to tell: the paths were here,
+    the files were not, and nothing connected the two.
     """
+    absent = set(missing)
     if not album_dirs:
         return ["album folder       (none)"]
     if len(album_dirs) == 1:
-        return [f"album folder       {album_dirs[0]}"]
-    lines = [f"album folders      {len(album_dirs)}, each archived under album/:"]
+        mark = _NOT_ARCHIVED_MARK if album_dirs[0] in absent else ""
+        return [f"album folder       {album_dirs[0]}{mark}"]
+    lines = [
+        f"album folders      {len(album_dirs)}, each archived under album/ "
+        "unless marked otherwise:"
+    ]
     lines += [
         f"  {prefix or '(root)':<20} {directory}"
+        f"{_NOT_ARCHIVED_MARK if directory in absent else ''}"
         for prefix, directory in _album_prefixes(album_dirs)
     ]
     return lines
@@ -363,6 +555,7 @@ def _render_manifest(
     outcome: str,
     facts: Mapping[str, str],
     album_dirs: Sequence[Path],
+    missing_album_dirs: Sequence[Path] = (),
     entries: Sequence[BundleEntry],
 ) -> str:
     """The human-readable index, and the honest one.
@@ -383,7 +576,7 @@ def _render_manifest(
         f"created            {stamp}",
         f"platterpus         {app_version}",
         f"rip outcome        {outcome}",
-        *_album_folder_lines(album_dirs),
+        *_album_folder_lines(album_dirs, missing=missing_album_dirs),
         "",
         "Raw facts this outcome was derived from (a label can be wrong; these",
         "are what it was computed from):",
@@ -428,6 +621,10 @@ def _render_manifest(
         "NO AUDIO IS PRESENT — no file of any audio type can enter this archive.",
         f"Everything here passed an allowlist: {strict}",
         f"Plus, from this program's own run folder ONLY: {widened}",
+        "A name is not a guarantee, so two more checks run on every file: its",
+        f"first bytes are compared against {len(_AUDIO_MAGIC)} audio-container",
+        "signatures, and a symbolic link is judged by the name of the file it",
+        "points at as well as by its own.",
         "(those are screenshots Platterpus took of its own window. An album folder",
         "is never judged by that wider rule, because its images are record-label",
         "artwork.) The per-track CRCs in the logs prove bit-perfection without the",
@@ -508,7 +705,11 @@ def build_bundle(
         # inserted as the first, because a description composed halfway through the
         # gather would be the thing that could be wrong. Member order does not
         # affect extraction.
-        entries: list[BundleEntry] = []
+        plan = _collect(albums, log_dir, extra_dirs)
+        # The refusals `_collect` already made lead, because a whole directory
+        # that contributed nothing is the biggest omission there is and it must
+        # not sit below fifty file-level rows.
+        entries: list[BundleEntry] = list(plan.refusals)
         spent = 0
         with tarfile.open(archive_path, "w:gz") as tar:
 
@@ -526,7 +727,7 @@ def build_bundle(
                 info.gname = ""
                 tar.addfile(info, io.BytesIO(data))
 
-            for name, source, permitted in _collect(albums, log_dir, extra_dirs):
+            for name, source, permitted in plan.candidates:
                 allowed, why = _is_allowed(source, permitted)
                 if not allowed:
                     entries.append(BundleEntry(name, str(source), False, why))
@@ -537,6 +738,27 @@ def build_bundle(
                     entries.append(
                         BundleEntry(name, str(source), False, f"unreadable: {exc}")
                     )
+                    continue
+                # THE CONTENT CHECK, after the name check and before the write.
+                # The allowlist admits by name; this is the only place the bytes
+                # themselves are seen, and Critical rule #8 is a claim about
+                # bytes. A file called `notes.log` that begins `fLaC` is audio
+                # whatever it is called, and the manifest says so rather than
+                # letting it through.
+                signature = _audio_signature(data[:_MAGIC_SNIFF_BYTES])
+                if signature:
+                    entries.append(
+                        BundleEntry(
+                            name,
+                            str(source),
+                            False,
+                            f"excluded: the name passed the allowlist but the "
+                            f"file's first bytes are {signature}. No audio leaves "
+                            "the machine in something we generate, whatever it is "
+                            "named (Critical rule #8).",
+                        )
+                    )
+                    del data
                     continue
                 if spent + len(data) > MAX_TOTAL_BYTES:
                     entries.append(
@@ -570,6 +792,7 @@ def build_bundle(
                 outcome=outcome,
                 facts=facts,
                 album_dirs=albums,
+                missing_album_dirs=plan.missing_album_dirs,
                 entries=entries,
             )
             _write("MANIFEST.txt", manifest.encode("utf-8"))
