@@ -202,6 +202,8 @@ named from the album artist/title you type.
   cover from the Cover Art Archive after the rip and embeds/saves it. Tick
   **Also save back cover and booklet images** to pull down the extra artwork
   the Cover Art Archive holds for the release and save it beside the album.
+  When the Archive has nothing for a release, or has the wrong sleeve, **Tools →
+  Set cover art from file…** lets you point at your own image instead.
 - **Max retries** — how many times the ripper retries a troublesome track
   before giving up.
 - **Read speed** — how fast to read the disc. *Adaptive Ladder* (the default)
@@ -275,6 +277,9 @@ named from the album artist/title you type.
 When you accept the "Add to your applications menu?" offer, the app
 moves itself from Downloads to `~/Applications` and the menu entry
 points there — so cleaning out Downloads never removes it.
+
+Declined it, or moved the file since? **Tools → Add app shortcut** does the same
+thing on demand, and is safe to use twice.
 
 ## Updates (Help → Check for updates)
 
@@ -395,7 +400,37 @@ without it, ripping is unaffected — only this verdict stays unmeasured.)
   `platterpus-rip-failure.platterpus.json` and it embeds the ripper's own output
   plus this session's full debug log — it is the single most useful thing to send.
 
-## Running tests without being there
+## Running the full acceptance test
+
+**Tools → Run acceptance test…** is the whole thing in one click. Put an
+ordinary audio CD in the drive, choose it, and walk away — Platterpus makes a
+session folder, holds off sleep, idle and lid-suspend for the duration, runs the
+built-in acceptance batch, drops the sleep lock again, and packs everything into
+**one** `.tar.gz` in your `Downloads` folder. When it finishes it names that file
+and offers to open its folder. There is nothing to download and nothing to run
+afterwards; send that one file.
+
+It takes four to six hours, because it rips the disc twice — once fast, once
+reading every track at least twice — plus six shorter partial rips. Leave it
+overnight.
+
+**Before you start, check the ripper.** **Help → Check for cyanrip updates…**,
+and take the offer only if it is a plain one-click install. An offer that warns
+you first is a newer build no closed handshake round has reviewed; the acceptance
+run refuses to start on one, in the first few seconds, before any drive time is
+spent. Newest is not always the one you want.
+
+If the sleep lock cannot be taken — no session bus, or no permission for it —
+the run still goes ahead and says so rather than stopping. A run that happens and
+might get suspended beats a run that did not happen.
+
+The archive carries the transcript, this app's log, your settings, the
+screenshots the run took, and every rip folder's text artifacts: rip logs, cue
+sheets, reports, checksums. **No audio, ever** — the filter is a list of what may
+go in, not a list of what may not, and anything excluded is named in the
+archive's `MANIFEST.txt` rather than dropped quietly.
+
+## Running your own tests without being there
 
 Platterpus can drive its own interface. **Tools → Run test script…** opens a
 console where you type (or load) a batch of steps — open a dialog, check what is

@@ -12,6 +12,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **The in-app User Guide never mentioned the acceptance session** — zero
+  occurrences of the word. Its testing section walked the reader to *Tools → Run
+  test script…* and then to `--rig-session FOLDER`, **a command line**, as the
+  way to run an unattended hardware session. So the feature built to remove the
+  terminal was undiscoverable from inside the product, and the only route the
+  product documented was the terminal one. Nothing was broken; a user simply
+  could not find it. It now has its own section covering the one-click run, the
+  ripper check that must come first, the sleep-lock behaviour and where the one
+  file lands.
+- **The sweep written for that found two more undiscoverable actions.**
+  *Tools → Add app shortcut* (the manual route when the first-run offer was
+  declined) and *Tools → Set cover art from file…* (your own image when the
+  Archive has the wrong sleeve, or nothing) were absent from the Guide entirely.
+  Both are now documented where a reader would look for them.
+
+### Added
+- **`tests/test_help_documents_the_menu.py`** — every Tools action a person can
+  click must be findable in the User Guide, with the menu **derived from
+  `main_window._build_menus`' source** so an action added tomorrow is covered the
+  day it lands rather than the day somebody remembers the test. The exemption
+  list holds one entry with a reason. Three reverts probed, including an
+  `unaffected` control proving the label normalisation is not matching
+  everything.
+
 - **A six-lens audit of the in-app acceptance session, adversarially verified:
   60 findings, 23 refuted, 6 overstated, 11 confirmed.** The refutation stage
   earned its place — most findings were wrong, several confidently so, and
