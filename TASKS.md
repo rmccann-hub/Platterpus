@@ -723,7 +723,7 @@ condition cannot be met — the S-13 failure that made round 7 run 37 laps.
 ## Found on the rig, 2026-08-12 — the round-8 script run that never reached the rip
 
 Three defects, all ours, all found by a real hardware run of
-`docs/rig-scripts/round08joint.txt` on the Bazzite + BDR-209D rig. The run
+`src/platterpus/rig_scripts/round08joint.txt` on the Bazzite + BDR-209D rig. The run
 scored 62 pass / 10 fail and **the rip never started**, so it produced no round-8
 evidence — but it produced these.
 

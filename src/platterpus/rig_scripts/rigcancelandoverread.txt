@@ -3,7 +3,7 @@
 # =============================================================================
 #
 #   How to run it:  ./platterpus-x86_64.AppImage --run-script rigcancelandoverread.txt
-#   Where it lives: docs/rig-scripts/rigcancelandoverread.txt
+#   Where it lives: rigcancelandoverread.txt
 #
 # NOTHING IN THIS FILE NEEDS EDITING. No album name, no track count, no path.
 # Put any ordinary audio CD in the drive and run it. Everything disc-specific is

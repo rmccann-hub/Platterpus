@@ -5,6 +5,22 @@ argv the app builds, the same ripper binary. There is no simulation layer, which
 is deliberate — a harness that is safer or simpler than the product makes the
 product's gap invisible.
 
+> **Read this first (v0.6.32).** The full acceptance run is now **Tools → Run
+> acceptance test…** inside the app, and that is the route to use. It makes the
+> session folder, holds off sleep, runs the batch, releases the lock and packs
+> one `.tar.gz` into `~/Downloads` — then names it, with a button that opens the
+> folder. **There is nothing to download and no second command in the morning.**
+>
+> Check the ripper first: **Help → Check for cyanrip updates…**, and take the
+> offer only if it is a plain one-click install. An offer that warns you first is
+> a build no closed round has reviewed, and section A refuses to run on one.
+>
+> **The `.txt` scripts moved into the package** (`src/platterpus/rig_scripts/`)
+> so the app ships them; an AppImage user used to have no copy of the acceptance
+> test at all. The `.sh` wrappers below stay for now as the **legacy route** —
+> they still work, and they are what has actually run on the rig before — but
+> they are no longer the answer to *"how do I run the acceptance test?"*.
+
 ## The T1-only path: `securereread.txt`
 
 **T1 alone, about 2–2.5 hours.** Use this rather than the full file when the only
@@ -25,7 +41,12 @@ and runs the one `rig-check` that reads the counters.
 about the disc, not a pass — it means the disc converged on the first read and
 the test did not get to measure anything.
 
-## The overnight path: one command
+## The overnight path — LEGACY, superseded by Tools → Run acceptance test…
+
+**Prefer the menu action** (see the note at the top). This wrapper predates it
+and does the same job from a terminal; it is kept because it is the path with
+real rig hours behind it, and because a build older than v0.6.32 has no menu
+action to offer.
 
 Put an ordinary audio CD in the drive and run this. Nothing else.
 
@@ -138,7 +159,7 @@ two lines below edited for your disc.
 ```sh
 # Put the disc in. Wait for the drive to settle. Confirm Platterpus identified
 # the album — that part is still yours.
-./platterpus-x86_64.AppImage --run-script docs/rig-scripts/police-rerip.txt
+./platterpus-x86_64.AppImage --run-script police-rerip.txt
 ```
 
 or, in a running window: **Tools → Run test script…** → **Load** → **Run**.

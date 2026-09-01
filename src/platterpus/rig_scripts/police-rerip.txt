@@ -1,7 +1,7 @@
 # Platterpus UI script — the Police re-rip on the round-7 RELEASE build.
 #
 # Run it with:  Tools → Run test script…  → Load → Run
-#          or:  ./platterpus-x86_64.AppImage --run-script docs/rig-scripts/police-rerip.txt
+#          or:  ./platterpus-x86_64.AppImage --run-script police-rerip.txt
 #
 # WHAT THIS COVERS AND WHAT IT DOES NOT
 # ------------------------------------

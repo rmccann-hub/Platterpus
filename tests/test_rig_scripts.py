@@ -1280,3 +1280,101 @@ def test_the_clamp_check_can_actually_fail() -> None:
     assert _wait_requests(under, "wait-for-rip") == [(2, 60.0)]
     # And it must not harvest a DIFFERENT waiting verb into the same budget.
     assert _wait_requests("wait 30\n", "wait-for-rip") == []
+
+
+# ==========================================================================
+# A DOC NAMING A RIG SCRIPT MUST NAME WHERE IT ACTUALLY IS
+# ==========================================================================
+#
+# The `.txt` scripts moved out of the old `docs/rig-scripts/` directory and into
+# the package on 2026-08-28, so the running program could open them. Several
+# live surfaces went on naming the former location for four more days —
+# `dependency-contracts.md` and `TASKS.md` were still doing it on 2026-09-01,
+# after two separate passes that went looking for exactly this.
+#
+# (This comment names the old directory as a LABEL and never as a path with a
+# filename on the end, because the sweep below would flag its own docstring —
+# the same reason `CLAUDE.md` says to write ``the former `x.md` `` rather than
+# a prefixed path when retiring a file.)
+#
+# A path is an exact-match string, which is the whole reason `CLAUDE.md` has a
+# rule about artifact filenames crossing machines. A doc pointing at a file that
+# is not there costs somebody a search, and the reader most likely to follow it
+# is the one who does not already know where the file lives.
+#
+# The dated record is exempt: `CHANGELOG.md`, the session log and the handshake
+# correspondence are supposed to say what was true on a date.
+
+
+def _rig_script_path_mentions(text: str) -> list[str]:
+    """Every `<dir>/<name>.txt` reference that looks like a rig script."""
+    return [
+        m.group(0) for m in re.finditer(r"[\w./-]*rig[_-]scripts/[\w-]+\.txt", text)
+    ]
+
+
+def test_no_live_doc_names_a_rig_script_path_that_does_not_exist() -> None:
+    """The regression test for the four-day-stale paths.
+
+    Resolved against the filesystem rather than compared to a known-good prefix:
+    the question is not *"does it say the new location"* but *"is the file
+    where this sentence says it is"*, which keeps working after the next move.
+    """
+    root = Path(__file__).resolve().parents[1]
+    dated = ("CHANGELOG.md", "docs/session-log.md", "docs/handshake/", "docs/archive/")
+
+    offenders: list[str] = []
+    examined = 0
+    for path in sorted(root.rglob("*")):
+        if path.suffix.lower() not in {".md", ".py", ".sh", ".txt", ".toml", ".yml"}:
+            continue
+        rel = path.relative_to(root).as_posix()
+        if rel.startswith((".git/", ".venv/", "build/", "mutants/")):
+            continue
+        # THIS FILE, because its non-triviality twin must contain example
+        # paths — including deliberately dead ones — and a sweep that
+        # harvested its own fixtures would report them forever. Scope, not
+        # an exemption: there is no version of this check that can read the
+        # file defining its own examples.
+        if path.resolve() == Path(__file__).resolve():
+            continue
+        if any(rel == d or rel.startswith(d) for d in dated):
+            continue
+        for mention in _rig_script_path_mentions(
+            path.read_text(encoding="utf-8", errors="replace")
+        ):
+            examined += 1
+            candidate = mention.lstrip("./")
+            # TWO ROOTS, because both spellings are legitimate: a doc names
+            # the path from the repo root, while `rig_session.sh` names its
+            # siblings package-relative (`rig_scripts/x.txt`) — and it is
+            # right to, since it ships inside the package and that is where
+            # it will look at run time.
+            if not any(
+                (base / candidate).is_file()
+                for base in (root, root / "src" / "platterpus")
+            ):
+                offenders.append(f"{rel}: {mention}")
+
+    # The floor. A pattern that stopped matching would pass this silently.
+    assert examined >= 3, (
+        f"only {examined} rig-script path mention(s) found across the tree — the "
+        "pattern has stopped matching and this check is measuring nothing"
+    )
+    assert not offenders, (
+        "these live surfaces name a rig script at a path that does not exist:\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+def test_the_rig_path_check_can_actually_fail() -> None:
+    """Non-triviality, both directions."""
+    assert _rig_script_path_mentions(
+        "see `docs/rig-scripts/fullacceptance.txt` for the batch"
+    ) == ["docs/rig-scripts/fullacceptance.txt"]
+    assert _rig_script_path_mentions(
+        "`src/platterpus/rig_scripts/securereread.txt`"
+    ) == ["src/platterpus/rig_scripts/securereread.txt"]
+    # Prose naming a script WITHOUT a directory is not a path claim and must not
+    # be harvested — the scripts are referred to by bare name constantly.
+    assert _rig_script_path_mentions("run fullacceptance.txt overnight") == []
