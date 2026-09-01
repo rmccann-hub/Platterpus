@@ -321,4 +321,4 @@ Critical rule #8, no exceptions including temporary ones.
 
 ---
 
-*Last updated for Platterpus v0.6.32.*
+*Last updated for Platterpus v0.6.33.*
