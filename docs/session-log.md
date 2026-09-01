@@ -11,6 +11,95 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-01 — the testing was not testing, and the audit had to be audited
+
+**v0.6.32, then eight more fixes on top.** The maintainer's brief was *"do some
+self testing, regression testing, and finding out how to gate or test for these
+things moving forward, especially problems we've already solved"*. Three things
+came out of it, and the third is the one worth keeping.
+
+**Mutation testing had never run.** Seven weekly jobs since 2026-07-13, all
+reporting `success`, all finishing in under 90 seconds for a job whose suite
+takes minutes to run once. Found by reading the *durations* rather than the
+conclusions, then reproduced in one second: `--paths-to-mutate` is mutmut 2.x,
+mutmut 3.0 removed it, `mutmut` was installed unpinned, and `|| true` made a hard
+`exit 2` and a completed audit produce the same tick. **Three of this repo's own
+rules were in play and none fired** — Critical rule #11 was read as being about
+*gating* tools, §5.au is the exact defect written down in the file this job
+serves, and `scripts/check.py` already refuses to grade a timed-out gate as a
+pass. The reasoning had simply never reached a workflow. It is now red rather
+than green, which is the true statement.
+
+**Then the obvious question: how much of this project's rulebook is actually
+enforced?** 187 items audited — every §5 case, every "stop shipping the next
+one" bullet, every Critical rule and Code convention. **54 gated, 69 partial, 61
+ungated.** And the figure that reframes it: **52 existing gates can be satisfied
+by finding nothing** — present, green, passing on an empty population, which is
+*more than the number that genuinely work*. Two were proved by construction: a
+parser with a live `ValueError` was added to the never-raises roster and passed,
+and a fresh instance of the discarded-`openUrl` defect passed all 4,679 tests.
+Method and numbers in `docs/testing.md` §5C; the 130 gaps are rows in `TASKS.md`.
+
+**Two real bugs fell out of asking, and neither was on anyone's list.** A dead
+button — the update dialog's *"Open the download page"* discarded `openUrl`'s
+bool, the only signal that nothing claims the URL, in a module that exists to
+prevent exactly that and cites §5.o in its own docstring. And a cubic hang:
+`_tag_matches` was O(n³) in the build tag's separator count, on a value read from
+the ripper's banner and reached by every rip — **3,000 separators took 45
+seconds**, now 0.00007.
+
+### The lesson worth graduating: an audit's findings are claims, not results
+
+Six lenses over the new acceptance session produced **60 findings**. Every one
+went to a separate agent whose only job was to **refute** it. **23 refuted, 6
+overstated, 11 confirmed** — 48% simply wrong, several confidently so, and
+applying them unexamined would have degraded correct code while looking like
+diligence.
+
+The clearest case: a lens called the `wait-for-rip` clamp *"silent"*. The runner
+logs a warning **and** stamps `[CLAMPED …]` on the outcome, and its comment says
+*"never a silent clamp"*. Its proposed fix would have changed code that already
+did exactly that — and left the real defect, the cap's **value**, untouched. A
+3-hour ceiling against a secure re-read this project's own rig sheet puts at 2 to
+2.5 hours, so past the clamp the batch does drive work on top of a live rip.
+
+**Two findings were established by MEASUREMENT rather than reading**, and both
+would have been plausible-but-unproven from the source alone: a vacuous test,
+proved by deleting the guard it claimed to cover and watching it pass; and a
+symlink defeating the audio allowlist, reproduced. That is the difference between
+a finding and an opinion.
+
+**And the refutation caught a scope error in my own fix.** I fixed the byte-budget
+ordering in `_collect`; an agent refuting that fix's *scope* found the identical
+defect at a second site, where the session bundle bypasses `_collect` entirely
+and `sorted(rglob(...))` charged every log rotation ahead of `transcript.txt` —
+the one file recording whether a six-hour run passed. §5.o landing on the very
+change that cited it.
+
+**My own test was wrong once, and the tool said so.** The first budget-ordering
+test came back `VACUOUS` from `revert_probe.py`: the budget check refuses an
+over-large file and *keeps walking*, so tiny album files slipped into the
+headroom the refused rotations left behind, and the test passed against the
+broken order. Reproducing the symptom meant sizing rotations to fill the budget
+to within less than one album file. *Did I reproduce the symptom, or only explain
+it?* — asked of a test rather than a diagnosis.
+
+### Also
+
+The rig scripts moved **inside the package**, so an AppImage user has the
+acceptance test rather than a link to it, and **Tools → Run acceptance test…**
+now does the whole session: folder, sleep lock, run, collect, one file. The
+in-app User Guide did not mention it — zero occurrences of "acceptance" — and the
+sweep written for that found **two more** undiscoverable Tools actions. 59
+documentation corrections were applied and **6 findings refuted**, including
+`SECURITY.md` promising *"Platterpus never deletes or overwrites your existing
+files"* while citing the guard that failed on 2026-08-23.
+
+**Not claimed:** sections F–Q have never executed on any 0.6.x build, and the
+in-app session had not driven a real disc when this was written.
+
+---
+
 ## 2026-08-28 — the front page was stale, and my own fix cost the run
 
 **v0.6.31.** Two things happened, and they are connected by the same question.

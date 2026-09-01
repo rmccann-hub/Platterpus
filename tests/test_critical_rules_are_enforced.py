@@ -1084,7 +1084,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "eac_log_export.py": 1450,
     "evidence_bundle.py": 885,
     "handshake_approval.py": 491,
-    "help_content.py": 526,
+    "help_content.py": 561,
     "naming.py": 315,
     "parsers/cyanrip_log.py": 2728,
     "parsers/rip_log.py": 802,
