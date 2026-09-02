@@ -11,6 +11,94 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-02 — round 15 opened, and three surfaces answered "which build?" from two constants
+
+**The fork opened handshake round 15** with one close condition — CC-1, a
+hardware acceptance pass on the released pair, cyanrip
+`0.9.4-rc2+platterpus.11` at `978f9b0` (stable, `release_seq` 21) against our
+declared release — fixed at lap 1 under S-13 so it cannot grow, plus an S-18
+pre-commit that their next lap is `GO` unless our pass fails on a cause that is
+theirs. Filing it made our own tooling report the round OPEN, which blocks a
+stable release; a `v0.*` pre-release is permitted, and `release.yml`'s gate says
+in as many words why — *refusing the beta does not protect a user, it guarantees
+the round can never close.*
+
+**Their §3 was a real defect of ours, and rolling the pin found two more of the
+same shape.** `PIN_UNDER_REVIEW` still named `d9c058c` five days after round 14
+closed and *promoted* that build, so the acceptance script refused the binary
+the fork had since released — their lap quotes our own rig log saying so. Rolling
+it to `978f9b0` then broke three tests, and each break was a second surface
+answering *"which build is this round about?"* from a different constant:
+
+* **The skeleton generator.** `HANDSHAKE-PIN` and `HANDSHAKE-RIPPER-VERSION` were
+  both read from `FORK_PIN` — production. That is the *same value* as
+  `PIN_UNDER_REVIEW` while no round is open, because closing a round is the act
+  of making them equal, so fourteen rounds of correct output established nothing
+  about the branch that matters. Round 15 would have gone out declaring
+  `d9c058c` beside a `+platterpus.10` banner, into the lap written to answer a
+  round about `978f9b0`.
+* **`UNDER_REVIEW_TARGET.version`**, which had no checker at all and was already
+  a round stale. It is the string `--install-ripper` labels the build it
+  compiles, so the pairing named a build that has never existed.
+* **The acceptance script's header**, which a test *required* to name the
+  production pin — and would therefore have demanded a header naming the build
+  section A now aborts on. It enforced the abort it was written to prevent.
+
+The general lesson is `CLAUDE.md`'s already: *do two surfaces answer this
+question, and do they use the same key?* What is new is the tell — **two
+constants that are equal by construction for most of their life**. Nothing about
+correct behaviour distinguishes them until the day it matters, and no test of
+either one alone can see it, so the assertion has to be about the *relation*.
+
+**And the header could not have been kept current anywhere.** `fullacceptance.txt`
+ships inside the release, so CI binds `main` while the operator reads the copy
+frozen into the AppImage they downloaded. Currency was being enforced in the one
+place it cannot be delivered — the header now names no build and routes to
+*Help → Check for cyanrip updates…*, and the prose sweep covers comments as well
+as parsed steps, which is the half a step parser cannot see and the half an
+operator actually reads at 2am.
+
+**Their §2 ask became a feature rather than three commands.** Two consecutive rig
+mornings produced zero rips without either program's rip path being involved:
+`~/.local/bin/cyanrip --version` printed its banner in full and then never
+returned. The fork established three independent ways the hang is not cyanrip,
+the strongest being *our* installer's command substitution, which blocks until
+the child exits and demonstrably returned — an argument that needed nothing of
+theirs to be believed. They asked for three shell commands. `CLAUDE.md` is
+explicit that a procedure handed back in prose is work handed back, so the app
+runs them: `deps/ripper_wrapper_probe.py`, reached by a script verb (the default
+under the script-surface rule) and a `--doctor` row as its second thin caller.
+Tri-state, exact argv off `Popen.args`, tri-state exit codes with `null` never
+rendered as `0`, head-and-tail bounding with elisions counted, and a bounded
+post-SIGKILL wait so an unreapable child is reported rather than waited on.
+
+Two details worth keeping about *testing* it. The probe's first invocation must
+leave stdin **attached**, because closing it is the fork's candidate fix — a
+probe that closed it would test the fix instead of the defect and report "exits"
+every time. And `blames_the_wrapper` requires a hang **and** a contrasting
+success: a hang with nothing to compare against is equally consistent with a
+broken container, and claiming otherwise is *"never state a mechanism in the
+other side's code"* pointed inward.
+
+**Verified, and one correction to myself.** 11 reverts probed with
+`scripts/revert_probe.py`, all `detected` after two spec corrections — one
+`REFUSED` because I had edited the anchor line away, and one `VACUOUS` that was
+about the spec rather than the test: the routing sentence existed **twice** in
+the header, so deleting one copy left the property true. The right fix was to
+delete the redundant copy, not to weaken the assertion. Their §4 (a
+`PROVIDER-CONTRACT.md` defect of their own: P2's blanket *"both stdout and the
+logfile"* is false for four `-I`-only rows) was verified here from the artifact
+at the pin rather than from their description, and is a no-op for us —
+`parsers/cyanrip_info.py` reads `MusicBrainz URL:` from `-I` **stdout**, and our
+generated consumer contract names none of the four.
+
+**One finding back at them, same class as their own §4:** the
+`PROVIDER-CONTRACT.md` committed at `978f9b0` carries
+`Build: cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-g009a573)` — a generated
+document naming a commit other than the one it was committed at, which is the
+round-6 provenance shape rule #12 exists for. Filed as information, not proposed
+as blocking under S-14: it makes nothing about the pin unsafe.
+
 ## 2026-09-01 — the testing was not testing, and the audit had to be audited
 
 **v0.6.32, then eight more fixes on top.** The maintainer's brief was *"do some

@@ -235,6 +235,31 @@ def test_the_acceptance_script_hardcodes_no_cyanrip_build_tag() -> None:
         "the wrong ripper, which is the one mistake that invalidates the run."
     )
 
+    # **THE COMMENTS TOO, and that is not padding — it is where the copy actually
+    # survived.** The sweep above reads parsed STEPS, so it went green on
+    # 2026-09-01 while the file's own "BEFORE YOU START" header told the operator
+    # the wanted build was `0.9.4-rc2+platterpus.10` (`d9c058c`) and warned them
+    # off `+platterpus.11` — which by then was the pin round 15 had opened on, so
+    # the prose sent them to the one build section A would abort on. Nobody reads
+    # a step to decide what to install; they read the header.
+    #
+    # `CLAUDE.md`: *enforce a rule across the codebase, not at the place it was
+    # learned.* The rule was "no second copy of the build tag" and it was enforced
+    # against the half a parser can see.
+    prose = [
+        f"line {n}: {line.strip()}"
+        for n, line in enumerate(text.splitlines(), start=1)
+        if line.lstrip().startswith("#")
+        and re.search(r"platterpus-fork-g[0-9a-f]{7,40}|platterpus\.\d+", line)
+    ]
+    assert not prose, (
+        "fullacceptance.txt names a cyanrip BUILD in prose:\n  "
+        + "\n  ".join(prose)
+        + "\nThe header must send the operator to `Help -> Check for cyanrip "
+        "updates...`, never to a build tag. A tag written here is a second copy "
+        "of a fact that moves every round, and it has now gone stale twice."
+    )
+
 
 def test_the_under_review_verb_matches_the_build_the_record_names() -> None:
     """The verb's expectation is the record's, not a copy of it.
@@ -1123,27 +1148,64 @@ def _acceptance_header() -> str:
     return "\n".join(header)
 
 
-def test_the_header_names_the_build_the_app_actually_expects() -> None:
-    """Tie the prose to `fork_source`, so a moved pin fails here.
+def test_the_header_names_no_build_and_routes_to_the_app_instead() -> None:
+    """**This asserts the opposite of what it asserted until 2026-09-01**, and the
+    reversal is the finding.
 
-    Asserted on the CONSTANTS rather than on a copy of them: when the pin moves,
-    this goes red and names what the header must now say. That is the whole
-    mechanism — the previous header could not go stale *detectably*.
+    The old version required the header to name `FORK_PIN` and
+    `FORK_EXPECTED_VERSION`, reasoning that tying the prose to a constant makes a
+    stale header fail in CI. Two things were wrong with it, and round 15 opening
+    exposed both on the same morning.
+
+    **1. It keyed on a different constant from the thing it described.** The
+    header explains what section A will accept; section A is
+    `expect-ripper-under-review`, which reads `PIN_UNDER_REVIEW`. This test read
+    `FORK_PIN`. While a round is closed those are equal *by definition* — closing
+    a round is the act of making them equal — so the split was invisible for
+    exactly as long as no round was open. The moment round 15 opened on
+    `978f9b0`, this test began demanding a header that named `d9c058c`, the build
+    section A now aborts on. **It would have enforced the abort it was written to
+    prevent.** `CLAUDE.md`: *do two surfaces answer this question, and do they use
+    the same key?* — same shape as the ripper-offer/verdict mismatch of §5.al.
+
+    **2. A committed test cannot keep a SHIPPED header current.** This file is
+    packaged inside the release. CI binds `main`; the operator reads the copy
+    inside the AppImage they downloaded, which froze at its release and cannot
+    learn that a round opened afterwards. That is not a hypothetical: 0.6.32's
+    packaged header named `+platterpus.10` and warned the operator off
+    `+platterpus.11` — which by then was round 15's pin. Currency was being
+    enforced in the one place it could not be delivered.
+
+    So the header names no build at all, and this checks that plus the routing
+    that replaces it. The value the operator needs is held in one place that
+    ships as *code* and is checked — `PIN_UNDER_REVIEW` — and the header's job is
+    to send them to it.
     """
-    from platterpus.deps.fork_source import FORK_EXPECTED_VERSION, FORK_PIN
+    from platterpus.deps import fork_source
 
     header = _acceptance_header()
     assert len(header) > 500, (
         f"the acceptance header is only {len(header)} characters — the block "
         f"detector has stopped finding it and this check is measuring nothing"
     )
-    for value, label in ((FORK_PIN, "pin"), (FORK_EXPECTED_VERSION, "version")):
-        assert value in header, (
-            f"the acceptance script's header does not name the {label} the app "
-            f"expects ({value!r}). Section A refuses to run on anything else, so "
-            f"a header naming a different build — or none — sends the operator to "
-            f"a five-second abort. Update the header, not this test."
+    for value, label in (
+        (fork_source.FORK_PIN, "production pin"),
+        (fork_source.PIN_UNDER_REVIEW, "pin under review"),
+        (fork_source.FORK_EXPECTED_VERSION, "expected version"),
+    ):
+        assert value not in header, (
+            f"the acceptance header names the {label} ({value!r}). It must not "
+            f"name any build: this file ships inside a release, so the copy an "
+            f"operator reads cannot be updated when the pin moves, and every "
+            f"version of this sentence has gone stale — a channel name by "
+            f"2026-08-28, a build tag by 2026-09-01. Send them to "
+            f"'Help -> Check for cyanrip updates...' instead."
         )
+    assert "Check for cyanrip updates" in header, (
+        "the header no longer routes the operator to the in-app ripper check. "
+        "Having removed the build tag, that route is the ONLY answer left — "
+        "without it the header says what not to do and nothing else."
+    )
 
 
 def test_the_header_does_not_tell_the_operator_to_take_the_NEWEST_ripper() -> None:

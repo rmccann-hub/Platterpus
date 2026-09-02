@@ -248,6 +248,12 @@ FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
     # which is why round 14 is the first round whose reviewed artifact, rig
     # artifact and shipped artifact were one object.
     "d9c058c": 20,
+    # `release_seq` 21, channel **stable**, from their round-15 lap-1 wire header
+    # — the first fork artifact on `stable` rather than `beta`, and the first
+    # chosen as a round's subject *by having been released* rather than nominated.
+    # Their §6 states `git diff 978f9b0 HEAD -- src/` is empty, so the binary on
+    # the rig is the binary their post-pin work was measured against.
+    "978f9b0": 21,
 }
 
 
@@ -400,7 +406,25 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: :data:`FORK_PIN`, which stays at `ddf7ac3` until round 14 closes — so every
 #: artifact the acceptance run produces reports `unapproved`, correctly, because
 #: the run is the evidence that would approve it.
-PIN_UNDER_REVIEW: Final[str] = "d9c058c"
+#:
+#: **Round 15 (2026-09-01): `d9c058c` → `978f9b0`, and the lag it left is worth
+#: keeping.** Round 14 closed on 2026-08-26 and this constant stayed at the build
+#: that close had just *promoted* — so for five days it named `FORK_PIN` itself,
+#: `a_round_is_reviewing_a_build()` answered False (correctly), and the acceptance
+#: script's `expect-ripper-under-review` demanded a binary the fork had already
+#: superseded. The fork's round-15 lap 1 §3 read it off our own rig log.
+#:
+#: **The mechanism was never the problem and adding one would be the wrong fix.**
+#: `tests/test_handshake_pin_under_review.py` derives this value from the newest
+#: committed inbound lap, which is precisely what the fork proposed (*"if that
+#: value can be read from our `release-manifest.json` … it stops needing an edit
+#: per round"*) — one key, one checker. What it cannot do is know about a round
+#: whose opener has not arrived: between a close and the next opener there is no
+#: newer lap to derive from, so the constant is *correct* and *stale* at the same
+#: time. That window is real and this is what it costs; the fix that would close
+#: it is a round-16 conversation about what the constant should say when no round
+#: is open, not another copy of the value.
+PIN_UNDER_REVIEW: Final[str] = "978f9b0"
 
 #: The fork's **test pin** — a build designated to gather the hardware evidence a
 #: close requires, which is *not* a release and never moves :data:`FORK_PIN`.
@@ -671,6 +695,21 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         f"{FORK_BRANCH}-g796df32",
         f"{FORK_BRANCH}-gf2c0506",
         f"{FORK_BRANCH}-gd9c058c",
+        # ROUND 15's PIN. Backed by their `PROVIDER-CONTRACT.md` **as committed at
+        # `978f9b0`**, filed here as
+        # `docs/handshake/inbound/artifacts/round-15-lap-01-provider-contract-g978f9b0.md`
+        # (sha256 35fb586d4e28768b6c0eb44b2218a5806a4b224179850d8a08c2e8c96d6939d0),
+        # whose P1 table carries `-u` / `--consumer` at line 49 and `-Y` /
+        # `--verify-log` at line 95. Fetched from the pin itself rather than from
+        # their branch head, so the table is the one that tree publishes.
+        #
+        # **Its own `Build:` line reads `platterpus-fork-g009a573`, not `g978f9b0`.**
+        # Recorded rather than smoothed over: it is the round-6 shape that rule #12
+        # exists for — a generated document naming a commit other than the one it
+        # was committed at. It does not weaken this row, because a flag table is a
+        # fact about `src/` and their lap-1 §6 states `git diff 978f9b0 HEAD --
+        # src/` is empty; it is reported back to them in our lap 2 as information.
+        f"{FORK_BRANCH}-g978f9b0",
     }
 )
 
@@ -939,7 +978,15 @@ TEST_TARGET: Final[ForkTarget] = ForkTarget(
 #: wrong version string here would be caught rather than believed.
 UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     pin=PIN_UNDER_REVIEW,
-    version="0.9.4-rc2+platterpus.10",
+    # Round 15's pairing, from their lap-1 wire header lines 10–11:
+    # `cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-g978f9b0)`. Read off the
+    # artifact. **This field and `pin` above must move together** — they name one
+    # build, and a version rendered against a different commit is the mis-pairing
+    # of 2026-08-18 (every field true, the sentence false). It said
+    # `+platterpus.10` while `pin` had moved for about as long as it took to
+    # notice, which is why the pairing is now asserted by
+    # `tests/test_fork_source.py` against the newest inbound lap rather than read.
+    version="0.9.4-rc2+platterpus.11",
     # **DERIVED, NOT ASSERTED.** This sentence used to read "round 14 is the round
     # that would [approve it], and it is open" — a hard-coded claim about round
     # state, which went false the moment round 14 closed and `PIN_UNDER_REVIEW`

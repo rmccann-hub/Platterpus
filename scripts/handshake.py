@@ -157,7 +157,15 @@ INBOUND_SECTIONS: tuple[Section, ...] = (
         "I",
         "Provider contract",
         "the mirror of our consumer contract",
-        keywords=("provider contract",),
+        # `provider-contract` is the hyphenated spelling of the artifact's own
+        # FILENAME, and leaving it out made this check report ABSENT on a lap whose
+        # §4 was *entirely about* the provider contract and found a defect in it
+        # (round 15 lap 1, `PROVIDER-CONTRACT.md` at `978f9b0`). A subject floor
+        # that cannot recognise the subject when it is named by its filename is the
+        # false-positive twin of §G's "Asks back": that one passed for the wrong
+        # reason, this one failed for the wrong reason, and a gate that cries wolf
+        # gets an allowlist and stops meaning anything.
+        keywords=("provider contract", "provider-contract"),
     ),
     Section(
         "J",
@@ -537,20 +545,48 @@ def _inbound_spec_markdown() -> str:
 
 
 def _fork_pin() -> str:
-    """The pinned fork commit, read from the product rather than retyped here.
+    """The fork commit this round is ABOUT, read from the product, never retyped.
 
     A skeleton that names a pin the code does not build is the drift this whole
     protocol exists to prevent, so the value comes from `deps/fork_source.py`.
+
+    **Which constant, and why it is not always `FORK_PIN`.** `HANDSHAKE-PIN` is
+    the pin *under review for the round* — the fork's own lap 1 of round 15 puts
+    `978f9b0` there while their production history holds others. This function
+    returned `FORK_PIN` unconditionally, which is the same value **only while no
+    round is open**, because closing a round is the act of making them equal. So
+    the field was right for fourteen rounds by coincidence of timing and would
+    have gone out naming `d9c058c` into a round whose entire subject is
+    `978f9b0` — our own skeleton contradicting the lap it was written to answer.
+
+    Same defect class as the acceptance header's (`tests/test_rig_scripts.py`,
+    2026-09-01): two surfaces answering *"which build is this about?"* from two
+    constants that agree until the day they do not. `CLAUDE.md`: *do two surfaces
+    answer this question, and do they use the same key?*
     """
     from platterpus.deps import fork_source  # noqa: PLC0415
 
+    if fork_source.a_round_is_reviewing_a_build():
+        return fork_source.PIN_UNDER_REVIEW
     return fork_source.FORK_PIN
 
 
 def _fork_banner() -> str:
-    """The exact banner the pinned build prints. Same reason as :func:`_fork_pin`."""
+    """The exact banner the ROUND'S build prints. Same reason as :func:`_fork_pin`.
+
+    Branches on the same predicate, and it has to: `HANDSHAKE-RIPPER-VERSION` and
+    `HANDSHAKE-PIN` are two halves of one statement, so one following the round
+    and the other following production would have emitted
+    `+platterpus.10 (…gd9c058c)` beside `HANDSHAKE-PIN: 978f9b0` — a banner and a
+    pin that no single binary has ever printed together. Composed from
+    `UNDER_REVIEW_TARGET`, whose `pin` and `version` are held to the newest
+    inbound lap as a pair rather than separately.
+    """
     from platterpus.deps import fork_source  # noqa: PLC0415
 
+    if fork_source.a_round_is_reviewing_a_build():
+        target = fork_source.UNDER_REVIEW_TARGET
+        return f"cyanrip {target.version} ({fork_source.FORK_BRANCH}-g{target.pin})"
     return fork_source.FORK_EXPECTED_BANNER
 
 
@@ -817,7 +853,7 @@ RETROSPECTIVE_ROUNDS: frozenset[int] = frozenset({1, 2, 3})
 #: Staleness fails in the SAFE direction: a value left behind reports a closed
 #: round as open and blocks a release, which is a conversation. The other
 #: direction ships.
-CURRENT_ROUND: Final[int] = 14
+CURRENT_ROUND: Final[int] = 15
 
 
 # --- The shared wire format (protocol §8) -----------------------------------

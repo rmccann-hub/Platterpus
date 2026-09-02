@@ -75,6 +75,7 @@ text is taken verbatim as one value.
 | `expect-status` | 1+ (rest of line) | ready | expect-status <text> — assert the rip status line (the one under the Overall progress bar) contains text, case-insensitively |
 | `expect-refused` | 2+ (rest of line) | ready | expect-refused <setting> <value> — assert the validator REFUSES this value and leaves the setting unchanged (the pass condition is a refusal) |
 | `expect-ripper-under-review` | 0 | ready | expect-ripper-under-review — assert the installed cyanrip is the build the handshake record names: the build under review while a round is open, and the approved production pin between rounds (run a `cyanrip --version` first) |
+| `probe-ripper-wrapper` | 0 | ready | probe-ripper-wrapper — time the host-exported ripper wrapper, the container entry and the in-container binary to find which one fails to exit. Records the verdict; never fails the run |
 | `expect-tracks` | 1 | ready | expect-tracks <count|count+> — assert how many track rows are loaded; a trailing '+' means 'at least this many', which is what a script that must work on any disc actually wants |
 | `cyanrip` | 1+ (rest of line) | ready | cyanrip <args…> — run the host-exported ripper for real and capture its exit code, exact argv and complete output |
 | `expect-cyanrip` | 1+ (rest of line) | ready | expect-cyanrip <text> — assert the last cyanrip output contains text |
@@ -584,6 +585,15 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-ripper-under-review \u2014 assert the installed cyanrip is the build the handshake record names: the build under review while a round is open, and the approved production pin between rounds (run a `cyanrip --version` first)"
+    },
+    {
+      "name": "probe-ripper-wrapper",
+      "min_args": 0,
+      "max_args": 0,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "probe-ripper-wrapper \u2014 time the host-exported ripper wrapper, the container entry and the in-container binary to find which one fails to exit. Records the verdict; never fails the run"
     },
     {
       "name": "expect-tracks",

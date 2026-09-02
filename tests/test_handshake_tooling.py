@@ -502,8 +502,26 @@ def test_the_real_record_has_no_round_left_open_behind_a_closed_one(
     #
     # What the floor actually wants is that *we participated*: an outbound file OR
     # a verification. A round with neither is the hole it was written to catch.
+    #
+    # **The NEWEST round is exempt, and only the newest.** When the provider opens
+    # a round, there is a real interval between filing their opener and sending our
+    # reply — and during it we have neither an outbound file nor a verification, so
+    # the assertion below fired on the ordinary state of a round in progress. It
+    # did, on round 15, for a record that had nothing wrong with it. A gate whose
+    # failure state is "work is underway" is a gate that gets ignored.
+    #
+    # Scoped to the newest round on purpose: an older round in this state is the
+    # round-3 hole this test exists for, and stays a failure. The exemption also
+    # requires their file to be present (`returned=yes`), so "no files at all" is
+    # still a hole — otherwise the exemption would swallow the floor it sits under,
+    # which is *"can this check be satisfied by finding nothing?"* arriving through
+    # the exemption rather than the assertion.
     holes = [
-        ln for ln in rounds if "sent=yes" not in ln and "we-verified=yes" not in ln
+        ln
+        for ln in rounds
+        if "sent=yes" not in ln
+        and "we-verified=yes" not in ln
+        and not (number(ln) == newest and "returned=yes" in ln)
     ]
     assert not holes, (
         "a round exists that we neither opened nor answered: " + "; ".join(holes)
@@ -2409,4 +2427,73 @@ def test_our_pin_names_a_commit_that_survives_the_squash_merge(hs: ModuleType) -
         "squash-merge discards branch commits, so a pin taken from a branch names "
         "a commit only this clone has — the peer cannot fetch it. Take the pin "
         "after the merge, or search the published history first."
+    )
+
+
+def test_the_skeleton_names_the_round_it_is_ABOUT_not_the_production_pin(
+    hs: ModuleType,
+) -> None:
+    """**`HANDSHAKE-PIN` is the pin under review, and it was read from production.**
+
+    `_fork_pin()` returned `FORK_PIN` unconditionally. That is the *same value* as
+    `PIN_UNDER_REVIEW` while no round is open — closing a round is the act of
+    making them equal — so fourteen rounds of correct output proved nothing about
+    the branch that matters. The first open round after the split (round 15, whose
+    subject is `978f9b0`) would have emitted `HANDSHAKE-PIN: d9c058c`: our own
+    skeleton naming a different build from the lap it exists to answer.
+
+    Both halves are asserted, because the banner and the pin are one statement.
+    `HANDSHAKE-RIPPER-VERSION` was composed from `FORK_EXPECTED_BANNER` — also
+    production — so the pair could have gone out as `+platterpus.10 (…gd9c058c)`
+    beside `HANDSHAKE-PIN: 978f9b0`, a combination no binary has ever printed.
+
+    Driven through BOTH branches with a monkeypatch, since only one is reachable
+    from the live record on any given day, and a branch nothing runs is a branch
+    nobody has run.
+    """
+    from platterpus.deps import fork_source
+
+    text = hs.emit_outbound(99)
+    expected_pin = (
+        fork_source.PIN_UNDER_REVIEW
+        if fork_source.a_round_is_reviewing_a_build()
+        else fork_source.FORK_PIN
+    )
+    assert f"HANDSHAKE-PIN: {expected_pin}" in text, (
+        f"the skeleton does not declare the pin the record says this round is "
+        f"about ({expected_pin!r}):\n"
+        + "\n".join(
+            line for line in text.splitlines() if line.startswith("HANDSHAKE-PIN")
+        )
+    )
+    # The banner must name the same commit — parsed out rather than substring-
+    # matched, so "the tag appears somewhere in the file" cannot satisfy it.
+    banner = re.search(
+        r"^HANDSHAKE-RIPPER-VERSION:.*\((?P<tag>[^)]+)\)", text, re.MULTILINE
+    )
+    assert banner is not None, "the skeleton declares no parseable ripper banner"
+    assert banner.group("tag").strip().endswith(expected_pin), (
+        f"HANDSHAKE-PIN says {expected_pin!r} but the banner names "
+        f"{banner.group('tag').strip()!r} — a pin and a banner from two different "
+        f"builds is the pairing defect, not a formatting nit"
+    )
+
+
+@pytest.mark.parametrize("round_open", [True, False])
+def test_both_branches_of_the_skeletons_pin_choice_are_exercised(
+    hs: ModuleType, monkeypatch: pytest.MonkeyPatch, round_open: bool
+) -> None:
+    """The branch the live record cannot reach today, driven explicitly.
+
+    With round 15 open, only the under-review arm runs above; when it closes,
+    only the production arm will. Neither state should leave half the logic
+    unexecuted, so both are forced here.
+    """
+    from platterpus.deps import fork_source
+
+    monkeypatch.setattr(fork_source, "a_round_is_reviewing_a_build", lambda: round_open)
+    text = hs.emit_outbound(99)
+    expected = fork_source.PIN_UNDER_REVIEW if round_open else fork_source.FORK_PIN
+    assert f"HANDSHAKE-PIN: {expected}" in text, (
+        f"round_open={round_open} should select {expected!r}"
     )
