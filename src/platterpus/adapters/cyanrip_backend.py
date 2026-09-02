@@ -1045,13 +1045,22 @@ def assert_numeric_args_in_range(argv: list[str]) -> None:
 
 #: Flags that make cyanrip print a version and exit, doing nothing else.
 #:
-#: Deliberately tiny and deliberately **not** including ``-I``: info-only mode
-#: still queries MusicBrainz without ``-N``, so it is a rip-adjacent path, not a
-#: probe. ``-V`` is here because builds up to 0.9.3 accept it — a probe that must
-#: work across build shapes is the reason `tests/test_cyanrip_version_flag.py`
-#: exists — and listing it costs nothing: it prints a version on the builds that
-#: have it and is rejected outright on the builds that do not.
-_PURE_VERSION_FLAGS: frozenset[str] = frozenset({"--version", "-v", "-V"})
+#: **Derived from :data:`cyanrip_cli.VERSION_FLAGS`, never retyped.** The first
+#: version of this set spelled the flags out and
+#: `tests/test_cyanrip_version_flag.py` refused it — correctly: those flags live
+#: in one module precisely so a future rename is one edit, and a hand-written
+#: copy inside a *safety carve-out* is the worst place to keep a second one. It
+#: also caught me widening the set on my own authority: that copy included
+#: ``-v``, which is not in the canonical tuple. Nothing here sends ``-v``, and
+#: widening a guard's exemption to cover a flag no caller uses is the wrong
+#: direction for a guard — so ``-v`` is absent and an argv carrying it still
+#: needs ``-N``.
+#:
+#: Deliberately **not** including ``-I``: info-only mode still queries
+#: MusicBrainz without ``-N``, so it is a rip-adjacent path, not a probe. That
+#: exclusion is the whole reason this is its own named set rather than "any flag
+#: that looks informational".
+_PURE_VERSION_FLAGS: frozenset[str] = frozenset(VERSION_FLAGS)
 
 
 def _is_pure_version_probe(argv: list[str]) -> bool:

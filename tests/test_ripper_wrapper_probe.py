@@ -418,12 +418,41 @@ class TestTheArgvGuardCarveOut:
     """
 
     def test_a_bare_version_probe_is_allowed_through(self) -> None:
+        """Driven from the CANONICAL flag tuple, not from a list retyped here.
+
+        A test that spelled the flags out would be a third copy of the fact
+        `cyanrip_cli.VERSION_FLAGS` exists to hold once — and would keep passing
+        against a carve-out that had drifted from it.
+        """
         from platterpus.adapters.cyanrip_backend import (
             assert_metadata_lookup_disabled,
         )
+        from platterpus.cyanrip_cli import VERSION_FLAGS
 
-        for flag in ("--version", "-v", "-V"):
+        assert VERSION_FLAGS, "no version flags at all — this test measures nothing"
+        for flag in VERSION_FLAGS:
             assert_metadata_lookup_disabled(["cyanrip", flag])  # must not raise
+
+    def test_a_flag_outside_the_canonical_tuple_is_not_exempt(self) -> None:
+        """**The half I got wrong first time, and the direction matters.**
+
+        My first carve-out included `-v`, which is not in `VERSION_FLAGS`. The
+        fork's own contract note says `-v` prints a banner, so it was a
+        *plausible* addition — and it was still wrong, because nothing in this
+        codebase sends `-v`, and widening a safety exemption to cover a flag no
+        caller uses buys nothing and costs the guard's narrowness. Asserted so a
+        future reader cannot re-widen it by looking at the same contract note.
+        """
+        from platterpus.adapters.cyanrip_backend import (
+            RipError,
+            assert_metadata_lookup_disabled,
+        )
+        from platterpus.cyanrip_cli import VERSION_FLAGS
+
+        if "-v" in VERSION_FLAGS:  # pragma: no cover — a deliberate future change
+            pytest.skip("-v has been adopted into the canonical tuple")
+        with pytest.raises(RipError, match="without -N"):
+            assert_metadata_lookup_disabled(["cyanrip", "-v"])
 
     @pytest.mark.parametrize(
         "argv",
@@ -431,7 +460,7 @@ class TestTheArgvGuardCarveOut:
             # A rip smuggled in behind a harmless-looking prefix. THE case the
             # whole-argv check exists for.
             ["cyanrip", "--version", "-d", "/dev/sr0"],
-            ["cyanrip", "-v", "-s", "6"],
+            ["cyanrip", "-V", "-s", "6"],
             # `-I` reads like "just print info" and is NOT a probe: info-only
             # mode queries MusicBrainz unless -N is given, which is the prompt
             # this guard prevents.
@@ -460,6 +489,10 @@ class TestTheArgvGuardCarveOut:
 
         assert _is_pure_version_probe(["cyanrip", "--version"]) is True
         assert _is_pure_version_probe(["cyanrip"]) is False
+        # A trailing empty string is still a second argument. This is the case a
+        # length check catches and a "does it contain a version flag" check does
+        # not, and argv elements arrive from string building often enough that an
+        # accidental "" is a real shape rather than a contrived one.
         assert _is_pure_version_probe(["cyanrip", "--version", ""]) is False
         assert _is_pure_version_probe(["cyanrip", "-I"]) is False
 
