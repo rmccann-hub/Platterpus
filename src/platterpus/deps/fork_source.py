@@ -696,19 +696,23 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         f"{FORK_BRANCH}-gf2c0506",
         f"{FORK_BRANCH}-gd9c058c",
         # ROUND 15's PIN. Backed by their `PROVIDER-CONTRACT.md` **as committed at
-        # `978f9b0`**, filed here as
-        # `docs/handshake/inbound/artifacts/round-15-lap-01-provider-contract-g978f9b0.md`
-        # (sha256 35fb586d4e28768b6c0eb44b2218a5806a4b224179850d8a08c2e8c96d6939d0),
-        # whose P1 table carries `-u` / `--consumer` at line 49 and `-Y` /
+        # `978f9b0`** (sha256
+        # 35fb586d4e28768b6c0eb44b2218a5806a4b224179850d8a08c2e8c96d6939d0), whose
+        # P1 table carries `-u` / `--consumer` at line 49 and `-Y` /
         # `--verify-log` at line 95. Fetched from the pin itself rather than from
         # their branch head, so the table is the one that tree publishes.
         #
-        # **Its own `Build:` line reads `platterpus-fork-g009a573`, not `g978f9b0`.**
-        # Recorded rather than smoothed over: it is the round-6 shape that rule #12
-        # exists for — a generated document naming a commit other than the one it
-        # was committed at. It does not weaken this row, because a flag table is a
-        # fact about `src/` and their lap-1 §6 states `git diff 978f9b0 HEAD --
-        # src/` is empty; it is reported back to them in our lap 2 as information.
+        # **It is filed under `g009a573`, not `g978f9b0`, and that is not a typo.**
+        # Its own `Build:` line reads `platterpus-fork-g009a573` — a generated
+        # document naming a commit other than the one it was committed at, which
+        # is the round-6 provenance shape rule #12 exists for. `tests/
+        # test_handshake_artifact_naming.py` caught the first filing and is right
+        # to: only the banner is derivable from the content, so the filename names
+        # the build the ARTIFACT asserts. **The mismatch is why this comment
+        # cannot cite the filename as evidence about `978f9b0`** — what licenses
+        # the row is the flag table being a fact about `src/`, plus their lap-1 §6
+        # statement that `git diff 978f9b0 HEAD -- src/` is empty. Reported back
+        # to them in our lap 2 as information, not proposed as blocking.
         f"{FORK_BRANCH}-g978f9b0",
     }
 )

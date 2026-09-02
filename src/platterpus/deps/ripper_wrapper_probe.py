@@ -161,6 +161,32 @@ _WRAPPER_LABELS: Final[frozenset[str]] = frozenset(
 _DIRECT_LABELS: Final[frozenset[str]] = frozenset({"in-container binary"})
 
 
+def _looks_like_the_ripper(argv: list[str]) -> bool:
+    """Does this argv start a cyanrip, directly or through the container entry?
+
+    Both shapes count, and missing the second one would be the whole point: the
+    `distrobox-enter -n ripping -- /usr/local/bin/cyanrip --version` form reaches
+    the ripper just as surely as the host export does, and a guard that only
+    recognised the obvious spelling would wave the interesting one through.
+    """
+    return any(Path(part).name.startswith("cyanrip") for part in argv)
+
+
+def _ripper_argv_tail(argv: list[str]) -> list[str]:
+    """The cyanrip argv, with any container-entry prefix stripped off.
+
+    The chokepoint reasons about *cyanrip's* arguments, so handing it
+    ``[distrobox-enter, -n, ripping, --, cyanrip, --version]`` would have it
+    inspect `-n` and `ripping` as if cyanrip had received them. Sliced from the
+    first cyanrip-looking element so both invocation shapes reduce to the same
+    thing before the guard sees them.
+    """
+    for index, part in enumerate(argv):
+        if Path(part).name.startswith("cyanrip"):
+            return list(argv[index:])
+    return list(argv)
+
+
 def _bounded(text: str) -> str:
     """Head + tail, with any elision COUNTED and marked. Never a silent drop."""
     if len(text) <= _OUTPUT_HEAD_CHARS + _OUTPUT_TAIL_CHARS:
@@ -187,6 +213,33 @@ def run_one(
     group. That mistake is recorded in `CLAUDE.md`'s threading rules.
     """
     started = time.monotonic()
+    # **THE OUTBOUND CHOKEPOINT, delegated to rather than restated.** This module
+    # can start the ripper (`~/.local/bin/cyanrip --version`), so it is a new
+    # route to it, and `CLAUDE.md` is explicit that a new route re-establishes
+    # the guard by *calling* the one implementation — a second copy of a safety
+    # check is a second thing to drift, which is how the script verb became a
+    # hole. The chokepoint accepts a bare version probe (see
+    # `_is_pure_version_probe`) and refuses anything richer that lacks `-N`, so
+    # a future edit that appends a device or a track range to one of these argvs
+    # fails here instead of hanging on an interactive prompt at 2am.
+    if _looks_like_the_ripper(argv):
+        from platterpus.adapters.cyanrip_backend import (  # noqa: PLC0415
+            assert_metadata_lookup_disabled,
+        )
+
+        try:
+            assert_metadata_lookup_disabled(_ripper_argv_tail(argv))
+        except Exception as exc:  # noqa: BLE001 — refuse, but as data not a crash
+            _log.error("wrapper probe %r refused by the argv guard: %s", label, exc)
+            return ProbeOutcome(
+                label=label,
+                argv=tuple(argv),
+                verdict=Verdict.NOT_DETERMINED,
+                exit_code=None,
+                elapsed_s=time.monotonic() - started,
+                output="",
+                skipped_reason=f"refused by the argv guard: {exc}",
+            )
     try:
         proc = subprocess.Popen(  # noqa: S603 — argv is built here, never user text
             argv,

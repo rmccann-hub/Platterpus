@@ -1062,7 +1062,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "adapters/cache_probe.py": 372,
     "adapters/cover_art.py": 566,
     "adapters/ctdb_client.py": 332,
-    "adapters/cyanrip_backend.py": 1352,
+    "adapters/cyanrip_backend.py": 1393,
     "adapters/musicbrainz_client.py": 524,
     "adapters/rip_backend.py": 585,
     "adapters/ripper_log_verify.py": 414,
@@ -1073,7 +1073,16 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "cue_validate.py": 1257,
     "cyanrip_cli.py": 327,
     "deps/checks.py": 437,
-    "deps/fork_source.py": 1627,
+    "deps/fork_source.py": 1678,
+    # One job, stated as a question: *which link in the ripper chain fails to
+    # exit?* The four parts — spawn one invocation under a deadline, orchestrate
+    # the four invocations, decide the narrowest verdict they support, render the
+    # record — are the steps of that single answer, and splitting the decision
+    # table away from the observations it reads would put a claim and its
+    # evidence in different files. Roughly 40% of the lines are the comments
+    # explaining why each bound and each tri-state is there, which the cohesion
+    # heuristic is explicitly not meant to punish.
+    "deps/ripper_wrapper_probe.py": 510,
     "deps/host_setup.py": 663,
     "deps/host_teardown.py": 343,
     "deps/ripper_manifest.py": 608,
@@ -1088,7 +1097,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "naming.py": 315,
     "parsers/cyanrip_log.py": 2728,
     "parsers/rip_log.py": 802,
-    "preflight.py": 834,
+    "preflight.py": 905,
     "read_speed_ladder.py": 367,
     "report_types.py": 667,
     "rig_check.py": 773,
@@ -1117,9 +1126,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ui/rip_progress.py": 1658,
     "ui/settings_dialog.py": 1303,
     "ui/track_table.py": 802,
-    "uiscript/runner.py": 2846,
+    "uiscript/runner.py": 2890,
     "uiscript/script.py": 318,
-    "uiscript/verbs.py": 509,
+    "uiscript/verbs.py": 533,
     "update_install.py": 304,
     "verdict.py": 521,
     "workers/rip_worker.py": 3285,

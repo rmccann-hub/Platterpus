@@ -32,6 +32,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   than waited on. A hang is a WARN and the script step records `info`: the app
   pipes its I/O and is unaffected, so failing there would abort a six-hour pass
   over something that changes no rip.
+- **A narrow version-probe carve-out in the argv chokepoint**, because the probe
+  above is a **new route to the ripper** and `CLAUDE.md` requires a new route to
+  re-establish the guard by *calling* the one implementation, never by carrying
+  its own rule. `assert_metadata_lookup_disabled` refuses any cyanrip argv
+  without `-N`; a bare `--version` provably cannot do a lookup (cyanrip handles
+  it inside `GEN_OPT_PARSE` and returns before anything is initialised), so the
+  guard now accepts an argv that is **nothing but** the binary plus one
+  pure-output version flag, and refuses anything richer. Keyed on the whole argv,
+  so `--version -d /dev/sr0` is still refused — a flag-presence check would have
+  let a rip in behind a harmless prefix. **`-I` is deliberately not in that set:**
+  it reads like "just print info" but info-only mode still queries MusicBrainz
+  without `-N`, which is the interactive prompt the guard exists to prevent. The
+  probe is enumerated in `SPAWN_SITES` as ripper-capable, by both spellings — the
+  host export and the `distrobox-enter … cyanrip` form.
 - **`Outcome.INFO`** for script steps that gather rather than assert, so a
   hanging wrapper is not reported as `[  ok  ]` — a transcript claiming an
   assertion held where none was made.
