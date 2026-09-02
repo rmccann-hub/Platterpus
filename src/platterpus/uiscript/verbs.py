@@ -338,6 +338,30 @@ _VERB_LIST: tuple[Verb, ...] = (
         "`cyanrip --version` first)",
     ),
     Verb(
+        # `probe-ripper-wrapper` — the fork's round-15 §2 three commands, as a
+        # verb rather than as three lines an operator pastes into a terminal.
+        #
+        # A VERB, not a flag, and `CLAUDE.md` is explicit about which is the
+        # default: *"the entire point of adding the ability to run scripts is for
+        # this. you dont need to build special arguements unless absolutely
+        # needed."* The one thing that had to be true for a flag — that no GUI
+        # exists at that point — is false here; the acceptance session is exactly
+        # where this answer is wanted, because it lands in the single file the
+        # operator uploads. The `--doctor` row is the *second* thin caller of the
+        # same `ripper_wrapper_probe.probe()`, never a second implementation.
+        #
+        # NEVER FAILS THE RUN. A hanging wrapper does not stop the app ripping
+        # (the app pipes its I/O), so a FAIL here would abort a six-hour pass over
+        # something that does not affect a single rip. It records what it found and
+        # moves on; the verdict is read out of the transcript.
+        "probe-ripper-wrapper",
+        0,
+        0,
+        "probe-ripper-wrapper — time the host-exported ripper wrapper, the "
+        "container entry and the in-container binary to find which one fails to "
+        "exit. Records the verdict; never fails the run",
+    ),
+    Verb(
         "expect-tracks",
         1,
         1,

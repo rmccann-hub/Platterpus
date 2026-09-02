@@ -13,7 +13,72 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [0.6.33] — 2026-09-01
 
+### Added
+- **The app now finds out for itself which link in the ripper chain fails to
+  exit** — `probe-ripper-wrapper` in the script language, plus a *Ripper wrapper
+  exits* row in `--doctor`, both thin callers of one
+  `deps/ripper_wrapper_probe.py`. Two consecutive rig mornings (2026-08-26,
+  2026-08-27) produced **zero rips** and neither failed at ripping: both ended
+  mid-probe with `~/.local/bin/cyanrip --version` printing its banner in full
+  and then never returning. The cyanrip fork established three independent ways
+  the hang is not cyanrip — the strongest being that our own installer reads that
+  banner through a command substitution, which blocks until the child exits and
+  demonstrably returned — and asked for three shell commands to be run by hand.
+  `CLAUDE.md` forbids handing that back, so the acceptance script runs them and
+  the verdict lands in the one file the operator uploads. Tri-state
+  (`exits`/`hangs`/`not_determined`), every probe's exact argv and tri-state exit
+  code recorded, output bounded head **and** tail with any elision counted, and
+  the group SIGKILL escalation bounded so an unreapable child is reported rather
+  than waited on. A hang is a WARN and the script step records `info`: the app
+  pipes its I/O and is unaffected, so failing there would abort a six-hour pass
+  over something that changes no rip.
+- **`Outcome.INFO`** for script steps that gather rather than assert, so a
+  hanging wrapper is not reported as `[  ok  ]` — a transcript claiming an
+  assertion held where none was made.
+
+### Changed
+- **cyanrip handshake round 15 is open, and the pin under review rolled from
+  `d9c058c` to `978f9b0`** (`cyanrip 0.9.4-rc2+platterpus.11`, `release_seq` 21,
+  channel *stable*). Their round-15 lap 1 is filed, along with the
+  `PROVIDER-CONTRACT.md` committed at that pin — which is what backs the new
+  `--consumer` capability row rather than anyone's assumption. The acceptance
+  script's `expect-ripper-under-review` reads that constant, so on 0.6.32 it
+  refused the build the fork had already released: their lap quotes our own rig
+  log saying so.
+
 ### Fixed
+- **`handshake.py --check` reported §I ABSENT on a lap whose §4 was entirely
+  about the provider contract.** Its subject floor matched only the spaced
+  spelling *"provider contract"*, never `PROVIDER-CONTRACT.md` — the artifact's
+  own filename. This is the false-positive twin of the §G defect round 6 found:
+  that one passed for the wrong reason, this one failed for the wrong reason, and
+  a subject floor that cannot recognise the subject when it is named by its
+  filename is how a gate earns an allowlist and stops meaning anything.
+- **The handshake skeleton would have named the wrong build into an open
+  round.** `HANDSHAKE-PIN` and `HANDSHAKE-RIPPER-VERSION` were both read from the
+  *production* pin, which equals the pin under review **only while no round is
+  open** — closing a round is the act of making them equal — so fourteen rounds
+  of correct output proved nothing about the branch that matters. Round 15 opening
+  on `978f9b0` would have emitted `HANDSHAKE-PIN: d9c058c` beside a
+  `+platterpus.10` banner: a pin and a banner no single binary has ever printed,
+  in the lap written to answer that round. Both now follow the round, driven
+  through each branch by a monkeypatched test since only one is reachable on any
+  given day.
+- **`UNDER_REVIEW_TARGET.version` had no checker and had already gone stale.**
+  The pin beside it rolled while the version still read round 14's — the
+  2026-08-18 mis-pairing shape exactly (*every field true, the sentence false*),
+  and that string is what `--install-ripper` labels the build it compiles. Both
+  halves are now derived from the same inbound lap, which is the relation neither
+  constant's own test could express.
+- **The acceptance script's header named a cyanrip build**, and on 0.6.32 it
+  named the one the fork had superseded — so it warned operators off the build
+  round 15 had opened on. The header now names none: the file ships *inside* a
+  release, so anything written there freezes on build day and cannot learn that
+  the answer moved, which made currency enforceable only in the one place it
+  could not be delivered. The test that used to *require* the tag now forbids it,
+  and the prose sweep covers comments as well as steps — the half a step parser
+  cannot see, and the half the operator actually reads.
+
 - **The in-app User Guide never mentioned the acceptance session** — zero
   occurrences of the word. Its testing section walked the reader to *Tools → Run
   test script…* and then to `--rig-session FOLDER`, **a command line**, as the

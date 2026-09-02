@@ -30,10 +30,21 @@ class Outcome(StrEnum):
     ERROR = "error"  # the step could not run — our problem, not the script's
     SKIPPED = "skipped"  # never reached (the batch aborted before it)
     BLOCKED = "blocked"  # refused: needs the escape hatch the user has not enabled
+    # A step that GATHERS rather than asserts. Added for `probe-ripper-wrapper`,
+    # whose whole job is to record which link in the ripper chain fails to exit —
+    # a fact worth having in the transcript and never a reason to fail a run,
+    # because it changes no rip. Distinguishing it from PASS matters for honesty
+    # in the other direction too: `[  ok  ]` beside a hanging wrapper would be a
+    # transcript claiming an assertion held when none was made.
+    INFO = "info"
 
 
 #: Outcomes that mean the step ran and did what it said.
-GOOD: frozenset[Outcome] = frozenset({Outcome.PASS})
+#:
+#: `INFO` belongs here: the step's contract is *"obtain a verdict"*, and it did.
+#: Excluding it would count every gather-only step against the run's own tally
+#: and make an acceptance pass look worse the more diagnostics it collected.
+GOOD: frozenset[Outcome] = frozenset({Outcome.PASS, Outcome.INFO})
 
 
 @dataclass
@@ -196,6 +207,7 @@ def render(report: RunReport) -> str:
             Outcome.ERROR: "ERROR ",
             Outcome.SKIPPED: " skip ",
             Outcome.BLOCKED: "BLOCK ",
+            Outcome.INFO: " info ",
         }[step.outcome]
         line = f"[{mark}] L{step.line_no:<4} {step.source}"
         if step.elapsed_s >= 0.05:

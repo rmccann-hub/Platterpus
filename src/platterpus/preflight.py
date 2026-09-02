@@ -613,6 +613,73 @@ def check_read_offset(
     )
 
 
+def check_ripper_wrapper_exits(
+    *, run_probe: Callable[[], object] | None = None
+) -> CheckResult:
+    """Does the host-exported ripper wrapper EXIT when cyanrip does?
+
+    **This check exists because two consecutive rig mornings produced zero
+    rips** — 2026-08-26 and 2026-08-27 — and neither failed at ripping. Both
+    ended mid-probe at the ripper banner: `~/.local/bin/cyanrip --version`
+    printed its version in full and then did not return, until a 60-second
+    `timeout` killed it (exit 137). The cyanrip fork established three
+    independent ways that the hang is not in cyanrip (their round-15 lap 1 §2),
+    the strongest being that *our own* installer reads the banner through a
+    command substitution, which blocks until the child exits and demonstrably
+    returned.
+
+    Their ask was three shell commands for the maintainer to run. `CLAUDE.md`:
+    *never hand back an instruction file* — every "now run this, then run that"
+    is a thing the software was supposed to do. So the app runs them.
+
+    **A hang here is a WARN, not a FAIL, and that is a deliberate line.** The
+    app's own invocations pipe their I/O and are not affected — `--doctor`
+    reaching this check at all proves the routing works, because
+    `check_backend_routing` above ran the wrapper successfully. What a hang
+    breaks is *anything invoking the export from an interactive shell*, which is
+    a real and diagnosable problem but not a blocker on ripping. Calling it a
+    blocker would stop a rig that can, in fact, rip.
+
+    `NOT_DETERMINED` is reported as SKIP rather than OK: a wrapper we could not
+    test is not a working wrapper.
+    """
+    from platterpus.deps import ripper_wrapper_probe  # noqa: PLC0415
+
+    probe = run_probe or ripper_wrapper_probe.probe
+    try:
+        report = probe()
+    except Exception as exc:  # noqa: BLE001 — a diagnostic must not crash the doctor
+        return CheckResult(
+            "Ripper wrapper exits",
+            Status.SKIP,
+            "could not run the wrapper probe",
+            detail=str(exc),
+        )
+    verdict = getattr(report, "verdict", None)
+    summary = getattr(report, "summary", "")
+    detail = ripper_wrapper_probe.render(report)  # type: ignore[arg-type]  # duck-typed
+    if verdict is ripper_wrapper_probe.Verdict.EXITS:
+        return CheckResult("Ripper wrapper exits", Status.OK, summary)
+    if verdict is ripper_wrapper_probe.Verdict.HANGS:
+        return CheckResult(
+            "Ripper wrapper exits",
+            Status.WARN,
+            summary,
+            detail=detail,
+            hint=(
+                "Ripping is unaffected — the app pipes its I/O. Redirect stdin "
+                "when calling the export by hand: "
+                "`~/.local/bin/cyanrip --version < /dev/null`."
+            ),
+        )
+    return CheckResult(
+        "Ripper wrapper exits",
+        Status.SKIP,
+        summary or "not determined",
+        detail=detail,
+    )
+
+
 def check_drive_access(
     *, diagnose: Callable[[], object] = diagnose_drive_access
 ) -> CheckResult:
@@ -756,6 +823,10 @@ def run_preflight(
     emit(check_backend_build(ctx.backend, backend_name=ctx.backend_name))
     emit(check_drives(ctx.backend))
     emit(check_read_offset(ctx.cfg, backend_name=ctx.backend_name))
+    # After the routing check, deliberately: this probe only makes sense once we
+    # know the wrapper can be reached at all, and its own bounded deadlines are
+    # the reason a hang here costs seconds rather than the whole doctor run.
+    emit(check_ripper_wrapper_exits())
     emit(check_drive_access())
     if network:
         emit(check_musicbrainz(ctx.mb_client))

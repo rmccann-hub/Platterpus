@@ -2213,6 +2213,50 @@ class ScriptRunner(QObject):
             f"{_bounded_output(self._last_cyanrip_output)}",
         )
 
+    def _do_probe_ripper_wrapper(self, step: Step) -> None:
+        """``probe-ripper-wrapper`` — which link in the chain fails to exit.
+
+        **The fork's round-15 §2 ask, absorbed.** Two consecutive rig mornings
+        produced zero rip artifacts because a probe of
+        ``~/.local/bin/cyanrip --version`` printed its banner and then never
+        returned. Their lap established three independent ways the hang is not in
+        cyanrip and asked the maintainer to run three shell commands. `CLAUDE.md`
+        forbids handing that back: *every "now run this, then run that" in a
+        written procedure is a thing the software was supposed to do.*
+
+        **It never records FAIL, and that is deliberate rather than lenient.** A
+        wrapper that hangs from an interactive shell does not affect the app,
+        which pipes its I/O — so the only thing a FAIL would achieve is aborting
+        a multi-hour pass over a condition that changes no rip. What matters is
+        that the verdict reaches the transcript, because the transcript is the
+        one file the operator uploads.
+
+        Runs on the script runner's own thread, which is not the GUI thread — the
+        probe spawns processes and bounds them, and doing that in a dialog slot is
+        the freeze this project has paid for three times.
+        """
+        from platterpus.deps import ripper_wrapper_probe
+
+        try:
+            report = ripper_wrapper_probe.probe()
+        except Exception as exc:  # noqa: BLE001 — a diagnostic must not end the run
+            log.exception("probe-ripper-wrapper: the probe itself failed")
+            self._record(
+                step,
+                Outcome.INFO,
+                f"the wrapper probe could not run: {exc!r} — recorded as "
+                f"not determined, which is not a pass",
+            )
+            return
+        # The whole rendered record, not just the verdict: a diagnosis we captured
+        # and did not surface is the same bug from the reader's side.
+        self._record(
+            step,
+            Outcome.INFO,
+            f"{report.verdict.value}: {report.summary}\n"
+            f"{ripper_wrapper_probe.render(report)}",
+        )
+
     def _do_expect_refused(self, step: Step) -> None:
         """``expect-refused <field> <value>`` — assert the validator refuses it.
 
