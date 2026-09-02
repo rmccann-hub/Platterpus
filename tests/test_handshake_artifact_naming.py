@@ -46,6 +46,27 @@ _BANNER: Final[re.Pattern[str]] = re.compile(
 #: The ``-g<build>`` field of the filename.
 _NAMED: Final[re.Pattern[str]] = re.compile(r"-g(?P<sha>[0-9a-f]{7,40})\.[a-z]+$")
 
+#: ``-a<hex>`` — the SOURCE-ANCHOR form, and the PREFERRED one.
+#:
+#: The cyanrip fork's round-15 lap 3 §2 made the case and it is right. A generated
+#: artifact *cannot* carry the hash of the commit that adds it, so its ``Build:``
+#: line always names the commit **before** — which is why filing by that tag
+#: produced `…-g009a573.md`, a name that could not be cited about `978f9b0`, the
+#: commit the artifact actually lives at. Their contract publishes a
+#: content-derived ``Source anchor:`` for exactly this problem, and a filename
+#: built from it is citable about *every* commit whose ``src/`` hashes to that
+#: value — `978f9b0` included, by construction.
+#:
+#: **We reported the build-tag mismatch as a provenance defect and were wrong**:
+#: the explanation sat eight lines below the line we quoted, in the file we had
+#: already fetched.
+_ANCHORED: Final[re.Pattern[str]] = re.compile(r"-a(?P<anchor>[0-9a-f]{8,64})\.[a-z]+$")
+
+#: ``**Source anchor:** `sha256/16 = <hex>``` as their generator prints it.
+_ANCHOR: Final[re.Pattern[str]] = re.compile(
+    r"Source anchor:\*\*\s*`sha256/16\s*=\s*(?P<anchor>[0-9a-f]{8,64})`"
+)
+
 #: **The rule binds artifacts filed from round 12 lap 3 onward.** Earlier ones are
 #: inventoried below rather than exempted one at a time, because they fall into two
 #: categories with two causes, and nine separate excuses would enforce nothing.
@@ -104,9 +125,21 @@ def naming_disagreement(name: str, text: str) -> str | None:
     and a file that declares a **different** one are different findings with
     different remedies (report it to the sender, versus rename it here).
     """
+    anchored = _ANCHORED.search(name)
+    if anchored is not None:
+        declared = _ANCHOR.search(text)
+        if declared is None:
+            return "filed under a source anchor, but the file declares none"
+        if declared.group("anchor") != anchored.group("anchor"):
+            return (
+                f"filed under anchor {anchored.group('anchor')} but the file "
+                f"declares {declared.group('anchor')}"
+            )
+        return None
+
     named = _NAMED.search(name)
     if named is None:
-        return "the filename carries no -g<build> field"
+        return "the filename carries no -g<build> or -a<anchor> field"
     banner = _BANNER.search(text)
     if banner is None:
         return "the file declares no platterpus-fork-g<commit> build at all"
@@ -127,7 +160,9 @@ def _artifacts() -> list[Path]:
     if not _ARTIFACTS.is_dir():
         return []
     return sorted(
-        p for p in _ARTIFACTS.iterdir() if p.is_file() and _NAMED.search(p.name)
+        p
+        for p in _ARTIFACTS.iterdir()
+        if p.is_file() and (_NAMED.search(p.name) or _ANCHORED.search(p.name))
     )
 
 
@@ -147,6 +182,18 @@ def test_the_filename_names_the_build_the_artifact_itself_asserts(
     Derived from the artifact's content, never from a lap file or a covering
     message — those are the two things that were wrong when this was written.
     """
+    # **An ANCHOR-named artifact is judged by `naming_disagreement` and nothing
+    # else.** The build-tag path below reasons about a banner, and an anchored
+    # name makes no claim about a banner at all — it claims the file describes a
+    # `src/` tree hashing to that value, which is a claim only the file's own
+    # `Source anchor:` line can confirm or refute.
+    if _ANCHORED.search(artifact.name):
+        reason = naming_disagreement(
+            artifact.name, artifact.read_text(encoding="utf-8", errors="replace")
+        )
+        assert reason is None, f"{artifact.name}: {reason}"
+        return
+
     named = _NAMED.search(artifact.name)
     assert named is not None  # guaranteed by the collector
     filed = _filed_at(artifact.name)

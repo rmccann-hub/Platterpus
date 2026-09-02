@@ -11,6 +11,49 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **`scripts/round_digest.py`** — the handshake round digest, adopting the cyanrip
+  fork's method wholesale after their round-15 lap 3 named the part that mattered.
+  Ours covered `docs/handshake/inbound/` only, and an inbox-only digest **can never
+  disagree about anything we sent** — the mirror of their own "a digest over our
+  outbox would agree with itself forever". A defect of *population*, which no care
+  about the algorithm repairs. Built from their written spec rather than their code
+  and then checked against both values they published: the empty record
+  (`01ba4719c80b6fe9`) and round 15 over two laps (`255ee9040a5d3778`), plus both
+  rows byte-for-byte. Carries both `--exclude` refusals — matching nothing, and
+  matching more than one, the second of which produces a digest over the wrong
+  population *at the same lap count*, which is the version that gets believed.
+- **`HANDSHAKE-FROM-COMMIT` reachability**, adopted from their §7 with their
+  distinction intact: **resolving is not reachable.** `git cat-file -e` passes on
+  any object a clone still holds, including one only the reflog keeps alive;
+  `merge-base --is-ancestor` asks whether the peer can fetch it. We had no check on
+  this field at all, and the sweep found `verified/round-09-lap-02.md` naming
+  `d97adae` — a squash-deleted branch commit that does not resolve here at all.
+  Prose values report `UNPROBED` out loud rather than passing silently.
+
+### Fixed
+- **The install menu's approval check was verdict-blind, and its "approved" set
+  contained nearly every pin ever discussed.** It built the set from every
+  `HANDSHAKE-PIN:` in the verification record without reading the verdict beside
+  it — so `2f950c8` (named only by **eleven** `HOLD` laps) and the withdrawn
+  round-7 test pins `c5fb909`, `f5e11ba` and `9048082` all counted as approved,
+  two of them retired by laps that said "INSTALL X, NOT Y". A set that large
+  cannot refuse anything. `CLAUDE.md` rule #12 obligation (1) is explicit — *a
+  round closes only when BOTH sides declare GO* — and the check now requires
+  both, with a missing peer verdict treated as absence rather than agreement.
+  Invisible until now because between rounds `PIN_UNDER_REVIEW == FORK_PIN`, so
+  no outbound lap had ever named a pin while a round was open; round 15's laps 2
+  and 4 are the first, and the old reading scored their `OPEN` as approval of the
+  build the round exists to review. **The rule is extracted and driven on all
+  seven verdict combinations**, because on the committed record the peer half is
+  *unaffected* by a revert probe — the only pin it excludes is one the menu does
+  not offer, so the half enforcing the bilateral rule had no real input at all.
+- **The second artifact-naming gate did not learn about source anchors**, so
+  refiling the fork's contract by its anchor turned it red. Two gates ask one
+  question — *does the filename assert a provenance the content supports?* — and
+  only the one being edited was taught. `docs/testing.md` §5.o at the scale of
+  two files.
+
 ### Changed
 - **cyanrip handshake round 15, lap 2 sent** — our half of the subject declared
   as `0.6.33` at `0a69732` (a subject correction the fork explicitly invited,
