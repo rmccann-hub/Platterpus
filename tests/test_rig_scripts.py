@@ -444,6 +444,85 @@ def test_the_morning_bundle_lands_where_the_operator_looks() -> None:
     )
 
 
+def approved_pin_declared_by(text: str) -> str | None:
+    """The pin a lap declares APPROVED, or ``None`` — **both verdicts, or neither**.
+
+    Extracted from the sweep below so the rule can be driven directly. It has to
+    be: on the committed record, requiring the peer verdict as well as ours is
+    *unaffected* by a revert probe — the only pin it excludes is `9048082`, a
+    withdrawn round-7 test pin the install menu does not offer. So the half of
+    this rule that enforces `CLAUDE.md` rule #12 obligation (1) has **no real
+    input that exercises it**, and a comment asserting it works is not a check.
+
+    The rule, from that obligation: *a round closes only when BOTH sides declare
+    GO — one side's GO against the other's HOLD is an open round.* A missing peer
+    verdict is therefore not a pass either; it is the "we did not record their
+    answer" state, which is the same one-half-of-a-two-half-contract failure.
+    """
+    pin = re.search(r"^HANDSHAKE-PIN:\s*([0-9a-f]{7,40})\b", text, re.M)
+    if pin is None:
+        return None
+    ours = re.search(r"^HANDSHAKE-VERDICT:\s*\**\s*(\w+)", text, re.M)
+    theirs = re.search(r"^HANDSHAKE-PEER-VERDICT:\s*\**\s*(\w+)", text, re.M)
+    if ours is None or theirs is None:
+        return None
+    if ours.group(1).upper() == "GO" and theirs.group(1).upper() == "GO":
+        return pin.group(1)
+    return None
+
+
+@pytest.mark.parametrize(
+    ("ours", "theirs", "approved"),
+    [
+        ("GO", "GO", True),
+        # The asymmetric cases rule #12 exists for. Both are real states from our
+        # own record: round 7 lap 35 was GO/HOLD, round 8 lap 10 GO/OPEN.
+        ("GO", "HOLD", False),
+        ("GO", "OPEN", False),
+        ("HOLD", "GO", False),
+        ("OPEN", "GO", False),
+        ("OPEN", "OPEN", False),
+        ("HOLD", "HOLD", False),
+    ],
+)
+def test_a_pin_is_approved_only_when_BOTH_verdicts_say_GO(
+    ours: str, theirs: str, approved: bool
+) -> None:
+    """The rule, driven on every combination the record can produce.
+
+    The sweep that uses this cannot exercise the peer half — a revert probe says
+    so — so it is exercised here instead, which is the only place it can be.
+    """
+    text = (
+        f"HANDSHAKE-PIN: abc1234\n"
+        f"HANDSHAKE-VERDICT: {ours}\n"
+        f"HANDSHAKE-PEER-VERDICT: {theirs}\n"
+    )
+    assert (approved_pin_declared_by(text) == "abc1234") is approved
+
+
+def test_a_lap_with_no_peer_verdict_recorded_is_not_an_approval() -> None:
+    """Absence is not agreement. Eleven round-7 laps carry a pin and no peer
+    verdict at all; counting those as approval is how `2f950c8` — a build named
+    only by `HOLD` laps — ended up in a set the menu was checked against."""
+    assert (
+        approved_pin_declared_by("HANDSHAKE-PIN: abc1234\nHANDSHAKE-VERDICT: GO\n")
+        is None
+    )
+
+
+def test_the_bolded_verdict_spelling_is_still_read() -> None:
+    """Laps write `**GO**` at a line start. A pattern that only matched a bare
+    word would silently approve nothing, which fails safe here but would make the
+    sweep vacuous rather than wrong — the harder failure to notice."""
+    text = (
+        "HANDSHAKE-PIN: abc1234\n"
+        "HANDSHAKE-VERDICT: **GO**\n"
+        "HANDSHAKE-PEER-VERDICT: **GO**\n"
+    )
+    assert approved_pin_declared_by(text) == "abc1234"
+
+
 def test_the_install_menu_offers_the_build_the_acceptance_gate_demands() -> None:
     """The relation neither side's own tests can express.
 
@@ -502,16 +581,32 @@ def test_the_install_menu_offers_the_build_the_acceptance_gate_demands() -> None
         for path in (hs / directory).glob("round-*.md")
     )
     assert verified, "no verification files — nothing to check the label against"
+    # **BOTH VERDICTS, and reading only the pin was a real defect.**
+    #
+    # This built `approved_pins` from every `HANDSHAKE-PIN:` in the population,
+    # verdict-blind. `CLAUDE.md` rule #12 obligation (1): *a round closes only
+    # when BOTH sides declare GO — one side's GO against the other's HOLD is an
+    # open round.* A pin named by a lap that says `HOLD`, or `OPEN`, is not an
+    # approved pin, and this counted it as one.
+    #
+    # Measured over the committed record, which is how bad it was: the
+    # verdict-blind set contained `2f950c8` across **eleven** `HOLD` laps, plus
+    # `c5fb909`, `f5e11ba` and `9048082` — every one a mid-round test pin the fork
+    # explicitly withdrew, two of them with "INSTALL X, NOT Y" in the lap that
+    # retired them. The check passed anyway, because `ripper_choices()` offers few
+    # builds and those happened to be in a set that contained nearly everything.
+    # **A set that large cannot refuse anything**, which is this project's
+    # *"can it be satisfied by the wrong thing?"* in its purest form.
+    #
+    # It went unnoticed for the usual reason: between rounds `PIN_UNDER_REVIEW ==
+    # FORK_PIN`, so no outbound lap had ever named a pin while a round was open.
+    # Round 15 is the first, and our own laps 2 and 4 declare `978f9b0` with
+    # `HANDSHAKE-VERDICT: OPEN` — which the old reading scored as approval of the
+    # very build the round exists to review.
     approved_pins = {
-        m.group(1)
+        pin
         for path in verified
-        if (
-            m := re.search(
-                r"^HANDSHAKE-PIN:\s*([0-9a-f]{7,40})\b",
-                path.read_text(encoding="utf-8"),
-                re.M,
-            )
-        )
+        if (pin := approved_pin_declared_by(path.read_text(encoding="utf-8")))
     }
     assert approved_pins, "no verification declares HANDSHAKE-PIN — nothing to compare"
     for choice in fork_source.ripper_choices():

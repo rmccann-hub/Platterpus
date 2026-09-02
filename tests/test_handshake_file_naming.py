@@ -470,7 +470,24 @@ def test_the_artifacts_name_their_round_lap_and_build() -> None:
     """
     artifacts = sorted((_HANDSHAKE / "inbound" / "artifacts").glob("*"))
     assert artifacts, "no inbound artifacts; nothing to check"
-    pattern = re.compile(r"^round-\d{2,4}-lap-\d{2,4}-[a-z0-9-]+-g[0-9a-f]{7,40}$")
+    # **`-a<anchor>` IS ACCEPTED, and it is the stronger form.**
+    #
+    # This gate and `test_handshake_artifact_naming.py` answer one question —
+    # *does the filename assert a provenance the content supports?* — and only
+    # one of them was taught about source anchors when the fork's round-15 lap 3
+    # proposed them. The other went red on the next run. `docs/testing.md` §5.o:
+    # enforce a rule across the codebase, not at the place it was learned; here
+    # the "place" was one of two files asking the same thing.
+    #
+    # Why the anchor is stronger, in one line: a generated artifact **cannot**
+    # carry the hash of the commit that adds it, so its `-g<build>` field always
+    # names the commit *before* the one it lives at — which is why filing their
+    # contract as `-g009a573` produced a name that could not be cited about
+    # `978f9b0`. A content-derived anchor over `src/` is citable about every
+    # commit whose sources hash to it.
+    pattern = re.compile(
+        r"^round-\d{2,4}-lap-\d{2,4}-[a-z0-9-]+-(?:g[0-9a-f]{7,40}|a[0-9a-f]{8,64})$"
+    )
     # A RUNNABLE TOOL CARRIES NO BUILD FIELD, and that is not a loosening.
     #
     # The `-g<build>` field exists because an artifact's filename must assert a
