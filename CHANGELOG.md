@@ -41,7 +41,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   guard now accepts an argv that is **nothing but** the binary plus one
   pure-output version flag, and refuses anything richer. Keyed on the whole argv,
   so `--version -d /dev/sr0` is still refused — a flag-presence check would have
-  let a rip in behind a harmless prefix. **`-I` is deliberately not in that set:**
+  let a rip in behind a harmless prefix. The exempt set is **derived from
+  `cyanrip_cli.VERSION_FLAGS`**, not retyped: the first version spelled the flags
+  out and the version-flag sweep refused it, correctly — a hand-written copy
+  inside a safety carve-out is the worst place to keep a second one. That sweep
+  also caught the copy having quietly *widened* the set to include `-v`, which is
+  not in the canonical tuple; nothing here sends `-v`, and widening a guard's
+  exemption to cover a flag no caller uses buys nothing. **`-I` is deliberately
+  not in that set:**
   it reads like "just print info" but info-only mode still queries MusicBrainz
   without `-N`, which is the interactive prompt the guard exists to prevent. The
   probe is enumerated in `SPAWN_SITES` as ripper-capable, by both spellings — the

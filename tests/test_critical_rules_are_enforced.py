@@ -1062,7 +1062,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "adapters/cache_probe.py": 372,
     "adapters/cover_art.py": 566,
     "adapters/ctdb_client.py": 332,
-    "adapters/cyanrip_backend.py": 1393,
+    "adapters/cyanrip_backend.py": 1402,
     "adapters/musicbrainz_client.py": 524,
     "adapters/rip_backend.py": 585,
     "adapters/ripper_log_verify.py": 414,

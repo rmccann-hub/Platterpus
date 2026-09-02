@@ -103,6 +103,16 @@ Worth listing, because they are the gates earning their keep rather than noise:
   guard rather than hanging on a prompt at 2am. **`-I` is deliberately excluded**,
   and that is the trap: it reads like a harmless print-and-exit flag while
   info-only mode still queries MusicBrainz without `-N`.
+* `tests/test_cyanrip_version_flag.py` then refused the carve-out's flag set for
+  being **a second copy** — the flags live in `cyanrip_cli.VERSION_FLAGS` so a
+  rename is one edit, and a hand-written copy inside a *safety carve-out* is the
+  worst place to keep one. It also caught something I had not noticed doing: that
+  copy included `-v`, which is **not** in the canonical tuple. The fork's own
+  contract note says `-v` prints a banner, so it was a plausible addition — and
+  still wrong, because nothing here sends `-v` and widening a guard's exemption to
+  cover a flag no caller uses buys nothing while costing the guard its narrowness.
+  Derived from the tuple now, with a test pinning the refusal so the same contract
+  note cannot re-widen it.
 * the coverage floor, which put 11 statements of the probe's *error handling*
   under a spotlight — the read-error path, the killpg-cannot-apply path, the
   survived-SIGKILL path. Every one of them is code that only runs once something
