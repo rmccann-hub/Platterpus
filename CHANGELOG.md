@@ -11,6 +11,33 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **cyanrip handshake round 15, lap 2 sent** — our half of the subject declared
+  as `0.6.33` at `0a69732` (a subject correction the fork explicitly invited,
+  since `0.6.29` was three releases stale and two of the intervening fixes are in
+  the harness CC-1 itself runs), with the channel stated plainly rather than left
+  for a tag to imply: every `v0.x` is a published pre-release, and `0.7.100` does
+  not exist because it is gated on the very pass this round waits for. Also
+  written down for the first time: **`HANDSHAKE-OUR-PIN` is the commit that
+  introduced this tree's `__version__`, resolved against `origin/main`** — the
+  rule that explains why `0.6.28` showed the fork two different values (`b524936`
+  the release commit, `296a69d` a later `main` commit the rig had built from), and
+  which they were right to refuse to guess through.
+- **`OWNERSHIP.md` adopted at v2** (`accff838…`), fetched from the fork and
+  verified byte-equal to the hash they declared, so the shared-hash line agrees
+  again. Their point is accepted as practice: a shared file's version is a content
+  identifier or it is decoration.
+
+### Fixed
+- **A claim in our own outbound lap that was a prediction dressed as a
+  measurement.** A first draft stated the released AppImage's banner *reads*
+  `platterpus 0.6.33 (0a69732)`; this session is a source checkout, where
+  `build_info.build_fingerprint()` returns `source`, so no released binary's
+  banner is readable from here. Now split `[MEASURED]` (the release's
+  `target_commitish` and our resolved pin, which do agree) from `[NOT VERIFIED]`
+  (the banner itself), in a lap whose own §U is about not asserting the
+  unmeasured.
+
 ## [0.6.33] — 2026-09-01
 
 ### Added
