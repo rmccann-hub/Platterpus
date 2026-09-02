@@ -235,6 +235,31 @@ def test_the_acceptance_script_hardcodes_no_cyanrip_build_tag() -> None:
         "the wrong ripper, which is the one mistake that invalidates the run."
     )
 
+    # **THE COMMENTS TOO, and that is not padding — it is where the copy actually
+    # survived.** The sweep above reads parsed STEPS, so it went green on
+    # 2026-09-01 while the file's own "BEFORE YOU START" header told the operator
+    # the wanted build was `0.9.4-rc2+platterpus.10` (`d9c058c`) and warned them
+    # off `+platterpus.11` — which by then was the pin round 15 had opened on, so
+    # the prose sent them to the one build section A would abort on. Nobody reads
+    # a step to decide what to install; they read the header.
+    #
+    # `CLAUDE.md`: *enforce a rule across the codebase, not at the place it was
+    # learned.* The rule was "no second copy of the build tag" and it was enforced
+    # against the half a parser can see.
+    prose = [
+        f"line {n}: {line.strip()}"
+        for n, line in enumerate(text.splitlines(), start=1)
+        if line.lstrip().startswith("#")
+        and re.search(r"platterpus-fork-g[0-9a-f]{7,40}|platterpus\.\d+", line)
+    ]
+    assert not prose, (
+        "fullacceptance.txt names a cyanrip BUILD in prose:\n  "
+        + "\n  ".join(prose)
+        + "\nThe header must send the operator to `Help -> Check for cyanrip "
+        "updates...`, never to a build tag. A tag written here is a second copy "
+        "of a fact that moves every round, and it has now gone stale twice."
+    )
+
 
 def test_the_under_review_verb_matches_the_build_the_record_names() -> None:
     """The verb's expectation is the record's, not a copy of it.
@@ -1071,3 +1096,347 @@ def test_a_partly_privileged_inhibitor_downgrades_rather_than_eating_the_run(
     assert result.returncode == 0, (
         f"expected exit 0; got {result.returncode}\n{out[-1500:]}"
     )
+
+
+# ==========================================================================
+# The acceptance script's PROSE, checked against the pin it depends on
+# ==========================================================================
+#
+# Everything above checks the script's *steps*. Its header is prose, and on
+# 2026-08-28 the prose was the defect: it told the operator
+#
+#     Be on the newest cyanrip. Settings -> tick the ripper **beta** channel
+#
+# and both halves had gone wrong. The fork had published `+platterpus.11`
+# (`978f9b0`) since, which is newer and reviewed by no closed round — so taking
+# it makes every rip report `unapproved` and section A refuses to run, aborting
+# the night in about five seconds. That is the same five-second abort that cost
+# the 2026-08-27 run.
+#
+# What made it hard to see is that naming a CHANNEL was not obviously false:
+# `d9c058c` **is** a beta-channel build, so "tick beta" reads correctly and only
+# "the newest" breaks. The sentence was written while a round was open, when
+# "the build the open round is reviewing" *was* the newest; with rounds 1-14 all
+# closed it resolves to the approved production pin instead.
+#
+# The app was right the whole time — `ripper_offer.auto_installable` is true only
+# for a build our own record approves. The gap was between a constant the code
+# reads and a paragraph a person reads, with nothing comparing them. So: tie the
+# prose to the constant, and let the pin moving be what fails this test.
+
+
+#: "Take the newest one" as an INSTRUCTION, and only about the ripper. The
+#: subject has to be named: the header's first line says "Be on the newest
+#: Platterpus", which is correct advice — the app has no reviewed-build
+#: constraint, the ripper does.
+_TAKE_THE_NEWEST: re.Pattern[str] = re.compile(
+    r"\b(be on|take|install|use|get)\b[^.]{0,40}\bnewest\b[^.]{0,40}"
+    r"\b(cyanrip|ripper)\b",
+    re.IGNORECASE,
+)
+
+
+def _acceptance_header() -> str:
+    """The comment block before the first executable step."""
+    lines = ACCEPTANCE.read_text(encoding="utf-8").splitlines()
+    header: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            break
+        header.append(line)
+    return "\n".join(header)
+
+
+def test_the_header_names_no_build_and_routes_to_the_app_instead() -> None:
+    """**This asserts the opposite of what it asserted until 2026-09-01**, and the
+    reversal is the finding.
+
+    The old version required the header to name `FORK_PIN` and
+    `FORK_EXPECTED_VERSION`, reasoning that tying the prose to a constant makes a
+    stale header fail in CI. Two things were wrong with it, and round 15 opening
+    exposed both on the same morning.
+
+    **1. It keyed on a different constant from the thing it described.** The
+    header explains what section A will accept; section A is
+    `expect-ripper-under-review`, which reads `PIN_UNDER_REVIEW`. This test read
+    `FORK_PIN`. While a round is closed those are equal *by definition* — closing
+    a round is the act of making them equal — so the split was invisible for
+    exactly as long as no round was open. The moment round 15 opened on
+    `978f9b0`, this test began demanding a header that named `d9c058c`, the build
+    section A now aborts on. **It would have enforced the abort it was written to
+    prevent.** `CLAUDE.md`: *do two surfaces answer this question, and do they use
+    the same key?* — same shape as the ripper-offer/verdict mismatch of §5.al.
+
+    **2. A committed test cannot keep a SHIPPED header current.** This file is
+    packaged inside the release. CI binds `main`; the operator reads the copy
+    inside the AppImage they downloaded, which froze at its release and cannot
+    learn that a round opened afterwards. That is not a hypothetical: 0.6.32's
+    packaged header named `+platterpus.10` and warned the operator off
+    `+platterpus.11` — which by then was round 15's pin. Currency was being
+    enforced in the one place it could not be delivered.
+
+    So the header names no build at all, and this checks that plus the routing
+    that replaces it. The value the operator needs is held in one place that
+    ships as *code* and is checked — `PIN_UNDER_REVIEW` — and the header's job is
+    to send them to it.
+    """
+    from platterpus.deps import fork_source
+
+    header = _acceptance_header()
+    assert len(header) > 500, (
+        f"the acceptance header is only {len(header)} characters — the block "
+        f"detector has stopped finding it and this check is measuring nothing"
+    )
+    for value, label in (
+        (fork_source.FORK_PIN, "production pin"),
+        (fork_source.PIN_UNDER_REVIEW, "pin under review"),
+        (fork_source.FORK_EXPECTED_VERSION, "expected version"),
+    ):
+        assert value not in header, (
+            f"the acceptance header names the {label} ({value!r}). It must not "
+            f"name any build: this file ships inside a release, so the copy an "
+            f"operator reads cannot be updated when the pin moves, and every "
+            f"version of this sentence has gone stale — a channel name by "
+            f"2026-08-28, a build tag by 2026-09-01. Send them to "
+            f"'Help -> Check for cyanrip updates...' instead."
+        )
+    assert "Check for cyanrip updates" in header, (
+        "the header no longer routes the operator to the in-app ripper check. "
+        "Having removed the build tag, that route is the ONLY answer left — "
+        "without it the header says what not to do and nothing else."
+    )
+
+
+def test_the_header_does_not_tell_the_operator_to_take_the_NEWEST_ripper() -> None:
+    """The regression test for the 2026-08-28 defect.
+
+    Narrow in TWO directions, and the second was found by running it. The header
+    legitimately *discusses* newer builds — it has to, to explain why they abort
+    — so this cannot flag the word "newest" anywhere. And its first line is
+    "Be on the newest Platterpus", which is **correct**: for the app, newest is
+    right, because the app is not the thing a closed round approved. Only the
+    RIPPER has a reviewed build that is not always the latest.
+
+    So the match requires the subject to be named. A check that fires on correct
+    advice is a check somebody deletes.
+    """
+    header = _acceptance_header()
+    offenders = [
+        line.strip() for line in header.splitlines() if _TAKE_THE_NEWEST.search(line)
+    ]
+    assert not offenders, (
+        "the acceptance header instructs the operator onto the NEWEST cyanrip. "
+        "The newest is not always the reviewed one — a build no closed round has "
+        "approved makes every rip report `unapproved` and section A aborts the "
+        "run:\n  " + "\n  ".join(offenders)
+    )
+
+
+def test_the_newest_ripper_check_can_fire_and_does_not_over_fire() -> None:
+    """Non-triviality, both directions — the second half is why it is a regex
+    over verbs rather than a search for one word."""
+    pattern = _TAKE_THE_NEWEST
+    assert pattern.search("# 2. Be on the newest cyanrip. Settings -> tick the"), (
+        "the exact sentence this test exists for is no longer detected"
+    )
+    for allowed in (
+        "#    the newest one. Help -> Check for cyanrip updates...",
+        "#    which is **not** always the newest build.",
+        "#    An offer that WARNS you is a newer build no closed round reviewed.",
+        # CORRECT ADVICE, and the reason this pattern names its subject: for the
+        # APP, newest is always right. This line is in the real header.
+        "# 1. Be on the newest Platterpus. Help -> Check for updates, or download",
+    ):
+        assert not pattern.search(allowed), (
+            f"prose explaining WHY the newest is wrong is being flagged as the "
+            f"instruction to take it: {allowed}"
+        )
+
+
+# ==========================================================================
+# A WAIT THE HARNESS WILL CLAMP IS A WAIT THAT LIES
+# ==========================================================================
+#
+# `wait-for-rip 21600` in §N of `fullacceptance.txt` met a `MAX_RIP_WAIT_S` of
+# three hours. The clamp is honest about itself — it logs, it marks the outcome
+# `[CLAMPED …]`, and it waits the cap rather than skipping the wait — but past
+# the cap **the batch keeps going while the rip is still running**, and §N is
+# followed by `rig-check` (reading a half-written album) and §P's `cyanrip -x -I`
+# (touching the drive the ripper still holds). Every step after the timeout
+# measures a state the script does not think it is in.
+#
+# The old cap's own note said *"a full disc is ~50-70 minutes on this hardware;
+# three hours is generous"* — true of an ordinary rip, and set against the wrong
+# operation: §N is a whole-disc uniform secure re-read, which the rig sheet puts
+# at 2 to 2.5 hours. The cap sat barely above the expected duration of the step
+# most likely to exceed it.
+#
+# So the number is no longer chosen from a remembered duration. BOTH SIDES ARE
+# DERIVED — the constant from the runner, the requests from the committed
+# scripts — so a suite that grows a slower step fails here rather than on a rig
+# at 3am.
+
+
+def _wait_requests(text: str, verb: str) -> list[tuple[int, float]]:
+    """Every `(line number, seconds)` a script asks of one waiting verb."""
+    found: list[tuple[int, float]] = []
+    for step in uiscript.parse(text):
+        if step.verb != verb or not step.args:
+            continue
+        try:
+            found.append((step.line_no, float(step.args[0])))
+        except ValueError:
+            # A non-numeric argument is a different defect and belongs to the
+            # verb-and-argument sweeps above; ignoring it here keeps this test
+            # about the one question it asks.
+            continue
+    return found
+
+
+@pytest.mark.parametrize(
+    ("verb", "cap_name"),
+    [("wait-for-rip", "MAX_RIP_WAIT_S"), ("wait", "MAX_WAIT_S")],
+)
+def test_no_script_asks_for_a_wait_the_runner_will_clamp(
+    verb: str, cap_name: str
+) -> None:
+    """The cap must be at least as large as the longest wait any script requests.
+
+    Derived from the runner rather than restated, so lowering the constant fails
+    here instead of silently shortening a rig night.
+    """
+    from platterpus.uiscript import runner
+
+    cap = float(getattr(runner, cap_name))
+    assert cap > 0, f"{cap_name} is not a positive number"
+
+    offenders: list[str] = []
+    examined = 0
+    for path in _scripts():
+        for line_no, seconds in _wait_requests(path.read_text(encoding="utf-8"), verb):
+            examined += 1
+            if seconds > cap:
+                offenders.append(
+                    f"{path.name}:{line_no} asks {seconds:.0f}s, cap is {cap:.0f}s"
+                )
+    # The floor. If the parse stopped yielding these steps this test would pass
+    # having compared nothing — the shape this file's own header refuses.
+    assert examined >= 1, (
+        f"no `{verb}` step was found in any committed script, so this check "
+        f"compared nothing against {cap_name}"
+    )
+    assert not offenders, (
+        f"these steps ask for longer than {cap_name} and would be CLAMPED — past "
+        f"the clamp the batch continues while the rip runs, so every later step "
+        f"measures a state the script does not think it is in:\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+def test_the_clamp_check_can_actually_fail() -> None:
+    """Non-triviality: the comparison must fire on a script that over-asks."""
+    over = "rip\nwait-for-rip 999999\n"
+    assert _wait_requests(over, "wait-for-rip") == [(2, 999999.0)]
+    under = "rip\nwait-for-rip 60\n"
+    assert _wait_requests(under, "wait-for-rip") == [(2, 60.0)]
+    # And it must not harvest a DIFFERENT waiting verb into the same budget.
+    assert _wait_requests("wait 30\n", "wait-for-rip") == []
+
+
+# ==========================================================================
+# A DOC NAMING A RIG SCRIPT MUST NAME WHERE IT ACTUALLY IS
+# ==========================================================================
+#
+# The `.txt` scripts moved out of the old `docs/rig-scripts/` directory and into
+# the package on 2026-08-28, so the running program could open them. Several
+# live surfaces went on naming the former location for four more days —
+# `dependency-contracts.md` and `TASKS.md` were still doing it on 2026-09-01,
+# after two separate passes that went looking for exactly this.
+#
+# (This comment names the old directory as a LABEL and never as a path with a
+# filename on the end, because the sweep below would flag its own docstring —
+# the same reason `CLAUDE.md` says to write ``the former `x.md` `` rather than
+# a prefixed path when retiring a file.)
+#
+# A path is an exact-match string, which is the whole reason `CLAUDE.md` has a
+# rule about artifact filenames crossing machines. A doc pointing at a file that
+# is not there costs somebody a search, and the reader most likely to follow it
+# is the one who does not already know where the file lives.
+#
+# The dated record is exempt: `CHANGELOG.md`, the session log and the handshake
+# correspondence are supposed to say what was true on a date.
+
+
+def _rig_script_path_mentions(text: str) -> list[str]:
+    """Every `<dir>/<name>.txt` reference that looks like a rig script."""
+    return [
+        m.group(0) for m in re.finditer(r"[\w./-]*rig[_-]scripts/[\w-]+\.txt", text)
+    ]
+
+
+def test_no_live_doc_names_a_rig_script_path_that_does_not_exist() -> None:
+    """The regression test for the four-day-stale paths.
+
+    Resolved against the filesystem rather than compared to a known-good prefix:
+    the question is not *"does it say the new location"* but *"is the file
+    where this sentence says it is"*, which keeps working after the next move.
+    """
+    root = Path(__file__).resolve().parents[1]
+    dated = ("CHANGELOG.md", "docs/session-log.md", "docs/handshake/", "docs/archive/")
+
+    offenders: list[str] = []
+    examined = 0
+    for path in sorted(root.rglob("*")):
+        if path.suffix.lower() not in {".md", ".py", ".sh", ".txt", ".toml", ".yml"}:
+            continue
+        rel = path.relative_to(root).as_posix()
+        if rel.startswith((".git/", ".venv/", "build/", "mutants/")):
+            continue
+        # THIS FILE, because its non-triviality twin must contain example
+        # paths — including deliberately dead ones — and a sweep that
+        # harvested its own fixtures would report them forever. Scope, not
+        # an exemption: there is no version of this check that can read the
+        # file defining its own examples.
+        if path.resolve() == Path(__file__).resolve():
+            continue
+        if any(rel == d or rel.startswith(d) for d in dated):
+            continue
+        for mention in _rig_script_path_mentions(
+            path.read_text(encoding="utf-8", errors="replace")
+        ):
+            examined += 1
+            candidate = mention.lstrip("./")
+            # TWO ROOTS, because both spellings are legitimate: a doc names
+            # the path from the repo root, while `rig_session.sh` names its
+            # siblings package-relative (`rig_scripts/x.txt`) — and it is
+            # right to, since it ships inside the package and that is where
+            # it will look at run time.
+            if not any(
+                (base / candidate).is_file()
+                for base in (root, root / "src" / "platterpus")
+            ):
+                offenders.append(f"{rel}: {mention}")
+
+    # The floor. A pattern that stopped matching would pass this silently.
+    assert examined >= 3, (
+        f"only {examined} rig-script path mention(s) found across the tree — the "
+        "pattern has stopped matching and this check is measuring nothing"
+    )
+    assert not offenders, (
+        "these live surfaces name a rig script at a path that does not exist:\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+def test_the_rig_path_check_can_actually_fail() -> None:
+    """Non-triviality, both directions."""
+    assert _rig_script_path_mentions(
+        "see `docs/rig-scripts/fullacceptance.txt` for the batch"
+    ) == ["docs/rig-scripts/fullacceptance.txt"]
+    assert _rig_script_path_mentions(
+        "`src/platterpus/rig_scripts/securereread.txt`"
+    ) == ["src/platterpus/rig_scripts/securereread.txt"]
+    # Prose naming a script WITHOUT a directory is not a path claim and must not
+    # be harvested — the scripts are referred to by bare name constantly.
+    assert _rig_script_path_mentions("run fullacceptance.txt overnight") == []

@@ -51,8 +51,9 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -270,6 +271,22 @@ def prepare_session(layout: SessionLayout) -> None:
 # --------------------------------------------------------------------------
 
 
+#: Where a staged app-log ROTATION goes inside the session folder. Chosen so it
+#: sorts AFTER `transcript.txt` — see the note in `_stage`. A `z` prefix is blunt
+#: and that is the point: the ordering is load-bearing, so it should be obvious
+#: to anyone renaming it.
+_ROTATION_STAGE_DIR: Final[str] = "zz-applog-rotations"
+
+
+def _is_log_rotation(path: Path) -> bool:
+    """Is this a rotated app log (`log.txt.3`) rather than the current one?
+
+    Keyed on the same shape `_log_rotations` produces, so "what is a rotation"
+    has one definition here rather than two that can disagree.
+    """
+    return bool(re.fullmatch(r".+\.txt\.\d+", path.name))
+
+
 def _log_rotations(log_path: Path) -> list[Path]:
     """`log.txt.1`, `log.txt.2`… beside ``log_path``, oldest-numbered first.
 
@@ -482,7 +499,28 @@ def _stage(layout: SessionLayout, sources: Sequence[Path]) -> _Staged:
         # A file. Its own subfolder, so two `log.txt`s from two directories do
         # not become one — and so the FILENAME is never altered, because the
         # bundler decides what may enter by reading that name (see the docstring).
-        folder = layout.artifacts / f"{index:02d}{_member_slug(source.parent.name)}"
+        #
+        # **A ROTATION IS STAGED SOMEWHERE THAT SORTS LAST, and that is the
+        # budget again.** `build_bundle` walks an `extra_dirs` tree with
+        # `sorted(rglob("*"))` and charges `MAX_TOTAL_BYTES` in that order, so a
+        # relative path decides what survives a full archive. Under the old
+        # single `artifacts/` root the order was `artifacts/02share/log.txt.1` …
+        # then `transcript.txt` — every rotation ahead of the one file that
+        # records whether the run passed.
+        #
+        # This is the SAME defect `_collect` was fixed for on 2026-08-29, at a
+        # second site, found by an audit refuting the first fix's scope. Fixing
+        # it where it was learned and not across the codebase is `docs/testing.md`
+        # §5.o, and this is that lesson landing on the very change that cited it.
+        #
+        # `_ROTATION_STAGE_DIR` sorts after `transcript.txt` lexicographically,
+        # which is the whole mechanism — no new cap, no reserved share.
+        parent = (
+            layout.root / _ROTATION_STAGE_DIR
+            if _is_log_rotation(source)
+            else layout.artifacts
+        )
+        folder = parent / f"{index:02d}{_member_slug(source.parent.name)}"
         destination = folder / source.name
         try:
             folder.mkdir(parents=True, exist_ok=True)
@@ -535,6 +573,32 @@ def _render_sources_record(layout: SessionLayout, staged: _Staged) -> str:
             "",
         ]
     )
+
+
+def _album_scan_facts(album_dirs: Sequence[Path]) -> dict[str, str]:
+    """How many album folders went in — and how many were dropped getting here.
+
+    ``build_bundle``'s manifest names every folder it *received*, which is a
+    complete account of its own input and no account at all of what was cut
+    before it. :func:`session_album_dirs` caps its result, so the bundle could
+    honestly name 40 folders while a 41st finished rip existed on disk and was
+    never mentioned anywhere. This is the line that closes that.
+
+    **Tri-state, never a comforting zero.** A caller who passes a plain list has
+    not told us whether anything was dropped, and writing ``0`` there would be an
+    invented fact of exactly the kind this project refuses to write for an
+    unreaped exit code. It says *not determined* instead.
+    """
+    facts = {"album folders": str(len(album_dirs))}
+    if isinstance(album_dirs, AlbumScan):
+        facts["album folders examined"] = str(album_dirs.examined)
+        facts["album folders dropped"] = str(album_dirs.dropped)
+    else:
+        facts["album folders dropped"] = (
+            "not determined — the caller passed a plain sequence, which carries "
+            "no record of the scan that produced it"
+        )
+    return facts
 
 
 def finish_session(
@@ -595,7 +659,7 @@ def finish_session(
                 "sources collected": str(staged.present),
                 "sources absent": str(staged.absent),
                 "sources failed": str(staged.failed),
-                "album folders": str(len(album_dirs)),
+                **_album_scan_facts(album_dirs),
             },
             album_dirs=list(album_dirs),
             log_dir=_NO_LOG_SWEEP,
@@ -625,9 +689,41 @@ def finish_session(
 RIP_REPORT_GLOB: Final[str] = "*.platterpus.json"
 
 
+class AlbumScan(list[Path]):
+    """The album folders a scan kept, carrying what it had to leave behind.
+
+    **Why a `list` subclass and not a dataclass.** The count has to arrive at the
+    bundle, and the route it must travel is an existing one:
+    ``session_album_dirs(...)`` → ``finish_session(album_dirs=...)`` →
+    ``build_bundle``. A dataclass would make every caller unpack it, and a
+    caller that forgets is a caller that silently reports nothing — which is the
+    defect being fixed, moved one function along. Being a `list[Path]` means the
+    value flows exactly as it did, compares equal to the plain list a test
+    writes, and the counts ride along for whoever asks.
+
+    It is deliberately not clever: no ``__getattr__``, no properties, no
+    behaviour changed. Two integers on a list.
+
+    :attr:`examined` is how many distinct album folders the scan actually found;
+    :attr:`dropped` is how many of them the cap discarded. ``examined ==
+    len(self) + dropped`` always, which is what makes the pair checkable rather
+    than merely reported.
+    """
+
+    #: Distinct album folders found before the cap was applied.
+    examined: int
+    #: How many of those the cap discarded — the number that used to vanish.
+    dropped: int
+
+    def __init__(self, folders: Iterable[Path], *, examined: int, dropped: int) -> None:
+        super().__init__(folders)
+        self.examined = examined
+        self.dropped = dropped
+
+
 def session_album_dirs(
     search_roots: Sequence[Path], *, since: float, limit: int = 40
-) -> list[Path]:
+) -> AlbumScan:
     """Album folders that received a rip DURING this session. Never raises.
 
     **Why discovered and not remembered.** The obvious alternative is for the
@@ -646,11 +742,21 @@ def session_album_dirs(
 
     ``limit`` bounds a pathological case rather than a normal one: a
     misconfigured output directory pointing at a whole music library would
-    otherwise put hundreds of folders through the bundler. **The truncation is
-    returned to the caller's attention by being ordered newest-first**, so what
-    survives a cap is the most recent work rather than an arbitrary slice — and
-    `build_bundle`'s manifest names every folder it did receive, so the archive
-    never implies it covers more than it does.
+    otherwise put hundreds of folders through the bundler. Ordering newest-first
+    decides **which** folders survive that cap, so what is kept is the most
+    recent work rather than an arbitrary slice.
+
+    **Ordering is not visibility, and this docstring used to claim it was.** It
+    argued that newest-first plus a manifest naming every folder received meant
+    the archive "never implies it covers more than it does" — true of the folders
+    that arrived, and silent about the ones that never did. A folder past the cap
+    left no count, no manifest line and no log entry: a 41st finished rip could
+    sit on disk while a complete-looking bundle carried 40 and said nothing at
+    all about the one it dropped. So the loss is returned (:class:`AlbumScan`),
+    written into
+    the bundle's facts (:func:`_album_scan_facts`) and logged here. A cap that
+    cannot be seen is a silent truncation, and this module's whole subject is
+    that a silent truncation reads as completeness.
     """
     found: dict[Path, float] = {}
     for root in search_roots:
@@ -671,4 +777,18 @@ def session_album_dirs(
             # reason to lose the roots we can.
             log.warning("could not scan %s for rip folders: %r", root, exc)
     newest_first = sorted(found.items(), key=lambda item: item[1], reverse=True)
-    return [folder for folder, _ in newest_first[:limit]]
+    kept = [folder for folder, _ in newest_first[:limit]]
+    dropped = len(found) - len(kept)
+    if dropped:
+        # To the log as well as to the return value, because the app log is
+        # itself inside the bundle: a reader who wonders why a rip they remember
+        # is not in the archive can find the sentence that says so.
+        log.warning(
+            "the album-folder scan found %d rip folder(s) and the cap of %d kept "
+            "the newest %d — %d were dropped and are NOT in the bundle",
+            len(found),
+            limit,
+            len(kept),
+            dropped,
+        )
+    return AlbumScan(kept, examined=len(found), dropped=dropped)

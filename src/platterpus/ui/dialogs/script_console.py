@@ -208,14 +208,28 @@ class ScriptConsoleDialog(CenteredDialog):
 
     # --- Public surface, used by the autorun path ----------------------------
 
-    def run_now(self) -> None:
-        """Start the batch that is currently in the editor. Idempotent-ish.
+    def run_now(self) -> bool:
+        """Start the batch in the editor. Returns whether one actually started.
 
         Public so `--run-script` and the autorun-on-launch path drive the *same*
         code the Run button does. A second description of "how a script starts"
         would be the drift this project keeps naming.
+
+        **Why it returns a bool rather than nothing.** :meth:`_on_run` refuses
+        when a run is already in flight — correctly; two runners driving one
+        window is a race with no useful outcome — and until now that refusal was
+        invisible to the caller. A caller that *arms something for the duration
+        of the run* (the acceptance session holds a `systemd-inhibit` child and
+        waits for `run_finished`) would then record the batch as started, hold
+        the machine awake, and wait for a signal belonging to a different script
+        or to no script at all.
+
+        That is `CLAUDE.md`'s *"Am I asserting that a thing HAPPENED, or that it
+        was REQUESTED?"* at the seam this feature added: `run_now()` is a request
+        to start, and only the runner knows whether one is now running. So the
+        answer is read off the runner rather than assumed from having asked.
         """
-        self._on_run()
+        return self._on_run()
 
     def load_file(self, path: Path) -> bool:
         """Load a script file into the editor. Returns whether it loaded.
@@ -280,10 +294,17 @@ class ScriptConsoleDialog(CenteredDialog):
 
     # --- Slots ---------------------------------------------------------------
 
-    def _on_run(self) -> None:
+    def _on_run(self) -> bool:
+        """Start a run. Returns whether one is now in flight.
+
+        Connected to the Run button, whose `clicked` signal discards the return
+        value — that is fine and deliberate: the button's user is looking at the
+        console and can see nothing happened, while a *programmatic* caller
+        cannot. See :meth:`run_now` for why the value exists at all.
+        """
         if self._runner is not None and self._runner.running:
             log.info("script console: Run pressed while a run was in progress")
-            return
+            return False
         source = self._editor.toPlainText()
         steps = parse(source)
         # A parse problem is NOT a refusal to run. Bad lines become steps that
@@ -305,6 +326,12 @@ class ScriptConsoleDialog(CenteredDialog):
             unsafe_allowed=self._unsafe_check.isChecked(),
             source=source,
         )
+        # ASK the runner, do not assume. `ScriptRunner.start` has its own refusal
+        # ("already running"), and a `return True` here would be this method's
+        # opinion of what it requested rather than a statement about what is
+        # happening. The two agree today; only one of them keeps agreeing if
+        # `start` grows a second reason to decline.
+        return runner.running
 
     def _on_stop(self) -> None:
         if self._runner is not None:

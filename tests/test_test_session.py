@@ -34,6 +34,7 @@ from platterpus.test_session import (
     SOURCES_RECORD_NAME,
     STAMP_FORMAT,
     SessionLayout,
+    _stage,
     builtin_acceptance_script,
     builtin_acceptance_script_path,
     downloads_dir,
@@ -362,7 +363,19 @@ def test_round_trip_produces_one_archive_with_the_text_artifacts(
     # Staged from outside the session folder, including the rotation. Each lands
     # in its own subfolder and KEEPS ITS FILENAME — the bundler judges what may
     # enter by that name, so a rotation renamed on the way in would be refused.
-    staged = [n for n in members if n.startswith("session/artifacts/0")]
+    #
+    # TWO ROOTS, not one, since 2026-09-01: the current log stays under
+    # `artifacts/` and a ROTATION is staged under `zz-applog-rotations/` so it
+    # sorts after `transcript.txt` and cannot spend the byte budget the run's
+    # pass/fail record needs. This assertion is about COLLECTION, so it spans
+    # both roots; the ordering itself is pinned by
+    # `test_the_transcript_is_charged_before_any_log_rotation`.
+    staged = [
+        n
+        for n in members
+        if n.startswith("session/artifacts/0")
+        or n.startswith(f"session/{test_session._ROTATION_STAGE_DIR}/")
+    ]
     assert sorted(n.rsplit("/", 1)[1] for n in staged) == ["log.txt", "log.txt.1"], (
         staged
     )
@@ -638,4 +651,160 @@ def test_album_dirs_reach_the_bundle_under_the_strict_allowlist(
     )
     assert not [n for n in names if n.endswith(".png")], (
         f"cover art entered the archive from a rip folder: {names}"
+    )
+
+
+# ==========================================================================
+# THE CAP'S LOSS MUST REACH THE MANIFEST
+# ==========================================================================
+#
+# `session_album_dirs` caps its result at 40 folders. `build_bundle`'s manifest
+# names every folder it RECEIVED — a complete account of its own input, and no
+# account at all of what was cut before it. So the bundle could honestly name 40
+# folders while a 41st finished rip sat on disk, mentioned nowhere.
+#
+# The mechanism for this shipped without a test, and the revert probe said so:
+# zeroing the dropped count left every test passing. Written now because a count
+# nobody asserts is a count that can quietly become 0 — which is the exact
+# "invented fact" this project refuses to write for an unreaped exit code.
+
+
+def test_the_number_of_folders_the_cap_dropped_reaches_the_facts() -> None:
+    """The count is carried, not recomputed — assert it survives the handoff."""
+    from platterpus.test_session import AlbumScan, _album_scan_facts
+
+    got = _album_scan_facts(AlbumScan([Path("/a"), Path("/b")], examined=7, dropped=5))
+    assert got["album folders"] == "2"
+    assert got["album folders examined"] == "7"
+    assert got["album folders dropped"] == "5", (
+        f"the cap's loss did not reach the facts block: {got}"
+    )
+
+
+def test_a_plain_list_reports_the_dropped_count_as_NOT_DETERMINED() -> None:
+    """Tri-state, never a comforting zero.
+
+    A caller passing a plain sequence has not told us whether anything was cut.
+    Writing `0` there would be an invented fact — the same one this project
+    refuses to write for a child process it never reaped.
+    """
+    got = _album_scan_facts_plain([Path("/a")])
+    assert got["album folders"] == "1"
+    assert "not determined" in got["album folders dropped"].lower(), (
+        f"a plain list was reported as though nothing was dropped: {got}"
+    )
+    assert got["album folders dropped"] != "0"
+
+
+def _album_scan_facts_plain(dirs: list[Path]) -> dict[str, str]:
+    from platterpus.test_session import _album_scan_facts
+
+    return _album_scan_facts(dirs)
+
+
+def test_the_scan_reports_what_it_dropped(tmp_path: Path) -> None:
+    """End to end through the real scan, so the counts are not just a dataclass.
+
+    `examined == len(result) + dropped` is the invariant that makes the pair
+    checkable rather than two numbers that happen to be printed together.
+    """
+    for index in range(6):
+        _rip(tmp_path / "out", f"Album {index}", mtime=3_000.0 + index)
+
+    scan = session_album_dirs([tmp_path / "out"], since=2_000.0, limit=2)
+
+    assert len(scan) == 2, f"the cap was not applied: {list(scan)}"
+    assert scan.examined == 6, (
+        f"examined should count every folder found: {scan.examined}"
+    )
+    assert scan.dropped == 4, f"the dropped count is wrong: {scan.dropped}"
+    assert scan.examined == len(scan) + scan.dropped, (
+        f"the invariant broke: {scan.examined} != {len(scan)} + {scan.dropped}"
+    )
+
+
+# ==========================================================================
+# THE TRANSCRIPT MUST OUTRANK THE APP-LOG ROTATIONS
+# ==========================================================================
+#
+# `_collect` was fixed on 2026-08-29 so log rotations could not crowd the rip
+# evidence out of a full archive. This is the SAME defect at a second site, and
+# it was found by an audit agent REFUTING the scope of that first fix.
+#
+# The session bundle passes `log_dir=_NO_LOG_SWEEP`, so its rotations do not go
+# through `_collect`'s ordering at all — they are staged as files inside the
+# session folder and reach `build_bundle` as an `extra_dirs` tree, which is
+# walked with `sorted(rglob("*"))`. Under a single `artifacts/` root that gave
+# `artifacts/03share/log.txt.1` … before `transcript.txt`: every rotation charged
+# ahead of the one file that records whether a six-hour run passed.
+#
+# `docs/testing.md` §5.o — enforce a rule across the codebase, not at the place it
+# was learned — landing on the very change that cited it.
+
+
+def test_the_transcript_is_charged_before_any_log_rotation(tmp_path: Path) -> None:
+    """Ordering, asserted on the real staged tree rather than on the constant.
+
+    Reading `_ROTATION_STAGE_DIR` and checking it sorts late would pass on a
+    build that never routed anything into it — the shape this suite refuses.
+    """
+    share = tmp_path / "share"
+    share.mkdir()
+    log = share / "log.txt"
+    log.write_text("current", encoding="utf-8")
+    for n in range(1, 4):
+        (share / f"log.txt.{n}").write_text("R" * 10, encoding="utf-8")
+
+    layout = plan_session(home=tmp_path, stamp=STAMP)
+    prepare_session(layout)
+    layout.transcript.write_text("THE TRANSCRIPT", encoding="utf-8")
+
+    staged = _stage(layout, session_sources(layout, log_path=log))
+    base = staged.extra_dirs["session"]
+    order = [
+        f.relative_to(base).as_posix() for f in sorted(base.rglob("*")) if f.is_file()
+    ]
+
+    assert "transcript.txt" in order, f"the transcript was not staged at all: {order}"
+    rotations = [i for i, name in enumerate(order) if ".txt." in name]
+    # A floor: with no rotations staged this test would pass having compared
+    # nothing, which is exactly the failure mode it exists to guard against.
+    assert len(rotations) >= 3, (
+        f"no rotations were staged, so nothing was ordered: {order}"
+    )
+    transcript_at = order.index("transcript.txt")
+    assert all(i > transcript_at for i in rotations), (
+        "an app-log rotation is charged against the byte budget before the "
+        f"transcript, so a full archive loses the run's pass/fail record: {order}"
+    )
+
+
+def test_the_current_log_is_still_staged_ahead_of_the_transcript(
+    tmp_path: Path,
+) -> None:
+    """The other direction. Only the ROTATIONS moved.
+
+    The current log explains a failure and keeps its place; a fix that swept the
+    whole app log behind the transcript would pass the test above and lose the
+    artifact that exists for every outcome.
+    """
+    share = tmp_path / "share"
+    share.mkdir()
+    log = share / "log.txt"
+    log.write_text("current", encoding="utf-8")
+    (share / "log.txt.1").write_text("R", encoding="utf-8")
+
+    layout = plan_session(home=tmp_path, stamp=STAMP)
+    prepare_session(layout)
+    layout.transcript.write_text("T", encoding="utf-8")
+
+    staged = _stage(layout, session_sources(layout, log_path=log))
+    base = staged.extra_dirs["session"]
+    order = [
+        f.relative_to(base).as_posix() for f in sorted(base.rglob("*")) if f.is_file()
+    ]
+    current = [i for i, n in enumerate(order) if n.endswith("log.txt")]
+    assert current, f"the current app log was not staged: {order}"
+    assert current[0] < order.index("transcript.txt"), (
+        f"the current app log lost its priority to the transcript: {order}"
     )

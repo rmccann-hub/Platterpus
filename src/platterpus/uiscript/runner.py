@@ -55,9 +55,34 @@ TICK_MS: int = 120
 #: strand an unattended run for a day.
 MAX_WAIT_S: float = 600.0
 
-#: Hard ceiling on `wait-for-rip`. A full disc is ~50-70 minutes on this
-#: hardware; three hours is generous and still bounded.
-MAX_RIP_WAIT_S: float = 3 * 60 * 60
+#: Hard ceiling on `wait-for-rip`. Bounded so an unattended batch cannot be
+#: stranded by a wedged rip that never finishes.
+#:
+#: **SIX HOURS, RAISED FROM THREE ON 2026-08-29, AND THE OLD VALUE WAS SET
+#: AGAINST THE WRONG OPERATION.** Its note read *"a full disc is ~50-70 minutes
+#: on this hardware; three hours is generous"* — true of an ordinary rip and not
+#: of the longest wait the suite actually performs. `fullacceptance.txt` §N is a
+#: whole-disc **uniform secure re-read**, which this project's own rig sheet puts
+#: at **2 to 2.5 hours**, and that section asks for `wait-for-rip 21600` — six
+#: hours, because its author meant *"wait a long time"*. So the cap sat barely
+#: above the expected duration of the very step most likely to exceed it.
+#:
+#: What the clamp then does is honest — it logs, it marks the outcome `[CLAMPED
+#: …]`, and it waits the cap rather than skipping the wait — but honesty is not
+#: safety here. **Past the cap the batch continues while the rip is still
+#: running**, and §N is followed by `rig-check` (which would read a half-written
+#: album) and then §P's `cyanrip -x -I` (which touches the drive the ripper still
+#: holds). Every step after the timeout measures a machine state the script does
+#: not think it is in — the same failure `abort-if-failed`'s docstring describes
+#: for a wrong ripper: not partially useful, but *evidence about a different
+#: subject*.
+#:
+#: The rule that replaces the guess: **the cap is at least as large as the
+#: longest wait any committed script asks for**, which
+#: `tests/test_rig_scripts.py` now enforces by deriving both sides. A cap chosen
+#: from a remembered duration is a number nobody re-checks when the suite grows a
+#: slower step; a cap checked against the scripts fails in CI the day it does.
+MAX_RIP_WAIT_S: float = 6 * 60 * 60
 
 #: Timeout for a scripted `cyanrip` invocation. Generous enough for a cold
 #: container exec (measured at 3.45 s) and a `-x` cache probe, bounded so an
@@ -2186,6 +2211,50 @@ class ScriptRunner(QObject):
             f"{fork_source.PIN_UNDER_REVIEW}\n"
             f"then re-run this script.\n"
             f"{_bounded_output(self._last_cyanrip_output)}",
+        )
+
+    def _do_probe_ripper_wrapper(self, step: Step) -> None:
+        """``probe-ripper-wrapper`` — which link in the chain fails to exit.
+
+        **The fork's round-15 §2 ask, absorbed.** Two consecutive rig mornings
+        produced zero rip artifacts because a probe of
+        ``~/.local/bin/cyanrip --version`` printed its banner and then never
+        returned. Their lap established three independent ways the hang is not in
+        cyanrip and asked the maintainer to run three shell commands. `CLAUDE.md`
+        forbids handing that back: *every "now run this, then run that" in a
+        written procedure is a thing the software was supposed to do.*
+
+        **It never records FAIL, and that is deliberate rather than lenient.** A
+        wrapper that hangs from an interactive shell does not affect the app,
+        which pipes its I/O — so the only thing a FAIL would achieve is aborting
+        a multi-hour pass over a condition that changes no rip. What matters is
+        that the verdict reaches the transcript, because the transcript is the
+        one file the operator uploads.
+
+        Runs on the script runner's own thread, which is not the GUI thread — the
+        probe spawns processes and bounds them, and doing that in a dialog slot is
+        the freeze this project has paid for three times.
+        """
+        from platterpus.deps import ripper_wrapper_probe
+
+        try:
+            report = ripper_wrapper_probe.probe()
+        except Exception as exc:  # noqa: BLE001 — a diagnostic must not end the run
+            log.exception("probe-ripper-wrapper: the probe itself failed")
+            self._record(
+                step,
+                Outcome.INFO,
+                f"the wrapper probe could not run: {exc!r} — recorded as "
+                f"not determined, which is not a pass",
+            )
+            return
+        # The whole rendered record, not just the verdict: a diagnosis we captured
+        # and did not surface is the same bug from the reader's side.
+        self._record(
+            step,
+            Outcome.INFO,
+            f"{report.verdict.value}: {report.summary}\n"
+            f"{ripper_wrapper_probe.render(report)}",
         )
 
     def _do_expect_refused(self, step: Step) -> None:
