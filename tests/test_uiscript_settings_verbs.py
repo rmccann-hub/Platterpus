@@ -219,10 +219,19 @@ def test_an_over_cap_rip_wait_WAITS_THE_CAP_instead_of_skipping(
     Asserted as the PROPERTY — a deadline is armed for the cap — rather than as
     "the step did not fail", because the step may still legitimately report the
     clamp. What must never happen again is *not waiting*.
+
+    **The request is DERIVED from the cap, not written as `21600`.** It was that
+    literal until 2026-08-29, chosen because it was over the three-hour ceiling —
+    and when the ceiling moved to six hours to stop clamping a legitimate secure
+    re-read, the literal became exactly *equal* to the cap, no clamp fired, and
+    this test failed for a reason that had nothing to do with its subject. A test
+    about over-cap behaviour must express "over the cap" in terms of the cap; its
+    sibling in `test_uiscript_rip_verbs.py` already did.
     """
     window._rip_worker = object()  # type: ignore[attr-defined]
     run = runner_mod.ScriptRunner(window)
-    run.start(_steps("wait-for-rip 21600"))
+    over_cap = int(runner_mod.MAX_RIP_WAIT_S) + 1_000
+    run.start(_steps(f"wait-for-rip {over_cap}"))
     run._tick()
     assert run._deadline is not None, (
         "no deadline was armed — the over-cap request was refused rather than "

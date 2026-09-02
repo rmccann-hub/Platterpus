@@ -2,8 +2,10 @@
 # FULL ACCEPTANCE RUN — end to end, every path the program has, one pass
 # =============================================================================
 #
-#   How to run it:  ./platterpus-x86_64.AppImage --run-script fullacceptance.txt
-#   Where it lives: docs/rig-scripts/fullacceptance.txt
+#   How to run it:  Tools -> Run acceptance test...  (the app does the rest:
+#                   session folder, sleep lock, the run, and one file to send)
+#   Where it lives: INSIDE the app, since v0.6.32 — there is nothing to download.
+#                   Source: src/platterpus/rig_scripts/fullacceptance.txt
 #   What it costs:  4 to 6 hours. LEAVE IT RUNNING OVERNIGHT.
 #                   It rips the whole disc TWICE (once fast, once with every
 #                   track read at least twice) plus six short partial rips.
@@ -29,10 +31,23 @@
 # -----------------------------------------------------------------------------
 # 1. Be on the newest Platterpus. Help -> Check for updates, or download the
 #    AppImage from the releases page.
-# 2. Be on the newest cyanrip. Settings -> tick the ripper **beta** channel,
-#    then take the install offer. Section A asserts you are on the exact build
-#    the open handshake round is reviewing and STOPS THE RUN in the first few
-#    seconds if you are not — before any drive time is spent.
+# 2. Be on the cyanrip build THIS Platterpus expects — which is **not** always
+#    the newest one. Help -> Check for cyanrip updates..., and take the offer it
+#    presents as a plain one-click install. An offer that WARNS you first is a
+#    newer build no closed round has reviewed: taking it makes every rip report
+#    `unapproved`, and section A will refuse to run on it.
+#
+#    Do not reach for a channel toggle to decide this, and do not look for the
+#    answer in this comment: THIS FILE NAMES NO BUILD, on purpose. Which one is
+#    wanted changes every time a handshake round opens or closes, and this file
+#    ships inside a release — so anything written here freezes on the day it was
+#    built and cannot learn that the answer moved. Both previous attempts were
+#    wrong within days, and each one sent operators to a build section A refuses.
+#    The app holds that fact in one place and checks it — which is why step 2
+#    above is the whole answer, and there is no second copy of it here.
+#
+#    Section A asserts the exact expected build and STOPS THE RUN in the first
+#    few seconds if you are not on it — before any drive time is spent.
 #
 #    That stop is real as of this version. It used to be a promise this file
 #    could not keep: nothing but `abort` ends a batch and this file never used
@@ -149,6 +164,19 @@ expect-exit 0
 expect-cyanrip platterpus-fork
 expect-ripper-under-review
 snapshot identity
+
+# WHICH LINK IN THE RIPPER CHAIN FAILS TO EXIT — gathered, never asserted.
+#
+# Two consecutive rig mornings (2026-08-26, 2026-08-27) produced ZERO rips and
+# neither failed at ripping: both ended mid-probe with `cyanrip --version`
+# printing its banner in full and then not returning, until a 60s timeout killed
+# it. The cyanrip fork showed three independent ways the hang is not cyanrip and
+# asked for three shell commands to be run by hand. This is those commands.
+#
+# It records `info` and moves on. A wrapper that hangs from an interactive shell
+# does not affect this run — the app pipes its I/O — so failing here would abort
+# a six-hour pass over something that changes no rip.
+probe-ripper-wrapper
 
 # THE ONE PLACE THIS FILE IS ALLOWED TO STOP, and the distinction is the point.
 #
@@ -722,9 +750,21 @@ expect-dialog none
 snapshot atend
 
 log =============================================================
-log DONE. Everything from this run is in ONE .tar.gz under
-log ~/.local/share/platterpus/bundles/ - transcript, reports,
-log screenshots, app log, rig-check manifest.
-log Its path is the "SEND THIS ONE FILE" line in the app log.
-log Then run:  ./platterpus-x86_64.AppImage --rig-session
+log DONE. There is nothing left for you to run.
+log Platterpus packs this run into ONE .tar.gz and names it in a
+log dialog when the window comes back - with a button that opens
+log the folder. Send that file. It carries the transcript, the app
+log log, the settings, the screenshots and every rip folder's text
+log artifacts (logs, cue sheets, reports, checksums). No audio.
+log If the dialog is gone, the same path is on the SEND THIS ONE FILE
+log line in the app log.
 log =============================================================
+# WHY THIS DOES NOT NAME A FOLDER. It used to say the bundle was under
+# `~/.local/share/platterpus/bundles/` and to then run `--rig-session`. Both were
+# wrong after v0.6.32 moved the session into the app: the deliverable lands in
+# `~/Downloads` (or `$HOME` when there is no Downloads folder), and there is no
+# second command. Two surfaces answering "where is my file?" with different
+# answers is `docs/testing.md` §5.al, and the one a tired operator reads at 7am
+# was the stale one. So this text now points at the surface that COMPUTES the
+# answer instead of restating it - the dialog cannot drift from the path it was
+# handed.

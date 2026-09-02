@@ -203,3 +203,68 @@ def test_both_constants_look_like_commits(attribute: str) -> None:
         f"tags below are composed as f'{{FORK_BRANCH}}-g{{{attribute}}}', so "
         f"anything else silently produces a tag no build prints."
     )
+
+
+def test_the_under_review_pin_and_version_are_one_pairing_from_one_lap() -> None:
+    """**The relation, which no test of either constant alone can express.**
+
+    `PIN_UNDER_REVIEW` had a checker (above). `UNDER_REVIEW_TARGET.version` had
+    none, so on 2026-09-01 the pin rolled to `978f9b0` while the version beside it
+    still read `0.9.4-rc2+platterpus.10` — round 14's. Every field was individually
+    defensible and the pairing named a build that has never existed, which is the
+    2026-08-18 mis-pairing shape exactly: *the channel head's version rendered
+    against the installed commit, every field true, the sentence false.*
+
+    It is not cosmetic. That version string is what `--install-ripper` and the
+    setup wizard label the build they compile, and what the handshake skeleton
+    puts in `HANDSHAKE-RIPPER-VERSION` beside `HANDSHAKE-PIN` — so the seam would
+    have carried a banner-and-pin combination no binary prints.
+
+    Both halves are derived from the SAME inbound lap here, because reading them
+    from two places is how they came apart.
+    """
+    newest = next(
+        (
+            path
+            for path in reversed(_inbound_rounds())
+            if _PIN_LINE.search(path.read_text(encoding="utf-8"))
+        ),
+        None,
+    )
+    assert newest is not None, "no inbound round declares a HANDSHAKE-PIN"
+    text = newest.read_text(encoding="utf-8")
+
+    pin_match = _PIN_LINE.search(text)
+    assert pin_match is not None
+    declared_pin = pin_match.group(1)
+
+    # `HANDSHAKE-RIPPER-VERSION: cyanrip <version> (<build tag>)` — the pairing as
+    # THEY state it, which is the artifact this project treats as authoritative.
+    banner = re.search(
+        r"^HANDSHAKE-RIPPER-VERSION:[ \t]*cyanrip[ \t]+(?P<version>\S+)"
+        r"[ \t]*\((?P<tag>[^)]+)\)",
+        text,
+        re.MULTILINE,
+    )
+    assert banner is not None, (
+        f"{newest.name} declares no parseable HANDSHAKE-RIPPER-VERSION, so this "
+        f"check has nothing to derive the pairing from"
+    )
+
+    target = fork_source.UNDER_REVIEW_TARGET
+    assert target.pin.casefold() == declared_pin.casefold(), (
+        f"UNDER_REVIEW_TARGET.pin is {target.pin!r} but {newest.name} declares "
+        f"{declared_pin!r}"
+    )
+    assert target.version == banner.group("version"), (
+        f"UNDER_REVIEW_TARGET.version is {target.version!r} but {newest.name} "
+        f"declares {banner.group('version')!r} for that same pin. The two fields "
+        f"name ONE build; a version rendered against a different commit is the "
+        f"mis-pairing this test exists to refuse."
+    )
+    # And the tag they print must be the one we compose, or the acceptance run's
+    # `expect-ripper-under-review` compares against a string no build emits.
+    assert banner.group("tag").strip() == f"{fork_source.FORK_BRANCH}-g{target.pin}", (
+        f"we would compose {fork_source.FORK_BRANCH}-g{target.pin!r} but they "
+        f"print {banner.group('tag').strip()!r}"
+    )

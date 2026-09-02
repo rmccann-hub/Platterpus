@@ -5,7 +5,7 @@
 # THIS IS THE ONLY FILE EITHER SIDE SENDS. Not a document about tests. The tests.
 #
 #   How to run it:   ./platterpus-x86_64.AppImage --run-script round08joint.txt
-#   Where it lands:  docs/rig-scripts/round08joint.txt  in rmccann-hub/Platterpus
+#   Where it lands:  round08joint.txt  in rmccann-hub/Platterpus
 #                    ^ ONE place. Nowhere else, by either side.
 #
 # CYANRIP: add your tests in SECTION C. Change nothing above or below it. Send

@@ -21,6 +21,18 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
+## Split the acceptance session out of `main_window_provision.py` (2026-09-01)
+
+- [ ] **`ui/main_window_provision.py` is 1,212 lines doing four jobs** — host
+  provisioning, AppImage integration, the uninstaller, and now ~550 lines of
+  acceptance session. `CLAUDE.md` says split a Qt god-object via **mixins** the
+  concrete class inherits, so methods stay reachable as `window._x`. The module
+  docstring still names only the first three. Deliberately **not** done at
+  release time with a real hardware run in flight: a 550-line move earns no
+  functional gain and risks the thing being tested. The size ratchet in
+  `tests/test_critical_rules_are_enforced.py` records the number so it cannot
+  grow further unnoticed.
+
 ## The lesson→gate audit backlog (2026-08-28)
 
 **130 gaps, from the 187-item audit written up in `docs/testing.md` §5C.**
@@ -711,7 +723,7 @@ condition cannot be met — the S-13 failure that made round 7 run 37 laps.
 ## Found on the rig, 2026-08-12 — the round-8 script run that never reached the rip
 
 Three defects, all ours, all found by a real hardware run of
-`docs/rig-scripts/round08joint.txt` on the Bazzite + BDR-209D rig. The run
+`src/platterpus/rig_scripts/round08joint.txt` on the Bazzite + BDR-209D rig. The run
 scored 62 pass / 10 fail and **the rip never started**, so it produced no round-8
 evidence — but it produced these.
 
@@ -2821,4 +2833,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.32.*
+*Last updated for Platterpus v0.6.33.*

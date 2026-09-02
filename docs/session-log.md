@@ -11,6 +11,229 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-02 — round 15 opened, and three surfaces answered "which build?" from two constants
+
+**The fork opened handshake round 15** with one close condition — CC-1, a
+hardware acceptance pass on the released pair, cyanrip
+`0.9.4-rc2+platterpus.11` at `978f9b0` (stable, `release_seq` 21) against our
+declared release — fixed at lap 1 under S-13 so it cannot grow, plus an S-18
+pre-commit that their next lap is `GO` unless our pass fails on a cause that is
+theirs. Filing it made our own tooling report the round OPEN, which blocks a
+stable release; a `v0.*` pre-release is permitted, and `release.yml`'s gate says
+in as many words why — *refusing the beta does not protect a user, it guarantees
+the round can never close.*
+
+**Their §3 was a real defect of ours, and rolling the pin found two more of the
+same shape.** `PIN_UNDER_REVIEW` still named `d9c058c` five days after round 14
+closed and *promoted* that build, so the acceptance script refused the binary
+the fork had since released — their lap quotes our own rig log saying so. Rolling
+it to `978f9b0` then broke three tests, and each break was a second surface
+answering *"which build is this round about?"* from a different constant:
+
+* **The skeleton generator.** `HANDSHAKE-PIN` and `HANDSHAKE-RIPPER-VERSION` were
+  both read from `FORK_PIN` — production. That is the *same value* as
+  `PIN_UNDER_REVIEW` while no round is open, because closing a round is the act
+  of making them equal, so fourteen rounds of correct output established nothing
+  about the branch that matters. Round 15 would have gone out declaring
+  `d9c058c` beside a `+platterpus.10` banner, into the lap written to answer a
+  round about `978f9b0`.
+* **`UNDER_REVIEW_TARGET.version`**, which had no checker at all and was already
+  a round stale. It is the string `--install-ripper` labels the build it
+  compiles, so the pairing named a build that has never existed.
+* **The acceptance script's header**, which a test *required* to name the
+  production pin — and would therefore have demanded a header naming the build
+  section A now aborts on. It enforced the abort it was written to prevent.
+
+The general lesson is `CLAUDE.md`'s already: *do two surfaces answer this
+question, and do they use the same key?* What is new is the tell — **two
+constants that are equal by construction for most of their life**. Nothing about
+correct behaviour distinguishes them until the day it matters, and no test of
+either one alone can see it, so the assertion has to be about the *relation*.
+
+**And the header could not have been kept current anywhere.** `fullacceptance.txt`
+ships inside the release, so CI binds `main` while the operator reads the copy
+frozen into the AppImage they downloaded. Currency was being enforced in the one
+place it cannot be delivered — the header now names no build and routes to
+*Help → Check for cyanrip updates…*, and the prose sweep covers comments as well
+as parsed steps, which is the half a step parser cannot see and the half an
+operator actually reads at 2am.
+
+**Their §2 ask became a feature rather than three commands.** Two consecutive rig
+mornings produced zero rips without either program's rip path being involved:
+`~/.local/bin/cyanrip --version` printed its banner in full and then never
+returned. The fork established three independent ways the hang is not cyanrip,
+the strongest being *our* installer's command substitution, which blocks until
+the child exits and demonstrably returned — an argument that needed nothing of
+theirs to be believed. They asked for three shell commands. `CLAUDE.md` is
+explicit that a procedure handed back in prose is work handed back, so the app
+runs them: `deps/ripper_wrapper_probe.py`, reached by a script verb (the default
+under the script-surface rule) and a `--doctor` row as its second thin caller.
+Tri-state, exact argv off `Popen.args`, tri-state exit codes with `null` never
+rendered as `0`, head-and-tail bounding with elisions counted, and a bounded
+post-SIGKILL wait so an unreapable child is reported rather than waited on.
+
+Two details worth keeping about *testing* it. The probe's first invocation must
+leave stdin **attached**, because closing it is the fork's candidate fix — a
+probe that closed it would test the fix instead of the defect and report "exits"
+every time. And `blames_the_wrapper` requires a hang **and** a contrasting
+success: a hang with nothing to compare against is equally consistent with a
+broken container, and claiming otherwise is *"never state a mechanism in the
+other side's code"* pointed inward.
+
+**The suite then found eight things, and three were the project catching me.**
+Worth listing, because they are the gates earning their keep rather than noise:
+
+* `tests/test_handshake_artifact_naming.py` **refused the provider contract's
+  filename** — I had filed it as `…-g978f9b0.md` (the commit it is committed at)
+  while its own banner says `g009a573`. The rule is that the filename names the
+  build the *artifact asserts*, because only the banner is derivable from the
+  content, and the gate is right: it caught by mechanism the same provenance
+  mismatch I had spotted by eye one screen earlier. Renamed — and the citation in
+  `fork_source.py` had to change with it, because the filename can no longer be
+  offered as evidence about `978f9b0`.
+* `tests/test_ripper_spawn_sites_are_enumerated.py` asked the question it exists
+  to force — *can this reach the ripper?* — and the answer for the new probe is
+  **yes, by two spellings**. That mattered: the honest classification is
+  `ripper`, which obliges the module to delegate to
+  `assert_metadata_lookup_disabled` rather than reason about `-N` itself. The
+  chokepoint refused a bare `--version` (no `-N`), so the fix was to give the
+  *chokepoint* a checkable notion of a probe — an argv that is nothing but the
+  binary plus one pure-output version flag — instead of exempting the caller. One
+  implementation, and appending a device to one of those probes now fails the
+  guard rather than hanging on a prompt at 2am. **`-I` is deliberately excluded**,
+  and that is the trap: it reads like a harmless print-and-exit flag while
+  info-only mode still queries MusicBrainz without `-N`.
+* `tests/test_cyanrip_version_flag.py` then refused the carve-out's flag set for
+  being **a second copy** — the flags live in `cyanrip_cli.VERSION_FLAGS` so a
+  rename is one edit, and a hand-written copy inside a *safety carve-out* is the
+  worst place to keep one. It also caught something I had not noticed doing: that
+  copy included `-v`, which is **not** in the canonical tuple. The fork's own
+  contract note says `-v` prints a banner, so it was a plausible addition — and
+  still wrong, because nothing here sends `-v` and widening a guard's exemption to
+  cover a flag no caller uses buys nothing while costing the guard its narrowness.
+  Derived from the tuple now, with a test pinning the refusal so the same contract
+  note cannot re-widen it.
+* the coverage floor, which put 11 statements of the probe's *error handling*
+  under a spotlight — the read-error path, the killpg-cannot-apply path, the
+  survived-SIGKILL path. Every one of them is code that only runs once something
+  has already gone wrong, and none had ever run. Now 100%, and the
+  survived-SIGKILL test asserts `exit_code is None` against a handle whose stale
+  `returncode` is deliberately non-`None`, so the tri-state cannot quietly
+  collapse to a `0`.
+
+Plus the ordinary bookkeeping the sweeps demand: a `PLANNING.md` tree row and
+responsibility bullet, five size ratchets refreshed deliberately, the envelope
+regenerated, and one vacuous assertion of my own (`assert real is
+subprocess.Popen or True`) deleted rather than left to reassure a future reader.
+
+**Verified, and one correction to myself.** 11 reverts probed with
+`scripts/revert_probe.py`, all `detected` after two spec corrections — one
+`REFUSED` because I had edited the anchor line away, and one `VACUOUS` that was
+about the spec rather than the test: the routing sentence existed **twice** in
+the header, so deleting one copy left the property true. The right fix was to
+delete the redundant copy, not to weaken the assertion. Their §4 (a
+`PROVIDER-CONTRACT.md` defect of their own: P2's blanket *"both stdout and the
+logfile"* is false for four `-I`-only rows) was verified here from the artifact
+at the pin rather than from their description, and is a no-op for us —
+`parsers/cyanrip_info.py` reads `MusicBrainz URL:` from `-I` **stdout**, and our
+generated consumer contract names none of the four.
+
+**One finding back at them, same class as their own §4:** the
+`PROVIDER-CONTRACT.md` committed at `978f9b0` carries
+`Build: cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-g009a573)` — a generated
+document naming a commit other than the one it was committed at, which is the
+round-6 provenance shape rule #12 exists for. Filed as information, not proposed
+as blocking under S-14: it makes nothing about the pin unsafe.
+
+## 2026-09-01 — the testing was not testing, and the audit had to be audited
+
+**v0.6.32, then eight more fixes on top.** The maintainer's brief was *"do some
+self testing, regression testing, and finding out how to gate or test for these
+things moving forward, especially problems we've already solved"*. Three things
+came out of it, and the third is the one worth keeping.
+
+**Mutation testing had never run.** Seven weekly jobs since 2026-07-13, all
+reporting `success`, all finishing in under 90 seconds for a job whose suite
+takes minutes to run once. Found by reading the *durations* rather than the
+conclusions, then reproduced in one second: `--paths-to-mutate` is mutmut 2.x,
+mutmut 3.0 removed it, `mutmut` was installed unpinned, and `|| true` made a hard
+`exit 2` and a completed audit produce the same tick. **Three of this repo's own
+rules were in play and none fired** — Critical rule #11 was read as being about
+*gating* tools, §5.au is the exact defect written down in the file this job
+serves, and `scripts/check.py` already refuses to grade a timed-out gate as a
+pass. The reasoning had simply never reached a workflow. It is now red rather
+than green, which is the true statement.
+
+**Then the obvious question: how much of this project's rulebook is actually
+enforced?** 187 items audited — every §5 case, every "stop shipping the next
+one" bullet, every Critical rule and Code convention. **54 gated, 69 partial, 61
+ungated.** And the figure that reframes it: **52 existing gates can be satisfied
+by finding nothing** — present, green, passing on an empty population, which is
+*more than the number that genuinely work*. Two were proved by construction: a
+parser with a live `ValueError` was added to the never-raises roster and passed,
+and a fresh instance of the discarded-`openUrl` defect passed all 4,679 tests.
+Method and numbers in `docs/testing.md` §5C; the 130 gaps are rows in `TASKS.md`.
+
+**Two real bugs fell out of asking, and neither was on anyone's list.** A dead
+button — the update dialog's *"Open the download page"* discarded `openUrl`'s
+bool, the only signal that nothing claims the URL, in a module that exists to
+prevent exactly that and cites §5.o in its own docstring. And a cubic hang:
+`_tag_matches` was O(n³) in the build tag's separator count, on a value read from
+the ripper's banner and reached by every rip — **3,000 separators took 45
+seconds**, now 0.00007.
+
+### The lesson worth graduating: an audit's findings are claims, not results
+
+Six lenses over the new acceptance session produced **60 findings**. Every one
+went to a separate agent whose only job was to **refute** it. **23 refuted, 6
+overstated, 11 confirmed** — 48% simply wrong, several confidently so, and
+applying them unexamined would have degraded correct code while looking like
+diligence.
+
+The clearest case: a lens called the `wait-for-rip` clamp *"silent"*. The runner
+logs a warning **and** stamps `[CLAMPED …]` on the outcome, and its comment says
+*"never a silent clamp"*. Its proposed fix would have changed code that already
+did exactly that — and left the real defect, the cap's **value**, untouched. A
+3-hour ceiling against a secure re-read this project's own rig sheet puts at 2 to
+2.5 hours, so past the clamp the batch does drive work on top of a live rip.
+
+**Two findings were established by MEASUREMENT rather than reading**, and both
+would have been plausible-but-unproven from the source alone: a vacuous test,
+proved by deleting the guard it claimed to cover and watching it pass; and a
+symlink defeating the audio allowlist, reproduced. That is the difference between
+a finding and an opinion.
+
+**And the refutation caught a scope error in my own fix.** I fixed the byte-budget
+ordering in `_collect`; an agent refuting that fix's *scope* found the identical
+defect at a second site, where the session bundle bypasses `_collect` entirely
+and `sorted(rglob(...))` charged every log rotation ahead of `transcript.txt` —
+the one file recording whether a six-hour run passed. §5.o landing on the very
+change that cited it.
+
+**My own test was wrong once, and the tool said so.** The first budget-ordering
+test came back `VACUOUS` from `revert_probe.py`: the budget check refuses an
+over-large file and *keeps walking*, so tiny album files slipped into the
+headroom the refused rotations left behind, and the test passed against the
+broken order. Reproducing the symptom meant sizing rotations to fill the budget
+to within less than one album file. *Did I reproduce the symptom, or only explain
+it?* — asked of a test rather than a diagnosis.
+
+### Also
+
+The rig scripts moved **inside the package**, so an AppImage user has the
+acceptance test rather than a link to it, and **Tools → Run acceptance test…**
+now does the whole session: folder, sleep lock, run, collect, one file. The
+in-app User Guide did not mention it — zero occurrences of "acceptance" — and the
+sweep written for that found **two more** undiscoverable Tools actions. 59
+documentation corrections were applied and **6 findings refuted**, including
+`SECURITY.md` promising *"Platterpus never deletes or overwrites your existing
+files"* while citing the guard that failed on 2026-08-23.
+
+**Not claimed:** sections F–Q have never executed on any 0.6.x build, and the
+in-app session had not driven a real disc when this was written.
+
+---
+
 ## 2026-08-28 — the front page was stale, and my own fix cost the run
 
 **v0.6.31.** Two things happened, and they are connected by the same question.
@@ -4129,4 +4352,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.32.*
+*Last updated for Platterpus v0.6.33.*

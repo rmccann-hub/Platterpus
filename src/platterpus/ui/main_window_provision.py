@@ -100,6 +100,13 @@ class ProvisioningMixin(MainWindowShared):
     #: in production waits on it (it is fire-and-forget by design — see
     #: :meth:`_launch_acceptance_bundle`).
     _acceptance_bundle_thread: threading.Thread | None = None
+    #: The run's own outcome, rendered for a person by
+    #: :meth:`_acceptance_run_headline`. Kept on the window because the run ends
+    #: and the *bundle* ends at two different moments, and the closing dialog —
+    #: the one thing the operator reads in the morning — is raised at the second
+    #: one. Empty means "no run has finished in this window yet", which the
+    #: dialog reports as *not determined* rather than as a pass.
+    _acceptance_run_verdict: str = ""
 
     # --- Signals the concrete MainWindow declares --------------------------
     #
@@ -374,8 +381,17 @@ class ProvisioningMixin(MainWindowShared):
         if existing is not None and existing.isVisible():
             existing.raise_()
             existing.activateWindow()
-            if autorun:
-                existing.run_now()
+            if autorun and not existing.run_now():
+                # A refusal here is the likeliest one in the whole feature: the
+                # console was already open, so it may well already be running.
+                # Logged rather than swallowed — this method's contract is to
+                # return the console, so the caller's own check is the console's
+                # `runner`, and a silent discard would leave nothing in the log
+                # file a bug report carries.
+                log.warning(
+                    "autorun asked an already-open console to run and it declined "
+                    "— a run is most likely still in progress"
+                )
             return existing
         cfg = getattr(self, "_config", None) or load_config()
         console = ScriptConsoleDialog(
@@ -385,8 +401,11 @@ class ProvisioningMixin(MainWindowShared):
         )
         self._script_console = console
         console.show()
-        if autorun:
-            console.run_now()
+        if autorun and not console.run_now():
+            # A freshly-built console cannot be running, so this is close to
+            # unreachable — which is precisely why it is logged rather than
+            # ignored: if it ever fires, the reason will not be guessable.
+            log.warning("autorun did not start a run on a newly-opened console")
         return console
 
     # ----------------------------------------------------------------------
@@ -519,6 +538,10 @@ class ProvisioningMixin(MainWindowShared):
         self._acceptance_started_at = time.time()
         self._acceptance_script = script
         self._acceptance_inhibit_note = ""
+        # Cleared per session: a verdict left over from the PREVIOUS run would be
+        # stamped on this one's closing dialog, which is the same "every field
+        # true, the sentence false" shape this field exists to fix.
+        self._acceptance_run_verdict = ""
         log.info(
             "acceptance session %s starting: script=%s folder=%s deliverable=%s",
             layout.stamp,
@@ -666,7 +689,67 @@ class ProvisioningMixin(MainWindowShared):
             console.run_finished.connect(self._on_acceptance_run_finished)
             self._acceptance_console = console
         log.info("acceptance session: starting the batch (%s)", script)
-        console.run_now()
+        # **The start is CHECKED, not assumed.** `run_now()` declines when a run
+        # is already in flight — the operator triggered Tools → Run acceptance
+        # test twice, or left a console running from earlier — and until it
+        # returned a value this method logged *"starting the batch"* and then
+        # armed a session around a batch that never began: the sleep lock held,
+        # the layout armed, and the window waiting on a `run_finished` that
+        # belongs to somebody else's script or to nothing at all. Asserting that
+        # a thing was REQUESTED where the claim is that it HAPPENED (`CLAUDE.md`).
+        if not console.run_now():
+            self._refuse_acceptance_start(console, script)
+            return
+
+    def _refuse_acceptance_start(
+        self, console: ScriptConsoleDialog, script: Path
+    ) -> None:
+        """End a session whose batch would not start, saying why on screen.
+
+        Split out of :meth:`_start_acceptance_script` so the refusal reads as one
+        thing: **disarm, release, explain**. Getting any one of those wrong leaves
+        either a machine held awake or an operator who believes a six-hour run is
+        under way.
+
+        **The reason is read from the console, not guessed.** The only refusal
+        `run_now()` has today is "a run is already in progress", and naming *that*
+        is what makes the message actionable — "it did not start" tells nobody
+        what to do next. A refusal we cannot place is reported as exactly that,
+        never as a cause we made up (tri-state, as everywhere else here).
+
+        **Why a modal is right here even though a script may be running.** A
+        spontaneous dialog over an unattended batch is a measured defect in this
+        project — but this one is the answer to a menu item the operator chose
+        seconds ago, and the alternative is the silent no-op the whole feature is
+        written against: a menu item that does nothing and says nothing. The live
+        log line goes out too, because that is where an operator watching a
+        running batch is already looking.
+        """
+        runner = console.runner
+        if runner is not None and runner.running:
+            reason = "a test script is ALREADY RUNNING in the Run test script console."
+            what_to_do = (
+                "Stop that run (the Stop button in that console), then start the "
+                "acceptance test again."
+            )
+        else:
+            # Not determined: the console declined for a reason this window
+            # cannot place. Say so rather than inventing one.
+            reason = "the test-script console declined to start it, for a reason this window could not read."
+            what_to_do = (
+                "Open Tools → Run test script… to see what the console says, then "
+                "start the acceptance test again."
+            )
+        log.error("acceptance session: the batch did not start — %s", reason)
+        self._show_acceptance_notice(f"⚠ The acceptance test did not start — {reason}")
+        self._end_acceptance_session("the batch would not start")
+        self._acceptance_message(
+            QMessageBox.Icon.Critical,
+            "The acceptance test did not start",
+            f"⚠ Nothing was run — {reason}\n\n{what_to_do}\n\n"
+            f"The script that would have run:\n{script}\n\n"
+            "The sleep lock has been released.",
+        )
 
     def _on_acceptance_run_finished(self, report: object) -> None:
         """The batch is over — runs on the GUI thread. Release, then pack.
@@ -707,6 +790,11 @@ class ProvisioningMixin(MainWindowShared):
                     log.warning("the acceptance transcript could not be read back")
                     facts["transcript"] = "NOT CAPTURED — the console was destroyed"
             facts.update(self._acceptance_run_facts(report))
+            # The same report, rendered for the morning dialog. Read HERE, while
+            # the report is in hand: the bundle finishes seconds-to-minutes later
+            # and the payload is not carried through the daemon.
+            self._acceptance_run_verdict = self._acceptance_run_headline(report)
+            facts["run outcome"] = self._acceptance_run_verdict
             artifact_dir = self._acceptance_artifact_dir(report)
         finally:
             self._release_acceptance_inhibitor()
@@ -739,6 +827,87 @@ class ProvisioningMixin(MainWindowShared):
             ),
             "run ended": ended,
         }
+
+    def _acceptance_run_headline(self, report: object) -> str:
+        """The RUN's outcome in one sentence, for the closing dialog. Never raises.
+
+        **Why this exists.** The end-of-session dialog used to open with
+        *"✓ Send this one file"* whenever the **bundle** succeeded — and a bundle
+        succeeding says nothing whatever about the run inside it. An operator who
+        aborted in section A, or whose batch recorded forty failures, was handed a
+        tick. Every field in that message was true and the sentence it left behind
+        was false, which is the failure shape this project keeps paying for.
+
+        **Tri-state, and a verdict is never invented.** Three real answers:
+
+        * *passed* — every step ran and passed, and the run reached the end;
+        * *finished with N failure(s)* — it ran to the end and found things;
+        * *did not complete* — it stopped early (aborted, stopped, the window
+          went), so the steps after that point measured nothing.
+
+        Anything we cannot read is **not determined**, which is a real answer and
+        not a pass. So is a report with **zero steps**: "all 0 steps passed" is a
+        sentence that can be satisfied by finding nothing, and this is the dialog
+        somebody acts on (`CLAUDE.md` — give a check that can pass on emptiness a
+        floor).
+
+        Read through `getattr` rather than an `isinstance` narrow for the same
+        reason :meth:`_acceptance_run_facts` is: an unexpected payload becomes a
+        stated line, never an exception raised on top of a finished six-hour run.
+
+        Every branch carries a `✓`/`⚠`/`ⓘ` marker, because status is never
+        colour alone (`CLAUDE.md`, accessibility) — and this text is read in a
+        screenshot as often as on screen.
+        """
+        counts = getattr(report, "counts", None)
+        if not callable(counts):
+            return (
+                "ⓘ Run outcome: NOT DETERMINED — the console reported a "
+                f"{type(report).__name__}, which this window cannot read. Open "
+                "the transcript in the bundle to see what the run did."
+            )
+        try:
+            tally = counts()
+        except Exception as exc:  # noqa: BLE001 — a verdict must not end the session
+            log.exception("could not read the acceptance run's counts")
+            return (
+                "ⓘ Run outcome: NOT DETERMINED — the run's own tally could not be "
+                f"read ({type(exc).__name__}: {exc}). The transcript in the bundle "
+                "is the record."
+            )
+
+        # Defensive reads: `tally` comes from a payload we only describe.
+        def _n(name: str) -> int:
+            value = tally.get(name, 0) if isinstance(tally, dict) else 0
+            return value if isinstance(value, int) else 0
+
+        passed = _n("pass")
+        failures = _n("fail") + _n("error") + _n("blocked")
+        skipped = _n("skipped")
+        total = passed + failures + skipped
+        ended = str(getattr(report, "ended_reason", "") or "")
+
+        if total == 0:
+            # The floor. A report with no steps is not a clean run — it is a run
+            # that recorded nothing, and the two must not read alike.
+            return (
+                "ⓘ Run outcome: NOT DETERMINED — the report records no steps at "
+                "all, so nothing was measured. Read the transcript in the bundle."
+            )
+        if ended or skipped:
+            why = ended or "it stopped before the last step"
+            return (
+                f"⚠ The run DID NOT COMPLETE — {why}. {passed} of {total} step(s) "
+                f"passed, {failures} failed, {skipped} never ran. The steps after "
+                "the stop measured nothing."
+            )
+        if failures:
+            return (
+                f"⚠ The run finished with {failures} FAILURE(S) — {passed} of "
+                f"{total} step(s) passed. Send the file anyway: the failures are "
+                "the point."
+            )
+        return f"✓ The run PASSED — all {total} step(s) passed."
 
     def _acceptance_artifact_dir(self, report: object) -> Path | None:
         """The run's screenshot directory, if it took any.
@@ -793,6 +962,28 @@ class ProvisioningMixin(MainWindowShared):
         if artifact_dir is not None:
             extra.append(artifact_dir)
 
+        # THE DIAGNOSTICS BLOB, rendered HERE on the GUI thread and carried into
+        # the archive as text — the same thing every per-rip evidence bundle has
+        # carried since 0.6.19, and which the session bundle was silently missing.
+        #
+        # It is the version PAIR (ours and the ripper's), the environment block
+        # and the dependency states. The app log holds most of that scattered
+        # across six hours of lines; this is the one place it is assembled, and
+        # assembling it is exactly what a person should not have to do from a
+        # transcript at 7am.
+        #
+        # On the GUI thread deliberately, and measured before deciding: it is
+        # pure — no subprocess, no network — and renders in 29 ms. `build_bundle`
+        # takes it as `extra_text` precisely so a Qt-free module never has to
+        # reach into the UI for it.
+        try:
+            from platterpus.ui.dialogs.diagnostics_dialog import build_diagnostics_text
+
+            diagnostics = build_diagnostics_text()
+        except Exception as exc:  # noqa: BLE001 — the bundle must survive this
+            log.exception("could not render diagnostics for the session bundle")
+            diagnostics = f"(diagnostics could not be rendered: {exc!r})"
+
         # WHERE THE RIPS LANDED. Read on the GUI thread (config access), used on
         # the worker. `output_dir` is where a rip is written and `library_dir` is
         # where a finished one is moved to, so a session's albums can be under
@@ -829,6 +1020,7 @@ class ProvisioningMixin(MainWindowShared):
                     outcome="acceptance test session",
                     facts=facts,
                     album_dirs=albums,
+                    embedded_text={"DIAGNOSTICS.txt": diagnostics},
                 )
             except Exception as exc:  # noqa: BLE001 — must never crash the session
                 log.exception("could not pack the acceptance session")
@@ -862,19 +1054,43 @@ class ProvisioningMixin(MainWindowShared):
             self._acceptance_message(
                 QMessageBox.Icon.Warning,
                 "The acceptance run finished — the bundle did not",
-                "⚠ The run is over, but the single file could not be written.\n\n"
-                f"{reason}\n\nEverything it would have contained is still in the "
-                f"session folder:\n{self._acceptance_root}\n\n{note}",
+                # The run's own outcome belongs here too: "the bundle failed" is
+                # not an answer to "did the run pass", and the operator needs
+                # both before deciding what to do with the session folder.
+                f"{self._acceptance_run_verdict or 'ⓘ Run outcome: NOT DETERMINED.'}"
+                "\n\n⚠ The run is over, but the single file could not be "
+                f"written.\n\n{reason}\n\nEverything it would have contained is "
+                f"still in the session folder:\n{self._acceptance_root}\n\n{note}",
                 open_path=self._acceptance_root,
             )
             return
         included = len(getattr(result, "included", []) or [])
         excluded = len(getattr(result, "skipped", []) or [])
-        log.info("acceptance session: SEND THIS ONE FILE: %s", path)
+        # THE RUN'S OUTCOME LEADS, THE FILE FOLLOWS. This message used to open
+        # with "✓ Send this one file" on the strength of the *bundle* having been
+        # written — a tick over a run that had aborted in section A or recorded
+        # forty failures. The bundle succeeding and the run passing are two
+        # different facts and only one of them is what the operator is asking.
+        #
+        # An unset verdict is NOT DETERMINED, never a pass: this branch can be
+        # reached by a bundle that finished for a run whose report never arrived.
+        verdict = self._acceptance_run_verdict or (
+            "ⓘ Run outcome: NOT DETERMINED — no finished run was recorded for "
+            "this session. The transcript in the file below is the record."
+        )
+        # The FILE LINE STAYS whatever the verdict is: a failed run's evidence is
+        # exactly what has to be sent, and a dialog that withheld the path on a
+        # failure would lose the run it was written to capture.
+        log.info(
+            "acceptance session: SEND THIS ONE FILE: %s (%s)",
+            path,
+            self._acceptance_run_verdict or "run outcome not determined",
+        )
         self._acceptance_message(
             QMessageBox.Icon.Information,
             "Acceptance run finished",
-            "✓ Send this one file:\n\n"
+            f"{verdict}\n\n"
+            "Send this one file:\n\n"
             f"{path}\n\n"
             f"{included} file(s) included, {excluded} excluded; no audio.\n\n"
             f"{note}",

@@ -11,6 +11,334 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.33] — 2026-09-01
+
+### Added
+- **The app now finds out for itself which link in the ripper chain fails to
+  exit** — `probe-ripper-wrapper` in the script language, plus a *Ripper wrapper
+  exits* row in `--doctor`, both thin callers of one
+  `deps/ripper_wrapper_probe.py`. Two consecutive rig mornings (2026-08-26,
+  2026-08-27) produced **zero rips** and neither failed at ripping: both ended
+  mid-probe with `~/.local/bin/cyanrip --version` printing its banner in full
+  and then never returning. The cyanrip fork established three independent ways
+  the hang is not cyanrip — the strongest being that our own installer reads that
+  banner through a command substitution, which blocks until the child exits and
+  demonstrably returned — and asked for three shell commands to be run by hand.
+  `CLAUDE.md` forbids handing that back, so the acceptance script runs them and
+  the verdict lands in the one file the operator uploads. Tri-state
+  (`exits`/`hangs`/`not_determined`), every probe's exact argv and tri-state exit
+  code recorded, output bounded head **and** tail with any elision counted, and
+  the group SIGKILL escalation bounded so an unreapable child is reported rather
+  than waited on. A hang is a WARN and the script step records `info`: the app
+  pipes its I/O and is unaffected, so failing there would abort a six-hour pass
+  over something that changes no rip.
+- **A narrow version-probe carve-out in the argv chokepoint**, because the probe
+  above is a **new route to the ripper** and `CLAUDE.md` requires a new route to
+  re-establish the guard by *calling* the one implementation, never by carrying
+  its own rule. `assert_metadata_lookup_disabled` refuses any cyanrip argv
+  without `-N`; a bare `--version` provably cannot do a lookup (cyanrip handles
+  it inside `GEN_OPT_PARSE` and returns before anything is initialised), so the
+  guard now accepts an argv that is **nothing but** the binary plus one
+  pure-output version flag, and refuses anything richer. Keyed on the whole argv,
+  so `--version -d /dev/sr0` is still refused — a flag-presence check would have
+  let a rip in behind a harmless prefix. The exempt set is **derived from
+  `cyanrip_cli.VERSION_FLAGS`**, not retyped: the first version spelled the flags
+  out and the version-flag sweep refused it, correctly — a hand-written copy
+  inside a safety carve-out is the worst place to keep a second one. That sweep
+  also caught the copy having quietly *widened* the set to include `-v`, which is
+  not in the canonical tuple; nothing here sends `-v`, and widening a guard's
+  exemption to cover a flag no caller uses buys nothing. **`-I` is deliberately
+  not in that set:**
+  it reads like "just print info" but info-only mode still queries MusicBrainz
+  without `-N`, which is the interactive prompt the guard exists to prevent. The
+  probe is enumerated in `SPAWN_SITES` as ripper-capable, by both spellings — the
+  host export and the `distrobox-enter … cyanrip` form.
+- **`Outcome.INFO`** for script steps that gather rather than assert, so a
+  hanging wrapper is not reported as `[  ok  ]` — a transcript claiming an
+  assertion held where none was made.
+
+### Changed
+- **cyanrip handshake round 15 is open, and the pin under review rolled from
+  `d9c058c` to `978f9b0`** (`cyanrip 0.9.4-rc2+platterpus.11`, `release_seq` 21,
+  channel *stable*). Their round-15 lap 1 is filed, along with the
+  `PROVIDER-CONTRACT.md` committed at that pin — which is what backs the new
+  `--consumer` capability row rather than anyone's assumption. The acceptance
+  script's `expect-ripper-under-review` reads that constant, so on 0.6.32 it
+  refused the build the fork had already released: their lap quotes our own rig
+  log saying so.
+
+### Fixed
+- **`handshake.py --check` reported §I ABSENT on a lap whose §4 was entirely
+  about the provider contract.** Its subject floor matched only the spaced
+  spelling *"provider contract"*, never `PROVIDER-CONTRACT.md` — the artifact's
+  own filename. This is the false-positive twin of the §G defect round 6 found:
+  that one passed for the wrong reason, this one failed for the wrong reason, and
+  a subject floor that cannot recognise the subject when it is named by its
+  filename is how a gate earns an allowlist and stops meaning anything.
+- **The handshake skeleton would have named the wrong build into an open
+  round.** `HANDSHAKE-PIN` and `HANDSHAKE-RIPPER-VERSION` were both read from the
+  *production* pin, which equals the pin under review **only while no round is
+  open** — closing a round is the act of making them equal — so fourteen rounds
+  of correct output proved nothing about the branch that matters. Round 15 opening
+  on `978f9b0` would have emitted `HANDSHAKE-PIN: d9c058c` beside a
+  `+platterpus.10` banner: a pin and a banner no single binary has ever printed,
+  in the lap written to answer that round. Both now follow the round, driven
+  through each branch by a monkeypatched test since only one is reachable on any
+  given day.
+- **`UNDER_REVIEW_TARGET.version` had no checker and had already gone stale.**
+  The pin beside it rolled while the version still read round 14's — the
+  2026-08-18 mis-pairing shape exactly (*every field true, the sentence false*),
+  and that string is what `--install-ripper` labels the build it compiles. Both
+  halves are now derived from the same inbound lap, which is the relation neither
+  constant's own test could express.
+- **The acceptance script's header named a cyanrip build**, and on 0.6.32 it
+  named the one the fork had superseded — so it warned operators off the build
+  round 15 had opened on. The header now names none: the file ships *inside* a
+  release, so anything written there freezes on build day and cannot learn that
+  the answer moved, which made currency enforceable only in the one place it
+  could not be delivered. The test that used to *require* the tag now forbids it,
+  and the prose sweep covers comments as well as steps — the half a step parser
+  cannot see, and the half the operator actually reads.
+
+- **The in-app User Guide never mentioned the acceptance session** — zero
+  occurrences of the word. Its testing section walked the reader to *Tools → Run
+  test script…* and then to `--rig-session FOLDER`, **a command line**, as the
+  way to run an unattended hardware session. So the feature built to remove the
+  terminal was undiscoverable from inside the product, and the only route the
+  product documented was the terminal one. Nothing was broken; a user simply
+  could not find it. It now has its own section covering the one-click run, the
+  ripper check that must come first, the sleep-lock behaviour and where the one
+  file lands.
+- **The sweep written for that found two more undiscoverable actions.**
+  *Tools → Add app shortcut* (the manual route when the first-run offer was
+  declined) and *Tools → Set cover art from file…* (your own image when the
+  Archive has the wrong sleeve, or nothing) were absent from the Guide entirely.
+  Both are now documented where a reader would look for them.
+
+- **Five surfaces still pointed at the rig scripts' former location**, four days
+  after they moved into the package — `docs/dependency-contracts.md`, `TASKS.md`,
+  `docs/rig-scripts/README.md` and two of the scripts' own headers, which told a
+  reader to `--run-script docs/rig-scripts/police-rerip.txt`. A path is an
+  exact-match string, and the reader most likely to follow a stale one is the
+  reader who does not already know where the file lives. They now name the bare
+  script name, which is the spelling that actually works: `--run-script` resolves
+  it against the packaged scripts, and an AppImage user has no checkout for a
+  repo-relative path to mean.
+- **`docs/rig-scripts/README.md` still led with `bash platterpusovernight.sh`** as
+  *"the overnight path: one command"* — the route the app replaced. It now opens
+  with the menu action and marks the shell wrappers as the legacy path, kept
+  because they are what has real rig hours behind them.
+
+### Added
+- **`tests/test_help_documents_the_menu.py`** — every Tools action a person can
+  click must be findable in the User Guide, with the menu **derived from
+  `main_window._build_menus`' source** so an action added tomorrow is covered the
+  day it lands rather than the day somebody remembers the test. The exemption
+  list holds one entry with a reason. Three reverts probed, including an
+  `unaffected` control proving the label normalisation is not matching
+  everything.
+
+- **A six-lens audit of the in-app acceptance session, adversarially verified:
+  60 findings, 23 refuted, 6 overstated, 11 confirmed.** The refutation stage
+  earned its place — most findings were wrong, several confidently so, and
+  applying them would have degraded correct code while looking like diligence.
+  One lens called the `wait-for-rip` clamp *"silent"* when the runner logs a
+  warning **and** stamps `[CLAMPED …]` on the outcome; its proposed fix would
+  have changed code that already did exactly that and left the real defect (the
+  cap's **value**) untouched. Two findings were established by **measurement
+  rather than reading**: the vacuous test below, proved by deleting the guard and
+  watching it pass, and the symlink hole, reproduced.
+- **The app-log rotations could spend the whole archive and leave the rip
+  evidence out of it.** `MAX_TOTAL_BYTES` is 64 MiB and the handler is
+  `maxBytes=8 MiB, backupCount=10`, so `applog/` can present **88 MiB** — and it
+  was collected first, in one block, ahead of everything. A long acceptance run
+  could therefore produce a bundle carrying no rip log, no cue sheet, no report
+  and no checksum. Each refusal wrote a manifest line, so it was never *silent* —
+  but "not silent" is a poor second to "not lost", and a reader who receives that
+  archive has a file that looks complete and answers nothing. Rotations are now
+  charged **last**; the current log keeps its place at the front, because it is
+  the artifact that exists for every outcome including the runs that produced no
+  album at all.
+- **The same defect at a second site, found by an agent refuting the first fix's
+  scope.** The *session* bundle passes `log_dir=_NO_LOG_SWEEP`, so its rotations
+  never reach that ordering — they are staged inside the session folder and
+  walked with `sorted(rglob("*"))`, which put `artifacts/…/log.txt.1` ahead of
+  `transcript.txt`: every rotation charged before the one file that records
+  whether a six-hour run passed. `docs/testing.md` §5.o — *enforce a rule across
+  the codebase, not at the place it was learned* — landing on the very change
+  that cited it.
+- **`wait-for-rip 21600` met a three-hour cap.** §N is a whole-disc uniform
+  secure re-read, which this project's own rig sheet puts at **2 to 2.5 hours**,
+  so the cap sat barely above the expected duration of the step most likely to
+  exceed it — and its note explained itself against an *ordinary* rip
+  (*"~50-70 minutes… three hours is generous"*). Past the clamp the batch
+  continues while the rip runs: `rig-check` reads a half-written album and §P
+  sends `cyanrip -x -I` to the drive the ripper still holds. The cap is now six
+  hours, and **both sides are derived** — a script asking for more than the cap,
+  or a cap lowered below a script, fails in CI.
+- **`run_now()` could not report that it had not run.** It was `-> None` and
+  returned silently when a run was already in flight, so the session logged
+  *"starting the batch"*, armed the sleep lock, and waited for a `run_finished`
+  belonging to a different script. *Asking for a thing is not having it*, at the
+  one seam this feature added.
+- **The closing dialog stamped ✓ on a failed run.** The *bundle* succeeding says
+  nothing about whether the *run* passed; an abort in section A got a green tick.
+  It now states the run's outcome as well as the file — and "not determined" when
+  the report gives no verdict, because that is a real answer.
+- **A launch-armed modal could open over the live batch.** `_interruption_blocker`
+  enumerated four reasons to suppress the automatic cyanrip check and *"an
+  acceptance session is running"* was not one — the 2026-08-18 rig defect
+  recurring at a new call site.
+- **A symlink defeated the audio allowlist.** `_is_allowed` was a pure *name*
+  test while `_read_bounded` opens by *content*, so a link called `notes.log`
+  pointing at `track01.flac` was admitted on its own name and archived with the
+  track's bytes. Critical rule #8 is absolute about what leaves the machine. The
+  link is now judged by its target's name too, unresolvable links are refused
+  rather than guessed, and the legitimate case — an operator symlinking the app
+  log at storage elsewhere — still passes.
+- **The manifest named an album folder it had silently skipped.** `if not
+  album_dir.is_dir(): continue` while `_album_folder_lines` reported it as
+  archived. The refusal is now a manifest row **naming the path**, because a
+  bundle from an eight-rip session that says "an album folder was absent" without
+  saying *which* is the same silence one step further on.
+- **The 40-folder scan cap dropped rips with no count.** `session_album_dirs`
+  now returns an `AlbumScan` carrying `examined` and `dropped`, rendered into the
+  bundle's facts — tri-state, so a caller passing a plain list gets *"not
+  determined"* rather than a comforting `0`.
+- **The session bundle was missing the diagnostics blob** every per-rip bundle
+  has carried since 0.6.19 — the version pair, the environment and the dependency
+  states, assembled in one place instead of scattered across six hours of log.
+- **The acceptance script's closing banner sent the operator to the wrong folder
+  and then handed them a command.** It named
+  `~/.local/share/platterpus/bundles/` and said *"Then run: --rig-session"* —
+  both wrong since the session moved into the app, and the second is the CLI step
+  this whole feature removed. It now points at the surface that *computes* the
+  answer rather than restating a path that can drift.
+- **`test_closing_the_window_does_not_start_a_bundle_daemon` was vacuous.**
+  Proved by deleting the guard it claimed to cover and watching it pass. The
+  fixture patching `run_now` was what hid it; that test now uses the real thing.
+
+
+### Fixed
+- **The bundle's byte budget was spent on log rotations before it reached the rip
+  evidence.** `MAX_TOTAL_BYTES` is 64 MiB and is spent walking `_collect`'s list;
+  the app-log handler is `maxBytes=8 MiB, backupCount=10`, so `applog/` can
+  present **88 MiB** — and it was collected in one block ahead of everything. A
+  long acceptance run could therefore spend the whole archive on rotations and
+  refuse **every rip folder**: no rip log, no cue sheet, no report, no checksum,
+  which is the entire evidence the run exists to produce. Each refusal writes a
+  manifest line, so it was never *silent* — but "not silent" is a poor second to
+  "not lost", and the reader still receives a file that looks complete and
+  answers nothing. Rotations now sort **last**; the *current* log keeps its place
+  at the front, because a run that produced no album folder is exactly the
+  failure worth sending. Found by an audit lens while a real 6-hour run was in
+  flight on the maintainer's rig.
+- **`wait-for-rip 21600` in §N met a three-hour cap, and past the cap the batch
+  kept going while the rip ran.** The clamp itself is honest — it logs, it stamps
+  `[CLAMPED …]` on the outcome, and it waits the cap rather than skipping the
+  wait — so the defect was never the reporting; it was the **number**. The cap's
+  own note read *"a full disc is ~50-70 minutes; three hours is generous"*, which
+  is true of an ordinary rip and was set against the wrong operation: §N is a
+  whole-disc uniform secure re-read, which this project's rig sheet puts at **2
+  to 2.5 hours**. So the ceiling sat barely above the expected duration of the
+  step most likely to exceed it — and past it came `rig-check` (reading a
+  half-written album) and §P's `cyanrip -x -I` (touching the drive the ripper
+  still holds). Raised to six hours, matching what the script asks for, and
+  `tests/test_rig_scripts.py` now derives **both sides** — the constant from the
+  runner, the requests from the committed scripts — so a suite that grows a
+  slower step fails in CI rather than at 3am on a rig.
+- **The packaged acceptance script's closing banner sent the operator to the
+  wrong folder and then handed them a command.** It named
+  `~/.local/share/platterpus/bundles/` (the *per-rip* bundle location) and ended
+  *"Then run: --rig-session"* — both stale since v0.6.32 moved the session into
+  the app, where the deliverable lands in `~/Downloads` and there is no second
+  command. Two surfaces answering *"where is my file?"* differently is
+  `docs/testing.md` §5.al, and the one a tired operator reads at 7am was the
+  stale one. It now points at the dialog that **computes** the answer instead of
+  restating a path. (The repo's own `test_every_step_names_a_verb_that_exists`
+  caught the first draft of this edit — an unterminated quote split across two
+  `log` lines — which is the sweep doing exactly the job it was written for.)
+
+### Added
+- **The session bundle carries the rendered diagnostics blob**, as every per-rip
+  evidence bundle has since 0.6.19. It is the version pair, the environment and
+  the dependency states assembled in one place; the app log holds the same facts
+  scattered across six hours of lines, and assembling them from a transcript at
+  7am is precisely the work this feature exists to stop handing back. Rendered on
+  the GUI thread deliberately and measured before deciding — pure, no subprocess,
+  no network, **29 ms**.
+
+### Changed
+- **`scripts/revert_probe.py` purges bytecode around every run — a FIFTH way to
+  get a false revert verdict, in the tool written to catch the other four.**
+  CPython's default `.pyc` invalidation compares the source's *size* and its
+  mtime **truncated to whole seconds**. The probe writes a file, runs pytest and
+  writes it back, routinely inside one second, and a revert is often the same
+  length as the line it replaces — `6 * 60 * 60` and `3 * 60 * 60` are **35
+  characters each**. Both halves of the check therefore saw no change and the
+  stale bytecode was reused. Measured: after the probe restored the six-hour
+  source, `runner.MAX_RIP_WAIT_S` still imported as `10800`, and the suite went
+  red on a value that was in no file, with nothing in `git diff` to explain it.
+  Both directions are wrong and the quiet one is worse — a revert that never
+  reaches the interpreter makes a **live** test look VACUOUS. The regression test
+  reproduces the *mechanism* (two same-length sources, one mtime, identical cache
+  header) rather than asserting the purge is called, because that assertion would
+  pass against a purge of the wrong tree.
+- **`test_an_over_cap_rip_wait_WAITS_THE_CAP_instead_of_skipping` derives its
+  request from the cap** instead of hardcoding `21600`. That literal was chosen
+  because it exceeded the three-hour ceiling; when the ceiling moved to six hours
+  the literal became exactly *equal* to it, no clamp fired, and a test about
+  over-cap behaviour failed for a reason unrelated to its subject. Its sibling in
+  `test_uiscript_rip_verbs.py` already derived; now both do.
+
+### Fixed
+- **The acceptance script's own header sent the operator to the wrong cyanrip
+  build**, and would have aborted the run in about five seconds — the same
+  five-second abort that cost the 2026-08-27 night. It said *"Be on the newest
+  cyanrip. Settings → tick the ripper **beta** channel"*, and both halves are
+  now wrong: the fork has published `0.9.4-rc2+platterpus.11` (`978f9b0`) since,
+  which is **newer and unreviewed**, so taking it makes every rip report
+  `unapproved` and section A refuses to run. Naming a *channel* is what made it
+  hard to spot — `d9c058c` **is** a beta-channel build, so ticking beta looks
+  right and only the "newest" part breaks.
+
+  It was written while a round was open, and read correctly then. With rounds
+  1–14 all closed, *"the build the open handshake round is reviewing"* resolves
+  to the approved production pin instead. **The app had this right the whole
+  time** — `ripper_offer.auto_installable` is true only for a build our own
+  record approves, so the one-click offer is already the correct one — but the
+  file a person reads did not. The header now points at
+  Help → Check for cyanrip updates and says plainly that the wanted build is not
+  always the newest, rather than restating a channel that drifts. Found by
+  checking the instruction against `fork_source` before handing it over, not by
+  reading it.
+
+### Added
+- **`tests/test_rig_scripts.py` now checks the acceptance script's PROSE against
+  the pin it depends on**, because the steps were swept and the header was not.
+  Two gates: the header must name `FORK_PIN` and `FORK_EXPECTED_VERSION` (so a
+  moved pin fails here and says what the text must now say — the old header
+  could not go stale *detectably*), and it must not instruct the operator onto
+  the newest ripper. **The second one over-fired on its first run**, on the
+  header's own opening line *"Be on the newest Platterpus"* — which is correct
+  advice, because the app has no reviewed-build constraint and the ripper does.
+  It now requires the subject to be named. A check that fires on correct text is
+  a check somebody deletes, so the narrowing is pinned by a twin that asserts
+  that exact line stays allowed. 3 reverts probed: both gates fire, and an
+  unrelated edit to the Platterpus line leaves them unaffected.
+- The round-14 transport envelope is repacked, because it carries the acceptance
+  script as exact bytes and a part of it changed. Caught by
+  `test_the_envelope_splits_back_into_byte_identical_parts`, which is the check
+  working as designed: an artifact that embeds a file must not drift from it.
+  Worth stating for anyone comparing copies — **the envelope the fork already
+  holds carries the pre-correction header**, so a re-send is what delivers the
+  fix; the envelope is a packing of current parts, not a dated record of a send.
+  The record of what was sent is the lap file, which is unchanged.
+- The same header still told a reader the script lives at
+  `docs/rig-scripts/fullacceptance.txt` and is run with `--run-script`. It has
+  shipped **inside the app** since v0.6.32 and is reached from
+  Tools → Run acceptance test.
+
 ## [0.6.32] — 2026-08-28
 
 ### Fixed
@@ -11660,7 +11988,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.32...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.33...HEAD
+[0.6.33]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.32...v0.6.33
 [0.6.32]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.31...v0.6.32
 [0.6.31]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.30...v0.6.31
 [0.6.30]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.29...v0.6.30
@@ -11780,4 +12109,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.32.*
+*Last updated for Platterpus v0.6.33.*
