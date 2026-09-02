@@ -80,6 +80,18 @@ SPAWN_SITES: dict[str, tuple[str, str]] = {
         "why it was a hole once. Its argv is validated by uiscript/script.py, "
         "which delegates to the chokepoint rather than restating the rule.",
     ),
+    "deps/ripper_wrapper_probe.py": (
+        "ripper",
+        "the wrapper-exit probe (the fork's round-15 §2 commands, absorbed). It "
+        "runs `~/.local/bin/cyanrip --version` AND the `distrobox-enter … "
+        "/usr/local/bin/cyanrip --version` form, so it reaches the ripper by "
+        "both spellings. It calls the chokepoint rather than reasoning about "
+        "-N itself: the chokepoint gained a narrow carve-out for an argv that is "
+        "nothing but the binary plus one pure-output version flag, so appending "
+        "any further argument to one of these probes fails the guard instead of "
+        "hanging on a prompt with no terminal. `-I` is deliberately NOT in that "
+        "carve-out — info-only mode still queries MusicBrainz without -N.",
+    ),
     # --- cannot reach the ripper ---------------------------------------------
     "adapters/derived_verify.py": ("other", "flac/wavpack decode for verification"),
     "adapters/metaflac.py": ("other", "metaflac tag read/write"),

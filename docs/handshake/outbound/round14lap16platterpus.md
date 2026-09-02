@@ -21,7 +21,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 | file | bytes | sha256 |
 | --- | --- | --- |
 | `round-14-lap-16.md` | 17,475 | `de58b0dce37bdd35…` |
-| `fullacceptance.txt` | 37,036 | `fbd143dd117d1a1b…` |
+| `fullacceptance.txt` | 37,943 | `e5e7f24a20a3233b…` |
 
 ## Reader
 
@@ -381,7 +381,7 @@ now starts.
 **The disc is the only thing left on our side.** The round is yours to close.
 <<<<<<<<<< END round-14-lap-16.md >>>>>>>>>>
 
-<<<<<<<<<< BEGIN fullacceptance.txt sha256=fbd143dd117d1a1b541f4543101ffaf2f10a545fc5952c7ad9bf34577217ba3d >>>>>>>>>>
+<<<<<<<<<< BEGIN fullacceptance.txt sha256=e5e7f24a20a3233b3b2d658e776a43895fe1304119b81868303a50302f579420 >>>>>>>>>>
 # =============================================================================
 # FULL ACCEPTANCE RUN — end to end, every path the program has, one pass
 # =============================================================================
@@ -421,12 +421,14 @@ now starts.
 #    newer build no closed round has reviewed: taking it makes every rip report
 #    `unapproved`, and section A will refuse to run on it.
 #
-#    Do not reach for a channel toggle to decide this. The app already knows the
-#    answer and the answer moves: as of v0.6.32 the wanted build is
-#    `0.9.4-rc2+platterpus.10` (`d9c058c`), the approved production pin with no
-#    round open — while the fork has published `+platterpus.11` since, which is
-#    newer and would abort the run. This comment named a channel until
-#    2026-08-28 and was already pointing at the wrong build.
+#    Do not reach for a channel toggle to decide this, and do not look for the
+#    answer in this comment: THIS FILE NAMES NO BUILD, on purpose. Which one is
+#    wanted changes every time a handshake round opens or closes, and this file
+#    ships inside a release — so anything written here freezes on the day it was
+#    built and cannot learn that the answer moved. Both previous attempts were
+#    wrong within days, and each one sent operators to a build section A refuses.
+#    The app holds that fact in one place and checks it — which is why step 2
+#    above is the whole answer, and there is no second copy of it here.
 #
 #    Section A asserts the exact expected build and STOPS THE RUN in the first
 #    few seconds if you are not on it — before any drive time is spent.
@@ -546,6 +548,19 @@ expect-exit 0
 expect-cyanrip platterpus-fork
 expect-ripper-under-review
 snapshot identity
+
+# WHICH LINK IN THE RIPPER CHAIN FAILS TO EXIT — gathered, never asserted.
+#
+# Two consecutive rig mornings (2026-08-26, 2026-08-27) produced ZERO rips and
+# neither failed at ripping: both ended mid-probe with `cyanrip --version`
+# printing its banner in full and then not returning, until a 60s timeout killed
+# it. The cyanrip fork showed three independent ways the hang is not cyanrip and
+# asked for three shell commands to be run by hand. This is those commands.
+#
+# It records `info` and moves on. A wrapper that hangs from an interactive shell
+# does not affect this run — the app pipes its I/O — so failing here would abort
+# a six-hour pass over something that changes no rip.
+probe-ripper-wrapper
 
 # THE ONE PLACE THIS FILE IS ALLOWED TO STOP, and the distinction is the point.
 #

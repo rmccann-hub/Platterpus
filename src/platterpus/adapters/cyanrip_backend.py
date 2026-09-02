@@ -1043,6 +1043,28 @@ def assert_numeric_args_in_range(argv: list[str]) -> None:
             )
 
 
+#: Flags that make cyanrip print a version and exit, doing nothing else.
+#:
+#: Deliberately tiny and deliberately **not** including ``-I``: info-only mode
+#: still queries MusicBrainz without ``-N``, so it is a rip-adjacent path, not a
+#: probe. ``-V`` is here because builds up to 0.9.3 accept it — a probe that must
+#: work across build shapes is the reason `tests/test_cyanrip_version_flag.py`
+#: exists — and listing it costs nothing: it prints a version on the builds that
+#: have it and is rejected outright on the builds that do not.
+_PURE_VERSION_FLAGS: frozenset[str] = frozenset({"--version", "-v", "-V"})
+
+
+def _is_pure_version_probe(argv: list[str]) -> bool:
+    """Is ``argv`` nothing but a binary and one flag that prints a version?
+
+    The whole argv is examined, not just the presence of a flag: ``[bin,
+    --version]`` is a probe, ``[bin, --version, -d, /dev/sr0, ...]`` is not, and
+    the difference is what stops this carve-out being a way to smuggle a rip
+    past the ``-N`` requirement by prefixing it with a harmless flag.
+    """
+    return len(argv) == 2 and argv[1] in _PURE_VERSION_FLAGS
+
+
 def assert_metadata_lookup_disabled(argv: list[str]) -> None:
     """Refuse an argv that would let cyanrip do its own MusicBrainz lookup.
 
@@ -1073,7 +1095,26 @@ def assert_metadata_lookup_disabled(argv: list[str]) -> None:
             raise RipError("--consumer was passed with no value")
         assert_consumer_tag_is_sane(argv[index + 1])
 
-    if "-N" not in argv:
+    # **THE VERSION-PROBE CARVE-OUT, and it is narrow by construction.**
+    #
+    # A bare `--version` invocation cannot do a metadata lookup: cyanrip handles
+    # it inside `GEN_OPT_PARSE`, which prints and returns `-EAGAIN`, and
+    # `cyanrip_main.c:1656` turns that into `return 0` — 65 lines before anything
+    # is initialised (the fork's round-15 lap 1 §2(a), read from their source at
+    # `978f9b0`). So requiring `-N` there would refuse an argv that is provably
+    # safe, and every caller that needs one would grow its own exemption. That is
+    # how the script-verb passthrough became a hole: a second copy of a safety
+    # rule is a second thing to drift.
+    #
+    # The carve-out is therefore keyed on the argv being *nothing but* the binary
+    # and one pure-output flag. One extra argument and the full rules apply.
+    #
+    # **`-I` IS DELIBERATELY NOT IN THIS SET**, and that is the trap worth naming:
+    # it reads like a harmless "just print info" flag, but info-only mode DOES
+    # query MusicBrainz unless `-N` is given — which is exactly the interactive
+    # prompt this guard exists to prevent. Only flags that print a version and
+    # exit qualify.
+    if not _is_pure_version_probe(argv) and "-N" not in argv:
         raise RipError(
             "refusing to run cyanrip without -N: the GUI is the single metadata "
             "source (Critical rule #5), and cyanrip's own lookup can block on an "

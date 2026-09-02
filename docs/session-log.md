@@ -80,6 +80,42 @@ success: a hang with nothing to compare against is equally consistent with a
 broken container, and claiming otherwise is *"never state a mechanism in the
 other side's code"* pointed inward.
 
+**The suite then found eight things, and three were the project catching me.**
+Worth listing, because they are the gates earning their keep rather than noise:
+
+* `tests/test_handshake_artifact_naming.py` **refused the provider contract's
+  filename** — I had filed it as `…-g978f9b0.md` (the commit it is committed at)
+  while its own banner says `g009a573`. The rule is that the filename names the
+  build the *artifact asserts*, because only the banner is derivable from the
+  content, and the gate is right: it caught by mechanism the same provenance
+  mismatch I had spotted by eye one screen earlier. Renamed — and the citation in
+  `fork_source.py` had to change with it, because the filename can no longer be
+  offered as evidence about `978f9b0`.
+* `tests/test_ripper_spawn_sites_are_enumerated.py` asked the question it exists
+  to force — *can this reach the ripper?* — and the answer for the new probe is
+  **yes, by two spellings**. That mattered: the honest classification is
+  `ripper`, which obliges the module to delegate to
+  `assert_metadata_lookup_disabled` rather than reason about `-N` itself. The
+  chokepoint refused a bare `--version` (no `-N`), so the fix was to give the
+  *chokepoint* a checkable notion of a probe — an argv that is nothing but the
+  binary plus one pure-output version flag — instead of exempting the caller. One
+  implementation, and appending a device to one of those probes now fails the
+  guard rather than hanging on a prompt at 2am. **`-I` is deliberately excluded**,
+  and that is the trap: it reads like a harmless print-and-exit flag while
+  info-only mode still queries MusicBrainz without `-N`.
+* the coverage floor, which put 11 statements of the probe's *error handling*
+  under a spotlight — the read-error path, the killpg-cannot-apply path, the
+  survived-SIGKILL path. Every one of them is code that only runs once something
+  has already gone wrong, and none had ever run. Now 100%, and the
+  survived-SIGKILL test asserts `exit_code is None` against a handle whose stale
+  `returncode` is deliberately non-`None`, so the tri-state cannot quietly
+  collapse to a `0`.
+
+Plus the ordinary bookkeeping the sweeps demand: a `PLANNING.md` tree row and
+responsibility bullet, five size ratchets refreshed deliberately, the envelope
+regenerated, and one vacuous assertion of my own (`assert real is
+subprocess.Popen or True`) deleted rather than left to reassure a future reader.
+
 **Verified, and one correction to myself.** 11 reverts probed with
 `scripts/revert_probe.py`, all `detected` after two spec corrections — one
 `REFUSED` because I had edited the anchor line away, and one `VACUOUS` that was

@@ -400,3 +400,237 @@ class TestTheDoctorRow:
             "check_ripper_wrapper_exits is defined but never emitted by "
             "run_preflight, so --doctor would never run it"
         )
+
+
+class TestTheArgvGuardCarveOut:
+    """**A guard I LOOSENED, so it gets its own proof.**
+
+    `assert_metadata_lookup_disabled` refuses any cyanrip argv without `-N`,
+    because info-only and rip modes query MusicBrainz and can block on an
+    interactive prompt with no terminal attached. A bare `--version` provably
+    cannot: cyanrip handles it inside `GEN_OPT_PARSE`, which prints and returns
+    before anything is initialised.
+
+    Loosening a safety check is the moment to ask *can this be satisfied by the
+    wrong thing?* — so the carve-out is keyed on the WHOLE argv rather than on
+    the presence of a flag, and these tests are mostly about the things it must
+    still refuse.
+    """
+
+    def test_a_bare_version_probe_is_allowed_through(self) -> None:
+        from platterpus.adapters.cyanrip_backend import (
+            assert_metadata_lookup_disabled,
+        )
+
+        for flag in ("--version", "-v", "-V"):
+            assert_metadata_lookup_disabled(["cyanrip", flag])  # must not raise
+
+    @pytest.mark.parametrize(
+        "argv",
+        [
+            # A rip smuggled in behind a harmless-looking prefix. THE case the
+            # whole-argv check exists for.
+            ["cyanrip", "--version", "-d", "/dev/sr0"],
+            ["cyanrip", "-v", "-s", "6"],
+            # `-I` reads like "just print info" and is NOT a probe: info-only
+            # mode queries MusicBrainz unless -N is given, which is the prompt
+            # this guard prevents.
+            ["cyanrip", "-I"],
+            ["cyanrip", "-I", "-x"],
+            # An ordinary rip.
+            ["cyanrip", "-d", "/dev/sr0", "-o", "flac"],
+        ],
+    )
+    def test_anything_richer_than_a_bare_probe_still_needs_dash_N(
+        self, argv: list[str]
+    ) -> None:
+        from platterpus.adapters.cyanrip_backend import (
+            RipError,
+            assert_metadata_lookup_disabled,
+        )
+
+        with pytest.raises(RipError, match="without -N"):
+            assert_metadata_lookup_disabled(argv)
+
+    def test_the_carve_out_predicate_is_exact_about_length(self) -> None:
+        """Asserted on the predicate directly, because the consequence of it
+        being loose is a hang rather than an exception, and a hang is the failure
+        mode this project has the least ability to observe in a test."""
+        from platterpus.adapters.cyanrip_backend import _is_pure_version_probe
+
+        assert _is_pure_version_probe(["cyanrip", "--version"]) is True
+        assert _is_pure_version_probe(["cyanrip"]) is False
+        assert _is_pure_version_probe(["cyanrip", "--version", ""]) is False
+        assert _is_pure_version_probe(["cyanrip", "-I"]) is False
+
+    def test_the_container_prefix_is_stripped_before_the_guard_sees_it(self) -> None:
+        """Otherwise the guard inspects `-n` and `ripping` as if cyanrip got them.
+
+        Both invocation shapes must reduce to the same argv, or the guard would
+        grade the two probes differently while they reach the same binary.
+        """
+        assert rwp._ripper_argv_tail(
+            ["distrobox-enter", "-n", "ripping", "--", "/usr/local/bin/cyanrip", "-v"]
+        ) == ["/usr/local/bin/cyanrip", "-v"]
+        assert rwp._ripper_argv_tail(["/home/u/.local/bin/cyanrip", "--version"]) == [
+            "/home/u/.local/bin/cyanrip",
+            "--version",
+        ]
+
+    def test_both_ripper_spellings_are_recognised_as_reaching_the_ripper(self) -> None:
+        """A guard that only knew the obvious spelling would wave the
+        interesting one through — the container-entry form reaches cyanrip just
+        as surely as the host export does."""
+        assert rwp._looks_like_the_ripper(["/home/u/.local/bin/cyanrip", "--version"])
+        assert rwp._looks_like_the_ripper(
+            ["distrobox-enter", "-n", "ripping", "--", "/usr/local/bin/cyanrip", "-v"]
+        )
+        assert not rwp._looks_like_the_ripper(
+            ["distrobox-enter", "-n", "ripping", "--", "true"]
+        )
+
+    def test_a_refused_argv_is_recorded_as_not_determined_never_spawned(self) -> None:
+        """The guard must stop the spawn, and say so as data rather than raising
+        — this is a diagnostic, and one that throws turns a hang into a crash
+        report about the hang-detector."""
+        outcome = rwp.run_one(
+            "smuggled rip", ["cyanrip", "--version", "-d", "/dev/sr0"], timeout_s=5
+        )
+        assert outcome.verdict is Verdict.NOT_DETERMINED
+        assert outcome.skipped_reason is not None
+        assert "argv guard" in outcome.skipped_reason
+
+    def test_the_wrapper_alone_probe_is_not_subjected_to_the_ripper_guard(self) -> None:
+        """`distrobox-enter -- true` carries no cyanrip, so the -N rule has no
+        subject. It must still run — it is the probe that can absolve both
+        programs entirely."""
+        outcome = rwp.run_one(
+            "wrapper alone", [sys.executable, "-c", "pass"], timeout_s=30
+        )
+        assert outcome.verdict is Verdict.EXITS
+        assert outcome.skipped_reason is None
+
+
+class TestTheFailurePathsNothingElseReaches:
+    """**The paths that only run when something has already gone wrong.**
+
+    Each of these returns a well-formed `ProbeOutcome` instead of raising, which
+    is the entire contract of a diagnostic — and each was unexercised, meaning
+    the code that runs when a probe goes wrong had never run at all. A probe
+    whose error handling is untested is a probe that turns a hang into a crash
+    report about the hang-detector on the one night it matters.
+    """
+
+    def test_a_read_error_is_NOT_DETERMINED_rather_than_an_exception(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class Exploding:
+            args = ["/bin/true"]
+            returncode = 0
+            pid = 1
+
+            def communicate(self, timeout: float | None = None) -> object:
+                raise OSError("pipe went away")
+
+        monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: Exploding())
+        outcome = rwp.run_one("x", ["/bin/true"], timeout_s=5)
+        assert outcome.verdict is Verdict.NOT_DETERMINED
+        assert outcome.exit_code is None
+        assert outcome.skipped_reason and "pipe went away" in outcome.skipped_reason
+
+    def test_a_group_kill_that_cannot_apply_still_reports_HANGS(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The child may have exited between the timeout and the signal, or we
+        may not own its group. Neither turns a hang into something else — the
+        observation was still *it did not exit within the deadline*."""
+        calls: list[str] = []
+
+        class Wedged:
+            args = ["/bin/sleep", "999"]
+            returncode = None
+            pid = 4242
+            _stage = 0
+
+            def communicate(self, timeout: float | None = None) -> object:
+                self._stage += 1
+                if self._stage == 1:
+                    raise subprocess.TimeoutExpired(cmd="x", timeout=timeout or 0)
+                return ("after kill", None)
+
+        monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: Wedged())
+        monkeypatch.setattr(rwp.os, "getpgid", lambda pid: pid)
+
+        def refuse(pgid: int, sig: int) -> None:
+            calls.append("killpg")
+            raise ProcessLookupError("no such process group")
+
+        monkeypatch.setattr(rwp.os, "killpg", refuse)
+        outcome = rwp.run_one("wedged", ["/bin/sleep", "999"], timeout_s=0.1)
+        assert calls == ["killpg"], "the escalation must still be attempted"
+        assert outcome.verdict is Verdict.HANGS
+        assert "after kill" in outcome.output
+
+    def test_a_child_that_survives_SIGKILL_is_unreapable_with_a_null_exit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """**The one that must never block forever.**
+
+        A reader wedged in a drive ioctl is in uninterruptible sleep where even
+        SIGKILL does not land, so the post-kill wait is bounded and the answer is
+        *unreapable* — reported, not waited on. `exit_code` must be `None`: the
+        child was killed, so whatever it would have exited with is unknown, and
+        `CLAUDE.md` forbids writing that as `0`.
+        """
+
+        class Immortal:
+            args = ["/bin/sleep", "999"]
+            returncode = 0  # deliberately non-None, to prove it is NOT used
+            pid = 777
+
+            def communicate(self, timeout: float | None = None) -> object:
+                raise subprocess.TimeoutExpired(cmd="x", timeout=timeout or 0)
+
+        monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: Immortal())
+        monkeypatch.setattr(rwp.os, "getpgid", lambda pid: pid)
+        monkeypatch.setattr(rwp.os, "killpg", lambda pgid, sig: None)
+        outcome = rwp.run_one("immortal", ["/bin/sleep", "999"], timeout_s=0.1)
+        assert outcome.verdict is Verdict.HANGS
+        assert outcome.unreapable is True
+        assert outcome.exit_code is None, (
+            "a child that survived SIGKILL has no known exit code; reporting the "
+            "handle's stale returncode would be the tri-state collapsing to a lie"
+        )
+        assert "null (never reaped)" in rwp.render(rwp._conclude((outcome,)))
+
+    def test_a_collect_error_after_the_kill_does_not_lose_the_verdict(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class Awkward:
+            args = ["/bin/sleep", "999"]
+            returncode = -9
+            pid = 99
+            _stage = 0
+
+            def communicate(self, timeout: float | None = None) -> object:
+                self._stage += 1
+                if self._stage == 1:
+                    raise subprocess.TimeoutExpired(cmd="x", timeout=timeout or 0)
+                raise ValueError("closed file")
+
+        monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: Awkward())
+        monkeypatch.setattr(rwp.os, "getpgid", lambda pid: pid)
+        monkeypatch.setattr(rwp.os, "killpg", lambda pgid, sig: None)
+        outcome = rwp.run_one("awkward", ["/bin/sleep", "999"], timeout_s=0.1)
+        assert outcome.verdict is Verdict.HANGS
+        assert outcome.unreapable is False
+
+    def test_an_argv_with_no_ripper_in_it_is_returned_unchanged(self) -> None:
+        """The fallthrough. `_ripper_argv_tail` is only *called* for argvs that
+        look like the ripper, but a helper that silently returns something odd
+        for an unexpected input is how the next caller gets surprised."""
+        assert rwp._ripper_argv_tail(["distrobox-enter", "--", "true"]) == [
+            "distrobox-enter",
+            "--",
+            "true",
+        ]
