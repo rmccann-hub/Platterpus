@@ -11,6 +11,104 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.34] — 2026-09-03
+
+### Fixed
+- **The app demanded a cyanrip build, refused to install it, and handed back a
+  shell command.** Reported from the rig on 2026-09-03 with the evidence bundle
+  that proves it: the acceptance run aborted at L165 — *"the installed cyanrip is
+  NOT platterpus-fork-g978f9b0"*, which is section A working exactly as designed —
+  while the update dialog for that same build said *"Platterpus will not install
+  this one for you"* and printed `--install-ripper 978f9b0`. In the program whose
+  premise is that there is no terminal (KDD-17).
+
+  Root cause is this repository's most-repeated defect, for the third time in one
+  day: **two surfaces answering one question from different keys.**
+  `expect-ripper-under-review` reads `PIN_UNDER_REVIEW`; the offer read
+  `approve_ripper`, which keys on `FORK_PIN`. Between rounds those coincide, which
+  is why it had never fired; with a round open they cannot.
+
+  There is now a third state, `RipperOffer.installable_with_consent`: the dialog
+  offers **"Install it anyway"** with the consequence stated in full, rather than a
+  command. Deliberately **not** folded into `auto_installable`, which means *"no
+  consequence to weigh"* and is held equal to the rip verdict by the relation test
+  that stops one-click installs of builds that then stamp every artifact
+  `unapproved` — the two axes can never both be true. The consent dialog uses the
+  warning icon and makes **"Not now" the default button**, so Enter or a stray
+  double-click cannot accept a consequence by reflex. The L165 abort message now
+  leads with *Help → Check for cyanrip updates… → Install it anyway*, with the
+  terminal route demoted to a parenthetical.
+
+### Added
+- **`scripts/round_digest.py`** — the handshake round digest, adopting the cyanrip
+  fork's method wholesale after their round-15 lap 3 named the part that mattered.
+  Ours covered `docs/handshake/inbound/` only, and an inbox-only digest **can never
+  disagree about anything we sent** — the mirror of their own "a digest over our
+  outbox would agree with itself forever". A defect of *population*, which no care
+  about the algorithm repairs. Built from their written spec rather than their code
+  and then checked against both values they published: the empty record
+  (`01ba4719c80b6fe9`) and round 15 over two laps (`255ee9040a5d3778`), plus both
+  rows byte-for-byte. Carries both `--exclude` refusals — matching nothing, and
+  matching more than one, the second of which produces a digest over the wrong
+  population *at the same lap count*, which is the version that gets believed.
+- **`HANDSHAKE-FROM-COMMIT` reachability**, adopted from their §7 with their
+  distinction intact: **resolving is not reachable.** `git cat-file -e` passes on
+  any object a clone still holds, including one only the reflog keeps alive;
+  `merge-base --is-ancestor` asks whether the peer can fetch it. We had no check on
+  this field at all, and the sweep found `verified/round-09-lap-02.md` naming
+  `d97adae` — a squash-deleted branch commit that does not resolve here at all.
+  Prose values report `UNPROBED` out loud rather than passing silently.
+
+### Fixed
+- **The install menu's approval check was verdict-blind, and its "approved" set
+  contained nearly every pin ever discussed.** It built the set from every
+  `HANDSHAKE-PIN:` in the verification record without reading the verdict beside
+  it — so `2f950c8` (named only by **eleven** `HOLD` laps) and the withdrawn
+  round-7 test pins `c5fb909`, `f5e11ba` and `9048082` all counted as approved,
+  two of them retired by laps that said "INSTALL X, NOT Y". A set that large
+  cannot refuse anything. `CLAUDE.md` rule #12 obligation (1) is explicit — *a
+  round closes only when BOTH sides declare GO* — and the check now requires
+  both, with a missing peer verdict treated as absence rather than agreement.
+  Invisible until now because between rounds `PIN_UNDER_REVIEW == FORK_PIN`, so
+  no outbound lap had ever named a pin while a round was open; round 15's laps 2
+  and 4 are the first, and the old reading scored their `OPEN` as approval of the
+  build the round exists to review. **The rule is extracted and driven on all
+  seven verdict combinations**, because on the committed record the peer half is
+  *unaffected* by a revert probe — the only pin it excludes is one the menu does
+  not offer, so the half enforcing the bilateral rule had no real input at all.
+- **The second artifact-naming gate did not learn about source anchors**, so
+  refiling the fork's contract by its anchor turned it red. Two gates ask one
+  question — *does the filename assert a provenance the content supports?* — and
+  only the one being edited was taught. `docs/testing.md` §5.o at the scale of
+  two files.
+
+### Changed
+- **cyanrip handshake round 15, lap 2 sent** — our half of the subject declared
+  as `0.6.33` at `0a69732` (a subject correction the fork explicitly invited,
+  since `0.6.29` was three releases stale and two of the intervening fixes are in
+  the harness CC-1 itself runs), with the channel stated plainly rather than left
+  for a tag to imply: every `v0.x` is a published pre-release, and `0.7.100` does
+  not exist because it is gated on the very pass this round waits for. Also
+  written down for the first time: **`HANDSHAKE-OUR-PIN` is the commit that
+  introduced this tree's `__version__`, resolved against `origin/main`** — the
+  rule that explains why `0.6.28` showed the fork two different values (`b524936`
+  the release commit, `296a69d` a later `main` commit the rig had built from), and
+  which they were right to refuse to guess through.
+- **`OWNERSHIP.md` adopted at v2** (`accff838…`), fetched from the fork and
+  verified byte-equal to the hash they declared, so the shared-hash line agrees
+  again. Their point is accepted as practice: a shared file's version is a content
+  identifier or it is decoration.
+
+### Fixed
+- **A claim in our own outbound lap that was a prediction dressed as a
+  measurement.** A first draft stated the released AppImage's banner *reads*
+  `platterpus 0.6.33 (0a69732)`; this session is a source checkout, where
+  `build_info.build_fingerprint()` returns `source`, so no released binary's
+  banner is readable from here. Now split `[MEASURED]` (the release's
+  `target_commitish` and our resolved pin, which do agree) from `[NOT VERIFIED]`
+  (the banner itself), in a lap whose own §U is about not asserting the
+  unmeasured.
+
 ## [0.6.33] — 2026-09-01
 
 ### Added
@@ -11988,7 +12086,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.33...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.34...HEAD
+[0.6.34]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.33...v0.6.34
 [0.6.33]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.32...v0.6.33
 [0.6.32]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.31...v0.6.32
 [0.6.31]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.30...v0.6.31
@@ -12109,4 +12208,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.33.*
+*Last updated for Platterpus v0.6.34.*

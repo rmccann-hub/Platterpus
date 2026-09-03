@@ -1,375 +1,219 @@
-"""`HANDSHAKE-ROUND-DIGEST` — protocol v4 §5a, and the ways it can lie.
+"""The round digest — adopted from the cyanrip fork, and checked against theirs.
 
-The digest is the one rule §5a says neither project may override: *a round MUST
-NOT close while the digests disagree*. So a tool that produces a **confident wrong
-number** is worse here than one that crashes — a manufactured mismatch reads
-exactly like a real one, and sends a round into `RECONCILE` with nothing to
-exchange.
+**The strongest assertions here are the two numbers THEY published.** Their lap 1
+declared `01ba4719c80b6fe9` over zero laps and their lap 3 declared
+`255ee9040a5d3778` over two; both are reproduced by this implementation, built
+from their written spec rather than from their code. That is the difference
+between "we both have a digest" and "we have one digest" — and it is exactly the
+thing a specification is *for*, since a test does not travel and its
+specification does.
 
-Every test below is a way the tool could have produced one.
+`CLAUDE.md`: *two implementations agreeing is not either one being correct* — but
+that warning is about implementations sharing an ancestor. These do not: theirs is
+`tools/round-digest.py` in a C project, ours is written from prose. Agreement
+across that gap is evidence, and the fixtures below pin it so it cannot rot.
 """
 
 from __future__ import annotations
 
 import hashlib
 import importlib.util
-import re
-import subprocess
 import sys
 from pathlib import Path
-from types import ModuleType
+from typing import Final
 
 import pytest
 
-REPO_ROOT: Path = Path(__file__).resolve().parent.parent
+_REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 
 
-def _load_round_digest() -> ModuleType:
-    """Import `scripts/round_digest.py` by path, not by package name.
-
-    `scripts/` is not a package and is not on `sys.path` — a plain
-    `from scripts import round_digest` only resolves when the repo root
-    happens to be `sys.path[0]`, which is true under `python -m pytest`
-    (it prepends the cwd) and false under the bare `pytest` console
-    script that CI runs. That difference collected fine locally and
-    failed CI on all four Python versions. Every other test that reaches
-    into `scripts/` loads by file location for this reason; this one now
-    matches them.
-    """
-    script = REPO_ROOT / "scripts" / "round_digest.py"
-    spec = importlib.util.spec_from_file_location("round_digest", script)
+def _module():  # noqa: ANN202 - a test helper, typed at the call sites
+    """Load the script by path — it is a CLI, not an installed module."""
+    spec = importlib.util.spec_from_file_location(
+        "round_digest", _REPO_ROOT / "scripts" / "round_digest.py"
+    )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
+    sys.modules["round_digest"] = module  # dataclasses needs it importable
     spec.loader.exec_module(module)
     return module
 
 
-rd: ModuleType = _load_round_digest()
+#: **The exact population their lap 3 published a digest over** — their lap 1 and
+#: our lap 2, named rather than filtered out of a directory that keeps growing.
+_THEIR_TWO: Final[tuple[tuple[str, int], ...]] = (("inbound", 1), ("outbound", 2))
 
 
-def _lap(round_no: int, lap_no: int, sender: str, body: str = "body\n") -> str:
-    return (
-        f"HANDSHAKE-PROTOCOL: 4\n"
-        f"HANDSHAKE-ROUND: {round_no}\n"
-        f"HANDSHAKE-LAP: {lap_no}\n"
-        f"HANDSHAKE-FROM: {sender}\n"
-        f"HANDSHAKE-VERDICT: HOLD\n\n{body}"
-    )
+def _lap(rd, direction: str, number: int) -> Path:  # noqa: ANN001 - module by path
+    """One lap by direction and number, asserted to exist so a rename cannot
+    silently shrink a fixture into passing over fewer rows."""
+    path = rd._HANDSHAKE / direction / f"round-15-lap-{number:02d}.md"
+    assert path.is_file(), f"fixture lap is missing: {path}"
+    return path
 
 
-@pytest.fixture
-def tree(tmp_path: Path) -> Path:
-    for lap_no, sender in ((1, "cyanrip-fork"), (2, "platterpus"), (3, "cyanrip-fork")):
-        (tmp_path / f"round-09-lap-{lap_no:02d}.md").write_text(
-            _lap(9, lap_no, sender), encoding="utf-8"
+class TestAgainstTheirPublishedNumbers:
+    """Their values, reproduced. If these fail we have two methods again."""
+
+    def test_the_empty_record_matches_their_lap_1(self) -> None:
+        """`01ba4719c80b6fe9` — declared over zero laps when the round opened.
+
+        It is `sha256("\\n")`: the join of no rows is empty, and the trailing
+        newline is still appended. That detail is easy to get wrong in a way no
+        non-empty case would reveal, which is why they published it.
+        """
+        rd = _module()
+        assert rd.digest_of([]) == "01ba4719c80b6fe9"
+        assert rd.digest_of([]) == hashlib.sha256(b"\n").hexdigest()[:16]
+
+    def test_round_15_over_two_laps_matches_their_lap_3(self) -> None:
+        """`255ee9040a5d3778` over their lap 1 and our lap 2.
+
+        **This also proves something the digest exists to prove**: their row for
+        our lap 2 carries the sha256 of the file's bytes, and it matches ours —
+        so the copy they hold is byte-identical to the one we sent. First use,
+        doing its actual job.
+
+        **The population is NAMED, not derived from the live directory**, and the
+        first version of this test got that wrong: it called `round_digest(15,
+        exclude="round-15-lap-03.md")`, which was two laps when written and three
+        the moment lap 4 was filed. A fixture pinning a published number against
+        a record that grows decays by construction — it would have gone red on
+        every future lap of every future round, and the obvious "fix" is to
+        update the constant, which destroys the only thing it was checking.
+        """
+        rd = _module()
+        rows = [rd._row_for(_lap(rd, direction, n)) for direction, n in _THEIR_TWO]
+        assert len(rows) == 2
+        assert rd.digest_of(rows) == "255ee9040a5d3778"
+
+    def test_the_rows_match_the_two_they_printed(self) -> None:
+        """Not just the digest — the inputs, because a matching digest over
+        different rows would be a collision and a matching digest over the same
+        rows is the claim actually being made."""
+        rd = _module()
+        rendered = sorted(
+            rd._row_for(_lap(rd, direction, n)).render() for direction, n in _THEIR_TWO
         )
-    return tmp_path
+        assert rendered == [
+            "1\tcyanrip-fork\t"
+            "a1ff77af1fd6e3cbb7a39608c6d72dc0f765f942a6084f26eba8e4bf4fea0f64",
+            "2\tplatterpus\t"
+            "80c86fd4608f19afa9414860c6281b48898e336904988729be6176f5de5393fb",
+        ]
 
 
-def test_the_construction_matches_the_spec_step_for_step(tree: Path) -> None:
-    """§5a steps 1-5, recomputed here rather than trusting the module.
+class TestPopulation:
+    """The substantive divergence their lap 3 §3(b) named."""
 
-    Deliberately a second implementation in the test: the module is one witness
-    and this is another, and the spec exists so two of them can be compared.
-    """
-    lines = []
-    for lap_no, sender in ((1, "cyanrip-fork"), (2, "platterpus"), (3, "cyanrip-fork")):
-        data = (tree / f"round-09-lap-{lap_no:02d}.md").read_bytes()
-        lines.append(f"{lap_no}\t{sender}\t{hashlib.sha256(data).hexdigest()}")
-    blob = ("\n".join(sorted(lines)) + "\n").encode("utf-8")
-    want = hashlib.sha256(blob).hexdigest()[:16]
+    def test_the_digest_covers_BOTH_directions_not_just_our_inbox(self) -> None:
+        """**The defect this replaces, asserted directly.**
 
-    got, count = rd.round_digest(rd.laps_for_round(9, tree))
-    assert (got, count) == (want, 3)
+        Our lap-2 digest covered `inbound/` only. An inbox-only digest can never
+        disagree about anything *we* sent, so it cannot detect the case the field
+        exists for — the mirror of their "a digest over only our own outbox would
+        agree with itself forever".
 
-
-def test_an_exclusion_that_matches_nothing_refuses(tree: Path) -> None:
-    """The defect this file was written for.
-
-    `--exclude` matched on basename and **silently dropped nothing** when the name
-    did not match, so passing a path printed a confident digest over the full set —
-    including the lap it was told to remove. Found by an adversarial review of a
-    diagnosis the tool was being used to produce, not by the tool's own tests,
-    which only ever passed names that matched.
-    """
-    with pytest.raises(rd.UnmatchedExclusion) as caught:
-        rd.laps_for_round(9, tree, exclude=("some/path/round-09-lap-02.md",))
-    # The message changed in round 14 lap 19: a repo-relative path is now a LEGAL
-    # way to disambiguate two same-numbered laps, so "basenames only" stopped being
-    # true. A path that matches nothing is still a refusal — for the original
-    # reason, not for being a path.
-    assert "does not contain" in str(caught.value)
-
-    # A name that DOES match still works, or the fix is a wall rather than a guard.
-    assert len(rd.laps_for_round(9, tree, exclude=("round-09-lap-02.md",))) == 2
+        Asserted on the senders present, not on the directories scanned: a future
+        refactor could rename the folders and this should still hold.
+        """
+        rd = _module()
+        laps = rd._laps_for_round(15)
+        senders = {rd._row_for(p).sender for p in laps}
+        assert "platterpus" in senders, "our own laps are missing from the population"
+        assert "cyanrip-fork" in senders, "their laps are missing from the population"
 
 
-def test_exclusions_are_plural_because_a_verifier_needs_them_to_be(tree: Path) -> None:
-    """Reproducing an older declaration means dropping every lap filed since.
+class TestTheTwoRefusals:
+    """Both cost a real defect — one on each side. Neither is polish."""
 
-    The single-valued form could not express that, so the natural command for
-    re-checking a past number quietly returned a different one — the same class of
-    silent-wrong-answer as the no-op above.
-    """
-    both = rd.laps_for_round(
-        9, tree, exclude=("round-09-lap-02.md", "round-09-lap-03.md")
-    )
-    assert [lap.lap for lap in both] == ["1"]
+    def test_an_exclude_that_matches_nothing_refuses(self) -> None:
+        """Found in our implementation in round 9; they had it too. A typo must
+        not quietly become "exclude nothing" and a confident wrong digest."""
+        rd = _module()
+        with pytest.raises(rd.DigestError, match="matched NO lap"):
+            rd.round_digest(15, exclude="round-15-lap-99.md")
 
+    def test_an_exclude_that_matches_MORE_THAN_ONE_refuses(self) -> None:
+        """**The mirror, which neither side had asked for.**
 
-def test_a_container_is_not_a_lap_however_many_it_carries(tree: Path) -> None:
-    """§5a's exactly-once rule, which is what keeps an envelope out of the digest."""
-    envelope = tree / "round09envelope.md"
-    envelope.write_text(
-        _lap(9, 1, "cyanrip-fork") + "\n" + _lap(9, 2, "platterpus"), encoding="utf-8"
-    )
-    assert not rd.is_a_lap(envelope.read_text(encoding="utf-8"))
-    assert len(rd.laps_for_round(9, tree)) == 3, "the envelope entered the digest"
+        It becomes reachable the moment two laps cross at one number — round 14
+        crossed four times — and dropping both produces a digest over a population
+        nobody asked for **at the same count**, which is the version that gets
+        believed.
 
+        Driven with a real pair of same-named laps in both directions, since that
+        is precisely the shape that occurs.
+        """
+        rd = _module()
+        inbound = rd._HANDSHAKE / "inbound" / "round-15-lap-03.md"
+        outbound = rd._HANDSHAKE / "outbound" / "round-15-lap-03.md"
+        assert inbound.exists(), "fixture assumption changed"
+        assert not outbound.exists(), "an outbound lap 3 exists; pick another number"
+        outbound.write_text(inbound.read_text(encoding="utf-8"), encoding="utf-8")
+        try:
+            with pytest.raises(rd.DigestError, match="matched 2 laps"):
+                rd.round_digest(15, exclude="round-15-lap-03.md")
+        finally:
+            outbound.unlink()
 
-def test_a_quoted_header_inside_a_fence_is_not_a_declaration(tree: Path) -> None:
-    """§2 rule 2. A lap documenting the format must not be excluded by its own example."""
-    documenting = _lap(9, 4, "platterpus", body="```\nHANDSHAKE-LAP: 99\n```\n")
-    (tree / "round-09-lap-04.md").write_text(documenting, encoding="utf-8")
-    assert rd.is_a_lap(documenting)
-    assert len(rd.laps_for_round(9, tree)) == 4
-
-
-def test_the_digest_is_keyed_on_lap_and_sender_not_on_the_filename(tree: Path) -> None:
-    """Filenames are local layout; the two projects already differ.
-
-    Renaming a lap must not move the digest, or the two sides disagree by
-    construction and no exchange of files can fix it.
-    """
-    before, _ = rd.round_digest(rd.laps_for_round(9, tree))
-    (tree / "round-09-lap-02.md").rename(tree / "totally-different-name.md")
-    after, count = rd.round_digest(rd.laps_for_round(9, tree))
-    assert (after, count) == (before, 3)
-
-
-def test_an_empty_round_has_a_value_rather_than_an_error(tree: Path) -> None:
-    """ "We hold nothing" is a real state, and both sides must compute it alike."""
-    digest, count = rd.round_digest(rd.laps_for_round(99, tree))
-    assert count == 0 and len(digest) == 16
-
-
-def test_the_cli_refuses_an_unmatched_exclusion_rather_than_printing(
-    tmp_path: Path,
-) -> None:
-    """End to end: the exit status, because a caller in a script reads that."""
-    script = REPO_ROOT / "scripts" / "round_digest.py"
-    bad = subprocess.run(
-        [sys.executable, str(script), "9", "--exclude", "docs/handshake/nope.md"],
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-    )
-    assert bad.returncode == 2, bad.stdout
-    assert "HANDSHAKE-ROUND-DIGEST" not in bad.stdout, "it printed a digest anyway"
-
-    good = subprocess.run(
-        [sys.executable, str(script), "9", "--exclude", "round-09-lap-06.md"],
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-    )
-    assert good.returncode == 0 and "HANDSHAKE-ROUND-DIGEST" in good.stdout
-
-
-def _as_declared_in(lap: tuple[int, int]) -> tuple[str, int]:
-    """Reproduce the digest our ``(round, lap)`` declared, from the tree as it is now.
-
-    §5a's writer rule is *"every lap of this round the writer holds, excluding this
-    one"* — so reproducing a **past** declaration means excluding that lap **and
-    every lap filed since**, because those did not exist when the number was
-    computed.
-
-    **Derived from the tree, never listed.** The first version of this test carried a
-    hand-written exclusion tuple, and filing lap 8 did not break it loudly — it made
-    it reproduce a *different number* for lap 4 and fail on the comparison. That is
-    the lucky outcome. Had lap 4's assertion not been pinned, a stale exclusion list
-    would have silently validated the wrong figure, which is exactly the
-    manufactured-mismatch failure this whole module exists to prevent — one level up,
-    in the test rather than the tool.
-    """
-    root = REPO_ROOT / "docs" / "handshake"
-    round_no, lap_no = lap
-    stem = f"round-{round_no:02d}-lap-"
-    # **BY PATH, not by basename**, and this is the caller the cyanrip fork's round
-    # 14 lap 19 §5 predicted: *"the one caller that legitimately wants both
-    # same-numbered laps names them by path."* Round 13 holds `round-13-lap-03.md`
-    # in BOTH `inbound/` and `verified/`; enumerating basenames yielded that name
-    # twice, and the tool now refuses an ambiguous exclusion rather than dropping
-    # both silently. Naming paths is also the more honest enumeration — this helper
-    # is listing *files it found*, and a basename is a lossy rendering of one.
-    later = tuple(
-        path.relative_to(root).as_posix()
-        for directory in ("inbound", "outbound", "verified")
-        for path in (root / directory).glob(f"{stem}*.md")
-        if (m := re.fullmatch(rf"{re.escape(stem)}(\d+)\.md", path.name))
-        and int(m.group(1)) >= lap_no
-    )
-    assert later, f"no lap at or after {lap} — the exclusion would be a no-op"
-    return rd.round_digest(rd.laps_for_round(round_no, root, exclude=later))
-
-
-def test_our_published_digests_still_reproduce() -> None:
-    """Every value we have sent cyanrip, re-derived from the committed tree.
-
-    A number in a lap is a claim the other project acts on and cannot re-derive
-    without our tree. This asserts each one is still what the tool produces — so a
-    change to the enumerator that would have altered a *sent* figure fails here
-    rather than in their `RECONCILE`.
-
-    **Keyed by ``(round, lap)``, and swept across every round.** It was round 9 only
-    until 2026-08-17, and the floor below carried the giveaway: its comment promised
-    *"every lap of ours in the tree"* while its glob said `round-09-lap-*`. That was
-    the same statement when it was written, and stopped being so the moment round 10
-    opened — so rounds 10 and 11 each declared digests to the fork that **nothing
-    pinned**, silently, which is exactly the invisible-by-omission decay `CLAUDE.md`
-    describes and `docs/testing.md` §5.af names. A promise of completeness needs a
-    sweep, not a comment.
-    """
-    published = {
-        # --- Round 9 ---
-        # Lap 2 is where the writer-exclusion rule was first *proposed* (its §A1-b),
-        # and it already computed the number that way — so it reproduces under the
-        # same rule as the laps that came after the amendment was adopted.
-        (9, 2): ("05c6e505af0dd617", 1),
-        (9, 4): ("5c1925a9e35d5805", 3),
-        (9, 6): ("39b57574cf3f5296", 5),
-        # Lap 8's value moved 1d48ae7d79f5deb5/6 -> a010a87d075d4834/7 when the
-        # fork's lap 7 was filed and lap 8 was rewritten to answer it. **That is
-        # not an edit to a sent number**: the earlier value lived only in a draft
-        # that never left, per the corrected SEND_BOUNDARY. A number this map may
-        # never change is one the peer holds -- and the peer holds none of these.
-        (9, 8): ("a010a87d075d4834", 7),
-        (9, 10): ("598f28c6ed351675", 9),
-        # --- Round 10 ---
-        (10, 2): ("8ebd52790dedf658", 1),
-        (10, 4): ("049fa6ecccaa5328", 3),
-        # --- Round 11 ---
-        (11, 2): ("32e19aec2253f1dd", 1),
-        # Lap 4 closes the round. Its figure covers laps 1-3, which is why the
-        # count is 3 and not 1: by lap 4 we hold their lap 1, our lap 2 and their
-        # lap 3. Added because the sweep below caught it missing on the very first
-        # lap filed after the sweep existed — which is the floor doing its job.
-        (11, 4): ("663c687da69fb8e2", 3),
-        # Round 12 lap 2's header declares this as "round 12 as held before this
-        # lap" — one lap, theirs. Under §5a's writer rule that is the correct
-        # figure: a digest over exact bytes cannot include the file carrying it.
-        (12, 2): ("a7de7efe1d75c406", 1),
-        # Lap 4 closes round 12: three laps existed when it was written (their 1,
-        # our 2, their 3), and §5a's writer rule excludes the file carrying the
-        # figure.
-        (12, 4): ("2c20b1f3f534426f", 3),
-        # --- Round 13 ---
-        # DEGENERATE, and pinned precisely because it is. Round 13's only lap when
-        # our verification was written is the one it verifies, so §5a's writer rule
-        # ("every lap of this round the writer holds, excluding this one") leaves an
-        # EMPTY population — and `01ba4719c80b6fe9` is sha256/16 of the empty string.
-        # Pinned rather than exempted so the zero stays visible: an unpinned
-        # degenerate figure is indistinguishable from an unpinned real one, and the
-        # sweep below exists because the newest claim is the one most likely to be
-        # acted on.
-        # Renumbered from lap 1 to lap 3 after the fork's lap 3 §H1 pointed out
-        # that round-13 lap numbers are round-global and a verification takes the
-        # next one like any other file. The digest moved WITH the number, because
-        # the population §5a's writer rule enumerates is "every lap of this round
-        # excluding this one" — as lap 1 that was empty (the degenerate sha of
-        # nothing, `01ba4719c80b6fe9 over 0`), as lap 3 it is their lap 1 and our
-        # lap 2. Recorded here rather than silently repinned: a declared figure
-        # that changes is exactly what this map exists to make visible.
-        (13, 3): ("08c8f0eacf1066e4", 2),
-        # Our GO closing round 13. Six laps precede it — their 1, our 2, our
-        # verification 3, their 4, our 5, their 6 — which is the numbering their
-        # lap 6 §N2 confirmed after both sides had got one wrong.
-        (13, 7): ("039cfa03a335266e", 6),
-    }
-    for lap, expected in published.items():
-        assert _as_declared_in(lap) == expected, (
-            f"round {lap[0]} lap {lap[1]}'s declared digest moved: it published "
-            f"{expected} and the tree now yields {_as_declared_in(lap)}. A sent "
-            "number is frozen — find what changed in the enumerator or the laps, do "
-            "not edit this map."
+    def test_the_refusal_message_names_the_count_and_the_paths(self) -> None:
+        """A refusal a reader cannot act on is an error message, not a check."""
+        rd = _module()
+        with pytest.raises(rd.DigestError) as caught:
+            rd.round_digest(15, exclude="nope.md")
+        text = str(caught.value)
+        assert "round-15-lap-01.md" in text, (
+            "the refusal must list what IS present, or the reader cannot see "
+            f"their typo: {text}"
         )
 
-    # The floor, derived from the filesystem across EVERY round rather than one.
-    # Without it a future lap's published figure goes unpinned and the check quietly
-    # stops covering the newest claim — the one most likely to be acted on.
-    ours = {
-        (int(m.group(1)), int(m.group(2)))
-        for path in (REPO_ROOT / "docs" / "handshake" / "verified").glob(
-            "round-*-lap-*.md"
+
+class TestConstructionDetails:
+    def test_a_lap_declaring_no_sender_is_refused_not_guessed_from_its_folder(
+        self, tmp_path: Path
+    ) -> None:
+        """Keying on the directory would make the digest describe our *filing*
+        rather than the document — the same class of error as reading a pin from
+        a covering message instead of from the artifact."""
+        rd = _module()
+        orphan = tmp_path / "round-15-lap-07.md"
+        orphan.write_text("HANDSHAKE-ROUND: 15\nno sender here\n", encoding="utf-8")
+        with pytest.raises(rd.DigestError, match="declares no"):
+            rd._row_for(orphan)
+
+    def test_from_commit_and_from_repo_cannot_satisfy_the_sender_field(
+        self, tmp_path: Path
+    ) -> None:
+        """`HANDSHAKE-FROM-COMMIT` and `HANDSHAKE-FROM-REPO` share the prefix and
+        mean something else. A substring match would silently put a git sha in
+        the sender column and still produce a confident digest."""
+        rd = _module()
+        lap = tmp_path / "round-15-lap-08.md"
+        lap.write_text(
+            "HANDSHAKE-FROM-COMMIT: 0a69732\n"
+            "HANDSHAKE-FROM-REPO: https://example.invalid\n",
+            encoding="utf-8",
         )
-        if (m := re.fullmatch(r"round-(\d+)-lap-(\d+)\.md", path.name))
-    }
-    # Rounds 9 and later only: the digest field postdates the earlier rounds, whose
-    # laps declare no number for this to pin. Stated as a boundary rather than left
-    # to the map's contents, so "not pinned" and "never declared one" stay distinct.
-    declared = {lap for lap in ours if lap[0] >= 9}
-    unpinned = sorted(declared - set(published))
-    assert not unpinned, (
-        f"these laps of ours declare a round digest that nothing pins: {unpinned}. "
-        "Add each one's declared value — an unpinned figure is one the fork can act "
-        "on and we cannot prove we still reproduce."
-    )
+        with pytest.raises(rd.DigestError, match="declares no"):
+            rd._row_for(lap)
 
-
-def test_an_exclusion_matching_TWO_files_refuses_instead_of_dropping_both(
-    tmp_path: Path,
-) -> None:
-    """The mirror of this file's founding defect, and neither project asked it.
-
-    Round 9 found that `--exclude` matching **nothing** silently dropped nothing
-    and printed a confident digest over the full set. The cyanrip fork shipped our
-    fix — and **neither of us then asked it the other way round.** An exclusion
-    matching **more than one** file dropped all of them, just as silently. It was
-    unreachable until two laps shared a number, which is why it survived nine
-    rounds.
-
-    Found by the fork (round 14 lap 19 §5) and **confirmed against our own record
-    before being believed**: `--exclude round-14-lap-16.md` matched the inbound and
-    outbound lap 16, removed both, and returned `710ed2493fccd59c over 19` — a
-    confident answer over a population nobody asked for, exit 0.
-
-    They sent the **specification, not their code**, deliberately: a test does not
-    travel, its specification does, and two implementations sharing an ancestor
-    share its bugs. This is that specification, implemented independently.
-    """
-    inbound = tmp_path / "inbound"
-    outbound = tmp_path / "outbound"
-    inbound.mkdir()
-    outbound.mkdir()
-    # The collision: one lap number, two senders, same basename.
-    (inbound / "round-09-lap-02.md").write_text(
-        _lap(9, 2, "cyanrip-fork"), encoding="utf-8"
-    )
-    (outbound / "round-09-lap-02.md").write_text(
-        _lap(9, 2, "platterpus"), encoding="utf-8"
-    )
-    (inbound / "round-09-lap-01.md").write_text(
-        _lap(9, 1, "cyanrip-fork"), encoding="utf-8"
-    )
-
-    # PASS = it refuses, naming both files.
-    with pytest.raises(rd.UnmatchedExclusion) as caught:
-        rd.laps_for_round(9, tmp_path, exclude=("round-09-lap-02.md",))
-    message = str(caught.value)
-    assert "AMBIGUOUS" in message, message
-    assert "inbound" in message and "outbound" in message, (
-        "the refusal must NAME both files — a refusal that does not say which two "
-        "leaves the caller unable to disambiguate, which is the whole remedy: "
-        f"{message}"
-    )
-
-    # NON-BLANKET, and this half is what stops the fix being a wall: an exclusion
-    # naming exactly one of them must still work, and must drop exactly that one.
-    kept = rd.laps_for_round(9, tmp_path, exclude=("outbound/round-09-lap-02.md",))
-    assert len(kept) == 2, f"expected 2 laps kept, got {[str(k.path) for k in kept]}"
-    senders = sorted(k.sender for k in kept)
-    assert senders == ["cyanrip-fork", "cyanrip-fork"], (
-        f"the wrong lap was dropped — kept senders {senders}; the platterpus lap 2 "
-        "was the one named"
-    )
+    def test_rows_are_sorted_as_STRINGS_not_as_numbers(self) -> None:
+        """Their step 2 says "sort the rows as strings", and it matters at ten
+        laps: `"10"` sorts before `"2"`. Getting this wrong produces identical
+        output for every round with fewer than ten laps — so it would pass every
+        fixture we have today and diverge exactly when a round gets long, which
+        round 7 did at 37."""
+        rd = _module()
+        rows = [
+            rd.Row(lap=2, sender="platterpus", sha256="b" * 64, path=Path("b")),
+            rd.Row(lap=10, sender="cyanrip-fork", sha256="a" * 64, path=Path("a")),
+        ]
+        lines = sorted(row.render() for row in rows)
+        assert lines[0].startswith("10\t"), (
+            "string sort must put lap 10 before lap 2; a numeric sort would not, "
+            "and both agree for every round shorter than ten laps"
+        )
+        assert rd.digest_of(rows) == rd.digest_of(list(reversed(rows))), (
+            "the digest must not depend on input order"
+        )
