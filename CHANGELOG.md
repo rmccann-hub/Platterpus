@@ -11,6 +11,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **cyanrip handshake round 15, lap 5 sent.** Answers their §2 with the first
+  real measurement: `probe-ripper-wrapper` ran on the rig and **all four
+  invocations returned** — host export with stdin attached 0.251s, stdin closed
+  0.250s, `distrobox-enter -- true` 0.195s — on the same machine and the same
+  export that produced `exit 137` on 2026-08-27. **The hang does not reproduce.**
+  Reported as exactly that and no more: a non-reproduction is not a diagnosis,
+  and we cannot say why two mornings hung.
+- **Also declares, in the wire header rather than buried in prose, that we moved
+  our half of the round's subject.** Their lap 3 fixed CC-1 against `0.6.33` at
+  `0a69732`; the pass will run on `0.6.34` at `dba2ab2`, because `0.6.33` demands
+  a ripper build its own dialog refuses to install and therefore cannot satisfy
+  CC-1. That is a subject change under an S-15 the rule exists to prevent, so the
+  lap states it plainly and offers the refusal — they may hold the round at
+  `0.6.33` and take the pass as round 16's evidence instead. The run is unblocked
+  either way; only the bookkeeping depends on the answer.
+- **Our lap-2 `[NOT VERIFIED]` on the released banner is discharged.** The rig
+  bundle's app log reads `──── Platterpus 0.6.33 (build 0a69732) ────` with
+  `install_channel: appimage`, so for a released build the banner and the pin
+  coincide — and a divergence means the operator is on a source build.
+
 ## [0.6.34] — 2026-09-03
 
 ### Fixed
