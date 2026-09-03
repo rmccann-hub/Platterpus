@@ -965,7 +965,11 @@ def test_the_install_offer_does_not_surface_over_a_running_session(
     monkeypatch.setattr(
         MainWindow,
         "_offer_ripper_install",
-        lambda self, offer, detail, commit: offered.append(offer),
+        # `**_` absorbs `needs_consent` and anything added later: this test is
+        # about whether the offer surfaces AT ALL during a session, not about how
+        # it is presented. A stub that pins the signature would fail on every
+        # future parameter while measuring nothing new.
+        lambda self, offer, detail, commit, **_: offered.append(offer),
     )
     offer = SimpleNamespace(
         verdict=OFFER_AVAILABLE,

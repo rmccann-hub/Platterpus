@@ -1535,3 +1535,115 @@ def test_the_rig_path_check_can_actually_fail() -> None:
     # Prose naming a script WITHOUT a directory is not a path claim and must not
     # be harvested — the scripts are referred to by bare name constantly.
     assert _rig_script_path_mentions("run fullacceptance.txt overnight") == []
+
+
+def _offer_for(commit: str):  # noqa: ANN202 - RipperOffer, imported lazily
+    """The offer the app would make when `commit` is what the fork published.
+
+    Built through the real `evaluate_offer` with a real manifest row, so the flags
+    under test are the ones a user's dialog would carry — not a hand-made object
+    asserting what we hope the producer does.
+    """
+    from platterpus.deps import fork_source, ripper_manifest, ripper_offer
+
+    seq = fork_source.release_seq_for_commit(commit)
+    assert seq is not None, f"{commit} has no release sequence; fixture is wrong"
+    release = ripper_manifest.RipperRelease(
+        channel=ripper_offer.CHANNEL_BETA,
+        version=fork_source.UNDER_REVIEW_TARGET.version,
+        commit=commit,
+        release_seq=seq,
+        handshake_round=15,
+        round_closed=False,
+        install_url="https://github.com/rmccann-hub/cyanrip",
+        meson_options=(),
+    )
+    manifest = ripper_manifest.RipperManifest(
+        schema=1,
+        project="cyanrip",
+        default_channel=ripper_offer.CHANNEL_BETA,
+        channels={ripper_offer.CHANNEL_BETA: release},
+    )
+    return ripper_offer.evaluate_offer(
+        manifest,
+        ripper_offer.CHANNEL_BETA,
+        installed_commit=fork_source.FORK_PIN,
+    )
+
+
+def test_the_app_can_install_every_build_its_acceptance_run_demands() -> None:
+    """**The contradiction of 2026-09-03, as a standing check.**
+
+    The maintainer's run aborted at L165 — *"the installed cyanrip is NOT
+    platterpus-fork-g978f9b0"* — which is section A working exactly as designed.
+    The update dialog for that same build then said *"Platterpus will not install
+    this one for you"* and printed a shell command.
+
+    So the product demanded a build, refused to install it, and handed back a
+    terminal line — in the program whose premise is that there is no terminal
+    (KDD-17), and whose `CLAUDE.md` says a procedure handed back in prose is work
+    handed back.
+
+    The cause is this repository's most-repeated defect: **two surfaces answering
+    one question from different keys.** `expect-ripper-under-review` reads
+    `PIN_UNDER_REVIEW`; the offer read `approve_ripper`, which keys on `FORK_PIN`.
+    Between rounds those coincide — which is why it never fired — and with a round
+    open they cannot.
+
+    The relation, so neither surface can drift: **whatever the acceptance run
+    demands, the app must be able to install from inside the GUI.** Not
+    necessarily as a no-consequence one-click — `installable_with_consent` is the
+    honest form while a round is open — but never *"we will not; here is a
+    command"*.
+    """
+    offer = _offer_for(fork_source_pin_under_review())
+    assert offer.install_commit, "the offer names no build to install"
+    assert offer.auto_installable or offer.installable_with_consent, (
+        "the acceptance run demands this build and the app offers no way to "
+        "install it from inside the GUI — the 2026-09-03 contradiction"
+    )
+
+
+def fork_source_pin_under_review() -> str:
+    """The pin the acceptance run demands, read from the one constant it reads."""
+    from platterpus.deps import fork_source
+
+    return fork_source.PIN_UNDER_REVIEW
+
+
+def test_the_offer_no_longer_hands_back_a_shell_command_for_that_build() -> None:
+    """The *symptom* the maintainer reported, not just the flag behind it.
+
+    A future change could set the flag and leave the sentence, so the sentence is
+    asserted too — and the in-app route is required to be present, because
+    removing the command while naming no alternative is a worse dialog, not a
+    better one.
+    """
+    offer = _offer_for(fork_source_pin_under_review())
+    assert "--install-ripper" not in offer.detail, (
+        f"the dialog still hands back a shell command:\n{offer.detail}"
+    )
+    assert "will not install this one for you" not in offer.detail, offer.detail
+    assert "Install it anyway" in offer.detail, (
+        "the dialog dropped the command without naming the button that replaces "
+        f"it:\n{offer.detail}"
+    )
+
+
+def test_the_two_install_axes_are_never_both_true() -> None:
+    """They mean opposite things about the consequence, so both is incoherent.
+
+    `auto_installable` is held equal to the rip verdict by the relation test
+    above — that is what stops a one-click install of a build that then stamps
+    every artifact `unapproved`. `installable_with_consent` exists exactly for the
+    case where that verdict is negative and the user may accept it knowingly.
+    Asserted on what the PRODUCER emits, for both the approved and the
+    under-review build, rather than on a hand-constructed object.
+    """
+    from platterpus.deps import fork_source
+
+    for commit in (fork_source.PIN_UNDER_REVIEW, fork_source.FORK_PIN):
+        offer = _offer_for(commit)
+        assert not (offer.auto_installable and offer.installable_with_consent), (
+            f"{commit} is marked both costless and consequential"
+        )

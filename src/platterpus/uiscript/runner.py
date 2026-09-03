@@ -2206,10 +2206,11 @@ class ScriptRunner(QObject):
             Outcome.FAIL,
             f"the installed cyanrip is NOT {expected} — {_pin_role_phrase()}. "
             f"Every later section would be evidence about a different binary.\n"
-            f"Install it with ONE command:\n"
-            f"    {build_info.self_invocation()} --install-ripper "
-            f"{fork_source.PIN_UNDER_REVIEW}\n"
-            f"then re-run this script.\n"
+            f"FIX IT WITHOUT LEAVING THE APP:\n"
+            f"    Help -> Check for cyanrip updates... -> Install it anyway\n"
+            f"then start the acceptance test again.\n"
+            f"(Or, if you prefer a terminal: {build_info.self_invocation()} "
+            f"--install-ripper {fork_source.PIN_UNDER_REVIEW})\n"
             f"{_bounded_output(self._last_cyanrip_output)}",
         )
 

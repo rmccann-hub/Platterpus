@@ -11,6 +11,32 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The app demanded a cyanrip build, refused to install it, and handed back a
+  shell command.** Reported from the rig on 2026-09-03 with the evidence bundle
+  that proves it: the acceptance run aborted at L165 — *"the installed cyanrip is
+  NOT platterpus-fork-g978f9b0"*, which is section A working exactly as designed —
+  while the update dialog for that same build said *"Platterpus will not install
+  this one for you"* and printed `--install-ripper 978f9b0`. In the program whose
+  premise is that there is no terminal (KDD-17).
+
+  Root cause is this repository's most-repeated defect, for the third time in one
+  day: **two surfaces answering one question from different keys.**
+  `expect-ripper-under-review` reads `PIN_UNDER_REVIEW`; the offer read
+  `approve_ripper`, which keys on `FORK_PIN`. Between rounds those coincide, which
+  is why it had never fired; with a round open they cannot.
+
+  There is now a third state, `RipperOffer.installable_with_consent`: the dialog
+  offers **"Install it anyway"** with the consequence stated in full, rather than a
+  command. Deliberately **not** folded into `auto_installable`, which means *"no
+  consequence to weigh"* and is held equal to the rip verdict by the relation test
+  that stops one-click installs of builds that then stamp every artifact
+  `unapproved` — the two axes can never both be true. The consent dialog uses the
+  warning icon and makes **"Not now" the default button**, so Enter or a stray
+  double-click cannot accept a consequence by reflex. The L165 abort message now
+  leads with *Help → Check for cyanrip updates… → Install it anyway*, with the
+  terminal route demoted to a parenthetical.
+
 ### Added
 - **`scripts/round_digest.py`** — the handshake round digest, adopting the cyanrip
   fork's method wholesale after their round-15 lap 3 named the part that mattered.
