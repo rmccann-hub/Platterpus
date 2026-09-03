@@ -11,6 +11,79 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-02 (later) — the fork corrected us, and the correction was right
+
+**Round 15 reached `GO` on their side in three laps.** Their lap 3 accepted the
+subject correction (`0.6.33` at `0a69732`), answered both our questions, and
+returned a finding of ours as wrong. It was wrong.
+
+**§E: we reported a provenance defect that was not one, and the explanation was
+eight lines below the line we quoted.** Their `PROVIDER-CONTRACT.md` at `978f9b0`
+carries `Build: …(platterpus-fork-g009a573)`, and we filed that as the round-6
+shape rule #12 exists for. The file's own text, at lines 9–15 of a file we had
+already fetched: *"That is the build that GENERATED this file, which is always
+the commit **before** the one containing it — a generated artifact cannot carry
+the hash of a commit that adds it."*
+
+Two lessons, and the second is the transferable one:
+
+* **`CLAUDE.md`'s "answer from the artifact, not your memory of it" was followed
+  to the letter and missed entirely.** We opened the file and read one line of
+  it. *Opening* an artifact is not *reading* it, and a `grep` that finds the
+  string you expected is the shape most likely to stop you looking further.
+* **We applied THEIR rule as a charge against them.** A carefully-run project
+  putting an unexpected value in a generated banner is likelier to have a reason
+  than a bug — and here the reason was three inches away. New habit: *"this looks
+  like a violation of a rule the other side wrote"* is a prompt to read **their**
+  statement of that rule first.
+
+Their repair is better than the finding was: file the artifact by its
+**source anchor** (content-derived, survives committing the file) rather than by
+its build tag. Done — and we deliberately did **not** recompute the anchor,
+because their lap documents what their own hand-rolled reimplementation produced
+(`dd2fca4d673323d9`, a different number for the same tree). It is recorded as
+their measurement with their tool.
+
+**The renaming quietly disarmed the gate, which is the failure we both keep
+finding.** Refiling as `…-a<anchor>.md` made the file stop matching `_NAMED`, so
+it dropped out of the sweep's population and the suite went green *by not
+looking*. Caught only because a broken edit meant those tests should have failed.
+The collector now matches both forms.
+
+**Their digest adopted, and the population was the point.** Ours hashed
+`inbound/` only — so it **could never disagree about anything we sent**, the
+mirror of their own *"a digest over only our own outbox would agree with itself
+forever"*. A defect of population that no care about the algorithm repairs.
+`scripts/round_digest.py` implements their spec **from the prose** (different
+language, no shared ancestor) and reproduces both values they published — the
+empty record `01ba4719c80b6fe9` and round 15's `255ee9040a5d3778` over two laps —
+plus both rows byte-for-byte. `CLAUDE.md` warns that two implementations agreeing
+proves nothing *when they share an ancestor*; these do not, which is what makes
+the agreement evidence.
+
+Incidentally it did its real job on first use: their row for our lap 2 carries
+the same sha256 we compute, so the copy they hold is byte-identical to the one we
+sent.
+
+**Their §7, compared as invited, found one here.** They swept their laps for
+`HANDSHAKE-FROM-COMMIT` reachability after an amend left one naming an orphan.
+We had **no check on that field at all**, and the sweep found
+`verified/round-09-lap-02.md` declaring `d97adae` — a squash-deleted branch
+commit that does not resolve in this clone at all, worse in kind than theirs. The
+rule that prevents it (`our_pin()` resolving against `origin/main`) already
+existed and had simply never been applied to this field. Their distinction is
+now ours: **resolving is not reachable.**
+
+**Two of our own probes taught us more than the passes did.** Weakening
+`resolves AND reachable` to `resolves OR reachable` is *unaffected* against our
+committed record — our one bad entry fails both, so the strong half was never
+exercised by real data. It is now driven with a real orphan from
+`git commit-tree`. And the first digest test pinned their published number
+against the **live** directory, so it went red the moment lap 4 was filed: a
+fixture that decays by construction, whose obvious repair (bump the constant)
+would have destroyed the only thing it checked. The population is named
+explicitly now.
+
 ## 2026-09-02 — round 15 opened, and three surfaces answered "which build?" from two constants
 
 **The fork opened handshake round 15** with one close condition — CC-1, a
@@ -4352,4 +4425,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.33.*
+*Last updated for Platterpus v0.6.34.*

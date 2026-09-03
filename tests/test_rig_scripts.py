@@ -444,6 +444,85 @@ def test_the_morning_bundle_lands_where_the_operator_looks() -> None:
     )
 
 
+def approved_pin_declared_by(text: str) -> str | None:
+    """The pin a lap declares APPROVED, or ``None`` — **both verdicts, or neither**.
+
+    Extracted from the sweep below so the rule can be driven directly. It has to
+    be: on the committed record, requiring the peer verdict as well as ours is
+    *unaffected* by a revert probe — the only pin it excludes is `9048082`, a
+    withdrawn round-7 test pin the install menu does not offer. So the half of
+    this rule that enforces `CLAUDE.md` rule #12 obligation (1) has **no real
+    input that exercises it**, and a comment asserting it works is not a check.
+
+    The rule, from that obligation: *a round closes only when BOTH sides declare
+    GO — one side's GO against the other's HOLD is an open round.* A missing peer
+    verdict is therefore not a pass either; it is the "we did not record their
+    answer" state, which is the same one-half-of-a-two-half-contract failure.
+    """
+    pin = re.search(r"^HANDSHAKE-PIN:\s*([0-9a-f]{7,40})\b", text, re.M)
+    if pin is None:
+        return None
+    ours = re.search(r"^HANDSHAKE-VERDICT:\s*\**\s*(\w+)", text, re.M)
+    theirs = re.search(r"^HANDSHAKE-PEER-VERDICT:\s*\**\s*(\w+)", text, re.M)
+    if ours is None or theirs is None:
+        return None
+    if ours.group(1).upper() == "GO" and theirs.group(1).upper() == "GO":
+        return pin.group(1)
+    return None
+
+
+@pytest.mark.parametrize(
+    ("ours", "theirs", "approved"),
+    [
+        ("GO", "GO", True),
+        # The asymmetric cases rule #12 exists for. Both are real states from our
+        # own record: round 7 lap 35 was GO/HOLD, round 8 lap 10 GO/OPEN.
+        ("GO", "HOLD", False),
+        ("GO", "OPEN", False),
+        ("HOLD", "GO", False),
+        ("OPEN", "GO", False),
+        ("OPEN", "OPEN", False),
+        ("HOLD", "HOLD", False),
+    ],
+)
+def test_a_pin_is_approved_only_when_BOTH_verdicts_say_GO(
+    ours: str, theirs: str, approved: bool
+) -> None:
+    """The rule, driven on every combination the record can produce.
+
+    The sweep that uses this cannot exercise the peer half — a revert probe says
+    so — so it is exercised here instead, which is the only place it can be.
+    """
+    text = (
+        f"HANDSHAKE-PIN: abc1234\n"
+        f"HANDSHAKE-VERDICT: {ours}\n"
+        f"HANDSHAKE-PEER-VERDICT: {theirs}\n"
+    )
+    assert (approved_pin_declared_by(text) == "abc1234") is approved
+
+
+def test_a_lap_with_no_peer_verdict_recorded_is_not_an_approval() -> None:
+    """Absence is not agreement. Eleven round-7 laps carry a pin and no peer
+    verdict at all; counting those as approval is how `2f950c8` — a build named
+    only by `HOLD` laps — ended up in a set the menu was checked against."""
+    assert (
+        approved_pin_declared_by("HANDSHAKE-PIN: abc1234\nHANDSHAKE-VERDICT: GO\n")
+        is None
+    )
+
+
+def test_the_bolded_verdict_spelling_is_still_read() -> None:
+    """Laps write `**GO**` at a line start. A pattern that only matched a bare
+    word would silently approve nothing, which fails safe here but would make the
+    sweep vacuous rather than wrong — the harder failure to notice."""
+    text = (
+        "HANDSHAKE-PIN: abc1234\n"
+        "HANDSHAKE-VERDICT: **GO**\n"
+        "HANDSHAKE-PEER-VERDICT: **GO**\n"
+    )
+    assert approved_pin_declared_by(text) == "abc1234"
+
+
 def test_the_install_menu_offers_the_build_the_acceptance_gate_demands() -> None:
     """The relation neither side's own tests can express.
 
@@ -502,16 +581,32 @@ def test_the_install_menu_offers_the_build_the_acceptance_gate_demands() -> None
         for path in (hs / directory).glob("round-*.md")
     )
     assert verified, "no verification files — nothing to check the label against"
+    # **BOTH VERDICTS, and reading only the pin was a real defect.**
+    #
+    # This built `approved_pins` from every `HANDSHAKE-PIN:` in the population,
+    # verdict-blind. `CLAUDE.md` rule #12 obligation (1): *a round closes only
+    # when BOTH sides declare GO — one side's GO against the other's HOLD is an
+    # open round.* A pin named by a lap that says `HOLD`, or `OPEN`, is not an
+    # approved pin, and this counted it as one.
+    #
+    # Measured over the committed record, which is how bad it was: the
+    # verdict-blind set contained `2f950c8` across **eleven** `HOLD` laps, plus
+    # `c5fb909`, `f5e11ba` and `9048082` — every one a mid-round test pin the fork
+    # explicitly withdrew, two of them with "INSTALL X, NOT Y" in the lap that
+    # retired them. The check passed anyway, because `ripper_choices()` offers few
+    # builds and those happened to be in a set that contained nearly everything.
+    # **A set that large cannot refuse anything**, which is this project's
+    # *"can it be satisfied by the wrong thing?"* in its purest form.
+    #
+    # It went unnoticed for the usual reason: between rounds `PIN_UNDER_REVIEW ==
+    # FORK_PIN`, so no outbound lap had ever named a pin while a round was open.
+    # Round 15 is the first, and our own laps 2 and 4 declare `978f9b0` with
+    # `HANDSHAKE-VERDICT: OPEN` — which the old reading scored as approval of the
+    # very build the round exists to review.
     approved_pins = {
-        m.group(1)
+        pin
         for path in verified
-        if (
-            m := re.search(
-                r"^HANDSHAKE-PIN:\s*([0-9a-f]{7,40})\b",
-                path.read_text(encoding="utf-8"),
-                re.M,
-            )
-        )
+        if (pin := approved_pin_declared_by(path.read_text(encoding="utf-8")))
     }
     assert approved_pins, "no verification declares HANDSHAKE-PIN — nothing to compare"
     for choice in fork_source.ripper_choices():
@@ -1440,3 +1535,115 @@ def test_the_rig_path_check_can_actually_fail() -> None:
     # Prose naming a script WITHOUT a directory is not a path claim and must not
     # be harvested — the scripts are referred to by bare name constantly.
     assert _rig_script_path_mentions("run fullacceptance.txt overnight") == []
+
+
+def _offer_for(commit: str):  # noqa: ANN202 - RipperOffer, imported lazily
+    """The offer the app would make when `commit` is what the fork published.
+
+    Built through the real `evaluate_offer` with a real manifest row, so the flags
+    under test are the ones a user's dialog would carry — not a hand-made object
+    asserting what we hope the producer does.
+    """
+    from platterpus.deps import fork_source, ripper_manifest, ripper_offer
+
+    seq = fork_source.release_seq_for_commit(commit)
+    assert seq is not None, f"{commit} has no release sequence; fixture is wrong"
+    release = ripper_manifest.RipperRelease(
+        channel=ripper_offer.CHANNEL_BETA,
+        version=fork_source.UNDER_REVIEW_TARGET.version,
+        commit=commit,
+        release_seq=seq,
+        handshake_round=15,
+        round_closed=False,
+        install_url="https://github.com/rmccann-hub/cyanrip",
+        meson_options=(),
+    )
+    manifest = ripper_manifest.RipperManifest(
+        schema=1,
+        project="cyanrip",
+        default_channel=ripper_offer.CHANNEL_BETA,
+        channels={ripper_offer.CHANNEL_BETA: release},
+    )
+    return ripper_offer.evaluate_offer(
+        manifest,
+        ripper_offer.CHANNEL_BETA,
+        installed_commit=fork_source.FORK_PIN,
+    )
+
+
+def test_the_app_can_install_every_build_its_acceptance_run_demands() -> None:
+    """**The contradiction of 2026-09-03, as a standing check.**
+
+    The maintainer's run aborted at L165 — *"the installed cyanrip is NOT
+    platterpus-fork-g978f9b0"* — which is section A working exactly as designed.
+    The update dialog for that same build then said *"Platterpus will not install
+    this one for you"* and printed a shell command.
+
+    So the product demanded a build, refused to install it, and handed back a
+    terminal line — in the program whose premise is that there is no terminal
+    (KDD-17), and whose `CLAUDE.md` says a procedure handed back in prose is work
+    handed back.
+
+    The cause is this repository's most-repeated defect: **two surfaces answering
+    one question from different keys.** `expect-ripper-under-review` reads
+    `PIN_UNDER_REVIEW`; the offer read `approve_ripper`, which keys on `FORK_PIN`.
+    Between rounds those coincide — which is why it never fired — and with a round
+    open they cannot.
+
+    The relation, so neither surface can drift: **whatever the acceptance run
+    demands, the app must be able to install from inside the GUI.** Not
+    necessarily as a no-consequence one-click — `installable_with_consent` is the
+    honest form while a round is open — but never *"we will not; here is a
+    command"*.
+    """
+    offer = _offer_for(fork_source_pin_under_review())
+    assert offer.install_commit, "the offer names no build to install"
+    assert offer.auto_installable or offer.installable_with_consent, (
+        "the acceptance run demands this build and the app offers no way to "
+        "install it from inside the GUI — the 2026-09-03 contradiction"
+    )
+
+
+def fork_source_pin_under_review() -> str:
+    """The pin the acceptance run demands, read from the one constant it reads."""
+    from platterpus.deps import fork_source
+
+    return fork_source.PIN_UNDER_REVIEW
+
+
+def test_the_offer_no_longer_hands_back_a_shell_command_for_that_build() -> None:
+    """The *symptom* the maintainer reported, not just the flag behind it.
+
+    A future change could set the flag and leave the sentence, so the sentence is
+    asserted too — and the in-app route is required to be present, because
+    removing the command while naming no alternative is a worse dialog, not a
+    better one.
+    """
+    offer = _offer_for(fork_source_pin_under_review())
+    assert "--install-ripper" not in offer.detail, (
+        f"the dialog still hands back a shell command:\n{offer.detail}"
+    )
+    assert "will not install this one for you" not in offer.detail, offer.detail
+    assert "Install it anyway" in offer.detail, (
+        "the dialog dropped the command without naming the button that replaces "
+        f"it:\n{offer.detail}"
+    )
+
+
+def test_the_two_install_axes_are_never_both_true() -> None:
+    """They mean opposite things about the consequence, so both is incoherent.
+
+    `auto_installable` is held equal to the rip verdict by the relation test
+    above — that is what stops a one-click install of a build that then stamps
+    every artifact `unapproved`. `installable_with_consent` exists exactly for the
+    case where that verdict is negative and the user may accept it knowingly.
+    Asserted on what the PRODUCER emits, for both the approved and the
+    under-review build, rather than on a hand-constructed object.
+    """
+    from platterpus.deps import fork_source
+
+    for commit in (fork_source.PIN_UNDER_REVIEW, fork_source.FORK_PIN):
+        offer = _offer_for(commit)
+        assert not (offer.auto_installable and offer.installable_with_consent), (
+            f"{commit} is marked both costless and consequential"
+        )

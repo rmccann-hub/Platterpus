@@ -25,6 +25,7 @@ import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import Final
 
 import pytest
 
@@ -2497,3 +2498,209 @@ def test_both_branches_of_the_skeletons_pin_choice_are_exercised(
     assert f"HANDSHAKE-PIN: {expected}" in text, (
         f"round_open={round_open} should select {expected!r}"
     )
+
+
+# --- HANDSHAKE-FROM-COMMIT reachability -------------------------------------
+#
+# **Adopted from the cyanrip fork's round-15 lap 3 §7, and it found one here.**
+# They swept their 43 laps and found a single orphan: a `git commit --amend` had
+# left the field naming the pre-amend SHA, which `git log -1` resolves happily
+# because a local clone holds every object its reflog still names. `git gc`
+# destroys it; a fresh clone never had it. So the lap named a build the peer
+# could not fetch.
+#
+# Their invitation was "compare if it is cheap". It was cheap and **we had no
+# check at all** — not reachability, not existence. The sweep below found
+# `verified/round-09-lap-02.md` declaring `d97adae`, which does not resolve in
+# this clone at all: a session-branch commit the squash-merge deleted. Worse in
+# kind than theirs, since theirs at least resolved locally.
+#
+# The distinction they name is the whole finding: **resolving is not reachable.**
+
+_FROM_COMMIT: Final[re.Pattern[str]] = re.compile(
+    r"^HANDSHAKE-FROM-COMMIT:[ \t]*(?P<value>.+)$", re.MULTILINE
+)
+_BARE_SHA: Final[re.Pattern[str]] = re.compile(r"^[0-9a-f]{7,40}$")
+
+#: Laps whose `HANDSHAKE-FROM-COMMIT` names a commit this repository cannot
+#: reach. **A ratchet that may shrink and must never grow.** Each entry is a lap
+#: already sent — we cannot un-send it — so it is inventoried with what went
+#: wrong rather than silently tolerated.
+_UNREACHABLE_FROM_COMMITS: Final[dict[str, str]] = {
+    # Declared `d97adae`, which does not resolve here at all. Round 9 predates the
+    # `our_pin()` rule (`scripts/handshake.py`) that resolves pins against
+    # `origin/main` precisely because this repository squash-merges and a branch
+    # sha does not survive the merge. Same root cause as lap 18's `ed4f300`, which
+    # our own CI pin check caught on all four matrix legs; this one was never
+    # checked because nothing checked this field.
+    "round-09-lap-02.md": "d97adae — squash-deleted session-branch commit",
+}
+
+
+def _laps_declaring_a_from_commit() -> list[tuple[Path, str]]:
+    """Every committed lap carrying the field, with its declared value."""
+    base = _REPO_ROOT / "docs" / "handshake"
+    out: list[tuple[Path, str]] = []
+    for sub in ("outbound", "verified"):
+        for path in sorted((base / sub).glob("*.md")):
+            match = _FROM_COMMIT.search(path.read_text(encoding="utf-8"))
+            if match is not None:
+                out.append((path, match.group("value").strip().strip("`")))
+    return out
+
+
+def test_there_are_laps_declaring_a_from_commit() -> None:
+    """The floor, because everything below is satisfiable by an empty sweep."""
+    found = _laps_declaring_a_from_commit()
+    assert len(found) >= 10, f"only {len(found)} laps declare HANDSHAKE-FROM-COMMIT"
+
+
+def test_every_declared_from_commit_is_reachable_not_merely_resolvable() -> None:
+    """**Reachable from `origin/main`, not merely resolvable locally.**
+
+    `git cat-file -e` passes on any object the local clone still holds — including
+    one only the reflog keeps alive, which is exactly the object this check exists
+    to catch. `git merge-base --is-ancestor` is the question that matters: *can
+    the peer fetch this?*
+
+    A value that is prose rather than a sha is reported UNPROBED out loud rather
+    than skipped silently — the fork's point, and 28 of their 43 laps are in that
+    state. Silence would make an unprobed field indistinguishable from a passing
+    one.
+    """
+    unprobed: list[str] = []
+    problems: list[str] = []
+    probed = 0
+    for path, value in _laps_declaring_a_from_commit():
+        token = value.split()[0].strip("`,.") if value else ""
+        if not _BARE_SHA.match(token):
+            unprobed.append(f"{path.name}: {value[:50]!r}")
+            continue
+        probed += 1
+        resolves = (
+            subprocess.run(
+                ["git", "cat-file", "-e", f"{token}^{{commit}}"],
+                cwd=_REPO_ROOT,
+                capture_output=True,
+            ).returncode
+            == 0
+        )
+        reachable = resolves and (
+            subprocess.run(
+                ["git", "merge-base", "--is-ancestor", token, "origin/main"],
+                cwd=_REPO_ROOT,
+                capture_output=True,
+            ).returncode
+            == 0
+        )
+        if reachable or path.name in _UNREACHABLE_FROM_COMMITS:
+            continue
+        problems.append(
+            f"{path.name}: {token} "
+            + (
+                "resolves locally but is NOT an ancestor of origin/main — the "
+                "peer cannot fetch it"
+                if resolves
+                else "does not resolve at all"
+            )
+        )
+
+    assert probed >= 1, (
+        f"no lap declared a bare sha, so nothing was actually probed. "
+        f"UNPROBED: {unprobed}"
+    )
+    assert not problems, (
+        "a lap names a HANDSHAKE-FROM-COMMIT the peer cannot fetch:\n  "
+        + "\n  ".join(problems)
+        + "\n\nResolve the pin against `origin/main` (see `scripts/handshake.py::"
+        "our_pin`), which this repository needs because it squash-merges. If the "
+        "lap is already sent and cannot be corrected, inventory it in "
+        "_UNREACHABLE_FROM_COMMITS with what went wrong."
+    )
+
+
+def test_the_unreachable_inventory_carries_no_dead_entries() -> None:
+    """A ratchet that may shrink, never grow — and never carry a stale excuse.
+
+    An entry for a lap that is now fine is an excuse outliving its reason, which
+    is how an allowlist stops meaning anything.
+    """
+    names = {p.name for p, _ in _laps_declaring_a_from_commit()}
+    stale = sorted(set(_UNREACHABLE_FROM_COMMITS) - names)
+    assert not stale, f"inventory names laps that declare no from-commit: {stale}"
+
+
+def test_a_commit_that_resolves_but_is_not_an_ancestor_is_still_a_failure() -> None:
+    """**The fork's actual defect shape, which our real record cannot exercise.**
+
+    Their orphan RESOLVED locally — a clone holds every object its reflog names —
+    and failed only the ancestor test. Our one bad entry does not resolve at all,
+    so weakening `resolves and ancestor` to `resolves or ancestor` is *unaffected*
+    against the committed record. A revert probe says so out loud, which is the
+    definition of a branch nothing runs.
+
+    So it is driven synthetically: a real commit object that is genuinely not an
+    ancestor of `origin/main`. Built here rather than mocked, because the claim is
+    about what git answers, and a mock would be asserting our belief about git.
+    """
+    made = subprocess.run(
+        [
+            "git",
+            "commit-tree",
+            "-m",
+            "orphan for the reachability probe",
+            "HEAD^{tree}",
+        ],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if made.returncode != 0:  # pragma: no cover - only if commit-tree is unavailable
+        pytest.skip(f"could not construct an orphan commit: {made.stderr.strip()}")
+    orphan = made.stdout.strip()
+
+    # It resolves — this is the trap.
+    assert (
+        subprocess.run(
+            ["git", "cat-file", "-e", f"{orphan}^{{commit}}"],
+            cwd=_REPO_ROOT,
+            capture_output=True,
+        ).returncode
+        == 0
+    ), "the constructed orphan does not resolve, so it cannot demonstrate the trap"
+
+    # And it is NOT reachable, which is the question that matters.
+    assert (
+        subprocess.run(
+            ["git", "merge-base", "--is-ancestor", orphan, "origin/main"],
+            cwd=_REPO_ROOT,
+            capture_output=True,
+        ).returncode
+        != 0
+    ), "the constructed orphan is an ancestor of origin/main, which cannot happen"
+
+
+def test_an_anchor_named_artifact_must_match_the_anchor_the_file_declares() -> None:
+    """The anchor branch's own driver — the real directory cannot refute it.
+
+    Every filed artifact agrees with its name today, so reverting the comparison
+    is *unaffected* against the committed set (a probe reports exactly that). The
+    logic therefore needs inputs that violate it, the same reasoning
+    `naming_disagreement`'s own docstring gives for the build-tag path.
+    """
+    from test_handshake_artifact_naming import naming_disagreement
+
+    real = "**Source anchor:** `sha256/16 = 96262d1ea8f282c3` over `src/*.c`\n"
+
+    assert (
+        naming_disagreement("round-15-lap-01-x-a96262d1ea8f282c3.md", real) is None
+    ), "an artifact filed under the anchor it declares must pass"
+
+    why = naming_disagreement("round-15-lap-01-x-adeadbeefdeadbeef.md", real)
+    assert why is not None, "a mismatched anchor is not caught"
+    assert "deadbeefdeadbeef" in why and "96262d1ea8f282c3" in why, (
+        f"the reason must name BOTH anchors or the reader cannot act on it: {why}"
+    )
+
+    missing = naming_disagreement("round-15-lap-01-x-a96262d1ea8f282c3.md", "no anchor")
+    assert missing is not None and "declares none" in missing, missing

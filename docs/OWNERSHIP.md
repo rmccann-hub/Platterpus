@@ -1,11 +1,25 @@
 # OWNERSHIP — who owns what, where, when
 
-**OWNERSHIP-VERSION: 1**
+**OWNERSHIP-VERSION: 2**
 
-**Neither project owns this file.** It lives at the same path in `cyanrip` and in
-`Platterpus`, like `docs/handshake/PROTOCOL.md`, `docs/seam-rules.md` and
-`docs/seam-commands.md`. A change is a version bump both sides ship, never a
-local edit.
+**CUSTODY IS cyanrip's. AUTHORSHIP IS JOINT.** This file and the other shared
+seam documents — `docs/handshake/PROTOCOL.md`, `docs/seam-rules.md`,
+`docs/seam-commands.md` — have their **canonical copy in `cyanrip`**, at these
+paths, on the `platterpus-fork` branch. Every consumer holds a copy at the same
+path, and **the canonical one is what a hash is checked against.**
+
+**That is custody, not authority.** cyanrip is the provider, it is forkable, and
+a fork needs exactly one address to fetch the rules from and one hash to check
+them against — two copies drifting in the dark is a failure `PROTOCOL.md` has
+already suffered. **But a change still requires the consumer's assent**, because
+a rule imposed on a consumer is a decree and not a protocol, and the entire
+handshake exists so a consumer can say no. A version bump ships from custody
+*after* both sides agree, never before.
+
+**Written for the class, not for one consumer.** Platterpus is the consumer that
+exists today; every rule here reads "the consumer" and must keep working when a
+second one appears. **If adding a consumer would require rewriting this file,
+that is the defect.**
 
 **It is enforced, not remembered.** Its SHA-256 is declared in every lap's
 `HANDSHAKE-SHARED-HASHES`, and each side's checker recomputes that hash from its
@@ -75,7 +89,7 @@ had never seen is the measured proof.
 | what | how agreement is shown |
 |---|---|
 | **The log's text**: wording, indentation, field order, units of any parsed line | a handshake round, before it ships |
-| `PROTOCOL.md`, `seam-rules.md`, `seam-commands.md`, **this file** | a version bump both sides ship |
+| `PROTOCOL.md`, `seam-rules.md`, `seam-commands.md`, **this file** | agreed by both, then shipped from cyanrip's canonical copy with the version bumped |
 | The pin under review | declared as a SHA in both sides' laps |
 | Whether a round closes | both verdicts `GO`, transcribed from the file the other sent |
 
@@ -91,6 +105,18 @@ had never seen is the measured proof.
 - **Neither reads an absence as evidence** unless the channel is known to retain
   presence — and the side producing a capture is responsible for saying what its
   capture drops.
+- **NEITHER REPORTS A LAP AS MISSING. FETCH IT.** Every lap declares
+  `HANDSHAKE-FROM-REPO` and `HANDSHAKE-FROM-COMMIT`; together they locate every
+  lap its sender has written. **A lap absent from your inbound is a lap you have
+  not fetched** — it is not missing until a fetch fails, and only a failed fetch
+  is worth a word.
+
+  **And it is never the operator's problem.** They copied the file; a hand-carry
+  that did not land is the channel's fault and neither project's, so **nobody
+  asks the operator to re-send anything.** Fetch it, or say the fetch failed and
+  what it returned. *"We never received your lap N"* is not a finding — it is a
+  step that was skipped, and it has cost this seam two rounds of argument over
+  laps that were on the branch the whole time.
 
 ## 6. When the two disagree
 
@@ -137,6 +163,17 @@ exception:
    can execute the thing, gates it. Whoever needs the disc back, owns it.
 3. **A dispute §1 cannot settle is the operator's**, and it goes to them as one
    question with both positions stated — not as a lap of argument.
+
+## 6a. Versions, so a hash check cannot false-fail
+
+**A shared-file hash is checked against the version the lap declares, not against
+the newest.** Every lap carries `OWNERSHIP-VERSION` and `SEAM-RULES-VERSION` for
+exactly this: a lap sent under v1 is correct under v1, and a receiver who has
+moved to v2 must not read it as a rules difference.
+
+> **Version differs → `WARN`, and it names which side is behind.**
+> **Version matches and the hash differs → `FAIL`**, because that is two copies
+> of one version, which is the drift the hash exists to catch.
 
 ## 7. What this file does not do
 

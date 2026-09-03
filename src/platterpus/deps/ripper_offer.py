@@ -144,6 +144,29 @@ class RipperOffer:
     #: costs and must not be the default button. That is the *"unless very
     #: important"* case, and it is the only one a person still has to think about.
     auto_installable: bool = False
+    #: True when Platterpus may install this build **after the user consents**, even
+    #: though our record has not approved it.
+    #:
+    #: **A THIRD state, and it exists because the product contradicted itself.** On
+    #: 2026-09-03 the maintainer's acceptance run aborted at L165 with *"the
+    #: installed cyanrip is NOT platterpus-fork-g978f9b0"* — correct, and the abort
+    #: working as designed — while the update dialog for that same build said
+    #: *"Platterpus will not install this one for you"* and printed a shell command.
+    #: The app demanded a build, refused to install it, and handed back a terminal
+    #: line, in the program whose premise is that there is no terminal (KDD-17).
+    #:
+    #: The cause is the familiar one: two surfaces answering *"which build do we
+    #: want?"* from different keys. The acceptance gate reads `PIN_UNDER_REVIEW`;
+    #: this offer read `approve_ripper`, which keys on `FORK_PIN`. Between rounds
+    #: they coincide; with a round open they cannot.
+    #:
+    #: It is deliberately **not** folded into :attr:`auto_installable`. That flag
+    #: means *"no consequence to weigh"* and is held equal to the rip verdict by
+    #: `tests/test_rig_scripts.py` — the relation that stopped us offering a
+    #: one-click install for a build that then stamps every artifact `unapproved`.
+    #: This axis says something different: *the consequence is real, it is stated,
+    #: and the user may accept it with a button rather than a command.*
+    installable_with_consent: bool = False
     #: Whether this offer may be raised **unprompted** — the automatic launch-time
     #: check — as opposed to only when the user asks from the Help menu.
     #:
@@ -601,6 +624,14 @@ def evaluate_offer(
     # implementation of "is this approved" is a second thing free to disagree, and the
     # one that reaches an archival record is the one that matters.
     approved_here = _approves_commit(newer.commit)
+    # **Does OUR OWN acceptance run demand this exact build?** Read from the same
+    # constant the run's `expect-ripper-under-review` step reads, so the two cannot
+    # answer differently — the whole cause of the 2026-09-03 contradiction.
+    from platterpus.deps import fork_source as _fs  # noqa: PLC0415
+
+    wanted_by_the_acceptance_run = not approved_here and _fs.same_commit(
+        newer.commit, _fs.PIN_UNDER_REVIEW
+    )
     unclosed = (
         ""
         if newer.round_closed
@@ -641,10 +672,24 @@ def evaluate_offer(
             "report, the log and the EAC-compatible export. The audio is unaffected "
             "and still bit-perfect if its own checks pass — what changes is whether "
             "the record can say the ripper was jointly verified."
-            f"\n\nPlatterpus will not install this one for you. If you want it "
-            f"anyway — during a joint test session, say — install it deliberately:"
-            f"\n    {_install_hint(newer.commit)}"
         )
+        if wanted_by_the_acceptance_run:
+            # THE APP ASKED FOR THIS BUILD. Refusing to install it here — and
+            # printing a shell command instead — is the contradiction of
+            # 2026-09-03: the acceptance run aborts without this exact commit
+            # while this dialog declines to fetch it.
+            consequence += (
+                "\n\nThis is the build the acceptance test needs, so Platterpus "
+                "can install it for you — the run will not start without it. "
+                "Choose 'Install it anyway' below; nothing is typed and nothing "
+                "is installed unless you do."
+            )
+        else:
+            consequence += (
+                f"\n\nPlatterpus will not install this one for you. If you want it "
+                f"anyway — during a joint test session, say — install it "
+                f"deliberately:\n    {_install_hint(newer.commit)}"
+            )
     # One assembly, one order, every part appended exactly once. `unclosed` is
     # empty whenever `approved_here` is true (a closed round is half of what
     # `approved_here` means), so the two can share this line without a branch.
@@ -655,6 +700,7 @@ def evaluate_offer(
         would_be_unapproved=not approved_here,
         install_commit=newer.commit,
         auto_installable=approved_here,
+        installable_with_consent=wanted_by_the_acceptance_run,
         # A genuine forward step, and we read the manifest to establish it. This is
         # the one case the automatic check exists for.
         may_surface_unprompted=True,

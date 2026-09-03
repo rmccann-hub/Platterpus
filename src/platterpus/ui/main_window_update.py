@@ -436,8 +436,17 @@ class UpdateMixin(MainWindowShared):
             )
             install_commit = ""
 
-        if install_commit and auto_installable:
-            self._offer_ripper_install(offer, detail, install_commit)
+        # **CONSENT IS A THIRD STATE, not a synonym for "approved".** A build our
+        # record approves is offered with no consequence to weigh; a build the
+        # ACCEPTANCE RUN demands is offered with the consequence stated and a
+        # non-default button. What must never happen again is the third case of
+        # 2026-09-03: the app requiring a build, declining to install it, and
+        # printing a shell command in a program built so there is no shell.
+        with_consent = bool(getattr(offer, "installable_with_consent", False))
+        if install_commit and (auto_installable or with_consent):
+            self._offer_ripper_install(
+                offer, detail, install_commit, needs_consent=with_consent
+            )
             return
 
         box = QMessageBox(self)
@@ -471,8 +480,17 @@ class UpdateMixin(MainWindowShared):
         )
         box.open()
 
-    def _offer_ripper_install(self, offer: object, detail: str, commit: str) -> None:
-        """Ask once, then install. Only reached when the offer says it costs nothing.
+    def _offer_ripper_install(
+        self, offer: object, detail: str, commit: str, *, needs_consent: bool = False
+    ) -> None:
+        """Ask once, then install.
+
+        ``needs_consent`` distinguishes the two reasons we are here. Without it the
+        offer costs nothing — our record approves the build. With it, the build is
+        the one **our own acceptance run demands** while no closed round has
+        approved it: the consequence is real, `detail` already states it, and the
+        button is deliberately not the default so the dialog cannot be dismissed
+        into an install by reflex.
 
         "Ask once" is the whole shape: the consent happens here, and the progress
         dialog that follows starts immediately rather than presenting a second button
@@ -500,10 +518,19 @@ class UpdateMixin(MainWindowShared):
         box.setText(detail)
         box.setTextFormat(Qt.TextFormat.PlainText)  # see `_on_ripper_update_result`
         box.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        box.setIcon(QMessageBox.Icon.Information)
-        install = box.addButton("Install it now", QMessageBox.ButtonRole.AcceptRole)
-        box.addButton("Not now", QMessageBox.ButtonRole.RejectRole)
-        box.setDefaultButton(install)
+        box.setIcon(
+            QMessageBox.Icon.Warning if needs_consent else QMessageBox.Icon.Information
+        )
+        install = box.addButton(
+            "Install it anyway" if needs_consent else "Install it now",
+            QMessageBox.ButtonRole.AcceptRole,
+        )
+        decline = box.addButton("Not now", QMessageBox.ButtonRole.RejectRole)
+        # The DEFAULT is the safe answer when there is a consequence: Enter or a
+        # stray double-click must not accept a build that makes every later rip
+        # report `unapproved`. Accessibility note — the marker is the icon AND the
+        # button wording, never colour alone (`CLAUDE.md` → accessibility).
+        box.setDefaultButton(decline if needs_consent else install)
         self._ripper_offer_box = box
         self._ripper_offer = offer
         self._ripper_offer_commit = commit
