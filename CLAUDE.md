@@ -115,7 +115,36 @@ The GUI runs on the host. It calls the host-exported ripper binary in `~/.local/
       - **Pre-commit, and it is the one that actually ends rounds.** A lap may declare *"our next lap is GO unless X"*, naming X, and it binds. Both sides did this in round 7 laps 36–37.
       - **The failure in one sentence: release-grade rigour was being applied to the *round* rather than to the *release*.** The rigour is right. Attaching it to a process that must terminate is what produced 37 laps and no release.
 
-    - **This rule lives in both repos.** When it changes here, send the change to the fork in the same round so their `CLAUDE.md` (or equivalent) matches. Two projects with different copies of the protocol is the failure this rule exists to prevent.
+    - **Writing a lap and sending one are two acts, and only the maintainer can
+      perform the second — so ASK BEFORE WRITING A LAP** (maintainer directive,
+      2026-09-04). Not after: by then the lap exists, and a lap that exists
+      without the maintainer knowing it exists is one nobody is waiting to carry.
+      **Measured: round 15 laps 4, 5 and 6 were written on three consecutive days
+      and none of them was ever handed over**, while the fork's lap 3 — a `GO`
+      asking nothing further — sat unanswered for two days. Neither project's
+      gates noticed, because both sides' gates grade *files in a directory* and a
+      send is an event outside the tree.
+      **The tooling actively hid it, which is why the rule is "ask" rather than
+      "remember".** `emit_envelope.py`'s `PARTS` still pointed at round 14 lap 16,
+      and the envelope was regenerated **four separate times in one day** —
+      incidentally, because it also carries `fullacceptance.txt`, which was being
+      edited — each run reporting success while packing a round the fork closed
+      weeks ago. That is the neighbour of the case the generator's own docstring
+      warns about (*"one artifact implying a send that did not happen"*, round 9
+      lap 6) and of the rule cyanrip argued us into keeping in their round-9 lap 3
+      §B1: that rule makes an envelope impossible to **miscount as a lap**, and
+      says nothing about one correctly built around the **wrong** lap. `SENT_LAPS`
+      could not catch it either — it holds no round-14 or round-15 rows, so it is
+      silent rather than negative, and *silent* is not *no*.
+      Asking first puts the one party who can observe a send into the loop at the
+      moment the lap is conceived. `tests/test_no_lap_is_left_unsent.py` is the
+      backstop, not the rule: a gate can see an unsent lap accumulating, but it
+      cannot ask a question.
+      **This one is NOT bilateral and does not travel to the fork** — see the
+      bullet below for what does. It governs how this project works with its
+      maintainer, not what crosses the seam, and shipping it to the fork would
+      hand them a rule about our operator.
+    - **This rule lives in both repos.** When it changes here, send the change to the fork in the same round so their `CLAUDE.md` (or equivalent) matches. Two projects with different copies of the protocol is the failure this rule exists to prevent. **The bullet directly above is the exception, and it says so**: an operational rule about asking our own maintainer is not part of the seam contract.
 
 ## How to stop shipping the next one (read before calling a fix done)
 
@@ -160,6 +189,7 @@ When in doubt during any session, stop and ask the user before doing the followi
 - Bypassing the host-exported `~/.local/bin/<ripper>` routing (currently cyanrip)
 - Adding scattered dependency checks outside the self-management subsystem
 - **Releasing, or switching the container to a new cyanrip pin, while a handshake round is open** — the gate is bidirectional and both verifications must be in (`docs/cyanrip-handshake.md`)
+- **Writing a new handshake lap** (maintainer directive, 2026-09-04). Ask *before* writing it, not after. Reasoning and the measurement that produced it are in Critical rule #12's *Writing a lap and sending one are two acts* — the short version is that only the maintainer can perform the second, so a lap written without their knowledge can sit unsent indefinitely, and three did.
 
 **Just do it (no ask needed):**
 - Renaming a function, variable, or local module
@@ -365,4 +395,4 @@ Chronological session notes — what was built, decided, and learned each sessio
 
 ---
 
-*Last updated for Platterpus v0.6.35.*
+*Last updated for Platterpus v0.6.37.*
