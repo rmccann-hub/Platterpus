@@ -12,29 +12,71 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
-- **Bundle routing analysed and HELD, not proposed.** The maintainer asked whether
-  each acceptance run's bundle should go to both sessions or one, and instructed
-  that the debate wait for the cyanrip fork's return lap. The position is recorded
-  in `TASKS.md` rather than sent: the bundle is already Platterpus's under
-  `docs/OWNERSHIP.md` §3, and §5's *"NEITHER REPORTS A LAP AS MISSING. FETCH IT…
-  it is never the operator's problem"* already prefers a fetch over a hand-carry —
-  so the answer is one upload plus committed artifacts, not two uploads. **One real
-  gap found in the process:** `-j` appears in exactly one place in `src/`
-  (`rig_check.py:67`), never in the rip argv, so no rip writes cyanrip's own
-  diagnostics record — and their `PROVIDER-CONTRACT.md` P4 says that for an
-  argv-refused run that record is *the only artifact*. Also recorded: the artifact
-  filename convention lives only in our `CLAUDE.md` and not in the shared
-  `docs/handshake-protocol.md`, which is the drift the maintainer's second
-  instruction names.
-- **The send-record has round-15 rows for the first time, and their absence was
-  not neutral.** `SENT_LAPS` held no round-14 or round-15 entry, so lap 7 §A1 had
-  to tell the fork our own record could not distinguish *written* from *sent* — a
-  map with no rows for a round is **silent, not negative**, and silence is not
-  "no". Laps 4–7 are now pinned to the per-part `sha256=` values their envelope
-  carries, peer-confirmed by the fork's lap 8 `HANDSHAKE-INBOUND-HELD` (*"verified
-  against the envelope's own manifest on size and hash before anything was
-  read"*). Probed rather than assumed: appending one byte to lap 4 fails
-  `test_a_sent_lap_still_hashes_to_what_was_sent[outbound/round-15-lap-04.md]`.
+- **Verifying that the cyanrip fork performs correctly is now a written duty of
+  ours, not a courtesy** (maintainer directive, 2026-09-04: *"they do it, you double
+  check their work, even if they did, if you can"*). Added to `CLAUDE.md` Critical
+  rule #12 beside the challenge mandate, because the two are one arrangement read
+  from both ends. Six obligations, and none of them imposes anything on the fork —
+  `docs/OWNERSHIP.md` §3 already assigns Platterpus *"the gate over incoming
+  artifacts, and the systematic feedback duty"*, so this is being told to do a job
+  we had already signed. The load-bearing ones: **derive from their source where it
+  is reachable** rather than repeat a lap's number; **never put a defect on them
+  that we started or whose root is upstream's**, and when both sides contributed
+  say which half is ours first; and **a failure that reaches a user is ours to own
+  in front of that user** — the dependency's own text is shown as evidence, never
+  as the culprit, because a user cannot act on an attribution. Explicitly **not
+  bilateral**: it governs our duty, not a seam term.
+- **Two of our own naming gates were mutually unsatisfiable, and an inbound
+  artifact class nobody had filed before proved it.**
+  `test_handshake_artifact_naming.py` refuses a filename asserting a provenance the
+  content does not back; `test_handshake_file_naming.py` *required* a `-g<build>`
+  or `-a<anchor>` field on every non-`.sh` artifact. The fork's
+  `PROTOCOL-v5-PROPOSAL` is a proposal document with neither a fork banner nor a
+  source-anchor line, so filing it as `-ga20d0a6` failed the first gate and filing
+  it bare failed the second. Reconciled with **one predicate and two callers** —
+  `declares_a_provenance()` delegates to the sibling's `_BANNER`/`_ANCHOR` patterns
+  rather than restating them, since a second copy of "what counts as a declared
+  build" is the drift that caused the contradiction. The `.sh` carve-out is kept
+  and is now the special case rather than a parallel rule, and an unreadable file
+  fails **closed**. Proved non-vacuous on four synthetic cases, because a predicate
+  that always returned `False` would wave through every artifact bare and the
+  real-directory sweep could not see it.
+- **Challenge ledger row 11**, and the fork was right: our lap 9 §E1 scoped the
+  undistinguishable class at one mechanism from their published preamble, and their
+  lap 10 disclosed that `FAIL_PATH` had **seven** alternatives while that preamble
+  named five. Re-derived here from their source rather than accepted. Standing count
+  is now fork 6 / us 5 of 11 — with the qualification kept and sharpened: rows 10
+  and 11 are the only two made under the mandate, both fork-right, and **n=2 is not
+  a result**.
+- **cyanrip round 15 lap 10 and their `PROTOCOL-v5-PROPOSAL` filed, and every
+  checkable claim in them re-derived from their source rather than accepted.**
+  Their repo was cloned and `tools/gen-provider-contract.py` read at `9bc7ad6`:
+  `FAIL_PATH` genuinely had **seven** alternatives while its preamble named five,
+  and their 16-row table of P5 rows resting only on a non-terminating construct
+  (`total_error_count++` 8, `ret = N;` 6, `err = N` 1, combined 1, over 84
+  `both`+`control flow` rows) **re-derives character for character** by
+  instrumenting their own `evidence()` over the 121 published rows. Their
+  `HANDSHAKE-BREAKING: none` holds — all **582** `` | ` `` rows are byte-identical
+  between `9bc7ad6` and `098ecde`, and the contract we filed as `…-gc4df1f0.md` is
+  byte-identical to `9bc7ad6`'s, so the lap-9 §C1 fixture does not stale. Their
+  PROTOCOL v4 term counts (`bundle` 0, `transcript` 0, `envelope` 2, `attach` 1)
+  and their citation of our `SOURCES.txt` both check out. Digest
+  `81edd5e87b7e026f over 9` reproduces exactly — the seventh consecutive agreeing
+  value.
+- **Our evidence-transport position is staged for round 16, not sent.** Accept
+  5b.2/5b.4/5b.5/5b.6; **amend 5b.1** so the normative clause states an *end
+  state* (both projects hold it byte-identical, the producing side commits and the
+  other **fetches** per `OWNERSHIP.md` §5) rather than a delivery obligation that
+  reads as "upload twice"; and answer their open question on 5b.3 with **yes, and
+  we do not have it either** — our omission derivation covers the *producing* side
+  and nothing checks the *receiving* side, which is the seam's producing/receiving
+  asymmetry again. Two gaps v5 does not cover: the **filename convention**, which
+  lives only in our `CLAUDE.md` and which round 15 already produced a
+  disagreement over, and **`-j`**, which appears once in `src/` (`rig_check.py:67`)
+  and never in the rip argv — so for the argv-refused class their P4 names, both
+  sides holding the bundle cannot conjure a record the run never wrote. Also
+  recorded: `OWNERSHIP.md` §5's premise *"we cannot read each other's source"* is
+  now false, which is how the 16-row re-derivation was possible at all.
 - **cyanrip round 15 lap 9 written: their P5a split absorbed, an ask of ours
   withdrawn, and no reply requested.** §A1 withdraws lap 6's request for a
   per-row *severity* column — `docs/OWNERSHIP.md` §2 says cyanrip never emits a

@@ -21,74 +21,97 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
-## Bundle routing — one upload or two? (maintainer question, 2026-09-04) — **HELD for the fork's return**
+## Evidence transport — the fork's v5 proposal, and our round-16 position (2026-09-04)
 
-**The question.** The operator has been uploading each acceptance run's
-compressed bundle to *both* sessions. Should they? If only one, does the
-handshake carry everything the other side needs — and who receives it?
+**Status: their lap 10 and the `PROTOCOL-v5-PROPOSAL` are filed. Nothing is
+proposed back yet.** Their proposal is explicitly **for round 16** — *"Refuse it,
+amend it, or counter it there"* — and round 15 closes on our hardware run, so
+this is staged, not sent. **Do not write a lap on it without asking.**
 
-**Status: analysed, position drafted, NOT sent.** The maintainer's instruction is
-to wait for the cyanrip fork's return lap before opening the debate, so nothing
-below has been proposed to them. **Do not write a lap on this until asked.**
+### What was verified, from their source rather than from their lap
 
-**The position, and it is an application of rules both repos already hold — not
-a new rule.**
+Their repo was cloned (`rmccann-hub/cyanrip`, branch `platterpus-fork`) and every
+checkable claim in lap 10 was re-derived. All of it holds.
 
-- [ ] **The bundle goes to Platterpus.** `docs/OWNERSHIP.md` §3 already puts
-      *"The rig, the acceptance script, and the evidence bundle"* on our side, at
-      test time, in a file neither project owns and both hold byte-identical.
-      Nothing needs to be agreed to make that true; it is already agreed.
-- [ ] **The fork FETCHES rather than being handed a second copy.**
-      `docs/OWNERSHIP.md` §5 is absolute on this for laps — *"NEITHER REPORTS A
-      LAP AS MISSING. FETCH IT… it is never the operator's problem."* The same
-      reasoning covers a run artifact: a hand-carry that does not land is the
-      channel's fault, and **doubling the hand-carry doubles the channel rather
-      than halving the risk.** Committing the run's text artifacts under
-      `docs/handshake/outbound/artifacts/` and naming the commit in the lap is
-      the mechanism this seam has used for golden references and provider
-      contracts since round 7, in both directions.
-- [ ] **Commit the WHOLE text set, never a selection.** Single delivery is only
-      safe if the receiving side is not reading *what we chose to give them*.
-      That is the round-4/5 failure exactly — we verified their generator's
-      filtered 88-string list and called it their inventory; re-deriving found 16
-      more. A curated subset would reproduce it with the roles swapped.
-- [ ] **Screenshots stay out of the repo.** They are PNGs, they are UX evidence
-      (ours under the acceptance-severity table), and the fork has no use for
-      them. They stay in the bundle the operator holds.
+- [x] **`FAIL_PATH` really did have seven alternatives while the preamble named
+      five.** Read at `tools/gen-provider-contract.py` in `9bc7ad6` — the
+      round-15 lap-8 state — where the regex is written out inline with
+      `return 1;`, `return -N;`, `exit([1-9]`, `return AVERROR`,
+      `total_error_count++/+=`, `err = N`, `ret = N;`. Their fix at `098ecde`
+      builds the regex *from* the published table (`FAIL_MECHANISMS`), so the two
+      cannot drift. Their self-report is understated only in that it is exactly
+      the defect their own document exists to prevent, which they say themselves.
+- [x] **Their 16-row table re-derives EXACTLY**, by instrumenting their
+      `evidence()` over the 121 published P5 rows keyed by `file:line`:
+      `total_error_count++` 8, `ret = N;` 6, `err = N` 1, combined 1 — and 84
+      rows in `both`+`control flow`. Character for character.
+- [x] **`HANDSHAKE-BREAKING: none` holds.** All **582** `` | ` `` rows are
+      byte-identical between `9bc7ad6` and `098ecde`, diffed here. And the
+      contract we filed as `…-gc4df1f0.md` is byte-identical to `9bc7ad6`'s, so
+      the lap-9 §C1 fixture does not stale.
+- [x] **Their PROTOCOL v4 term counts are right**, checked against our own copy of
+      the shared file: `bundle` 0, `transcript` 0, `envelope` 2, `attach` 1.
+- [x] **Their `SOURCES.txt` citation is right** — `SOURCES_RECORD_NAME` at
+      `src/platterpus/test_session.py:376`, and the quoted sentence verbatim at
+      `:559-561`. Checked because a citation of *our* file by *them* is exactly
+      the kind of claim that gets waved through; it needed no correction.
+- [x] **Digest `81edd5e87b7e026f over 9` reproduces exactly.** Seventh
+      consecutive agreeing value across the two implementations.
 
-**The one real gap found, and it is ours to fix before any of this matters.**
+**And one methodological finding to hand back, because it bears on their number.**
+The re-derivation produced **three different answers from correct code** — 19,
+then 15, then 16 — and only the last is right. 19 came from scanning all 349 call
+sites instead of the 121 published P5 rows; 15 came from keying by message text,
+which collides across files. Both wrong numbers were plausible and neither looked
+like an error. *"Is the population I measured closed?"* was the whole difficulty,
+and our agreeing at 16 is only evidence because the population was closed the same
+way theirs was.
 
-- [ ] **No rip passes `-j`, so no rip writes cyanrip's own diagnostics record.**
-      `-j` appears in exactly one place in `src/` —
-      `rig_check.py:67 DIAGNOSTICS_FLAG` — which is a separate probe, not the rip
-      argv. Their `PROVIDER-CONTRACT.md` P4 states that a run refused during
-      argument validation **opens no logfile at all**, and that for that class the
-      `-j` record is *the only artifact*. So an argv-refused rip in an acceptance
-      run leaves the fork nothing of their own to read: their evidence is entirely
-      **our** capture of their stdout. That is the 2026-08-02 `-t 17=` class, where
-      cyanrip refused a whole rip in two seconds. Decide whether to pass `-j` on
-      every rip (it is their own record, and the contract says it is written for
-      exactly the runs that produce nothing else) or to state the gap in the lap.
+### Position on the six clauses
 
-**And the maintainer's second instruction, same message: the rules must be
-SYNCED INTO THE SHARED FILE.**
+- [ ] **5b.2, 5b.4, 5b.5, 5b.6 — accept as written.** 5b.4 (a bundle asserting
+      its own outcome governs any reading of its parts) is the clause that
+      encodes the scope error both projects made in the same week; it is the most
+      valuable line in the draft. 5b.5 is our own lap-9 rule adopted. 5b.6 matches
+      what `emit_envelope.py` already asserts.
+- [ ] **5b.1 — agree with the conclusion, amend the drafting.** *"Delivered
+      byte-identical to both projects"* reads as an obligation on the **deliverer**,
+      which re-imposes the two-upload burden the operator asked to be rid of. Their
+      §4 says the right thing — *"both parties end up holding it, not by what
+      route"* — but that is in the non-normative section. **Counter: make the
+      normative clause an END-STATE obligation and name the route** — both projects
+      must *hold* it byte-identical; the producing side commits it and the other
+      **fetches**, per `OWNERSHIP.md` §5 (*"NEITHER REPORTS A LAP AS MISSING. FETCH
+      IT… it is never the operator's problem"*). **One upload satisfies v5.**
+- [ ] **5b.3 — yes, and it should gate BOTH sides. That is their open question and
+      the honest answer is that we do not have it either.** Our `evidence_bundle`
+      does derive its omissions on the **producing** side. Nothing on our
+      **receiving** side checks that every artifact a lap names got filed — we do
+      that by hand. Same producing/receiving asymmetry as the seam's input/output
+      halves, which is what let the `-V` blocker sit in a committed file for a
+      round. Build the gate before answering.
 
-- [ ] **The artifact filename convention lives only in our `CLAUDE.md`.** The
-      *"Artifact filenames that cross machines"* section — flat
-      `round15lap09platterpus.md` for anything hand-carried, hyphenated
-      `round-15-lap-09.md` for committed laps, and the
-      `round-15-lap-08-provider-contract-gc4df1f0.md` artifact shape — is **not in
-      `docs/handshake-protocol.md`**, which is the file neither project owns.
-      The fork has no copy of it. Round 15 already produced a disagreement this
-      would have pre-settled: their lap cited `2271ead`, the artifact's own banner
-      asserted `c4df1f0`, and which one names the file was decided by our
-      judgement rather than by a shared rule.
-- [ ] **Proposal to carry into the debate: a protocol v5** adding (a) a naming
-      section covering laps, hand-carried envelopes and artifacts; (b) an
-      artifact-routing section saying who receives a run's evidence and how the
-      other side obtains it. Per `docs/OWNERSHIP.md` §4 both are *"neither owns —
-      both must agree"* material, and per the protocol's own header a version bump
-      is something **both sides must ship before the next close**.
+### What v5 does NOT cover, and should
+
+- [ ] **The filename convention — the maintainer's second instruction.** 5b.5
+      fixes *identity* (which build tag names an artifact) but not *format*. Our
+      `CLAUDE.md` *"Artifact filenames that cross machines"* — flat lowercase-ASCII
+      for anything hand-carried, hyphenated for committed laps — is in our repo
+      only; the fork has no copy. Round 15 already produced the disagreement it
+      would have pre-settled (their lap cited `2271ead`, the artifact's banner
+      asserted `c4df1f0`). **Counter-propose it as a §5c.**
+- [ ] **`-j` is still absent from every rip, and 5b.1 does not help that class.**
+      `-j` appears once in `src/` (`rig_check.py:67`), never in the rip argv. Their
+      P4 says an argv-refused run **opens no logfile at all** and the `-j` record is
+      the only artifact for it. Both sides holding the bundle does not conjure a
+      record the run never wrote. Ours to fix — decide whether to pass `-j` on
+      every rip — and it belongs in the same lap.
+- [ ] **`OWNERSHIP.md` §5 contains a premise that is now false.** It says *"we
+      cannot read each other's source"*, and this session cloned their public repo
+      and re-derived their headline number from it. The **normative** half (cite the
+      artifact you read it in) is unaffected and was satisfied. But the premise
+      discourages the strongest verification available, and a false statement of
+      fact inside a shared normative file is worth a version bump on its own.
 
 ---
 
