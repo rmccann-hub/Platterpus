@@ -12,6 +12,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **Bundle routing analysed and HELD, not proposed.** The maintainer asked whether
+  each acceptance run's bundle should go to both sessions or one, and instructed
+  that the debate wait for the cyanrip fork's return lap. The position is recorded
+  in `TASKS.md` rather than sent: the bundle is already Platterpus's under
+  `docs/OWNERSHIP.md` §3, and §5's *"NEITHER REPORTS A LAP AS MISSING. FETCH IT…
+  it is never the operator's problem"* already prefers a fetch over a hand-carry —
+  so the answer is one upload plus committed artifacts, not two uploads. **One real
+  gap found in the process:** `-j` appears in exactly one place in `src/`
+  (`rig_check.py:67`), never in the rip argv, so no rip writes cyanrip's own
+  diagnostics record — and their `PROVIDER-CONTRACT.md` P4 says that for an
+  argv-refused run that record is *the only artifact*. Also recorded: the artifact
+  filename convention lives only in our `CLAUDE.md` and not in the shared
+  `docs/handshake-protocol.md`, which is the drift the maintainer's second
+  instruction names.
 - **The send-record has round-15 rows for the first time, and their absence was
   not neutral.** `SENT_LAPS` held no round-14 or round-15 entry, so lap 7 §A1 had
   to tell the fork our own record could not distinguish *written* from *sent* — a

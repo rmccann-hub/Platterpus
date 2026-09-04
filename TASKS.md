@@ -21,6 +21,77 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
+## Bundle routing — one upload or two? (maintainer question, 2026-09-04) — **HELD for the fork's return**
+
+**The question.** The operator has been uploading each acceptance run's
+compressed bundle to *both* sessions. Should they? If only one, does the
+handshake carry everything the other side needs — and who receives it?
+
+**Status: analysed, position drafted, NOT sent.** The maintainer's instruction is
+to wait for the cyanrip fork's return lap before opening the debate, so nothing
+below has been proposed to them. **Do not write a lap on this until asked.**
+
+**The position, and it is an application of rules both repos already hold — not
+a new rule.**
+
+- [ ] **The bundle goes to Platterpus.** `docs/OWNERSHIP.md` §3 already puts
+      *"The rig, the acceptance script, and the evidence bundle"* on our side, at
+      test time, in a file neither project owns and both hold byte-identical.
+      Nothing needs to be agreed to make that true; it is already agreed.
+- [ ] **The fork FETCHES rather than being handed a second copy.**
+      `docs/OWNERSHIP.md` §5 is absolute on this for laps — *"NEITHER REPORTS A
+      LAP AS MISSING. FETCH IT… it is never the operator's problem."* The same
+      reasoning covers a run artifact: a hand-carry that does not land is the
+      channel's fault, and **doubling the hand-carry doubles the channel rather
+      than halving the risk.** Committing the run's text artifacts under
+      `docs/handshake/outbound/artifacts/` and naming the commit in the lap is
+      the mechanism this seam has used for golden references and provider
+      contracts since round 7, in both directions.
+- [ ] **Commit the WHOLE text set, never a selection.** Single delivery is only
+      safe if the receiving side is not reading *what we chose to give them*.
+      That is the round-4/5 failure exactly — we verified their generator's
+      filtered 88-string list and called it their inventory; re-deriving found 16
+      more. A curated subset would reproduce it with the roles swapped.
+- [ ] **Screenshots stay out of the repo.** They are PNGs, they are UX evidence
+      (ours under the acceptance-severity table), and the fork has no use for
+      them. They stay in the bundle the operator holds.
+
+**The one real gap found, and it is ours to fix before any of this matters.**
+
+- [ ] **No rip passes `-j`, so no rip writes cyanrip's own diagnostics record.**
+      `-j` appears in exactly one place in `src/` —
+      `rig_check.py:67 DIAGNOSTICS_FLAG` — which is a separate probe, not the rip
+      argv. Their `PROVIDER-CONTRACT.md` P4 states that a run refused during
+      argument validation **opens no logfile at all**, and that for that class the
+      `-j` record is *the only artifact*. So an argv-refused rip in an acceptance
+      run leaves the fork nothing of their own to read: their evidence is entirely
+      **our** capture of their stdout. That is the 2026-08-02 `-t 17=` class, where
+      cyanrip refused a whole rip in two seconds. Decide whether to pass `-j` on
+      every rip (it is their own record, and the contract says it is written for
+      exactly the runs that produce nothing else) or to state the gap in the lap.
+
+**And the maintainer's second instruction, same message: the rules must be
+SYNCED INTO THE SHARED FILE.**
+
+- [ ] **The artifact filename convention lives only in our `CLAUDE.md`.** The
+      *"Artifact filenames that cross machines"* section — flat
+      `round15lap09platterpus.md` for anything hand-carried, hyphenated
+      `round-15-lap-09.md` for committed laps, and the
+      `round-15-lap-08-provider-contract-gc4df1f0.md` artifact shape — is **not in
+      `docs/handshake-protocol.md`**, which is the file neither project owns.
+      The fork has no copy of it. Round 15 already produced a disagreement this
+      would have pre-settled: their lap cited `2271ead`, the artifact's own banner
+      asserted `c4df1f0`, and which one names the file was decided by our
+      judgement rather than by a shared rule.
+- [ ] **Proposal to carry into the debate: a protocol v5** adding (a) a naming
+      section covering laps, hand-carried envelopes and artifacts; (b) an
+      artifact-routing section saying who receives a run's evidence and how the
+      other side obtains it. Per `docs/OWNERSHIP.md` §4 both are *"neither owns —
+      both must agree"* material, and per the protocol's own header a version bump
+      is something **both sides must ship before the next close**.
+
+---
+
 ## Acceptance-path review, 2026-09-04 — what an eight-lens sweep left open
 
 **Provenance of this list.** Eight parallel reviewers over the acceptance path,
