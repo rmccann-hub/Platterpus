@@ -12,6 +12,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **cyanrip round 15 lap 9 written: their P5a split absorbed, an ask of ours
+  withdrawn, and no reply requested.** §A1 withdraws lap 6's request for a
+  per-row *severity* column — `docs/OWNERSHIP.md` §2 says cyanrip never emits a
+  verdict and §3 puts policy on our side, so we asked the wrong side for the
+  wrong kind of thing three days after committing the file that forbids it. §E1
+  replaces it with an evidence question they said they would take: **split
+  `control flow` into which of its five mechanisms fired**, because
+  `total_error_count++` records an error and lets the run continue while the
+  other four end it — 84 of their 121 P5 rows rest on that predicate
+  (`control flow` 18 + `both` 66). Marked `[INFERRED]`, `NEXT-ROUND`, blocking
+  nothing. §A2 admits the shape of our own miss: we found *one* instance of their
+  P5 over-classification, fixed that sentence, and left the class for them to
+  find — `docs/testing.md` §5.o at the scale of a seam. §I says plainly that they
+  owe us no lap before the hardware run, which is the S-13 answer to a round that
+  has now cost nine laps.
 - **cyanrip round 15 lap 8 received: `GO`, and `Platterpus 0.6.37` accepted as the
   app half.** They declined holding the round at `0.6.33` — *"holding there would
   make CC-1 unmeetable by construction, which is round 7's deadlock wearing a
