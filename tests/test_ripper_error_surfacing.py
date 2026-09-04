@@ -712,3 +712,51 @@ def test_the_signal_handler_failure_surfaces() -> None:
     # 296-row P2 table, this is the only row with a `Can't`/`Cannot` shape, and no
     # other P2 line began matching. The near-miss control:
     assert not _RIPPER_ERROR_RE.match("Cantilever bridge")
+
+
+def test_the_secure_reread_verdict_is_in_the_inventory_but_is_NOT_a_failure() -> None:
+    """The relation the 2026-09-03 bundle broke: in the inventory != fatal.
+
+    `Done; (no matches found, but hit repeat limit of %i)` is a published cyanrip
+    format string, so `_RIPPER_ERROR_RE` — which is *built from* that inventory —
+    matches it, correctly and by construction. What it cannot answer is whether
+    the ripper FAILED, and the worker read the match as if it could.
+
+    Measured, in the acceptance bundle's own diagnostics record: a disc that
+    finished `Ripping errors: 0` with an intact completion footer and all 14 tracks
+    written reported ``errors: 13  warnings: 1  info: 0`` and ``worst: error``.
+    Every one of the 13 was this line — the secure re-read declining to certify a
+    track it could not reproduce, which is the machinery WORKING.
+
+    Both halves are asserted, because the fix is the relation and neither half
+    alone states it: the matcher must still match (dropping it from the inventory
+    would be the wrong repair, and would blind us to a genuine new fatal opening
+    the same way), and the parser that owns the fact must still classify it as a
+    re-read verdict.
+    """
+    from platterpus.parsers.cyanrip_log import is_secure_rerip_verdict
+
+    line = "Done; (no matches found, but hit repeat limit of 3)"
+    assert _RIPPER_ERROR_RE.match(line), (
+        "the inventory no longer carries the secure re-read verdict — if the fork "
+        "removed it, this test's premise changed; if we dropped it, we have "
+        "narrowed the fatal matcher to fix a classification bug, which is the "
+        "wrong end"
+    )
+    assert is_secure_rerip_verdict(line), (
+        "the parser that owns read stability no longer recognises the line the "
+        "worker defers to it about, so the worker is back to grading a "
+        "non-convergent track as a fatal error"
+    )
+
+    # The convergent shape is the same event reported the other way, and is
+    # likewise not a failure.
+    assert is_secure_rerip_verdict(
+        "  Done; (2 out of 2 matches for current checksum ABCD1234)"
+    )
+
+    # The control: a real fatal must NOT be swallowed by the new exclusion. This is
+    # the failure mode the reclassification could introduce, so it is pinned here
+    # rather than left to inspection.
+    assert not is_secure_rerip_verdict("Invalid track number 17, list has 16 tracks!")
+    assert _RIPPER_ERROR_RE.match("Invalid track number 17, list has 16 tracks!")

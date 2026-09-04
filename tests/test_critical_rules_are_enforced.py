@@ -1087,7 +1087,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "deps/host_teardown.py": 343,
     "deps/ripper_manifest.py": 608,
     "deps/ripper_offer.py": 777,
-    "diagnostics.py": 681,
+    # +4 on 2026-09-04: one KNOWN_CODES entry (`ripper.secure_rerip_verdict`)
+    # and the three comment lines saying why it is not a fatal. The registry is
+    # this module's point — a code declared anywhere else would defeat it.
+    "diagnostics.py": 685,
     "drive_control.py": 383,
     "drive_profiles.py": 488,
     # Raised 1450 -> 1490 on 2026-09-04, deliberately. The addition is the
@@ -1098,10 +1101,18 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the same reason the decision table above stays with its observations.
     "eac_log_export.py": 1490,
     "evidence_bundle.py": 885,
-    "handshake_approval.py": 491,
+    # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
+    # line is one f-string; the rest is the docstring recording that the
+    # 2026-09-03 diagnostics header named the approved build for a session that
+    # ran a different one. The evidence belongs beside the renderer it explains.
+    "handshake_approval.py": 513,
     "help_content.py": 561,
     "naming.py": 315,
-    "parsers/cyanrip_log.py": 2728,
+    # +29 on 2026-09-04: `is_secure_rerip_verdict` and its reasoning. It is
+    # DELIBERATELY here rather than at the worker that calls it — the point of
+    # the fix is that the module owning read stability owns the classification,
+    # so a consumer cannot form a second opinion about the same sentence.
+    "parsers/cyanrip_log.py": 2759,
     "parsers/rip_log.py": 802,
     "preflight.py": 905,
     "read_speed_ladder.py": 367,
@@ -1137,7 +1148,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "uiscript/verbs.py": 533,
     "update_install.py": 304,
     "verdict.py": 521,
-    "workers/rip_worker.py": 3285,
+    # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
+    # plus the comment recording the bundle measurement that produced it. The
+    # line-classification loop is one cohesive read of the ripper's output.
+    "workers/rip_worker.py": 3309,
 }
 
 

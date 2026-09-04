@@ -445,11 +445,33 @@ def version_pair_line() -> str:
     The maintainer's ask, rendered once so the log, the report and `--doctor`
     cannot phrase it three ways: *"include what versions you both are and what to
     use."*
+
+    **It answers "what does the record approve", never "what is installed", and it
+    now says so in its own text.** Until v0.6.36 it opened
+    ``Platterpus 0.6.34 + cyanrip … (platterpus-fork-gd9c058c) — pair verified …``
+    directly under the ``=== Platterpus diagnostics ===`` banner, where a reader
+    takes it for a description of their setup. Measured in the 2026-09-03
+    acceptance bundle: that header named `d9c058c` for a session whose every rip
+    was produced by `978f9b0`, the build under review. Every clause was true and
+    the sentence misled — this repository's most-repeated defect, two surfaces
+    answering one question from different keys, arriving in the one artifact whose
+    whole job is to be quotable in a bug report.
+
+    The fix is the label rather than the value, because the value is right: the
+    approved pair is exactly what a support reader needs beside the observed one.
+    :func:`observed_version_pair_line` renders the other half and the structured
+    report already carries it per rip (`ripper_build`,
+    `ripper_handshake_approval`); wiring that renderer into this dialog needs the
+    launch-time probe's banner plumbed to it, which is tracked in `TASKS.md` and
+    is not something to invent during a release.
     """
     return (
-        f"Platterpus {__version__} + {_named_banner(fork_source.FORK_EXPECTED_BANNER)} "
-        f"— pair verified by handshake round {APPROVED_BY_ROUND} "
-        f"(approved for Platterpus {APPROVED_FOR_PLATTERPUS_VERSION})"
+        f"Approved pair: Platterpus {__version__} + "
+        f"{_named_banner(fork_source.FORK_EXPECTED_BANNER)} "
+        f"— verified by handshake round {APPROVED_BY_ROUND} "
+        f"(approved for Platterpus {APPROVED_FOR_PLATTERPUS_VERSION}). "
+        "This names what the record APPROVES, not what is installed — the build "
+        "that produced a given rip is named in that rip's own log and report."
     )
 
 
