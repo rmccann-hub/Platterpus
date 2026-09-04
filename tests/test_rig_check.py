@@ -1044,3 +1044,54 @@ def test_no_rip_argv_platterpus_builds_ever_carries_the_cache_probe_flag() -> No
         "the manifest row in rig_check saying it never can is now a lie, and -x "
         "without -I proceeds into a full rip."
     )
+
+
+def test_a_folder_with_no_ripper_log_FAILS_rather_than_skipping(tmp_path: Path) -> None:
+    """**Section G is ARCHIVAL and its whole grade is this exit code.**
+
+    `docs/testing.md`'s severity table classifies §G *"the seam check and the
+    rip's own log — the log **is** the provenance record"*, and the acceptance
+    script grades it with nothing but bare `rig-check`. `Manifest.failed` is
+    `any(status == FAIL)` (rig_check.py) and the entry point returns
+    `1 if manifest.failed else 0` — so while a missing log emitted `SKIP`, an
+    archival section passed on a rip that produced no provenance record at all.
+    A check satisfied by finding nothing, in the section whose subject is the
+    record's existence.
+
+    **The distinction that fixes it is between two facts SKIP was rendering
+    identically.** "Nothing was given to look at" is an honest skip and stays
+    one — that branch is asserted below, because promoting it too would make
+    every `rig-check` without `--album-dir` a failure. "I was given a folder and
+    it holds no ripper log" is the finding.
+    """
+    empty = tmp_path / "album"
+    empty.mkdir()
+
+    for check in (
+        rig_check.check_parsers_against_the_log,
+        rig_check.check_handshake_note_transition,
+    ):
+        manifest = rig_check.Manifest(
+            tmp_path / f"m-{check.__name__}", sink=lambda _l: None
+        )
+        check(manifest, empty)
+        assert manifest.failed, (
+            f"{check.__name__} did not grade a log-less folder as a failure, so "
+            "section G passes on a rip with no provenance record"
+        )
+        detail = " ".join(r.detail for r in manifest.results)
+        assert str(empty) in detail, detail
+
+    # The honest skip is still a skip: nothing given, nothing to grade.
+    for check in (
+        rig_check.check_parsers_against_the_log,
+        rig_check.check_handshake_note_transition,
+    ):
+        manifest = rig_check.Manifest(
+            tmp_path / f"n-{check.__name__}", sink=lambda _l: None
+        )
+        check(manifest, None)
+        assert not manifest.failed, (
+            f"{check.__name__} now fails when it was given no folder at all — "
+            "that would make every rig-check without an album dir a failure"
+        )

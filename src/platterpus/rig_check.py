@@ -429,7 +429,21 @@ def check_handshake_note_transition(manifest: Manifest, album_dir: Path | None) 
         return
     logs = _ripper_logs(album_dir)
     if not logs:
-        manifest.add(Result(SKIP, "handshake/note", f"no ripper log under {album_dir}"))
+        # FAIL, not SKIP. `SKIP` is the honest answer when nothing was given to
+        # look at (the branch above). "I was given a folder and it holds no
+        # ripper log" is a FINDING — and it has to be graded, because
+        # `Manifest.failed` is `any(status == FAIL)` and the exit code is the
+        # ONLY grade section G gets. G is ARCHIVAL for one stated reason: "the
+        # log *is* the provenance record". A missing log passing as 0 is that
+        # section satisfied by finding nothing.
+        manifest.add(
+            Result(
+                FAIL,
+                "handshake/note",
+                f"no ripper log under {album_dir} — the folder exists and holds "
+                "no log, so there is no provenance record for this rip",
+            )
+        )
         return
     text = read_log_with_addendum(logs[-1])
     line = next(
@@ -467,7 +481,16 @@ def check_parsers_against_the_log(manifest: Manifest, album_dir: Path | None) ->
         return
     logs = _ripper_logs(album_dir)
     if not logs:
-        manifest.add(Result(SKIP, "parser/log", f"no ripper log under {album_dir}"))
+        # FAIL, not SKIP — same reasoning as `handshake/note` above, and this is
+        # the row the acceptance script's section G actually leans on.
+        manifest.add(
+            Result(
+                FAIL,
+                "parser/log",
+                f"no ripper log under {album_dir} — nothing to parse, so this "
+                "check reports the state it found rather than skipping quietly",
+            )
+        )
         return
     from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 

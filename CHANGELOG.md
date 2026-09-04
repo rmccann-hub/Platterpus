@@ -12,6 +12,40 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **`rig-check` passed section G having read no log at all.** §G is ARCHIVAL for
+  one stated reason — *"the seam check and the rip's own log; the log **is** the
+  provenance record"* — and the acceptance script grades it with nothing but bare
+  `rig-check`. `Manifest.failed` is `any(status == FAIL)` and the entry point
+  returns `1 if manifest.failed else 0`, while a missing ripper log emitted
+  `SKIP`. So an archival section passed on a rip that produced no provenance
+  record. It has a measured realisation: after the 2026-09-03 section-F timeout
+  there was no report for §F yet, so §G's `rig-check` either read a *previous
+  session's* rip or found nothing — and returned 0 either way.
+  The fix separates two facts `SKIP` was rendering identically. *"Nothing was
+  given to look at"* stays a skip — promoting that would make every `rig-check`
+  without an album folder a failure. *"I was given a folder and it holds no
+  ripper log"* is the finding, and is now `FAIL`. Both directions are tested.
+- **`abort-if-failed` is now scoped to its own section.** It scanned the whole
+  transcript, so the §E guard counted failures from §A–§D — and §D is graded
+  `UX`, which the release bar declares non-blocking. Both real call sites'
+  messages are statements about their *own* section's precondition (*"the
+  installed ripper is not the build the handshake record names"*, *"the disc was
+  never identified"*), and the scope now matches that. Earlier failures are still
+  counted and reported in the guard's detail, just not grounds to abort.
+  **The scenario I first gave for this was refuted, and the fix stands on
+  narrower ground.** An adversarial reviewer showed, with citations, that (a) two
+  of the three §D triggers I named are unreachable — `screenshot` fails only on
+  an empty top-level list, which cannot happen while a window is up, and
+  `cancel`'s FAIL branch fires only when *no* dialog is open; (b) a leftover
+  modal from §D is caught 23 lines later by §E's own `expect-dialog none`, which
+  is inside §E and still aborts under the new scope; (c) `docs/testing.md` already
+  says a UX failure sharing a root cause with an archival one *is* archival; and
+  (d) on the 2026-09-03 run all of §D passed, so this never fired. So this is not
+  a defect that cost anything measured. It is kept because a harness that can
+  abort a run on a failure the release bar calls non-blocking contradicts the
+  rule the run is graded by — and the scoped form is what both call sites already
+  claim to do.
+
 - **Two defects in `expect-rip-complete` itself, caught by review before any of
   it reached hardware.** Both are recorded because the fix is only as good as
   the reasoning next to it:
