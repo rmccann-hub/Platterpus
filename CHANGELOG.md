@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.35] — 2026-09-04
+
 ### Fixed
 - **The EAC-compatible log printed `Copy OK` over tracks it had just declared
   unreproducible.** Measured in the 2026-09-03 acceptance run's own export, for
@@ -12153,7 +12155,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.34...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.35...HEAD
+[0.6.35]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.34...v0.6.35
 [0.6.34]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.33...v0.6.34
 [0.6.33]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.32...v0.6.33
 [0.6.32]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.31...v0.6.32
@@ -12275,4 +12278,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.34.*
+*Last updated for Platterpus v0.6.35.*
