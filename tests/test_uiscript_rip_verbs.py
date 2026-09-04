@@ -2391,3 +2391,89 @@ def test_expect_rip_complete_refuses_to_grade_a_rip_that_never_started(qapp) -> 
     assert runner._report.steps[-1].outcome is Outcome.PASS, runner._report.steps[
         -1
     ].detail
+
+
+def test_abort_if_failed_is_scoped_to_its_own_section(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """**A UX failure must not end fourteen ARCHIVAL sections.**
+
+    This verb scanned the whole transcript, which inverts the rule the entire
+    acceptance run is graded by. `docs/testing.md`'s severity table exists to
+    say a UX failure is recorded and **non-blocking** — and §D ("dialogs open
+    and close; annoying when wrong, not a claim about a disc") is UX, sits
+    *before* §E's guard, and contributes twenty steps. So one dialog-plumbing
+    FAIL in §D aborted at §E and skipped every remaining archival section: six
+    hours of drive time yielding no archival evidence, on the strength of a
+    failure the release bar says to ignore.
+
+    The scope now matches what both real call sites' own messages claim — L211
+    *"the installed ripper is not the build the handshake record names"*, L341
+    *"the disc was never identified"*. Each is about ITS OWN section's
+    precondition.
+    """
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    runner = ScriptRunner(_window())
+    report = _run_to_end(
+        runner,
+        "log --- D. dialogs (UX) ---\n"
+        "expect output_format definitely-not-a-format\n"
+        "log --- E. disc: scan and identify ---\n"
+        "abort-if-failed the disc was never identified\n"
+        "log the archival sections that must still run",
+        process_until,
+    )
+    trailing = [
+        s
+        for s in report.steps
+        if s.source == "log the archival sections that must still run"
+    ]
+    assert trailing, "the trailing step vanished from the transcript"
+    assert trailing[0].outcome is Outcome.PASS, (
+        "a UX-section failure still ended the archival half of the run; the "
+        f"trailing step recorded {trailing[0].outcome}"
+    )
+    guard = [s for s in report.steps if s.source.startswith("abort-if-failed")]
+    assert guard, "the guard never executed"
+    # The earlier failure is REPORTED, not dropped — an unmentioned elision reads
+    # as an absence, and an operator must be able to see it was noticed.
+    assert "earlier failure" in guard[0].detail, (
+        f"the guard silently ignored the earlier failure: {guard[0].detail!r}"
+    )
+    assert "E. disc: scan and identify" in guard[0].detail, (
+        f"the guard did not name the section it was scoped to: {guard[0].detail!r}"
+    )
+
+
+def test_abort_if_failed_still_stops_on_a_failure_in_its_OWN_section(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The scoping must not have turned the guard off.
+
+    A narrowing is only safe if the case the guard exists for still fires — so
+    this is the same script as the test above with the failure moved into the
+    guard's own section. Without it, the scoping change would pass its sibling
+    while disabling the verb entirely.
+    """
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    runner = ScriptRunner(_window())
+    report = _run_to_end(
+        runner,
+        "log --- D. dialogs (UX) ---\n"
+        "log --- E. disc: scan and identify ---\n"
+        "expect output_format definitely-not-a-format\n"
+        "abort-if-failed the disc was never identified\n"
+        "log the night that must not be spent",
+        process_until,
+    )
+    trailing = [
+        s for s in report.steps if s.source == "log the night that must not be spent"
+    ]
+    assert trailing and trailing[0].outcome is Outcome.SKIPPED, (
+        "the guard no longer stops on a failure in its own section — the scoping "
+        f"disabled it: {[(s.source, s.outcome) for s in report.steps]}"
+    )

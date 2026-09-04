@@ -682,7 +682,16 @@ class ScriptRunner(QObject):
     # --- Verbs: narration and pacing ----------------------------------------
 
     def _do_log(self, step: Step) -> None:
-        self._record(step, Outcome.PASS, step.joined())
+        # A `log --- X. title ---` line is how every committed script marks a
+        # SECTION, and the severity table in `docs/testing.md` is keyed on those
+        # section letters. Remember where the current one began, so
+        # `abort-if-failed` can be scoped to it — see that handler for why an
+        # unscoped guard inverts the acceptance-severity rule.
+        message = step.joined()
+        if message.startswith("--- "):
+            self._section_start = len(self._report.steps)
+            self._section_title = message.strip("- ").strip()
+        self._record(step, Outcome.PASS, message)
 
     def _do_wait(self, step: Step) -> None:
         try:
@@ -739,22 +748,56 @@ class ScriptRunner(QObject):
         Counts **FAIL and ERROR, not BLOCKED** — a verb refused for want of a
         setting has not established that anything is wrong with the rig.
         """
-        failed = [
-            r for r in self._report.steps if r.outcome in (Outcome.FAIL, Outcome.ERROR)
+        # SCOPED TO THE CURRENT SECTION, and that scope is the fix.
+        #
+        # This scanned the ENTIRE transcript, which inverts the rule the whole
+        # acceptance run is graded by. `docs/testing.md`'s severity table exists
+        # to say that a UX failure is recorded and **non-blocking** — and §D
+        # ("dialogs open and close; annoying when wrong, not a claim about a
+        # disc") is UX, sits before §E's guard, and contributes 20 steps. So one
+        # dialog-plumbing FAIL in §D made the §E guard abort, skipping every
+        # remaining ARCHIVAL section: six hours of drive time yielding no
+        # archival evidence, on the strength of a failure the release bar says
+        # to ignore.
+        #
+        # The scope matches what both call sites' own messages claim. L211 says
+        # "the installed ripper is not the build the handshake record names";
+        # L341 says "the disc was never identified". Each is a statement about
+        # ITS OWN section's precondition, not about the run so far.
+        #
+        # Earlier failures are still COUNTED AND REPORTED, never dropped — an
+        # elision that goes unmentioned reads as an absence. They just do not
+        # abort.
+        start = getattr(self, "_section_start", 0)
+        section = self._report.steps[start:]
+        failed = [r for r in section if r.outcome in (Outcome.FAIL, Outcome.ERROR)]
+        earlier = [
+            r
+            for r in self._report.steps[:start]
+            if r.outcome in (Outcome.FAIL, Outcome.ERROR)
         ]
+        where = getattr(self, "_section_title", "") or "the run so far"
+        earlier_note = (
+            f" ({len(earlier)} earlier failure(s) outside this section are "
+            "recorded and deliberately not grounds to abort — see the "
+            "acceptance-severity rule)"
+            if earlier
+            else ""
+        )
         if not failed:
             self._record(
                 step,
                 Outcome.PASS,
-                f"no failures in the {len(self._report.steps)} step(s) so far — "
-                "continuing",
+                f"no failures in the {len(section)} step(s) of {where!r} — "
+                f"continuing{earlier_note}",
             )
             return
         first = failed[0]
         detail = (
-            f"{len(failed)} step(s) have failed; the first was L{first.line_no} "
-            f"({first.source!r}: {first.detail}). "
+            f"{len(failed)} step(s) have failed in {where!r}; the first was "
+            f"L{first.line_no} ({first.source!r}: {first.detail}). "
             + (step.joined() or "stopping rather than spending the run on it")
+            + earlier_note
         )
         self._record(step, Outcome.PASS, detail)
         self.stop(detail)
