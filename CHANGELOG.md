@@ -11,6 +11,61 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **`expect-rip-complete` — the assertion `expect-status Done` should always have
+  been.** Asserts the last rip *finished*, read from the ripper's own log
+  (completion footer, self-consistent track tally, no truncation, no recorded
+  interruption) instead of from a label on screen. Tri-state: a log with no
+  completion footer reports **not determined** and fails, because an absence is a
+  fact about the capture before it is a fact about the rip.
+  Read instability is **counted and reported, deliberately not graded** — a track
+  whose re-reads disagree is a fact about the *disc*, already carried by the
+  status line, `rig-check`'s paranoia row, and the per-track verdict in the
+  EAC-compatible log. Grading it here would fail an acceptance run on an ordinary
+  CD, which the scripts' own headers promise to accept.
+
+### Fixed
+- **An ARCHIVAL acceptance section failed on a rip that was fine.** Section N —
+  *"T1, the whole-disc uniform secure re-read: the accuracy claim itself"* —
+  failed on 2026-09-03 at `expect-status Done`, on a rip that wrote all 14 tracks
+  with `Ripping errors: 0`, an intact completion footer, and `rig-check` reporting
+  *secure re-read genuinely exercised: **YES***. It failed because three tracks on
+  that disc will not converge, so the status line carried the read-stability
+  warning instead of the word "Done".
+  **The app is right.** `ui/rip_progress.py` overwrites the completion line with
+  that warning on purpose — a 2026-07-28 audit found the unattended user being
+  told *"all tracks ripped cleanly"* while the window said a track never read
+  reproducibly. So `expect-status Done` conflates *finished* with *finished
+  clean*, and on such a disc can only ever report the second. It is not fixed by a
+  looser match — a loosened assertion with a confident comment is worse than no
+  assertion — but by asserting a stronger proposition against the artifact.
+  The comment that stood beside it is worth quoting, because it is the shape this
+  project keeps paying for: *"matching one disc-agnostic word keeps this working
+  on any CD."* The **word** is disc-agnostic. The **line** is not.
+- **Five of the seven rips in the acceptance script asserted nothing about
+  whether they finished — and all five of those sections are ARCHIVAL.** H, J,
+  K1, K2 and K3 ripped, snapshotted, screenshotted and ran `rig-check`, whose only
+  completion-adjacent row (`parser/interrupted`) is `INFO` and deliberately not
+  graded. A rip that stopped halfway would have been recorded as a passing
+  archival section — the same defect as section F's timeout, which graded a
+  still-running rip as a finished one, one section earlier in the same file.
+- **The same two defects in the other four committed rig scripts**, swept rather
+  than fixed where they were found (`docs/testing.md` §5.o). `securereread.txt`
+  was the worst and the most dangerous, being the script the operator's page
+  actually recommends for this exact test: it carried **both** `wait-for-rip
+  10800` — the same under-budget number — and `expect-status Done`. Its comment
+  claimed *"10800 is the runner's cap"*, which has not been true since the cap
+  became six hours, and then reasoned from that stale ceiling to a budget it
+  described in the same paragraph as half the work ("uniform mode roughly doubles
+  a pass measured at up to 2h45m" → three hours). `police-rerip.txt`,
+  `rigcancelandoverread.txt` and `round08joint.txt` each gained the completion
+  assertion their rip never had.
+- **`docs/rig-scripts/README.md` under-estimated the T1 run by an hour** — *"about
+  2–2.5 hours"* against two measured whole-disc uniform re-reads of **3h05m** and
+  **3h07m**. Same wrong model as the budget: 50–70 minutes is a whole-disc pass
+  *without* the re-read.
+
+
 ### Changed
 - **Eight read-only GitHub MCP tools added to `.claude/settings.json`'s permission
   allowlist**, so CI-watching and release verification stop interrupting an

@@ -88,6 +88,7 @@ rip
 wait-for-rip 5400
 screenshot 03-after-rip
 snapshot 04-state-after-rip
+expect-rip-complete
 
 # --- 5. Post-rip diagnostics ------------------------------------------------
 

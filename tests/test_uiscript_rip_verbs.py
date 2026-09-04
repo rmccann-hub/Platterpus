@@ -117,6 +117,11 @@ def _window(**overrides: Any):
     win._config = overrides.get("config", Config())
     win._rip_worker = overrides.get("rip_worker", None)
     win._rip_progress = overrides.get("rip_progress", _RipProgress())
+    # `expect-rip-complete` reads the PARSED LOG rather than a label, so the
+    # stand-in carries the same attribute the product sets in `_on_rip_finished`.
+    # Default None: "no rip has been parsed" is the state a fresh window is in,
+    # and the handler's floor has to fail on it rather than pass on an empty room.
+    win._last_rip_log = overrides.get("last_rip_log", None)
     win.rescanned = []
     win.cancelled = False
     win.saved = []
@@ -2134,3 +2139,157 @@ def test_the_acceptance_script_still_collides_with_itself_on_purpose() -> None:
     # And every one must carry the stamp, or that section re-collides across runs.
     missing = [a for a in albums if "(run)" not in a]
     assert not missing, f"album lines without (run) will collide on a re-run: {missing}"
+
+
+# --- expect-rip-complete: the assertion `expect-status Done` should have been --
+
+
+def _log(**kw: Any) -> Any:
+    """A parsed rip log, minimal but real — the product's own dataclass.
+
+    Built from `platterpus.parsers.rip_log.RipLog` rather than a hand-rolled
+    stub, deliberately: this handler's whole point is that it reads the ARTIFACT,
+    so a fixture that invents its own shape would be testing the fixture. Every
+    field has a default, so each test names only the field it is about.
+    """
+    from platterpus.parsers.rip_log import RipLog, TrackResult
+
+    tracks = kw.pop("tracks", None)
+    if tracks is None:
+        tracks = tuple(
+            TrackResult(number=n, secure_rerip_converged=True) for n in (1, 2)
+        )
+    kw.setdefault("rip_completed", True)
+    kw.setdefault("rip_completed_tracks", len(tracks))
+    kw.setdefault("rip_completed_total", len(tracks))
+    return RipLog(tracks=tuple(tracks), **kw)
+
+
+def test_expect_rip_complete_passes_a_rip_whose_tracks_did_NOT_converge(qapp) -> None:
+    """**The 2026-09-03 regression, exactly.** Section N — ARCHIVAL, "the accuracy
+    claim itself" — failed on a rip that wrote all 14 tracks with
+    `Ripping errors: 0` and an intact completion footer, because three tracks on
+    that disc will not converge and the status line says so instead of "Done".
+
+    The disc's non-convergence is reproducible: tracks 3 and 5 failed in BOTH
+    whole-disc rips four hours apart, and AccurateRip independently places
+    exactly those on an offset-variant pressing at confidence 200. So this is not
+    a flake to tolerate — it is an ordinary CD, which the acceptance script's own
+    header promises to accept.
+
+    The rip finished. The verb must say so. And it must still SAY which tracks
+    did not converge, because a fact dropped silently reads as a fact absent.
+    """
+    from platterpus.parsers.rip_log import TrackResult
+
+    tracks = [
+        TrackResult(number=n, secure_rerip_converged=(n not in (3, 4, 5)))
+        for n in range(1, 15)
+    ]
+    win = _window(last_rip_log=_log(tracks=tracks))
+    record, _ = _run_one(win, "expect-rip-complete")
+    assert record.outcome is Outcome.PASS, record.detail
+    # The disc fact survives into the transcript rather than being swallowed.
+    assert "3, 4, 5" in record.detail, (
+        f"the non-convergent tracks were not reported: {record.detail!r}"
+    )
+    assert "did NOT converge" in record.detail
+
+
+def test_expect_rip_complete_refuses_a_log_with_no_completion_footer(qapp) -> None:
+    """Tri-state: `rip_completed is None` is NOT DETERMINED, and never a pass.
+
+    An absence is a fact about the capture before it is a fact about the rip. A
+    verb that read `None` as falsy-but-fine would pass a log the ripper never
+    finished writing.
+    """
+    win = _window(last_rip_log=_log(rip_completed=None))
+    record, _ = _run_one(win, "expect-rip-complete")
+    assert record.outcome is Outcome.FAIL
+    assert "NOT DETERMINED" in record.detail, record.detail
+
+
+def test_expect_rip_complete_refuses_an_incomplete_rip_and_quotes_the_reason(
+    qapp,
+) -> None:
+    """The ripper's own words, not a generic failure — CLAUDE.md's surfacing rule."""
+    win = _window(
+        last_rip_log=_log(
+            rip_completed=False, rip_completed_reason="interrupted by user"
+        )
+    )
+    record, _ = _run_one(win, "expect-rip-complete")
+    assert record.outcome is Outcome.FAIL
+    assert "interrupted by user" in record.detail, record.detail
+
+
+def test_expect_rip_complete_has_a_floor_and_cannot_pass_on_an_empty_room(
+    qapp,
+) -> None:
+    """Three ways to be satisfied by finding nothing, all closed.
+
+    "Can this check be satisfied by finding nothing? Then give it a floor." A
+    fresh window has no parsed log; a log can carry a completion footer and zero
+    tracks; and its own tally can disagree with itself.
+    """
+    # 1. No rip parsed at all — the state a fresh window is in.
+    record, _ = _run_one(_window(), "expect-rip-complete")
+    assert record.outcome is Outcome.FAIL
+    assert "no rip log has been parsed" in record.detail
+
+    # 2. A completion footer over zero tracks is not a rip.
+    record, _ = _run_one(
+        _window(
+            last_rip_log=_log(tracks=[], rip_completed_tracks=0, rip_completed_total=0)
+        ),
+        "expect-rip-complete",
+    )
+    assert record.outcome is Outcome.FAIL
+    assert "no track blocks" in record.detail, record.detail
+
+    # 3. The log disagreeing with itself.
+    record, _ = _run_one(
+        _window(last_rip_log=_log(rip_completed_tracks=11, rip_completed_total=14)),
+        "expect-rip-complete",
+    )
+    assert record.outcome is Outcome.FAIL
+    assert "11 of 14" in record.detail, record.detail
+
+
+def test_expect_rip_complete_refuses_a_record_that_is_itself_damaged(qapp) -> None:
+    """A rip that "finished" into a truncated or interrupted log is not a pass.
+
+    These are the states the cancel-path work of 0.6.26 was about: a log the
+    ripper signed while incomplete is the worst artifact, because it looks whole.
+    """
+    for field, needle in (
+        ("log_truncated", "truncated"),
+        ("last_track_incomplete", "last track"),
+    ):
+        win = _window(last_rip_log=_log(**{field: True}))
+        record, _ = _run_one(win, "expect-rip-complete")
+        assert record.outcome is Outcome.FAIL, f"{field} was accepted"
+        assert needle in record.detail, (field, record.detail)
+
+    win = _window(last_rip_log=_log(interrupted_at="00:04:11"))
+    record, _ = _run_one(win, "expect-rip-complete")
+    assert record.outcome is Outcome.FAIL
+    assert "00:04:11" in record.detail, record.detail
+
+
+def test_expect_rip_complete_distinguishes_not_measured_from_converged(qapp) -> None:
+    """Two different facts, and rendering them the same is the defect this
+    project keeps paying for. A rip with no secure re-read has measured nothing
+    about convergence; that must not read as "every track converged"."""
+    from platterpus.parsers.rip_log import TrackResult
+
+    unmeasured = [TrackResult(number=n, secure_rerip_converged=None) for n in (1, 2)]
+    record, _ = _run_one(
+        _window(last_rip_log=_log(tracks=unmeasured)), "expect-rip-complete"
+    )
+    assert record.outcome is Outcome.PASS, record.detail
+    assert "not measured" in record.detail, record.detail
+
+    record, _ = _run_one(_window(last_rip_log=_log()), "expect-rip-complete")
+    assert record.outcome is Outcome.PASS, record.detail
+    assert "every measured track converged" in record.detail, record.detail
