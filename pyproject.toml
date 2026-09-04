@@ -87,7 +87,7 @@ dev = [
     "pytest-cov>=5",      # coverage measurement + the CI --cov-fail-under gate
     "hypothesis>=6",      # property-based tests (tests/test_parsers_property.py)
     # --- gating: pinned to the measured minor, bump deliberately ---
-    "ruff>=0.15.22,<0.16",  # `lint` + `format --check`; 0.16 may reformat
+    "ruff>=0.15.22,<0.17",  # `lint` + `format --check`; 0.16 may reformat
     "mypy>=2.3,<2.4",       # `typecheck`; the strict flag set is version-dependent
 ]
 
