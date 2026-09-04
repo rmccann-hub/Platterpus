@@ -210,6 +210,35 @@ def _inventory() -> list[tuple[str, str]]:
     return rows
 
 
+#: The marker separating the fork's two published tables inside the fixture.
+_P5A_MARKER = "# --- P5a"
+
+
+def _p5_only() -> list[tuple[str, str]]:
+    """Just the rows the fork still classifies as failures.
+
+    **Round 15 split their table in two** — `P5` (121) and `P5a` (7, *"strings
+    this document does NOT classify"*) — so "the inventory" became two claims
+    where it had been one. The fixture carries BOTH, deliberately: the population
+    the fork publishes has not shrunk, it has been split, and a floor over P5
+    alone would have to fall from 125 to 121, which the ratchet comment forbids
+    and which would have hidden a genuine collapse later.
+
+    So the floor stays over the whole published set and the exact comparison
+    against `MESSAGES` uses this. Two different questions, two different reads.
+    """
+    rows: list[tuple[str, str]] = []
+    for line in _INVENTORY.read_text(encoding="utf-8").splitlines():
+        if line.startswith(_P5A_MARKER):
+            break
+        if line.startswith("#") or "\t" not in line:
+            continue
+        where, message = line.split("\t", 1)
+        rows.append((where, message))
+    assert rows, "the P5 section is empty — the marker moved or the fixture did"
+    return rows
+
+
 def test_every_string_the_ripper_can_print_is_surfaced() -> None:
     """All 128, from the control-flow-derived inventory rather than the
     prefix-filtered 88 — see the section comment for why that distinction is the
@@ -223,23 +252,61 @@ def test_every_string_the_ripper_can_print_is_surfaced() -> None:
     # rounds while the contract reached 130. A floor that the stale value clears is
     # not a floor. It may rise, never fall.
     assert len(rows) >= 125, f"inventory collapsed to {len(rows)} strings"
-    assert len(rows) == len(MESSAGES), (
-        f"the committed fixture ({len(rows)}) and the in-code inventory "
-        f"({len(MESSAGES)}) disagree — they are two expressions of one contract "
-        f"and a difference is the bug report"
+    p5 = _p5_only()
+    assert len(p5) == len(MESSAGES), (
+        f"the committed fixture's P5 section ({len(p5)}) and the in-code "
+        f"inventory ({len(MESSAGES)}) disagree — they are two expressions of one "
+        f"contract and a difference is the bug report"
     )
-    # One format is excluded, named, and justified — never silently skipped.
-    # `cyanrip_main.c:2272` is a bare `%s`: a pattern built from it would match
-    # EVERY line of output, so every progress redraw would be reported as a fatal
-    # error. Refusing it is correct, and saying so here is the difference between
-    # "we cannot pattern this" and "this does not exist".
+    # And the split itself is pinned: EVERY P5a row is accounted for by name, in
+    # exactly one of two lists, each carrying a written reason. A count identity
+    # was the first version of this and it was brittle in the wrong direction —
+    # it would have gone green on the right total with the wrong rows in it.
+    #
+    # This is the check that stops "the fork reclassified seven strings"
+    # degrading into "seven strings vanished", which is the silent shrink this
+    # file's whole history is about.
+    from platterpus.ripper_message_inventory import (
+        P5A_NOT_RETAINED,
+        RETAINED_BEYOND_P5,
+    )
+
+    p5a_texts = {t for _, t in rows} - {t for _, t in p5}
+    assert p5a_texts, "the fixture's P5a section is empty — the marker moved"
+    retained = {m.text for m, _ in RETAINED_BEYOND_P5}
+    declined = {t for t, _ in P5A_NOT_RETAINED}
+    unaccounted = p5a_texts - retained - declined
+    assert not unaccounted, (
+        "these P5a rows are in neither RETAINED_BEYOND_P5 nor P5A_NOT_RETAINED, "
+        "so nobody has decided about them — P5a is explicitly NOT a claim that a "
+        f"string is harmless: {sorted(unaccounted)}"
+    )
+    assert not (retained & declined), (
+        f"rows in both lists, which assert opposite things: {sorted(retained & declined)}"
+    )
+    # NOTHING IN THE INVENTORY IS UNPATTERNABLE, and that is the strongest state
+    # this check has ever been in rather than a relaxation of it.
+    #
+    # It was `["%s"]` for the whole life of this test: a bare `%s` at
+    # `cyanrip_main.c:2327`, from which a pattern would match EVERY line of
+    # output, so every progress redraw would read as a fatal. Refusing it was
+    # correct and naming it was the difference between "we cannot pattern this"
+    # and "this does not exist".
+    #
+    # Round 15 moved that row into P5a — the fork no longer classifies it as a
+    # failure either — so it is now recorded in `P5A_NOT_RETAINED` with the
+    # reason, and carries no claim we are failing to honour. The empty list means
+    # every string the fork DOES classify can be surfaced.
+    #
+    # A ratchet, and the direction matters: it may shrink to empty, and it may
+    # not regrow silently. A new entry is a message a user can only receive as a
+    # bare "Rip failed", which needs a decision rather than a passing test.
     from platterpus.workers.rip_worker import _UNMATCHABLE_RIPPER_FORMATS
 
-    assert _UNMATCHABLE_RIPPER_FORMATS == ["%s"], (
-        f"the set of unpatternable formats changed to "
-        f"{_UNMATCHABLE_RIPPER_FORMATS} — each one is a message the user can only "
-        f"receive as a bare 'Rip failed', so a new entry needs a decision, not a "
-        f"passing test"
+    assert _UNMATCHABLE_RIPPER_FORMATS == [], (
+        f"the set of unpatternable formats grew to {_UNMATCHABLE_RIPPER_FORMATS} "
+        f"— each one is a message the user can only receive as a bare "
+        f"'Rip failed', so a new entry needs a decision, not a passing test"
     )
     # Two exclusions, both named and both asserted elsewhere in this file: the
     # unpatternable bare `%s`, and the `-Z` convergence SUCCESS message that
@@ -248,10 +315,20 @@ def test_every_string_the_ripper_can_print_is_surfaced() -> None:
     # else in the inventory must reach the user.
     from platterpus.ripper_message_inventory import SURFACING_EXCLUDED
 
-    excluded = set(_UNMATCHABLE_RIPPER_FORMATS) | {t for t, _ in SURFACING_EXCLUDED}
+    # Scoped to P5, not to the whole fixture. Since round 15 the fixture also
+    # carries P5a — strings the fork explicitly does NOT classify as failures —
+    # and demanding that we surface those would invert the point of the section:
+    # they are unclassified, and two of them are accounted for by name in
+    # `P5A_NOT_RETAINED` precisely because they cannot be surfaced. The claim
+    # here is "every string they DO call a failure reaches the user".
+    excluded = (
+        set(_UNMATCHABLE_RIPPER_FORMATS)
+        | {t for t, _ in SURFACING_EXCLUDED}
+        | {t for t, _ in P5A_NOT_RETAINED}
+    )
     missed = [
         (w, m)
-        for w, m in rows
+        for w, m in p5
         if m not in excluded and not _RIPPER_ERROR_RE.match(_sample(m))
     ]
     assert not missed, "would render as a bare 'Rip failed': " + "; ".join(
@@ -414,9 +491,20 @@ def test_every_other_inventory_row_still_reaches_the_user() -> None:
         SURFACING_EXCLUDED,
     )
 
-    assert len(ALL_FORMATS) == len(MESSAGES) + len(RETAINED_BEYOND_P5) - len(
-        SURFACING_EXCLUDED
+    # DERIVED, not an arithmetic identity. The old form subtracted
+    # `len(SURFACING_EXCLUDED)` on the assumption that every excluded string was
+    # drawn from MESSAGES or RETAINED — true until round 15, when the fork moved
+    # the convergence line to P5a and it left both lists, so the identity started
+    # asserting 127 against a correct 128. Deriving the set says what we actually
+    # mean and cannot go stale on a membership change.
+    expected = (
+        {m.text for m in MESSAGES} | {m.text for m, _ in RETAINED_BEYOND_P5}
+    ) - {t for t, _ in SURFACING_EXCLUDED}
+    assert set(ALL_FORMATS) == expected, (
+        "ALL_FORMATS is not the inventory plus the retained rows minus the "
+        f"surfacing exclusions: {sorted(set(ALL_FORMATS) ^ expected)}"
     )
+    assert len(ALL_FORMATS) == len(set(ALL_FORMATS)), "ALL_FORMATS carries a duplicate"
     assert len(SURFACING_EXCLUDED) == 1
     assert len(ALL_FORMATS) >= 125, (
         f"surfacing coverage collapsed to {len(ALL_FORMATS)}"
@@ -574,10 +662,22 @@ def test_a_string_removed_from_p5_is_retained_rather_than_dropped() -> None:
     )
 
     surfaced = set(ALL_FORMATS)
-    from platterpus.ripper_message_inventory import SURFACING_EXCLUDED
+    from platterpus.ripper_message_inventory import (
+        P5A_NOT_RETAINED,
+        SURFACING_EXCLUDED,
+    )
 
+    # Three ways a previously-published string can legitimately stop being
+    # matched, and every one of them is a NAMED decision with a written reason —
+    # never a silent drop. `P5A_NOT_RETAINED` joined the pair in round 15, when
+    # the fork split P5 and two of the seven moved rows could not meet the
+    # retention invariant (one is the convergence success message, one is a bare
+    # `%s` that builds no pattern at all).
     excluded = {text for text, _ in SURFACING_EXCLUDED}
-    lost = [text for _, text, _, _ in previous if text not in surfaced | excluded]
+    declined = {text for text, _ in P5A_NOT_RETAINED}
+    lost = [
+        text for _, text, _, _ in previous if text not in surfaced | excluded | declined
+    ]
     assert not lost, (
         f"round {previous_round} published these and we no longer match them: "
         + "; ".join(sorted(lost))

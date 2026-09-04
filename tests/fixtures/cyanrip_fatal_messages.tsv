@@ -1,4 +1,4 @@
-# cyanrip fork fatal/error message inventory — 128 strings, handshake round 12.
+# cyanrip fork fatal/error message inventory — 121 in P5 + 7 in P5a, handshake round 15.
 #
 # PROVENANCE, so a reader can re-derive it rather than trust it:
 #   PROVIDER-CONTRACT.md, section "P5 - Fatal and error message inventory"
@@ -46,11 +46,24 @@
 # Do not hand-edit. Replaced wholesale when a round ships a new inventory; a diff
 # here is a change in what the ripper can say to us.
 # file:line<TAB>message
+#
+# ROUND 15 (lap 8, build 2271ead): P5 SPLIT. Seven rows moved to a new section
+# `P5a — Strings this document does NOT classify`, after OUR 2026-09-03 run
+# found the defect: they sat under a heading reading "Every string reachable on
+# a failure path" purely on the strength of a `goto`, and `finalize_ripping:` is
+# the ordinary continuation that flushes encoders and falls into `Track %i
+# ripped and encoded successfully!`. Their words: "a jump is not an abort".
+#
+# P5a is NOT a safety claim — its own preamble says two of the seven really ARE
+# failures, by a flag read further down than their search window reaches, and
+# does not say which two. Both sections are carried here so the population the
+# fork publishes has not shrunk: it has been split, and the ratchet floor is
+# over the whole of it.
+#
 accurip.c:97	Unable to get AccuRIP DB data: missing CDDB ID!
 accurip.c:129	Unable to get AccuRIP DB data: missing entry!
 accurip.c:137	Unable to get AccuRIP DB data: %s%s
 accurip.c:140	Unable to get AccuRIP DB data: %s!
-accurip.c:176	AccuRIP DB data error, got unexpected number of bytes!
 coverart.c:51	Unable to init lavf context: %s!
 coverart.c:57	Unable to alloc stream!
 coverart.c:70	Couldn't open %s for writing: %s!
@@ -89,61 +102,57 @@ cyanrip_encode.c:1283	Unable to init output avctx!
 cyanrip_encode.c:1294	Could not open output codec context!
 cyanrip_encode.c:1301	Couldn't copy codec params!
 cyanrip_encode.c:1308	Couldn't open %s: %s! Invalid folder name? Try -D <folder>.
-cyanrip_main.c:213	No device specified and unable to get default device!
-cyanrip_main.c:221	Unable to open device: %s
-cyanrip_main.c:230	Unable to init cddap context!
-cyanrip_main.c:232	cdio: "%s"
-cyanrip_main.c:255	Unable to open device!
-cyanrip_main.c:264	Device does not support changing speeds!
-cyanrip_main.c:281	Unable to init paranoia!
-cyanrip_main.c:326	Invalid number of tracks: %i!
-cyanrip_main.c:349	CDIO returned invalid track %i end LSN
-cyanrip_main.c:502	cdio error: %s
-cyanrip_main.c:509	Frame read failed!
-cyanrip_main.c:596	Stopping, offset finding incomplete!
-cyanrip_main.c:681	Unable to read track %i subchannel info!
-cyanrip_main.c:772	Error in decoding/sending frame: %s
-cyanrip_main.c:784	Drive media changed, stopping!
-cyanrip_main.c:815	Stopping, ripping incomplete!
-cyanrip_main.c:954	Done; (%i out of %i matches for current checksum %08X)
-cyanrip_main.c:960	Done; (no matches found, but hit repeat limit of %i)
-cyanrip_main.c:991	Error in encoding: %s
-cyanrip_main.c:1007	Error sending flush signal to encoders: %s
-cyanrip_main.c:1647	Couldn't read "%s"!
-cyanrip_main.c:1700	Invalid paranoia level %i must be between 0 and %i!
-cyanrip_main.c:1713	Invalid max coverart size %i (must be 250, 500, 1200 or -1)
-cyanrip_main.c:1725	Invalid sanitation method %s
-cyanrip_main.c:1737	Invalid release index %i!
-cyanrip_main.c:1748	Missing discnumber
-cyanrip_main.c:1753	Invalid discnumber %i
-cyanrip_main.c:1760	Invalid totaldiscs %i
-cyanrip_main.c:1764	discnumber %i is larger than totaldiscs %i
-cyanrip_main.c:1785	Invalid format "%s"
-cyanrip_main.c:1790	Duplicated format "%s"
-cyanrip_main.c:1805	Duplicated rip idx %i
-cyanrip_main.c:1839	Missing track idx for pregap
-cyanrip_main.c:1844	Invalid track idx for pregap: %i
-cyanrip_main.c:1850	Missing pregap action
-cyanrip_main.c:1858	Invalid pregap action %s
-cyanrip_main.c:1890	No cover art location specified for "%s"
-cyanrip_main.c:1899	Invalid track idx for cover art: %i
-cyanrip_main.c:1905	Cover art already specified for track idx %i!
-cyanrip_main.c:1917	Cover art "%s" already specified!
-cyanrip_main.c:1923	Too many cover arts specified!
-cyanrip_main.c:1933	Directory name scheme must contain {format} with multiple output formats!
-cyanrip_main.c:1938	-J (only generate a CUE sheet) cannot be used with -I (only print info)!
-cyanrip_main.c:1976	Offset is unset! To continue with an offset of 0, run with -s 0!
-cyanrip_main.c:2103	Error reading album tags: %s
-cyanrip_main.c:2200	Invalid track number %i for pregap, list has %i tracks!
-cyanrip_main.c:2221	Invalid track number %i, list has %i tracks!
-cyanrip_main.c:2234	Missing "=" in track metadata "%s"
-cyanrip_main.c:2250	Error reading track tags: %s
-cyanrip_main.c:2272	%s
-cyanrip_main.c:2378	Error initializing decoder: %s
-cyanrip_main.c:2387	Error initializing encoder: %s
-cyanrip_main.c:2423	Error encoding: %s
-cyanrip_main.c:2443	Invalid rip index %i, list has %i tracks!
-cyanrip_main.c:2525	Error ripping: %s
+cyanrip_main.c:224	No device specified and unable to get default device!
+cyanrip_main.c:232	Unable to open device: %s
+cyanrip_main.c:241	Unable to init cddap context!
+cyanrip_main.c:243	cdio: "%s"
+cyanrip_main.c:266	Unable to open device!
+cyanrip_main.c:275	Device does not support changing speeds!
+cyanrip_main.c:292	Unable to init paranoia!
+cyanrip_main.c:337	Invalid number of tracks: %i!
+cyanrip_main.c:360	CDIO returned invalid track %i end LSN
+cyanrip_main.c:542	cdio error: %s
+cyanrip_main.c:549	Frame read failed!
+cyanrip_main.c:636	Stopping, offset finding incomplete!
+cyanrip_main.c:721	Unable to read track %i subchannel info!
+cyanrip_main.c:826	Error in decoding/sending frame: %s
+cyanrip_main.c:838	Drive media changed, stopping!
+cyanrip_main.c:869	Stopping, ripping incomplete!
+cyanrip_main.c:1045	Error in encoding: %s
+cyanrip_main.c:1061	Error sending flush signal to encoders: %s
+cyanrip_main.c:1702	Couldn't read "%s"!
+cyanrip_main.c:1755	Invalid paranoia level %i must be between 0 and %i!
+cyanrip_main.c:1768	Invalid max coverart size %i (must be 250, 500, 1200 or -1)
+cyanrip_main.c:1780	Invalid sanitation method %s
+cyanrip_main.c:1792	Invalid release index %i!
+cyanrip_main.c:1803	Missing discnumber
+cyanrip_main.c:1808	Invalid discnumber %i
+cyanrip_main.c:1815	Invalid totaldiscs %i
+cyanrip_main.c:1819	discnumber %i is larger than totaldiscs %i
+cyanrip_main.c:1840	Invalid format "%s"
+cyanrip_main.c:1845	Duplicated format "%s"
+cyanrip_main.c:1860	Duplicated rip idx %i
+cyanrip_main.c:1894	Missing track idx for pregap
+cyanrip_main.c:1899	Invalid track idx for pregap: %i
+cyanrip_main.c:1905	Missing pregap action
+cyanrip_main.c:1913	Invalid pregap action %s
+cyanrip_main.c:1945	No cover art location specified for "%s"
+cyanrip_main.c:1954	Invalid track idx for cover art: %i
+cyanrip_main.c:1960	Cover art already specified for track idx %i!
+cyanrip_main.c:1972	Cover art "%s" already specified!
+cyanrip_main.c:1978	Too many cover arts specified!
+cyanrip_main.c:1988	Directory name scheme must contain {format} with multiple output formats!
+cyanrip_main.c:1993	-J (only generate a CUE sheet) cannot be used with -I (only print info)!
+cyanrip_main.c:2158	Error reading album tags: %s
+cyanrip_main.c:2255	Invalid track number %i for pregap, list has %i tracks!
+cyanrip_main.c:2276	Invalid track number %i, list has %i tracks!
+cyanrip_main.c:2289	Missing "=" in track metadata "%s"
+cyanrip_main.c:2305	Error reading track tags: %s
+cyanrip_main.c:2433	Error initializing decoder: %s
+cyanrip_main.c:2442	Error initializing encoder: %s
+cyanrip_main.c:2478	Error encoding: %s
+cyanrip_main.c:2498	Invalid rip index %i, list has %i tracks!
+cyanrip_main.c:2580	Error ripping: %s
 diagnostics.c:526	Couldn't open diagnostics path "%s" for writing!
 discid.c:31	Unable to init SHA for DiscID: %s!
 genopt.h:265	Error parsing "%s" as a <type> for argument "%s"
@@ -161,8 +170,6 @@ musicbrainz.c:122	Got empty medium list.
 musicbrainz.c:197	Could not connect to MusicBrainz.
 musicbrainz.c:205	Missing DiscID!
 musicbrainz.c:228	Error fetching/requesting/auth, this shouldn't happen.
-musicbrainz.c:251	MusicBrainz lookup failed: DiscID has no associated releases.
-musicbrainz.c:259	MusicBrainz lookup failed: no releases found for DiscID.
 musicbrainz.c:298	Please specify which release to use by adding the -R argument with an index or ID.
 musicbrainz.c:303	Invalid release index %i specified, only have %i releases!
 musicbrainz.c:321	Release ID %s not found in release list for DiscID %s!
@@ -174,3 +181,11 @@ naming.c:215	Invalid scheme syntax, unterminated "{"!
 naming.c:229	Invalid scheme syntax, no "#"!
 naming.c:243	Invalid scheme syntax, no terminating "#"!
 naming.c:259	Invalid condition syntax!
+# --- P5a: published, deliberately NOT classified as failures ---
+accurip.c:176	AccuRIP DB data error, got unexpected number of bytes!
+cyanrip_main.c:1008	Done; (%i out of %i matches for current checksum %08X)
+cyanrip_main.c:1014	Done; (no matches found, but hit repeat limit of %i)
+cyanrip_main.c:2031	Offset is unset! To continue with an offset of 0, run with -s 0!
+cyanrip_main.c:2327	%s
+musicbrainz.c:251	MusicBrainz lookup failed: DiscID has no associated releases.
+musicbrainz.c:259	MusicBrainz lookup failed: no releases found for DiscID.
