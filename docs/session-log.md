@@ -11,6 +11,100 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-04 — four releases in a day, three of which could not run the test
+
+**The night's work in one line: the acceptance run that round 15 is waiting on
+could not be run by any shipped build, and finding out cost three releases.**
+`0.6.33` demanded a cyanrip build its own dialog refused to install; `0.6.34`
+budgeted three hours for a six-hour rip; `0.6.35` fixed both and was superseded
+within the hour when reading the same bundle again found two defects in the
+*record* a run produces. `0.6.36` is the app half of round 15 and — stated in the
+README banner and in lap 6 — **does not move again this round**.
+
+### What the 2026-09-03 bundle actually contained
+
+Five defects, every one of them found by *reading the artifact*, none by CI.
+
+1. **Section F budgeted `10800`s; it timed out at `10800.1`s** with
+   *"Re-ripping track 5 to secure it — 43% — about 1m 50s left in re-read 2"*
+   still on the status line. Section N budgeted `21600` for the identical
+   workload. Three failures cascaded from it, and one is **section H — the
+   archival overwrite prompt — which never fired**, so CC-1 produced no archival
+   evidence at all. Re-measuring would not have caught it: the budget's own
+   comment reasoned from *"50–70 minutes for a full disc"*, which is true of a rip
+   **without** the re-read. The number came from a wrong model of what the step
+   does.
+2. **The EAC log stamped `Copy OK` two lines under our own sentence saying the
+   track was not confirmed reproducible.** `_status_line` rendered the ripper's
+   status; `secure_rerip_converged` was never consulted where the verdict is
+   written.
+3. **A clean rip reported `errors: 13 / worst: error`.** All thirteen were
+   cyanrip's secure-re-read verdict, which is in the fork's published message
+   inventory — the inventory our fatal matcher is *built from*. **"The fork
+   publishes this string" and "the rip failed" are different claims**, and a
+   matcher built that way can only answer the first.
+4. **The diagnostics header named the approved cyanrip build for a session that
+   ran a different one.** Every clause true; under a `diagnostics` banner a
+   version pair reads as *"here is your setup"*.
+5. **Two operator pages told the reader to refuse the build the run requires** —
+   the `docs/rig-scripts/README.md` note *and* the header of `fullacceptance.txt`,
+   which is the copy read inside the app.
+
+### The three lessons worth graduating
+
+**A frozen ANSWER decays exactly like a frozen VALUE, and is harder to see.**
+`fullacceptance.txt`'s header argues at length that it names **no build tag**,
+because a tag baked into a shipped file cannot learn that the answer moved — and
+both previous attempts were wrong within days. Correct reasoning, and then it
+froze *the rule about which offer to take*, which moves for the same reason and
+just as often. The delegating form — *"take whichever offer it makes"* — is what
+that same reasoning produces one level up. Ask of any instruction: **is this a
+value that can go stale, or a rule that can?** Both can.
+
+**A sentence that is true between rounds and false during one will only ever be
+read during one.** Both operator pages were correct when written: between rounds
+`FORK_PIN` and `PIN_UNDER_REVIEW` are the same commit, so there is no warned
+offer to refuse. The sentence became wrong the moment a round opened — which is
+the only time anybody re-reads it. Same shape as the README status banner and the
+acceptance header before it: **expire-silently, in the state nobody tests.**
+
+**A finding on one surface is a prompt to sweep, not to fix.** The README copy was
+found first. The in-app header — the more consequential one — would have shipped
+saying the opposite *in the same release*. `docs/testing.md` §5.o, paid for again.
+The sweep asserts **both wordings**, because the two pages phrased the same wrong
+instruction differently; a sweep that matches one shape is a sweep that found one
+surface.
+
+### Handshake
+
+Round 15 stays OPEN on our side and the fork's `GO` has stood since their lap 3.
+**Lap 6 was sent out of turn**, which we said plainly: our lap 5 had told them lap
+6 was theirs and asked them to accept `0.6.34` as the subject, and answering that
+as written would have committed them to a build that cannot execute CC-1.
+
+It carries the first real hardware data on `978f9b0`, offered rather than
+asserted: both whole-disc rips finished `Ripping errors: 0` with an intact
+`Log FUN512`, and the non-convergent tracks land on exactly the ones AccurateRip
+independently places on an offset-variant pressing at confidence 200 — read as
+their paranoia machinery *working*, and marked `[INFERRED]`. §D5 states what we
+**cannot** explain rather than omitting it.
+
+And a **pre-commit under S-18**: *our next lap is `GO` unless the `0.6.36`
+acceptance run finds a defect in `978f9b0`*, with the four things that would break
+it named, plus the explicit statement that **a failure in our half does not become
+a HOLD on their pin**. Parking their release behind our bug for a third lap is the
+round-7 failure the convergence rules exist to stop.
+
+### One near-miss worth recording
+
+The bundle's archived folder for the §F rip is named `…platterpus-fork-g`, with
+the build tag apparently truncated, while every file inside carries
+`…platterpus-fork-g978f9b0`. That looked like the `(ripper)` latch defect
+(`docs/testing.md` §5.aq) and was about to be filed as one. `MANIFEST.txt` maps
+the archived name to the real path — the collector rewrites folder names to
+ASCII-safe, length-bounded forms and records both. **No defect.** The artifact
+that settled it was in the same bundle as the thing that looked wrong.
+
 ## 2026-09-02 (later) — the fork corrected us, and the correction was right
 
 **Round 15 reached `GO` on their side in three laps.** Their lap 3 accepted the
@@ -4425,4 +4519,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.35.*
+*Last updated for Platterpus v0.6.36.*
