@@ -11,6 +11,38 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **A clean rip reported thirteen errors in its own diagnostics record.** From
+  the 2026-09-03 acceptance bundle, for a disc that finished `Ripping errors: 0`
+  with an intact completion footer and all 14 tracks written:
+  `errors: 13  warnings: 1  info: 0` / `worst: error`. All thirteen are the same
+  line — `Done; (no matches found, but hit repeat limit of 3)` — the secure
+  re-read declining to certify a track it could not reproduce, which is the
+  accuracy machinery **working**.
+  The defect is the relation rather than either side. cyanrip publishes that
+  format string in the message inventory our fatal matcher is *built from*, so the
+  matcher matches it correctly and by construction — but *"the fork publishes this
+  string"* and *"the rip failed"* are different claims, and only the first is one
+  a matcher can answer. `parsers/cyanrip_log` was reading the same sentence
+  correctly the whole time, as the per-track read-stability signal. Two
+  subsystems, one sentence, opposite meanings.
+  The exclusion is a predicate in the parser that already owns the fact
+  (`is_secure_rerip_verdict`), never a list at the consumer — a hand-maintained
+  allowlist there is the shape that hid 16 of the fork's fatal strings behind
+  their generator's prefix filter. The line is recorded as `info` rather than
+  dropped, because a deliberate reclassify is not a licence to lose it.
+- **The diagnostics header named the approved cyanrip build, not the one that
+  ran.** The same bundle opens `Platterpus 0.6.34 + cyanrip
+  0.9.4-rc2+platterpus.10 (platterpus-fork-gd9c058c) — pair verified by handshake
+  round 14`, for a session whose seven rips were every one of them produced by
+  `978f9b0`. Every clause true; under a `diagnostics` banner a version pair reads
+  as *"here is your setup"*, so the one artifact whose job is to be quotable in a
+  bug report pointed at the wrong binary. The value is right and worth keeping —
+  a support reader wants the approved pair beside the observed one — so the fix is
+  the label: the line now opens **"Approved pair:"** and says in its own text that
+  it does not name what is installed, pointing at the rip's own log and report,
+  which do.
+
 ## [0.6.35] — 2026-09-04
 
 ### Fixed

@@ -41,6 +41,7 @@ from platterpus.adapters.rip_backend import (
 )
 from platterpus.adapters.ripper_log_verify import FAILED as RIPPER_LOG_FAILED
 from platterpus.adapters.ripper_log_verify import LogVerification
+from platterpus.parsers import cyanrip_log
 from platterpus.read_speed_ladder import (
     MAX_ATTEMPTS,
     MAX_SECURE_REREP,
@@ -2111,7 +2112,30 @@ class RipWorker(QObject):
                 # `if not self._failure_hint` so the specific, actionable hints
                 # below always outrank a raw line: first error wins, and a
                 # tailored message beats a verbatim one.
-                if _RIPPER_ERROR_RE.match(line):
+                # The secure re-read's own verdict is IN the fork's published
+                # message inventory, so the matcher built from that inventory
+                # matches it — but "cyanrip publishes this string" and "cyanrip
+                # failed" are different claims, and `_RIPPER_ERROR_RE` can only
+                # ever answer the first. `Done; (no matches found, but hit repeat
+                # limit of 3)` is a track that did not converge: a fact about the
+                # DISC, already parsed, already rendered as read stability, and
+                # already carried in the report. Grading it as a fatal made the
+                # 2026-09-03 bundle report `errors: 13 / worst: error` for a rip
+                # that finished `Ripping errors: 0` with all 14 tracks written.
+                #
+                # Recorded as INFO rather than dropped: a deliberate reclassify is
+                # not a licence to lose the line, and a silent drop reads as
+                # completeness. The predicate lives in the parser that owns the
+                # fact (`cyanrip_log.is_secure_rerip_verdict`) so this cannot
+                # become a second, drifting opinion about the same sentence.
+                if cyanrip_log.is_secure_rerip_verdict(line):
+                    diagnostics.info(
+                        "ripper.secure_rerip_verdict",
+                        line.strip(),
+                        tool="cyanrip",
+                        where="workers.rip_worker.RipWorker._run_rip",
+                    )
+                elif _RIPPER_ERROR_RE.match(line):
                     if not self._failure_hint:
                         self._failure_hint = line.strip()
                     # EVERY matched fatal is recorded, not only the first. The hint is

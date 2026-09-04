@@ -575,3 +575,41 @@ def test_the_approval_relation_is_not_vacuously_true() -> None:
         f"the relation table produces only {answers} — it cannot distinguish a working "
         "predicate from one that always answers the same way"
     )
+
+
+def test_the_pair_line_says_which_question_it_answers() -> None:
+    """It names the APPROVED pair, and a reader must not take it for the installed one.
+
+    Measured in the 2026-09-03 acceptance bundle. Its diagnostics dump opened:
+
+        === Platterpus diagnostics ===
+
+        Platterpus 0.6.34 + cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-gd9c058c)
+        — pair verified by handshake round 14 (approved for Platterpus 0.6.28)
+
+    Every clause true. The session it describes ran `978f9b0` — the build under
+    review — for all seven of its rips, and the folder names, the rip logs and the
+    structured reports all say so. Directly under a `diagnostics` banner, a
+    version pair reads as *"here is your setup"*, so the one artifact whose job is
+    to be quotable in a bug report pointed at the wrong binary.
+
+    Same shape as the offer/verdict split and the manifest round-label: two
+    surfaces answering one question from different keys. The value here is right
+    and worth keeping — a support reader wants the approved pair beside the
+    observed one — so the fix is the label, and this test pins the label rather
+    than the wording around it.
+    """
+    line = ha.version_pair_line()
+    lowered = line.casefold()
+    assert "approved pair" in lowered, (
+        f"the pair line no longer says whose pair it is:\n{line}"
+    )
+    assert "not what is installed" in lowered, (
+        "the line no longer disclaims the reading that made it misleading — a "
+        f"reader under the diagnostics banner takes it for their setup:\n{line}"
+    )
+    # Non-triviality: it must still carry both halves it exists to name, or the
+    # disclaimer would be satisfied by a line that says nothing.
+    assert __version__ in line, line
+    assert ha.APPROVED_BY_ROUND is not None
+    assert str(ha.APPROVED_BY_ROUND) in line, line
