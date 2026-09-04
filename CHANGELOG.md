@@ -11,6 +11,94 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.35] — 2026-09-04
+
+### Fixed
+- **The operator's own instructions told them to refuse the build the acceptance
+  run requires.** `docs/rig-scripts/README.md` said, of the cyanrip update check,
+  to *"take the offer only if it is a plain one-click install"* and that *"an
+  offer that warns you first is a build no closed round has reviewed, and section
+  A refuses to run on one."* Both sentences are true; the instruction drawn from
+  them is backwards. While a round is **open**, the pin the acceptance run
+  demands **is** the build no closed round has reviewed — so the offer to accept
+  is precisely the warned one, and following the page loses the night at L165
+  four seconds in. It was true when written (between rounds the approved build
+  and the pin under review are one commit) and became false the moment a round
+  opened, which is the only time anybody reads the page.
+  The page now branches on that, and — because a comment where a check belongs is
+  not a fix — a test holds it to the **product** rather than to a proofread:
+  whatever `ripper_offer` emits for `PIN_UNDER_REVIEW`, the page must name that
+  route, asserted in both branches so it cannot pass by finding nothing. The
+  matcher normalises blockquote furniture and line wrapping before comparing,
+  because the sentences live inside a Markdown blockquote and a re-flow that
+  changes no word would otherwise defeat it — which `revert_probe.py` proved by
+  reporting VACUOUS twice before the normalisation was complete.
+- **The EAC-compatible log printed `Copy OK` over tracks it had just declared
+  unreproducible.** Measured in the 2026-09-03 acceptance run's own export, for
+  tracks 3, 4 and 5 of the secure re-read — two lines apart in one track block:
+
+      Copy CRC 418F6CF8  (re-reads did NOT agree — this read is not confirmed
+                          reproducible)
+      Copy OK
+
+  `Copy OK` is EAC's **clean** verdict: the string a logchecker greps for and a
+  human scans for. The disc-level *Read stability* line had already named those
+  exact tracks, so the app knew, said so twice elsewhere, and stamped the
+  per-track verdict clean anyway — because `_status_line()` rendered the ripper's
+  status alone and was never told about `secure_rerip_converged`.
+  `CLAUDE.md`'s EAC-parity rule decides it: as close to the original as possible
+  **without forging it** (KDD-24), and printing EAC's clean verdict over a read
+  we have declared unreproducible is the forging half. Such a track now carries a
+  verdict in our own words, deliberately **not** containing the substring
+  `Copy OK` — appending a qualifier to that string would still read as clean to
+  every mechanical consumer, which is the defect rather than a fix for it.
+  Tri-state preserved: only an explicit `False` changes anything, so a backend
+  reporting no convergence data never has doubt invented for it.
+- **Four of the five failures in the first end-to-end acceptance run were one
+  stale number, and it was under-budgeted rather than merely old.**
+  `fullacceptance.txt:366` waited `10800` (3h) on section F's **whole-disc** rip
+  while line 621 waited `21600` (6h) on section N's — the same workload, since
+  `secure_rerip_matches` **defaults to 2**, so cyanrip is invoked `-Z 2 -r 3` for
+  both (confirmed from the run's own rip log). It timed out at **10800.1s** with
+  the status still reading *"Re-ripping track 5 to secure it — 43% — about 1m 50s
+  left in re-read 2"*, and the rest followed from that: the status was not `Done`
+  because the rip was still running, the next `rip` collided with the live one,
+  and **section H's overwrite prompt never appeared, so that section produced no
+  evidence at all.**
+  The budget's own comment is why re-measuring would not have helped — it
+  reasoned from *"a full disc on this hardware is 50-70 minutes"*, which is true
+  of a rip **without** the re-read. The number was derived from a wrong model of
+  what the step does. Now `21600`, with the measurement in place of the
+  reasoning, and gated by a rule derived from the script rather than a per-line
+  constant: **any `wait-for-rip` following `select-tracks all` must budget for a
+  secure re-read.** A second test pins `secure_rerip_matches`'s default, because
+  that is the fact making the budget necessary — if it changes, the failure
+  points at the reasoning instead of leaving an unexplained six-hour wait.
+  0.6.33 raised this cap **at line 621 only**, and our round-15 lap 2 told the
+  cyanrip fork the cap was fixed. It was fixed in one of the two places it
+  applied.
+
+### Changed
+- **cyanrip handshake round 15, lap 5 sent.** Answers their §2 with the first
+  real measurement: `probe-ripper-wrapper` ran on the rig and **all four
+  invocations returned** — host export with stdin attached 0.251s, stdin closed
+  0.250s, `distrobox-enter -- true` 0.195s — on the same machine and the same
+  export that produced `exit 137` on 2026-08-27. **The hang does not reproduce.**
+  Reported as exactly that and no more: a non-reproduction is not a diagnosis,
+  and we cannot say why two mornings hung.
+- **Also declares, in the wire header rather than buried in prose, that we moved
+  our half of the round's subject.** Their lap 3 fixed CC-1 against `0.6.33` at
+  `0a69732`; the pass will run on `0.6.34` at `dba2ab2`, because `0.6.33` demands
+  a ripper build its own dialog refuses to install and therefore cannot satisfy
+  CC-1. That is a subject change under an S-15 the rule exists to prevent, so the
+  lap states it plainly and offers the refusal — they may hold the round at
+  `0.6.33` and take the pass as round 16's evidence instead. The run is unblocked
+  either way; only the bookkeeping depends on the answer.
+- **Our lap-2 `[NOT VERIFIED]` on the released banner is discharged.** The rig
+  bundle's app log reads `──── Platterpus 0.6.33 (build 0a69732) ────` with
+  `install_channel: appimage`, so for a released build the banner and the pin
+  coincide — and a divergence means the operator is on a source build.
+
 ## [0.6.34] — 2026-09-03
 
 ### Fixed
@@ -12086,7 +12174,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.34...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.35...HEAD
+[0.6.35]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.34...v0.6.35
 [0.6.34]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.33...v0.6.34
 [0.6.33]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.32...v0.6.33
 [0.6.32]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.31...v0.6.32
@@ -12208,4 +12297,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.34.*
+*Last updated for Platterpus v0.6.35.*

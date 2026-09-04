@@ -34,6 +34,7 @@ from __future__ import annotations
 import dataclasses
 import re
 from pathlib import Path
+from typing import Final
 
 import pytest
 
@@ -1647,3 +1648,160 @@ def test_the_two_install_axes_are_never_both_true() -> None:
         assert not (offer.auto_installable and offer.installable_with_consent), (
             f"{commit} is marked both costless and consequential"
         )
+
+
+def test_the_operators_instructions_agree_with_the_offer_they_will_actually_see() -> (
+    None
+):
+    """The third surface answering the same question — and it said the opposite.
+
+    `docs/rig-scripts/README.md` is the page an operator reads before an
+    overnight run. Until v0.6.35 it said, of the cyanrip update check, to *"take
+    the offer only if it is a plain one-click install"* and that *"an offer that
+    warns you first is a build no closed round has reviewed."*
+
+    Both sentences are true. The instruction drawn from them is backwards, and
+    the reason is the same relation the two tests above pin in code: while a
+    round is OPEN, the pin the acceptance run demands **is** the build no closed
+    round has reviewed, so the offer the operator must accept is precisely the
+    warned one. The page told them to refuse the build section A then aborts for
+    the absence of — a full six-hour night lost at L165, four seconds in.
+
+    It was true when written. Between rounds `FORK_PIN` and `PIN_UNDER_REVIEW`
+    are one commit and there is no warned offer to refuse. It became false the
+    moment a round opened, which is the only time anyone reads the page — the
+    expire-silently shape `CLAUDE.md` names, arriving through a document instead
+    of through code.
+
+    So the page is held to the product rather than to a proofread: whatever the
+    producer emits for the pin the run demands, the instructions must name that
+    route. Asserted in both directions so it cannot be satisfied by finding
+    nothing — the page must contain the instruction block at all, and the branch
+    that applies must be the one it teaches.
+    """
+    page = DOCS / "rig-scripts" / "README.md"
+    raw = page.read_text(encoding="utf-8")
+    # Matched against whitespace-collapsed prose, never the raw bytes. The
+    # sentences below are wrapped inside a Markdown blockquote, so every one of
+    # them can be re-flowed by an editor without changing a word — and a matcher
+    # that a re-flow defeats is the reflowed-anchor failure `revert_probe.py`
+    # documents, arriving in the assertion instead of in the probe. Found here
+    # exactly that way: the first version of this test reported VACUOUS against a
+    # revert that restored the offending sentence across two lines.
+    text = " ".join(
+        # Blockquote markers survive a plain whitespace collapse, so a sentence
+        # wrapped inside `>` becomes "... and section A > refuses to run ..." and
+        # the matcher misses it. Strip the leading quote/list furniture per line
+        # BEFORE collapsing, or the reflow-proofing is only half done — which is
+        # how the second probe still reported VACUOUS after the first fix.
+        line.lstrip().lstrip(">").lstrip().lstrip("*-").strip()
+        for line in raw.splitlines()
+    ).split()
+    text = " ".join(text)
+    assert "Check for cyanrip updates" in text, (
+        f"{page.name} no longer carries the update-check instruction this test "
+        "exists to hold to the product — it was renamed or removed, and the "
+        "check has been passing by not looking"
+    )
+
+    offer = _offer_for(fork_source_pin_under_review())
+    if offer.installable_with_consent:
+        assert "Install it anyway" in text, (
+            "the app offers the build the acceptance run demands ONLY behind the "
+            "consent dialog, and the operator's page never names that button — "
+            "so a reader following it declines the build section A requires"
+        )
+        assert "section A refuses to run on one" not in text, (
+            "the page still carries the unconditional refusal that cost the "
+            "2026-09-03 night; that sentence is only correct between rounds"
+        )
+    else:
+        assert "one-click" in text, (
+            "no round is reviewing a build, so the plain offer is the right one "
+            "and the page should say so"
+        )
+
+
+#: Seconds a whole-disc rip needs when the secure re-read is active.
+#:
+#: **Measured, not chosen.** The 2026-09-03 hardware run timed out at
+#: `10800.1s` with `"Re-ripping track 5 to secure it - 43% - about 1m 50s left in
+#: re-read 2"` still on the status line: roughly 3h02m of work against a 3h
+#: budget. Section N already used 21600 for the same workload, so this is that
+#: number, and the margin is deliberate — the cost of over-budgeting is an
+#: unattended run finishing early, and the cost of under-budgeting is four
+#: cascading failures and no §H evidence.
+_SECURE_REREAD_BUDGET_S: Final[int] = 21600
+
+
+def test_every_whole_disc_rip_is_budgeted_for_a_secure_re_read() -> None:
+    """**The 2026-09-03 cascade, as a standing check.**
+
+    Four of that run's five failures were one stale number.
+    `fullacceptance.txt:366` waited `10800` on a `select-tracks all` rip; line 621
+    waited `21600` on the same workload. Both do a whole-disc secure re-read —
+    `secure_rerip_matches` **defaults to 2** (`config.py`), so cyanrip is invoked
+    `-Z 2 -r 3` for both, confirmed from the run's own rip log.
+
+    The budget's comment reasoned from *"a full disc on this hardware is 50-70
+    minutes"*, which is true of a rip **without** the re-read. So the number was
+    not stale in the ordinary sense — it was derived from a wrong model of what
+    the step does, and no amount of re-measuring the wrong thing would have
+    caught it.
+
+    What followed is why this is not a UX nit: the status was not `Done` because
+    the rip was still running, the next `rip` collided with the live one, and the
+    overwrite prompt §H exists to raise never appeared. **One number, four
+    failures, and a section that produced no evidence.**
+
+    The rule is derived from the script rather than hard-coded per line: a
+    `wait-for-rip` whose most recent `select-tracks` is `all` must budget for the
+    re-read. Partial rips (1-2 tracks) legitimately use less.
+    """
+    text = ACCEPTANCE.read_text(encoding="utf-8")
+    selecting_all = False
+    checked = 0
+    offenders: list[str] = []
+    for number, raw in enumerate(text.splitlines(), start=1):
+        line = raw.strip()
+        if line.startswith("#"):
+            continue
+        if line.startswith("select-tracks "):
+            selecting_all = line.split(None, 1)[1].strip() == "all"
+        match = re.match(r"wait-for-rip\s+(\d+)", line)
+        if match is None or not selecting_all:
+            continue
+        checked += 1
+        budget = int(match.group(1))
+        if budget < _SECURE_REREAD_BUDGET_S:
+            offenders.append(
+                f"L{number}: wait-for-rip {budget} follows `select-tracks all`, "
+                f"but a whole-disc rip does a secure re-read and needs "
+                f"{_SECURE_REREAD_BUDGET_S}"
+            )
+
+    assert checked >= 2, (
+        f"only {checked} whole-disc rips found; the script is expected to have at "
+        f"least two (sections F and N). If they have been renamed or removed, this "
+        f"check is measuring almost nothing."
+    )
+    assert not offenders, "\n  ".join(
+        ["a whole-disc rip is under-budgeted:", *offenders]
+    )
+
+
+def test_the_secure_re_read_is_on_by_default_which_is_what_makes_that_true() -> None:
+    """The premise the check above rests on, asserted rather than assumed.
+
+    If `secure_rerip_matches` ever defaulted to 0, a whole-disc rip would NOT
+    re-read, the budget could safely drop, and the check above would be enforcing
+    a cost nobody pays. It is the load-bearing fact, so it gets its own assertion
+    — and if it changes, this fails and points at the reasoning instead of
+    leaving a mysterious 6-hour wait behind.
+    """
+    from platterpus.config import Config
+
+    assert Config().secure_rerip_matches >= 2, (
+        "secure_rerip_matches no longer defaults to a re-reading value, so the "
+        "whole-disc budget above may be enforcing time that is never spent"
+    )

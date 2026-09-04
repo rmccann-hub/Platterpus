@@ -1304,7 +1304,9 @@ def _track_block(track: TrackResult) -> list[str]:
     out.extend(_crc_lines(track))
     out.append(f"     {_accuraterip_line(track)}")
     if track.status:
-        out.append(f"     {_status_line(track.status)}")
+        out.append(
+            f"     {_status_line(track.status, reproducible=track.secure_rerip_converged)}"
+        )
     out.append("")
     return out
 
@@ -1434,8 +1436,46 @@ def _accuraterip_line(track: TrackResult) -> str:
     return "Track not present in AccurateRip database"
 
 
-def _status_line(status: str) -> str:
-    """Render the track status the way EAC does for a clean copy."""
+def _status_line(status: str, *, reproducible: bool | None = None) -> str:
+    """Render the track status the way EAC does — but never `Copy OK` for a track
+    whose re-reads disagreed.
+
+    **The defect this closes, measured on hardware 2026-09-03.** The
+    EAC-compatible log for the acceptance run's secure re-read printed, for
+    tracks 3, 4 and 5:
+
+        Copy CRC 418F6CF8  (re-reads did NOT agree — this read is not confirmed
+                            reproducible)
+        Copy OK
+
+    Two lines apart, in the same track block: an honest parenthetical and a
+    verdict that contradicts it. `Copy OK` is EAC's *clean* verdict, and it is
+    the string a logchecker greps for and a human scans for. The disc-level
+    `Read stability` line already named those tracks — so the app knew, said so
+    twice elsewhere, and still stamped the per-track verdict clean.
+
+    `CLAUDE.md`'s EAC-parity rule is the one that decides this: *an
+    EAC-compatible log must stay as close to the EAC original as possible
+    **without forging it***, with equal-or-stronger rigour labelled as ours
+    (KDD-24). Printing `Copy OK` over a read we have just declared
+    unreproducible is the forging half.
+
+    So a non-reproducible track gets a verdict in our own words rather than
+    EAC's. It deliberately does **not** contain the substring `Copy OK`: a
+    parenthetical qualifier appended to that string would still read as clean to
+    every mechanical consumer, which is the *"every word accurate, the sentence
+    wrong"* shape this project keeps paying for.
+
+    ``reproducible`` is tri-state and only ``False`` changes anything. ``None``
+    means the rip recorded no convergence data — a backend that does not report
+    it, or a rip with no secure re-read — and inventing a doubt there would be
+    the mirror defect.
+    """
+    if reproducible is False:
+        return (
+            "Copy NOT confirmed — re-reads did not agree, so this track is not "
+            "verified reproducible (see Read stability above)"
+        )
     # EAC writes "Copy OK"; our backends use phrases like "ripped successfully".
     normalized = status.strip().lower()
     if normalized in ("copy ok", "ripped successfully"):

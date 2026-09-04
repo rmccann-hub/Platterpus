@@ -1396,3 +1396,68 @@ def test_a_truncated_log_is_never_called_complete_even_at_the_full_count() -> No
     )
     assert "INCOMPLETE RIP (cancelled)" in text
     assert "cut off mid-write" in text
+
+
+def test_a_track_whose_rereads_disagreed_never_renders_Copy_OK() -> None:
+    """**Measured on hardware, 2026-09-03, in the acceptance run's own export.**
+
+    The secure re-read's EAC-compatible log printed this for tracks 3, 4 and 5::
+
+        Copy CRC 418F6CF8  (re-reads did NOT agree — this read is not confirmed
+                            reproducible)
+        Copy OK
+
+    Two lines apart in one track block: an honest parenthetical and a verdict
+    contradicting it. `Copy OK` is EAC's CLEAN verdict — the string a logchecker
+    greps and a human scans — and the disc-level `Read stability` line had
+    already named those exact tracks. The app knew, said so twice elsewhere, and
+    stamped the per-track verdict clean anyway.
+
+    `CLAUDE.md`: an EAC-compatible log stays as close to the original as possible
+    **without forging it**. Printing `Copy OK` over a read declared
+    unreproducible is the forging half.
+
+    The assertion is on the ABSENCE of the substring, not on the presence of our
+    replacement wording: appending a qualifier to `Copy OK` would still read as
+    clean to every mechanical consumer, which is the failure mode, not a fix for
+    it.
+    """
+    from platterpus.eac_log_export import _status_line
+
+    verdict = _status_line("ripped successfully", reproducible=False)
+    assert "Copy OK" not in verdict, (
+        f"a track whose re-reads disagreed still renders EAC's clean verdict: "
+        f"{verdict!r}"
+    )
+    assert "NOT confirmed" in verdict, verdict
+
+
+def test_the_tri_state_is_preserved_so_doubt_is_never_invented() -> None:
+    """`None` is not `False`. A backend that reports no convergence data, or a
+    rip with no secure re-read, must render exactly as before — inventing a doubt
+    there is the mirror of the defect above."""
+    from platterpus.eac_log_export import _status_line
+
+    assert _status_line("ripped successfully", reproducible=None) == "Copy OK"
+    assert _status_line("ripped successfully", reproducible=True) == "Copy OK"
+    assert _status_line("ripped successfully") == "Copy OK"
+
+
+def test_the_per_track_verdict_reads_the_convergence_field_not_just_the_status() -> (
+    None
+):
+    """The wiring, asserted at the call site.
+
+    `_status_line` could be perfect and still never be told, which is exactly the
+    state the defect shipped in: the disc-level line consulted
+    `secure_rerip_converged` and the per-track one did not.
+    """
+    import inspect
+
+    from platterpus import eac_log_export
+
+    source = inspect.getsource(eac_log_export)
+    assert "reproducible=track.secure_rerip_converged" in source, (
+        "the per-track status line no longer passes the convergence field, so it "
+        "cannot know a track was unreproducible — the 2026-09-03 defect exactly"
+    )
