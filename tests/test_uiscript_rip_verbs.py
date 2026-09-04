@@ -2247,13 +2247,16 @@ def test_expect_rip_complete_has_a_floor_and_cannot_pass_on_an_empty_room(
     assert record.outcome is Outcome.FAIL
     assert "no track blocks" in record.detail, record.detail
 
-    # 3. The log disagreeing with itself.
+    # 3. The log disagreeing with ITSELF — it claims more completed tracks than
+    #    it carries blocks for. Note what this is NOT: a partial rip. See
+    #    `test_expect_rip_complete_passes_a_PARTIAL_rip` for why that distinction
+    #    is the whole point.
     record, _ = _run_one(
         _window(last_rip_log=_log(rip_completed_tracks=11, rip_completed_total=14)),
         "expect-rip-complete",
     )
     assert record.outcome is Outcome.FAIL
-    assert "11 of 14" in record.detail, record.detail
+    assert "disagrees with itself" in record.detail, record.detail
 
 
 def test_expect_rip_complete_refuses_a_record_that_is_itself_damaged(qapp) -> None:
@@ -2293,3 +2296,98 @@ def test_expect_rip_complete_distinguishes_not_measured_from_converged(qapp) -> 
     record, _ = _run_one(_window(last_rip_log=_log()), "expect-rip-complete")
     assert record.outcome is Outcome.PASS, record.detail
     assert "every measured track converged" in record.detail, record.detail
+
+
+def _run_lines(window: Any, *lines: str) -> Any:
+    """Execute several lines through ONE runner, returning every record.
+
+    `_run_one` builds a fresh runner per call, which cannot exercise state the
+    runner carries BETWEEN steps — and the freshness guard below is exactly that
+    state. A test that used `_run_one` twice would pass with the guard deleted.
+    """
+    runner = ScriptRunner(window)
+    runner._report.steps.clear()
+    for line in lines:
+        steps = parse(line)
+        assert len(steps) == 1, f"{line!r} did not parse to one step"
+        runner._execute(steps[0])
+    return runner._report.steps, runner
+
+
+def test_expect_rip_complete_passes_a_PARTIAL_rip(qapp) -> None:
+    """**The regression this verb nearly shipped, caught before hardware.**
+
+    cyanrip's completion footer counts against the DISC, not the selection.
+    Measured, from all seven real rips in the 2026-09-03 bundle: a two-track
+    selection off a fourteen-track disc writes
+
+        Rip completed:  yes (2 of 14 tracks)
+
+    The first version of this handler asserted ``completed == total``, which is
+    true only for a whole-disc rip. It was added to five partial-rip sites — §H,
+    §J, §K1, §K2, §K3 — every one of them ARCHIVAL, so it would have converted
+    five passing sections into five failures: worse than the `expect-status Done`
+    it replaced, and undetectable until six hours of drive time had been spent.
+
+    The invariant that actually holds on all seven is that the footer's completed
+    count equals the number of track blocks the log carries — the record agrees
+    with itself. Disc-independent AND selection-independent, which is the only
+    reason this verb is better than the label it replaced.
+    """
+    from platterpus.parsers.rip_log import TrackResult
+
+    two_of_fourteen = _log(
+        tracks=[TrackResult(number=n, secure_rerip_converged=True) for n in (1, 2)],
+        rip_completed_tracks=2,
+        rip_completed_total=14,
+    )
+    record, _ = _run_one(_window(last_rip_log=two_of_fourteen), "expect-rip-complete")
+    assert record.outcome is Outcome.PASS, record.detail
+
+
+def test_expect_rip_complete_refuses_to_grade_a_rip_that_never_started(qapp) -> None:
+    """A green completion for the PREVIOUS section's rip is the worst outcome here.
+
+    `window._last_rip_log` is SESSION-scoped: it holds the last parsed log until
+    a new rip finishes and replaces it. `rip` has three refusal paths — no disc,
+    Start disabled, a rip already running — and every one of them leaves that
+    field untouched. So without a freshness key, a section whose rip never
+    started would report the previous section's rip as its own, in a transcript
+    claiming otherwise. Five independent reviewers found this in the first
+    version of the verb.
+
+    Keyed on OBJECT IDENTITY rather than a flag, because "has a rip finished
+    since I asked for one" is a fact about a specific log and a bool would need
+    resetting at a moment no call site owns.
+    """
+    from platterpus.parsers.rip_log import TrackResult
+
+    previous = _log(
+        tracks=[TrackResult(number=1, secure_rerip_converged=True)],
+        rip_completed_tracks=1,
+        rip_completed_total=14,
+    )
+    win = _window(last_rip_log=previous)
+    # `rip` is refused here (the stub's controls report they cannot start), which
+    # is precisely the case that used to slip through — the marker is taken and
+    # the log never changes.
+    win._rip_controls._startable = False
+    records, _ = _run_lines(win, "rip", "expect-rip-complete")
+    assert records[-1].outcome is Outcome.FAIL, records[-1].detail
+    assert "no rip has finished since this section asked for one" in records[-1].detail
+
+    # ...and it still passes when a rip genuinely DID replace the log.
+    win2 = _window(last_rip_log=previous)
+    win2._rip_controls._startable = True
+    records2, runner = _run_lines(win2, "rip")
+    assert records2[-1].outcome is Outcome.PASS, records2[-1].detail
+    win2._last_rip_log = _log(
+        tracks=[TrackResult(number=1, secure_rerip_converged=True)],
+        rip_completed_tracks=1,
+        rip_completed_total=14,
+    )
+    steps = parse("expect-rip-complete")
+    runner._execute(steps[0])
+    assert runner._report.steps[-1].outcome is Outcome.PASS, runner._report.steps[
+        -1
+    ].detail

@@ -11,6 +11,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Two defects in `expect-rip-complete` itself, caught by review before any of
+  it reached hardware.** Both are recorded because the fix is only as good as
+  the reasoning next to it:
+  - **The completion footer counts against the DISC, not the selection.** Real
+    logs read `Rip completed:  yes (2 of 14 tracks)` for a two-track selection
+    off a fourteen-track disc — measured across all seven rips in the 2026-09-03
+    bundle. The first version asserted `completed == disc total`, true only for a
+    whole-disc rip, and it had been added to five partial-rip sites, every one of
+    them ARCHIVAL. It would have converted five *passing* sections into five
+    failures — worse than the defect it was written for, and invisible until six
+    hours of drive time had been spent. The invariant that actually holds on all
+    seven is that the footer's completed count equals the number of track blocks
+    the log carries: the record agrees with itself, disc- and
+    selection-independent.
+  - **It graded the PREVIOUS section's rip when this section's never started.**
+    `window._last_rip_log` is session-scoped, and `rip` has three refusal paths
+    that leave it untouched — so a green completion could be reported for a rip
+    that did not happen. Now keyed on the log's object **identity** at the moment
+    `rip` ran, taken **ahead of every refusal path**: the first version of that
+    marker sat on the success path, which is exactly backwards, since the case
+    the guard exists for is a *refused* rip. Identity rather than a flag, because
+    a bool would need resetting at a moment no call site owns.
+
 ### Added
 - **`expect-rip-complete` — the assertion `expect-status Done` should always have
   been.** Asserts the last rip *finished*, read from the ripper's own log

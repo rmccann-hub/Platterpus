@@ -1143,13 +1143,17 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ui/rip_progress.py": 1658,
     "ui/settings_dialog.py": 1303,
     "ui/track_table.py": 802,
-    # +119 on 2026-09-04: `_do_expect_rip_complete`. It is ~40 lines of code
-    # and ~80 of docstring, because the reasoning is the load-bearing part:
-    # the verb exists to replace `expect-status Done`, which is a claim about
-    # the DISC wearing a claim about the run, and a reader who does not know
-    # that will reintroduce it. The handler belongs beside the one it
-    # replaces — a reader comparing the two needs them in one file.
-    "uiscript/runner.py": 3012,
+    # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
+    # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
+    # the comment is the load-bearing part twice over: the verb replaces
+    # `expect-status Done`, a claim about the DISC wearing a claim about the run,
+    # and its first two versions each carried a defect a reader would otherwise
+    # reintroduce (the completion footer counts against the disc, not the
+    # selection; and the freshness marker has to be taken ahead of `rip`'s
+    # refusal paths, not on its success path). The handler stays beside the one
+    # it replaces because a reader comparing the two needs them in one file, and
+    # the marker has to live in `_do_rip` because that is the step it is about.
+    "uiscript/runner.py": 3077,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
