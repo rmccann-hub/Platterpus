@@ -1650,6 +1650,78 @@ def test_the_two_install_axes_are_never_both_true() -> None:
         )
 
 
+def test_the_operators_instructions_agree_with_the_offer_they_will_actually_see() -> (
+    None
+):
+    """The third surface answering the same question — and it said the opposite.
+
+    `docs/rig-scripts/README.md` is the page an operator reads before an
+    overnight run. Until v0.6.35 it said, of the cyanrip update check, to *"take
+    the offer only if it is a plain one-click install"* and that *"an offer that
+    warns you first is a build no closed round has reviewed."*
+
+    Both sentences are true. The instruction drawn from them is backwards, and
+    the reason is the same relation the two tests above pin in code: while a
+    round is OPEN, the pin the acceptance run demands **is** the build no closed
+    round has reviewed, so the offer the operator must accept is precisely the
+    warned one. The page told them to refuse the build section A then aborts for
+    the absence of — a full six-hour night lost at L165, four seconds in.
+
+    It was true when written. Between rounds `FORK_PIN` and `PIN_UNDER_REVIEW`
+    are one commit and there is no warned offer to refuse. It became false the
+    moment a round opened, which is the only time anyone reads the page — the
+    expire-silently shape `CLAUDE.md` names, arriving through a document instead
+    of through code.
+
+    So the page is held to the product rather than to a proofread: whatever the
+    producer emits for the pin the run demands, the instructions must name that
+    route. Asserted in both directions so it cannot be satisfied by finding
+    nothing — the page must contain the instruction block at all, and the branch
+    that applies must be the one it teaches.
+    """
+    page = DOCS / "rig-scripts" / "README.md"
+    raw = page.read_text(encoding="utf-8")
+    # Matched against whitespace-collapsed prose, never the raw bytes. The
+    # sentences below are wrapped inside a Markdown blockquote, so every one of
+    # them can be re-flowed by an editor without changing a word — and a matcher
+    # that a re-flow defeats is the reflowed-anchor failure `revert_probe.py`
+    # documents, arriving in the assertion instead of in the probe. Found here
+    # exactly that way: the first version of this test reported VACUOUS against a
+    # revert that restored the offending sentence across two lines.
+    text = " ".join(
+        # Blockquote markers survive a plain whitespace collapse, so a sentence
+        # wrapped inside `>` becomes "... and section A > refuses to run ..." and
+        # the matcher misses it. Strip the leading quote/list furniture per line
+        # BEFORE collapsing, or the reflow-proofing is only half done — which is
+        # how the second probe still reported VACUOUS after the first fix.
+        line.lstrip().lstrip(">").lstrip().lstrip("*-").strip()
+        for line in raw.splitlines()
+    ).split()
+    text = " ".join(text)
+    assert "Check for cyanrip updates" in text, (
+        f"{page.name} no longer carries the update-check instruction this test "
+        "exists to hold to the product — it was renamed or removed, and the "
+        "check has been passing by not looking"
+    )
+
+    offer = _offer_for(fork_source_pin_under_review())
+    if offer.installable_with_consent:
+        assert "Install it anyway" in text, (
+            "the app offers the build the acceptance run demands ONLY behind the "
+            "consent dialog, and the operator's page never names that button — "
+            "so a reader following it declines the build section A requires"
+        )
+        assert "section A refuses to run on one" not in text, (
+            "the page still carries the unconditional refusal that cost the "
+            "2026-09-03 night; that sentence is only correct between rounds"
+        )
+    else:
+        assert "one-click" in text, (
+            "no round is reviewing a build, so the plain offer is the right one "
+            "and the page should say so"
+        )
+
+
 #: Seconds a whole-disc rip needs when the secure re-read is active.
 #:
 #: **Measured, not chosen.** The 2026-09-03 hardware run timed out at

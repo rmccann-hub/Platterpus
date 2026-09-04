@@ -11,9 +11,23 @@ product's gap invisible.
 > one `.tar.gz` into `~/Downloads` — then names it, with a button that opens the
 > folder. **There is nothing to download and no second command in the morning.**
 >
-> Check the ripper first: **Help → Check for cyanrip updates…**, and take the
-> offer only if it is a plain one-click install. An offer that warns you first is
-> a build no closed round has reviewed, and section A refuses to run on one.
+> Check the ripper first: **Help → Check for cyanrip updates…** — and *which*
+> offer to take depends on whether a handshake round is open, which is the thing
+> this note got backwards until v0.6.35.
+>
+> * **No round open.** Take the offer only if it is a plain one-click install.
+> * **A round IS open** (today: round 15, on `978f9b0`). Section A asserts the
+>   installed build is the **pin under review**, and a build under review is by
+>   definition one no closed round has approved — so its offer is the *warned*
+>   one, **"Install it anyway"**, with the consequence stated and *Not now* as
+>   the default button. Take it. Declining it is what makes section A abort at
+>   L165 four seconds into a six-hour run.
+>
+> The old wording said to refuse exactly the offer the run requires. It was true
+> when written — between rounds the approved build and the pin under review are
+> the same commit — and it stopped being true the moment a round opened, which is
+> the only time anybody reads it. `platterpus --doctor` names the installed build
+> if you want to check without opening the menu.
 >
 > **The `.txt` scripts moved into the package** (`src/platterpus/rig_scripts/`)
 > so the app ships them; an AppImage user used to have no copy of the acceptance
