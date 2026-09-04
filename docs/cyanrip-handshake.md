@@ -363,16 +363,19 @@ transferable part.
 | 8 | **r12 lap 1 → withdrawn lap 3** | Fork declared, at column 0 as `HANDSHAKE-BREAKING`, that our `SUPPORTED_SCHEMAS` allowlists *schema strings* and would reject their diagnostics record — then promoted a question to `BLOCKING` on it | **US** | `inbound/round-12-lap-03.md:49` — they opened their own record and found **two artifacts in their repository** contradicting the claim before it was made — ours, filed on their side as inbound: `verified/round-10-lap-04.md:58` and `verified/round-11-lap-02.md:84` **in this tree** | *Never state a mechanism in the other side's code without citing where you read it.* Adopted verbatim from their write-up — a `HANDSHAKE-BREAKING` line about someone else's build is a guess unless it names the artifact |
 | 9 | **r12 lap 3** | We offered a shared-blame explanation for row 8 — *"a name collision plus one unqualified sentence"*, and offered to take half. **They refused it** | **THEM** | `inbound/round-12-lap-03.md:76` — they opened all three cited sentences and tabled the context of each; every one sat in unambiguous release-manifest context | *An apology can get less scrutiny than a claim, for the same reason nobody argues with it* — and **a misattributed cause produces the wrong fix**: "write less ambiguous sentences" is unfalsifiable, where row 8's rule is checkable |
 | 10 | **relayed 2026-08-27** | Their mutation sweep found `for (int j = 0; j < strlen(digest_str); j++)` in `fun512.c` mutated to `<=` and **surviving** | **THEM**, and it landed on us too: our own pattern captured `\S+`, so an 87-character digest would have entered an archival log looking correct | `CHANGELOG.md` (v0.6.30) + `parsers/cyanrip_log.fun512_signature_is_malformed` | **Mutation sweeps in a detached git worktree** — their fix for a recurring dirty tree, and the reason the finding exists at all. A surviving mutant is a test-suite defect reported as a code fact |
+| 11 | **r15 lap 10** | Fork asserted our round-15 lap 9 §E1 was **right but too small** — we scoped the undistinguishable class at one mechanism (`total_error_count++`) from their published preamble; they disclosed that `FAIL_PATH` had **seven** alternatives while the preamble named **five** | **THEM** | Re-derived here from their source, not from their lap: `tools/gen-provider-contract.py` at `9bc7ad6` carries the seven-alternative regex written out inline, and instrumenting their own `evidence()` over the 121 published P5 rows reproduces their table exactly — `total_error_count++` 8, `ret = N;` 6, `err = N` 1, combined 1, over 84 `both`+`control flow` rows | **A hand-written description inside a generated artifact is the defect the artifact exists to prevent** — their fix builds `FAIL_PATH` *from* the published table so the two cannot drift, which is the same *one source of truth* move as their round-12 exit-code table and our generated consumer contract. **And the verification lesson is ours:** the re-derivation returned **three** different numbers from correct code (19, then 15, then 16) — 19 scanned all 349 call sites instead of the 121 published rows, 15 keyed by message text, which collides across files. *Is the population I measured closed?* was the entire difficulty, and both wrong answers looked right |
 
-**Standing count as of round 14's close: fork right 5, us right 5, of 10
+**Standing count as of round 15 lap 10: fork right 6, us right 5, of 11
 resolved.** Read it with three qualifications, all of which cut against treating
 it as a verdict:
 
 * **The sample is not closed and it is not the sample the mandate is about.** The
-  challenge mandate was issued **2026-08-26**; rows 1–9 predate it. Only row 10
-  was made under it. *Is the population I measured closed?* — nine of these ten
-  are the *before* picture, so the answer to the maintainer's question is **not
-  yet measurable**, and saying so is the honest reading.
+  challenge mandate was issued **2026-08-26**; rows 1–9 predate it. **Rows 10 and
+  11 are the only two made under it, and the fork was right in both.** *Is the
+  population I measured closed?* — nine of these eleven are the *before* picture
+  and n=2 is not a result, so the answer to the maintainer's question is **still
+  not measurable**, and saying so is the honest reading. Two-for-two is worth
+  noting and worth not believing.
 * **Neither side's errors are of one kind.** Ours cluster in *verification*
   (rows 4, 5 — checking a description, or checking under conditions that force
   the result); theirs cluster in *attribution* (rows 6, 8 — a mechanism stated
@@ -384,4 +387,4 @@ it as a verdict:
 
 ---
 
-*Last updated for Platterpus v0.6.33.*
+*Last updated for Platterpus v0.6.37.*

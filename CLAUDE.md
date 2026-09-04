@@ -115,6 +115,67 @@ The GUI runs on the host. It calls the host-exported ripper binary in `~/.local/
       - **Pre-commit, and it is the one that actually ends rounds.** A lap may declare *"our next lap is GO unless X"*, naming X, and it binds. Both sides did this in round 7 laps 36–37.
       - **The failure in one sentence: release-grade rigour was being applied to the *round* rather than to the *release*.** The rigour is right. Attaching it to a process that must terminate is what produced 37 laps and no release.
 
+    - **THE FORK IS THE CORE, AND MAKING SURE THEY PERFORM CORRECTLY IS OUR JOB —
+      not a courtesy, and not discharged by their having checked it themselves**
+      (maintainer directive, 2026-09-04: *"they do it, you double check their work,
+      even if they did, if you can"*). This is the mirror of the challenge mandate
+      above and the two are one arrangement, not two favours. Five obligations:
+      - **Their correctness is load-bearing in a way ours is not, so hold them to
+        it.** `docs/OWNERSHIP.md` §1's RECOVERABILITY test already says why: get a
+        fact wrong that needs the disc in the drive and the disc has to go back in;
+        get one wrong that is derivable afterwards and it is fixed by re-reading
+        files already on disk. They own the first kind. That is the reason to hold
+        the ripping engine to the higher bar — **and the reason our own bar is
+        barely lower, because everything they get right can still reach a user
+        wrong through us.**
+      - **Verifying their emissions is a duty we have already signed, every lap.**
+        `docs/OWNERSHIP.md` §3 assigns Platterpus *"The gate over incoming
+        artifacts, and the systematic feedback duty"*, and the fork agreed to it.
+        So this rule adds no imposition on them and needs no lap: it is us being
+        told to actually do a job the shared file already gives us. **Their having
+        verified something is not a reason to skip it** — that is the rule one
+        bullet up, applied in the direction it is easier to forget.
+      - **Where their source is reachable, DERIVE the number; do not accept the
+        lap's.** Their repository is public and can be cloned into the session
+        (`add_repo` / `git clone`, 2026-09-04). On that day their lap 10 published a
+        16-row table; instrumenting *their* generator over the 121 published rows
+        reproduced it exactly — `total_error_count++` 8, `ret = N;` 6, `err = N` 1,
+        combined 1 — and separately confirmed that `FAIL_PATH` really had seven
+        alternatives while its preamble named five. **That is the standard now.** A
+        claim we could have derived and merely repeated is a claim we asserted. And
+        it cuts the other way too: the same session produced **three** different
+        answers from correct code (19, 15, 16) before the population was closed
+        correctly, so derive, then ask *"is the population I measured closed?"*
+        before publishing the number.
+      - **NEVER put a defect on them that we started, or whose root is not theirs.**
+        Establish the origin before attributing it — ours, theirs, or **upstream's**,
+        the third being the kind this file already names as easiest to misattribute
+        *"because the fork is the binary in front of you"*. A lap's framing is an
+        attribution whether or not it uses the word: writing *"your P5 said it was
+        fatal"* about a line we chose to grade as fatal is blame, however true the
+        clause is. When both sides contributed, say which half is ours **first**.
+      - **The user sees us and never them, so a failure that reaches a user is ours
+        to own in front of that user.** Not *"the ripper failed"* — the sentence a
+        user reads names what went wrong and what to do, and the dependency's own
+        text is shown as evidence, never as the culprit. This is not politeness: a
+        user cannot act on an attribution, and blaming a component they have never
+        heard of reads as an excuse. It is also, plainly, what will happen anyway —
+        they will hold Platterpus responsible whether or not that is fair, and a
+        rule that pretends otherwise costs us the chance to have already fixed it.
+      - **And our own standard does not drop because we are downstream.** A gate of
+        ours that catches us is the system working: on 2026-09-04
+        `tests/test_handshake_artifact_naming.py` refused a filing of mine — an
+        artifact named `…-ga20d0a6.md` for a document carrying no build banner —
+        **one lap after I wrote that very rule into lap 9 and the fork adopted it as
+        v5's clause 5b.5.** Apply to our own work the scrutiny this rule demands we
+        apply to theirs.
+      - **NOT bilateral, and it does not travel.** Same carve-out as the bullet
+        below: it governs a duty of ours, not a term of the seam contract. Sending
+        the fork a rule about how closely we intend to check them would impose
+        nothing on them, restate a duty `OWNERSHIP.md` §3 already assigns us, and
+        read as a demotion of a peer this project depends on. Do the checking; do
+        not publish the intention.
+
     - **Writing a lap and sending one are two acts, and only the maintainer can
       perform the second — so ASK BEFORE WRITING A LAP** (maintainer directive,
       2026-09-04). Not after: by then the lap exists, and a lap that exists

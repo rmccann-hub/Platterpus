@@ -507,16 +507,48 @@ def test_the_artifacts_name_their_round_lap_and_build() -> None:
     # still carries round, lap and kind, so it is placeable in the record.
     tool = re.compile(r"^round-\d{2,4}-lap-\d{2,4}-[a-z0-9-]+$")
     for path in artifacts:
-        if path.suffix == ".sh":
+        if path.suffix == ".sh" or not declares_a_provenance(path):
             assert tool.match(path.stem), (
-                f"{path.name} is a received tool, so it must be named "
-                "round-NN-lap-LL-<kind>.sh with NO build field — a script asserts "
-                "no build and a filename must not claim what the file cannot back"
+                f"{path.name} declares no build and no source anchor, so it must be "
+                "named round-NN-lap-LL-<kind> with NO build field — a filename must "
+                "not claim what the file cannot back"
             )
             continue
         assert pattern.match(path.stem), (
             f"{path.name} does not follow round-NN-lap-LL-<kind>-g<build>.<ext>"
         )
+
+
+def declares_a_provenance(path: Path) -> bool:
+    """Does this artifact's own CONTENT state a build or a source anchor?
+
+    **One predicate, two callers, and the second caller is the reason it exists.**
+    This gate and `test_handshake_artifact_naming.py` answer halves of one
+    question — a filename must assert the provenance its content supports, **no
+    more** (that file's job) and **no less** (this one's). Asked with two
+    different keys they can disagree, and on 2026-09-04 they did: the fork's
+    `PROTOCOL-v5-PROPOSAL` is a proposal document, carrying neither a fork banner
+    nor a `Source anchor:` line, and the pair was mutually unsatisfiable for it.
+    Filing it as `-ga20d0a6` was refused by the sibling — correctly, since nothing
+    in the file backs that commit — and filing it bare was refused here.
+
+    So this delegates to the sibling's patterns rather than restating them. A
+    second copy of "what counts as a declared build" is a second thing to drift,
+    which is the defect that produced the contradiction in the first place.
+
+    **The `.sh` carve-out above is kept and is now the special case of this rule
+    rather than a parallel one**: a script declares no build because it is an
+    instrument, not evidence about a binary. It stays scoped by suffix so a log or
+    a contract that *lost* its banner still fails here instead of being waved
+    through as "declares nothing".
+    """
+    from test_handshake_artifact_naming import _ANCHOR, _BANNER
+
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:  # unreadable is not "declares nothing" — fail closed
+        return True
+    return bool(_BANNER.search(text) or _ANCHOR.search(text))
 
 
 def test_the_newest_file_in_a_round_is_the_highest_lap(hs: ModuleType) -> None:
@@ -1632,3 +1664,43 @@ def test_split_needs_no_outbound_lap_staged(
     finally:
         envelope.PARTS = original
     assert (out / "theirs.md").read_text(encoding="utf-8") == "their lap\n"
+
+
+def test_the_carve_out_cannot_wave_through_an_artifact_that_DOES_declare_one(
+    tmp_path: Path,
+) -> None:
+    """The carve-out must be satisfiable only by finding nothing *in the file*.
+
+    Written because the widening that introduced it was made to let one real file
+    pass, which is the shape `CLAUDE.md` names — *"ask it of the check you are
+    writing to fix a check"*. A predicate that returned `False` unconditionally
+    would make the gate above accept **every** artifact bare, including a golden
+    reference whose banner names a build, and the real-directory sweep would not
+    notice because every artifact in it is already named consistently.
+
+    So the three cases are exercised on synthetic files instead: a banner, an
+    anchor, and neither.
+    """
+    banner = tmp_path / "round-99-lap-01-golden-reference.log"
+    banner.write_text("cyanrip 0.9.4 (platterpus-fork-gdeadbee)\n", encoding="utf-8")
+    assert declares_a_provenance(banner), (
+        "a file whose banner names a build declares a provenance; if this is False "
+        "the gate above would accept it under a name that asserts nothing, and the "
+        "sibling test would then be the only thing checking builds at all"
+    )
+
+    anchored = tmp_path / "round-99-lap-02-provider-contract.md"
+    anchored.write_text(
+        "**Source anchor:** `sha256/16 = 0123456789abcdef`\n", encoding="utf-8"
+    )
+    assert declares_a_provenance(anchored)
+
+    neither = tmp_path / "round-99-lap-03-proposal.md"
+    neither.write_text("# A proposal, which describes no binary.\n", encoding="utf-8")
+    assert not declares_a_provenance(neither)
+
+    unreadable = tmp_path / "round-99-lap-04-missing.md"
+    assert declares_a_provenance(unreadable), (
+        "an unreadable artifact must fail CLOSED — 'we could not look' is not "
+        "'the file declares nothing'"
+    )
