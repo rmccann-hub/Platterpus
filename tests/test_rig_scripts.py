@@ -1817,3 +1817,130 @@ def test_the_secure_re_read_is_on_by_default_which_is_what_makes_that_true() -> 
         "secure_rerip_matches no longer defaults to a re-reading value, so the "
         "whole-disc budget above may be enforcing time that is never spent"
     )
+
+
+# --- Every rip asserts that it finished, and from the log rather than a label --
+
+#: Words that only appear in the status line after a CLEAN rip, so asserting any
+#: of them is asserting a property of the DISC and not of the run.
+#:
+#: `ui/rip_progress.py` overwrites the completion line with the read-stability
+#: summary when a track's re-reads disagreed — deliberately, so an unattended
+#: user is never told "all tracks ripped cleanly" over a track that never read
+#: reproducibly. Any `expect-status` matching one of these therefore fails on an
+#: ordinary CD, which every one of these scripts promises to accept.
+_CLEAN_ONLY_STATUS_WORDS: Final[tuple[str, ...]] = (
+    "done",
+    "cleanly",
+    "no read errors",
+    "all verified",
+)
+
+
+def _rip_wait_sites() -> list[tuple[Path, int, list[str]]]:
+    """Every `wait-for-rip` in every committed script, with the steps after it.
+
+    The window runs forward to the next `rip` or the next section header, and
+    **skips comments and blanks** — they are not steps. Getting that wrong is how
+    this sweep would pass by not looking: section F's assertion sits twenty
+    comment lines below its `wait-for-rip`, so a fixed lookahead of a few lines
+    reports it as a gap and a fixed lookahead of a few *steps* reports it as
+    present only by luck.
+    """
+    sites: list[tuple[Path, int, list[str]]] = []
+    for path in sorted(RIG_SCRIPTS.glob("*.txt")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines):
+            if not re.match(r"^\s*wait-for-rip\b", line):
+                continue
+            window: list[str] = []
+            for later in lines[i + 1 :]:
+                stripped = later.strip()
+                if stripped.startswith("log ") and "---" in stripped:
+                    break
+                if not stripped or stripped.startswith("#"):
+                    continue
+                verb = stripped.split()[0]
+                if verb == "rip":
+                    break
+                window.append(verb)
+            sites.append((path, i + 1, window))
+    return sites
+
+
+def test_every_rip_asserts_that_it_actually_finished() -> None:
+    """**Five of seven rips in the acceptance script asserted nothing about
+    completion, and every one of those five sections is ARCHIVAL.**
+
+    Found 2026-09-04 while fixing something else. Sections H, J, K1, K2 and K3
+    ripped a disc and then ran `snapshot`, `screenshot` and `rig-check` — and
+    `rig-check`'s only completion-adjacent row, `parser/interrupted`, is INFO and
+    *deliberately* not graded. So a rip that stopped halfway would have been
+    recorded as a passing archival section. That is the same defect as section
+    F's timeout, which graded a still-running rip as a finished one, one section
+    earlier in the same file.
+
+    Four more sites in the other four committed scripts had the same gap. The
+    sweep covers all of them, because a rule enforced at the place it was learned
+    is not enforced (`docs/testing.md` §5.o) — `securereread.txt` is the script
+    the operator's page actually recommends for this test, and it was the worst
+    of them: `wait-for-rip 10800` *and* `expect-status Done`.
+
+    The floor is the site count. A sweep over an empty population passes, and
+    this one would if the verb were ever renamed or the scripts moved.
+    """
+    sites = _rip_wait_sites()
+    assert len(sites) >= 11, (
+        f"only {len(sites)} `wait-for-rip` sites found across "
+        f"{len(list(RIG_SCRIPTS.glob('*.txt')))} scripts — the sweep has lost its "
+        "population and is passing by not looking"
+    )
+    gaps = [
+        f"{path.name}:{line_no} (steps after it: {window or ['<none>']})"
+        for path, line_no, window in sites
+        if "expect-rip-complete" not in window
+    ]
+    assert not gaps, (
+        "these rips assert nothing about whether they finished, so a rip that "
+        "stopped halfway would be recorded as a pass:\n  " + "\n  ".join(gaps)
+    )
+
+
+def test_no_script_asserts_completion_from_the_status_LABEL() -> None:
+    """`expect-status Done` is a claim about the disc wearing a claim about the run.
+
+    It cost section N — ARCHIVAL, *"the accuracy claim itself"* — on 2026-09-03,
+    on a rip that wrote all 14 tracks with `Ripping errors: 0` and an intact
+    completion footer, because three tracks on that disc will not converge and
+    the status line says so instead of saying "Done".
+
+    The old comment beside it is worth keeping in mind: *"matching one
+    disc-agnostic word keeps this working on any CD."* The word is disc-agnostic.
+    The **line** is not. A confident comment where a check belongs.
+
+    `expect-status` itself stays legal and useful — `expect-status cancelled` in
+    section I asserts the cancel message, which genuinely is a UI claim. Only
+    completion words are refused.
+    """
+    offenders: list[str] = []
+    checked = 0
+    for path in sorted(RIG_SCRIPTS.glob("*.txt")):
+        for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            stripped = line.strip()
+            if not stripped.startswith("expect-status"):
+                continue
+            checked += 1
+            rest = stripped[len("expect-status") :].casefold()
+            hit = next((w for w in _CLEAN_ONLY_STATUS_WORDS if w in rest), None)
+            if hit is not None:
+                offenders.append(f"{path.name}:{i} matches {hit!r} — {stripped}")
+    assert checked >= 1, (
+        "no `expect-status` line found in any committed script — this check has "
+        "nothing to grade and would pass on a renamed verb"
+    )
+    assert not offenders, (
+        "these assert a CLEAN rip from the status label, which the app overwrites "
+        "with the read-stability warning on an ordinary disc — use "
+        "`expect-rip-complete`, which reads the ripper's own log:\n  "
+        + "\n  ".join(offenders)
+    )

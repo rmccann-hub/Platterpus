@@ -84,6 +84,14 @@ MAX_WAIT_S: float = 600.0
 #: slower step; a cap checked against the scripts fails in CI the day it does.
 MAX_RIP_WAIT_S: float = 6 * 60 * 60
 
+#: Sentinel for "no `rip` step has run yet in this batch".
+#:
+#: `None` cannot serve: it is a legitimate value of `window._last_rip_log` — the
+#: state a fresh window is in — so a `None` marker could not tell "no rip was
+#: requested" from "a rip was requested while no log existed". Two facts, and
+#: giving them one slot is the defect this project keeps paying for.
+_NO_RIP_REQUESTED: Final[object] = object()
+
 #: Timeout for a scripted `cyanrip` invocation. Generous enough for a cold
 #: container exec (measured at 3.45 s) and a `-x` cache probe, bounded so an
 #: unattended batch cannot be stranded by a wedged drive.
@@ -674,7 +682,16 @@ class ScriptRunner(QObject):
     # --- Verbs: narration and pacing ----------------------------------------
 
     def _do_log(self, step: Step) -> None:
-        self._record(step, Outcome.PASS, step.joined())
+        # A `log --- X. title ---` line is how every committed script marks a
+        # SECTION, and the severity table in `docs/testing.md` is keyed on those
+        # section letters. Remember where the current one began, so
+        # `abort-if-failed` can be scoped to it — see that handler for why an
+        # unscoped guard inverts the acceptance-severity rule.
+        message = step.joined()
+        if message.startswith("--- "):
+            self._section_start = len(self._report.steps)
+            self._section_title = message.strip("- ").strip()
+        self._record(step, Outcome.PASS, message)
 
     def _do_wait(self, step: Step) -> None:
         try:
@@ -731,22 +748,56 @@ class ScriptRunner(QObject):
         Counts **FAIL and ERROR, not BLOCKED** — a verb refused for want of a
         setting has not established that anything is wrong with the rig.
         """
-        failed = [
-            r for r in self._report.steps if r.outcome in (Outcome.FAIL, Outcome.ERROR)
+        # SCOPED TO THE CURRENT SECTION, and that scope is the fix.
+        #
+        # This scanned the ENTIRE transcript, which inverts the rule the whole
+        # acceptance run is graded by. `docs/testing.md`'s severity table exists
+        # to say that a UX failure is recorded and **non-blocking** — and §D
+        # ("dialogs open and close; annoying when wrong, not a claim about a
+        # disc") is UX, sits before §E's guard, and contributes 20 steps. So one
+        # dialog-plumbing FAIL in §D made the §E guard abort, skipping every
+        # remaining ARCHIVAL section: six hours of drive time yielding no
+        # archival evidence, on the strength of a failure the release bar says
+        # to ignore.
+        #
+        # The scope matches what both call sites' own messages claim. L211 says
+        # "the installed ripper is not the build the handshake record names";
+        # L341 says "the disc was never identified". Each is a statement about
+        # ITS OWN section's precondition, not about the run so far.
+        #
+        # Earlier failures are still COUNTED AND REPORTED, never dropped — an
+        # elision that goes unmentioned reads as an absence. They just do not
+        # abort.
+        start = getattr(self, "_section_start", 0)
+        section = self._report.steps[start:]
+        failed = [r for r in section if r.outcome in (Outcome.FAIL, Outcome.ERROR)]
+        earlier = [
+            r
+            for r in self._report.steps[:start]
+            if r.outcome in (Outcome.FAIL, Outcome.ERROR)
         ]
+        where = getattr(self, "_section_title", "") or "the run so far"
+        earlier_note = (
+            f" ({len(earlier)} earlier failure(s) outside this section are "
+            "recorded and deliberately not grounds to abort — see the "
+            "acceptance-severity rule)"
+            if earlier
+            else ""
+        )
         if not failed:
             self._record(
                 step,
                 Outcome.PASS,
-                f"no failures in the {len(self._report.steps)} step(s) so far — "
-                "continuing",
+                f"no failures in the {len(section)} step(s) of {where!r} — "
+                f"continuing{earlier_note}",
             )
             return
         first = failed[0]
         detail = (
-            f"{len(failed)} step(s) have failed; the first was L{first.line_no} "
-            f"({first.source!r}: {first.detail}). "
+            f"{len(failed)} step(s) have failed in {where!r}; the first was "
+            f"L{first.line_no} ({first.source!r}: {first.detail}). "
             + (step.joined() or "stopping rather than spending the run on it")
+            + earlier_note
         )
         self._record(step, Outcome.PASS, detail)
         self.stop(detail)
@@ -1654,6 +1705,160 @@ class ScriptRunner(QObject):
             "(no status has been set yet)",
         )
 
+    def _do_expect_rip_complete(self, step: Step) -> None:
+        """Assert the last rip FINISHED, read from the ripper's own log.
+
+        **The assertion `expect-status Done` should always have been.** On
+        2026-09-03 section N — ARCHIVAL, *"the accuracy claim itself"* — failed
+        while its rip was fine: 14 of 14 tracks written, ``Ripping errors: 0``,
+        completion footer intact, ``secure re-read genuinely exercised: YES``.
+        The step failed because the status line read *"Read stability: tracks 3,
+        4, 5 still didn't read identically even after an automatic re-rip"*, and
+        that sentence does not contain the word "Done".
+
+        The product is right and the assertion was wrong.
+        :mod:`platterpus.ui.rip_progress` deliberately overwrites the completion
+        line with the stability summary, because a 2026-07-28 audit found the
+        unattended user being told *"all tracks ripped cleanly"* while the window
+        said a track never read reproducibly. `expect-status Done` therefore
+        conflates **finished** with **finished clean**, and on a disc holding one
+        track that will not converge it can only ever report the second.
+
+        **The fix is not a looser match.** A loosened assertion with a confident
+        comment is worse than no assertion — so this does not accept "Done or a
+        warning"; it asserts a different and stronger proposition, against the
+        artifact rather than the display: the *ripper's own* completion record.
+        That is `CLAUDE.md`'s *assert against the source artifact* applied to the
+        acceptance script, and it makes the check disc-independent, which
+        `expect-status Done` could never be.
+
+        **Every answer here is tri-state.** A log with no completion footer
+        reports NOT DETERMINED and FAILS: an absence is a fact about the capture
+        before it is a fact about the rip, and it is never a pass.
+
+        **What it deliberately does NOT grade: read instability.** A track whose
+        re-reads disagree is a fact about the *disc*, already surfaced three other
+        ways (the status line, `rig-check`'s paranoia row, and the per-track
+        verdict in the EAC-compatible log, which since 0.6.35 no longer stamps
+        such a track ``Copy OK``). Grading it here would make the acceptance run
+        fail on an ordinary CD, which the script's own header promises it accepts.
+        It is *counted and reported* in the detail either way, because a fact
+        dropped silently reads as a fact absent.
+
+        Floors, so this cannot pass by finding nothing: a log must exist, it must
+        carry at least one track, and its own tally must agree with itself.
+        """
+        # Imported here rather than at module scope: the ui-script layer is
+        # otherwise free of parser imports, and this is the one handler that
+        # needs the type. A lazy import keeps that boundary while still giving
+        # mypy something better than `Any` to narrow against.
+        from platterpus.parsers.rip_log import RipLog
+
+        parsed = getattr(self._window, "_last_rip_log", None)
+        requested = getattr(self, "_rip_log_when_requested", _NO_RIP_REQUESTED)
+        if requested is not _NO_RIP_REQUESTED and parsed is requested:
+            self._record(
+                step,
+                Outcome.FAIL,
+                "no rip has finished since this section asked for one — the "
+                "window still holds the SAME parsed log it held when `rip` ran, "
+                "so grading it would report a previous section's rip as this "
+                "one's. `rip` can be refused (no disc, Start disabled, a rip "
+                "already running) and leave that field untouched.",
+            )
+            return
+        if not isinstance(parsed, RipLog):
+            self._record(
+                step,
+                Outcome.FAIL,
+                "no rip log has been parsed in this session, so there is no "
+                "completion record to read — this step reports the state it "
+                "found rather than passing on an empty room. Put it after a "
+                "`rip` and its `wait-for-rip`.",
+            )
+            return
+
+        problems: list[str] = []
+
+        completed = parsed.rip_completed
+        if completed is None:
+            problems.append(
+                "the log carries no completion footer, so whether the rip "
+                "finished is NOT DETERMINED — which is never a pass"
+            )
+        elif not completed:
+            reason = parsed.rip_completed_reason.strip()
+            problems.append(
+                "the log says the rip did not complete"
+                + (f" ({reason})" if reason else " and gives no reason")
+            )
+
+        if parsed.interrupted_at:
+            problems.append(
+                f"the ripper recorded an interruption at {parsed.interrupted_at!r}"
+            )
+        if parsed.log_truncated:
+            problems.append("the log is truncated — the record itself is incomplete")
+        if parsed.last_track_incomplete:
+            problems.append("the last track's block is incomplete in the log")
+
+        # FLOORS. A completion footer on a log with no tracks is not a rip.
+        if not parsed.tracks:
+            problems.append("the log carries no track blocks at all")
+        # THE DENOMINATOR IS THE DISC, NOT THE SELECTION — measured, from seven
+        # real rips in the 2026-09-03 bundle. cyanrip's footer reads
+        # ``Rip completed:  yes (2 of 14 tracks)`` for a two-track selection off
+        # a fourteen-track disc, so ``tracks == total`` is TRUE ONLY for a
+        # whole-disc rip. The first version of this handler asserted exactly
+        # that, which would have failed all five partial-rip sites it was added
+        # to — turning five passing ARCHIVAL sections into five failures, worse
+        # than the defect it was written for.
+        #
+        # The invariant that actually holds, on all seven of those rips, is that
+        # the footer's completed count equals the number of track blocks the log
+        # carries: the record agrees with itself. That is disc-independent AND
+        # selection-independent, which is the property this verb exists to have.
+        done, total = parsed.rip_completed_tracks, parsed.rip_completed_total
+        if total is not None and total < 1:
+            problems.append(f"the log's own disc total is {total}")
+        if done is not None and done < 1:
+            problems.append(f"the log says {done} tracks completed")
+        if done is not None and done != len(parsed.tracks):
+            problems.append(
+                f"the log claims {done} track(s) completed but carries "
+                f"{len(parsed.tracks)} track block(s) — the record disagrees "
+                "with itself"
+            )
+        if done is not None and total is not None and done > total:
+            problems.append(f"the log tallies {done} completed of a {total}-track disc")
+
+        # The disc-quality census: reported, never graded. Tri-state per track,
+        # so "we did not measure convergence" cannot render as "it converged".
+        unstable = [
+            t.number for t in parsed.tracks if t.secure_rerip_converged is False
+        ]
+        unmeasured = sum(1 for t in parsed.tracks if t.secure_rerip_converged is None)
+        census = f"{len(parsed.tracks)} track(s) in the log"
+        if unstable:
+            census += (
+                f"; read stability: track(s) {', '.join(str(n) for n in unstable)} "
+                "did NOT converge — a property of the disc, reported here and "
+                "deliberately not graded by this step"
+            )
+        elif unmeasured == len(parsed.tracks):
+            census += "; convergence not measured (no secure re-read in this rip)"
+        else:
+            census += "; every measured track converged"
+
+        if problems:
+            self._record(step, Outcome.FAIL, "; ".join(problems) + f" [{census}]")
+            return
+        self._record(
+            step,
+            Outcome.PASS,
+            f"the ripper's own log records the rip as complete — {census}",
+        )
+
     def _do_rip(self, step: Step) -> None:
         """Press Start.
 
@@ -1679,6 +1884,30 @@ class ScriptRunner(QObject):
         product — *did I check the preconditions where the thing HAPPENS, or
         where it was scheduled?*
         """
+        # REMEMBER WHICH LOG WAS CURRENT WHEN THIS SECTION ASKED FOR A RIP —
+        # TAKEN HERE, AHEAD OF EVERY REFUSAL PATH, AND THAT PLACEMENT IS THE FIX.
+        #
+        # `expect-rip-complete` reads `window._last_rip_log`, which is
+        # SESSION-scoped: it holds the previous section's log until a new rip
+        # finishes and replaces it. Without a freshness key the verb reports a
+        # green completion for a rip that never started — the previous
+        # section's, in a transcript claiming this one's. That is the "satisfied
+        # by the WRONG thing" shape, and strictly worse than the
+        # `expect-status Done` it replaced.
+        #
+        # The first version of this marker sat on the SUCCESS path, one line
+        # above `QTimer.singleShot`. That is precisely backwards: the case the
+        # guard exists for is a rip that was REFUSED — no disc, Start disabled,
+        # a rip already running — and on every one of those paths the marker was
+        # never taken, so the guard could not fire. Caught by the test written
+        # for it, which is the only reason it is not in the release.
+        #
+        # Keyed on OBJECT IDENTITY rather than a bool: "has a rip finished since
+        # I asked for one" is a fact about a specific log, and a flag scoped to
+        # the runner would need resetting at a moment no call site owns — the
+        # `_signalled` defect `CLAUDE.md` records under *when a flag needs a
+        # reset, ask whether it wanted to be an identity comparison*.
+        self._rip_log_when_requested = getattr(self._window, "_last_rip_log", None)
         controls = getattr(self._window, "_rip_controls", None)
         if controls is None:
             self._record(step, Outcome.ERROR, "no rip controls on the window")

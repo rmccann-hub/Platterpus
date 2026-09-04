@@ -58,4 +58,4 @@ should be reported to those projects.
 
 ---
 
-*Last updated for Platterpus v0.6.36.*
+*Last updated for Platterpus v0.6.37.*

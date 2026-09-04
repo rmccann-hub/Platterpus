@@ -399,10 +399,29 @@ rip
 wait-for-rip 21600
 snapshot afterfullrip
 screenshot afterfullrip
-# 'Done' is measured, not guessed: the status line after a clean rip reads
-# 'Done - all N tracks ripped cleanly, no read errors. AccurateRip: ...'.
-# Matching one disc-agnostic word keeps this working on any CD.
-expect-status Done
+# ASSERT THE RIPPER'S RECORD, NOT THE LABEL ON SCREEN.
+#
+# This was `expect-status Done` for most of this file's life, under a comment
+# claiming that "matching one disc-agnostic word keeps this working on any CD".
+# Every word of that was wrong in the way that is hardest to see: the WORD is
+# disc-agnostic, and the LINE is not. "Done - all N tracks ripped cleanly" is
+# what the status reads after a CLEAN rip. On a disc holding one track whose
+# re-reads disagree, `ui/rip_progress.py` deliberately overwrites that line with
+# the read-stability warning -- because a 2026-07-28 audit found the unattended
+# user, the notification's whole audience, being told "all tracks ripped
+# cleanly" while the window said a track never read reproducibly.
+#
+# So the app is right and the assertion was wrong, and it cost section N -- an
+# ARCHIVAL section -- on 2026-09-03, on a rip that wrote all 14 tracks with
+# `Ripping errors: 0` and an intact completion footer.
+#
+# The replacement is NOT a looser match. `expect-rip-complete` asserts a
+# different and stronger proposition against a different witness: the parsed
+# rip log's own completion footer, track tally and truncation flags. Tri-state,
+# so a missing footer reports NOT DETERMINED and fails. Read instability is
+# counted and reported by that verb and deliberately not graded -- it is a fact
+# about the disc, which `rig-check` and the EAC-compatible log both carry.
+expect-rip-complete
 
 # --- G. POST-RIP VERIFICATION ----------------------------------------------
 # `rig-check` is the seam check the cyanrip fork asked for, reachable both as a
@@ -442,6 +461,15 @@ snapshot afterrigcheck
 # survives; it also exercises free_album_folder_templates, which nothing else
 # here reaches.
 
+# EVERY RIP IN THIS FILE NOW ASSERTS THAT IT FINISHED, and until 0.6.37 five of
+# the seven did not. H, J, K1, K2 and K3 ripped a disc and then asserted nothing
+# about completion at all: they snapshot, screenshot and run `rig-check`, whose
+# only completion-adjacent row (`parser/interrupted`) is INFO and deliberately
+# not graded. So a rip that stopped halfway through would have been recorded as
+# a passing ARCHIVAL section -- the same failure as section F's timeout, which
+# graded a still-running rip as a finished one, one section earlier in this same
+# file. `expect-rip-complete` reads the log's own tally, so it holds on these
+# two-track rips exactly as on a whole-disc one.
 log --- H. re-rip the same title: the overwrite prompt must fire ---
 select-tracks 1-2
 album full acceptance: angle<bracket (run) (ripper)
@@ -450,6 +478,7 @@ answer-dialog click=new 120 Album already ripped
 wait-for-rip 3600
 snapshot afteroverwrite
 screenshot afteroverwrite
+expect-rip-complete
 
 # --- I. THE CANCEL PATH, AND THE ONLY HONEST PROOF OF IT — §T4 -------------
 # Cancel mid-track, not at a boundary — 90 seconds of reading gets us inside one.
@@ -505,6 +534,7 @@ rip
 wait-for-rip 3600
 snapshot afterrecovery
 screenshot afterrecovery
+expect-rip-complete
 rig-check
 
 # --- K. THE DERIVED FORMATS — the whole of Critical rule #4 ----------------
@@ -540,6 +570,7 @@ rip
 wait-for-rip 3600
 snapshot aftermp3
 screenshot aftermp3
+expect-rip-complete
 rig-check
 
 log --- K2. WavPack: the second lossless format ---
@@ -550,6 +581,7 @@ album derived wavpack (run) (ripper)
 rip
 wait-for-rip 3600
 snapshot afterwavpack
+expect-rip-complete
 rig-check
 
 log --- K3. WAV: raw PCM, no tags, no art - the UI must say so ---
@@ -561,6 +593,7 @@ rip
 wait-for-rip 3600
 snapshot afterwav
 screenshot afterwav
+expect-rip-complete
 rig-check
 
 log --- K4. back to FLAC, the archival master ---
@@ -654,7 +687,15 @@ rip
 wait-for-rip 21600
 snapshot aftersecurereread
 screenshot aftersecurereread
-expect-status Done
+# Same verb as section F, for the same reason, and THIS is the section that paid
+# for it: on 2026-09-03 `expect-status Done` failed here on a rip that had
+# completed cleanly, because three tracks on the disc will not converge and the
+# status line says so instead of saying "Done". See section F's note.
+#
+# T1's own pass criterion is `rig-check`'s paranoia row reporting "secure
+# re-read genuinely exercised: YES" -- which that run DID report. The section
+# substantively passed and failed on the wrong assertion.
+expect-rip-complete
 rig-check
 
 # --- P. §T3: THE CACHE PROBE, PROBE-ONLY ------------------------------------

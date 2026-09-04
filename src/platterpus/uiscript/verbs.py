@@ -280,6 +280,44 @@ _VERB_LIST: tuple[Verb, ...] = (
         "Overall progress bar) contains text, case-insensitively",
     ),
     Verb(
+        # `expect-rip-complete` — assert the rip FINISHED, from the ripper's own
+        # log rather than from a label on screen.
+        #
+        # **This verb exists because `expect-status Done` was the wrong
+        # assertion, and it cost an ARCHIVAL section on 2026-09-03.** §N's rip
+        # ran to the end, wrote all 14 tracks, reported `Ripping errors: 0` and
+        # an intact completion footer -- and the step failed, because the status
+        # line read *"Read stability: tracks 3, 4, 5 still didn't read
+        # identically even after an automatic re-rip"* and does not contain the
+        # word "Done".
+        #
+        # The product is RIGHT. `ui/rip_progress.py` deliberately overwrites the
+        # completion line with the stability summary, because a 2026-07-28 audit
+        # found the unattended user -- the notification's entire audience --
+        # being told "all tracks ripped cleanly" while the window said a track
+        # never read reproducibly. Two facts, one slot, and the more alarming
+        # one wins on purpose.
+        #
+        # So `expect-status Done` conflates *finished* with *finished clean*,
+        # and on any disc with a track that will not converge it can only ever
+        # report the second. The fix is not to loosen it -- a loosened assertion
+        # with a confident comment is worse than no assertion -- it is to assert
+        # the right proposition against the right witness: the parsed rip log,
+        # which is the provenance record, not a widget.
+        #
+        # Tri-state, like every provenance answer here: a log with no completion
+        # footer reports NOT DETERMINED and FAILS. Read instability is reported
+        # in the detail and is deliberately NOT a failure of this verb -- it is
+        # a fact about the disc, which `rig-check`'s paranoia row and the
+        # EAC-compatible log both already carry.
+        "expect-rip-complete",
+        0,
+        0,
+        "expect-rip-complete — assert the last rip FINISHED, read from the "
+        "ripper's own log (completion footer, track tally, no truncation) rather "
+        "than from the status line; read instability is reported, not graded",
+    ),
+    Verb(
         # `expect-refused` — the ONLY way a script can assert that validation
         # WORKED. `set` reports FAIL when the pure validator refuses a value, and
         # a refusal is the correct outcome for a bad input — so a script exercising

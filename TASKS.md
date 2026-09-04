@@ -21,6 +21,68 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
+## Acceptance-path review, 2026-09-04 — what an eight-lens sweep left open
+
+**Provenance of this list.** Eight parallel reviewers over the acceptance path,
+738 sites examined, 65 raw findings, then two adversarial verifiers per
+`BLOCKING` claim. **The verification is PARTIAL: 10 of the verifier agents died
+on an org spend limit**, so the `BLOCKING`/`NEXT-ROUND` split below is confirmed
+for some rows and merely claimed for others. Rows are marked. Nothing here is
+graded from an unverified claim.
+
+Fixed in the same session: the two `expect-status Done` sites, the five ARCHIVAL
+rips that asserted nothing about completion, the same two defects across the
+other four committed scripts, `securereread.txt`'s 10800 budget, `rig-check`'s
+SKIP-passes-as-zero, and `abort-if-failed`'s scope.
+
+- [ ] **`rig-check` has no subject identity — it grades the newest rip on the
+  MACHINE, not the rip its section made.** `[CONFIRMED BLOCKING]` The other half
+  of the finding whose floor was fixed. Discovery is newest-`.platterpus.json`
+  by mtime (`rip_compare`), and a rip that never started writes no report — so
+  §I's `rig-check` can grade §H's completed two-track rip as the *cancel*
+  evidence, and §N's can grade §K3's WAV rip as T1's. Seven ARCHIVAL sites.
+  Largely mitigated as a side effect of this session's work — `expect-rip-complete`
+  now precedes five of the seven, so a section whose rip did not happen fails
+  before `rig-check` runs — but mitigation is not the guarantee, and the two
+  uncovered sites are §G (whose subject is §F's rip, legitimately) and §I (whose
+  rip is *cancelled*, so completion is the wrong claim). The real fix is for
+  `rig-check` to be told which rip it is grading.
+- [ ] **§I is ARCHIVAL for "the log's completion footer" and nothing asserts the
+  footer.** `[CONFIRMED BLOCKING by 3 of 8 lenses]` Its only graded step is
+  `expect-status cancelled`, a substring match on a widget label — the same class
+  of defect as the `expect-status Done` this session removed, in the section
+  whose entire reason for existing is that a cancel once destroyed the log's
+  completion footer. **And the obvious fix is wrong**: measured from the bundle,
+  the cancelled rip's log reads `completed=True, 3 of 14, interrupted_at=None`,
+  so neither `expect-rip-complete` nor an inverse "expect-interrupted" verb
+  states §I's claim. What §I needs is an assertion that the RECORD is
+  well-formed — footer present with either verdict, not truncated, checksum
+  intact — which is a third proposition and a third verb.
+- [ ] **§N's stated T1 pass criterion is an `INFO` row that nothing grades.**
+  `[CLAIMED, verifier lost to the spend limit]` `docs/rig-scripts/README.md` says
+  a pass is `parser/paranoia` reporting *"secure re-read genuinely exercised:
+  YES"*; that row is INFO, so a rip where `-Z` did nothing passes §N.
+- [ ] **§E's identification gate passes on placeholder track rows**, so a disc
+  MusicBrainz cannot identify would proceed to rip under a wrong release.
+  `[CLAIMED]`
+- [ ] **`snapshot` is the one evidence verb with no floor** — 22 unfailable
+  PASSes; a snapshot that captured nothing reads like one that captured
+  everything. `[CLAIMED]`
+- [ ] **The acceptance header still advertises "4 to 6 hours"**, contradicted by
+  a measurement 370 lines below it in the same file. The T1 README claim was
+  corrected this session; this one was not.
+- [ ] **§B's archival claim is that settings reach cyanrip's argv, and every
+  assertion reads the in-memory `Config`** rather than the argv. `[CLAIMED]`
+- [ ] **`probe-ripper-wrapper` blocks the GUI thread for up to ~68s under a
+  docstring asserting it does not.** `[CLAIMED]` Squarely against the
+  never-block-the-GUI-thread rule if true; needs its own measurement.
+- [ ] **`report.json` drops 53% of the acceptance script's own source** under a
+  comment saying the cap "only ever fires on…". `[CLAIMED]` A silent truncation
+  reads as completeness.
+- [ ] **Nothing in the run's artifacts groups steps by section or carries the
+  severity classification the release bar is defined in terms of** — so grading
+  a run against `docs/testing.md`'s table is a manual join. `[CLAIMED]`
+
 ## From the 2026-09-03 acceptance bundle (2026-09-04)
 
 Three fixed in 0.6.35/0.6.36 (section-F budget, the EAC `Copy OK` over
@@ -2874,4 +2936,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.36.*
+*Last updated for Platterpus v0.6.37.*

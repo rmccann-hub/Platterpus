@@ -1117,7 +1117,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "preflight.py": 905,
     "read_speed_ladder.py": 367,
     "report_types.py": 667,
-    "rig_check.py": 773,
+    # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
+    # separates them from the SKIP one branch up. "Nothing was given to look
+    # at" and "a folder was given and holds no log" are different facts, and
+    # the comment is what stops the next reader collapsing them again — §G is
+    # ARCHIVAL and this exit code is its whole grade.
+    "rig_check.py": 796,
     "rip_addendum.py": 493,
     "rip_audit.py": 1216,
     "rip_compare.py": 1404,
@@ -1143,9 +1148,29 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ui/rip_progress.py": 1658,
     "ui/settings_dialog.py": 1303,
     "ui/track_table.py": 802,
-    "uiscript/runner.py": 2891,
+    # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
+    # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
+    # the comment is the load-bearing part twice over: the verb replaces
+    # `expect-status Done`, a claim about the DISC wearing a claim about the run,
+    # and its first two versions each carried a defect a reader would otherwise
+    # reintroduce (the completion footer counts against the disc, not the
+    # selection; and the freshness marker has to be taken ahead of `rip`'s
+    # refusal paths, not on its success path). The handler stays beside the one
+    # it replaces because a reader comparing the two needs them in one file, and
+    # the marker has to live in `_do_rip` because that is the step it is about.
+    # +43 on top of the earlier raise: `abort-if-failed` scoped to its own
+    # section, plus the section marker in `_do_log`. The comment carries the
+    # refutation as well as the fix — an adversarial reviewer showed the
+    # scenario first given for this was wrong, so the next reader needs to
+    # know the change rests on the harness not contradicting the release bar,
+    # not on a measured failure.
+    "uiscript/runner.py": 3120,
     "uiscript/script.py": 318,
-    "uiscript/verbs.py": 533,
+    # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
+    # closed vocabulary and its own docstring calls it the security boundary,
+    # so a verb declared anywhere else would defeat the file. The comment is
+    # most of the addition and stays with the entry it justifies.
+    "uiscript/verbs.py": 571,
     "update_install.py": 304,
     "verdict.py": 521,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,

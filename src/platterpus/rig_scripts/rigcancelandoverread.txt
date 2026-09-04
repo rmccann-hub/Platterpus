@@ -338,6 +338,7 @@ answer-dialog click=new 60 Album already ripped
 wait-for-rip 1800
 snapshot afterrecovery
 screenshot afterrecovery
+expect-rip-complete
 rig-check
 
 # --- F. Leave the rig as we found it ---------------------------------------

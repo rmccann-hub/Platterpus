@@ -37,7 +37,7 @@ product's gap invisible.
 
 ## The T1-only path: `securereread.txt`
 
-**T1 alone, about 2–2.5 hours.** Use this rather than the full file when the only
+**T1 alone, about 3 to 3½ hours — measured, not estimated.** This said *"about 2–2.5 hours"* until v0.6.37, and the script under it budgeted three hours for the wait. Both came from the same wrong model: a whole-disc pass on this rig is 50–70 minutes *without* the secure re-read, and uniform `-Z 2` reads every track at least twice. The 2026-09-03 run measured **3h05m** and **3h07m** for the two whole-disc uniform re-reads it did, and the section that allowed 10800s timed out at 10800.1s with a track still re-reading. Budget the afternoon, not the lunch break. Use this rather than the full file when the only
 thing outstanding is the whole-disc uniform secure re-read.
 
 ```sh
@@ -377,4 +377,4 @@ disappointment is still true. What we still do not know, said out loud so nobody
 the silence as a pass: whether 32 sectors is this drive's real cache, and which of the
 `Cache probe:` states a different drive would report.
 
-*Last updated for Platterpus v0.6.35.*
+*Last updated for Platterpus v0.6.37.*
