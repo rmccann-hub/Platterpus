@@ -121,6 +121,23 @@ SENT_LAPS: dict[str, str] = {
     "outbound/round-15-lap-07.md": (
         "b8dc1c9fe828cb02b440077a4e9cc863f9f66c79e2c367847b3e8521a50d6df3"
     ),
+    # Round 15 lap 9, sent BARE (no envelope — it carried no artifacts) and
+    # **peer-confirmed by their lap 10**, which is the strongest form this map
+    # takes: `HANDSHAKE-INBOUND-HELD: Your lap 9 … Nothing outstanding`, plus they
+    # quote `HANDSHAKE-VERDICT: OPEN` from its line 6, reproduce its digest
+    # `35b861f25abfa69c over 8`, and answer its §E1 at length. A lap the other side
+    # has read *back* to us is delivered by any reading.
+    #
+    # **It sat unrecorded for a full lap, which is the defect this map exists for
+    # arriving through the door marked *we fixed that*.** The rows above were added
+    # on 2026-09-04 with a comment saying "recording a send the moment it is
+    # confirmed is the cheap half of the fix" — and then lap 9's own confirmation
+    # arrived in the very next inbound file and was not recorded. Confirmation is an
+    # event in a document we file, so **reading an inbound lap is the moment to check
+    # what it confirms about our outbound**, not a thing to remember later.
+    "outbound/round-15-lap-09.md": (
+        "a5ac94148952fc50b4f7c73d571f918497b9e83f747d371ad4c76bd98de2d6b5"
+    ),
 }
 
 #: **The boundary this map records, and it was wrong in both directions in 48 hours.**
