@@ -1653,73 +1653,85 @@ def test_the_two_install_axes_are_never_both_true() -> None:
 def test_the_operators_instructions_agree_with_the_offer_they_will_actually_see() -> (
     None
 ):
-    """The third surface answering the same question — and it said the opposite.
+    """Every surface that tells an operator which cyanrip offer to take.
 
-    `docs/rig-scripts/README.md` is the page an operator reads before an
-    overnight run. Until v0.6.35 it said, of the cyanrip update check, to *"take
-    the offer only if it is a plain one-click install"* and that *"an offer that
-    warns you first is a build no closed round has reviewed."*
+    **Two surfaces, not one, and the second is the one that matters more.**
+    `docs/rig-scripts/README.md` is read before a run; the header of
+    `fullacceptance.txt` is read *inside the app*, by the person about to start
+    it. Both carried the same instruction and both had it backwards:
 
-    Both sentences are true. The instruction drawn from them is backwards, and
-    the reason is the same relation the two tests above pin in code: while a
-    round is OPEN, the pin the acceptance run demands **is** the build no closed
-    round has reviewed, so the offer the operator must accept is precisely the
-    warned one. The page told them to refuse the build section A then aborts for
-    the absence of — a full six-hour night lost at L165, four seconds in.
+        take the offer only if it is a plain one-click install. An offer that
+        WARNS you first is a build no closed round has reviewed, and section A
+        will refuse to run on it.
 
-    It was true when written. Between rounds `FORK_PIN` and `PIN_UNDER_REVIEW`
+    Every clause true except the conclusion. While a round is OPEN the pin the
+    acceptance run demands **is** the build no closed round has reviewed — that
+    is what "under review" means — so the offer to accept is exactly the warned
+    one, and section A asserts *that* build rather than refusing it. Following
+    either page ends the night at L165, four seconds in, with no drive time spent
+    and no evidence produced. It has now done that twice.
+
+    It was true when written: between rounds `FORK_PIN` and `PIN_UNDER_REVIEW`
     are one commit and there is no warned offer to refuse. It became false the
-    moment a round opened, which is the only time anyone reads the page — the
-    expire-silently shape `CLAUDE.md` names, arriving through a document instead
-    of through code.
+    moment a round opened — which is the only time anybody re-reads it.
 
-    So the page is held to the product rather than to a proofread: whatever the
-    producer emits for the pin the run demands, the instructions must name that
-    route. Asserted in both directions so it cannot be satisfied by finding
-    nothing — the page must contain the instruction block at all, and the branch
-    that applies must be the one it teaches.
+    **Fixed on both, and swept across both**, because a rule enforced at the
+    place it was learned is the failure `docs/testing.md` §5.o names: the README
+    was found first, and the acceptance header — the more consequential copy —
+    would have been left saying the opposite in the same release.
+
+    Held to the PRODUCT rather than to a proofread: whatever `ripper_offer` emits
+    for the pin under review, both surfaces must name that route. Asserted in
+    both branches so it cannot pass by finding nothing, and matched against
+    whitespace- and blockquote-normalised prose so an editor's re-flow cannot
+    silently defeat it (found exactly that way — `revert_probe.py` reported
+    VACUOUS twice before the normalisation was complete).
     """
-    page = DOCS / "rig-scripts" / "README.md"
-    raw = page.read_text(encoding="utf-8")
-    # Matched against whitespace-collapsed prose, never the raw bytes. The
-    # sentences below are wrapped inside a Markdown blockquote, so every one of
-    # them can be re-flowed by an editor without changing a word — and a matcher
-    # that a re-flow defeats is the reflowed-anchor failure `revert_probe.py`
-    # documents, arriving in the assertion instead of in the probe. Found here
-    # exactly that way: the first version of this test reported VACUOUS against a
-    # revert that restored the offending sentence across two lines.
-    text = " ".join(
-        # Blockquote markers survive a plain whitespace collapse, so a sentence
-        # wrapped inside `>` becomes "... and section A > refuses to run ..." and
-        # the matcher misses it. Strip the leading quote/list furniture per line
-        # BEFORE collapsing, or the reflow-proofing is only half done — which is
-        # how the second probe still reported VACUOUS after the first fix.
-        line.lstrip().lstrip(">").lstrip().lstrip("*-").strip()
-        for line in raw.splitlines()
-    ).split()
-    text = " ".join(text)
-    assert "Check for cyanrip updates" in text, (
-        f"{page.name} no longer carries the update-check instruction this test "
-        "exists to hold to the product — it was renamed or removed, and the "
-        "check has been passing by not looking"
-    )
-
+    surfaces = {
+        "docs/rig-scripts/README.md": DOCS / "rig-scripts" / "README.md",
+        "fullacceptance.txt": RIG_SCRIPTS / "fullacceptance.txt",
+    }
     offer = _offer_for(fork_source_pin_under_review())
-    if offer.installable_with_consent:
-        assert "Install it anyway" in text, (
-            "the app offers the build the acceptance run demands ONLY behind the "
-            "consent dialog, and the operator's page never names that button — "
-            "so a reader following it declines the build section A requires"
+
+    for name, path in surfaces.items():
+        raw = path.read_text(encoding="utf-8")
+        # Strip the leading quote / list / comment furniture per line BEFORE
+        # collapsing whitespace. A blockquote `>` or a script comment `#` survives
+        # a plain collapse and turns "section A refuses" into "section A > refuses",
+        # so half-done normalisation reads as a passing check.
+        text = " ".join(
+            " ".join(
+                line.lstrip().lstrip(">#").lstrip().lstrip("*-").strip()
+                for line in raw.splitlines()
+            ).split()
         )
-        assert "section A refuses to run on one" not in text, (
-            "the page still carries the unconditional refusal that cost the "
-            "2026-09-03 night; that sentence is only correct between rounds"
+        assert "Check for cyanrip updates" in text, (
+            f"{name} no longer carries the update-check instruction this test "
+            "exists to hold to the product — it was renamed or removed, and the "
+            "check has been passing by not looking"
         )
-    else:
-        assert "one-click" in text, (
-            "no round is reviewing a build, so the plain offer is the right one "
-            "and the page should say so"
-        )
+
+        if offer.installable_with_consent:
+            assert "Install it anyway" in text, (
+                f"{name}: the app offers the build the acceptance run demands "
+                "ONLY behind the consent dialog, and this page never names that "
+                "button — a reader following it declines the build section A "
+                "requires"
+            )
+            assert "section A refuses to run on one" not in text, (
+                f"{name} still carries the unconditional refusal that cost the "
+                "2026-09-03 night; that sentence is only correct between rounds"
+            )
+            assert "will refuse to run on it" not in text, (
+                f"{name} still carries the unconditional refusal in its other "
+                "wording — the two surfaces phrased the same wrong instruction "
+                "differently, which is why this asserts both shapes"
+            )
+        else:
+            assert "one-click" in text, (
+                f"{name}: no round is reviewing a build, so the plain offer is "
+                "the right one and the page should say so"
+            )
 
 
 #: Seconds a whole-disc rip needs when the secure re-read is active.
