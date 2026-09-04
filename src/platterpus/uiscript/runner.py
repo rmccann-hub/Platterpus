@@ -1654,6 +1654,127 @@ class ScriptRunner(QObject):
             "(no status has been set yet)",
         )
 
+    def _do_expect_rip_complete(self, step: Step) -> None:
+        """Assert the last rip FINISHED, read from the ripper's own log.
+
+        **The assertion `expect-status Done` should always have been.** On
+        2026-09-03 section N — ARCHIVAL, *"the accuracy claim itself"* — failed
+        while its rip was fine: 14 of 14 tracks written, ``Ripping errors: 0``,
+        completion footer intact, ``secure re-read genuinely exercised: YES``.
+        The step failed because the status line read *"Read stability: tracks 3,
+        4, 5 still didn't read identically even after an automatic re-rip"*, and
+        that sentence does not contain the word "Done".
+
+        The product is right and the assertion was wrong.
+        :mod:`platterpus.ui.rip_progress` deliberately overwrites the completion
+        line with the stability summary, because a 2026-07-28 audit found the
+        unattended user being told *"all tracks ripped cleanly"* while the window
+        said a track never read reproducibly. `expect-status Done` therefore
+        conflates **finished** with **finished clean**, and on a disc holding one
+        track that will not converge it can only ever report the second.
+
+        **The fix is not a looser match.** A loosened assertion with a confident
+        comment is worse than no assertion — so this does not accept "Done or a
+        warning"; it asserts a different and stronger proposition, against the
+        artifact rather than the display: the *ripper's own* completion record.
+        That is `CLAUDE.md`'s *assert against the source artifact* applied to the
+        acceptance script, and it makes the check disc-independent, which
+        `expect-status Done` could never be.
+
+        **Every answer here is tri-state.** A log with no completion footer
+        reports NOT DETERMINED and FAILS: an absence is a fact about the capture
+        before it is a fact about the rip, and it is never a pass.
+
+        **What it deliberately does NOT grade: read instability.** A track whose
+        re-reads disagree is a fact about the *disc*, already surfaced three other
+        ways (the status line, `rig-check`'s paranoia row, and the per-track
+        verdict in the EAC-compatible log, which since 0.6.35 no longer stamps
+        such a track ``Copy OK``). Grading it here would make the acceptance run
+        fail on an ordinary CD, which the script's own header promises it accepts.
+        It is *counted and reported* in the detail either way, because a fact
+        dropped silently reads as a fact absent.
+
+        Floors, so this cannot pass by finding nothing: a log must exist, it must
+        carry at least one track, and its own tally must agree with itself.
+        """
+        # Imported here rather than at module scope: the ui-script layer is
+        # otherwise free of parser imports, and this is the one handler that
+        # needs the type. A lazy import keeps that boundary while still giving
+        # mypy something better than `Any` to narrow against.
+        from platterpus.parsers.rip_log import RipLog
+
+        parsed = getattr(self._window, "_last_rip_log", None)
+        if not isinstance(parsed, RipLog):
+            self._record(
+                step,
+                Outcome.FAIL,
+                "no rip log has been parsed in this session, so there is no "
+                "completion record to read — this step reports the state it "
+                "found rather than passing on an empty room. Put it after a "
+                "`rip` and its `wait-for-rip`.",
+            )
+            return
+
+        problems: list[str] = []
+
+        completed = parsed.rip_completed
+        if completed is None:
+            problems.append(
+                "the log carries no completion footer, so whether the rip "
+                "finished is NOT DETERMINED — which is never a pass"
+            )
+        elif not completed:
+            reason = parsed.rip_completed_reason.strip()
+            problems.append(
+                "the log says the rip did not complete"
+                + (f" ({reason})" if reason else " and gives no reason")
+            )
+
+        if parsed.interrupted_at:
+            problems.append(
+                f"the ripper recorded an interruption at {parsed.interrupted_at!r}"
+            )
+        if parsed.log_truncated:
+            problems.append("the log is truncated — the record itself is incomplete")
+        if parsed.last_track_incomplete:
+            problems.append("the last track's block is incomplete in the log")
+
+        # FLOORS. A completion footer on a log with no tracks is not a rip.
+        if not parsed.tracks:
+            problems.append("the log carries no track blocks at all")
+        done, total = parsed.rip_completed_tracks, parsed.rip_completed_total
+        if total is not None and total < 1:
+            problems.append(f"the log's own track total is {total}")
+        if done is not None and total is not None and done != total:
+            problems.append(f"the log tallies {done} of {total} tracks completed")
+
+        # The disc-quality census: reported, never graded. Tri-state per track,
+        # so "we did not measure convergence" cannot render as "it converged".
+        unstable = [
+            t.number for t in parsed.tracks if t.secure_rerip_converged is False
+        ]
+        unmeasured = sum(1 for t in parsed.tracks if t.secure_rerip_converged is None)
+        census = f"{len(parsed.tracks)} track(s) in the log"
+        if unstable:
+            census += (
+                f"; read stability: track(s) {', '.join(str(n) for n in unstable)} "
+                "did NOT converge — a property of the disc, reported here and "
+                "deliberately not graded by this step"
+            )
+        elif unmeasured == len(parsed.tracks):
+            census += "; convergence not measured (no secure re-read in this rip)"
+        else:
+            census += "; every measured track converged"
+
+        if problems:
+            self._record(step, Outcome.FAIL, "; ".join(problems) + f" [{census}]")
+            return
+        self._record(
+            step,
+            Outcome.PASS,
+            f"the ripper's own log records the rip as complete — {census}",
+        )
+
     def _do_rip(self, step: Step) -> None:
         """Press Start.
 

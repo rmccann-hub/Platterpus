@@ -73,6 +73,7 @@ text is taken verbatim as one value.
 | `wait-for-rip` | 1 | ready | wait-for-rip <seconds> — wait for the rip to finish, up to a timeout |
 | `cancel-rip` | 0 | ready | cancel-rip — cancel a rip in progress |
 | `expect-status` | 1+ (rest of line) | ready | expect-status <text> — assert the rip status line (the one under the Overall progress bar) contains text, case-insensitively |
+| `expect-rip-complete` | 0 | ready | expect-rip-complete — assert the last rip FINISHED, read from the ripper's own log (completion footer, track tally, no truncation) rather than from the status line; read instability is reported, not graded |
 | `expect-refused` | 2+ (rest of line) | ready | expect-refused <setting> <value> — assert the validator REFUSES this value and leaves the setting unchanged (the pass condition is a refusal) |
 | `expect-ripper-under-review` | 0 | ready | expect-ripper-under-review — assert the installed cyanrip is the build the handshake record names: the build under review while a round is open, and the approved production pin between rounds (run a `cyanrip --version` first) |
 | `probe-ripper-wrapper` | 0 | ready | probe-ripper-wrapper — time the host-exported ripper wrapper, the container entry and the in-container binary to find which one fails to exit. Records the verdict; never fails the run |
@@ -567,6 +568,15 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-status <text> \u2014 assert the rip status line (the one under the Overall progress bar) contains text, case-insensitively"
+    },
+    {
+      "name": "expect-rip-complete",
+      "min_args": 0,
+      "max_args": 0,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-rip-complete \u2014 assert the last rip FINISHED, read from the ripper's own log (completion footer, track tally, no truncation) rather than from the status line; read instability is reported, not graded"
     },
     {
       "name": "expect-refused",
