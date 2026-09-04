@@ -1647,3 +1647,88 @@ def test_the_two_install_axes_are_never_both_true() -> None:
         assert not (offer.auto_installable and offer.installable_with_consent), (
             f"{commit} is marked both costless and consequential"
         )
+
+
+#: Seconds a whole-disc rip needs when the secure re-read is active.
+#:
+#: **Measured, not chosen.** The 2026-09-03 hardware run timed out at
+#: `10800.1s` with `"Re-ripping track 5 to secure it - 43% - about 1m 50s left in
+#: re-read 2"` still on the status line: roughly 3h02m of work against a 3h
+#: budget. Section N already used 21600 for the same workload, so this is that
+#: number, and the margin is deliberate — the cost of over-budgeting is an
+#: unattended run finishing early, and the cost of under-budgeting is four
+#: cascading failures and no §H evidence.
+_SECURE_REREAD_BUDGET_S: Final[int] = 21600
+
+
+def test_every_whole_disc_rip_is_budgeted_for_a_secure_re_read() -> None:
+    """**The 2026-09-03 cascade, as a standing check.**
+
+    Four of that run's five failures were one stale number.
+    `fullacceptance.txt:366` waited `10800` on a `select-tracks all` rip; line 621
+    waited `21600` on the same workload. Both do a whole-disc secure re-read —
+    `secure_rerip_matches` **defaults to 2** (`config.py`), so cyanrip is invoked
+    `-Z 2 -r 3` for both, confirmed from the run's own rip log.
+
+    The budget's comment reasoned from *"a full disc on this hardware is 50-70
+    minutes"*, which is true of a rip **without** the re-read. So the number was
+    not stale in the ordinary sense — it was derived from a wrong model of what
+    the step does, and no amount of re-measuring the wrong thing would have
+    caught it.
+
+    What followed is why this is not a UX nit: the status was not `Done` because
+    the rip was still running, the next `rip` collided with the live one, and the
+    overwrite prompt §H exists to raise never appeared. **One number, four
+    failures, and a section that produced no evidence.**
+
+    The rule is derived from the script rather than hard-coded per line: a
+    `wait-for-rip` whose most recent `select-tracks` is `all` must budget for the
+    re-read. Partial rips (1-2 tracks) legitimately use less.
+    """
+    text = ACCEPTANCE.read_text(encoding="utf-8")
+    selecting_all = False
+    checked = 0
+    offenders: list[str] = []
+    for number, raw in enumerate(text.splitlines(), start=1):
+        line = raw.strip()
+        if line.startswith("#"):
+            continue
+        if line.startswith("select-tracks "):
+            selecting_all = line.split(None, 1)[1].strip() == "all"
+        match = re.match(r"wait-for-rip\s+(\d+)", line)
+        if match is None or not selecting_all:
+            continue
+        checked += 1
+        budget = int(match.group(1))
+        if budget < _SECURE_REREAD_BUDGET_S:
+            offenders.append(
+                f"L{number}: wait-for-rip {budget} follows `select-tracks all`, "
+                f"but a whole-disc rip does a secure re-read and needs "
+                f"{_SECURE_REREAD_BUDGET_S}"
+            )
+
+    assert checked >= 2, (
+        f"only {checked} whole-disc rips found; the script is expected to have at "
+        f"least two (sections F and N). If they have been renamed or removed, this "
+        f"check is measuring almost nothing."
+    )
+    assert not offenders, "\n  ".join(
+        ["a whole-disc rip is under-budgeted:", *offenders]
+    )
+
+
+def test_the_secure_re_read_is_on_by_default_which_is_what_makes_that_true() -> None:
+    """The premise the check above rests on, asserted rather than assumed.
+
+    If `secure_rerip_matches` ever defaulted to 0, a whole-disc rip would NOT
+    re-read, the budget could safely drop, and the check above would be enforcing
+    a cost nobody pays. It is the load-bearing fact, so it gets its own assertion
+    — and if it changes, this fails and points at the reasoning instead of
+    leaving a mysterious 6-hour wait behind.
+    """
+    from platterpus.config import Config
+
+    assert Config().secure_rerip_matches >= 2, (
+        "secure_rerip_matches no longer defaults to a re-reading value, so the "
+        "whole-disc budget above may be enforcing time that is never spent"
+    )
