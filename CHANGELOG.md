@@ -11,7 +11,144 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.37] — 2026-09-04
+
+### Fixed
+- **`rig-check` passed section G having read no log at all.** §G is ARCHIVAL for
+  one stated reason — *"the seam check and the rip's own log; the log **is** the
+  provenance record"* — and the acceptance script grades it with nothing but bare
+  `rig-check`. `Manifest.failed` is `any(status == FAIL)` and the entry point
+  returns `1 if manifest.failed else 0`, while a missing ripper log emitted
+  `SKIP`. So an archival section passed on a rip that produced no provenance
+  record. It has a measured realisation: after the 2026-09-03 section-F timeout
+  there was no report for §F yet, so §G's `rig-check` either read a *previous
+  session's* rip or found nothing — and returned 0 either way.
+  The fix separates two facts `SKIP` was rendering identically. *"Nothing was
+  given to look at"* stays a skip — promoting that would make every `rig-check`
+  without an album folder a failure. *"I was given a folder and it holds no
+  ripper log"* is the finding, and is now `FAIL`. Both directions are tested.
+- **`abort-if-failed` is now scoped to its own section.** It scanned the whole
+  transcript, so the §E guard counted failures from §A–§D — and §D is graded
+  `UX`, which the release bar declares non-blocking. Both real call sites'
+  messages are statements about their *own* section's precondition (*"the
+  installed ripper is not the build the handshake record names"*, *"the disc was
+  never identified"*), and the scope now matches that. Earlier failures are still
+  counted and reported in the guard's detail, just not grounds to abort.
+  **The scenario I first gave for this was refuted, and the fix stands on
+  narrower ground.** An adversarial reviewer showed, with citations, that (a) two
+  of the three §D triggers I named are unreachable — `screenshot` fails only on
+  an empty top-level list, which cannot happen while a window is up, and
+  `cancel`'s FAIL branch fires only when *no* dialog is open; (b) a leftover
+  modal from §D is caught 23 lines later by §E's own `expect-dialog none`, which
+  is inside §E and still aborts under the new scope; (c) `docs/testing.md` already
+  says a UX failure sharing a root cause with an archival one *is* archival; and
+  (d) on the 2026-09-03 run all of §D passed, so this never fired. So this is not
+  a defect that cost anything measured. It is kept because a harness that can
+  abort a run on a failure the release bar calls non-blocking contradicts the
+  rule the run is graded by — and the scoped form is what both call sites already
+  claim to do.
+
+- **Two defects in `expect-rip-complete` itself, caught by review before any of
+  it reached hardware.** Both are recorded because the fix is only as good as
+  the reasoning next to it:
+  - **The completion footer counts against the DISC, not the selection.** Real
+    logs read `Rip completed:  yes (2 of 14 tracks)` for a two-track selection
+    off a fourteen-track disc — measured across all seven rips in the 2026-09-03
+    bundle. The first version asserted `completed == disc total`, true only for a
+    whole-disc rip, and it had been added to five partial-rip sites, every one of
+    them ARCHIVAL. It would have converted five *passing* sections into five
+    failures — worse than the defect it was written for, and invisible until six
+    hours of drive time had been spent. The invariant that actually holds on all
+    seven is that the footer's completed count equals the number of track blocks
+    the log carries: the record agrees with itself, disc- and
+    selection-independent.
+  - **It graded the PREVIOUS section's rip when this section's never started.**
+    `window._last_rip_log` is session-scoped, and `rip` has three refusal paths
+    that leave it untouched — so a green completion could be reported for a rip
+    that did not happen. Now keyed on the log's object **identity** at the moment
+    `rip` ran, taken **ahead of every refusal path**: the first version of that
+    marker sat on the success path, which is exactly backwards, since the case
+    the guard exists for is a *refused* rip. Identity rather than a flag, because
+    a bool would need resetting at a moment no call site owns.
+
+### Added
+- **`expect-rip-complete` — the assertion `expect-status Done` should always have
+  been.** Asserts the last rip *finished*, read from the ripper's own log
+  (completion footer, self-consistent track tally, no truncation, no recorded
+  interruption) instead of from a label on screen. Tri-state: a log with no
+  completion footer reports **not determined** and fails, because an absence is a
+  fact about the capture before it is a fact about the rip.
+  Read instability is **counted and reported, deliberately not graded** — a track
+  whose re-reads disagree is a fact about the *disc*, already carried by the
+  status line, `rig-check`'s paranoia row, and the per-track verdict in the
+  EAC-compatible log. Grading it here would fail an acceptance run on an ordinary
+  CD, which the scripts' own headers promise to accept.
+
+### Fixed
+- **An ARCHIVAL acceptance section failed on a rip that was fine.** Section N —
+  *"T1, the whole-disc uniform secure re-read: the accuracy claim itself"* —
+  failed on 2026-09-03 at `expect-status Done`, on a rip that wrote all 14 tracks
+  with `Ripping errors: 0`, an intact completion footer, and `rig-check` reporting
+  *secure re-read genuinely exercised: **YES***. It failed because three tracks on
+  that disc will not converge, so the status line carried the read-stability
+  warning instead of the word "Done".
+  **The app is right.** `ui/rip_progress.py` overwrites the completion line with
+  that warning on purpose — a 2026-07-28 audit found the unattended user being
+  told *"all tracks ripped cleanly"* while the window said a track never read
+  reproducibly. So `expect-status Done` conflates *finished* with *finished
+  clean*, and on such a disc can only ever report the second. It is not fixed by a
+  looser match — a loosened assertion with a confident comment is worse than no
+  assertion — but by asserting a stronger proposition against the artifact.
+  The comment that stood beside it is worth quoting, because it is the shape this
+  project keeps paying for: *"matching one disc-agnostic word keeps this working
+  on any CD."* The **word** is disc-agnostic. The **line** is not.
+- **Five of the seven rips in the acceptance script asserted nothing about
+  whether they finished — and all five of those sections are ARCHIVAL.** H, J,
+  K1, K2 and K3 ripped, snapshotted, screenshotted and ran `rig-check`, whose only
+  completion-adjacent row (`parser/interrupted`) is `INFO` and deliberately not
+  graded. A rip that stopped halfway would have been recorded as a passing
+  archival section — the same defect as section F's timeout, which graded a
+  still-running rip as a finished one, one section earlier in the same file.
+- **The same two defects in the other four committed rig scripts**, swept rather
+  than fixed where they were found (`docs/testing.md` §5.o). `securereread.txt`
+  was the worst and the most dangerous, being the script the operator's page
+  actually recommends for this exact test: it carried **both** `wait-for-rip
+  10800` — the same under-budget number — and `expect-status Done`. Its comment
+  claimed *"10800 is the runner's cap"*, which has not been true since the cap
+  became six hours, and then reasoned from that stale ceiling to a budget it
+  described in the same paragraph as half the work ("uniform mode roughly doubles
+  a pass measured at up to 2h45m" → three hours). `police-rerip.txt`,
+  `rigcancelandoverread.txt` and `round08joint.txt` each gained the completion
+  assertion their rip never had.
+- **`docs/rig-scripts/README.md` under-estimated the T1 run by an hour** — *"about
+  2–2.5 hours"* against two measured whole-disc uniform re-reads of **3h05m** and
+  **3h07m**. Same wrong model as the budget: 50–70 minutes is a whole-disc pass
+  *without* the re-read.
+
+
 ### Changed
+- **Eight read-only GitHub MCP tools added to `.claude/settings.json`'s permission
+  allowlist**, so CI-watching and release verification stop interrupting an
+  unattended run: `actions_list`, `pull_request_read`, `actions_get`,
+  `get_job_logs`, `get_release_by_tag`, `list_releases`, `get_commit`,
+  `get_check_run` — about 400 calls across 50 recent sessions. Each was checked
+  against its **loaded schema** rather than its name, because a name is not a
+  contract: `pull_request_read`'s `method` is an enum of nine `get_*` values with
+  no mutator, and every mutating Actions operation lives under the separate
+  `actions_run_trigger` tool, which is deliberately **not** allowlisted — nor are
+  `merge_pull_request`, `create_pull_request` or `update_pull_request`.
+  **No `Bash` pattern was added, and the reason is the useful half of the
+  result.** 74% of measured command invocations already auto-allow and need no
+  rule; of the rest, `python3`/`python`/`bash` (3,034 calls) are arbitrary code
+  execution, the mutating half of `git` (489) writes, `ruff format` rewrites files
+  and `ruff check *` admits `--fix`, and `awk` (79) has `system()`. Two candidates
+  were prepared and dropped: `Bash(mypy *)` because `--config-file` with a
+  `plugins = [...]` key imports and executes arbitrary Python in-process
+  (verified in the installed mypy 2.3.1 source), and the exact forms
+  `Bash(mypy)` / `Bash(ruff check src tests)` because every real invocation
+  carries `2>&1`, so they would match **nothing** — a rule that cannot fire is
+  decoration, and widening it re-admits `--fix`.
+  `permissions.deny`, `defaultMode` and the media-guard hook are untouched.
 - **Round 15 lap 6 finalised on `0.6.36`.** The lap as first written named
   `0.6.35` and pointed `HANDSHAKE-OUR-PIN` at that release's commit; both moved
   when `0.6.36` superseded it an hour later. It now fixes the app half of round 15
@@ -12263,7 +12400,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.36...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.37...HEAD
+[0.6.37]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.36...v0.6.37
 [0.6.36]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.35...v0.6.36
 [0.6.35]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.34...v0.6.35
 [0.6.34]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.33...v0.6.34
@@ -12387,4 +12525,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.36.*
+*Last updated for Platterpus v0.6.37.*

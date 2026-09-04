@@ -11,6 +11,95 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-04 (later) — the fix had two defects, and the review found them first
+
+**One sentence: `expect-status Done` was the wrong assertion, and the verb
+written to replace it shipped two defects of its own inside forty minutes — both
+caught by an eight-lens review before either reached hardware.**
+
+### The blocker
+
+Section N of the acceptance run — ARCHIVAL, *"the accuracy claim itself"* —
+failed on 2026-09-03 on a rip that was fine: 14 of 14 tracks, `Ripping errors:
+0`, completion footer intact, `rig-check` reporting *secure re-read genuinely
+exercised: **YES***. It failed at `expect-status Done`, because three tracks on
+that disc will not converge and the status line says so instead of "Done".
+
+The app is right. `ui/rip_progress.py` overwrites the completion line with the
+stability warning deliberately — a 2026-07-28 audit found the unattended user
+being told *"all tracks ripped cleanly"* while the window said a track never read
+reproducibly. So the assertion conflated **finished** with **finished clean**.
+
+The comment that stood beside it is the lesson in one line: *"matching one
+disc-agnostic word keeps this working on any CD."* The **word** is
+disc-agnostic. The **line** is not. A confident comment where a check belongs.
+
+### The two defects in the fix
+
+**The completion footer counts against the DISC, not the selection.** Real logs
+read `Rip completed:  yes (2 of 14 tracks)` for a two-track selection off a
+fourteen-track disc — established by parsing all seven rips in the bundle, not by
+reading the parser. My first version asserted `completed == disc total`, and it
+had been added to five partial-rip sites, every one ARCHIVAL. It would have
+turned five *passing* sections into five failures. The invariant that actually
+holds is that the footer's count equals the number of track blocks the log
+carries: **the record agrees with itself**, which is disc- *and*
+selection-independent.
+
+**It graded the previous section's rip when this section's never started.**
+`window._last_rip_log` is session-scoped and `rip` has three refusal paths that
+leave it untouched. Five independent reviewers found this one. Now keyed on the
+log's object **identity** at the moment `rip` ran — and the first version of that
+marker sat on the *success* path, which is exactly backwards, since the case the
+guard exists for is a **refused** rip. The test written for the guard caught it.
+
+### What the sweep found beyond the thing I went looking for
+
+- **Five of seven rips in the acceptance script asserted nothing about
+  completion**, and all five sections are ARCHIVAL. `rig-check`'s only
+  completion-adjacent row is INFO and deliberately not graded, so a rip that
+  stopped halfway was a passing archival section — section F's timeout defect
+  again, one section later in the same file.
+- **The same two defects in the other four committed scripts.**
+  `securereread.txt` was the worst *and* the one the operator's page recommends
+  for this exact test: `wait-for-rip 10800` **and** `expect-status Done`, under a
+  comment claiming *"10800 is the runner's cap"* (untrue since the cap became six
+  hours) which then reasoned from that stale ceiling to a budget the same
+  paragraph describes as half the work.
+- **`rig-check` passed section G having read no log** — `SKIP` is not `FAIL`, and
+  the exit code is §G's whole grade. It has a realisation in the 2026-09-03 run.
+
+### Three lessons worth graduating
+
+**A verb that replaces a bad assertion needs the same scrutiny as the assertion.**
+Both of my defects were in code written *to fix* a defect of exactly their class,
+and both looked more careful than the correct version. The general form: a fix
+enters the tree with the authority of having been added on purpose.
+
+**Establish an external tool's output shape from its output, not from your
+parser.** `rip_completed_total` is a well-named field and I assumed what it
+counted. Seven real logs settled it in one command, and the bundle was already on
+disk.
+
+**A guard's marker belongs ahead of the paths it guards against.** "Take the
+marker when the thing succeeds" is the natural place to write it and the one
+place it cannot work.
+
+### And one about the review itself
+
+An adversarial verifier **refuted my justification** for scoping
+`abort-if-failed`, with citations: two of the three triggers I named are
+unreachable, the surviving one is caught by §E's own archival check, the severity
+rule already grades that case archival, and on 2026-09-03 all of §D passed. The
+fix is kept on narrower ground — a harness must not abort on a failure the
+release bar calls non-blocking — and the changelog says so rather than implying a
+cost that was not measured. **A correction gets the same scrutiny as a claim, and
+that cuts both ways: mine did not survive it.**
+
+**The review's verification is partial.** Ten verifier agents died on an org
+spend limit, so `TASKS.md` marks each remaining row `CONFIRMED` or `CLAIMED`
+rather than presenting them as findings of equal weight.
+
 ## 2026-09-04 — four releases in a day, three of which could not run the test
 
 **The night's work in one line: the acceptance run that round 15 is waiting on
@@ -4519,4 +4608,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.36.*
+*Last updated for Platterpus v0.6.37.*

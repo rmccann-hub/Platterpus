@@ -121,21 +121,37 @@ snapshot discidentified
 # selection. Ripping everything is the only way to give the disc a chance to
 # produce one, and if it does we report which track.
 #
-# 10800 is the runner's cap, and it is now the cap rather than a request that
-# gets refused. Asking for more used to make the step fail instantly and wait
-# zero seconds, which is what destroyed this section last time. Uniform mode
-# roughly doubles a pass this rig has measured at up to 2h45m, so three hours is
-# the honest bound available; if the rip is still running when it expires the
-# step fails and says so, with the rip left alone.
+# 21600 is the runner's cap (`MAX_RIP_WAIT_S`), and asking for it is honoured
+# rather than refused: an over-cap request used to fail instantly and wait ZERO
+# seconds, which is what destroyed this section once already.
+#
+# THIS NUMBER WAS 10800 AND IT WAS WRONG, twice over. The comment here claimed
+# "10800 is the runner's cap" -- it is not, and has not been since the cap became
+# six hours -- and then reasoned from that stale ceiling to a budget it knew was
+# short, in a paragraph that says uniform mode "roughly doubles a pass measured
+# at up to 2h45m" and concludes with three hours. Doubling 2h45m is 5h30m.
+#
+# Measured, on 2026-09-03, on this rig: a whole-disc uniform secure re-read took
+# 3h05m in one section and 3h07m in another, and the section that budgeted 10800
+# timed out at 10800.1s with track 5 still re-reading. The cost of over-budgeting
+# is an unattended run finishing early; the cost of under-budgeting was four
+# cascading failures and an ARCHIVAL section that produced no evidence at all.
 
 log --- D. the rip: every track, read at least twice ---
 select-tracks all
 album secure reread (ripper)
 rip
-wait-for-rip 10800
+wait-for-rip 21600
 snapshot afterrip
 screenshot afterrip
-expect-status Done
+# `expect-status Done` until 0.6.37, and it was the wrong assertion in the ONE
+# script most likely to meet the disc that disproves it. The status line after a
+# rip whose re-reads disagreed carries the read-stability warning, not "Done" --
+# deliberately, so an unattended user is never told "ripped cleanly" over a track
+# that never read reproducibly. This script rips every track precisely to give
+# the disc a chance to produce such a track, so asserting "Done" here was asking
+# the run to fail when it succeeded at its own purpose.
+expect-rip-complete
 
 # --- E. THE MEASUREMENT ----------------------------------------------------
 # `rig-check` parses the rip's own log and reports the per-track sum, the disc

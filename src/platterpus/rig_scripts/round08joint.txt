@@ -376,6 +376,7 @@ wait-for-rip 7200
 
 screenshot D-after-rip
 snapshot D-after-rip
+expect-rip-complete
 
 # The seam check again, this time WITH the album folder, so it also parses the
 # log this rip just produced and reads its `Handshake:` note. Both note shapes
