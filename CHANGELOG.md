@@ -11,6 +11,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Four of the five failures in the first end-to-end acceptance run were one
+  stale number, and it was under-budgeted rather than merely old.**
+  `fullacceptance.txt:366` waited `10800` (3h) on section F's **whole-disc** rip
+  while line 621 waited `21600` (6h) on section N's — the same workload, since
+  `secure_rerip_matches` **defaults to 2**, so cyanrip is invoked `-Z 2 -r 3` for
+  both (confirmed from the run's own rip log). It timed out at **10800.1s** with
+  the status still reading *"Re-ripping track 5 to secure it — 43% — about 1m 50s
+  left in re-read 2"*, and the rest followed from that: the status was not `Done`
+  because the rip was still running, the next `rip` collided with the live one,
+  and **section H's overwrite prompt never appeared, so that section produced no
+  evidence at all.**
+  The budget's own comment is why re-measuring would not have helped — it
+  reasoned from *"a full disc on this hardware is 50-70 minutes"*, which is true
+  of a rip **without** the re-read. The number was derived from a wrong model of
+  what the step does. Now `21600`, with the measurement in place of the
+  reasoning, and gated by a rule derived from the script rather than a per-line
+  constant: **any `wait-for-rip` following `select-tracks all` must budget for a
+  secure re-read.** A second test pins `secure_rerip_matches`'s default, because
+  that is the fact making the budget necessary — if it changes, the failure
+  points at the reasoning instead of leaving an unexplained six-hour wait.
+  0.6.33 raised this cap **at line 621 only**, and our round-15 lap 2 told the
+  cyanrip fork the cap was fixed. It was fixed in one of the two places it
+  applied.
+
 ### Changed
 - **cyanrip handshake round 15, lap 5 sent.** Answers their §2 with the first
   real measurement: `probe-ripper-wrapper` ran on the rig and **all four
