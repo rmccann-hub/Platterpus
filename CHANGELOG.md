@@ -12,6 +12,28 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **Eight read-only GitHub MCP tools added to `.claude/settings.json`'s permission
+  allowlist**, so CI-watching and release verification stop interrupting an
+  unattended run: `actions_list`, `pull_request_read`, `actions_get`,
+  `get_job_logs`, `get_release_by_tag`, `list_releases`, `get_commit`,
+  `get_check_run` — about 400 calls across 50 recent sessions. Each was checked
+  against its **loaded schema** rather than its name, because a name is not a
+  contract: `pull_request_read`'s `method` is an enum of nine `get_*` values with
+  no mutator, and every mutating Actions operation lives under the separate
+  `actions_run_trigger` tool, which is deliberately **not** allowlisted — nor are
+  `merge_pull_request`, `create_pull_request` or `update_pull_request`.
+  **No `Bash` pattern was added, and the reason is the useful half of the
+  result.** 74% of measured command invocations already auto-allow and need no
+  rule; of the rest, `python3`/`python`/`bash` (3,034 calls) are arbitrary code
+  execution, the mutating half of `git` (489) writes, `ruff format` rewrites files
+  and `ruff check *` admits `--fix`, and `awk` (79) has `system()`. Two candidates
+  were prepared and dropped: `Bash(mypy *)` because `--config-file` with a
+  `plugins = [...]` key imports and executes arbitrary Python in-process
+  (verified in the installed mypy 2.3.1 source), and the exact forms
+  `Bash(mypy)` / `Bash(ruff check src tests)` because every real invocation
+  carries `2>&1`, so they would match **nothing** — a rule that cannot fire is
+  decoration, and widening it re-admits `--fix`.
+  `permissions.deny`, `defaultMode` and the media-guard hook are untouched.
 - **Round 15 lap 6 finalised on `0.6.36`.** The lap as first written named
   `0.6.35` and pointed `HANDSHAKE-OUR-PIN` at that release's commit; both moved
   when `0.6.36` superseded it an hour later. It now fixes the app half of round 15

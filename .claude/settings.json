@@ -1,6 +1,16 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
+    "allow": [
+      "mcp__github__actions_list",
+      "mcp__github__pull_request_read",
+      "mcp__github__actions_get",
+      "mcp__github__get_job_logs",
+      "mcp__github__get_release_by_tag",
+      "mcp__github__list_releases",
+      "mcp__github__get_commit",
+      "mcp__github__get_check_run"
+    ],
     "deny": [
       "Bash(rm -rf:*)",
       "Bash(rm -fr:*)",
