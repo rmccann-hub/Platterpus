@@ -11,6 +11,82 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.36] — 2026-09-04
+
+### Changed
+- **The acceptance script's own header told the operator to refuse the build the
+  run requires — and it is the copy read *inside the app*.** Same wrong sentence
+  as `docs/rig-scripts/README.md`, in the file a person actually looks at before
+  starting a six-hour night: *"take the offer it presents as a plain one-click
+  install. An offer that WARNS you first is a newer build no closed round has
+  reviewed… section A will refuse to run on it."* Every clause true except the
+  conclusion. While a round is open, the pin section A asserts **is** the build
+  no closed round has reviewed, so the offer to accept is exactly the warned one
+  and section A demands rather than refuses it. Following it ends the run at L165
+  four seconds in.
+  The header now says *take whichever offer it makes*, which is the form that
+  cannot go stale — and the fix is recorded there as the same failure the header
+  already guards against one level up: it goes to some length to explain that it
+  names **no build tag**, because a tag frozen into a shipped file cannot learn
+  that the answer moved, and then froze the *rule about which offer to take*,
+  which moves for the same reason and just as often.
+  **Swept across both surfaces rather than fixed where it was found** — the
+  README was found first, and the in-app header, the more consequential copy,
+  would otherwise have shipped saying the opposite in the same release
+  (`docs/testing.md` §5.o). The test asserts both wordings, since the two pages
+  phrased the same wrong instruction differently.
+- **cyanrip handshake round 15, lap 6 sent — out of turn, and it says so.** Our
+  lap 5 told the fork lap 6 was theirs and asked them to accept the round's
+  subject moving to `0.6.34`. Answering that as written would commit them to a
+  build that cannot execute CC-1, so this lap withdraws the request before they
+  reach it: the subject is `0.6.35`, that is the **second** move from our side in
+  two laps, and both reasons are ours. **Their pin has not moved and does not
+  move** — S-15 binds the ripper build, and `978f9b0` is unchanged.
+  It carries the first real hardware data on that pin (§D), offered rather than
+  asserted: two whole-disc secure re-reads, `Ripping errors: 0` and an intact
+  `Log FUN512` on both, with the non-convergent tracks landing on exactly the ones
+  AccurateRip independently places on an offset-variant pressing at confidence
+  200. Marked `[INFERRED]`, not a finding against them — and §D5 states the part
+  we **cannot** explain rather than omitting it, because a capture that has
+  quietly dropped its awkward half reads as completeness.
+  It also carries a **pre-commit under S-18** — *our next lap is `GO` unless the
+  `0.6.35` acceptance run finds a defect in `978f9b0`* — with the four things that
+  would break it named, and the explicit statement that a failure in **our** half
+  does not become a HOLD on **their** pin. That is the mechanism that ended round
+  7 and it is how this round is meant to close.
+
+### Fixed
+- **A clean rip reported thirteen errors in its own diagnostics record.** From
+  the 2026-09-03 acceptance bundle, for a disc that finished `Ripping errors: 0`
+  with an intact completion footer and all 14 tracks written:
+  `errors: 13  warnings: 1  info: 0` / `worst: error`. All thirteen are the same
+  line — `Done; (no matches found, but hit repeat limit of 3)` — the secure
+  re-read declining to certify a track it could not reproduce, which is the
+  accuracy machinery **working**.
+  The defect is the relation rather than either side. cyanrip publishes that
+  format string in the message inventory our fatal matcher is *built from*, so the
+  matcher matches it correctly and by construction — but *"the fork publishes this
+  string"* and *"the rip failed"* are different claims, and only the first is one
+  a matcher can answer. `parsers/cyanrip_log` was reading the same sentence
+  correctly the whole time, as the per-track read-stability signal. Two
+  subsystems, one sentence, opposite meanings.
+  The exclusion is a predicate in the parser that already owns the fact
+  (`is_secure_rerip_verdict`), never a list at the consumer — a hand-maintained
+  allowlist there is the shape that hid 16 of the fork's fatal strings behind
+  their generator's prefix filter. The line is recorded as `info` rather than
+  dropped, because a deliberate reclassify is not a licence to lose it.
+- **The diagnostics header named the approved cyanrip build, not the one that
+  ran.** The same bundle opens `Platterpus 0.6.34 + cyanrip
+  0.9.4-rc2+platterpus.10 (platterpus-fork-gd9c058c) — pair verified by handshake
+  round 14`, for a session whose seven rips were every one of them produced by
+  `978f9b0`. Every clause true; under a `diagnostics` banner a version pair reads
+  as *"here is your setup"*, so the one artifact whose job is to be quotable in a
+  bug report pointed at the wrong binary. The value is right and worth keeping —
+  a support reader wants the approved pair beside the observed one — so the fix is
+  the label: the line now opens **"Approved pair:"** and says in its own text that
+  it does not name what is installed, pointing at the rip's own log and report,
+  which do.
+
 ## [0.6.35] — 2026-09-04
 
 ### Fixed
@@ -12174,7 +12250,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.35...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.36...HEAD
+[0.6.36]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.35...v0.6.36
 [0.6.35]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.34...v0.6.35
 [0.6.34]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.33...v0.6.34
 [0.6.33]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.32...v0.6.33
@@ -12297,4 +12374,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.35.*
+*Last updated for Platterpus v0.6.36.*

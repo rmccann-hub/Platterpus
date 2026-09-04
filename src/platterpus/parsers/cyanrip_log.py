@@ -215,6 +215,37 @@ _SECURE_DONE_MATCH = re.compile(
     r"^\s*Done;\s+\((?P<agreed>\d{1,6})\s+out of\s+(?P<total>\d{1,6})\s+matches\b"
 )
 _SECURE_DONE_FAIL = re.compile(r"^\s*Done;\s+\(no matches found\b")
+
+
+def is_secure_rerip_verdict(line: str) -> bool:
+    """True for cyanrip's per-track secure-re-read outcome line, either shape.
+
+    **Why this is public, and why it lives here.** The same sentence is consumed
+    by two subsystems, and until v0.6.36 they disagreed about what it means. This
+    module reads it correctly as the read-stability signal; `rip_worker`'s fatal
+    matcher read it as a *fatal error*, because the fork publishes the format
+    string `Done; (no matches found, but hit repeat limit of %i)` in the message
+    inventory our matcher is built from — and being *in the inventory* is not the
+    same claim as being *fatal*.
+
+    Measured, in the 2026-09-03 acceptance bundle: a disc that finished with
+    `Ripping errors: 0`, an intact completion footer and 14 of 14 tracks written
+    reported **`errors: 13  warnings: 1  info: 0` / `worst: error`** in its own
+    diagnostics record. Every one of the 13 was this line. An archival record that
+    grades a clean rip as an error run is worse than one that says nothing, and
+    the operator reading it after a six-hour night has no way to tell.
+
+    Deliberately a predicate over the *existing* patterns rather than a new
+    exclusion list in `rip_worker`. A hand-maintained allowlist at the consumer is
+    exactly the shape that hid 16 of the fork's fatal strings behind their
+    generator's prefix filter (round 5) — the exclusion has to be derived from the
+    classification that already owns the fact, so it cannot drift away from it.
+    Both shapes are covered: convergence and non-convergence are the *same* event
+    reported two ways, and neither is a failure of the ripper.
+    """
+    return bool(_SECURE_DONE_MATCH.match(line) or _SECURE_DONE_FAIL.match(line))
+
+
 # "Total time:     00:59:42.354" — the disc's AUDIO duration (start report).
 #
 # TWO shapes, both real. cyanrip prints `HH:MM:SS.mmm` for a full disc and
