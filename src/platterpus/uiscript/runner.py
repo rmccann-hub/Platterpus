@@ -84,6 +84,14 @@ MAX_WAIT_S: float = 600.0
 #: slower step; a cap checked against the scripts fails in CI the day it does.
 MAX_RIP_WAIT_S: float = 6 * 60 * 60
 
+#: Sentinel for "no `rip` step has run yet in this batch".
+#:
+#: `None` cannot serve: it is a legitimate value of `window._last_rip_log` — the
+#: state a fresh window is in — so a `None` marker could not tell "no rip was
+#: requested" from "a rip was requested while no log existed". Two facts, and
+#: giving them one slot is the defect this project keeps paying for.
+_NO_RIP_REQUESTED: Final[object] = object()
+
 #: Timeout for a scripted `cyanrip` invocation. Generous enough for a cold
 #: container exec (measured at 3.45 s) and a `-x` cache probe, bounded so an
 #: unattended batch cannot be stranded by a wedged drive.
@@ -1704,6 +1712,18 @@ class ScriptRunner(QObject):
         from platterpus.parsers.rip_log import RipLog
 
         parsed = getattr(self._window, "_last_rip_log", None)
+        requested = getattr(self, "_rip_log_when_requested", _NO_RIP_REQUESTED)
+        if requested is not _NO_RIP_REQUESTED and parsed is requested:
+            self._record(
+                step,
+                Outcome.FAIL,
+                "no rip has finished since this section asked for one — the "
+                "window still holds the SAME parsed log it held when `rip` ran, "
+                "so grading it would report a previous section's rip as this "
+                "one's. `rip` can be refused (no disc, Start disabled, a rip "
+                "already running) and leave that field untouched.",
+            )
+            return
         if not isinstance(parsed, RipLog):
             self._record(
                 step,
@@ -1742,11 +1762,32 @@ class ScriptRunner(QObject):
         # FLOORS. A completion footer on a log with no tracks is not a rip.
         if not parsed.tracks:
             problems.append("the log carries no track blocks at all")
+        # THE DENOMINATOR IS THE DISC, NOT THE SELECTION — measured, from seven
+        # real rips in the 2026-09-03 bundle. cyanrip's footer reads
+        # ``Rip completed:  yes (2 of 14 tracks)`` for a two-track selection off
+        # a fourteen-track disc, so ``tracks == total`` is TRUE ONLY for a
+        # whole-disc rip. The first version of this handler asserted exactly
+        # that, which would have failed all five partial-rip sites it was added
+        # to — turning five passing ARCHIVAL sections into five failures, worse
+        # than the defect it was written for.
+        #
+        # The invariant that actually holds, on all seven of those rips, is that
+        # the footer's completed count equals the number of track blocks the log
+        # carries: the record agrees with itself. That is disc-independent AND
+        # selection-independent, which is the property this verb exists to have.
         done, total = parsed.rip_completed_tracks, parsed.rip_completed_total
         if total is not None and total < 1:
-            problems.append(f"the log's own track total is {total}")
-        if done is not None and total is not None and done != total:
-            problems.append(f"the log tallies {done} of {total} tracks completed")
+            problems.append(f"the log's own disc total is {total}")
+        if done is not None and done < 1:
+            problems.append(f"the log says {done} tracks completed")
+        if done is not None and done != len(parsed.tracks):
+            problems.append(
+                f"the log claims {done} track(s) completed but carries "
+                f"{len(parsed.tracks)} track block(s) — the record disagrees "
+                "with itself"
+            )
+        if done is not None and total is not None and done > total:
+            problems.append(f"the log tallies {done} completed of a {total}-track disc")
 
         # The disc-quality census: reported, never graded. Tri-state per track,
         # so "we did not measure convergence" cannot render as "it converged".
@@ -1800,6 +1841,30 @@ class ScriptRunner(QObject):
         product — *did I check the preconditions where the thing HAPPENS, or
         where it was scheduled?*
         """
+        # REMEMBER WHICH LOG WAS CURRENT WHEN THIS SECTION ASKED FOR A RIP —
+        # TAKEN HERE, AHEAD OF EVERY REFUSAL PATH, AND THAT PLACEMENT IS THE FIX.
+        #
+        # `expect-rip-complete` reads `window._last_rip_log`, which is
+        # SESSION-scoped: it holds the previous section's log until a new rip
+        # finishes and replaces it. Without a freshness key the verb reports a
+        # green completion for a rip that never started — the previous
+        # section's, in a transcript claiming this one's. That is the "satisfied
+        # by the WRONG thing" shape, and strictly worse than the
+        # `expect-status Done` it replaced.
+        #
+        # The first version of this marker sat on the SUCCESS path, one line
+        # above `QTimer.singleShot`. That is precisely backwards: the case the
+        # guard exists for is a rip that was REFUSED — no disc, Start disabled,
+        # a rip already running — and on every one of those paths the marker was
+        # never taken, so the guard could not fire. Caught by the test written
+        # for it, which is the only reason it is not in the release.
+        #
+        # Keyed on OBJECT IDENTITY rather than a bool: "has a rip finished since
+        # I asked for one" is a fact about a specific log, and a flag scoped to
+        # the runner would need resetting at a moment no call site owns — the
+        # `_signalled` defect `CLAUDE.md` records under *when a flag needs a
+        # reset, ask whether it wanted to be an identity comparison*.
+        self._rip_log_when_requested = getattr(self._window, "_last_rip_log", None)
         controls = getattr(self._window, "_rip_controls", None)
         if controls is None:
             self._record(step, Outcome.ERROR, "no rip controls on the window")
