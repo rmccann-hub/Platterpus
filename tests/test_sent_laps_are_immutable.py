@@ -95,6 +95,32 @@ SENT_LAPS: dict[str, str] = {
     "verified/round-08-lap-18.md": (
         "a45d5dfd01cecac4d5841c759627ad4437782463a172d9e2cc942b4d1fadf117"
     ),
+    # Round 15, laps 4-7, delivered together inside `round15lap07platterpus.md`
+    # on 2026-09-04. **Peer-confirmed, and this is the map's strongest form**:
+    # the fork's lap 8 `HANDSHAKE-INBOUND-HELD` states it filed all four "verified
+    # against the envelope's own manifest on size and hash before anything was
+    # read". Each value below is the per-part `sha256=` the envelope itself
+    # carries, and the tree bytes still hash to it.
+    #
+    # **These rows are the first round-14-or-later entries in this map, and their
+    # absence was not neutral.** Our lap 7 §A1 had to tell the fork that our own
+    # send-record could not distinguish *written* from *sent* — because a map with
+    # no rows for a round is SILENT, not negative, and silence is not "no". Three
+    # laps sat unsent for two days behind that silence. Recording a send the moment
+    # it is confirmed is the cheap half of the fix; `test_no_lap_is_left_unsent.py`
+    # is the half that fails.
+    "outbound/round-15-lap-04.md": (
+        "fe2fce5ccac09ae5596851535eae5d41e3ffe9983399d861895bd9bf3d38dfef"
+    ),
+    "outbound/round-15-lap-05.md": (
+        "6d9b7b487191b4293d446cc8e7c2a5720d953ef5b858ea40da89e4164574ff6b"
+    ),
+    "outbound/round-15-lap-06.md": (
+        "02d31e5d29bc5d2cc012d085e383aa4a1ea7dc28c9c4f939b8c927390a239c3a"
+    ),
+    "outbound/round-15-lap-07.md": (
+        "b8dc1c9fe828cb02b440077a4e9cc863f9f66c79e2c367847b3e8521a50d6df3"
+    ),
 }
 
 #: **The boundary this map records, and it was wrong in both directions in 48 hours.**

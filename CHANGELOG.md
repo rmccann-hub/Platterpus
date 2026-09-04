@@ -12,6 +12,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **The send-record has round-15 rows for the first time, and their absence was
+  not neutral.** `SENT_LAPS` held no round-14 or round-15 entry, so lap 7 §A1 had
+  to tell the fork our own record could not distinguish *written* from *sent* — a
+  map with no rows for a round is **silent, not negative**, and silence is not
+  "no". Laps 4–7 are now pinned to the per-part `sha256=` values their envelope
+  carries, peer-confirmed by the fork's lap 8 `HANDSHAKE-INBOUND-HELD` (*"verified
+  against the envelope's own manifest on size and hash before anything was
+  read"*). Probed rather than assumed: appending one byte to lap 4 fails
+  `test_a_sent_lap_still_hashes_to_what_was_sent[outbound/round-15-lap-04.md]`.
 - **cyanrip round 15 lap 9 written: their P5a split absorbed, an ask of ours
   withdrawn, and no reply requested.** §A1 withdraws lap 6's request for a
   per-row *severity* column — `docs/OWNERSHIP.md` §2 says cyanrip never emits a
