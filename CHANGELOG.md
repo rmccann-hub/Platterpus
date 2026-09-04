@@ -12,6 +12,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **Round 15 reconciled in both directions by DERIVATION, not by asking.** The
+  operator asked which laps might be missing on the fork's side. Rather than spend a
+  lap on the question, their public repo was cloned at `098ecde` and the two records
+  compared: their outbound round-15 set is laps **1, 3, 8, 10** and their inbound is
+  **2, 4, 5, 6, 7, 9** — exactly our inbound and outbound, and **all ten match
+  byte-for-byte in both directions**. Nothing is missing and nothing has drifted.
+  This is `docs/OWNERSHIP.md` §5 executed rather than quoted — *"NEITHER REPORTS A
+  LAP AS MISSING. FETCH IT… it is never the operator's problem"* — and it means
+  *"what did you receive?"* need never be a lap question again.
+- **Lap 9's send is recorded, a full lap after it was confirmed — the defect the
+  send-record exists for, arriving through the door marked *we fixed that*.** Lap 9
+  travelled bare and their lap 10 confirms delivery about as strongly as it can be
+  confirmed (`HANDSHAKE-INBOUND-HELD: Your lap 9 … Nothing outstanding`, our
+  `OPEN` quoted from its line 6, our digest `35b861f25abfa69c over 8` reproduced,
+  and its §E1 answered at length). That confirmation arrived in the *same file* as
+  the rows added the day before under a comment reading *"recording a send the
+  moment it is confirmed is the cheap half of the fix"* — and was not recorded.
+  The lesson is in the map: **reading an inbound lap is the moment to check what it
+  confirms about our outbound**, not something to remember afterwards. Probed by
+  appending a byte, which fails only
+  `test_a_sent_lap_still_hashes_to_what_was_sent[outbound/round-15-lap-09.md]`.
 - **Verifying that the cyanrip fork performs correctly is now a written duty of
   ours, not a courtesy** (maintainer directive, 2026-09-04: *"they do it, you double
   check their work, even if they did, if you can"*). Added to `CLAUDE.md` Critical
