@@ -11,6 +11,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **A rule and a gate for the failure above: ask before writing a handshake lap.**
+  Maintainer directive, 2026-09-04. Writing a lap and sending one are two acts and
+  only the maintainer can perform the second, so a lap written without their
+  knowledge is one nobody is waiting to carry — and three of them accumulated.
+  Asking *before* writing (not after: by then it exists) puts the one party who
+  can observe a send into the loop when the lap is conceived. Recorded in the
+  deviation policy's *Must ask before doing* list and reasoned in Critical rule
+  #12; explicitly **not** bilateral, since it governs how this project works with
+  its maintainer rather than what crosses the seam.
+  `tests/test_no_lap_is_left_unsent.py` is the backstop, not the rule — a gate can
+  see a lap accumulating unsent, but it cannot ask a question. Two checks, both
+  probed: every outbound lap of the **open** round must be packed in the envelope
+  or recorded as having left by another route (with the evidence, in a ratchet
+  that may shrink); and `PARTS[0]` must name a lap of the current round, which is
+  the defect itself rather than its consequence. Reverting `PARTS[0]` to
+  `round-14-lap-16.md` — the state the repo was actually in this morning — makes
+  it fail.
+
 ### Fixed
 - **Three handshake laps were written and never sent, and the envelope generator
   hid it.** Round 15 laps 4, 5 and 6 were written on 2026-09-02, -03 and -04 and
