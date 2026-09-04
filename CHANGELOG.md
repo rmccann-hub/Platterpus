@@ -14,6 +14,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [0.6.36] — 2026-09-04
 
 ### Changed
+- **The acceptance script's own header told the operator to refuse the build the
+  run requires — and it is the copy read *inside the app*.** Same wrong sentence
+  as `docs/rig-scripts/README.md`, in the file a person actually looks at before
+  starting a six-hour night: *"take the offer it presents as a plain one-click
+  install. An offer that WARNS you first is a newer build no closed round has
+  reviewed… section A will refuse to run on it."* Every clause true except the
+  conclusion. While a round is open, the pin section A asserts **is** the build
+  no closed round has reviewed, so the offer to accept is exactly the warned one
+  and section A demands rather than refuses it. Following it ends the run at L165
+  four seconds in.
+  The header now says *take whichever offer it makes*, which is the form that
+  cannot go stale — and the fix is recorded there as the same failure the header
+  already guards against one level up: it goes to some length to explain that it
+  names **no build tag**, because a tag frozen into a shipped file cannot learn
+  that the answer moved, and then froze the *rule about which offer to take*,
+  which moves for the same reason and just as often.
+  **Swept across both surfaces rather than fixed where it was found** — the
+  README was found first, and the in-app header, the more consequential copy,
+  would otherwise have shipped saying the opposite in the same release
+  (`docs/testing.md` §5.o). The test asserts both wordings, since the two pages
+  phrased the same wrong instruction differently.
 - **cyanrip handshake round 15, lap 6 sent — out of turn, and it says so.** Our
   lap 5 told the fork lap 6 was theirs and asked them to accept the round's
   subject moving to `0.6.34`. Answering that as written would commit them to a
