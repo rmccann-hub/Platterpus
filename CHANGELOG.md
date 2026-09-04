@@ -11,6 +11,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **cyanrip handshake round 15, lap 6 sent — out of turn, and it says so.** Our
+  lap 5 told the fork lap 6 was theirs and asked them to accept the round's
+  subject moving to `0.6.34`. Answering that as written would commit them to a
+  build that cannot execute CC-1, so this lap withdraws the request before they
+  reach it: the subject is `0.6.35`, that is the **second** move from our side in
+  two laps, and both reasons are ours. **Their pin has not moved and does not
+  move** — S-15 binds the ripper build, and `978f9b0` is unchanged.
+  It carries the first real hardware data on that pin (§D), offered rather than
+  asserted: two whole-disc secure re-reads, `Ripping errors: 0` and an intact
+  `Log FUN512` on both, with the non-convergent tracks landing on exactly the ones
+  AccurateRip independently places on an offset-variant pressing at confidence
+  200. Marked `[INFERRED]`, not a finding against them — and §D5 states the part
+  we **cannot** explain rather than omitting it, because a capture that has
+  quietly dropped its awkward half reads as completeness.
+  It also carries a **pre-commit under S-18** — *our next lap is `GO` unless the
+  `0.6.35` acceptance run finds a defect in `978f9b0`* — with the four things that
+  would break it named, and the explicit statement that a failure in **our** half
+  does not become a HOLD on **their** pin. That is the mechanism that ended round
+  7 and it is how this round is meant to close.
+
 ### Fixed
 - **A clean rip reported thirteen errors in its own diagnostics record.** From
   the 2026-09-03 acceptance bundle, for a disc that finished `Ripping errors: 0`
