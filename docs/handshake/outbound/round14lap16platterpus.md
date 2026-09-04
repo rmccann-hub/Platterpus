@@ -21,7 +21,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 | file | bytes | sha256 |
 | --- | --- | --- |
 | `round-14-lap-16.md` | 17,475 | `de58b0dce37bdd35…` |
-| `fullacceptance.txt` | 37,943 | `e5e7f24a20a3233b…` |
+| `fullacceptance.txt` | 38,740 | `55c3304c8c4078a7…` |
 
 ## Reader
 
@@ -381,7 +381,7 @@ now starts.
 **The disc is the only thing left on our side.** The round is yours to close.
 <<<<<<<<<< END round-14-lap-16.md >>>>>>>>>>
 
-<<<<<<<<<< BEGIN fullacceptance.txt sha256=e5e7f24a20a3233b3b2d658e776a43895fe1304119b81868303a50302f579420 >>>>>>>>>>
+<<<<<<<<<< BEGIN fullacceptance.txt sha256=55c3304c8c4078a7b467e6f8970ef9f83c29c01eb03ca9438b0c32f807b0fc29 >>>>>>>>>>
 # =============================================================================
 # FULL ACCEPTANCE RUN — end to end, every path the program has, one pass
 # =============================================================================
@@ -731,9 +731,23 @@ abort-if-failed the disc was never identified — the picker did not resolve or 
 # ON for this rip. They are the post-rip subsystem and nothing else in this file
 # reaches all four at once.
 #
-# The timeout is three hours because a full disc on this hardware is 50-70
-# minutes and one real session measured 2h45m against cyanrip's own ~35m ETA.
-# Generous and still bounded.
+# THE TIMEOUT COVERS A SECURE RE-READ, because this rip does one.
+#
+# It said three hours, reasoning that "a full disc on this hardware is 50-70
+# minutes and one real session measured 2h45m". Both figures are real and the
+# conclusion was wrong: they describe a rip WITHOUT the secure re-read, and this
+# rip has one. `secure_rerip_matches` defaults to 2 (config.py), so cyanrip is
+# invoked `-Z 2 -r 3` here exactly as in section N — the same work, budgeted at
+# a third of the time.
+#
+# Measured 2026-09-03: it timed out at 10800.1s with the status reading
+# "Re-ripping track 5 to secure it - 43% - about 1m 50s left in re-read 2".
+# Roughly three hours and two minutes for work budgeted at three hours, and the
+# four failures that followed were all this one cap: the status was not 'Done'
+# because the rip was still running, the next `rip` collided with it, and the
+# overwrite dialog never came.
+#
+# So it matches section N's budget, because it is section N's workload.
 
 log --- F. the main event: full-disc rip, all tracks, every post-rip check on ---
 set cover_art embed
@@ -747,7 +761,7 @@ select-tracks all
 album full acceptance: angle<bracket (run) (ripper)
 album-artist Platterpus Acceptance
 rip
-wait-for-rip 10800
+wait-for-rip 21600
 snapshot afterfullrip
 screenshot afterfullrip
 # 'Done' is measured, not guessed: the status line after a clean rip reads
