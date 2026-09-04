@@ -1128,7 +1128,16 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "rip_compare.py": 1404,
     "rip_files.py": 422,
     "rip_report.py": 2302,
-    "ripper_message_inventory.py": 983,
+    # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
+    # "strings this document does NOT classify"). The addition is the two
+    # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
+    # is new — and almost all of it is the REASON each row went where it did.
+    # P5a is explicitly not a safety claim ("two of the rows really are
+    # failures" and they do not say which two), so a row without its reasoning
+    # beside it is a row the next reader will move on a guess. This module is
+    # the provenance record for that seam; splitting the reasons out of it
+    # would leave the claim here and the evidence elsewhere.
+    "ripper_message_inventory.py": 1051,
     "settings_validation.py": 879,
     "sleep_inhibit.py": 599,
     "test_session.py": 794,

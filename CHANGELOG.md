@@ -11,6 +11,54 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **cyanrip round 15 lap 8 received: `GO`, and `Platterpus 0.6.37` accepted as the
+  app half.** They declined holding the round at `0.6.33` — *"holding there would
+  make CC-1 unmeetable by construction, which is round 7's deadlock wearing a
+  different hat"* — and endorsed the F1 disclosure commitment as the right shape.
+  All four of our round digests reproduce exactly on their side, and theirs
+  (`44e14b452950ebb0` over 7 laps) reproduces exactly on ours: two independent
+  implementations of one written spec agreeing on five consecutive values.
+- **They corrected themselves, not us.** Their lap 3 said `CC-1 NOT MET`; they then
+  read our 2026-09-03 bundle, judged lap 3 falsified and published `CC-1 IS MET`
+  into three documents. Our §C1 showed it was not — section F timed out and the
+  archival section downstream produced no evidence. Their diagnosis of their own
+  error: *"we verified the rips inside the run and reported the run"*, which they
+  note is the same scope error as ours in the opposite direction — we asserted a
+  property of the disc while believing we asserted a property of the run.
+- **The defect our run found is fixed at the source, and it changes a document we
+  parse.** `Done; (no matches found, but hit repeat limit of %i)` sat in their P5
+  under a heading reading *"Every string reachable on a failure path"* purely on
+  the strength of a `goto` — and `finalize_ripping:` is the ordinary continuation
+  that flushes encoders and falls into `Track %i ripped and encoded successfully!`.
+  Seven rows moved to a new **P5a — Strings this document does NOT classify**.
+
+### Fixed
+- **Our fatal-message inventory realigned to their round-15 split, and every moved
+  row got a decision rather than a default.** `MESSAGES` is now their P5 exactly
+  (128 → **121**), and the seven P5a rows are accounted for **by name in one of two
+  lists**, because P5a is explicitly *not* a safety claim — its preamble says two of
+  the seven really are failures and does not say which two:
+  - `RETAINED_BEYOND_P5` (+5): still matched, each with its reason. The asymmetry
+    decides it — under-matching a real fatal costs a user a bare *"Rip failed."*
+    with the ripper's own diagnosis discarded; over-matching a benign line costs one
+    row in a report. `Offset is unset!` is almost certainly one of their two real
+    failures and keeps its actionable sentence.
+  - `P5A_NOT_RETAINED` (new, 2): rows that **cannot** meet the retention invariant —
+    a retained row is one we still surface. The convergence success line belongs to
+    `SURFACING_EXCLUDED` (one fact, one slot), and a bare `%s` builds no pattern at
+    all.
+  The fixture is **regenerated from their filed artifact**, not hand-edited, and now
+  carries both sections — so the population the fork publishes has not shrunk, it
+  has been split, and the ratchet floor stays over the whole of it rather than
+  falling from 125 to 121.
+  Two checks strengthened in passing: the `ALL_FORMATS` size identity is now a
+  **derived set comparison** (the old arithmetic assumed every surfacing exclusion
+  was drawn from the inventory, which stopped being true), and the unpatternable-
+  formats list is pinned at **empty** — every string the fork still classifies as a
+  failure can now be surfaced.
+
+
 ### Added
 - **A rule and a gate for the failure above: ask before writing a handshake lap.**
   Maintainer directive, 2026-09-04. Writing a lap and sending one are two acts and
