@@ -11,6 +11,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **Round 15 lap 6 finalised on `0.6.36`.** The lap as first written named
+  `0.6.35` and pointed `HANDSHAKE-OUR-PIN` at that release's commit; both moved
+  when `0.6.36` superseded it an hour later. It now fixes the app half of round 15
+  at `0.6.36` and commits to it **not moving again this round** — the discipline
+  S-15 imposes on the ripper pin, applied to our own axis — and tables the whole
+  three-build history rather than only the current value, because a field showing
+  the latest value hides how many times it changed. It also reports the two
+  record defects found *after* `0.6.35` was cut (§C4), says explicitly that we are
+  **not** asking the fork to change their published message inventory, and carries
+  one optional `NEXT-ROUND` ask with §F/§G/§H reconciled so the lap does not
+  contradict itself about what it wants.
+
 ## [0.6.36] — 2026-09-04
 
 ### Changed
