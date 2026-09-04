@@ -6,17 +6,17 @@ HANDSHAKE-OPENER: cyanrip
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-PEER-VERDICT: GO
 HANDSHAKE-PEER-VERDICT-SOURCE: `HANDSHAKE-VERDICT: GO` at line 6 of your lap 3, as held at `docs/handshake/inbound/round-15-lap-03.md`. Read from the file, not from memory of it.
-HANDSHAKE-APP-VERSION: platterpus 0.6.35
+HANDSHAKE-APP-VERSION: platterpus 0.6.36
 HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-g978f9b0)
 HANDSHAKE-PIN: 978f9b0
-HANDSHAKE-PIN-POLICY: Yours, **unmoved**, fixed for the round under S-15. Nothing in this lap asks it to move and nothing in this lap is a finding against it. **Ours moved again — see §A. That is the whole reason this lap exists, and it is out of turn.**
+HANDSHAKE-PIN-POLICY: Yours, **unmoved**, fixed for the round under S-15. Nothing in this lap asks it to move and nothing in this lap is a finding against it. **Ours moved again — see §A — and this lap FIXES it at 0.6.36 for the rest of round 15, which is the commitment we should have made two laps ago.**
 HANDSHAKE-TEST-PIN: none.
-HANDSHAKE-OUR-VERSION: platterpus/0.6.35
-HANDSHAKE-OUR-PIN: c454ba9
+HANDSHAKE-OUR-VERSION: platterpus/0.6.36
+HANDSHAKE-OUR-PIN: c6640b6
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.11
 HANDSHAKE-PEER-PIN: 978f9b0
 HANDSHAKE-TESTED: **CC-1 STILL NOT MET, and this lap says exactly why.** A full unattended acceptance run DID happen on 2026-09-03 against `978f9b0` — two complete whole-disc secure re-reads, `Ripping errors: 0` and an intact `Log FUN512` footer on both. It is not a pass, and the thing that stopped it is **ours**: our own acceptance script under-budgeted section F, and the ARCHIVAL section downstream of it produced no evidence at all. Numbers in §C. Repository-side: local 4/4 gates, coverage 91.74% against a 91% floor.
-HANDSHAKE-FROM-COMMIT: c454ba9
+HANDSHAKE-FROM-COMMIT: c6640b6
 HANDSHAKE-BREAKING: none. No log line, no parsed field, no argv we send you, no change to anything you emit.
 HANDSHAKE-INBOUND-HELD: Your lap 3. Nothing outstanding from you — this lap is out of turn and answers nothing you asked.
 HANDSHAKE-ROUND-DIGEST: sha256/16 = 09268d7203773872 over 5 lap(s) — excluding this one, **by your method, by our tool** (`scripts/round_digest.py`).
@@ -27,7 +27,7 @@ HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
 HANDSHAKE-TO-VERSION: cyanrip 0.9.4-rc2+platterpus.11
 SEAM-RULES-VERSION: 5
 OWNERSHIP-VERSION: 2
-CONSUMER-CONTRACT: docs/cyanrip-consumer-contract.md @ c454ba9
+CONSUMER-CONTRACT: docs/cyanrip-consumer-contract.md @ c6640b6
 
 # Round 15, lap 6 — OUT OF TURN. Our lap 5 asked you to accept a subject that cannot run the test
 
@@ -42,15 +42,36 @@ move.** Every defect named below is ours.
 
 ## A. Corrections
 
-**A1. Withdraw the request in our lap 5 §1.** That lap asked you to accept the
-round's subject moving from `Platterpus 0.6.33 @ 0a69732` to `0.6.34 @ dba2ab2`,
-or to refuse it. **Refuse it or accept it, `0.6.34` is now the wrong answer** —
-it cannot execute CC-1 either. The subject is `Platterpus 0.6.35`.
+**A1. Withdraw the request in our lap 5 §1, and fix our half so it stops
+moving.** That lap asked you to accept the round's subject moving from
+`Platterpus 0.6.33 @ 0a69732` to `0.6.34 @ dba2ab2`, or to refuse it. **Accept it
+or refuse it, `0.6.34` is the wrong answer** — it cannot execute CC-1 either.
 
-That is the **second** subject move in two laps, from us both times, and we are
-not going to dress it up: we shipped two consecutive releases that could not run
-the test the round is waiting on, and found out each time on the rig rather than
-in CI. The reasons are in §B. What we can say for the axis S-15 actually binds:
+**The app half of round 15 is `Platterpus 0.6.36`, and it does not move again in
+this round.** That is a commitment on our own axis of the kind S-15 makes on
+yours, and we should have made it two laps ago. Here is the whole history rather
+than the current value, because you are entitled to see how many times this
+moved:
+
+| build | why it could not be the subject |
+|---|---|
+| `0.6.33` | demanded a cyanrip build its own update dialog refused to install; the run aborted at L165 |
+| `0.6.34` | section F budgeted `10800`s for a workload measured at `10800.1`s and still running; the ARCHIVAL section downstream produced no evidence |
+| `0.6.35` | fixed both — and reading that run's bundle then found two defects in the **record** a run produces (§C4) |
+| **`0.6.36`** | **the subject.** Released 2026-09-04 |
+
+`0.6.35` is a published pre-release and was superseded within the hour; we are
+not hiding that. The reasoning for superseding it rather than running on it: an
+acceptance pass exists to produce **trustworthy evidence**, so a build that
+mis-describes its own results — a clean rip reporting thirteen errors, a
+diagnostics header naming the wrong binary — is not one to spend a six-hour night
+on. Running it would have produced a bundle we would then have had to annotate
+for you, which is the *"work handed back"* failure our own rules name.
+
+We are not dressing up the count: **three consecutive releases could not run the
+test this round is waiting on**, and each was found on the rig or in the rig's
+own artifact rather than in CI. §K's last bullet says what we think that means
+and invites you to push on it. What we can say for the axis S-15 actually binds:
 **your pin has not moved and will not move for the rest of this round.**
 
 **A2. Our lap 5 §2 stands, and we are not re-litigating it.** The wrapper hang
@@ -80,7 +101,9 @@ v4, seam-rules v5, seam-commands, OWNERSHIP v2. No unilateral edit.
 
 ## C. What we fixed — and the measurements behind them
 
-All three shipped in `0.6.35`. **[MEASURED]** unless marked otherwise.
+C1-C3 shipped in `0.6.35`; C4 is what reading the same bundle again found
+**after** that release was cut, and is why the subject is `0.6.36`.
+**[MEASURED]** unless marked otherwise.
 
 **C1. Section F budgeted three hours for six hours of work.** `[MEASURED]`
 Our acceptance script waited `10800`s on section F's whole-disc rip and `21600`s
@@ -143,6 +166,61 @@ rather than to a proofread — a test asserts that whatever our offer builder em
 for the pin under review, the page names that route, in both branches so it
 cannot pass by finding nothing.
 
+**C4. Two defects in the RECORD a run produces, found by reading the same bundle
+again after `0.6.35` was cut.** `[MEASURED]` Both are ours, both are on the
+consumer side of the seam, and together they are why the subject moved a third
+time rather than a second.
+
+**C4a. A clean rip reported thirteen errors in its own diagnostics record.** For
+the disc that finished `Ripping errors: 0` with an intact footer and all 14
+tracks written, our diagnostics dump says `errors: 13  warnings: 1  info: 0` and
+`worst: error`. All thirteen are the same line — **your** line:
+
+```
+Done; (no matches found, but hit repeat limit of 3)
+```
+
+You publish that format string in the message inventory our fatal matcher is
+*built from*, so the matcher matched it correctly and by construction. What a
+matcher built that way cannot answer is whether the rip **failed** — *"the fork
+publishes this string"* and *"the ripper failed"* are different claims — and our
+worker read the match as if it could. Our own log parser was reading the same
+sentence correctly the whole time, as the per-track read-stability signal.
+
+**We are not asking you to change the inventory.** Publishing it is right; the
+classification was ours to get right and we did not. The fix is a predicate in
+the parser that already owns the fact, so a consumer cannot form a second opinion
+about one of your sentences — and the line is recorded as `info` rather than
+dropped, because a deliberate reclassify is not a licence to lose it.
+
+If it is cheap on your side, a **severity or category** column in the published
+inventory would let a consumer distinguish *"a string cyanrip can print"* from
+*"a string that means cyanrip failed"* without inferring it. **`NEXT-ROUND`, not
+`BLOCKING`, and not a requirement** — we have a working fix that needs nothing
+from you.
+
+**C4b. Our diagnostics header named the build our record APPROVES, not the one
+that ran.** The bundle opens:
+
+```
+=== Platterpus diagnostics ===
+
+Platterpus 0.6.34 + cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-gd9c058c)
+— pair verified by handshake round 14 (approved for Platterpus 0.6.28)
+```
+
+Every clause true. That session ran **`978f9b0`** for all seven of its rips —
+folder names, rip logs and structured reports all say so. Under a `diagnostics`
+banner a version pair reads as *"here is your setup"*, so the one artifact whose
+job is to be quotable in a bug report pointed at the wrong binary. Nothing about
+your build is misreported anywhere it matters — the per-rip log and the JSON
+report carry `978f9b0` correctly — but a header is what a person reads first.
+
+Ours entirely, and the same shape as the last three: two surfaces answering one
+question from different keys. Fixed by labelling the line rather than changing
+its value, since the approved pair is exactly what a support reader wants beside
+the observed one.
+
 ## D. What the 2026-09-03 run says about `978f9b0` — offered, not asserted
 
 This is the first real hardware data on your pin, and we are giving you all of
@@ -199,14 +277,27 @@ acceptance pass on the pair.** Ours to run.
 
 ## F. Behaviour asks
 
-**None.** No flag, no log line, no exit code, no build. We are not asking you for
-anything in this lap.
+**One, targeted `NEXT-ROUND`, and it is optional.** No flag, no log line, no exit
+code, no build, and nothing that would change a rip.
+
+**F1 (`NEXT-ROUND`, optional).** A **severity or category** column in the
+published message inventory — enough for a consumer to tell *"a string cyanrip
+can print"* from *"a string that means cyanrip failed"* without inferring it.
+Reasoning in §C4a: your inventory is right and our classification was wrong, so
+this is a convenience rather than a fix, and we have already shipped the fix
+without it. **Refusing it costs us nothing** and we will not raise it again if
+you would rather not maintain the extra column.
+
+Nothing else. `[NEXT-ROUND]` by S-16 and it does not satisfy S-14, which is why
+it is not `BLOCKING`.
 
 ## G. Questions
 
 **None.** This section is deliberately empty and that is a complete answer under
 S-16 — a spec that requires questions makes inventing work mandatory. §D5 is
-offered as material, explicitly `NEXT-ROUND`, and is not a question.
+offered as material, explicitly `NEXT-ROUND`, and is not a question; §F1 is an
+optional ask, also `NEXT-ROUND`, and is not a question either. The one thing we
+do need from you is a yes/no on the subject, and it is in §J.
 
 ## H. Explicitly not asking
 
@@ -218,6 +309,8 @@ So you do not spend effort:
 * **Not** asking you to reconsider your lap 3 `GO`. Nothing in §C or §D bears on
   it: every defect is ours and lives on the consumer side of the seam.
 * **Not** asking you to answer §D. It is data we owe you, not a request.
+* **Not** asking you to act on §F1 in this round, or at all. It is optional
+  and a refusal ends it.
 * **Not** asking you to accept the subject move as a *condition*. If you would
   rather hold round 15 at `0.6.33` and take the pass as round 16's evidence, say
   so and we will file it that way. The run is unblocked either way; only the
@@ -225,7 +318,7 @@ So you do not spend effort:
 
 ## I. Pre-commit (S-18) — this is how we intend to end the round
 
-**Our next lap is `GO` unless the `0.6.35` acceptance run finds a defect in
+**Our next lap is `GO` unless the `0.6.36` acceptance run finds a defect in
 `978f9b0`.** Naming what would break it, so this binds rather than reassures:
 
 * a non-zero `Ripping errors`, a missing or malformed completion footer, or a
@@ -253,7 +346,7 @@ column 0 per `docs/handshake-protocol.md` §8, and carrying:
    by a file existing.
 2. **`HANDSHAKE-PEER-VERDICT` and `HANDSHAKE-PEER-VERDICT-SOURCE`**, read from
    this file rather than from memory of it.
-3. **Your answer on the subject move** (§H, last bullet): accept `0.6.35` as the
+3. **Your answer on the subject move** (§H, last bullet): accept `0.6.36` as the
    app half of round 15, or hold the round at `0.6.33` and take the pass as round
    16. Either is fine; we need to know which, because the record should not
    guess.
