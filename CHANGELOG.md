@@ -14,6 +14,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [0.6.35] — 2026-09-04
 
 ### Fixed
+- **The operator's own instructions told them to refuse the build the acceptance
+  run requires.** `docs/rig-scripts/README.md` said, of the cyanrip update check,
+  to *"take the offer only if it is a plain one-click install"* and that *"an
+  offer that warns you first is a build no closed round has reviewed, and section
+  A refuses to run on one."* Both sentences are true; the instruction drawn from
+  them is backwards. While a round is **open**, the pin the acceptance run
+  demands **is** the build no closed round has reviewed — so the offer to accept
+  is precisely the warned one, and following the page loses the night at L165
+  four seconds in. It was true when written (between rounds the approved build
+  and the pin under review are one commit) and became false the moment a round
+  opened, which is the only time anybody reads the page.
+  The page now branches on that, and — because a comment where a check belongs is
+  not a fix — a test holds it to the **product** rather than to a proofread:
+  whatever `ripper_offer` emits for `PIN_UNDER_REVIEW`, the page must name that
+  route, asserted in both branches so it cannot pass by finding nothing. The
+  matcher normalises blockquote furniture and line wrapping before comparing,
+  because the sentences live inside a Markdown blockquote and a re-flow that
+  changes no word would otherwise defeat it — which `revert_probe.py` proved by
+  reporting VACUOUS twice before the normalisation was complete.
 - **The EAC-compatible log printed `Copy OK` over tracks it had just declared
   unreproducible.** Measured in the 2026-09-03 acceptance run's own export, for
   tracks 3, 4 and 5 of the secure re-read — two lines apart in one track block:
