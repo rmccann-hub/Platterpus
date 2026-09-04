@@ -11,6 +11,46 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Three handshake laps were written and never sent, and the envelope generator
+  hid it.** Round 15 laps 4, 5 and 6 were written on 2026-09-02, -03 and -04 and
+  none was handed to the cyanrip fork; their lap 3 (a `GO`, asking nothing
+  further) had been unanswered for two days. `scripts/emit_envelope.py`'s `PARTS`
+  was still pointed at **round 14 lap 16**, and the envelope was regenerated
+  **four separate times** on 09-04 — because it also carries
+  `fullacceptance.txt`, which was being edited — each run reporting success while
+  packing a round the peer closed weeks ago.
+  That is the neighbouring case to the one the generator's own docstring already
+  warned about (*"one artifact implying a send that did not happen"*, from the
+  round-9 lap 6 contradiction), and to the rule cyanrip argued us into keeping in
+  their round-9 lap 3 §B1. The rule makes an envelope impossible to *miscount as a
+  lap*; it says nothing about one faithfully built around the **wrong** lap.
+  `SENT_LAPS` could not catch it either — it holds no round-14 or round-15 rows,
+  so it is silent rather than negative.
+  `PARTS` now carries laps 7, 4, 5, 6 and the acceptance script. The three late
+  laps travel **unmodified**: v4 §4a makes a correction a new lap, and laps 5 and
+  6 each declare a round digest computed over the laps before them, so editing 4
+  or 5 would falsify a value already written. `round-08-lap-18` is the precedent —
+  written, never sent, sent unmodified two rounds later.
+
+### Changed
+- **Round 15 lap 7 written — the covering lap for three late ones, and it owns a
+  broken commitment.** Lap 6 stated *"the app half of round 15 is `Platterpus
+  0.6.36`, and it does not move again in this round."* It is now `0.6.37`: the
+  fourth app version in a day, and the promise lasted about twelve hours — broken
+  before the peer had even received it. The lap says so plainly rather than
+  arguing `0.6.37` is a patch to the same subject, and replaces the unfalsifiable
+  forward promise with a checkable one: **if our half moves a fifth time we will
+  send a lap saying so, naming it as a break, before or with any evidence produced
+  on the new build** — a commitment about *disclosure*, which we can keep, rather
+  than about *stability*, which we have now failed twice.
+  It also reports §C1–C5 (the `expect-status Done` defect and the sweep it
+  opened), states that none of it is a finding against the fork, and asks one
+  question: accept `0.6.37` as the app half, or hold the round at `0.6.33`.
+  **Silence is explicitly not consent** — an unanswered lap 8 files the pass under
+  `0.6.33`, the last subject they actually stated.
+
+
 ## [0.6.37] — 2026-09-04
 
 ### Fixed
