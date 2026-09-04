@@ -21,6 +21,47 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
+## From the 2026-09-03 acceptance bundle (2026-09-04)
+
+Three fixed in 0.6.35/0.6.36 (section-F budget, the EAC `Copy OK` over
+unreproducible tracks, the two operator pages that said to refuse the required
+build, the false-fatal re-read verdict, the diagnostics header naming the
+approved build). These are what the same reading left open.
+
+- [ ] **The acceptance run asserts the RIPPER build and never the APP version.**
+  Section A stops the night in four seconds if the wrong cyanrip is installed —
+  correct, and it has now earned its keep twice. Nothing does the same for
+  Platterpus itself, and the script ships *inside* the app, so an operator on a
+  stale build runs that build's stale script and gets its stale budgets. The
+  2026-09-03 run is the case: `0.6.34`'s script waited `10800`s on section F
+  because that is what `0.6.34` shipped, and nothing on screen said a newer
+  release existed. **The script cannot fix this** — a version assertion baked into
+  a shipped file can only ever compare the app to itself. The check belongs at
+  *Tools → Run acceptance test…*: if the update check already knows a newer
+  release exists, say so **before** six hours of drive time, not after. Same
+  reasoning as section A, one axis over.
+- [ ] **`observed_version_pair_line` still has no caller.** 0.6.36 fixed the
+  *label* on the diagnostics header — it now says it names the approved pair
+  rather than the installed one — which removes the misreading but does not add
+  the fact a reader wants beside it. Rendering the observed pair there needs the
+  launch-time probe's banner (`ProbeResult.raw_output`) plumbed to the dialog;
+  the script runner's own latch (`uiscript/runner._ripper_build_tag`) is the
+  wrong source, since it is scoped to a script run. Note when doing it: two facts
+  in one slot is the `_last_cyanrip_output` defect (`docs/testing.md` §5.aq), so
+  the observed banner needs its own field and its own lifetime, not a second
+  meaning on an existing one.
+- [ ] **Ask the fork for a severity column on the published message inventory**
+  (round 15 lap 6 §F1, `NEXT-ROUND`, optional). Our matcher is built from that
+  inventory, and "a string cyanrip can print" is not "a string that means cyanrip
+  failed" — a distinction we had to hard-code once we found it. Refusing it costs
+  us nothing; the fix ships without it.
+- [ ] **Track 3's copy CRC was identical across two whole-disc rips hours apart
+  while its own within-rip re-reads disagreed** — and track 5's differed between
+  rips while its AccurateRip CRC was identical in both. Recorded in round 15 lap 6
+  §D5 as `[UNVERIFIED]`. There is a candidate explanation involving the sample
+  range AR skips at track boundaries; it has not been tested, so it is not being
+  offered as one.
+
 ## Split the acceptance session out of `main_window_provision.py` (2026-09-01)
 
 - [ ] **`ui/main_window_provision.py` is 1,212 lines doing four jobs** — host
@@ -2833,4 +2874,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.35.*
+*Last updated for Platterpus v0.6.36.*
