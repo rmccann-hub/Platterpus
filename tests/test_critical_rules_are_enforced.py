@@ -1090,7 +1090,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "diagnostics.py": 681,
     "drive_control.py": 383,
     "drive_profiles.py": 488,
-    "eac_log_export.py": 1450,
+    # Raised 1450 -> 1490 on 2026-09-04, deliberately. The addition is the
+    # tri-state `_status_line` honesty fix: an EAC-format log must not print
+    # "Copy OK" under a track whose own re-reads disagreed. The renderer is the
+    # only place that can know both facts at once, so moving it out would put
+    # the verdict in one file and the evidence it is drawn from in another --
+    # the same reason the decision table above stays with its observations.
+    "eac_log_export.py": 1490,
     "evidence_bundle.py": 885,
     "handshake_approval.py": 491,
     "help_content.py": 561,

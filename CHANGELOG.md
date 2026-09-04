@@ -12,6 +12,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **The EAC-compatible log printed `Copy OK` over tracks it had just declared
+  unreproducible.** Measured in the 2026-09-03 acceptance run's own export, for
+  tracks 3, 4 and 5 of the secure re-read — two lines apart in one track block:
+
+      Copy CRC 418F6CF8  (re-reads did NOT agree — this read is not confirmed
+                          reproducible)
+      Copy OK
+
+  `Copy OK` is EAC's **clean** verdict: the string a logchecker greps for and a
+  human scans for. The disc-level *Read stability* line had already named those
+  exact tracks, so the app knew, said so twice elsewhere, and stamped the
+  per-track verdict clean anyway — because `_status_line()` rendered the ripper's
+  status alone and was never told about `secure_rerip_converged`.
+  `CLAUDE.md`'s EAC-parity rule decides it: as close to the original as possible
+  **without forging it** (KDD-24), and printing EAC's clean verdict over a read
+  we have declared unreproducible is the forging half. Such a track now carries a
+  verdict in our own words, deliberately **not** containing the substring
+  `Copy OK` — appending a qualifier to that string would still read as clean to
+  every mechanical consumer, which is the defect rather than a fix for it.
+  Tri-state preserved: only an explicit `False` changes anything, so a backend
+  reporting no convergence data never has doubt invented for it.
 - **Four of the five failures in the first end-to-end acceptance run were one
   stale number, and it was under-budgeted rather than merely old.**
   `fullacceptance.txt:366` waited `10800` (3h) on section F's **whole-disc** rip

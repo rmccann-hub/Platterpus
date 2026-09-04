@@ -34,6 +34,7 @@ from __future__ import annotations
 import dataclasses
 import re
 from pathlib import Path
+from typing import Final
 
 import pytest
 
