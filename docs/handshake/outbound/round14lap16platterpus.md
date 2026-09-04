@@ -21,7 +21,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 | file | bytes | sha256 |
 | --- | --- | --- |
 | `round-14-lap-16.md` | 17,475 | `de58b0dce37bdd35…` |
-| `fullacceptance.txt` | 38,740 | `55c3304c8c4078a7…` |
+| `fullacceptance.txt` | 39,963 | `9aa6b2ea58f9cfaf…` |
 
 ## Reader
 
@@ -381,7 +381,7 @@ now starts.
 **The disc is the only thing left on our side.** The round is yours to close.
 <<<<<<<<<< END round-14-lap-16.md >>>>>>>>>>
 
-<<<<<<<<<< BEGIN fullacceptance.txt sha256=55c3304c8c4078a7b467e6f8970ef9f83c29c01eb03ca9438b0c32f807b0fc29 >>>>>>>>>>
+<<<<<<<<<< BEGIN fullacceptance.txt sha256=9aa6b2ea58f9cfafd17be7a5c158f9857332a467f4171f31df1f82991e59f32b >>>>>>>>>>
 # =============================================================================
 # FULL ACCEPTANCE RUN — end to end, every path the program has, one pass
 # =============================================================================
@@ -416,19 +416,38 @@ now starts.
 # 1. Be on the newest Platterpus. Help -> Check for updates, or download the
 #    AppImage from the releases page.
 # 2. Be on the cyanrip build THIS Platterpus expects — which is **not** always
-#    the newest one. Help -> Check for cyanrip updates..., and take the offer it
-#    presents as a plain one-click install. An offer that WARNS you first is a
-#    newer build no closed round has reviewed: taking it makes every rip report
-#    `unapproved`, and section A will refuse to run on it.
+#    the newest one, and **not** always the one that installs without a warning.
+#    Help -> Check for cyanrip updates..., and TAKE WHATEVER OFFER IT MAKES:
+#    a plain one-click install if that is what appears, and the warned
+#    "Install it anyway" if that is what appears instead. Either way, accept it.
 #
-#    Do not reach for a channel toggle to decide this, and do not look for the
-#    answer in this comment: THIS FILE NAMES NO BUILD, on purpose. Which one is
-#    wanted changes every time a handshake round opens or closes, and this file
-#    ships inside a release — so anything written here freezes on the day it was
-#    built and cannot learn that the answer moved. Both previous attempts were
-#    wrong within days, and each one sent operators to a build section A refuses.
-#    The app holds that fact in one place and checks it — which is why step 2
-#    above is the whole answer, and there is no second copy of it here.
+#    Read that twice if you remember the old wording, because it said the
+#    opposite. Until v0.6.36 this comment told you to take the offer ONLY if it
+#    was a plain one-click install, and to refuse a warned one. That is right
+#    BETWEEN handshake rounds and exactly wrong WHILE ONE IS OPEN — and a round
+#    being open is the only time anybody re-reads this. Section A asserts the
+#    build UNDER REVIEW, and a build under review is by definition one no closed
+#    round has approved, so its offer is the warned one. Refusing it is what
+#    ends the night at section A, four seconds in, having spent no drive time
+#    and produced no evidence. It has now done that twice.
+#
+#    Yes, the warned build makes every rip report `unapproved`. That is the
+#    record being honest about an open round, not a fault, and it is precisely
+#    what the run exists to produce evidence for.
+#
+#    Do not reach for a channel toggle to decide this, and do not look for a
+#    BUILD TAG in this comment: THIS FILE NAMES NO BUILD, on purpose. Which one
+#    is wanted changes every time a handshake round opens or closes, and this
+#    file ships inside a release — so anything written here freezes on the day
+#    it was built and cannot learn that the answer moved. Both previous attempts
+#    were wrong within days, and each one sent operators to a build section A
+#    refuses. The app holds that fact in one place and checks it — which is why
+#    step 2 above is the whole answer, and there is no second copy of it here.
+#
+#    The rule ABOVE was the same failure one level up: not a frozen build tag,
+#    but a frozen answer to "which offer is the right one", which moves for the
+#    same reason and just as often. "Take whichever one it offers" is the form
+#    that cannot go stale, because it delegates to the surface that knows.
 #
 #    Section A asserts the exact expected build and STOPS THE RUN in the first
 #    few seconds if you are not on it — before any drive time is spent.
