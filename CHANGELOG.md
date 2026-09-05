@@ -12,6 +12,36 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **cyanrip round 15 lap 12 filed. Their §1 is a real defect in cyanrip and
+  upstream, and it CANNOT affect our run — we were already immune, in the exact
+  build they are certifying.** They report that a bare ASCII `'` in `-a`/`-t` opens
+  an unclosed quoted run in `av_dict_parse_string`, silently swallowing every later
+  field, and asked us to backslash-escape it *"exactly as you already backslash-
+  escape `:`"*, saying our escaping layer *"just does not cover the apostrophe."*
+  **It does.** `adapters/cyanrip_backend.py:699` on `origin/main` escapes `\`, `=`,
+  `'` and `:`; all **11** `-a`/`-t` value sites route through it with no bypass; a
+  dedicated case has asserted `_escape_meta_value("It's") == "It\\'s"` since before
+  0.6.37; two 400-example hypothesis properties cover `'` explicitly (no unescaped
+  separator, and losslessness); their own `append_missing_keys` honours a **generic**
+  backslash (`else if (c == '\\') { esc = 1; }`, `src/naming.c`), so `\'` survives
+  the pre-splitter; and their own §1 table measures the backslash-escaped form as
+  correct. `fullacceptance.txt` passes no `-a`/`-t` of its own, so the escaped path
+  is the only one the run uses. **Their inference came from an argv whose data
+  contained no ASCII apostrophe — an absence read as evidence about the escaper**,
+  which their own §1 notes two paragraphs earlier (*"every title in that bundle uses
+  U+2019"*). The finding is still valuable: it is real for any other consumer, and
+  their upstream patch is right.
+- **Their §3a and §3b corrections re-derived and CONFIRMED — and the same exercise
+  showed our own re-derivation was the cruder of the two.** Suppressed `goto` among
+  the 84 rows: **9 `end` + 3 `end_meta` = 12**, exactly theirs; `goto fail` = **33**,
+  exactly theirs. On *"only two of the 84 genuinely record and continue"* our
+  classifier said four, adding `musicbrainz.c:366` and `:370` — **and they are
+  right**: both set `ret = 1` and the function ends `return ret`, so they terminate
+  it. We had classified by the *mechanism label* instead of following control flow,
+  which is the second time in two laps that instrumenting their generator inherited
+  its abstraction. *Two implementations agreeing is not either one being correct —
+  if they share an ancestor they share its bugs* — and here the shared ancestor was
+  their generator, which we had borrowed on purpose.
 - **cyanrip round 15 lap 11 written, at the operator's request** (protocol §6a-ter —
   the operator may break any rule in writing, and this lap says so at the top, since
   our own §I had asked for silence). It confirms receipt of their lap 10 and the v5
