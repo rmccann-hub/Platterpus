@@ -21,6 +21,30 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
+## Left open by the 0.6.38 archival-check fixes (2026-09-05)
+
+- [ ] **Pass `-j` on every rip.** It appears once in `src/` (`rig_check.py:67`), a
+      separate probe, and never in the rip argv — so no rip writes cyanrip's own
+      diagnostics record. Their `PROVIDER-CONTRACT.md` P4 says a run refused during
+      argument validation **opens no logfile at all** and the `-j` record is the
+      only artifact for that class, which is the 2026-08-02 `-t 17=` shape. Held
+      out of 0.6.38 **deliberately**: introducing an argv flag we cannot exercise
+      in this container, hours before an eight-hour unattended run, risks the night
+      for a diagnostic that only helps when something else has already failed. Told
+      to the fork in round 15 lap 13 §C so it is a decision on the record and not
+      an oversight. **Round 16.**
+- [ ] **Split `uiscript/runner.py` (3429 lines).** The oversize ratchet was raised
+      rather than split for the same reason — refactoring the script engine on the
+      night of the run it drives is the risk this project keeps paying for. The
+      raised numbers are the debt marker, not a settlement. Mixins, per the
+      `MainWindow` precedent in `docs/architecture.md`.
+- [ ] **The receiving half of the omission gate still does not exist.** Nothing
+      checks that every artifact a lap names was actually filed; we do it by hand,
+      and so does the fork (their lap 12 §4). Answering their v5 5b.3 question with
+      *"yes, it should gate both sides"* is only honest once ours is built.
+
+---
+
 ## Evidence transport — the fork's v5 proposal, and our round-16 position (2026-09-04)
 
 **Status: their lap 10 and the `PROTOCOL-v5-PROPOSAL` are filed. Nothing is
@@ -141,7 +165,7 @@ SKIP-passes-as-zero, and `abort-if-failed`'s scope.
   uncovered sites are §G (whose subject is §F's rip, legitimately) and §I (whose
   rip is *cancelled*, so completion is the wrong claim). The real fix is for
   `rig-check` to be told which rip it is grading.
-- [ ] **§I is ARCHIVAL for "the log's completion footer" and nothing asserts the
+- [x] **FIXED in 0.6.38 — `expect-log-well-formed`.** §I is ARCHIVAL for "the log's completion footer" and nothing asserted the
   footer.** `[CONFIRMED BLOCKING by 3 of 8 lenses]` Its only graded step is
   `expect-status cancelled`, a substring match on a widget label — the same class
   of defect as the `expect-status Done` this session removed, in the section
@@ -152,14 +176,14 @@ SKIP-passes-as-zero, and `abort-if-failed`'s scope.
   states §I's claim. What §I needs is an assertion that the RECORD is
   well-formed — footer present with either verdict, not truncated, checksum
   intact — which is a third proposition and a third verb.
-- [ ] **§N's stated T1 pass criterion is an `INFO` row that nothing grades.**
+- [x] **FIXED in 0.6.38 — `expect-secure-rerip`, off the same predicate the rig-check row renders from.** §N's stated T1 pass criterion was an `INFO` row that nothing graded.
   `[CLAIMED, verifier lost to the spend limit]` `docs/rig-scripts/README.md` says
   a pass is `parser/paranoia` reporting *"secure re-read genuinely exercised:
   YES"*; that row is INFO, so a rip where `-Z` did nothing passes §N.
-- [ ] **§E's identification gate passes on placeholder track rows**, so a disc
+- [x] **FIXED in 0.6.38 — `expect-identified`, keyed on the release MBID with its shape validated.** §E's identification gate passed on placeholder track rows, so a disc
   MusicBrainz cannot identify would proceed to rip under a wrong release.
   `[CLAIMED]`
-- [ ] **`snapshot` is the one evidence verb with no floor** — 22 unfailable
+- [x] **FIXED in 0.6.38 — it FAILS when `_panel_fields` returns empty.** `snapshot` was the one evidence verb with no floor — 22 unfailable
   PASSes; a snapshot that captured nothing reads like one that captured
   everything. `[CLAIMED]`
 - [ ] **The acceptance header still advertises "4 to 6 hours"**, contradicted by
