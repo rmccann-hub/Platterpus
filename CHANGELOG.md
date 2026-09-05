@@ -11,6 +11,58 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **Mutation testing actually runs, for the first time.** `mutmut` was pinned,
+  floored and left deliberately red behind a recorded diagnosis (import paths).
+  **That diagnosis is wrong**: measured 2026-09-05, the mutated module *is* the one
+  `pytest` imports from `mutants/`, and `mutmut run` executes **nothing** even when
+  a single mutant is named — 150 ms, exit 0. A previous session explained the
+  symptom without reproducing it. Replaced with **`scripts/mutation_sweep.py`**,
+  ours, built on the primitive this repo already trusts (`revert_probe.py`: apply
+  an edit, run named tests, see if they noticed). No third-party mutator, because
+  rule #11's *a tool that gates CI must not float* applies to a signal as much as a
+  gate. `mutation.yml` now sweeps five trust-bearing modules in a matrix, with a
+  floor on mutants **checked** so a sweep that measured nothing cannot read as a
+  clean one.
+- **It found real gaps immediately.** `verdict.py` scored **23.8%** against its own
+  test file; `accuraterip_lookup_happened` — a tri-state, trust-bearing classifier
+  — was **not imported by any test**, so every one of its returns could be flipped
+  with the suite green: a rip whose AccurateRip lookup was *disabled* would have
+  been reported as compared. Four tests later, **42.9%**. Also killed: a clamp that
+  could invent a missing track in the accuracy headline of a complete rip.
+- **Structure-aware fuzzing** (`tests/test_parsers_structure_fuzz.py`). The existing
+  property tests generate arbitrary text, which almost never produces a line that
+  *looks* like a log — so they exercise the guards and not the body. This builds a
+  grammar **from a committed golden reference** and fills it with hostile values,
+  and asserts the parsers do not merely avoid raising but do not silently store
+  garbage either (no `inf`, no absurd integers in an archival record).
+- **Filesystem fault injection** (`tests/test_fault_injection.py`) at the one place
+  it matters most: the evidence bundle, which is what a user sends when something
+  has *already* gone wrong. ENOSPC, unreadable sources, an uncreatable destination,
+  a file vanishing mid-scan, zero-byte artifacts.
+- **Secret scanning (`gitleaks`) and SBOM generation (`sbom`), both gating.**
+  Gitleaks runs over the **full history**, because this repo is public and `git log`
+  is a distribution channel — the same reasoning rule #8 gives for audio, so a
+  credential removed in a later commit is still published and a diff-only scan
+  would pass on it. The SBOM has a floor refusing fewer than ten components.
+
+### Fixed
+- **The mutation harness shipped a defect that hid from `git diff`, and it is
+  fixed three ways.** Restoring a file's CONTENT is not restoring the MODULE: after
+  a sweep over `ctdb/crc.py`, six CTDB tests failed with the source byte-identical
+  to `git show HEAD:`, `git status` clean, the archival CRC wrong — and deleting
+  `__pycache__` fixed it. The child now runs with `PYTHONDONTWRITEBYTECODE`, the
+  target's `.pyc` is deleted on restore, and its mtime is pushed forward.
+  **The mechanism is marked INFERRED and the reproduction is recorded as FAILED**:
+  with all three defences removed an end-to-end probe still loaded correct
+  behaviour. The regression test asserts the observable that *does* discriminate —
+  no `.pyc` survives a sweep — and says so rather than claiming more.
+- **A test I wrote to fix a check was vacuous**, caught by `revert_probe.py` before
+  it shipped: the first newest-contract regression test asserted over the real
+  directory, whose order on this machine already gives the right answer, so it
+  passed with the fix reverted. Rewritten to force the adverse order.
+- **The end-to-end CLI test mutated real project source** mid-suite. Now a copy.
+
 ## [0.6.38] — 2026-09-05
 
 ### Changed
