@@ -370,7 +370,14 @@ jobs:
           python -m pip install -e . "cyclonedx-bom>=7,<8"
       - name: Generate the SBOM
         run: |
-          cyclonedx-py environment --output-format JSON --outfile sbom.cdx.json
+          # `--output-file`, NOT `--outfile`, and the flag belongs to the
+          # SUBCOMMAND. The first version of this job used `--outfile` and failed
+          # in 24 seconds with "unrecognized arguments" — a CI step written
+          # against a flag nobody had run, which is the `-V` blocker's exact
+          # class: a flag that does not exist is indistinguishable, from the
+          # caller's side, from a tool that is broken. Verified locally before
+          # this line was written the second time (101 components).
+          cyclonedx-py environment --output-format JSON --output-file sbom.cdx.json
       # A FLOOR, because an SBOM listing nothing is the shape this repo refuses:
       # a generated artifact that looks complete and describes an empty room.
       - name: Refuse an empty SBOM
