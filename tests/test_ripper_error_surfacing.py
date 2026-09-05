@@ -530,16 +530,42 @@ def test_every_other_inventory_row_still_reaches_the_user() -> None:
 # one reader.
 
 
+#: ``round-15-lap-08-provider-contract-gc4df1f0.md`` -> lap 8. A round can publish
+#: more than one contract, and then the ROUND number no longer orders them.
+_ARTIFACT_LAP = re.compile(r"^round-\d+-lap-(?P<lap>\d+)-")
+
+
 def _newest_provider_contracts() -> list[tuple[int, Path]]:
-    """Every committed inbound provider-contract artifact, newest round first."""
+    """Every committed inbound provider-contract artifact, newest FIRST.
+
+    **Ordered by (round, lap), and the missing lap term was a real defect that
+    passed locally and failed in CI.** The sort used to key on the round alone,
+    so two contracts from one round tied — and `sorted` is stable, which means
+    the winner was whatever `Path.glob` happened to yield first. Glob order is
+    filesystem order, so this machine picked round 15's **lap 8** contract (the
+    current one) and the CI runner picked its **lap 1** contract (superseded, and
+    with the pre-P5a table), failing a check that had just been made to agree
+    with lap 8.
+
+    The failure mode is the dangerous one: not a wrong answer, an **arbitrary**
+    one. It only became reachable when a second contract was filed for a round,
+    and until then "newest round" and "newest contract" were the same thing —
+    which is why the sort looked complete. *Is the population I measured
+    closed?* — here the population had grown a dimension the key did not have.
+
+    A contract whose name carries no lap sorts as lap 0: older than any lap that
+    names one, never newer, so an unparseable name can never win the tie.
+    """
     import test_argv_surface_agreement as argv_surface
 
-    found: list[tuple[int, Path]] = []
+    found: list[tuple[int, int, Path]] = []
     for number, paths in argv_surface._group_by_round().items():
         for path in paths:
             if "provider-contract" in path.name:
-                found.append((number, path))
-    return sorted(found, key=lambda pair: pair[0], reverse=True)
+                match = _ARTIFACT_LAP.match(path.name)
+                found.append((number, int(match.group("lap")) if match else 0, path))
+    ordered = sorted(found, key=lambda row: (row[0], row[1]), reverse=True)
+    return [(number, path) for number, _lap, path in ordered]
 
 
 #: A P5 row: ``| `genopt.h:598` | `Too many values …` | genopt | yes |``. The
@@ -860,3 +886,62 @@ def test_the_secure_reread_verdict_is_in_the_inventory_but_is_NOT_a_failure() ->
     # rather than left to inspection.
     assert not is_secure_rerip_verdict("Invalid track number 17, list has 16 tracks!")
     assert _RIPPER_ERROR_RE.match("Invalid track number 17, list has 16 tracks!")
+
+
+def test_the_newest_contract_is_chosen_by_LAP_not_by_filesystem_order() -> None:
+    """**Passed here and failed in CI, which is the shape worth a named test.**
+
+    `_newest_provider_contracts` used to sort on the round alone. Round 15 has
+    published two contracts — lap 1 and lap 8 — so they tied, and `sorted` is
+    stable, so the winner was whatever `Path.glob` yielded first. Glob order is
+    filesystem order: this machine returned lap 8 (current) and the GitHub runner
+    returned lap 1 (superseded, pre-P5a). The inventory check then compared our
+    freshly-realigned tables against a stale document and failed.
+
+    Not a wrong answer — an **arbitrary** one, which is why it survived: the two
+    orderings agreed for every round that had published only one contract.
+
+    **THE FIRST VERSION OF THIS TEST WAS VACUOUS, and `scripts/revert_probe.py`
+    said so.** It asserted over the real directory, whose order on this machine
+    already yields lap 8 — so it passed with the lap term reverted, reproducing
+    the very bug it was written for. That is `CLAUDE.md`'s *"ask it of the check
+    you are writing to fix a check"*, and the probe is the reason it did not
+    ship. The order has to be **forced adverse**, not observed.
+    """
+    import test_argv_surface_agreement as argv_surface
+
+    real = argv_surface._group_by_round()
+    assert real, "no inbound rounds at all — the sweep has lost its population"
+
+    # Feed the grouping back in WORST-FIRST: every round's files reversed, so a
+    # round with two contracts hands the OLDER lap over first. That is exactly
+    # the order the CI runner's filesystem produced, made deterministic.
+    adverse = {number: list(reversed(paths)) for number, paths in real.items()}
+    original = argv_surface._group_by_round
+    argv_surface._group_by_round = lambda: adverse  # type: ignore[assignment]
+    try:
+        contracts = _newest_provider_contracts()
+    finally:
+        argv_surface._group_by_round = original  # type: ignore[assignment]
+
+    assert contracts, "no provider contracts found under the adverse order"
+    top_round = contracts[0][0]
+    laps = sorted(
+        int(m.group("lap"))
+        for number, path in contracts
+        if number == top_round and (m := _ARTIFACT_LAP.match(path.name))
+    )
+    assert len(laps) >= 2, (
+        f"round {top_round} publishes only {len(laps)} contract(s) with a lap in "
+        "the name, so no tie is exercised and this test cannot see the defect. "
+        "It needs a round that has published two — round 15 does."
+    )
+
+    chosen = _ARTIFACT_LAP.match(contracts[0][1].name)
+    assert chosen is not None, contracts[0][1].name
+    assert int(chosen.group("lap")) == laps[-1], (
+        f"under a worst-first input, round {top_round} chose lap "
+        f"{chosen.group('lap')} when lap {laps[-1]} is newer. The sort key is "
+        "incomplete and the winner is whatever order the filesystem offered — "
+        "which is how this passed locally and failed on the CI runner."
+    )
