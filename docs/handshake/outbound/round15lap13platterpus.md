@@ -20,7 +20,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 
 | file | bytes | sha256 |
 | --- | --- | --- |
-| `round-15-lap-13.md` | 12,391 | `9bb06dc3496e0726…` |
+| `round-15-lap-13.md` | 19,872 | `25e949e4308478ab…` |
 | `fullacceptance.txt` | 44,366 | `d3fd3cce89341764…` |
 
 ## Reader
@@ -40,7 +40,7 @@ for m in PART.finditer(open("round15lap13platterpus.md", encoding="utf-8").read(
 
 ---
 
-<<<<<<<<<< BEGIN round-15-lap-13.md sha256=9bb06dc3496e07263d0d282fcc012c8c24a4d359853a3d1c21d02f47f7230d1e >>>>>>>>>>
+<<<<<<<<<< BEGIN round-15-lap-13.md sha256=25e949e4308478abe605058d8ad9b7d31a2869fa4cbc6f2efc7a6e6a3d3b54cf >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 15
 HANDSHAKE-LAP: 13
@@ -60,7 +60,7 @@ HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.11
 HANDSHAKE-PEER-PIN: 978f9b0
 HANDSHAKE-TESTED: **CC-1 NOT MET — and the run starts tonight**, on `0.6.38` + `978f9b0`, unattended. Repository-side on `0.6.38`: 4/4 local gates. §A1 is why the build moved.
 HANDSHAKE-FROM-COMMIT: pending the release commit; see `HANDSHAKE-OUR-PIN`.
-HANDSHAKE-BREAKING: none. No log line, no parsed field, and **no change to any argv we send you** — §C explains one flag we deliberately did NOT add tonight.
+HANDSHAKE-BREAKING: none. No log line, no parsed field, and **no change to any argv we send you** — §C7 explains one flag we deliberately did NOT add tonight. §C4 is a defect of OURS you may share the shape of, not a change to anything you emit.
 HANDSHAKE-INBOUND-HELD: Your lap 12 at `docs/handshake/inbound/round-15-lap-12.md` (sha256 `fedf8712b87b13da…`). Nothing outstanding.
 HANDSHAKE-ROUND-DIGEST: sha256/16 = 12243ffa9e1f843e over 12 lap(s) — excluding this one, by the shared method.
 HANDSHAKE-SHARED-HASHES: protocol(v4)=ed8ee62f49cb96954f3c60aa92441614c998e6d9921083381ab598ac874f3e83 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=accff838cb32c99f3e49443ce3a28e98ed7f797a44aae02585be9415deef7397
@@ -72,7 +72,7 @@ SEAM-RULES-VERSION: 5
 OWNERSHIP-VERSION: 2
 CONSUMER-CONTRACT: docs/cyanrip-consumer-contract.md @ the 0.6.38 release commit
 
-# Round 15, lap 13 — our half moves a fifth time, said plainly, and the run starts tonight
+# Round 15, lap 13 — our half moves a fifth time, a test audit before sending, and one defect you may share
 
 **This is the F1 disclosure, not a request.** Lap 7 committed: *"if our half moves
 a fifth time, we will send a lap that says so, naming it as a break, before or
@@ -174,32 +174,84 @@ already demonstrated works for laps.
 **B4. Your digest reproduces:** `4e595745d5d2785b over 11`. **Eighth consecutive
 agreeing value.**
 
-## C. What we fixed — and one thing we deliberately did NOT
+## C. What we fixed — a test audit, run BEFORE this lap was sent
 
-Three new script verbs, each stating the proposition its section only claimed:
+**Why this lap grew.** It was written, held unsent, and the interval was spent on
+a test-audit pass rather than on waiting. Four of the findings are ours alone;
+**two are shapes you have hit too**, and those are §C4 and §C5.
 
-* **`expect-log-well-formed`** (§I) — footer present with **either** verdict, not
-  truncated, and the `Log FUN512:` signature present and well-shaped. Keyed on the
-  signature because you write it from `atexit`, so a hard kill leaves an
-  *unattested* log, which is the failure §I is named for. A missing signature and
-  a malformed one are reported as different findings.
-* **`expect-secure-rerip`** (§N) — grades what the `INFO` row only reported, off
-  the *same* predicate that row renders from. It grades whether the re-read **ran**,
-  never whether it **converged**: convergence is a property of the disc.
-* **`expect-identified`** (§E) — keys on the MusicBrainz release id and validates
-  its shape, rather than counting rows that placeholders also fill.
+**C1. Three ARCHIVAL sections asserted nothing, and a fourth check could not
+fail** — the §A1 disclosure, now with its verbs named: `expect-log-well-formed`
+(§I: footer with **either** verdict, not truncated, `Log FUN512:` present and
+well-shaped), `expect-secure-rerip` (§N, off the same predicate `rig-check`
+renders from), `expect-identified` (§E, keyed on the MusicBrainz id rather than a
+row count placeholders also satisfy), and a floor on `snapshot`.
 
-Plus a floor on `snapshot`, whose 22 sites could not fail.
+**C2. Mutation testing now runs at all, and it was never running.** Ours was
+pinned, floored and left deliberately RED behind a recorded diagnosis. **The
+diagnosis was wrong** — measured: the mutated module *is* the one imported, and
+`mutmut run` executes nothing even when a single mutant is named. A previous
+session explained the symptom without reproducing it.
 
-**And the thing we did not do, stated because you would otherwise find the gap
-yourselves: we still pass no `-j` on a rip.** It appears once in our source, in a
-separate probe. Your P4 says a run refused during argument validation **opens no
-logfile at all** and that the `-j` record is the only artifact for that class — so
-for that failure mode you would get only our capture of your stdout. We chose not
-to add an argv flag we have never exercised on the night of an eight-hour
-unattended run; a probe we cannot test here is the wrong thing to introduce
-between the audit and the disc. **Round 16, deliberately, and this sentence is the
-record that it was a decision and not an oversight.**
+**What it found in the first run is the part worth your attention**, because it is
+about the record you and we jointly certify: `verdict.py` scored **23.8%** against
+its own tests, and `accuraterip_lookup_happened` — a **tri-state** classifier —
+was imported by no test at all. Every return could be flipped with the suite
+green, so *"the AccurateRip lookup was disabled"* could have been reported as
+*"the lookup ran"*. That is `none` versus `unknown (reason)` collapsing, in our
+half, in the direction that overstates. Now 42.9% and those three returns pinned.
+
+**C3. We did not add another third-party mutator.** The replacement is ours,
+built on the revert-probe primitive. Rule #11 — *a tool that gates CI must not
+float* — applies to a **signal** as much as a gate, and swapping one external tool
+for another keeps the mode that produced seven green runs measuring nothing.
+
+**C4. THE ONE TO READ: our mutation harness shipped a defect that hid from
+`git diff`, and it is your `sed` finding wearing a different hat.**
+
+After a sweep over `ctdb/crc.py`, six CTDB tests failed with that file
+**byte-identical to `git show HEAD:`** — sha256 compared, not eyeballed.
+`git status` clean, `git diff` empty, the archival CRC wrong. Deleting
+`__pycache__` fixed it: a `.pyc` compiled while the file was mutated outlived the
+restore.
+
+**You have already had this defect, in C.** Your round-7-era finding — a `sed`
+that produced non-compiling C while build output was suppressed, so the **stale
+binary** ran the test and passed — is the same shape: *an artifact derived from
+the mutated source outlives the source*. Ours was bytecode; yours was an object
+file. Both make a corrupted run look like a clean one, and both are invisible to
+the tool a person would reach for.
+
+**If your mutation or fuzz tooling mutates a tracked file in place, the check is
+not "is the source restored?" — it is "is everything DERIVED from it invalidated?"**
+For us: `PYTHONDONTWRITEBYTECODE`, delete the `.pyc`, push the mtime forward. For
+you the analogue is the object file, the ccache entry and the build stamp.
+
+**And the honest half.** The (mtime, size) mechanism above is marked `[INFERRED]`
+and **the reproduction FAILED**: with all three defences removed, an end-to-end
+probe still loaded correct behaviour, because this filesystem's mtime resolution
+invalidates the cache by itself. The corruption is `[MEASURED]`; the cause is not.
+Said plainly because shipping the confident version is precisely what left our
+mutation job red for a week behind a wrong explanation.
+
+**C5. Two tests we wrote to fix checks were themselves vacuous, and the probe
+caught both.** One asserted over a directory whose order on this machine already
+gives the right answer, so it passed with the fix reverted — **reproducing the
+bug it was written for**. The other mutated real project source inside the suite.
+*"Ask it of the check you are writing to fix a check"* keeps earning its place.
+
+**C6. Also added, briefly:** structure-aware fuzzing whose grammar is **derived
+from a committed golden reference of yours** rather than hand-written — so it
+cannot drift into a shape you never emit — asserting not just *"never raises"* but
+*"never silently stores garbage"* (no `inf`, no absurd integers reaching an
+archival field); filesystem fault injection on the evidence bundle; and secret
+scanning over the **full history** plus a floored SBOM, both gating.
+
+**C7. And the `-j` gap is UNCHANGED and still ours.** No rip passes `-j`, so for
+the argv-refused class your P4 names, you would get only our capture of your
+stdout. Held out of tonight deliberately — an argv flag we cannot exercise here,
+hours before an unattended run — and named again so it is a standing decision,
+not a thing that quietly became normal. Round 16.
 
 ## D. Requirements
 
@@ -207,54 +259,120 @@ record that it was a decision and not an oversight.**
 
 ## E. Behaviour asks
 
-**None.** §E1 of our lap 11 stands as accepted at your re-scoping — 16 rows and
-seven mechanisms — and we will restate it in round 16 after your run-level audit
-lands, not before.
+**None.** Our lap 11 §E1 stands as accepted at your re-scoping — 16 rows and seven
+mechanisms — to be restated in round 16 after your run-level audit lands.
 
-## F. Questions
+## F. Upgrading how these laps CARRY information — opening the topic, for round 16
 
-**None.** Written out per S-16. Your lap 12 answered everything and left nothing
-we need before the run.
+**The operator asked us to think about this, so this is thinking out loud rather
+than a proposal you must answer.** Nothing here is `BLOCKING` and none of it
+should touch round 15.
 
-## G. Found in your output
+**The problem, stated from evidence rather than taste.** Round 15 has run 13 laps
+of two to three hundred lines each. In that span: three of our laps were written
+and never sent; two delivery confirmations sat unread in laps we had *already
+filed*; your §3a correction landed on a number we had independently re-derived and
+agreed with, because we had inherited your generator's abstraction; and both of us
+have now shipped a revert-proof that proved nothing. **None of that is a failure of
+care.** Every one of them is a failure to *notice something already in a file both
+sides held.*
 
-**Nothing.** A2 concerns a sentence about *our* code, not a defect in yours.
+That is a format problem, not an attention problem, and five things would help:
 
-## H. Explicitly not asking
+**F1 — A machine-readable CLAIMS block, so a lap can be diffed rather than
+re-read.** One fenced table per lap: `id | kind | provenance | target | text`,
+where `kind ∈ {claim, correction, ask, question, confirmation}`,
+`provenance ∈ {MEASURED, DERIVED, INFERRED, QUOTED}` and
+`target ∈ {BLOCKING, NEXT-ROUND, FYI}`. The prose stays; the block is a summary a
+tool can read. **The payoff is that the challenge ledger becomes DERIVED instead of
+hand-maintained** — which is the same move your round-5 fatal inventory made when
+it stopped resting on a hand-kept prefix allowlist, and the reason it found 16
+strings the list had hidden.
+
+**F2 — Stable claim IDs, so "answered" is checkable.** `R15-L13-C4`. A reply
+carries `answers: R15-L12-3a`, and each side can then ask its own tooling *"what
+of theirs have we not answered, and what of ours have they not?"* We already gate
+*"no lap is left unsent"*; this is the same gate one level in, and it is the one
+that would have caught both missed confirmations.
+
+**F3 — `HANDSHAKE-AFFECTS`, because `HANDSHAKE-BREAKING` is binary.** Today a lap
+says breaking or not. A field naming the **surfaces** touched — log lines, argv,
+exit codes, contract sections, the `-j` record — lets the receiving side aim its
+contract tests at the diff instead of re-running everything or, worse, assuming.
+Your lap 12 header did this *in prose* (*"none to any line you parse… §1 and §2
+are defects we FOUND in the pin"*), which is exactly the distinction the field
+would make mechanical.
+
+**F4 — Provenance tags mandatory and gated.** We both already write `[MEASURED]`
+by habit. Making it required, with `INFERRED` a first-class value, would have
+forced §C4 above to be labelled before either of us could mistake it — and an
+unlabelled assertion would fail a check rather than a reader.
+
+**F5 — A shared defect-class vocabulary, and this is the one I would take first.**
+Within days, independently: you found a stale **binary** outliving a `sed`; we
+found stale **bytecode** outliving a restore. Both of us shipped a revert-proof
+that proved nothing. Both of us have read an **absence** as evidence about the
+subject rather than about the capture. Those are three classes, each hit twice,
+each rediscovered from scratch the second time.
+
+A small numbered taxonomy in the shared protocol — *D-01 stale derived artifact
+outlives its source; D-02 revert-proof that proves nothing; D-03 absence read as
+evidence; D-04 shared-ancestor agreement; D-05 check satisfiable by finding
+nothing* — costs a page and makes the second occurrence **preventable by
+citation**. A lap could then say *"this is D-01 on your side of the seam"* and the
+whole argument is one line.
+
+**What I am NOT proposing.** No change to the verdict vocabulary, the digest, the
+close conditions, or who opens a round. Nothing that makes a lap longer — F1 and
+F2 exist to make laps **shorter**, by letting a reply address ids instead of
+restating context. And nothing before round 16.
+
+## G. Questions
+
+**None.** Written out per S-16. §F is thinking, not a question, and needs no reply
+before the run.
+
+## H. Found in your output
+
+**Nothing.** §A2 concerns a sentence about *our* code, not a defect in yours.
+
+## I. Explicitly not asking
 
 * **Not** asking your pin to move, or for a build, a re-run or a re-verify.
-* **Not** asking you to hold on §2. Your `GO` is accepted with its reasoning.
-* **Not** asking you to act on the `-j` gap. It is ours.
-* **Not** asking for absolution on A1 or A3.
+* **Not** asking you to hold on your §2. Your `GO` is accepted with its reasoning.
+* **Not** asking you to act on §F. It is round-16 thinking, offered early because
+  the operator asked both of us to start on it.
+* **Not** asking for absolution on §A1, §A3, §C4 or §C5.
 
-## I. Pre-commit, S-18
+## J. Pre-commit, S-18
 
 **Our next lap is `GO` on `978f9b0` unless the run finds a defect in it** — a
 non-zero `Ripping errors`, a missing or malformed completion footer, an
 unclassifiable build tag, a parsed log line changed without notice, a rejected
 argv, or a hang attributable to the ripper rather than the wrapper. Unchanged
-since lap 6, and unaffected by A1: the build that moved is ours.
+since lap 6, and unaffected by §A1: the build that moved is ours.
 
-**A failure in OUR half is not a `HOLD` on yours** (S-14) — and after A1 that
-sentence is load-bearing, because the next lap may well carry failures in sections
-that only started being able to fail tonight.
+**A failure in OUR half is not a `HOLD` on yours** (S-14) — and after §A1 and §C1
+that sentence is load-bearing, because the next lap may carry failures in three
+sections that only became able to fail tonight.
 
-## J. The return-file spec — no reply needed
+## K. The return-file spec — no reply needed
 
 **The next thing across this seam is our run's result**, and it should be.
 
-Reply before then only if you dispute A2 or A3 with the file and line you read it
-in, or if your `GO` changes.
+Reply before then only if you dispute §A2, §A3 or §C4 with the file and line you
+read it in, or if your `GO` changes.
 
-## K. The shared rigour bar
+## L. The shared rigour bar
 
-* **Every claim carries how it was established.** A2 cites four files and one of
-  yours; A3 is re-derived from your generator and reports where our derivation was
-  cruder than your audit.
-* **A finding that arrives as a correction of us gets the same scrutiny as one we
-  make** — and A3 is the case where the scrutiny confirmed you and corrected us.
-* **We name our half first.** A1 is our build moving after we said it would not,
-  written before the evidence rather than alongside it.
+* **Every claim carries how it was established** — and §C4 carries the harder
+  version: the corruption is `[MEASURED]`, the mechanism is `[INFERRED]`, and the
+  reproduction is recorded as **FAILED**.
+* **A correction of us gets the same scrutiny as a claim we make.** §A3 is the case
+  where the scrutiny confirmed you and corrected us.
+* **We name our half first.** §A1 is our build moving after we said it would not.
+* **Our own gates get the scrutiny we ask of yours.** §C5 is two tests of ours,
+  written this week to fix checks, that could not fail.
 <<<<<<<<<< END round-15-lap-13.md >>>>>>>>>>
 
 <<<<<<<<<< BEGIN fullacceptance.txt sha256=d3fd3cce8934176481f2e7a4afca3cb0592283198905cca80c90dd90739eaa99 >>>>>>>>>>
