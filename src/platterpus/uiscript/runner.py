@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import threading
 import time
 from collections.abc import Callable, Sequence
@@ -91,6 +92,14 @@ MAX_RIP_WAIT_S: float = 6 * 60 * 60
 #: requested" from "a rip was requested while no log existed". Two facts, and
 #: giving them one slot is the defect this project keeps paying for.
 _NO_RIP_REQUESTED: Final[object] = object()
+
+#: A MusicBrainz identifier is a UUID. Used by ``expect-identified`` to tell a
+#: MALFORMED release id from an ABSENT one — two different findings, and
+#: reporting the second as the first would send a reader to the wrong subsystem.
+_MBID_RE: Final[re.Pattern[str]] = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 #: Timeout for a scripted `cyanrip` invocation. Generous enough for a cold
 #: container exec (measured at 3.45 s) and a `-x` cache probe, bounded so an
@@ -860,13 +869,38 @@ class ScriptRunner(QObject):
         )
 
     def _do_snapshot(self, step: Step) -> None:
-        """Record the visible state as text — cheap, greppable, always embedded."""
+        """Record the visible state as text — cheap, greppable, always embedded.
+
+        **It has a FLOOR, and it did not until 2026-09-05.** Every `snapshot`
+        recorded `PASS` unconditionally: 22 of them in `fullacceptance.txt`, none
+        able to fail. *"Can this check be satisfied by finding nothing?"* — it
+        could, and the answer looked identical to a snapshot that captured
+        everything, which is the worst shape an evidence step can take. A run's
+        transcript would show 22 green rows over an empty room.
+
+        The floor is :func:`_panel_fields` returning something. It reads five
+        labels off ``_disc_info_panel`` through ``getattr``, so an empty dict
+        means either the window has no disc panel or every field vanished — both
+        of which are findings, and neither of which is "the state was captured".
+        Deliberately *not* asserting the fields' **contents**: a snapshot is
+        evidence, not an assertion about what the evidence should say, and
+        grading the values here would duplicate the `expect-*` verbs badly.
+        """
         lines = [f"snapshot '{step.args[0]}':"]
         top = _active_dialog()
         lines.append(f"  dialog on top: {top.windowTitle() if top else '(none)'}")
         lines.append(f"  window title : {self._window.windowTitle()}")
-        for label, value in _panel_fields(self._window).items():
+        fields = _panel_fields(self._window)
+        for label, value in fields.items():
             lines.append(f"  {label}: {value}")
+        if not fields:
+            lines.append(
+                "  (NO PANEL FIELDS CAPTURED — this snapshot recorded nothing "
+                "about the disc panel, so it is not evidence of the state it "
+                "names)"
+            )
+            self._record(step, Outcome.FAIL, "\n".join(lines))
+            return
         self._record(step, Outcome.PASS, "\n".join(lines))
 
     # --- Verbs: dialogs ------------------------------------------------------
@@ -1704,6 +1738,281 @@ class ScriptRunner(QObject):
             else f"the rip status line does not contain {wanted!r} — it is empty "
             "(no status has been set yet)",
         )
+
+    def _do_expect_identified(self, step: Step) -> None:
+        """Assert the disc was IDENTIFIED, not merely that rows exist.
+
+        **Section E's gate could be satisfied by a disc nobody identified.** Its
+        check was ``expect-tracks 2+``, and
+        :meth:`~platterpus.ui.track_table.TrackTable.set_placeholder_tracks`
+        fills the table for exactly the disc MusicBrainz *cannot* identify —
+        ``"Track 01" … "Track NN"`` with ``"Unknown Artist"``, mirroring the tags
+        an unknown-album rip writes. The count passed, the ``abort-if-failed``
+        below it never fired, and every rip in the rest of the night would have
+        been evidence about a release nobody chose. The section's own header has
+        said *"if this fails, nothing after it can mean anything"* since the file
+        was written; it was true and unenforced.
+
+        **Keyed on the MBID, which is the fact rather than a symptom of it.**
+        ``_current_release_id`` is set from ``detail.summary.mbid`` when a release
+        is chosen and cleared to ``""`` on every placeholder path. Sniffing track
+        titles for ``"Track 01"`` would be a heuristic standing in for that, and
+        would also fail a real album genuinely titled *Unknown Album* — a guess
+        where a fact is available, which is the shape
+        ``known_album_folder`` already cost this project a finished rip over.
+
+        The MBID is **validated, not merely non-empty**: a UUID shape, per
+        `CLAUDE.md`'s rule that every value entering from outside is checked for
+        format at its boundary. A malformed id and an absent one are reported as
+        the different findings they are.
+        """
+        release_id = str(getattr(self._window, "_current_release_id", "") or "").strip()
+        table = getattr(self._window, "_track_table", None)
+        rows = len(table.tracks()) if table is not None else 0
+
+        if not release_id:
+            self._record(
+                step,
+                Outcome.FAIL,
+                "the disc was NOT identified: no MusicBrainz release id is held, "
+                f"so the {rows} row(s) in the track table are placeholders "
+                '("Track 01…", "Unknown Artist"). Everything after this point '
+                "would be evidence about a release nobody chose.",
+            )
+            return
+        if not _MBID_RE.match(release_id):
+            self._record(
+                step,
+                Outcome.FAIL,
+                f"a release id is held but is not a well-formed MBID: "
+                f"{release_id!r}. A malformed id and an absent one are different "
+                "findings; this is the malformed one.",
+            )
+            return
+        if rows < 1:
+            self._record(
+                step,
+                Outcome.FAIL,
+                f"release {release_id} is held but the track table has no rows — "
+                "the record disagrees with itself, and this check cannot pass by "
+                "finding nothing.",
+            )
+            return
+        self._record(
+            step,
+            Outcome.PASS,
+            f"identified as release {release_id}; {rows} track row(s)",
+        )
+
+    def _do_expect_secure_rerip(self, step: Step) -> None:
+        """Assert the secure re-read actually RAN — the graded form of §N's claim.
+
+        **Section N declared its own pass criterion and nothing enforced it.**
+        The script says T1 passes when ``rig-check``'s paranoia row reports
+        *"secure re-read genuinely exercised: YES"* — and that row is ``INFO``,
+        which never fails a run. So a rip in which ``-Z`` did nothing at all
+        passed the ARCHIVAL section whose entire subject is that ``-Z`` worked.
+        A stated criterion that nothing grades is a criterion in prose.
+
+        **One predicate, two callers.** The count comes from
+        :func:`~platterpus.parsers.rip_log.secure_rerip_tracks_scoped`, which is
+        what the ``rig-check`` row renders from. Re-deriving it here from
+        ``rip_count`` or ``secure_rerip_converged`` would give one question two
+        keys, and two surfaces that can disagree about the same fact eventually
+        do — with both their tests green.
+
+        **What it does NOT grade: convergence.** Whether the re-reads *agreed* is
+        a property of the disc; whether the re-read *ran* is a property of the
+        rip. Only the second is ours to assert, and conflating them would fail
+        the run on an ordinary scratched CD — the same mistake
+        ``expect-status Done`` made in this very section.
+        """
+        from platterpus.parsers.rip_log import RipLog, secure_rerip_tracks_scoped
+
+        parsed = getattr(self._window, "_last_rip_log", None)
+        requested = getattr(self, "_rip_log_when_requested", _NO_RIP_REQUESTED)
+        if requested is not _NO_RIP_REQUESTED and parsed is requested:
+            self._record(
+                step,
+                Outcome.FAIL,
+                "no rip has finished since this section asked for one, so this "
+                "would grade a previous section's rip as this one's.",
+            )
+            return
+        if not isinstance(parsed, RipLog):
+            self._record(
+                step,
+                Outcome.FAIL,
+                "no rip log has been parsed in this session, so whether the "
+                "secure re-read ran is NOT DETERMINED — never a pass.",
+            )
+            return
+        if not parsed.tracks:
+            self._record(
+                step,
+                Outcome.FAIL,
+                "the log carries no track blocks, so there is nothing in which a "
+                "re-read could have been exercised — this check cannot be "
+                "satisfied by finding nothing.",
+            )
+            return
+
+        scoped = secure_rerip_tracks_scoped(parsed)
+        total = len(parsed.tracks)
+        # Reported alongside, because "1 of 14" and "14 of 14" are different
+        # facts about a disc and collapsing them to a bool discards the useful one.
+        unstable = [
+            t.number for t in parsed.tracks if t.secure_rerip_converged is False
+        ]
+        detail = f"Scope: line present on {scoped} of {total} track(s)"
+        if unstable:
+            detail += (
+                f"; track(s) {', '.join(str(n) for n in unstable)} did not "
+                "converge — a property of the DISC, reported and not graded here"
+            )
+
+        if scoped:
+            self._record(step, Outcome.PASS, detail)
+        else:
+            self._record(
+                step,
+                Outcome.FAIL,
+                "the secure re-read did NOT run: no track block carries "
+                f"cyanrip's `Scope:` line ({detail}). The rip completed, so this "
+                "is not a rip failure — it is this section's own criterion "
+                "unmet, and until now it was reported as an INFO row that "
+                "nothing graded.",
+            )
+
+    def _do_expect_log_well_formed(self, step: Step) -> None:
+        """Assert the ripper's log is an INTACT, ATTESTED record — either verdict.
+
+        **Section I is ARCHIVAL for the log's completion footer and nothing
+        asserted the footer.** Its only graded step was ``expect-status
+        cancelled``, a substring match on a widget label — the same defect as the
+        ``expect-status Done`` that cost §N a run, sitting in the one section
+        whose entire subject is whether the record survived a cancel (round 14
+        lap 10: a cancel destroyed it).
+
+        **Neither existing verb states §I's claim, and this is measured rather
+        than reasoned.** In the 2026-09-03 bundle the cancelled rip's log reads
+        ``rip_completed=True, 3 of 14, interrupted_at=None`` — cyanrip signs off
+        a cancelled rip with a *completed* footer. So :meth:`_do_expect_rip_complete`
+        would **pass** on it while saying nothing about §I, and an inverse
+        "expect-interrupted" would **fail** on real data. The proposition §I needs
+        is a third one: *the record is well-formed, whatever the rip's verdict.*
+
+        What is graded:
+
+        * **the completion footer is present** — tri-state, absent is NOT
+          DETERMINED and never a pass, and **either verdict passes** because §I is
+          about the record and not about the outcome;
+        * **the log is not truncated**;
+        * **the FUN512 signature is present and the right shape.** This is the
+          load-bearing one: cyanrip writes it from ``atexit``, so a rip killed
+          hard leaves an *unattested* log — precisely the failure §I is named for.
+          A missing signature and a malformed one are reported as the different
+          things they are, via
+          :func:`~platterpus.parsers.cyanrip_log.fun512_signature_is_malformed`,
+          because "the rip was killed" and "the digest is wrong" send a reader in
+          opposite directions.
+
+        What is deliberately **not** graded: whether the rip finished — that is
+        :meth:`_do_expect_rip_complete`'s proposition, and asserting it here would
+        make this verb unusable in the section it was written for. An incomplete
+        last track block is graded **only** when the footer claims completion, in
+        which case the record contradicts itself; after a cancel it is expected,
+        and is reported rather than graded.
+
+        Floors, so this cannot pass by finding nothing: a log must exist, it must
+        be *this* section's rip, and it must carry at least one track block.
+        """
+        from platterpus.parsers.cyanrip_log import fun512_signature_is_malformed
+        from platterpus.parsers.rip_log import RipLog
+
+        parsed = getattr(self._window, "_last_rip_log", None)
+        requested = getattr(self, "_rip_log_when_requested", _NO_RIP_REQUESTED)
+        if requested is not _NO_RIP_REQUESTED and parsed is requested:
+            self._record(
+                step,
+                Outcome.FAIL,
+                "no rip has finished since this section asked for one — the "
+                "window still holds the SAME parsed log it held when `rip` ran, "
+                "so grading it would report a previous section's record as this "
+                "one's.",
+            )
+            return
+        if not isinstance(parsed, RipLog):
+            self._record(
+                step,
+                Outcome.FAIL,
+                "no rip log has been parsed in this session, so there is no "
+                "record to inspect — this step reports the state it found "
+                "rather than passing on an empty room.",
+            )
+            return
+
+        problems: list[str] = []
+
+        # THE FOOTER — present, either verdict. Tri-state.
+        if parsed.rip_completed is None:
+            problems.append(
+                "the log carries NO completion footer, so whether the ripper "
+                "signed off is NOT DETERMINED — which is never a pass, and is "
+                "the exact loss this section exists to detect"
+            )
+
+        if parsed.log_truncated:
+            problems.append("the log is truncated — the record itself is incomplete")
+
+        # THE SIGNATURE — the part a hard kill destroys.
+        signature = parsed.log_checksum.strip()
+        if not signature:
+            problems.append(
+                "the log carries NO `Log FUN512:` signature — cyanrip writes it "
+                "from `atexit`, so an unattested log means the process never ran "
+                "its normal shutdown. The record cannot be verified"
+            )
+        else:
+            malformed = fun512_signature_is_malformed(signature)
+            if malformed:
+                problems.append(
+                    f"the `Log FUN512:` signature is present but malformed "
+                    f"({malformed}) — a wrong digest and a missing one are "
+                    "different findings and this is the wrong-digest one"
+                )
+
+        # FLOOR. A footer over no tracks is not a record of a rip.
+        if not parsed.tracks:
+            problems.append("the log carries no track blocks at all")
+
+        # SELF-CONSISTENCY, not a fixed expectation: an incomplete last block
+        # contradicts a completed footer, and is ordinary after a cancel.
+        if parsed.last_track_incomplete and parsed.rip_completed:
+            problems.append(
+                "the footer claims the rip completed but the last track's block "
+                "is incomplete — the record disagrees with itself"
+            )
+
+        verdict = (
+            "not determined"
+            if parsed.rip_completed is None
+            else ("completed" if parsed.rip_completed else "did not complete")
+        )
+        detail = (
+            f"footer says {verdict}; "
+            f"{len(parsed.tracks)} track block(s); "
+            f"signature {'present' if signature else 'ABSENT'}"
+        )
+        if parsed.last_track_incomplete:
+            detail += "; last track block incomplete (reported, not graded here)"
+        if parsed.interrupted_at:
+            detail += f"; interruption recorded at {parsed.interrupted_at!r}"
+
+        if problems:
+            self._record(step, Outcome.FAIL, "; ".join(problems) + f" [{detail}]")
+        else:
+            self._record(step, Outcome.PASS, detail)
 
     def _do_expect_rip_complete(self, step: Step) -> None:
         """Assert the last rip FINISHED, read from the ripper's own log.

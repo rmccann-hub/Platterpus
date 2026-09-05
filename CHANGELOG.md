@@ -11,7 +11,54 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.38] — 2026-09-05
+
 ### Changed
+- **Four ARCHIVAL acceptance checks could be satisfied by finding nothing, and
+  three of them were the *only* graded step in their section.** None would have
+  failed the run; all four would have **passed** it, which is worse — a green
+  transcript over an untested claim.
+  - **§I** (ARCHIVAL for *"the log's completion footer"*, and it exists because a
+    cancel once destroyed it) was graded by `expect-status cancelled`, a substring
+    match on a widget label. The obvious repair is wrong: measured from the
+    2026-09-03 bundle, cyanrip signs off a **cancelled** rip with
+    `rip_completed=True, 3 of 14`, so `expect-rip-complete` passes on it and an
+    inverse "expect-interrupted" would fail on real data. New verb
+    **`expect-log-well-formed`** states the third proposition — footer present
+    with *either* verdict, not truncated, and the `Log FUN512:` signature present
+    and well-shaped. The signature is the load-bearing part: cyanrip writes it
+    from `atexit`, so a hard kill leaves an unattested log, which is exactly what
+    §I is named for. A missing signature and a malformed one are reported as the
+    different findings they are.
+  - **§N** declared its own pass criterion — rig-check reporting *"secure re-read
+    genuinely exercised: YES"* — and that row is `INFO`, which never fails a run.
+    A rip in which `-Z` did nothing passed the section whose whole subject is that
+    `-Z` worked. New verb **`expect-secure-rerip`** grades it, delegating to
+    `parsers.rip_log.secure_rerip_tracks_scoped`, the **same predicate** the
+    rig-check row now renders from — one predicate, two callers, so the manifest
+    and the script cannot answer one question with two keys. It grades whether the
+    re-read **ran**, never whether it **converged**: convergence is a property of
+    the disc, and grading it would fail the run on an ordinary scratched CD, which
+    is the mistake this section already paid for once.
+  - **§E**'s identification gate was `expect-tracks 2+`, which
+    `track_table.set_placeholder_tracks` satisfies — a disc MusicBrainz *cannot*
+    identify still fills the table with `Track 01…` / `Unknown Artist`. So the
+    count passed, the `abort-if-failed` beneath it never fired, and every rip for
+    the rest of the night would have been evidence about a release nobody chose.
+    New verb **`expect-identified`** keys on `_current_release_id`, the MBID —
+    the fact rather than a symptom — and validates its UUID shape, so an absent id
+    and a malformed one stay different findings.
+  - **`snapshot` had no floor**: 22 sites, all unfailable. A snapshot that
+    captured nothing read exactly like one that captured everything. It now FAILS
+    when `_panel_fields` returns empty, and deliberately still does not grade the
+    fields' *contents* — it is evidence, not an assertion.
+- **The oversize-module ratchet is raised deliberately, with a reason per entry**
+  (`runner.py` 3120→3429, `verbs.py` 571→652, `rip_log.py` 802→831, `rig_check.py`
+  796→799). Raised rather than split **because the split is real work and this
+  landed hours before an eight-hour unattended hardware run** — refactoring the
+  script engine on the same night as the run it drives is the risk this project
+  keeps paying for. The split is `TASKS.md` work and these numbers are the debt
+  marker.
 - **cyanrip round 15 lap 12 filed. Their §1 is a real defect in cyanrip and
   upstream, and it CANNOT affect our run — we were already immune, in the exact
   build they are certifying.** They report that a bare ASCII `'` in `-a`/`-t` opens
@@ -12656,7 +12703,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.37...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.38...HEAD
+[0.6.38]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.37...v0.6.38
 [0.6.37]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.36...v0.6.37
 [0.6.36]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.35...v0.6.36
 [0.6.35]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.34...v0.6.35
@@ -12781,4 +12829,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.37.*
+*Last updated for Platterpus v0.6.38.*

@@ -1113,7 +1113,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the fix is that the module owning read stability owns the classification,
     # so a consumer cannot form a second opinion about the same sentence.
     "parsers/cyanrip_log.py": 2759,
-    "parsers/rip_log.py": 802,
+    # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
+    # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
+    # It belongs beside the dataclass it interrogates; a third module for one
+    # pure function would be the new-file-as-last-resort rule broken to satisfy
+    # a line count.
+    "parsers/rip_log.py": 831,
     "preflight.py": 905,
     "read_speed_ladder.py": 367,
     "report_types.py": 667,
@@ -1122,7 +1127,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # at" and "a folder was given and holds no log" are different facts, and
     # the comment is what stops the next reader collapsing them again — §G is
     # ARCHIVAL and this exit code is its whole grade.
-    "rig_check.py": 796,
+    # +3 (2026-09-05): now DELEGATES the "was the re-read exercised?" count
+    # instead of computing it inline, so the manifest row and the graded verb
+    # cannot answer one question with two keys.
+    "rig_check.py": 799,
     "rip_addendum.py": 493,
     "rip_audit.py": 1216,
     "rip_compare.py": 1404,
@@ -1173,13 +1181,24 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # scenario first given for this was wrong, so the next reader needs to
     # know the change rests on the harness not contradicting the release bar,
     # not on a measured failure.
-    "uiscript/runner.py": 3120,
+    # +309 (2026-09-05): three handlers for the three ARCHIVAL claims that had
+    # NO assertion — `expect-log-well-formed` (§I), `expect-secure-rerip` (§N),
+    # `expect-identified` (§E) — plus a floor on `snapshot`, whose 22 sites
+    # could not fail. Raised rather than split BECAUSE the split is real work
+    # and this landed hours before an eight-hour unattended hardware run:
+    # refactoring the script engine on the same night as the run it drives is
+    # the risk this project keeps paying for. The split is TASKS.md work and
+    # this number is the debt marker, recorded deliberately and not silently.
+    "uiscript/runner.py": 3429,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
     # so a verb declared anywhere else would defeat the file. The comment is
     # most of the addition and stays with the entry it justifies.
-    "uiscript/verbs.py": 571,
+    # +81 (2026-09-05): the three verb registrations for the handlers above.
+    # Each carries its "why this verb exists" comment, which is the file's
+    # established shape and the reason it is long.
+    "uiscript/verbs.py": 652,
     "update_install.py": 304,
     "verdict.py": 521,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
