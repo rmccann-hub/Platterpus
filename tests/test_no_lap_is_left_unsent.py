@@ -47,6 +47,15 @@ SENT_OUTSIDE_THE_ENVELOPE: Final[dict[str, str]] = {
         "and declares GO on the pin lap 2 proposed — so it demonstrably arrived. "
         "Held at docs/handshake/inbound/round-15-lap-03.md."
     ),
+    "round-15-lap-09.md": (
+        "Sent bare — it carried no artifacts, and an envelope exists to carry a "
+        "lap PLUS artifacts. The fork's lap 10 confirms arrival four ways: "
+        "`HANDSHAKE-INBOUND-HELD: Your lap 9`, our `OPEN` quoted from its line 6, "
+        "our digest 35b861f25abfa69c over 8 reproduced, and its §E1 answered at "
+        "length. Held at docs/handshake/inbound/round-15-lap-10.md. Byte-identity "
+        "with the copy they filed is pinned separately in SENT_LAPS and was "
+        "re-verified against their own repository at 098ecde."
+    ),
 }
 
 
