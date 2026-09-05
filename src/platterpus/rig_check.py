@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+from platterpus.parsers.rip_log import RipLog, secure_rerip_tracks_scoped
 from platterpus.rip_addendum import read_log_with_addendum
 
 log = logging.getLogger(__name__)
@@ -618,11 +619,13 @@ def _report_paranoia_scope(manifest: Manifest, parsed: object) -> None:
     """
     tracks = getattr(parsed, "tracks", ()) or ()
     per_track = 0
-    scoped = 0
     for track in tracks:
         per_track += sum((getattr(track, "paranoia_counts", None) or {}).values())
-        if getattr(track, "paranoia_scope", None):
-            scoped += 1
+    # ONE PREDICATE, TWO CALLERS. The acceptance script's `expect-secure-rerip`
+    # grades what this row reports, and re-deriving "was it exercised?" from a
+    # second field is how two surfaces come to disagree about one question with
+    # both tests green. See `parsers.rip_log.secure_rerip_tracks_scoped`.
+    scoped = secure_rerip_tracks_scoped(parsed) if isinstance(parsed, RipLog) else 0
     disc = sum((getattr(parsed, "paranoia_counts", None) or {}).values())
     if per_track == 0 and disc == 0:
         manifest.add(

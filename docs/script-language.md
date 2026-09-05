@@ -74,6 +74,9 @@ text is taken verbatim as one value.
 | `cancel-rip` | 0 | ready | cancel-rip — cancel a rip in progress |
 | `expect-status` | 1+ (rest of line) | ready | expect-status <text> — assert the rip status line (the one under the Overall progress bar) contains text, case-insensitively |
 | `expect-rip-complete` | 0 | ready | expect-rip-complete — assert the last rip FINISHED, read from the ripper's own log (completion footer, track tally, no truncation) rather than from the status line; read instability is reported, not graded |
+| `expect-log-well-formed` | 0 | ready | expect-log-well-formed — assert the ripper's log is an intact, attested record (completion footer present with EITHER verdict, not truncated, FUN512 signature well-formed); use where a rip was cancelled and `expect-rip-complete` cannot state the claim |
+| `expect-secure-rerip` | 0 | ready | expect-secure-rerip — assert the secure re-read actually RAN on this rip (at least one track block carries cyanrip's Scope: line), the graded form of rig-check's 'genuinely exercised' row |
+| `expect-identified` | 0 | ready | expect-identified — assert the disc was identified against MusicBrainz (a well-formed release MBID is held), not merely that the track table has rows, which placeholder rows also satisfy |
 | `expect-refused` | 2+ (rest of line) | ready | expect-refused <setting> <value> — assert the validator REFUSES this value and leaves the setting unchanged (the pass condition is a refusal) |
 | `expect-ripper-under-review` | 0 | ready | expect-ripper-under-review — assert the installed cyanrip is the build the handshake record names: the build under review while a round is open, and the approved production pin between rounds (run a `cyanrip --version` first) |
 | `probe-ripper-wrapper` | 0 | ready | probe-ripper-wrapper — time the host-exported ripper wrapper, the container entry and the in-container binary to find which one fails to exit. Records the verdict; never fails the run |
@@ -334,7 +337,7 @@ found nothing wrong*.
 {
   "language": "platterpus-uiscript",
   "grammar_version": 1,
-  "platterpus_version": "0.6.37",
+  "platterpus_version": "0.6.38",
   "syntax": {
     "one_statement_per_line": true,
     "comment_prefix": "#",
@@ -577,6 +580,33 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-rip-complete \u2014 assert the last rip FINISHED, read from the ripper's own log (completion footer, track tally, no truncation) rather than from the status line; read instability is reported, not graded"
+    },
+    {
+      "name": "expect-log-well-formed",
+      "min_args": 0,
+      "max_args": 0,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-log-well-formed \u2014 assert the ripper's log is an intact, attested record (completion footer present with EITHER verdict, not truncated, FUN512 signature well-formed); use where a rip was cancelled and `expect-rip-complete` cannot state the claim"
+    },
+    {
+      "name": "expect-secure-rerip",
+      "min_args": 0,
+      "max_args": 0,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-secure-rerip \u2014 assert the secure re-read actually RAN on this rip (at least one track block carries cyanrip's Scope: line), the graded form of rig-check's 'genuinely exercised' row"
+    },
+    {
+      "name": "expect-identified",
+      "min_args": 0,
+      "max_args": 0,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-identified \u2014 assert the disc was identified against MusicBrainz (a well-formed release MBID is held), not merely that the track table has rows, which placeholder rows also satisfy"
     },
     {
       "name": "expect-refused",
@@ -866,4 +896,4 @@ found nothing wrong*.
 }
 ```
 
-*Last updated for Platterpus v0.6.37.*
+*Last updated for Platterpus v0.6.38.*

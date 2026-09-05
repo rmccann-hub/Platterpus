@@ -47,6 +47,12 @@ SENT_OUTSIDE_THE_ENVELOPE: Final[dict[str, str]] = {
         "and declares GO on the pin lap 2 proposed — so it demonstrably arrived. "
         "Held at docs/handshake/inbound/round-15-lap-03.md."
     ),
+    "round-15-lap-11.md": (
+        "Sent bare. The fork's lap 12 confirms it: `HANDSHAKE-INBOUND-HELD: Your "
+        "lap 11 ... Nothing outstanding`, and their §5 reproduces its digest "
+        "f685729d41cf7f5b over 10. Held at "
+        "docs/handshake/inbound/round-15-lap-12.md; bytes pinned in SENT_LAPS."
+    ),
     "round-15-lap-09.md": (
         "Sent bare — it carried no artifacts, and an envelope exists to carry a "
         "lap PLUS artifacts. The fork's lap 10 confirms arrival four ways: "
@@ -57,6 +63,9 @@ SENT_OUTSIDE_THE_ENVELOPE: Final[dict[str, str]] = {
         "re-verified against their own repository at 098ecde."
     ),
 }
+
+
+from test_sent_laps_are_immutable import SENT_LAPS  # noqa: E402
 
 
 def _current_round() -> int:
@@ -102,11 +111,28 @@ def test_no_lap_of_the_current_round_is_left_unsent() -> None:
         "has lost its population and is passing by not looking"
     )
 
+    # THREE WAYS A LAP CAN BE ACCOUNTED FOR, and the third was missing.
+    #
+    # `PARTS` is the CURRENT envelope, not a cumulative record — so when the
+    # envelope moves to a newer lap, every lap it used to carry falls out of
+    # `packed` and this sweep reports four delivered laps as unsent (2026-09-05,
+    # when `PARTS` moved from lap 7 to lap 13). **A gate that fires on correct
+    # behaviour teaches people to route around it**, which is worse than one
+    # that never fires, so the model had to gain the case rather than the
+    # allowlist gain four rows.
+    #
+    # `SENT_LAPS` is the authority the model was missing: it pins the sha256 of
+    # bytes actually DELIVERED, and every one of those four is in it, several
+    # peer-confirmed and all re-verified against the fork's own repository. A lap
+    # whose delivered bytes we can hash is not a lap nobody is carrying.
     packed = _packed_lap_names()
+    delivered = {name.rsplit("/", 1)[-1] for name in SENT_LAPS}
     unsent = [
         lap.name
         for lap in laps
-        if lap.name not in packed and lap.name not in SENT_OUTSIDE_THE_ENVELOPE
+        if lap.name not in packed
+        and lap.name not in delivered
+        and lap.name not in SENT_OUTSIDE_THE_ENVELOPE
     ]
 
     # THE NEWEST LAP MAY BE PENDING. Exactly one, and only the highest-numbered.

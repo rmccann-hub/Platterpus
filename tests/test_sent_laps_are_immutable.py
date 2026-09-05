@@ -138,6 +138,17 @@ SENT_LAPS: dict[str, str] = {
     "outbound/round-15-lap-09.md": (
         "a5ac94148952fc50b4f7c73d571f918497b9e83f747d371ad4c76bd98de2d6b5"
     ),
+    # Round 15 lap 11, sent bare and **peer-confirmed by their lap 12**:
+    # `HANDSHAKE-INBOUND-HELD: Your lap 11 ... Nothing outstanding`, and their §5
+    # reproduces its digest `f685729d41cf7f5b over 10`.
+    #
+    # **Recorded in the same commit that read the lap confirming it**, which is
+    # the rule the lap-9 row above had to be added a lap late to learn. The
+    # mechanism works: this row exists because reading lap 12 included asking
+    # what lap 12 confirms about our outbound.
+    "outbound/round-15-lap-11.md": (
+        "5273610e96f14802e3df569db78b84bc31e8ffc2c8ac146ca4561057fa78a03c"
+    ),
 }
 
 #: **The boundary this map records, and it was wrong in both directions in 48 hours.**

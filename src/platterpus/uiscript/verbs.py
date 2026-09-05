@@ -318,6 +318,87 @@ _VERB_LIST: tuple[Verb, ...] = (
         "than from the status line; read instability is reported, not graded",
     ),
     Verb(
+        # `expect-log-well-formed` — assert the RECORD is intact, whatever the
+        # rip's verdict was.
+        #
+        # **A third proposition, and section I had neither of the other two.**
+        # §I is ARCHIVAL for *"the log's completion footer"* -- it exists because
+        # a cancel once destroyed it (round 14 lap 10) -- and its only graded step
+        # was `expect-status cancelled`, a substring match on a widget label. That
+        # is the same class of defect as the `expect-status Done` above, in the
+        # one section whose entire subject is whether the record survived.
+        #
+        # **And the obvious fix is wrong.** Measured from the 2026-09-03 bundle,
+        # the cancelled rip's log reads `completed=True, 3 of 14,
+        # interrupted_at=None`: cyanrip signs off a cancelled rip with a
+        # *completed* footer. So `expect-rip-complete` would PASS on it and say
+        # nothing about §I's claim, and an inverse "expect-interrupted" would FAIL
+        # on real data. Neither states the proposition.
+        #
+        # The proposition is: **the record is well-formed, with EITHER verdict.**
+        # Footer present (tri-state -- absent is NOT DETERMINED and never a pass),
+        # not truncated, and the FUN512 signature present and the right shape. The
+        # signature is the load-bearing one: cyanrip writes it from `atexit`, so a
+        # rip killed hard leaves an unattested log, which is exactly the failure
+        # §I is named for.
+        #
+        # Self-consistency rather than a fixed expectation: an incomplete last
+        # track block is graded ONLY when the footer claims the rip completed, in
+        # which case the record contradicts itself. After a cancel it is expected
+        # and is reported, not graded.
+        "expect-log-well-formed",
+        0,
+        0,
+        "expect-log-well-formed — assert the ripper's log is an intact, attested "
+        "record (completion footer present with EITHER verdict, not truncated, "
+        "FUN512 signature well-formed); use where a rip was cancelled and "
+        "`expect-rip-complete` cannot state the claim",
+    ),
+    Verb(
+        # `expect-secure-rerip` — grade what section N only ever REPORTED.
+        #
+        # §N is ARCHIVAL and its stated pass criterion is `rig-check`'s paranoia
+        # row reading *"secure re-read genuinely exercised: YES"*. That row is
+        # `INFO`. **Nothing graded it**, so a rip in which `-Z` did precisely
+        # nothing passed the section whose entire subject is that `-Z` worked
+        # (found 2026-09-05).
+        #
+        # It delegates to `parsers.rip_log.secure_rerip_tracks_scoped`, the same
+        # predicate the `rig-check` row renders from. Re-deriving the answer here
+        # from `rip_count` or `secure_rerip_converged` would be a second key for
+        # one question, which is how two surfaces disagree with both tests green.
+        "expect-secure-rerip",
+        0,
+        0,
+        "expect-secure-rerip — assert the secure re-read actually RAN on this "
+        "rip (at least one track block carries cyanrip's Scope: line), the "
+        "graded form of rig-check's 'genuinely exercised' row",
+    ),
+    Verb(
+        # `expect-identified` — assert the disc was IDENTIFIED, not merely
+        # counted.
+        #
+        # §E's gate was `expect-tracks 2+`, and a disc MusicBrainz cannot identify
+        # still fills the table: `track_table.set_placeholder_tracks` writes
+        # "Track 01".."Track NN" with "Unknown Artist", mirroring the tags an
+        # unknown-album rip writes. So the count passed, `abort-if-failed` did not
+        # fire, and every rip after §E would have been evidence about a release
+        # nobody chose. The section's own comment says "if this fails, nothing
+        # after it can mean anything" -- which was true and unenforced.
+        #
+        # Keyed on `_current_release_id`, the MusicBrainz MBID, because that is
+        # the AUTHORITATIVE signal: it is set from `detail.summary.mbid` when a
+        # release is chosen and cleared to "" on every placeholder path. Sniffing
+        # titles for "Track 01" would be a heuristic over a fact, and would also
+        # libel a real album genuinely titled "Unknown Album".
+        "expect-identified",
+        0,
+        0,
+        "expect-identified — assert the disc was identified against MusicBrainz "
+        "(a well-formed release MBID is held), not merely that the track table "
+        "has rows, which placeholder rows also satisfy",
+    ),
+    Verb(
         # `expect-refused` — the ONLY way a script can assert that validation
         # WORKED. `set` reports FAIL when the pure validator refuses a value, and
         # a refusal is the correct outcome for a bad input — so a script exercising

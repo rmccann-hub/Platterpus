@@ -67,10 +67,7 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: be miscounted; `assert_not_a_lap` checks that property on the envelope before
 #: writing it.
 PARTS: tuple[Path, ...] = (
-    HANDSHAKE_DIR / "outbound" / "round-15-lap-07.md",
-    HANDSHAKE_DIR / "outbound" / "round-15-lap-04.md",
-    HANDSHAKE_DIR / "outbound" / "round-15-lap-05.md",
-    HANDSHAKE_DIR / "outbound" / "round-15-lap-06.md",
+    HANDSHAKE_DIR / "outbound" / "round-15-lap-13.md",
     REPO_ROOT / "src" / "platterpus" / "rig_scripts" / "fullacceptance.txt",
 )
 
@@ -116,6 +113,25 @@ PARTS: tuple[Path, ...] = (
 # so it is not part of the close condition; lap 7 §C4 cites it as evidence that
 # the fix was swept rather than applied where it was found, which is a claim about
 # our process rather than an artifact they must review.
+
+# WHY IT MOVED TO ROUND-15 LAP 13 (2026-09-05), and why the round-15 lap-7
+# envelope was NOT regenerated.
+#
+# Lap 13 changes `fullacceptance.txt` -- three new graded verbs and a floor on
+# `snapshot` -- so it must travel WITH the script, for the round-12 reason
+# restated below: a lap that alters the file the other side is about to have run,
+# sent without it, is a description of an artifact instead of the artifact.
+#
+# **The lap-7 envelope was left alone on purpose.** It was sent and the fork
+# confirmed receipt of all four laps it carried, so regenerating it to pick up the
+# edited script would have rewritten a DELIVERED artifact -- the exact drift
+# `tests/test_sent_laps_are_immutable.py` exists to prevent, arriving through the
+# convenient door of "the envelope test is red, run the generator". The red test
+# was right that the envelope was stale against the tree; the fix was to point it
+# at the lap that owns the change, not to edit history.
+#
+# Laps 4-7 are not re-packed: they are delivered, byte-identical on both sides,
+# and verified against the fork's own repository at 098ecde.
 
 # WHY THIS MOVED FROM LAP 6 TO LAP 13, and why `securereread.txt` came out.
 #
