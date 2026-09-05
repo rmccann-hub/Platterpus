@@ -67,9 +67,71 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: be miscounted; `assert_not_a_lap` checks that property on the envelope before
 #: writing it.
 PARTS: tuple[Path, ...] = (
-    HANDSHAKE_DIR / "outbound" / "round-14-lap-16.md",
+    HANDSHAKE_DIR / "outbound" / "round-15-lap-13.md",
     REPO_ROOT / "src" / "platterpus" / "rig_scripts" / "fullacceptance.txt",
 )
+
+# WHY THIS CARRIES FOUR LAPS, AND WHY THAT IS A FAILURE REPORT RATHER THAN A
+# FEATURE (2026-09-04).
+#
+# Laps 4, 5 and 6 were written on 09-02, 09-03 and 09-04 and **none of them was
+# ever handed over.** This constant stayed pointed at round 14 lap 16 through all
+# three, and the envelope was regenerated FOUR separate times on 09-04 — because
+# it also carries `fullacceptance.txt`, which was being edited — each time
+# reporting success while packing a round the peer closed weeks ago.
+#
+# That is exactly the failure cyanrip's round-9 lap 3 §B1 named when they argued
+# against deleting this generator: *"deleting the instance removed your exposure;
+# the rule removed everyone's."* The rule they got us to write is that an envelope
+# cannot be miscounted as a lap. It says nothing about an envelope that is
+# faithfully, repeatedly, correctly built around the WRONG lap — and the docstring
+# above already warned about the neighbouring case ("one artifact implying a send
+# that did not happen"), which is how this one hid in plain sight.
+#
+# The laps travel UNMODIFIED. Protocol v4 §4a makes a correction a new lap rather
+# than an edit, and there is a concrete reason beyond the principle: laps 5 and 6
+# each declare a `HANDSHAKE-ROUND-DIGEST` computed over the laps before them, so
+# editing 4 or 5 now would falsify a value already written down. `round-08-lap-18`
+# is the precedent — written, never sent, sent unmodified two rounds later, on the
+# reasoning that sending a file late does not make it a new file.
+#
+# PARTS[0] is lap 7 because `lead_identity()` names the envelope after the
+# OPERATIVE lap, and 7 is the one that covers the other three. Its §A tells the
+# reader to take 4, 5 and 6 first; the packing order and the reading order differ
+# here for the first time, deliberately.
+#
+# `fullacceptance.txt` travels for the same reason it did in round 14: it CHANGED
+# materially in this lap's subject — nine rips that asserted nothing about
+# completion now do, and both `expect-status Done` sites are gone — and it is the
+# artifact the round's only close condition is produced by. A lap that alters the
+# script the other side is about to have run, sent without the script, is a
+# description of an artifact instead of the artifact.
+#
+# `securereread.txt` stays OUT even though it changed this time (it carried both
+# defects: the 10800 budget and `expect-status Done`). The fork's lap 11 §K
+# retired it for this run because `fullacceptance.txt` contains T1 as section N,
+# so it is not part of the close condition; lap 7 §C4 cites it as evidence that
+# the fix was swept rather than applied where it was found, which is a claim about
+# our process rather than an artifact they must review.
+
+# WHY IT MOVED TO ROUND-15 LAP 13 (2026-09-05), and why the round-15 lap-7
+# envelope was NOT regenerated.
+#
+# Lap 13 changes `fullacceptance.txt` -- three new graded verbs and a floor on
+# `snapshot` -- so it must travel WITH the script, for the round-12 reason
+# restated below: a lap that alters the file the other side is about to have run,
+# sent without it, is a description of an artifact instead of the artifact.
+#
+# **The lap-7 envelope was left alone on purpose.** It was sent and the fork
+# confirmed receipt of all four laps it carried, so regenerating it to pick up the
+# edited script would have rewritten a DELIVERED artifact -- the exact drift
+# `tests/test_sent_laps_are_immutable.py` exists to prevent, arriving through the
+# convenient door of "the envelope test is red, run the generator". The red test
+# was right that the envelope was stale against the tree; the fix was to point it
+# at the lap that owns the change, not to edit history.
+#
+# Laps 4-7 are not re-packed: they are delivered, byte-identical on both sides,
+# and verified against the fork's own repository at 098ecde.
 
 # WHY THIS MOVED FROM LAP 6 TO LAP 13, and why `securereread.txt` came out.
 #

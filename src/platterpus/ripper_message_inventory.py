@@ -140,12 +140,6 @@ MESSAGES: Final[tuple[RipperMessage, ...]] = (
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="accurip.c:176",
-        text="AccuRIP DB data error, got unexpected number of bytes!",
-        evidence="goto end",
-        reaches_logfile=True,
-    ),
-    RipperMessage(
         site="coverart.c:51",
         text="Unable to init lavf context: %s!",
         evidence="both",
@@ -470,18 +464,6 @@ MESSAGES: Final[tuple[RipperMessage, ...]] = (
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1008",
-        text="Done; (%i out of %i matches for current checksum %08X)",
-        evidence="goto finalize_ripping",
-        reaches_logfile=True,
-    ),
-    RipperMessage(
-        site="cyanrip_main.c:1014",
-        text="Done; (no matches found, but hit repeat limit of %i)",
-        evidence="goto finalize_ripping",
-        reaches_logfile=True,
-    ),
-    RipperMessage(
         site="cyanrip_main.c:1045",
         text="Error in encoding: %s",
         evidence="wording + goto end",
@@ -632,12 +614,6 @@ MESSAGES: Final[tuple[RipperMessage, ...]] = (
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:2031",
-        text="Offset is unset! To continue with an offset of 0, run with -s 0!",
-        evidence="goto end",
-        reaches_logfile=True,
-    ),
-    RipperMessage(
         site="cyanrip_main.c:2158",
         text="Error reading album tags: %s",
         evidence="both",
@@ -665,12 +641,6 @@ MESSAGES: Final[tuple[RipperMessage, ...]] = (
         site="cyanrip_main.c:2305",
         text="Error reading track tags: %s",
         evidence="both",
-        reaches_logfile=True,
-    ),
-    RipperMessage(
-        site="cyanrip_main.c:2327",
-        text="%s",
-        evidence="goto end",
         reaches_logfile=True,
     ),
     RipperMessage(
@@ -806,18 +776,6 @@ MESSAGES: Final[tuple[RipperMessage, ...]] = (
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="musicbrainz.c:251",
-        text="MusicBrainz lookup failed: DiscID has no associated releases.",
-        evidence="goto end_meta",
-        reaches_logfile=True,
-    ),
-    RipperMessage(
-        site="musicbrainz.c:259",
-        text="MusicBrainz lookup failed: no releases found for DiscID.",
-        evidence="goto end_meta",
-        reaches_logfile=True,
-    ),
-    RipperMessage(
         site="musicbrainz.c:298",
         text="Please specify which release to use by adding the -R argument with an index or ID.",
         evidence="control flow",
@@ -930,6 +888,83 @@ RETAINED_BEYOND_P5: Final[tuple[tuple[RipperMessage, str], ...]] = (
         "`-Y`/`--verify-log` refusal, and a log-verification that finds no checksum "
         "is exactly the sentence a user needs instead of a generic failure.",
     ),
+    # --- ROUND 15 P5a: the seven strings they stopped classifying -------------
+    #
+    # Their lap 8 moved these out of P5 into a new **P5a — Strings this document
+    # does NOT classify**, after OUR 2026-09-03 run found the defect: they sat
+    # under a heading reading *"Every string reachable on a failure path"* purely
+    # on the strength of a `goto`, and `finalize_ripping:` is the ordinary
+    # continuation that flushes encoders and falls into `Track %i ripped and
+    # encoded successfully!`. Their words: *"a jump is not an abort"*.
+    #
+    # **P5a is NOT a safety claim, which is why these are RETAINED and not
+    # dropped.** Its preamble: *"do not treat their absence from P5 as a claim
+    # that they are harmless — read them and decide"*, and *"two of the rows below
+    # really are failures, by a flag set here and read further down than the
+    # search window reaches"*. They do not say which two.
+    #
+    # The asymmetry decides it. **Under-matching a real fatal costs a user a bare
+    # "Rip failed." with the ripper's own diagnosis discarded — the §5.ab defect
+    # this subsystem exists for. Over-matching a benign line costs one row in a
+    # report.** So each is kept, with the reason it is kept, and the one case we
+    # have MEASURED is excluded at the parser instead.
+    (
+        RipperMessage(
+            site="accurip.c:176",
+            text="AccuRIP DB data error, got unexpected number of bytes!",
+            evidence="round 15 P5a — not classified in either direction",
+            reaches_logfile=True,
+        ),
+        "An AccurateRip DB read that returned the wrong byte count. Not fatal to the "
+        "rip, but it is the difference between an unverified rip and a silently "
+        "unverified one, and the user should get the sentence.",
+    ),
+    (
+        RipperMessage(
+            site="cyanrip_main.c:1014",
+            text="Done; (no matches found, but hit repeat limit of %i)",
+            evidence="round 15 P5a — not classified in either direction",
+            reaches_logfile=True,
+        ),
+        "MEASURED non-fatal, by us: it appeared 13 times in the 2026-09-03 rip that "
+        "ended `Ripping errors: 0` with all 14 tracks written, and our own "
+        "diagnostics graded that rip `worst: error` because of it. Retained in "
+        "the inventory and excluded at the parser, so a later contract that "
+        "reclassifies it again cannot silently restore the false positive.",
+    ),
+    (
+        RipperMessage(
+            site="cyanrip_main.c:2031",
+            text="Offset is unset! To continue with an offset of 0, run with -s 0!",
+            evidence="round 15 P5a — not classified in either direction",
+            reaches_logfile=True,
+        ),
+        "Almost certainly one of the two P5a rows that ARE failures — their own P5a "
+        "preamble cites `Offset is unset!` as an abort that leaves via `goto end`. "
+        "It ends the run and tells the user exactly what to do. Dropping it to "
+        "follow P5a literally would replace an actionable sentence with "
+        "`Rip failed.`",
+    ),
+    (
+        RipperMessage(
+            site="musicbrainz.c:251",
+            text="MusicBrainz lookup failed: DiscID has no associated releases.",
+            evidence="round 15 P5a — not classified in either direction",
+            reaches_logfile=True,
+        ),
+        "Unreachable for us in practice: Critical rule #5 runs the ripper with `-N`, so "
+        "its own MusicBrainz lookup never happens. Retained because `unreachable "
+        "under our argv` is a fact about us, not about the string.",
+    ),
+    (
+        RipperMessage(
+            site="musicbrainz.c:259",
+            text="MusicBrainz lookup failed: no releases found for DiscID.",
+            evidence="round 15 P5a — not classified in either direction",
+            reaches_logfile=True,
+        ),
+        "Same as the row above: unreachable under `-N`, retained for the same reason.",
+    ),
 )
 
 #: The subset safe to treat as a hard failure. See the module docstring.
@@ -965,6 +1000,39 @@ CONTROL_FLOW_PROVEN: Final[tuple[RipperMessage, ...]] = tuple(
 #: Kept as an explicit named tuple with the reason attached, and asserted by a test,
 #: so it cannot grow silently into a way of hiding messages we simply found
 #: inconvenient.
+#: **Round 15 update.** The fork moved this string out of P5 into P5a
+#: (*strings this document does NOT classify*) in their lap 8, for the same
+#: reason it is excluded here — `goto finalize_ripping` is the success-cleanup
+#: route, not a failure path. Two projects reaching the same conclusion about
+#: one line from opposite directions. It is deliberately NOT in
+#: :data:`RETAINED_BEYOND_P5`: that list's invariant is that every row in it is
+#: still surfaced, and this one must not be. One fact, one slot.
+#: P5a rows we deliberately do **not** retain, and why — the other half of the
+#: decision :data:`RETAINED_BEYOND_P5` records.
+#:
+#: Retention carries an invariant, asserted by
+#: ``tests/test_ripper_error_surfacing.py``: a retained row is one we still
+#: SURFACE. *"Retained and still not surfaced"* is the worst of both — it claims
+#: a string matters and then drops it. So a P5a row that cannot meet that
+#: invariant is not quietly retained; it is listed here with the reason it
+#: cannot, and every P5a row must appear in exactly one of the two lists.
+P5A_NOT_RETAINED: Final[tuple[tuple[str, str], ...]] = (
+    (
+        "Done; (%i out of %i matches for current checksum %08X)",
+        "the -Z convergence SUCCESS message. Its home is SURFACING_EXCLUDED, which "
+        "already says do-not-surface with the reason; retaining it as well would "
+        "assert the opposite in the same module. One fact, one slot.",
+    ),
+    (
+        "%s",
+        "a bare format placeholder at cyanrip_main.c:2327. `format_to_pattern` "
+        "builds nothing from it — a pattern with no literal text matches every "
+        "line of output, which would report every progress redraw as a fatal. It "
+        "cannot be surfaced, so it cannot be retained, and the fork no longer "
+        "classifies it either.",
+    ),
+)
+
 SURFACING_EXCLUDED: Final[tuple[tuple[str, str], ...]] = (
     (
         "Done; (%i out of %i matches for current checksum %08X)",

@@ -11,6 +11,361 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **Mutation testing actually runs, for the first time.** `mutmut` was pinned,
+  floored and left deliberately red behind a recorded diagnosis (import paths).
+  **That diagnosis is wrong**: measured 2026-09-05, the mutated module *is* the one
+  `pytest` imports from `mutants/`, and `mutmut run` executes **nothing** even when
+  a single mutant is named — 150 ms, exit 0. A previous session explained the
+  symptom without reproducing it. Replaced with **`scripts/mutation_sweep.py`**,
+  ours, built on the primitive this repo already trusts (`revert_probe.py`: apply
+  an edit, run named tests, see if they noticed). No third-party mutator, because
+  rule #11's *a tool that gates CI must not float* applies to a signal as much as a
+  gate. `mutation.yml` now sweeps five trust-bearing modules in a matrix, with a
+  floor on mutants **checked** so a sweep that measured nothing cannot read as a
+  clean one.
+- **It found real gaps immediately.** `verdict.py` scored **23.8%** against its own
+  test file; `accuraterip_lookup_happened` — a tri-state, trust-bearing classifier
+  — was **not imported by any test**, so every one of its returns could be flipped
+  with the suite green: a rip whose AccurateRip lookup was *disabled* would have
+  been reported as compared. Four tests later, **42.9%**. Also killed: a clamp that
+  could invent a missing track in the accuracy headline of a complete rip.
+- **Structure-aware fuzzing** (`tests/test_parsers_structure_fuzz.py`). The existing
+  property tests generate arbitrary text, which almost never produces a line that
+  *looks* like a log — so they exercise the guards and not the body. This builds a
+  grammar **from a committed golden reference** and fills it with hostile values,
+  and asserts the parsers do not merely avoid raising but do not silently store
+  garbage either (no `inf`, no absurd integers in an archival record).
+- **Filesystem fault injection** (`tests/test_fault_injection.py`) at the one place
+  it matters most: the evidence bundle, which is what a user sends when something
+  has *already* gone wrong. ENOSPC, unreadable sources, an uncreatable destination,
+  a file vanishing mid-scan, zero-byte artifacts.
+- **Secret scanning (`gitleaks`) and SBOM generation (`sbom`), both gating.**
+  Gitleaks runs over the **full history**, because this repo is public and `git log`
+  is a distribution channel — the same reasoning rule #8 gives for audio, so a
+  credential removed in a later commit is still published and a diff-only scan
+  would pass on it. The SBOM has a floor refusing fewer than ten components.
+
+### Fixed
+- **The mutation harness shipped a defect that hid from `git diff`, and it is
+  fixed three ways.** Restoring a file's CONTENT is not restoring the MODULE: after
+  a sweep over `ctdb/crc.py`, six CTDB tests failed with the source byte-identical
+  to `git show HEAD:`, `git status` clean, the archival CRC wrong — and deleting
+  `__pycache__` fixed it. The child now runs with `PYTHONDONTWRITEBYTECODE`, the
+  target's `.pyc` is deleted on restore, and its mtime is pushed forward.
+  **The mechanism is marked INFERRED and the reproduction is recorded as FAILED**:
+  with all three defences removed an end-to-end probe still loaded correct
+  behaviour. The regression test asserts the observable that *does* discriminate —
+  no `.pyc` survives a sweep — and says so rather than claiming more.
+- **A test I wrote to fix a check was vacuous**, caught by `revert_probe.py` before
+  it shipped: the first newest-contract regression test asserted over the real
+  directory, whose order on this machine already gives the right answer, so it
+  passed with the fix reverted. Rewritten to force the adverse order.
+- **The end-to-end CLI test mutated real project source** mid-suite. Now a copy.
+
+## [0.6.38] — 2026-09-05
+
+### Changed
+- **Four ARCHIVAL acceptance checks could be satisfied by finding nothing, and
+  three of them were the *only* graded step in their section.** None would have
+  failed the run; all four would have **passed** it, which is worse — a green
+  transcript over an untested claim.
+  - **§I** (ARCHIVAL for *"the log's completion footer"*, and it exists because a
+    cancel once destroyed it) was graded by `expect-status cancelled`, a substring
+    match on a widget label. The obvious repair is wrong: measured from the
+    2026-09-03 bundle, cyanrip signs off a **cancelled** rip with
+    `rip_completed=True, 3 of 14`, so `expect-rip-complete` passes on it and an
+    inverse "expect-interrupted" would fail on real data. New verb
+    **`expect-log-well-formed`** states the third proposition — footer present
+    with *either* verdict, not truncated, and the `Log FUN512:` signature present
+    and well-shaped. The signature is the load-bearing part: cyanrip writes it
+    from `atexit`, so a hard kill leaves an unattested log, which is exactly what
+    §I is named for. A missing signature and a malformed one are reported as the
+    different findings they are.
+  - **§N** declared its own pass criterion — rig-check reporting *"secure re-read
+    genuinely exercised: YES"* — and that row is `INFO`, which never fails a run.
+    A rip in which `-Z` did nothing passed the section whose whole subject is that
+    `-Z` worked. New verb **`expect-secure-rerip`** grades it, delegating to
+    `parsers.rip_log.secure_rerip_tracks_scoped`, the **same predicate** the
+    rig-check row now renders from — one predicate, two callers, so the manifest
+    and the script cannot answer one question with two keys. It grades whether the
+    re-read **ran**, never whether it **converged**: convergence is a property of
+    the disc, and grading it would fail the run on an ordinary scratched CD, which
+    is the mistake this section already paid for once.
+  - **§E**'s identification gate was `expect-tracks 2+`, which
+    `track_table.set_placeholder_tracks` satisfies — a disc MusicBrainz *cannot*
+    identify still fills the table with `Track 01…` / `Unknown Artist`. So the
+    count passed, the `abort-if-failed` beneath it never fired, and every rip for
+    the rest of the night would have been evidence about a release nobody chose.
+    New verb **`expect-identified`** keys on `_current_release_id`, the MBID —
+    the fact rather than a symptom — and validates its UUID shape, so an absent id
+    and a malformed one stay different findings.
+  - **`snapshot` had no floor**: 22 sites, all unfailable. A snapshot that
+    captured nothing read exactly like one that captured everything. It now FAILS
+    when `_panel_fields` returns empty, and deliberately still does not grade the
+    fields' *contents* — it is evidence, not an assertion.
+- **The oversize-module ratchet is raised deliberately, with a reason per entry**
+  (`runner.py` 3120→3429, `verbs.py` 571→652, `rip_log.py` 802→831, `rig_check.py`
+  796→799). Raised rather than split **because the split is real work and this
+  landed hours before an eight-hour unattended hardware run** — refactoring the
+  script engine on the same night as the run it drives is the risk this project
+  keeps paying for. The split is `TASKS.md` work and these numbers are the debt
+  marker.
+- **cyanrip round 15 lap 12 filed. Their §1 is a real defect in cyanrip and
+  upstream, and it CANNOT affect our run — we were already immune, in the exact
+  build they are certifying.** They report that a bare ASCII `'` in `-a`/`-t` opens
+  an unclosed quoted run in `av_dict_parse_string`, silently swallowing every later
+  field, and asked us to backslash-escape it *"exactly as you already backslash-
+  escape `:`"*, saying our escaping layer *"just does not cover the apostrophe."*
+  **It does.** `adapters/cyanrip_backend.py:699` on `origin/main` escapes `\`, `=`,
+  `'` and `:`; all **11** `-a`/`-t` value sites route through it with no bypass; a
+  dedicated case has asserted `_escape_meta_value("It's") == "It\\'s"` since before
+  0.6.37; two 400-example hypothesis properties cover `'` explicitly (no unescaped
+  separator, and losslessness); their own `append_missing_keys` honours a **generic**
+  backslash (`else if (c == '\\') { esc = 1; }`, `src/naming.c`), so `\'` survives
+  the pre-splitter; and their own §1 table measures the backslash-escaped form as
+  correct. `fullacceptance.txt` passes no `-a`/`-t` of its own, so the escaped path
+  is the only one the run uses. **Their inference came from an argv whose data
+  contained no ASCII apostrophe — an absence read as evidence about the escaper**,
+  which their own §1 notes two paragraphs earlier (*"every title in that bundle uses
+  U+2019"*). The finding is still valuable: it is real for any other consumer, and
+  their upstream patch is right.
+- **Their §3a and §3b corrections re-derived and CONFIRMED — and the same exercise
+  showed our own re-derivation was the cruder of the two.** Suppressed `goto` among
+  the 84 rows: **9 `end` + 3 `end_meta` = 12**, exactly theirs; `goto fail` = **33**,
+  exactly theirs. On *"only two of the 84 genuinely record and continue"* our
+  classifier said four, adding `musicbrainz.c:366` and `:370` — **and they are
+  right**: both set `ret = 1` and the function ends `return ret`, so they terminate
+  it. We had classified by the *mechanism label* instead of following control flow,
+  which is the second time in two laps that instrumenting their generator inherited
+  its abstraction. *Two implementations agreeing is not either one being correct —
+  if they share an ancestor they share its bugs* — and here the shared ancestor was
+  their generator, which we had borrowed on purpose.
+- **cyanrip round 15 lap 11 written, at the operator's request** (protocol §6a-ter —
+  the operator may break any rule in writing, and this lap says so at the top, since
+  our own §I had asked for silence). It confirms receipt of their lap 10 and the v5
+  proposal with hashes, adds no close condition, and asks nothing `BLOCKING`. Its
+  substance: their §1 **re-derived from their generator** rather than agreed —
+  `FAIL_PATH` really carried seven alternatives at `9bc7ad6` while its preamble named
+  five, and their 16-row table reproduces exactly over the 121 published rows — with
+  the honest note that our re-derivation returned **19, then 15, then 16** before the
+  population was closed correctly, so the agreement counts *because* it was closed
+  their way. Both records reconciled byte-for-byte in both directions from their
+  repo, so *"what did you receive?"* need never cost a lap. Three self-corrections:
+  we disclose that we cloned their source (and that `OWNERSHIP.md` §5's premise that
+  neither side can is now false), we missed lap 9's delivery confirmation sitting in
+  their lap 10, and our own gate refused our filing of their proposal two laps after
+  we wrote the rule it enforces. §E1 accepted at **their** re-scoping — 16 rows and
+  seven mechanisms — to be restated in round 16 after their run-level audit lands.
+  The v5 response is **indicative only** and explicitly not a round-15 close
+  condition.
+- **Round 15 reconciled in both directions by DERIVATION, not by asking.** The
+  operator asked which laps might be missing on the fork's side. Rather than spend a
+  lap on the question, their public repo was cloned at `098ecde` and the two records
+  compared: their outbound round-15 set is laps **1, 3, 8, 10** and their inbound is
+  **2, 4, 5, 6, 7, 9** — exactly our inbound and outbound, and **all ten match
+  byte-for-byte in both directions**. Nothing is missing and nothing has drifted.
+  This is `docs/OWNERSHIP.md` §5 executed rather than quoted — *"NEITHER REPORTS A
+  LAP AS MISSING. FETCH IT… it is never the operator's problem"* — and it means
+  *"what did you receive?"* need never be a lap question again.
+- **Lap 9's send is recorded, a full lap after it was confirmed — the defect the
+  send-record exists for, arriving through the door marked *we fixed that*.** Lap 9
+  travelled bare and their lap 10 confirms delivery about as strongly as it can be
+  confirmed (`HANDSHAKE-INBOUND-HELD: Your lap 9 … Nothing outstanding`, our
+  `OPEN` quoted from its line 6, our digest `35b861f25abfa69c over 8` reproduced,
+  and its §E1 answered at length). That confirmation arrived in the *same file* as
+  the rows added the day before under a comment reading *"recording a send the
+  moment it is confirmed is the cheap half of the fix"* — and was not recorded.
+  The lesson is in the map: **reading an inbound lap is the moment to check what it
+  confirms about our outbound**, not something to remember afterwards. Probed by
+  appending a byte, which fails only
+  `test_a_sent_lap_still_hashes_to_what_was_sent[outbound/round-15-lap-09.md]`.
+- **Verifying that the cyanrip fork performs correctly is now a written duty of
+  ours, not a courtesy** (maintainer directive, 2026-09-04: *"they do it, you double
+  check their work, even if they did, if you can"*). Added to `CLAUDE.md` Critical
+  rule #12 beside the challenge mandate, because the two are one arrangement read
+  from both ends. Six obligations, and none of them imposes anything on the fork —
+  `docs/OWNERSHIP.md` §3 already assigns Platterpus *"the gate over incoming
+  artifacts, and the systematic feedback duty"*, so this is being told to do a job
+  we had already signed. The load-bearing ones: **derive from their source where it
+  is reachable** rather than repeat a lap's number; **never put a defect on them
+  that we started or whose root is upstream's**, and when both sides contributed
+  say which half is ours first; and **a failure that reaches a user is ours to own
+  in front of that user** — the dependency's own text is shown as evidence, never
+  as the culprit, because a user cannot act on an attribution. Explicitly **not
+  bilateral**: it governs our duty, not a seam term.
+- **Two of our own naming gates were mutually unsatisfiable, and an inbound
+  artifact class nobody had filed before proved it.**
+  `test_handshake_artifact_naming.py` refuses a filename asserting a provenance the
+  content does not back; `test_handshake_file_naming.py` *required* a `-g<build>`
+  or `-a<anchor>` field on every non-`.sh` artifact. The fork's
+  `PROTOCOL-v5-PROPOSAL` is a proposal document with neither a fork banner nor a
+  source-anchor line, so filing it as `-ga20d0a6` failed the first gate and filing
+  it bare failed the second. Reconciled with **one predicate and two callers** —
+  `declares_a_provenance()` delegates to the sibling's `_BANNER`/`_ANCHOR` patterns
+  rather than restating them, since a second copy of "what counts as a declared
+  build" is the drift that caused the contradiction. The `.sh` carve-out is kept
+  and is now the special case rather than a parallel rule, and an unreadable file
+  fails **closed**. Proved non-vacuous on four synthetic cases, because a predicate
+  that always returned `False` would wave through every artifact bare and the
+  real-directory sweep could not see it.
+- **Challenge ledger row 11**, and the fork was right: our lap 9 §E1 scoped the
+  undistinguishable class at one mechanism from their published preamble, and their
+  lap 10 disclosed that `FAIL_PATH` had **seven** alternatives while that preamble
+  named five. Re-derived here from their source rather than accepted. Standing count
+  is now fork 6 / us 5 of 11 — with the qualification kept and sharpened: rows 10
+  and 11 are the only two made under the mandate, both fork-right, and **n=2 is not
+  a result**.
+- **cyanrip round 15 lap 10 and their `PROTOCOL-v5-PROPOSAL` filed, and every
+  checkable claim in them re-derived from their source rather than accepted.**
+  Their repo was cloned and `tools/gen-provider-contract.py` read at `9bc7ad6`:
+  `FAIL_PATH` genuinely had **seven** alternatives while its preamble named five,
+  and their 16-row table of P5 rows resting only on a non-terminating construct
+  (`total_error_count++` 8, `ret = N;` 6, `err = N` 1, combined 1, over 84
+  `both`+`control flow` rows) **re-derives character for character** by
+  instrumenting their own `evidence()` over the 121 published rows. Their
+  `HANDSHAKE-BREAKING: none` holds — all **582** `` | ` `` rows are byte-identical
+  between `9bc7ad6` and `098ecde`, and the contract we filed as `…-gc4df1f0.md` is
+  byte-identical to `9bc7ad6`'s, so the lap-9 §C1 fixture does not stale. Their
+  PROTOCOL v4 term counts (`bundle` 0, `transcript` 0, `envelope` 2, `attach` 1)
+  and their citation of our `SOURCES.txt` both check out. Digest
+  `81edd5e87b7e026f over 9` reproduces exactly — the seventh consecutive agreeing
+  value.
+- **Our evidence-transport position is staged for round 16, not sent.** Accept
+  5b.2/5b.4/5b.5/5b.6; **amend 5b.1** so the normative clause states an *end
+  state* (both projects hold it byte-identical, the producing side commits and the
+  other **fetches** per `OWNERSHIP.md` §5) rather than a delivery obligation that
+  reads as "upload twice"; and answer their open question on 5b.3 with **yes, and
+  we do not have it either** — our omission derivation covers the *producing* side
+  and nothing checks the *receiving* side, which is the seam's producing/receiving
+  asymmetry again. Two gaps v5 does not cover: the **filename convention**, which
+  lives only in our `CLAUDE.md` and which round 15 already produced a
+  disagreement over, and **`-j`**, which appears once in `src/` (`rig_check.py:67`)
+  and never in the rip argv — so for the argv-refused class their P4 names, both
+  sides holding the bundle cannot conjure a record the run never wrote. Also
+  recorded: `OWNERSHIP.md` §5's premise *"we cannot read each other's source"* is
+  now false, which is how the 16-row re-derivation was possible at all.
+- **cyanrip round 15 lap 9 written: their P5a split absorbed, an ask of ours
+  withdrawn, and no reply requested.** §A1 withdraws lap 6's request for a
+  per-row *severity* column — `docs/OWNERSHIP.md` §2 says cyanrip never emits a
+  verdict and §3 puts policy on our side, so we asked the wrong side for the
+  wrong kind of thing three days after committing the file that forbids it. §E1
+  replaces it with an evidence question they said they would take: **split
+  `control flow` into which of its five mechanisms fired**, because
+  `total_error_count++` records an error and lets the run continue while the
+  other four end it — 84 of their 121 P5 rows rest on that predicate
+  (`control flow` 18 + `both` 66). Marked `[INFERRED]`, `NEXT-ROUND`, blocking
+  nothing. §A2 admits the shape of our own miss: we found *one* instance of their
+  P5 over-classification, fixed that sentence, and left the class for them to
+  find — `docs/testing.md` §5.o at the scale of a seam. §I says plainly that they
+  owe us no lap before the hardware run, which is the S-13 answer to a round that
+  has now cost nine laps.
+- **cyanrip round 15 lap 8 received: `GO`, and `Platterpus 0.6.37` accepted as the
+  app half.** They declined holding the round at `0.6.33` — *"holding there would
+  make CC-1 unmeetable by construction, which is round 7's deadlock wearing a
+  different hat"* — and endorsed the F1 disclosure commitment as the right shape.
+  All four of our round digests reproduce exactly on their side, and theirs
+  (`44e14b452950ebb0` over 7 laps) reproduces exactly on ours: two independent
+  implementations of one written spec agreeing on five consecutive values.
+- **They corrected themselves, not us.** Their lap 3 said `CC-1 NOT MET`; they then
+  read our 2026-09-03 bundle, judged lap 3 falsified and published `CC-1 IS MET`
+  into three documents. Our §C1 showed it was not — section F timed out and the
+  archival section downstream produced no evidence. Their diagnosis of their own
+  error: *"we verified the rips inside the run and reported the run"*, which they
+  note is the same scope error as ours in the opposite direction — we asserted a
+  property of the disc while believing we asserted a property of the run.
+- **The defect our run found is fixed at the source, and it changes a document we
+  parse.** `Done; (no matches found, but hit repeat limit of %i)` sat in their P5
+  under a heading reading *"Every string reachable on a failure path"* purely on
+  the strength of a `goto` — and `finalize_ripping:` is the ordinary continuation
+  that flushes encoders and falls into `Track %i ripped and encoded successfully!`.
+  Seven rows moved to a new **P5a — Strings this document does NOT classify**.
+
+### Fixed
+- **Our fatal-message inventory realigned to their round-15 split, and every moved
+  row got a decision rather than a default.** `MESSAGES` is now their P5 exactly
+  (128 → **121**), and the seven P5a rows are accounted for **by name in one of two
+  lists**, because P5a is explicitly *not* a safety claim — its preamble says two of
+  the seven really are failures and does not say which two:
+  - `RETAINED_BEYOND_P5` (+5): still matched, each with its reason. The asymmetry
+    decides it — under-matching a real fatal costs a user a bare *"Rip failed."*
+    with the ripper's own diagnosis discarded; over-matching a benign line costs one
+    row in a report. `Offset is unset!` is almost certainly one of their two real
+    failures and keeps its actionable sentence.
+  - `P5A_NOT_RETAINED` (new, 2): rows that **cannot** meet the retention invariant —
+    a retained row is one we still surface. The convergence success line belongs to
+    `SURFACING_EXCLUDED` (one fact, one slot), and a bare `%s` builds no pattern at
+    all.
+  The fixture is **regenerated from their filed artifact**, not hand-edited, and now
+  carries both sections — so the population the fork publishes has not shrunk, it
+  has been split, and the ratchet floor stays over the whole of it rather than
+  falling from 125 to 121.
+  Two checks strengthened in passing: the `ALL_FORMATS` size identity is now a
+  **derived set comparison** (the old arithmetic assumed every surfacing exclusion
+  was drawn from the inventory, which stopped being true), and the unpatternable-
+  formats list is pinned at **empty** — every string the fork still classifies as a
+  failure can now be surfaced.
+
+
+### Added
+- **A rule and a gate for the failure above: ask before writing a handshake lap.**
+  Maintainer directive, 2026-09-04. Writing a lap and sending one are two acts and
+  only the maintainer can perform the second, so a lap written without their
+  knowledge is one nobody is waiting to carry — and three of them accumulated.
+  Asking *before* writing (not after: by then it exists) puts the one party who
+  can observe a send into the loop when the lap is conceived. Recorded in the
+  deviation policy's *Must ask before doing* list and reasoned in Critical rule
+  #12; explicitly **not** bilateral, since it governs how this project works with
+  its maintainer rather than what crosses the seam.
+  `tests/test_no_lap_is_left_unsent.py` is the backstop, not the rule — a gate can
+  see a lap accumulating unsent, but it cannot ask a question. Two checks, both
+  probed: every outbound lap of the **open** round must be packed in the envelope
+  or recorded as having left by another route (with the evidence, in a ratchet
+  that may shrink); and `PARTS[0]` must name a lap of the current round, which is
+  the defect itself rather than its consequence. Reverting `PARTS[0]` to
+  `round-14-lap-16.md` — the state the repo was actually in this morning — makes
+  it fail.
+
+### Fixed
+- **Three handshake laps were written and never sent, and the envelope generator
+  hid it.** Round 15 laps 4, 5 and 6 were written on 2026-09-02, -03 and -04 and
+  none was handed to the cyanrip fork; their lap 3 (a `GO`, asking nothing
+  further) had been unanswered for two days. `scripts/emit_envelope.py`'s `PARTS`
+  was still pointed at **round 14 lap 16**, and the envelope was regenerated
+  **four separate times** on 09-04 — because it also carries
+  `fullacceptance.txt`, which was being edited — each run reporting success while
+  packing a round the peer closed weeks ago.
+  That is the neighbouring case to the one the generator's own docstring already
+  warned about (*"one artifact implying a send that did not happen"*, from the
+  round-9 lap 6 contradiction), and to the rule cyanrip argued us into keeping in
+  their round-9 lap 3 §B1. The rule makes an envelope impossible to *miscount as a
+  lap*; it says nothing about one faithfully built around the **wrong** lap.
+  `SENT_LAPS` could not catch it either — it holds no round-14 or round-15 rows,
+  so it is silent rather than negative.
+  `PARTS` now carries laps 7, 4, 5, 6 and the acceptance script. The three late
+  laps travel **unmodified**: v4 §4a makes a correction a new lap, and laps 5 and
+  6 each declare a round digest computed over the laps before them, so editing 4
+  or 5 would falsify a value already written. `round-08-lap-18` is the precedent —
+  written, never sent, sent unmodified two rounds later.
+
+### Changed
+- **Round 15 lap 7 written — the covering lap for three late ones, and it owns a
+  broken commitment.** Lap 6 stated *"the app half of round 15 is `Platterpus
+  0.6.36`, and it does not move again in this round."* It is now `0.6.37`: the
+  fourth app version in a day, and the promise lasted about twelve hours — broken
+  before the peer had even received it. The lap says so plainly rather than
+  arguing `0.6.37` is a patch to the same subject, and replaces the unfalsifiable
+  forward promise with a checkable one: **if our half moves a fifth time we will
+  send a lap saying so, naming it as a break, before or with any evidence produced
+  on the new build** — a commitment about *disclosure*, which we can keep, rather
+  than about *stability*, which we have now failed twice.
+  It also reports §C1–C5 (the `expect-status Done` defect and the sweep it
+  opened), states that none of it is a finding against the fork, and asks one
+  question: accept `0.6.37` as the app half, or hold the round at `0.6.33`.
+  **Silence is explicitly not consent** — an unanswered lap 8 files the pass under
+  `0.6.33`, the last subject they actually stated.
+
+
 ## [0.6.37] — 2026-09-04
 
 ### Fixed
@@ -12400,7 +12755,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.37...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.38...HEAD
+[0.6.38]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.37...v0.6.38
 [0.6.37]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.36...v0.6.37
 [0.6.36]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.35...v0.6.36
 [0.6.35]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.34...v0.6.35
@@ -12525,4 +12881,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.37.*
+*Last updated for Platterpus v0.6.38.*

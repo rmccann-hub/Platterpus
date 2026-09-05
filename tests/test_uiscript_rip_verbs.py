@@ -2477,3 +2477,230 @@ def test_abort_if_failed_still_stops_on_a_failure_in_its_OWN_section(
         "the guard no longer stops on a failure in its own section — the scoping "
         f"disabled it: {[(s.source, s.outcome) for s in report.steps]}"
     )
+
+
+# --- The four checks that passed without testing anything (2026-09-05) --------
+#
+# All four were ARCHIVAL-section steps that could be satisfied by finding
+# nothing. They would not have FAILED the acceptance run; they would have passed
+# it, which is worse — a green transcript over an untested claim.
+
+
+def _wf(**kw: Any) -> Any:
+    """A well-formed CANCELLED record: footer present, signed, not truncated.
+
+    Measured shape, from the 2026-09-03 bundle: cyanrip signs off a cancelled rip
+    with ``rip_completed=True, 3 of 14``. That is why §I needs its own verb —
+    `expect-rip-complete` PASSES on this log and says nothing about §I's claim.
+    """
+    kw.setdefault("log_checksum", "A" * 86)
+    return _log(**kw)
+
+
+def test_expect_log_well_formed_passes_the_real_cancelled_log(qapp) -> None:
+    """The exact shape the 2026-09-03 cancel produced must pass."""
+    from platterpus.parsers.rip_log import TrackResult
+
+    tracks = tuple(TrackResult(number=n) for n in (1, 2, 3))
+    log = _wf(
+        tracks=tracks,
+        rip_completed=True,
+        rip_completed_tracks=3,
+        rip_completed_total=14,
+    )
+    record, _ = _run_one(_window(last_rip_log=log), "expect-log-well-formed")
+    assert record.outcome is Outcome.PASS, record.detail
+
+
+def test_expect_log_well_formed_fails_when_the_footer_is_GONE(qapp) -> None:
+    """**The defect section I is named for** — round 14 lap 10, a cancel that
+    destroyed the completion footer. Tri-state: absent is NOT DETERMINED, and
+    NOT DETERMINED is never a pass."""
+    record, _ = _run_one(
+        _window(last_rip_log=_wf(rip_completed=None)), "expect-log-well-formed"
+    )
+    assert record.outcome is Outcome.FAIL
+    assert "NO completion footer" in record.detail
+
+
+def test_expect_log_well_formed_fails_an_UNATTESTED_log(qapp) -> None:
+    """cyanrip writes `Log FUN512:` from `atexit`, so a hard kill leaves the log
+    unsigned. That is the failure mode this section exists to catch, and it is
+    invisible to every other verb."""
+    record, _ = _run_one(
+        _window(last_rip_log=_wf(log_checksum="")), "expect-log-well-formed"
+    )
+    assert record.outcome is Outcome.FAIL
+    assert "FUN512" in record.detail
+
+
+def test_a_malformed_signature_is_a_DIFFERENT_finding_from_a_missing_one(
+    qapp,
+) -> None:
+    """*"A wrong digest and a missing one send a reader in opposite directions."*
+    Reporting the second as the first is the conflation the seam rules forbid."""
+    record, _ = _run_one(
+        _window(last_rip_log=_wf(log_checksum="tooshort")), "expect-log-well-formed"
+    )
+    assert record.outcome is Outcome.FAIL
+    assert "malformed" in record.detail
+
+
+def test_expect_log_well_formed_has_a_floor(qapp) -> None:
+    """It cannot pass by finding nothing: no parsed log, and no tracks."""
+    empty, _ = _run_one(_window(), "expect-log-well-formed")
+    assert empty.outcome is Outcome.FAIL
+    trackless, _ = _run_one(
+        _window(last_rip_log=_wf(tracks=())), "expect-log-well-formed"
+    )
+    assert trackless.outcome is Outcome.FAIL
+
+
+def test_expect_log_well_formed_does_not_grade_whether_the_rip_FINISHED(
+    qapp,
+) -> None:
+    """A log saying the rip did NOT complete is still a well-formed record.
+
+    The two propositions are separate on purpose: asserting completion here would
+    make the verb unusable in the cancel section it was written for.
+    """
+    record, _ = _run_one(
+        _window(last_rip_log=_wf(rip_completed=False)), "expect-log-well-formed"
+    )
+    assert record.outcome is Outcome.PASS, record.detail
+    assert "did not complete" in record.detail
+
+
+def _scoped(n: int, total: int = 3) -> Any:
+    from platterpus.parsers.rip_log import TrackResult
+
+    return _log(
+        tracks=tuple(
+            TrackResult(number=i, paranoia_scope="track" if i <= n else "")
+            for i in range(1, total + 1)
+        )
+    )
+
+
+def test_expect_secure_rerip_fails_when_minus_Z_DID_NOTHING(qapp) -> None:
+    """**Section N's stated criterion, graded at last.** The script says T1
+    passes when rig-check reports *"secure re-read genuinely exercised: YES"* —
+    and that row is INFO, so a rip where `-Z` did nothing passed the section
+    whose whole subject is that `-Z` worked."""
+    record, _ = _run_one(_window(last_rip_log=_scoped(0)), "expect-secure-rerip")
+    assert record.outcome is Outcome.FAIL
+    assert "did NOT run" in record.detail
+
+
+def test_expect_secure_rerip_passes_when_it_ran(qapp) -> None:
+    record, _ = _run_one(_window(last_rip_log=_scoped(2)), "expect-secure-rerip")
+    assert record.outcome is Outcome.PASS
+    assert "2 of 3" in record.detail
+
+
+def test_expect_secure_rerip_does_not_grade_CONVERGENCE(qapp) -> None:
+    """Whether re-reads AGREED is a property of the disc; whether the re-read RAN
+    is a property of the rip. Grading the first would fail the run on an ordinary
+    scratched CD — the mistake this very section paid for with
+    `expect-status Done`."""
+    from platterpus.parsers.rip_log import TrackResult
+
+    log = _log(
+        tracks=(
+            TrackResult(number=1, paranoia_scope="t", secure_rerip_converged=False),
+        )
+    )
+    record, _ = _run_one(_window(last_rip_log=log), "expect-secure-rerip")
+    assert record.outcome is Outcome.PASS, record.detail
+    assert "not converge" in record.detail  # reported, not graded
+
+
+def test_expect_secure_rerip_shares_ONE_predicate_with_rig_check(qapp) -> None:
+    """One predicate, two callers. If these ever diverge, the acceptance script
+    and the manifest would answer the same question differently with both suites
+    green — which is the defect this arrangement exists to prevent."""
+    from platterpus.parsers.rip_log import secure_rerip_tracks_scoped
+
+    log = _scoped(2, total=5)
+    assert secure_rerip_tracks_scoped(log) == 2
+    record, _ = _run_one(_window(last_rip_log=log), "expect-secure-rerip")
+    assert "2 of 5" in record.detail
+
+
+_MBID = "c9e0d7b4-1a2b-4c3d-8e9f-0a1b2c3d4e5f"
+
+
+def test_expect_identified_fails_on_PLACEHOLDER_rows(qapp) -> None:
+    """**Section E's gate could be satisfied by a disc nobody identified.**
+    `set_placeholder_tracks` fills the table for exactly the unidentified disc,
+    so `expect-tracks 2+` passed and every later rip would have been evidence
+    about a release nobody chose."""
+    win = _window()
+    win._current_release_id = ""
+    record, _ = _run_one(win, "expect-identified")
+    assert record.outcome is Outcome.FAIL
+    assert "NOT identified" in record.detail
+
+
+def test_expect_identified_passes_on_a_real_release(qapp) -> None:
+    win = _window()
+    win._current_release_id = _MBID
+    record, _ = _run_one(win, "expect-identified")
+    assert record.outcome is Outcome.PASS, record.detail
+
+
+def test_a_malformed_mbid_is_its_own_finding(qapp) -> None:
+    """Format-validated at the boundary, per CLAUDE.md — and a malformed id and
+    an absent one are different findings pointing at different subsystems."""
+    win = _window()
+    win._current_release_id = "not-a-uuid"
+    record, _ = _run_one(win, "expect-identified")
+    assert record.outcome is Outcome.FAIL
+    assert "not a well-formed MBID" in record.detail
+
+
+def test_expect_identified_refuses_a_release_with_no_rows(qapp) -> None:
+    """It cannot pass by finding nothing, from either direction."""
+
+    class _Empty:
+        def tracks(self):
+            return []
+
+    win = _window(track_table=_Empty())
+    win._current_release_id = _MBID
+    record, _ = _run_one(win, "expect-identified")
+    assert record.outcome is Outcome.FAIL
+
+
+def test_snapshot_FAILS_when_it_captured_nothing(qapp) -> None:
+    """**22 unfailable PASSes.** A snapshot that captured nothing read exactly
+    like one that captured everything — the worst shape an evidence step can
+    take, and precisely *"can this check be satisfied by finding nothing?"*."""
+    win = _window()  # no _disc_info_panel, so `_panel_fields` returns {}
+    record, _ = _run_one(win, "snapshot nothinghere")
+    assert record.outcome is Outcome.FAIL
+    assert "NO PANEL FIELDS CAPTURED" in record.detail
+
+
+def test_snapshot_still_passes_when_it_captured_the_panel(qapp) -> None:
+    """The floor must not break the ordinary case."""
+
+    class _Label:
+        def __init__(self, text: str) -> None:
+            self._t = text
+
+        def text(self) -> str:
+            return self._t
+
+    class _Panel:
+        _drive_value = _Label("/dev/sr0")
+        _mb_match_value = _Label("exact")
+        _accuraterip_value = _Label("2 of 2")
+        _offset_value = _Label("+6")
+        _cache_value = _Label("defeated")
+
+    win = _window()
+    win._disc_info_panel = _Panel()
+    record, _ = _run_one(win, "snapshot real")
+    assert record.outcome is Outcome.PASS
+    assert "/dev/sr0" in record.detail

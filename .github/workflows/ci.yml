@@ -322,6 +322,73 @@ jobs:
       - name: Audit dependencies
         run: pip-audit --progress-spinner=off
 
+  # SECRET SCANNING. Gitleaks over the FULL HISTORY, not just the diff.
+  #
+  # This repository is public and its git history is public with it. A credential
+  # committed and then removed in a later commit is still published — `git log`
+  # is the distribution channel, which is the same reasoning Critical rule #8
+  # gives for audio: *"a public commit (and git history) is redistribution."*
+  # Scanning only the PR diff would pass on exactly that case.
+  #
+  # GATING, not advisory. A leaked key is not a style opinion, and the whole
+  # point of the `.claude/settings.json` deny rules on `.env*`/`secrets/**` is
+  # that nothing in this repo should ever hold one — so a finding here means
+  # either a real leak or a rule that needs writing, and both want a red build.
+  gitleaks:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history. A shallow clone would make this check pass by not
+          # looking, which is the failure mode this repo names most often.
+          fetch-depth: 0
+      - name: Scan the full history for secrets
+        uses: gitleaks/gitleaks-action@44c470ffc35caa8b1eb3e8012ca53c2f9bea4eb5 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # SBOM. A machine-readable inventory of what actually ships, in CycloneDX.
+  #
+  # Built on every push rather than only at release, because an SBOM produced
+  # once a release is a claim nobody has checked between releases — and because
+  # the interesting failure is a dependency arriving unnoticed, which is a
+  # per-commit event. Uploaded as an artifact here; `release.yml` attaches the
+  # release build's copy to the GitHub Release.
+  sbom:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install project + cyclonedx
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . "cyclonedx-bom>=7,<8"
+      - name: Generate the SBOM
+        run: |
+          cyclonedx-py environment --output-format JSON --outfile sbom.cdx.json
+      # A FLOOR, because an SBOM listing nothing is the shape this repo refuses:
+      # a generated artifact that looks complete and describes an empty room.
+      - name: Refuse an empty SBOM
+        run: |
+          components=$(python3 -c "import json;print(len(json.load(open('sbom.cdx.json')).get('components',[])))")
+          echo "components: $components"
+          if [ "$components" -lt 10 ]; then
+            echo "::error::SBOM lists only $components component(s); this project"
+            echo "::error::has more direct dependencies than that, so the generator"
+            echo "::error::did not see the environment. An SBOM that lists nothing"
+            echo "::error::is not a passing SBOM."
+            exit 1
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-cyclonedx
+          path: sbom.cdx.json
+
   # Advisory (never fails): warn when src/ changes without a matching tests/
   # change — a soft nudge toward "every change carries a test / every bug gets a
   # regression test", mirroring the changelog gate's range logic. It only emits a

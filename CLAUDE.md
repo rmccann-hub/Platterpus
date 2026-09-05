@@ -115,7 +115,97 @@ The GUI runs on the host. It calls the host-exported ripper binary in `~/.local/
       - **Pre-commit, and it is the one that actually ends rounds.** A lap may declare *"our next lap is GO unless X"*, naming X, and it binds. Both sides did this in round 7 laps 36–37.
       - **The failure in one sentence: release-grade rigour was being applied to the *round* rather than to the *release*.** The rigour is right. Attaching it to a process that must terminate is what produced 37 laps and no release.
 
-    - **This rule lives in both repos.** When it changes here, send the change to the fork in the same round so their `CLAUDE.md` (or equivalent) matches. Two projects with different copies of the protocol is the failure this rule exists to prevent.
+    - **THE FORK IS THE CORE, AND MAKING SURE THEY PERFORM CORRECTLY IS OUR JOB —
+      not a courtesy, and not discharged by their having checked it themselves**
+      (maintainer directive, 2026-09-04: *"they do it, you double check their work,
+      even if they did, if you can"*). This is the mirror of the challenge mandate
+      above and the two are one arrangement, not two favours. Five obligations:
+      - **Their correctness is load-bearing in a way ours is not, so hold them to
+        it.** `docs/OWNERSHIP.md` §1's RECOVERABILITY test already says why: get a
+        fact wrong that needs the disc in the drive and the disc has to go back in;
+        get one wrong that is derivable afterwards and it is fixed by re-reading
+        files already on disk. They own the first kind. That is the reason to hold
+        the ripping engine to the higher bar — **and the reason our own bar is
+        barely lower, because everything they get right can still reach a user
+        wrong through us.**
+      - **Verifying their emissions is a duty we have already signed, every lap.**
+        `docs/OWNERSHIP.md` §3 assigns Platterpus *"The gate over incoming
+        artifacts, and the systematic feedback duty"*, and the fork agreed to it.
+        So this rule adds no imposition on them and needs no lap: it is us being
+        told to actually do a job the shared file already gives us. **Their having
+        verified something is not a reason to skip it** — that is the rule one
+        bullet up, applied in the direction it is easier to forget.
+      - **Where their source is reachable, DERIVE the number; do not accept the
+        lap's.** Their repository is public and can be cloned into the session
+        (`add_repo` / `git clone`, 2026-09-04). On that day their lap 10 published a
+        16-row table; instrumenting *their* generator over the 121 published rows
+        reproduced it exactly — `total_error_count++` 8, `ret = N;` 6, `err = N` 1,
+        combined 1 — and separately confirmed that `FAIL_PATH` really had seven
+        alternatives while its preamble named five. **That is the standard now.** A
+        claim we could have derived and merely repeated is a claim we asserted. And
+        it cuts the other way too: the same session produced **three** different
+        answers from correct code (19, 15, 16) before the population was closed
+        correctly, so derive, then ask *"is the population I measured closed?"*
+        before publishing the number.
+      - **NEVER put a defect on them that we started, or whose root is not theirs.**
+        Establish the origin before attributing it — ours, theirs, or **upstream's**,
+        the third being the kind this file already names as easiest to misattribute
+        *"because the fork is the binary in front of you"*. A lap's framing is an
+        attribution whether or not it uses the word: writing *"your P5 said it was
+        fatal"* about a line we chose to grade as fatal is blame, however true the
+        clause is. When both sides contributed, say which half is ours **first**.
+      - **The user sees us and never them, so a failure that reaches a user is ours
+        to own in front of that user.** Not *"the ripper failed"* — the sentence a
+        user reads names what went wrong and what to do, and the dependency's own
+        text is shown as evidence, never as the culprit. This is not politeness: a
+        user cannot act on an attribution, and blaming a component they have never
+        heard of reads as an excuse. It is also, plainly, what will happen anyway —
+        they will hold Platterpus responsible whether or not that is fair, and a
+        rule that pretends otherwise costs us the chance to have already fixed it.
+      - **And our own standard does not drop because we are downstream.** A gate of
+        ours that catches us is the system working: on 2026-09-04
+        `tests/test_handshake_artifact_naming.py` refused a filing of mine — an
+        artifact named `…-ga20d0a6.md` for a document carrying no build banner —
+        **one lap after I wrote that very rule into lap 9 and the fork adopted it as
+        v5's clause 5b.5.** Apply to our own work the scrutiny this rule demands we
+        apply to theirs.
+      - **NOT bilateral, and it does not travel.** Same carve-out as the bullet
+        below: it governs a duty of ours, not a term of the seam contract. Sending
+        the fork a rule about how closely we intend to check them would impose
+        nothing on them, restate a duty `OWNERSHIP.md` §3 already assigns us, and
+        read as a demotion of a peer this project depends on. Do the checking; do
+        not publish the intention.
+
+    - **Writing a lap and sending one are two acts, and only the maintainer can
+      perform the second — so ASK BEFORE WRITING A LAP** (maintainer directive,
+      2026-09-04). Not after: by then the lap exists, and a lap that exists
+      without the maintainer knowing it exists is one nobody is waiting to carry.
+      **Measured: round 15 laps 4, 5 and 6 were written on three consecutive days
+      and none of them was ever handed over**, while the fork's lap 3 — a `GO`
+      asking nothing further — sat unanswered for two days. Neither project's
+      gates noticed, because both sides' gates grade *files in a directory* and a
+      send is an event outside the tree.
+      **The tooling actively hid it, which is why the rule is "ask" rather than
+      "remember".** `emit_envelope.py`'s `PARTS` still pointed at round 14 lap 16,
+      and the envelope was regenerated **four separate times in one day** —
+      incidentally, because it also carries `fullacceptance.txt`, which was being
+      edited — each run reporting success while packing a round the fork closed
+      weeks ago. That is the neighbour of the case the generator's own docstring
+      warns about (*"one artifact implying a send that did not happen"*, round 9
+      lap 6) and of the rule cyanrip argued us into keeping in their round-9 lap 3
+      §B1: that rule makes an envelope impossible to **miscount as a lap**, and
+      says nothing about one correctly built around the **wrong** lap. `SENT_LAPS`
+      could not catch it either — it holds no round-14 or round-15 rows, so it is
+      silent rather than negative, and *silent* is not *no*.
+      Asking first puts the one party who can observe a send into the loop at the
+      moment the lap is conceived. `tests/test_no_lap_is_left_unsent.py` is the
+      backstop, not the rule: a gate can see an unsent lap accumulating, but it
+      cannot ask a question.
+      **This one is NOT bilateral and does not travel to the fork** — see the
+      bullet below for what does. It governs how this project works with its
+      maintainer, not what crosses the seam, and shipping it to the fork would
+      hand them a rule about our operator.
+    - **This rule lives in both repos.** When it changes here, send the change to the fork in the same round so their `CLAUDE.md` (or equivalent) matches. Two projects with different copies of the protocol is the failure this rule exists to prevent. **The bullet directly above is the exception, and it says so**: an operational rule about asking our own maintainer is not part of the seam contract.
 
 ## How to stop shipping the next one (read before calling a fix done)
 
@@ -160,6 +250,7 @@ When in doubt during any session, stop and ask the user before doing the followi
 - Bypassing the host-exported `~/.local/bin/<ripper>` routing (currently cyanrip)
 - Adding scattered dependency checks outside the self-management subsystem
 - **Releasing, or switching the container to a new cyanrip pin, while a handshake round is open** — the gate is bidirectional and both verifications must be in (`docs/cyanrip-handshake.md`)
+- **Writing a new handshake lap** (maintainer directive, 2026-09-04). Ask *before* writing it, not after. Reasoning and the measurement that produced it are in Critical rule #12's *Writing a lap and sending one are two acts* — the short version is that only the maintainer can perform the second, so a lap written without their knowledge can sit unsent indefinitely, and three did.
 
 **Just do it (no ask needed):**
 - Renaming a function, variable, or local module
@@ -239,7 +330,7 @@ There is no `compass_artifact_*.md` in the repo; the original v1 research valida
 
 ### CI / release
 
-- **CI:** `.github/workflows/ci.yml` runs on every push to `main` and every PR. **Gating jobs:** `test` (pytest on the 3.11–3.14 matrix + the coverage floor), `lint` (`ruff check` + `ruff format --check`), `typecheck` (`mypy`, config in `pyproject.toml` `[tool.mypy]` — strict def-typing across the whole package), `changelog` (the rule-#7 backstop), `media-guard` (the rule-#8 backstop), and `pip-audit` (dependency vulnerabilities). **`tests-touched` is GATING as of 2026-08-20** — it fails when `src/platterpus` changes with no change under `tests/`, unless a commit in the range carries `[no-test-needed] <reason>` (a bare marker is refused; the reason must be real) or the only src change is the `__version__` bump of a release commit. It used to only warn, and an enforcement audit measured the result: *"every shipped bug gets a regression test in the same change"* is the most-cited rule in this repo and had the weakest enforcement of any examined — a GitHub annotation with no `exit 1` on any path. Escapable by SAYING WHY rather than by silence, which is what stops it being a false-failure machine. Two more workflows: `mutation.yml` runs mutation testing **weekly, non-gating**, and `appimage.yml` builds + smoke-tests the AppImage on every push to `main` and on demand for any branch (procedure: `docs/architecture.md` **§6.1 AppImage build & testing** — absorbed the former `appimage-testing.md` 2026-08-06).
+- **CI:** `.github/workflows/ci.yml` runs on every push to `main` and every PR. **Gating jobs:** `test` (pytest on the 3.11–3.14 matrix + the coverage floor), `lint` (`ruff check` + `ruff format --check`), `typecheck` (`mypy`, config in `pyproject.toml` `[tool.mypy]` — strict def-typing across the whole package), `changelog` (the rule-#7 backstop), `media-guard` (the rule-#8 backstop), `pip-audit` (dependency vulnerabilities), **`gitleaks`** (secret scanning over the **full history**, because this repo is public and `git log` is a distribution channel — the same reasoning rule #8 gives for audio, so a credential removed in a later commit is still published and a diff-only scan would pass on it), and **`sbom`** (a CycloneDX inventory of what actually ships, generated every push rather than only at release, with a floor that refuses an SBOM listing fewer than ten components — a generated artifact describing an empty room is the shape this repo refuses). **`tests-touched` is GATING as of 2026-08-20** — it fails when `src/platterpus` changes with no change under `tests/`, unless a commit in the range carries `[no-test-needed] <reason>` (a bare marker is refused; the reason must be real) or the only src change is the `__version__` bump of a release commit. It used to only warn, and an enforcement audit measured the result: *"every shipped bug gets a regression test in the same change"* is the most-cited rule in this repo and had the weakest enforcement of any examined — a GitHub annotation with no `exit 1` on any path. Escapable by SAYING WHY rather than by silence, which is what stops it being a false-failure machine. Two more workflows: `mutation.yml` runs mutation testing **weekly, non-gating** — and as of 2026-09-05 it runs **`scripts/mutation_sweep.py`, ours, not `mutmut`**, because rule #11's *a tool that gates CI must not float* applies to a signal as much as a gate and swapping one external mutator for another keeps the failure mode; the sweep has no dependency beyond pytest and carries a floor on mutants actually **checked**, so a sweep that measured nothing cannot read as a clean one, and `appimage.yml` builds + smoke-tests the AppImage on every push to `main` and on demand for any branch (procedure: `docs/architecture.md` **§6.1 AppImage build & testing** — absorbed the former `appimage-testing.md` 2026-08-06).
 - **Releasing is automated** — do *not* hand-build/upload. Cut a release by pushing a version tag (`git tag vX.Y.Z && git push origin vX.Y.Z`) **or by dispatching the Release workflow with the tag as input — it creates the tag itself (works from the cloud session via the Actions API; tag pushes don't)**. `.github/workflows/release.yml` then builds the AppImage (reusing `build/build_appimage.sh`) and attaches it + a `.sha256` + the `.zsync` self-update file to a GitHub Release, with a signed build-provenance attestation; it then dispatches `publish-pypi.yml`, which publishes the wheel+sdist. `v0.*` tags publish as pre-releases. **Handshake gate:** if a cyanrip handshake round is open, the release waits — see `docs/cyanrip-handshake.md`. Both directions must be complete: their return file received *and* our verification sent. A partly-verified pin is an unverified pin. Before tagging: **(1)** bump the version in **`src/platterpus/__init__.py` (`__version__`)** — this is the *single source*; `pyproject.toml` reads it dynamically, so do **not** add a version there — **(2)** move the `CHANGELOG.md` `[Unreleased]` entries under a new `## [X.Y.Z] — <date>` heading with a matching compare link — and **(3)** run **`pytest tests/test_no_stale_version_claims.py`** — the version-bump gate: it fails until the CHANGELOG has a section *and* a compare link for the new version, the `[Unreleased]` link points at it, and README/SECURITY name the new minor and carry its stamp. (Added 2026-08-02 after the maintainer found the README still announcing **v0.5.x** deep into the v0.6 line and noted it *"has happened many times"*. The doc-stamp gate could not see it: a stamp records *when a doc was edited*, and a doc nobody edits keeps an accurate stamp while its prose quietly expires. Two different things, two different checks.) — **(4)** restamp the docs the cycle touched: run `pytest tests/test_doc_version_stamps.py`; it fails listing every Markdown doc changed since the last release tag whose `*Last updated for Platterpus vX.Y.Z.*` footer must move to the new version (the doc-stamp convention — `docs/README.md` → *Doc version stamps*) — and **(5)** **re-run the generators, AFTER the bump, not before**: `python3 scripts/emit_script_language.py` and `python3 scripts/emit_dependency_contract.py`. Both pages embed `__version__` — the consumer contract carries a `"platterpus_version"` field, not just a footer — so a generator run from *before* step (1) produces a page the emitted-doc tests reject, and **hand-editing the footer does not fix it** because the version appears in generated body content too. Ordering, not effort: it cost a red run on 2026-08-19 with the page otherwise correct. The two tests that catch it (`tests/test_dependency_contract_emitted.py`, `tests/test_script_language_emitted.py`) are the authority; `--check` modes exist on both scripts. — and **(6)** **re-run `pip install -e .` before you believe a local suite run.** `tests/test_app.py::test_installed_metadata_matches_canonical_version` compares `importlib.metadata.version('platterpus')` against `__version__`, and an editable install records the version *at install time* — so step (1) makes that test fail locally until the metadata is refreshed. It is not a code problem and it is not CI's problem (CI installs fresh every run, so it never sees it); it is purely a dev-container artifact, and it has now cost two confused suite runs in one session. **While you are there: read pytest's own exit code, not a pipeline's.** A `pytest ... | tail` reports `tail`'s status, so a run with a real failure prints `0` — which is the silent-partial-green shape this project already has a guard for, arriving through the tooling rather than the product.
 - **The gates that actually run at release time live in `release.yml`, not in the checklist above** — and the checklist not naming them is how one of them was written to be satisfied by finding nothing. **Four**, and only three of them run before the build — the fourth cannot, because it runs the binary. In order: **(a)** the **handshake gate**, relaxed for a pre-release tag shape and strict otherwise — and the *same* tag-shape list decides whether GitHub publishes it as a pre-release, so the two lists must stay identical (they diverged, invisibly for the whole v0.x line, and would have opened at v1.0.0); **(b)** the **changelog gate**, which requires `[Unreleased]` to be empty **and** the tag's own `## [X.Y.Z]` section to exist and be non-empty — both halves, because the first version checked only emptiness and then printed *"entries were moved"*, so **deleting** them passed identically; **(c)** the built-binary version check. **When you change a gate, ask what it can be satisfied by** — an empty `[Unreleased]` is not evidence of a move, and a substring is not a branch.
 - **Signing the release (maintainer-only, and read it *before* you arm it):** the offline-key `minisign` ritual is **`docs/architecture.md` §6.2 *Release signing*** (absorbed the former `release-signing.md` 2026-08-06). Pointed at from here because it is executed under release-time pressure and this section is the front door a maintainer actually opens — and because **its arming transition is dangerous to half-read**: the moment `update_signing.PUBLIC_KEY_B64` is non-empty the updater is fail-closed, so the *first* release after arming and every one after it **must** carry a `.minisig` or users cannot auto-update to it. Today the gate ships dormant (empty key, SHA-256 only), so nothing about releases changes until someone deliberately arms it.
@@ -254,7 +345,7 @@ The general GitHub mechanics + etiquette live in **[`docs/github-workflow-sop.md
 - **Required trailers** on every commit (per the harness rules): the `Co-Authored-By:` line and the `Claude-Session:` line. Never put the model identifier in a commit, PR, or any pushed artifact.
 - **Changelog in the same commit** (Critical rule #7) — or a standalone `[skip changelog]` line for a pure historical-record commit. **The exemption is strictly that** (maintainer ruling, 2026-07-21): contributor/CI-facing changes — type annotations, CI config, dev tooling, refactors — are **not** exempt and get a bullet like any other change; "pure historical record" means the commit changes nothing but the record itself (e.g. a session-log catch-up). CI backstops this.
 - **Branch:** commit only to the session's designated `claude/…` branch; never push to `main`. Prefer `git switch` over `git checkout` for branch ops.
-- **PRs squash-merge into `main`** — one `main` node per complete, deployable change. Merge only when CI is green — **all seven gating jobs**: the `pytest` 3.11–3.14 matrix + coverage floor, `ruff` lint/format, `mypy` typecheck, the changelog check, media-guard, `pip-audit`, and **`tests-touched`** (gating since 2026-08-20, and omitted from this list until 2026-08-27 — the same file said so under *CI / release* two sections above, so this was one document disagreeing with itself). Don't open a PR unless asked.
+- **PRs squash-merge into `main`** — one `main` node per complete, deployable change. Merge only when CI is green — **all nine gating jobs**: the `pytest` 3.11–3.14 matrix + coverage floor, `ruff` lint/format, `mypy` typecheck, the changelog check, media-guard, `pip-audit`, **`gitleaks`**, **`sbom`**, and **`tests-touched`** (gating since 2026-08-20, and omitted from this list until 2026-08-27 — the same file said so under *CI / release* two sections above, so this was one document disagreeing with itself). Don't open a PR unless asked.
 - **Deliberate divergences from the generic SOP** (do *not* "fix" these to match it): (1) we use **lowercase conventional-commit prefixes**, not the SOP's "Capitalize the subject" / no-prefix style; (2) no hard 50-char subject cap; (3) the agent git proxy is **fast-forward-only** — **no force-push, no branch delete, no tag push**; releases go via the `release.yml` `workflow_dispatch`, not `git push origin vX.Y.Z`; (4) personal `username/…` branches don't apply — the session branch is assigned.
 
 ### Run commands
@@ -365,4 +456,4 @@ Chronological session notes — what was built, decided, and learned each sessio
 
 ---
 
-*Last updated for Platterpus v0.6.35.*
+*Last updated for Platterpus v0.6.38.*

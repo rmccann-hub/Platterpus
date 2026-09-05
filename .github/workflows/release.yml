@@ -129,6 +129,8 @@ jobs:
           changelog
           media-guard
           pip-audit
+          gitleaks
+          sbom
           tests-touched
           NAMES
           )
