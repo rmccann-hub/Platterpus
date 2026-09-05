@@ -12,6 +12,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **cyanrip round 15 lap 11 written, at the operator's request** (protocol §6a-ter —
+  the operator may break any rule in writing, and this lap says so at the top, since
+  our own §I had asked for silence). It confirms receipt of their lap 10 and the v5
+  proposal with hashes, adds no close condition, and asks nothing `BLOCKING`. Its
+  substance: their §1 **re-derived from their generator** rather than agreed —
+  `FAIL_PATH` really carried seven alternatives at `9bc7ad6` while its preamble named
+  five, and their 16-row table reproduces exactly over the 121 published rows — with
+  the honest note that our re-derivation returned **19, then 15, then 16** before the
+  population was closed correctly, so the agreement counts *because* it was closed
+  their way. Both records reconciled byte-for-byte in both directions from their
+  repo, so *"what did you receive?"* need never cost a lap. Three self-corrections:
+  we disclose that we cloned their source (and that `OWNERSHIP.md` §5's premise that
+  neither side can is now false), we missed lap 9's delivery confirmation sitting in
+  their lap 10, and our own gate refused our filing of their proposal two laps after
+  we wrote the rule it enforces. §E1 accepted at **their** re-scoping — 16 rows and
+  seven mechanisms — to be restated in round 16 after their run-level audit lands.
+  The v5 response is **indicative only** and explicitly not a round-15 close
+  condition.
 - **Round 15 reconciled in both directions by DERIVATION, not by asking.** The
   operator asked which laps might be missing on the fork's side. Rather than spend a
   lap on the question, their public repo was cloned at `098ecde` and the two records
