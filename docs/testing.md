@@ -2156,6 +2156,73 @@ not on the flag, and then asserts a later unrelated crash still gets its dialog 
 a guard that latched ON would silence every future crash report, which is a worse
 failure than the one it fixes.
 
+### §5.ba — A floor is a property of the POPULATION, and one constant across five of them is a guess
+
+*2026-09-06. Found while running the two mutation-sweep legs that had never been
+run, which is the only reason it was found at all.*
+
+`mutation.yml` passed `--min-checked 8` to every leg of a five-leg matrix. The
+floor is the anti-vacuity guard — a sweep that executed fewer than that many
+mutants is reported `NO RESULT`, never a pass, and it exists because the mutmut
+era spent seven weekly runs measuring nothing while reporting success. The guard
+is right. **The number was one answer to five different questions**, and the
+mutant populations of the five modules are:
+
+| leg | module | lines | mutants |
+|---|---|---|---|
+| `cyanrip-log` | `parsers/cyanrip_log.py` | 2759 | **193** |
+| `verdict` | `verdict.py` | — | **66** |
+| `rip-log` | `parsers/rip_log.py` | 831 | **64** |
+| `ctdb-crc` | `ctdb/crc.py` | — | **19** |
+| `eac-log` | `parsers/eac_log.py` | 69 | **3** |
+
+The last row is the finding. That parser is deliberately minimal — it reads
+per-track Copy CRCs out of an EAC log and nothing else — so it offers three
+mutants in total, against a floor of eight. **The leg was unsatisfiable by
+construction.** It would have reported `NO RESULT` every Sunday for a reason that
+has nothing to do with whether its tests are any good, and a permanently-red
+non-gating signal is worse than an absent one: it teaches the reader to skip the
+whole workflow, which is where the four legs that *do* measure something live.
+
+Caught before its first scheduled run — the rewritten workflow landed 2026-09-05
+and `mutation.yml` had last run 2026-08-31 under mutmut — so this is a latent
+defect, not a sighting. Stated that way deliberately: it was found by running the
+thing, not by reading it.
+
+**Two lessons, and the second is the larger one.**
+
+**A guard's threshold has to be checked against the population it will be applied
+to.** This is `CLAUDE.md`'s *"is the population I measured closed?"* asked of a
+*configuration* rather than a measurement, and it is the same shape as §5.aw (*a
+gate's POPULATION is part of the gate*): the check was well-designed, correctly
+armed, and pointed at a set where it could not fire. So the floor is now per-leg,
+declared in the matrix beside the module it governs, with the population it was
+chosen against written next to it — and `eac-log`'s floor is **3**, which is not a
+weak floor but *every mutant the module has*, so a generation break producing 0, 1
+or 2 still fails the leg.
+
+**And the numbers in that table would rot in a week, so they are re-measured
+rather than trusted.** `tests/test_mutation_audit_can_report_its_own_absence.py::
+test_no_declared_floor_is_UNREACHABLE` reads each leg out of the workflow, runs
+the generator over its target (an AST walk — no test process is spawned, the whole
+sweep matrix costs about a second), and refuses a floor above
+`min(--limit, generated)`. The `--limit` is read from the workflow too, not
+hardcoded, because a lowered limit would otherwise make floors unreachable again
+with the check still green. It carries its own non-vacuity assertion — `generated
+>= 1` — because a generator that stopped producing mutants would make every floor
+"reachable" by making the ceiling zero, which is precisely the mutmut shape.
+
+**The other half: the leg was measuring the wrong side of the seam.** Sweeping
+`parsers/eac_log.py` measures our ability to *consume* somebody else's log.
+`eac_log_export.py` — 1490 lines, **108** mutants — is the one that *writes* the
+EAC-compatible record a tracker's logchecker and a future reader will judge this
+project by (KDD-24, `docs/eac-parity.md`), and it was not in the matrix at all.
+It is now, and a 12-mutant trial scored **50%**: six survivors in the archival
+writer, including three comparison boundaries. Ask of any sampled measurement:
+*of the pair of modules on either side of this seam, did I measure the one whose
+output we are responsible for?*
+
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is

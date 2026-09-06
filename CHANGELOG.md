@@ -11,6 +11,42 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **One mutation-sweep leg could never produce a verdict, and the archival EAC
+  writer was not swept at all.** The weekly matrix passed a single
+  `--min-checked 8` to five legs whose mutant populations run from **3** to
+  **193**. `parsers/eac_log.py` is 69 deliberately-minimal lines and offers three
+  mutants in total, so that leg was unsatisfiable by construction: `NO RESULT`
+  every Sunday, for a reason that has nothing to do with its tests. A
+  permanently-red non-gating signal is worse than an absent one — it teaches the
+  reader to skip the workflow, which is where the four legs that *do* measure
+  something live. Caught before its first scheduled run (the rewritten workflow
+  landed 2026-09-05; `mutation.yml` had last run 2026-08-31 under mutmut), so
+  latent rather than sighted — and found by *running* the two legs that had never
+  been run, not by reading them.
+  The floor is now **per-leg**, declared beside the module it governs with the
+  population it was chosen against, and `eac-log`'s is `3` — not a weak floor but
+  every mutant the module has, so a generation break producing 0, 1 or 2 still
+  fails it. Those numbers are **re-measured, not trusted**:
+  `test_no_declared_floor_is_UNREACHABLE` runs the generator over each leg's
+  target (an AST walk, about a second for the whole matrix) and refuses a floor
+  above `min(--limit, generated)`, reading `--limit` out of the workflow so a
+  lowered limit cannot make floors unreachable again with the check still green.
+  It asserts `generated >= 1` so a broken generator cannot make every floor
+  "reachable" by making the ceiling zero.
+  And the leg was on the wrong side of the seam: `parsers/eac_log.py` measures
+  our ability to *consume* someone else's log, while `eac_log_export.py` — 1490
+  lines, **108** mutants — *writes* the EAC-compatible record this project is
+  judged by, and was not in the matrix. It is now; a 12-mutant trial scored
+  **50%**. Reasoning in `docs/testing.md` §5.ba.
+
+### Added
+- Mutation-sweep results for the two legs that had never been run:
+  `parsers/rip_log.py` scores **72.5%** (40 of 64 sampled, 11 survivors) and
+  `parsers/eac_log.py` **100%** — the latter over its whole three-mutant
+  population, which is why it is reported with the population and not as a
+  headline number.
+
 ## [0.6.38] — 2026-09-06
 
 ### Fixed
