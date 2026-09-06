@@ -244,18 +244,25 @@ def test_a_sweep_leaves_NO_STALE_BYTECODE_behind(tmp_path: Path) -> None:
     not eyeballed. `git status` said clean, `git diff` was empty, the archival CRC
     was wrong, and deleting `__pycache__` fixed it. That corruption is measured.
 
-    **The MECHANISM is inferred, and the reproduction FAILED.** The explanation —
-    CPython validates cached bytecode by (mtime, size), so a restore of identical
-    size within the same second leaves a mutant's `.pyc` looking valid — is
-    plausible and fits every observation. It could not be made deterministic here:
-    with all three defences removed, an end-to-end probe still loaded correct
-    behaviour, because this filesystem's mtime resolution invalidates the cache on
-    its own.
+    **The MECHANISM was measured HERE FIRST, and I did not look.** The explanation
+    — CPython validates cached bytecode by (mtime, size), so a restore of identical
+    size within the same second leaves a mutant's `.pyc` looking valid — was
+    written down in `scripts/revert_probe.py` before this harness existed, from a
+    prior occurrence: *"that is how a `MAX_RIP_WAIT_S` of 3 h kept being imported
+    after the source said 6 h, turning a green suite red with nothing in
+    `git diff` to explain it."* Same mechanism, same invisibility, already fixed
+    there by `_purge_bytecode`.
 
-    Saying so rather than shipping the confident version, because *"did I
-    reproduce the symptom, or only explain it?"* is the first question `CLAUDE.md`
-    asks, and the workflow this harness replaced was left red for a week behind a
-    diagnosis that was plausible, specific and wrong.
+    So the first version of this docstring called it `[INFERRED]` and said the
+    reproduction had failed — honest about my own probe and **wrong about the
+    record**, because the answer was in the file this harness was consciously
+    modelled on. *Am I answering from the artifact, or from my memory of it?*
+    applies to a repository's own history as much as to a peer's.
+
+    (My end-to-end reproduction did still fail — with all three defences removed a
+    probe loaded correct behaviour, this filesystem's mtime resolution invalidating
+    the cache by itself. That says the trigger is environment-dependent, not that
+    the mechanism is speculative.)
 
     **So this asserts the OBSERVABLE the fix removes**, which does discriminate:
     with a naive restore the sweep leaves `sub.cpython-311.pyc` behind, and with
@@ -352,3 +359,32 @@ def test_two_sweeps_cannot_run_at_once(tmp_path: Path) -> None:
     # And the lock does not linger after a normal run, or the next sweep is dead.
     ms.sweep([module], [str(test)], limit=4, seed=0, timeout=60)
     assert not ms._LOCK.exists(), "the sweep left its lock behind"
+
+
+def test_the_sweep_and_the_revert_probe_share_ONE_lock() -> None:
+    """Both tools mutate `src/` in place, so both must hold the *same* lock.
+
+    Two locks would exclude nothing: a sweep and a probe would each take their own
+    and each corrupt what the other reads. Asserted on the object rather than by
+    grepping for a filename, so a rename cannot split them silently.
+
+    `docs/testing.md` §5.o — `revert_probe.py` already carried the BYTECODE half of
+    this lesson and not the CONCURRENCY half, which is a rule enforced where it was
+    learned instead of across the tools that share the hazard.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "_rp", REPO_ROOT / "scripts" / "revert_probe.py"
+    )
+    assert spec and spec.loader
+    probe = importlib.util.module_from_spec(spec)
+    sys.modules["_rp"] = probe
+    spec.loader.exec_module(probe)
+
+    import tree_lock
+
+    assert ms._LOCK == tree_lock.LOCK_PATH, "the sweep is not on the shared lock"
+    assert probe.tree_lock.LOCK_PATH == tree_lock.LOCK_PATH, (
+        "the revert probe is not on the shared lock — the two can run at once"
+    )

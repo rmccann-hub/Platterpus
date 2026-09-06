@@ -11,6 +11,77 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-05 (later) — CC-1 met, and a tool of ours that corrupted the tree it was measuring
+
+**One sentence: the acceptance run passed completely, the parts of it that could
+not fail were verified by hand instead, and the day's three sharpest findings were
+all about our own instruments rather than the product.**
+
+### The run
+
+`0.6.37` + `978f9b0`, `pass=227 fail=0 error=0`, reaching the script's last line.
+It went on the build the fork had already accepted, so **neither half moved for
+it** — the fifth move an earlier draft of lap 13 was going to disclose never
+happened.
+
+**The transcript was not treated as the evidence, and that mattered.** Three
+ARCHIVAL sections were graded by checks that could not fail and 22 snapshots could
+not fail at all, so those passes were worth nothing. Each claim was verified from
+the artifacts instead: the cancelled rip's footer and `Log FUN512:` intact, the
+secure re-read's `Scope:` line on 14 of 14 tracks, a real MBID rather than
+placeholders. All three held. Two earlier fixes got their first field
+confirmation: tracks 3 and 4 did not converge and are the only two of fourteen
+without `Copy OK`, and no rip reported a spurious error count.
+
+### The findings were all about instruments
+
+* **A tool of ours corrupted the tree it was measuring.** The mutation sweep writes
+  wrong code into `src/` and takes it out again; backgrounding one while
+  `scripts/check.py` ran the suite failed two tests against a `verdict.py` that was
+  byte-identical to HEAD by the time anyone looked. **The hazard was in that
+  script's own comments an hour before I walked into it.**
+* **A checklist the maintainer supplied caught a green claim of mine that was
+  false**, on its first run, along with a dev container that does not satisfy this
+  project's own declared `cryptography` range.
+* **Two phantom defects were nearly reported to the fork** — a parse returning zero
+  tracks (we had called the *whipper* parser, not a dispatcher) and a
+  `script_source` that looked truncated but is elided with a counted marker.
+  Opening the artifact stopped both.
+
+### The lessons, and the third is the one that generalises
+
+**A rule you must remember while typing a command loses to convenience.** The
+sweep's hazard was documented and I still hit it. The fix is a lock, not a warning
+— `O_CREAT | O_EXCL` so the check and the claim are one operation, failing closed.
+
+**A measurement is only true of the state it ran in.** "4/4 gates green" was true
+of a tree nothing else was writing to, and I reported it as true of the tree.
+
+**And the one that cost the most: I asked *"am I answering from the artifact?"* of
+the peer's repository all round, and never of our own.** The (mtime, size)
+bytecode mechanism was reported to the fork as `[INFERRED]` with a failed
+reproduction. It was already `[MEASURED]` in `scripts/revert_probe.py` — *"that is
+how a `MAX_RIP_WAIT_S` of 3 h kept being imported after the source said 6 h"* —
+written before the sweep existed, in the very file the sweep was modelled on.
+
+The same omission had a second half: `revert_probe.py` had the **bytecode**
+defence and no lock; the sweep had neither until today. Both halves now exist and
+**the two share one lock**, because two locks exclude nothing. `docs/testing.md`
+§5.o — a rule enforced where it was learned instead of across the tools that share
+the hazard — with the twist that here the two halves were in two files, one each.
+
+### Also shipped
+
+The mutation audit runs at all for the first time (mutmut was executing zero
+mutants, and its recorded diagnosis was wrong); structure-aware fuzzing whose
+grammar is derived from a committed golden reference; filesystem fault injection
+on the evidence bundle; gitleaks over full history and a floored SBOM, both
+gating; and `docs/TEST-VERIFICATION-CHECKLIST.md`, whose contribution over the two
+existing checklists is a report format where `DID NOT RUN`, `KNOWN GAPS` and
+`RISKS` may not be empty.
+
+---
+
 ## 2026-09-05 — four checks that could pass by finding nothing, and two gates that caught themselves
 
 **One sentence: the acceptance run was three hours from starting on a build

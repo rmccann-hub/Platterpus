@@ -81,6 +81,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import tree_lock  # noqa: E402
+
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 
 #: Bound on one pytest invocation. Generous: a single node id is fast, but the
@@ -476,6 +479,25 @@ def main(argv: list[str] | None = None) -> int:
         print(f"revert_probe: {exc}", file=sys.stderr)
         return 2
 
+    # THE SAME LOCK THE MUTATION SWEEP TAKES, and it must be the SAME one.
+    #
+    # This tool writes wrong code into `src/` and takes it out again, exactly as
+    # `mutation_sweep.py` does. Two separate locks would let a probe and a sweep
+    # run at once, each holding its own and each corrupting what the other reads —
+    # a mutual-exclusion primitive that does not exclude the other party is
+    # decoration.
+    #
+    # Added 2026-09-05 after a backgrounded sweep failed two tests under a
+    # concurrent suite run. **This file already carried the BYTECODE half of that
+    # lesson** (`_purge_bytecode`, and the `MAX_RIP_WAIT_S` measurement beside it)
+    # and not the CONCURRENCY half — `docs/testing.md` §5.o exactly: a rule
+    # enforced at the place it was learned rather than across the tools that share
+    # the hazard.
+    with tree_lock.exclusive_tree("revert_probe"):
+        return _run_reverts(reverts)
+
+
+def _run_reverts(reverts: list[Revert]) -> int:
     outcomes: list[Outcome] = []
     for revert in reverts:
         print(f"--- {revert.label}: {revert.file.relative_to(REPO_ROOT)}")

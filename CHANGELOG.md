@@ -11,6 +11,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The bytecode mechanism was reported to the fork as `[INFERRED]` when this
+  repository had already MEASURED it.** `scripts/revert_probe.py` records the same
+  (mtime, size) defect from a prior occurrence — *"that is how a `MAX_RIP_WAIT_S`
+  of 3 h kept being imported after the source said 6 h, turning a green suite red
+  with nothing in `git diff` to explain it"* — written before the mutation sweep
+  existed, in the file the sweep was consciously modelled on. Corrected in the test
+  docstring and in round 15 lap 13. *Am I answering from the artifact, or from my
+  memory of it?* was asked of the peer's repository all round and never of our own.
+- **`revert_probe.py` had the bytecode defence and no lock; the sweep had neither.**
+  Both halves now exist and **the two share one lock** (`scripts/tree_lock.py`) —
+  two locks would exclude nothing, letting a probe and a sweep run at once and each
+  corrupt what the other reads. `docs/testing.md` §5.o with a twist: the two halves
+  of one lesson were in two files, one each.
+- **A test docstring called `parse_rip_log` "the dispatcher".** It is the *whipper*
+  parser; dispatch happens at four call sites that sniff with
+  `looks_like_cyanrip_log` first — all four verified correct. The misnaming cost
+  real time and nearly produced a phantom defect report to the fork.
+
 ### Added
 - **`docs/TEST-VERIFICATION-CHECKLIST.md`** — the maintainer's self-audit, run
   before claiming a task complete, at Tier 2. **Justified against the homes it
