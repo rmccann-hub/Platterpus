@@ -327,7 +327,21 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: Read off the fork's own `HANDSHAKE-RIPPER-VERSION` in round 14 laps 16-19 —
 #: `cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-gd9c058c)` — a pairing they
 #: stated rather than one we inferred.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.10"
+#: **Rolled to `0.9.4-rc2+platterpus.11` on 2026-09-06, with `FORK_PIN`, and it
+#: was nearly missed.** `FORK_EXPECTED_BUILD_TAG` above is *derived* from
+#: `FORK_PIN`, so it rolled by itself; this is a hand-maintained literal and did
+#: not — leaving `FORK_EXPECTED_BANNER` reading
+#: `cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-g978f9b0)`, a version and a
+#: build tag **no binary has ever printed together**. The 2026-08-18 mis-pairing
+#: shape, and the suite was green with it.
+#:
+#: The guard for exactly this existed one file away —
+#: `test_the_under_review_pin_and_version_are_one_pairing_from_one_lap`, written
+#: on 2026-09-01 when the *under-review* pair came apart the same way — and had
+#: never been extended to the production pair. `docs/testing.md` §5.o: enforce a
+#: rule across the codebase, not at the place it was learned. It now has a
+#: sibling that derives this pairing from the newest CLOSED round's lap.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.11"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
