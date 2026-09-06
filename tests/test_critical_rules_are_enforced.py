@@ -1062,7 +1062,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "adapters/cache_probe.py": 372,
     "adapters/cover_art.py": 566,
     "adapters/ctdb_client.py": 332,
-    "adapters/cyanrip_backend.py": 1402,
+    # +37 (2026-09-05): the `-j` diagnostics flag and the paragraph explaining
+    # why it is the ONLY artifact for an argv-refused run, why it was added
+    # after the acceptance run rather than before, and the two places its
+    # existence was verified. A flag added silently is how `-V` happened.
+    "adapters/cyanrip_backend.py": 1439,
     "adapters/musicbrainz_client.py": 524,
     "adapters/rip_backend.py": 585,
     "adapters/ripper_log_verify.py": 414,

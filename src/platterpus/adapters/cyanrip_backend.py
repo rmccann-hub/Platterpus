@@ -35,7 +35,7 @@ import logging
 import re
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from platterpus.adapters.rip_backend import (
     RipBackend,
@@ -349,6 +349,36 @@ class CyanripImpl(RipBackend):
         # art" is always correct. `cover_art` stays in the signature — it is
         # recorded in the rip plan the log prints — but it no longer gates this.
         argv.append("-G")  # we always do cover art ourselves; never the ripper
+        # `-j`: cyanrip's own machine-readable diagnostics record, written beside
+        # the rip (the child runs with `cwd=output_dir`).
+        #
+        # **This is the only artifact for one entire failure class, and we shipped
+        # without it.** The fork's `PROVIDER-CONTRACT.md` P4: a run refused during
+        # ARGUMENT VALIDATION *"opens no logfile at all"*, and for that class the
+        # `-j` record is the sole evidence. That is the 2026-08-02 shape, where a
+        # `-t 17=` for a 16-track disc made cyanrip refuse a whole rip in two
+        # seconds — and until now the only trace on our side was our own capture
+        # of its stdout, which is our transcription of their words rather than
+        # their record.
+        #
+        # Added deliberately AFTER the 2026-09-05 acceptance run rather than
+        # before it: introducing an argv flag that could not be exercised in this
+        # container, hours before an eight-hour unattended run, risks the night for
+        # a diagnostic that only helps once something else has failed. Told to the
+        # fork in round 15 lap 13 §C7 so it was a decision on the record.
+        #
+        # Verified before adding, both ways, because `-V` is what happens when a
+        # flag is assumed: it is published in their contract (round-15 lap-08
+        # artifact, `-j`/`--diagnostics`) AND present in their source at the pin
+        # (`cyanrip_main.c:1581`, `GEN_OPT_ONE(... diagnostics, "j" ...)`).
+        # `tests/test_argv_surface_agreement.py` keeps that honest from here.
+        #
+        # A RELATIVE path on purpose: the child's cwd is the rip's output
+        # directory, so the record lands with the other artifacts and the evidence
+        # bundle collects it under the existing `.json` allowlist — no new
+        # plumbing, and nothing to keep in sync with the album's real folder name,
+        # which cyanrip derives from `-D` and we do not know here.
+        argv += ["-j", DIAGNOSTICS_RECORD_NAME]
         # Chokepoint assertion for Critical rule #5. `-N` disables cyanrip's own
         # MusicBrainz lookup, and it is not a preference: without it, a disc the
         # GUI has already resolved sends cyanrip to the network from inside the
@@ -649,6 +679,13 @@ def _read_sysfs(path: Path) -> str:
 # value for a path — so using it ourselves for the *value* keeps the folder name
 # identical to what cyanrip would produce, just without tripping its parser.
 _COLON_SUBSTITUTE: str = "∶"  # ∶
+
+
+#: Filename for cyanrip's `-j` diagnostics record, written into the rip's own
+#: output directory. A fixed name rather than a stamped one: the directory is
+#: already per-rip, and a name the bundle and the parser can both predict is worth
+#: more than uniqueness we would then have to discover.
+DIAGNOSTICS_RECORD_NAME: Final[str] = "cyanrip-diagnostics.json"
 
 
 def _escape_meta_value(value: str) -> str:
