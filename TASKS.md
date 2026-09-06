@@ -43,6 +43,15 @@ items it names, filed so none is lost between rounds.
       Their framing is the durable part: *a shared hash proves both sides hold the
       same bytes; it can never prove the bytes describe the binary*, and §7 is the
       one shared artifact with no `--check` behind it.
+- [ ] **A SECOND stale row in `seam-commands.md` §7, found the same way as theirs.**
+      Line 97 describes `-D` as an **output directory**, `writable`. It is not: at
+      the pin it is `folder_scheme`, *"Directory naming scheme"*
+      (`cyanrip_main.c:1603`), defaulting to `{album}…` — a relative scheme, with
+      `-F` its per-track sibling. Derived from their source, not inferred. Two
+      consequences: the row is wrong in the jointly-owned file and needs their
+      `--check` (round 16, assent already given in lap 15 §E), and it is a second
+      worked example for why that check is worth building — one wrong row was
+      findable by chance, two is a pattern.
 - [ ] **Re-send the bytecode correction as a NEW lap.** The `[INFERRED]` →
       `[MEASURED]` correction was retro-edited into sent lap 13 and has been
       reverted out (see the entry below); the peer therefore holds the uncorrected

@@ -11,6 +11,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **The argv chokepoint now refuses a naming scheme that writes outside the output
+  folder** — round-16 preparation against the cyanrip fork's lap 14 §5 item 4,
+  which they are holding: an empty path component makes their `-D` **absolute**, a
+  rip lands in `/Some Album`, and it exits 0. A leading `/` sends the rip to the
+  filesystem root; a `..` segment climbs above the chosen folder. Both look like a
+  successful rip that has simply gone missing.
+  **Nothing invalid can reach it today** — measured: Settings refuses such a
+  template, a hand-edited config is reset to the default on load, and the script
+  runner validates its candidate config. That is the *input* half of the validation
+  rule, and all three routes hold. `CLAUDE.md` nonetheless requires the *output*
+  half to be "enforced by code at the argv chokepoint — not merely stated", so the
+  guard sits **inside** `assert_metadata_lookup_disabled` beside the numeric-range
+  and metadata-shape checks, for the reason that function's own comment already
+  gives: every existing route picks it up without a second thing for a caller to
+  remember. Asserted by driving the *scripted* route, not by grepping for a call.
+  **One decision, two callers:** `naming.path_escape_reason` decides, and
+  `settings_validation` now delegates to it instead of carrying its own copy — each
+  keeps its own wording, one for a person editing a field and one for a developer
+  who has just added a route. A test compares the two surfaces over the same
+  schemes, because "they agree" is a property neither can state alone. `a..b` stays
+  legal, which is the case a naive substring check gets wrong.
+
+
 ### Fixed
 - **A UTC offset in the ripper's timestamp was silently dropped from the
   EAC-compatible log**, so two instants seven hours apart rendered as the same
