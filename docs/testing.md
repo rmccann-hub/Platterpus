@@ -2223,6 +2223,102 @@ writer, including three comparison boundaries. Ask of any sampled measurement:
 output we are responsible for?*
 
 
+### §5.bb — We edited a sent lap. Again. The guard existed and did not cover the file.
+
+*2026-09-06. Found by the cyanrip fork's round-15 lap 14 declaring the hash it
+holds — the same way the first instance was found, by the same peer, seven rounds
+apart.*
+
+`tests/test_sent_laps_are_immutable.py` opens with round 8 lap 10: sent at one
+hash, edited two commits later, *"nothing stopped it, nothing even noticed."* The
+file exists because of that. **Round 15 lap 13 was sent at `7adffe7d…` and edited
+two commits later** — `784543d` rewrote a paragraph in place, correcting an
+`[INFERRED]` label to `[MEASURED]` — and it became `a9e53304…`. The correction was
+right. Protocol v4 §4a says a correction is a **new lap**, and this was not one.
+
+**How it surfaced, and why the digest is the thing that caught it.** Their lap 14
+declares `HANDSHAKE-ROUND-DIGEST: 6044c992bfe49c41 over 13 lap(s)`. Ours came out
+`1e91b1683bfba70a` over the same thirteen. Substituting **only** lap 13's sent
+hash into our row set reproduced their value exactly, which makes the diagnosis
+`[MEASURED]` rather than argued — the other twelve rows were already identical.
+Their own §1 names this shape in the same lap, from the other direction: *"SAME
+COUNT, DIFFERENT HASH — a count-only check cannot see it."*
+
+**Why the guard missed it, which is the transferable part.** `SENT_LAPS` is
+populated **by hand, when we learn a lap went out** — and we usually learn that
+from the peer's *next* lap. Between hand-over and that lap, a sent file is
+unpinned and freely editable, and the map's own docstring explains at length why
+the pin cannot be derived from git (*"a lap is sent by an operator attaching it to
+a message, an event git never sees"*). All true, and it left a window that a
+second lap fell through. **A guard whose population is maintained by memory has
+the coverage of a memory**; 13 of the 33 laps the peer says it holds were pinned.
+
+**The fix derives the obligation from artifacts already in the repository.** A peer
+lap naming one of ours in `HANDSHAKE-INBOUND-HELD` or
+`HANDSHAKE-PEER-VERDICT-SOURCE` *is* operator-independent evidence of the delivery
+`SEND_BOUNDARY` describes, and it is sitting in `inbound/`. Two gates:
+
+* **every hash the peer declares for one of our laps must match our copy** — seven
+  such declarations exist and all seven match; this would have fired the moment lap
+  14 was filed, instead of when someone thought to recompute a digest;
+* **every lap the peer says it holds is pinned or ratcheted** — 19 rows in
+  `PEER_CONFIRMED_UNPINNED`, a set that may shrink and never grow.
+
+Two details worth keeping. **The ratchet is not a set of `SENT_LAPS` rows**, and
+deliberately: pinning today's bytes for a lap sent months ago asserts a
+byte-identity nobody measured, which is the objection `SENT_OUTSIDE_THE_ENVELOPE`
+already states — putting an unmeasured claim inside the guard that exists to refuse
+them. A row graduates when the peer declares a digest for it, which is how lap 13
+graduated. And **the pinned value is theirs, not ours**: a hash we compute over our
+own file proves the file is internally consistent and says nothing about what was
+sent.
+
+**The generalisation.** *Is this guard's population derived, or remembered?* A
+correctness check with a hand-maintained subject list is two artifacts, and only one
+of them is tested. Same family as §5.af (a map that promises completeness needs a
+sweep) and §5.aw (a gate's population is part of the gate) — arriving this time
+through the *membership* of the guarded set rather than through the check itself.
+
+### §5.bc — Reading a peer's held items found a live defect on our side of the same seam
+
+*2026-09-06, from the same lap. Filed separately because the lesson is different.*
+
+Their lap 14 §5 lists seven changes **held for round 16** because each moves a
+surface we parse. Item 5 reads: *"a logfile's first line is not always the fork
+banner"* when a naming-scheme argument carries invalid UTF-8, since the complaint
+about the argument prints first. They named it as a problem for **their** `-Y` and
+`PROJECT_FORK_ID`.
+
+Checking what it would do to us found that the consumer half is worse and they had
+no way to see it. `looks_like_cyanrip_log` read **exactly the first non-blank
+line** and returned its match, so a valid cyanrip log with one line of preamble is
+*"not a cyanrip log"*, gets dispatched to the **whipper** parser, and yields **zero
+tracks from a fourteen-track disc** with no error anywhere. That precise zero-track
+parse happened in this repository the day before from a different cause, so it is
+not a hypothetical.
+
+**The tell was a disagreement between two surfaces answering one question.** The
+*parser* has never had that limitation — `_HEADER` is an ordinary line rule and
+`_take_version` takes the first banner it meets wherever it sits. Measured before
+fixing: on a shifted-banner log the parser extracts `log_creator` perfectly while
+the predicate says no. Both were individually defensible; only the relation was
+wrong, and only the stricter one decided. The regression test is therefore the
+*relation* — if the parser reads a banner out of a document, the predicate that
+decides whether to call the parser must say yes — because a test of either surface
+alone passes while they disagree.
+
+Two things the fix had to buy explicitly. Widening the window means a document
+merely *mentioning* cyanrip could be misread, so the whipper header is now a
+**positive** check rather than a bet on ordering, tested with the cyanrip banner
+placed inside a whipper log. And the window is **bounded**, with the bound asserted
+on both sides of itself.
+
+**The generalisation, and it is a duty rather than a technique.** `CLAUDE.md` rule
+#12 says the fork's correctness is ours to double-check *"even if they did"*. This
+is the same obligation pointed the other way: **when the peer tells you what they
+are about to change, ask what it does to your side before it lands, not after.**
+A held item is a free advance warning, and the half that reaches a user is ours.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is

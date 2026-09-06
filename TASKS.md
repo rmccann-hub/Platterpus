@@ -21,6 +21,63 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
+## Round 15 CLOSED — what their lap 14 leaves for round 16 (2026-09-06)
+
+Round 15 closed `GO`/`GO` on `978f9b0` + `platterpus 0.6.37`. Their lap 14 is the
+closing lap and asks nothing further; **round 16 is theirs to open.** These are the
+items it names, filed so none is lost between rounds.
+
+- [ ] **Assent to the `seam-commands.md` §7 `--check` (needs a lap).** Their §4
+      shows line 504 publishes `-p '99=drop'` as **accepted, exit 0**; the binary
+      at the pin refuses it — `Invalid track number 99 for pregap, list has 2
+      tracks!`, exit 1. **Verified both halves here**: the line is in our copy at
+      504, and the bound check is in their source at the pin
+      (`cyanrip_main.c:2255`, derived from the clone, not accepted from the lap).
+      The file is **jointly owned and byte-identical in both repos**, so the fix is
+      not a unilateral edit — their proposal is a `--check` in
+      `tools/probe-argv-surface.py` regenerating §7 between explicit delimiters.
+      Their framing is the durable part: *a shared hash proves both sides hold the
+      same bytes; it can never prove the bytes describe the binary*, and §7 is the
+      one shared artifact with no `--check` behind it.
+- [ ] **Re-send the bytecode correction as a NEW lap.** The `[INFERRED]` →
+      `[MEASURED]` correction was retro-edited into sent lap 13 and has been
+      reverted out (see the entry below); the peer therefore holds the uncorrected
+      text. Protocol v4 §4a: a correction is a new lap.
+- [ ] **Their §5 held items — the four that touch a surface we read.** Reviewed on
+      arrival rather than on landing:
+      - #1 `goto end` adding `Rip completed:  no (aborted…)` to logs that have no
+        footer today. **Our parser already tolerates it**: `^Rip completed:\s+(?P<verdict>yes|no)`
+        ignores the parenthetical (`cyanrip_log.py:298`). No work.
+      - #5 the banner not always being the first line. **This one was live on our
+        side and is now fixed** — see the dispatcher entry below.
+      - #7 timestamps with no UTC offset, and no wall clock in the `-j` record.
+        Check what we render from those before they change shape.
+      - #6 `CURLOPT_TIMEOUT` — they hold it as contract surface even though our §J
+        named a ripper hang as a defect we want fixed. Agree the shape in round 16.
+- [ ] **Their §3 `accurip.c` response-parser defects**, disclosed pre-close and
+      already fixed on their side. Nothing for us to do beyond knowing our eight
+      rips exercised that path and did not trip it — *"one sample of one network"*
+      is their own caveat and it is the right one.
+
+## The sent lap we edited — twice now (2026-09-06)
+
+- [x] **Round 15 lap 13 was edited after it was sent, and restored.** Found from
+      their lap 14: our whole-round digest came out `1e91b168…` against their
+      `6044c992…` — SAME COUNT, DIFFERENT HASH over thirteen otherwise-identical
+      laps. Substituting lap 13's sent bytes reproduced their value exactly, so the
+      diagnosis is measured. Restored to `7adffe7d…` (22,550 B) and pinned in
+      `SENT_LAPS` at the value **the fork declared**, not one we computed.
+- [x] **The window that allowed it is closed.** `SENT_LAPS` is populated by hand
+      when we learn a lap went out, and we usually learn that from the peer's next
+      lap — so a sent lap is unpinned and editable until then. Two new gates derive
+      the obligation from the inbound artifacts instead: every hash a peer lap
+      declares for one of our laps must match our copy (7 such declarations, all
+      matching), and every lap a peer says it holds must be pinned or ratcheted.
+- [ ] **Shrink `PEER_CONFIRMED_UNPINNED` (19 rows).** Laps the peer confirms
+      holding whose sent bytes were never independently attested. Pinning today's
+      bytes would assert a byte-identity nobody measured, so a row graduates only
+      when a peer lap declares a digest for it. The set may shrink, never grow.
+
 ## Left open by the 0.6.38 archival-check fixes (2026-09-05)
 
 - [ ] **Pass `-j` on every rip.** It appears once in `src/` (`rig_check.py:67`), a

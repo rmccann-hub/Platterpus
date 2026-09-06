@@ -422,6 +422,88 @@ def test_whipper_log_is_not_detected_as_cyanrip() -> None:
     assert looks_like_cyanrip_log("\n\n  \n") is False
 
 
+# --- The DISPATCH predicate must agree with the parser -----------------------
+#
+# Found 2026-09-06 while verifying the cyanrip fork's round-15 lap 14 §5, which
+# holds for round 16: *"a logfile's first line is not always the fork banner"* —
+# a naming-scheme argument carrying invalid UTF-8 makes the complaint about the
+# argument print ahead of the banner. They named it as a problem for their own
+# `-Y` and `PROJECT_FORK_ID`. **The consumer half is ours and they did not name
+# it:** `looks_like_cyanrip_log` read exactly the first non-blank line, so a
+# valid cyanrip log with one line of preamble was dispatched to the *whipper*
+# parser and returned **zero tracks from a fourteen-track disc**, silently.
+#
+# Latent at the pin and reachable the moment their item lands. Measured, not
+# reasoned: before the fix the parser extracted `log_creator` from the shifted
+# log perfectly well while the predicate said "not cyanrip" — two surfaces
+# answering one question with different keys, and only the stricter one routed.
+
+
+def test_a_banner_that_is_not_the_first_line_still_dispatches_to_cyanrip() -> None:
+    """The case their §5 makes reachable, and the one that costs a whole rip's log."""
+    banner = "cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-g978f9b0)\n"
+    shifted = "Invalid UTF-8 in scheme, truncating\n" + banner + "Disc ID: abc\n"
+    assert looks_like_cyanrip_log(shifted) is True
+
+
+def test_dispatch_agrees_with_the_parser_about_what_it_can_read() -> None:
+    """The relation, which is the property neither side can state alone.
+
+    If the parser gets a version banner out of a document, the predicate that
+    decides whether to *call* the parser must say yes. A test of either surface
+    alone passes while they disagree — which is exactly what happened.
+    """
+    banner = "cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-g978f9b0)\n"
+    documents = [
+        banner,
+        "\n\n" + banner,
+        "Invalid UTF-8 in scheme, truncating\n" + banner,
+        "warning: one\nwarning: two\n" + banner,
+        _FULL_LOG,
+    ]
+    for text in documents:
+        parsed = parse_cyanrip_log(text)
+        if parsed.log_creator:
+            assert looks_like_cyanrip_log(text) is True, (
+                "the parser read a banner out of this document and the dispatcher "
+                "would have sent it to the whipper parser instead"
+            )
+    # FLOOR: the loop's assertion is inside a condition, so a parser that stopped
+    # populating `log_creator` would make this pass by checking nothing.
+    assert sum(bool(parse_cyanrip_log(d).log_creator) for d in documents) >= 4
+
+
+def test_widening_the_window_did_not_reclassify_a_whipper_log() -> None:
+    """The cost of looking past line one, paid for explicitly.
+
+    A wider window could call any document mentioning cyanrip a cyanrip log, so
+    the whipper header is a positive check rather than a bet on ordering. Asserted
+    with the cyanrip banner placed *inside* the whipper log, which is the adverse
+    case an ordering bet would get wrong.
+    """
+    hostile = (
+        "Log created by: whipper 0.10.0\n"
+        "Ripping phase information:\n"
+        "cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-g978f9b0)\n"
+    )
+    assert looks_like_cyanrip_log(hostile) is False
+
+
+def test_the_banner_search_window_is_bounded() -> None:
+    """Bounded, and the bound is asserted on both sides of itself.
+
+    An unbounded scan would read a whole document looking for a banner and call any
+    file containing one a cyanrip log. A bound nothing tests is a number.
+    """
+    from platterpus.parsers.cyanrip_log import _BANNER_SEARCH_LINES
+
+    banner = "cyanrip 0.9.4 (platterpus-fork-g978f9b0)\n"
+    inside = "\n".join(f"noise {i}" for i in range(_BANNER_SEARCH_LINES - 1))
+    outside = "\n".join(f"noise {i}" for i in range(_BANNER_SEARCH_LINES))
+    assert looks_like_cyanrip_log(inside + "\n" + banner) is True
+    assert looks_like_cyanrip_log(outside + "\n" + banner) is False
+
+
 # --- v9 (0.4.24): TOC-derived disc IDs ---------------------------------------
 
 
@@ -612,6 +694,9 @@ def test_rule_tables_are_a_complete_enumeration_of_this_module() -> None:
         | {pattern for _name, pattern in cyanrip_log._INDENTED_LINE_PATTERNS}
         | {pattern for _name, pattern in cyanrip_log._FRAGMENT_PATTERNS}
         | {pattern for _name, pattern in cyanrip_log._PREPROCESS_PATTERNS}
+        # Format discriminators: not lines we parse, but the other format's
+        # header, matched so the dispatcher can refuse rather than guess.
+        | {pattern for _name, pattern in cyanrip_log._DISCRIMINATOR_PATTERNS}
     )
     # The fragment group must not become a dumping ground: it is small, every entry is
     # applied to a captured substring, and it may not swallow a line-level pattern.
