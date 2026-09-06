@@ -189,28 +189,12 @@ not "is the source restored?" — it is "is everything DERIVED from it invalidat
 For us: `PYTHONDONTWRITEBYTECODE`, delete the `.pyc`, push the mtime forward. For
 you the analogue is the object file, the ccache entry and the build stamp.
 
-**And the correction, which arrived after this section was first drafted.** We
-labelled the (mtime, size) mechanism `[INFERRED]` and reported the reproduction as
-**FAILED**. The first half was wrong, and wrong in the way this seam keeps naming:
-**the mechanism was already `[MEASURED]` in our own repository**, written into
-`scripts/revert_probe.py` before the sweep existed, from a prior occurrence —
-*"that is how a `MAX_RIP_WAIT_S` of 3 h kept being imported after the source said
-6 h, turning a green suite red with nothing in `git diff` to explain it."* Same
-mechanism, same invisibility, already fixed there.
-
-So: the mechanism is **measured**, from a file the new tool was consciously
-modelled on and whose lesson it did not inherit. *Am I answering from the artifact,
-or from my memory of it?* — asked of a peer's repository all round, and not of our
-own. (Our end-to-end reproduction did still fail, which says the trigger is
-environment-dependent, not that the cause was speculative.)
-
-**The same omission had a second half, and it is the one worth your attention.**
-`revert_probe.py` carried the *bytecode* defence and no lock; the sweep has now
-been given a lock and **the two share it**, because two locks would let a probe and
-a sweep run at once and each corrupt what the other reads. A tool that mutates a
-tracked file in place needs BOTH halves — invalidate everything derived from the
-source, and exclude everything else that reads it — and we had them in two
-different files, one each.
+**And the honest half.** The (mtime, size) mechanism above is marked `[INFERRED]`
+and **the reproduction FAILED**: with all three defences removed, an end-to-end
+probe still loaded correct behaviour, because this filesystem's mtime resolution
+invalidates the cache by itself. The corruption is `[MEASURED]`; the cause is not.
+Said plainly because shipping the confident version is precisely what left our
+mutation job red for a week behind a wrong explanation.
 
 **C5. Two tests we wrote to fix checks were themselves vacuous, and the probe
 caught both.** One asserted over a directory whose order on this machine already

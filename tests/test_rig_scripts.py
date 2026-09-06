@@ -1649,12 +1649,41 @@ def test_the_app_can_install_every_build_its_acceptance_run_demands() -> None:
     honest form while a round is open — but never *"we will not; here is a
     command"*.
     """
+    from platterpus.deps import fork_source
+
     offer = _offer_for(fork_source_pin_under_review())
-    assert offer.install_commit, "the offer names no build to install"
-    assert offer.auto_installable or offer.installable_with_consent, (
-        "the acceptance run demands this build and the app offers no way to "
-        "install it from inside the GUI — the 2026-09-03 contradiction"
-    )
+
+    # **BOTH BRANCHES ASSERT, because between rounds there is genuinely nothing to
+    # install and a test that only knows the round-open shape fails on a close
+    # rather than on a defect.** It did exactly that when round 15 closed
+    # (2026-09-06): `PIN_UNDER_REVIEW` and `FORK_PIN` coincide the moment a round
+    # closes — which `a_round_is_reviewing_a_build()` exists to say — so the offer
+    # for that build correctly became "you are on the newest published" and this
+    # test read the correct answer as the 2026-09-03 contradiction returning.
+    #
+    # Branching on the module's own predicate rather than restating the rule: that
+    # function is the single place this codebase decides whether a round is open,
+    # and a second copy here is the drift its own docstring records twice.
+    if fork_source.a_round_is_reviewing_a_build():
+        assert offer.install_commit, "the offer names no build to install"
+        assert offer.auto_installable or offer.installable_with_consent, (
+            "the acceptance run demands this build and the app offers no way to "
+            "install it from inside the GUI — the 2026-09-03 contradiction"
+        )
+    else:
+        # No round is open, so the build the acceptance run demands IS the approved
+        # production pin. The claim still worth making is that the two agree — if
+        # they did not, the run would demand a build nothing has approved.
+        assert fork_source.same_commit(
+            fork_source_pin_under_review(), fork_source.FORK_PIN
+        ), (
+            "no round is reviewing a build, yet the acceptance run demands a pin "
+            "that is not the production one — one of the two constants is stale"
+        )
+        assert offer.verdict == "up_to_date", (
+            "the installed build is the production pin and nothing is under "
+            f"review, so the offer should say so; it says {offer.verdict!r}"
+        )
 
 
 def fork_source_pin_under_review() -> str:
@@ -1672,15 +1701,28 @@ def test_the_offer_no_longer_hands_back_a_shell_command_for_that_build() -> None
     removing the command while naming no alternative is a worse dialog, not a
     better one.
     """
+    from platterpus.deps import fork_source
+
     offer = _offer_for(fork_source_pin_under_review())
+
+    # UNCONDITIONAL. The symptom the maintainer reported is a shell command in a
+    # program whose premise is that there is no terminal (KDD-17), and there is no
+    # state of the handshake in which handing one back becomes acceptable. Guarding
+    # this behind "is a round open" would make the product's worst dialog legal for
+    # part of every cycle.
     assert "--install-ripper" not in offer.detail, (
         f"the dialog still hands back a shell command:\n{offer.detail}"
     )
     assert "will not install this one for you" not in offer.detail, offer.detail
-    assert "Install it anyway" in offer.detail, (
-        "the dialog dropped the command without naming the button that replaces "
-        f"it:\n{offer.detail}"
-    )
+
+    # CONDITIONAL, and only this half. "Install it anyway" is the button that
+    # replaces the command — it is required when there is something to install, and
+    # naming it between rounds would offer a button for a build already installed.
+    if fork_source.a_round_is_reviewing_a_build():
+        assert "Install it anyway" in offer.detail, (
+            "the dialog dropped the command without naming the button that "
+            f"replaces it:\n{offer.detail}"
+        )
 
 
 def test_the_two_install_axes_are_never_both_true() -> None:

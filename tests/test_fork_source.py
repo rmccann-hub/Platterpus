@@ -1159,9 +1159,17 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # `-Ddeclare_released=true` would stamp a claim we are not entitled to make
     # into an archival log. Declining is the honest default.
     #
+    # **IT FIRED AGAIN ON THE ROLL TO `978f9b0` (round 15 close, 2026-09-06), AND
+    # THIS TIME THE ANSWER DID NOT CHANGE — re-derived rather than assumed.**
+    # `git diff d9c058c 978f9b0 -- meson_options.txt` in the fork's own tree is
+    # **empty**: the file still declares exactly one option, `declare_released`,
+    # `value: false`, release-path only. So the provenance reasoning below carries
+    # over unaltered, and it carries over because it was re-checked, not because
+    # nothing looked different.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
-    assert fork_source.PRODUCTION_TARGET.pin == "d9c058c", (
+    assert fork_source.PRODUCTION_TARGET.pin == "978f9b0", (
         "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
         "whether we are entitled to any option it declares. Presence is not "
         "permission: `declare_released` is a claim about provenance, and a build "

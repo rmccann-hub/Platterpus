@@ -141,7 +141,20 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: *because it was the wrong value* — nine laps of our `HANDSHAKE-OUR-PIN`. So the
 #: check was satisfied by the defect it existed to catch. It now reads the
 #: declared `HANDSHAKE-PIN:` field.
-FORK_PIN: Final[str] = "d9c058c"
+#:
+#: **Rolled forward to `978f9b0` on 2026-09-06, when round 15 CLOSED with GO/GO.**
+#: Their lap 14 is the closing lap and declares `HANDSHAKE-PIN: 978f9b0` with
+#: `HANDSHAKE-VERDICT: GO` and `HANDSHAKE-PEER-VERDICT: GO`; `handshake.py --status`
+#: reports round 15 CLOSED. Same post-close step as round 14 above, and permitted
+#: for the same reason — the deviation policy forbids moving the pin only while a
+#: round is OPEN.
+#:
+#: The pin did not move for the whole of round 15, which is S-15 working: the
+#: hardware evidence that closed it (an eight-rip acceptance bundle) was gathered on
+#: this exact build, so the artifact and the approval describe the same binary.
+#: Their lap 14 notes their tree has since moved past it — those are round-16 fixes
+#: and none is part of this close.
+FORK_PIN: Final[str] = "978f9b0"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.

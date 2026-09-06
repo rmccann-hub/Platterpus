@@ -1077,7 +1077,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "cue_validate.py": 1257,
     "cyanrip_cli.py": 327,
     "deps/checks.py": 437,
-    "deps/fork_source.py": 1678,
+    # 1678 -> 1691 (2026-09-06): the round-15 close. `FORK_PIN` rolled to
+    # `978f9b0` and the roll is documented where the constant is, because the
+    # post-close step is the one this file has already watched go stale.
+    "deps/fork_source.py": 1691,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1109,14 +1112,26 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # line is one f-string; the rest is the docstring recording that the
     # 2026-09-03 diagnostics header named the approved build for a session that
     # ran a different one. The evidence belongs beside the renderer it explains.
-    "handshake_approval.py": 513,
+    # 513 -> 526 (2026-09-06): `APPROVED_BY_ROUND` 14 -> 15 and
+    # `APPROVED_FOR_PLATTERPUS_VERSION` 0.6.28 -> 0.6.37, each with the record
+    # it was read from. These two constants went stale for two releases once
+    # and stamped the wrong round into every archival log; the provenance is
+    # the point, not decoration.
+    "handshake_approval.py": 526,
     "help_content.py": 561,
     "naming.py": 315,
     # +29 on 2026-09-04: `is_secure_rerip_verdict` and its reasoning. It is
     # DELIBERATELY here rather than at the worker that calls it — the point of
     # the fix is that the module owning read stability owns the classification,
     # so a consumer cannot form a second opinion about the same sentence.
-    "parsers/cyanrip_log.py": 2759,
+    # 2759 -> 2819 (2026-09-06): the dispatch fix. `looks_like_cyanrip_log`
+    # read exactly the first non-blank line and sent a valid cyanrip log with
+    # one line of preamble to the whipper parser — zero tracks from fourteen.
+    # The growth is the bounded scan, the whipper discriminator it needs, the
+    # named group the completeness sweep requires, and why each exists. The
+    # module is long because it is a line-by-line contract with another
+    # project; splitting it is tracked separately and is not this change.
+    "parsers/cyanrip_log.py": 2819,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one

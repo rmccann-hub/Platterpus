@@ -58,7 +58,13 @@ from platterpus.deps import fork_source
 #: `docs/handshake/outbound/round-14-lap-18.md`, declares that against pin
 #: `d9c058c`, and it is the first close whose evidence is a whole-disc secure
 #: re-read on real hardware rather than a suite result.
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.28"
+#: **Moved to `platterpus/0.6.37` when round 15 closed (2026-09-06)**, read off
+#: `HANDSHAKE-APP-VERSION` in our lap 13 — the newest closed round's verification
+#: naming pin `978f9b0`. The approval is for a *pair*, so this is not cosmetic:
+#: 0.6.37 is the app version that produced the eight-rip acceptance bundle the
+#: close rests on, and stamping 0.6.28 beside pin `978f9b0` would name a pairing
+#: no evidence covers.
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.37"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -88,7 +94,14 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.28"
 #: The test below caught it in the same run -- which is the whole point of
 #: deriving it from the record: closing a round has a product consequence, and
 #: nothing else in the codebase would have noticed the attribution going stale.
-APPROVED_BY_ROUND: Final[int] = 14
+#: **Moved 14 -> 15 on 2026-09-06, when round 15 closed GO/GO on `978f9b0`.**
+#: Their lap 14 is the closing lap. The gate caught this in the same run as the
+#: pin roll, which is the mechanism working: a close has a product consequence —
+#: every rip report and EAC-compatible log credits a round for approving the
+#: binary that made it — and this is the constant that would otherwise have gone
+#: on naming round 14 for a pin round 15 approved. That is precisely the v0.6.4
+#: defect recorded above, and the derivation is why it cannot recur silently.
+APPROVED_BY_ROUND: Final[int] = 15
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.

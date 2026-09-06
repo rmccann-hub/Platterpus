@@ -12,6 +12,44 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A valid cyanrip log with one line of preamble was dispatched to the *whipper*
+  parser, and returned zero tracks.** `looks_like_cyanrip_log` read exactly the
+  first non-blank line, while the parser itself finds the version banner wherever
+  it sits — two surfaces answering *"is this a cyanrip log?"* with different keys,
+  and only the stricter one routed. Latent at the current pin and made reachable by
+  an item the fork is **holding for round 16** (*"a logfile's first line is not
+  always the fork banner"* when a naming-scheme argument carries invalid UTF-8).
+  Found by asking what their held item does to us before it lands; they named it as
+  a problem for their own `-Y`, and had no way to see the consumer half. The
+  predicate now scans a bounded window, refuses on a positive whipper-header match
+  rather than betting on ordering, and the regression test asserts the *relation* —
+  if the parser reads a banner out of a document, the dispatcher must say yes.
+  `docs/testing.md` §5.bc.
+- **We edited a lap after sending it. Again.** Round 15 lap 13 went out at
+  `7adffe7d…` and was rewritten in place two commits later; protocol v4 §4a says a
+  correction is a **new lap**. Restored to the bytes the fork holds. Found because
+  their lap 14 declared a whole-round digest of `6044c992bfe49c41` and ours came
+  out `1e91b168…` over the same thirteen laps — substituting only lap 13's sent
+  hash reproduced their value exactly.
+  The guard for this already existed and its docstring opens with the *first*
+  instance; it missed this one because `SENT_LAPS` is populated by hand when we
+  learn a lap went out, leaving a window in which a sent lap is unpinned. Only 13
+  of the 33 laps the peer says it holds were pinned. Two new gates derive the
+  obligation from the inbound artifacts instead: every hash a peer lap declares for
+  one of our laps must match our copy (7 declarations, all matching), and every lap
+  a peer says it holds must be pinned or ratcheted. The remaining 19 are a ratchet
+  that may shrink and never grow — pinning today's bytes for them would assert a
+  byte-identity nobody measured. `docs/testing.md` §5.bb.
+
+### Added
+- Round 15 **closed** `GO`/`GO` on cyanrip `978f9b0` + `platterpus 0.6.37`. Their
+  lap 14 is filed at `docs/handshake/inbound/round-15-lap-14.md`; round 16 is
+  theirs to open. Verified rather than accepted: all four shared-artifact hashes
+  match, `handshake.py --check` passes, and their §4 (`seam-commands.md` §7
+  publishes `-p '99=drop'` as accepted/exit 0 while the binary refuses it) was
+  confirmed on both halves — our line 504, and the bound check in their source at
+  the pin, read from a clone rather than taken from the lap.
+
 - **One mutation-sweep leg could never produce a verdict, and the archival EAC
   writer was not swept at all.** The weekly matrix passed a single
   `--min-checked 8` to five legs whose mutant populations run from **3** to
