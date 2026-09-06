@@ -337,7 +337,7 @@ found nothing wrong*.
 {
   "language": "platterpus-uiscript",
   "grammar_version": 1,
-  "platterpus_version": "0.6.38",
+  "platterpus_version": "0.6.39",
   "syntax": {
     "one_statement_per_line": true,
     "comment_prefix": "#",
@@ -896,4 +896,4 @@ found nothing wrong*.
 }
 ```
 
-*Last updated for Platterpus v0.6.38.*
+*Last updated for Platterpus v0.6.39.*
