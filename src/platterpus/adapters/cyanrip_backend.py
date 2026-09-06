@@ -1044,6 +1044,64 @@ def _load_arg_ranges() -> dict[str, tuple[int, int, str]]:
     return _ARG_RANGES
 
 
+def assert_output_paths_stay_put(argv: list[str]) -> None:
+    """Refuse an argv whose ``-D``/``-F`` scheme writes outside the output folder.
+
+    A leading ``/`` makes cyanrip's output path **absolute** — the rip lands at the
+    filesystem root instead of under the chosen folder — and a ``..`` segment climbs
+    above it. Both exit 0 and look like a successful rip that has simply gone
+    missing.
+
+    **Nothing invalid can reach here today, and that is the point.**
+    `settings_validation` refuses such a template at the Settings boundary, a
+    hand-edited config is reset to the default on load, and the script runner
+    validates its candidate config — three input routes, all guarded, measured
+    2026-09-06. `CLAUDE.md` nonetheless requires the *output* half to be "enforced
+    by code at the argv chokepoint — not merely stated", and the seam rules add
+    that a new route to the ripper re-establishes the guard by **delegating** to
+    the chokepoint rather than restating it. This is the edit that adds a fourth
+    route and forgets.
+
+    **The decision is not spelled out here.** `naming.path_escape_reason` is the
+    one implementation; `settings_validation` calls the same function and phrases
+    its own message for a person editing Settings. A second copy of a safety check
+    is a second thing to drift.
+
+    Sharpened by the cyanrip fork's round-15 lap 14 §5 item 4, held for round 16:
+    an empty path component makes their `-D` absolute and a rip landed in
+    `/Some Album`, exit 0. Their change makes the consequence concrete; the argv
+    has always been ours to police.
+
+    Separate from :func:`assert_metadata_lookup_disabled` so each failure names one
+    cause (S-12). A dangling ``-D`` with no value after it is a *different*
+    malformation and deliberately not this function's finding.
+    """
+    from platterpus import naming  # noqa: PLC0415
+
+    for flag, value in zip(argv, argv[1:], strict=False):
+        if flag not in ("-D", "-F"):
+            continue
+        reasons = naming.path_escape_reasons(value)
+        if not reasons:
+            continue
+        # EVERY reason, because `/..` is both and naming one would send the caller
+        # round the loop twice.
+        details = {
+            "absolute": (
+                "is an absolute path, so the rip would be written at the "
+                "filesystem root instead of under the output folder"
+            ),
+            "traversal": (
+                "contains a '..' segment, so the rip would be written above the "
+                "output folder"
+            ),
+        }
+        detail = " and it ".join(details[r] for r in reasons)
+        raise RipError(
+            f"refusing to run cyanrip: the {flag} naming scheme {value!r} {detail}"
+        )
+
+
 def assert_numeric_args_in_range(argv: list[str]) -> None:
     """Refuse an argv whose numeric arguments are outside their real range.
 
@@ -1177,6 +1235,10 @@ def assert_metadata_lookup_disabled(argv: list[str]) -> None:
     # is applied at a dozen call sites, and a thirteenth that forgets it loses the
     # user's text *silently* (measured — see the docstring below).
     assert_meta_args_are_parseable(argv)
+
+    # And WHERE the output lands. Same reason again: an absolute or traversing
+    # `-D` writes a whole rip outside the folder the user chose, with exit 0.
+    assert_output_paths_stay_put(argv)
 
 
 # --- Metadata blob shape (the outbound half of the -a / -t seam) -------------

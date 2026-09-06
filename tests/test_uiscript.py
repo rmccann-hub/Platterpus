@@ -354,8 +354,17 @@ def test_a_rip_modifier_is_not_a_probe_even_though_it_probes() -> None:
         assert refusal is not None, f"{rip_modifier} was waved through as a probe"
         assert "-N" in refusal
     # With -N they are fine — the flag is not banned, the missing guard was.
+    #
+    # The `-D` value is filler and used to read `/tmp/s`, which was never a
+    # meaningful thing to pass: `-D` is cyanrip's **folder naming scheme**
+    # (`cyanrip_main.c:1603`, "Directory naming scheme"), not an output directory,
+    # so an absolute value there is the write-outside-the-folder hazard the argv
+    # chokepoint now refuses. A relative scheme keeps this test about what it is
+    # named for — that a rip modifier is not a probe.
     assert (
-        script_mod.sanitise_cyanrip_args(["-x", "-D", "/tmp/s", "-o", "flac", "-N"])
+        script_mod.sanitise_cyanrip_args(
+            ["-x", "-D", "{album_artist}/{album}", "-o", "flac", "-N"]
+        )
         is None
     )
     assert (

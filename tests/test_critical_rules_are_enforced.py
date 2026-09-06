@@ -1066,7 +1066,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # why it is the ONLY artifact for an argv-refused run, why it was added
     # after the acceptance run rather than before, and the two places its
     # existence was verified. A flag added silently is how `-V` happened.
-    "adapters/cyanrip_backend.py": 1439,
+    # 1439 -> 1501 (2026-09-06): assert_output_paths_stay_put, the argv
+    # chokepoint's third guard. It lives in this file rather than beside it so
+    # every route to the ripper inherits it -- the same reason the numeric and
+    # metadata guards are called from there -- and most of the growth is the
+    # docstring recording that no input route can currently reach it, which is
+    # what stops a future reader deleting it as dead.
+    "adapters/cyanrip_backend.py": 1501,
     "adapters/musicbrainz_client.py": 524,
     "adapters/rip_backend.py": 585,
     "adapters/ripper_log_verify.py": 414,
@@ -1111,7 +1117,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # only place that can know both facts at once, so moving it out would put
     # the verdict in one file and the evidence it is drawn from in another --
     # the same reason the decision table above stays with its observations.
-    "eac_log_export.py": 1490,
+    # 1490 -> 1535 (2026-09-06): the UTC-offset marker. Most of the growth is
+    # the docstring saying why the fix is ADDITIVE — a naive timestamp must
+    # render byte-identically because real EAC carries no zone, so the next
+    # person to "tidy" this into an unconditional suffix breaks parity.
+    "eac_log_export.py": 1535,
     "evidence_bundle.py": 885,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
@@ -1124,7 +1134,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the point, not decoration.
     "handshake_approval.py": 526,
     "help_content.py": 561,
-    "naming.py": 315,
+    # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
+    # Settings validator and the argv chokepoint now share. Placed here because
+    # settings_validation already imports naming and the question is about a
+    # naming template; a third module for one pure function would be the new
+    # file rule #7 refuses.
+    "naming.py": 359,
     # +29 on 2026-09-04: `is_secure_rerip_verdict` and its reasoning. It is
     # DELIBERATELY here rather than at the worker that calls it — the point of
     # the fix is that the module owning read stability owns the classification,
@@ -1170,7 +1185,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the provenance record for that seam; splitting the reasons out of it
     # would leave the claim here and the evidence elsewhere.
     "ripper_message_inventory.py": 1051,
-    "settings_validation.py": 879,
+    # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
+    # naming.path_escape_reasons while keeping its own user-facing wording.
+    "settings_validation.py": 886,
     "sleep_inhibit.py": 599,
     "test_session.py": 794,
     "ui/dialogs/pending_installs.py": 419,

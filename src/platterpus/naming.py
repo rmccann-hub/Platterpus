@@ -313,3 +313,47 @@ def render_preview(template: str, sample: SampleTrack) -> str:
             out.append(value if value else f"%{token}")
         i += 2
     return "".join(out) + ".flac"
+
+
+#: Why a naming template or a rendered cyanrip scheme would write outside the
+#: output directory — empty when it stays put.
+#:
+#: **One decision, two callers, and the second one is the argv chokepoint.**
+#: `settings_validation._validate_template` refuses an absolute or traversing
+#: template at the Settings boundary, and a hand-edited config is reset on load,
+#: so today nothing invalid reaches `-D`. That is the *input* half of
+#: `CLAUDE.md`'s validation rule; the *output* half says the check "must be
+#: enforced by code at the argv chokepoint — not merely stated", and the seam
+#: rules add that a new route to the ripper re-establishes the guard by
+#: **delegating** to the chokepoint rather than restating it. A second copy of a
+#: safety check is a second thing to drift.
+#:
+#: Sharpened by the cyanrip fork's round-15 lap 14 §5 item 4, held for round 16:
+#: an empty path component makes their `-D` **absolute**, and a rip lands in
+#: `/Some Album` with exit 0. Their change makes the consequence concrete; the
+#: argv is ours to police either way.
+#:
+#: Checked against the SCHEME as well as the template because both spellings
+#: carry the hazard identically — translation rewrites `%A` to `{album_artist}`
+#: and leaves a leading `/` or a `..` segment exactly where it was.
+def path_escape_reasons(text: str) -> tuple[str, ...]:
+    """Every reason ``text`` escapes: ``"absolute"``, ``"traversal"``, or neither.
+
+    **ALL of them, not the first.** ``/..`` is both, and returning one would make a
+    user fix the leading slash only to meet the ``..`` error on the next attempt —
+    the inline code this replaced appended both issues, and a `hypothesis` property
+    test pins that a ``..`` template is *always* reported as a traversal. Collapsing
+    them into a single verdict was caught by that test within the hour.
+
+    Pure; never raises. The separator is always ``/`` regardless of host OS — that
+    is the template language's separator, not the platform's — so the split is
+    unconditional.
+    """
+    if not isinstance(text, str) or not text:
+        return ()
+    reasons: list[str] = []
+    if text.startswith("/"):
+        reasons.append("absolute")
+    if ".." in text.split("/"):
+        reasons.append("traversal")
+    return tuple(reasons)

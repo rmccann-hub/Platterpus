@@ -1553,3 +1553,129 @@ def _rip_argv() -> list[str]:
         max_retries=3,
         read_offset_override=6,
     )
+
+
+# --------------------------------------------------------------------------
+# WHERE THE OUTPUT LANDS — the argv chokepoint's third guard.
+#
+# Prepared 2026-09-06 for round 16, against the cyanrip fork's lap 14 §5 item 4:
+# an empty path component makes their `-D` absolute and a rip landed in
+# `/Some Album`, exit 0. Their change makes the consequence concrete; the argv has
+# always been ours to police, and `CLAUDE.md` requires the output half of the
+# validation rule to be enforced AT THE CHOKEPOINT, not merely stated.
+#
+# Nothing invalid can reach it today — Settings refuses such a template, a
+# hand-edited config is reset on load, and the script runner validates its
+# candidate — so these tests are about the fourth route that forgets.
+# --------------------------------------------------------------------------
+
+
+def test_an_absolute_naming_scheme_is_refused_at_the_chokepoint() -> None:
+    """A leading `/` writes the rip at the filesystem root, and exits 0 doing it."""
+    from platterpus.adapters.cyanrip_backend import assert_metadata_lookup_disabled
+    from platterpus.adapters.rip_backend import RipError
+
+    with pytest.raises(RipError, match="absolute path"):
+        assert_metadata_lookup_disabled(
+            ["cyanrip", "-N", "-D", "/{album_artist}/{album}"]
+        )
+    with pytest.raises(RipError, match="absolute path"):
+        assert_metadata_lookup_disabled(["cyanrip", "-N", "-F", "/{track}"])
+
+
+def test_a_traversing_naming_scheme_is_refused_at_the_chokepoint() -> None:
+    """`..` climbs above the folder the user chose. Both positions, because a
+    check that only looks at the first segment misses `{a}/../../{b}`."""
+    from platterpus.adapters.cyanrip_backend import assert_metadata_lookup_disabled
+    from platterpus.adapters.rip_backend import RipError
+
+    for scheme in ("../{album}", "{album_artist}/../../{album}", ".."):
+        with pytest.raises(RipError, match=r"'\.\.' segment"):
+            assert_metadata_lookup_disabled(["cyanrip", "-N", "-D", scheme])
+
+
+def test_the_ordinary_scheme_and_lookalikes_are_left_alone() -> None:
+    """The other side of the line, or the tests above would hold for a guard that
+    refused everything.
+
+    `a..b` is not a traversal — the segment is `a..b`, not `..` — and refusing it
+    would break a legitimate album title. That is the case a naive substring check
+    gets wrong.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_metadata_lookup_disabled
+
+    for scheme in (
+        "{album_artist}/{album}",
+        "{album_artist}/{album}/{track}",
+        "a..b/{album}",
+        "{album} (1..2)/{track}",
+    ):
+        assert_metadata_lookup_disabled(["cyanrip", "-N", "-D", scheme])
+
+
+def test_EVERY_ROUTE_to_the_ripper_inherits_the_path_guard() -> None:
+    """The property, which is not "the function works" but "nobody can miss it".
+
+    The guard lives inside `assert_metadata_lookup_disabled` rather than beside it,
+    for the reason that function's own comment already gives about the numeric and
+    metadata checks: *called from HERE so every existing route picks it up without
+    a second thing for a caller to remember.* Asserted by driving the **scripted**
+    route — a different entry point that delegates to the chokepoint — rather than
+    by grepping for a call.
+    """
+    from platterpus.uiscript.script import sanitise_cyanrip_args
+
+    # That route reports rather than raises — it returns the reason as a string —
+    # which is itself worth pinning: a caller that expected an exception would read
+    # a refusal as a pass.
+    refusal = sanitise_cyanrip_args(["-N", "-D", "/{album_artist}"])
+    assert refusal is not None and "absolute path" in refusal, (
+        f"the scripted route did not inherit the path guard: {refusal!r}"
+    )
+
+    # ...and the same route still accepts a legitimate scheme, so the assertion
+    # above is not passing because the route refuses everything.
+    assert sanitise_cyanrip_args(["-N", "-D", "{album_artist}/{album}"]) is None
+
+
+def test_the_settings_validator_and_the_chokepoint_CANNOT_DISAGREE() -> None:
+    """One decision, two callers — the relation neither side can state alone.
+
+    The Settings message and the argv refusal are worded differently on purpose
+    (one is for a person editing a field, the other for a developer who just added
+    a route). What must never differ is *which* schemes they consider safe, so the
+    two are compared over the same inputs rather than each checked against a list.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_metadata_lookup_disabled
+    from platterpus.adapters.rip_backend import RipError
+    from platterpus.settings_validation import _validate_template
+
+    schemes = [
+        "%A/%d/%t",
+        "/%A/%d",
+        "../%A",
+        "%A/../%d",
+        "a..b/%A",
+        "%A/%d",
+        "..",
+    ]
+    compared = 0
+    for scheme in schemes:
+        issues = _validate_template("track_template", scheme, "Track template")
+        settings_refuses = any(
+            "relative path" in i.message or "can’t contain" in i.message for i in issues
+        )
+        try:
+            assert_metadata_lookup_disabled(["cyanrip", "-N", "-D", scheme])
+            argv_refuses = False
+        except RipError:
+            argv_refuses = True
+        assert settings_refuses == argv_refuses, (
+            f"{scheme!r}: Settings {'refuses' if settings_refuses else 'accepts'} "
+            f"it but the argv chokepoint "
+            f"{'refuses' if argv_refuses else 'accepts'} it"
+        )
+        compared += 1
+    # FLOOR, and a non-triviality one: the loop must have seen both answers, or a
+    # guard that refused everything (or nothing) would satisfy it.
+    assert compared == len(schemes)
