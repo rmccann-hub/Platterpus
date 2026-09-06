@@ -651,7 +651,18 @@ def _validate_template(field: str, value: object, label: str) -> list[Validation
         return [ValidationIssue(field, f"{label} cannot be empty.")]
     if _has_control_char(text):
         return [ValidationIssue(field, f"{label} contains an illegal character.")]
-    if text.startswith("/"):
+    # THE DECISION IS SHARED; ONLY THE WORDING IS OURS.
+    #
+    # A template must never write outside the output directory — an absolute path
+    # goes to the filesystem root, a ".." segment climbs above the chosen folder.
+    # Both were inline here, and the same judgement is now needed at the argv
+    # chokepoint (`CLAUDE.md`: the output half "must be enforced by code at the
+    # argv chokepoint — not merely stated"). Two copies of a safety check are two
+    # things to drift, so `naming.path_escape_reason` decides and each caller
+    # phrases its own message — this one for a person editing Settings, the
+    # chokepoint's for a developer who has just added a route to the ripper.
+    escapes = naming.path_escape_reasons(text)
+    if "absolute" in escapes:
         issues.append(
             ValidationIssue(
                 field,
@@ -659,11 +670,7 @@ def _validate_template(field: str, value: object, label: str) -> list[Validation
                 "under the output directory.",
             )
         )
-    # Security: a template must never climb ABOVE the output directory. A ".."
-    # segment would let a crafted/typo'd template write outside the chosen folder
-    # (path traversal) — reject it outright. (We split on "/" because the template
-    # separator is always "/", regardless of the host OS.)
-    if ".." in text.split("/"):
+    if "traversal" in escapes:
         issues.append(
             ValidationIssue(
                 field,

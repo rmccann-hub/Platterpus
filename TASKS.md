@@ -43,6 +43,15 @@ items it names, filed so none is lost between rounds.
       Their framing is the durable part: *a shared hash proves both sides hold the
       same bytes; it can never prove the bytes describe the binary*, and §7 is the
       one shared artifact with no `--check` behind it.
+- [ ] **A SECOND stale row in `seam-commands.md` §7, found the same way as theirs.**
+      Line 97 describes `-D` as an **output directory**, `writable`. It is not: at
+      the pin it is `folder_scheme`, *"Directory naming scheme"*
+      (`cyanrip_main.c:1603`), defaulting to `{album}…` — a relative scheme, with
+      `-F` its per-track sibling. Derived from their source, not inferred. Two
+      consequences: the row is wrong in the jointly-owned file and needs their
+      `--check` (round 16, assent already given in lap 15 §E), and it is a second
+      worked example for why that check is worth building — one wrong row was
+      findable by chance, two is a pattern.
 - [ ] **Re-send the bytecode correction as a NEW lap.** The `[INFERRED]` →
       `[MEASURED]` correction was retro-edited into sent lap 13 and has been
       reverted out (see the entry below); the peer therefore holds the uncorrected
@@ -54,8 +63,11 @@ items it names, filed so none is lost between rounds.
         ignores the parenthetical (`cyanrip_log.py:298`). No work.
       - #5 the banner not always being the first line. **This one was live on our
         side and is now fixed** — see the dispatcher entry below.
-      - #7 timestamps with no UTC offset, and no wall clock in the `-j` record.
-        Check what we render from those before they change shape.
+      - [x] #7 timestamps with no UTC offset — **checked and fixed on our side
+        (2026-09-06)**. Our EAC-log renderer sliced the first 19 characters, so an
+        offset was parsed and silently discarded: `-07:00` and `+00:00` rendered
+        the same line. Now marked when present, byte-identical when absent. The
+        `-j` record's missing wall clock is still open.
       - #6 `CURLOPT_TIMEOUT` — they hold it as contract surface even though our §J
         named a ripper hang as a defect we want fixed. Agree the shape in round 16.
 - [ ] **Their §3 `accurip.c` response-parser defects**, disclosed pre-close and

@@ -1743,3 +1743,80 @@ def test_a_cancelled_rip_with_an_UNKNOWN_disc_total_still_renders() -> None:
     # the claim that matters; a private helper returning strings is not the log.
     text = render_eac_style_log(_log_with_tracks(3), outcome_status="cancelled")
     assert "INCOMPLETE RIP (cancelled)" in text
+
+
+# --------------------------------------------------------------------------
+# A ZONE THE SOURCE CARRIED IS MARKED, NOT DROPPED.
+#
+# Found 2026-09-06 while answering the cyanrip fork's round-15 lap 14 §5 item 7 —
+# which holds, for round 16, the change that makes it reachable: their `strftime`
+# emits no UTC offset today and they intend to add one. `_eac_date` sliced the
+# first 19 characters and parsed those, so every shape rendered the same line.
+#
+# Latent, and reported to them as ours to fix (lap 15 §C3) rather than as a reason
+# to hold their change.
+# --------------------------------------------------------------------------
+
+
+def test_a_naive_timestamp_renders_EXACTLY_as_it_always_did() -> None:
+    """The parity half, and the reason the fix is additive.
+
+    Real EAC writes local time with no zone, and `docs/eac-parity.md` says stay
+    close to the original. Today's cyanrip timestamps are naive, so the common case
+    must be byte-identical to before — a marker appended unconditionally would be a
+    deviation bought for nothing.
+
+    The value is the one in the committed reference log, read from it rather than
+    invented, so this asserts against what the ripper actually emits.
+    """
+    from platterpus.eac_log_export import _eac_date
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    reference = parse_cyanrip_log(_CYANRIP_REFERENCE.read_text(errors="replace"))
+    assert reference.creation_date == "2026-06-27T11:18:26", (
+        "the committed reference's timestamp changed; re-derive this test's "
+        f"expectation rather than editing it — got {reference.creation_date!r}"
+    )
+    assert _eac_date(reference.creation_date) == "27. June 2026, 11:18"
+    assert "UTC" not in _eac_date(reference.creation_date)
+
+
+def test_two_different_instants_do_not_render_as_the_same_line() -> None:
+    """The defect itself, stated as the property it violates.
+
+    `…-07:00` and `…+00:00` are seven hours apart and produced **identical** text
+    in a log written to be read on its own. The information survives in the JSON
+    report either way — `rip_report` stores `creation_date` verbatim — but a reader
+    holding only the EAC-compatible log could not tell them apart, and an elision
+    this project makes has to be counted and marked.
+    """
+    from platterpus.eac_log_export import _eac_date
+
+    utc = _eac_date("2026-09-05T18:06:33+00:00")
+    minus_seven = _eac_date("2026-09-05T18:06:33-07:00")
+    assert utc != minus_seven, (
+        "two instants seven hours apart render as the same archival line"
+    )
+    assert utc.endswith("(UTC)")
+    assert minus_seven.endswith("(UTC-07:00)")
+
+    # `Z` is UTC and must agree with the explicit +00:00 spelling, or the same
+    # instant renders two ways depending on how the ripper happened to spell it.
+    assert _eac_date("2026-09-05T18:06:33Z") == utc
+
+    # A half-hour zone, because an offset formatter that divides by 3600 loses it.
+    assert _eac_date("2026-09-05T18:06:33+05:30").endswith("(UTC+05:30)")
+
+
+def test_the_date_renderer_still_never_raises_and_passes_junk_through() -> None:
+    """Institutional: a renderer of external input degrades, it does not throw.
+
+    The space-separated form is included because `fromisoformat` accepts it and the
+    strptime fallback also would — if the first path ever stops accepting it, this
+    catches the silent move to the naive fallback.
+    """
+    from platterpus.eac_log_export import _eac_date
+
+    assert _eac_date("2026-09-05 18:06:33") == "5. September 2026, 18:06"
+    for junk in ("", "   ", "not a date", "2026-13-45T99:99:99", "\x00\x01"):
+        assert _eac_date(junk) == junk.strip() or _eac_date(junk) == junk
