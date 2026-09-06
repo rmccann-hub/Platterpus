@@ -11,6 +11,57 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.38] — 2026-09-06
+
+### Fixed
+- **The archival CRC's boundary guards were unasserted, and the mutation sweep
+  found all of them.** `ctdb/crc.py` scored **57.9%**, and every survivor was a
+  guard deciding whether a checksum is computed over the right byte range —
+  `if start < 0 or end > len(pcm) or end <= start` could have each of its three
+  comparisons flipped with the suite green. That matters more than a score: the
+  reason this module exists is that the *trim* was the bug the placeholder got
+  wrong, and a guard that silently admits a bad window returns a number that looks
+  like a CRC and is not the disc's. Now **94.7%**.
+  Two of the new tests needed the boundary DERIVED rather than guessed: `start == 0`
+  is legal and only `-front` reaches it (the obvious `-front - 1` sits where the
+  guard and both mutants agree), and `end == start` is unreachable by picking a
+  short disc because the offset cancels — it happens only at `total_frames ==
+  11760`, which is `CTDB_STRIDE_WORDS`. **A boundary needs a case on each side of
+  the line, and the line is not where the obvious test puts it.**
+  The single remaining survivor is a true equivalent mutant (`hi > lo` → `hi >= lo`
+  folds a zero-length slice, and `crc32(b"", crc) == crc`) and is documented as one
+  rather than chased.
+- **First measurements for two more sweep legs**: `parsers/cyanrip_log.py` 48.7%
+  over a 40-mutant sample of 193, `ctdb/crc.py` as above. Baselines, not grades.
+
+### Added
+- **Every rip now asks cyanrip for its `-j` diagnostics record**, closing the one
+  failure class where we had no artifact from the ripper at all. Their
+  `PROVIDER-CONTRACT.md` P4: a run refused during **argument validation** *"opens
+  no logfile at all"*, so for that class the `-j` record is the sole evidence —
+  and until now the only trace was our own capture of its stdout, which is our
+  transcription of their words rather than their record. The class is not
+  hypothetical: a `-t 17=` for a 16-track disc made cyanrip refuse an entire rip
+  in two seconds (2026-08-02). Verified both ways before adding, because `-V` is
+  what happens when a flag is assumed: published in their contract *and* present
+  in their source at the pin (`cyanrip_main.c:1581`). Relative path on purpose —
+  the child's cwd is the rip's output directory, so it lands with the other
+  artifacts under the bundle's existing `.json` allowlist, and nothing has to
+  predict the album folder name.
+- **The receiving half of the omission gate now exists**
+  (`tests/test_named_artifacts_are_filed.py`), which is what makes our answer to
+  the fork's v5 5b.3 question honest rather than aspirational — both projects said
+  they did this by hand. It found **two dangling references in our own sent laps**
+  on the first run: round 15 lap 2 cites the fork's contract under its old
+  build-tag name, and round 7 lap 13 predates the canonical-naming migration.
+  Neither can be corrected — the laps are **sent**, and editing delivered bytes is
+  the drift `SENT_LAPS` exists to prevent — so they are recorded as **checked
+  redirects**, with a test asserting each forwarding address still resolves. A
+  redirect whose target is gone is a hole with extra steps.
+  Scoped to **our** laps deliberately: a path in an inbound lap is a path in the
+  *sender's* tree, and the first version "found" two omissions that were nothing of
+  the kind.
+
 ### Fixed
 - **The bytecode mechanism was reported to the fork as `[INFERRED]` when this
   repository had already MEASURED it.** `scripts/revert_probe.py` records the same
@@ -131,8 +182,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   directory, whose order on this machine already gives the right answer, so it
   passed with the fix reverted. Rewritten to force the adverse order.
 - **The end-to-end CLI test mutated real project source** mid-suite. Now a copy.
-
-## [0.6.38] — 2026-09-05
 
 ### Changed
 - **Four ARCHIVAL acceptance checks could be satisfied by finding nothing, and

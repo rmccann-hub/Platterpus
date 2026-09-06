@@ -310,3 +310,145 @@ def test_decode_oserror_after_db_hit_is_lookup_error() -> None:
     res = verify_rip(_FLACS, client, decoder=bad_decoder, samples_probe=_probe)
     assert res.verdict is Verdict.LOOKUP_ERROR
     assert res.confidence == 4  # DB hit still surfaced
+
+
+# --- CRC window guards, found unasserted by the mutation sweep (2026-09-05) ---
+#
+# `scripts/mutation_sweep.py` over `ctdb/crc.py` left seven survivors, and every
+# one of them was a BOUNDARY GUARD: the checks that decide whether an archival
+# checksum is computed over the right byte range at all. `if start < 0 or end >
+# len(pcm) or end <= start` could have each of its three comparisons flipped with
+# the suite green.
+#
+# That matters more here than a mutation score usually does. The whole reason
+# `ctdb_crc` exists is that the TRIM was the bug the placeholder got wrong; a
+# guard that silently admits an out-of-range window produces a number that looks
+# like a CRC and is not the disc's.
+
+
+def test_an_offset_that_walks_off_the_front_is_REFUSED() -> None:
+    """**Mutant: `start < 0` -> `start <= 0`, and it survived.**
+
+    A negative offset large enough to push the window before the buffer must
+    return None, not a CRC of a wrapped slice. Python's negative indexing makes
+    this silent: `pcm[-8:end]` is a perfectly good slice of the WRONG bytes.
+    """
+    pcm = _big_pcm(20_000)
+    front, _back = crc_mod.ctdb_trims(20_000)
+    assert crc_mod.ctdb_crc(pcm, offset=-(front + 1)) is None
+
+
+def test_an_offset_that_walks_off_the_back_is_REFUSED() -> None:
+    """**Mutant: `end > len(pcm)` -> `end >= len(pcm)`, and it survived.**
+
+    The mirror. `end` exactly equal to `len(pcm)` is legal and must still compute;
+    one past it must refuse. The mutant swaps precisely those two cases, which is
+    why an example on each side of the line is needed rather than one.
+    """
+    pcm = _big_pcm(20_000)
+    _front, back = crc_mod.ctdb_trims(20_000)
+    assert crc_mod.ctdb_crc(pcm, offset=back) is not None, "end == len(pcm) is legal"
+    assert crc_mod.ctdb_crc(pcm, offset=back + 1) is None, (
+        "one past the end must refuse"
+    )
+
+
+def test_the_window_starting_at_byte_ZERO_is_LEGAL_not_refused() -> None:
+    """**Mutants: `start < 0` -> `start <= 0`, and -> `start < 1`. Both survived.**
+
+    The off-by-one on the *inclusive* side. An offset of exactly `-front` puts the
+    window's first byte at 0, which is legal and must produce a CRC; both mutants
+    turn that into a refusal. The earlier test uses `-front - 1`, one further out,
+    where the real guard and both mutants agree — which is why it did not kill
+    them. **A boundary needs a case on each side of the line, and the line is not
+    where the obvious test puts it.**
+    """
+    pcm = _big_pcm(20_000)
+    front, _back = crc_mod.ctdb_trims(20_000)
+    assert crc_mod.ctdb_crc(pcm, offset=-front) is not None, (
+        "start == 0 is inside the buffer and must be computed, not refused"
+    )
+    assert crc_mod.ctdb_crc(pcm, offset=-front - 1) is None
+
+
+def test_a_window_of_EXACTLY_ZERO_length_is_refused() -> None:
+    """**Mutants: `end <= start` -> `end < start`, in both implementations.**
+
+    `end == start` is the case that separates them, and it is not reachable by
+    picking a short disc at random: `end - start` works out to
+    `(total_frames - front - back)`, so the OFFSET CANCELS and only the disc length
+    decides. Derived rather than guessed — the first `total_frames` where the guard
+    band exactly consumes the disc is **11760**, which is `CTDB_STRIDE_WORDS`.
+
+    An empty slice would make `zlib.crc32(b"")` return `0`: a valid-looking 32-bit
+    checksum of nothing, written into an archival record. Not an error — a
+    confident wrong answer, which is the failure this project ranks worst.
+    """
+    exact = 11_760
+    front, back = crc_mod.ctdb_trims(exact)
+    assert front + back == exact, (
+        "the derivation moved; this test is no longer at the boundary"
+    )
+    pcm = _big_pcm(exact)
+    assert crc_mod.ctdb_crc(pcm) is None
+    assert crc_mod.ctdb_crc_offset0_streaming([pcm], exact) is None
+
+
+def test_a_degenerate_disc_with_an_EMPTY_window_is_refused() -> None:
+    """**Mutant: `end <= start` -> `end < start`, and it survived.**
+
+    A disc so short the guard band consumes all of it leaves `end == start` — an
+    empty slice, and `zlib.crc32(b"")` is `0`. Returning 0 would put a valid-looking
+    checksum of nothing into an archival record, which is the failure this project
+    treats as worst: not an error, a confident wrong answer.
+    """
+    tiny = _big_pcm(8)
+    assert crc_mod.ctdb_crc(tiny) is None
+    assert crc_mod.ctdb_crc_offset0(tiny) is None
+
+
+def test_the_default_offset_is_ZERO_and_that_is_the_database_value() -> None:
+    """**Mutant: the `offset: int = 0` default -> 1, and it survived.**
+
+    Nothing pinned the default, so `ctdb_crc(pcm)` could have silently become the
+    offset-1 window — a different number, still 32 bits, still plausible, and no
+    longer the value the database stores.
+    """
+    pcm = _big_pcm(20_000)
+    assert crc_mod.ctdb_crc(pcm) == crc_mod.ctdb_crc(pcm, offset=0)
+    assert crc_mod.ctdb_crc(pcm) == crc_mod.ctdb_crc_offset0(pcm)
+    assert crc_mod.ctdb_crc(pcm) != crc_mod.ctdb_crc(pcm, offset=1), (
+        "offset 0 and 1 produce the same CRC — the window is not moving, so none "
+        "of these boundary assertions mean anything"
+    )
+
+
+def test_the_streaming_variant_refuses_a_degenerate_disc_too() -> None:
+    """**Mutant: streaming `end <= start` -> `end < start`, and it survived.**
+
+    Same guard, other implementation. The two must agree about refusing, not only
+    about the value they compute when they do not refuse — a streamed 0 over an
+    empty window is the same false checksum arriving by a different route.
+    """
+    assert crc_mod.ctdb_crc_offset0_streaming([b"\x00" * 32], 8) is None
+
+
+def test_a_chunk_entirely_OUTSIDE_the_window_contributes_nothing() -> None:
+    """**Mutant: `if hi > lo` -> `if hi >= lo`, and it survived.**
+
+    With `>=`, a chunk lying wholly outside the window folds a zero-length slice
+    into the running CRC. `zlib.crc32(b"", crc) == crc`, so it is harmless *today* —
+    and the guard is what keeps it harmless. Pinned because the next change to this
+    loop is where it stops being.
+
+    Asserted against the whole-buffer CRC rather than a literal, so it is the two
+    implementations agreeing on real data — and the chunking deliberately splits
+    the buffer so the first and last chunks fall outside the trim.
+    """
+    pcm = _big_pcm(20_000)
+    size = crc_mod.BYTES_PER_SAMPLE_FRAME * 500
+    chunks = [pcm[i : i + size] for i in range(0, len(pcm), size)]
+    assert len(chunks) > 3, "not enough chunks to have any outside the window"
+    assert crc_mod.ctdb_crc_offset0_streaming(
+        chunks, 20_000
+    ) == crc_mod.ctdb_crc_offset0(pcm)
