@@ -11,6 +11,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The archival CRC's boundary guards were unasserted, and the mutation sweep
+  found all of them.** `ctdb/crc.py` scored **57.9%**, and every survivor was a
+  guard deciding whether a checksum is computed over the right byte range —
+  `if start < 0 or end > len(pcm) or end <= start` could have each of its three
+  comparisons flipped with the suite green. That matters more than a score: the
+  reason this module exists is that the *trim* was the bug the placeholder got
+  wrong, and a guard that silently admits a bad window returns a number that looks
+  like a CRC and is not the disc's. Now **94.7%**.
+  Two of the new tests needed the boundary DERIVED rather than guessed: `start == 0`
+  is legal and only `-front` reaches it (the obvious `-front - 1` sits where the
+  guard and both mutants agree), and `end == start` is unreachable by picking a
+  short disc because the offset cancels — it happens only at `total_frames ==
+  11760`, which is `CTDB_STRIDE_WORDS`. **A boundary needs a case on each side of
+  the line, and the line is not where the obvious test puts it.**
+  The single remaining survivor is a true equivalent mutant (`hi > lo` → `hi >= lo`
+  folds a zero-length slice, and `crc32(b"", crc) == crc`) and is documented as one
+  rather than chased.
+- **First measurements for two more sweep legs**: `parsers/cyanrip_log.py` 48.7%
+  over a 40-mutant sample of 193, `ctdb/crc.py` as above. Baselines, not grades.
+
 ### Added
 - **Every rip now asks cyanrip for its `-j` diagnostics record**, closing the one
   failure class where we had no artifact from the ripper at all. Their
