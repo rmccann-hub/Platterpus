@@ -11,6 +11,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **A rehearsed runbook for the round-16 opener, and the clone repair it exposed.**
+  A realistic opener was filed against the real tree and the full suite run: eight
+  tests fail on arrival, all deliberately, every message naming its file and its
+  action. The steps are now a checklist in `TASKS.md` rather than something to
+  re-derive under time pressure.
+  **Step 0 was broken.** The cyanrip clone was **shallow** — `origin/master` held
+  exactly one commit — and tracked only `master`, while all their work is on
+  `platterpus-fork`. Three commits their lap 14 cited were unreadable, so the
+  "derive from their source" duty could not have been discharged on the first thing
+  their opener asked. Unshallowed, branch added, 468 commits present.
+  With it fixed, their landed work was pre-verified against ours: their real
+  timestamp format (`crip_iso8601_now`, RFC 3339) parses byte-exactly here and
+  renders as distinct lines for every zone; their U+FFFD substitution flows clean
+  through parser, renderer, path guard and cross-filesystem check; and **every one
+  of the 12 flags we emit is documented in their newest published contract**, so no
+  `-V`-class blocker is waiting.
+
+
 ### Fixed
 - **The trust headline's branch boundaries were unasserted, in the worst-scoring
   module we have measured.** `verdict.py` scored **20.5%** under the mutation sweep
