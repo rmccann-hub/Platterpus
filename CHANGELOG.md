@@ -11,6 +11,34 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **Every rip now asks cyanrip for its `-j` diagnostics record**, closing the one
+  failure class where we had no artifact from the ripper at all. Their
+  `PROVIDER-CONTRACT.md` P4: a run refused during **argument validation** *"opens
+  no logfile at all"*, so for that class the `-j` record is the sole evidence —
+  and until now the only trace was our own capture of its stdout, which is our
+  transcription of their words rather than their record. The class is not
+  hypothetical: a `-t 17=` for a 16-track disc made cyanrip refuse an entire rip
+  in two seconds (2026-08-02). Verified both ways before adding, because `-V` is
+  what happens when a flag is assumed: published in their contract *and* present
+  in their source at the pin (`cyanrip_main.c:1581`). Relative path on purpose —
+  the child's cwd is the rip's output directory, so it lands with the other
+  artifacts under the bundle's existing `.json` allowlist, and nothing has to
+  predict the album folder name.
+- **The receiving half of the omission gate now exists**
+  (`tests/test_named_artifacts_are_filed.py`), which is what makes our answer to
+  the fork's v5 5b.3 question honest rather than aspirational — both projects said
+  they did this by hand. It found **two dangling references in our own sent laps**
+  on the first run: round 15 lap 2 cites the fork's contract under its old
+  build-tag name, and round 7 lap 13 predates the canonical-naming migration.
+  Neither can be corrected — the laps are **sent**, and editing delivered bytes is
+  the drift `SENT_LAPS` exists to prevent — so they are recorded as **checked
+  redirects**, with a test asserting each forwarding address still resolves. A
+  redirect whose target is gone is a hole with extra steps.
+  Scoped to **our** laps deliberately: a path in an inbound lap is a path in the
+  *sender's* tree, and the first version "found" two omissions that were nothing of
+  the kind.
+
 ### Fixed
 - **The bytecode mechanism was reported to the fork as `[INFERRED]` when this
   repository had already MEASURED it.** `scripts/revert_probe.py` records the same

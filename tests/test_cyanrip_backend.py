@@ -15,6 +15,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from platterpus.adapters.cyanrip_backend import (
+    DIAGNOSTICS_RECORD_NAME,
     CyanripImpl,
     _escape_meta_value,
     _metadata_args,
@@ -1500,4 +1501,55 @@ def test_the_committed_probe_section_is_what_the_probe_generates() -> None:
         "docs/seam-commands.md §1a is stale — regenerate with "
         "`python3 scripts/probe_argv_surface.py` and paste the block. "
         f"committed {len(committed)} chars, generated {len(fresh)}"
+    )
+
+
+def test_every_rip_asks_for_the_diagnostics_record() -> None:
+    """**`-j` is the ONLY artifact for one whole failure class, and we shipped
+    without it for the entire cyanrip era.**
+
+    The fork's `PROVIDER-CONTRACT.md` P4 states that a run refused during argument
+    validation *"opens no logfile at all"* — so for that class the `-j` record is
+    the sole evidence cyanrip produces. Without it the only trace is our own
+    capture of its stdout, which is our transcription of their words rather than
+    their record, and the two are not the same artifact when the question is
+    *"what did the ripper actually receive?"*.
+
+    That class is not hypothetical: on 2026-08-02 a `-t 17=` for a 16-track disc
+    made cyanrip refuse an entire rip in two seconds.
+    """
+    argv = _rip_argv()
+    assert "-j" in argv, "no diagnostics record requested — see PROVIDER-CONTRACT P4"
+    assert argv[argv.index("-j") + 1] == DIAGNOSTICS_RECORD_NAME
+
+
+def test_the_diagnostics_path_is_relative_so_it_lands_with_the_rip() -> None:
+    """The child runs with `cwd=output_dir`, so a relative name puts the record
+    beside the other artifacts and the evidence bundle picks it up under the
+    existing `.json` allowlist.
+
+    An absolute path would need to know the album folder cyanrip derives from
+    `-D` — a name we deliberately stopped predicting after `known_album_folder`
+    cost a finished rip by getting one character wrong.
+    """
+    argv = _rip_argv()
+    path = argv[argv.index("-j") + 1]
+    assert not path.startswith("/"), f"{path!r} is absolute"
+    assert "/" not in path, f"{path!r} should be a bare filename in the rip's cwd"
+    assert path.endswith(".json")
+
+
+def _rip_argv() -> list[str]:
+    """A representative rip argv, built through the real builder.
+
+    `_impl()` is this file's existing helper — the same construction every other
+    argv test uses, so these two cannot pass against a differently-built subject
+    than the rest of the suite.
+    """
+    return _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=False,
+        cover_art="embed",
+        max_retries=3,
+        read_offset_override=6,
     )
