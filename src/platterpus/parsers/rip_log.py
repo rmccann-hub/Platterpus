@@ -800,3 +800,32 @@ def _parse_with_pattern(s: str | None, pattern: re.Pattern[str]) -> float | None
     if not match:
         return None
     return float(match.group("value"))
+
+
+def secure_rerip_tracks_scoped(parsed: RipLog) -> int:
+    """How many track blocks carry cyanrip's ``Scope:`` line.
+
+    **The single predicate for "was the secure re-read GENUINELY exercised?", and
+    it exists because two surfaces were about to answer it with two keys.**
+    ``rig_check._report_paranoia_scope`` renders *"secure re-read genuinely
+    exercised: YES"* off this count, and section N of the acceptance script
+    declares that line to be its pass criterion — but that row is ``INFO``, so
+    **nothing graded it**: a rip where ``-Z`` did nothing passed §N (2026-09-05).
+
+    The fix is a graded verb, and the trap in writing one is to re-derive the
+    answer from a different field — ``rip_count``, or ``secure_rerip_converged``
+    — which is how two surfaces come to disagree about one question while both
+    tests pass. `CLAUDE.md`: *one predicate, N callers, where the caller
+    delegates rather than restating.* So the report and the assertion read the
+    same number from the same place.
+
+    Why ``Scope:`` and not a counter: a paranoia counter can be non-zero on an
+    ordinary single-pass read, so it answers *"did the reader retry?"*. The
+    ``Scope:`` line is emitted per track when a re-read pass actually ran, which
+    is the question ``-Z`` is being tested for.
+
+    Returns a count rather than a bool so a caller can report *how many of how
+    many* — "1 of 14" and "14 of 14" are different facts about a disc, and
+    collapsing them to ``True`` throws away the one a reader wants.
+    """
+    return sum(1 for track in parsed.tracks if track.paranoia_scope)

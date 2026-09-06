@@ -109,3 +109,88 @@ def test_reconcile_all_offset_variant_is_explained() -> None:
     line = reconcile_ar_ctdb(log, _ctdb(Verdict.NO_MATCH))
     assert line is not None
     assert "offset-variant" in line
+
+
+# --- Found by mutation sweep, 2026-09-05 ------------------------------------
+#
+# `scripts/mutation_sweep.py` mutated `verdict.py` against this file and 16 of 21
+# mutants SURVIVED — a 23.8% score on the module that decides what a rip's
+# accuracy claim says. Coverage was already high here; coverage proves a line
+# RAN, and these prove nothing was ASSERTED about it. The three below are the
+# trust-bearing ones.
+#
+# `accuraterip_lookup_happened` was not imported by this file at all, so every
+# one of its returns could be flipped with the suite still green: a rip whose
+# AccurateRip lookup was DISABLED would have been reported as having been
+# compared. That is a false archival claim, which is the one class this project
+# treats as unacceptable.
+
+
+def test_a_lookup_that_never_RAN_is_not_a_lookup_that_found_nothing() -> None:
+    """**Mutant: `return False` -> `return True` at the "did not happen" branch.**
+
+    It survived, so nothing distinguished *"we never asked the database"* from
+    *"we asked and the disc is not in it"*. Those are `none` versus
+    `unknown (reason)` — the distinction `docs/OWNERSHIP.md` makes absolute — and
+    collapsing them turns an absent comparison into a performed one.
+    """
+    from platterpus.verdict import accuraterip_lookup_happened
+
+    for text in (
+        "disabled",
+        "AccurateRip disabled",
+        "error: timed out",
+        "not attempted",
+    ):
+        assert accuraterip_lookup_happened(text) is False, text
+
+
+def test_a_lookup_that_ran_and_MISSED_still_happened() -> None:
+    """**Mutants: `return True` -> `return False` at both remaining branches.**
+
+    A miss is still a comparison attempt. Reporting it as "no lookup" would hide
+    that the disc was checked and genuinely is not in the database.
+    """
+    from platterpus.verdict import accuraterip_lookup_happened
+
+    for text in ("not found", "not present", "not in database"):
+        assert accuraterip_lookup_happened(text) is True, text
+    # Anything else that is non-empty also means a lookup occurred.
+    assert accuraterip_lookup_happened("2 of 2 matched") is True
+
+
+def test_an_unstated_lookup_is_NOT_DETERMINED_and_never_a_verdict() -> None:
+    """Tri-state, and the third state is the one that must not be inferred."""
+    from platterpus.verdict import accuraterip_lookup_happened
+
+    assert accuraterip_lookup_happened(None) is None
+    assert accuraterip_lookup_happened("") is None
+
+
+def test_the_missing_track_clamp_reports_ZERO_on_a_complete_rip() -> None:
+    """**Mutant: `max(0, expected - logged)` -> `max(1, ...)`, and it survived.**
+
+    The clamp exists so a rip that logged MORE tracks than the disc claims cannot
+    report a negative shortfall. Nothing asserted its floor, so a complete rip
+    could have been made to claim one track was never ripped — a shortfall
+    invented out of a clamp, in the sentence a user reads as the accuracy
+    headline.
+    """
+    from platterpus.verdict import accuraterip_verdict
+
+    tracks = tuple(
+        TrackResult(
+            number=n,
+            accuraterip_offset=AccurateRipResult(
+                version=2, result="Found, exact match"
+            ),
+        )
+        for n in (1, 2, 3)
+    )
+    log = RipLog(tracks=tracks)
+    text, _tone = accuraterip_verdict(log, disc_track_total=3)
+    assert "never ripped" not in text.lower(), text
+    assert "1 track" not in text, (
+        f"a complete 3-of-3 rip reported a shortfall: {text!r} — the clamp's "
+        "floor is inventing a missing track"
+    )

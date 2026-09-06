@@ -110,6 +110,13 @@ def _satisfiable_names() -> set[str]:
     # Sibling test modules and any package inside src/ are importable by name.
     names |= {p.stem for p in (REPO_ROOT / "tests").rglob("*.py")}
     names |= {p.name for p in (REPO_ROOT / "src").iterdir() if p.is_dir()}
+    # ...and any module under `scripts/`, which a test may import directly after
+    # putting that directory on `sys.path`. DERIVED from the filesystem, not
+    # listed: this file's own docstring argues that a hand-maintained allowlist
+    # needs updating and therefore rots, and adding one entry to prove the point
+    # wrong would be the joke. `tests/test_mutation_sweep.py` importing
+    # `mutation_sweep` is the first such case.
+    names |= {p.stem for p in (REPO_ROOT / "scripts").rglob("*.py")}
     return names
 
 

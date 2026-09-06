@@ -1,72 +1,49 @@
 name: Mutation testing (weekly)
 
-# Test-EFFICACY signal (2026-07-08 trust audit). Coverage says which lines ran;
-# mutation testing says whether the tests would actually CATCH a bug. mutmut
-# mutates the highest-stakes pure logic — the external-output parsers, the
-# AccurateRip verdict, and the CTDB CRC — and reports "survivors" (mutations no
-# test killed). Scheduled + manual only: it never runs on a PR and never gates a
-# merge (docs/testing.md calls it a periodic audit, not a CI gate).
+# Test-EFFICACY signal. Coverage says which lines RAN; mutation testing says
+# whether the tests would actually CATCH a bug. Scheduled + manual only: it never
+# runs on a PR and never gates a merge (docs/testing.md calls it a periodic
+# audit, not a CI gate).
 #
 # ---------------------------------------------------------------------------
-# THIS JOB SPENT SEVEN RUNS REPORTING SUCCESS WHILE MEASURING NOTHING.
+# WHY THIS NO LONGER USES `mutmut`, AND WHY THE OLD DIAGNOSIS WAS WRONG
 # ---------------------------------------------------------------------------
-# Found 2026-08-28 by reading the run durations rather than the conclusions:
-# every scheduled run since 2026-07-13 finished in UNDER 90 SECONDS with
-# conclusion `success`, which is impossible for mutmut over a suite that takes
-# four minutes to run once. Reproducing the exact command line explained it in
-# one second:
+# History, because both halves matter:
 #
-#     $ mutmut run --paths-to-mutate "src/platterpus/parsers/,..."
-#     Error: No such option '--paths-to-mutate'
-#     exit 2
+#   1. This job spent SEVEN runs reporting success while measuring nothing. An
+#      unpinned mutmut major release removed `--paths-to-mutate`, `|| true` hid
+#      the exit code, and a hard failure and a completed audit produced the same
+#      green tick. Found 2026-08-28 by reading run DURATIONS, not conclusions.
 #
-# `--paths-to-mutate` is mutmut 2.x. mutmut 3.0 removed it in favour of a
-# `[tool.mutmut]` config block, `mutmut` was installed UNPINNED, and so somebody
-# else's major release silently disabled this audit. `|| true` on both commands
-# then made a hard failure and a completed audit produce the same green tick.
+#   2. It was then pinned, given a floor, and left deliberately RED with a
+#      recorded diagnosis: mutmut could not match its trampoline keys because
+#      `pythonpath = ["src"]` and an editable install give two competing sys.path
+#      stories.
 #
-# That is this project's own `docs/testing.md` §5.au — *a passing check and an
-# absent check have the same signature* — written into its own CI, and
-# `CLAUDE.md` Critical rule #11 (*a tool that gates CI must not float*) applied
-# to a tool nobody thought was gating anything. The lesson generalises past
-# "gating": a floating tool can silently retire a SIGNAL too, and a signal
-# nobody can tell is off is worse than no signal, because its silence gets read
-# as good news.
+# **That second diagnosis is wrong, and measuring it is what showed so**
+# (2026-09-05). Under `pytest` run from `mutants/`, the mutated module IS the one
+# imported -- `platterpus.ctdb.crc` resolves to
+# `mutants/src/platterpus/ctdb/crc.py` with the trampoline present. And
+# `mutmut run` executes NOTHING even when a single mutant is named on the command
+# line: 150 ms, "0 files mutated, 156 ignored, 1 unmodified", exit 0.
 #
-# Three changes, each closing one half of that:
+# So a previous session EXPLAINED the symptom without reproducing it, which is
+# the first question CLAUDE.md asks of any fix, and the explanation was
+# plausible, specific and not the mechanism. The record is corrected here rather
+# than quietly dropped, because a wrong diagnosis left in a comment is worse than
+# none: the next reader stops looking.
 #
-#   1. **mutmut is PINNED to the minor.** A CLI that can vanish under us is a
-#      measurement that can vanish under us.
-#   2. **No blanket `|| true`.** The run's real exit code is captured and
-#      reported. A crash is a red job.
-#   3. **A FLOOR, and it counts CHECKED mutants, not generated ones.** This is
-#      the half that matters, and it is the question `CLAUDE.md` asks of every
-#      check: *can this be satisfied by finding nothing?* mutmut will happily
-#      generate 348 mutants, run none of them, and exit 0 — which is exactly
-#      what it does today (see KNOWN BROKEN below). Counting mutants generated
-#      would have passed on that. So the gate asserts that at least
-#      MIN_CHECKED mutants reached a killed/survived verdict.
+# **The replacement is ours: `scripts/mutation_sweep.py`.** Not another
+# third-party mutator, because Critical rule #11 -- *a tool that gates CI must
+# not float* -- was written after exactly this failure, and swapping one external
+# mutator for another keeps the mode: a signal that can retire under us without
+# saying so. The sweep is built on the primitive this repo already trusts
+# (`scripts/revert_probe.py`: apply an edit, run named tests, see if they
+# noticed), has no dependency beyond pytest, and cannot have its CLI removed by
+# somebody else's release.
 #
-# ---------------------------------------------------------------------------
-# KNOWN BROKEN, DELIBERATELY LEFT VISIBLE (2026-08-28)
-# ---------------------------------------------------------------------------
-# With the config below, mutmut 3.7 generates mutants, runs its stats pass (the
-# selected tests pass), and then exits 0 having checked NONE of them. mutmut's
-# own diagnostic names the cause:
-#
-#     "It looks like tests import the source under a different module path than
-#      mutmut sees from the file path. Common causes: a pythonpath setting in
-#      pytest config, conftest sys.path injection, ..."
-#
-# This repo has `pythonpath = ["src"]` in `[tool.pytest.ini_options]` AND an
-# editable install, so there are two competing sys.path stories and mutmut's
-# trampoline keys do not match the imported module. Overriding with
-# `-o pythonpath=` does not fix it — it just moves the import back to the
-# unmutated source.
-#
-# This job is therefore EXPECTED TO FAIL until that is resolved, and that is the
-# point: a red job says "the audit is not running", which is the true statement.
-# The previous green tick said the opposite. Tracked in TASKS.md.
+# It carries the same floor for the same reason: a sweep that CHECKED nothing
+# must not read as a clean one.
 
 on:
   schedule:
@@ -77,14 +54,31 @@ permissions:
   contents: read
 
 jobs:
-  mutmut:
+  sweep:
     runs-on: ubuntu-22.04
-    timeout-minutes: 90  # hard bound — this is a signal, not a blocker
-    env:
-      # The floor. Deliberately far below the ~348 mutants `verdict.py` alone
-      # generates: this is a "did the audit happen at all" tripwire, not a
-      # quality threshold. Raise it once the job is genuinely running.
-      MIN_CHECKED: "50"
+    timeout-minutes: 90  # hard bound -- this is a signal, not a blocker
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # One leg per trust-bearing module, with the tests that exercise it.
+          # Split so a slow module cannot starve the others of the time budget,
+          # and so a survivor is attributable without re-running everything.
+          - name: verdict
+            target: src/platterpus/verdict.py
+            tests: tests/test_verdict.py
+          - name: ctdb-crc
+            target: src/platterpus/ctdb/crc.py
+            tests: tests/test_ctdb_verify.py tests/test_ctdb_calibrate.py
+          - name: cyanrip-log
+            target: src/platterpus/parsers/cyanrip_log.py
+            tests: tests/test_parsers_cyanrip_log.py
+          - name: rip-log
+            target: src/platterpus/parsers/rip_log.py
+            tests: tests/test_parsers_rip_log.py
+          - name: eac-log
+            target: src/platterpus/parsers/eac_log.py
+            tests: tests/test_parsers_eac_log.py
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -93,8 +87,7 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      # The test suite drives PySide6, so the headless Qt system libs are needed
-      # (same set as the CI `test` job).
+      # The suite drives PySide6, so the headless Qt system libs are needed.
       - name: Install headless Qt system libraries
         run: |
           sudo apt-get update
@@ -102,81 +95,50 @@ jobs:
             libegl1 libgl1 libglib2.0-0 libxkbcommon0 \
             libdbus-1-3 libfontconfig1 libfreetype6
 
-      # PINNED. See the header: an unpinned major bump removed the CLI flag this
-      # job was built around and nothing could tell us, for seven runs.
-      - name: Install project + mutmut
+      - name: Install project
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]" "mutmut>=3.7,<3.8"
-          python -m pip show mutmut | sed -n '1,2p'
+          python -m pip install -e ".[dev]"
 
-      # Not `|| true`. The status is captured so the summary can report it, and
-      # the job still reaches the floor check below on either outcome — because a
-      # crashed run and a run that measured nothing need to be told apart, and
-      # only the floor check can tell them apart.
-      - name: Run mutmut on the trust-bearing modules
-        id: run
+      # No `|| true`. A crash is a red leg, and the floor inside the script tells
+      # a crashed run apart from one that measured nothing -- which is the whole
+      # distinction the mutmut era could not make.
+      - name: Sweep ${{ matrix.name }}
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          set +e
-          mutmut run --max-children 4 2>&1 | tee mutmut-run.log
-          status="${PIPESTATUS[0]}"
-          set -e
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-          echo "mutmut run exited $status"
+          # `set -o pipefail` because the `| tee` below would otherwise report
+          # TEE's exit code, so a sweep that failed its floor would look green.
+          # That is the exact defect `CLAUDE.md` records four times and the one
+          # this whole workflow exists to have stopped making -- introducing it
+          # here, in the job about signals that lie, would have been the joke.
+          set -o pipefail
+          python3 scripts/mutation_sweep.py \
+            --target "${{ matrix.target }}" \
+            $(for t in ${{ matrix.tests }}; do printf -- "--tests %s " "$t"; done) \
+            --limit 40 --min-checked 8 \
+            --json "mutation-${{ matrix.name }}.json" \
+            | tee "mutation-${{ matrix.name }}.log"
 
-      # THE GATE. It counts mutants that reached a VERDICT — killed or survived.
-      # "not checked" is mutmut's word for "generated and never executed", and a
-      # run made entirely of those is the failure this whole rewrite exists to
-      # stop being invisible.
-      - name: Require that mutants were actually CHECKED
+      - name: Summarise
+        if: always()
         run: |
-          set +e
-          mutmut results > mutmut-results.txt 2>&1
-          results_status=$?
-          set -e
-          echo "mutmut results exited $results_status"
-
-          killed=$(grep -c ': killed$'      mutmut-results.txt || true)
-          survived=$(grep -c ': survived$'  mutmut-results.txt || true)
-          unchecked=$(grep -c ': not checked$' mutmut-results.txt || true)
-          checked=$(( killed + survived ))
-
           {
-            echo "## Mutation testing"
+            echo "## Mutation sweep — ${{ matrix.name }}"
             echo
-            echo "| outcome | count |"
-            echo "| --- | ---: |"
-            echo "| killed | $killed |"
-            echo "| survived | $survived |"
-            echo "| not checked | $unchecked |"
-            echo
-            echo "\`mutmut run\` exit: ${{ steps.run.outputs.status }}"
+            echo '```'
+            cat "mutation-${{ matrix.name }}.log" 2>/dev/null || echo "(no log — the sweep did not get that far)"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-          echo "killed=$killed survived=$survived not-checked=$unchecked"
-
-          if [ "$checked" -lt "$MIN_CHECKED" ]; then
-            echo "::error::Only $checked mutant(s) reached a verdict (killed+survived);"
-            echo "::error::the floor is $MIN_CHECKED. $unchecked were generated and never run."
-            echo "::error::A mutation audit that checks nothing is not a passing audit —"
-            echo "::error::see the header of .github/workflows/mutation.yml."
-            exit 1
-          fi
-
-          echo "===== survivors are what to look at ====="
-          grep ': survived$' mutmut-results.txt || echo "(no survivors)"
-
-      # Uploaded on failure too — the log IS the diagnosis when the run did not
-      # measure anything, and a job that fails without evidence just moves the
-      # mystery.
-      - name: Upload the run log and results
+      # Uploaded on failure too: the log IS the diagnosis when a sweep measured
+      # nothing, and a red job without evidence just moves the mystery.
+      - name: Upload the report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: mutmut-output
+          name: mutation-${{ matrix.name }}
           path: |
-            mutmut-run.log
-            mutmut-results.txt
+            mutation-${{ matrix.name }}.json
+            mutation-${{ matrix.name }}.log
           if-no-files-found: warn

@@ -86,3 +86,4 @@ htmlcov/
 # Per-gate output from `scripts/check.py` (the full logs it keeps so the printed
 # excerpt can stay bounded). Local diagnostics, never committed.
 .check-logs/
+.mutation-sweep.lock

@@ -21,6 +21,124 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
+## Left open by the 0.6.38 archival-check fixes (2026-09-05)
+
+- [ ] **Pass `-j` on every rip.** It appears once in `src/` (`rig_check.py:67`), a
+      separate probe, and never in the rip argv — so no rip writes cyanrip's own
+      diagnostics record. Their `PROVIDER-CONTRACT.md` P4 says a run refused during
+      argument validation **opens no logfile at all** and the `-j` record is the
+      only artifact for that class, which is the 2026-08-02 `-t 17=` shape. Held
+      out of 0.6.38 **deliberately**: introducing an argv flag we cannot exercise
+      in this container, hours before an eight-hour unattended run, risks the night
+      for a diagnostic that only helps when something else has already failed. Told
+      to the fork in round 15 lap 13 §C so it is a decision on the record and not
+      an oversight. **Round 16.**
+- [ ] **Split `uiscript/runner.py` (3429 lines).** The oversize ratchet was raised
+      rather than split for the same reason — refactoring the script engine on the
+      night of the run it drives is the risk this project keeps paying for. The
+      raised numbers are the debt marker, not a settlement. Mixins, per the
+      `MainWindow` precedent in `docs/architecture.md`.
+- [ ] **The receiving half of the omission gate still does not exist.** Nothing
+      checks that every artifact a lap names was actually filed; we do it by hand,
+      and so does the fork (their lap 12 §4). Answering their v5 5b.3 question with
+      *"yes, it should gate both sides"* is only honest once ours is built.
+
+---
+
+## Evidence transport — the fork's v5 proposal, and our round-16 position (2026-09-04)
+
+**Status: their lap 10 and the `PROTOCOL-v5-PROPOSAL` are filed. Nothing is
+proposed back yet.** Their proposal is explicitly **for round 16** — *"Refuse it,
+amend it, or counter it there"* — and round 15 closes on our hardware run, so
+this is staged, not sent. **Do not write a lap on it without asking.**
+
+### What was verified, from their source rather than from their lap
+
+Their repo was cloned (`rmccann-hub/cyanrip`, branch `platterpus-fork`) and every
+checkable claim in lap 10 was re-derived. All of it holds.
+
+- [x] **`FAIL_PATH` really did have seven alternatives while the preamble named
+      five.** Read at `tools/gen-provider-contract.py` in `9bc7ad6` — the
+      round-15 lap-8 state — where the regex is written out inline with
+      `return 1;`, `return -N;`, `exit([1-9]`, `return AVERROR`,
+      `total_error_count++/+=`, `err = N`, `ret = N;`. Their fix at `098ecde`
+      builds the regex *from* the published table (`FAIL_MECHANISMS`), so the two
+      cannot drift. Their self-report is understated only in that it is exactly
+      the defect their own document exists to prevent, which they say themselves.
+- [x] **Their 16-row table re-derives EXACTLY**, by instrumenting their
+      `evidence()` over the 121 published P5 rows keyed by `file:line`:
+      `total_error_count++` 8, `ret = N;` 6, `err = N` 1, combined 1 — and 84
+      rows in `both`+`control flow`. Character for character.
+- [x] **`HANDSHAKE-BREAKING: none` holds.** All **582** `` | ` `` rows are
+      byte-identical between `9bc7ad6` and `098ecde`, diffed here. And the
+      contract we filed as `…-gc4df1f0.md` is byte-identical to `9bc7ad6`'s, so
+      the lap-9 §C1 fixture does not stale.
+- [x] **Their PROTOCOL v4 term counts are right**, checked against our own copy of
+      the shared file: `bundle` 0, `transcript` 0, `envelope` 2, `attach` 1.
+- [x] **Their `SOURCES.txt` citation is right** — `SOURCES_RECORD_NAME` at
+      `src/platterpus/test_session.py:376`, and the quoted sentence verbatim at
+      `:559-561`. Checked because a citation of *our* file by *them* is exactly
+      the kind of claim that gets waved through; it needed no correction.
+- [x] **Digest `81edd5e87b7e026f over 9` reproduces exactly.** Seventh
+      consecutive agreeing value across the two implementations.
+
+**And one methodological finding to hand back, because it bears on their number.**
+The re-derivation produced **three different answers from correct code** — 19,
+then 15, then 16 — and only the last is right. 19 came from scanning all 349 call
+sites instead of the 121 published P5 rows; 15 came from keying by message text,
+which collides across files. Both wrong numbers were plausible and neither looked
+like an error. *"Is the population I measured closed?"* was the whole difficulty,
+and our agreeing at 16 is only evidence because the population was closed the same
+way theirs was.
+
+### Position on the six clauses
+
+- [ ] **5b.2, 5b.4, 5b.5, 5b.6 — accept as written.** 5b.4 (a bundle asserting
+      its own outcome governs any reading of its parts) is the clause that
+      encodes the scope error both projects made in the same week; it is the most
+      valuable line in the draft. 5b.5 is our own lap-9 rule adopted. 5b.6 matches
+      what `emit_envelope.py` already asserts.
+- [ ] **5b.1 — agree with the conclusion, amend the drafting.** *"Delivered
+      byte-identical to both projects"* reads as an obligation on the **deliverer**,
+      which re-imposes the two-upload burden the operator asked to be rid of. Their
+      §4 says the right thing — *"both parties end up holding it, not by what
+      route"* — but that is in the non-normative section. **Counter: make the
+      normative clause an END-STATE obligation and name the route** — both projects
+      must *hold* it byte-identical; the producing side commits it and the other
+      **fetches**, per `OWNERSHIP.md` §5 (*"NEITHER REPORTS A LAP AS MISSING. FETCH
+      IT… it is never the operator's problem"*). **One upload satisfies v5.**
+- [ ] **5b.3 — yes, and it should gate BOTH sides. That is their open question and
+      the honest answer is that we do not have it either.** Our `evidence_bundle`
+      does derive its omissions on the **producing** side. Nothing on our
+      **receiving** side checks that every artifact a lap names got filed — we do
+      that by hand. Same producing/receiving asymmetry as the seam's input/output
+      halves, which is what let the `-V` blocker sit in a committed file for a
+      round. Build the gate before answering.
+
+### What v5 does NOT cover, and should
+
+- [ ] **The filename convention — the maintainer's second instruction.** 5b.5
+      fixes *identity* (which build tag names an artifact) but not *format*. Our
+      `CLAUDE.md` *"Artifact filenames that cross machines"* — flat lowercase-ASCII
+      for anything hand-carried, hyphenated for committed laps — is in our repo
+      only; the fork has no copy. Round 15 already produced the disagreement it
+      would have pre-settled (their lap cited `2271ead`, the artifact's banner
+      asserted `c4df1f0`). **Counter-propose it as a §5c.**
+- [ ] **`-j` is still absent from every rip, and 5b.1 does not help that class.**
+      `-j` appears once in `src/` (`rig_check.py:67`), never in the rip argv. Their
+      P4 says an argv-refused run **opens no logfile at all** and the `-j` record is
+      the only artifact for it. Both sides holding the bundle does not conjure a
+      record the run never wrote. Ours to fix — decide whether to pass `-j` on
+      every rip — and it belongs in the same lap.
+- [ ] **`OWNERSHIP.md` §5 contains a premise that is now false.** It says *"we
+      cannot read each other's source"*, and this session cloned their public repo
+      and re-derived their headline number from it. The **normative** half (cite the
+      artifact you read it in) is unaffected and was satisfied. But the premise
+      discourages the strongest verification available, and a false statement of
+      fact inside a shared normative file is worth a version bump on its own.
+
+---
+
 ## Acceptance-path review, 2026-09-04 — what an eight-lens sweep left open
 
 **Provenance of this list.** Eight parallel reviewers over the acceptance path,
@@ -47,7 +165,7 @@ SKIP-passes-as-zero, and `abort-if-failed`'s scope.
   uncovered sites are §G (whose subject is §F's rip, legitimately) and §I (whose
   rip is *cancelled*, so completion is the wrong claim). The real fix is for
   `rig-check` to be told which rip it is grading.
-- [ ] **§I is ARCHIVAL for "the log's completion footer" and nothing asserts the
+- [x] **FIXED in 0.6.38 — `expect-log-well-formed`.** §I is ARCHIVAL for "the log's completion footer" and nothing asserted the
   footer.** `[CONFIRMED BLOCKING by 3 of 8 lenses]` Its only graded step is
   `expect-status cancelled`, a substring match on a widget label — the same class
   of defect as the `expect-status Done` this session removed, in the section
@@ -58,14 +176,14 @@ SKIP-passes-as-zero, and `abort-if-failed`'s scope.
   states §I's claim. What §I needs is an assertion that the RECORD is
   well-formed — footer present with either verdict, not truncated, checksum
   intact — which is a third proposition and a third verb.
-- [ ] **§N's stated T1 pass criterion is an `INFO` row that nothing grades.**
+- [x] **FIXED in 0.6.38 — `expect-secure-rerip`, off the same predicate the rig-check row renders from.** §N's stated T1 pass criterion was an `INFO` row that nothing graded.
   `[CLAIMED, verifier lost to the spend limit]` `docs/rig-scripts/README.md` says
   a pass is `parser/paranoia` reporting *"secure re-read genuinely exercised:
   YES"*; that row is INFO, so a rip where `-Z` did nothing passes §N.
-- [ ] **§E's identification gate passes on placeholder track rows**, so a disc
+- [x] **FIXED in 0.6.38 — `expect-identified`, keyed on the release MBID with its shape validated.** §E's identification gate passed on placeholder track rows, so a disc
   MusicBrainz cannot identify would proceed to rip under a wrong release.
   `[CLAIMED]`
-- [ ] **`snapshot` is the one evidence verb with no floor** — 22 unfailable
+- [x] **FIXED in 0.6.38 — it FAILS when `_panel_fields` returns empty.** `snapshot` was the one evidence verb with no floor — 22 unfailable
   PASSes; a snapshot that captured nothing reads like one that captured
   everything. `[CLAIMED]`
 - [ ] **The acceptance header still advertises "4 to 6 hours"**, contradicted by
@@ -2936,4 +3054,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.37.*
+*Last updated for Platterpus v0.6.38.*
