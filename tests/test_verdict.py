@@ -194,3 +194,159 @@ def test_the_missing_track_clamp_reports_ZERO_on_a_complete_rip() -> None:
         f"a complete 3-of-3 rip reported a shortfall: {text!r} — the clamp's "
         "floor is inventing a missing track"
     )
+
+
+# --- accuraterip_verdict: the TRUST HEADLINE's branch boundaries -------------
+#
+# `verdict.py` scored **20.5%** under the mutation sweep on 2026-09-06 — the worst
+# of any module measured, in the module that decides the sentence a user reads
+# about whether their rip is bit-perfect and that the report records. Eight of the
+# 31 survivors were in this one function, and every one of them was a **branch
+# boundary**: `verified == total` → `!=`, `verified > 0` → `>=`, `total == 0` → `!=`.
+#
+# A wrong branch here does not crash and does not look wrong. It prints a
+# confident, well-formed, green sentence about a disc that did not earn it — which
+# is the shape that shipped on 2026-07-30, when cancelling after two tracks of
+# fourteen produced "✓ Bit-perfect: all 2 tracks verified".
+#
+# Each case below sits ON a boundary, because that is the only place the operator
+# and its mutant differ.
+
+
+def test_no_accuraterip_data_at_all_says_NOTHING(track_count: int = 0) -> None:
+    """`total == 0` → empty text, neutral tone. The mutant makes it `!= 0`, which
+    sends a disc *with* AccurateRip data down the no-data path and silences the
+    headline entirely."""
+    from platterpus.verdict import accuraterip_verdict
+
+    text, tone = accuraterip_verdict(RipLog())
+    assert (text, tone) == ("", "neutral")
+
+    # The other side: one track with data must NOT take that path.
+    text, tone = accuraterip_verdict(RipLog(tracks=(_verified(1),)))
+    assert text and tone == "ok", "a disc with AccurateRip data got the empty verdict"
+
+
+def test_a_complete_verified_disc_is_the_ONLY_green_case() -> None:
+    """`verified == total` **and** nothing missing. Both halves, on the boundary.
+
+    The 2026-07-30 defect lived exactly here: `verified == total` was true of a
+    cancelled rip's two tracks, and without the `missing` half it went green on 14%
+    of the disc.
+    """
+    from platterpus.verdict import accuraterip_verdict
+
+    whole = RipLog(tracks=(_verified(1), _verified(2), _verified(3)))
+    text, tone = accuraterip_verdict(whole, disc_track_total=3)
+    assert tone == "ok" and "Bit-perfect" in text
+
+    # ONE track short of the disc — same `verified == total`, and it must not be
+    # green. This is the cancelled-rip shape.
+    text, tone = accuraterip_verdict(whole, disc_track_total=4)
+    assert tone == "warn", "a rip missing a track went green"
+    assert "Bit-perfect" not in text
+    assert "3 of 4" in text
+
+    # And one track present but with no AccurateRip result is the OTHER way to be
+    # short — `verified == total` is false there, so it must not be green either.
+    partial_log = RipLog(tracks=(_verified(1), _verified(2), _not_in_db(3)))
+    text, tone = accuraterip_verdict(partial_log, disc_track_total=3)
+    assert tone == "warn" and "Bit-perfect" not in text
+
+
+def test_every_track_accounted_for_but_some_offset_variant_stays_AMBER() -> None:
+    """`verified + partial == total` — accounted for, not proven bit-perfect.
+
+    The boundary is the equality: with `!=` an all-accounted disc falls through to
+    the "aren't in the database or didn't match" wording, which is false about
+    tracks that DID match an offset-variant pressing.
+    """
+    from platterpus.verdict import accuraterip_verdict
+
+    log = RipLog(tracks=(_verified(1), _verified(2), _offset(3)))
+    text, tone = accuraterip_verdict(log, disc_track_total=3)
+    assert tone == "warn", "offset-variant is not proven bit-perfect"
+    assert "offset-variant" in text
+    assert "aren't in the database" not in text, (
+        "tracks that matched an offset-variant were described as unmatched"
+    )
+
+    # NOT all accounted for: one genuinely absent → the other wording is correct.
+    log = RipLog(tracks=(_verified(1), _offset(2), _not_in_db(3)))
+    text, tone = accuraterip_verdict(log, disc_track_total=3)
+    assert tone == "warn" and "aren't in the database" in text
+
+
+def test_no_exact_matches_but_offset_variants_is_not_the_same_as_nothing() -> None:
+    """`verified > 0` is the boundary between "some matched" and "none did".
+
+    With `>=` a disc where **nothing** matched takes the some-matched branch and
+    reports verified tracks it does not have.
+    """
+    from platterpus.verdict import accuraterip_verdict
+
+    only_offset = RipLog(tracks=(_offset(1), _offset(2)))
+    text, tone = accuraterip_verdict(only_offset, disc_track_total=2)
+    assert tone == "warn" and "offset-variant" in text
+    assert "verified against AccurateRip" not in text.split("—")[0], (
+        "a disc with no exact matches claimed verified tracks"
+    )
+
+    # Exactly one exact match is the other side of `> 0`.
+    one = RipLog(tracks=(_verified(1), _not_in_db(2)))
+    text, tone = accuraterip_verdict(one, disc_track_total=2)
+    assert "1 of 2" in text
+
+
+def test_the_disc_total_is_the_denominator_a_stopped_rip_cannot_move() -> None:
+    """`disc_track_total > 0` chooses between the disc's count and the log's.
+
+    The mutants here (`> 0` → `>= 0`, and the fallback) swap which number is the
+    denominator. That is the whole 2026-07-30 fix: only the disc's own count is
+    immune to a rip stopping early, because the log's count shrinks with it.
+    """
+    from platterpus.verdict import accuraterip_verdict
+
+    two_of_ten = RipLog(tracks=(_verified(1), _verified(2)))
+
+    # Disc total known → it is the denominator, and the rip is short.
+    text, tone = accuraterip_verdict(two_of_ten, disc_track_total=10)
+    assert tone == "warn" and "2 of 10" in text
+
+    # Disc total UNKNOWN (0 or None) → fall back to the log's own count, which is
+    # all we have. It must not become "2 of 0".
+    for unknown in (0, None):
+        text, tone = accuraterip_verdict(two_of_ten, disc_track_total=unknown)
+        assert " of 0" not in text, f"disc_track_total={unknown!r} produced 'of 0'"
+        assert tone == "ok" and "Bit-perfect" in text
+
+
+def test_reconcile_stays_silent_until_the_CTDB_CRC_IS_HARDWARE_VALIDATED() -> None:
+    """`crc_validated` False → no reconciliation (KDD-16).
+
+    Before validation a CTDB no-match is expected noise, and explaining it would
+    over-explain a placeholder. The mutant flips the guard, so the explanation
+    appears exactly when it is meaningless and vanishes when it matters.
+    """
+    log = RipLog(tracks=(_verified(1), _offset(2)))
+    assert reconcile_ar_ctdb(log, _ctdb(Verdict.NO_MATCH, crc_validated=False)) is None
+    assert reconcile_ar_ctdb(log, _ctdb(Verdict.NO_MATCH)) is not None
+
+
+def test_reconcile_says_nothing_when_there_is_no_AccurateRip_signal() -> None:
+    """`total == 0 or (verified == 0 and partial == 0)` — no apparent conflict.
+
+    Three boundaries in one condition, so all three states are driven: no data at
+    all, data but nothing matched, and the all-offset-variant disc that DOES look
+    contradictory beside a CTDB no-match and must fall through.
+    """
+    assert reconcile_ar_ctdb(RipLog(), _ctdb(Verdict.NO_MATCH)) is None
+
+    nothing_matched = RipLog(tracks=(_not_in_db(1), _not_in_db(2)))
+    assert reconcile_ar_ctdb(nothing_matched, _ctdb(Verdict.NO_MATCH)) is None
+
+    all_offset = RipLog(tracks=(_offset(1), _offset(2)))
+    assert reconcile_ar_ctdb(all_offset, _ctdb(Verdict.NO_MATCH)) is not None, (
+        "an all-offset-variant disc beside a CTDB no-match DOES look "
+        "contradictory and must be explained"
+    )
