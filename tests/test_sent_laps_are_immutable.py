@@ -95,6 +95,60 @@ SENT_LAPS: dict[str, str] = {
     "verified/round-08-lap-18.md": (
         "a45d5dfd01cecac4d5841c759627ad4437782463a172d9e2cc942b4d1fadf117"
     ),
+    # Round 15, laps 4-7, delivered together inside `round15lap07platterpus.md`
+    # on 2026-09-04. **Peer-confirmed, and this is the map's strongest form**:
+    # the fork's lap 8 `HANDSHAKE-INBOUND-HELD` states it filed all four "verified
+    # against the envelope's own manifest on size and hash before anything was
+    # read". Each value below is the per-part `sha256=` the envelope itself
+    # carries, and the tree bytes still hash to it.
+    #
+    # **These rows are the first round-14-or-later entries in this map, and their
+    # absence was not neutral.** Our lap 7 §A1 had to tell the fork that our own
+    # send-record could not distinguish *written* from *sent* — because a map with
+    # no rows for a round is SILENT, not negative, and silence is not "no". Three
+    # laps sat unsent for two days behind that silence. Recording a send the moment
+    # it is confirmed is the cheap half of the fix; `test_no_lap_is_left_unsent.py`
+    # is the half that fails.
+    "outbound/round-15-lap-04.md": (
+        "fe2fce5ccac09ae5596851535eae5d41e3ffe9983399d861895bd9bf3d38dfef"
+    ),
+    "outbound/round-15-lap-05.md": (
+        "6d9b7b487191b4293d446cc8e7c2a5720d953ef5b858ea40da89e4164574ff6b"
+    ),
+    "outbound/round-15-lap-06.md": (
+        "02d31e5d29bc5d2cc012d085e383aa4a1ea7dc28c9c4f939b8c927390a239c3a"
+    ),
+    "outbound/round-15-lap-07.md": (
+        "b8dc1c9fe828cb02b440077a4e9cc863f9f66c79e2c367847b3e8521a50d6df3"
+    ),
+    # Round 15 lap 9, sent BARE (no envelope — it carried no artifacts) and
+    # **peer-confirmed by their lap 10**, which is the strongest form this map
+    # takes: `HANDSHAKE-INBOUND-HELD: Your lap 9 … Nothing outstanding`, plus they
+    # quote `HANDSHAKE-VERDICT: OPEN` from its line 6, reproduce its digest
+    # `35b861f25abfa69c over 8`, and answer its §E1 at length. A lap the other side
+    # has read *back* to us is delivered by any reading.
+    #
+    # **It sat unrecorded for a full lap, which is the defect this map exists for
+    # arriving through the door marked *we fixed that*.** The rows above were added
+    # on 2026-09-04 with a comment saying "recording a send the moment it is
+    # confirmed is the cheap half of the fix" — and then lap 9's own confirmation
+    # arrived in the very next inbound file and was not recorded. Confirmation is an
+    # event in a document we file, so **reading an inbound lap is the moment to check
+    # what it confirms about our outbound**, not a thing to remember later.
+    "outbound/round-15-lap-09.md": (
+        "a5ac94148952fc50b4f7c73d571f918497b9e83f747d371ad4c76bd98de2d6b5"
+    ),
+    # Round 15 lap 11, sent bare and **peer-confirmed by their lap 12**:
+    # `HANDSHAKE-INBOUND-HELD: Your lap 11 ... Nothing outstanding`, and their §5
+    # reproduces its digest `f685729d41cf7f5b over 10`.
+    #
+    # **Recorded in the same commit that read the lap confirming it**, which is
+    # the rule the lap-9 row above had to be added a lap late to learn. The
+    # mechanism works: this row exists because reading lap 12 included asking
+    # what lap 12 confirms about our outbound.
+    "outbound/round-15-lap-11.md": (
+        "5273610e96f14802e3df569db78b84bc31e8ffc2c8ac146ca4561057fa78a03c"
+    ),
 }
 
 #: **The boundary this map records, and it was wrong in both directions in 48 hours.**

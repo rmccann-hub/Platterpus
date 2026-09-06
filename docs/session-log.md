@@ -11,6 +11,184 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-05 (later) — CC-1 met, and a tool of ours that corrupted the tree it was measuring
+
+**One sentence: the acceptance run passed completely, the parts of it that could
+not fail were verified by hand instead, and the day's three sharpest findings were
+all about our own instruments rather than the product.**
+
+### The run
+
+`0.6.37` + `978f9b0`, `pass=227 fail=0 error=0`, reaching the script's last line.
+It went on the build the fork had already accepted, so **neither half moved for
+it** — the fifth move an earlier draft of lap 13 was going to disclose never
+happened.
+
+**The transcript was not treated as the evidence, and that mattered.** Three
+ARCHIVAL sections were graded by checks that could not fail and 22 snapshots could
+not fail at all, so those passes were worth nothing. Each claim was verified from
+the artifacts instead: the cancelled rip's footer and `Log FUN512:` intact, the
+secure re-read's `Scope:` line on 14 of 14 tracks, a real MBID rather than
+placeholders. All three held. Two earlier fixes got their first field
+confirmation: tracks 3 and 4 did not converge and are the only two of fourteen
+without `Copy OK`, and no rip reported a spurious error count.
+
+### The findings were all about instruments
+
+* **A tool of ours corrupted the tree it was measuring.** The mutation sweep writes
+  wrong code into `src/` and takes it out again; backgrounding one while
+  `scripts/check.py` ran the suite failed two tests against a `verdict.py` that was
+  byte-identical to HEAD by the time anyone looked. **The hazard was in that
+  script's own comments an hour before I walked into it.**
+* **A checklist the maintainer supplied caught a green claim of mine that was
+  false**, on its first run, along with a dev container that does not satisfy this
+  project's own declared `cryptography` range.
+* **Two phantom defects were nearly reported to the fork** — a parse returning zero
+  tracks (we had called the *whipper* parser, not a dispatcher) and a
+  `script_source` that looked truncated but is elided with a counted marker.
+  Opening the artifact stopped both.
+
+### The lessons, and the third is the one that generalises
+
+**A rule you must remember while typing a command loses to convenience.** The
+sweep's hazard was documented and I still hit it. The fix is a lock, not a warning
+— `O_CREAT | O_EXCL` so the check and the claim are one operation, failing closed.
+
+**A measurement is only true of the state it ran in.** "4/4 gates green" was true
+of a tree nothing else was writing to, and I reported it as true of the tree.
+
+**And the one that cost the most: I asked *"am I answering from the artifact?"* of
+the peer's repository all round, and never of our own.** The (mtime, size)
+bytecode mechanism was reported to the fork as `[INFERRED]` with a failed
+reproduction. It was already `[MEASURED]` in `scripts/revert_probe.py` — *"that is
+how a `MAX_RIP_WAIT_S` of 3 h kept being imported after the source said 6 h"* —
+written before the sweep existed, in the very file the sweep was modelled on.
+
+The same omission had a second half: `revert_probe.py` had the **bytecode**
+defence and no lock; the sweep had neither until today. Both halves now exist and
+**the two share one lock**, because two locks exclude nothing. `docs/testing.md`
+§5.o — a rule enforced where it was learned instead of across the tools that share
+the hazard — with the twist that here the two halves were in two files, one each.
+
+### Also shipped
+
+The mutation audit runs at all for the first time (mutmut was executing zero
+mutants, and its recorded diagnosis was wrong); structure-aware fuzzing whose
+grammar is derived from a committed golden reference; filesystem fault injection
+on the evidence bundle; gitleaks over full history and a floored SBOM, both
+gating; and `docs/TEST-VERIFICATION-CHECKLIST.md`, whose contribution over the two
+existing checklists is a report format where `DID NOT RUN`, `KNOWN GAPS` and
+`RISKS` may not be empty.
+
+---
+
+## 2026-09-05 — four checks that could pass by finding nothing, and two gates that caught themselves
+
+**One sentence: the acceptance run was three hours from starting on a build
+whose three ARCHIVAL sections asserted nothing, and the fixes tripped two of our
+own gates on the way in — both correctly.**
+
+### What was wrong
+
+Four ARCHIVAL steps were satisfiable by finding nothing, three of them the *only*
+graded step in their section. **None would have failed the run. All four would
+have passed it**, which is the worse outcome: an eight-hour unattended run whose
+entire purpose is trustworthy evidence, producing a green transcript over
+untested claims.
+
+* **§I** — ARCHIVAL for the log's completion footer, and graded by
+  `expect-status cancelled`, a substring match on a widget label. In the section
+  that exists *because* a cancel destroyed the footer (round 14 lap 10).
+* **§N** — its stated pass criterion is an `INFO` row, which never fails a run. A
+  rip where `-Z` did nothing passed the section about `-Z` working.
+* **§E** — `expect-tracks 2+`, which `set_placeholder_tracks` satisfies, so an
+  unidentified disc would have ripped under a wrong release all night.
+* **`snapshot`** — 22 sites, unconditional PASS.
+
+### The part worth keeping: the obvious fix for §I was wrong
+
+`expect-rip-complete` looks like the answer and is not. Measured from the
+2026-09-03 bundle, **cyanrip signs off a cancelled rip with
+`rip_completed=True, 3 of 14`** — so that verb *passes* on the cancel and says
+nothing about §I, while an inverse "expect-interrupted" would *fail* on real
+data. Neither states the proposition. The claim §I needs is a third one: *the
+record is well-formed, whatever the verdict* — footer present either way, not
+truncated, `Log FUN512:` signature present and well-shaped. The signature is the
+load-bearing part, because cyanrip writes it from `atexit`: a hard kill leaves an
+**unattested** log, which is invisible to every other verb.
+
+Generalises as: **when two existing checks both look applicable and neither fits,
+the missing thing is usually a third proposition, not a looser version of one of
+them.**
+
+### Two of our own gates caught their own blind spots
+
+* **The artifact-naming pair was mutually unsatisfiable.** One refuses a filename
+  asserting a provenance the content does not back; the other *required* a
+  `-g<build>` field on every non-`.sh` inbound artifact. The fork's
+  `PROTOCOL-v5-PROPOSAL` has neither a banner nor an anchor, so both names failed.
+  Reconciled with **one predicate, two callers**. The trigger was our own rule
+  refusing our own filing **two laps after we wrote it**.
+* **The unsent-lap sweep read `PARTS` as a cumulative record when it is the
+  current envelope**, so moving the envelope to lap 13 reported four *delivered*
+  laps as unsent. A gate that fires on correct behaviour teaches people to route
+  around it, so the model gained the case rather than the allowlist gaining four
+  rows. It then immediately caught lap 11, whose delivery the fork's lap 12
+  confirms — recorded in the same commit that read the confirming lap, which is
+  the rule the lap-9 row had to be added a lap late to learn.
+
+### The fork, and where we were the ones who were wrong
+
+Their lap 12 §1 reported a real defect — a bare ASCII `'` in `-a`/`-t` opens an
+unclosed quoted run in `av_dict_parse_string` — and said our escaping *"just does
+not cover the apostrophe."* **It does, and did in the build they were
+certifying**: verified five ways, including from *their* `src/naming.c`, whose
+generic backslash handling makes `\'` survive the pre-splitter, and from their
+own §1 table measuring the escaped form as correct. Their inference came from an
+argv whose data contained no ASCII apostrophe — an absence read as evidence,
+noted in their own section two paragraphs earlier.
+
+**And on their §3 we were the ones corrected.** Our lap 11 gave 16 rows resting
+on a non-terminating construct, re-derived from their generator; the count was
+right and the implication wrong for eight of them. Re-deriving again confirmed
+their 12 suppressed gotos and 33 `goto fail`, and on *"only two genuinely record
+and continue"* our classifier said four — theirs was right, because
+`musicbrainz.c:366`/`:370` set `ret = 1` and the function ends `return ret`. We
+had classified by **mechanism label** rather than following control flow.
+
+**Twice in two laps, instrumenting their generator made us inherit its
+abstraction.** That is the shared-ancestor trap `CLAUDE.md` already names,
+entered deliberately — borrowing their code was the *point* — and not noticed
+either time. Derivation is stronger than repetition and weaker than an
+independent path; when the derivation borrows the peer's own tool, say so, and
+expect to share its blind spots.
+
+### Decisions taken deliberately, and recorded as decisions
+
+* **`-j` was NOT added to the rip argv**, though the gap is real: for an
+  argv-refused run cyanrip writes no logfile and the `-j` record is the only
+  artifact. Introducing an argv flag that cannot be exercised in this container,
+  hours before an unattended run, risks the night for a diagnostic that only
+  helps once something else has failed. Told to the fork in lap 13 §C so it is on
+  the record as a choice.
+* **`runner.py` was not split**, and the oversize ratchet was raised with a
+  written reason per entry. Refactoring the script engine on the night of the run
+  it drives is the risk this project keeps paying for.
+
+Both are the same judgement: **the night before a run is for making the run
+meaningful, not for making the codebase better.**
+
+### Shipped
+
+**0.6.38**, and round 15 lap 13 as the F1 disclosure — our half moving a fifth
+time, named as a break, sent *before* the evidence and carrying the changed
+`fullacceptance.txt`, because a lap that alters the script the other side has
+reasoned about must travel with it. The lap-7 envelope was deliberately **not**
+regenerated: it was delivered, and rewriting it to pick up an edited file is the
+drift `SENT_LAPS` exists to prevent.
+
+---
+
 ## 2026-09-04 (later) — the fix had two defects, and the review found them first
 
 **One sentence: `expect-status Done` was the wrong assertion, and the verb
@@ -4608,4 +4786,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.37.*
+*Last updated for Platterpus v0.6.38.*

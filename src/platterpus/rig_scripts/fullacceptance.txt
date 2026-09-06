@@ -320,6 +320,14 @@ rescan
 pick-release 1 120
 expect-dialog none
 expect-tracks 2+
+# AND THE GATE THAT COUNTING COULD NOT BE. `expect-tracks` is satisfied by
+# PLACEHOLDER rows: a disc MusicBrainz cannot identify still fills the table with
+# "Track 01".."Track NN" / "Unknown Artist" (track_table.set_placeholder_tracks),
+# so the count passed, the abort below never fired, and every rip for the rest of
+# the night would have been evidence about a release nobody chose. This asserts
+# the fact instead of a symptom of it: a well-formed MusicBrainz release MBID is
+# actually held.
+expect-identified
 snapshot discidentified
 
 # STOP HERE IF THE DISC WAS NOT IDENTIFIED. The section header above has said
@@ -508,6 +516,17 @@ log cancel issued; giving the escalation its full window
 wait 30
 # The cancelled line reads 'Rip cancelled by user. Partial files may remain.'
 expect-status cancelled
+# THE SECTION'S ACTUAL CLAIM, and until 2026-09-05 nothing asserted it.
+# This section is ARCHIVAL for "the log's completion footer" -- a cancel once
+# destroyed it (round 14 lap 10) -- and its only graded step was the substring
+# match above, on a widget label. `expect-rip-complete` cannot state the claim
+# either: measured from the 2026-09-03 bundle, this rip's log reads
+# `completed=True, 3 of 14`, so cyanrip signs off a cancelled rip with a
+# COMPLETED footer and that verb would pass while checking nothing §I is about.
+# What §I needs is that the RECORD survived: footer present with either verdict,
+# not truncated, and the FUN512 signature -- written from atexit, so a hard kill
+# destroys it -- present and the right shape.
+expect-log-well-formed
 snapshot aftercancel
 screenshot aftercancel
 rig-check
@@ -696,6 +715,15 @@ screenshot aftersecurereread
 # re-read genuinely exercised: YES" -- which that run DID report. The section
 # substantively passed and failed on the wrong assertion.
 expect-rip-complete
+# AND THE CRITERION IS NOW GRADED. Until 2026-09-05 the sentence above named a
+# pass criterion that lives in an INFO row, and INFO never fails a run -- so a
+# rip in which -Z did nothing at all passed the section whose whole subject is
+# that -Z worked. This asserts it, off the same predicate the rig-check row
+# renders from. It grades whether the re-read RAN, never whether it converged:
+# convergence is a property of the disc and grading it here would fail the run
+# on an ordinary scratched CD, which is the mistake this section already paid
+# for once with `expect-status Done`.
+expect-secure-rerip
 rig-check
 
 # --- P. §T3: THE CACHE PROBE, PROBE-ONLY ------------------------------------

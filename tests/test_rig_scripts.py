@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
+import sys
 from pathlib import Path
 from typing import Final
 
@@ -445,6 +446,37 @@ def test_the_morning_bundle_lands_where_the_operator_looks() -> None:
     )
 
 
+def _round_of(path: Path) -> int | None:
+    """The round a handshake file belongs to, from its canonical name."""
+    match = re.match(r"^round-0*(\d+)", path.name)
+    return int(match.group(1)) if match else None
+
+
+def _closed_round_numbers() -> set[int]:
+    """Rounds `scripts/handshake.py` reports as CLOSED — its logic, not a copy.
+
+    An open round's laps must not contribute approved pins: both sides declare
+    their verdict over several laps, and the side that says `GO` last leaves the
+    other's newest file recording a stale verdict. Re-deriving closure here would
+    give the repo a second opinion about the one thing the release gate turns on.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "_hs_status", DOCS.parent / "scripts" / "handshake.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["_hs_status"] = module
+    spec.loader.exec_module(module)
+    numbers: set[int] = set()
+    for line in module.round_status():
+        match = re.match(r"^round-0*(\d+):.*-> CLOSED\s*$", line)
+        if match:
+            numbers.add(int(match.group(1)))
+    return numbers
+
+
 def approved_pin_declared_by(text: str) -> str | None:
     """The pin a lap declares APPROVED, or ``None`` — **both verdicts, or neither**.
 
@@ -604,10 +636,30 @@ def test_the_install_menu_offers_the_build_the_acceptance_gate_demands() -> None
     # Round 15 is the first, and our own laps 2 and 4 declare `978f9b0` with
     # `HANDSHAKE-VERDICT: OPEN` — which the old reading scored as approval of the
     # very build the round exists to review.
+    # AND ONLY FROM ROUNDS THAT HAVE ACTUALLY CLOSED. The comment above says this
+    # check *"compares against the newest CLOSED round's verification"*, and until
+    # 2026-09-05 nothing implemented it — a comment where a check belongs.
+    #
+    # It became live the moment our round-15 lap 13 declared `GO` with the peer's
+    # `GO` transcribed from their lap 12. That file honestly records both verdicts,
+    # so `approved_pin_declared_by` approved `978f9b0` — while the round was still
+    # OPEN, because a close reads the NEWEST file on each side and their lap 12
+    # records our verdict as `OPEN` (true when written). `handshake_approval`
+    # correctly still held round 14, so the menu and the rip verdict would have
+    # disagreed about one pin: the 2026-08-18 defect exactly, where an offer said
+    # "nothing to weigh" and every report stamped `unapproved`.
+    #
+    # Delegated to `handshake.py`'s own closure logic rather than re-derived here.
+    # One question, one predicate — re-deriving "is this round closed?" from the
+    # files is how the two answers drift apart in the first place.
+    closed = _closed_round_numbers()
+    assert closed, "no closed rounds — the population is empty and cannot refuse"
     approved_pins = {
         pin
         for path in verified
-        if (pin := approved_pin_declared_by(path.read_text(encoding="utf-8")))
+        if (number := _round_of(path)) is not None
+        and number in closed
+        and (pin := approved_pin_declared_by(path.read_text(encoding="utf-8")))
     }
     assert approved_pins, "no verification declares HANDSHAKE-PIN — nothing to compare"
     for choice in fork_source.ripper_choices():
