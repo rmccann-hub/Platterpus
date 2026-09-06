@@ -11,6 +11,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **`docs/TEST-VERIFICATION-CHECKLIST.md`** — the maintainer's self-audit, run
+  before claiming a task complete, at Tier 2. **Justified against the homes it
+  does not duplicate** (CLAUDE.md rule #7, fourth obligation): `docs/testing.md`
+  §6 is the Definition of Done — what a *change* must satisfy; CLAUDE.md's *How to
+  stop shipping the next one* is a diagnostic question list. Neither is a
+  **self-audit protocol with a required output format**, and that format is the
+  part that works: `DID NOT RUN`, `KNOWN GAPS` and `RISKS` may not be empty, which
+  forces an honest negative where the other two allow silence.
+
+### Fixed
+- **The mutation sweep can no longer corrupt a concurrent reader.** It writes
+  wrong code into `src/` and takes it out again, so for the duration of one mutant
+  the working tree is corrupt — and running the checklist proved it by catching me
+  doing exactly that: a sweep backgrounded while `scripts/check.py` ran the suite
+  failed two `test_audit_regressions.py` cases against a `verdict.py` that was
+  byte-identical to HEAD by the time anyone looked. **The hazard was written in
+  that file's own comments an hour before I walked into it**, which is the argument
+  for a lock rather than a warning. `O_CREAT | O_EXCL` so the check and the claim
+  are one operation, failing **closed** with a message naming the lockfile.
+
 ### Changed
 - **CC-1 IS MET.** A complete acceptance run on `platterpus 0.6.37` + `cyanrip
   978f9b0` (2026-09-05T18:06:33Z): **pass=227 fail=0 error=0**, reaching the

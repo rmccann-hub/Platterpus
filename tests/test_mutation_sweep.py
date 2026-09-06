@@ -318,3 +318,37 @@ def test_a_sweep_leaves_NO_STALE_BYTECODE_behind(tmp_path: Path) -> None:
         timeout=120,
     )
     assert "CLEAN" in probe.stdout, probe.stdout + probe.stderr
+
+
+def test_two_sweeps_cannot_run_at_once(tmp_path: Path) -> None:
+    """**The hazard, found by walking into it.**
+
+    The sweep writes wrong code into `src/` and takes it out again, so for the
+    duration of one mutant the working tree is corrupt. On 2026-09-05 a sweep was
+    backgrounded while `scripts/check.py` ran the suite, and two
+    `test_audit_regressions.py` cases failed against a `verdict.py` that was
+    byte-identical to HEAD by the time anyone looked.
+
+    The hazard was written into this file's own comments an hour before it
+    happened. That is the argument for a lock rather than a warning: a rule you
+    have to remember while typing a command loses to convenience.
+
+    Fails CLOSED — a stale lock stops everything and says how to clear it, which
+    is the right direction for a tool whose failure mode is a corrupted tree.
+    """
+    module = tmp_path / "subject.py"
+    module.write_text("def f(a, b):\n    return a < b\n", encoding="utf-8")
+    test = tmp_path / "test_subject.py"
+    test.write_text("def test_x():\n    assert True\n", encoding="utf-8")
+
+    ms._LOCK.write_text("pid=999999\n", encoding="utf-8")
+    try:
+        with pytest.raises(SystemExit) as caught:
+            ms.sweep([module], [str(test)], limit=4, seed=0, timeout=60)
+        assert "REFUSING TO RUN" in str(caught.value)
+    finally:
+        ms._LOCK.unlink(missing_ok=True)
+
+    # And the lock does not linger after a normal run, or the next sweep is dead.
+    ms.sweep([module], [str(test)], limit=4, seed=0, timeout=60)
+    assert not ms._LOCK.exists(), "the sweep left its lock behind"

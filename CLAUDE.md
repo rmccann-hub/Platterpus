@@ -63,7 +63,13 @@ The GUI runs on the host. It calls the host-exported ripper binary in `~/.local/
      - **This applies to logs and artifacts too, with one carve-out the maintainer stated in the same breath:** an **EAC-compatible log must stay as close to the EAC original as possible without forging it**. Its format is not ours to consolidate or tidy — the parity record is `docs/eac-parity.md` and the honesty line (equal-or-stronger rigour, labelled as *ours*, never a forged EAC provenance) is KDD-24. Consolidate *our* documents; leave a compatibility artifact alone.
      - **This rule travels to the cyanrip fork.** Same mechanism as rule #12's last bullet: it is a repo rule for **both** projects, so when it changes here it goes to the fork in the same round — and it belongs in the handshake file as well, since the correspondence directory is exactly the place a per-lap file proliferates. Two projects with different copies of a rule about not sprawling files is the joke this rule exists to avoid.
 
-   The full code-and-docs checklist is the **Definition of Done in `docs/testing.md §6`**. Same bite as the regression-test rule: institutional, non-negotiable.
+   The full code-and-docs checklist is the **Definition of Done in `docs/testing.md §6`**, and the
+   **self-audit before claiming completion is `docs/TEST-VERIFICATION-CHECKLIST.md`** (maintainer-supplied,
+   2026-09-05). Run it at **Tier 2** and output its Final Report. What it adds that the other two do not:
+   a **required report format whose `DID NOT RUN`, `KNOWN GAPS` and `RISKS` sections may not be empty**.
+   It earned its place on the first run — it caught a suite failure I had just called green (a backgrounded
+   mutation sweep corrupting `verdict.py` under a concurrent test run) and an environment that does not
+   satisfy our own declared dependency range. Same bite as the regression-test rule: institutional, non-negotiable.
 
 8. **No copyrighted media in the repo — ever, not even temporarily.** This repository is public. Never `git add`/commit a music file or any other copyrighted media — **no `.flac`, `.wav`, `.mp3`, `.m4a`, `.aac`, `.ogg`, `.opus`, `.wv`, `.ape`, `.aiff`, `.dsf`, etc.** — and this includes *temporary* files dropped in for testing. Owning the disc does not grant redistribution rights, and a public commit (and git history) is redistribution. **How we test with real audio instead:** work on it **outside the repo** — the session scratchpad or a `/tmp` dir — and delete it when done; the durable proof we commit is the **text** artifact (EAC/whipper/cyanrip **logs** + per-track **CRCs**), never the audio (the CRCs prove bit-perfection without it — see `output_reference/README.md`). `.gitignore` denies audio extensions as a backstop, but the rule is the line of defense, not the backstop. If a test genuinely needs real PCM, use a **short, self-generated or CC0/public-domain** sample, never a commercial track. Same bite as the rules above: institutional, non-negotiable.
 
@@ -291,6 +297,7 @@ from it again; it did once, KDD-range v23 vs v25):
 - **`docs/README.md`** — the complete annotated index of docs/, the single-source-of-truth map, and the rebuild checklist
 - **`docs/architecture.md`** — the contributor guide: patterns with their *why*, extension recipes. **Start here to extend the program.**
 - **`docs/testing.md`** — testing strategy, institutional rules, and the Definition of Done (rule #7's checklist)
+- **`docs/TEST-VERIFICATION-CHECKLIST.md`** — the self-audit to run *before* claiming a task done (Tier 2); its Final Report's `DID NOT RUN` / `KNOWN GAPS` / `RISKS` sections may not be empty
 - **`docs/test-plan.md`** — manual & release testing (acceptance run, EAC parity, gated hardware cases)
 - **`docs/dependency-contracts.md`** — exact args/flags per external tool + parsed output shapes
 - **`docs/platterpus-research-brief-v2.1.md`** — the project brief; canonical for requirements/scope *as amended by the KDDs*
