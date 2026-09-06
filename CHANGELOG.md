@@ -11,6 +11,35 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **CC-1 IS MET.** A complete acceptance run on `platterpus 0.6.37` + `cyanrip
+  978f9b0` (2026-09-05T18:06:33Z): **pass=227 fail=0 error=0**, reaching the
+  script's last line, zero `FAIL`/`ERROR` in the transcript. **The run went on
+  0.6.37 — the build the fork accepted — so neither half moved for it**, and the
+  fifth move lap 13's draft was going to disclose did not happen.
+- **The transcript alone was not treated as the evidence, and that mattered.** In
+  0.6.37 three ARCHIVAL sections were graded by checks that cannot fail, so their
+  passes prove nothing; each claim was verified by hand from the artifacts and all
+  three hold — the cancelled rip's log carries an intact footer and a well-formed
+  `Log FUN512:`, the secure re-read shows cyanrip's `Scope:` line on **14 of 14**
+  tracks, and the disc was identified by a real MBID rather than placeholders.
+- **Two field confirmations of earlier fixes.** Tracks 3 and 4 did not converge
+  and are the **only two of fourteen** without `Copy OK`, carrying explicit
+  *"Copy NOT confirmed"* text — the 0.6.35 honesty fix working on hardware. And
+  every rip's diagnostics count is empty with `worst=None`: the `errors: 13`
+  over-reporting is gone.
+- **Round 15 lap 13 rewritten as the closing `GO`**, with the run's decisive text
+  artifacts filed under `docs/handshake/outbound/artifacts/` for the fork to fetch
+  (no audio, verified; screenshots and the 6 MB debug JSON deliberately excluded).
+  **The round does not close on our verdict alone** — `--status` still reports OPEN
+  because their lap 12 records our verdict as `OPEN`, true when written, and a
+  close reads the newest file from each side. The lap names that mechanism and asks
+  for the one-line reply it needs.
+- **Two phantom defects were caught before being reported**, both by opening the
+  artifact: a parse returning zero tracks from a valid log (we had called the
+  *whipper* parser, not a dispatcher), and a `script_source` that looked silently
+  truncated but is elided head-and-tail with a counted marker.
+
 ### Added
 - **Mutation testing actually runs, for the first time.** `mutmut` was pinned,
   floored and left deliberately red behind a recorded diagnosis (import paths).
