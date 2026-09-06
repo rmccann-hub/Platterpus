@@ -64,21 +64,47 @@ jobs:
           # One leg per trust-bearing module, with the tests that exercise it.
           # Split so a slow module cannot starve the others of the time budget,
           # and so a survivor is attributable without re-running everything.
+          #
+          # `floor` IS PER-LEG, AND THAT IS THE POINT. It was one constant
+          # (`--min-checked 8`) across five modules whose mutant populations run
+          # from 3 to 193 — a single number answering five different questions,
+          # which is `CLAUDE.md`'s *"is the population I measured closed?"* asked
+          # of a configuration instead of a measurement. The `eac-log` leg offers
+          # **3** mutants in total, so a floor of 8 made it unsatisfiable: it
+          # would have reported NO RESULT every week for reasons that have
+          # nothing to do with the tests. Each floor below is set against that
+          # module's measured population, and
+          # `tests/test_mutation_audit_can_report_its_own_absence.py` re-measures
+          # them so a floor cannot silently become unreachable again. A NEW leg
+          # must declare one; there is no default here to fall back on.
           - name: verdict
             target: src/platterpus/verdict.py
             tests: tests/test_verdict.py
+            floor: 30          # of 66 generated, capped at --limit 40
           - name: ctdb-crc
             target: src/platterpus/ctdb/crc.py
             tests: tests/test_ctdb_verify.py tests/test_ctdb_calibrate.py
+            floor: 15          # of 19 generated
           - name: cyanrip-log
             target: src/platterpus/parsers/cyanrip_log.py
             tests: tests/test_parsers_cyanrip_log.py
+            floor: 30          # of 193 generated, capped at --limit 40
           - name: rip-log
             target: src/platterpus/parsers/rip_log.py
             tests: tests/test_parsers_rip_log.py
+            floor: 30          # of 64 generated, capped at --limit 40
           - name: eac-log
             target: src/platterpus/parsers/eac_log.py
             tests: tests/test_parsers_eac_log.py
+            floor: 3           # THE WHOLE POPULATION. This parser is 69 lines and
+                               # deliberately minimal (it reads Copy CRCs and
+                               # nothing else), so 3 is not a weak floor — it is
+                               # every mutant the module has, and a generation
+                               # break producing 0, 1 or 2 still fails the leg.
+          - name: eac-log-export
+            target: src/platterpus/eac_log_export.py
+            tests: tests/test_eac_log_export.py tests/test_eac_layout_parity.py tests/test_eac_pregap_convention.py
+            floor: 30          # of 108 generated, capped at --limit 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -116,7 +142,7 @@ jobs:
           python3 scripts/mutation_sweep.py \
             --target "${{ matrix.target }}" \
             $(for t in ${{ matrix.tests }}; do printf -- "--tests %s " "$t"; done) \
-            --limit 40 --min-checked 8 \
+            --limit 40 --min-checked "${{ matrix.floor }}" \
             --json "mutation-${{ matrix.name }}.json" \
             | tee "mutation-${{ matrix.name }}.log"
 

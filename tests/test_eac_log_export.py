@@ -15,6 +15,10 @@ from pathlib import Path
 
 from platterpus.eac_log_export import (
     _UNREPORTED,
+    _accuraterip_line,
+    _appended_silence_line,
+    _crc_lines,
+    _incomplete_notice,
     render_eac_style_log,
     verify_eac_style_log_checksum,
 )
@@ -1461,3 +1465,281 @@ def test_the_per_track_verdict_reads_the_convergence_field_not_just_the_status()
         "the per-track status line no longer passes the convergence field, so it "
         "cannot know a track was unreproducible — the 2026-09-03 defect exactly"
     )
+
+
+# --------------------------------------------------------------------------
+# The archival record's DECISION BOUNDARIES.
+#
+# Found 2026-09-06 by the first mutation sweep of this module. `eac_log_export`
+# had never been in the sweep matrix — the leg pointed at `parsers/eac_log.py`,
+# the 69-line *reader*, so what was being measured was our ability to consume
+# somebody else's log rather than our ability to produce a correct one
+# (`docs/testing.md` §5.ba). A 12-mutant sample of the writer scored **50%**,
+# and four of the six survivors were comparisons and constants that decide what
+# the EAC-compatible log ASSERTS about the rip.
+#
+# Each test below is written against the boundary itself — the case on each side
+# of the line — rather than against a comfortable value in the middle, because a
+# `>` that should be `>=` is invisible everywhere except at equality. That is the
+# same derivation the CTDB CRC boundaries needed on 2026-09-05: the obvious test
+# sits where the guard and its mutant agree.
+# --------------------------------------------------------------------------
+
+
+def _log_with_tracks(count: int) -> RipLog:
+    """A rip log carrying ``count`` tracks, each with sectors so the TOC renders."""
+    tracks = tuple(
+        TrackResult(
+            number=n,
+            filename=f"{n:02d} - Track.flac",
+            copy_crc=f"{n:08X}",
+            status="ripped successfully",
+            start_sector=(n - 1) * 1000,
+            end_sector=n * 1000 - 1,
+        )
+        for n in range(1, count + 1)
+    )
+    return replace(_sample_log(), tracks=tracks)
+
+
+def test_a_COMPLETE_rip_is_not_labelled_partial_in_the_TOC_header() -> None:
+    """`disc_track_total > len(tracks)` — at equality the disc is complete.
+
+    A `>=` here prints "(partial — 5 of 5 disc tracks were selected for this
+    rip)" over a complete disc's TOC: a false claim in the archival record, in
+    the one block a reader uses to check nothing is missing. The sweep's
+    `848:44 cmp Gt->GtE` survived because every existing test rendered either a
+    complete disc with `disc_track_total=None` or a genuinely partial one, so
+    the equality case — the only place the two operators differ — was never
+    rendered.
+    """
+    complete = render_eac_style_log(_log_with_tracks(5), disc_track_total=5)
+    assert "TOC of the extracted CD" in complete
+    assert "partial" not in complete, (
+        "a 5-track rip of a 5-track disc is complete; the TOC header claimed otherwise"
+    )
+
+    # ...and the other side of the line still says so, or the test above would
+    # pass against a renderer that had dropped the notice entirely.
+    partial = render_eac_style_log(_log_with_tracks(4), disc_track_total=5)
+    assert "(partial — 4 of 5 disc tracks were selected for this rip)" in partial
+
+
+def test_a_COMPLETE_rip_is_never_told_it_has_tracks_MISSING() -> None:
+    """**Mutant `1190:46 cmp Gt->GtE` survived, and it is EQUIVALENT.** Recorded
+    here rather than "fixed", because the test written to kill it was vacuous and
+    the revert probe said so.
+
+    The claim under test is real and archival: a rip that produced every track
+    must never tell a future reader that some were "never extracted and are absent
+    below". What is *not* real is that the `elif disc_track_total > ripped` line
+    is what protects it. Derived from the source and then measured:
+
+    * an **earlier** branch returns first whenever ``ripped >= disc_track_total``
+      and the log is not truncated — the "RIP STOPPED … extraction itself is
+      complete" wording, added 2026-08-05 for exactly this shape;
+    * the ``elif`` sits under ``if truncated:``, so it is only evaluated for a
+      log that is **not** truncated;
+    * those two together leave only ``ripped < disc_track_total`` reachable, and
+      there ``>`` and ``>=`` return the same answer for every input.
+
+    Measured, not just argued — the three renderings are asserted below, including
+    the truncated-and-equal case that is the only other candidate for a difference.
+
+    So the mutant changes no reachable behaviour. It is pinned the way
+    `test_a_chunk_entirely_OUTSIDE_the_window_contributes_nothing` pins the CRC
+    loop's equivalent mutant: harmless *today*, and the guard above is what keeps
+    it harmless, so the next change to this function is where it stops being.
+    """
+    complete = _incomplete_notice(_log_with_tracks(5), "cancelled", 5)
+    assert complete and "were never" not in complete[0], (
+        "all 5 of 5 tracks are present; the banner claimed some were never extracted"
+    )
+    assert "RIP STOPPED" in complete[0] and "INCOMPLETE RIP" not in complete[0]
+
+    # The other side of the line, or the assertion above would hold for a renderer
+    # that had dropped the sentence entirely.
+    short = _incomplete_notice(_log_with_tracks(3), "cancelled", 5)
+    assert "The remaining 2 track(s) were never extracted" in short[0]
+
+    # THE ONLY OTHER CANDIDATE for a `>` / `>=` difference: equal counts with a
+    # truncated log, which skips the early return. The `if truncated:` arm claims
+    # the elif before either operator is consulted, so the count is a FLOOR and no
+    # "remaining N" sentence appears under either.
+    truncated = replace(_log_with_tracks(5), log_truncated=True)
+    notice = _incomplete_notice(truncated, "cancelled", 5)
+    assert "FLOOR, not a count" in notice[0]
+    assert "were never extracted" not in notice[0]
+
+
+def test_two_agreeing_reads_EARN_the_EAC_Test_Copy_pair() -> None:
+    """`reads >= 2` — two is the whole point of a secure re-read.
+
+    EAC's Test/Copy pair means *two full passes produced the same CRC*. cyanrip's
+    equivalent is two reads that agreed, so a track with exactly ``rip_count=2``
+    and no measured non-convergence has earned it. Survivor `1353:54 cmp
+    GtE->Gt` turns that into `> 2`, which silently downgrades every
+    two-pass-converged track to the unverified rendering — an *under*-claim, and
+    so the kind of defect a reader has no way to notice: the log simply omits a
+    guarantee the rip actually provides.
+
+    Exactly 2 and exactly 1 are the two cases that separate the operators; a
+    3-read track passes under either.
+    """
+    # `test_crc=None` MATTERS: a track carrying a native `test_crc` (whipper's
+    # dual read) returns from the first branch of `_crc_lines` and never reaches
+    # the comparison under test. The sample's track 1 has one, so the obvious
+    # fixture exercises a different function — "what does my stand-in do that the
+    # real thing does not", caught here by the test failing for the wrong reason.
+    two_reads = replace(
+        _sample_log().tracks[0],
+        test_crc=None,
+        rip_count=2,
+        secure_rerip_converged=None,
+    )
+    lines = "\n".join(_crc_lines(two_reads))
+    assert "Test CRC" in lines and "Copy CRC" in lines, (
+        "two agreeing reads is EAC's Test/Copy guarantee; the renderer withheld it"
+    )
+    assert "confirmed across 2 secure re-reads" in lines
+
+    # One pass is NOT the guarantee, so the pair must not appear — otherwise the
+    # assertion above would hold for a renderer that emitted it unconditionally.
+    one_read = replace(
+        _sample_log().tracks[0],
+        test_crc=None,
+        rip_count=1,
+        secure_rerip_converged=None,
+    )
+    assert "Test CRC" not in "\n".join(_crc_lines(one_read))
+
+
+def test_a_lookup_that_DID_happen_is_not_reported_as_unchecked() -> None:
+    """`accuraterip_lookup_happened(lookup) is False` — only a *measured* no.
+
+    Survivor `1430:46 const False->True` flips the guard to `is True`, so the
+    "Not checked against the AccurateRip database" line fires for precisely the
+    tracks that WERE checked, and the tracks that were not fall through to the
+    CRC fallback and get "Cannot be verified as accurate" — which presumes a
+    comparison that never took place. Both halves wrong, in opposite directions,
+    from one character.
+
+    Tri-state, so all three inputs are pinned: a lookup that ran, one that was
+    disabled, and one the log never stated.
+    """
+    # THE GUARD ONLY DECIDES WHEN NOTHING MATCHED. `_accuraterip_line` returns
+    # "Accurately ripped" from an earlier branch whenever the track has a matching
+    # AR result, so the sample's track 1 — confidence 200 — never reaches the line
+    # under test. The state where this guard is load-bearing is a track that has
+    # AR data carrying a local CRC and no match: there the answer is either "not
+    # checked" or "cannot be verified", and those are opposite claims.
+    base = replace(
+        _sample_log().tracks[0],
+        accuraterip_v2=AccurateRipResult(
+            version=2, result="not found", confidence=None, local_crc="22B9924D"
+        ),
+    )
+
+    ran = replace(base, accuraterip_lookup="found, but track not matched")
+    assert "Not checked" not in _accuraterip_line(ran), (
+        "this track's lookup ran and found nothing; the log said no check was made"
+    )
+    assert "Cannot be verified as accurate" in _accuraterip_line(ran)
+
+    disabled = replace(base, accuraterip_lookup="disabled")
+    assert _accuraterip_line(disabled) == "Not checked against the AccurateRip database"
+
+    # NOT STATED is not a no. `accuraterip_lookup_happened` returns None here, and
+    # `None is False` is False, so the guard must not fire — the case that makes
+    # this an identity comparison rather than a truthiness test.
+    unstated = replace(base, accuraterip_lookup=None)
+    assert "Not checked" not in _accuraterip_line(unstated)
+
+
+def test_the_checksum_footer_is_found_wherever_it_SITS_in_the_file() -> None:
+    """The backward scan steps by one line, and it has to.
+
+    `verify_eac_style_log_checksum` walks the rendered text from the last line
+    upward looking for the checksum row. Survivor `128:44 const 1->2` makes that
+    walk step by **two**, so whether the footer is found depends on whether its
+    distance from the end of the file happens to be even — the log verifies or
+    fails to verify on a property of its own line count. Every existing test
+    rendered one shape, so the parity never varied.
+
+    Driven by appending a line to a verified log: the content is unchanged, the
+    footer's offset from the end moves by one, and the answer must not.
+    """
+    text = render_eac_style_log(_sample_log())
+    assert verify_eac_style_log_checksum(text) is True
+
+    # The checksum covers the body above it, so trailing blank lines are outside
+    # the digest and are the honest way to move the footer's parity.
+    for extra in range(1, 5):
+        shifted = text + "\n" * extra
+        assert verify_eac_style_log_checksum(shifted) is True, (
+            f"the footer became unfindable with {extra} trailing newline(s) — the "
+            "backward scan is skipping lines"
+        )
+
+
+def test_a_SINGLE_fabricated_frame_is_still_reported() -> None:
+    """`frames <= 0` — one frame of invented silence is still invented.
+
+    Survivor `1081:80 const 0->1`. With `<= 1` a track that ends in exactly one
+    fabricated frame is dropped from the "Appended silence" notice, so the
+    archival log simply does not mention that the last frame of that track is not
+    disc audio. The function's own docstring already draws the line at *greater
+    than zero* — this pins the sentence to the code.
+
+    Both sides of the boundary, plus the two non-numbers the guard is defensive
+    about, because a test that only shows 1 rendering would pass against a
+    function with no guard at all.
+    """
+    base = _sample_log()
+
+    one = replace(
+        base,
+        tracks=(replace(base.tracks[0], appended_silence_frames=1),),
+    )
+    line = "\n".join(_appended_silence_line(one))
+    assert "track(s) 1 (1 frame(s))" in line, (
+        "one fabricated frame is still fabricated; the notice omitted it"
+    )
+
+    # A measured zero says nothing was appended, so there is no caveat to make.
+    zero = replace(base, tracks=(replace(base.tracks[0], appended_silence_frames=0),))
+    assert _appended_silence_line(zero) == []
+
+    # ...and `None` (never reported) is not a measured zero, but it is equally
+    # not a caveat.
+    unreported = replace(
+        base, tracks=(replace(base.tracks[0], appended_silence_frames=None),)
+    )
+    assert _appended_silence_line(unreported) == []
+
+
+def test_a_cancelled_rip_with_an_UNKNOWN_disc_total_still_renders() -> None:
+    """Survivor `1190:25 bool And->Or`, and what it exposed is a missing case.
+
+    `disc_track_total and disc_track_total > ripped` is a guard *and* a type
+    check: with `or` in place of `and`, a ``disc_track_total`` of ``None`` falls
+    through to ``None > ripped`` and raises `TypeError`, taking the whole log
+    render with it. The mutant survived because nothing rendered the incomplete
+    banner without a disc total — and `render_eac_style_log` defaults that
+    argument to ``None``, so a cancelled rip whose TOC never reported a total is
+    an ordinary production shape, not a contrived one.
+
+    The unmutated code is correct here. What was missing was any evidence of it.
+    """
+    log = replace(_log_with_tracks(3), tracks=_log_with_tracks(3).tracks)
+    notice = _incomplete_notice(log, "cancelled", None)
+    assert notice, "a cancelled rip with an unknown disc total rendered no banner"
+    assert "INCOMPLETE RIP (cancelled)" in notice[0]
+    # No total, so no "of N" and no claim about what is absent — the honest shape.
+    assert " of " not in notice[0]
+    assert "were never extracted" not in notice[0]
+
+    # And through the public renderer, because the banner reaching the document is
+    # the claim that matters; a private helper returning strings is not the log.
+    text = render_eac_style_log(_log_with_tracks(3), outcome_status="cancelled")
+    assert "INCOMPLETE RIP (cancelled)" in text
