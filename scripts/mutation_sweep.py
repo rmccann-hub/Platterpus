@@ -63,11 +63,12 @@ import random
 import subprocess
 import sys
 import time
-from collections.abc import Iterator
-from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, TypedDict
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import tree_lock  # noqa: E402
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 
@@ -322,48 +323,14 @@ def _run_tests(tests: list[str], timeout: int) -> bool:
     return proc.returncode == 0
 
 
-#: Advisory lock. **The sweep writes WRONG CODE into `src/` and takes it out
-#: again**, so for the duration of one mutant the working tree is corrupt — and
-#: anything else reading it in that window sees the corruption.
-#:
-#: Measured 2026-09-05, by doing it: a sweep was backgrounded while
-#: `scripts/check.py` ran the suite, and two `test_audit_regressions.py` cases
-#: failed on a `verdict.py` that was byte-identical to HEAD by the time anyone
-#: looked. The hazard had been identified in this file's own comments an hour
-#: earlier and then walked into anyway, which is the argument for a lock rather
-#: than a warning: a rule you have to remember while typing a command is a rule
-#: that loses to convenience.
-_LOCK: Final[Path] = REPO_ROOT / ".mutation-sweep.lock"
-
-
-@contextmanager
-def _exclusive_tree() -> Iterator[None]:
-    """Hold the working tree for one sweep, or refuse.
-
-    `O_CREAT | O_EXCL` so the check and the claim are one operation — a
-    read-then-write would let two sweeps both see "no lock" and both proceed,
-    which is the race this is preventing rather than adding.
-
-    A stale lock from a killed run is a nuisance, not a hazard: it fails CLOSED
-    (nothing runs, and the message says how to clear it), which is the right
-    direction for a tool whose failure mode is a corrupted source tree.
-    """
-    try:
-        fd = os.open(_LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
-    except FileExistsError:
-        raise SystemExit(
-            f"REFUSING TO RUN: {_LOCK.name} exists, so another sweep is already "
-            "mutating this tree — or one died without cleaning up.\n"
-            "This sweep writes wrong code into src/ and takes it out again, so two "
-            "at once, or one alongside a test run, corrupts what the other reads.\n"
-            f"If no sweep is running, delete {_LOCK} and try again."
-        ) from None
-    try:
-        os.write(fd, f"pid={os.getpid()}\n".encode())
-        os.close(fd)
-        yield
-    finally:
-        _LOCK.unlink(missing_ok=True)
+# THE LOCK IS SHARED WITH `revert_probe.py`, not local to this file.
+#
+# Both tools write wrong code into `src/` and take it out again. Two separate
+# locks would let a sweep and a probe run at once, each holding its own and each
+# corrupting what the other reads — a mutual-exclusion primitive that does not
+# exclude the other party is decoration. See `scripts/tree_lock.py` for the
+# measurement that produced it.
+_LOCK: Final[Path] = tree_lock.LOCK_PATH
 
 
 def _restore(path: Path, original: str, before_hash: str) -> None:
@@ -427,7 +394,7 @@ def sweep(
     survived: list[str] = []
     unappliable: list[str] = []
 
-    with _exclusive_tree():
+    with tree_lock.exclusive_tree("mutation_sweep"):
         for mutant in sampled:
             original = mutant.path.read_text(encoding="utf-8")
             mutated = _apply(original, mutant)

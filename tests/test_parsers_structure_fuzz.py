@@ -165,9 +165,26 @@ def test_cyanrip_log_survives_plausible_but_hostile_logs(text: str) -> None:
 
 @settings(max_examples=350, suppress_health_check=[HealthCheck.too_slow], deadline=None)
 @given(_plausible_log())
-def test_rip_log_dispatcher_survives_them_too(text: str) -> None:
-    """The dispatcher picks a backend parser from the text; a shape that looks
-    like cyanrip but is not must not make it choose wrongly and crash."""
+def test_the_whipper_parser_survives_them_too(text: str) -> None:
+    """The OTHER parser, fed shapes it was never written for.
+
+    **Named wrongly when this file was written, and the correction is worth
+    keeping.** It called `parse_rip_log` "the dispatcher". It is not — it is the
+    **whipper** parser, and whipper was removed in KDD-18. Dispatch happens at the
+    four call sites, each sniffing with `looks_like_cyanrip_log` first
+    (`workers/rip_worker.py:2818`, `rip_files.py:220`,
+    `ui/main_window_rip.py:1602`, `parity.py:68`).
+
+    The mistake cost real time: an analysis of the 2026-09-05 acceptance bundle
+    called this function directly, got **zero tracks from a log carrying
+    fourteen**, and came within a step of being reported to the fork as a parser
+    defect. Opening the artifact is what stopped it. The name is fixed here so the
+    next reader does not repeat it.
+
+    Still worth fuzzing: it is live in production behind that sniff, and a cyanrip
+    log that fails the sniff lands here. Returning an empty `RipLog` is the correct
+    answer for a format it does not handle; crashing is not.
+    """
     parsed = parse_rip_log(text)
     assert isinstance(parsed, RipLog)
     _assert_numerics_are_sane(parsed)
