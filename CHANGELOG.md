@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.38] — 2026-09-06
+
 ### Fixed
 - **The archival CRC's boundary guards were unasserted, and the mutation sweep
   found all of them.** `ctdb/crc.py` scored **57.9%**, and every survivor was a
@@ -180,8 +182,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   directory, whose order on this machine already gives the right answer, so it
   passed with the fix reverted. Rewritten to force the adverse order.
 - **The end-to-end CLI test mutated real project source** mid-suite. Now a copy.
-
-## [0.6.38] — 2026-09-05
 
 ### Changed
 - **Four ARCHIVAL acceptance checks could be satisfied by finding nothing, and
