@@ -11,6 +11,34 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The trust headline's branch boundaries were unasserted, in the worst-scoring
+  module we have measured.** `verdict.py` scored **20.5%** under the mutation sweep
+  — 31 survivors of 39 checked — and it is the module that decides the sentence a
+  user reads about whether their rip is bit-perfect, and that the report records.
+  Eight survivors sat in `accuraterip_verdict` alone and every one was a *branch
+  boundary*: `verified == total` → `!=`, `verified > 0` → `>=`, `total == 0` → `!=`,
+  and the `disc_track_total > 0` test that chooses the denominator.
+  A wrong branch here does not crash and does not look wrong — it prints a
+  confident, well-formed, green sentence about a disc that did not earn it. That
+  exact shape shipped on 2026-07-30, when cancelling after two tracks of fourteen
+  produced *"✓ Bit-perfect: all 2 tracks verified"*. Each new case sits **on** a
+  boundary, including the one that is the whole point of the 2026-07-30 fix: only
+  the disc's own count can be the denominator, because it is the one number a
+  stopped rip cannot move. `reconcile_ar_ctdb`'s KDD-16 guard is pinned too — with
+  it flipped, the AR↔CTDB explanation appears exactly when it is meaningless and
+  vanishes when it matters. Same 40-mutant population after: **48.7%** (8 killed →
+  19). Twenty survivors remain and are next-round work.
+- **A sent lap was edited for the third time, and the window closed within the
+  hour rather than a round later.** Lap 15 was being revised — it had promised a
+  fix that has since been made — when the operator confirmed it had gone. Restored
+  to its sent bytes before anything else, pinned in `SENT_LAPS` at that value, and
+  the new material became a **new lap** (round 15, lap 16), which is what protocol
+  v4 §4a required. The peer-declared-hash gate could not help here: they have not
+  published a hash for lap 15 yet. What ended it was being told, which the protocol
+  says only the operator can do.
+
+
 ### Added
 - **The argv chokepoint now refuses a naming scheme that writes outside the output
   folder** — round-16 preparation against the cyanrip fork's lap 14 §5 item 4,
