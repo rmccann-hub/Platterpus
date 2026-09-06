@@ -40,6 +40,32 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   judged by, and was not in the matrix. It is now; a 12-mutant trial scored
   **50%**. Reasoning in `docs/testing.md` §5.ba.
 
+### Fixed
+- **Five untested decision boundaries in the EAC-compatible log, and a sixth
+  that would have crashed the render.** The first sweep of `eac_log_export.py`
+  — the module that *writes* the archival record, never previously in the matrix
+  — scored **65.0%** over a 40-mutant sample. Six of the fourteen survivors were
+  comparisons and constants deciding what the log **asserts** about a rip, and
+  each is now pinned at the boundary itself rather than at a comfortable value:
+  a complete disc must not be labelled `(partial — 5 of 5 …)` in the TOC header;
+  two agreeing reads must earn EAC's Test/Copy pair (`>` instead of `>=` there
+  silently *under*-claims, which a reader has no way to notice); a track whose
+  AccurateRip lookup **ran** must not be reported as never checked, and the
+  tri-state `None` is not a no; one fabricated frame of appended silence is still
+  fabricated and must appear in the notice; the checksum footer must be found
+  wherever it sits, not only at an even offset from the end of the file; and a
+  cancelled rip whose disc total is unknown must render its banner rather than
+  raise `TypeError` — an ordinary shape, since the renderer defaults that
+  argument to `None`. Same 40-mutant population after: **82.5%**.
+- **A test written to kill a survivor was itself vacuous, and the revert probe
+  said so.** The complete-rip-not-told-tracks-are-missing case is guarded by an
+  *earlier* branch (`ripped >= disc_track_total` → "RIP STOPPED"), so the `>`
+  under test is only reachable when `ripped < disc_track_total`, where `>` and
+  `>=` agree. That mutant is **equivalent**, derived from the source and then
+  measured across all three renderings including the truncated-and-equal case.
+  It is recorded as such — the same shape as the CTDB CRC loop's documented
+  equivalent — rather than left looking unkilled.
+
 ### Added
 - Mutation-sweep results for the two legs that had never been run:
   `parsers/rip_log.py` scores **72.5%** (40 of 64 sampled, 11 survivors) and
