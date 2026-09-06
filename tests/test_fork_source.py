@@ -278,6 +278,34 @@ def _declares_pin(text: str, pin: str) -> bool:
     return False
 
 
+def _peer_closing_lap(round_number: int) -> Path:
+    """The inbound lap that closed ``round_number`` — their newest declaring GO.
+
+    Separate from :func:`_newest_closed_round_verification`, which finds *our* side.
+    A close is bilateral, and the two halves answer different questions: ours says
+    which pin we install, theirs says which build of ours they approved.
+    """
+    handshake = _handshake()
+    inbound = sorted(
+        (REPO_ROOT / "docs" / "handshake" / "inbound").glob(
+            f"round-{round_number:02d}-lap-*.md"
+        ),
+        key=handshake.sort_key,
+    )
+    go = [
+        path
+        for path in inbound
+        if re.search(
+            r"^HANDSHAKE-VERDICT:\s*GO\b", path.read_text(encoding="utf-8"), re.M
+        )
+    ]
+    assert go, (
+        f"round {round_number} is reported CLOSED but no inbound lap declares GO — "
+        "the close and the record disagree"
+    )
+    return go[-1]
+
+
 def test_the_approval_round_and_app_version_match_the_record() -> None:
     """``handshake_approval``'s two constants, derived from the record like the pin.
 
@@ -308,24 +336,45 @@ def test_the_approval_round_and_app_version_match_the_record() -> None:
         f"report would credit the wrong round for approving pin {fork_source.FORK_PIN}."
     )
 
-    # `HANDSHAKE-APP-VERSION: platterpus 0.6.5` → "0.6.5". Read off the file rather
-    # than compared to `__version__`: the field names the version the pairing was
-    # declared at, which deliberately stays put as the app version moves on.
+    # THE APP VERSION COMES FROM THE PEER'S CLOSING LAP, NOT FROM OUR NEWEST ONE.
+    #
+    # **An approval is what the other side granted, so it is read from them.** This
+    # used to take `HANDSHAKE-APP-VERSION` off the last lap of ours that mentions
+    # the pin, on the reasoning that a round can re-declare a pin across laps and
+    # the correction is the one that counts (round 7's lap 40 → 41). Sound for a lap
+    # that re-declares; wrong for a lap written *after* the close.
+    #
+    # Round 15 lap 15 is exactly that: a post-close disclosure lap that asks nothing,
+    # re-declares nothing, and — correctly — carries the app version doing the
+    # writing, `0.6.40`. Under the old key it became "the version round 15 approved",
+    # which would have stamped *"approved for Platterpus 0.6.40"* into every rip
+    # report and EAC-compatible log for a pairing whose evidence is an eight-rip
+    # bundle produced by **0.6.37**. Same shape as the 2026-08-07 defect this test
+    # exists for: a constant naming a pairing no evidence covers.
+    #
+    # The peer's closing lap cannot drift that way — `HANDSHAKE-PEER-VERSION` is
+    # them attesting which build of ours they approved, and nothing we write later
+    # changes it. **Verified against history, not just adopted:** round 14's closing
+    # lap 19 declares `platterpus/0.6.28`, which is the value that constant already
+    # held, so this key reproduces the record rather than redefining it.
+    closing = _peer_closing_lap(newest_closed)
     header = re.search(
-        r"^HANDSHAKE-APP-VERSION:\s*platterpus\s+(?P<version>\S+)",
-        verification.read_text(encoding="utf-8"),
+        r"^HANDSHAKE-PEER-VERSION:\s*platterpus[/ ]\s*(?P<version>\S+)",
+        closing.read_text(encoding="utf-8"),
         re.MULTILINE,
     )
     assert header is not None, (
-        f"{verification.name} has no HANDSHAKE-APP-VERSION line — the protocol "
-        f"requires one, so the app version this pin was approved for is not derivable"
+        f"{closing.name} has no HANDSHAKE-PEER-VERSION line — the protocol requires "
+        "one, so the app version this pin was approved for is not derivable"
     )
     declared = header.group("version")
     assert ha.APPROVED_FOR_PLATTERPUS_VERSION == declared, (
         f"handshake_approval.APPROVED_FOR_PLATTERPUS_VERSION is "
-        f"{ha.APPROVED_FOR_PLATTERPUS_VERSION!r} but {verification.name} — the newest "
-        f"closed round's verification naming pin {fork_source.FORK_PIN} — declares "
-        f"{declared!r}"
+        f"{ha.APPROVED_FOR_PLATTERPUS_VERSION!r} but {closing.name} — the peer's "
+        f"closing lap for round {newest_closed}, which approved pin "
+        f"{fork_source.FORK_PIN} — declares {declared!r}. That field is THEIR "
+        "attestation of which build of ours they approved; a lap of ours written "
+        "after the close does not change it."
     )
 
 

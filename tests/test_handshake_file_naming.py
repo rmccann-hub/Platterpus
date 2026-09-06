@@ -34,6 +34,7 @@ This file is that something.
 from __future__ import annotations
 
 import fnmatch
+import hashlib
 import importlib.util
 import re
 import sys
@@ -1567,7 +1568,19 @@ def test_split_round_trips_the_envelope_we_ourselves_produce(
     guessed.
     """
     parts = envelope.read_parts()
-    assert len(parts) >= 2, f"only {len(parts)} parts to round-trip"
+    # **FLOOR OF ONE, and the >= 2 it replaced was this test's own lesson repeated.**
+    # The docstring above says a previous version baked "a fact about one send into
+    # the checker as if it were a rule"; requiring two parts was the same thing in a
+    # different field. Round 15 lap 15 travels alone — correctly, it quotes no
+    # artifact — and a lap shipping by itself is a packaging decision, not a defect
+    # in the splitter. Zero parts is refused by
+    # `test_a_file_with_no_delimiters_is_refused_rather_than_read_as_empty`, so this
+    # floor only has to stop the vacuous case.
+    #
+    # The MULTI-PART case now has its own test below, against a synthetic envelope,
+    # so the splitter's separation logic is covered every run instead of only on the
+    # rounds we happen to send more than one file.
+    assert len(parts) >= 1, "no parts to round-trip"
     assert len(envelope.PARTS) == len(parts), "PARTS and read_parts() disagree"
     rendered = envelope.render(parts)
     rows = {name: body for name, body, _d, _c in envelope.verify_split(rendered)}
@@ -1577,6 +1590,50 @@ def test_split_round_trips_the_envelope_we_ourselves_produce(
         assert rows[part.name] == source_path.read_bytes(), (
             f"{part.name} did not survive the round trip byte-identically"
         )
+
+
+def test_split_separates_MULTIPLE_parts_regardless_of_what_we_are_sending(
+    envelope: ModuleType,
+) -> None:
+    """The splitter's real job, on a synthetic envelope rather than this round's.
+
+    Separating parts is the thing that can actually go wrong — a delimiter that
+    matches too greedily merges two files, and one that matches too little drops
+    the tail of the first. That property was only ever exercised because `PARTS`
+    happened to hold two entries; the moment a lap travelled alone, the coverage
+    went with it and the round-trip test failed for a reason that was not a defect.
+
+    Built here instead, so it holds whatever we are shipping. The bodies are chosen
+    adversarially: one contains text that *looks* like a delimiter, which is the
+    case a naive splitter gets wrong and the reason a format's own documentation is
+    the likeliest thing to trip its parser.
+    """
+    bodies = {
+        "roundnnlapaaplatterpus.md": b"first part\n---\nwith a horizontal rule\n",
+        "roundnnlapbbplatterpus.md": (
+            b"second part, and it mentions the envelope format:\n"
+            b"a line that merely looks like a delimiter must not split anything.\n"
+        ),
+        "roundnnlapccplatterpus.md": b"third\n",
+    }
+    parts = [
+        envelope.Part(
+            name=name,
+            size=len(data),
+            sha256=hashlib.sha256(data).hexdigest(),
+            text=data.decode("utf-8"),
+        )
+        for name, data in bodies.items()
+    ]
+
+    rows = envelope.verify_split(envelope.render(parts))
+    assert len(rows) == len(bodies), (
+        f"packed {len(bodies)} parts, recovered {len(rows)} — the delimiter is "
+        "merging or dropping parts"
+    )
+    for name, body, declared, computed in rows:
+        assert body == bodies[name], f"{name} did not survive byte-identically"
+        assert declared == computed, f"{name}: declared {declared}, computed {computed}"
 
 
 def test_a_file_with_no_delimiters_is_refused_rather_than_read_as_empty(

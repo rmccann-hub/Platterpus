@@ -2394,6 +2394,39 @@ Two things to keep:
   below `v0.6.4`, so those links are dead however they are labelled. Checking one
   thing while implying the other is the defect, not the fix.
 
+### §5.bf — A new KIND of document silently redefined a derived constant
+
+*2026-09-06. Caught by a gate, which is the version of this that ends well.*
+
+`APPROVED_FOR_PLATTERPUS_VERSION` is derived from the record rather than typed,
+precisely so it cannot go stale — the 2026-08-07 defect where two releases stamped
+*"handshake round 6 approved, for Platterpus 0.6.3"* about a pin round **7**
+approved. The derivation was *"the last lap of ours that mentions the pin"*, with a
+recorded reason: a round can re-declare a pin across laps and the correction is the
+one that counts.
+
+That reasoning covers every lap **that is part of the approval**. It does not cover
+a lap written *after* the close. Round 15 lap 15 is a post-close disclosure lap — it
+asks nothing, re-declares nothing, and correctly carries `0.6.40`, the version doing
+the writing. Under the old key that instantly became *"the version round 15
+approved"*, and the constant would have gone into every rip report about a pairing
+whose evidence is a bundle produced by **0.6.37**.
+
+**The lesson is not about laps.** A derivation is a claim about which documents
+answer a question, and it is written against the document *shapes* that exist at the
+time. Introduce a new shape — a disclosure lap, an amendment, a retraction — and the
+derivation quietly starts reading it as if it were the old kind. Ask of any derived
+constant: *what new document would this start reading, and would that be right?*
+
+**The fix is to read the answer from whoever owns it.** An approval is what the peer
+granted, so it now comes from their closing lap's `HANDSHAKE-PEER-VERSION` — their
+attestation of which build of ours they approved, which nothing we write later can
+move. And it was **verified against history rather than adopted because it sounded
+better**: round 14's closing lap declares `platterpus/0.6.28`, exactly what the
+constant already held, so the new key reproduces the record instead of redefining
+it. A derivation that changes a historical answer is a different claim wearing the
+same name.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is
