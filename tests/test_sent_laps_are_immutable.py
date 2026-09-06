@@ -39,7 +39,9 @@ the guard itself.
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path
+from typing import Final
 
 import pytest
 
@@ -149,6 +151,24 @@ SENT_LAPS: dict[str, str] = {
     "outbound/round-15-lap-11.md": (
         "5273610e96f14802e3df569db78b84bc31e8ffc2c8ac146ca4561057fa78a03c"
     ),
+    # Round 15 lap 13 — **the second time we edited a sent lap, and the file whose
+    # docstring opens with the first time.** Sent at the value below; two commits
+    # later `784543d` rewrote a paragraph of it in place (an `[INFERRED]` label
+    # corrected to `[MEASURED]`) and it became `a9e53304…`, 23,602 B. Restored.
+    #
+    # The correction was right and the method was wrong: protocol v4 §4a says a
+    # correction is a NEW LAP, and the substance survives in
+    # `scripts/revert_probe.py`, this suite's docstrings and the changelog, so
+    # restoring the wire bytes loses nothing but the retro-edit.
+    #
+    # **The value is the fork's, not ours.** Their lap 14 declares
+    # `7adffe7dc8f11983…` for the copy they hold; substituting it for our drifted
+    # row reproduced their whole-round digest `6044c992bfe49c41` exactly, which is
+    # how the drift was found. A hash we assert about our own file proves nothing
+    # about what was sent; one the peer declares does.
+    "outbound/round-15-lap-13.md": (
+        "7adffe7dc8f119834699962fbabde12507b22cb70bc4f4b752d209dc89d396ae"
+    ),
 }
 
 #: **The boundary this map records, and it was wrong in both directions in 48 hours.**
@@ -251,3 +271,192 @@ def test_no_pinned_lap_is_missing_its_prefix_marker() -> None:
     assert not unknown, f"PREFIX_ONLY names rows that are not pinned: {sorted(unknown)}"
     for relative in PREFIX_ONLY:
         assert len(SENT_LAPS[relative]) >= 16, relative
+
+
+# ---------------------------------------------------------------------------
+# WHAT THE PEER SAYS IT HOLDS — the half `SENT_LAPS` could not see.
+#
+# `SENT_LAPS` is populated by hand when we learn a lap went out, and we usually
+# learn that from the peer's NEXT lap. That leaves a window in which a sent lap
+# is unpinned and editable, and on 2026-09-06 a lap was edited inside it: round 15
+# lap 13, sent at `7adffe7d…`, rewritten two commits later, caught only because
+# the fork's lap 14 declared the hash they hold and our whole-round digest came
+# out `1e91b168…` against their `6044c992…` — SAME COUNT, DIFFERENT HASH, over
+# thirteen laps that were otherwise identical.
+#
+# So the obligation is DERIVED from the inbound artifacts instead of remembered:
+# a peer lap that names one of our laps in `HANDSHAKE-INBOUND-HELD` or
+# `HANDSHAKE-PEER-VERDICT-SOURCE` is the operator-independent evidence of the very
+# event `SEND_BOUNDARY` describes, and it is sitting in this repository already.
+# ---------------------------------------------------------------------------
+
+#: The two header fields that describe **our** laps from the peer's side. Scoped to
+#: these rather than to the whole document on purpose: body prose cites laps in both
+#: directions, and a match there would attribute their laps to us.
+_PEER_FIELDS: Final[tuple[str, ...]] = (
+    "HANDSHAKE-INBOUND-HELD",
+    "HANDSHAKE-PEER-VERDICT-SOURCE",
+)
+
+#: `round-15-lap-13.md`, and the brace form their lap 8 uses for a run of ours
+#: (`round-15-lap-0{4,5,6,7}.md`). The brace form is not decoration — it names four
+#: laps, and a plain-only parser would silently see none of them.
+_LAP_REF: Final[re.Pattern[str]] = re.compile(r"round-(\d{1,2})-lap-(\d{1,2})\.md")
+_LAP_BRACE: Final[re.Pattern[str]] = re.compile(
+    r"round-(\d{1,2})-lap-(\d*)\{([\d,]+)\}\.md"
+)
+
+#: A 16-to-64 character hex run: the peer publishes both truncated and full digests.
+_HEX: Final[re.Pattern[str]] = re.compile(r"\b([0-9a-f]{16,64})\b")
+
+
+def _our_lap_path(name: str) -> Path | None:
+    """Where one of our laps lives, or ``None`` if we hold no such file.
+
+    Ours land in `outbound/` or `verified/` depending on the round; where a lap is
+    filed is local bookkeeping, so both are searched (the same reasoning
+    `handshake.round_status` gives for reading our verdict across both).
+    """
+    for prefix in ("outbound", "verified"):
+        candidate = HANDSHAKE / prefix / name
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _peer_references() -> list[tuple[str, str, list[str]]]:
+    """``(inbound lap, our lap filename, hashes declared on that line)``.
+
+    One entry per (peer lap, lap of ours it names). The hash list is usually empty —
+    most laps name what they hold without publishing a digest for it.
+    """
+    out: list[tuple[str, str, list[str]]] = []
+    for path in sorted(HANDSHAKE.glob("inbound/round-*-lap-*.md")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.split(":", 1)[0] not in _PEER_FIELDS:
+                continue
+            refs = list(_LAP_REF.findall(line))
+            for rnd, stem, group in _LAP_BRACE.findall(line):
+                refs += [(rnd, stem + digit) for digit in group.split(",")]
+            hashes = _HEX.findall(line)
+            for rnd, lap in refs:
+                out.append(
+                    (path.name, f"round-{int(rnd):02d}-lap-{int(lap):02d}.md", hashes)
+                )
+    return out
+
+
+#: Laps the peer says it holds whose sent bytes were never independently attested.
+#:
+#: **A ratchet, and deliberately not a set of `SENT_LAPS` rows.** Pinning today's
+#: bytes for these would assert a byte-identity nobody measured — the same objection
+#: `SENT_OUTSIDE_THE_ENVELOPE` states in its own docstring, and asserting it here
+#: would put the unmeasured claim inside the guard that exists to refuse them.
+#:
+#: A row leaves this set the moment a peer lap declares a digest for it, which is a
+#: measurement rather than an assertion; that is exactly how lap 13 graduated. The
+#: set may SHRINK and must never grow: a new send is pinned in `SENT_LAPS` when the
+#: operator confirms it, and if it reaches this set instead, the window it names has
+#: claimed another lap.
+PEER_CONFIRMED_UNPINNED: Final[frozenset[str]] = frozenset(
+    {
+        "verified/round-09-lap-08.md",
+        "verified/round-09-lap-10.md",
+        "verified/round-10-lap-02.md",
+        "verified/round-10-lap-04.md",
+        "verified/round-11-lap-02.md",
+        "verified/round-12-lap-02.md",
+        "verified/round-12-lap-04.md",
+        "outbound/round-13-lap-02.md",
+        "outbound/round-13-lap-05.md",
+        "verified/round-13-lap-07.md",
+        "outbound/round-14-lap-02.md",
+        "outbound/round-14-lap-06.md",
+        "outbound/round-14-lap-08.md",
+        "outbound/round-14-lap-10.md",
+        "outbound/round-14-lap-12.md",
+        "outbound/round-14-lap-13.md",
+        "outbound/round-14-lap-16.md",
+        "outbound/round-14-lap-18.md",
+        "outbound/round-15-lap-02.md",
+    }
+)
+
+
+def test_a_hash_the_peer_DECLARES_for_our_lap_matches_our_copy() -> None:
+    """The strongest check available, and it costs nothing: they already published it.
+
+    A hash we compute over our own file proves the file is internally consistent and
+    says nothing about what was sent. A hash the **peer** declares for the copy they
+    hold is an independent witness, and seven of them are sitting in `inbound/`.
+
+    This is the check that would have caught the lap-13 drift the moment lap 14
+    arrived, instead of when someone thought to recompute a whole-round digest.
+    """
+    checked = 0
+    for source, name, hashes in _peer_references():
+        if not hashes:
+            continue
+        path = _our_lap_path(name)
+        if path is None:
+            continue  # a lap of theirs, or one we never filed — not our identity
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        # ANY, not ALL: a line may carry digests for several artifacts (lap 14
+        # publishes one for our lap and one for `fullacceptance.txt`), so the
+        # question is whether ours is among them.
+        assert any(actual.startswith(h) for h in hashes), (
+            f"{source} declares {hashes} for our {name}, and our copy hashes to "
+            f"{actual[:16]}…. Either the file was edited after it was sent — which "
+            "protocol v4 §4a forbids, a correction being a NEW LAP — or the peer is "
+            "holding different bytes. Restore ours from the commit that sent it "
+            "before deciding it is theirs."
+        )
+        checked += 1
+    # FLOOR. Every clause above is skippable, so a parser that stopped matching
+    # would pass this test by examining nothing — the failure mode this suite is
+    # built around.
+    assert checked >= 5, (
+        f"only {checked} peer-declared hash(es) checked; the inbound record carried "
+        "seven when this was written, so the extractor has probably stopped matching"
+    )
+
+
+def test_every_lap_the_peer_confirms_holding_is_pinned_or_ratcheted() -> None:
+    """No lap of ours is both known-sent and silently unguarded.
+
+    The peer naming our lap is evidence of delivery that does not depend on anyone
+    remembering to record it — which is what makes it a gate rather than a habit.
+    """
+    named = {
+        f"{path.parent.name}/{name}"
+        for _, name, _ in _peer_references()
+        if (path := _our_lap_path(name)) is not None
+    }
+    assert len(named) >= 20, (
+        f"only {len(named)} lap(s) of ours found in the peer's held/verdict fields; "
+        "33 resolved when this was written, so the extractor has probably broken"
+    )
+    unguarded = sorted(named - set(SENT_LAPS) - PEER_CONFIRMED_UNPINNED)
+    assert not unguarded, (
+        "the peer says it holds these laps of ours and nothing freezes them: "
+        f"{unguarded}. Pin each in SENT_LAPS at the bytes that were sent. Do NOT "
+        "add them to PEER_CONFIRMED_UNPINNED — that set is a ratchet over laps "
+        "predating this check and may only shrink."
+    )
+
+
+def test_the_unpinned_ratchet_names_only_real_unpinned_laps() -> None:
+    """A ratchet that names a pinned or non-existent lap is quietly weakening itself.
+
+    Both directions matter: a row that no longer exists is dead weight that makes the
+    set look larger than the debt, and a row also in `SENT_LAPS` is an exemption for
+    something already guarded — which would let the real row be deleted unnoticed.
+    """
+    for relative in sorted(PEER_CONFIRMED_UNPINNED):
+        assert (HANDSHAKE / relative).is_file(), (
+            f"{relative} is ratcheted as unpinned but no such file exists"
+        )
+        assert relative not in SENT_LAPS, (
+            f"{relative} is BOTH pinned and ratcheted as unpinned — remove it from "
+            "PEER_CONFIRMED_UNPINNED; the ratchet shrinks, and this is a shrink"
+        )

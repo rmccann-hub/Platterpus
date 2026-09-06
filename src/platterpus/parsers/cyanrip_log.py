@@ -96,6 +96,30 @@ log = logging.getLogger(__name__)
 # by official 0.9.3.1, and two such logs of the same disc can carry materially
 # different pre-gap metadata and peak values (audit, 2026-07-31).
 _HEADER = re.compile(r"^cyanrip\s+(?P<version>\S+)(?:\s+\((?P<build>[^)]*)\))?")
+
+#: How many leading non-blank lines this predicate will look at for the banner.
+#:
+#: **Not 1, and the reason is a change the fork has told us is coming.** Their
+#: round-15 lap 14 §5 holds an item for round 16: *"a logfile's first line is not
+#: always the fork banner"* when a naming-scheme argument carries invalid UTF-8,
+#: because the complaint about the argument is emitted first. Today every cyanrip
+#: log opens with its banner, so a one-line predicate is correct at the pin — and
+#: the moment that item lands, a perfectly valid cyanrip log gets routed to the
+#: **whipper** parser and yields **zero tracks from a fourteen-track disc**, with no
+#: error anywhere. That exact zero-track parse happened here on 2026-09-05 from a
+#: different cause, so this is not a hypothetical failure mode.
+#:
+#: Bounded rather than unbounded: an unbounded scan would call any document
+#: containing a `cyanrip …` line a cyanrip log, and the whipper guard below is a
+#: positive check on the other format rather than a bet that ours appears first.
+_BANNER_SEARCH_LINES: Final[int] = 5
+
+#: "Log created by: whipper 0.7.4 (...)" — the other format's own first line, per
+#: `parsers/rip_log.py`. Checked explicitly so widening the window above can never
+#: reclassify a whipper log, whatever it happens to mention further down.
+_WHIPPER_HEADER: Final[re.Pattern[str]] = re.compile(
+    r"^Log created by:\s*whipper\b", re.IGNORECASE
+)
 # cyanrip 0.9.3 prints "Device model:   PIONEER …"; older/whipper-style logs use
 # "Drive used:". Accept both so the archival "which drive" field is never lost
 # (real-log bug: 0.9.3's "Device model:" didn't match, so `drive` came out null).
@@ -660,6 +684,25 @@ _CONTINUATION: re.Pattern[str] = re.compile(r"^[ \t]+\([^()]{1,200}\)[ \t]*$")
 #: the line's *shape* rather than its content.
 _PREPROCESS_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("continuation", _CONTINUATION),
+)
+
+#: Patterns that decide **which format a document is**, not what a line means.
+#:
+#: A group of its own because the completeness sweep
+#: (`test_rule_tables_are_a_complete_enumeration_of_this_module`) requires every
+#: compiled pattern in this module to sit in a named, enumerable group, and this one
+#: belongs in none of the others: it is not a cyanrip line we recognise, it is the
+#: *other* format's header, matched so `looks_like_cyanrip_log` can refuse rather
+#: than guess. Filing it under "things we parse" would put a whipper line into the
+#: generated consumer contract's list of cyanrip output we read, which is a claim
+#: about the seam that is not true.
+#:
+#: Adding the group rather than exempting the pattern in the test is the same
+#: reasoning that sweep's own docstring gives for moving its allowlist into the
+#: module: a hand-maintained exemption living in the checker is the shape that hid
+#: 16 of the fork's fatal strings behind a prefix filter.
+_DISCRIMINATOR_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("whipper_header", _WHIPPER_HEADER),
 )
 
 
@@ -2026,12 +2069,29 @@ def _is_ignored_disc_line(line: str) -> bool:
 def looks_like_cyanrip_log(text: str) -> bool:
     """True if `text` is cyanrip output (vs whipper's YAML-ish log).
 
-    The first non-blank line of a cyanrip log is its version banner;
-    whipper logs start with "Log created by: whipper ...".
+    A cyanrip log carries its version banner at or near the top; whipper logs start
+    with "Log created by: whipper ...".
+
+    **Near, not at.** This used to read exactly the first non-blank line and return
+    its match — so a banner one line down was "not cyanrip". The parser itself never
+    had that limitation: `_HEADER` is an ordinary line rule and `_take_version` takes
+    the first banner it meets wherever it sits, which is why a shifted-banner log
+    parses correctly and was dispatched away from the parser that would have parsed
+    it. Two surfaces answering *"is this a cyanrip log?"* with different keys, and
+    only the stricter one decided. `test_dispatch_agrees_with_the_parser` holds them
+    together now.
     """
+    seen = 0
     for line in text.splitlines():
-        if line.strip():
-            return bool(_HEADER.match(line))
+        if not line.strip():
+            continue
+        if _WHIPPER_HEADER.match(line):
+            return False
+        if _HEADER.match(line):
+            return True
+        seen += 1
+        if seen >= _BANNER_SEARCH_LINES:
+            return False
     return False
 
 
