@@ -89,6 +89,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   discipline decays.
 
 ### Added
+- **Their bare-apostrophe fix verified from their source, before round 16 opens.**
+  The cyanrip fork landed `crip_escape_bare_quotes` (`src/naming.c:49`, their
+  `c59dea3`) — item 3 of their lap-14 §5 hold list. `-a`/`-t` values reach
+  `av_dict_parse_string`, whose tokeniser treats `'` as a **quote character**, so a
+  bare apostrophe opened a run that never closed and every field after it was
+  silently dropped into the value.
+  **Their fix is deliberately asymmetric and keyed on us:** it escapes a bare `'`
+  and leaves an already-escaped `\'` alone, because escaping unconditionally would
+  turn our `\'` into `\\'` and put a literal backslash in the archival record.
+  That makes *"our escaper's output is a fixed point of their scanner"* a property
+  of the **seam**, which neither side's tests can state alone — theirs pin their
+  function against a fixture of our shapes, ours pin every shape we can actually
+  emit against their code. Their scanner is transcribed here from their source with
+  the file and line cited, the transcription itself is pinned against the three
+  cases their commit measured, the property is asserted over the values *and* over
+  the whole assembled blob through the real argv builder, and both directions of
+  failure are proven by `revert_probe`: we stop escaping, or they escape twice.
+  The strategy's exclusions are pinned to the builder's own refusals rather than
+  chosen for convenience.
 - **A rehearsed runbook for the round-16 opener, and the clone repair it exposed.**
   A realistic opener was filed against the real tree and the full suite run: eight
   tests fail on arrival, all deliberately, every message naming its file and its

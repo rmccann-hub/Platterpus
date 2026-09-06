@@ -1286,7 +1286,7 @@ def assert_meta_args_are_parseable(argv: list[str]) -> None:
     in the report, and the user finds out months later.
 
     **Why at the chokepoint.** `_escape_meta_value` is correct and is applied at
-    every one of the twelve places that build a pair today. That is exactly the
+    every one of the eleven places that build a pair today. That is exactly the
     shape CLAUDE.md warns about: a rule enforced by everyone remembering it. One
     new tag field appended without the call, and the value is truncated with no
     diagnostic. Here it cannot be forgotten, because every route to the ripper
