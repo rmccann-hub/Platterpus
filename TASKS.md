@@ -27,7 +27,11 @@ Round 15 closed `GO`/`GO` on `978f9b0` + `platterpus 0.6.37`. Their lap 14 is th
 closing lap and asks nothing further; **round 16 is theirs to open.** These are the
 items it names, filed so none is lost between rounds.
 
-- [ ] **Assent to the `seam-commands.md` §7 `--check` (needs a lap).** Their §4
+- [x] **Assent to the `seam-commands.md` §7 `--check` — GIVEN in round 15 lap 15 §E**,
+      with two riders: the delimiters must not claim prose either side wrote (their
+      point, confirmed), and the regenerated table needs a build tag beside it or it
+      tells a future reader a flag behaves a way it stopped behaving two pins ago.
+      Original entry: Their §4
       shows line 504 publishes `-p '99=drop'` as **accepted, exit 0**; the binary
       at the pin refuses it — `Invalid track number 99 for pregap, list has 2
       tracks!`, exit 1. **Verified both halves here**: the line is in our copy at
