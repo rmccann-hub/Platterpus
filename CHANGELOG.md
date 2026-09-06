@@ -12,6 +12,26 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A UTC offset in the ripper's timestamp was silently dropped from the
+  EAC-compatible log**, so two instants seven hours apart rendered as the same
+  archival line. `_eac_date` sliced the first 19 characters and parsed those, and
+  `…T18:06:33`, `…+00:00`, `…-07:00` and `…Z` all produced
+  `5. September 2026, 18:06`. Latent — cyanrip emits naive timestamps today
+  (`2026-06-27T11:18:26`, read from the committed reference) — and reachable by the
+  change the fork is **holding for round 16**; we told them in lap 15 §C3 it was
+  ours to fix, and it is a reason to want their change rather than resist it.
+  **The fix is additive on purpose.** Real EAC writes local time with no zone and
+  the parity rule is to stay close to the original, so a naive timestamp renders
+  byte-identically to before and both committed reference logs are untouched; the
+  parenthetical appears only when the source actually carried an offset, where
+  saying nothing is the lossy option rather than the faithful one. The information
+  was never lost from the record — `rip_report` stores `creation_date` verbatim —
+  but a reader holding only the EAC log could not tell one zone from another, and
+  an elision this project makes is counted and marked. Half-hour zones are pinned
+  too, because an offset formatter that divides by 3600 loses them.
+
+
+### Fixed
 - **Writing a post-close lap would have restamped the approved pairing to a build
   no evidence covers.** `APPROVED_FOR_PLATTERPUS_VERSION` was derived from the last
   lap of ours mentioning the pin — sound while every such lap is part of the

@@ -54,8 +54,11 @@ items it names, filed so none is lost between rounds.
         ignores the parenthetical (`cyanrip_log.py:298`). No work.
       - #5 the banner not always being the first line. **This one was live on our
         side and is now fixed** — see the dispatcher entry below.
-      - #7 timestamps with no UTC offset, and no wall clock in the `-j` record.
-        Check what we render from those before they change shape.
+      - [x] #7 timestamps with no UTC offset — **checked and fixed on our side
+        (2026-09-06)**. Our EAC-log renderer sliced the first 19 characters, so an
+        offset was parsed and silently discarded: `-07:00` and `+00:00` rendered
+        the same line. Now marked when present, byte-identical when absent. The
+        `-j` record's missing wall clock is still open.
       - #6 `CURLOPT_TIMEOUT` — they hold it as contract surface even though our §J
         named a ripper hang as a defect we want fixed. Agree the shape in round 16.
 - [ ] **Their §3 `accurip.c` response-parser defects**, disclosed pre-close and

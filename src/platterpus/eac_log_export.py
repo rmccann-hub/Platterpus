@@ -46,6 +46,7 @@ import hashlib
 import hmac
 import logging
 import re
+from datetime import datetime
 
 from platterpus.parsers.rip_log import (
     AccurateRipResult,
@@ -460,21 +461,65 @@ def _real_colons(text: str) -> str:
     return text.replace("\u2236", ":")
 
 
+def _utc_offset_label(when: datetime) -> str:
+    """``UTC``, ``UTC+02:00``, ``UTC-07:00`` for an aware datetime."""
+    offset = when.utcoffset()
+    if offset is None or not offset:
+        return "UTC"
+    total = int(offset.total_seconds())
+    sign = "+" if total >= 0 else "-"
+    hours, minutes = divmod(abs(total) // 60, 60)
+    return f"UTC{sign}{hours:02d}:{minutes:02d}"
+
+
 def _eac_date(raw: str) -> str:
     """cyanrip's ISO timestamp in EAC's "11. June 2026, 20:01" shape.
 
-    Best-effort: anything that doesn't parse is passed through unchanged rather
-    than dropped, so an unexpected format degrades to the raw value.
-    """
-    from datetime import datetime
+    **A zone the source carried is MARKED, not dropped.** This used to slice the
+    first 19 characters and parse those, so `…T18:06:33`, `…+00:00`, `…-07:00` and
+    `…Z` all rendered the same line — two instants seven hours apart producing
+    identical text in an archival log, with nothing saying anything had been
+    discarded. Measured 2026-09-06 while answering the cyanrip fork's round-15 lap
+    14 §5 item 7, which holds exactly that change (`strftime` today emits no offset;
+    they intend to add one). Today's timestamps are naive, so this was latent — and
+    it is the project's own rule that an elision is counted and marked, never
+    silent.
 
-    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
-        try:
-            when = datetime.strptime(raw.strip()[:19], fmt)
-        except ValueError:
-            continue
-        return f"{when.day}. {when:%B %Y}, {when:%H:%M}"
-    return raw
+    **The default rendering is unchanged, deliberately.** Real EAC writes local time
+    with no zone, and the parity rule is to stay close to the original; a naive
+    timestamp therefore renders exactly as before, byte-for-byte, and both committed
+    reference logs are untouched. The parenthetical appears **only** when the source
+    actually carried an offset, where saying nothing would be the lossy option
+    rather than the faithful one.
+
+    The information is not lost from the record either way — `rip_report` stores
+    `creation_date` verbatim — but a reader holding only the EAC-compatible log
+    could not previously tell one zone from another, and that log is written to be
+    read on its own.
+
+    Best-effort and never raises: anything that does not parse is passed through
+    unchanged rather than dropped.
+    """
+    text = raw.strip()
+    when: datetime | None = None
+    # `fromisoformat` FIRST, because it is the only one of the three that can SEE
+    # an offset. The strptime fallbacks below are naive by construction, so trying
+    # them first is what discarded the zone.
+    try:
+        when = datetime.fromisoformat(text)
+    except ValueError:
+        for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+            try:
+                when = datetime.strptime(text[:19], fmt)
+                break
+            except ValueError:
+                continue
+    if when is None:
+        return raw
+    rendered = f"{when.day}. {when:%B %Y}, {when:%H:%M}"
+    if when.tzinfo is not None:
+        rendered += f" ({_utc_offset_label(when)})"
+    return rendered
 
 
 def _is_cyanrip(rip_log: RipLog) -> bool:

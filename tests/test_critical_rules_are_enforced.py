@@ -1111,7 +1111,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # only place that can know both facts at once, so moving it out would put
     # the verdict in one file and the evidence it is drawn from in another --
     # the same reason the decision table above stays with its observations.
-    "eac_log_export.py": 1490,
+    # 1490 -> 1535 (2026-09-06): the UTC-offset marker. Most of the growth is
+    # the docstring saying why the fix is ADDITIVE — a naive timestamp must
+    # render byte-identically because real EAC carries no zone, so the next
+    # person to "tidy" this into an unconditional suffix breaks parity.
+    "eac_log_export.py": 1535,
     "evidence_bundle.py": 885,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
