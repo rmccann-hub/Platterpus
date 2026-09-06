@@ -186,6 +186,59 @@ def test_the_changelog_has_a_compare_link_for_the_current_version() -> None:
     )
 
 
+def test_every_compare_link_POINTS_AT_THE_VERSION_IT_LABELS() -> None:
+    """A link that exists is not a link that goes anywhere.
+
+    **The check above asks whether a compare link is PRESENT and never where it
+    goes** — *"can this check be satisfied by the wrong thing?"* — and on
+    2026-09-06 it was. Restamping the docs with a blanket replace of `v0.6.39`
+    turned `[0.6.40]: …/compare/v0.6.39...v0.6.40` into
+    `…/compare/v0.6.40...v0.6.40`: a link from a version to itself, which GitHub
+    renders as an **empty diff**, under a heading listing that release's changes.
+    Every existing gate passed. Proved by the revert probe rather than assumed —
+    reintroducing the bad link left the whole file green.
+
+    The sweep also found one **pre-existing** row: `[0.2.0]` pointed at
+    `v0.1.0...v0.2.1`, the line above it copied, so that entry had always linked to
+    the next version's diff.
+
+    **What this does NOT check, said plainly:** whether the tags exist. They do not
+    below `v0.6.4` — the project's first 39 tags start there — so every early link
+    is dead regardless of its labelling, and pretending otherwise would be a second
+    false claim. This is an internal-consistency check: the label and the target
+    name the same version, and no link compares a version with itself.
+    """
+    text = _CHANGELOG.read_text(encoding="utf-8")
+    rows = re.findall(r"^\[([^\]]+)\]:\s*(\S+)\s*$", text, re.MULTILINE)
+    # FLOOR. A regex that stopped matching would make this pass by sweeping an
+    # empty set, which is the shape this whole file is written against.
+    assert len(rows) >= 100, (
+        f"only {len(rows)} link row(s) parsed from CHANGELOG.md; the format changed "
+        "or the pattern broke, and those are different findings"
+    )
+
+    problems: list[str] = []
+    compared = 0
+    for label, url in rows:
+        match = re.search(r"/compare/v?(?P<lo>.+?)\.\.\.v?(?P<hi>.+)$", url)
+        if match is None:
+            continue  # a /releases/tag/… row: nothing to compare
+        compared += 1
+        lo, hi = match.group("lo"), match.group("hi")
+        if lo == hi:
+            problems.append(f"[{label}] compares {lo} with itself — an empty diff")
+        elif label == "Unreleased":
+            if hi != "HEAD":
+                problems.append(f"[Unreleased] must end at HEAD, ends at {hi}")
+        elif hi != label:
+            problems.append(f"[{label}] is labelled {label} but ends at {hi}")
+
+    assert compared >= 100, (
+        f"only {compared} compare link(s) examined; the URL shape changed"
+    )
+    assert not problems, "malformed compare links:\n  " + "\n  ".join(problems)
+
+
 def test_the_unreleased_compare_link_points_at_the_current_version() -> None:
     """`compare/v0.6.0...HEAD` after releasing 0.6.1 shows the wrong diff —
     a stale link that looks entirely plausible."""

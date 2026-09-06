@@ -1080,7 +1080,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 1678 -> 1691 (2026-09-06): the round-15 close. `FORK_PIN` rolled to
     # `978f9b0` and the roll is documented where the constant is, because the
     # post-close step is the one this file has already watched go stale.
-    "deps/fork_source.py": 1691,
+    # 1691 -> 1705 (2026-09-06, same day): FORK_EXPECTED_VERSION is a LITERAL
+    # beside a DERIVED build tag, so the round-15 roll moved one and not the
+    # other and the banner named a build that never existed. The growth is the
+    # note saying so where the literal is, because the next person to roll a
+    # pin reads this file and not the changelog.
+    "deps/fork_source.py": 1705,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the

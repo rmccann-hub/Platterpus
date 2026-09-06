@@ -11,6 +11,48 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.40] — 2026-09-06
+
+### Fixed
+- **A changelog compare link could point at nothing and every gate passed.** The
+  existing check asks whether a link is *present* and never where it goes, so
+  restamping the docs with a blanket replace turned `[0.6.40]` into
+  `compare/v0.6.40...v0.6.40` — a version compared with itself, which GitHub
+  renders as an **empty diff** under a heading listing that release's changes.
+  *Can this check be satisfied by the wrong thing?* — it was, and the revert probe
+  proved it rather than the reasoning: reintroducing the bad link left the whole
+  file green. The new sweep holds every one of the 125 rows to naming the version
+  it labels, with a floor so a broken pattern cannot pass by examining nothing. It
+  found one pre-existing row too: `[0.2.0]` had always pointed at `v0.2.1`'s diff,
+  the line above it copied. It deliberately does **not** claim the tags resolve —
+  none exists below `v0.6.4`, so those links are dead whatever they are labelled,
+  and checking one thing while implying the other is the failure this entry is
+  about.
+
+- **The approved-build banner named a version no binary has ever printed.**
+  Rolling `FORK_PIN` forward on the round-15 close moved
+  `FORK_EXPECTED_BUILD_TAG` automatically — it is *derived* from the pin — while
+  `FORK_EXPECTED_VERSION`, a hand-maintained literal beside it, stayed at round
+  14's. The assembled `FORK_EXPECTED_BANNER` therefore read
+  `cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-g978f9b0)`, pairing one
+  build's version with another's commit. That string is `handshake_approval`'s
+  `approved_banner` and the *"Approved pair: …"* sentence rendered into **every
+  rip report and EAC-compatible log**, plus a line in the update dialog. No rip
+  was mis-graded — the verdict keys on the build tag, which was right — but the
+  archival record would have stated a pairing that never existed, and **v0.6.39
+  shipped it**.
+  The guard for exactly this sat one file away: `test_the_under_review_pin_and_
+  version_are_one_pairing_from_one_lap`, written on 2026-09-01 when the
+  *under-review* pair came apart the same way, and never extended to the
+  production pair — `docs/testing.md` §5.o, enforce a rule across the codebase
+  and not at the place it was learned. It now has a sibling deriving the
+  production pairing from the newest **CLOSED** round's lap, and asserting the
+  **assembled** banner rather than only its two halves, because the parts can
+  both be right while the f-string joining them is not.
+  Found by comparing the handshake skeleton's emitted `HANDSHAKE-RIPPER-VERSION`
+  against the fork's own lap instead of pasting it — otherwise the seam would
+  have carried the false pairing to them in a lap header.
+
 ## [0.6.39] — 2026-09-06
 
 ### Fixed
@@ -12975,7 +13017,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.39...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.40...HEAD
+[0.6.40]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.39...v0.6.40
 [0.6.39]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.38...v0.6.39
 [0.6.38]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.37...v0.6.38
 [0.6.37]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.36...v0.6.37
@@ -13096,10 +13139,10 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 [0.2.3]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.1.0...v0.2.1
-[0.2.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.1.0...v0.2.1
+[0.2.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/rmccann-hub/Platterpus/releases/tag/v0.1.0
 [0.0.1]: https://github.com/rmccann-hub/Platterpus/releases
 
 ---
 
-*Last updated for Platterpus v0.6.39.*
+*Last updated for Platterpus v0.6.40.*

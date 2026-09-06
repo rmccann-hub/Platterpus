@@ -60,6 +60,18 @@ def _round_lap(path: Path) -> tuple[int, int]:
     return (int(match.group(1)), int(match.group(2) or 0))
 
 
+def _round_of(path: Path) -> int:
+    """The round number a lap belongs to, from its filename.
+
+    Read off the name rather than the `HANDSHAKE-ROUND:` field so it works for the
+    pre-header laps too, and because `_round_lap` above already establishes that
+    the name is the reliable key for these files.
+    """
+    match = re.match(r"round-0*(\d+)", path.name)
+    assert match is not None, f"unparseable lap filename: {path.name}"
+    return int(match.group(1))
+
+
 def _inbound_rounds() -> list[Path]:
     """Every inbound round file, oldest first. Excludes the superseded folder."""
     return sorted(
@@ -267,4 +279,94 @@ def test_the_under_review_pin_and_version_are_one_pairing_from_one_lap() -> None
     assert banner.group("tag").strip() == f"{fork_source.FORK_BRANCH}-g{target.pin}", (
         f"we would compose {fork_source.FORK_BRANCH}-g{target.pin!r} but they "
         f"print {banner.group('tag').strip()!r}"
+    )
+
+
+def test_the_PRODUCTION_pin_and_version_are_one_pairing_too() -> None:
+    """The sibling of the test above, and it did not exist until the same defect
+    arrived on the other pair.
+
+    **`docs/testing.md` §5.o, measured.** On 2026-09-01 `UNDER_REVIEW_TARGET`'s pin
+    and version came apart and the test above was written for it. On **2026-09-06**
+    the *production* pair came apart in precisely the same way and nothing noticed:
+    `FORK_PIN` rolled to `978f9b0` on the round-15 close, `FORK_EXPECTED_BUILD_TAG`
+    followed because it is **derived** from the pin, and `FORK_EXPECTED_VERSION` —
+    a hand-maintained literal — stayed at round 14's `0.9.4-rc2+platterpus.10`. The
+    assembled `FORK_EXPECTED_BANNER` then read
+    `cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-g978f9b0)`: a version and a
+    build tag no binary has ever printed together, with the whole suite green.
+
+    **Not cosmetic.** That banner is `handshake_approval`'s `approved_banner` and
+    the *"Approved pair: …"* sentence it renders into every rip report and
+    EAC-compatible log, plus a user-facing line in the update dialog. The verdict
+    itself keys on the build tag, so no rip is mis-graded — but the archival record
+    would state a pairing that never existed, which this project treats as a defect
+    in kind.
+
+    Found by comparing the handshake skeleton's emitted `HANDSHAKE-RIPPER-VERSION`
+    against the fork's own lap instead of pasting it — the seam would otherwise have
+    carried the false pairing to them.
+
+    Derived from the newest **CLOSED** round, because that is what approves a
+    production pin; the sibling above derives from the newest lap declaring a pin,
+    which is the right key for a build still under review.
+    """
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    import handshake as _handshake  # noqa: PLC0415
+
+    closed = {
+        int(line.split(":", 1)[0].removeprefix("round-"))
+        for line in _handshake.round_status()
+        if line.startswith("round-") and line.rstrip().endswith("CLOSED")
+    }
+    assert closed, "no round is CLOSED, so nothing approves the production pin"
+
+    # The newest lap of a CLOSED round that declares FORK_PIN — that lap is the
+    # approval, and its wire header states the pairing as THEY print it.
+    approving = [
+        path
+        for path in _inbound_rounds()
+        if (match := _PIN_LINE.search(path.read_text(encoding="utf-8")))
+        and match.group(1).casefold() == fork_source.FORK_PIN.casefold()
+        and _round_of(path) in closed
+    ]
+    assert approving, (
+        f"no lap of a CLOSED round declares HANDSHAKE-PIN: {fork_source.FORK_PIN} — "
+        "either the production pin was rolled to a build no closed round approved, "
+        "or the roll happened without the record catching up"
+    )
+
+    newest = approving[-1]
+    banner = re.search(
+        r"^HANDSHAKE-RIPPER-VERSION:[ \t]*cyanrip[ \t]+(?P<version>\S+)"
+        r"[ \t]*\((?P<tag>[^)]+)\)",
+        newest.read_text(encoding="utf-8"),
+        re.MULTILINE,
+    )
+    assert banner is not None, (
+        f"{newest.name} declares no parseable HANDSHAKE-RIPPER-VERSION, so this "
+        "check has nothing to derive the pairing from"
+    )
+
+    assert fork_source.FORK_EXPECTED_VERSION == banner.group("version"), (
+        f"FORK_EXPECTED_VERSION is {fork_source.FORK_EXPECTED_VERSION!r} but "
+        f"{newest.name} declares {banner.group('version')!r} for pin "
+        f"{fork_source.FORK_PIN}. FORK_EXPECTED_BUILD_TAG is DERIVED from the pin "
+        "and this is a literal, so a roll moves one and not the other — which is "
+        "how the banner came to name a build that never existed."
+    )
+    assert banner.group("tag").strip() == fork_source.FORK_EXPECTED_BUILD_TAG, (
+        f"we compose {fork_source.FORK_EXPECTED_BUILD_TAG!r}; they print "
+        f"{banner.group('tag').strip()!r}"
+    )
+    # THE ASSEMBLED VALUE, not just its parts. The two assertions above can both
+    # hold while the f-string that joins them is wrong, and the assembled banner is
+    # what reaches the rip report.
+    assert fork_source.FORK_EXPECTED_BANNER == (
+        f"cyanrip {banner.group('version')} ({banner.group('tag').strip()})"
+    ), (
+        f"FORK_EXPECTED_BANNER is {fork_source.FORK_EXPECTED_BANNER!r}, which is "
+        f"not the line {newest.name} says that build prints"
     )

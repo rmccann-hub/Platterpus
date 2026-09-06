@@ -2319,6 +2319,81 @@ is the same obligation pointed the other way: **when the peer tells you what the
 are about to change, ask what it does to your side before it lands, not after.**
 A held item is a free advance warning, and the half that reaches a user is ours.
 
+### §5.bd — A derived half and a hand-maintained half of the same fact, and only one rolled
+
+*2026-09-06, an hour after the round-15 close, on the constants the close moved.*
+
+`FORK_EXPECTED_BUILD_TAG` is `f"{FORK_BRANCH}-g{FORK_PIN}"` — **derived**, so rolling
+`FORK_PIN` moved it for free. `FORK_EXPECTED_VERSION` is a **literal** sitting two
+lines away, and it did not. The banner they assemble then read:
+
+    cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-g978f9b0)
+
+a version from round 14 against a commit from round 15 — a line **no binary has
+ever printed**. The whole suite was green, and `v0.6.39` shipped it.
+
+**Not cosmetic**: that banner is `handshake_approval`'s `approved_banner` and the
+*"Approved pair: …"* sentence rendered into every rip report and EAC-compatible
+log. No rip was mis-graded — the verdict keys on the build tag, which was correct —
+but the archival record would have named a pairing that never existed, which this
+project treats as a defect in kind rather than a typo.
+
+**The guard existed, one file away, and had never been generalised.**
+`test_the_under_review_pin_and_version_are_one_pairing_from_one_lap` was written on
+**2026-09-01** because the *under-review* pin and version came apart in exactly
+this way. Five days later the *production* pair did the same thing and nothing
+looked. That is §5.o stated as plainly as it gets: **the rule was enforced at the
+place it was learned.** Its sibling now derives the production pairing from the
+newest CLOSED round's lap.
+
+Three details worth carrying:
+
+* **Assert the assembled value, not only its parts.** Both halves can be right
+  while the f-string joining them is wrong, and the joined string is what reaches
+  the report. The new test checks all three.
+* **A mixed derived/literal pair is a standing hazard.** When one half of a fact
+  is computed and the other is typed, a roll moves one of them, and the result is
+  individually-defensible fields naming a build that does not exist — the
+  2026-08-18 shape yet again. Ask of any constant: *what else must move when this
+  does, and is it derived or typed?*
+* **How it was caught.** Not by a test — by comparing the handshake skeleton's
+  emitted `HANDSHAKE-RIPPER-VERSION` against the fork's own lap instead of pasting
+  it. Had it been pasted, the seam would have carried the false pairing to them in
+  a lap header, and the peer would have found it.
+
+### §5.be — A link that exists is not a link that goes anywhere
+
+*Same session, and self-inflicted in the middle of fixing the above.*
+
+`test_the_changelog_has_a_compare_link_for_the_current_version` asks whether a
+compare link is **present**. Restamping the docs with a blanket `v0.6.39` →
+`v0.6.40` replace turned
+
+    [0.6.40]: …/compare/v0.6.39...v0.6.40
+
+into `…/compare/v0.6.40...v0.6.40` — a version compared with itself, which GitHub
+renders as an **empty diff**, sitting under a heading that lists that release's
+changes. Every gate passed. *Can this check be satisfied by the wrong thing?* —
+yes, and it was, within minutes of the question being asked elsewhere.
+
+**Proved by the probe, not by the reasoning**: reintroducing the bad link left the
+entire suite green, which is what made it a finding rather than a tidy-up. The
+sweep now holds all 125 rows to naming the version they label, and it found a
+**pre-existing** one — `[0.2.0]` had always pointed at `v0.2.1`'s diff, the row
+above it copied.
+
+Two things to keep:
+
+* **A blanket string replace is not a restamp.** The footer stamp is one line; the
+  same string appears in headings, links and prose, and the replace hit a compare
+  link, a heading link *and* a sentence that said which version shipped a defect —
+  turning it into a false claim inside the entry written to correct a false claim.
+  Target the stamp line, not the version string.
+* **Scope the check honestly.** The new sweep tests internal consistency and says
+  in its own docstring that it does **not** check the tags resolve — none exists
+  below `v0.6.4`, so those links are dead however they are labelled. Checking one
+  thing while implying the other is the defect, not the fix.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is
@@ -2627,4 +2702,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.39.*
+*Last updated for Platterpus v0.6.40.*
