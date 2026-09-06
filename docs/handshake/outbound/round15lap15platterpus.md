@@ -20,7 +20,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 
 | file | bytes | sha256 |
 | --- | --- | --- |
-| `round-15-lap-15.md` | 15,639 | `6f201fb75568f53a…` |
+| `round-15-lap-15.md` | 20,660 | `5952dd9705f65a94…` |
 
 ## Reader
 
@@ -39,7 +39,7 @@ for m in PART.finditer(open("round15lap15platterpus.md", encoding="utf-8").read(
 
 ---
 
-<<<<<<<<<< BEGIN round-15-lap-15.md sha256=6f201fb75568f53a352d767cf9a1223418e735eba570df25eef2518c7b38dba4 >>>>>>>>>>
+<<<<<<<<<< BEGIN round-15-lap-15.md sha256=5952dd9705f65a94b262a34af4016f5e08c2b6694e68e23afea53104446ca979 >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 15
 HANDSHAKE-LAP: 15
@@ -57,7 +57,7 @@ HANDSHAKE-OUR-VERSION: platterpus/0.6.40
 HANDSHAKE-OUR-PIN: 1654bdd
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.11
 HANDSHAKE-PEER-PIN: 978f9b0
-HANDSHAKE-TESTED: 4/4 gates on `1654bdd` — ruff, ruff format, mypy, pytest at 91.83% branch against a 91% floor. **No new hardware.** The run that closed this round is the one your lap 14 verified from the artifacts; nothing here re-runs it, and §C2 names a defect that shipped between then and now.
+HANDSHAKE-TESTED: 4/4 gates — ruff, ruff format, mypy, pytest at 91.83% branch against a 91% floor. **No new hardware.** The run that closed this round is the one your lap 14 verified from the artifacts; nothing here re-runs it, and §C2 names a defect that shipped between then and now. The two fixes in §C3 and §C4 carry 7 revert probes between them, 7 as expected.
 HANDSHAKE-FROM-COMMIT: 1654bdd
 HANDSHAKE-BREAKING: **none.** No log line, no parsed field, no argv, no exit code. One parser *predicate* widened — §C1 — which can only make us accept logs we previously refused.
 HANDSHAKE-INBOUND-HELD: Your lap 14 at `docs/handshake/inbound/round-15-lap-14.md` (sha256/16 `567c12a8ec7d50e8`). Nothing outstanding.
@@ -74,6 +74,28 @@ CONSUMER-CONTRACT: docs/cyanrip-consumer-contract.md @ 1654bdd
 ---
 
 # Round 15, lap 15 — the round is closed. This is disclosure, not a condition.
+
+> ## 0. THIS REVISES AN EARLIER LAP 15. Check which one you hold.
+>
+> An earlier lap 15 (`sha256/16 6f201fb75568f53a`, 15,639 B) was written on
+> 2026-09-06 and **may or may not have reached you** — we cannot observe a send,
+> which is the whole subject of §A1 below. This file supersedes it. Protocol §310
+> permits it: that lap was never recorded as sent.
+>
+> **This is your round-14 §1 and §6 F2 applied to ourselves.** You answered a
+> superseded lap 13 because nothing in the file said which version it was, and you
+> named the fix — *"a stable claim id and an `answers:` line would have made it
+> visible in the file rather than only in a diff."* So the marker is here, at
+> column 0, with the superseded hash beside it.
+>
+> **What changed, and nothing else did:** §C3 promised a fix for your §5 item 7
+> and now reports it made; §C4 is new; §B5 is a second stale row we found in the
+> jointly-owned file; §C5 tabulates the remaining held items so you can scope
+> round 16 without asking. The verdict, the pin, the digest and every §A and §B
+> claim are unchanged.
+>
+> If you already hold and have read `6f201fb7`, only the four sections above are
+> new to you.
 
 **Round 15 is CLOSED on both sides, on `978f9b0` + `platterpus 0.6.37`.** Your lap
 14 was the one file our §K asked for; our `--status` now reports every round CLOSED,
@@ -178,6 +200,12 @@ we are glad to have before the close rather than after, and your own caveat is t
 one we would have made: eight rips on one network is not evidence a path is
 unreachable.
 
+**B5. And a second stale row in the same file, ours to report.** Your §4 found
+`-p '99=drop'`. Deriving your `-D` semantics for §C4 found line 97 calling it an
+*output directory* when it is a naming scheme. Detail in §C4; the point here is
+that §7 has now produced two wrong rows in one round, from two different people
+looking for two different things.
+
 ## C. What we fixed — what changed here since your lap 14
 
 Three releases: `0.6.38`, `0.6.39`, `0.6.40`. **None is a close condition and none
@@ -238,16 +266,67 @@ would have carried the false pairing to you.
   no footer today. **No work needed here:** our pattern is
   `^Rip completed:\s+(?P<verdict>yes|no)` and ignores the parenthetical. Ship it
   when you like.
-* **Item 7** — timestamps carrying no UTC offset. **This one costs us something and
-  we would rather have the change than not.** Measured: our EAC-log renderer slices
-  the first 19 characters and parses those, so `…T18:06:33`, `…+00:00`, `…-07:00`
-  and `…Z` all render as the *same* line — `5. September 2026, 18:06`. An
-  offset-bearing timestamp parses fine and the **offset is silently dropped**, so
-  two instants seven hours apart produce identical text in an archival log. That is
-  ours to fix and we will; it is a reason to want item 7, not to hold it.
+* **Item 7** — timestamps carrying no UTC offset. **Was ours to fix; it is fixed,
+  in `0.6.40`.** Measured before: our EAC-log renderer sliced the first 19
+  characters, so `…T18:06:33`, `…+00:00`, `…-07:00` and `…Z` all rendered the *same*
+  line — two instants seven hours apart producing identical text in an archival
+  log. Now the offset is **marked** when present.
+  The fix is deliberately **additive**, and that is the part that concerns you:
+  real EAC writes local time with no zone, so a naive timestamp renders
+  byte-identically to before and both our committed reference logs are untouched.
+  Only a timestamp that actually carries an offset gains a parenthetical. **Ship
+  item 7 whenever it suits you — we gain information and lose no parity.**
 * **Item 6** — `CURLOPT_TIMEOUT`. Your reasoning that a timeout is a timing
   guarantee and therefore contract surface is sound and we are not going to argue
   a peer into weakening their own rule. Round 16, at your scoping.
+
+### C4. Your item 4 is guarded on our side now, and `-D` is not what our shared file says
+
+**The guard.** Your item 4 — an empty component making `-D` **absolute**, a rip
+landing in `/Some Album`, exit 0 — is the consequence half. The argv is ours, so we
+put the check at our argv chokepoint: any `-D`/`-F` scheme that is absolute or
+carries a `..` segment is refused before cyanrip is spawned.
+
+**Nothing invalid could reach it today** — measured, three input routes and all
+three hold: Settings refuses such a template, a hand-edited config is reset to the
+default on load, and the script runner validates its candidate config. We added the
+guard anyway because our own rule says the *output* half must be enforced **at the
+chokepoint, not merely stated**, and because the guard has to survive the fourth
+route that forgets. It sits *inside* the existing chokepoint rather than beside it,
+so every route inherits it without a caller having to remember — and the test
+asserts that by driving our scripted route, not by grepping for a call.
+
+**And deriving it found something about the file neither of us owns.**
+`seam-commands.md` line 97 describes `-D` as an **output directory**, type
+`str, path`, `writable`. It is not. At the pin it is `folder_scheme`, *"Directory
+naming scheme"* (`src/cyanrip_main.c:1603`), defaulting to
+`{album}{if #releasecomment# …} [{format}]` — a **relative scheme**, with `-F` its
+per-track sibling. Read from your source at `978f9b0`, not inferred.
+
+That matters twice. It is a **second** wrong row in §7, found the same way your §4
+found the `-p '99=drop'` one — and two is a pattern where one was a coincidence. It
+is also the strongest argument yet for the `--check` your §4 proposes, which we
+assent to in §E: a row that has been wrong long enough for both of us to attest to
+its hash is exactly what a generated table would have caught. **We have not edited
+it** — the file is jointly owned and that is round-16 business.
+
+### C5. The rest of your §5, so you can scope round 16 without asking
+
+Every item checked against our side rather than assumed. Where we say something
+cannot reach us, that is measured, not expected.
+
+| item | reaches us? | our state |
+|---|---|---|
+| 1 — `Rip completed: no (aborted…)` where there is no footer today | yes | **No work.** Our verdict field is tri-state and reads `None` today, `False` then. A strict information gain. |
+| 2 — `-H` discards de-emphasis, log claims it applied | **no** | **We never pass `-H`.** Measured across the codebase. Same shape as item 3: a real defect that no rip of ours can reach. |
+| 3 — ASCII apostrophe in `-a`/`-t` | **no** | Our escaping covers it — established in your lap 12 §2 and ours. Still a defect for any other consumer. |
+| 4 — absolute path from an empty component | yes | **Guarded**, §C4. |
+| 5 — banner not the first line | yes | **Fixed**, §C1. |
+| 6 — `CURLOPT_TIMEOUT` | n/a | Yours to scope; we are not arguing a peer into weakening their own contract rule. |
+| 7 — no UTC offset | yes | **Fixed**, §C3. Ship it. |
+
+**Four of the seven touch a surface we read or write, and all four are closed.**
+None of them is a reason to hold anything.
 
 ## D. Requirements
 

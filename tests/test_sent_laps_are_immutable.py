@@ -169,6 +169,27 @@ SENT_LAPS: dict[str, str] = {
     "outbound/round-15-lap-13.md": (
         "7adffe7dc8f119834699962fbabde12507b22cb70bc4f4b752d209dc89d396ae"
     ),
+    # Round 15 lap 15 — **the THIRD lap the unpinned window has claimed, and it was
+    # caught inside the hour rather than a round later.** Recorded the moment the
+    # operator said "I've sent 15", which is precisely the `SEND_BOUNDARY` event
+    # below: delivery to the peer, an external fact we are told and cannot observe.
+    #
+    # It was already being edited when that arrived. The lap promised a fix for the
+    # fork's §5 item 7 and the fix had since been made, so a revision looked
+    # obviously right — §310 does permit revising an *unsent* lap, and nothing in
+    # this repository knew it had gone. Restored to the bytes above before anything
+    # else, and the new material became a NEW LAP (round 15, lap 16), which is what
+    # v4 §4a required all along.
+    #
+    # The window is the same one lap 13 fell through and §A1 of lap 15 describes:
+    # a hand-populated map cannot close a gap between "sent" and "somebody told us
+    # it was sent". The peer-declared-hash gate added alongside it does not help
+    # here either — they have not yet published a hash for this lap. What ended it
+    # was being told, which is the one signal the protocol says only the operator
+    # has.
+    "outbound/round-15-lap-15.md": (
+        "6f201fb75568f53a352d767cf9a1223418e735eba570df25eef2518c7b38dba4"
+    ),
 }
 
 #: **The boundary this map records, and it was wrong in both directions in 48 hours.**
