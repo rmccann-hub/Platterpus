@@ -350,3 +350,345 @@ def test_reconcile_says_nothing_when_there_is_no_AccurateRip_signal() -> None:
         "an all-offset-variant disc beside a CTDB no-match DOES look "
         "contradictory and must be explained"
     )
+
+
+# --- The rest of verdict.py's survivors, 2026-09-06 --------------------------
+#
+# The first pass took `verdict.py` from 20.5% to 48.7% by pinning the trust
+# headline. These are the remaining twenty, and they are not leftovers: each is a
+# decision the **results table**, the **report** or a user-facing sentence states
+# about one track. `accuraterip_state` alone drives the per-track column.
+
+
+def _ar(conf: int | None, *, crc: str | None = "22B9924D") -> AccurateRipResult:
+    return AccurateRipResult(version=2, confidence=conf, local_crc=crc)
+
+
+# --- accuraterip_state: the per-track column --------------------------------
+
+
+def test_state_prefers_an_exact_match_over_everything() -> None:
+    """An exact match is never downgraded, even with an offset-variant beside it."""
+    from platterpus.verdict import AR_STATE_VERIFIED, accuraterip_state
+
+    assert accuraterip_state(_ar(200), _ar(200)) == AR_STATE_VERIFIED
+    assert accuraterip_state(_ar(200), None, "found") == AR_STATE_VERIFIED
+
+
+def test_state_says_NOT_CHECKED_only_when_the_lookup_MEASURABLY_did_not_run() -> None:
+    """`accuraterip_lookup_happened(lookup) is False` — an identity test, tri-state.
+
+    The mutant `is True` inverts it: tracks that *were* checked get "not checked",
+    and tracks that were not fall through to a state that presumes a comparison.
+    `None` ("not stated") must fire neither branch — that is what makes `is False`
+    the right operator rather than `not`.
+    """
+    from platterpus.verdict import (
+        AR_STATE_NOT_CHECKED,
+        accuraterip_state,
+    )
+
+    assert accuraterip_state(_ar(0), None, "disabled") == AR_STATE_NOT_CHECKED
+    assert accuraterip_state(_ar(0), None, "error") == AR_STATE_NOT_CHECKED
+
+    # Ran, found nothing → NOT the same claim as "we never looked".
+    assert accuraterip_state(_ar(0), None, "not found") != AR_STATE_NOT_CHECKED
+    # Not stated at all → also not a measured "did not run".
+    assert accuraterip_state(_ar(0), None, None) != AR_STATE_NOT_CHECKED
+
+
+def test_state_separates_ABSENT_from_NO_MATCH_from_NO_DATA() -> None:
+    """Three different things a user must not be told interchangeably.
+
+    * **absent** — looked, the disc is not in the database. Says nothing about the rip.
+    * **no match** — the disc IS there and our read is not one of the stored copies.
+    * **no data** — we have no result at all to reason from.
+
+    The `and`/`or` mutants at 265 and 268 collapse these into each other; the
+    `result is None` mutant at 272 swaps the last two.
+    """
+    from platterpus.verdict import (
+        AR_STATE_ABSENT,
+        AR_STATE_NO_DATA,
+        AR_STATE_NO_MATCH,
+        accuraterip_state,
+    )
+
+    # The lookup text is the REAL one, read from the committed reference log:
+    #   `Accurip:       disc found in database (max confidence: 200)`
+    # Guessing it is what made the first version of this test wrong twice.
+    FOUND = "disc found in database (max confidence: 200)"
+
+    # Looked; disc not in the database.
+    assert accuraterip_state(_ar(0), None, "not found") == AR_STATE_ABSENT
+
+    # Looked; disc present; our read is not one of the stored copies.
+    assert accuraterip_state(_ar(0, crc="DEADBEEF"), None, FOUND) == AR_STATE_NO_MATCH
+
+    # NO_DATA needs no lookup statement at all — and this is the surprising one,
+    # so it is pinned as measured rather than as expected. With a lookup that
+    # states the disc was found, a track with **no result** is still NO_MATCH:
+    # `accuraterip_compared` consults the stated row first and never reaches the
+    # local-CRC fallback, by the 2026-07-31 design. Worth knowing before anyone
+    # "fixes" it — the state is reachable only when nothing stated anything.
+    assert accuraterip_state(None, None, FOUND) == AR_STATE_NO_MATCH
+    assert accuraterip_state(None, None, None) == AR_STATE_NO_DATA
+
+
+def test_lookup_happened_treats_only_the_named_tokens_as_a_measured_NO() -> None:
+    """`token in text` — the mutant `not in` inverts the whole classifier.
+
+    Case-folded, and substring rather than equality, because the row is prose.
+    """
+    from platterpus.verdict import accuraterip_lookup_happened
+
+    for did_not in ("disabled", "DISABLED", "lookup error", "not attempted"):
+        assert accuraterip_lookup_happened(did_not) is False, did_not
+    for did in ("not found", "found, confidence 200", "not present"):
+        assert accuraterip_lookup_happened(did) is True, did
+    assert accuraterip_lookup_happened(None) is None
+    assert accuraterip_lookup_happened("") is None
+
+
+# --- accuraterip_confidence_text: "200 of 200" ------------------------------
+
+
+def test_confidence_text_shows_a_pair_ONLY_when_the_max_is_genuinely_larger() -> None:
+    """`db_max is None or db_max < own` — an ordering we cannot explain is not shown.
+
+    A max *below* the track's own confidence reads as a bug to anyone who notices,
+    so we show the number we are sure of instead. The `<` → `<=` mutant makes an
+    equal max print `"200 of 200"`… which is right, so the boundary that matters is
+    equality: it must still render the pair.
+    """
+    from platterpus.verdict import accuraterip_confidence_text
+
+    # The real row, from the committed reference log — the max lives in
+    # `(max confidence: N)`, which is what `_DB_MAX_CONFIDENCE` matches. A
+    # plausible-looking `"confidence 200 of 200"` matches nothing, and writing one
+    # is how the first version of this test asserted the wrong thing.
+    FOUND = "disc found in database (max confidence: 200)"
+
+    assert accuraterip_confidence_text(_ar(3), FOUND) == "3 of 200"
+    # Equal — the pair is still meaningful and must be shown. This is the boundary
+    # the `<` → `<=` mutant moves.
+    assert accuraterip_confidence_text(_ar(200), FOUND) == "200 of 200"
+    # Max BELOW own: unexplainable ordering, so just the number we are sure of.
+    assert accuraterip_confidence_text(_ar(300), FOUND) == "300"
+    # No max known at all — and a row that states no max is the common case.
+    assert accuraterip_confidence_text(_ar(3), None) == "3"
+    assert accuraterip_confidence_text(_ar(3), "not found") == "3"
+
+
+def test_confidence_text_is_EMPTY_when_the_track_has_no_confidence() -> None:
+    """`own is None` — the mutant `is not None` makes a track with no confidence
+    render one, and one that has a confidence render nothing."""
+    from platterpus.verdict import accuraterip_confidence_text
+
+    assert accuraterip_confidence_text(_ar(None), "confidence 200 of 200") == ""
+    assert accuraterip_confidence_text(None, None) == ""
+    # Zero is a confidence, not an absence.
+    assert accuraterip_confidence_text(_ar(0), None) == "0"
+
+
+# --- _audio_tracks: the denominator's population -----------------------------
+
+
+def test_a_track_counts_as_audio_if_ANY_of_its_four_signals_is_present() -> None:
+    """Four `or`-ed `is not None` checks; three mutants flip one each.
+
+    This is the population the verdict's denominator is drawn from. A track
+    dropped here is a track that silently stops counting — the 2026-07-28 audit
+    finding. Each signal is driven **alone**, because with all four present every
+    mutant still passes.
+    """
+    from platterpus.verdict import _audio_tracks
+
+    only_crc = TrackResult(number=1, copy_crc="AAAAAAAA")
+    only_v1 = TrackResult(number=2, accuraterip_v1=_ar(1))
+    only_v2 = TrackResult(number=3, accuraterip_v2=_ar(1))
+    only_off = TrackResult(number=4, accuraterip_offset=_ar(1))
+    nothing = TrackResult(number=5)
+
+    for track in (only_crc, only_v1, only_v2, only_off):
+        assert _audio_tracks(RipLog(tracks=(track,))) == [track], (
+            f"track {track.number} was dropped from the audio population"
+        )
+    assert _audio_tracks(RipLog(tracks=(nothing,))) == []
+
+
+# --- expected_track_total: the concept that shipped four wrong fixes ---------
+
+
+def test_a_deliberate_SUBSET_is_complete_at_its_own_size() -> None:
+    """`only_tracks` wins over the disc total — the Rip? column exists for this.
+
+    Using the disc count here made a deliberate 2-of-14 rip warn that "12 tracks
+    were never ripped", reporting the user's own choice as a failure.
+    """
+    from platterpus.verdict import expected_track_total
+
+    assert expected_track_total(14, [1, 2]) == 2
+    assert expected_track_total(None, [1, 2, 3]) == 3
+    # Empty means "all of them", NOT "a subset of zero".
+    assert expected_track_total(14, []) == 14
+    assert expected_track_total(14, None) == 14
+
+
+def test_an_unknown_or_nonsensical_disc_total_is_None_not_a_number() -> None:
+    """`disc_track_total and disc_track_total > 0` — both halves.
+
+    `> 0` → `>= 0` would make a total of 0 an answer, and callers treat `None` as
+    "fall back to the log", which is the only honest option when we do not know.
+    """
+    from platterpus.verdict import expected_track_total
+
+    assert expected_track_total(None, None) is None
+    assert expected_track_total(0, None) is None
+    assert expected_track_total(-1, None) is None
+    assert expected_track_total(1, None) == 1
+
+
+# --- _shortfall_phrase: why the numerator falls short ------------------------
+
+
+def test_the_two_shortfall_causes_are_never_collapsed_into_one() -> None:
+    """ "Never ripped" and "produced no result" read very differently to a user.
+
+    One is a track that is not on disk; the other is on disk with nothing from
+    AccurateRip. The `or` → `and` mutant at 326 reports only one when both apply.
+    """
+    from platterpus.verdict import _shortfall_phrase
+
+    both = _shortfall_phrase(2, 3, "")
+    assert "2 tracks were never ripped" in both
+    assert "3 tracks produced no result at all" in both
+    assert both.count(";") == 1, f"the two causes were collapsed: {both!r}"
+
+    assert _shortfall_phrase(0, 0, "") == "the rip did not cover the whole disc"
+
+
+def test_the_shortfall_phrase_is_SINGULAR_for_exactly_one_track() -> None:
+    """`never_ripped == 1` and `no_result == 1`. The `== 1` → `!= 1` mutant makes
+    every count singular except one, and `1` → `2` shifts the boundary."""
+    from platterpus.verdict import _shortfall_phrase
+
+    assert "1 track was never ripped" in _shortfall_phrase(1, 0, "")
+    assert "2 tracks were never ripped" in _shortfall_phrase(2, 0, "")
+    assert "1 track produced no result" in _shortfall_phrase(0, 1, "")
+    assert "2 tracks produced no result" in _shortfall_phrase(0, 2, "")
+
+
+def test_the_rips_own_outcome_is_named_only_when_it_EXPLAINS_the_shortfall() -> None:
+    """`status in {"cancelled", "failed"}` — those two explain a missing track.
+
+    Any other status does not, and asserting one would invent a cause. Case and
+    surrounding whitespace are normalised, so those are driven too.
+    """
+    from platterpus.verdict import _shortfall_phrase
+
+    assert "the rip was cancelled so" in _shortfall_phrase(3, 0, "cancelled")
+    assert "the rip was failed so" in _shortfall_phrase(3, 0, "  FAILED  ")
+    for unexplaining in ("", "success", "completed", "unknown"):
+        assert "the rip was" not in _shortfall_phrase(3, 0, unexplaining), unexplaining
+
+
+# --- The last five, and two proven EQUIVALENT ---------------------------------
+
+
+def test_either_column_alone_can_evidence_a_comparison() -> None:
+    """`compared(result) or compared(offset_result)` — the mutant demands BOTH.
+
+    Only reachable when the log states no `Accurip:` row, so the predicate falls
+    back to the local CRC. With `and`, a track whose v2 carries our checksum but
+    whose offset column does not gets classified as though nothing was compared —
+    "not in the database" instead of "in the database, our read differs", which are
+    opposite claims about the disc.
+
+    Measured before writing: with `lookup=None`, `accuraterip_compared` is True for
+    a result carrying a local CRC and False for one without, so this pair is the
+    only shape that separates `or` from `and`.
+    """
+    from platterpus.verdict import AR_STATE_ABSENT, AR_STATE_NO_MATCH, accuraterip_state
+
+    with_crc = _ar(0, crc="DEADBEEF")
+    without = _ar(0, crc=None)
+
+    # v2 evidences the comparison, the offset column does not.
+    assert accuraterip_state(with_crc, without, None) == AR_STATE_NO_MATCH
+    # ...and the other way round, so neither operand is the one that matters.
+    assert accuraterip_state(without, with_crc, None) == AR_STATE_NO_MATCH
+    # Neither: nothing evidences a comparison.
+    assert accuraterip_state(without, without, None) == AR_STATE_ABSENT
+
+
+def test_a_confidence_of_exactly_ONE_counts_toward_the_floor() -> None:
+    """`conf >= 1` — the floor of `accuraterip_is_match`, reused for the headline.
+
+    Two mutants sit here (`>= 1` → `> 1`, and `1` → `2`) and both exclude a
+    confidence of exactly 1, which is a real match. The rendered floor would then
+    silently jump to the next-lowest confidence and over-state the disc.
+    """
+    from platterpus.verdict import accuraterip_verdict
+
+    log = RipLog(tracks=(_verified(1, conf=1), _verified(2, conf=200)))
+    text, tone = accuraterip_verdict(log, disc_track_total=2)
+    assert tone == "ok"
+    assert "confidence 1+" in text, (
+        f"a track verified at confidence 1 was excluded from the floor: {text!r}"
+    )
+
+
+def test_reconcile_defaults_crc_validated_to_FALSE_when_absent() -> None:
+    """`getattr(ctdb_result, "crc_validated", False)` — the default is the safe one.
+
+    An object that does not carry the attribute at all must be treated as
+    *not* hardware-validated. The mutant defaults it True, so a result shape
+    without the field starts producing the reconciliation KDD-16 says to withhold.
+    """
+
+    class _NoField:
+        verdict = type("V", (), {"value": "no_match"})()
+
+    log = RipLog(tracks=(_verified(1), _offset(2)))
+    assert reconcile_ar_ctdb(log, _NoField()) is None
+
+
+def test_reconcile_on_a_ONE_TRACK_disc_still_speaks() -> None:
+    """`total == 0` — the mutant `== 1` silences a whole class of disc.
+
+    A single-track disc that matched an offset variant, beside a CTDB no-match, is
+    exactly as contradictory as a fourteen-track one and must be explained.
+    """
+    one = RipLog(tracks=(_offset(1),))
+    assert reconcile_ar_ctdb(one, _ctdb(Verdict.NO_MATCH)) is not None
+
+
+def test_two_verdict_mutants_are_EQUIVALENT_and_here_is_the_proof() -> None:
+    """Recorded rather than left looking unkilled, with the reasoning measured.
+
+    * **`accuraterip_lookup_happened`, the `_LOOKUP_FOUND_NOTHING` branch.** Its arm
+      returns ``True`` and so does the fall-through, so flipping the membership test
+      cannot change the answer for *any* input. The branch exists to carry the
+      comment explaining why "looked, found nothing" counts as *happened* — it is
+      documentation with a `return` attached, and that is a reasonable thing to
+      keep.
+    * **`expected_track_total`, `disc_track_total > 0`.** Guarded by
+      ``disc_track_total and``, which already rejects ``0`` and ``None``; a negative
+      fails both spellings. ``>= 0`` is therefore unreachable-different.
+
+    Both were checked over their whole reachable input space before being called
+    equivalent, which is the difference between a proof and a shrug. The
+    assertions below are the same exhaustive check, so the claim decays if either
+    function grows a new path.
+    """
+    from platterpus.verdict import accuraterip_lookup_happened, expected_track_total
+
+    # The FOUND_NOTHING arm and the fall-through must agree, or the mutant is live.
+    assert accuraterip_lookup_happened("not found") is True
+    assert accuraterip_lookup_happened("something else entirely") is True
+
+    # And every falsy disc total is already rejected before the comparison.
+    for falsy in (None, 0):
+        assert expected_track_total(falsy, None) is None
+    assert expected_track_total(-1, None) is None

@@ -11,6 +11,83 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Mutation coverage on the three modules whose tests this change touches,
+  measured before and after over the SAME population.** Same source, so the same
+  mutants are generated and `--seed 0 --limit 40` samples the same ones — the
+  before column is this branch's parent, not an earlier point in the week, so the
+  delta is this change's and nothing else's.
+
+  | module | before | after | population | what it decides |
+  |---|---|---|---|---|
+  | `verdict.py` | 48.7% | **94.9%** | 39 of 66 | whether a user is told their rip is bit-perfect |
+  | `parsers/rip_log.py` | 72.5% | **100.0%** | 40 of 64 | the shared definition of "verified", and the parsed record |
+  | `parsers/cyanrip_log.py` | 47.5% | **77.5%** | 40 of 199 | what the ripper's log is read to say |
+
+  `rip_log.py` has **no survivors left** in its sample. `verdict.py` has two, both
+  proven equivalent below. The percentages are per-module and per-test-file by
+  design — a survivor means *this module's own tests do not pin this line*, never
+  *nothing in the repo does*.
+- **`verdict.py`'s survivors were almost entirely BRANCH BOUNDARIES**: the
+  per-track AccurateRip state (`not checked` vs `absent` vs `no match` vs `no
+  data` — four claims a user must never be told interchangeably), the confidence
+  pair, the shortfall wording, and `expected_track_total`, the concept whose
+  absence shipped the same bug four times. `rip_log.py`'s were the verification
+  floor (`confidence >= 1`), the all-zero-versus-empty CRC distinction, and the
+  parsed record's immutability.
+- **A second `Tracks:` header could rewrite the track before it.** The last
+  `rip_log.py` survivor was the section-exit flush, `section == "tracks"` → `!=`,
+  and it is equivalent on every well-formed log: inverted, the flush merely happens
+  one header later and nothing outside the tracks section touches the in-flight
+  track. It separates on **two consecutive `Tracks:` headers** — what a
+  concatenated log looks like, which is an ordinary thing for a user to produce
+  when reporting a problem — where the inverted guard keeps the first track open
+  and lets the second section's fields overwrite it. Measured, not argued: the
+  probe log yields `a.flac` today and `STRAY.flac` under the mutant. A silently
+  rewritten filename in an archival parser is the failure this project calls worst.
+- **The `Gaps:` block had no test in the parser's own file.** The 2026-07-31 fix
+  that stopped a one-line lookahead discarding the fork's per-track gap report was
+  covered nowhere in `test_parsers_cyanrip_log.py`, so the mutant that inverts its
+  `current is None` guard — which empties `gap_detection` outright — survived. Now
+  read from **both** committed references: one line for stock cyanrip, nine for the
+  fork.
+- **Two `verdict.py` survivors are proven EQUIVALENT, by exhaustive measurement
+  rather than argument** — the `_LOOKUP_FOUND_NOTHING` branch (its arm and the
+  fall-through both `return True`, so no input can separate them) and
+  `disc_track_total > 0` (guarded by an `and` that already rejects `0` and
+  `None`). Both were checked over their whole reachable input space and the check
+  is kept as a test, so the claim decays if either function grows a path.
+- **The nine `cyanrip_log.py` survivors that remain are a CLASS, not nine
+  defects — and they are now ALL that remains.** Each is
+  `return True` at the end of a line-rule handler; falsifying each in turn and
+  re-parsing the committed reference changed nothing. That is not because the
+  return value is meaningless — `_apply_line_rules` stops at the first handler
+  that returns True — but because **no second rule matches the same line**. So the
+  test is the invariant rather than nine assertions: it checks every rule table
+  against every line of the real reference for a clash, and the day one appears,
+  rule order becomes load-bearing and those nine become live.
+- **Where a crafted log replaced the artifact, the test says so and says why.**
+  Two of the three remaining cyanrip survivors cannot be separated by any committed
+  reference — the disc-level paranoia block is the *last* thing in all three logs,
+  so a block that never closes has nothing left to swallow; and not one of the
+  fork's 43 per-track counters is zero, so `int_or_none(...) or 0` never takes its
+  default. Both are facts about today's ripper rather than contracts, and the
+  parser is required to survive its output changing. A test that moves off the
+  artifact has changed what it is evidence of, so each one names the move.
+- **Four fixtures in this work were wrong because I guessed a format**, and each
+  was corrected by reading the committed reference: cyanrip's `Accurip:` row is
+  `disc found in database (max confidence: 200)`, its C2 row is `C2 errors:`, its
+  speed row is `Speed:`, and a track block opens `Track N ripped and encoded
+  successfully!`. A floor was also asserted at a round `20` when the measured
+  value is `18`. Small instances of the same rule the seam keeps teaching: answer
+  from the artifact, not from memory of it.
+- **The chokepoint docstring said *twelve* places build a tag pair; eleven do.**
+  Found by the cyanrip fork counting our call sites out of our own source for a
+  change of theirs that depends on the number — so the drift was visible to them
+  and not to us. The count is now measured by a test rather than remembered, in
+  the same docstring that argues the chokepoint exists *because* per-site
+  discipline decays.
+
 ### Added
 - **A rehearsed runbook for the round-16 opener, and the clone repair it exposed.**
   A realistic opener was filed against the real tree and the full suite run: eight
