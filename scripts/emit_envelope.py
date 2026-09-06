@@ -66,10 +66,14 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: quote is unverifiable. It is NOT a lap and carries no wire headers, so it cannot
 #: be miscounted; `assert_not_a_lap` checks that property on the envelope before
 #: writing it.
-PARTS: tuple[Path, ...] = (
-    HANDSHAKE_DIR / "outbound" / "round-15-lap-13.md",
-    REPO_ROOT / "src" / "platterpus" / "rig_scripts" / "fullacceptance.txt",
-)
+#:
+#: **Round 15 lap 15 travels ALONE, and dropping part 2 is deliberate.** The
+#: acceptance script rode along for laps 13 and earlier because round 15's close
+#: condition was a hardware pass and lap 2 quoted the file's sha256 — the quote is
+#: unverifiable if the file does not travel. That round is closed and this lap
+#: quotes no such file, so carrying it again would ship an artifact nothing in the
+#: lap references. An envelope's contents are a claim about what the lap needs.
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-15-lap-15.md",)
 
 # WHY THIS CARRIES FOUR LAPS, AND WHY THAT IS A FAILURE REPORT RATHER THAN A
 # FEATURE (2026-09-04).

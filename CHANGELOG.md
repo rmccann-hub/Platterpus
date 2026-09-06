@@ -11,6 +11,50 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Writing a post-close lap would have restamped the approved pairing to a build
+  no evidence covers.** `APPROVED_FOR_PLATTERPUS_VERSION` was derived from the last
+  lap of ours mentioning the pin — sound while every such lap is part of the
+  approval, and wrong the moment one is written *after* the close. Round 15 lap 15
+  is a disclosure lap: it re-declares nothing and correctly names the version doing
+  the writing, `0.6.40`. Under the old key that became *"the version round 15
+  approved"*, and every rip report and EAC-compatible log would have said
+  *"approved for Platterpus 0.6.40"* about a pairing whose evidence is an eight-rip
+  bundle produced by **0.6.37** — the same shape as the 2026-08-07 defect that test
+  exists for.
+  Now keyed on the **peer's** closing lap: `HANDSHAKE-PEER-VERSION` is the fork
+  attesting which build of ours they approved, and nothing we write afterwards can
+  move it. **Verified against history rather than merely adopted** — round 14's
+  closing lap declares `platterpus/0.6.28`, the value that constant already held,
+  so the new key reproduces the record instead of redefining it.
+
+### Added
+- **Round 15 lap 15** — the post-close disclosure lap, filed at
+  `docs/handshake/outbound/round-15-lap-15.md` with its transport envelope. Round
+  15 stays CLOSED (both newest laps declare `GO`); the lap asks for no reply and
+  round 16 remains the fork's to open. It carries three things they are entitled
+  to before that opener rather than after: the sent-lap edit self-reported, the
+  bytecode `[INFERRED]`→`[MEASURED]` correction re-issued **as a new lap** the way
+  protocol v4 §4a requires, and the two defects found since their lap 14 — one of
+  which their own held item exposed on our side. It also gives our **assent** to
+  their `seam-commands.md` §7 `--check` proposal, so round 16's opener need not
+  spend a lap asking, and answers three of their held items with measurements
+  rather than intentions.
+
+### Fixed
+- **The envelope round-trip test required two parts, which was a fact about one
+  send baked in as a rule** — the exact mistake its own docstring records a
+  previous version making, in a different field. Round 15 lap 15 travels alone
+  (it quotes no artifact, so carrying the acceptance script again would ship a
+  file nothing references) and the test failed for a packaging decision rather
+  than a defect. The floor is now one, and the multi-part case — the splitter's
+  real job, where a greedy delimiter merges two files — has its own test against a
+  **synthetic** envelope, so it is covered every run instead of only on the rounds
+  we happen to send more than one file. Adversarial bodies: one contains text that
+  looks like a delimiter. Two real mutations probed (render drops parts after the
+  first; the end delimiter stops closing a part) and both detected.
+
+
 ## [0.6.40] — 2026-09-06
 
 ### Fixed
