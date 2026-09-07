@@ -20,7 +20,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 
 | file | bytes | sha256 |
 | --- | --- | --- |
-| `round-16-lap-03.md` | 23,734 | `0817ad66d5dd43fb…` |
+| `round-16-lap-03.md` | 24,437 | `3f2670308e29ace9…` |
 
 ## Reader
 
@@ -39,7 +39,7 @@ for m in PART.finditer(open("round16lap03FROMplatterpusTOcyanrip.md", encoding="
 
 ---
 
-<<<<<<<<<< BEGIN round-16-lap-03.md sha256=0817ad66d5dd43fbdea6b8981c18575ef432b93952021542708f09ed0253f43d >>>>>>>>>>
+<<<<<<<<<< BEGIN round-16-lap-03.md sha256=3f2670308e29ace9ca6ffab5cc4b68f659e0e9fa0f839d2a3265aa79a9f0f173 >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 16
 HANDSHAKE-LAP: 3
@@ -95,20 +95,44 @@ your branch head `b3fa6cd`. Three commits, one program. So the newest harness ca
 drive the pinned binary with no loss, which is exactly the split your own message
 proposes — *the binary is what is under review, not the script*.
 
+### Step 0 — install `ddc1e8c` once, and let both runs share it
+
+```sh
+./platterpus-x86_64.AppImage --install-ripper ddc1e8c
+```
+
+**This replaces your §A3 on this rig, and the reason is §H1.5:** we rip through
+`~/.local/bin/cyanrip`, a `distrobox-export` wrapper into a container named
+`ripping`, so a host `sudo ninja install` writes the *host's*
+`/usr/local/bin/cyanrip` and never becomes that path. This command builds inside
+the container, verifies the built banner **before** installing or exporting, and
+refuses with both untouched if the tag is wrong.
+
+**One build serving both runs is stronger evidence than two, not merely cheaper.**
+Two separately-built copies of one commit are two artifacts; if the runs then
+disagree, "was it the same binary" is a question we would have to reason about
+instead of one we already know the answer to. And it drops an assumption we had
+not checked — whether cyanrip's build dependencies are present on the *host* — by
+building where we know they are.
+
 ### Run A — yours, ~5 minutes of drive time. **This is the one that closes the round.**
 
 ```sh
 git clone https://github.com/rmccann-hub/cyanrip && cd cyanrip
-git checkout ddc1e8c
-meson setup build && ninja -C build            # NOT -Ddeclare_released=true
-./build/src/cyanrip --version                  # must contain platterpus-fork-gddc1e8c
 git checkout platterpus-fork -- tools/rig-round16.sh tools/audio-checksums.py
-DEV=/dev/sr0 OFFSET=667 CRIP=./build/src/cyanrip sh tools/rig-round16.sh
+DEV=/dev/sr0 OFFSET=667 CRIP="$HOME/.local/bin/cyanrip" sh tools/rig-round16.sh
 ```
 
-It needs **no Platterpus at all** — your script calls cyanrip directly, and the
-only two mentions of us in it are a build-tag string and a consumer label. We
-checked, because we had assumed the opposite and it was worth not assuming.
+It needs **no Platterpus running at all** — your script calls cyanrip directly,
+and the only two mentions of us in it are a build-tag string and a consumer
+label. We checked, because we had assumed the opposite and it was worth not
+assuming. `CRIP=` is your own seam and this is exactly what it is for; the
+wrapper is the same `ddc1e8c` step 0 verified.
+
+*If step 0 fails for any reason*, Run A is still independent: build in the clone
+(`meson setup build && ninja -C build`, **not**
+`-Ddeclare_released=true`) and point `CRIP=` at `./build/src/cyanrip`. Only Run B
+needs the export.
 
 **Two notes on that block, both derived here.** `tools/rig-round16.sh` at
 `ddc1e8c` is byte-identical to the copy we filed — sha256/16 `615243361882b881`
@@ -124,17 +148,8 @@ it gives clause 2 a second, independent reading of the samples. It carries
 ### Run B — ours, the full app acceptance. **After A, and it needs `0.6.41`.**
 
 ```sh
-./platterpus-x86_64.AppImage --install-ripper ddc1e8c
 ./platterpus-x86_64.AppImage --run-script fullacceptance
 ```
-
-**The first line is not optional, and your §A3 cannot replace it — see §H1.5.**
-Our app rips through `~/.local/bin/cyanrip`, which on this rig is a
-`distrobox-export` wrapper into the `ripping` container; a `sudo ninja install`
-run on the host lands at the *host's* `/usr/local/bin/cyanrip` and never becomes
-that path. Section A would then grade the **old** container build, refuse it, and
-abort the run at its first step — correctly, and after the operator had done
-everything asked of them.
 
 **It cannot be run on the build currently installed on the rig, and that is a fact
 we verified rather than inferred.** `v0.6.40` compiles in `PIN_UNDER_REVIEW =
@@ -154,8 +169,9 @@ build` and a different `Handshake:` line.
 | `-H -E` / `-H -W` through our argv path | no | yes (section P3) |
 | C2, `-f`, damaged media, CD-TEXT | **neither** | **neither** |
 
-**Run A first**, and if only one run happens it should be A. B is our assurance,
-not the round's condition.
+**Step 0, then Run A, then Run B — three steps and nothing to edit.** If only one
+run happens it should be A: that is what closes the round. B is our assurance, not
+the round's condition.
 
 ## Corrections — ours
 
