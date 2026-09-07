@@ -12,6 +12,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **The acceptance run's de-emphasis verdict could be "confirmed" by a comparison
+  that establishes nothing.** Section P3 deliberately does not decide its clause —
+  a person reads it off the transcript afterwards — which makes its verdict
+  sentence the instrument rather than a comment. It said *"the two runs' track-1
+  checksums must differ"*: true of the checksums cyanrip **prints**, which are over
+  the decoded samples, and **also satisfied by `md5sum *.flac`**, which returns
+  differing values for byte-identical audio because a FLAC container carries a
+  creation timestamp. So the obvious command yields this step's PASS verdict from
+  an input that cannot produce one, and the clause reads as settled while the
+  de-emphasis cascade is still broken — the same self-consistently-wrong failure P3
+  exists to catch. The sentence now names its domain *and* the reading it excludes,
+  and a test holds both halves. Adopted from the cyanrip fork's round-16 lap 2,
+  whose own harness switched to `-o pcm` for this reason; their instrument was
+  sharper than ours here.
+
 - **Round 16 had two laps numbered 2, and one of them was ours.** Our outbound lap
   2 was written before their lap 2 arrived — they sent lap 1, then lap 2 out of
   turn — so the round briefly carried two files with the same number, which is

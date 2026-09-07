@@ -721,6 +721,52 @@ def test_the_acceptance_script_asserts_the_build_it_was_written_for() -> None:
     )
 
 
+# --- P3: a verdict sentence that cannot be satisfied by the wrong input ------
+
+
+def test_the_P3_verdict_names_WHICH_checksum_and_warns_off_the_obvious_one() -> None:
+    """P3 does not decide its clause; a person does, afterwards, from the transcript.
+
+    That makes its verdict sentence load-bearing in a way an assertion is not: the
+    sentence IS the instrument. It read *"the two runs' track-1 checksums MUST
+    DIFFER"* — true of the checksums cyanrip PRINTS, which are over the decoded
+    samples, and **also satisfiable by the wrong input**. A reader who reaches for
+    `md5sum *.flac` gets two different values for byte-identical audio, because a
+    FLAC container carries a creation timestamp. That is a CONFIRMING answer from
+    an input that cannot confirm anything: the clause reads as settled while the
+    de-emphasis cascade is still broken, which is precisely the
+    self-consistently-wrong failure P3 exists to catch.
+
+    So the sentence must name its domain and name the reading it excludes. Both
+    halves are asserted, because naming the right one without excluding the wrong
+    one leaves the trap in place for someone who skims.
+
+    Adopted from the cyanrip fork's round-16 lap 2, which made the point
+    explicitly and switched its own harness to `-o pcm` for it. Their instrument
+    was sharper than ours here; the ledger records it, and this test is what stops
+    the qualifier being tidied back out.
+    """
+    text = (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8")
+
+    # Floor: this checks nothing if P3 is gone. Assert the subject exists first.
+    assert "R16 CC2" in text, (
+        "the P3 de-emphasis steps are gone from fullacceptance.txt, so this test "
+        "is asserting a property of a section that no longer exists"
+    )
+
+    lowered = text.lower()
+    assert "decoded samples" in lowered, (
+        "P3's verdict no longer says WHICH checksum it means. cyanrip's printed "
+        "per-track checksum is over the decoded samples; the files on disk are "
+        "not, and the difference decides whether the clause was actually tested"
+    )
+    assert "creation timestamp" in lowered or "creation_time" in lowered, (
+        "P3's verdict no longer warns off comparing the .flac files. That reading "
+        "returns DIFFERING values for byte-identical audio, so it produces this "
+        "step's PASS verdict from an input that establishes nothing"
+    )
+
+
 # --- Acceptance severity: which failures block a version ---------------------
 
 _SEVERITY_START = "<!-- ACCEPTANCE-SEVERITY-TABLE:"
