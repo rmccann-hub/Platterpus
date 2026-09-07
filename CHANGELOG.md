@@ -11,6 +11,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **Round 16 lap 3 — the test pin agreed, and the round pointed at a drive.** The
+  fork's lap 2 asked one thing and pre-committed under S-18 to accept whatever we
+  named, so this agrees `ddc1e8c` verbatim and names `platterpus 0.6.41` as the
+  app half. Verified first: `git diff a9aedf0..ddc1e8c -- src/ meson.build` is
+  empty, so the test pin is the same program.
+- **A gate for a lap addressed to itself.** `HANDSHAKE-FROM-REPO` and
+  `HANDSHAKE-TO-REPO` were added so a file detached from both repositories states
+  its direction — and lap 3 was drafted with `TO-REPO` pointing at Platterpus.
+  Caught by re-reading, which is the check that had not been mechanised. The
+  failure is quiet by construction: nothing downstream reads these fields, they
+  exist for the one person who carries the file between two projects, so a wrong
+  value survives every other gate.
+
+### Fixed
+- **Our envelope naming matched to the fork's spelling.** They spelled direction
+  `round16lap01FROMcyanripTOplatterpus.md`; ours was `…platterpustocyanrip.md` —
+  the same information in a different shape, in the one folder where the operator
+  holds both. The naming rule's own reasoning is that the hazard was never
+  capitals or hyphens as such but **two conventions**, so matching the peer beats
+  being independently correct. The rule is amended to record the exception rather
+  than quietly diverged from.
+
+
 ## [0.6.41] — 2026-09-07
 
 ### Fixed

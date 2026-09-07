@@ -1789,3 +1789,45 @@ def test_the_carve_out_cannot_wave_through_an_artifact_that_DOES_declare_one(
         "an unreadable artifact must fail CLOSED — 'we could not look' is not "
         "'the file declares nothing'"
     )
+
+
+def test_no_outbound_lap_declares_itself_addressed_to_OUR_OWN_repo() -> None:
+    """`HANDSHAKE-TO-REPO` must not be the repository the lap came from.
+
+    **Written because it happened.** Round 16 lap 3 was drafted with
+    `HANDSHAKE-TO-REPO` pointing at Platterpus — a lap addressed to itself. It was
+    caught by re-reading the header, which is exactly the check that had not been
+    mechanised: the two fields were added in the same session precisely so a file
+    detached from either repository can say which way it travels, and a file that
+    names one repository twice answers the question wrongly while looking complete.
+
+    The failure mode is quiet. Nothing downstream reads these fields — they exist
+    for the one human who carries the file between two projects — so a wrong value
+    survives every other gate in this suite.
+    """
+    outbound = _REPO / "docs" / "handshake" / "outbound"
+    checked = 0
+    for path in sorted(outbound.glob("round-*-lap-*.md")):
+        text = path.read_text(encoding="utf-8")
+        frm = re.search(r"^HANDSHAKE-FROM-REPO:\s*(\S+)\s*$", text, re.M)
+        to = re.search(r"^HANDSHAKE-TO-REPO:\s*(\S+)\s*$", text, re.M)
+        if frm is None or to is None:
+            # Older laps predate the fields; their absence is not this test's
+            # subject and inventing a requirement for them retroactively would
+            # fail closed on history nobody can change.
+            continue
+        checked += 1
+        assert frm.group(1) != to.group(1), (
+            f"{path.name} declares HANDSHAKE-FROM-REPO and HANDSHAKE-TO-REPO as the "
+            f"same repository ({to.group(1)}) — the lap is addressed to itself. The "
+            "pair exists so a file detached from both repositories states its "
+            "direction, and nothing else in this suite reads it."
+        )
+        assert "Platterpus" in frm.group(1), (
+            f"{path.name} is an OUTBOUND lap whose HANDSHAKE-FROM-REPO is "
+            f"{frm.group(1)}, not this project"
+        )
+    assert checked, (
+        "no outbound lap declares the repo pair, so this check examined nothing — "
+        "the fields were added in round 16 and at least one lap should carry them"
+    )
