@@ -100,6 +100,32 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       comparison. Our P3 said "the two track-1 checksums must differ", meaning
       cyanrip's own audio checksum — true, but one careless reading away from a
       false pass. Reworded, and P3 now names the decoded samples as the claim.
+- [ ] **The rig's installed `0.6.40` cannot run our acceptance script against the
+      round-16 test pin, and a newer script does not fix it.** Verified rather than
+      assumed: `v0.6.40` compiles in `PIN_UNDER_REVIEW = 978f9b0` and
+      `FORK_TEST_PIN = cb440bd`, so section A refuses `ddc1e8c` — the build both
+      projects' written instructions tell the operator to install.
+      **The check lives in the app, not the script**, so handing over a newer
+      `fullacceptance.txt` changes nothing. Our acceptance run therefore genuinely
+      requires `0.6.41` installed; the fork's `rig-round16.sh` does **not**, because
+      it calls cyanrip directly. That asymmetry was assumed the other way earlier in
+      this session and is recorded here so the next reader does not re-derive it.
+
+- [ ] **`target_for_commit` reports "version not known" for pins whose version we
+      have measured.** `--install-ripper ddc1e8c` prints *"(version not known for an
+      operator-supplied commit)"*, while `FORK_TEST_VERSION` and
+      `UNDER_REVIEW_TARGET.version` both hold `0.9.4-rc2+platterpus.11`, read off the
+      fork's own wire header. The function's default is honest and its docstring
+      argues it well — for an *arbitrary* commit the version genuinely is unknown and
+      inventing one would put an unmeasured number into a banner comparison. The fix
+      is not to invent but to **look up** the commit among the targets we already
+      declare, falling back to the honest default otherwise.
+      **Judged NOT a readiness blocker for round 16 and deliberately not done under
+      time pressure**: the install verifies the *build tag*, which is derived and
+      strict, so `--install-ripper ddc1e8c` installs and verifies correctly today —
+      only an informational line under-reports. Touching a verify path with a drive
+      waiting is the trade this row refuses.
+
 - [ ] **KDD-17 GAP: `ripper_choices()` has no GUI caller.** `--install-ripper` and
       `--install-ripper list` are CLI-only (`app.py:873`, `:889`), so a GUI-only
       operator has **no route** to the build an open round is reviewing whenever the
