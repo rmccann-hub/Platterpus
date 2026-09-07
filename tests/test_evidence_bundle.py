@@ -1108,3 +1108,52 @@ def test_the_current_log_still_outranks_the_album_evidence(
         f"the current app log lost its priority — a no-rip failure would now "
         f"send an archive with no log in it: {names}"
     )
+
+
+def test_the_gzip_HEADER_carries_no_timestamp(tmp_path: Path) -> None:
+    r"""Bytes 4-8 of the archive must be zero, and this is the deterministic form
+    of the determinism test above.
+
+    **The bug this pins was found by a test that could only catch it by luck.**
+    `test_two_bundles_of_the_same_inputs_are_byte_identical` builds two bundles
+    back to back; `tarfile.open(..., "w:gz")` writes the CURRENT time into the gzip
+    header, so the two matched whenever both landed inside the same second. Alone
+    the file runs in 0.07 s and passed; in the full suite it straddled a boundary
+    and failed. A one-second reproduction window reads exactly like a flaky test,
+    and the temptation is to rerun it.
+
+    So this asserts the *cause* rather than the symptom, with no timing in it at
+    all. The member-level `mtime = 0` was never the whole job: it fixes what is
+    inside the tar and says nothing about the container around it.
+
+    Why it matters beyond tidiness — the bundle is evidence that gets posted in
+    public. Its docstring promises the build hour is kept off it, and a
+    byte-identical rebuild is how a reader confirms a bundle was not edited between
+    the rig and the report. A header clock defeats both.
+    """
+    result = build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260819T000000Z",
+        app_version="0.6.41",
+        outcome="success",
+        log_dir=_log_dir(tmp_path),
+    )
+    assert result.path is not None
+    raw = result.path.read_bytes()
+
+    # Non-vacuity first: this must really be a gzip stream, or the slice below is
+    # asserting about four arbitrary bytes.
+    assert raw[:2] == b"\x1f\x8b", (
+        f"not a gzip stream, so the header assertion is meaningless: {raw[:2]!r}"
+    )
+    assert raw[4:8] == b"\x00\x00\x00\x00", (
+        "the gzip header carries a timestamp — two bundles of identical inputs will "
+        "differ whenever they are written in different seconds. Build the archive "
+        "through a GzipFile with mtime=0 rather than tarfile's 'w:gz'."
+    )
+    # And the header must not carry the output FILENAME either: the bundle's name
+    # embeds a run stamp, which would put the hour back by another route.
+    assert not raw[3] & 0x08, (
+        "the gzip header has FNAME set, so it stores the archive's own name — and "
+        "that name carries the run stamp"
+    )
