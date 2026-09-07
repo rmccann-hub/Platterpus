@@ -12,6 +12,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A regression test for an open-population digest had itself pinned an
+  open-population digest.** `TestExcludeAccumulates` asserted
+  `--exclude round-16-lap-04.md --exclude round-16-lap-05.md` gave
+  `a82355334b9d1bfe over 3` — the fork's published lap-4 value, correct when
+  written and **red within the hour**, because their lap 6 arrived and made that
+  same exclusion a four-lap population. The literal list *"the laps after N"*
+  expires at the next lap, permanently, for any round still in progress.
+  The exclusion lists are now derived from the tree, so the assertion is about
+  the **cutoff** a peer's digest names rather than about which laps exist today,
+  and each caller asserts a floor of two dropped names so the multi-exclude path
+  cannot silently degrade into the single-exclude case it exists to distinguish.
+  Two published digests are now checked instead of one (`a82355334b9d1bfe over 3`
+  and `c880f1e2f9d32e35 over 5`), and the bare property — dropping N names
+  removes N laps — is asserted separately so the regression survives a round with
+  no peer value to compare against. Four reverts probed, all `detected`.
+
 - **`round_digest.py` silently ignored a second `--exclude`.** It was a
   single-value argparse option, so `--exclude A.md --exclude B.md` kept only `B`:
   the command printed a digest, exit `0`, and a lap count over a population that

@@ -20,6 +20,7 @@ import hashlib
 import importlib.util
 import sys
 from pathlib import Path
+from types import ModuleType
 from typing import Final
 
 import pytest
@@ -231,25 +232,80 @@ class TestExcludeAccumulates:
 
     Same family as the two refusals above and it arrived through the *interface*
     rather than the matching, which is why neither of those caught it.
+
+    **THE EXCLUSION LISTS BELOW ARE DERIVED FROM THE TREE, NOT WRITTEN DOWN, AND
+    THAT IS THE SECOND LESSON OF THIS CLASS.** The first version of these two
+    tests hard-coded ``["round-16-lap-04.md", "round-16-lap-05.md"]`` against
+    `a82355334b9d1bfe over 3` — correct on the day, and red within the hour, when
+    the fork's lap 6 arrived and made that same exclusion a **4**-lap population.
+
+    A regression test for *"a digest read from an open population"* had itself
+    pinned a digest read from an open population. `CLAUDE.md`'s question is *is
+    the population I measured closed?* and the answer for a round in progress is
+    permanently no: laps keep arriving, so any list of "the laps after N" written
+    as a literal expires at the next one. Deriving it means the assertion is about
+    the *cutoff* — which is the fixed thing a peer's published digest names — and
+    not about which laps happen to exist today.
     """
 
-    def test_two_excludes_drop_two_laps(self) -> None:
-        """The regression, on the real record, against the number they published.
+    @staticmethod
+    def _laps_above(rd: ModuleType, round_: int, cutoff: int) -> list[str]:
+        """Every lap filename of ``round_`` numbered above ``cutoff``.
 
-        `a82355334b9d1bfe over 3` is the value the fork's round-16 lap 4 declares
-        in its own header — so this asserts against THEIR artifact rather than
-        against our re-run, and it is only reachable if both names are honoured.
+        Derived, for the reason in the class docstring. Also the reason the
+        callers assert a floor of two: if this ever returns one name the
+        multi-exclude path stops being exercised and the test degrades into the
+        single-exclude case it was written to distinguish from.
+        """
+        names = [p.name for p in rd._laps_for_round(round_)]
+        return [n for n in names if int(rd._LAP_NAME.match(n).group("lap")) > cutoff]
+
+    def test_two_excludes_drop_two_laps(self) -> None:
+        """The regression, on the real record, against numbers THEY published.
+
+        Both values are declared in the fork's own lap headers, so this asserts
+        against their artifacts rather than against our re-run — and neither is
+        reachable unless every name in the derived list is honoured.
         """
         rd = _module()
-        both = rd.round_digest(16, exclude=["round-16-lap-04.md", "round-16-lap-05.md"])
-        assert both == ("a82355334b9d1bfe", 3), (
-            "excluding two laps must drop two: this is the fork's own published "
-            f"lap-4 digest and we got {both}"
+        # (cutoff, the digest the fork published over laps 1..cutoff)
+        published = [(3, "a82355334b9d1bfe"), (5, "c880f1e2f9d32e35")]
+        checked = 0
+        for cutoff, expected in published:
+            drop = self._laps_above(rd, 16, cutoff)
+            if len(drop) < 2:
+                continue  # not yet enough laps above it to exercise the path
+            got = rd.round_digest(16, exclude=drop)
+            assert got == (expected, cutoff), (
+                f"excluding {len(drop)} laps above {cutoff} must leave {cutoff}: "
+                f"this is the fork's own published digest and we got {got} "
+                f"having dropped {drop}"
+            )
+            checked += 1
+        assert checked >= 1, (
+            "no cutoff had two or more laps above it, so the multi-exclude path "
+            "was never exercised and this test asserted nothing"
         )
-        one = rd.round_digest(16, exclude=["round-16-lap-05.md"])
-        assert one[1] == both[1] + 1 and one[0] != both[0], (
-            "one exclude and two excludes produced the same population, so the "
-            f"second name was ignored: {one} vs {both}"
+
+    def test_one_exclude_and_many_are_not_the_same_population(self) -> None:
+        """The direct statement of the defect, independent of any published value.
+
+        Kept separate from the test above so the regression survives a round with
+        no peer digest to compare against: dropping N names must remove N laps,
+        whatever the digest comes out as.
+        """
+        rd = _module()
+        drop = self._laps_above(rd, 16, 3)
+        assert len(drop) >= 2, f"need two laps above 3 to test this; got {drop}"
+        many = rd.round_digest(16, exclude=drop)
+        one = rd.round_digest(16, exclude=drop[:1])
+        assert many[1] == one[1] - (len(drop) - 1), (
+            f"dropping {len(drop)} names removed {one[1] - many[1] + 1} laps, "
+            f"not {len(drop)}: {one} vs {many}"
+        )
+        assert many[0] != one[0], (
+            "two different populations produced the same digest, so the extra "
+            f"names were ignored: {one} vs {many}"
         )
 
     def test_the_cli_accumulates_rather_than_overwriting(
@@ -266,20 +322,17 @@ class TestExcludeAccumulates:
         whole subject here.
         """
         rd = _module()
-        code = rd.main(
-            [
-                "16",
-                "--exclude",
-                "round-16-lap-04.md",
-                "--exclude",
-                "round-16-lap-05.md",
-            ]
-        )
+        drop = self._laps_above(rd, 16, 3)
+        assert len(drop) >= 2, f"need two laps above 3 to test this; got {drop}"
+        argv = ["16"]
+        for name in drop:
+            argv += ["--exclude", name]
+        code = rd.main(argv)
         assert code == 0
         printed = capsys.readouterr().out
         assert "a82355334b9d1bfe" in printed and "over 3 lap(s)" in printed, (
-            "the CLI did not honour both excludes — it printed a digest over the "
-            f"wrong population: {printed.strip()!r}"
+            "the CLI did not honour every exclude — it printed a digest over the "
+            f"wrong population: {printed.strip()!r} after dropping {drop}"
         )
 
     def test_a_bare_string_is_ONE_name_not_a_sequence_of_characters(self) -> None:
