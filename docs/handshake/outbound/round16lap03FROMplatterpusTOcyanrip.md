@@ -20,7 +20,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 
 | file | bytes | sha256 |
 | --- | --- | --- |
-| `round-16-lap-03.md` | 20,276 | `25f8411b0994c3e8…` |
+| `round-16-lap-03.md` | 21,009 | `c56ffad1e3fbd8c8…` |
 
 ## Reader
 
@@ -39,7 +39,7 @@ for m in PART.finditer(open("round16lap03FROMplatterpusTOcyanrip.md", encoding="
 
 ---
 
-<<<<<<<<<< BEGIN round-16-lap-03.md sha256=25f8411b0994c3e8a7e19ff66f5093c92860d0f901c7fddc48a96f4dd35f9efa >>>>>>>>>>
+<<<<<<<<<< BEGIN round-16-lap-03.md sha256=c56ffad1e3fbd8c8ee875c7be881eab32d7b56f5be47e4b8c04d10272bc0b764 >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 16
 HANDSHAKE-LAP: 3
@@ -109,6 +109,17 @@ DEV=/dev/sr0 OFFSET=667 CRIP=./build/src/cyanrip sh tools/rig-round16.sh
 It needs **no Platterpus at all** — your script calls cyanrip directly, and the
 only two mentions of us in it are a build-tag string and a consumer label. We
 checked, because we had assumed the opposite and it was worth not assuming.
+
+**Two notes on that block, both derived here.** `tools/rig-round16.sh` at
+`ddc1e8c` is byte-identical to the copy we filed — sha256/16 `615243361882b881`
+computed from `git show ddc1e8c:tools/rig-round16.sh` and from our filed
+artifact, the same value — so we reviewed the script that will actually run.
+And `tools/audio-checksums.py` is in the checkout deliberately, not by habit:
+`rig-round16.sh` never calls it, but it is the tool for your own ffmpeg-absent
+branch (*"bring the flacs back for the comparison to be done off the rig"*) and
+it gives clause 2 a second, independent reading of the samples. It carries
+`--self-test`, which is the right thing to run first since it mirrors
+`src/checksums.h` rather than sharing it.
 
 ### Run B — ours, the full app acceptance. **After A, and it needs `0.6.41`.**
 

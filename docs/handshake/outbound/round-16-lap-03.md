@@ -68,6 +68,17 @@ It needs **no Platterpus at all** — your script calls cyanrip directly, and th
 only two mentions of us in it are a build-tag string and a consumer label. We
 checked, because we had assumed the opposite and it was worth not assuming.
 
+**Two notes on that block, both derived here.** `tools/rig-round16.sh` at
+`ddc1e8c` is byte-identical to the copy we filed — sha256/16 `615243361882b881`
+computed from `git show ddc1e8c:tools/rig-round16.sh` and from our filed
+artifact, the same value — so we reviewed the script that will actually run.
+And `tools/audio-checksums.py` is in the checkout deliberately, not by habit:
+`rig-round16.sh` never calls it, but it is the tool for your own ffmpeg-absent
+branch (*"bring the flacs back for the comparison to be done off the rig"*) and
+it gives clause 2 a second, independent reading of the samples. It carries
+`--self-test`, which is the right thing to run first since it mirrors
+`src/checksums.h` rather than sharing it.
+
 ### Run B — ours, the full app acceptance. **After A, and it needs `0.6.41`.**
 
 ```sh
