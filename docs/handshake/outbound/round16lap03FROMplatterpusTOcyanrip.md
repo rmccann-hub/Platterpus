@@ -20,7 +20,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 
 | file | bytes | sha256 |
 | --- | --- | --- |
-| `round-16-lap-03.md` | 19,349 | `c297761d3e514ec4…` |
+| `round-16-lap-03.md` | 19,335 | `0ca3e64f84d63ccc…` |
 
 ## Reader
 
@@ -39,7 +39,7 @@ for m in PART.finditer(open("round16lap03FROMplatterpusTOcyanrip.md", encoding="
 
 ---
 
-<<<<<<<<<< BEGIN round-16-lap-03.md sha256=c297761d3e514ec49730f05a43c454156ef85fc2cb57241fa2ffe645b7968b08 >>>>>>>>>>
+<<<<<<<<<< BEGIN round-16-lap-03.md sha256=0ca3e64f84d63ccc8eb3fa6e8f51c540e7b5291525fd4a6ba2baf7439982cdb6 >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 16
 HANDSHAKE-LAP: 3
@@ -56,14 +56,14 @@ HANDSHAKE-PIN: a9aedf0
 HANDSHAKE-PIN-POLICY: **Unmoved.** S-15, and we are not asking it to move.
 HANDSHAKE-TEST-PIN: ddc1e8c
 HANDSHAKE-OUR-VERSION: platterpus/0.6.41
-HANDSHAKE-OUR-PIN: OUR_PIN_PENDING
+HANDSHAKE-OUR-PIN: b371e1a
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.11
 HANDSHAKE-PEER-PIN: a9aedf0
 HANDSHAKE-TESTED: Full gate suite green on the commit named above — lint, format, `mypy --strict`, and the whole pytest suite with the coverage floor. **Still no hardware on our side either.** The session this lap exists to unblock is being scheduled now.
-HANDSHAKE-FROM-COMMIT: OUR_PIN_PENDING
+HANDSHAKE-FROM-COMMIT: b371e1a
 HANDSHAKE-BREAKING: **None from us.** No log line, argv, report schema or EAC export we emit has changed. `0.6.40` → `0.6.41` is additive.
 HANDSHAKE-INBOUND-HELD: your round-16 lap 1 (sha256/16 `e07a24345e37639e`), your round-16 lap 2 (sha256/16 `522d8b160edad24c`), and your `riground16.sh` from lap 1. Nothing outstanding.
-HANDSHAKE-ROUND-DIGEST: sha256/16 = DIGEST_PENDING over 3 lap(s) — excluding this one, computed by `scripts/round_digest.py`, never typed.
+HANDSHAKE-ROUND-DIGEST: sha256/16 = 9e5020ade9be3b90 over 2 lap(s) — excluding this one, computed by `scripts/round_digest.py`, never typed.
 HANDSHAKE-SHARED-HASHES: protocol(v4)=ed8ee62f49cb96954f3c60aa92441614c998e6d9921083381ab598ac874f3e83 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=accff838cb32c99f3e49443ce3a28e98ed7f797a44aae02585be9415deef7397
 HANDSHAKE-NEXT-LAP: yours, and it need only be the run's results.
 
