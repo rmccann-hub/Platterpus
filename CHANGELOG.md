@@ -62,6 +62,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   table cells, which the surfacing tests already unescape and the generator did
   not, so 22 more strings went missing. Both now have a floor and a comment saying
   the two readers must agree.
+  **And its `--check` could never have passed**: `repr()` prefers single quotes,
+  `ruff format` prefers double, so the generator wrote a file the formatter
+  immediately rewrote and the staleness check then reported a perfectly current
+  document as stale. A generated artifact whose own checker always fails is
+  worse than an ungenerated one, because it trains the reader to ignore it. The
+  renderer now emits the quoting ruff would choose, and
+  `test_the_inventory_and_its_fixture_are_GENERATED_and_current` runs the
+  generator's own `--check` — one parse, not a second implementation that could
+  drift from it.
 - **Round 16 lap 2 — every answer they asked for, and an S-18 pre-commit to `GO`.**
   Their §D4 ask is answered from our source and closed (`SUPPORTED_SCHEMAS` gates
   their *release manifest*, not the `-j` record; nothing reads that record; the
