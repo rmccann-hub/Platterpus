@@ -721,6 +721,55 @@ def test_the_acceptance_script_asserts_the_build_it_was_written_for() -> None:
     )
 
 
+# --- P3: a verdict sentence that cannot be satisfied by the wrong input ------
+
+
+def test_the_P3_verdict_names_WHICH_checksum_and_warns_off_the_obvious_one() -> None:
+    """P3 does not decide its clause; a person does, afterwards, from the transcript.
+
+    That makes its verdict sentence load-bearing in a way an assertion is not: the
+    sentence IS the instrument. It read *"the two runs' track-1 checksums MUST
+    DIFFER"* — true of the checksums cyanrip PRINTS, which are over the decoded
+    samples, and **also satisfiable by the wrong input**. A reader who reaches for
+    `md5sum *.flac` gets two different values for byte-identical audio, because a
+    FLAC container carries a creation timestamp. That is a CONFIRMING answer from
+    an input that cannot confirm anything: the clause reads as settled while the
+    de-emphasis cascade is still broken, which is precisely the
+    self-consistently-wrong failure P3 exists to catch.
+
+    So the sentence must name its domain and name the reading it excludes. Both
+    halves are asserted, because naming the right one without excluding the wrong
+    one leaves the trap in place for someone who skims.
+
+    Adopted from the cyanrip fork's round-16 harness, which prints the container
+    md5s, says in its own output that a difference there is "necessary and not
+    sufficient", and decodes separately with `ffmpeg -f md5` -- reporting
+    `UNPROBED` rather than a pass when ffmpeg is absent
+    (`round-16-lap-02-rig-round16.sh:181-212`). Their instrument was sharper than
+    ours here; the ledger records it, and this test is what stops the qualifier
+    being tidied back out.
+    """
+    text = (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8")
+
+    # Floor: this checks nothing if P3 is gone. Assert the subject exists first.
+    assert "R16 CC2" in text, (
+        "the P3 de-emphasis steps are gone from fullacceptance.txt, so this test "
+        "is asserting a property of a section that no longer exists"
+    )
+
+    lowered = text.lower()
+    assert "decoded samples" in lowered, (
+        "P3's verdict no longer says WHICH checksum it means. cyanrip's printed "
+        "per-track checksum is over the decoded samples; the files on disk are "
+        "not, and the difference decides whether the clause was actually tested"
+    )
+    assert "creation timestamp" in lowered or "creation_time" in lowered, (
+        "P3's verdict no longer warns off comparing the .flac files. That reading "
+        "returns DIFFERING values for byte-identical audio, so it produces this "
+        "step's PASS verdict from an input that establishes nothing"
+    )
+
+
 # --- Acceptance severity: which failures block a version ---------------------
 
 _SEVERITY_START = "<!-- ACCEPTANCE-SEVERITY-TABLE:"
@@ -1383,6 +1432,81 @@ def test_the_header_names_no_build_and_routes_to_the_app_instead() -> None:
         "Having removed the build tag, that route is the ONLY answer left — "
         "without it the header says what not to do and nothing else."
     )
+
+
+def test_the_header_names_the_route_that_reaches_an_UNPUBLISHED_build() -> None:
+    """The in-app check cannot offer a build the fork never released.
+
+    `evaluate_offer` reads the fork's **release manifest**, so the set it can
+    offer is the set of published builds. A handshake round may open on a commit
+    the fork has nominated and not released — round 16 did, on `a9aedf0` — and
+    then the dialog's most honest answer is *"your build is current"*: true of
+    the manifest, and not the build section A wants. An operator who follows the
+    header's only route takes it and the run aborts at section A, four seconds
+    in, having produced no evidence. **That is the same five-second abort that
+    cost the 2026-08-27 run, reached by a third distinct path** — first a stale
+    channel name, then a stale build tag, now a route that is correct and cannot
+    see the answer.
+
+    So the header carries a second route, and it must stay build-free for the
+    reason the test above gives: this file ships inside a release, so any commit
+    written here freezes on build day. `--install-ripper list` is generated from
+    `ripper_choices()` — the same record section A checks — so it cannot be the
+    stale half of a pair.
+
+    Asserted as a pair, because either half alone is useless: the command, and
+    the labels that tell the operator which entry to pick.
+    """
+    header = _acceptance_header()
+
+    # Floor: this checks nothing if the header block stopped being found.
+    assert len(header) > 500, (
+        f"the acceptance header is only {len(header)} characters — the block "
+        f"detector has stopped finding it and this check is measuring nothing"
+    )
+
+    assert "--install-ripper list" in header, (
+        "the header no longer names the route that reaches a build the fork has "
+        "not published. The in-app check cannot offer one, so while a round is "
+        "open on an unreleased pin this is the operator's ONLY way onto the "
+        "build section A demands"
+    )
+    # BOTH the explanation and the INSTRUCTION, and the split is the point.
+    # A first version of this asserted only `label in header`, and
+    # `revert_probe.py` showed that satisfiable by the wrong occurrence: each
+    # label appears twice in the header — once where the markers are explained,
+    # once in the sentence that says which to install — so deleting either left
+    # the assertion green. The explanation without the instruction tells the
+    # operator what the words mean and not what to do.
+    for label in ("under-review", "test-pin"):
+        assert header.count(label) >= 2, (
+            f"the header mentions {label!r} only once. It needs both the "
+            f"explanation of the marker AND the sentence telling the operator to "
+            f"install that entry; one alone is a glossary or a guess"
+        )
+    assert re.search(
+        r"install\s+the\s*\n?#?\s*`?under-review`?\s*or\s*`?test-pin`?\s*entry",
+        header,
+        re.IGNORECASE,
+    ), (
+        "the header explains the markers but no longer INSTRUCTS which entry to "
+        "install while a round is open. That sentence is the whole operative "
+        "content of the second route"
+    )
+
+    # And the second route must not smuggle a build tag back in: same freeze
+    # argument as the test above, which is what makes a COMMAND the right answer.
+    from platterpus.deps import fork_source
+
+    for value, what in (
+        (fork_source.PIN_UNDER_REVIEW, "pin under review"),
+        (fork_source.FORK_TEST_PIN, "test pin"),
+    ):
+        assert value not in header, (
+            f"the header names the {what} ({value!r}). The route is a command "
+            f"precisely so the commit does not have to be written here, where it "
+            f"ships frozen inside a release and cannot learn that the pin moved"
+        )
 
 
 def test_the_header_does_not_tell_the_operator_to_take_the_NEWEST_ripper() -> None:

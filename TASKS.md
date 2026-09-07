@@ -136,6 +136,15 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       that there is no terminal.
       **Not blocking this round's run** — the rig has a terminal and the maintainer
       uses it — so NEXT-ROUND under S-14, but it is ours to fix, not the fork's.
+      **Worked around, not fixed (2026-09-07):** the acceptance script's header now
+      names `--install-ripper list` as a second route, with the marker labels so the
+      operator knows which entry to take. That closes the immediate trap — the
+      header previously offered only *Help → Check for cyanrip updates*, which
+      reads the fork's manifest and therefore **cannot** offer an unpublished pin,
+      so its most honest answer is *"your build is current"* and taking it ends the
+      night at section A. The route is a COMMAND, never a commit, because this file
+      ships frozen inside a release. The row stays open: a terminal paragraph in a
+      zero-terminal program is a workaround.
 
 - [ ] **ASK THEM TO PUBLISH `a9aedf0`, or tell us the reviewed pin is not meant to
       be installable through the offer. FIVE TESTS ARE RED ON THIS ONE FACT and no
