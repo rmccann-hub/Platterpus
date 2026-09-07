@@ -69,6 +69,34 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       So `cyanrip-diagnostics/4` is a no-op for us in every direction: we produce
       the record on every rip, ship it as opaque bytes, and read none of it.
 
+- [ ] **ASK THEM TO PUBLISH `a9aedf0`, or tell us the reviewed pin is not meant to
+      be installable through the offer. FIVE TESTS ARE RED ON THIS ONE FACT and no
+      sequence has been invented to quiet them.** Their ledger and
+      `release-manifest.json` both still top out at `978f9b0` / `release_seq` 21,
+      so `release_seq_for_commit("a9aedf0")` is `None`.
+      **What it does and does not break.** The CLI installs it fine —
+      `--install-ripper` takes any commit on the fork, and `ripper_choices()`
+      already lists `a9aedf0` as *under-review*, so the hardware run is not
+      blocked. What cannot produce it is `ripper_offer.evaluate_offer`, which needs
+      a manifest row; that is the app's in-dialog route to the build an open round
+      is reviewing. Two surfaces answering *"which build should I install"* with
+      different keys — the 2026-08-18 shape — except this time the disagreement is
+      upstream of us.
+      **Round 15 is why our tests expect a sequence at all**, and it is worth
+      saying that the expectation is two rounds old rather than a standing rule:
+      round 15 was *"the first pin chosen as a subject by having been released"*.
+      Round 16 has gone back to a nominated pin, which is legitimate. So the ask is
+      genuine and the finding is **NEXT-ROUND under S-14** — it does not make the
+      reviewed pin unsafe, and naming what it breaks in the artifact under review
+      is what promotion would require.
+      The red tests are: `test_the_pin_under_review_has_a_release_sequence`,
+      `…_the_app_can_install_every_build_its_acceptance_run_demands`,
+      `…_the_offer_no_longer_hands_back_a_shell_command_for_that_build`,
+      `…_the_two_install_axes_are_never_both_true`,
+      `…_the_operators_instructions_agree_with_the_offer_they_will_actually_see`.
+      Four of the five fail inside one fixture helper (`_offer_for`), so they are
+      **one signal reported five times**, not five findings.
+
 - [ ] **Answer their J1 (`NEXT-ROUND`) — committed-is-sent.** They propose making
       *committed* stand in for *sent*: once a lap is committed to the branch the
       peer fetches, it is immutable and a gate refuses any edit. They name the cost

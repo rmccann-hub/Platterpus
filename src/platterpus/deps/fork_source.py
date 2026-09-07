@@ -749,6 +749,31 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         # statement that `git diff 978f9b0 HEAD -- src/` is empty. Reported back
         # to them in our lap 2 as information, not proposed as blocking.
         f"{FORK_BRANCH}-g978f9b0",
+        # ROUND 16's PIN, AND THE FIRST ROW HERE LICENSED BY A RECOMPUTED ANCHOR
+        # RATHER THAN BY THE FORK'S WORD FOR IT.
+        #
+        # Their round-16 contract is filed under
+        # `docs/handshake/inbound/artifacts/` and its P1 table carries `-u` /
+        # `--consumer` at line 58 and `-Y` / `--verify-log` at line 104.
+        #
+        # Its banner names `g0d0ae8e`, the parent — the same generated-artifact
+        # provenance shape as the `g009a573` row above, and the reason the filename
+        # names the build the ARTIFACT asserts. What is different this time is that
+        # the banner no longer has to be the evidence: the document publishes a
+        # **source anchor**, `sha256/16 = c0f550c75450f031` over `src/*.c` and
+        # `src/*.h`, and that anchor **recomputes here over the fork's tree at
+        # `a9aedf0`** — 44 files, using their own construction read out of
+        # `tools/gen-provider-contract.py::source_hash()` at the pin (sorted flat
+        # listing of `src/`, each file's NAME hashed before its bytes; a recursive
+        # walk without the names gives `c8de8623734d0620` and is not their method).
+        #
+        # So the row rests on a derivation rather than on their lap's statement
+        # that `git diff -- src/` is empty. The round-15 comment above had to say
+        # its filename could not be cited as evidence about the pin; this one does
+        # not, because the content proves which source it describes — `CLAUDE.md`'s
+        # *"any claim about an artifact's provenance must be derivable from the
+        # artifact's content, not only from its banner"*, actually satisfied.
+        f"{FORK_BRANCH}-ga9aedf0",
     }
 )
 
