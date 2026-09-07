@@ -12,6 +12,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **Raw PCM was audio none of our three media guards knew about.** The cyanrip
+  fork's current round-16 harness settles clause 2 by ripping the de-emphasis pair
+  with `-o pcm` instead of `-o flac`, so `md5sum` compares **samples** rather than
+  container bytes and no decoder is needed on the rig. It is a genuine improvement
+  — and it introduced an extension that `.gitignore`, `.githooks/pre-commit` and
+  the `media-guard` CI job all missed, while the same script tells the operator to
+  *"bring back the whole of `$OUT`"*.
+  A `.pcm` is interleaved s16le stereo: it **is** the audio, with less wrapping
+  than a `.wav`, so Critical rule #8 covers it for exactly the reason it covers
+  `.wav`. `.pcm` and `.raw` added to all three, and the hook was verified by
+  staging one and watching it refuse — the guard, not the intention.
+  Worth naming the shape: a change on the *other* side of the seam widened what can
+  reach this repository, and nothing here would have noticed. Our evidence bundler
+  was already safe because it admits by **allowlist**; the three that failed are the
+  denylists.
+
 - **Section A would have failed the round-16 hardware run at its first
   assertion.** Protocol §6a's sequence is *agree a test pin → both install it →
   run the session*, and round 16 did exactly that: reviewed pin `a9aedf0`, agreed
