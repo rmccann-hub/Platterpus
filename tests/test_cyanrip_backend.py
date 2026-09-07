@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -16,7 +17,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from platterpus.adapters.cyanrip_backend import (
-    DIAGNOSTICS_RECORD_NAME,
+    DIAGNOSTICS_RECORD_PREFIX,
     CyanripImpl,
     _escape_meta_value,
     _metadata_args,
@@ -1521,23 +1522,58 @@ def test_every_rip_asks_for_the_diagnostics_record() -> None:
     """
     argv = _rip_argv()
     assert "-j" in argv, "no diagnostics record requested — see PROVIDER-CONTRACT P4"
-    assert argv[argv.index("-j") + 1] == DIAGNOSTICS_RECORD_NAME
+    assert argv.count("-j") == 1, (
+        f"the rip argv carries {argv.count('-j')} -j flags. genopt makes a "
+        f"repeated single-value option replace the previous one (genopt.h:582), "
+        f"so a second one silently redirects the record — which is exactly what "
+        f"broke the rig-check probe on 2026-09-07"
+    )
+    assert argv[argv.index("-j") + 1].startswith(DIAGNOSTICS_RECORD_PREFIX)
 
 
-def test_the_diagnostics_path_is_relative_so_it_lands_with_the_rip() -> None:
-    """The child runs with `cwd=output_dir`, so a relative name puts the record
-    beside the other artifacts and the evidence bundle picks it up under the
-    existing `.json` allowlist.
+def test_the_diagnostics_path_is_relative_and_UNIQUE_per_rip() -> None:
+    """**This test used to assert the wrong thing, confidently, and that is why
+    the defect shipped green.**
 
-    An absolute path would need to know the album folder cyanrip derives from
-    `-D` — a name we deliberately stopped predicting after `known_album_folder`
-    cost a finished rip by getting one character wrong.
+    Its old name was `..._so_it_lands_with_the_rip`, and its docstring said a
+    relative name *"puts the record beside the other artifacts and the evidence
+    bundle picks it up"*. Both halves are false, and the rig run of 2026-09-07
+    measured it: the child runs with `cwd=output_dir`, which is the rips ROOT —
+    its own app log says `cwd=/home/rmccann/Music/rips` for all eight rips —
+    while cyanrip creates the album folder itself from `-D` one or two levels
+    below. So the record landed *above* every album folder; `cyanrip-diagnostics`
+    appears **0 times** in that run's bundle MANIFEST, neither collected nor
+    refused, because it was never in a directory the bundler reads.
+
+    RELATIVE IS STILL RIGHT, for the reason the old docstring gave and which
+    still holds: an absolute path would have to name the album folder cyanrip
+    derives from `-D`, and predicting that is what cost a finished 14-track rip
+    over one character (`CLAUDE.md`, the `‹` substitution). What was wrong was
+    the FIXED name — chosen for predictability, it produced one mutable slot that
+    eight rips overwrote in turn, and a race the same run made real when an
+    abandoned reader kept writing for 15 minutes alongside later rips.
+
+    So: relative, and unique. Putting it *with* the artifacts needs a post-rip
+    move, which is tracked in `TASKS.md` rather than smuggled in here.
     """
     argv = _rip_argv()
     path = argv[argv.index("-j") + 1]
     assert not path.startswith("/"), f"{path!r} is absolute"
     assert "/" not in path, f"{path!r} should be a bare filename in the rip's cwd"
     assert path.endswith(".json")
+    # UNIQUENESS is the property this test exists for now. A fixed name passes
+    # every assertion above, which is how the old version stayed green.
+    assert path != f"{DIAGNOSTICS_RECORD_PREFIX}.json", (
+        f"{path!r} is the fixed name again — every rip in an output root would "
+        f"overwrite the previous one's record, and two concurrent rips would "
+        f"race for it"
+    )
+    from platterpus.adapters.cyanrip_backend import diagnostics_record_name
+
+    a = diagnostics_record_name(datetime(2026, 9, 7, 3, 7, 12, tzinfo=UTC))
+    b = diagnostics_record_name(datetime(2026, 9, 7, 3, 7, 13, tzinfo=UTC))
+    assert a != b, "two rips a second apart would still collide"
+    assert a == "cyanrip-diagnostics-20260907T030712Z.json", a
 
 
 def _rip_argv() -> list[str]:

@@ -11,6 +11,80 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Cancelling a rip did not stop the rip.** Found on the rig, 2026-09-07, and it
+  is the most serious defect this project has shipped in weeks. `handle.terminate()`
+  sends SIGTERM to the **host-exported wrapper** in `~/.local/bin/`; the reader runs
+  inside the `ripping` container under a different process tree, and podman does not
+  forward the signal to it. `_on_rip_finished` then treated the wrapper's exit as
+  proof that *"the reader is already gone"* and disarmed the 5-second force-stop
+  rescue — the one mechanism that could have reached the reader.
+  **Measured, from that run's own artifacts:** cancel at 00:04:52 sent one SIGTERM;
+  the wrapper exited 498 ms later; the reader ran until **00:20:25**, fifteen and a
+  half minutes on, finishing all three requested tracks. The run had already started
+  the next rip at 00:05:39, so two cyanrips read `/dev/sr0` concurrently for eleven
+  minutes. The rip's report says `status: cancelled`, `tracks: []`; its log says
+  `Rip completed: yes (3 of 14 tracks)` with a valid `Log FUN512:` — **two artifacts
+  of one rip flatly contradicting each other.**
+  A cancelled rip now keeps its rescue armed, and the rescue is what changed to make
+  that safe: it is **device-scoped** (`fuser -k` on the rip's own device, which finds
+  nothing when the cancel already worked) and it **never ejects**, so it cannot
+  reintroduce the 2026-08-18 defect the disarm was added to fix — a disc leaving a
+  drive nobody asked to open, which also made §J's *"can we rip again?"* proof
+  unanswerable.
+  **And it sends SIGTERM, not SIGKILL, which is the half that is easy to get
+  backwards.** `fuser -k` defaults to SIGKILL; SIGKILL cannot be caught, so cyanrip
+  runs no `atexit` — and `atexit` is where the completion footer and the FUN512
+  signature are written. Stopping the drive that way would have destroyed the exact
+  archival record §I of the acceptance run exists to protect, trading one failure for
+  a worse one. Asserted in both places, because the UI test only proves the signal was
+  *requested*: `revert_probe.py` graded the argv half **vacuous** until
+  `tests/test_drive_control.py` asserted `-TERM` actually reaches `fuser`.
+  **The fact was already written down twice in this repository** — in
+  `drive_control.free_drive`'s docstring (for a stuck disc *scan*) and in
+  `test_shutdown_stops_in_container_reader_during_rip` (for *shutdown*, after a
+  2026-07-01 user report, whose docstring says outright that *"podman doesn't forward
+  that into the container"*). The cancel path, the one a user actually presses, never
+  got it. `docs/testing.md` §5.o: enforce a rule across the codebase, not at the
+  place it was learned.
+
+- **Seven of that run's eight failures were one defect, and it was ours.** Every
+  `rig-check` reported `FAIL argv/record  cyanrip wrote no -j diagnostics record`.
+  The probe prepends its own `-j <absolute path>`, and on 2026-09-05 the rip argv
+  builder gained `-j cyanrip-diagnostics.json` — so the composed probe carried **two**
+  `-j` flags. Which wins is documented in the fork's source rather than guessed:
+  `main()` scans for the *first* and breaks (`cyanrip_main.c:2702-2707`), but
+  `cyanrip_run()` re-enables the sink with genopt's value at `cyanrip_main.c:1721`,
+  and genopt makes a repeated single-value option **replace** the previous one
+  (`genopt.h:582`) — that scan's own comment says genopt "is authoritative if the two
+  ever disagree". Line 1721 runs before the source open at `cyanrip_main.c:2026`,
+  where the probe's deliberately-unopenable device fails, so the record was being
+  written the whole time — to the builder's *relative* path, in whatever directory the
+  probe ran from. The probe read its own absolute path, found nothing, and reported
+  the check as impossible.
+  **Derived, not reasoned:** the same bundle carries an `argv-probe.json` from the
+  same probe against the same unopenable device on 2026-08-23, when the argv held one
+  `-j`. Same check, same refusal, one flag's difference. The probe now strips the
+  builder's `-j` and owns the only one; the composition is a named function so a test
+  can reach it — the first regression test built the argv itself and `revert_probe.py`
+  graded it `unaffected`, because the test and the fix shared no code.
+  Nothing here is a defect of the fork's, and it is not filed as one.
+
+- **The `-j` diagnostics record was overwritten by every rip and never reached the
+  evidence bundle.** Its name was fixed, on a comment that was wrong twice: it said
+  *"the directory is already per-rip"* and that the record *"lands with the other
+  artifacts and the evidence bundle collects it"*. The child runs with
+  `cwd=output_dir` — the rips **root**; that run's app log records
+  `cwd=/home/rmccann/Music/rips` for all eight rips — while cyanrip creates the album
+  folder itself from `-D` one or two levels below. So the record landed above every
+  album folder, all eight rips wrote the same file in turn, and `cyanrip-diagnostics`
+  appears **0 times** in the bundle's `MANIFEST.txt`: neither collected nor refused,
+  because it was never in a directory the bundler reads. The name now carries a
+  per-rip UTC stamp, which also closes a race the cancel defect above made real. The
+  test that asserted the old behaviour has been rewritten rather than deleted — its
+  docstring restated the false reasoning, which is why this shipped green.
+
+
 ## [0.6.41] — 2026-09-07
 
 ### Fixed
