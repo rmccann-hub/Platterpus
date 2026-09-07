@@ -741,10 +741,13 @@ def test_the_P3_verdict_names_WHICH_checksum_and_warns_off_the_obvious_one() -> 
     halves are asserted, because naming the right one without excluding the wrong
     one leaves the trap in place for someone who skims.
 
-    Adopted from the cyanrip fork's round-16 lap 2, which made the point
-    explicitly and switched its own harness to `-o pcm` for it. Their instrument
-    was sharper than ours here; the ledger records it, and this test is what stops
-    the qualifier being tidied back out.
+    Adopted from the cyanrip fork's round-16 harness, which prints the container
+    md5s, says in its own output that a difference there is "necessary and not
+    sufficient", and decodes separately with `ffmpeg -f md5` -- reporting
+    `UNPROBED` rather than a pass when ffmpeg is absent
+    (`round-16-lap-02-rig-round16.sh:181-212`). Their instrument was sharper than
+    ours here; the ledger records it, and this test is what stops the qualifier
+    being tidied back out.
     """
     text = (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8")
 

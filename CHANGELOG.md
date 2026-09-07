@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.41] — 2026-09-07
+
 ### Fixed
 - **The acceptance run's de-emphasis verdict could be "confirmed" by a comparison
   that establishes nothing.** Section P3 deliberately does not decide its clause —
@@ -23,9 +25,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   an input that cannot produce one, and the clause reads as settled while the
   de-emphasis cascade is still broken — the same self-consistently-wrong failure P3
   exists to catch. The sentence now names its domain *and* the reading it excludes,
-  and a test holds both halves. Adopted from the cyanrip fork's round-16 lap 2,
-  whose own harness switched to `-o pcm` for this reason; their instrument was
-  sharper than ours here.
+  and a test holds both halves. Adopted from the cyanrip fork's round-16 harness,
+  which prints the container md5s, says in its own output that a difference there
+  is *"necessary and not sufficient"*, and decodes separately with `ffmpeg -f md5`
+  — reporting `UNPROBED` rather than a pass when ffmpeg is absent
+  (`round-16-lap-02-rig-round16.sh:181-212`). Their instrument was sharper than
+  ours here.
 
 - **Round 16 had two laps numbered 2, and one of them was ours.** Our outbound lap
   2 was written before their lap 2 arrived — they sent lap 1, then lap 2 out of
@@ -37,21 +42,26 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   The reply is **lap 3**, which is what their lap 2's `HANDSHAKE-NEXT-LAP: yours`
   asks for.
 
-- **Raw PCM was audio none of our three media guards knew about.** The cyanrip
-  fork's current round-16 harness settles clause 2 by ripping the de-emphasis pair
-  with `-o pcm` instead of `-o flac`, so `md5sum` compares **samples** rather than
-  container bytes and no decoder is needed on the rig. It is a genuine improvement
-  — and it introduced an extension that `.gitignore`, `.githooks/pre-commit` and
-  the `media-guard` CI job all missed, while the same script tells the operator to
-  *"bring back the whole of `$OUT`"*.
-  A `.pcm` is interleaved s16le stereo: it **is** the audio, with less wrapping
-  than a `.wav`, so Critical rule #8 covers it for exactly the reason it covers
-  `.wav`. `.pcm` and `.raw` added to all three, and the hook was verified by
-  staging one and watching it refuse — the guard, not the intention.
-  Worth naming the shape: a change on the *other* side of the seam widened what can
-  reach this repository, and nothing here would have noticed. Our evidence bundler
-  was already safe because it admits by **allowlist**; the three that failed are the
-  denylists.
+- **Raw PCM was audio none of our three media guards knew about.** `cyanrip -o pcm`
+  writes interleaved s16le stereo — `CYANRIP_FORMAT_PCM` is
+  `{ "pcm", "PCM", "pcm", "s16le", … }` at `cyanrip_main.c:113`, read rather than
+  recalled. It **is** the audio, with less wrapping than a
+  `.wav`, so Critical rule #8 covers it for exactly the reason it covers `.wav` —
+  and `.gitignore`, `.githooks/pre-commit` and the `media-guard` CI job listed the
+  container formats and none of them listed `.pcm` or `.raw`. Both added to all
+  three, and the hook was verified by staging one and watching it refuse — the
+  guard, not the intention.
+  Our evidence bundler was already safe because it admits by **allowlist**; the
+  three that failed are the denylists, and a denylist is only ever as current as
+  the last format someone thought of.
+  **Correcting the reason this was originally written down.** The first version of
+  this entry said the cyanrip fork's round-16 harness had "switched to `-o pcm`".
+  It has not: it rips `-o flac` throughout and gets the sample domain with
+  `ffmpeg -f md5`, printing `UNPROBED` rather than a pass when ffmpeg is absent
+  (`round-16-lap-02-rig-round16.sh:181-212`). That was a mechanism asserted in a
+  peer's code without reading it — the rule against exactly that is in `CLAUDE.md`,
+  and nothing false reached the fork only because their laps were never told it.
+  The guard is still right on its own merits; the cause was invented.
 
 - **Section A would have failed the round-16 hardware run at its first
   assertion.** Protocol §6a's sequence is *agree a test pin → both install it →
@@ -136,8 +146,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   being independently correct. The rule is amended to record the exception rather
   than quietly diverged from.
 
-
-## [0.6.41] — 2026-09-07
 
 ### Fixed
 - **Our fatal-message matcher was three strings behind the ripper, and one string
