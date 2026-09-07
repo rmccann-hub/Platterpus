@@ -11,6 +11,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.43] — 2026-09-07
+
+Cut so the round-16 joint hardware session runs on a build that carries the
+cyanrip fork's two lap-4 findings **fixed**. `0.6.42` did not: both fixes
+landed after its tag, so an acceptance run on it would have printed the false
+`-j` denial once per rip and mis-graded `parser/interrupted` on the cancelled
+rip — reproducing, in the evidence bundle, the two defects the fork had just
+reported and we had just fixed.
+
 ### Fixed
 - **`--install-ripper list` offered two builds and called the wrong one
   mandatory.** `UNDER_REVIEW_TARGET`'s reason read *"what an acceptance run must
@@ -13795,7 +13804,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.42...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.43...HEAD
+[0.6.43]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.42...v0.6.43
 [0.6.42]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.41...v0.6.42
 [0.6.41]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.40...v0.6.41
 [0.6.40]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.39...v0.6.40
@@ -13925,4 +13935,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.42.*
+*Last updated for Platterpus v0.6.43.*
