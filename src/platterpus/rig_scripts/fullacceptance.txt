@@ -65,6 +65,38 @@
 #    same reason and just as often. "Take whichever one it offers" is the form
 #    that cannot go stale, because it delegates to the surface that knows.
 #
+#    IF THE CHECK OFFERS YOU NOTHING SECTION A ACCEPTS, THERE IS A SECOND
+#    ROUTE, AND YOU WILL NEED IT WHILE A ROUND IS OPEN ON AN UNPUBLISHED BUILD.
+#    The in-app check reads the fork's RELEASE MANIFEST, so it can only offer
+#    builds the fork has published. A handshake round may open on a commit they
+#    have nominated but never released — round 16 did — and then the dialog's
+#    best honest answer is "your build is current", which is true of the
+#    manifest and is not the build section A wants. Taking it ends the night at
+#    section A.
+#
+#    So, from a terminal, in the AppImage's own directory:
+#
+#        ./platterpus-x86_64.AppImage --install-ripper list
+#
+#    It prints every build THIS version can install, each with a marker and a
+#    reason: `✓ approved` is what a closed round verified, `⚠ under-review` is
+#    the build an open round is examining, `⚠ test-pin` is one both projects
+#    nominated for a joint hardware session. While a round is open, install the
+#    `under-review` or `test-pin` entry:
+#
+#        ./platterpus-x86_64.AppImage --install-ripper <the commit it printed>
+#
+#    THIS FILE STILL NAMES NO BUILD, for the reason three paragraphs up, and
+#    that is exactly why the route is a COMMAND rather than a commit: the list
+#    is generated from the same constant section A checks, so it cannot be the
+#    stale half of a pair. A `⚠` here is the record being honest about an open
+#    round, not a warning to heed — every rip will report `unapproved`, which is
+#    the evidence the run exists to produce.
+#
+#    (Why a terminal at all, when nothing else here needs one: the menu has no
+#    GUI caller yet. That is a real gap of ours, filed in TASKS.md, and it is
+#    the reason this paragraph exists instead of a second click.)
+#
 #    Section A asserts the exact expected build and STOPS THE RUN in the first
 #    few seconds if you are not on it — before any drive time is spent.
 #

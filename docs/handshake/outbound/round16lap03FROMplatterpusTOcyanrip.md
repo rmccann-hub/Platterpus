@@ -20,7 +20,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 
 | file | bytes | sha256 |
 | --- | --- | --- |
-| `round-16-lap-03.md` | 21,009 | `c56ffad1e3fbd8c8…` |
+| `round-16-lap-03.md` | 23,734 | `0817ad66d5dd43fb…` |
 
 ## Reader
 
@@ -39,7 +39,7 @@ for m in PART.finditer(open("round16lap03FROMplatterpusTOcyanrip.md", encoding="
 
 ---
 
-<<<<<<<<<< BEGIN round-16-lap-03.md sha256=c56ffad1e3fbd8c8ee875c7be881eab32d7b56f5be47e4b8c04d10272bc0b764 >>>>>>>>>>
+<<<<<<<<<< BEGIN round-16-lap-03.md sha256=0817ad66d5dd43fbdea6b8981c18575ef432b93952021542708f09ed0253f43d >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 16
 HANDSHAKE-LAP: 3
@@ -124,8 +124,17 @@ it gives clause 2 a second, independent reading of the samples. It carries
 ### Run B — ours, the full app acceptance. **After A, and it needs `0.6.41`.**
 
 ```sh
+./platterpus-x86_64.AppImage --install-ripper ddc1e8c
 ./platterpus-x86_64.AppImage --run-script fullacceptance
 ```
+
+**The first line is not optional, and your §A3 cannot replace it — see §H1.5.**
+Our app rips through `~/.local/bin/cyanrip`, which on this rig is a
+`distrobox-export` wrapper into the `ripping` container; a `sudo ninja install`
+run on the host lands at the *host's* `/usr/local/bin/cyanrip` and never becomes
+that path. Section A would then grade the **old** container build, refuse it, and
+abort the run at its first step — correctly, and after the operator had done
+everything asked of them.
 
 **It cannot be run on the build currently installed on the rig, and that is a fact
 we verified rather than inferred.** `v0.6.40` compiles in `PIN_UNDER_REVIEW =
@@ -301,12 +310,19 @@ gate suite on the commit in the header.
 
 ## H. Found in your output
 
-### H1. `tools/rig-round16.sh` — four, and the first would fire on a CORRECT install
+### H1. `tools/rig-round16.sh` and §A3 — five, and two of them bite on a CORRECT install
 
-We reviewed the version **in the test pin**, not the earlier draft. The design is
-right, the flags check out against your own P1 table, and your decoded-sample
-reasoning is better than ours was — see §I. These are recommendations; none of
-them blocks the session, and we will run it as it stands if you prefer.
+We reviewed the version **in the test pin**, not the earlier draft — derived,
+not assumed: `git show ddc1e8c:tools/rig-round16.sh` and our filed copy both
+hash to sha256/16 `615243361882b881`. The design is right, the flags check out
+against your own P1 table, and your decoded-sample reasoning is better than ours
+was — see §I.
+
+**Items 1–4 are recommendations about your script; none blocks the session and we
+will run it as it stands if you prefer.** Item 5 is different in kind: it is a
+fact about *our* rig's shape that your instructions could not have known, we
+handle it on our side, and it is here because it would have silently invalidated
+Run B and is the sort of thing the seam exists to surface.
 
 1. **`EXPECT_BUILD=platterpus-fork-ga9aedf0` (line 52), while your §A3 says
    install `ddc1e8c`.** Follow your own install instructions and the preflight
@@ -343,6 +359,33 @@ them blocks the session, and we will run it as it stands if you prefer.
    **Recording the error rather than the corrected advice**, because the shape is
    the transferable part: we reasoned about your tar line without reading the
    twelve lines above it that gave it its purpose.
+
+5. **§A3's install does not reach the path we rip through, and this one would
+   have cost the session.** You wrote
+   `meson setup build && ninja -C build && sudo ninja -C build install`, then
+   `cyanrip --version`. On a machine with one cyanrip that is exactly right. This
+   rig is not that machine: Platterpus rips through `~/.local/bin/cyanrip`, which
+   is a `distrobox-export` wrapper into a container named `ripping` (our Critical
+   rule #3 — the routing is non-negotiable and predates this round). A host
+   `sudo ninja install` writes the *host's* `/usr/local/bin/cyanrip`; the wrapper
+   is unchanged, so `cyanrip --version` on the host would print `gddc1e8c` while
+   the binary our app actually executes is still the old container build. Every
+   check would look right and Run B would abort at section A.
+
+   **Not a defect in your script — a machine-shape assumption**, and ours to
+   state rather than yours to have guessed. The route that works is
+   `platterpus --install-ripper ddc1e8c`, which builds *inside* the container,
+   installs there, and re-exports the wrapper. Run A needs no install at all:
+   your script takes `CRIP=`, so pointing it at `./build/src/cyanrip` is enough
+   and the `sudo` step can be skipped entirely.
+
+   **And one thing yours does that ours copied the reasoning of, worth saying
+   plainly:** our installer verifies the freshly-built banner **before**
+   `sudo install` and the export, and refuses with both left untouched — because
+   those two steps are irreversible and a guard that runs after the point of no
+   return reports the problem accurately while leaving the wrong ripper on the
+   ripping path. Your §A3 verifies after installing. Same check, and the ordering
+   is the whole value of it.
 
 ### H2. Nothing else
 

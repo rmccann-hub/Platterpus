@@ -1434,6 +1434,81 @@ def test_the_header_names_no_build_and_routes_to_the_app_instead() -> None:
     )
 
 
+def test_the_header_names_the_route_that_reaches_an_UNPUBLISHED_build() -> None:
+    """The in-app check cannot offer a build the fork never released.
+
+    `evaluate_offer` reads the fork's **release manifest**, so the set it can
+    offer is the set of published builds. A handshake round may open on a commit
+    the fork has nominated and not released — round 16 did, on `a9aedf0` — and
+    then the dialog's most honest answer is *"your build is current"*: true of
+    the manifest, and not the build section A wants. An operator who follows the
+    header's only route takes it and the run aborts at section A, four seconds
+    in, having produced no evidence. **That is the same five-second abort that
+    cost the 2026-08-27 run, reached by a third distinct path** — first a stale
+    channel name, then a stale build tag, now a route that is correct and cannot
+    see the answer.
+
+    So the header carries a second route, and it must stay build-free for the
+    reason the test above gives: this file ships inside a release, so any commit
+    written here freezes on build day. `--install-ripper list` is generated from
+    `ripper_choices()` — the same record section A checks — so it cannot be the
+    stale half of a pair.
+
+    Asserted as a pair, because either half alone is useless: the command, and
+    the labels that tell the operator which entry to pick.
+    """
+    header = _acceptance_header()
+
+    # Floor: this checks nothing if the header block stopped being found.
+    assert len(header) > 500, (
+        f"the acceptance header is only {len(header)} characters — the block "
+        f"detector has stopped finding it and this check is measuring nothing"
+    )
+
+    assert "--install-ripper list" in header, (
+        "the header no longer names the route that reaches a build the fork has "
+        "not published. The in-app check cannot offer one, so while a round is "
+        "open on an unreleased pin this is the operator's ONLY way onto the "
+        "build section A demands"
+    )
+    # BOTH the explanation and the INSTRUCTION, and the split is the point.
+    # A first version of this asserted only `label in header`, and
+    # `revert_probe.py` showed that satisfiable by the wrong occurrence: each
+    # label appears twice in the header — once where the markers are explained,
+    # once in the sentence that says which to install — so deleting either left
+    # the assertion green. The explanation without the instruction tells the
+    # operator what the words mean and not what to do.
+    for label in ("under-review", "test-pin"):
+        assert header.count(label) >= 2, (
+            f"the header mentions {label!r} only once. It needs both the "
+            f"explanation of the marker AND the sentence telling the operator to "
+            f"install that entry; one alone is a glossary or a guess"
+        )
+    assert re.search(
+        r"install\s+the\s*\n?#?\s*`?under-review`?\s*or\s*`?test-pin`?\s*entry",
+        header,
+        re.IGNORECASE,
+    ), (
+        "the header explains the markers but no longer INSTRUCTS which entry to "
+        "install while a round is open. That sentence is the whole operative "
+        "content of the second route"
+    )
+
+    # And the second route must not smuggle a build tag back in: same freeze
+    # argument as the test above, which is what makes a COMMAND the right answer.
+    from platterpus.deps import fork_source
+
+    for value, what in (
+        (fork_source.PIN_UNDER_REVIEW, "pin under review"),
+        (fork_source.FORK_TEST_PIN, "test pin"),
+    ):
+        assert value not in header, (
+            f"the header names the {what} ({value!r}). The route is a command "
+            f"precisely so the commit does not have to be written here, where it "
+            f"ships frozen inside a release and cannot learn that the pin moved"
+        )
+
+
 def test_the_header_does_not_tell_the_operator_to_take_the_NEWEST_ripper() -> None:
     """The regression test for the 2026-08-28 defect.
 
