@@ -190,14 +190,27 @@ def _unescape_cell(text: str) -> str:
 
 
 def _py_literal(text: str) -> str:
-    """A Python string literal for ``text``, preserving backslashes verbatim.
+    """A Python string literal for ``text``, in the form `ruff format` produces.
 
-    The contract publishes the C *source* literal, so a `\\n` in it is the two
-    characters and must stay two characters. `repr()` gets this right and a
-    hand-rolled quoter does not, which is the whole reason this is a function
-    with a comment rather than an f-string.
+    Two requirements, and the second was learned the hard way.
+
+    **Backslashes stay verbatim.** The contract publishes the C *source* literal,
+    so a ``\\n`` in it is two characters and must remain two. `repr()` gets that
+    right and a hand-rolled quoter does not.
+
+    **The quoting must be what the formatter would choose**, or `--check` can never
+    pass: `repr()` prefers single quotes, `ruff format` prefers double, so the
+    generator wrote a file the formatter immediately rewrote and the staleness
+    check then reported a document that was perfectly current. A generated artifact
+    whose own checker always fails is worse than an ungenerated one — it trains the
+    reader to ignore it. So: double quotes, unless the text contains one and no
+    single quote, which is exactly ruff's rule.
     """
-    return repr(text)
+    quoted = repr(text)
+    if quoted.startswith("'") and chr(34) not in text:
+        inner = quoted[1:-1].replace(chr(92) + "'", "'")
+        return chr(34) + inner + chr(34)
+    return quoted
 
 
 def render_messages(p5: list[Row]) -> str:

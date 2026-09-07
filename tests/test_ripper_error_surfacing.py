@@ -989,3 +989,44 @@ def test_the_newest_contract_is_chosen_by_LAP_not_by_filesystem_order() -> None:
         "incomplete and the winner is whatever order the filesystem offered — "
         "which is how this passed locally and failed on the CI runner."
     )
+
+
+def test_the_inventory_and_its_fixture_are_GENERATED_and_current() -> None:
+    """`scripts/emit_ripper_inventory.py --check` must pass.
+
+    **The instruction existed for eleven rounds and the mechanism did not.**
+    `ripper_message_inventory.py` has said *"Do not hand-edit. Regenerate when a
+    handshake round ships a new inventory"* since it was written, with no tool to
+    regenerate it with — and the module's own docstring records the result: it sat
+    at round 6's 115 rows for five rounds while seven newer contracts were
+    committed to this repository. A comment where a check belongs.
+
+    This is that check. It fails when a newer provider contract is filed and the
+    inventory has not been rebuilt from it, which is precisely the state that
+    persisted unnoticed for five rounds.
+
+    Running the generator's own `--check` rather than re-deriving here is
+    deliberate: a second implementation of the parse would be a second thing to
+    drift, and the two would then disagree about a document neither of them owns.
+    """
+    import subprocess
+    import sys
+
+    root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        [sys.executable, "scripts/emit_ripper_inventory.py", "--check"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, (
+        "the fatal-message inventory is stale against the newest filed provider "
+        "contract — run `python3 scripts/emit_ripper_inventory.py`:\n"
+        f"{result.stdout}{result.stderr}"
+    )
+    # Non-vacuity: a `--check` that passed because it examined nothing would say so
+    # with a zero count, and the generator's own floors would have refused first.
+    assert "P5" in result.stdout, (
+        f"--check passed without reporting what it measured: {result.stdout!r}"
+    )
