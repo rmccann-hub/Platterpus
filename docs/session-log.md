@@ -258,11 +258,21 @@ about, since theirs verifies after, and those two steps are irreversible.
 
 ### Two gates caught me, one of them mine, and both were right
 
-* **The release workflow refused its own dispatch.** I dispatched `v0.6.41` seconds
-  after the squash merge, and its first gate reported eight CI checks `in_progress`
-  with *"Wait for CI, then re-run this release — an unfinished check is not a pass."*
-  Exactly the closed-population rule from `CLAUDE.md`, enforced in the one place it
-  costs a release rather than a paragraph. Re-dispatched after CI completed.
+* **The release workflow refused its own dispatch twice, on two different gates,
+  and both were right.** First I dispatched `v0.6.41` seconds after the squash
+  merge and its CI gate reported eight checks `in_progress` — *"Wait for CI, then
+  re-run this release — an unfinished check is not a pass."* That is the
+  closed-population rule enforced where it costs a release rather than a
+  paragraph. Re-dispatched once CI completed, and it then failed on the
+  **changelog** gate: 103 lines still under `[Unreleased]`.
+  The second refusal is the more interesting one, because the cause is benign and
+  the gate could not know that. The release commit rolled the changelog and then
+  **work continued on the same branch** — nine more entries accumulated while
+  `__version__` already read `0.6.41`. All of it is in the tree the tag is cut
+  from, so the honest destination was the `0.6.41` section rather than a second
+  version number, and rolling it there is what unblocked the release. **A version
+  bump mid-session makes every later commit a release commit**, which is not how
+  the checklist imagines the cycle going; the gate is what noticed.
 * **The lap's digest placeholder guessed a lap count from memory.** It read *"over 3
   lap(s)"*; `scripts/round_digest.py 16 --exclude round-16-lap-03.md` says **2** —
   the population excludes the lap doing the excluding. The field exists to catch a
