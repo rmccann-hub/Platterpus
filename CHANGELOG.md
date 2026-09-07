@@ -12,6 +12,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **The round-16 pin joins the flag sets on a RECOMPUTED anchor, not the fork's
+  word for it.** Their contract's banner names `g0d0ae8e` — the parent, the usual
+  generated-artifact shape — so the banner cannot say which source it describes.
+  It also publishes a **source anchor**, and that anchor recomputes here over the
+  fork's tree at `a9aedf0`: `c0f550c75450f031` over 44 `src/*.c`/`src/*.h` files,
+  using their own construction read out of `tools/gen-provider-contract.py` at the
+  pin (sorted flat listing, each file's *name* hashed before its bytes — a
+  recursive walk without the names gives `c8de8623734d0620` and is not their
+  method, which is worth recording because the first attempt here produced exactly
+  that and it would have read as a mismatch).
+  Round 15's equivalent row had to rest on the fork's statement that
+  `git diff -- src/` was empty; this one does not. Without it every rip on the
+  reviewed build would log `Consumer: not identified (no --consumer given)` and
+  `--verify-log` would grade `not_determined` — on the one build an acceptance run
+  is about.
 - **Acceptance section P3 — round 16's close-condition clause 2, the one no
   fixture on either side can reach.** Their held item 2 was a filter built as a
   ternary cascade, so `hdcd` matched first and `aemphasis` was never reached:
