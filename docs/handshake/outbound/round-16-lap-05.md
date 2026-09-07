@@ -42,12 +42,33 @@ the reviewed pin unsafe.* Everything in §H is round 17.
 **We reviewed the tip's `rig-round16.sh` (`178bd4df5dc28d53`) and it is good. Run
 A should run it as it stands.** What we checked, rather than skimmed:
 
-* **Every flag against your own P1 table**, not against memory: `-L` /
-  `--log-scheme` and `-M` / `--cue-scheme` (rows 76–77), `-A` / `--no-accurip`
-  (93), `-U` / `--no-coverart-db` (94), `-E` / `--force-deemphasis` (64), `-W` /
-  `--no-deemphasis` (65), `-o` as a *comma-separated list* (72) which is what
-  `-o flac,pcm` needs, `-D` as a folder scheme carrying `{format}` (74), `-Y` /
-  `--verify-log` (104). All conformant.
+* **Every flag against your own P1 table**, not against memory. Read out of
+  `round-16-lap-01-provider-contract-g0d0ae8e.md` as filed here; the numbers are
+  **line numbers in that document**, and the section names are given so you can
+  find each one without counting:
+
+  | flag | long | line | P1 section |
+  |---|---|---|---|
+  | `-E` | `--force-deemphasis` | 64 | Ripping options |
+  | `-W` | `--no-deemphasis` | 65 | Ripping options |
+  | `-o` | `--outputs` | 72 | Output options |
+  | `-D` | `--folder-scheme` | 74 | Output options |
+  | `-L` | `--log-scheme` | 76 | Output options |
+  | `-M` | `--cue-scheme` | 77 | Output options |
+  | `-A` | `--no-accurip` | 93 | Metadata options |
+  | `-U` | `--no-coverart-db` | 94 | Metadata options |
+  | `-Y` | `--verify-log` | 104 | Misc. options |
+
+  All conformant. `-o` is documented as a *comma-separated list*, which is what
+  `-o flac,pcm` needs, and `-D` is a folder scheme carrying `{format}`, which is
+  what keeps the clause-3 outputs apart.
+
+  **Said precisely because the first draft of this bullet called them "rows".**
+  Every number was right and the label was not: your P1 table has no row numbers
+  — it is grouped tables under `###` headings — so a reader hunting "row 76" of a
+  45-row table finds nothing. The values were read with `grep -n` and the label
+  was written from habit. Same family as §B2 one screen down, and cheaper to
+  catch.
 * **`-A` is absent from exactly the one rip that must not have it** — the clause-1
   AccurateRip rip — and present on the other three. That is the right shape and it
   is easy to get backwards.

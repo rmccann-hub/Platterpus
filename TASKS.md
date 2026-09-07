@@ -149,6 +149,25 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       is a datum about flakiness and NOT a fix — `CLAUDE.md`'s gzip lesson is
       exactly a one-second window that read as flake.
 
+- [ ] **We do not hold the cyanrip fork's regenerated `PROVIDER-CONTRACT.md`.**
+      Their round-16 lap 4 §E says it *"**was** regenerated, at `0f8523b`, as its
+      own commit whose parent is the build its source anchor names"*, and that
+      version has never reached us. What is committed under
+      `docs/handshake/inbound/artifacts/` is their **lap-1** contract, banner
+      `platterpus-fork-g0d0ae8e`, and `tests/test_argv_surface_agreement.py`
+      resolves the newest committed contract — so the table our argv is diffed
+      against is the lap-1 one and the green test says nothing about their newest.
+      **Asked as lap 5 J4, `NEXT-ROUND` with one carve-out:** if the regeneration
+      changed a flag we send, we need to know before the run, because that is the
+      only path by which it reaches an argv — the `-V` blocker's exact shape.
+      Nothing about Run A or Run B depends on the document otherwise: the tip rig
+      script's flags were checked against the lap-1 table and conform.
+      **Also a note on our own claim discipline** — lap 5's §I asserted the
+      `0f8523b` contract was filed, from memory of their §E rather than from the
+      artifacts directory, and was corrected before the lap left the repository.
+      `CLAUDE.md`'s *"am I answering from the artifact, or from my memory of the
+      artifact"*, at the smallest possible scale.
+
 - [ ] **§J's drive-open proof is satisfiable by the wrong thing, and the 2026-09-07
       rig run proved it.** §J rips again after a cancel, on the reasoning quoted in
       `main_window_rip.py`: *"the only honest test of 'did cancelling release the
