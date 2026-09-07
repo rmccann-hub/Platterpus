@@ -126,6 +126,29 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       only an informational line under-reports. Touching a verify path with a drive
       waiting is the trade this row refuses.
 
+- [ ] **A leaked evidence-bundle callback can hang an unrelated test, and only one
+      matrix leg saw it.** `main`'s CI on `65b20f0` failed `test (py3.12)` with a
+      5-minute pytest-timeout whose faulthandler dump reads:
+      `rip_progress.py:787 append_log_line` ← `main_window_rip.py:2893
+      _on_evidence_bundle_done` ← `conftest.py:418 pump` ←
+      `test_ui_pending_installs_dialog.py:293 test_install_one_mode_records_failures`.
+      An evidence-bundle completion signal from an EARLIER test delivered into an
+      install-dialog test's `pump()`.
+      **Established about its cause, and what is not:** the same content passed
+      `test (py3.12)` on PR #201 (`66ed5ef`), the only `src/` delta from the
+      previous `main` commit is the `__version__` string, and `closeEvent`
+      explicitly stops `_force_stop_timer` so the 2026-09-07 cancel fix leaks no
+      timer past teardown. So it is timing-dependent and the evidence points away
+      from that change — **not proven unrelated**, and it does not reproduce
+      running `tests/test_ui_pending_installs_dialog.py` alone three times on
+      py3.11.
+      **The real finding is the isolation gap**, not the timeout: a worker from
+      test A should not be able to deliver into test B's event pump at all. The
+      window fixture closes the window, which is why this is rare; what is missing
+      is draining or refusing queued cross-test signals. A rerun that goes green
+      is a datum about flakiness and NOT a fix — `CLAUDE.md`'s gzip lesson is
+      exactly a one-second window that read as flake.
+
 - [ ] **§J's drive-open proof is satisfiable by the wrong thing, and the 2026-09-07
       rig run proved it.** §J rips again after a cancel, on the reasoning quoted in
       `main_window_rip.py`: *"the only honest test of 'did cancelling release the
