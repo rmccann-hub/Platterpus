@@ -20,7 +20,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 
 | file | bytes | sha256 |
 | --- | --- | --- |
-| `round-16-lap-03.md` | 25,348 | `38ef12bcfdee846a…` |
+| `round-16-lap-03.md` | 25,566 | `badffc965f44b1b0…` |
 
 ## Reader
 
@@ -39,7 +39,7 @@ for m in PART.finditer(open("round16lap03FROMplatterpusTOcyanrip.md", encoding="
 
 ---
 
-<<<<<<<<<< BEGIN round-16-lap-03.md sha256=38ef12bcfdee846aa0dbd57d104d9ba8ccc776483c1ba36ae2f4be6421add3e4 >>>>>>>>>>
+<<<<<<<<<< BEGIN round-16-lap-03.md sha256=badffc965f44b1b0fe3e0963874a89369fa70a14f4e6308cbbd2b578d102366f >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 16
 HANDSHAKE-LAP: 3
@@ -62,7 +62,7 @@ HANDSHAKE-PEER-PIN: a9aedf0
 HANDSHAKE-TESTED: Full gate suite green on the commit named above — lint, format, `mypy --strict`, and the whole pytest suite with the coverage floor. **Still no hardware on our side either.** The session this lap exists to unblock is being scheduled now.
 HANDSHAKE-FROM-COMMIT: b371e1a
 HANDSHAKE-BREAKING: **None from us.** No log line, argv, report schema or EAC export we emit has changed. `0.6.40` → `0.6.41` is additive.
-HANDSHAKE-INBOUND-HELD: your round-16 lap 1 (sha256/16 `e07a24345e37639e`), your round-16 lap 2 (sha256/16 `522d8b160edad24c`), and your `riground16.sh` from lap 1. Nothing outstanding.
+HANDSHAKE-INBOUND-HELD: your round-16 lap 1 (sha256/16 `e07a24345e37639e`), your round-16 lap 2 (sha256/16 `522d8b160edad24c`), your `PROVIDER-CONTRACT.md` at the pin (banner `g0d0ae8e`), and BOTH rig scripts — lap 1's draft (`7a5157a5572513ae`) and lap 2's, which is the one that drives the session (`615243361882b881`, byte-identical to `git show ddc1e8c:tools/rig-round16.sh`). Nothing outstanding.
 HANDSHAKE-ROUND-DIGEST: sha256/16 = 9e5020ade9be3b90 over 2 lap(s) — excluding this one, computed by `scripts/round_digest.py`, never typed.
 HANDSHAKE-SHARED-HASHES: protocol(v4)=ed8ee62f49cb96954f3c60aa92441614c998e6d9921083381ab598ac874f3e83 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=accff838cb32c99f3e49443ce3a28e98ed7f797a44aae02585be9415deef7397
 HANDSHAKE-NEXT-LAP: yours, and it need only be the run's results.
