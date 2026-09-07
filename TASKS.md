@@ -126,6 +126,32 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       only an informational line under-reports. Touching a verify path with a drive
       waiting is the trade this row refuses.
 
+- [ ] **§J's drive-open proof is satisfiable by the wrong thing, and the 2026-09-07
+      rig run proved it.** §J rips again after a cancel, on the reasoning quoted in
+      `main_window_rip.py`: *"the only honest test of 'did cancelling release the
+      drive?' is ripping again afterwards"*. It **passed** on a run where the drive
+      was never released at all — the cancelled reader kept it for another 15 minutes
+      and the second rip simply ran concurrently. A check that passes both when the
+      drive was freed AND when it was never taken away is measuring nothing;
+      `CLAUDE.md`'s *can it be satisfied by the wrong thing?* asked of the very check
+      written to answer this question.
+      **What it needs:** an assertion that nothing holds the device at that point —
+      `fuser -s <device>` with no `-k`, tri-state, where "could not check" is not a
+      pass. That is a new non-destructive probe in `drive_control` plus a script verb,
+      so it is a change to the rig surface rather than a comment fix.
+      NEXT-ROUND: the cancel defect itself is fixed, so §J is no longer *actively*
+      misleading; it is still not evidence.
+
+- [ ] **Move the `-j` diagnostics record into the album folder after the rip.** Its
+      name is now per-rip (2026-09-07), which fixes the overwrite and the concurrency
+      race, but it still lands in `output_dir` — the rips root — so the evidence
+      bundle does not collect it and it litters the user's music library one file per
+      rip. The album folder is only knowable AFTER the rip (cyanrip derives it from
+      `-D`), and predicting it is what cost a finished 14-track rip over one
+      character, so the fix is a post-rip move from the known log path's parent, not a
+      cleverer argv. Small, and deliberately not done in the same change as the cancel
+      fix: that one touches a destructive path and wanted its own commit.
+
 - [ ] **KDD-17 GAP: `ripper_choices()` has no GUI caller.** `--install-ripper` and
       `--install-ripper list` are CLI-only (`app.py:873`, `:889`), so a GUI-only
       operator has **no route** to the build an open round is reviewing whenever the

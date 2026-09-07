@@ -11,6 +11,121 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-07 (later) — the rig ran, and the cancel never cancelled
+
+**One sentence: an overnight acceptance pass on `0.6.40` + `978f9b0` came back
+222/231, and the eight failures were three defects — one of which let a cancelled
+rip keep the drive for fifteen and a half minutes while two later rips read the
+same disc.**
+
+The run was on the PREVIOUS pair, not round 16's: app `0.6.40`, ripper
+`platterpus-fork-g978f9b0`, the reference disc (The Police, 14 tracks). So it is
+not round-16 evidence and does not touch the open round's close conditions. It is
+the best hardware evidence this project has had for the app's own paths.
+
+### The bundle contradicted itself, and that is what unravelled it
+
+`expect-log-well-formed` failed in §I with *"NO completion footer … NO `Log
+FUN512:` signature … no track blocks at all"*. The log in the same bundle has
+three complete track blocks, `Rip completed:  yes (3 of 14 tracks)`, and a valid
+`Log FUN512:`. Both statements were true, seconds apart, and the gap between them
+is the defect.
+
+**The reaped child is the WRAPPER, not the reader.** `handle.terminate()` sends
+SIGTERM to the host export in `~/.local/bin/`; the reader is inside the `ripping`
+container under a different process tree and podman does not forward the signal.
+So the wrapper died, our pipe closed, `_on_rip_finished` fired — and it disarmed
+the 5-second rescue on the strength of its own docstring, *"The rip subprocess
+exited"*, under a heading reading *"the reader is already gone"*.
+
+Measured off the run's own artifacts: cancel 00:04:52 → wrapper exit 00:04:52.648
+→ reader still writing track 2 at 00:06:58 and track 3 at 00:12:02 → finished
+00:20:25. The next rip started 00:05:39 and completed at 00:16:16, so two cyanrips
+shared `/dev/sr0` for eleven minutes, and a third overlapped the tail.
+
+**The fact was already in this repository, twice.**
+`drive_control.free_drive`'s docstring says *"podman doesn't forward the kill
+signal into the container"* — about a stuck disc *scan*. And
+`test_shutdown_stops_in_container_reader_during_rip` says it about *shutdown*,
+after a 2026-07-01 user report. The cancel path, the one a user presses, never got
+it. §5.o at full scale: the rule was learned three times in three places and
+enforced in two.
+
+**The fix had to satisfy both directions at once**, because the disarm was itself
+a fix: until 2026-08-18 the rescue fired after every cancel including the ones
+that worked, ejecting a disc nobody asked to eject. Arming is no longer the
+conditional — the **action** is. `fuser -k` on the rip's own device kills whatever
+holds *that* device and finds nothing when the cancel already worked, so it is a
+no-op in the good case and effective in the bad one, and it does not eject.
+
+**And it sends SIGTERM, not SIGKILL — the half I nearly got backwards.**
+`fuser -k` defaults to SIGKILL, which cannot be caught, so cyanrip would run no
+`atexit`, and `atexit` is where the footer and FUN512 are written. I had the
+device-scoped fix working before noticing it would have destroyed the precise
+record §I exists to protect. Stopping the drive by making the log unverifiable is
+not a fix; it is the same failure with better optics.
+
+### Seven of eight failures were one line, and it was ours
+
+Every `rig-check` reported `FAIL argv/record  cyanrip wrote no -j diagnostics
+record`. The probe prepends its own `-j <abs path>`; the rip argv builder gained
+`-j cyanrip-diagnostics.json` on 2026-09-05; the composed probe carried two.
+Precedence read from their source rather than guessed — `main()` takes the first
+and breaks (`cyanrip_main.c:2702`), `cyanrip_run()` re-enables with genopt's value
+at `:1721`, and genopt makes a repeated single-value option replace
+(`genopt.h:582`), so the **last** wins; :1721 precedes the source open at :2026,
+so the record was written all along, to a relative path nobody read.
+
+**Settled by an artifact rather than by argument**: the same bundle carries an
+`argv-probe.json` from the same probe against the same unopenable device on
+2026-08-23, when the argv held one `-j`. One flag's difference, and the 2026-09-05
+comment adding that flag had *explicitly* deferred it until after an acceptance
+run *"rather than risk the night for a diagnostic that only helps once something
+else has failed"*. The caution was right and the first unattended run after it is
+the one it broke.
+
+**My first regression test for it was not one.** `revert_probe.py` graded it
+`unaffected` when the production strip was reverted: the test composed the argv
+itself, so it and the fix shared no code. Extracted `compose_probe_argv` so the
+test goes through the thing that was wrong.
+
+### A record we added for diagnosis, in the one place nothing collects
+
+The `-j` record's name was fixed, justified by a comment wrong on both halves:
+*"the directory is already per-rip"* and *"lands with the other artifacts and the
+evidence bundle collects it"*. `cwd=output_dir` is the rips **root** — the app log
+says `cwd=/home/rmccann/Music/rips` for all eight rips — and cyanrip makes the
+album folder itself from `-D`. So it landed above every album folder, eight rips
+overwrote one file, and `cyanrip-diagnostics` appears **0 times** in the bundle's
+MANIFEST: not collected, not refused, never in a directory the bundler reads.
+The test asserting the old behaviour restated the false reasoning in its
+docstring, which is why this was green. Rewritten, not deleted.
+
+### §J passed and proves nothing, which is worse than failing
+
+§J rips again after a cancel, on the reasoning quoted in the code: *"the only
+honest test of 'did cancelling release the drive?' is ripping again afterwards"*.
+It passed on a run where the drive was **never released** — the second rip just
+ran alongside the first. A check satisfied both when the drive was freed and when
+it was never taken away is measuring nothing, and this is *can it be satisfied by
+the wrong thing?* asked of the check written to answer exactly that question.
+Filed rather than fixed: it needs a non-destructive `fuser -s` probe and a script
+verb, tri-state, and the cancel fix means it is no longer actively misleading.
+
+### What passed, and is worth having
+
+222 steps. §N's secure re-read genuinely exercised — 14/14 tracks carrying the
+line, per-track 26,596 against a disc total of 76,217, a ratio of ≈2.87 which is
+the documented `-Z` behaviour rather than a discrepancy — over 2h52m, with tracks
+3 and 5 honestly reported as still not converging. The cache probe returned and
+did not hold the drive. The C1 no-offset refusal did not hang. Every completed rip
+verified bit-perfect against AccurateRip. The ETA guard refused a 75,900-second
+estimate instead of printing it. **One SIGTERM only** — the 2026-09-05
+double-signal fix works on hardware. And Critical rule #8 held: every audio file
+refused by allowlist and named in the manifest, no audio in the archive.
+
+---
+
 ## 2026-09-07 — round 16 opens, and both projects aim at one drive
 
 **One sentence: the fork opened round 16 on a build they have not published, we
@@ -258,11 +373,21 @@ about, since theirs verifies after, and those two steps are irreversible.
 
 ### Two gates caught me, one of them mine, and both were right
 
-* **The release workflow refused its own dispatch.** I dispatched `v0.6.41` seconds
-  after the squash merge, and its first gate reported eight CI checks `in_progress`
-  with *"Wait for CI, then re-run this release — an unfinished check is not a pass."*
-  Exactly the closed-population rule from `CLAUDE.md`, enforced in the one place it
-  costs a release rather than a paragraph. Re-dispatched after CI completed.
+* **The release workflow refused its own dispatch twice, on two different gates,
+  and both were right.** First I dispatched `v0.6.41` seconds after the squash
+  merge and its CI gate reported eight checks `in_progress` — *"Wait for CI, then
+  re-run this release — an unfinished check is not a pass."* That is the
+  closed-population rule enforced where it costs a release rather than a
+  paragraph. Re-dispatched once CI completed, and it then failed on the
+  **changelog** gate: 103 lines still under `[Unreleased]`.
+  The second refusal is the more interesting one, because the cause is benign and
+  the gate could not know that. The release commit rolled the changelog and then
+  **work continued on the same branch** — nine more entries accumulated while
+  `__version__` already read `0.6.41`. All of it is in the tree the tag is cut
+  from, so the honest destination was the `0.6.41` section rather than a second
+  version number, and rolling it there is what unblocked the release. **A version
+  bump mid-session makes every later commit a release commit**, which is not how
+  the checklist imagines the cycle going; the gate is what noticed.
 * **The lap's digest placeholder guessed a lap count from memory.** It read *"over 3
   lap(s)"*; `scripts/round_digest.py 16 --exclude round-16-lap-03.md` says **2** —
   the population excludes the lap doing the excluding. The field exists to catch a
