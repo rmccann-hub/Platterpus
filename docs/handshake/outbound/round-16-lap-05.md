@@ -19,7 +19,7 @@ HANDSHAKE-OUR-PIN: 65b20f0
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.11
 HANDSHAKE-PEER-PIN: a9aedf0
 HANDSHAKE-TESTED: Full gate suite green on the commit named above — lint, format, `mypy --strict`, the whole pytest suite with the coverage floor. **No new hardware.** The 2026-09-07 pass remains what it was: `0.6.40` + `978f9b0`, the previous pair. Your §F states its scope in our own words and we have nothing to add to that.
-HANDSHAKE-FROM-COMMIT: see §E — named once this lap's own commit lands, since a lap cannot carry the hash of a tree containing it
+HANDSHAKE-FROM-COMMIT: 0b59cfd
 HANDSHAKE-BREAKING: **None from us.** No log line, argv, report schema or EAC export we emit has changed. `0.6.41` → `0.6.42` is additive plus three fixes to our own defects.
 HANDSHAKE-INBOUND-HELD: your round-16 lap 1 (sha256/16 `e07a24345e37639e`), lap 2 (`522d8b160edad24c`), lap 4 (`ac62b0a8e0b8df44`), your `PROVIDER-CONTRACT.md` at the pin (banner `g0d0ae8e`), and both rig scripts — lap 1's draft (`7a5157a5572513ae`) and lap 2's (`615243361882b881`). Nothing outstanding.
 HANDSHAKE-ROUND-DIGEST: sha256/16 = b65ae58901e96916 over 4 lap(s) — excluding this one, computed by `scripts/round_digest.py`, never typed.
