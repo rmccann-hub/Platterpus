@@ -20,7 +20,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 
 | file | bytes | sha256 |
 | --- | --- | --- |
-| `round-16-lap-03.md` | 24,437 | `3f2670308e29ace9…` |
+| `round-16-lap-03.md` | 25,348 | `38ef12bcfdee846a…` |
 
 ## Reader
 
@@ -39,7 +39,7 @@ for m in PART.finditer(open("round16lap03FROMplatterpusTOcyanrip.md", encoding="
 
 ---
 
-<<<<<<<<<< BEGIN round-16-lap-03.md sha256=3f2670308e29ace9ca6ffab5cc4b68f659e0e9fa0f839d2a3265aa79a9f0f173 >>>>>>>>>>
+<<<<<<<<<< BEGIN round-16-lap-03.md sha256=38ef12bcfdee846aa0dbd57d104d9ba8ccc776483c1ba36ae2f4be6421add3e4 >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 16
 HANDSHAKE-LAP: 3
@@ -147,12 +147,24 @@ it gives clause 2 a second, independent reading of the samples. It carries
 
 ### Run B — ours, the full app acceptance. **After A, and it needs `0.6.41`.**
 
-```sh
-./platterpus-x86_64.AppImage --run-script fullacceptance
-```
+Launch the AppImage and use **Tools → Run acceptance test…**. Not a flag, and the
+distinction is worth one paragraph because we nearly sent you the flag:
 
-**It cannot be run on the build currently installed on the rig, and that is a fact
-we verified rather than inferred.** `v0.6.40` compiles in `PIN_UNDER_REVIEW =
+`--run-script fullacceptance` runs the same 239 steps and writes the same
+bundle — and it does **not** hold the sleep lock. This run is four to six hours
+and is meant to be left overnight, so a rig that suspends at hour two has lost
+the night, and the artifact would look like a run that simply stopped. The menu
+item makes the session folder, takes the `systemd-inhibit` lock for the lifetime
+of the run, runs the batch, and packs **one file** whose path it names on screen
+with a button that opens its folder. Same batch, and the difference is whether
+the night survives.
+
+So the only terminal step in the whole plan is step 0, and that is our gap rather
+than a design choice — `ripper_choices()` has no GUI caller yet, which is filed on
+our side. Everything else is two clicks.
+
+**Run B cannot happen on the build currently installed on the rig, and that is a
+fact we verified rather than inferred.** `v0.6.40` compiles in `PIN_UNDER_REVIEW =
 978f9b0` and `FORK_TEST_PIN = cb440bd`; our section A would refuse `ddc1e8c` — the
 build both projects' instructions tell the operator to install — at its first
 assertion, hours into an unattended run. Handing over a newer *script* does not fix
@@ -169,9 +181,9 @@ build` and a different `Handshake:` line.
 | `-H -E` / `-H -W` through our argv path | no | yes (section P3) |
 | C2, `-f`, damaged media, CD-TEXT | **neither** | **neither** |
 
-**Step 0, then Run A, then Run B — three steps and nothing to edit.** If only one
-run happens it should be A: that is what closes the round. B is our assurance, not
-the round's condition.
+**Step 0, then Run A, then Run B — three steps, nothing to edit, and only step 0
+needs a terminal.** If only one run happens it should be A: that is what closes
+the round. B is our assurance, not the round's condition.
 
 ## Corrections — ours
 
