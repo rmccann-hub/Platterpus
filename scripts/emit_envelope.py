@@ -73,7 +73,26 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-03.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-05.md",)
+
+# WHY IT MOVED TO ROUND-16 LAP 5 (2026-09-07), AND WHY IT TRAVELS ALONE.
+#
+# Lap 5 supersedes lap 3 as the operative lap: lap 3 is DELIVERED (the fork's lap
+# 4 quotes it at `47368738c317f930`) and its envelope on disk is now history, kept
+# rather than regenerated, because regenerating a sent artifact is the drift
+# `tests/test_sent_laps_are_immutable.py` exists to prevent. This constant moving
+# is the whole point — the 2026-09-04 note below is what a STALE `PARTS` costs.
+#
+# **One part, and `fullacceptance.txt` is deliberately out.** The script did change
+# for `0.6.42`, but lap 5 quotes no sha of it and Run B reaches it through
+# **Tools → Run acceptance test…** inside the AppImage, so the file the fork would
+# receive is not the file the operator will run — an artifact nothing in the lap
+# references, and a second copy of one that ships in the release. The rule this
+# follows is the one already written for round-15 lap 15: an envelope's contents
+# are a claim about what the lap needs.
+#
+# A one-part envelope is the case `assert_not_a_lap` is tightest against, which is
+# checked on this file's own output before it is written.
 
 # WHY THIS CARRIES FOUR LAPS, AND WHY THAT IS A FAILURE REPORT RATHER THAN A
 # FEATURE (2026-09-04).

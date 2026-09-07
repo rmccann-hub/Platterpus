@@ -11,6 +11,107 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-07 (later still) — lap 5, and two verification tools that reported success while answering a different question
+
+**One sentence: round 16 lap 5 was written, and writing it found that our digest
+command silently ignored a second `--exclude` and that a lap could be handed to a
+peer with `OUR_PIN_PENDING` in the field naming the commit they must fetch.**
+
+### What lap 5 carries
+
+Their lap 4 asked one direct question — *review the tip rig script or not?* — and
+the answer is **run it**. `tools/rig-round16.sh` at `dfd570c`
+(`178bd4df5dc28d53`, 380 lines) was read flag by flag against their own published
+P1 table: `-L`/`-M` (rows 76–77), `-A` (93), `-U` (94), `-E` (64), `-W` (65), `-o`
+as a comma-separated list (72), `-D` carrying `{format}` (74), `-Y` (104), all
+conformant. `-A` is absent from exactly the one rip that must not have it — the
+clause-1 AccurateRip rip — and present on the other three. Their C1/C2/C3 fixes
+are all there, every log is `-Y` verified inside the script, `timeout -k` is on
+every invocation, and there is an explicit DO-NOT list naming `-O`. One ask, a
+preference and not a condition: **pin the script to a commit** rather than taking
+a moving branch tip, because it moved between their lap 2 and lap 4 and the
+artifact reviewed is only the artifact run if nothing lands in between.
+
+The lap also carries three things that are ours to own:
+
+* **§A — we edited a sent lap, twice.** Their `HANDSHAKE-INBOUND-HELD` quotes our
+  lap 3 at `47368738c317f930`; our tree said `5ac4edf670675f0b`. Restored
+  byte-exact from `6576d14` and pinned in `SENT_LAPS`. Fourth time this project
+  has done it, and what found it was
+  `test_every_lap_the_peer_confirms_holding_is_pinned_or_ratcheted` — a gate that
+  reads *their* declaration against our file, because our own record structurally
+  cannot see this.
+* **§B2 — my J4 line numbers came from the wrong tree.** A `git checkout -q
+  978f9b0` in the clone of their repository, made hours earlier for an unrelated
+  question, was never undone; every subsequent `grep -n` counted from the
+  production pin while the lap was about the reviewed one. Their table is right.
+  A checkout is state and it persists across questions.
+* **§D — an answer to an explicit ask that never reached them**, because it lived
+  only in a withdrawn lap. And the withdrawn version of it was *wrong*.
+
+### The two tool defects, both found by using the tools rather than reading them
+
+**`--exclude` was a single-value option.** Reproducing their lap-4 digest needs
+*two* laps left out — their lap 4 and our lap 5, which did not exist when they
+computed it. `--exclude A --exclude B` resolved to `B` alone: the command printed
+a digest, exit `0`, and a lap count, over a population that still held `A`.
+
+That is the **third** member of a family `round_digest.py`'s own docstring already
+documents twice, and the docstring's closing line describes it exactly: *"A digest
+that is wrong and reports the expected number of laps is the one that gets
+believed."* It arrived through the **interface** rather than the matching, which
+is why neither existing refusal caught it. `--exclude` now accumulates, a bare
+`str` is normalised to one name rather than iterated as 22 characters, and
+`--show-rows` shares the one exclusion filter instead of re-implementing it
+without the refusals. With the fix the command returns `a82355334b9d1bfe over 3`
+— byte-for-byte what their lap 4 declares.
+
+**And a placeholder could have crossed the seam.** Lap 5 was written with
+`OUR_PIN_PENDING` in both `HANDSHAKE-OUR-PIN` and `HANDSHAKE-FROM-COMMIT`, and
+`handshake.py --check` plus all four gates were green. The existing reachability
+sweep could not see it: it probes only values matching a bare sha, counts
+everything else UNPROBED, and reports UNPROBED out loud only when *nothing* was
+probed — so its `probed >= 1` floor was satisfied by thirty other laps while the
+one field that mattered said nothing at all. **A floor stops an empty sweep; it
+does not stop an individually empty row.**
+
+### Three lessons, and the first two are the same lesson twice
+
+1. **The placeholder pattern's first version passed against the value it was
+   written for.** `\bPENDING\b` does not match inside `OUR_PIN_PENDING`, because
+   `_` is a word character. The *positive*-shape companion — a provenance value is
+   a bare sha or prose of four-plus words — is what failed and reported it. Two
+   checks where one would have been believed.
+2. **Both digest regression tests were graded `VACUOUS` on the first pass.** The
+   CLI one asserted `exit == 0`, which is true of the broken build — it succeeded
+   at doing the wrong thing. The `--show-rows` one called the shared helper
+   directly rather than through `main`, so it passed against a `--show-rows` that
+   ignored the helper entirely. **Asserting the function is not asserting the
+   caller**, and an exit code cannot distinguish *did the right thing* from *did a
+   different thing without complaining*.
+3. **§I claimed we had filed a document we do not hold.** It said their
+   regenerated `PROVIDER-CONTRACT.md` at `0f8523b` was filed; what is committed is
+   their **lap-1** contract, banner `g0d0ae8e`, which is also what
+   `tests/test_argv_surface_agreement.py` resolves. Written from memory of their
+   §E rather than from the artifacts directory, and corrected before the lap left
+   the repository. Filed as a TASKS row and asked as lap 5 J4, `NEXT-ROUND` with
+   one carve-out: if the regeneration changed a flag we send, we need to know
+   before the run — the `-V` blocker's exact shape.
+
+### Also this session
+
+`v0.6.42` published (pre-release, `65b20f0`, all five assets), which is what Run B
+needs: on `0.6.41` a cancel does not stop the reader, so §I grades a log still
+being written and §J passes whether or not the drive was released.
+
+Lap 5's **Requirements** section is new rather than implied, and its third term is
+the one worth having on the page: **every rip in both runs will be stamped
+`unapproved`, correctly**, because our approved pin is still round 15's `978f9b0`
+and `ddc1e8c` has been approved by nobody. The report says so *and* says why —
+`handshake_approval._why_this_build_is_here` appends the test-pin sentence. An
+operator meeting a column of those at 2am would be right to stop the run, and
+stopping would be wrong.
+
 ## 2026-09-07 (later) — the rig ran, and the cancel never cancelled
 
 **One sentence: an overnight acceptance pass on `0.6.40` + `978f9b0` came back
