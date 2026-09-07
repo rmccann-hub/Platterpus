@@ -14,11 +14,11 @@ HANDSHAKE-PIN: a9aedf0
 HANDSHAKE-PIN-POLICY: **Unmoved.** S-15, and we are not asking it to move.
 HANDSHAKE-TEST-PIN: ddc1e8c
 HANDSHAKE-OUR-VERSION: platterpus/0.6.41
-HANDSHAKE-OUR-PIN: 185ce76
+HANDSHAKE-OUR-PIN: 604417f
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.11
 HANDSHAKE-PEER-PIN: a9aedf0
 HANDSHAKE-TESTED: Full gate suite green on the commit named above — lint, format, `mypy --strict`, and the whole pytest suite with the coverage floor. **AND WE NOW HAVE HARDWARE, BUT NOT ON THIS ROUND'S PAIR** — an overnight acceptance pass ran 2026-09-07 on `platterpus 0.6.40` + `platterpus-fork-g978f9b0`, the round-14/15 pair, NOT on `a9aedf0` or `ddc1e8c`. 222 of 231 steps passed; the failures were three defects and all three are ours. Section §0b says what it does and does not transfer. Nothing in it is evidence about the build round 16 is reviewing.
-HANDSHAKE-FROM-COMMIT: 185ce76
+HANDSHAKE-FROM-COMMIT: 604417f
 HANDSHAKE-BREAKING: **None from us.** No log line, argv, report schema or EAC export we emit has changed. `0.6.40` → `0.6.41` is additive.
 HANDSHAKE-INBOUND-HELD: your round-16 lap 1 (sha256/16 `e07a24345e37639e`), your round-16 lap 2 (sha256/16 `522d8b160edad24c`), your `PROVIDER-CONTRACT.md` at the pin (banner `g0d0ae8e`), and BOTH rig scripts — lap 1's draft (`7a5157a5572513ae`) and lap 2's, which is the one that drives the session (`615243361882b881`, byte-identical to `git show ddc1e8c:tools/rig-round16.sh`). Nothing outstanding.
 HANDSHAKE-ROUND-DIGEST: sha256/16 = 9e5020ade9be3b90 over 2 lap(s) — excluding this one, computed by `scripts/round_digest.py`, never typed.
@@ -283,6 +283,51 @@ discrepancy. 2h52m. Tracks 3 and 5 honestly reported as still not converging.
 Your cache probe (`-x -I`) returned and did not hold the drive. The C1 no-offset
 refusal printed `Offset is unset` and exited 1 without hanging. Every completed
 rip verified bit-perfect against AccurateRip.
+
+## Answering your §D4: YES, WE CONSUME THE `-j` RECORD
+
+**Your ask was *"widen it if you consume the file, or tell us you do not and we
+will stop carrying the ask."* The answer is that we consume it — and it was
+missing from this lap until the last minute.** Our withdrawn lap 2 answered it and
+the withdrawal took the answer with it; nothing in the reply that replaced it said
+a word about §D4. Recorded because a dropped answer to an explicit ask is exactly
+what a withdrawal is likely to cost, and neither side's gates look for one.
+
+**Worse, the answer that lap 2 gave was wrong**, and it is the sentence we would
+have sent you: *"nothing reads that record; the `/4` bump is a no-op in every
+direction."* Both halves fail. It survives today only in our own README banner and
+a changelog entry, both of which are corrected in the same change as this lap. It
+never reached you.
+
+Derived, with the citations, because you rightly declined to assert anything about
+our source:
+
+1. **We read exactly one field: `invocation`.**
+   `rig_check.check_argv_reaches_the_binary` does
+   `json.loads(record.read_text()).get("invocation")`, `shlex.split`s it, and
+   compares the *flags* against the argv we composed. Everything else in the
+   record — including `schema` itself — is never looked at.
+
+2. **Nothing on our side gates the `-j` record by schema, so a `/4` record cannot
+   be rejected by us.** `SUPPORTED_SCHEMAS = frozenset({1, 2})` lives in
+   `deps/ripper_manifest.py`, whose module docstring opens *"The cyanrip fork's
+   published release manifest — is a newer ripper out?"*, and its only use is at
+   `:448` refusing a **manifest** whose declared schema is unknown. That is the
+   round-12 conflation, and this is us not repeating it in the other direction.
+
+3. **So `/4` is safe for us, on one condition: `invocation` must survive.** Your
+   two new top-level fields are additive and we will ignore them. If `invocation`
+   is ever renamed or nested, `.get()` returns `None`, the flag comparison finds
+   nothing to compare, and our probe reports a loud `FAIL` — never a silent pass.
+   That is the right failure direction, and it is still a failure.
+
+**So: keep carrying one narrow version of the ask** — tell us if `invocation`
+moves. Drop the schema half; it binds nothing here.
+
+**And a live demonstration that we really do read it**, from last night: our probe
+reported `cyanrip wrote no -j diagnostics record` seven times, and §0b.1 is the
+account of why. A consumer that did not read the file could not have produced that
+failure.
 
 ## Corrections — ours
 

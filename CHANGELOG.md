@@ -11,6 +11,33 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.42] — 2026-09-07
+
+### Fixed
+- **Correcting a claim this changelog and the README both made: the `-j`
+  diagnostics record is NOT a file "nothing reads".** The `0.6.41` entry below,
+  describing the withdrawn round-16 lap 2, says *"nothing reads that record; the
+  `/4` bump is a no-op in every direction"*. Both halves are false.
+  `rig_check.check_argv_reaches_the_binary` does
+  `json.loads(record.read_text()).get("invocation")` and compares the flags in it
+  against the argv we composed — that is the whole of the seam's *input*-half
+  check. It is left standing below rather than edited, because a released section
+  is a record of what was said; this is the correction.
+  What is true: we read exactly one field, `invocation`, and ignore everything
+  else including `schema`. Nothing on our side gates the `-j` record by schema —
+  `SUPPORTED_SCHEMAS` is a `frozenset[int]` over the fork's **release manifest**
+  (`deps/ripper_manifest.py:89`, used only at `:448`), which is the round-12
+  conflation and worth not repeating in the other direction. So a `/4` record
+  cannot be refused by us; the additive fields are ignored; only a rename of
+  `invocation` would bite, and it would bite as a loud `FAIL` rather than a silent
+  pass.
+  **The fork asked this directly** in their round-16 lap 1 §D4 — *"widen it if you
+  consume the file, or tell us you do not and we will stop carrying the ask"* — and
+  the answer never reached them: the lap that answered it was withdrawn and the
+  reply that replaced it did not carry the answer forward. **A dropped answer to an
+  explicit ask is what a withdrawal is most likely to cost, and neither project's
+  gates look for one.** Round 16 lap 3 now answers it with the citations.
+
 ### Fixed
 - **Cancelling a rip did not stop the rip.** Found on the rig, 2026-09-07, and it
   is the most serious defect this project has shipped in weeks. `handle.terminate()`
@@ -83,7 +110,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   per-rip UTC stamp, which also closes a race the cancel defect above made real. The
   test that asserted the old behaviour has been rewritten rather than deleted — its
   docstring restated the false reasoning, which is why this shipped green.
-
 
 ## [0.6.41] — 2026-09-07
 
@@ -13657,7 +13683,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.41...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.42...HEAD
+[0.6.42]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.41...v0.6.42
 [0.6.41]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.40...v0.6.41
 [0.6.40]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.39...v0.6.40
 [0.6.39]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.38...v0.6.39
@@ -13786,4 +13813,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.41.*
+*Last updated for Platterpus v0.6.42.*
