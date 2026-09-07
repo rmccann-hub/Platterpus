@@ -451,7 +451,43 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: time. That window is real and this is what it costs; the fix that would close
 #: it is a round-16 conversation about what the constant should say when no round
 #: is open, not another copy of the value.
-PIN_UNDER_REVIEW: Final[str] = "978f9b0"
+#: **Round 16 (2026-09-07): `978f9b0` → `a9aedf0`.** Their lap 1 wire header,
+#: lines 10–11: `cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-ga9aedf0)`,
+#: `HANDSHAKE-PIN: a9aedf0`, declared frozen for the round under S-15. **The
+#: version did NOT move with it** — `+platterpus.11` covers both `978f9b0` and
+#: `a9aedf0`, so the pairing below carries the same string against a new commit.
+#: That is the opposite of the 2026-08-18 mis-pairing and it is legitimate: there
+#: the version was stale against a moved pin, here the fork has published both
+#: halves against this commit in its own header. Read off the artifact either way.
+PIN_UNDER_REVIEW: Final[str] = "a9aedf0"
+
+#: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
+#:
+#: **Set deliberately every round, and it is checked against reality rather than
+#: believed.** `tests/test_rig_scripts.py::test_the_pin_under_review_has_a_release_sequence`
+#: asserts this flag agrees with whether `FORK_RELEASE_SEQ_BY_PIN` actually carries
+#: a row, in **both** directions — so declaring `True` without a row fails (the
+#: 2026-08-17 defect: the offer telling someone on a published release they are on
+#: *"a mid-round test pin, or a commit installed by hand"*), and leaving a stale row
+#: behind after declaring `False` fails too.
+#:
+#: **Why it is a declaration and not a lookup.** The fact lives in the fork's
+#: `release-manifest.json`, which we cannot read at test time, and inventing a
+#: sequence to quiet a red test would make the check pass for the wrong reason.
+#:
+#: **`False` for round 16, and the consequence is real.** Their lap 1 opens on
+#: `a9aedf0`, which is absent from both their ledger (tops out at `978f9b0`,
+#: `release_seq` 21) and their manifest. Round 15 was *"the first pin chosen as a
+#: subject by having been released"* — one round, not a standing rule — so a
+#: nominated pin is legitimate and no row should be invented for it.
+#:
+#: What it costs: `--install-ripper a9aedf0` and the `--install-ripper list` menu
+#: reach the build, but the **update offer** cannot, because that reads their
+#: manifest. `ripper_choices()` has no GUI caller today, so a GUI-only operator has
+#: no route to the build an open round is reviewing — a KDD-17 gap, tracked in
+#: `TASKS.md` and raised with the fork as a NEXT-ROUND ask rather than a blocker,
+#: because it does not make the reviewed pin unsafe and the rig has a terminal.
+PIN_UNDER_REVIEW_IS_PUBLISHED: Final[bool] = False
 
 #: The fork's **test pin** — a build designated to gather the hardware evidence a
 #: close requires, which is *not* a release and never moves :data:`FORK_PIN`.
@@ -568,12 +604,25 @@ PIN_UNDER_REVIEW: Final[str] = "978f9b0"
 #: equal in every observed case are not therefore one concept.** Every previous
 #: test pin was unnumbered, so nothing had ever exercised the difference; making
 #: them identical did not remove a distinction, it hid one.
-FORK_TEST_PIN: Final[str] = "cb440bd"
-FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.6-beta.1"
+#: **Round 16 (2026-09-07): `cb440bd` → `ddc1e8c`.** Agreed in their lap 2 §A and
+#: our lap 3, which declares the same value verbatim — §6a requires both sides to
+#: name the same test pin in writing before a session, and this is our half of it.
+#:
+#: **It is the same program as the reviewed pin.** Verified here rather than taken:
+#: `git diff a9aedf0..ddc1e8c -- src/ meson.build` is empty, and the source anchor
+#: recomputes identically at both (`c0f550c75450f031`, 44 files). Everything between
+#: the two commits is `tools/`, `docs/` and regenerated artifacts.
+#:
+#: **Why a test pin at all when the reviewed pin would build the same binary**: its
+#: logs say `Handshake: round 16 lap 1 OPEN` instead of `round 15 lap 14 closed`, so
+#: a rip gathered for this round cannot label itself with the previous, closed one —
+#: and it is the commit that carries their rig script.
+FORK_TEST_PIN: Final[str] = "ddc1e8c"
+FORK_TEST_VERSION: Final[str] = "0.9.4-rc2+platterpus.11"
 #: Which round nominated it. Stated rather than derived from the approved round + 1:
 #: a test pin belongs to *a* round, and arithmetic on the approved round is only
 #: accidentally right — it breaks the first time two rounds pass without a close.
-FORK_TEST_PIN_ROUND: Final[int] = 8
+FORK_TEST_PIN_ROUND: Final[int] = 16
 FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 
 #: Test pins this round has already retired. Listed **only** so a rig that built one
@@ -741,6 +790,31 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         # statement that `git diff 978f9b0 HEAD -- src/` is empty. Reported back
         # to them in our lap 2 as information, not proposed as blocking.
         f"{FORK_BRANCH}-g978f9b0",
+        # ROUND 16's PIN, AND THE FIRST ROW HERE LICENSED BY A RECOMPUTED ANCHOR
+        # RATHER THAN BY THE FORK'S WORD FOR IT.
+        #
+        # Their round-16 contract is filed under
+        # `docs/handshake/inbound/artifacts/` and its P1 table carries `-u` /
+        # `--consumer` at line 58 and `-Y` / `--verify-log` at line 104.
+        #
+        # Its banner names `g0d0ae8e`, the parent — the same generated-artifact
+        # provenance shape as the `g009a573` row above, and the reason the filename
+        # names the build the ARTIFACT asserts. What is different this time is that
+        # the banner no longer has to be the evidence: the document publishes a
+        # **source anchor**, `sha256/16 = c0f550c75450f031` over `src/*.c` and
+        # `src/*.h`, and that anchor **recomputes here over the fork's tree at
+        # `a9aedf0`** — 44 files, using their own construction read out of
+        # `tools/gen-provider-contract.py::source_hash()` at the pin (sorted flat
+        # listing of `src/`, each file's NAME hashed before its bytes; a recursive
+        # walk without the names gives `c8de8623734d0620` and is not their method).
+        #
+        # So the row rests on a derivation rather than on their lap's statement
+        # that `git diff -- src/` is empty. The round-15 comment above had to say
+        # its filename could not be cited as evidence about the pin; this one does
+        # not, because the content proves which source it describes — `CLAUDE.md`'s
+        # *"any claim about an artifact's provenance must be derivable from the
+        # artifact's content, not only from its banner"*, actually satisfied.
+        f"{FORK_BRANCH}-ga9aedf0",
     }
 )
 
@@ -1009,10 +1083,14 @@ TEST_TARGET: Final[ForkTarget] = ForkTarget(
 #: wrong version string here would be caught rather than believed.
 UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     pin=PIN_UNDER_REVIEW,
-    # Round 15's pairing, from their lap-1 wire header lines 10–11:
-    # `cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-g978f9b0)`. Read off the
-    # artifact. **This field and `pin` above must move together** — they name one
-    # build, and a version rendered against a different commit is the mis-pairing
+    # Round 16's pairing, from their lap-1 wire header lines 10–11:
+    # `cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-ga9aedf0)`. Read off the
+    # artifact. **The version did not move this round and that is correct**: the
+    # fork published `+platterpus.11` against `a9aedf0` in its own header, and its
+    # ledger has no new numbered release — the same version legitimately covers
+    # `978f9b0` and `a9aedf0`. "Move together" means *the pairing is whatever the
+    # newest lap states*, never "both strings must change"; a version rendered
+    # against a commit the fork did NOT pair it with is the mis-pairing
     # of 2026-08-18 (every field true, the sentence false). It said
     # `+platterpus.10` while `pin` had moved for about as long as it took to
     # notice, which is why the pairing is now asserted by

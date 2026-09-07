@@ -1091,7 +1091,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # other and the banner named a build that never existed. The growth is the
     # note saying so where the literal is, because the next person to roll a
     # pin reads this file and not the changelog.
-    "deps/fork_source.py": 1705,
+    # 1705 -> 1790 at round 16. All comment, no code: the reviewed pin moved and
+    # three constants around it now carry the DERIVATION that licenses them —
+    # the recomputed source anchor, why the version legitimately did not move
+    # with the pin, and why no release sequence was invented for a build the
+    # fork has not published. Those are exactly the paragraphs a future reader
+    # needs and cannot reconstruct, and splitting the file would separate a
+    # constant from the reason it holds. Raised deliberately, which is what
+    # this ratchet asks for; the module is still one responsibility.
+    "deps/fork_source.py": 1783,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1122,7 +1130,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # render byte-identically because real EAC carries no zone, so the next
     # person to "tidy" this into an unconditional suffix breaks parity.
     "eac_log_export.py": 1535,
-    "evidence_bundle.py": 885,
+    # 885 -> 905. The gzip container is now opened explicitly so its header
+    # timestamp can be zeroed, and the comment above it is the reason the next
+    # reader needs: a one-second reproduction window looks like a flaky test,
+    # and without the note someone reverts the fix to quiet a rerun. Raised
+    # deliberately; the module is still one responsibility.
+    "evidence_bundle.py": 906,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
     # 2026-09-03 diagnostics header named the approved build for a session that
@@ -1184,7 +1197,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # beside it is a row the next reader will move on a guess. This module is
     # the provenance record for that seam; splitting the reasons out of it
     # would leave the claim here and the evidence elsewhere.
-    "ripper_message_inventory.py": 1051,
+    # 1051 -> 1090 at round 16. GENERATED DATA, and now genuinely generated:
+    # `scripts/emit_ripper_inventory.py` rebuilds the MESSAGES block and the
+    # test fixture from the fork's published contract in one parse. The file
+    # has said "do not hand-edit, regenerate" since it was written and there was
+    # no tool to regenerate it with, which is how it sat at round 6's row count
+    # for five rounds. The growth is three more published rows plus the reasons
+    # for the rows we retain past P5 — a line count is not a cohesion signal for
+    # a table.
+    "ripper_message_inventory.py": 1081,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     "settings_validation.py": 886,
@@ -1230,7 +1251,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # refactoring the script engine on the same night as the run it drives is
     # the risk this project keeps paying for. The split is TASKS.md work and
     # this number is the debt marker, recorded deliberately and not silently.
-    "uiscript/runner.py": 3429,
+    # 3429 -> 3452. `expect-ripper-under-review` now accepts the agreed TEST
+    # PIN as well as the reviewed one, and most of the growth is the comment
+    # saying why: matching only PIN_UNDER_REVIEW would have failed the round-16
+    # session at its first assertion, on the build both projects told the
+    # operator to install. This module is still the split candidate TASKS.md
+    # tracks; raised deliberately rather than split under a hardware deadline.
+    "uiscript/runner.py": 3452,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,

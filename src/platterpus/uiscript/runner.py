@@ -2700,7 +2700,28 @@ class ScriptRunner(QObject):
         """
         from platterpus.deps import fork_source
 
-        expected = f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}"
+        # **THE AGREED TEST PIN COUNTS, AND OMITTING IT WOULD HAVE KILLED THE
+        # ROUND-16 SESSION AT ITS FIRST ASSERTION.** Protocol §6a's sequence is
+        # *agree a test pin → both install it → run the session*, and round 16 did
+        # exactly that: the reviewed pin is `a9aedf0`, the agreed test pin is
+        # `ddc1e8c`, and the rig installs the latter. Matching only
+        # `PIN_UNDER_REVIEW` would have told an operator who followed both projects'
+        # written instructions that they had the wrong build — section A, hours
+        # from anyone noticing, with a disc in the drive.
+        #
+        # That is the defect this verb's own docstring is about, arriving for a new
+        # reason: it was written when a *production* pin moved under us, and a test
+        # pin is a second legitimate answer to "which build should be installed"
+        # that the check did not know about.
+        #
+        # **Both are accepted and the message says WHICH**, because the artifact's
+        # provenance depends on it: a test-pin log carries `NOT a released build`
+        # and a different `Handshake:` line, and a reader must be able to tell the
+        # two apart without re-deriving it.
+        reviewed = f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}"
+        test_pin = fork_source.FORK_TEST_BUILD_TAG
+        accepted = {reviewed: "the build under review", test_pin: "the agreed test pin"}
+        expected = reviewed if reviewed == test_pin else f"{reviewed} or {test_pin}"
         if not self._last_cyanrip_argv:
             self._record(
                 step,
@@ -2709,13 +2730,15 @@ class ScriptRunner(QObject):
                 "this step so there is a banner to read",
             )
             return
-        if expected in self._last_cyanrip_output:
-            self._record(
-                step,
-                Outcome.PASS,
-                f"installed build is {expected} — {_pin_role_phrase()}",
-            )
-            return
+        for tag, role in accepted.items():
+            if tag in self._last_cyanrip_output:
+                self._record(
+                    step,
+                    Outcome.PASS,
+                    f"installed build is {tag} — {role}"
+                    + (f" ({_pin_role_phrase()})" if tag == reviewed else ""),
+                )
+                return
         # **NAME THE COMMAND, AND DO NOT CLAIM A ROUND IS OPEN WHEN NONE IS.**
         # This said "the build the open handshake round is reviewing" and pointed at
         # "Settings -> the ripper beta channel, then take the offer". Both went wrong

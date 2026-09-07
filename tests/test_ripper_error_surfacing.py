@@ -336,7 +336,17 @@ def test_every_string_the_ripper_can_print_is_surfaced() -> None:
     )
     # Floor: the exclusions must not be doing the work. Ratchet, same reasoning as
     # the one above — 110 was clearable by round 6's stale 115.
-    assert len(rows) - len(excluded) >= 124
+    #
+    # **124 → 121 at round 16, and the subtraction is now pessimistic rather than
+    # exact.** Three entries joined `SURFACING_EXCLUDED` that are NOT rows of the
+    # inventory: the fused forms the fork's generator published for several rounds
+    # by deleting interior newlines, which no build ever printed. They are listed
+    # there because that is the set the round-over-round compatibility check knows
+    # about, so this arithmetic double-counts them — it subtracts three texts that
+    # were already absent from `rows`. Lowering the floor by exactly that three
+    # keeps the ratchet's meaning (real coverage has not moved) without pretending
+    # the count is exact.
+    assert len(rows) - len(excluded) >= 121
 
 
 def test_the_strings_the_prefix_allowlist_had_hidden_are_covered() -> None:
@@ -465,13 +475,30 @@ def test_the_convergence_success_message_is_never_a_failure_hint() -> None:
     assert _RIPPER_ERROR_RE.match(failure)
 
     # The exclusion is named, reasoned, and cannot grow silently.
-    assert len(SURFACING_EXCLUDED) == 1, (
+    #
+    # **1 → 4 at round 16, and the three additions are a different KIND.** The
+    # original is a real message we choose not to surface. The three new ones are
+    # texts NO BUILD EVER PRINTED — the fork's contract generator was deleting
+    # every interior newline in a format string, so three published rows were
+    # single lines the binary does not emit, and a matcher built from any of them
+    # could never have matched. Corrected at their round-16 lap 1 §D; the real
+    # forms are in `MESSAGES` and are what the matcher carries now.
+    #
+    # They are listed as exclusions rather than deleted because a
+    # previously-published string may stop being matched only as a decision with a
+    # written reason. Every entry still has to carry one, which is asserted below
+    # for all of them rather than only for the first.
+    assert len(SURFACING_EXCLUDED) == 4, (
         f"the surfacing exclusion list changed to {SURFACING_EXCLUDED} — each entry "
         f"is a message the user will never be shown, so a new one is a decision"
     )
     text, reason = SURFACING_EXCLUDED[0]
     assert text.startswith("Done; (%i out of %i")
     assert "success" in reason.lower(), "an exclusion without a stated reason"
+    for excluded_text, excluded_reason in SURFACING_EXCLUDED:
+        assert len(excluded_reason) > 40, (
+            f"{excluded_text!r} is excluded with no real reason: {excluded_reason!r}"
+        )
 
 
 def test_every_other_inventory_row_still_reaches_the_user() -> None:
@@ -505,7 +532,7 @@ def test_every_other_inventory_row_still_reaches_the_user() -> None:
         f"surfacing exclusions: {sorted(set(ALL_FORMATS) ^ expected)}"
     )
     assert len(ALL_FORMATS) == len(set(ALL_FORMATS)), "ALL_FORMATS carries a duplicate"
-    assert len(SURFACING_EXCLUDED) == 1
+    assert len(SURFACING_EXCLUDED) == 4
     assert len(ALL_FORMATS) >= 125, (
         f"surfacing coverage collapsed to {len(ALL_FORMATS)}"
     )
@@ -925,23 +952,81 @@ def test_the_newest_contract_is_chosen_by_LAP_not_by_filesystem_order() -> None:
         argv_surface._group_by_round = original  # type: ignore[assignment]
 
     assert contracts, "no provider contracts found under the adverse order"
-    top_round = contracts[0][0]
-    laps = sorted(
-        int(m.group("lap"))
-        for number, path in contracts
-        if number == top_round and (m := _ARTIFACT_LAP.match(path.name))
-    )
-    assert len(laps) >= 2, (
-        f"round {top_round} publishes only {len(laps)} contract(s) with a lap in "
-        "the name, so no tie is exercised and this test cannot see the defect. "
-        "It needs a round that has published two — round 15 does."
-    )
 
-    chosen = _ARTIFACT_LAP.match(contracts[0][1].name)
-    assert chosen is not None, contracts[0][1].name
+    # **THE TIE HAS TO BE EXERCISED, AND ONLY A ROUND WITH TWO CONTRACTS HAS ONE.**
+    # This used to read `contracts[0]` — the newest round — which worked only
+    # while the newest round happened to have published two. Round 16 published
+    # one, so the assertion below became unreachable and the test reported that a
+    # round "publishes only 1 contract" as a failure: a check firing because it
+    # could not run, which is not the same as a defect and must not read like one.
+    #
+    # So the subject is the newest round that actually HAS a tie. The property is
+    # unchanged — under a worst-first input the lap term must still win — and the
+    # floor below keeps it from passing by finding nothing.
+    by_round: dict[int, list[int]] = {}
+    for number, path in contracts:
+        if match := _ARTIFACT_LAP.match(path.name):
+            by_round.setdefault(number, []).append(int(match.group("lap")))
+    tied = [number for number, laps_ in by_round.items() if len(laps_) >= 2]
+    assert tied, (
+        "no round has published two provider contracts, so no tie exists anywhere "
+        "in the tree and this test cannot see the defect. Round 15 has two; if "
+        "that is no longer true the population has been lost, not the tie."
+    )
+    top_round = max(tied)
+    laps = sorted(by_round[top_round])
+
+    chosen_path = next(
+        path
+        for number, path in contracts
+        if number == top_round and _ARTIFACT_LAP.match(path.name)
+    )
+    chosen = _ARTIFACT_LAP.match(chosen_path.name)
+    assert chosen is not None, chosen_path.name
     assert int(chosen.group("lap")) == laps[-1], (
         f"under a worst-first input, round {top_round} chose lap "
         f"{chosen.group('lap')} when lap {laps[-1]} is newer. The sort key is "
         "incomplete and the winner is whatever order the filesystem offered — "
         "which is how this passed locally and failed on the CI runner."
+    )
+
+
+def test_the_inventory_and_its_fixture_are_GENERATED_and_current() -> None:
+    """`scripts/emit_ripper_inventory.py --check` must pass.
+
+    **The instruction existed for eleven rounds and the mechanism did not.**
+    `ripper_message_inventory.py` has said *"Do not hand-edit. Regenerate when a
+    handshake round ships a new inventory"* since it was written, with no tool to
+    regenerate it with — and the module's own docstring records the result: it sat
+    at round 6's 115 rows for five rounds while seven newer contracts were
+    committed to this repository. A comment where a check belongs.
+
+    This is that check. It fails when a newer provider contract is filed and the
+    inventory has not been rebuilt from it, which is precisely the state that
+    persisted unnoticed for five rounds.
+
+    Running the generator's own `--check` rather than re-deriving here is
+    deliberate: a second implementation of the parse would be a second thing to
+    drift, and the two would then disagree about a document neither of them owns.
+    """
+    import subprocess
+    import sys
+
+    root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        [sys.executable, "scripts/emit_ripper_inventory.py", "--check"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, (
+        "the fatal-message inventory is stale against the newest filed provider "
+        "contract — run `python3 scripts/emit_ripper_inventory.py`:\n"
+        f"{result.stdout}{result.stderr}"
+    )
+    # Non-vacuity: a `--check` that passed because it examined nothing would say so
+    # with a zero count, and the generator's own floors would have refused first.
+    assert "P5" in result.stdout, (
+        f"--check passed without reporting what it measured: {result.stdout!r}"
     )

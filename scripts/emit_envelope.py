@@ -73,7 +73,7 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-15-lap-16.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-03.md",)
 
 # WHY THIS CARRIES FOUR LAPS, AND WHY THAT IS A FAILURE REPORT RATHER THAN A
 # FEATURE (2026-09-04).
@@ -187,7 +187,32 @@ PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-15-lap-16.md",)
 #: gate did. The name is now *generated from the lap it carries*, the same rule
 #: `handshake_filename` follows and for the same reason: a hand-typed name is a
 #: second description of a fact the file already declares.
-NAME_TEMPLATE: str = "round{round:02d}lap{lap:02d}platterpus.md"
+#: **It states BOTH ENDS, not just the sender** (2026-09-07, maintainer: *"i need
+#: handshake files to tell me who they came from, and who they go to"*). The old
+#: name was `round16lap02platterpus.md` — the trailing word is the sender, which
+#: answers half the question and looks like it answers all of it. The operator is
+#: the only party who handles these by hand, in a file manager and a chat client
+#: where nothing else says which way a file is travelling, and they hold files
+#: going *both* ways. `…platterpustocyanrip` cannot be misread in either
+#: direction and still obeys the cross-machine rule above: lowercase ASCII and
+#: digits, no separators.
+#:
+#: Safe to change unilaterally: the name is ours to generate, and their splitter
+#: keys on the BEGIN/END delimiters rather than the filename. The matching ask —
+#: that their envelopes say it too — is a request in the lap, not an edit here.
+#: **Matched to the fork's spelling, deliberately, and it costs a rule.** They
+#: adopted the same idea in round 16 lap 1 and spelled it
+#: `round16lap01FROMcyanripTOplatterpus.md`. Ours was `…platterpustocyanrip.md`:
+#: the same information, a different shape. The operator holds BOTH files in one
+#: folder, and `CLAUDE.md`'s own naming rule says the hazard was never hyphens as
+#: such — it was *"two conventions"*, one artifact spelled two ways.
+#:
+#: So the uppercase `FROM`/`TO` are a deliberate exception to the lowercase-only
+#: rule, taken because matching the peer serves the reader the rule exists for.
+#: Every filesystem in this project's path handles the case fine; what it could
+#: not handle was the same file having two names. Recorded in `CLAUDE.md` beside
+#: the rule rather than left as a silent divergence from it.
+NAME_TEMPLATE: str = "round{round:02d}lap{lap:02d}FROMplatterpusTOcyanrip.md"
 
 
 def envelope_filename(round_: int, lap: int) -> str:

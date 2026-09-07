@@ -190,6 +190,21 @@ SENT_LAPS: dict[str, str] = {
     "outbound/round-15-lap-15.md": (
         "6f201fb75568f53a352d767cf9a1223418e735eba570df25eef2518c7b38dba4"
     ),
+    # Round 15 lap 16 — **the first row in this map recorded from the PEER's
+    # declaration rather than from being told.** Their round-16 lap 1 opens
+    # `HANDSHAKE-INBOUND-HELD: your lap 16 … sha256/16 32b393f458c4edec`, which is
+    # a fact about delivery that neither of our trees can produce: they cannot hold
+    # a file they were not sent.
+    #
+    # So the three-failure sequence above ends differently here. Laps 13 and 15 were
+    # caught by a digest mismatch and by the operator saying so; this one was pinned
+    # *because the peer said they had it*, and the value below is theirs, verified
+    # byte-for-byte against ours rather than assumed to agree. That is the strongest
+    # form of evidence this protocol has for "sent" — and it is still retrospective,
+    # which is the whole of their round-16 §B and our §G question.
+    "outbound/round-15-lap-16.md": (
+        "32b393f458c4edeca455ef10acab7fff4c55246dd8092c1a93bd9ce0a9bd1ad6"
+    ),
 }
 
 #: **The boundary this map records, and it was wrong in both directions in 48 hours.**
