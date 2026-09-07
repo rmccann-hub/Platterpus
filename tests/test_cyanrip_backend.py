@@ -6,6 +6,7 @@ construction and the sysfs-based drive scan with injected paths.
 
 from __future__ import annotations
 
+import logging
 import re
 import sys
 from datetime import UTC, datetime
@@ -1988,3 +1989,35 @@ def test_the_blob_strategy_excludes_only_what_the_builder_REFUSES() -> None:
     # ...and an ordinary value with every character the strategy DOES emit is
     # accepted, so the filter is not silently excluding the interesting ones.
     _build("Don't: A\\B = C ∶ 日本語 — “quoted”")
+
+
+def test_the_track_range_check_says_so_when_it_CANNOT_run(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A skipped guard and a passed guard must not look the same in the log.
+
+    The `-t` range check is conditional on `disc_track_total`, and two UI callers
+    pass ``getattr(self, "_current_num_tracks", 0) or None`` — so an unknown count
+    makes it silently not happen, on the one path where an out-of-range ``-t``
+    costs the whole rip in two seconds (docs/testing.md §5.m).
+
+    *Can this check be satisfied by finding nothing?* applied to a guard rather
+    than a test. It is a log line, not a refusal: failing a rip because we do not
+    know the track count would trade a rare defect for a common one.
+    """
+    from platterpus.adapters import cyanrip_backend
+
+    meta = RipMetadata(tracks=[TrackTag(number=1, title="one")])
+    with caplog.at_level(logging.WARNING):
+        args = cyanrip_backend._metadata_args(meta, None, None)
+    assert any("range check did NOT run" in r.message for r in caplog.records), (
+        f"an unknown track total skipped the guard silently: {caplog.text!r}"
+    )
+    assert "-t" in args, "the tags must still be sent — this is a log, not a refusal"
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        cyanrip_backend._metadata_args(meta, None, 14)
+    assert not any("range check did NOT run" in r.message for r in caplog.records), (
+        "the warning fired when the total WAS known, so it says nothing"
+    )

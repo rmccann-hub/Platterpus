@@ -21,6 +21,21 @@ rip — reproducing, in the evidence bundle, the two defects the fork had just
 reported and we had just fixed.
 
 ### Fixed
+- **A skipped `-t` range check looked identical to a passed one.** The guard that
+  drops out-of-range track tags — the one carrying the 2026-08-02 defect where a
+  `-t 17=` on a 16-track disc made cyanrip refuse a whole rip in two seconds — is
+  conditional on the disc's track total, and two UI callers pass
+  `getattr(self, "_current_num_tracks", 0) or None`. An unknown count therefore
+  skipped the check **silently**, on the one path where an out-of-range `-t` costs
+  the entire rip. *Can this check be satisfied by finding nothing?* applied to a
+  guard rather than a test. It now logs that the check could not run, and how many
+  tags went unchecked.
+  Deliberately a **log line, not a refusal**: dropping tags or failing a rip
+  because the count is unknown would trade a rare defect for a common one, and
+  this file already records why the argv path is not altered before an unattended
+  run. Both directions asserted — silent when the total is known, loud when it is
+  not.
+
 - **`--install-ripper <known pin>` said the version was unpredictable for pins we
   measure.** `target_for_commit` special-cased the *approved* pin — carrying a
   comment that saying *"version not known"* about a commit we do pin *"printed a

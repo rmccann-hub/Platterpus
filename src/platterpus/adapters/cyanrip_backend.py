@@ -993,6 +993,29 @@ def _metadata_args(
         album_pairs.append(f"musicbrainz_albumid={_escape_meta_value(release_id)}")
     if album_pairs:
         args += ["-a", ":".join(album_pairs)]
+    # **WHEN THE GUARD BELOW CANNOT RUN, SAY SO.** It is conditional on
+    # `disc_track_total`, and two UI callers pass
+    # `getattr(self, "_current_num_tracks", 0) or None` — so an unknown count
+    # makes the range check silently not happen, on the one path where an
+    # out-of-range `-t` costs the whole rip. That is *can this check be satisfied
+    # by finding nothing?* applied to a guard rather than a test: a skipped check
+    # and a passed check look identical in the log.
+    #
+    # Deliberately a LOG LINE and not a refusal. Dropping tags or failing the rip
+    # because we do not know the track count would trade a rare defect for a
+    # common one, and this file already records the reasoning for not touching
+    # the argv path before an unattended run. What the log gains is the ability to
+    # tell "the numbers were checked" from "the numbers were never checkable".
+    if not disc_track_total and any(
+        isinstance(track.number, int) for track in meta.tracks
+    ):
+        log.warning(
+            "the -t track-number range check did NOT run: the disc's track total "
+            "is unknown, so %d track tag(s) go to cyanrip unchecked. An "
+            "out-of-range -t makes it refuse the whole rip (docs/testing.md §5.m)",
+            sum(1 for track in meta.tracks if isinstance(track.number, int)),
+        )
+
     for track in meta.tracks:
         # cyanrip REFUSES a -t for a track the disc does not have, and refuses
         # the whole rip with it: "Invalid track number 17, list has 16 tracks!",
