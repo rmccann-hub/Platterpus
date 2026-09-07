@@ -11,6 +11,96 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-06 — a release that failed its own gate, round 15 closed, and a third sent-lap edit
+
+**One sentence: the day's real output was two releases and a closed handshake
+round, and its three sharpest findings were all mine — a gate I tripped, a banner
+naming a build that never existed, and a sent lap edited for the third time.**
+
+### The release that failed its own gate
+
+`v0.6.38` was dispatched with **115 lines still under `[Unreleased]`** and the
+changelog gate refused it, correctly. The fix was to roll them under the dated
+heading — but the useful part was *how* it was verified: by running the release
+workflow's own gate script rather than reading the file and agreeing with myself.
+`0.6.39` and `0.6.40` followed the same way.
+
+`0.6.40` existed because `0.6.39` shipped a **banner naming a build that never
+existed**: `FORK_PIN` moved to `978f9b0` and `FORK_EXPECTED_VERSION` did not, so
+the pairing named a version no artifact carries. They are one fact in two slots
+and now a sibling test says so — the same shape as the 2026-08-18 mis-pairing,
+found again because nothing had been generalised from it.
+
+### Round 15 closed, and the third sent-lap edit
+
+Round 15 closed **GO/GO** on `978f9b0` + `platterpus 0.6.37`. Their lap 14 asked
+nothing further, so **round 16 is theirs to open.**
+
+**I edited a sent lap. Again — the third time.** Lap 13 first, caught by a digest
+mismatch against theirs; then lap 15, mid-edit, when the maintainer said *"ive
+sent 15"*. Both were restored to their sent bytes and pinned by hash, the new
+material became lap 16 (filed out of order and labelled as such), and the
+immutability test now also carries the peer-side laps it can check. The pattern is
+not carelessness about the rule — it is that **the moment a lap becomes
+un-editable is an event only the operator can observe**, which is the same gap the
+"ask before writing a lap" directive names. A gate can see an unsent lap
+accumulating; it cannot see a send.
+
+### The fork's work, verified rather than accepted
+
+Step 0 of the round-16 runbook was broken before it was ever run: the cyanrip
+clone was **shallow** (`origin/master` held one commit) and tracked only `master`,
+while all their work is on `platterpus-fork`. Three commits their lap 14 cited
+were unreadable — so the *"derive from their source"* duty could not have been
+discharged on the first thing their opener asks. Unshallowed; 468 commits present.
+
+With it fixed, four of their landed items were checked against our side and all
+were clean: RFC 3339 timestamps (five shapes, five distinct renders), U+FFFD
+substitution clean through parser, renderer, path guard and the cross-filesystem
+check, all 12 of our flags present in their 85-flag contract, and their `--check`
+carrying both of our lap-15 §E riders.
+
+The fifth is the interesting one. Their `crip_escape_bare_quotes` is
+**deliberately asymmetric and keyed on us** — it escapes a bare `'` and leaves an
+already-escaped `\'` alone, so our escaping is not doubled into a literal
+backslash in the archival record. That makes *"our output is a fixed point of
+their scanner"* a property of the **seam that neither side can assert alone**, and
+it is now pinned here with their scanner transcribed from their source (cited),
+the transcription itself pinned against the three cases their commit measured, and
+both failure directions proven by `revert_probe`.
+
+**They also counted our call sites more accurately than our own docstring did**:
+it said *twelve* places build a tag pair and eleven do. Now measured by a test —
+in the docstring that argues the chokepoint exists *because* per-site discipline
+decays.
+
+### Mutation coverage, and what measuring it properly cost
+
+Three trust-bearing modules were swept before and after over the **same
+population** (same source → same generated mutants, `--seed 0 --limit 40`):
+`verdict.py` 48.7% → **94.9%**, `parsers/rip_log.py` 72.5% → **100.0%**,
+`parsers/cyanrip_log.py` 47.5% → **77.5%**. `rip_log.py` has no survivors left;
+`verdict.py`'s two are proven equivalent; `cyanrip_log.py`'s nine are all the one
+documented `return True` class.
+
+Two lessons worth keeping:
+
+* **The before column had to be re-measured.** After a context break I could no
+  longer substantiate the numbers I had written, and the saved JSON on disk
+  disagreed with them. Re-running against the branch's parent in a `git worktree`
+  gave a like-for-like delta and cost twenty minutes. A number you cannot
+  reproduce is not a measurement — and *"is the population I measured closed?"*
+  applies to the baseline as much as to the result.
+* **Four fixtures in this work were wrong because I guessed a format.** Every one
+  was corrected by opening the committed reference. Same rule, four more times.
+
+Where a crafted log had to replace the artifact, the test now says so *and why*:
+the disc-level paranoia block is the last thing in all three references, and not
+one of the fork's 43 per-track counters is zero. Both are facts about today's
+ripper, not contracts.
+
+---
+
 ## 2026-09-05 (later) — CC-1 met, and a tool of ours that corrupted the tree it was measuring
 
 **One sentence: the acceptance run passed completely, the parts of it that could
@@ -4786,4 +4876,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.38.*
+*Last updated for Platterpus v0.6.40.*

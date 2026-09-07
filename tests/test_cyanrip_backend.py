@@ -6,6 +6,7 @@ construction and the sysfs-based drive scan with injected paths.
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -1679,3 +1680,275 @@ def test_the_settings_validator_and_the_chokepoint_CANNOT_DISAGREE() -> None:
     # FLOOR, and a non-triviality one: the loop must have seen both answers, or a
     # guard that refused everything (or nothing) would satisfy it.
     assert compared == len(schemes)
+
+
+# --- the fork's new bare-apostrophe escape, and our output as its FIXED POINT ---
+#
+# Their change landed on `platterpus-fork` as c59dea3 (2026-09-06) and is
+# ANNOUNCED-BUT-NOT-YET-IN-A-LAP at the time of writing: `crip_escape_bare_quotes`
+# in `src/naming.c:49` now escapes an apostrophe the caller left bare, because
+# `av_dict_parse_string`'s tokeniser treats `'` as a quote character and a bare one
+# opened a run that swallowed every following field.
+#
+# The reason this is OUR test and not merely theirs: their fix is deliberately
+# ASYMMETRIC, and the asymmetry is keyed on *us*. They escape a bare `'` and leave
+# an already-escaped `\'` alone, specifically so our eleven `-a`/`-t` sites — all
+# of which route through `_escape_meta_value` — do not get double-escaped into a
+# literal backslash in the archival record. That makes "our escaper's output is a
+# fixed point of their scanner" a property of the SEAM, which neither side's tests
+# can assert alone: theirs pins their function against a fixture of our shapes,
+# ours pins every shape we can actually emit against a transcription of their code.
+#
+# Transcribed from their source rather than from their description of it
+# (CLAUDE.md: never state a mechanism in the other side's code without citing where
+# you read it) — cyanrip `src/naming.c:49-67` at `origin/platterpus-fork` c59dea3.
+
+
+def _crip_escape_bare_quotes(src: str) -> str:
+    """A faithful transcription of cyanrip's ``crip_escape_bare_quotes``.
+
+    ``src/naming.c:49`` on the fork. Byte-for-byte the same control flow: a
+    backslash consumes the character after it (so an already-escaped apostrophe is
+    passed through untouched), and any other apostrophe gains one.
+
+    The trailing-backslash case matters and is preserved: ``(i + 1) < n`` means a
+    lone ``\\`` at the very end does NOT consume anything and is copied as-is.
+    """
+    out: list[str] = []
+    n = len(src)
+    i = 0
+    while i < n:
+        if src[i] == "\\" and (i + 1) < n:
+            out.append(src[i])
+            i += 1
+            out.append(src[i])
+            i += 1
+            continue
+        if src[i] == "'":
+            out.append("\\")
+        out.append(src[i])
+        i += 1
+    return "".join(out)
+
+
+def test_the_transcription_of_their_scanner_reproduces_their_own_measurements() -> None:
+    r"""Pin the transcription against the three cases their commit message measured.
+
+    Without this the fixed-point test below is a check against *my reading* of
+    their C, and a wrong transcription would make our output look safe against a
+    scanner that does not exist. Their commit c59dea3 states it measured all three
+    ways through the real binary; these are those three.
+    """
+    # 1. A bare apostrophe is escaped, so the fields after it survive.
+    assert (
+        _crip_escape_bare_quotes("title=Don't Stop:artist=AA:isrc=II")
+        == "title=Don\\'t Stop:artist=AA:isrc=II"
+    )
+    # 2. An already-escaped one is left exactly alone — the case that is ours.
+    assert (
+        _crip_escape_bare_quotes("title=Don\\'t Stop:artist=AA")
+        == "title=Don\\'t Stop:artist=AA"
+    )
+    # 3. No apostrophe at all: untouched.
+    assert _crip_escape_bare_quotes("title=Roxanne:artist=The Police") == (
+        "title=Roxanne:artist=The Police"
+    )
+
+
+@settings(max_examples=400, suppress_health_check=[HealthCheck.too_slow])
+@given(st.text(max_size=40))
+def test_our_escaped_value_is_a_FIXED_POINT_of_their_scanner(value: str) -> None:
+    r"""Their scanner must not change one byte of anything we send.
+
+    This is the property their asymmetry exists to preserve, stated over every
+    value we can emit rather than over a handful of examples. It holds because
+    ``_escape_meta_value`` never emits a bare backslash: every ``\`` it writes is
+    immediately followed by the character it escapes, so their left-to-right
+    pairing reproduces our tokenisation exactly and every ``'`` is already inside a
+    consumed pair.
+    """
+    ours = _escape_meta_value(value)
+    assert _crip_escape_bare_quotes(ours) == ours, (
+        f"cyanrip's crip_escape_bare_quotes would rewrite our escaped form of "
+        f"{value!r}: we send {ours!r}, it would store "
+        f"{_crip_escape_bare_quotes(ours)!r}"
+    )
+
+
+#: What a tag value can actually be by the time it reaches argv. Control
+#: characters are excluded because the builder *refuses* them outright
+#: (``settings_validation`` rejects any C0 char: a NUL truncates the argv string
+#: and `subprocess` raises on it mid-rip), so feeding them here would test the
+#: refusal, not the escaping. `test_the_blob_strategy_excludes_only_what_the_
+#: builder_REFUSES` pins that this exclusion is the guard's and not the test's.
+_TAG_TEXT = st.text(
+    alphabet=st.characters(blacklist_categories=("Cc", "Cs")),
+    max_size=24,
+).filter(lambda v: v.strip() not in {".", ".."})
+
+
+@settings(max_examples=200, suppress_health_check=[HealthCheck.too_slow])
+@given(album=_TAG_TEXT, artist=_TAG_TEXT, title=_TAG_TEXT)
+def test_the_whole_ASSEMBLED_blob_is_a_fixed_point_too(
+    album: str, artist: str, title: str
+) -> None:
+    """Not just a value — the ``key=value:key=value`` blob as it reaches argv.
+
+    A per-value property is not enough: their function runs over the *whole* ``-a``
+    and ``-t`` string, separators included, so the interleaving is part of the
+    subject. Driven through the real argv builder rather than a hand-assembled
+    string, because the assembly is the part a test could get wrong in the same
+    direction as the code.
+    """
+    meta = RipMetadata(
+        album_artist=artist,
+        album_title=album,
+        year="",
+        genre="",
+        tracks=(TrackTag(1, title, artist),),
+    )
+    argv = _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=False,
+        cover_art="",
+        max_retries=5,
+        read_offset_override=None,
+        release_id="",
+        track_template="",
+        metadata=meta,
+    )
+    blobs = [argv[i + 1] for i, token in enumerate(argv) if token in ("-a", "-t")]
+    for blob in blobs:
+        assert _crip_escape_bare_quotes(blob) == blob, (
+            f"their scanner would rewrite the blob we send: {blob!r} -> "
+            f"{_crip_escape_bare_quotes(blob)!r}"
+        )
+
+
+def test_the_fixed_point_property_is_NOT_VACUOUS() -> None:
+    r"""It would fail if either side stopped holding up its half.
+
+    A fixed-point assertion passes trivially against a scanner that does nothing,
+    so this pins the two ways the pair can break:
+
+    * **we stop escaping** — a bare ``'`` IS rewritten, which is the whole point of
+      their change and proves the transcription is not a no-op;
+    * **they escape unconditionally** — the variant their commit rejected turns our
+      ``\'`` into ``\\'`` and puts a literal backslash in the archival record.
+    """
+    # (1) Their scanner is not a no-op: an unescaped apostrophe changes.
+    assert _crip_escape_bare_quotes("Don't") != "Don't"
+
+    # (2) The rejected variant — escape every apostrophe, escaped or not — would
+    #     corrupt what we send, which is why the asymmetry is load-bearing.
+    def _naive(src: str) -> str:
+        return src.replace("'", "\\'")
+
+    ours = _escape_meta_value("Don't")
+    assert ours == "Don\\'t"
+    assert _naive(ours) == "Don\\\\'t", "the double-escape their fix avoids"
+    assert _naive(ours) != ours
+
+
+_NUMBER_WORDS: dict[str, int] = {
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
+    "fifteen": 15,
+}
+
+
+def test_the_docstrings_COUNT_of_escaping_call_sites_is_the_measured_one() -> None:
+    r"""``assert_meta_args_are_parseable`` names how many places build a tag pair.
+
+    It said **twelve** while the module had **eleven**, and the drift was found by
+    the cyanrip fork counting our call sites from our own source for a change of
+    theirs that depends on the number. A count written in prose decays the first
+    time a field is added or removed, silently, in the exact document that argues
+    the chokepoint exists *because* per-site discipline decays — so it is measured
+    here rather than remembered.
+
+    Deliberately not asserting a literal: the point is that the sentence and the
+    code agree, so adding a twelfth tag and updating the word both pass, and doing
+    only one of the two fails naming which.
+    """
+    import inspect
+
+    from platterpus.adapters import cyanrip_backend
+
+    source = inspect.getsource(cyanrip_backend)
+    # Call sites, not the definition and not prose: `_escape_meta_value(` with an
+    # argument, excluding the `def` line and backtick-quoted mentions in comments.
+    sites = [
+        line
+        for line in source.splitlines()
+        if "_escape_meta_value(" in line
+        and not line.lstrip().startswith("def ")
+        and "`_escape_meta_value`" not in line
+        and "#" not in line.split("_escape_meta_value(")[0]
+    ]
+    measured = len(sites)
+    assert measured >= 8, (
+        f"only {measured} call sites found — the matcher has probably stopped "
+        "matching rather than the code having shrunk"
+    )
+
+    doc = cyanrip_backend.assert_meta_args_are_parseable.__doc__ or ""
+    match = re.search(
+        r"every one of the (\w+) places that build a pair", doc, re.IGNORECASE
+    )
+    assert match is not None, (
+        "the sentence this test pins has been reworded; update the pattern or "
+        "drop the count from the docstring"
+    )
+    word = match.group(1).lower()
+    assert word in _NUMBER_WORDS, f"unrecognised number word {word!r} in the docstring"
+    assert _NUMBER_WORDS[word] == measured, (
+        f"the docstring says {word} ({_NUMBER_WORDS[word]}) call sites build a tag "
+        f"pair; {measured} do. Whichever is right, the other is now misleading a "
+        "reader — and the fork reads this number out of our source."
+    )
+
+
+def test_the_blob_strategy_excludes_only_what_the_builder_REFUSES() -> None:
+    """The narrowing above is the *builder's* rule, not a convenience of the test.
+
+    A property test that quietly drops the inputs it finds inconvenient has
+    narrowed its own population — CLAUDE.md's *"what does my stand-in do that the
+    real thing does not?"*. So each exclusion is pinned to the refusal that makes
+    it unreachable, and the day the builder stops refusing one of them this fails
+    and the strategy has to widen.
+    """
+
+    def _build(album: str) -> None:
+        _impl()._build_rip_argv(
+            "/dev/sr0",
+            unknown=False,
+            cover_art="",
+            max_retries=5,
+            read_offset_override=None,
+            release_id="",
+            track_template="",
+            metadata=RipMetadata(
+                album_artist="A",
+                album_title=album,
+                year="",
+                genre="",
+                tracks=(TrackTag(1, "T"),),
+            ),
+        )
+
+    with pytest.raises(RipError, match="control character"):
+        _build("Green\x00Day")
+    with pytest.raises(RipError, match="control character"):
+        _build("Green\x1fDay")
+    with pytest.raises(RipError):
+        _build("..")
+
+    # ...and an ordinary value with every character the strategy DOES emit is
+    # accepted, so the filter is not silently excluding the interesting ones.
+    _build("Don't: A\\B = C ∶ 日本語 — “quoted”")
