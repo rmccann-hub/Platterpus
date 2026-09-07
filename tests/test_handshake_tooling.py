@@ -2704,3 +2704,64 @@ def test_an_anchor_named_artifact_must_match_the_anchor_the_file_declares() -> N
 
     missing = naming_disagreement("round-15-lap-01-x-a96262d1ea8f282c3.md", "no anchor")
     assert missing is not None and "declares none" in missing, missing
+
+
+def test_section_F_recognises_the_word_its_OWN_DESCRIPTION_uses(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """A check can fail for the wrong reason, and that is the expensive direction.
+
+    §F's entry describes itself as *"proven (with how) vs not proven (with what it
+    takes)"* and its keyword list required only ``verif``. Round 16 lap 1 headed
+    the section **"Proven, and not"** and wrote exactly what the description asks
+    for — *"Proven here, each with the method"* against *"Not proven, and no green
+    suite implies otherwise"* — and ``--check`` reported §F **ABSENT**.
+
+    Round 6's lesson was that a check can pass for the wrong reason; this is its
+    mirror. And it is worse here than a false pass would be, because the output is
+    an instruction to the peer to change a file that was already right — the
+    section letters are **ours**, not the shared protocol's, which defines no A–J
+    table at all.
+    """
+    section_f = next(s for s in hs.INBOUND_SECTIONS if s.key == "F")
+    assert "proven" in section_f.keywords, (
+        "§F's description says 'proven … vs not proven' and its keywords must "
+        f"recognise that word: {section_f.keywords}"
+    )
+
+    # The real shape, not a synthetic one: the peer's own wording.
+    text = _complete_inbound(hs).replace(
+        f"## F\n\n{_body(hs, section_f)}",
+        "## F. Proven, and not\n\n"
+        "**Proven here**, each with the method: every item in the table above was "
+        "revert-proved individually with the build confirmed green during the "
+        "revert, and the digest re-derives on this side.\n\n"
+        "**Not proven, and no green suite implies otherwise:** nothing in this "
+        "round has been on a drive, and the response path has never seen a real "
+        "response.",
+    )
+    path = tmp_path / "round.md"
+    path.write_text(text, encoding="utf-8")
+    problems = hs.check_inbound(path)
+    assert not any("§F" in p for p in problems), problems
+
+
+def test_widening_F_did_not_let_the_REVERT_PROOF_section_stand_in_for_it(
+    hs: ModuleType,
+) -> None:
+    """`proven` is precise, not loose — the non-vacuity half of the fix above.
+
+    The keyword search runs over the whole document, so a word that also appears
+    in a neighbouring section would let that section satisfy §F. §G is the
+    dangerous neighbour: it is *"Revert-proof"*, and its natural vocabulary is
+    ``proof`` / ``proved`` / ``revert-proved``. None of those contains ``proven``,
+    which is why that exact word was chosen over a ``prove`` prefix.
+    """
+    section_f = next(s for s in hs.INBOUND_SECTIONS if s.key == "F")
+    neighbours = ("revert-proof", "revert-proved", "proof", "proved", "prove")
+    for word in neighbours:
+        assert not any(k in word for k in section_f.keywords), (
+            f"§F's keywords {section_f.keywords} match {word!r}, which is §G's "
+            "vocabulary — §G could then satisfy §F, which is exactly the "
+            "round-6 defect this table exists to prevent"
+        )

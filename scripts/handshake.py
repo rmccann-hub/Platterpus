@@ -138,7 +138,23 @@ INBOUND_SECTIONS: tuple[Section, ...] = (
         "F",
         "Verification",
         "proven (with how) vs not proven (with what it takes)",
-        keywords=("verif",),
+        # `proven` IS THE SUBJECT WORD, AND OMITTING IT REJECTED A CONFORMING LAP.
+        # This entry's own description says "proven (with how) vs not proven (with
+        # what it takes)" and the keyword list then required a *different* word.
+        # Round 16 lap 1 headed the section "Proven, and not" and wrote exactly
+        # what the description asks for — "**Proven here**, each with the method"
+        # against "**Not proven, and no green suite implies otherwise**" — and
+        # `--check` reported §F ABSENT. The section letters are OURS, not the
+        # shared protocol's (`docs/handshake-protocol.md` defines no A–J table),
+        # so this was our expectation failing to recognise its own subject.
+        #
+        # Round 6's lesson was that a check can pass for the wrong reason. This is
+        # its mirror: a check can FAIL for the wrong reason, and that is the more
+        # expensive direction here, because the peer is then asked to change a
+        # conforming file. `proven` is precise rather than loose — it is not a
+        # prefix of §G's "revert-proof"/"revert-proved", so widening to it does
+        # not let §G stand in for §F.
+        keywords=("verif", "proven"),
     ),
     Section(
         "G",

@@ -12,6 +12,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A `--check` gate rejected a conforming lap, which is the expensive direction.**
+  §F's entry in `scripts/handshake.py` describes itself as *"proven (with how) vs
+  not proven (with what it takes)"* and its keyword list then required a
+  **different** word (`verif`). The cyanrip fork's round-16 lap 1 headed the
+  section *"Proven, and not"* and wrote exactly what the description asks for —
+  *"**Proven here**, each with the method"* against *"**Not proven**, and no green
+  suite implies otherwise"* — and `--check` reported §F **ABSENT**.
+  Round 6's lesson was that a check can pass for the wrong reason; this is its
+  mirror, and it is worse, because the output is an instruction to a peer to
+  change a file that was already right. The section letters are **ours** —
+  `docs/handshake-protocol.md`, the jointly-owned spec, defines no A–J table at
+  all — so nothing about their lap was non-conformant.
+  `proven` is precise rather than loose: it is not a substring of §G's
+  *revert-**proof*** / *revert-**proved***, so §G still cannot stand in for §F, and
+  a separate test asserts that rather than leaving it as a claim in a comment.
 - **Mutation coverage on the three modules whose tests this change touches,
   measured before and after over the SAME population.** Same source, so the same
   mutants are generated and `--seed 0 --limit 40` samples the same ones — the
