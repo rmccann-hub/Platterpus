@@ -274,17 +274,45 @@ def eject_drive(device: str = "", runner: Runner | None = None) -> bool:
     return False
 
 
-def free_device_holders(device: str, runner: Runner | None = None) -> bool:
-    """`fuser -k <device>`: SIGKILL whatever holds the device, matched by the
+def free_device_holders(
+    device: str, runner: Runner | None = None, signal: str = ""
+) -> bool:
+    """`fuser -k <device>`: signal whatever holds the device, matched by the
     *device* rather than a process name — so it catches the holder no matter
     what it's called, and never the GUI (which doesn't open the device). No-op
-    without a device path. Returns True if something was using/killed."""
+    without a device path. Returns True if something was using/signalled.
+
+    ``signal`` names the signal to send (e.g. ``"TERM"``); the default keeps
+    fuser's own default, SIGKILL.
+
+    **WHICH SIGNAL IS AN ARCHIVAL DECISION, NOT A TASTE.** SIGKILL cannot be
+    caught, so cyanrip runs no ``atexit`` — and ``atexit`` is where it writes the
+    log's completion footer and its ``Log FUN512:`` signature. Killing the reader
+    therefore turns an archival record into an unverifiable fragment, which is
+    exactly the loss §I of the acceptance run exists to detect. A cancel that
+    stops the drive by destroying the log has traded one failure for a worse one.
+
+    So the post-cancel rescue passes ``signal="TERM"``: cyanrip handles SIGTERM
+    (``cyanrip_main.c``, ``quit_signals[] = { SIGINT, SIGTERM }``), so its handler
+    runs, the rip unwinds, and the footer is written. The scan and shutdown paths
+    keep the default: there the reader is wedged rather than mid-rip, and no log
+    is being protected.
+
+    ONE SIGTERM, AND THIS IS NATURALLY THE FIRST. cyanrip's second-signal branch
+    force-exits without the footer, so a duplicate is as destructive as a kill.
+    ``fuser`` only signals a process that is STILL holding the device, so a reader
+    that already received our SIGTERM has exited and is not signalled again —
+    the conditionality is what makes this safe rather than a second guess.
+    """
     if not device:
         return False
     run = runner or _default_runner
-    argv = [_resolve("fuser", *_FUSER_FALLBACKS), "-s", "-k", device]
+    argv = [_resolve("fuser", *_FUSER_FALLBACKS), "-s", "-k"]
+    if signal:
+        argv.append(f"-{signal}")
+    argv.append(device)
     rc = _run_rc(argv, run)
-    log.info("fuser -k %s rc=%s", device, rc)
+    log.info("fuser -k %s %s rc=%s", signal or "(SIGKILL)", device, rc)
     return rc == 0
 
 

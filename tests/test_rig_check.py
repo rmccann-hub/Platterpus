@@ -1095,3 +1095,98 @@ def test_a_folder_with_no_ripper_log_FAILS_rather_than_skipping(tmp_path: Path) 
             f"{check.__name__} now fails when it was given no folder at all — "
             "that would make every rig-check without an album dir a failure"
         )
+
+
+# --- The argv probe must own the only `-j` -----------------------------------
+#
+# The rig run of 2026-09-07 produced EIGHT failures and seven of them were this
+# one line, reported once per rip. Worth a test rather than a fix, because the
+# defect is not in either flag: it is in the *relation* between the probe and the
+# argv builder, and neither module's own tests can express it.
+
+
+def test_strip_flag_pairs_removes_the_value_too() -> None:
+    """A flag with a space-separated argument leaves a positional behind.
+
+    `-j` takes its path as the next argv element — genopt has no `=` form — so
+    dropping the flag alone would leave the path as a positional and change what
+    the binary is asked to open. Pure function, so this is the cheap place to pin
+    it.
+    """
+    assert rig_check.strip_flag_pairs(["-d", "x", "-j", "rec.json", "-N"], "-j") == [
+        "-d",
+        "x",
+        "-N",
+    ]
+    # Every occurrence, not just the first: the collision this exists for was a
+    # second setter appearing, so a third must not survive either.
+    assert rig_check.strip_flag_pairs(["-j", "a", "-N", "-j", "b"], "-j") == ["-N"]
+    # A flag that is not there is not an error, and nothing else is touched.
+    assert rig_check.strip_flag_pairs(["-N", "-o", "flac"], "-j") == [
+        "-N",
+        "-o",
+        "flac",
+    ]
+    # Non-vacuity: the input really did contain the flag in the cases above.
+    assert "-j" in ["-d", "x", "-j", "rec.json", "-N"]
+
+
+def test_the_reference_argv_still_carries_a_j_for_the_probe_to_strip() -> None:
+    """The floor under the test below: if the builder stops emitting `-j`, the
+    strip becomes a no-op and the guard stops guarding anything.
+
+    This is the "can this check be satisfied by finding nothing?" question asked
+    of the fix rather than of the original defect. If this ever fails, the
+    collision is gone and the test below is decoration — delete both together,
+    deliberately, rather than leaving a green check over a dead relation.
+    """
+    argv = rig_check._compose_reference_argv(
+        "cyanrip", "/nonexistent-platterpus-rig-check.cue", ""
+    )
+    assert argv.count("-j") == 1, (
+        f"the reference rip argv no longer carries exactly one -j "
+        f"({argv.count('-j')}), so the probe has nothing to collide with and "
+        f"the guard below is measuring nothing"
+    )
+
+
+def test_the_probe_argv_carries_exactly_one_j_after_composition() -> None:
+    """The regression test for the 2026-09-07 rig run.
+
+    The probe prepends its own `-j <absolute path>` and then reads the record
+    back from that path. The rip argv builder gained `-j cyanrip-diagnostics.json`
+    on 2026-09-05, so the composed probe carried TWO — and the last one wins:
+    cyanrip's `main()` scan takes the first and breaks (`cyanrip_main.c:2702`),
+    but `cyanrip_run()` re-enables with genopt's value at `cyanrip_main.c:1721`
+    and genopt makes a repeated single-value option replace (`genopt.h:582`).
+    That re-enable happens before the source open at `cyanrip_main.c:2026`, so
+    the record was written the whole time — to a relative path the probe never
+    looked at.
+
+    Asserted on the COMPOSED argv, which is the thing that was wrong. A test of
+    either flag alone passes against the defect.
+    """
+    argv = rig_check._compose_reference_argv(
+        "cyanrip", "/nonexistent-platterpus-rig-check.cue", ""
+    )
+    # THROUGH THE PRODUCTION COMPOSER, not a copy of it. The first version of
+    # this test built `composed` itself, and `revert_probe.py` graded it
+    # `unaffected` when the production strip was reverted — the test and the fix
+    # shared no code, so the test could not see the fix removed. That is the
+    # "two witnesses are related" failure inverted: two witnesses that are not
+    # related at all, one of which is not a witness.
+    composed = rig_check.compose_probe_argv(
+        "cyanrip", Path("/tmp/probe-record.json"), argv
+    )
+    assert composed.count(rig_check.DIAGNOSTICS_FLAG) == 1, (
+        f"the composed probe argv carries "
+        f"{composed.count(rig_check.DIAGNOSTICS_FLAG)} -j flags: {composed}"
+    )
+    # And the surviving one must be OURS — the absolute path we then read. A
+    # count of one is satisfied equally by keeping the builder's relative path,
+    # which is the failure wearing a passing test.
+    idx = composed.index(rig_check.DIAGNOSTICS_FLAG)
+    assert composed[idx + 1] == "/tmp/probe-record.json", (
+        f"the surviving -j points at {composed[idx + 1]!r}, not at the probe's "
+        f"own record path — the probe would read an absent file again"
+    )

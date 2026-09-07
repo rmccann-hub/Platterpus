@@ -1072,7 +1072,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # metadata guards are called from there -- and most of the growth is the
     # docstring recording that no input route can currently reach it, which is
     # what stops a future reader deleting it as dead.
-    "adapters/cyanrip_backend.py": 1501,
+    "adapters/cyanrip_backend.py": 1544,
     "adapters/musicbrainz_client.py": 524,
     "adapters/rip_backend.py": 585,
     "adapters/ripper_log_verify.py": 414,
@@ -1117,7 +1117,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # and the three comment lines saying why it is not a fatal. The registry is
     # this module's point — a code declared anywhere else would defeat it.
     "diagnostics.py": 685,
-    "drive_control.py": 383,
+    "drive_control.py": 411,
     "drive_profiles.py": 488,
     # Raised 1450 -> 1490 on 2026-09-04, deliberately. The addition is the
     # tri-state `_status_line` honesty fix: an EAC-format log must not print
@@ -1182,7 +1182,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # +3 (2026-09-05): now DELEGATES the "was the re-read exercised?" count
     # instead of computing it inline, so the manifest row and the graded verb
     # cannot answer one question with two keys.
-    "rig_check.py": 799,
+    "rig_check.py": 875,
     "rip_addendum.py": 493,
     "rip_audit.py": 1216,
     "rip_compare.py": 1404,
@@ -1221,7 +1221,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ui/main_window_drive.py": 555,
     "ui/main_window_helpers.py": 508,
     "ui/main_window_provision.py": 1212,
-    "ui/main_window_rip.py": 4140,
+    "ui/main_window_rip.py": 4225,
     "ui/main_window_shared.py": 392,
     "ui/main_window_update.py": 953,
     "ui/rip_progress.py": 1658,

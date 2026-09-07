@@ -226,6 +226,72 @@ def _compose_reference_argv(binary: str, device: str, build_tag: str) -> list[st
     return argv[1:]
 
 
+def strip_flag_pairs(argv: list[str], flag: str) -> list[str]:
+    """``argv`` without every ``flag value`` pair. Pure, so it is testable.
+
+    Exists because the probe below has to be the ONLY setter of ``-j`` in the
+    argv it runs, and the rip argv builder became a second setter on 2026-09-05.
+    See that check's docstring for what the collision cost.
+
+    Deliberately drops the value as well as the flag: ``-j`` takes a
+    space-separated argument (genopt has no ``=`` form), so removing the flag
+    alone would leave its path behind as a positional and change what the binary
+    is asked to do.
+    """
+    out: list[str] = []
+    skip_next = False
+    for item in argv:
+        if skip_next:
+            skip_next = False
+            continue
+        if item == flag:
+            skip_next = True
+            continue
+        out.append(item)
+    return out
+
+
+def compose_probe_argv(binary: str, record: Path, argv: list[str]) -> list[str]:
+    """The probe's full argv: ours, with the rip builder's own ``-j`` removed.
+
+    **A function rather than an inline expression, so a test can reach it.** The
+    first regression test for this defect composed the argv itself and passed
+    against the broken production line — `revert_probe.py` reported it
+    ``unaffected``, which is the "my two witnesses are related" shape: the test
+    and the fix shared no code, so the test could not see the fix disappear.
+
+    EXACTLY ONE ``-j``, AND THE PROBE OWNS IT. This was
+    ``[binary, "-j", record, *argv]`` until 2026-09-07, and on that date the rig
+    produced SEVEN identical failures from it — one per rip. The rip argv builder
+    gained its own ``-j cyanrip-diagnostics.json`` on 2026-09-05, so ``argv`` now
+    ends with a ``-j`` and the composed probe carried two.
+
+    Which of the two wins is documented in their source, not guessed: cyanrip's
+    ``main()`` scans for the FIRST ``-j`` and breaks
+    (``cyanrip_main.c:2702-2707``), but ``cyanrip_run()`` calls
+    ``crip_diag_enable()`` again with genopt's parsed value at
+    ``cyanrip_main.c:1721``, and genopt makes a repeated single-value option
+    **replace** the previous one (``genopt.h:582``). That scan's own comment says
+    genopt "is authoritative if the two ever disagree", so the LAST ``-j`` wins.
+    Line 1721 runs before the source open at ``cyanrip_main.c:2026`` — where this
+    probe's deliberately-unopenable device fails — so the record was being
+    written the whole time, to the builder's RELATIVE path, in whatever directory
+    the probe ran from. The probe then read its own absolute path, found nothing,
+    and reported the check as impossible to perform.
+
+    Derived rather than reasoned: the 2026-08-23 bundle carries an
+    ``argv-probe.json`` from this same probe against this same unopenable device,
+    when the argv held ONE ``-j``. The 2026-09-07 bundle carries none. Same
+    check, same refusal, one flag's difference.
+    """
+    return [
+        binary,
+        DIAGNOSTICS_FLAG,
+        str(record),
+        *strip_flag_pairs(argv, DIAGNOSTICS_FLAG),
+    ]
+
+
 def check_argv_reaches_the_binary(
     manifest: Manifest, binary: str, build_tag: str = ""
 ) -> None:
@@ -251,7 +317,17 @@ def check_argv_reaches_the_binary(
         )
         return
 
-    full = [binary, DIAGNOSTICS_FLAG, str(record), *argv]
+    full = compose_probe_argv(binary, record, argv)
+    if full.count(DIAGNOSTICS_FLAG) != 1:  # pragma: no cover — see the function
+        manifest.add(
+            Result(
+                FAIL,
+                "argv/compose",
+                f"the probe argv carries {full.count(DIAGNOSTICS_FLAG)} "
+                f"{DIAGNOSTICS_FLAG} flags and must carry exactly one",
+            )
+        )
+        return
     try:
         proc = subprocess.run(  # noqa: S603 — our own binary, no shell
             full,

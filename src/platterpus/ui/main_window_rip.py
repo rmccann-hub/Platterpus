@@ -944,10 +944,63 @@ class RipMixin(MainWindowShared):
         self._force_stop_timer.start(_FORCE_STOP_COUNTDOWN_MS)
 
     def _auto_force_stop(self) -> None:
-        """Countdown elapsed after Cancel — force-stop if we haven't already."""
+        """Countdown elapsed after Cancel — free the DEVICE, and never eject.
+
+        **This used to call `_do_force_stop`, which ejects, and the difference is
+        the whole reason the rescue can now stay armed.**
+
+        The history is two bugs pulling in opposite directions. Until 2026-08-18
+        the rescue fired after every cancel including the ones that worked, so a
+        disc came out of a drive nobody asked to open; the fix disarmed the rescue
+        the moment the child was reaped. That fix was right about the symptom and
+        wrong about the premise — the reaped child is the host wrapper, not the
+        in-container reader — and on 2026-09-07 it let a cancelled rip run 15
+        minutes longer than the cancel, alongside two later rips on the same
+        drive.
+
+        Both directions are satisfied by making the ACTION conditional instead of
+        the arming. `fuser -k <device>` is device-scoped: it kills whatever holds
+        THIS device and finds nothing when the cancel already worked, so it is a
+        no-op in the good case and effective in the bad one. No eject, so the disc
+        stays in and §J's "can we rip again?" proof still means something — an
+        empty tray reads as a failure that is not real.
+
+        Deliberately NOT `drive_control.free_drive`, which escalates to a broad
+        host `pkill` and then into the container: those are not device-scoped, so
+        on a machine with two drives they could kill a healthy rip on the other
+        one. The narrow step is the one that is safe to run unattended.
+        """
         if self._force_stop_done:
             return
-        self._do_force_stop("auto")
+        self._force_stop_done = True
+        device = self._force_stop_device or self._drive_picker.current_device() or ""
+        if not device:
+            # No device to scope to. `fuser -k` with no path is a no-op that
+            # returns False, so this would be a silent nothing — say so instead.
+            log.warning(
+                "post-cancel rescue: no device to scope the check to, so whether "
+                "the reader is still holding a drive is NOT DETERMINED"
+            )
+            return
+        # SIGTERM, NOT SIGKILL, and this is the half of the fix that is easy to
+        # get backwards. `fuser -k` defaults to SIGKILL, which cannot be caught,
+        # so cyanrip would run no `atexit` — and `atexit` is where the log's
+        # completion footer and `Log FUN512:` signature are written. Stopping the
+        # drive by destroying the archival record trades §I's failure for a worse
+        # one. cyanrip handles SIGTERM, so its handler runs and the footer
+        # survives.
+        log.info(
+            "post-cancel rescue: device-scoped SIGTERM to whatever holds %s "
+            "(no eject, no SIGKILL — the log's footer is written from atexit)",
+            device,
+        )
+        thread = threading.Thread(
+            target=drive_control.free_device_holders,
+            kwargs={"device": device, "signal": "TERM"},
+            daemon=True,
+        )
+        self._force_stop_thread = thread
+        thread.start()
 
     def _on_force_stop_button(self) -> None:
         """User pressed Force stop — escalate immediately.
@@ -1301,8 +1354,40 @@ class RipMixin(MainWindowShared):
         # `_force_stop_done` is set too, not just the timer stopped: the manual
         # Force-stop button is enabled for the whole rip, and pressing it after the
         # rip has already finished would otherwise still eject.
-        self._force_stop_timer.stop()
-        self._force_stop_done = True
+        #
+        # **BUT ONLY WHEN THE RIP WAS NOT CANCELLED, AND THAT EXCEPTION COST A
+        # HARDWARE RUN.** This docstring says "the rip subprocess exited" and the
+        # heading above concluded "the reader is already gone". Across the
+        # Distrobox seam that inference is false: what we signal and reap is the
+        # host-exported wrapper in `~/.local/bin/`, while the reader runs inside
+        # the `ripping` container under a different process tree.
+        # `drive_control.free_drive` has said why for a long time — *"podman
+        # doesn't forward the kill signal into the container"* — but it said it
+        # about a stuck disc SCAN, and the same fact was never applied here.
+        #
+        # Measured on the rig, 2026-09-07: cancel at 00:04:52 sent one SIGTERM,
+        # the wrapper exited 498 ms later, this method ran and disarmed the
+        # rescue — and the reader kept going until 00:20:25, FIFTEEN AND A HALF
+        # MINUTES, ripping all three requested tracks and writing a complete,
+        # FUN512-signed log. The run had already started the next rip at 00:05:39,
+        # so two cyanrips read /dev/sr0 concurrently for eleven minutes. The
+        # rip's own report says `status: cancelled, tracks: []` while its log says
+        # `Rip completed: yes (3 of 14 tracks)` — two artifacts of one rip
+        # disagreeing, which is the archival failure this project exists to avoid.
+        #
+        # So a cancelled rip keeps its rescue armed. The rescue itself is what
+        # changed to make that safe — see `_auto_force_stop`: it is now
+        # device-scoped and never ejects, so it cannot reintroduce the 2026-08-18
+        # bug this disarm was added to fix.
+        if not self._rip_cancelled:
+            self._force_stop_timer.stop()
+            self._force_stop_done = True
+        else:
+            log.info(
+                "rip reported finished after a cancel — LEAVING the force-stop "
+                "rescue armed, because the reaped process is the host wrapper "
+                "and the in-container reader may still hold the drive"
+            )
 
         # Autonomous heal (inert whipper-era seam): a ripper that does its own
         # online lookup can abort when it can't fetch metadata. cyanrip runs -N
