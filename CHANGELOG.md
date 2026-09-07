@@ -13,6 +13,76 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [0.6.41] — 2026-09-07
 
+### Fixed
+- **Our fatal-message matcher was three strings behind the ripper, and one string
+  ahead of it.** Round 16's contract corrected three format strings whose interior
+  newline their generator had been deleting — including
+  `Couldn't open path "%s" for writing: %s!\nInvalid folder name? Try -D <folder>.`,
+  which ran two sentences together with no separator. A matcher built from any of
+  those could never have matched what the binary prints, which is the opposite of
+  what P5 exists for. The corrected forms are in; the fused ones are named in
+  `SURFACING_EXCLUDED` with the reason rather than deleted.
+  In the other direction, `Error parsing string: %s!` was **removed** from their
+  source at `a9aedf0` — derived, not assumed: it is at `src/naming.c:123` in their
+  tree at `978f9b0`, gone at the pin, removed by `c3482b0`, the commit that
+  substitutes U+FFFD for invalid UTF-8 instead of truncating and logging. It is
+  **retained** anyway, because `FORK_PIN` is still `978f9b0` and the build we
+  actually ship still prints it; dropping it would render a real diagnostic from
+  the installed build as a bare "Rip failed". It retires when the pin moves, not
+  when the contract does.
+- **A test that fired because it could not run.** The provider-contract tie check
+  asserted over the newest round, which works only while the newest round has
+  published two contracts. Round 16 published one, so it reported *"round 16
+  publishes only 1 contract"* as a failure — a check firing because the case it
+  needs does not exist, which is not a defect and must not read like one. It now
+  picks the newest round that actually has a tie, keeps the adverse-order forcing
+  that made it non-vacuous, and still refuses to pass if no tie exists anywhere.
+
+### Added
+- **`scripts/emit_ripper_inventory.py` — the generator the inventory has always
+  said it needed.** `ripper_message_inventory.py` has carried *"Do not hand-edit.
+  Regenerate when a handshake round ships a new inventory"* since it was written,
+  and **no tool existed to regenerate it with**. Its own docstring records the
+  cost: it sat at round 6's 115 rows for five rounds while seven newer contracts
+  were committed here, one of whose covering laps said in prose that ten rows had
+  been added. An instruction where a mechanism belongs.
+  Round 16 made it concrete. Correcting the three fused strings by hand fixed the
+  *strings* and left every `file:line` pointing at round 15's source, because
+  their line numbers move with every commit — two expressions of one contract,
+  disagreeing. The generator now rebuilds the `MESSAGES` table **and** the test
+  fixture from one parse of the newest filed contract, so the two copies the tests
+  compare cannot disagree about what the document said, only about whether we have
+  kept up with it. It deliberately does **not** touch `RETAINED_BEYOND_P5`,
+  `SURFACING_EXCLUDED` or `P5A_NOT_RETAINED`: those carry hand-written reasons, and
+  a reason is not derivable from the document that caused it.
+  **Two things it caught on its first run, both mine.** The `Reaches logfile?`
+  column is **tri-state** — `yes`, `no`, and `**not directly** - see legend` — and
+  requiring `yes|no` silently dropped three rows, presenting as a shrinking
+  contract rather than a narrow regex. And the contract escapes `"` and `|` inside
+  table cells, which the surfacing tests already unescape and the generator did
+  not, so 22 more strings went missing. Both now have a floor and a comment saying
+  the two readers must agree.
+- **Round 16 lap 2 — every answer they asked for, and an S-18 pre-commit to `GO`.**
+  Their §D4 ask is answered from our source and closed (`SUPPORTED_SCHEMAS` gates
+  their *release manifest*, not the `-j` record; nothing reads that record; the
+  `/4` bump is a no-op in every direction). Their source anchor recomputes here.
+  Both round digests and all four shared hashes agree. Four recommendations go
+  back on their `riground16.sh`, none blocking. The lap pre-commits: *our next lap
+  is `GO` on `a9aedf0` + `platterpus 0.6.41` unless the hardware run finds
+  something that makes the reviewed pin unsafe* — which is the mechanism that
+  actually ends rounds, and this one is meant to end on a drive.
+
+### Fixed
+- **An anti-vacuity floor that fired on correct behaviour.** The unsent-lap sweep
+  required **two** outbound laps for the open round — a fact about rounds *we*
+  open, where ours are 1, 3, 5… Round 16 was opened by the fork, so our first is
+  lap **2** and one is the whole correct population. Lowering a floor is the move
+  that file exists to distrust, so the property is kept by another means rather
+  than dropped: the glob is now proven against a **closed** round, where the
+  expected set is known and cannot shrink, and the open round only has to be
+  non-empty. A gate that fires on correct behaviour teaches people to route around
+  it, which is worse than one that never fires.
+
 ### Added
 - **The reviewed pin's publication status is now DECLARED and checked both ways.**
   Round 16 opened on `a9aedf0`, which the fork has **not** published — absent from
