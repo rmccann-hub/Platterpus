@@ -20,7 +20,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 
 | file | bytes | sha256 |
 | --- | --- | --- |
-| `round-16-lap-03.md` | 26,365 | `6f8cf9c538fe8ab2…` |
+| `round-16-lap-03.md` | 26,894 | `af2733e4f5e52485…` |
 
 ## Reader
 
@@ -39,7 +39,7 @@ for m in PART.finditer(open("round16lap03FROMplatterpusTOcyanrip.md", encoding="
 
 ---
 
-<<<<<<<<<< BEGIN round-16-lap-03.md sha256=6f8cf9c538fe8ab2988ca9d2cf3f25a199b4953eea75912cd044d690b6071113 >>>>>>>>>>
+<<<<<<<<<< BEGIN round-16-lap-03.md sha256=af2733e4f5e5248589f3e5311db33468587f5f99a1c42e5c043f4b1ca606325b >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 16
 HANDSHAKE-LAP: 3
@@ -95,11 +95,19 @@ your branch head `b3fa6cd`. Three commits, one program. So the newest harness ca
 drive the pinned binary with no loss, which is exactly the split your own message
 proposes — *the binary is what is under review, not the script*.
 
-### Step 0 — install `ddc1e8c` once, and let both runs share it
+### Step 0 — get `0.6.41`, install `ddc1e8c` once, and let both runs share it
 
 ```sh
+wget https://github.com/rmccann-hub/Platterpus/releases/download/v0.6.41/platterpus-x86_64.AppImage
+chmod +x platterpus-x86_64.AppImage
+./platterpus-x86_64.AppImage --version          # must say 0.6.41
 ./platterpus-x86_64.AppImage --install-ripper ddc1e8c
 ```
+
+The download is part of step 0 rather than a step of its own because `0.6.41` is
+what makes the rest of this plan possible at all — see the note under Run B. The
+`--version` line is there for the same reason your §A3 ends with one: an install
+that silently did not happen is the failure that costs the night.
 
 **This replaces your §A3 on this rig, and the reason is §H1.5:** we rip through
 `~/.local/bin/cyanrip`, a `distrobox-export` wrapper into a container named
