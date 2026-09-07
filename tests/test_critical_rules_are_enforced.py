@@ -1091,7 +1091,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # other and the banner named a build that never existed. The growth is the
     # note saying so where the literal is, because the next person to roll a
     # pin reads this file and not the changelog.
-    "deps/fork_source.py": 1705,
+    # 1705 -> 1790 at round 16. All comment, no code: the reviewed pin moved and
+    # three constants around it now carry the DERIVATION that licenses them —
+    # the recomputed source anchor, why the version legitimately did not move
+    # with the pin, and why no release sequence was invented for a build the
+    # fork has not published. Those are exactly the paragraphs a future reader
+    # needs and cannot reconstruct, and splitting the file would separate a
+    # constant from the reason it holds. Raised deliberately, which is what
+    # this ratchet asks for; the module is still one responsibility.
+    "deps/fork_source.py": 1770,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1184,7 +1192,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # beside it is a row the next reader will move on a guess. This module is
     # the provenance record for that seam; splitting the reasons out of it
     # would leave the claim here and the evidence elsewhere.
-    "ripper_message_inventory.py": 1051,
+    # 1051 -> 1090 at round 16. GENERATED DATA, and now genuinely generated:
+    # `scripts/emit_ripper_inventory.py` rebuilds the MESSAGES block and the
+    # test fixture from the fork's published contract in one parse. The file
+    # has said "do not hand-edit, regenerate" since it was written and there was
+    # no tool to regenerate it with, which is how it sat at round 6's row count
+    # for five rounds. The growth is three more published rows plus the reasons
+    # for the rows we retain past P5 — a line count is not a cohesion signal for
+    # a table.
+    "ripper_message_inventory.py": 1081,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     "settings_validation.py": 886,

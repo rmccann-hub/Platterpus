@@ -106,9 +106,30 @@ def test_no_lap_of_the_current_round_is_left_unsent() -> None:
     """
     number = _current_round()
     laps = sorted(OUTBOUND.glob(f"round-{number:02d}-lap-*.md"))
-    assert len(laps) >= 2, (
-        f"only {len(laps)} outbound lap(s) found for round {number} — the sweep "
-        "has lost its population and is passing by not looking"
+
+    # THE FLOOR IS ONE, AND PROVING THE MATCHER STILL MATCHES IS A SEPARATE CHECK.
+    #
+    # It was `>= 2`, which is a fact about rounds WE open: our laps are then 1, 3,
+    # 5… and two exist almost immediately. Round 16 was opened by the fork, so our
+    # first outbound lap is lap **2** and one is the whole correct population — the
+    # floor fired on correct behaviour, which the comment below already names as
+    # worse than one that never fires.
+    #
+    # Lowering a floor is exactly the move this file exists to distrust, so the
+    # anti-vacuity property is kept by a different means rather than dropped: the
+    # glob is proven against a CLOSED round, where the expected set is known and
+    # cannot shrink. If the verb is renamed or the directory moves, that assertion
+    # fails and this one is not asked to notice.
+    closed = sorted(OUTBOUND.glob("round-15-lap-*.md"))
+    assert len(closed) >= 2, (
+        f"the outbound glob found {len(closed)} lap(s) for round 15, a closed round "
+        "with several — so the matcher itself has stopped matching and the check "
+        "below would pass by not looking"
+    )
+    assert laps, (
+        f"no outbound lap found for round {number}. If the round is open and the "
+        "peer opened it, ours is still owed; if we opened it, the sweep has lost "
+        "its population."
     )
 
     # THREE WAYS A LAP CAN BE ACCOUNTED FOR, and the third was missing.

@@ -1060,10 +1060,16 @@ def test_the_envelope_name_is_safe_to_cross_machines(envelope: ModuleType) -> No
         "underscores, spaces or capitals (CLAUDE.md → Artifact filenames that cross "
         "machines)."
     )
-    assert re.fullmatch(r"round\d{2}lap\d{2}platterpus", stem), (
-        f"{name} does not follow round<NN>lap<LL>platterpus.md. The numbers are "
-        "zero-padded so a directory listing sorts chronologically, and the sender is "
-        "named so the operator can tell our envelope from theirs at a glance."
+    # **BOTH ENDS, not just the sender** (2026-09-07, maintainer: *"i need handshake
+    # files to tell me who they came from, and who they go to"*). The pattern used
+    # to end at `platterpus`, which names the sender and reads as if it names
+    # everything — and the operator holds files travelling both ways, in a file
+    # manager where nothing else says which.
+    assert re.fullmatch(r"round\d{2}lap\d{2}platterpustocyanrip", stem), (
+        f"{name} does not follow round<NN>lap<LL>platterpustocyanrip.md. The numbers "
+        "are zero-padded so a directory listing sorts chronologically, and BOTH ends "
+        "of the seam are named so the operator can tell at a glance not just whose "
+        "envelope it is but which way it is going."
     )
 
 
