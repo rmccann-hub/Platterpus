@@ -200,7 +200,19 @@ PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-02.md",)
 #: Safe to change unilaterally: the name is ours to generate, and their splitter
 #: keys on the BEGIN/END delimiters rather than the filename. The matching ask —
 #: that their envelopes say it too — is a request in the lap, not an edit here.
-NAME_TEMPLATE: str = "round{round:02d}lap{lap:02d}platterpustocyanrip.md"
+#: **Matched to the fork's spelling, deliberately, and it costs a rule.** They
+#: adopted the same idea in round 16 lap 1 and spelled it
+#: `round16lap01FROMcyanripTOplatterpus.md`. Ours was `…platterpustocyanrip.md`:
+#: the same information, a different shape. The operator holds BOTH files in one
+#: folder, and `CLAUDE.md`'s own naming rule says the hazard was never hyphens as
+#: such — it was *"two conventions"*, one artifact spelled two ways.
+#:
+#: So the uppercase `FROM`/`TO` are a deliberate exception to the lowercase-only
+#: rule, taken because matching the peer serves the reader the rule exists for.
+#: Every filesystem in this project's path handles the case fine; what it could
+#: not handle was the same file having two names. Recorded in `CLAUDE.md` beside
+#: the rule rather than left as a silent divergence from it.
+NAME_TEMPLATE: str = "round{round:02d}lap{lap:02d}FROMplatterpusTOcyanrip.md"
 
 
 def envelope_filename(round_: int, lap: int) -> str:

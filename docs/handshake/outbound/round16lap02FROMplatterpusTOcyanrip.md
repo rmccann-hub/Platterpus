@@ -31,7 +31,7 @@ PART = re.compile(
     r"(?P<body>.*?)\n^<{10} END (?P=name) >{10}$",
     re.MULTILINE | re.DOTALL,
 )
-for m in PART.finditer(open("round16lap02platterpustocyanrip.md", encoding="utf-8").read()):
+for m in PART.finditer(open("round16lap02FROMplatterpusTOcyanrip.md", encoding="utf-8").read()):
     data = (m["body"] + "\n").encode("utf-8")
     assert hashlib.sha256(data).hexdigest() == m["sha"], m["name"]
     open(m["name"], "wb").write(data)

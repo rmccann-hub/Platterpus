@@ -1054,19 +1054,24 @@ def test_the_envelope_name_is_safe_to_cross_machines(envelope: ModuleType) -> No
     name = envelope.OUT.name
     stem, dot, suffix = name.partition(".")
     assert dot and suffix == "md", f"{name} must be a single-suffix .md file"
-    assert normalise(stem) == stem, (
+    # **Separators are the hazard; case is not.** `normalise()` strips separators
+    # AND case, so comparing the stem against its own normalisation would forbid the
+    # uppercase `FROM`/`TO` we deliberately match the fork on. What the rule is
+    # actually for is that two people never spell one artifact two ways — and the
+    # uppercase is there BECAUSE the fork spells it that way. So this asserts the
+    # part that bites: no hyphens, underscores or spaces, ASCII only.
+    assert normalise(stem) == stem.lower(), (
         f"{name} is not in the cross-machine spelling: `{stem}` normalises to "
-        f"`{normalise(stem)}`. Lowercase ASCII letters and digits only — no hyphens, "
-        "underscores, spaces or capitals (CLAUDE.md → Artifact filenames that cross "
-        "machines)."
+        f"`{normalise(stem)}`. ASCII letters and digits only — no hyphens, "
+        "underscores or spaces (CLAUDE.md → Artifact filenames that cross machines)."
     )
     # **BOTH ENDS, not just the sender** (2026-09-07, maintainer: *"i need handshake
     # files to tell me who they came from, and who they go to"*). The pattern used
     # to end at `platterpus`, which names the sender and reads as if it names
     # everything — and the operator holds files travelling both ways, in a file
     # manager where nothing else says which.
-    assert re.fullmatch(r"round\d{2}lap\d{2}platterpustocyanrip", stem), (
-        f"{name} does not follow round<NN>lap<LL>platterpustocyanrip.md. The numbers "
+    assert re.fullmatch(r"round\d{2}lap\d{2}FROMplatterpusTOcyanrip", stem), (
+        f"{name} does not follow round<NN>lap<LL>FROMplatterpusTOcyanrip.md. The numbers "
         "are zero-padded so a directory listing sorts chronologically, and BOTH ends "
         "of the seam are named so the operator can tell at a glance not just whose "
         "envelope it is but which way it is going."
@@ -1095,14 +1100,20 @@ def test_the_envelope_name_is_generated_from_the_lap_it_carries(
     # files to tell me who they came from, and who they go to"*). The old shape
     # ended in `platterpus`, which names the sender and looks like it names
     # everything — and the operator holds files travelling both ways.
-    assert envelope.envelope_filename(9, 6) == "round09lap06platterpustocyanrip.md"
-    assert envelope.envelope_filename(10, 21) == "round10lap21platterpustocyanrip.md"
+    assert envelope.envelope_filename(9, 6) == "round09lap06FROMplatterpusTOcyanrip.md"
+    assert (
+        envelope.envelope_filename(10, 21) == "round10lap21FROMplatterpusTOcyanrip.md"
+    )
     for name in (envelope.envelope_filename(16, 2),):
-        assert "platterpusto" in name and name.endswith("cyanrip.md"), (
+        assert "FROMplatterpusTO" in name and name.endswith("cyanrip.md"), (
             f"{name} does not state both ends of the seam"
         )
-        assert name == name.lower() and name.replace(".", "").isalnum(), (
-            f"{name} breaks the cross-machine rule: lowercase ASCII and digits only"
+        # ASCII letters and digits only — but NOT lowercase-only. The uppercase
+        # FROM/TO match the fork's own spelling, which is the point: one artifact
+        # with two names in the operator's folder is the hazard the naming rule
+        # was written against, and matching the peer is what avoids it.
+        assert name.replace(".", "").isalnum() and name.isascii(), (
+            f"{name} breaks the cross-machine rule: ASCII letters and digits only"
         )
     assert envelope.envelope_filename(9, 6) != envelope.envelope_filename(9, 7), (
         "the generator does not vary with the lap, so the name cannot track the "
