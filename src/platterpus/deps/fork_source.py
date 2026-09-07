@@ -1181,6 +1181,34 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
 WIZARD_TARGET: Final[ForkTarget] = PRODUCTION_TARGET
 
 
+def _known_pairing_for(pin: str) -> tuple[str, str] | None:
+    """``(version, what this pin IS)`` when ``pin`` is one we hold a pairing for.
+
+    **`target_for_commit` knew this about ONE of its three known pins.** Its
+    production branch carries a comment explaining that saying *"version not
+    known"* about a commit we DO pin *"printed a false sentence about our own
+    pin"*, and that *"a sentence false in a small way is how a night gets lost"*.
+    Both true — and the reviewed pin and the **test pin** fell through to the
+    honest-for-an-arbitrary-commit default anyway, so `--install-ripper ddc1e8c`
+    told an operator the version was unpredictable for the one commit round 16
+    agreed on, whose pairing both projects declared at column 0.
+
+    `docs/testing.md` §5.o, at the scale of one function: the rule was written,
+    and applied at the place it was learned. This is the sweep, so a fourth known
+    pin cannot arrive without one.
+
+    Returns None for a genuinely arbitrary commit, where the default is correct.
+    """
+    for target, role in (
+        (PRODUCTION_TARGET, "the APPROVED pin"),
+        (UNDER_REVIEW_TARGET, "the pin the open round is REVIEWING"),
+        (TEST_TARGET, f"the round-{FORK_TEST_PIN_ROUND} agreed TEST PIN"),
+    ):
+        if same_commit(pin, target.pin) and target.version:
+            return target.version, role
+    return None
+
+
 def target_for_commit(
     pin: str,
     *,
@@ -1257,12 +1285,21 @@ def target_for_commit(
             ),
             meson_options=meson_options,
         )
+    known = _known_pairing_for(pin)
     return ForkTarget(
         pin=pin,
-        version=version or "(version not known for an operator-supplied commit)",
+        # A pin we hold a MEASURED pairing for gets that version; only a genuinely
+        # arbitrary commit gets the honest default. See `_known_pairing_for`.
+        version=(
+            version
+            or (known[0] if known else None)
+            or "(version not known for an operator-supplied commit)"
+        ),
         why=(
             f"commit {pin}, supplied on the command line — NOT the approved pin "
-            f"({PRODUCTION_TARGET.pin}). Every rip with this installed reports "
+            f"({PRODUCTION_TARGET.pin})"
+            + (f", but it IS {known[1]}" if known else "")
+            + ". Every rip with this installed reports "
             "ripper_handshake_approval: unapproved, which is the correct answer"
         ),
         meson_options=meson_options,

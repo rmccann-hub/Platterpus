@@ -21,6 +21,22 @@ rip — reproducing, in the evidence bundle, the two defects the fork had just
 reported and we had just fixed.
 
 ### Fixed
+- **`--install-ripper <known pin>` said the version was unpredictable for pins we
+  measure.** `target_for_commit` special-cased the *approved* pin — carrying a
+  comment that saying *"version not known"* about a commit we do pin *"printed a
+  false sentence about our own pin"*, and that *"a sentence false in a small way
+  is how a night gets lost"* — and then let the **reviewed** pin and the **test
+  pin** fall through to the arbitrary-commit default. So `--install-ripper
+  ddc1e8c`, the exact command the round-16 session runs, disclaimed a pairing both
+  projects had declared at column 0. `docs/testing.md` §5.o at the scale of one
+  function: the rule was written, then applied only where it was learned. The
+  lookup is now general over the three known targets, and it names *which* pin the
+  commit is (*"NOT the approved pin, but it IS the round-16 agreed TEST PIN"*)
+  rather than only what it is not. A genuinely arbitrary commit still gets the
+  honest *"version not known"* — asserted, because inventing a version for every
+  commit would satisfy the fix while committing the defect its own docstring warns
+  against.
+
 - **`--install-ripper list` offered two builds and called the wrong one
   mandatory.** `UNDER_REVIEW_TARGET`'s reason read *"what an acceptance run must
   be on"* — true for every round up to 15, and false for round 16, the first to
