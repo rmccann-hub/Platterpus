@@ -274,11 +274,44 @@ def test_the_under_review_pin_and_version_are_one_pairing_from_one_lap() -> None
         f"name ONE build; a version rendered against a different commit is the "
         f"mis-pairing this test exists to refuse."
     )
-    # And the tag they print must be the one we compose, or the acceptance run's
+    # And the tag they print must be one WE COMPOSE, or the acceptance run's
     # `expect-ripper-under-review` compares against a string no build emits.
-    assert banner.group("tag").strip() == f"{fork_source.FORK_BRANCH}-g{target.pin}", (
-        f"we would compose {fork_source.FORK_BRANCH}-g{target.pin!r} but they "
-        f"print {banner.group('tag').strip()!r}"
+    #
+    # **EITHER THE REVIEWED PIN OR THE TEST PIN, and that widening is round 16's.**
+    # This required the reviewed pin alone until 2026-09-07. Their laps 1 and 2
+    # paired the banner with `ga9aedf0`; their lap 4 moved it to `gddc1e8c`, the
+    # test pin — deliberately, because that is the build the joint session
+    # installs, and `git diff a9aedf0..ddc1e8c -- src/ meson.build` is empty, so
+    # the version string `0.9.4-rc2+platterpus.11` is correct for both and no
+    # build is misnamed.
+    #
+    # A test pin is a SECOND legitimate answer to "which build does the round's
+    # banner name", exactly as it was for `expect-ripper-under-review` — the same
+    # widening, in a second place, from the same cause. `docs/testing.md` §5.o:
+    # enforce a rule across the codebase, not at the place it was learned.
+    #
+    # The mis-pairing refusal is intact: the tag must be one of the two the round
+    # actually names. Anything else is still the 2026-09-01 defect this test was
+    # written for.
+    printed = banner.group("tag").strip()
+    accepted = {
+        f"{fork_source.FORK_BRANCH}-g{target.pin}": "the reviewed pin",
+        f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_TEST_PIN}": "the test pin",
+    }
+    assert printed in accepted, (
+        f"{newest.name} prints build tag {printed!r}, which is neither the "
+        f"reviewed pin's ({fork_source.FORK_BRANCH}-g{target.pin}) nor the test "
+        f"pin's ({fork_source.FORK_BRANCH}-g{fork_source.FORK_TEST_PIN}). A "
+        f"version rendered against a third commit is the mis-pairing this test "
+        f"exists to refuse"
+    )
+    # Non-vacuity: while a round is open with a test pin, the two are genuinely
+    # different, so `printed in accepted` is a real choice rather than a set of
+    # one. Between rounds they coincide and that is a legitimate state.
+    assert len(accepted) == 2 or target.pin == fork_source.FORK_TEST_PIN, (
+        "the reviewed pin and the test pin composed the same tag, so this check "
+        "cannot tell the widening from the original — legitimate between rounds, "
+        "but if a round is open the test-pin case has been lost"
     )
 
 

@@ -11,6 +11,43 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The rip plan denied a flag the rip argv carries, eight times in one rig run.**
+  The `[plan]` block printed *"Diagnostics (-j) and cache probe (-x): NEVER sent by
+  a rip"* while every rip argv ended `-G -j cyanrip-diagnostics.json`. Reported by
+  the cyanrip fork (round-16 lap 4 §H1), **counted rather than sampled**: 16
+  `[plan]` claims in the 2026-09-07 app log, and the 8 from 2026-09-06 23:07
+  onward are each followed 250–280 ms later by the contradicting argv. The 8 from
+  2026-09-05 were truthful — `-j` joined the builder that day and the sentence was
+  not revisited. Verified here independently: 16 total, 8 and 8.
+  It matters because that block exists to be compared against the ripper's own
+  `Invoked as:`, so a reader doing exactly what it asks finds a denial and the
+  flag. The two flags are now stated separately — `-j` always sent, `-x` never —
+  because lumping them is what let one half go stale unnoticed. Same shape as our
+  own §0b.1.
+
+- **`parser/interrupted` gave one verdict for two opposite states.** The absence
+  of an `Interrupted at:` line was reported as *"expected for a rip that ran to
+  the end"* regardless of outcome — right for the 6 completed rips in that
+  manifest, and exactly backwards for the 1 cancelled one, where the absence is
+  the **finding**. The fork counted both (lap 4 §H2). The state was known all
+  along: the `parser/log` row on the same log in the same manifest says *"this
+  rip's own report says it was CANCELLED"* — two checks reading one fact, one of
+  them using it. Now tri-state, with `None` getting its own "not determined"
+  sentence rather than being folded into either answer.
+
+### Changed
+- **The reviewed-pin/banner pairing check accepts the test pin too.** Their laps 1
+  and 2 paired `HANDSHAKE-RIPPER-VERSION`'s build tag with the reviewed pin; lap 4
+  moved it to the test pin, deliberately, since that is the build the joint session
+  installs — and `git diff a9aedf0..ddc1e8c -- src/ meson.build` is empty, so the
+  version string is correct for both and no build is misnamed. A test pin is a
+  second legitimate answer to "which build does the round's banner name", exactly
+  as it was for `expect-ripper-under-review` on 2026-09-07: the same widening, in
+  a second place, from the same cause. The mis-pairing refusal is intact — a tag
+  naming a third commit still fails.
+
+
 ## [0.6.42] — 2026-09-07
 
 ### Fixed
