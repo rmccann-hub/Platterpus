@@ -201,6 +201,61 @@ It is **retained**, because `FORK_PIN` is still `978f9b0` and the build we ship 
 prints it; dropping it would render a real diagnostic from the *installed* build as a
 bare "Rip failed." It retires when the pin moves, not when the contract does.
 
+### The five-second abort, reached a third way — and this one was a CORRECT route
+
+The acceptance script's header sends the operator to *Help → Check for cyanrip
+updates…* and says *take whatever offer it makes*. Both halves are careful, both
+are the product of two previous corrections, and this round they were still
+wrong — because the offer is computed from **the fork's release manifest**, so the
+set it can propose is the set of *published* builds, and round 16 opened on a
+commit the fork nominated and never released. The dialog's most honest answer is
+then *"your build is current"*: true of the manifest, and not the build section A
+demands. Take it and the night ends at section A, four seconds in.
+
+**That is the 2026-08-27 abort for the third time, by a third mechanism.** First a
+stale channel name (2026-08-28), then a stale build tag (2026-09-01), now a route
+that is correct and *cannot see the answer*. The first two were values going out
+of date; this one never had the value. The header's own comment block argues at
+length that "take whichever one it offers" is *"the form that cannot go stale,
+because it delegates to the surface that knows"* — and the surface it delegates to
+does not know, because it reads a document the fork controls rather than the record
+we keep. **Delegation is only as good as the delegate's population**, which is the
+closed-population question wearing different clothes.
+
+The fix had to stay build-free — this file ships frozen inside a release, which is
+the whole reason `test_the_header_names_no_build_and_routes_to_the_app_instead`
+forbids naming a commit — so it is a *second command*, `--install-ripper list`,
+generated from the same constant section A checks. And the gap underneath is ours
+and stays open: `ripper_choices()` has no GUI caller, so the repair is a terminal
+paragraph in a program whose premise is that there is no terminal. `TASKS.md`
+records it as *worked around*, not fixed, because that is what it is.
+
+**The test for it was satisfiable by the wrong occurrence, and `revert_probe.py`
+said so.** Each marker label appears twice in the header — once where the markers
+are explained, once in the sentence telling the operator which to install — so
+`label in header` stayed green when either was deleted. An explanation without an
+instruction is a glossary. Worth keeping because the probe's verdict was
+`VACUOUS` on a test written *ten minutes earlier specifically to guard this*: a
+new check arrives wearing the authority of having been added on purpose.
+
+### Their install instruction cannot reach the path we rip through
+
+The fork's §A3 says `meson setup build && ninja -C build && sudo ninja -C build
+install`, then `cyanrip --version`. On a machine with one cyanrip that is exactly
+right. This rig is not that machine: we rip through `~/.local/bin/cyanrip`, a
+`distrobox-export` wrapper into the `ripping` container — Critical rule #3, which
+predates this round. A host `sudo ninja install` writes the *host's*
+`/usr/local/bin/cyanrip` and leaves the wrapper alone, so `cyanrip --version` on
+the host prints the new tag while the binary the app executes is still the old
+container build. **Every check would look right and Run B would abort at section
+A**, after the operator had done everything asked of them.
+
+Sent as §H1.5, framed as ours: not a defect in their script but a machine-shape
+assumption of ours we had never stated. The route that works is
+`--install-ripper ddc1e8c`, which builds *inside* the container and verifies the
+banner **before** `sudo install` and the export — an ordering worth telling them
+about, since theirs verifies after, and those two steps are irreversible.
+
 ### Two gates caught me, one of them mine, and both were right
 
 * **The release workflow refused its own dispatch.** I dispatched `v0.6.41` seconds
