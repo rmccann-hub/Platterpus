@@ -14,6 +14,43 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [0.6.41] — 2026-09-07
 
 ### Fixed
+- **The acceptance run's only documented route to a ripper could not reach the
+  build it demands.** The script's header sent the operator to *Help → Check for
+  cyanrip updates…* and to take whatever it offered. That offer is computed from
+  the **fork's release manifest**, so the set it can propose is the set of
+  *published* builds — and a handshake round may open on a commit the fork has
+  nominated and never released, which is exactly what round 16 did. The dialog's
+  most honest answer is then *"your build is current"*: true of the manifest, and
+  not the build section A wants. Taking it aborts the run at section A, four
+  seconds in, with no evidence produced — **the same abort that cost the
+  2026-08-27 run, reached by a third distinct path**, after a stale channel name
+  (2026-08-28) and a stale build tag (2026-09-01).
+  The header now also names `--install-ripper list`, with the `✓ approved` /
+  `⚠ under-review` / `⚠ test-pin` markers so the operator knows which entry to
+  install. It is a **command, never a commit** — this file ships frozen inside a
+  release, so any build written in it goes stale on build day, whereas the menu is
+  generated from the same constant section A checks and cannot be the stale half
+  of a pair. Held by a test whose three properties were each proven non-vacuous
+  with `revert_probe.py` — the first version of that test was *satisfiable by the
+  wrong occurrence*, which the probe caught: each label appears twice in the
+  header and deleting either left the assertion green.
+  The underlying gap is still ours and still open: `ripper_choices()` has no GUI
+  caller, so this is a terminal paragraph in a program whose premise is that there
+  is no terminal (`TASKS.md`, KDD-17 gap).
+
+- **`--install-ripper` is now named in the round-16 run plan, because their
+  install instruction cannot reach our ripping path.** The fork's §A3 says
+  `meson setup build && ninja -C build && sudo ninja -C build install`, which is
+  right on a machine with one cyanrip. This rig is not that machine: Platterpus
+  rips through `~/.local/bin/cyanrip`, a `distrobox-export` wrapper into the
+  `ripping` container (Critical rule #3). A host `sudo ninja install` writes the
+  *host's* `/usr/local/bin/cyanrip` and leaves the wrapper untouched — so
+  `cyanrip --version` on the host would print the new tag while the binary the app
+  executes is still the old container build. Every check would look right and the
+  acceptance run would abort at section A. Not a defect in their script but a
+  machine-shape assumption, and ours to state rather than theirs to have guessed;
+  sent as §H1.5.
+
 - **The acceptance run's de-emphasis verdict could be "confirmed" by a comparison
   that establishes nothing.** Section P3 deliberately does not decide its clause —
   a person reads it off the transcript afterwards — which makes its verdict
