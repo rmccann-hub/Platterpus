@@ -1072,7 +1072,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # metadata guards are called from there -- and most of the growth is the
     # docstring recording that no input route can currently reach it, which is
     # what stops a future reader deleting it as dead.
-    "adapters/cyanrip_backend.py": 1544,
+    # **1544 -> 1567 on 2026-09-07**, for making a SKIPPED `-t` range check
+    # visible. The guard is conditional on the disc's track total and two UI
+    # callers can pass None, so an unknown count skipped it silently — on the one
+    # path where an out-of-range `-t` costs the whole rip. The addition is a log
+    # line plus the paragraph saying why it is a log line and not a refusal, and
+    # it belongs beside the guard it describes: a warning about a check, in a
+    # different file from the check, is the split that makes the next reader
+    # believe the check is unconditional.
+    "adapters/cyanrip_backend.py": 1567,
     "adapters/musicbrainz_client.py": 524,
     "adapters/rip_backend.py": 585,
     "adapters/ripper_log_verify.py": 414,
