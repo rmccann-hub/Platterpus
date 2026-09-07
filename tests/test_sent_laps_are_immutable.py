@@ -56,6 +56,18 @@ REPO_ROOT: Path = Path(__file__).resolve().parent.parent
 #: sent and what the fork holds; the file in this repository drifted from it and
 #: has been restored. It is first in the map for that reason.
 SENT_LAPS: dict[str, str] = {
+    # Round 16 lap 5. **Peer-confirmed, and delivered without an edit** — the
+    # first round-16 lap of ours that can be said of. Their lap 6 line 24 declares
+    # holding it at sha256/16 `ad77e1346fd47218`, *"split with your reader and its
+    # part hash verified against your manifest before filing"*, and line 11 quotes
+    # its `HANDSHAKE-VERDICT`. Their lap 6 digest row 5 carries the same value, so
+    # it is confirmed twice by two constructions in one document.
+    #
+    # This is the row lap 3's failure was supposed to buy: the lap went out, the
+    # peer vouched for the bytes, and the file here still hashes to them.
+    "outbound/round-16-lap-05.md": (
+        "ad77e1346fd4721811a3415c3be0b303e732dcbe1986bb274f6e19ff4c792a98"
+    ),
     # Round 16 lap 3. **Recorded from the PEER'S declaration, and it caught an
     # edit I had already made.** Their lap 4 line 11 quotes our lap 3 at
     # sha256/16 `47368738c317f930`; the file in this repository had moved to

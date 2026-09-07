@@ -1042,6 +1042,39 @@ def _pin_under_review_role_clause() -> str:
     )
 
 
+def rig_installs_the_test_pin() -> bool:
+    """Whether an acceptance run must install the TEST pin rather than the
+    reviewed one.
+
+    **Derived from the two pins, for the same reason
+    :func:`a_round_is_reviewing_a_build` is.** Protocol §6a's sequence is *agree a
+    test pin → both install it → run the session*, so when a round nominates a
+    build distinct from the one it is reviewing, the rig installs the **test
+    pin** — the reviewed build is the round's *subject*, not necessarily the
+    binary that goes on the drive. When no separate test pin exists the two
+    coincide and the reviewed build is what gets installed, which is why this is
+    a comparison and not a flag.
+
+    Written 2026-09-07 because :data:`UNDER_REVIEW_TARGET`'s `why` still said
+    *"what an acceptance run must be on"* — true for every round up to 15, and
+    false for round 16, which is the first to name a separate test pin. It is the
+    exact defect that constant's own comment describes: a hard-coded answer to a
+    question whose answer moves, in a string an operator reads at 2am while
+    deciding what to install. `--install-ripper list` printed **two** candidates
+    and told them the wrong one was mandatory.
+
+    Nothing aborted on it — `expect-ripper-under-review` accepts both pins, and
+    `git diff a9aedf0..ddc1e8c -- src/ meson.build` is empty, so the two round-16
+    builds are behaviourally identical. What it would have cost is the artifact's
+    provenance: a rip tagged `ga9aedf0` when both projects' records say the
+    session ran `gddc1e8c`, which is the mis-pairing class this module exists to
+    prevent rather than a wasted night.
+    """
+    return a_round_is_reviewing_a_build() and not same_commit(
+        FORK_TEST_PIN, PIN_UNDER_REVIEW
+    )
+
+
 #: The pin a **closed** round approved. Moves only when a round closes.
 PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
@@ -1061,8 +1094,15 @@ TEST_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_TEST_PIN,
     version=FORK_TEST_VERSION,
     why=(
-        f"the round-{FORK_TEST_PIN_ROUND} test pin, nominated by both projects for "
-        "the joint hardware session — NOT a release, and no round has approved it"
+        (
+            "INSTALL THIS ONE for an acceptance run while the round is open. T"
+            if rig_installs_the_test_pin()
+            else "t"
+        )
+        + f"he round-{FORK_TEST_PIN_ROUND} test pin, nominated by both projects "
+        "for the joint hardware session — NOT a release, and no round has "
+        "approved it, so every rip will report `unapproved`, which is the "
+        "correct answer rather than a fault"
     ),
 )
 
@@ -1105,7 +1145,19 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     # §5.o: enforce a rule across the codebase, not at the place it was learned —
     # so both surfaces now call `pin_under_review_role()` rather than each
     # carrying their own sentence about the same fact.
-    why=f"what an acceptance run must be on — it {_pin_under_review_role_clause()}",
+    why=(
+        (
+            "the round's SUBJECT, but NOT what the rig installs — the "
+            f"test-pin entry ({FORK_TEST_PIN}) is. "
+            if rig_installs_the_test_pin()
+            else "what an acceptance run must be on — it "
+        )
+        + (
+            _pin_under_review_role_clause()
+            if not rig_installs_the_test_pin()
+            else f"It {_pin_under_review_role_clause()}."
+        )
+    ),
 )
 
 #: **What the setup wizard and ``--install-ripper`` build by default.**
@@ -1127,6 +1179,34 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
 #: note above says it would be. Round 7 closed with GO on both sides, so the test
 #: pin has done its job and the wizard builds the release again.
 WIZARD_TARGET: Final[ForkTarget] = PRODUCTION_TARGET
+
+
+def _known_pairing_for(pin: str) -> tuple[str, str] | None:
+    """``(version, what this pin IS)`` when ``pin`` is one we hold a pairing for.
+
+    **`target_for_commit` knew this about ONE of its three known pins.** Its
+    production branch carries a comment explaining that saying *"version not
+    known"* about a commit we DO pin *"printed a false sentence about our own
+    pin"*, and that *"a sentence false in a small way is how a night gets lost"*.
+    Both true — and the reviewed pin and the **test pin** fell through to the
+    honest-for-an-arbitrary-commit default anyway, so `--install-ripper ddc1e8c`
+    told an operator the version was unpredictable for the one commit round 16
+    agreed on, whose pairing both projects declared at column 0.
+
+    `docs/testing.md` §5.o, at the scale of one function: the rule was written,
+    and applied at the place it was learned. This is the sweep, so a fourth known
+    pin cannot arrive without one.
+
+    Returns None for a genuinely arbitrary commit, where the default is correct.
+    """
+    for target, role in (
+        (PRODUCTION_TARGET, "the APPROVED pin"),
+        (UNDER_REVIEW_TARGET, "the pin the open round is REVIEWING"),
+        (TEST_TARGET, f"the round-{FORK_TEST_PIN_ROUND} agreed TEST PIN"),
+    ):
+        if same_commit(pin, target.pin) and target.version:
+            return target.version, role
+    return None
 
 
 def target_for_commit(
@@ -1205,12 +1285,21 @@ def target_for_commit(
             ),
             meson_options=meson_options,
         )
+    known = _known_pairing_for(pin)
     return ForkTarget(
         pin=pin,
-        version=version or "(version not known for an operator-supplied commit)",
+        # A pin we hold a MEASURED pairing for gets that version; only a genuinely
+        # arbitrary commit gets the honest default. See `_known_pairing_for`.
+        version=(
+            version
+            or (known[0] if known else None)
+            or "(version not known for an operator-supplied commit)"
+        ),
         why=(
             f"commit {pin}, supplied on the command line — NOT the approved pin "
-            f"({PRODUCTION_TARGET.pin}). Every rip with this installed reports "
+            f"({PRODUCTION_TARGET.pin})"
+            + (f", but it IS {known[1]}" if known else "")
+            + ". Every rip with this installed reports "
             "ripper_handshake_approval: unapproved, which is the correct answer"
         ),
         meson_options=meson_options,
