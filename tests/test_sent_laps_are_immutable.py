@@ -56,6 +56,14 @@ REPO_ROOT: Path = Path(__file__).resolve().parent.parent
 #: sent and what the fork holds; the file in this repository drifted from it and
 #: has been restored. It is first in the map for that reason.
 SENT_LAPS: dict[str, str] = {
+    # Round 16 lap 7. **Peer-confirmed, delivered unedited.** Their lap 8 line 24
+    # declares holding it at sha256/16 `990bb6bb7d25ee4b`, *"split with your
+    # reader and its part hash verified against your manifest before filing"*, and
+    # line 11 quotes its `HANDSHAKE-VERDICT`. Second consecutive round-16 lap of
+    # ours that went out and stayed put.
+    "outbound/round-16-lap-07.md": (
+        "990bb6bb7d25ee4bc74004e54a84a62f565c9ceee28dc065a903f8cd93bd04b0"
+    ),
     # Round 16 lap 5. **Peer-confirmed, and delivered without an edit** — the
     # first round-16 lap of ours that can be said of. Their lap 6 line 24 declares
     # holding it at sha256/16 `ad77e1346fd47218`, *"split with your reader and its
