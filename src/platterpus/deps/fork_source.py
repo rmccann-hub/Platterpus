@@ -604,12 +604,25 @@ PIN_UNDER_REVIEW_IS_PUBLISHED: Final[bool] = False
 #: equal in every observed case are not therefore one concept.** Every previous
 #: test pin was unnumbered, so nothing had ever exercised the difference; making
 #: them identical did not remove a distinction, it hid one.
-FORK_TEST_PIN: Final[str] = "cb440bd"
-FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.6-beta.1"
+#: **Round 16 (2026-09-07): `cb440bd` → `ddc1e8c`.** Agreed in their lap 2 §A and
+#: our lap 3, which declares the same value verbatim — §6a requires both sides to
+#: name the same test pin in writing before a session, and this is our half of it.
+#:
+#: **It is the same program as the reviewed pin.** Verified here rather than taken:
+#: `git diff a9aedf0..ddc1e8c -- src/ meson.build` is empty, and the source anchor
+#: recomputes identically at both (`c0f550c75450f031`, 44 files). Everything between
+#: the two commits is `tools/`, `docs/` and regenerated artifacts.
+#:
+#: **Why a test pin at all when the reviewed pin would build the same binary**: its
+#: logs say `Handshake: round 16 lap 1 OPEN` instead of `round 15 lap 14 closed`, so
+#: a rip gathered for this round cannot label itself with the previous, closed one —
+#: and it is the commit that carries their rig script.
+FORK_TEST_PIN: Final[str] = "ddc1e8c"
+FORK_TEST_VERSION: Final[str] = "0.9.4-rc2+platterpus.11"
 #: Which round nominated it. Stated rather than derived from the approved round + 1:
 #: a test pin belongs to *a* round, and arithmetic on the approved round is only
 #: accidentally right — it breaks the first time two rounds pass without a close.
-FORK_TEST_PIN_ROUND: Final[int] = 8
+FORK_TEST_PIN_ROUND: Final[int] = 16
 FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 
 #: Test pins this round has already retired. Listed **only** so a rig that built one

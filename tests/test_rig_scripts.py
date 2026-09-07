@@ -2088,3 +2088,73 @@ def test_no_script_asserts_completion_from_the_status_LABEL() -> None:
         "`expect-rip-complete`, which reads the ripper's own log:\n  "
         + "\n  ".join(offenders)
     )
+
+
+def test_expect_ripper_under_review_accepts_the_AGREED_TEST_PIN() -> None:
+    """A session runs on the test pin, and section A must not call that wrong.
+
+    **This would have killed the round-16 hardware run at its first assertion.**
+    Protocol §6a's sequence is *agree a test pin → both install it → run the
+    session*, and round 16 did exactly that: reviewed pin `a9aedf0`, agreed test
+    pin `ddc1e8c`, rig installs the latter. The verb matched only
+    `PIN_UNDER_REVIEW`, so an operator who followed both projects' written
+    instructions would have been told by our own section A that they had the wrong
+    build — hours from anyone noticing, with a disc in the drive.
+
+    It is the defect the verb's own docstring describes, arriving for a new reason:
+    that one was a *production* pin moving under us, and a test pin is a second
+    legitimate answer to "which build should be installed" that the check did not
+    know existed.
+
+    Driven through the real verb against real banner text, because the bug was in
+    the comparison and not in the values.
+    """
+    from platterpus.deps import fork_source
+    from platterpus.uiscript.report import Outcome
+    from platterpus.uiscript.runner import ScriptRunner
+
+    reviewed = f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}"
+    test_pin = fork_source.FORK_TEST_BUILD_TAG
+
+    # Non-vacuity: while a round is open with a test pin declared, the two tags are
+    # genuinely different — otherwise this test proves nothing about the fix.
+    assert reviewed != test_pin, (
+        "the reviewed pin and the test pin are the same build, so this check "
+        "cannot see the defect. That is a legitimate state between rounds; if it "
+        "is the state now, the round-16 case has been lost and needs a fixture."
+    )
+
+    def _run(banner: str) -> tuple[Outcome, str]:
+        runner = ScriptRunner.__new__(ScriptRunner)
+        recorded: list[tuple[Outcome, str]] = []
+        runner._record = (  # type: ignore[method-assign]
+            lambda step, outcome, detail="": recorded.append((outcome, detail))
+        )
+        runner._last_cyanrip_argv = ["cyanrip", "--version"]
+        runner._last_cyanrip_output = banner
+        step = uiscript.parse("expect-ripper-under-review")[0]
+        runner._do_expect_ripper_under_review(step)
+        assert recorded, "the verb recorded nothing at all"
+        return recorded[-1]
+
+    for tag, why in (
+        (reviewed, "the build under review"),
+        (test_pin, "the agreed test pin"),
+    ):
+        outcome, detail = _run(f"cyanrip 0.9.4-rc2 ({tag})")
+        assert outcome is Outcome.PASS, (
+            f"{why} ({tag}) was refused by section A: {detail}"
+        )
+        # And the message must say WHICH build ran: a test-pin log carries
+        # `NOT a released build` and a different `Handshake:` line, and a reader has
+        # to tell them apart without re-deriving it.
+        assert why in detail, (
+            f"section A passed but does not say which build it accepted: {detail!r}"
+        )
+
+    # A build that is NEITHER must still be refused, or the fix removed the check
+    # rather than widening it.
+    outcome, detail = _run("cyanrip 0.9.3 (platterpus-fork-gdeadbee)")
+    assert outcome is not Outcome.PASS, (
+        f"an unrelated build passed section A — the check was widened into nothing: {detail}"
+    )

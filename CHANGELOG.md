@@ -11,6 +11,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Section A would have failed the round-16 hardware run at its first
+  assertion.** Protocol §6a's sequence is *agree a test pin → both install it →
+  run the session*, and round 16 did exactly that: reviewed pin `a9aedf0`, agreed
+  test pin `ddc1e8c`, rig installs the latter. `expect-ripper-under-review`
+  matched only `PIN_UNDER_REVIEW`, so an operator who followed **both projects'
+  written instructions** would have been told by our own acceptance script that
+  they had the wrong build — hours from anyone noticing, with a disc in the drive.
+  It is the defect that verb's own docstring is about, arriving for a new reason:
+  that one was a *production* pin moving under us, and a test pin is a second
+  legitimate answer to "which build should be installed" that the check did not
+  know existed. Both are now accepted and **the message says which**, because a
+  test-pin log carries `NOT a released build` and a different `Handshake:` line and
+  a reader must be able to tell them apart. `FORK_TEST_PIN` is `ddc1e8c`, declared
+  to match their lap 2 §A as §6a requires. Regression test drives the real verb
+  against real banners, refuses an unrelated build so the fix is a widening rather
+  than a removal, and is proven non-vacuous by `revert_probe`.
+
 ### Added
 - **The fork's `rig-round16.sh` from the test pin is filed**
   (`round-16-lap-02-rig-round16-gddc1e8c.sh`, sha256/16 `615243361882b881`),
