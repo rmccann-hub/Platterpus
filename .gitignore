@@ -64,6 +64,14 @@ htmlcov/
 # file with `git add -f` — and be sure it's not a commercial track.)
 *.flac
 *.wav
+# Raw PCM. Added 2026-09-07: the cyanrip fork's round-16 harness rips the
+# de-emphasis pair with `-o pcm` so md5sum compares SAMPLES rather than
+# container bytes — a real improvement that introduced an audio extension
+# none of our three media guards knew. A .pcm is interleaved s16le stereo:
+# it is the audio, with less wrapping than a .wav, and Critical rule #8
+# covers it for exactly the reason it covers .wav.
+*.pcm
+*.raw
 *.mp3
 *.m4a
 *.aac

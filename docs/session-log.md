@@ -11,6 +11,76 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-07 — round 16 opens, and both projects aim at one drive
+
+**One sentence: the fork opened round 16 on a build they have not published, we
+answered every question in it from source rather than from their lap, cut `0.6.41`
+so the app half is released and named, and the whole round is now pointed at a
+single hardware run.**
+
+### The maintainer's frame, which decided the shape of the lap
+
+*"i need both repos to converge on a good physical test as soon as we can."* So
+nothing in our lap 2 is proposed as blocking, every finding defaults to round 17
+under S-14, and the lap closes with an S-18 pre-commit: **`GO` unless the run finds
+the pin unsafe.** Round 7 took 37 laps and produced no release; the mechanism that
+actually ends a round is a pre-commit naming what would stop it.
+
+### What was verified rather than accepted
+
+Their source anchor **recomputes here** — `c0f550c75450f031` over 44 files at
+`a9aedf0`, using their construction read out of their generator. That is the first
+row in our flag sets licensed by a derivation instead of by their word; round 15's
+had to rest on their statement that `git diff -- src/` was empty.
+
+**Our first reconstruction disagreed** (`c8de8623734d0620`, a recursive walk without
+the filenames) and the right response was to read their generator, not to report a
+mismatch. Worth keeping because the failure is symmetric: a peer who recomputes an
+anchor with a guessed method and reports a discrepancy has made a claim about the
+other project out of their own bug.
+
+**And we nearly filed a defect against a line they do not print.** Their §D2 prose
+says the new footer reads `no (aborted…)`; we expanded the ellipsis ourselves, fed
+it to the parser, and watched the reason drop. Their source says
+`"Rip completed:  no (aborted, %i of %i tracks)\n"` — counts and comma present,
+exactly what our pattern expects. An ellipsis in a peer's prose is not their output.
+
+### Two of our own instruments were wrong, both aimed outward
+
+* **`--check` reported their lap's §F ABSENT.** It was not. Our own section
+  description says *"proven … vs not proven"* and the keyword list required a
+  different word. Round 6's lesson was a check passing for the wrong reason; this
+  is the mirror, and it is worse, because its output is an instruction to a peer to
+  change a file that was already right.
+* **An anti-vacuity floor fired on correct behaviour.** The unsent-lap sweep wanted
+  two outbound laps; in a round the peer opens, one is the whole population. Fixed
+  by proving the matcher against a *closed* round rather than by lowering the floor
+  and hoping.
+
+### The red tests that were one fact
+
+Five went red when the round opened, all because the fork opened on a build absent
+from their ledger and manifest. Four failed inside one fixture that demanded a real
+`release_seq` to ask a question about our *offer's logic* — one signal reported five
+times. The fifth needed a decision, and **no sequence was invented**: requiring a row
+unconditionally asserted something that had stopped being true, since round 15 was
+the first pin chosen by having been released and that is one round, not a rule. The
+invariant is now a declared flag checked in both directions.
+
+It also exposed a KDD-17 gap that is **ours**: `ripper_choices()` has no GUI caller,
+so a GUI-only operator has no route to the build an open round is reviewing. The
+2026-09-03 defect, recurring for a new reason.
+
+### A file now says where it is going
+
+Maintainer, mid-session: *"i need handshake files to tell me who they came from,
+and who they go to."* The fork has emitted the repo pair since round 14 and we had
+not. Now on the wire, and in the envelope's filename —
+`round16lap02platterpustocyanrip.md` — because the filename is what a file manager
+shows, and the operator holds files travelling both ways.
+
+---
+
 ## 2026-09-06 — a release that failed its own gate, round 15 closed, and a third sent-lap edit
 
 **One sentence: the day's real output was two releases and a closed handshake
@@ -4876,4 +4946,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.40.*
+*Last updated for Platterpus v0.6.41.*

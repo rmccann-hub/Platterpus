@@ -277,24 +277,53 @@ def test_the_under_review_verb_matches_the_build_the_record_names() -> None:
 
 
 def test_the_pin_under_review_has_a_release_sequence() -> None:
-    """A build the acceptance run installs must be placeable in the fork's order.
+    """A build the acceptance run installs must be placeable in the fork's order —
+    **when the fork has published it**, which is now declared rather than assumed.
 
     Without a row, `release_seq_for_commit` returns `None` and the ripper offer
     tells an operator sitting on a **published release** that they are on *"a
     mid-round test pin, or a commit installed by hand"* — every clause of it wrong.
     That was reported by the maintainer on 2026-08-17, fixed by adding one row, and
     the fork quoted our own prediction back a day later when it recurred: *"it
-    returns every time you publish and we do not."* This is the check that stops it
-    returning a third time.
+    returns every time you publish and we do not."*
+
+    **What changed in round 16.** That harm presumes the pin IS a published
+    release, which was true for rounds 14 and 15 and is not true now: the fork
+    opened round 16 on `a9aedf0`, absent from their ledger and their manifest.
+    Round 15 was *"the first pin chosen as a subject by having been released"* —
+    one round, not a standing rule — so requiring a row unconditionally asserted
+    something about the world that had stopped being true, and the fix is **not**
+    to invent a sequence, which would make this check pass for the wrong reason.
+
+    So the invariant is now the **pairing**: `PIN_UNDER_REVIEW_IS_PUBLISHED` must
+    agree with whether a row exists, in both directions. Declaring published
+    without a row still fails with the 2026-08-17 message; leaving a stale row
+    after declaring unpublished fails too, because the offer would then place a
+    build in an order the fork never gave it.
     """
     from platterpus.deps import fork_source
 
-    seq = fork_source.release_seq_for_commit(fork_source.PIN_UNDER_REVIEW)
-    assert seq is not None, (
-        f"{fork_source.PIN_UNDER_REVIEW} is the pin under review — the build the "
-        f"acceptance run installs — and it has no row in FORK_RELEASE_SEQ_BY_PIN, "
-        f"so the ripper offer cannot place it in the fork's release order."
-    )
+    pin = fork_source.PIN_UNDER_REVIEW
+    seq = fork_source.release_seq_for_commit(pin)
+    declared = fork_source.PIN_UNDER_REVIEW_IS_PUBLISHED
+
+    if declared:
+        assert seq is not None, (
+            f"{pin} is declared a PUBLISHED release (PIN_UNDER_REVIEW_IS_PUBLISHED) "
+            f"and has no row in FORK_RELEASE_SEQ_BY_PIN, so the ripper offer cannot "
+            f"place it in the fork's release order — it will tell an operator on a "
+            f"published release that they are on a hand-installed commit. Add the "
+            f"row from the fork's release ledger, or set the flag False if they "
+            f"have not published it."
+        )
+    else:
+        assert seq is None, (
+            f"{pin} is declared NOT published (PIN_UNDER_REVIEW_IS_PUBLISHED) yet "
+            f"FORK_RELEASE_SEQ_BY_PIN gives it sequence {seq}. One of the two is "
+            f"stale. A row for an unpublished build puts it in an order the fork "
+            f"never gave it, which is the same defect as a missing row for a "
+            f"published one, pointed the other way."
+        )
 
 
 def test_the_pin_under_review_is_resolved_in_the_consumer_flag_set() -> None:
@@ -1590,6 +1619,13 @@ def test_the_rig_path_check_can_actually_fail() -> None:
     assert _rig_script_path_mentions("run fullacceptance.txt overnight") == []
 
 
+#: Stand-in `release_seq` for `_offer_for` when the fork has not published the
+#: commit under review. Deliberately far above any real sequence so it can never be
+#: mistaken for one in a failure message, and deliberately NOT written back into
+#: `FORK_RELEASE_SEQ_BY_PIN`.
+_SYNTHETIC_SEQ: Final[int] = 9000
+
+
 def _offer_for(commit: str):  # noqa: ANN202 - RipperOffer, imported lazily
     """The offer the app would make when `commit` is what the fork published.
 
@@ -1599,8 +1635,22 @@ def _offer_for(commit: str):  # noqa: ANN202 - RipperOffer, imported lazily
     """
     from platterpus.deps import fork_source, ripper_manifest, ripper_offer
 
-    seq = fork_source.release_seq_for_commit(commit)
-    assert seq is not None, f"{commit} has no release sequence; fixture is wrong"
+    # A SYNTHETIC SEQUENCE WHEN THE FORK HAS NOT PUBLISHED THE COMMIT, and the
+    # distinction matters. This helper asks a question about the offer's LOGIC —
+    # *"when `commit` is what the fork published, what does the dialog say?"* — and
+    # that question is well posed for a commit they have not published yet. It used
+    # to `assert seq is not None`, which fused the logic question to a fact about
+    # their manifest, so round 16 opening on an unpublished pin turned four
+    # logic tests red for a reason none of them is about. **One signal reported
+    # five times is not five findings.**
+    #
+    # Whether they HAVE published it is a separate claim and keeps its own check,
+    # `test_the_pin_under_review_has_a_release_sequence`, which is the only place
+    # that fact is allowed to be asserted. Nothing here writes a synthetic sequence
+    # into `FORK_RELEASE_SEQ_BY_PIN`: inventing a row would make the real check
+    # pass for the wrong reason, which is the failure mode this repository names
+    # most often.
+    seq = fork_source.release_seq_for_commit(commit) or _SYNTHETIC_SEQ
     release = ripper_manifest.RipperRelease(
         channel=ripper_offer.CHANNEL_BETA,
         version=fork_source.UNDER_REVIEW_TARGET.version,
@@ -2037,4 +2087,74 @@ def test_no_script_asserts_completion_from_the_status_LABEL() -> None:
         "with the read-stability warning on an ordinary disc — use "
         "`expect-rip-complete`, which reads the ripper's own log:\n  "
         + "\n  ".join(offenders)
+    )
+
+
+def test_expect_ripper_under_review_accepts_the_AGREED_TEST_PIN() -> None:
+    """A session runs on the test pin, and section A must not call that wrong.
+
+    **This would have killed the round-16 hardware run at its first assertion.**
+    Protocol §6a's sequence is *agree a test pin → both install it → run the
+    session*, and round 16 did exactly that: reviewed pin `a9aedf0`, agreed test
+    pin `ddc1e8c`, rig installs the latter. The verb matched only
+    `PIN_UNDER_REVIEW`, so an operator who followed both projects' written
+    instructions would have been told by our own section A that they had the wrong
+    build — hours from anyone noticing, with a disc in the drive.
+
+    It is the defect the verb's own docstring describes, arriving for a new reason:
+    that one was a *production* pin moving under us, and a test pin is a second
+    legitimate answer to "which build should be installed" that the check did not
+    know existed.
+
+    Driven through the real verb against real banner text, because the bug was in
+    the comparison and not in the values.
+    """
+    from platterpus.deps import fork_source
+    from platterpus.uiscript.report import Outcome
+    from platterpus.uiscript.runner import ScriptRunner
+
+    reviewed = f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}"
+    test_pin = fork_source.FORK_TEST_BUILD_TAG
+
+    # Non-vacuity: while a round is open with a test pin declared, the two tags are
+    # genuinely different — otherwise this test proves nothing about the fix.
+    assert reviewed != test_pin, (
+        "the reviewed pin and the test pin are the same build, so this check "
+        "cannot see the defect. That is a legitimate state between rounds; if it "
+        "is the state now, the round-16 case has been lost and needs a fixture."
+    )
+
+    def _run(banner: str) -> tuple[Outcome, str]:
+        runner = ScriptRunner.__new__(ScriptRunner)
+        recorded: list[tuple[Outcome, str]] = []
+        runner._record = (  # type: ignore[method-assign]
+            lambda step, outcome, detail="": recorded.append((outcome, detail))
+        )
+        runner._last_cyanrip_argv = ["cyanrip", "--version"]
+        runner._last_cyanrip_output = banner
+        step = uiscript.parse("expect-ripper-under-review")[0]
+        runner._do_expect_ripper_under_review(step)
+        assert recorded, "the verb recorded nothing at all"
+        return recorded[-1]
+
+    for tag, why in (
+        (reviewed, "the build under review"),
+        (test_pin, "the agreed test pin"),
+    ):
+        outcome, detail = _run(f"cyanrip 0.9.4-rc2 ({tag})")
+        assert outcome is Outcome.PASS, (
+            f"{why} ({tag}) was refused by section A: {detail}"
+        )
+        # And the message must say WHICH build ran: a test-pin log carries
+        # `NOT a released build` and a different `Handshake:` line, and a reader has
+        # to tell them apart without re-deriving it.
+        assert why in detail, (
+            f"section A passed but does not say which build it accepted: {detail!r}"
+        )
+
+    # A build that is NEITHER must still be refused, or the fix removed the check
+    # rather than widening it.
+    outcome, detail = _run("cyanrip 0.9.3 (platterpus-fork-gdeadbee)")
+    assert outcome is not Outcome.PASS, (
+        f"an unrelated build passed section A — the check was widened into nothing: {detail}"
     )

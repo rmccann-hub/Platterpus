@@ -12,6 +12,281 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **Round 16 had two laps numbered 2, and one of them was ours.** Our outbound lap
+  2 was written before their lap 2 arrived — they sent lap 1, then lap 2 out of
+  turn — so the round briefly carried two files with the same number, which is
+  precisely the confusion lap numbering exists to prevent. Ours was **never sent**
+  (absent from `SENT_LAPS`, never handed over, still carrying its `PENDING_MERGE`
+  placeholder), so it is withdrawn rather than corrected: §310 permits revising an
+  unsent lap, and the fork's own `56e7d71` is the precedent for withdrawing one.
+  The reply is **lap 3**, which is what their lap 2's `HANDSHAKE-NEXT-LAP: yours`
+  asks for.
+
+- **Raw PCM was audio none of our three media guards knew about.** The cyanrip
+  fork's current round-16 harness settles clause 2 by ripping the de-emphasis pair
+  with `-o pcm` instead of `-o flac`, so `md5sum` compares **samples** rather than
+  container bytes and no decoder is needed on the rig. It is a genuine improvement
+  — and it introduced an extension that `.gitignore`, `.githooks/pre-commit` and
+  the `media-guard` CI job all missed, while the same script tells the operator to
+  *"bring back the whole of `$OUT`"*.
+  A `.pcm` is interleaved s16le stereo: it **is** the audio, with less wrapping
+  than a `.wav`, so Critical rule #8 covers it for exactly the reason it covers
+  `.wav`. `.pcm` and `.raw` added to all three, and the hook was verified by
+  staging one and watching it refuse — the guard, not the intention.
+  Worth naming the shape: a change on the *other* side of the seam widened what can
+  reach this repository, and nothing here would have noticed. Our evidence bundler
+  was already safe because it admits by **allowlist**; the three that failed are the
+  denylists.
+
+- **Section A would have failed the round-16 hardware run at its first
+  assertion.** Protocol §6a's sequence is *agree a test pin → both install it →
+  run the session*, and round 16 did exactly that: reviewed pin `a9aedf0`, agreed
+  test pin `ddc1e8c`, rig installs the latter. `expect-ripper-under-review`
+  matched only `PIN_UNDER_REVIEW`, so an operator who followed **both projects'
+  written instructions** would have been told by our own acceptance script that
+  they had the wrong build — hours from anyone noticing, with a disc in the drive.
+  It is the defect that verb's own docstring is about, arriving for a new reason:
+  that one was a *production* pin moving under us, and a test pin is a second
+  legitimate answer to "which build should be installed" that the check did not
+  know existed. Both are now accepted and **the message says which**, because a
+  test-pin log carries `NOT a released build` and a different `Handshake:` line and
+  a reader must be able to tell them apart. `FORK_TEST_PIN` is `ddc1e8c`, declared
+  to match their lap 2 §A as §6a requires. Regression test drives the real verb
+  against real banners, refuses an unrelated build so the fix is a widening rather
+  than a removal, and is proven non-vacuous by `revert_probe`.
+
+### Added
+- **The fork's `rig-round16.sh` from the test pin is filed**
+  (`round-16-lap-02-rig-round16.sh`, sha256/16 `615243361882b881`),
+  reviewed, and handed to the operator **unmodified**. Four findings go back, none
+  of which changes a rip: `EXPECT_BUILD` names the production pin while their own
+  install instruction says the test pin, so the preflight cries wolf on a correct
+  setup; that preflight still says "Stop." without exiting; `-u` reaches one of
+  five rips and hardcodes a version that will be wrong; and *"bring back the whole
+  of `$OUT`"* would ship the `.flac` files when the decoded md5 it already computes
+  on the rig is the artifact that settles clause 2.
+  **It is filed with NO build tag in its name, and our own gate insisted.** The
+  first filing was `…-gddc1e8c.sh`, for the pin it came from;
+  `test_the_filename_names_the_build_the_artifact_itself_asserts` refused it,
+  because the only build string in the file is `EXPECT_BUILD=platterpus-fork-ga9aedf0`
+  — finding 1 above. Naming it `gddc1e8c` asserts a build the content contradicts,
+  and naming it `ga9aedf0` would file a defect as if it were provenance. A script is
+  not a build artifact; its identity is the lap it arrived with plus its sha. **The
+  gate found the same disagreement we had reported to the fork, from the other
+  side, without being told.**
+  **Handed over unmodified deliberately.** A corrected copy would make the hardware
+  evidence come from a script neither repository contains, and the round exists to
+  prove correctness — provenance beats ergonomics, and neither defect touches what
+  the clauses establish.
+
+### Fixed
+- **The evidence bundle was not byte-reproducible, and the test that should have
+  said so could only catch it by luck.** Every member's `mtime`, `uid` and `gid`
+  was fixed — and `tarfile.open(..., "w:gz")` then wrote the **current time into
+  the gzip header**, so two bundles of identical inputs matched only when both
+  landed inside the same second. `test_two_bundles_of_the_same_inputs_are_byte_identical`
+  runs in 0.07 s alone and passed; in the full suite it straddled a boundary and
+  failed. **A one-second reproduction window reads exactly like a flaky test**, and
+  the tempting response is to rerun it.
+  This matters because the bundle is evidence that gets posted in public: its own
+  docstring promises the build hour is kept off it, and a byte-identical rebuild is
+  how a reader confirms a bundle was not edited between the rig and the report. A
+  header clock defeats both, and `filename=""` closes the second route — `GzipFile`
+  otherwise stores the archive's own name, which carries the run stamp.
+  Measured: two bundles built 1.2 s apart are now byte-identical and the header
+  reads `00000000`. The regression test asserts the **cause** — header bytes 4–8,
+  with a non-vacuity check that the stream really is gzip — so it has no timing in
+  it at all. Proven by `revert_probe`.
+
+### Added
+- **Round 16 lap 3 — the test pin agreed, and the round pointed at a drive.** The
+  fork's lap 2 asked one thing and pre-committed under S-18 to accept whatever we
+  named, so this agrees `ddc1e8c` verbatim and names `platterpus 0.6.41` as the
+  app half. Verified first: `git diff a9aedf0..ddc1e8c -- src/ meson.build` is
+  empty, so the test pin is the same program.
+- **A gate for a lap addressed to itself.** `HANDSHAKE-FROM-REPO` and
+  `HANDSHAKE-TO-REPO` were added so a file detached from both repositories states
+  its direction — and lap 3 was drafted with `TO-REPO` pointing at Platterpus.
+  Caught by re-reading, which is the check that had not been mechanised. The
+  failure is quiet by construction: nothing downstream reads these fields, they
+  exist for the one person who carries the file between two projects, so a wrong
+  value survives every other gate.
+
+### Fixed
+- **Our envelope naming matched to the fork's spelling.** They spelled direction
+  `round16lap01FROMcyanripTOplatterpus.md`; ours was `…platterpustocyanrip.md` —
+  the same information in a different shape, in the one folder where the operator
+  holds both. The naming rule's own reasoning is that the hazard was never
+  capitals or hyphens as such but **two conventions**, so matching the peer beats
+  being independently correct. The rule is amended to record the exception rather
+  than quietly diverged from.
+
+
+## [0.6.41] — 2026-09-07
+
+### Fixed
+- **Our fatal-message matcher was three strings behind the ripper, and one string
+  ahead of it.** Round 16's contract corrected three format strings whose interior
+  newline their generator had been deleting — including
+  `Couldn't open path "%s" for writing: %s!\nInvalid folder name? Try -D <folder>.`,
+  which ran two sentences together with no separator. A matcher built from any of
+  those could never have matched what the binary prints, which is the opposite of
+  what P5 exists for. The corrected forms are in; the fused ones are named in
+  `SURFACING_EXCLUDED` with the reason rather than deleted.
+  In the other direction, `Error parsing string: %s!` was **removed** from their
+  source at `a9aedf0` — derived, not assumed: it is at `src/naming.c:123` in their
+  tree at `978f9b0`, gone at the pin, removed by `c3482b0`, the commit that
+  substitutes U+FFFD for invalid UTF-8 instead of truncating and logging. It is
+  **retained** anyway, because `FORK_PIN` is still `978f9b0` and the build we
+  actually ship still prints it; dropping it would render a real diagnostic from
+  the installed build as a bare "Rip failed". It retires when the pin moves, not
+  when the contract does.
+- **A test that fired because it could not run.** The provider-contract tie check
+  asserted over the newest round, which works only while the newest round has
+  published two contracts. Round 16 published one, so it reported *"round 16
+  publishes only 1 contract"* as a failure — a check firing because the case it
+  needs does not exist, which is not a defect and must not read like one. It now
+  picks the newest round that actually has a tie, keeps the adverse-order forcing
+  that made it non-vacuous, and still refuses to pass if no tie exists anywhere.
+
+### Added
+- **`scripts/emit_ripper_inventory.py` — the generator the inventory has always
+  said it needed.** `ripper_message_inventory.py` has carried *"Do not hand-edit.
+  Regenerate when a handshake round ships a new inventory"* since it was written,
+  and **no tool existed to regenerate it with**. Its own docstring records the
+  cost: it sat at round 6's 115 rows for five rounds while seven newer contracts
+  were committed here, one of whose covering laps said in prose that ten rows had
+  been added. An instruction where a mechanism belongs.
+  Round 16 made it concrete. Correcting the three fused strings by hand fixed the
+  *strings* and left every `file:line` pointing at round 15's source, because
+  their line numbers move with every commit — two expressions of one contract,
+  disagreeing. The generator now rebuilds the `MESSAGES` table **and** the test
+  fixture from one parse of the newest filed contract, so the two copies the tests
+  compare cannot disagree about what the document said, only about whether we have
+  kept up with it. It deliberately does **not** touch `RETAINED_BEYOND_P5`,
+  `SURFACING_EXCLUDED` or `P5A_NOT_RETAINED`: those carry hand-written reasons, and
+  a reason is not derivable from the document that caused it.
+  **Two things it caught on its first run, both mine.** The `Reaches logfile?`
+  column is **tri-state** — `yes`, `no`, and `**not directly** - see legend` — and
+  requiring `yes|no` silently dropped three rows, presenting as a shrinking
+  contract rather than a narrow regex. And the contract escapes `"` and `|` inside
+  table cells, which the surfacing tests already unescape and the generator did
+  not, so 22 more strings went missing. Both now have a floor and a comment saying
+  the two readers must agree.
+  **And its `--check` could never have passed**: `repr()` prefers single quotes,
+  `ruff format` prefers double, so the generator wrote a file the formatter
+  immediately rewrote and the staleness check then reported a perfectly current
+  document as stale. A generated artifact whose own checker always fails is
+  worse than an ungenerated one, because it trains the reader to ignore it. The
+  renderer now emits the quoting ruff would choose, and
+  `test_the_inventory_and_its_fixture_are_GENERATED_and_current` runs the
+  generator's own `--check` — one parse, not a second implementation that could
+  drift from it.
+- **Round 16 lap 2 — every answer they asked for, and an S-18 pre-commit to `GO`.**
+  Their §D4 ask is answered from our source and closed (`SUPPORTED_SCHEMAS` gates
+  their *release manifest*, not the `-j` record; nothing reads that record; the
+  `/4` bump is a no-op in every direction). Their source anchor recomputes here.
+  Both round digests and all four shared hashes agree. Four recommendations go
+  back on their `riground16.sh`, none blocking. The lap pre-commits: *our next lap
+  is `GO` on `a9aedf0` + `platterpus 0.6.41` unless the hardware run finds
+  something that makes the reviewed pin unsafe* — which is the mechanism that
+  actually ends rounds, and this one is meant to end on a drive.
+
+### Fixed
+- **An anti-vacuity floor that fired on correct behaviour.** The unsent-lap sweep
+  required **two** outbound laps for the open round — a fact about rounds *we*
+  open, where ours are 1, 3, 5… Round 16 was opened by the fork, so our first is
+  lap **2** and one is the whole correct population. Lowering a floor is the move
+  that file exists to distrust, so the property is kept by another means rather
+  than dropped: the glob is now proven against a **closed** round, where the
+  expected set is known and cannot shrink, and the open round only has to be
+  non-empty. A gate that fires on correct behaviour teaches people to route around
+  it, which is worse than one that never fires.
+
+### Added
+- **The reviewed pin's publication status is now DECLARED and checked both ways.**
+  Round 16 opened on `a9aedf0`, which the fork has **not** published — absent from
+  their ledger and their manifest — and five tests went red on that one fact. Four
+  of them failed inside a single fixture helper that insisted on a real
+  `release_seq` in order to ask a question about the *offer's logic*; that fusion
+  is fixed with a synthetic sequence that is never written back, so one signal is
+  reported once instead of five times.
+  The fifth is the real one, and it required deciding what the invariant actually
+  is. Requiring a row unconditionally asserted something that had stopped being
+  true — round 15 was *"the first pin chosen as a subject by having been
+  released"*, one round, not a standing rule. So `PIN_UNDER_REVIEW_IS_PUBLISHED`
+  is declared per round and the test asserts the **pairing in both directions**:
+  declaring published without a row still fails with the 2026-08-17 message, and a
+  stale row after declaring unpublished fails too, because it would place a build
+  in an order the fork never gave it. No sequence was invented; both directions are
+  proven non-vacuous by `revert_probe`.
+- **The round-16 pin joins the flag sets on a RECOMPUTED anchor, not the fork's
+  word for it.** Their contract's banner names `g0d0ae8e` — the parent, the usual
+  generated-artifact shape — so the banner cannot say which source it describes.
+  It also publishes a **source anchor**, and that anchor recomputes here over the
+  fork's tree at `a9aedf0`: `c0f550c75450f031` over 44 `src/*.c`/`src/*.h` files,
+  using their own construction read out of `tools/gen-provider-contract.py` at the
+  pin (sorted flat listing, each file's *name* hashed before its bytes — a
+  recursive walk without the names gives `c8de8623734d0620` and is not their
+  method, which is worth recording because the first attempt here produced exactly
+  that and it would have read as a mismatch).
+  Round 15's equivalent row had to rest on the fork's statement that
+  `git diff -- src/` was empty; this one does not. Without it every rip on the
+  reviewed build would log `Consumer: not identified (no --consumer given)` and
+  `--verify-log` would grade `not_determined` — on the one build an acceptance run
+  is about.
+- **Acceptance section P3 — round 16's close-condition clause 2, the one no
+  fixture on either side can reach.** Their held item 2 was a filter built as a
+  ternary cascade, so `hdcd` matched first and `aemphasis` was never reached:
+  `-H`, `-H -W` and `-H -E` produced **byte-identical audio** while the log printed
+  `(deemphasis applied)` and the cue omitted `FLAGS PRE`, both reading the
+  *setting* rather than the audio — so audio, log and cue were self-consistently
+  wrong, and checking any one against another found agreement. P3 therefore
+  asserts nothing about the log: it runs one track under `-H -E` and again under
+  `-H -W` and captures both, and the verdict is read off the returned artifacts by
+  one comparison — **the two track-1 checksums must differ**.
+  `-E` forces de-emphasis, so it works on any disc rather than needing a
+  pre-emphasised one, and the separating input is **both flags at once**, which
+  neither side's suite had ever used: with only one set, selecting and composing
+  are byte-identical.
+  Classified **ARCHIVAL in advance**, per the 2026-08-26 ruling that severity is a
+  property of the test and never a judgement made after seeing a failure.
+- **Round 16 filed and verified, and the reviewed pin moved to `a9aedf0`.**
+  Their lap 1 opens the round; `CURRENT_ROUND` → 16, `PIN_UNDER_REVIEW` →
+  `a9aedf0`, a round-16 row in the handshake README, and round 15's row corrected
+  from OPEN to its real `GO`/`GO`. The filed lap is byte-identical to their
+  committed copy — checked against their repository, not assumed.
+  Verified rather than accepted: **all four shared-artifact hashes match byte for
+  byte**, and **both round digests re-derive here** — our lap 16's declared
+  `696b8ada8b203d21 over 15` and their round-16 `01ba4719c80b6fe9 over 0` — from
+  an implementation built from their written spec rather than their code.
+  **The version deliberately did not move with the pin**: `+platterpus.11` covers
+  both `978f9b0` and `a9aedf0`, and the fork published both halves against this
+  commit in its own header. "Move together" means *the pairing is whatever the
+  newest lap states*, never "both strings must change".
+- **Round 15 lap 16 is the first `SENT_LAPS` row recorded from the PEER's
+  declaration.** Their `HANDSHAKE-INBOUND-HELD` names the hash they hold, which is
+  a fact about delivery neither tree can produce: they cannot hold a file they were
+  not sent. Laps 13 and 15 were caught by a digest mismatch and by the operator
+  saying so; this one was pinned because the peer said they had it, and their value
+  was verified byte-for-byte against ours rather than assumed to agree.
+
+### Fixed
+- **A `--check` gate rejected a conforming lap, which is the expensive direction.**
+  §F's entry in `scripts/handshake.py` describes itself as *"proven (with how) vs
+  not proven (with what it takes)"* and its keyword list then required a
+  **different** word (`verif`). The cyanrip fork's round-16 lap 1 headed the
+  section *"Proven, and not"* and wrote exactly what the description asks for —
+  *"**Proven here**, each with the method"* against *"**Not proven**, and no green
+  suite implies otherwise"* — and `--check` reported §F **ABSENT**.
+  Round 6's lesson was that a check can pass for the wrong reason; this is its
+  mirror, and it is worse, because the output is an instruction to a peer to
+  change a file that was already right. The section letters are **ours** —
+  `docs/handshake-protocol.md`, the jointly-owned spec, defines no A–J table at
+  all — so nothing about their lap was non-conformant.
+  `proven` is precise rather than loose: it is not a substring of §G's
+  *revert-**proof*** / *revert-**proved***, so §G still cannot stand in for §F, and
+  a separate test asserts that rather than leaving it as a claim in a comment.
 - **Mutation coverage on the three modules whose tests this change touches,
   measured before and after over the SAME population.** Same source, so the same
   mutants are generated and `--seed 0 --limit 40` samples the same ones — the
@@ -13248,7 +13523,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.40...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.41...HEAD
+[0.6.41]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.40...v0.6.41
 [0.6.40]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.39...v0.6.40
 [0.6.39]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.38...v0.6.39
 [0.6.38]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.37...v0.6.38
@@ -13376,4 +13652,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.40.*
+*Last updated for Platterpus v0.6.41.*

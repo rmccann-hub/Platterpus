@@ -10,7 +10,7 @@ set -euo pipefail
 
 # Audio/media extensions that must never be committed (mirrors .gitignore + the
 # rule's list). Case-insensitive.
-pattern='\.(flac|wav|mp3|m4a|aac|ogg|oga|opus|wv|ape|wma|aiff|aif|alac|dsf|dff)$'
+pattern='\.(flac|wav|pcm|raw|mp3|m4a|aac|ogg|oga|opus|wv|ape|wma|aiff|aif|alac|dsf|dff)$'
 
 # Files staged for addition/copy/modify/rename in this commit.
 #

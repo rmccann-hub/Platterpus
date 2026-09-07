@@ -48,6 +48,7 @@ thread because gzipping a 4 MB log is not a GUI-thread operation.
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import io
 import logging
@@ -711,7 +712,27 @@ def build_bundle(
         # not sit below fifty file-level rows.
         entries: list[BundleEntry] = list(plan.refusals)
         spent = 0
-        with tarfile.open(archive_path, "w:gz") as tar:
+        # **THE GZIP HEADER CARRIES A TIMESTAMP TOO, and zeroing the members is not
+        # enough.** `tarfile.open(..., "w:gz")` builds a `GzipFile` with
+        # `mtime=None`, which writes the CURRENT time into bytes 4-8 of the
+        # container — so two bundles of identical inputs matched only when they were
+        # written inside the same second. The determinism test passed alone (0.07 s)
+        # and failed in the full suite, which is the tell: not a flaky test, a real
+        # defect whose reproduction window is one second wide.
+        #
+        # It defeats exactly what the member-level fixing below is for. This archive
+        # is evidence that gets posted in public, the docstring promises the build
+        # hour is kept off it, and a byte-identical rebuild is how a reader confirms
+        # a bundle was not edited between the rig and the report.
+        #
+        # `filename=""` because `GzipFile` otherwise stores the output file's NAME in
+        # the header — the bundle's name carries a run stamp, so leaving it would put
+        # the hour back by another route.
+        with (
+            archive_path.open("wb") as _raw,
+            gzip.GzipFile(fileobj=_raw, mode="wb", mtime=0, filename="") as _gz,
+            tarfile.open(fileobj=_gz, mode="w") as tar,
+        ):
 
             def _write(name: str, data: bytes) -> None:
                 info = tarfile.TarInfo(name)

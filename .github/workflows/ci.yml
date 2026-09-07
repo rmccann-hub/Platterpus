@@ -252,7 +252,7 @@ jobs:
         run: |
           set -euo pipefail
           # Same audio-extension pattern as .githooks/pre-commit + .gitignore.
-          pattern='\.(flac|wav|mp3|m4a|aac|ogg|oga|opus|wv|ape|wma|aiff|aif|alac|dsf|dff)$'
+          pattern='\.(flac|wav|pcm|raw|mp3|m4a|aac|ogg|oga|opus|wv|ape|wma|aiff|aif|alac|dsf|dff)$'
           if [ "$EVENT" = "pull_request" ]; then
             base="$PR_BASE"; head="$PR_HEAD"
           else

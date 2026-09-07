@@ -138,7 +138,23 @@ INBOUND_SECTIONS: tuple[Section, ...] = (
         "F",
         "Verification",
         "proven (with how) vs not proven (with what it takes)",
-        keywords=("verif",),
+        # `proven` IS THE SUBJECT WORD, AND OMITTING IT REJECTED A CONFORMING LAP.
+        # This entry's own description says "proven (with how) vs not proven (with
+        # what it takes)" and the keyword list then required a *different* word.
+        # Round 16 lap 1 headed the section "Proven, and not" and wrote exactly
+        # what the description asks for — "**Proven here**, each with the method"
+        # against "**Not proven, and no green suite implies otherwise**" — and
+        # `--check` reported §F ABSENT. The section letters are OURS, not the
+        # shared protocol's (`docs/handshake-protocol.md` defines no A–J table),
+        # so this was our expectation failing to recognise its own subject.
+        #
+        # Round 6's lesson was that a check can pass for the wrong reason. This is
+        # its mirror: a check can FAIL for the wrong reason, and that is the more
+        # expensive direction here, because the peer is then asked to change a
+        # conforming file. `proven` is precise rather than loose — it is not a
+        # prefix of §G's "revert-proof"/"revert-proved", so widening to it does
+        # not let §G stand in for §F.
+        keywords=("verif", "proven"),
     ),
     Section(
         "G",
@@ -685,6 +701,19 @@ def emit_outbound(round_number: int) -> str:
             f"HANDSHAKE-ROUND: {round_number}",
             "HANDSHAKE-LAP: 1",
             "HANDSHAKE-FROM: platterpus",
+            # WHO IT CAME FROM AND WHO IT GOES TO, on the wire, always.
+            # Added 2026-09-07 on the maintainer's instruction: *"i need handshake
+            # files to tell me who they came from, and who they go to"*. They are
+            # the one party who handles these files by hand, across two
+            # repositories and a chat client, and `HANDSHAKE-FROM` alone answers
+            # half the question. The fork has emitted the repo pair since round 14;
+            # we had not, so a Platterpus lap was the harder of the two to place.
+            # Not a protocol change we can make alone — `docs/handshake-protocol.md`
+            # is jointly owned — so these are emitted, not required of them, and
+            # the proposal to make them normative goes in the lap.
+            "HANDSHAKE-TO: cyanrip-fork",
+            f"HANDSHAKE-FROM-REPO: {OUR_REPO_URL}",
+            f"HANDSHAKE-TO-REPO: {FORK_REPO_URL}",
             "HANDSHAKE-VERDICT: OPEN",
             f"HANDSHAKE-APP-VERSION: platterpus {_app_version}",
             f"HANDSHAKE-RIPPER-VERSION: {_fork_banner()}",
@@ -853,7 +882,14 @@ RETROSPECTIVE_ROUNDS: frozenset[int] = frozenset({1, 2, 3})
 #: Staleness fails in the SAFE direction: a value left behind reports a closed
 #: round as open and blocks a release, which is a conversation. The other
 #: direction ships.
-CURRENT_ROUND: Final[int] = 15
+#: The two repositories the seam joins, emitted on every outbound lap so a file
+#: states its own direction. A person holding the file in a chat client has no
+#: other way to tell, and that is the one place this protocol has always been
+#: read by a human rather than a checker.
+OUR_REPO_URL: Final[str] = "https://github.com/rmccann-hub/Platterpus"
+FORK_REPO_URL: Final[str] = "https://github.com/rmccann-hub/cyanrip"
+
+CURRENT_ROUND: Final[int] = 16
 
 
 # --- The shared wire format (protocol §8) -----------------------------------

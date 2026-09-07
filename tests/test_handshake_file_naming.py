@@ -1054,16 +1054,27 @@ def test_the_envelope_name_is_safe_to_cross_machines(envelope: ModuleType) -> No
     name = envelope.OUT.name
     stem, dot, suffix = name.partition(".")
     assert dot and suffix == "md", f"{name} must be a single-suffix .md file"
-    assert normalise(stem) == stem, (
+    # **Separators are the hazard; case is not.** `normalise()` strips separators
+    # AND case, so comparing the stem against its own normalisation would forbid the
+    # uppercase `FROM`/`TO` we deliberately match the fork on. What the rule is
+    # actually for is that two people never spell one artifact two ways — and the
+    # uppercase is there BECAUSE the fork spells it that way. So this asserts the
+    # part that bites: no hyphens, underscores or spaces, ASCII only.
+    assert normalise(stem) == stem.lower(), (
         f"{name} is not in the cross-machine spelling: `{stem}` normalises to "
-        f"`{normalise(stem)}`. Lowercase ASCII letters and digits only — no hyphens, "
-        "underscores, spaces or capitals (CLAUDE.md → Artifact filenames that cross "
-        "machines)."
+        f"`{normalise(stem)}`. ASCII letters and digits only — no hyphens, "
+        "underscores or spaces (CLAUDE.md → Artifact filenames that cross machines)."
     )
-    assert re.fullmatch(r"round\d{2}lap\d{2}platterpus", stem), (
-        f"{name} does not follow round<NN>lap<LL>platterpus.md. The numbers are "
-        "zero-padded so a directory listing sorts chronologically, and the sender is "
-        "named so the operator can tell our envelope from theirs at a glance."
+    # **BOTH ENDS, not just the sender** (2026-09-07, maintainer: *"i need handshake
+    # files to tell me who they came from, and who they go to"*). The pattern used
+    # to end at `platterpus`, which names the sender and reads as if it names
+    # everything — and the operator holds files travelling both ways, in a file
+    # manager where nothing else says which.
+    assert re.fullmatch(r"round\d{2}lap\d{2}FROMplatterpusTOcyanrip", stem), (
+        f"{name} does not follow round<NN>lap<LL>FROMplatterpusTOcyanrip.md. The numbers "
+        "are zero-padded so a directory listing sorts chronologically, and BOTH ends "
+        "of the seam are named so the operator can tell at a glance not just whose "
+        "envelope it is but which way it is going."
     )
 
 
@@ -1085,8 +1096,25 @@ def test_the_envelope_name_is_generated_from_the_lap_it_carries(
         f"{envelope.OUT.name} does not state round {round_} lap {lap}, which is what "
         f"{envelope.PARTS[0].name} declares. Regenerate rather than rename."
     )
-    assert envelope.envelope_filename(9, 6) == "round09lap06platterpus.md"
-    assert envelope.envelope_filename(10, 21) == "round10lap21platterpus.md"
+    # **BOTH ENDS, not just the sender** (2026-09-07, maintainer: *"i need handshake
+    # files to tell me who they came from, and who they go to"*). The old shape
+    # ended in `platterpus`, which names the sender and looks like it names
+    # everything — and the operator holds files travelling both ways.
+    assert envelope.envelope_filename(9, 6) == "round09lap06FROMplatterpusTOcyanrip.md"
+    assert (
+        envelope.envelope_filename(10, 21) == "round10lap21FROMplatterpusTOcyanrip.md"
+    )
+    for name in (envelope.envelope_filename(16, 2),):
+        assert "FROMplatterpusTO" in name and name.endswith("cyanrip.md"), (
+            f"{name} does not state both ends of the seam"
+        )
+        # ASCII letters and digits only — but NOT lowercase-only. The uppercase
+        # FROM/TO match the fork's own spelling, which is the point: one artifact
+        # with two names in the operator's folder is the hazard the naming rule
+        # was written against, and matching the peer is what avoids it.
+        assert name.replace(".", "").isalnum() and name.isascii(), (
+            f"{name} breaks the cross-machine rule: ASCII letters and digits only"
+        )
     assert envelope.envelope_filename(9, 6) != envelope.envelope_filename(9, 7), (
         "the generator does not vary with the lap, so the name cannot track the "
         "contents and the check above proves nothing"
@@ -1760,4 +1788,46 @@ def test_the_carve_out_cannot_wave_through_an_artifact_that_DOES_declare_one(
     assert declares_a_provenance(unreadable), (
         "an unreadable artifact must fail CLOSED — 'we could not look' is not "
         "'the file declares nothing'"
+    )
+
+
+def test_no_outbound_lap_declares_itself_addressed_to_OUR_OWN_repo() -> None:
+    """`HANDSHAKE-TO-REPO` must not be the repository the lap came from.
+
+    **Written because it happened.** Round 16 lap 3 was drafted with
+    `HANDSHAKE-TO-REPO` pointing at Platterpus — a lap addressed to itself. It was
+    caught by re-reading the header, which is exactly the check that had not been
+    mechanised: the two fields were added in the same session precisely so a file
+    detached from either repository can say which way it travels, and a file that
+    names one repository twice answers the question wrongly while looking complete.
+
+    The failure mode is quiet. Nothing downstream reads these fields — they exist
+    for the one human who carries the file between two projects — so a wrong value
+    survives every other gate in this suite.
+    """
+    outbound = _REPO / "docs" / "handshake" / "outbound"
+    checked = 0
+    for path in sorted(outbound.glob("round-*-lap-*.md")):
+        text = path.read_text(encoding="utf-8")
+        frm = re.search(r"^HANDSHAKE-FROM-REPO:\s*(\S+)\s*$", text, re.M)
+        to = re.search(r"^HANDSHAKE-TO-REPO:\s*(\S+)\s*$", text, re.M)
+        if frm is None or to is None:
+            # Older laps predate the fields; their absence is not this test's
+            # subject and inventing a requirement for them retroactively would
+            # fail closed on history nobody can change.
+            continue
+        checked += 1
+        assert frm.group(1) != to.group(1), (
+            f"{path.name} declares HANDSHAKE-FROM-REPO and HANDSHAKE-TO-REPO as the "
+            f"same repository ({to.group(1)}) — the lap is addressed to itself. The "
+            "pair exists so a file detached from both repositories states its "
+            "direction, and nothing else in this suite reads it."
+        )
+        assert "Platterpus" in frm.group(1), (
+            f"{path.name} is an OUTBOUND lap whose HANDSHAKE-FROM-REPO is "
+            f"{frm.group(1)}, not this project"
+        )
+    assert checked, (
+        "no outbound lap declares the repo pair, so this check examined nothing — "
+        "the fields were added in round 16 and at least one lap should carry them"
     )
