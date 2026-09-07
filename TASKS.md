@@ -149,7 +149,40 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       is a datum about flakiness and NOT a fix — `CLAUDE.md`'s gzip lesson is
       exactly a one-second window that read as flake.
 
-- [ ] **We do not hold the cyanrip fork's regenerated `PROVIDER-CONTRACT.md`.**
+- [x] **We do not hold the cyanrip fork's regenerated `PROVIDER-CONTRACT.md`.**
+      **CLEARED by their lap 6 (2026-09-07).** Filed as
+      `docs/handshake/inbound/artifacts/round-16-lap-06-provider-contract-g12f2081.md`,
+      sha256 `1bf60e55…` matching the value they published, fetched from
+      `0cd611a`. The J4 carve-out is **cleared and independently verified**: the
+      `## P1` section is **byte-identical** between the copy we held and the new
+      one — 130 lines each, `sha256/16 = def3bb1acfd79948` on both — so no flag
+      we send changed. Verified section by section rather than taking the summary:
+      P1, P2, P4, P5, P5a, P6, P7 and P8 are all byte-identical; **only P3
+      differs.** `emit_ripper_inventory.py` regenerated (120 P5 + 7 P5a,
+      unchanged) and `test_argv_surface_agreement.py` now resolves the lap-6
+      contract and passes.
+
+- [ ] **Their lap 6 §2 attributes the one added contract row to P5; it is in P3.**
+      Round 17, NOT blocking, and their substantive claim is TRUE — *"no flag, no
+      exit code, no P2 stable line"* is exactly what the section-by-section diff
+      shows. The mislabel is the delta table's last row, which reads `| P5 | — |
+      one row added |`. The row is at line 583 of the new contract, inside
+      `## P3 - Unstable wording, and stdout-only routing` (P3 spans 548–604);
+      `## P5` is byte-identical at `b718ae266941` before and after, and our
+      regenerated inventory still counts 120 P5 rows.
+      **Why it is worth telling them rather than filing silently:** P3 and P5 mean
+      opposite things to a consumer. A P5 row is a fatal string we must surface; a
+      P3 row tagged **"not directly"** is one whose wording we must NOT pin *and*
+      whose routing — buffered into the log, or stdout-only — *"needs a run to
+      settle"*, in their own words. The row is
+      `` `-j given %i times; the diagnostics record goes to the last one: "%s"` ``,
+      a safety net for exactly the duplicate-`-j` defect we fixed in `0.6.42` — so
+      **its absence from a logfile would not be evidence it never fired.** That is
+      `CLAUDE.md`'s *an ABSENCE in a log is a fact about the logger before it is a
+      fact about the subject*, and it is the reason the section matters. We do not
+      match on the string (checked: no occurrence in `src/`), which is correct.
+
+
       Their round-16 lap 4 §E says it *"**was** regenerated, at `0f8523b`, as its
       own commit whose parent is the build its source anchor names"*, and that
       version has never reached us. What is committed under
@@ -3465,4 +3498,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.42.*
+*Last updated for Platterpus v0.6.43.*

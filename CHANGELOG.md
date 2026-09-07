@@ -11,7 +11,84 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.43] — 2026-09-07
+
+Cut so the round-16 joint hardware session runs on a build that carries the
+cyanrip fork's two lap-4 findings **fixed**. `0.6.42` did not: both fixes
+landed after its tag, so an acceptance run on it would have printed the false
+`-j` denial once per rip and mis-graded `parser/interrupted` on the cancelled
+rip — reproducing, in the evidence bundle, the two defects the fork had just
+reported and we had just fixed.
+
 ### Fixed
+- **A skipped `-t` range check looked identical to a passed one.** The guard that
+  drops out-of-range track tags — the one carrying the 2026-08-02 defect where a
+  `-t 17=` on a 16-track disc made cyanrip refuse a whole rip in two seconds — is
+  conditional on the disc's track total, and two UI callers pass
+  `getattr(self, "_current_num_tracks", 0) or None`. An unknown count therefore
+  skipped the check **silently**, on the one path where an out-of-range `-t` costs
+  the entire rip. *Can this check be satisfied by finding nothing?* applied to a
+  guard rather than a test. It now logs that the check could not run, and how many
+  tags went unchecked.
+  Deliberately a **log line, not a refusal**: dropping tags or failing a rip
+  because the count is unknown would trade a rare defect for a common one, and
+  this file already records why the argv path is not altered before an unattended
+  run. Both directions asserted — silent when the total is known, loud when it is
+  not.
+
+- **`--install-ripper <known pin>` said the version was unpredictable for pins we
+  measure.** `target_for_commit` special-cased the *approved* pin — carrying a
+  comment that saying *"version not known"* about a commit we do pin *"printed a
+  false sentence about our own pin"*, and that *"a sentence false in a small way
+  is how a night gets lost"* — and then let the **reviewed** pin and the **test
+  pin** fall through to the arbitrary-commit default. So `--install-ripper
+  ddc1e8c`, the exact command the round-16 session runs, disclaimed a pairing both
+  projects had declared at column 0. `docs/testing.md` §5.o at the scale of one
+  function: the rule was written, then applied only where it was learned. The
+  lookup is now general over the three known targets, and it names *which* pin the
+  commit is (*"NOT the approved pin, but it IS the round-16 agreed TEST PIN"*)
+  rather than only what it is not. A genuinely arbitrary commit still gets the
+  honest *"version not known"* — asserted, because inventing a version for every
+  commit would satisfy the fix while committing the defect its own docstring warns
+  against.
+
+- **`--install-ripper list` offered two builds and called the wrong one
+  mandatory.** `UNDER_REVIEW_TARGET`'s reason read *"what an acceptance run must
+  be on"* — true for every round up to 15, and false for round 16, the first to
+  name a test pin **distinct** from the pin under review. Protocol §6a's sequence
+  is *agree a test pin → both install it → run the session*, so the reviewed
+  build is the round's subject and the **test pin** is what goes on the drive.
+  The acceptance script's header sends an operator to this list precisely when a
+  round is open on an unpublished build, so it is read at the moment the decision
+  is made.
+  Nothing would have aborted: `expect-ripper-under-review` accepts both pins, and
+  `git diff a9aedf0..ddc1e8c -- src/ meson.build` is empty, so the two round-16
+  builds are behaviourally identical. The cost would have been **provenance** — a
+  rip tagged `ga9aedf0` when both projects' records say the session ran
+  `gddc1e8c`. Now derived by `rig_installs_the_test_pin()` from the two pins, so
+  it cannot freeze the way the sentence it replaces did; when no separate test pin
+  exists the reviewed build is again the one to install.
+  Two wording defects in the fix itself, both caught before commit: it referred to
+  a sibling entry as *"above"* when the renderer prints it **below** (ordering is
+  by trust and can change, so a positional word is a fact about the renderer, not
+  the record), and it began a sentence lowercase. Both now pinned by tests.
+
+- **A regression test for an open-population digest had itself pinned an
+  open-population digest.** `TestExcludeAccumulates` asserted
+  `--exclude round-16-lap-04.md --exclude round-16-lap-05.md` gave
+  `a82355334b9d1bfe over 3` — the fork's published lap-4 value, correct when
+  written and **red within the hour**, because their lap 6 arrived and made that
+  same exclusion a four-lap population. The literal list *"the laps after N"*
+  expires at the next lap, permanently, for any round still in progress.
+  The exclusion lists are now derived from the tree, so the assertion is about
+  the **cutoff** a peer's digest names rather than about which laps exist today,
+  and each caller asserts a floor of two dropped names so the multi-exclude path
+  cannot silently degrade into the single-exclude case it exists to distinguish.
+  Two published digests are now checked instead of one (`a82355334b9d1bfe over 3`
+  and `c880f1e2f9d32e35 over 5`), and the bare property — dropping N names
+  removes N laps — is asserted separately so the regression survives a round with
+  no peer value to compare against. Four reverts probed, all `detected`.
+
 - **`round_digest.py` silently ignored a second `--exclude`.** It was a
   single-value argparse option, so `--exclude A.md --exclude B.md` kept only `B`:
   the command printed a digest, exit `0`, and a lap count over a population that
@@ -13758,7 +13835,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.42...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.43...HEAD
+[0.6.43]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.42...v0.6.43
 [0.6.42]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.41...v0.6.42
 [0.6.41]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.40...v0.6.41
 [0.6.40]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.39...v0.6.40
@@ -13888,4 +13966,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.42.*
+*Last updated for Platterpus v0.6.43.*

@@ -1072,7 +1072,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # metadata guards are called from there -- and most of the growth is the
     # docstring recording that no input route can currently reach it, which is
     # what stops a future reader deleting it as dead.
-    "adapters/cyanrip_backend.py": 1544,
+    # **1544 -> 1567 on 2026-09-07**, for making a SKIPPED `-t` range check
+    # visible. The guard is conditional on the disc's track total and two UI
+    # callers can pass None, so an unknown count skipped it silently — on the one
+    # path where an out-of-range `-t` costs the whole rip. The addition is a log
+    # line plus the paragraph saying why it is a log line and not a refusal, and
+    # it belongs beside the guard it describes: a warning about a check, in a
+    # different file from the check, is the split that makes the next reader
+    # believe the check is unconditional.
+    "adapters/cyanrip_backend.py": 1567,
     "adapters/musicbrainz_client.py": 524,
     "adapters/rip_backend.py": 585,
     "adapters/ripper_log_verify.py": 414,
@@ -1099,7 +1107,29 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # needs and cannot reconstruct, and splitting the file would separate a
     # constant from the reason it holds. Raised deliberately, which is what
     # this ratchet asks for; the module is still one responsibility.
-    "deps/fork_source.py": 1783,
+    #
+    # **1783 -> 1835 on 2026-09-07**, for `rig_installs_the_test_pin()` and the
+    # two `why` strings it now decides. Round 16 is the first round to name a
+    # test pin DISTINCT from the pin under review, and `UNDER_REVIEW_TARGET.why`
+    # still read *"what an acceptance run must be on"* — so `--install-ripper
+    # list` printed two candidates and called the wrong one mandatory, at 2am, to
+    # an operator deciding what to put on the drive.
+    #
+    # The growth is one derived predicate plus its docstring, and it belongs
+    # HERE for the reason the paragraph above gives: it compares `FORK_TEST_PIN`
+    # against `PIN_UNDER_REVIEW`, and a comparison of two constants in a
+    # different file from the constants is the split this ratchet's own note
+    # warns against. Moving it would separate the answer from the two facts it
+    # is derived from.
+    #
+    # **1835 -> 1872 in the same session**, for `_known_pairing_for()`: the SWEEP
+    # of the rule the production branch of `target_for_commit` had already
+    # learned. That branch knew the approved pin's version and said "not known"
+    # for the reviewed and test pins — one of three. The lookup replaces three
+    # would-be special cases with one loop over the targets it already holds, so
+    # this is the shape that stops the file growing again when a fourth known pin
+    # appears.
+    "deps/fork_source.py": 1872,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
