@@ -2201,3 +2201,433 @@ def test_the_shape_check_never_raises_on_arbitrary_input() -> None:
         assert isinstance(
             cyanrip_log.fun512_signature_is_malformed(value), (str, type(None))
         )
+
+
+# --- cyanrip_log.py's mutation survivors, 2026-09-06 -------------------------
+#
+# 47.5% under the sweep. Nine of the twenty-one survivors are `return True` at the
+# end of a `_take_*` line-rule handler, and they are a CLASS rather than nine
+# defects — see `test_no_two_line_rules_claim_the_same_line` at the end, which
+# pins the invariant that makes them unobservable and would fail the moment it
+# stops holding. The rest are real decisions about what a log SAYS.
+
+
+def test_a_log_that_ends_without_a_newline_is_a_LOG_CUT_OFF_MID_WRITE() -> None:
+    """`not text.endswith("\\n")` — the whole truncation signal.
+
+    A cyanrip process killed before flushing leaves the last line unterminated.
+    That flag is what turns "12 tracks were never ripped" — wrong and
+    unfalsifiable — into "this log was cut off, so what it does NOT say proves
+    nothing". Both mutants here (`False` → `True` on the empty case, and `==` →
+    `!=`) make the detector fire on healthy logs, and a detector that fires on
+    everything says nothing, which is what its own docstring warns about.
+    """
+    from platterpus.parsers.cyanrip_log import _detect_truncation
+
+    # Empty input is not a truncated log; it is no log.
+    assert _detect_truncation("", []) == (False, False)
+
+    # A properly terminated log is not truncated.
+    assert _detect_truncation("cyanrip 0.9.4\nRip completed:  yes\n", []) == (
+        False,
+        False,
+    )
+    # An unterminated one is.
+    truncated, last_incomplete = _detect_truncation("cyanrip 0.9.4\nRip comp", [])
+    assert truncated is True and last_incomplete is False
+
+
+def test_a_last_track_claiming_SUCCESS_with_no_file_is_incomplete() -> None:
+    """`status == "ripped successfully" and not filename` — both halves.
+
+    The record claims a status and a CRC but never reached its `File(s):` line, so
+    the track's data is present and incomplete — a different problem from a track
+    missing outright, and a consumer counting "verified" tracks needs to know. The
+    `==` → `!=` mutant inverts which tracks are suspected; the `and` → `or` mutant
+    flags every track that merely lacks a filename.
+    """
+    from platterpus.parsers.cyanrip_log import _detect_truncation
+    from platterpus.parsers.rip_log import TrackResult
+
+    cut = TrackResult(number=1, status="ripped successfully", filename="")
+    whole = TrackResult(number=1, status="ripped successfully", filename="01.flac")
+    failed = TrackResult(number=1, status="failed", filename="")
+
+    # Terminated text, so ONLY the last-track signal can be responsible.
+    assert _detect_truncation("x\n", [cut]) == (True, True)
+    assert _detect_truncation("x\n", [whole]) == (False, False)
+    # A track that did not claim success is not "incomplete", it just failed.
+    assert _detect_truncation("x\n", [failed]) == (False, False)
+
+
+def test_a_sample_peak_outside_full_scale_is_recorded_as_UNREPORTED() -> None:
+    """`0.0 <= fraction <= 1.0` — inclusive at both ends.
+
+    EAC's Peak level cannot exceed 100%, so a value above full scale is not a peak
+    and must not be rendered as one. The `<=` → `<` mutant rejects a legitimate
+    peak of exactly 0% or exactly 100% — full scale is precisely what a loud
+    modern master hits, so this would drop the real value on the discs most likely
+    to have it.
+    """
+    from platterpus.parsers.cyanrip_log import _sample_peak_fraction
+
+    # It takes (value, unit) — derived from the signature, not guessed, after the
+    # first version of this test called it with one argument. cyanrip prints
+    # `Peak:        0.3 dBFS` in the committed reference.
+    assert _sample_peak_fraction("0.0", "%") == 0.0
+    assert _sample_peak_fraction("100.0", "%") == 1.0
+    assert _sample_peak_fraction("50.0", "%") == 0.5
+    # BOTH ends inclusive: 0% and 100% are legitimate peaks, and full scale is
+    # exactly what a loud modern master hits.
+    assert _sample_peak_fraction("0.0", "dBFS") == 1.0
+
+    # Outside full scale → unreported rather than a false peak.
+    assert _sample_peak_fraction("150.0", "%") is None
+    assert _sample_peak_fraction("-1.0", "%") is None
+    assert _sample_peak_fraction("6.0", "dBFS") is None
+
+
+def test_c2_is_FALSE_for_every_way_the_drive_can_say_no() -> None:
+    """`"unsupported" in text or "not supported" in text` — the mutant demands both.
+
+    C2 pointers are an EAC-parity field. With `and`, a drive reporting only
+    "unsupported" falls through and the field is left unset — and an unset field
+    renders as unknown rather than as the measured "no" the log actually stated.
+    """
+    from platterpus.parsers.cyanrip_log import _C2, _Disc, _take_c2
+
+    # The real row, from the committed reference: `C2 errors:      unsupported by
+    # drive`. The pattern is `^C2 errors:` — writing a plausible-looking
+    # `Drive C2 support:` matched nothing, which is how the first version of this
+    # test asserted against a `None` match.
+    for text in ("unsupported by drive", "not supported", "unsupported"):
+        disc = _Disc()
+        match = _C2.match(f"C2 errors:      {text}")
+        assert match is not None, text
+        _take_c2(disc, match)
+        assert disc.c2_pointers is False, text
+
+
+def test_speed_is_changeable_when_the_row_names_a_number() -> None:
+    """`"changeable" in text or (text and text[0].isdigit())` — the mutant needs both.
+
+    cyanrip aborts on `-S` when the drive cannot change speed, so this decides
+    whether we may pass the flag at all. A row that reports a bare speed number is
+    the evidence that it can, and `and` throws that half away.
+    """
+    from platterpus.parsers.cyanrip_log import _SPEED_CAP, _Disc, _take_speed_cap
+
+    # The real row, from the committed reference: `Speed:          default
+    # (unchangeable)`. Pattern is `^Speed:`.
+    for text, expected in (
+        ("changeable", True),
+        ("4x, changeable", True),
+        ("48", True),
+        ("default (unchangeable)", False),
+        ("unchangeable", False),
+    ):
+        disc = _Disc()
+        match = _SPEED_CAP.match(f"Speed:          {text}")
+        assert match is not None, text
+        _take_speed_cap(disc, match)
+        assert disc.speed_changeable is expected, text
+
+
+def test_no_two_line_rules_claim_the_same_line() -> None:
+    """**The invariant behind nine "equivalent" survivors, made into a check.**
+
+    Nine `_take_*` handlers end `return True`, and flipping any of them to `False`
+    changes nothing on the committed reference log — measured 2026-09-06 by
+    re-parsing it with each handler falsified in turn. That is *not* because the
+    return value is meaningless: `_apply_line_rules` stops at the first handler
+    that returns True, so `False` means "keep looking". It is unobservable only
+    while **no second rule matches the same line**.
+
+    So the honest thing is not nine tests asserting a return value; it is this one,
+    asserting the property that makes the return value moot — and which, the day it
+    stops holding, silently makes rule ORDER load-bearing and those nine mutants
+    live. Checked against real lines from the committed reference rather than
+    against invented ones, because a synthetic corpus proves a property of itself.
+    """
+    from pathlib import Path
+
+    from platterpus.parsers import cyanrip_log as m
+
+    reference = (
+        Path(__file__).resolve().parent.parent
+        / "output_reference"
+        / "cyanrip_flac"
+        / "cyanrip_flac_police_classics.log"
+    )
+    lines = reference.read_text(errors="replace").splitlines()
+    assert len(lines) > 100, f"the reference parsed as {len(lines)} lines"
+
+    tables = (
+        ("before_gaps", m._RULES_BEFORE_GAPS),
+        ("after_gaps", m._RULES_AFTER_GAPS),
+        ("before_tracks", m._RULES_BEFORE_TRACKS),
+        ("after_tracks", m._RULES_AFTER_TRACKS),
+    )
+    clashes: list[str] = []
+    matched_any = 0
+    for table_name, table in tables:
+        for line in lines:
+            hits = [rule.name for rule in table if rule.pattern.match(line)]
+            if hits:
+                matched_any += 1
+            if len(hits) > 1:
+                clashes.append(f"{table_name}: {line[:60]!r} matched {hits}")
+
+    # FLOOR: if no line matched any rule, the loop proved nothing.
+    # FLOOR SET FROM THE MEASUREMENT, not from a guess: 18 line/rule matches across
+    # the four tables on this reference, 2026-09-06. The first version of this test
+    # asserted 20 because that felt like a round number, and failed — which is the
+    # small version of quoting a figure nobody measured.
+    assert matched_any >= 15, (
+        f"only {matched_any} line/rule matches across the reference (18 when this "
+        "was written); the tables or the reference changed shape and this check "
+        "has stopped meaning anything"
+    )
+    assert not clashes, (
+        "two line rules claim the same line, so rule ORDER now decides the parse "
+        "and a handler's return value is load-bearing:\n  " + "\n  ".join(clashes)
+    )
+
+
+# --- The branches the first pass aimed at and missed --------------------------
+#
+# Three of the tests above targeted the wrong arm: `_take_c2`'s survivor is the
+# `disabled`/`off` elif, not the `unsupported` one, and `_take_speed_cap`'s is the
+# empty-string guard rather than the digit test. Recorded because "I tested that
+# function" is not "I tested that branch", and the sweep is what said so.
+
+
+def test_c2_disabled_or_off_is_also_a_measured_NO() -> None:
+    """`"disabled" in text or "off" in text` — the second arm of the C2 ladder.
+
+    A drive that *supports* C2 while the rip had it switched off is a different
+    fact from a drive that cannot do it, and both render as "no C2 pointers". With
+    `and`, a row saying only "disabled" falls through to the "not used" arm — which
+    is a statement about the RIP, not the drive — and the EAC-parity field ends up
+    describing the wrong subject.
+    """
+    from platterpus.parsers.cyanrip_log import _C2, _Disc, _take_c2
+
+    for text in ("disabled", "off", "C2 disabled"):
+        disc = _Disc()
+        match = _C2.match(f"C2 errors:      {text}")
+        assert match is not None, text
+        _take_c2(disc, match)
+        assert disc.c2_pointers is False, text
+
+
+def test_the_speed_row_guard_survives_an_EMPTY_value() -> None:
+    """`text and text[0].isdigit()` — the `and` is an index guard, not a nicety.
+
+    The mutant makes it `or`, and on an empty value `"" or ""[0].isdigit()`
+    evaluates the right-hand side and raises `IndexError` — inside a parser whose
+    institutional rule is that it never raises on external input. Only the empty
+    case separates the two operators.
+    """
+    from platterpus.parsers.cyanrip_log import _SPEED_CAP, _Disc, _take_speed_cap
+
+    # `Speed:` with only whitespace after it still matches the row shape via the
+    # trailing group, so the handler must cope with an empty captured value.
+    disc = _Disc()
+    match = _SPEED_CAP.match("Speed:          x")
+    assert match is not None
+    _take_speed_cap(disc, match)  # must not raise
+
+    # And directly, which is the shape the mutant crashes on.
+    class _Empty:
+        def group(self, _name: str) -> str:
+            return ""
+
+    disc = _Disc()
+    _take_speed_cap(disc, _Empty())  # type: ignore[arg-type]
+    assert disc.speed_changeable is None, "an empty speed row claimed an answer"
+
+
+def test_read_stall_count_treats_an_ABSENT_value_as_not_reported() -> None:
+    """`(value or "").strip()` — the `or` is what makes `None` safe.
+
+    The mutant `and` turns `None` into `None.strip()`. This helper reads a
+    dependency's prose and is public precisely so it can be pinned; raising on an
+    absent value would take the whole parse down with it.
+    """
+    from platterpus.parsers.cyanrip_log import read_stall_count
+
+    assert read_stall_count(None) is None
+    assert read_stall_count("") is None
+    assert read_stall_count("   ") is None
+    assert read_stall_count("none") == 0
+
+
+def test_a_pregap_of_none_is_a_MEASURED_zero_not_an_absence() -> None:
+    """`raw == "none"` — the mutant `!=` swaps two states that must not merge.
+
+    "none" is a real answer: the ripper looked and there is no pre-gap, recorded as
+    a measured 0 so it stays distinguishable from "not reported". "unknown" is the
+    opposite — it tried and could not tell — and deliberately leaves the length
+    `None`, because a 0 there reads downstream as "measured, no gap", which is the
+    false claim that branch exists to prevent.
+    """
+    # THE REAL TRACK-BLOCK SHAPE, copied from `_FULL_LOG` above rather than
+    # invented: a block opens `Track N ripped and encoded successfully!`, not
+    # `Track N`. Three earlier fixtures in this session parsed zero tracks because
+    # they were guessed, which is the same "answer from the artifact" lesson in
+    # miniature.
+    log = (
+        "cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-g978f9b0)\n"
+        "Tracks:\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "    Pregap LSN:  none\n"
+        "  EAC CRC32:     A1B2C3D4\n"
+        "\n"
+        "Track 2 ripped and encoded successfully!\n"
+        "    Pregap LSN:  unknown (drive would not report it)\n"
+        "  EAC CRC32:     B2C3D4E5\n"
+    )
+    parsed = parse_cyanrip_log(log)
+    assert len(parsed.tracks) == 2, f"fixture parsed {len(parsed.tracks)} tracks"
+
+    measured_none, unknown = parsed.tracks
+    assert measured_none.pregap_state == "none"
+    assert measured_none.pregap_sectors == 0, (
+        "a measured 'none' must be a 0 length, not an absence"
+    )
+    assert unknown.pregap_state == "unknown"
+    assert unknown.pregap_sectors is None, (
+        "'unknown' must NOT become a 0 — that reads downstream as 'measured, no gap'"
+    )
+    assert unknown.pregap_unknown_reason == "drive would not report it"
+
+
+def test_a_pregap_unknown_with_no_stated_reason_is_an_empty_string() -> None:
+    """`match.group("reason") or ""` — the mutant `and` yields `None`.
+
+    The field is typed as a string and rendered into the report; a `None` where a
+    string is declared is the untyped-slot problem this project's typing rules
+    exist to refuse, and it would surface as the literal word `None` to a reader.
+    """
+    log = (
+        "cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-g978f9b0)\n"
+        "Tracks:\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "    Pregap LSN:  unknown\n"
+        "  EAC CRC32:     A1B2C3D4\n"
+    )
+    parsed = parse_cyanrip_log(log)
+    assert len(parsed.tracks) == 1
+    assert parsed.tracks[0].pregap_state == "unknown"
+    assert parsed.tracks[0].pregap_unknown_reason == ""
+
+
+# --- The last three cyanrip_log survivors that are NOT the line-rule class -----
+#
+# Nine of the twelve remaining mutants are the documented `return True` at the end
+# of a line-rule handler, covered by `test_no_two_line_rules_claim_the_same_line`.
+# These three are real branches, and each one needed a *crafted* log to separate
+# it: the committed references cannot, for reasons named in each docstring. Saying
+# which is the point — a test that quietly moves off the artifact has changed what
+# it is evidence of.
+
+
+def test_the_gaps_block_is_read_from_BOTH_committed_references() -> None:
+    """`Gaps:` is collected only while no track is open, and it is multi-line.
+
+    Two facts in one assertion because they are one mechanism. Stock cyanrip prints
+    a single line (`None signalled`); the fork prints one per track, and a
+    one-line lookahead once kept only the first of those — discarding the gap
+    report for every track but one (audit, 2026-07-31). That fix had **no test in
+    this file at all**, which is why the sweep's `current is None` mutant survived:
+    with it inverted the block is only collected while a track *is* open, so
+    `gap_detection` comes back empty and nothing here noticed.
+
+    Read from the committed artifacts rather than a fixture, so the shape cannot
+    drift from what the ripper really writes.
+    """
+    from pathlib import Path
+
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    root = Path(__file__).resolve().parents[1] / "output_reference"
+
+    stock = root / "cyanrip_flac" / "cyanrip_flac_police_classics.log"
+    assert stock.is_file(), f"the stock reference log is missing: {stock}"
+    assert (
+        parse_cyanrip_log(stock.read_text(encoding="utf-8")).ripping_info.gap_detection
+        == "None signalled"
+    )
+
+    fork = root / "cyanrip_fork_flac" / "cyanrip_fork_police_classics.log"
+    assert fork.is_file(), f"the fork's reference log is missing: {fork}"
+    forked = parse_cyanrip_log(fork.read_text(encoding="utf-8")).ripping_info
+    parts = forked.gap_detection.split("; ")
+    assert len(parts) == 9, (
+        f"the fork's reference has nine indented gap lines; {len(parts)} survived "
+        f"the join: {forked.gap_detection!r}"
+    )
+    assert parts[0] == "160 frame pregap in track 2, merging into track 1"
+    assert parts[-1].endswith("merging into track 13")
+
+
+def test_the_disc_paranoia_block_ENDS_and_does_not_swallow_later_counters() -> None:
+    """`in_paranoia = False` when a line stops matching — the block is not sticky.
+
+    **Crafted, and here is why it has to be.** In every committed reference the
+    disc-level `Paranoia status counts:` block is the *last* thing in the file
+    (line 1133 of the fork's log, after all fourteen per-track blocks), so nothing
+    follows it that the sticky version could swallow — the mutant is byte-for-byte
+    equivalent on all three real logs, which is exactly why it survived.
+
+    The hazard it guards is ordering, not content: `_PARANOIA_LINE` matches any
+    indented ``KEY: <digits>``, so a block that never closes would absorb the
+    *per-track* counters into the disc's tally the moment cyanrip emitted the disc
+    block first. Disc-level and per-track counts are different claims about the
+    disc — one is every pass, the other is the last — and merging them silently
+    over-reports.
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.4 (platterpus-fork)\n"
+        "Paranoia status counts:\n"
+        "    READ: 10\n"
+        "Ripping errors: 0\n"  # a non-matching line: the block ends here
+        "    OVERLAP: 999\n"  # matches the pattern, must NOT be absorbed
+    )
+    assert log.paranoia_counts == {"READ": 10}, (
+        "a counter printed after the block closed was merged into the disc tally: "
+        f"{log.paranoia_counts}"
+    )
+
+
+def test_a_per_track_paranoia_count_of_ZERO_is_recorded_as_zero() -> None:
+    """``int_or_none(...) or 0`` — the default must not fabricate a count.
+
+    ``0 or N`` takes the right-hand side, so the sweep's `0 -> 1` mutant turns a
+    genuine **zero** into a **one**: an error counter invented in a record whose
+    whole purpose is to say how clean the read was. The disc-level copy of this
+    line is already pinned; the per-track one was not.
+
+    **Crafted deliberately.** Neither reference contains a zero-valued counter —
+    43 per-track counts across the fork's log and not one of them is 0, because
+    cyanrip prints only the counters it incremented. That is a fact about today's
+    ripper, not a contract, and the parser is required to be robust to its output
+    changing; a shape we cannot yet observe is still a shape we must not corrupt.
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.4 (platterpus-fork)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  Paranoia status counts:\n"
+        "    READ: 0\n"
+        "    VERIFY: 7\n"
+    )
+    assert len(log.tracks) == 1, f"the crafted track block did not parse: {log.tracks}"
+    assert log.tracks[0].paranoia_counts == {"READ": 0, "VERIFY": 7}, (
+        "a per-track paranoia count of zero was not recorded as zero: "
+        f"{log.tracks[0].paranoia_counts}"
+    )
