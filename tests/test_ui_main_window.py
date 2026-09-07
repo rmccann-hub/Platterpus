@@ -3416,6 +3416,22 @@ def _join_force_stop(window) -> None:
         window._force_stop_thread.join(timeout=2)
 
 
+def _patch_free_device_holders(monkeypatch) -> list[dict]:
+    """Record the POST-CANCEL rescue's calls instead of touching a real drive.
+
+    The rescue targets `free_device_holders` — device-scoped `fuser -k`, no
+    eject — rather than `force_stop_drive`. Patching the wrong one is not a
+    silent no-op: the real function runs, so the test both fails and shells out.
+    """
+    from platterpus import drive_control
+
+    calls: list[dict] = []
+    monkeypatch.setattr(
+        drive_control, "free_device_holders", lambda **kw: calls.append(kw)
+    )
+    return calls
+
+
 def _patch_free_drive(monkeypatch) -> list[dict]:
     """Record `drive_control.free_drive` calls (the scan-stall recovery that
     kills the reader without ejecting), like `_patch_force_stop` does for rips."""
@@ -3681,14 +3697,76 @@ def test_cancel_arms_force_stop_timer(teardown_threads) -> None:
         window._force_stop_timer.stop()
 
 
-def test_auto_force_stop_calls_drive_control(teardown_threads, monkeypatch) -> None:
-    calls = _patch_force_stop(monkeypatch)
+def test_auto_force_stop_frees_the_DEVICE_and_never_ejects(
+    teardown_threads, monkeypatch
+) -> None:
+    """The post-cancel rescue is device-scoped and must not eject.
+
+    It called `force_stop_drive` (eject + broad kill) until 2026-09-07. Two
+    reasons it no longer does, and both were paid for on hardware:
+
+    * **Ejecting broke the only proof that cancelling released the drive.** §J of
+      the acceptance run rips again afterwards; an empty tray reads as a failure
+      that is not real, which is why the rescue was disarmed on the child's exit
+      in the first place.
+    * **`fuser -k <device>` is inherently conditional** — it kills whatever holds
+      THIS device and finds nothing when the cancel already worked. That is what
+      lets the rescue stay armed after a cancel, which is the fix for the reader
+      that outlived its cancel by 15 minutes.
+
+    The broad escalation (`free_drive` → host `pkill` → in-container) is
+    deliberately NOT used: it is not device-scoped, so on a two-drive machine it
+    could kill a healthy rip on the other one.
+    """
+    calls = _patch_free_device_holders(monkeypatch)
+    eject_calls = _patch_force_stop(monkeypatch)
     window = teardown_threads()
+    window._force_stop_device = "/dev/sr0"
     window._auto_force_stop()
     _join_force_stop(window)
-    assert len(calls) == 1
-    assert "device" in calls[0]
+    assert len(calls) == 1, f"expected one device-scoped free, got {calls}"
+    assert calls[0]["device"] == "/dev/sr0"
+    # SIGTERM, NOT SIGKILL, and this assertion is the archival one. `fuser -k`
+    # defaults to SIGKILL, which cannot be caught, so cyanrip would run no
+    # `atexit` — and that is where the log's completion footer and `Log FUN512:`
+    # signature are written. A rescue that stops the drive by destroying the
+    # record has traded §I's failure for a strictly worse one, and it would do it
+    # while every other assertion here still passed.
+    assert calls[0].get("signal") == "TERM", (
+        "the post-cancel rescue is sending fuser's default SIGKILL. cyanrip "
+        "writes its footer and FUN512 signature from atexit, which SIGKILL "
+        f"skips, so this would turn every cancelled rip's log into an "
+        f"unverifiable fragment: {calls[0]}"
+    )
     assert window._force_stop_done is True
+    assert eject_calls == [], (
+        "the post-cancel rescue ejected the disc. That is what made §J's "
+        f"'can we rip again?' proof unanswerable: {eject_calls}"
+    )
+
+
+def test_a_rescue_with_no_device_says_NOT_DETERMINED_rather_than_nothing(
+    teardown_threads, monkeypatch
+) -> None:
+    """`fuser -k` with no path is a no-op returning False.
+
+    So a rescue with no device would look like a rescue that ran and found the
+    drive free — the tri-state rule: not determined is never a pass. It has to
+    say so, because "we could not check" and "nothing was holding it" lead to
+    different actions.
+    """
+    calls = _patch_free_device_holders(monkeypatch)
+    window = teardown_threads()
+    window._force_stop_device = ""
+    monkeypatch.setattr(
+        window._drive_picker, "current_device", lambda: "", raising=False
+    )
+    window._auto_force_stop()
+    _join_force_stop(window)
+    assert calls == [], (
+        "a rescue with no device to scope to must not call fuser at all — "
+        f"a no-op that returns False is indistinguishable from a free drive: {calls}"
+    )
 
 
 def test_shutdown_stops_in_container_reader_during_rip(
@@ -5881,6 +5959,77 @@ def test_a_rip_with_no_log_never_scopes_post_rip_work_to_the_output_root(
     )
 
 
+# --- the reaped child is the WRAPPER, not the reader (rig, 2026-09-07) ------
+
+
+def test_a_cancelled_rip_keeps_its_rescue_armed_when_the_child_is_reaped(
+    teardown_threads,
+) -> None:
+    """**The regression test for the 2026-09-07 rig run, and the claim it kills
+    is an inference rather than a bug in either function.**
+
+    `_on_rip_finished` disarmed the rescue unconditionally, under the heading
+    *"the reader is already gone"*, justified by its own docstring: *"The rip
+    subprocess exited."* Across the Distrobox seam those are different
+    statements. What we signal with `handle.terminate()` and then reap is the
+    host-exported wrapper in `~/.local/bin/`; the reader runs inside the
+    `ripping` container under a different process tree, and podman does not
+    forward the signal to it.
+
+    **That fact was already written down twice in this repository** — in
+    `drive_control.free_drive`'s docstring (for a stuck disc *scan*) and in
+    `test_shutdown_stops_in_container_reader_during_rip` (for *shutdown*, after a
+    2026-07-01 user report). The cancel path, which is the one a user actually
+    presses, never got it. `docs/testing.md` §5.o: enforce a rule across the
+    codebase, not at the place it was learned.
+
+    Measured: cancel at 00:04:52 sent one SIGTERM; the wrapper exited 498 ms
+    later; this method disarmed the rescue; the reader ran until 00:20:25,
+    finishing all three requested tracks. The next rip started at 00:05:39, so
+    two cyanrips read /dev/sr0 concurrently for eleven minutes, and the rip's
+    report (`cancelled`, 0 tracks) contradicts its own log (`Rip completed: yes
+    (3 of 14 tracks)`, valid FUN512).
+
+    Both directions are asserted. A normal completion must STILL disarm —
+    otherwise the rescue fires on every successful rip, which is the 2026-08-18
+    bug the disarm was added to fix, and a test of one direction would let this
+    fix trade one for the other.
+    """
+    window = teardown_threads()
+
+    # A rip that the user cancelled: the child is reaped, the reader may not be.
+    window._rip_cancelled = True
+    window._force_stop_done = False
+    window._force_stop_timer.start(60_000)
+    try:
+        window._on_rip_finished(False, "")
+        assert window._force_stop_timer.isActive(), (
+            "the rescue was disarmed on a CANCELLED rip. The reaped process is "
+            "the host wrapper; the in-container reader may still be holding the "
+            "drive, and nothing else will ever stop it"
+        )
+        assert window._force_stop_done is False, (
+            "_force_stop_done was set on a cancelled rip, which blocks the "
+            "rescue just as effectively as stopping the timer"
+        )
+    finally:
+        window._force_stop_timer.stop()
+
+    # THE OTHER DIRECTION. A rip that finished on its own must still disarm.
+    window._rip_cancelled = False
+    window._force_stop_done = False
+    window._force_stop_timer.start(60_000)
+    try:
+        window._on_rip_finished(True, "")
+        assert not window._force_stop_timer.isActive(), (
+            "a rip that completed normally left its rescue armed — it would fire "
+            "on a drive nobody asked to touch, which is the 2026-08-18 defect"
+        )
+        assert window._force_stop_done is True
+    finally:
+        window._force_stop_timer.stop()
+
+
 # --- the rescue must target the drive it was armed for (rig, 2026-07-30) ----
 
 
@@ -5895,7 +6044,7 @@ def test_cancel_captures_the_rip_device_so_a_later_picker_change_is_ignored(
     Confirmed live on the rig: the log shows `force-stopping drive (auto trigger)`
     firing 5.1 s after a cancel, reading the picker at that moment.
     """
-    calls = _patch_force_stop(monkeypatch)
+    calls = _patch_free_device_holders(monkeypatch)
     window = teardown_threads()
     # A rip is running on sr0.
     window._rip_worker = SimpleNamespace(cancel=lambda: None)

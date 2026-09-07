@@ -34,6 +34,7 @@ from __future__ import annotations
 import logging
 import re
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
@@ -373,12 +374,20 @@ class CyanripImpl(RipBackend):
         # (`cyanrip_main.c:1581`, `GEN_OPT_ONE(... diagnostics, "j" ...)`).
         # `tests/test_argv_surface_agreement.py` keeps that honest from here.
         #
-        # A RELATIVE path on purpose: the child's cwd is the rip's output
-        # directory, so the record lands with the other artifacts and the evidence
-        # bundle collects it under the existing `.json` allowlist — no new
-        # plumbing, and nothing to keep in sync with the album's real folder name,
-        # which cyanrip derives from `-D` and we do not know here.
-        argv += ["-j", DIAGNOSTICS_RECORD_NAME]
+        # A RELATIVE path still, but a UNIQUE one, and the reason the old comment
+        # gave was wrong on both halves. It said the child's cwd "is the rip's
+        # output directory, so the record lands with the other artifacts and the
+        # evidence bundle collects it". The cwd is `output_dir`, the rips ROOT;
+        # cyanrip creates the album folder itself from `-D`, one or two levels
+        # below. So the record landed above every album folder, the bundler never
+        # saw it (0 occurrences in the 2026-09-07 bundle's MANIFEST), and all
+        # eight rips of that run wrote the same file in turn.
+        #
+        # Relative is still right — the album folder is only knowable after the
+        # rip, and predicting it is the mistake that cost a finished 14-track rip
+        # (CLAUDE.md, the `‹` substitution). What changes is that the name can no
+        # longer collide: see `diagnostics_record_name`.
+        argv += ["-j", diagnostics_record_name()]
         # Chokepoint assertion for Critical rule #5. `-N` disables cyanrip's own
         # MusicBrainz lookup, and it is not a preference: without it, a disc the
         # GUI has already resolved sends cyanrip to the network from inside the
@@ -681,11 +690,45 @@ def _read_sysfs(path: Path) -> str:
 _COLON_SUBSTITUTE: str = "∶"  # ∶
 
 
-#: Filename for cyanrip's `-j` diagnostics record, written into the rip's own
-#: output directory. A fixed name rather than a stamped one: the directory is
-#: already per-rip, and a name the bundle and the parser can both predict is worth
-#: more than uniqueness we would then have to discover.
-DIAGNOSTICS_RECORD_NAME: Final[str] = "cyanrip-diagnostics.json"
+#: Prefix for cyanrip's `-j` diagnostics record. The full name carries a
+#: per-rip stamp — see :func:`diagnostics_record_name`.
+#:
+#: **This was a FIXED name until 2026-09-07, on a reason that was wrong twice.**
+#: The old comment said *"the directory is already per-rip"*. It is not: cyanrip
+#: is spawned with ``cwd=output_dir`` (the rips ROOT) and creates the album
+#: folder itself from ``-D``, so a relative path lands in the root, ABOVE every
+#: album folder. Derived from the rig run of 2026-09-07, whose own app log
+#: records ``cwd=/home/rmccann/Music/rips`` for all eight rips.
+#:
+#: Two consequences, both measured in that run's bundle:
+#:
+#: * **Every rip overwrote the previous one's record.** Eight rips, one file.
+#:   The name was chosen for predictability and produced a single mutable slot.
+#: * **The evidence bundle never collected it.** The other half of that comment
+#:   claimed the record *"lands with the other artifacts and the evidence bundle
+#:   collects it under the existing .json allowlist"*. `cyanrip-diagnostics`
+#:   appears **0 times** in that bundle's ``MANIFEST.txt`` — not collected, and
+#:   not refused either, because it was never in a directory the bundler reads.
+#:
+#: A stamp fixes the overwrite and, with it, a race the same run made real: F1
+#: below left an abandoned reader running for 15 minutes alongside later rips, so
+#: two live cyanrips shared one output root and would have shared one record.
+#:
+#: It does NOT put the record with the artifacts — that needs a post-rip move
+#: into the album folder, which is tracked in ``TASKS.md`` rather than done here,
+#: because the album folder is only knowable AFTER the rip and predicting it is
+#: what `CLAUDE.md` names as the mistake that cost a 14-track rip.
+DIAGNOSTICS_RECORD_PREFIX: Final[str] = "cyanrip-diagnostics"
+
+
+def diagnostics_record_name(moment: datetime | None = None) -> str:
+    """``cyanrip-diagnostics-<UTC stamp>.json`` — unique per rip.
+
+    The stamp is passed in (or taken as UTC now) rather than read from a clock
+    deep inside the argv builder, so a test can pin the name.
+    """
+    when = moment or datetime.now(UTC)
+    return f"{DIAGNOSTICS_RECORD_PREFIX}-{when.strftime('%Y%m%dT%H%M%SZ')}.json"
 
 
 def _escape_meta_value(value: str) -> str:

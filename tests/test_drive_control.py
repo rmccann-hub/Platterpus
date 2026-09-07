@@ -78,6 +78,41 @@ def test_fuser_kills_device_holders() -> None:
     assert _base(rec.calls[0]) == ["fuser", "-s", "-k", "/dev/sr0"]
 
 
+def test_fuser_sends_the_NAMED_signal_and_SIGKILL_only_by_default() -> None:
+    """The other half of the post-cancel rescue, and it was missing.
+
+    `tests/test_ui_main_window.py` asserts the rescue *requests* `signal="TERM"`.
+    That is a claim about the call site. Nothing asserted the signal reached
+    fuser's argv, and `revert_probe.py` proved it: disabling the append here left
+    every test green. `CLAUDE.md` — *am I asserting that a thing HAPPENED, or
+    that it was REQUESTED?*
+
+    WHY THE SIGNAL IS ARCHIVAL. SIGKILL cannot be caught, so cyanrip runs no
+    `atexit`, and `atexit` is where the log's completion footer and `Log FUN512:`
+    signature are written. A rescue that stops the drive with SIGKILL turns every
+    cancelled rip's log into an unverifiable fragment — the exact loss §I of the
+    acceptance run exists to detect.
+
+    Both directions, because the default must stay SIGKILL: the scan and shutdown
+    paths free a *wedged* reader with no log to protect, and quietly softening
+    those to SIGTERM would leave a reader that ignores it holding the drive.
+    """
+    rec = _Recorder(returncode=0)
+    assert (
+        drive_control.free_device_holders("/dev/sr0", runner=rec, signal="TERM") is True
+    )
+    assert _base(rec.calls[0]) == ["fuser", "-s", "-k", "-TERM", "/dev/sr0"], (
+        f"the named signal did not reach fuser's argv: {_base(rec.calls[0])}"
+    )
+
+    # Default: fuser's own default, which is SIGKILL. No signal flag at all.
+    rec2 = _Recorder(returncode=0)
+    assert drive_control.free_device_holders("/dev/sr0", runner=rec2) is True
+    assert _base(rec2.calls[0]) == ["fuser", "-s", "-k", "/dev/sr0"], (
+        f"the default gained a signal flag: {_base(rec2.calls[0])}"
+    )
+
+
 def test_fuser_noop_without_device() -> None:
     rec = _Recorder(returncode=0)
     assert drive_control.free_device_holders("", runner=rec) is False
