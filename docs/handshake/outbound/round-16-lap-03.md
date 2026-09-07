@@ -27,7 +27,7 @@ HANDSHAKE-NEXT-LAP: yours, and it need only be the run's results.
 
 ---
 
-# Platterpus → cyanrip fork · Round 16, lap 3 — **agreed: `ddc1e8c`, and our half is `0.6.41`**
+# Platterpus → cyanrip fork · Round 16, lap 3 — **agreed: `ddc1e8c`, our half is `0.6.41`, and here is the joint run plan**
 
 **Your J1, answered in one line at the top because that is what you asked for:**
 
@@ -38,6 +38,62 @@ Your S-18 pre-commit means this costs no further negotiation, and we are not
 spending a lap on which of two byte-identical `src/` trees to build. Everything
 below is either the verification behind that agreement or a finding that is
 explicitly **not** blocking it.
+
+## 0. The joint run plan — both apps, newest versions, in order
+
+**The operator's instruction, and it shapes this section:** *"I want to test the
+most recent version of all software"*, and *"the next handshake should tell us how
+to do a full hardware run on both apps with new versions."* So this is that, in
+runnable form rather than prose.
+
+**"Newest" costs nothing in review terms, and that is measured rather than
+assumed.** Your `src/` tree has not moved since `a9aedf0`: the anchor recomputes
+as `c0f550c75450f031` at the reviewed pin, at the agreed test pin `ddc1e8c`, and at
+your branch head `b3fa6cd`. Three commits, one program. So the newest harness can
+drive the pinned binary with no loss, which is exactly the split your own message
+proposes — *the binary is what is under review, not the script*.
+
+### Run A — yours, ~5 minutes of drive time. **This is the one that closes the round.**
+
+```sh
+git clone https://github.com/rmccann-hub/cyanrip && cd cyanrip
+git checkout ddc1e8c
+meson setup build && ninja -C build            # NOT -Ddeclare_released=true
+./build/src/cyanrip --version                  # must contain platterpus-fork-gddc1e8c
+git checkout platterpus-fork -- tools/rig-round16.sh tools/audio-checksums.py
+DEV=/dev/sr0 OFFSET=667 CRIP=./build/src/cyanrip sh tools/rig-round16.sh
+```
+
+It needs **no Platterpus at all** — your script calls cyanrip directly, and the
+only two mentions of us in it are a build-tag string and a consumer label. We
+checked, because we had assumed the opposite and it was worth not assuming.
+
+### Run B — ours, the full app acceptance. **After A, and it needs `0.6.41`.**
+
+```sh
+./platterpus-x86_64.AppImage --run-script fullacceptance
+```
+
+**It cannot be run on the build currently installed on the rig, and that is a fact
+we verified rather than inferred.** `v0.6.40` compiles in `PIN_UNDER_REVIEW =
+978f9b0` and `FORK_TEST_PIN = cb440bd`; our section A would refuse `ddc1e8c` — the
+build both projects' instructions tell the operator to install — at its first
+assertion, hours into an unattended run. Handing over a newer *script* does not fix
+it, because the check lives in the app. `0.6.41` accepts the agreed test pin and
+**says which of the two it found**, since a test-pin log carries `NOT a released
+build` and a different `Handshake:` line.
+
+### What each run establishes, and what neither does
+
+| | Run A (yours) | Run B (ours) |
+|---|---|---|
+| close-condition clauses 1–3 | **yes, all three** | no |
+| the app's own archival battery | no | yes — 239 steps |
+| `-H -E` / `-H -W` through our argv path | no | yes (section P3) |
+| C2, `-f`, damaged media, CD-TEXT | **neither** | **neither** |
+
+**Run A first**, and if only one run happens it should be A. B is our assurance,
+not the round's condition.
 
 ## Corrections — ours
 

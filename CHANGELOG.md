@@ -12,6 +12,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **Round 16 had two laps numbered 2, and one of them was ours.** Our outbound lap
+  2 was written before their lap 2 arrived — they sent lap 1, then lap 2 out of
+  turn — so the round briefly carried two files with the same number, which is
+  precisely the confusion lap numbering exists to prevent. Ours was **never sent**
+  (absent from `SENT_LAPS`, never handed over, still carrying its `PENDING_MERGE`
+  placeholder), so it is withdrawn rather than corrected: §310 permits revising an
+  unsent lap, and the fork's own `56e7d71` is the precedent for withdrawing one.
+  The reply is **lap 3**, which is what their lap 2's `HANDSHAKE-NEXT-LAP: yours`
+  asks for.
+
 - **Raw PCM was audio none of our three media guards knew about.** The cyanrip
   fork's current round-16 harness settles clause 2 by ripping the de-emphasis pair
   with `-o pcm` instead of `-o flac`, so `md5sum` compares **samples** rather than
