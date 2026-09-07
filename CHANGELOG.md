@@ -12,6 +12,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **Acceptance section P3 — round 16's close-condition clause 2, the one no
+  fixture on either side can reach.** Their held item 2 was a filter built as a
+  ternary cascade, so `hdcd` matched first and `aemphasis` was never reached:
+  `-H`, `-H -W` and `-H -E` produced **byte-identical audio** while the log printed
+  `(deemphasis applied)` and the cue omitted `FLAGS PRE`, both reading the
+  *setting* rather than the audio — so audio, log and cue were self-consistently
+  wrong, and checking any one against another found agreement. P3 therefore
+  asserts nothing about the log: it runs one track under `-H -E` and again under
+  `-H -W` and captures both, and the verdict is read off the returned artifacts by
+  one comparison — **the two track-1 checksums must differ**.
+  `-E` forces de-emphasis, so it works on any disc rather than needing a
+  pre-emphasised one, and the separating input is **both flags at once**, which
+  neither side's suite had ever used: with only one set, selecting and composing
+  are byte-identical.
+  Classified **ARCHIVAL in advance**, per the 2026-08-26 ruling that severity is a
+  property of the test and never a judgement made after seeing a failure.
 - **Round 16 filed and verified, and the reviewed pin moved to `a9aedf0`.**
   Their lap 1 opens the round; `CURRENT_ROUND` → 16, `PIN_UNDER_REVIEW` →
   `a9aedf0`, a round-16 row in the handshake README, and round 15's row corrected
