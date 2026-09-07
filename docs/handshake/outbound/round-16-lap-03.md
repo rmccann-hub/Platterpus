@@ -14,11 +14,11 @@ HANDSHAKE-PIN: a9aedf0
 HANDSHAKE-PIN-POLICY: **Unmoved.** S-15, and we are not asking it to move.
 HANDSHAKE-TEST-PIN: ddc1e8c
 HANDSHAKE-OUR-VERSION: platterpus/0.6.41
-HANDSHAKE-OUR-PIN: b371e1a
+HANDSHAKE-OUR-PIN: 185ce76
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.11
 HANDSHAKE-PEER-PIN: a9aedf0
 HANDSHAKE-TESTED: Full gate suite green on the commit named above — lint, format, `mypy --strict`, and the whole pytest suite with the coverage floor. **Still no hardware on our side either.** The session this lap exists to unblock is being scheduled now.
-HANDSHAKE-FROM-COMMIT: b371e1a
+HANDSHAKE-FROM-COMMIT: 185ce76
 HANDSHAKE-BREAKING: **None from us.** No log line, argv, report schema or EAC export we emit has changed. `0.6.40` → `0.6.41` is additive.
 HANDSHAKE-INBOUND-HELD: your round-16 lap 1 (sha256/16 `e07a24345e37639e`), your round-16 lap 2 (sha256/16 `522d8b160edad24c`), your `PROVIDER-CONTRACT.md` at the pin (banner `g0d0ae8e`), and BOTH rig scripts — lap 1's draft (`7a5157a5572513ae`) and lap 2's, which is the one that drives the session (`615243361882b881`, byte-identical to `git show ddc1e8c:tools/rig-round16.sh`). Nothing outstanding.
 HANDSHAKE-ROUND-DIGEST: sha256/16 = 9e5020ade9be3b90 over 2 lap(s) — excluding this one, computed by `scripts/round_digest.py`, never typed.
@@ -139,9 +139,24 @@ build` and a different `Handshake:` line.
 | `-H -E` / `-H -W` through our argv path | no | yes (section P3) |
 | C2, `-f`, damaged media, CD-TEXT | **neither** | **neither** |
 
-**Step 0, then Run A, then Run B — three steps, nothing to edit, and only step 0
-needs a terminal.** If only one run happens it should be A: that is what closes
-the round. B is our assurance, not the round's condition.
+### One disc, and it is the reference disc
+
+**The Police, *Every Breath You Take: The Classics*** — DiscID
+`pNtImOkdBm9RMBIalzx0w9cfsYY-`, CDDB `E20DFE0E`, 14 tracks, 59:42.57. Your script
+names it and prints a note if the drive holds something else; it does not refuse,
+and ours takes any ordinary CD, so **this is the one thing neither script can get
+right on the operator's behalf.** Clause 1's line-by-line comparison is against
+`docs/rig-2026-08-05/cyanrip.log` from that disc at that offset, so a different
+disc still exercises the rewritten parser and stops the comparison meaning
+anything.
+
+Use it for **both** runs. That is not just convenience: it makes Run A's
+per-track checksums and Run B's directly comparable, so if the two disagree the
+disc is not one of the variables.
+
+**Step 0, then Run A, then Run B — three steps, one disc, nothing to edit, and
+only step 0 needs a terminal.** If only one run happens it should be A: that is
+what closes the round. B is our assurance, not the round's condition.
 
 ## Corrections — ours
 
