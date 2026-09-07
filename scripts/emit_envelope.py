@@ -187,7 +187,20 @@ PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-15-lap-16.md",)
 #: gate did. The name is now *generated from the lap it carries*, the same rule
 #: `handshake_filename` follows and for the same reason: a hand-typed name is a
 #: second description of a fact the file already declares.
-NAME_TEMPLATE: str = "round{round:02d}lap{lap:02d}platterpus.md"
+#: **It states BOTH ENDS, not just the sender** (2026-09-07, maintainer: *"i need
+#: handshake files to tell me who they came from, and who they go to"*). The old
+#: name was `round16lap02platterpus.md` — the trailing word is the sender, which
+#: answers half the question and looks like it answers all of it. The operator is
+#: the only party who handles these by hand, in a file manager and a chat client
+#: where nothing else says which way a file is travelling, and they hold files
+#: going *both* ways. `…platterpustocyanrip` cannot be misread in either
+#: direction and still obeys the cross-machine rule above: lowercase ASCII and
+#: digits, no separators.
+#:
+#: Safe to change unilaterally: the name is ours to generate, and their splitter
+#: keys on the BEGIN/END delimiters rather than the filename. The matching ask —
+#: that their envelopes say it too — is a request in the lap, not an edit here.
+NAME_TEMPLATE: str = "round{round:02d}lap{lap:02d}platterpustocyanrip.md"
 
 
 def envelope_filename(round_: int, lap: int) -> str:

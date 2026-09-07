@@ -12,6 +12,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **The reviewed pin's publication status is now DECLARED and checked both ways.**
+  Round 16 opened on `a9aedf0`, which the fork has **not** published — absent from
+  their ledger and their manifest — and five tests went red on that one fact. Four
+  of them failed inside a single fixture helper that insisted on a real
+  `release_seq` in order to ask a question about the *offer's logic*; that fusion
+  is fixed with a synthetic sequence that is never written back, so one signal is
+  reported once instead of five times.
+  The fifth is the real one, and it required deciding what the invariant actually
+  is. Requiring a row unconditionally asserted something that had stopped being
+  true — round 15 was *"the first pin chosen as a subject by having been
+  released"*, one round, not a standing rule. So `PIN_UNDER_REVIEW_IS_PUBLISHED`
+  is declared per round and the test asserts the **pairing in both directions**:
+  declaring published without a row still fails with the 2026-08-17 message, and a
+  stale row after declaring unpublished fails too, because it would place a build
+  in an order the fork never gave it. No sequence was invented; both directions are
+  proven non-vacuous by `revert_probe`.
 - **The round-16 pin joins the flag sets on a RECOMPUTED anchor, not the fork's
   word for it.** Their contract's banner names `g0d0ae8e` — the parent, the usual
   generated-artifact shape — so the banner cannot say which source it describes.
