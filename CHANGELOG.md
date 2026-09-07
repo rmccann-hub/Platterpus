@@ -11,6 +11,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The evidence bundle was not byte-reproducible, and the test that should have
+  said so could only catch it by luck.** Every member's `mtime`, `uid` and `gid`
+  was fixed — and `tarfile.open(..., "w:gz")` then wrote the **current time into
+  the gzip header**, so two bundles of identical inputs matched only when both
+  landed inside the same second. `test_two_bundles_of_the_same_inputs_are_byte_identical`
+  runs in 0.07 s alone and passed; in the full suite it straddled a boundary and
+  failed. **A one-second reproduction window reads exactly like a flaky test**, and
+  the tempting response is to rerun it.
+  This matters because the bundle is evidence that gets posted in public: its own
+  docstring promises the build hour is kept off it, and a byte-identical rebuild is
+  how a reader confirms a bundle was not edited between the rig and the report. A
+  header clock defeats both, and `filename=""` closes the second route — `GzipFile`
+  otherwise stores the archive's own name, which carries the run stamp.
+  Measured: two bundles built 1.2 s apart are now byte-identical and the header
+  reads `00000000`. The regression test asserts the **cause** — header bytes 4–8,
+  with a non-vacuity check that the stream really is gzip — so it has no timing in
+  it at all. Proven by `revert_probe`.
+
 ### Added
 - **Round 16 lap 3 — the test pin agreed, and the round pointed at a drive.** The
   fork's lap 2 asked one thing and pre-committed under S-18 to accept whatever we
