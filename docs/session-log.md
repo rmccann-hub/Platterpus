@@ -122,18 +122,32 @@ cost the session.
   Widened to a set, and it names which one it found, because a test-pin log carries
   `NOT a released build` and a reader must tell them apart.
 
-* **Raw PCM was not audio to any of our three media denylists.** The fork's current
-  harness settles clause 2 with `-o pcm` so `md5sum` compares *samples* rather than
-  container bytes and the rig needs no decoder — a real improvement on what we
-  reviewed, and it introduced an extension `.gitignore`, `.githooks/pre-commit` and
-  CI's `media-guard` all missed, while the same script ends with *"bring back the
-  whole of `$OUT`"*. **The shape matters more than the fix: a change on the other
-  side of the seam widened what can reach this repository, and nothing here would
-  have noticed.** The evidence bundler was already safe because it admits by
-  *allowlist*; the three that failed are the denylists. Rule #8 says the rule is the
-  line of defence and `.gitignore` is the backstop — this is what it looks like when
-  the backstop is scoped to yesterday's formats. Verified by staging a `.pcm` and
-  watching the hook refuse: the guard, not the intention.
+* **Raw PCM was not audio to any of our three media denylists.** `cyanrip -o pcm`
+  writes interleaved s16le stereo (`CYANRIP_FORMAT_PCM` at `cyanrip_main.c:113`,
+  read rather than recalled) — it *is* the audio, with less wrapping than a `.wav` — and `.gitignore`, `.githooks/pre-commit` and CI's `media-guard` listed
+  the container formats and none of them listed `.pcm` or `.raw`. The evidence
+  bundler was already safe because it admits by *allowlist*; the three that failed
+  are the denylists, which is what it looks like when the backstop is scoped to the
+  formats somebody thought of. Rule #8 says the rule is the line of defence and
+  `.gitignore` is the backstop. Verified by staging a `.pcm` and watching the hook
+  refuse: the guard, not the intention.
+
+  **And the reason I originally gave for it was invented, which is the part worth
+  keeping.** I wrote that the fork's harness had *"switched to `-o pcm`"*. It has
+  not — it rips `-o flac` throughout and gets the sample domain with
+  `ffmpeg -f md5`, printing `UNPROBED` rather than a pass when ffmpeg is absent
+  (`round-16-lap-02-rig-round16.sh:181-212`). A mechanism asserted in a peer's code
+  without reading it, which `CLAUDE.md` forbids by name, repeated across a commit
+  message, a changelog entry, a script comment and a test docstring before anything
+  checked it. **Nothing false reached the fork, and only by luck: the claim never
+  made it into a lap.**
+
+  It also produced a wrong recommendation *to* them. Our §H1.4 told them to add
+  `tar --exclude='*.flac'` — and their ffmpeg-absent branch says *"bring the flacs
+  back for the comparison to be done off the rig"*, so following our advice would
+  delete the evidence their own script asks for in the one case it cannot settle
+  the clause itself. Twelve lines above the tar line they were about to be advised
+  on. The lap was unsent, so it is corrected there rather than sent and retracted.
 
 * **`v0.6.40` could not have run the acceptance script at all.** It compiles in
   `PIN_UNDER_REVIEW = 978f9b0` and `FORK_TEST_PIN = cb440bd`, read out of the tag

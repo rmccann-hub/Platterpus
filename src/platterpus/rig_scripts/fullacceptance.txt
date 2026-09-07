@@ -878,12 +878,18 @@ snapshot afterc1
 # CONFIRMING answer from an input that cannot confirm anything, and the clause
 # reads as settled while the cascade is still broken.
 #
-# Adopted from the cyanrip fork's round-16 lap 2, which said this explicitly
-# and whose own harness switched to `-o pcm` so its `md5sum` compares samples
-# with no decoder on the rig. We keep FLAC here because this section rides on
-# the run's normal output path and the printed checksum already gives us the
-# sample domain -- but the qualifier has to be in the sentence, because the
-# sentence is what somebody follows at 2am.
+# Adopted from the cyanrip fork's round-16 harness, which states it explicitly
+# and then does something better than stating it: it prints the CONTAINER md5s,
+# says in its own output that a difference there is "necessary and not
+# sufficient", and separately decodes with `ffmpeg -f md5` for the comparison
+# that counts -- reporting `UNPROBED` rather than a pass when ffmpeg is absent.
+# (Read at round-16-lap-02-rig-round16.sh:181-212; an earlier version of this
+# comment credited them with `-o pcm`, which is not what their script does.)
+#
+# We stay on the run's normal FLAC output here because cyanrip's PRINTED
+# checksum already gives us the sample domain with nothing extra to install --
+# but the qualifier has to be in the sentence, because the sentence is what
+# somebody follows at 2am.
 
 log --- P3. R16 CC2: -H -E (forced de-emphasis) ---
 cyanrip -N -s 667 -l 1 -H -E -D r16deemphon

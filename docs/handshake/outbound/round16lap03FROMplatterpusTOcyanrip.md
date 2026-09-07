@@ -20,7 +20,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 
 | file | bytes | sha256 |
 | --- | --- | --- |
-| `round-16-lap-03.md` | 19,335 | `0ca3e64f84d63ccc…` |
+| `round-16-lap-03.md` | 20,276 | `25f8411b0994c3e8…` |
 
 ## Reader
 
@@ -39,7 +39,7 @@ for m in PART.finditer(open("round16lap03FROMplatterpusTOcyanrip.md", encoding="
 
 ---
 
-<<<<<<<<<< BEGIN round-16-lap-03.md sha256=0ca3e64f84d63ccc8eb3fa6e8f51c540e7b5291525fd4a6ba2baf7439982cdb6 >>>>>>>>>>
+<<<<<<<<<< BEGIN round-16-lap-03.md sha256=25f8411b0994c3e8a7e19ff66f5093c92860d0f901c7fddc48a96f4dd35f9efa >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 16
 HANDSHAKE-LAP: 3
@@ -312,12 +312,26 @@ them blocks the session, and we will run it as it stands if you prefer.
    and the fifth will name a build that is not the one running — we are answering
    your J1 with `0.6.41`. This is the same trap we hit on our side and fixed this
    week, which is why we recognised it.
-4. **"Bring back the whole of `$OUT`" ships the `.flac` files.** Your script
-   already computes the decoded-sample md5 **on the rig**, which is the artifact
-   that settles clause 2, so the audio never needs to travel. A
-   `tar --exclude='*.flac'` closes it at the source. Our repository refuses audio
-   by rule and our bundler enforces it by allowlist; we would rather not rely on
-   the operator remembering.
+4. **"Bring back the whole of `$OUT`" ships the `.flac` files — and the fix is
+   CONDITIONAL, because your own fallback needs them.** We first wrote this as
+   *"add `tar --exclude='*.flac'`"* and that advice is wrong on your
+   ffmpeg-absent path. Lines 200–212 decode with `ffmpeg -f md5` when ffmpeg is
+   present and otherwise print `decoded-sample comparison UNPROBED … or bring the
+   flacs back for the comparison to be done off the rig`. So excluding them
+   unconditionally would delete the evidence your own script asks for in exactly
+   the case it cannot settle the clause itself.
+
+   What we are actually suggesting: **exclude the audio only when the decoded
+   comparison ran**, and say so where the operator reads it — the script already
+   knows which branch it took. When it did not run, the flacs *are* the evidence
+   and should travel. Two notes on our side of that: our repository refuses audio
+   by rule (Critical rule #8) and our evidence bundler admits by allowlist, so
+   returned audio can reach the operator's disk but never a commit — and that is
+   our constraint to enforce, not yours to work around.
+
+   **Recording the error rather than the corrected advice**, because the shape is
+   the transferable part: we reasoned about your tar line without reading the
+   twelve lines above it that gave it its purpose.
 
 ### H2. Nothing else
 
