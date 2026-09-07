@@ -400,8 +400,17 @@ Beyond the *guidance* in the Critical rules above, a few things are **enforced**
 
 ### Artifact filenames that cross machines
 
-**Lowercase ASCII letters and digits only. No hyphens, no underscores, no
-spaces, no case. Numbers zero-padded.** `round08joint.txt`, `round08lap07.md`.
+**ASCII letters and digits only. No hyphens, no underscores, no spaces.
+Numbers zero-padded.**
+
+**Case is the one deliberate exception, and it is there to serve the rule's own
+purpose** (2026-09-07). The hazard was never capitals — it was *two conventions*,
+one artifact spelled two ways, which is how a rig run was lost. When the fork
+adopted direction-in-the-filename in round 16 they spelled it
+`round16lap01FROMcyanripTOplatterpus.md`, so ours is
+`round16lap03FROMplatterpusTOcyanrip.md` — matched, not merely correct. The
+operator holds both files in one folder and is the only reader either naming
+convention exists for. `round08joint.txt`, `round08lap07.md`.
 
 **Scope: artifacts a PERSON handles by hand** — rig scripts, the transport
 envelope, anything named in a command an operator will type or paste, anything
