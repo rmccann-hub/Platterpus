@@ -1099,7 +1099,21 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # needs and cannot reconstruct, and splitting the file would separate a
     # constant from the reason it holds. Raised deliberately, which is what
     # this ratchet asks for; the module is still one responsibility.
-    "deps/fork_source.py": 1783,
+    #
+    # **1783 -> 1835 on 2026-09-07**, for `rig_installs_the_test_pin()` and the
+    # two `why` strings it now decides. Round 16 is the first round to name a
+    # test pin DISTINCT from the pin under review, and `UNDER_REVIEW_TARGET.why`
+    # still read *"what an acceptance run must be on"* — so `--install-ripper
+    # list` printed two candidates and called the wrong one mandatory, at 2am, to
+    # an operator deciding what to put on the drive.
+    #
+    # The growth is one derived predicate plus its docstring, and it belongs
+    # HERE for the reason the paragraph above gives: it compares `FORK_TEST_PIN`
+    # against `PIN_UNDER_REVIEW`, and a comparison of two constants in a
+    # different file from the constants is the split this ratchet's own note
+    # warns against. Moving it would separate the answer from the two facts it
+    # is derived from.
+    "deps/fork_source.py": 1835,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the

@@ -12,6 +12,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **`--install-ripper list` offered two builds and called the wrong one
+  mandatory.** `UNDER_REVIEW_TARGET`'s reason read *"what an acceptance run must
+  be on"* — true for every round up to 15, and false for round 16, the first to
+  name a test pin **distinct** from the pin under review. Protocol §6a's sequence
+  is *agree a test pin → both install it → run the session*, so the reviewed
+  build is the round's subject and the **test pin** is what goes on the drive.
+  The acceptance script's header sends an operator to this list precisely when a
+  round is open on an unpublished build, so it is read at the moment the decision
+  is made.
+  Nothing would have aborted: `expect-ripper-under-review` accepts both pins, and
+  `git diff a9aedf0..ddc1e8c -- src/ meson.build` is empty, so the two round-16
+  builds are behaviourally identical. The cost would have been **provenance** — a
+  rip tagged `ga9aedf0` when both projects' records say the session ran
+  `gddc1e8c`. Now derived by `rig_installs_the_test_pin()` from the two pins, so
+  it cannot freeze the way the sentence it replaces did; when no separate test pin
+  exists the reviewed build is again the one to install.
+  Two wording defects in the fix itself, both caught before commit: it referred to
+  a sibling entry as *"above"* when the renderer prints it **below** (ordering is
+  by trust and can change, so a positional word is a fact about the renderer, not
+  the record), and it began a sentence lowercase. Both now pinned by tests.
+
 - **A regression test for an open-population digest had itself pinned an
   open-population digest.** `TestExcludeAccumulates` asserted
   `--exclude round-16-lap-04.md --exclude round-16-lap-05.md` gave
