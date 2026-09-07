@@ -823,6 +823,61 @@ expect-exit 1
 expect-cyanrip Offset is unset
 snapshot afterc1
 
+# --- P3. ROUND 16 CLOSE CONDITION, CLAUSE 2: -H WITH DE-EMPHASIS -----------
+# Round 16's close condition is fixed at their lap 1 under S-13 and cannot grow.
+# Clause 2 is *"`-H` together with de-emphasis produces correct de-emphasised
+# audio"*, and this is the only clause no fixture on either side can reach.
+#
+# WHY IT NEEDS A RIG AND WHY IT NEEDS BOTH FLAGS. Their held item 2 was a filter
+# string built as a ternary CASCADE, so `hdcd` matched first and `aemphasis` was
+# never reached: `-H`, `-H -W` and `-H -E` produced BYTE-IDENTICAL audio, both
+# the disable and the force flag inert. The log still printed
+# `(deemphasis applied)` and the cue still omitted `FLAGS PRE`, because both read
+# the SETTING rather than the audio — so **audio, log and cue were
+# self-consistently wrong** and checking any one against another found agreement.
+# That is why this step asserts nothing about the log: the log cannot tell you.
+#
+# THE SEPARATING INPUT IS BOTH FLAGS AT ONCE, which their suite had never used.
+# With only one of the two set, selecting and composing are byte-identical, so a
+# single run proves nothing whichever way it comes out.
+#
+# `-E` FORCES DE-EMPHASIS, so this works on ANY disc — it does not need a
+# pre-emphasised one, and forcing it is the same graph the TOC flag takes (their
+# lap 1 §0 note 1). If the rig disc happens to carry pre-emphasis, plain `-H` is
+# the stronger evidence and worth adding; on an ordinary disc `-H -E` against
+# `-H -W` is the same code path and not a weaker substitute.
+#
+# BOUNDED ON PURPOSE. `-l 1` is one track each, so this costs minutes rather than
+# a second full rip, and the `cyanrip` verb's own timeout bounds a hang exactly as
+# it does in P2. `-s 667` is this drive's true offset (section B); without it
+# cyanrip refuses for want of one, which is P2's subject and not this one.
+# `-D` takes a RELATIVE naming scheme — confirmed from their source at the pin,
+# `cyanrip_main.c:1603`, `folder_scheme`, *"Directory naming scheme"* — so these
+# two land beside the run's other output rather than anywhere absolute.
+#
+# THIS STEP DOES NOT DECIDE THE CLAUSE, AND THAT IS DELIBERATE. Our script
+# language has no verb that compares two captures, and inventing one hours before
+# an unattended run is how a run gets lost to its own instrumentation. What the
+# step does is CAPTURE: the `cyanrip` verb records the exact argv, the exit code
+# and the complete output of both runs into the transcript, which the bundle
+# carries. cyanrip prints its per-track checksum there, so the verdict is read off
+# the returned artifact afterwards, by one comparison:
+#
+#     the two runs' track-1 checksums MUST DIFFER.
+#
+# Identical checksums mean the cascade is still selecting rather than composing.
+# Different checksums mean the graph composed, which is the clause.
+
+log --- P3. R16 CC2: -H -E (forced de-emphasis) ---
+cyanrip -N -s 667 -l 1 -H -E -D r16deemphon
+expect-exit 0
+snapshot afterdeemphon
+
+log --- P3. R16 CC2: -H -W (de-emphasis disabled), the control ---
+cyanrip -N -s 667 -l 1 -H -W -D r16deemphoff
+expect-exit 0
+snapshot afterdeemphoff
+
 # --- Q. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
 # Restoring is not tidiness. Uniform secure re-read doubles every future rip on
 # this machine, MP3 would make the next rip lossy, and a setting a test left

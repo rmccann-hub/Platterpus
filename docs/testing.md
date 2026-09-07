@@ -2523,11 +2523,12 @@ defect, and two of those sections are archival.
 | N | ARCHIVAL | T1, the whole-disc uniform secure re-read: the accuracy claim itself |
 | P | ARCHIVAL | the cache probe feeds the accuracy model |
 | P2 | ARCHIVAL | C1 — a refusal that hangs the drive costs the disc |
+| P3 | ARCHIVAL | round 16's close condition, clause 2 — whether `-H` composes with de-emphasis or silently selects past it. The defect it probes made `-H`, `-H -W` and `-H -E` produce **byte-identical audio** while the log said `(deemphasis applied)` and the cue omitted `FLAGS PRE`, both reading the setting rather than the audio. Wrong samples written to an archival master, with every text artifact agreeing they are right — there is no more archival failure than that |
 | Q | UX | restoring settings the run changed; hygiene for the *next* run |
 
 <!-- END-ACCEPTANCE-SEVERITY-TABLE -->
 
-**17 ARCHIVAL, 3 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The three that remain are genuinely about the program rather than the disc — dialog plumbing (`D`), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), and hygiene for the *next* run (`Q`). The table is swept: every `log --- ` section in
+**18 ARCHIVAL, 3 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The three that remain are genuinely about the program rather than the disc — dialog plumbing (`D`), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), and hygiene for the *next* run (`Q`). The table is swept: every `log --- ` section in
 `fullacceptance.txt` must appear, so a **new** section has to be classified
 rather than defaulting to ignorable — the direction that fails safe is the one
 that makes you decide.
