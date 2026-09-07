@@ -461,6 +461,34 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: halves against this commit in its own header. Read off the artifact either way.
 PIN_UNDER_REVIEW: Final[str] = "a9aedf0"
 
+#: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
+#:
+#: **Set deliberately every round, and it is checked against reality rather than
+#: believed.** `tests/test_rig_scripts.py::test_the_pin_under_review_has_a_release_sequence`
+#: asserts this flag agrees with whether `FORK_RELEASE_SEQ_BY_PIN` actually carries
+#: a row, in **both** directions — so declaring `True` without a row fails (the
+#: 2026-08-17 defect: the offer telling someone on a published release they are on
+#: *"a mid-round test pin, or a commit installed by hand"*), and leaving a stale row
+#: behind after declaring `False` fails too.
+#:
+#: **Why it is a declaration and not a lookup.** The fact lives in the fork's
+#: `release-manifest.json`, which we cannot read at test time, and inventing a
+#: sequence to quiet a red test would make the check pass for the wrong reason.
+#:
+#: **`False` for round 16, and the consequence is real.** Their lap 1 opens on
+#: `a9aedf0`, which is absent from both their ledger (tops out at `978f9b0`,
+#: `release_seq` 21) and their manifest. Round 15 was *"the first pin chosen as a
+#: subject by having been released"* — one round, not a standing rule — so a
+#: nominated pin is legitimate and no row should be invented for it.
+#:
+#: What it costs: `--install-ripper a9aedf0` and the `--install-ripper list` menu
+#: reach the build, but the **update offer** cannot, because that reads their
+#: manifest. `ripper_choices()` has no GUI caller today, so a GUI-only operator has
+#: no route to the build an open round is reviewing — a KDD-17 gap, tracked in
+#: `TASKS.md` and raised with the fork as a NEXT-ROUND ask rather than a blocker,
+#: because it does not make the reviewed pin unsafe and the rig has a terminal.
+PIN_UNDER_REVIEW_IS_PUBLISHED: Final[bool] = False
+
 #: The fork's **test pin** — a build designated to gather the hardware evidence a
 #: close requires, which is *not* a release and never moves :data:`FORK_PIN`.
 #:

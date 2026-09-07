@@ -1085,8 +1085,19 @@ def test_the_envelope_name_is_generated_from_the_lap_it_carries(
         f"{envelope.OUT.name} does not state round {round_} lap {lap}, which is what "
         f"{envelope.PARTS[0].name} declares. Regenerate rather than rename."
     )
-    assert envelope.envelope_filename(9, 6) == "round09lap06platterpus.md"
-    assert envelope.envelope_filename(10, 21) == "round10lap21platterpus.md"
+    # **BOTH ENDS, not just the sender** (2026-09-07, maintainer: *"i need handshake
+    # files to tell me who they came from, and who they go to"*). The old shape
+    # ended in `platterpus`, which names the sender and looks like it names
+    # everything — and the operator holds files travelling both ways.
+    assert envelope.envelope_filename(9, 6) == "round09lap06platterpustocyanrip.md"
+    assert envelope.envelope_filename(10, 21) == "round10lap21platterpustocyanrip.md"
+    for name in (envelope.envelope_filename(16, 2),):
+        assert "platterpusto" in name and name.endswith("cyanrip.md"), (
+            f"{name} does not state both ends of the seam"
+        )
+        assert name == name.lower() and name.replace(".", "").isalnum(), (
+            f"{name} breaks the cross-machine rule: lowercase ASCII and digits only"
+        )
     assert envelope.envelope_filename(9, 6) != envelope.envelope_filename(9, 7), (
         "the generator does not vary with the lap, so the name cannot track the "
         "contents and the check above proves nothing"

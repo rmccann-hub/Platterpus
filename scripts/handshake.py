@@ -701,6 +701,19 @@ def emit_outbound(round_number: int) -> str:
             f"HANDSHAKE-ROUND: {round_number}",
             "HANDSHAKE-LAP: 1",
             "HANDSHAKE-FROM: platterpus",
+            # WHO IT CAME FROM AND WHO IT GOES TO, on the wire, always.
+            # Added 2026-09-07 on the maintainer's instruction: *"i need handshake
+            # files to tell me who they came from, and who they go to"*. They are
+            # the one party who handles these files by hand, across two
+            # repositories and a chat client, and `HANDSHAKE-FROM` alone answers
+            # half the question. The fork has emitted the repo pair since round 14;
+            # we had not, so a Platterpus lap was the harder of the two to place.
+            # Not a protocol change we can make alone — `docs/handshake-protocol.md`
+            # is jointly owned — so these are emitted, not required of them, and
+            # the proposal to make them normative goes in the lap.
+            "HANDSHAKE-TO: cyanrip-fork",
+            f"HANDSHAKE-FROM-REPO: {OUR_REPO_URL}",
+            f"HANDSHAKE-TO-REPO: {FORK_REPO_URL}",
             "HANDSHAKE-VERDICT: OPEN",
             f"HANDSHAKE-APP-VERSION: platterpus {_app_version}",
             f"HANDSHAKE-RIPPER-VERSION: {_fork_banner()}",
@@ -869,6 +882,13 @@ RETROSPECTIVE_ROUNDS: frozenset[int] = frozenset({1, 2, 3})
 #: Staleness fails in the SAFE direction: a value left behind reports a closed
 #: round as open and blocks a release, which is a conversation. The other
 #: direction ships.
+#: The two repositories the seam joins, emitted on every outbound lap so a file
+#: states its own direction. A person holding the file in a chat client has no
+#: other way to tell, and that is the one place this protocol has always been
+#: read by a human rather than a checker.
+OUR_REPO_URL: Final[str] = "https://github.com/rmccann-hub/Platterpus"
+FORK_REPO_URL: Final[str] = "https://github.com/rmccann-hub/cyanrip"
+
 CURRENT_ROUND: Final[int] = 16
 
 

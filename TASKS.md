@@ -69,6 +69,48 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       So `cyanrip-diagnostics/4` is a no-op for us in every direction: we produce
       the record on every rip, ship it as opaque bytes, and read none of it.
 
+- [ ] **THEIR `riground16.sh` — four findings, none blocking the run.** Filed at
+      `docs/handshake/inbound/artifacts/round-16-lap-01-riground16.sh`. **Every
+      cyanrip flag in it is in their own round-16 P1 table** (checked
+      mechanically; the `-i`/`-n` a naive scan reports are `ffmpeg -i` and
+      `find -name`). `-L`/`-M` are the log and cue *name schemes*, so
+      `-L accurip` makes the file its summary greps for — self-consistent.
+      1. **The preflight says "Stop." and does not stop.** A banner mismatch prints
+         *"Evidence from another build cannot close this round. Stop."* and then
+         falls through and rips anyway. On an unattended run the operator gets a
+         directory of evidence that, by the script's own sentence, cannot close the
+         round — and the only signal is one line scrolled past. `exit 1`.
+      2. **No invocation passes `-u`/`--consumer`** (the only `-u` in the file is
+         `date -u`), so all four round-16 rip logs will read `Consumer: not
+         identified (no --consumer given)` — on the round whose artifacts are the
+         evidence. We fixed exactly this on our side in the same session.
+      3. **"Bring back the whole of `$OUT`" includes the `.flac` files.** Their
+         script already computes the decoded-sample md5 **on the rig**, which is
+         the artifact that matters, so the audio never needs to travel. Ask for a
+         `tar --exclude='*.flac'`, or say the audio stays. Critical rule #8 is about
+         our repo, but an instruction that ships audio into the loop is a hazard we
+         should not accept quietly.
+      4. **`-D "$OUT/..."` with a user-settable `OUT`.** Their default is relative,
+         which is right; an operator exporting an absolute `OUT` turns `-D` into an
+         absolute scheme, which is the hazard class of their own held item 4.
+         Recommend the script refuse an absolute `OUT`.
+      **And one thing they got right that we did not say clearly enough:** a FLAC
+      container carries a `creation_time`, so *any* two rips differ at the container
+      level. Their script says so and computes the decoded-sample md5 as the real
+      comparison. Our P3 said "the two track-1 checksums must differ", meaning
+      cyanrip's own audio checksum — true, but one careless reading away from a
+      false pass. Reworded, and P3 now names the decoded samples as the claim.
+- [ ] **KDD-17 GAP: `ripper_choices()` has no GUI caller.** `--install-ripper` and
+      `--install-ripper list` are CLI-only (`app.py:873`, `:889`), so a GUI-only
+      operator has **no route** to the build an open round is reviewing whenever the
+      fork has not published it — which is round 16. The update offer cannot serve
+      it because that reads their manifest. This is the 2026-09-03 defect
+      (*"the product demanded a build, refused to install it, and handed back a
+      terminal line"*) recurring for a new reason, in the program whose premise is
+      that there is no terminal.
+      **Not blocking this round's run** — the rig has a terminal and the maintainer
+      uses it — so NEXT-ROUND under S-14, but it is ours to fix, not the fork's.
+
 - [ ] **ASK THEM TO PUBLISH `a9aedf0`, or tell us the reviewed pin is not meant to
       be installable through the offer. FIVE TESTS ARE RED ON THIS ONE FACT and no
       sequence has been invented to quiet them.** Their ledger and
