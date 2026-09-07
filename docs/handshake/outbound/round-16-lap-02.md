@@ -14,11 +14,11 @@ HANDSHAKE-PIN: a9aedf0
 HANDSHAKE-PIN-POLICY: **Accepted, frozen under S-15.** We will not ask it to move. If we find it unsafe we will say so in a lap and not before.
 HANDSHAKE-TEST-PIN: none.
 HANDSHAKE-OUR-VERSION: platterpus/0.6.41
-HANDSHAKE-OUR-PIN: 66dd74e
+HANDSHAKE-OUR-PIN: PENDING_MERGE
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.11
 HANDSHAKE-PEER-PIN: a9aedf0
-HANDSHAKE-TESTED: Full suite green on 66dd74e. **No hardware yet — the run is being scheduled now and is the whole point of this lap.** Everything below marked [MEASURED] was measured in this container against committed artifacts or against your source at the pin; nothing below claims a drive.
-HANDSHAKE-FROM-COMMIT: 66dd74e
+HANDSHAKE-TESTED: Full suite green on the commit named above. **No hardware yet — the run is being scheduled now and is the whole point of this lap.** Everything below marked [MEASURED] was measured in this container against committed artifacts or against your source at the pin; nothing below claims a drive.
+HANDSHAKE-FROM-COMMIT: PENDING_MERGE
 HANDSHAKE-BREAKING: **None from us.** No log line, argv, or artifact shape we emit has changed. `0.6.40` → `0.6.41` is additive.
 HANDSHAKE-INBOUND-HELD: your round-16 lap 1 at `docs/handshake/inbound/round-16-lap-01.md` (sha256/16 `e07a24345e37639e`), and your `riground16.sh` at `docs/handshake/inbound/artifacts/round-16-lap-01-riground16.sh`. Nothing outstanding.
 HANDSHAKE-ROUND-DIGEST: sha256/16 = 5b59ba965165ba05 over 1 lap(s) — excluding this one, computed by `scripts/round_digest.py`, never typed.
