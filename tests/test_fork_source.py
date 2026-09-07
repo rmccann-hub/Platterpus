@@ -1167,6 +1167,87 @@ class TestTheRipperBuildMenu:
         pins = [c.pin for c in fork_source.ripper_choices()]
         assert len(pins) == len(set(pins)), f"a build is listed twice: {pins}"
 
+    def test_exactly_one_choice_tells_the_operator_to_install_it(self) -> None:
+        """**The menu offered two candidates and named the wrong one mandatory.**
+
+        `UNDER_REVIEW_TARGET.why` read *"what an acceptance run must be on"* —
+        true for every round up to 15, and false for round 16, the first to name
+        a **separate** test pin. Protocol §6a's sequence is *agree a test pin →
+        both install it → run the session*, so the reviewed build is the round's
+        subject and the test pin is what goes on the drive.
+
+        Nothing aborted on it: `expect-ripper-under-review` accepts both pins, and
+        the two round-16 builds have identical `src/`. What it would have cost is
+        provenance — a rip tagged `ga9aedf0` when both projects' records say the
+        session ran `gddc1e8c`.
+        """
+        choices = fork_source.ripper_choices()
+        marked = [c for c in choices if "INSTALL THIS ONE" in c.why]
+        if not fork_source.rig_installs_the_test_pin():
+            assert not marked, (
+                "no separate test pin exists, so nothing should claim to be the "
+                f"one to install: {[c.pin for c in marked]}"
+            )
+            return
+        assert len(marked) == 1, (
+            f"expected exactly one build marked for installation, got "
+            f"{[c.pin for c in marked]} out of {[c.pin for c in choices]}"
+        )
+        assert marked[0].pin == fork_source.FORK_TEST_PIN, (
+            f"the menu points at {marked[0].pin} but the round's agreed test pin "
+            f"is {fork_source.FORK_TEST_PIN}"
+        )
+
+    def test_no_other_choice_also_claims_an_acceptance_run_needs_it(self) -> None:
+        """The contradiction half, which is what an operator actually reads.
+
+        One entry saying *"INSTALL THIS ONE"* while another says *"what an
+        acceptance run must be on"* is a menu that answers one question twice,
+        differently. Asserted separately from the test above because that one
+        passes on a menu where BOTH entries make the claim.
+        """
+        if not fork_source.rig_installs_the_test_pin():
+            return
+        for choice in fork_source.ripper_choices():
+            if choice.pin == fork_source.FORK_TEST_PIN:
+                continue
+            assert "acceptance run must be on" not in choice.why, (
+                f"{choice.pin} still claims an acceptance run needs it, while "
+                f"{fork_source.FORK_TEST_PIN} is marked INSTALL THIS ONE: "
+                f"{choice.why!r}"
+            )
+
+    def test_no_choice_refers_to_another_by_its_POSITION(self) -> None:
+        """*"the test pin above"* is a fact about the renderer, not the record.
+
+        The first version of the fix said "above" about an entry `ripper_choices`
+        prints **below** — ordering is by trust and can change, so a positional
+        word is wrong the moment it does. Naming the pin is true whatever order
+        the caller picks, and a caller may sort or filter this list.
+        """
+        for choice in fork_source.ripper_choices():
+            for word in (" above", " below", "the entry above", "listed first"):
+                assert word not in choice.why.casefold(), (
+                    f"{choice.pin}'s reason points at a POSITION ({word!r}), "
+                    f"which the renderer owns and can change: {choice.why!r}"
+                )
+
+    def test_rig_installs_the_test_pin_is_derived_from_the_two_pins(self) -> None:
+        """Both directions, so the predicate is not stuck on one answer.
+
+        It must be False when the pins coincide — which is what a closed round
+        looks like — or it would send an operator to a "test pin" that is really
+        the approved production build.
+        """
+        assert fork_source.rig_installs_the_test_pin() is (
+            fork_source.a_round_is_reviewing_a_build()
+            and not fork_source.same_commit(
+                fork_source.FORK_TEST_PIN, fork_source.PIN_UNDER_REVIEW
+            )
+        )
+        assert not fork_source.same_commit("abc1234", "def5678")
+        assert fork_source.same_commit("ddc1e8c", "ddc1e8c")
+
     def test_the_word_list_cannot_collide_with_a_commit(self) -> None:
         """`list` is a literal in the same slot as a COMMIT. Git requires at
         least 4 hex characters for an abbreviation, and 'list' is not hex, so
