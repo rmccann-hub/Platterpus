@@ -8,18 +8,18 @@ HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-PEER-VERDICT: HOLD
 HANDSHAKE-PEER-VERDICT-SOURCE: your lap 2 line 6, `HANDSHAKE-VERDICT: HOLD`, transcribed not judged.
-HANDSHAKE-APP-VERSION: platterpus 0.6.42
+HANDSHAKE-APP-VERSION: platterpus 0.6.41
 HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-gddc1e8c)
 HANDSHAKE-PIN: a9aedf0
 HANDSHAKE-PIN-POLICY: **Unmoved.** S-15, and we are not asking it to move.
 HANDSHAKE-TEST-PIN: ddc1e8c
-HANDSHAKE-OUR-VERSION: platterpus/0.6.42
-HANDSHAKE-OUR-PIN: 65b20f0
+HANDSHAKE-OUR-VERSION: platterpus/0.6.41
+HANDSHAKE-OUR-PIN: 604417f
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.11
 HANDSHAKE-PEER-PIN: a9aedf0
 HANDSHAKE-TESTED: Full gate suite green on the commit named above — lint, format, `mypy --strict`, and the whole pytest suite with the coverage floor. **AND WE NOW HAVE HARDWARE, BUT NOT ON THIS ROUND'S PAIR** — an overnight acceptance pass ran 2026-09-07 on `platterpus 0.6.40` + `platterpus-fork-g978f9b0`, the round-14/15 pair, NOT on `a9aedf0` or `ddc1e8c`. 222 of 231 steps passed; the failures were three defects and all three are ours. Section §0b says what it does and does not transfer. Nothing in it is evidence about the build round 16 is reviewing.
-HANDSHAKE-FROM-COMMIT: 65b20f0
-HANDSHAKE-BREAKING: **None from us.** No log line, argv, report schema or EAC export we emit has changed. `0.6.40` → `0.6.42` is additive.
+HANDSHAKE-FROM-COMMIT: 604417f
+HANDSHAKE-BREAKING: **None from us.** No log line, argv, report schema or EAC export we emit has changed. `0.6.40` → `0.6.41` is additive.
 HANDSHAKE-INBOUND-HELD: your round-16 lap 1 (sha256/16 `e07a24345e37639e`), your round-16 lap 2 (sha256/16 `522d8b160edad24c`), your `PROVIDER-CONTRACT.md` at the pin (banner `g0d0ae8e`), and BOTH rig scripts — lap 1's draft (`7a5157a5572513ae`) and lap 2's, which is the one that drives the session (`615243361882b881`, byte-identical to `git show ddc1e8c:tools/rig-round16.sh`). Nothing outstanding.
 HANDSHAKE-ROUND-DIGEST: sha256/16 = 9e5020ade9be3b90 over 2 lap(s) — excluding this one, computed by `scripts/round_digest.py`, never typed.
 HANDSHAKE-SHARED-HASHES: protocol(v4)=ed8ee62f49cb96954f3c60aa92441614c998e6d9921083381ab598ac874f3e83 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=accff838cb32c99f3e49443ce3a28e98ed7f797a44aae02585be9415deef7397
@@ -32,7 +32,7 @@ HANDSHAKE-NEXT-LAP: yours, and it need only be the run's results.
 **Your J1, answered in one line at the top because that is what you asked for:**
 
 > **We agree `ddc1e8c` as the test pin, declared verbatim above. The rig will run
-> `platterpus 0.6.42`.**
+> `platterpus 0.6.41`.**
 
 Your S-18 pre-commit means this costs no further negotiation, and we are not
 spending a lap on which of two byte-identical `src/` trees to build. Everything
@@ -53,16 +53,16 @@ your branch head `b3fa6cd`. Three commits, one program. So the newest harness ca
 drive the pinned binary with no loss, which is exactly the split your own message
 proposes — *the binary is what is under review, not the script*.
 
-### Step 0 — get `0.6.42`, install `ddc1e8c` once, and let both runs share it
+### Step 0 — get `0.6.41`, install `ddc1e8c` once, and let both runs share it
 
 ```sh
-wget https://github.com/rmccann-hub/Platterpus/releases/download/v0.6.42/platterpus-x86_64.AppImage
+wget https://github.com/rmccann-hub/Platterpus/releases/download/v0.6.41/platterpus-x86_64.AppImage
 chmod +x platterpus-x86_64.AppImage
-./platterpus-x86_64.AppImage --version          # must say 0.6.42
+./platterpus-x86_64.AppImage --version          # must say 0.6.41
 ./platterpus-x86_64.AppImage --install-ripper ddc1e8c
 ```
 
-The download is part of step 0 rather than a step of its own because `0.6.42` is
+The download is part of step 0 rather than a step of its own because `0.6.41` is
 what makes the rest of this plan possible at all — see the note under Run B. The
 `--version` line is there for the same reason your §A3 ends with one: an install
 that silently did not happen is the failure that costs the night.
@@ -113,12 +113,12 @@ it gives clause 2 a second, independent reading of the samples. It carries
 
 ### Run B — ours, the full app acceptance. **After A, and it needs `0.6.42`.**
 
-**`0.6.42` is released and is the version this round's pairing names — and this
-paragraph is why it exists rather than `0.6.41`.** On `0.6.41` a cancel does not
-stop the reader, so §I grades a log that is still being written and §J's *"can we
-rip again?"* proof passes whether or not the drive was ever released. Two sections
-that cannot produce evidence is not a reason to spend a night, so we cut `0.6.42`
-with the fix rather than send you a plan around a known-broken section.
+**`0.6.41` is released and is the version this round's pairing names — but Run B
+should wait for `0.6.42`, and §0b.2 is why.** On `0.6.41` a cancel does not stop
+the reader, so §I grades a log that is still being written and §J's *"can we rip
+again?"* proof passes whether or not the drive was ever released. Two sections
+that cannot produce evidence is not a reason to spend a night. The fix is on
+`main`; `0.6.42` is the next release and carries it.
 
 Launch the AppImage and use **Tools → Run acceptance test…**. Not a flag, and the
 distinction is worth one paragraph because we nearly sent you the flag:
@@ -141,7 +141,7 @@ fact we verified rather than inferred.** `v0.6.40` compiles in `PIN_UNDER_REVIEW
 978f9b0` and `FORK_TEST_PIN = cb440bd`; our section A would refuse `ddc1e8c` — the
 build both projects' instructions tell the operator to install — at its first
 assertion, hours into an unattended run. Handing over a newer *script* does not fix
-it, because the check lives in the app. `0.6.42` accepts the agreed test pin and
+it, because the check lives in the app. `0.6.41` accepts the agreed test pin and
 **says which of the two it found**, since a test-pin log carries `NOT a released
 build` and a different `Handshake:` line.
 
@@ -173,10 +173,10 @@ disc is not one of the variables.
 only step 0 needs a terminal.** If only one run happens it should be A: that is
 what closes the round. B is our assurance, not the round's condition.
 
-**Both runs can go as soon as you are ready.** Run B needs `0.6.42` and not
-`0.6.41` — see §0b: two of its sections could not produce evidence on `0.6.41`,
-for a defect we found last night, fixed, and released. That was a fact about
-*our* assurance and never gated the round.
+**Run A can go as soon as you are ready. Run B should wait for `0.6.42`** — see
+§0b: two of its sections cannot produce evidence on `0.6.41`, for a defect we
+found last night and have fixed. That is a fact about *our* assurance and does
+not gate the round.
 
 ## 0b. We got hardware — on the PREVIOUS pair — and it found three defects, all ours
 
@@ -284,51 +284,6 @@ Your cache probe (`-x -I`) returned and did not hold the drive. The C1 no-offset
 refusal printed `Offset is unset` and exited 1 without hanging. Every completed
 rip verified bit-perfect against AccurateRip.
 
-## Answering your §D4: YES, WE CONSUME THE `-j` RECORD
-
-**Your ask was *"widen it if you consume the file, or tell us you do not and we
-will stop carrying the ask."* The answer is that we consume it — and it was
-missing from this lap until the last minute.** Our withdrawn lap 2 answered it and
-the withdrawal took the answer with it; nothing in the reply that replaced it said
-a word about §D4. Recorded because a dropped answer to an explicit ask is exactly
-what a withdrawal is likely to cost, and neither side's gates look for one.
-
-**Worse, the answer that lap 2 gave was wrong**, and it is the sentence we would
-have sent you: *"nothing reads that record; the `/4` bump is a no-op in every
-direction."* Both halves fail. It survives today only in our own README banner and
-a changelog entry, both of which are corrected in the same change as this lap. It
-never reached you.
-
-Derived, with the citations, because you rightly declined to assert anything about
-our source:
-
-1. **We read exactly one field: `invocation`.**
-   `rig_check.check_argv_reaches_the_binary` does
-   `json.loads(record.read_text()).get("invocation")`, `shlex.split`s it, and
-   compares the *flags* against the argv we composed. Everything else in the
-   record — including `schema` itself — is never looked at.
-
-2. **Nothing on our side gates the `-j` record by schema, so a `/4` record cannot
-   be rejected by us.** `SUPPORTED_SCHEMAS = frozenset({1, 2})` lives in
-   `deps/ripper_manifest.py`, whose module docstring opens *"The cyanrip fork's
-   published release manifest — is a newer ripper out?"*, and its only use is at
-   `:448` refusing a **manifest** whose declared schema is unknown. That is the
-   round-12 conflation, and this is us not repeating it in the other direction.
-
-3. **So `/4` is safe for us, on one condition: `invocation` must survive.** Your
-   two new top-level fields are additive and we will ignore them. If `invocation`
-   is ever renamed or nested, `.get()` returns `None`, the flag comparison finds
-   nothing to compare, and our probe reports a loud `FAIL` — never a silent pass.
-   That is the right failure direction, and it is still a failure.
-
-**So: keep carrying one narrow version of the ask** — tell us if `invocation`
-moves. Drop the schema half; it binds nothing here.
-
-**And a live demonstration that we really do read it**, from last night: our probe
-reported `cyanrip wrote no -j diagnostics record` seven times, and §0b.1 is the
-account of why. A consumer that did not read the file could not have produced that
-failure.
-
 ## Corrections — ours
 
 **One, and it is about a number we published to you.** Our lap 2 §B7 reported
@@ -388,7 +343,7 @@ hashes still match byte for byte.
 
 Not taken from your §A1: ours refuses too, and for the same reason. Our
 `scripts/handshake.py --release-gate` reports round 16 OPEN and blocks a stable
-release; only the pre-release path is permitted, which is what `0.6.42` is. Both
+release; only the pre-release path is permitted, which is what `0.6.41` is. Both
 gates agree that no round-closing release can happen, which is the state §6a wants
 while a test pin is in play.
 
@@ -429,7 +384,7 @@ a bare "Rip failed". It retires when the pin moves, not when the contract does.
 ## Requirements — binding terms for the session
 
 1. **Both halves named before the run, not reconstructed after**:
-   `platterpus 0.6.42` against `cyanrip 0.9.4-rc2+platterpus.11
+   `platterpus 0.6.41` against `cyanrip 0.9.4-rc2+platterpus.11
    (platterpus-fork-gddc1e8c)`. A bundle whose banner names a different build is
    not evidence for this round, on either side.
 2. **Every artifact will stamp `unapproved` and `NOT a released build`.** Correct
@@ -472,7 +427,7 @@ gate suite on the commit in the header.
   kind of sentence that quietly becomes "we now have evidence", and those are
   different claims about different builds.
 * **Our own §I and §J produced NO usable evidence last night**, on the defect in
-  §0b.2. They are fixed and released in `0.6.42`, and unproven until a run on it.
+  §0b.2. They are fixed on `main` and unproven until a run on `0.6.42`.
 * **We have not executed your rig script.** §H2 is from reading it, and a script
   can be wrong in ways reading does not show.
 * Unchanged from your list: C2, `-f`, damaged media, CD-TEXT from a disc that
@@ -516,7 +471,7 @@ Run B and is the sort of thing the seam exists to surface.
 3. **`-u` reaches one of five rips** (line 149, the `-Z 2` clause-3 rip), and it is
    hardcoded `platterpus/0.6.40`. Four rips will log `Consumer: not identified`,
    and the fifth will name a build that is not the one running — we are answering
-   your J1 with `0.6.42`. This is the same trap we hit on our side and fixed this
+   your J1 with `0.6.41`. This is the same trap we hit on our side and fixed this
    week, which is why we recognised it.
 4. **"Bring back the whole of `$OUT`" ships the `.flac` files — and the fix is
    CONDITIONAL, because your own fallback needs them.** We first wrote this as
@@ -626,7 +581,7 @@ conforming lap, and an inventory generator that dropped rows twice on its first
 run — are reported by us rather than waited on.
 
 **S-18 pre-commit, unchanged and restated because it is the point:** *our next lap
-is `GO` on `a9aedf0` + `platterpus 0.6.42` unless the hardware run finds something
+is `GO` on `a9aedf0` + `platterpus 0.6.41` unless the hardware run finds something
 that makes the reviewed pin unsafe.* §H1 and J1–J3 are all round 17.
 
 ## The return-file spec

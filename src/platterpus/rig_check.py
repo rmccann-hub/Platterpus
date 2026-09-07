@@ -768,15 +768,39 @@ def _report_interruption(manifest: Manifest, parsed: object) -> None:
             )
         )
         return
-    manifest.add(
-        Result(
-            INFO,
-            "parser/interrupted",
+    # **THE SAME VERDICT FOR TWO OPPOSITE STATES, until round-16 lap 4 §H2.**
+    # This clause read "expected for a rip that ran to the end" for EVERY absence,
+    # and the fork counted it: in the 2026-09-07 manifest it appears 6 times with
+    # `rip_completed=True`, where it is right, and once with `rip_completed=None`,
+    # where it is exactly backwards. For a rip that did NOT run to the end, a
+    # missing `Interrupted at:` is the FINDING, not the expectation.
+    #
+    # The state was known all along — the `parser/log` row on the same log in the
+    # same manifest says *"this rip's own report says it was CANCELLED"*. Two
+    # checks reading one fact and only one of them using it, which is
+    # `CLAUDE.md`'s *do two surfaces answer this question, and do they use the
+    # same key?* Tri-state on purpose: `None` is "not determined" and gets its own
+    # sentence rather than being folded into either answer.
+    if completed is True:
+        detail = (
             f"no 'Interrupted at:' line in this log (rip_completed={completed!r}) "
-            f"— expected for a rip that ran to the end; only a cancelled or killed "
-            f"rip produces one",
+            f"— expected for a rip that ran to the end; only a cancelled or "
+            f"killed rip produces one"
         )
-    )
+    elif completed is False:
+        detail = (
+            f"no 'Interrupted at:' line (rip_completed={completed!r}) — and this "
+            f"rip did NOT run to the end, so the line's ABSENCE is a finding: the "
+            f"ripper was stopped before it could record where. Expect no "
+            f"completion footer either"
+        )
+    else:
+        detail = (
+            f"no 'Interrupted at:' line (rip_completed={completed!r}) — whether "
+            f"this rip finished is NOT DETERMINED, so this absence says nothing "
+            f"either way. Read the rip's own report for the outcome"
+        )
+    manifest.add(Result(INFO, "parser/interrupted", detail))
 
 
 def _discover_album_dir(manifest: Manifest) -> Path | None:

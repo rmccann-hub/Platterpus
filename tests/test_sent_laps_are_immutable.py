@@ -56,6 +56,22 @@ REPO_ROOT: Path = Path(__file__).resolve().parent.parent
 #: sent and what the fork holds; the file in this repository drifted from it and
 #: has been restored. It is first in the map for that reason.
 SENT_LAPS: dict[str, str] = {
+    # Round 16 lap 3. **Recorded from the PEER'S declaration, and it caught an
+    # edit I had already made.** Their lap 4 line 11 quotes our lap 3 at
+    # sha256/16 `47368738c317f930`; the file in this repository had moved to
+    # `5ac4edf670675f0b` because I revised it TWICE after handing it over — the
+    # §D4 answer, then the 0.6.42 references. §4a says a sent lap is never
+    # edited, and this is the FOURTH time this project has done it.
+    #
+    # Restored byte-exact from `6576d14`, which is the tree whose lap 3 hashes to
+    # the value they hold. Everything I had added afterwards belongs in a NEW lap
+    # and is going into lap 5.
+    #
+    # `test_every_lap_the_peer_confirms_holding_is_pinned_or_ratcheted` found this
+    # on its own, off their enumeration, before I had finished reading their lap.
+    "outbound/round-16-lap-03.md": (
+        "47368738c317f9302adcc7f4f67734965f88c26a04cb71aaadd07ae7d1f69330"
+    ),
     "verified/round-08-lap-10.md": (
         "c125acd1c8a5bd2c5a2db47827998da24f6554fdab5e5937a3d5b49ea51d0898"
     ),

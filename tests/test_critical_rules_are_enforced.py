@@ -1182,7 +1182,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # +3 (2026-09-05): now DELEGATES the "was the re-read exercised?" count
     # instead of computing it inline, so the manifest row and the graded verb
     # cannot answer one question with two keys.
-    "rig_check.py": 875,
+    "rig_check.py": 899,
     "rip_addendum.py": 493,
     "rip_audit.py": 1216,
     "rip_compare.py": 1404,
