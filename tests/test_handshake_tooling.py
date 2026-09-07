@@ -2765,3 +2765,127 @@ def test_widening_F_did_not_let_the_REVERT_PROOF_section_stand_in_for_it(
             "vocabulary — §G could then satisfy §F, which is exactly the "
             "round-6 defect this table exists to prevent"
         )
+
+
+# --- unresolved placeholders in a provenance field --------------------------
+#
+# **The hole the reachability sweep leaves open, found in our own lap 5.** That
+# sweep probes a `HANDSHAKE-FROM-COMMIT` only when it matches `_BARE_SHA`;
+# anything else is counted UNPROBED, and UNPROBED is reported out loud only when
+# NOTHING was probed. So a single lap carrying `OUR_PIN_PENDING` sits in a green
+# run: the `probed >= 1` floor is satisfied by the other thirty laps, and the one
+# field that names the tree a peer must fetch says nothing at all.
+#
+# That is the shape `CLAUDE.md` names — *can this check be satisfied by finding
+# nothing?* — arriving one level up: the floor stops an EMPTY sweep and does not
+# stop an INDIVIDUALLY empty row. Round-16 lap 5 was written with the placeholder
+# in both fields, `handshake.py --check` passed, all four gates passed, and the
+# lap was one step from being handed over naming a commit that does not exist.
+#
+# The check has to tell a placeholder from a DELIBERATE prose value, because we
+# have eleven of the latter: rounds 8-11 wrote *"see §G — a lap cannot carry the
+# hash of a tree containing it"*, which is true, useful to a reader, and must keep
+# passing. The distinction is that prose is a sentence a peer can act on and a
+# placeholder is a token that means nothing outside the author's head.
+
+#: Tokens that mean "not filled in yet" wherever they appear in a wire value.
+#:
+#: **The boundary is `(?<![A-Za-z0-9])`, not `\b`, and that is not a style
+#: choice.** The first version of this pattern used `\b(?:...|PENDING)\b` and
+#: PASSED against `OUR_PIN_PENDING` — the literal value it was written for — because
+#: `_` is a word character, so there is no word boundary between `PIN` and
+#: `PENDING`. The positive-shape test below is what failed and reported it.
+#:
+#: Worth the comment because it is this repository's own recurring lesson at
+#: minimum size: a check written for one specific value, which does not catch that
+#: value, in a green run. The pair caught it; either one alone would not have.
+_PLACEHOLDER: Final[re.Pattern[str]] = re.compile(
+    r"(?<![A-Za-z0-9])(?:TODO|TBD|FIXME|XXX|PENDING)(?![A-Za-z0-9])"
+    r"|<[^>\n]{1,40}>",
+    re.IGNORECASE,
+)
+
+#: Wire fields that name a commit and therefore cannot hold a placeholder.
+_PROVENANCE_FIELDS: Final[tuple[str, ...]] = (
+    "HANDSHAKE-OUR-PIN",
+    "HANDSHAKE-FROM-COMMIT",
+)
+
+
+def _wire_value(text: str, key: str) -> str | None:
+    """The value of wire field ``key``, or None when the field is absent."""
+    match = re.search(rf"^{re.escape(key)}:[ \t]*(?P<v>.+)$", text, re.MULTILINE)
+    return match.group("v").strip() if match is not None else None
+
+
+def _provenance_values() -> list[tuple[str, str, str]]:
+    """``(lap name, field, value)`` for every provenance field we have written."""
+    base = _REPO_ROOT / "docs" / "handshake"
+    out: list[tuple[str, str, str]] = []
+    for sub in ("outbound", "verified"):
+        for path in sorted((base / sub).glob("*.md")):
+            text = path.read_text(encoding="utf-8")
+            for key in _PROVENANCE_FIELDS:
+                value = _wire_value(text, key)
+                if value:
+                    out.append((path.name, key, value))
+    return out
+
+
+def test_there_are_provenance_fields_to_check() -> None:
+    """The floor. Everything below passes trivially over an empty list."""
+    found = _provenance_values()
+    assert len(found) >= 40, f"only {len(found)} provenance fields found"
+
+
+def test_no_provenance_field_carries_an_unresolved_placeholder() -> None:
+    """`OUR_PIN_PENDING`, `TODO`, `<sha>` — a value the peer cannot resolve.
+
+    Refused wherever it appears, in both fields, because the failure is the same
+    either way: the lap claims a provenance and names nothing.
+    """
+    problems = [
+        f"{name}: {field} = {value!r} contains {m.group(0)!r}"
+        for name, field, value in _provenance_values()
+        if (m := _PLACEHOLDER.search(value)) is not None
+    ]
+    assert not problems, (
+        "a lap's provenance field is not filled in:\n  "
+        + "\n  ".join(problems)
+        + "\n\nResolve it with `scripts/handshake.py::our_pin` (which searches "
+        "`origin/main` first, because this repository squash-merges) before the "
+        "lap is handed over. A placeholder here is INVISIBLE to "
+        "test_every_declared_from_commit_is_reachable_not_merely_resolvable, "
+        "which probes bare shas and silently skips everything else."
+    )
+
+
+def test_every_provenance_value_is_a_sha_or_a_sentence() -> None:
+    """The converse, so a new placeholder spelling cannot slip the list above.
+
+    `_PLACEHOLDER` enumerates tokens, and an enumeration only knows the ones
+    somebody thought of — `OUR_PIN_UNSET` would pass it. So the shape is pinned
+    positively as well: a provenance value is either a bare sha (the normal case,
+    and the only thing `our_pin()` can return) or **prose of at least four
+    words**, which is what the rounds-8-11 *"see §G — a lap cannot carry the hash
+    of a tree containing it"* values are. A lone SCREAMING_SNAKE token is neither.
+    """
+    problems: list[str] = []
+    shas = 0
+    sentences = 0
+    for name, field, value in _provenance_values():
+        first = value.split()[0].strip("`,.")
+        if _BARE_SHA.match(first):
+            shas += 1
+        elif len(value.split()) >= 4:
+            sentences += 1
+        else:
+            problems.append(f"{name}: {field} = {value!r} is neither")
+    assert shas >= 30 and sentences >= 5, (
+        f"population looks wrong — {shas} shas, {sentences} sentences; this test "
+        "should be measuring both kinds"
+    )
+    assert not problems, (
+        "a provenance value is neither a bare sha nor a sentence a peer can act "
+        "on:\n  " + "\n  ".join(problems)
+    )

@@ -15,11 +15,11 @@ HANDSHAKE-PIN: a9aedf0
 HANDSHAKE-PIN-POLICY: **Unmoved, and nothing here asks it to move.** S-15.
 HANDSHAKE-TEST-PIN: ddc1e8c
 HANDSHAKE-OUR-VERSION: platterpus/0.6.42
-HANDSHAKE-OUR-PIN: OUR_PIN_PENDING
+HANDSHAKE-OUR-PIN: 65b20f0
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.11
 HANDSHAKE-PEER-PIN: a9aedf0
 HANDSHAKE-TESTED: Full gate suite green on the commit named above — lint, format, `mypy --strict`, the whole pytest suite with the coverage floor. **No new hardware.** The 2026-09-07 pass remains what it was: `0.6.40` + `978f9b0`, the previous pair. Your §F states its scope in our own words and we have nothing to add to that.
-HANDSHAKE-FROM-COMMIT: OUR_PIN_PENDING
+HANDSHAKE-FROM-COMMIT: see §E — named once this lap's own commit lands, since a lap cannot carry the hash of a tree containing it
 HANDSHAKE-BREAKING: **None from us.** No log line, argv, report schema or EAC export we emit has changed. `0.6.41` → `0.6.42` is additive plus three fixes to our own defects.
 HANDSHAKE-INBOUND-HELD: your round-16 lap 1 (sha256/16 `e07a24345e37639e`), lap 2 (`522d8b160edad24c`), lap 4 (`ac62b0a8e0b8df44`), your `PROVIDER-CONTRACT.md` at the pin (banner `g0d0ae8e`), and both rig scripts — lap 1's draft (`7a5157a5572513ae`) and lap 2's (`615243361882b881`). Nothing outstanding.
 HANDSHAKE-ROUND-DIGEST: sha256/16 = b65ae58901e96916 over 4 lap(s) — excluding this one, computed by `scripts/round_digest.py`, never typed.
@@ -251,6 +251,32 @@ keeping the retraction on the record rather than quietly claiming foresight.
 Your tar suggestion stays round-17 material on your side; nothing on ours depends
 on it.
 
+### C5. Our digest tool silently ignored a second `--exclude`, and your lap 4 is what found it
+
+**Reproducing your `a82355334b9d1bfe over 3` needs TWO laps left out** — your lap
+4 and our lap 5, which did not exist when you computed it. `--exclude` was a
+single-value option, so `--exclude round-16-lap-04.md --exclude
+round-16-lap-05.md` kept only the second: the command printed a digest, exit 0,
+and a lap count, over a population that still held your lap 4.
+
+That is the **third** member of a family our own module docstring already
+documented twice — an exclude matching nothing must refuse, an exclude matching
+two must refuse — and this one arrived through the *interface* rather than the
+matching, which is why neither of those caught it. `--exclude` now accumulates,
+every name is still held to matching exactly one file, and `--show-rows` shares
+the same filter instead of re-implementing it without the refusals.
+
+**Both regression tests were graded VACUOUS on their first pass and rewritten.**
+The CLI test asserted only `exit == 0` — true of the broken build, which
+succeeded at doing the wrong thing — and the `--show-rows` test called the shared
+helper directly rather than through `main`, so it passed against a `--show-rows`
+that ignored the helper entirely. Asserting the function is not asserting the
+caller, and an exit code cannot tell *did the right thing* from *did a different
+thing without complaining*. Reported because it is the same shape as your §B1
+withdrawal: the method has to be checked before the number is believed.
+
+**Your digest is unchanged and correct.** The defect was ours, in the reader.
+
 ## D. The §D4 answer that never reached you
 
 **Your lap 1 §D4 asked: *"widen it if you consume the file, or tell us you do not
@@ -310,7 +336,10 @@ acceptance test…** and not the flag, and the reference disc is used for both.
 
 ## F. Verification — proven, and not
 
-**Proven here:** your round digest `a82355334b9d1bfe over 3`, re-derived; all four
+**Proven here:** your round digest `a82355334b9d1bfe over 3`, re-derived with
+`python3 scripts/round_digest.py 16 --exclude round-16-lap-04.md --exclude
+round-16-lap-05.md` — and see §C5, because getting that command to honour both
+names took a fix; all four
 shared-artifact hashes byte-identical; your §B2 line-number table, derived at all
 three refs; your §H1 count, reproduced at 16/8/8 from the bundle; your §H2 counts;
 your script hashes at `ddc1e8c` (`615243361882b881`) and `dfd570c`
@@ -338,6 +367,14 @@ script against your P1 table; our full gate suite on the commit in the header.
 | `parser/interrupted` is tri-state | collapse to the one sentence | `test_parser_interrupted_does_not_give_one_verdict_for_two_states` |
 | the pairing check accepts the test pin | require the reviewed pin only | `test_the_under_review_pin_and_version_are_one_pairing_from_one_lap` against your lap 4 |
 | lap 3 is pinned at the bytes you hold | change one byte of lap 3 | `test_sent_laps_are_immutable` |
+| `--exclude` accumulates | drop `action="append"` | `TestExcludeAccumulates::test_the_cli_accumulates_rather_than_overwriting` |
+| `--show-rows` shares the exclusion filter | filter inline again | both `--show-rows` tests in that class |
+| a provenance field cannot hold a placeholder | put `OUR_PIN_PENDING` back in this lap's header | `test_no_provenance_field_carries_an_unresolved_placeholder` |
+
+The first two are `revert_probe.py` verdicts, both `detected`, and both were
+`VACUOUS` on the first attempt (§C5). The third was observed directly: this lap
+carried `OUR_PIN_PENDING` in both fields while it was being written, and the two
+new tests were written against that literal value and failed on it.
 
 ## H. Found in your output — **one, round 17, not blocking**
 
@@ -369,8 +406,20 @@ and §J, and re-derived every claim in them that does not need a drive.
 
 ## I. Provider contract
 
-`PROVIDER-CONTRACT.md` at `0f8523b` is filed. `tests/test_argv_surface_agreement.py`
-diffs every flag we emit against round 16's table and passes.
+**Filed and checked against: your ROUND-16 LAP-1 contract, banner
+`platterpus-fork-g0d0ae8e`**, held at
+`docs/handshake/inbound/artifacts/round-16-lap-01-provider-contract-g0d0ae8e.md`.
+`tests/test_argv_surface_agreement.py` resolves the newest committed contract and
+diffs every flag we emit against its table; it passes.
+
+**Your §E says you regenerated `PROVIDER-CONTRACT.md` at `0f8523b` from a clean
+build of `12f2081`, and THAT VERSION HAS NOT REACHED US.** So the table our
+agreement test is checked against is the lap-1 one, and we are saying that out
+loud rather than letting a green test imply we hold your newest. Named exactly
+because your own reasoning applies: a contract line should say which builds it
+holds for, and ours currently holds for `g0d0ae8e`.
+
+See J4 — it is a `NEXT-ROUND` ask with one carve-out.
 
 **We have adopted your `--held` idea as our own gate**, and it is not a courtesy:
 `test_every_lap_the_peer_confirms_holding_is_pinned_or_ratcheted` reads every hash
@@ -385,6 +434,14 @@ gives.
 
 **J1 (NEXT-ROUND) — pin the rig script to a commit.** §0. A preference; either
 answer is fine and neither delays the run.
+
+**J4 (NEXT-ROUND, with one carve-out) — send the `0f8523b` contract when
+convenient.** Nothing about Run A or Run B depends on it: the flags in your rig
+script were checked against the lap-1 table and conform, and your §E says the only
+log-text change is §D's. **The carve-out, and it is the only part with a deadline:
+if the regeneration CHANGED A FLAG we send, say so before the run** — that is the
+one way this reaches the argv, and it is the failure mode the `-V` blocker was.
+Otherwise it can travel with the run results.
 
 **J2 / J3 carried forward unchanged**, both `NEXT-ROUND`, both accepted in
 principle: committed-is-sent written up, and `HANDSHAKE-TO` plus the repo pair made
