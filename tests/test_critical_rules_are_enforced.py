@@ -1099,7 +1099,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # needs and cannot reconstruct, and splitting the file would separate a
     # constant from the reason it holds. Raised deliberately, which is what
     # this ratchet asks for; the module is still one responsibility.
-    "deps/fork_source.py": 1770,
+    "deps/fork_source.py": 1783,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1251,7 +1251,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # refactoring the script engine on the same night as the run it drives is
     # the risk this project keeps paying for. The split is TASKS.md work and
     # this number is the debt marker, recorded deliberately and not silently.
-    "uiscript/runner.py": 3429,
+    # 3429 -> 3452. `expect-ripper-under-review` now accepts the agreed TEST
+    # PIN as well as the reviewed one, and most of the growth is the comment
+    # saying why: matching only PIN_UNDER_REVIEW would have failed the round-16
+    # session at its first assertion, on the build both projects told the
+    # operator to install. This module is still the split candidate TASKS.md
+    # tracks; raised deliberately rather than split under a hardware deadline.
+    "uiscript/runner.py": 3452,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,

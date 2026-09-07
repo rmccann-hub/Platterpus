@@ -31,7 +31,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Added
 - **The fork's `rig-round16.sh` from the test pin is filed**
-  (`round-16-lap-02-rig-round16-gddc1e8c.sh`, sha256/16 `615243361882b881`),
+  (`round-16-lap-02-rig-round16.sh`, sha256/16 `615243361882b881`),
   reviewed, and handed to the operator **unmodified**. Four findings go back, none
   of which changes a rip: `EXPECT_BUILD` names the production pin while their own
   install instruction says the test pin, so the preflight cries wolf on a correct
@@ -39,6 +39,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   five rips and hardcodes a version that will be wrong; and *"bring back the whole
   of `$OUT`"* would ship the `.flac` files when the decoded md5 it already computes
   on the rig is the artifact that settles clause 2.
+  **It is filed with NO build tag in its name, and our own gate insisted.** The
+  first filing was `…-gddc1e8c.sh`, for the pin it came from;
+  `test_the_filename_names_the_build_the_artifact_itself_asserts` refused it,
+  because the only build string in the file is `EXPECT_BUILD=platterpus-fork-ga9aedf0`
+  — finding 1 above. Naming it `gddc1e8c` asserts a build the content contradicts,
+  and naming it `ga9aedf0` would file a defect as if it were provenance. A script is
+  not a build artifact; its identity is the lap it arrived with plus its sha. **The
+  gate found the same disagreement we had reported to the fork, from the other
+  side, without being told.**
   **Handed over unmodified deliberately.** A corrected copy would make the hardware
   evidence come from a script neither repository contains, and the round exists to
   prove correctness — provenance beats ergonomics, and neither defect touches what
