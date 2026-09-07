@@ -11,7 +11,64 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.41] — 2026-09-07
+
 ### Fixed
+- **The acceptance run's only documented route to a ripper could not reach the
+  build it demands.** The script's header sent the operator to *Help → Check for
+  cyanrip updates…* and to take whatever it offered. That offer is computed from
+  the **fork's release manifest**, so the set it can propose is the set of
+  *published* builds — and a handshake round may open on a commit the fork has
+  nominated and never released, which is exactly what round 16 did. The dialog's
+  most honest answer is then *"your build is current"*: true of the manifest, and
+  not the build section A wants. Taking it aborts the run at section A, four
+  seconds in, with no evidence produced — **the same abort that cost the
+  2026-08-27 run, reached by a third distinct path**, after a stale channel name
+  (2026-08-28) and a stale build tag (2026-09-01).
+  The header now also names `--install-ripper list`, with the `✓ approved` /
+  `⚠ under-review` / `⚠ test-pin` markers so the operator knows which entry to
+  install. It is a **command, never a commit** — this file ships frozen inside a
+  release, so any build written in it goes stale on build day, whereas the menu is
+  generated from the same constant section A checks and cannot be the stale half
+  of a pair. Held by a test whose three properties were each proven non-vacuous
+  with `revert_probe.py` — the first version of that test was *satisfiable by the
+  wrong occurrence*, which the probe caught: each label appears twice in the
+  header and deleting either left the assertion green.
+  The underlying gap is still ours and still open: `ripper_choices()` has no GUI
+  caller, so this is a terminal paragraph in a program whose premise is that there
+  is no terminal (`TASKS.md`, KDD-17 gap).
+
+- **`--install-ripper` is now named in the round-16 run plan, because their
+  install instruction cannot reach our ripping path.** The fork's §A3 says
+  `meson setup build && ninja -C build && sudo ninja -C build install`, which is
+  right on a machine with one cyanrip. This rig is not that machine: Platterpus
+  rips through `~/.local/bin/cyanrip`, a `distrobox-export` wrapper into the
+  `ripping` container (Critical rule #3). A host `sudo ninja install` writes the
+  *host's* `/usr/local/bin/cyanrip` and leaves the wrapper untouched — so
+  `cyanrip --version` on the host would print the new tag while the binary the app
+  executes is still the old container build. Every check would look right and the
+  acceptance run would abort at section A. Not a defect in their script but a
+  machine-shape assumption, and ours to state rather than theirs to have guessed;
+  sent as §H1.5.
+
+- **The acceptance run's de-emphasis verdict could be "confirmed" by a comparison
+  that establishes nothing.** Section P3 deliberately does not decide its clause —
+  a person reads it off the transcript afterwards — which makes its verdict
+  sentence the instrument rather than a comment. It said *"the two runs' track-1
+  checksums must differ"*: true of the checksums cyanrip **prints**, which are over
+  the decoded samples, and **also satisfied by `md5sum *.flac`**, which returns
+  differing values for byte-identical audio because a FLAC container carries a
+  creation timestamp. So the obvious command yields this step's PASS verdict from
+  an input that cannot produce one, and the clause reads as settled while the
+  de-emphasis cascade is still broken — the same self-consistently-wrong failure P3
+  exists to catch. The sentence now names its domain *and* the reading it excludes,
+  and a test holds both halves. Adopted from the cyanrip fork's round-16 harness,
+  which prints the container md5s, says in its own output that a difference there
+  is *"necessary and not sufficient"*, and decodes separately with `ffmpeg -f md5`
+  — reporting `UNPROBED` rather than a pass when ffmpeg is absent
+  (`round-16-lap-02-rig-round16.sh:181-212`). Their instrument was sharper than
+  ours here.
+
 - **Round 16 had two laps numbered 2, and one of them was ours.** Our outbound lap
   2 was written before their lap 2 arrived — they sent lap 1, then lap 2 out of
   turn — so the round briefly carried two files with the same number, which is
@@ -22,21 +79,26 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   The reply is **lap 3**, which is what their lap 2's `HANDSHAKE-NEXT-LAP: yours`
   asks for.
 
-- **Raw PCM was audio none of our three media guards knew about.** The cyanrip
-  fork's current round-16 harness settles clause 2 by ripping the de-emphasis pair
-  with `-o pcm` instead of `-o flac`, so `md5sum` compares **samples** rather than
-  container bytes and no decoder is needed on the rig. It is a genuine improvement
-  — and it introduced an extension that `.gitignore`, `.githooks/pre-commit` and
-  the `media-guard` CI job all missed, while the same script tells the operator to
-  *"bring back the whole of `$OUT`"*.
-  A `.pcm` is interleaved s16le stereo: it **is** the audio, with less wrapping
-  than a `.wav`, so Critical rule #8 covers it for exactly the reason it covers
-  `.wav`. `.pcm` and `.raw` added to all three, and the hook was verified by
-  staging one and watching it refuse — the guard, not the intention.
-  Worth naming the shape: a change on the *other* side of the seam widened what can
-  reach this repository, and nothing here would have noticed. Our evidence bundler
-  was already safe because it admits by **allowlist**; the three that failed are the
-  denylists.
+- **Raw PCM was audio none of our three media guards knew about.** `cyanrip -o pcm`
+  writes interleaved s16le stereo — `CYANRIP_FORMAT_PCM` is
+  `{ "pcm", "PCM", "pcm", "s16le", … }` at `cyanrip_main.c:113`, read rather than
+  recalled. It **is** the audio, with less wrapping than a
+  `.wav`, so Critical rule #8 covers it for exactly the reason it covers `.wav` —
+  and `.gitignore`, `.githooks/pre-commit` and the `media-guard` CI job listed the
+  container formats and none of them listed `.pcm` or `.raw`. Both added to all
+  three, and the hook was verified by staging one and watching it refuse — the
+  guard, not the intention.
+  Our evidence bundler was already safe because it admits by **allowlist**; the
+  three that failed are the denylists, and a denylist is only ever as current as
+  the last format someone thought of.
+  **Correcting the reason this was originally written down.** The first version of
+  this entry said the cyanrip fork's round-16 harness had "switched to `-o pcm`".
+  It has not: it rips `-o flac` throughout and gets the sample domain with
+  `ffmpeg -f md5`, printing `UNPROBED` rather than a pass when ffmpeg is absent
+  (`round-16-lap-02-rig-round16.sh:181-212`). That was a mechanism asserted in a
+  peer's code without reading it — the rule against exactly that is in `CLAUDE.md`,
+  and nothing false reached the fork only because their laps were never told it.
+  The guard is still right on its own merits; the cause was invented.
 
 - **Section A would have failed the round-16 hardware run at its first
   assertion.** Protocol §6a's sequence is *agree a test pin → both install it →
@@ -121,8 +183,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   being independently correct. The rule is amended to record the exception rather
   than quietly diverged from.
 
-
-## [0.6.41] — 2026-09-07
 
 ### Fixed
 - **Our fatal-message matcher was three strings behind the ripper, and one string

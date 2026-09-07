@@ -21,7 +21,7 @@ single hardware run.**
 ### The maintainer's frame, which decided the shape of the lap
 
 *"i need both repos to converge on a good physical test as soon as we can."* So
-nothing in our lap 2 is proposed as blocking, every finding defaults to round 17
+nothing in our reply is proposed as blocking, every finding defaults to round 17
 under S-14, and the lap closes with an S-18 pre-commit: **`GO` unless the run finds
 the pin unsafe.** Round 7 took 37 laps and produced no release; the mechanism that
 actually ends a round is a pre-commit naming what would stop it.
@@ -75,9 +75,199 @@ so a GUI-only operator has no route to the build an open round is reviewing. The
 
 Maintainer, mid-session: *"i need handshake files to tell me who they came from,
 and who they go to."* The fork has emitted the repo pair since round 14 and we had
-not. Now on the wire, and in the envelope's filename —
-`round16lap02platterpustocyanrip.md` — because the filename is what a file manager
-shows, and the operator holds files travelling both ways.
+not. Now on the wire, and in the envelope's filename — because the filename is what
+a file manager shows, and the operator holds files travelling both ways.
+
+**And then we matched their spelling rather than keeping our own.** Ours was
+`round16lap02platterpustocyanrip.md`; theirs, adopting the same idea in their lap 1,
+was `round16lap01FROMcyanripTOplatterpus.md`. `CLAUDE.md`'s cross-machine naming rule
+exists because **two conventions** once lost a rig run — not because capitals or
+hyphens are dangerous in themselves — so matching the peer beats being independently
+correct, and the rule is amended to record the exception rather than quietly diverged
+from. The final envelope is `round16lap03FROMplatterpusTOcyanrip.md`.
+
+### Our reply is lap 3, because the round briefly had two lap 2s
+
+Their lap 1 opened round 16; their lap 2 followed **out of turn**, while ours had
+already been written against lap 1 alone. Two files numbered lap 2, one from each
+side — the exact collision sequential numbering exists to prevent, and the kind a
+reader resolves wrongly without noticing they resolved anything.
+
+Ours was **withdrawn**, not corrected: absent from `SENT_LAPS`, never handed over,
+still carrying its `PENDING_MERGE` placeholder. §310 permits revising an unsent lap
+and the fork's own `56e7d71` is the precedent for withdrawing one; §4a's no-editing
+rule binds a lap that has *gone*, and this had not. The reply is lap 3, which is
+what their `HANDSHAKE-NEXT-LAP: yours` asked for.
+
+**The protocol was re-read rather than recalled**, prompted by the maintainer asking
+*"no, cyanrip starts new rounds, right?"* — §1a: *"The provider opens. By default,
+every time… lap 1 of every round is cyanrip's."* They are right, it is written down,
+and round 17 will be theirs too.
+
+### Three readiness defects found by checking rather than assuming
+
+The maintainer asked *"make sure you are ready to go"* and *"are we ready to do a
+physical test?"* twice. Answering it honestly meant running the readiness question
+against the code rather than against the plan, and all three of these would have
+cost the session.
+
+* **Our own acceptance script would have failed at its first assertion.**
+  `expect-ripper-under-review` matched only `PIN_UNDER_REVIEW`, while protocol §6a
+  is *agree a test pin → both install it → run* — so an operator following **both
+  projects' written instructions** would have been told by our script that they had
+  the wrong build, hours from anyone noticing, with a disc in the drive. It is the
+  defect that verb's own docstring describes, arriving for a new reason: that one
+  was a *production* pin moving under us, this is a *test* pin — a second legitimate
+  answer to "which build should be installed" that the check did not know existed.
+  Widened to a set, and it names which one it found, because a test-pin log carries
+  `NOT a released build` and a reader must tell them apart.
+
+* **Raw PCM was not audio to any of our three media denylists.** `cyanrip -o pcm`
+  writes interleaved s16le stereo (`CYANRIP_FORMAT_PCM` at `cyanrip_main.c:113`,
+  read rather than recalled) — it *is* the audio, with less wrapping than a `.wav` — and `.gitignore`, `.githooks/pre-commit` and CI's `media-guard` listed
+  the container formats and none of them listed `.pcm` or `.raw`. The evidence
+  bundler was already safe because it admits by *allowlist*; the three that failed
+  are the denylists, which is what it looks like when the backstop is scoped to the
+  formats somebody thought of. Rule #8 says the rule is the line of defence and
+  `.gitignore` is the backstop. Verified by staging a `.pcm` and watching the hook
+  refuse: the guard, not the intention.
+
+  **And the reason I originally gave for it was invented, which is the part worth
+  keeping.** I wrote that the fork's harness had *"switched to `-o pcm`"*. It has
+  not — it rips `-o flac` throughout and gets the sample domain with
+  `ffmpeg -f md5`, printing `UNPROBED` rather than a pass when ffmpeg is absent
+  (`round-16-lap-02-rig-round16.sh:181-212`). A mechanism asserted in a peer's code
+  without reading it, which `CLAUDE.md` forbids by name, repeated across a commit
+  message, a changelog entry, a script comment and a test docstring before anything
+  checked it. **Nothing false reached the fork, and only by luck: the claim never
+  made it into a lap.**
+
+  It also produced a wrong recommendation *to* them. Our §H1.4 told them to add
+  `tar --exclude='*.flac'` — and their ffmpeg-absent branch says *"bring the flacs
+  back for the comparison to be done off the rig"*, so following our advice would
+  delete the evidence their own script asks for in the one case it cannot settle
+  the clause itself. Twelve lines above the tar line they were about to be advised
+  on. The lap was unsent, so it is corrected there rather than sent and retracted.
+
+* **`v0.6.40` could not have run the acceptance script at all.** It compiles in
+  `PIN_UNDER_REVIEW = 978f9b0` and `FORK_TEST_PIN = cb440bd`, read out of the tag
+  rather than assumed. Handing over a newer *script* does not fix it, because the
+  check lives in the app — which is why `0.6.41` exists. The asymmetry is worth
+  writing down: **their** rig script needs no Platterpus (we checked; we had assumed
+  the opposite), so the session is not blocked on our release, but **our** run is.
+
+### An archival artifact with a clock in it, presenting as a flaky test
+
+`tarfile.open(..., "w:gz")` writes the current time into bytes 4–8 of the gzip
+container. Every tar *member* already had `mtime`/`uid`/`gid` zeroed, so two evidence
+bundles of identical inputs were byte-identical only when both were written inside
+the same second.
+
+**How it presented is the part worth keeping.** The determinism test runs in 0.07 s
+alone and passed; in the full suite it straddled a second boundary and failed. A
+one-second reproduction window reads exactly like flakiness, and the tempting
+response is to rerun until green. This bundle is evidence that gets posted in
+public, its docstring promises the build hour is kept off it, and a byte-identical
+rebuild is how a reader confirms nothing was edited between the rig and the report.
+The regression test asserts the **cause** — the header bytes, with a non-vacuity
+check that the stream really is gzip — so there is no timing in it, which is the
+difference between a test that catches this and one that happens to.
+
+### Eleven rounds of "do not hand-edit, regenerate" with nothing to regenerate with
+
+`ripper_message_inventory.py` has carried that instruction since it was written, and
+there was **no tool**. Its own docstring records the cost: it sat at round 6's row
+count for five rounds while seven newer contracts were committed here, one of whose
+covering laps said in prose that ten rows had been added. *An instruction where a
+mechanism belongs* — the same shape as the parenthetical `CLAUDE.md` once used to
+"fix" a stale index.
+
+`scripts/emit_ripper_inventory.py` is that tool, and it caught two things on its
+first run, both mine: the `Reaches logfile?` column is **tri-state** (`yes`, `no`,
+`**not directly** - see legend`) and requiring `yes|no` silently dropped three rows —
+presenting as a *shrinking contract* rather than a narrow regex; and the contract
+escapes `"` and `|` inside cells, which the surfacing tests already unescape and the
+generator did not, losing 22 more. Its own `--check` also **could never have passed**:
+`repr()` prefers single quotes and `ruff format` prefers double, so the generator
+wrote a file the formatter immediately rewrote. A generated artifact whose own checker
+always fails is worse than an ungenerated one, because the next person to see it red
+would run the generator and make the lint gate red instead.
+
+**One string goes the other way, and it is the interesting direction.**
+`Error parsing string: %s!` was *removed* at the pin — derived, not assumed: present
+at `src/naming.c:123` at `978f9b0`, gone at `a9aedf0`, removed by `c3482b0`, the
+commit that substitutes U+FFFD for invalid UTF-8 instead of truncating and logging.
+It is **retained**, because `FORK_PIN` is still `978f9b0` and the build we ship still
+prints it; dropping it would render a real diagnostic from the *installed* build as a
+bare "Rip failed." It retires when the pin moves, not when the contract does.
+
+### The five-second abort, reached a third way — and this one was a CORRECT route
+
+The acceptance script's header sends the operator to *Help → Check for cyanrip
+updates…* and says *take whatever offer it makes*. Both halves are careful, both
+are the product of two previous corrections, and this round they were still
+wrong — because the offer is computed from **the fork's release manifest**, so the
+set it can propose is the set of *published* builds, and round 16 opened on a
+commit the fork nominated and never released. The dialog's most honest answer is
+then *"your build is current"*: true of the manifest, and not the build section A
+demands. Take it and the night ends at section A, four seconds in.
+
+**That is the 2026-08-27 abort for the third time, by a third mechanism.** First a
+stale channel name (2026-08-28), then a stale build tag (2026-09-01), now a route
+that is correct and *cannot see the answer*. The first two were values going out
+of date; this one never had the value. The header's own comment block argues at
+length that "take whichever one it offers" is *"the form that cannot go stale,
+because it delegates to the surface that knows"* — and the surface it delegates to
+does not know, because it reads a document the fork controls rather than the record
+we keep. **Delegation is only as good as the delegate's population**, which is the
+closed-population question wearing different clothes.
+
+The fix had to stay build-free — this file ships frozen inside a release, which is
+the whole reason `test_the_header_names_no_build_and_routes_to_the_app_instead`
+forbids naming a commit — so it is a *second command*, `--install-ripper list`,
+generated from the same constant section A checks. And the gap underneath is ours
+and stays open: `ripper_choices()` has no GUI caller, so the repair is a terminal
+paragraph in a program whose premise is that there is no terminal. `TASKS.md`
+records it as *worked around*, not fixed, because that is what it is.
+
+**The test for it was satisfiable by the wrong occurrence, and `revert_probe.py`
+said so.** Each marker label appears twice in the header — once where the markers
+are explained, once in the sentence telling the operator which to install — so
+`label in header` stayed green when either was deleted. An explanation without an
+instruction is a glossary. Worth keeping because the probe's verdict was
+`VACUOUS` on a test written *ten minutes earlier specifically to guard this*: a
+new check arrives wearing the authority of having been added on purpose.
+
+### Their install instruction cannot reach the path we rip through
+
+The fork's §A3 says `meson setup build && ninja -C build && sudo ninja -C build
+install`, then `cyanrip --version`. On a machine with one cyanrip that is exactly
+right. This rig is not that machine: we rip through `~/.local/bin/cyanrip`, a
+`distrobox-export` wrapper into the `ripping` container — Critical rule #3, which
+predates this round. A host `sudo ninja install` writes the *host's*
+`/usr/local/bin/cyanrip` and leaves the wrapper alone, so `cyanrip --version` on
+the host prints the new tag while the binary the app executes is still the old
+container build. **Every check would look right and Run B would abort at section
+A**, after the operator had done everything asked of them.
+
+Sent as §H1.5, framed as ours: not a defect in their script but a machine-shape
+assumption of ours we had never stated. The route that works is
+`--install-ripper ddc1e8c`, which builds *inside* the container and verifies the
+banner **before** `sudo install` and the export — an ordering worth telling them
+about, since theirs verifies after, and those two steps are irreversible.
+
+### Two gates caught me, one of them mine, and both were right
+
+* **The release workflow refused its own dispatch.** I dispatched `v0.6.41` seconds
+  after the squash merge, and its first gate reported eight CI checks `in_progress`
+  with *"Wait for CI, then re-run this release — an unfinished check is not a pass."*
+  Exactly the closed-population rule from `CLAUDE.md`, enforced in the one place it
+  costs a release rather than a paragraph. Re-dispatched after CI completed.
+* **The lap's digest placeholder guessed a lap count from memory.** It read *"over 3
+  lap(s)"*; `scripts/round_digest.py 16 --exclude round-16-lap-03.md` says **2** —
+  the population excludes the lap doing the excluding. The field exists to catch a
+  number asserted rather than read, and the draft's own placeholder text was the
+  thing it caught.
 
 ---
 

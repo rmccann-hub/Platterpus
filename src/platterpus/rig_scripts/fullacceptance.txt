@@ -65,6 +65,38 @@
 #    same reason and just as often. "Take whichever one it offers" is the form
 #    that cannot go stale, because it delegates to the surface that knows.
 #
+#    IF THE CHECK OFFERS YOU NOTHING SECTION A ACCEPTS, THERE IS A SECOND
+#    ROUTE, AND YOU WILL NEED IT WHILE A ROUND IS OPEN ON AN UNPUBLISHED BUILD.
+#    The in-app check reads the fork's RELEASE MANIFEST, so it can only offer
+#    builds the fork has published. A handshake round may open on a commit they
+#    have nominated but never released — round 16 did — and then the dialog's
+#    best honest answer is "your build is current", which is true of the
+#    manifest and is not the build section A wants. Taking it ends the night at
+#    section A.
+#
+#    So, from a terminal, in the AppImage's own directory:
+#
+#        ./platterpus-x86_64.AppImage --install-ripper list
+#
+#    It prints every build THIS version can install, each with a marker and a
+#    reason: `✓ approved` is what a closed round verified, `⚠ under-review` is
+#    the build an open round is examining, `⚠ test-pin` is one both projects
+#    nominated for a joint hardware session. While a round is open, install the
+#    `under-review` or `test-pin` entry:
+#
+#        ./platterpus-x86_64.AppImage --install-ripper <the commit it printed>
+#
+#    THIS FILE STILL NAMES NO BUILD, for the reason three paragraphs up, and
+#    that is exactly why the route is a COMMAND rather than a commit: the list
+#    is generated from the same constant section A checks, so it cannot be the
+#    stale half of a pair. A `⚠` here is the record being honest about an open
+#    round, not a warning to heed — every rip will report `unapproved`, which is
+#    the evidence the run exists to produce.
+#
+#    (Why a terminal at all, when nothing else here needs one: the menu has no
+#    GUI caller yet. That is a real gap of ours, filed in TASKS.md, and it is
+#    the reason this paragraph exists instead of a second click.)
+#
 #    Section A asserts the exact expected build and STOPS THE RUN in the first
 #    few seconds if you are not on it — before any drive time is spent.
 #
@@ -863,10 +895,33 @@ snapshot afterc1
 # carries. cyanrip prints its per-track checksum there, so the verdict is read off
 # the returned artifact afterwards, by one comparison:
 #
-#     the two runs' track-1 checksums MUST DIFFER.
+#     the two runs' track-1 checksums, AS PRINTED BY cyanrip IN THE
+#     TRANSCRIPT, MUST DIFFER.
 #
 # Identical checksums mean the cascade is still selecting rather than composing.
 # Different checksums mean the graph composed, which is the clause.
+#
+# WHICH CHECKSUM, AND WHY THE QUALIFIER IS LOAD-BEARING. cyanrip's printed
+# per-track checksum is over the DECODED SAMPLES. The files on disk are not: a
+# FLAC container carries a creation timestamp, so `md5sum *.flac` on the two
+# output folders returns DIFFERENT values for byte-identical audio -- which is
+# the verdict this step is looking for, arriving for a reason that has nothing
+# to do with de-emphasis. So a reader who reaches for the obvious command gets a
+# CONFIRMING answer from an input that cannot confirm anything, and the clause
+# reads as settled while the cascade is still broken.
+#
+# Adopted from the cyanrip fork's round-16 harness, which states it explicitly
+# and then does something better than stating it: it prints the CONTAINER md5s,
+# says in its own output that a difference there is "necessary and not
+# sufficient", and separately decodes with `ffmpeg -f md5` for the comparison
+# that counts -- reporting `UNPROBED` rather than a pass when ffmpeg is absent.
+# (Read at round-16-lap-02-rig-round16.sh:181-212; an earlier version of this
+# comment credited them with `-o pcm`, which is not what their script does.)
+#
+# We stay on the run's normal FLAC output here because cyanrip's PRINTED
+# checksum already gives us the sample domain with nothing extra to install --
+# but the qualifier has to be in the sentence, because the sentence is what
+# somebody follows at 2am.
 
 log --- P3. R16 CC2: -H -E (forced de-emphasis) ---
 cyanrip -N -s 667 -l 1 -H -E -D r16deemphon

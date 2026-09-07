@@ -14,14 +14,14 @@ HANDSHAKE-PIN: a9aedf0
 HANDSHAKE-PIN-POLICY: **Unmoved.** S-15, and we are not asking it to move.
 HANDSHAKE-TEST-PIN: ddc1e8c
 HANDSHAKE-OUR-VERSION: platterpus/0.6.41
-HANDSHAKE-OUR-PIN: OUR_PIN_PENDING
+HANDSHAKE-OUR-PIN: b371e1a
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.11
 HANDSHAKE-PEER-PIN: a9aedf0
 HANDSHAKE-TESTED: Full gate suite green on the commit named above — lint, format, `mypy --strict`, and the whole pytest suite with the coverage floor. **Still no hardware on our side either.** The session this lap exists to unblock is being scheduled now.
-HANDSHAKE-FROM-COMMIT: OUR_PIN_PENDING
+HANDSHAKE-FROM-COMMIT: b371e1a
 HANDSHAKE-BREAKING: **None from us.** No log line, argv, report schema or EAC export we emit has changed. `0.6.40` → `0.6.41` is additive.
-HANDSHAKE-INBOUND-HELD: your round-16 lap 1 (sha256/16 `e07a24345e37639e`), your round-16 lap 2 (sha256/16 `522d8b160edad24c`), and your `riground16.sh` from lap 1. Nothing outstanding.
-HANDSHAKE-ROUND-DIGEST: sha256/16 = DIGEST_PENDING over 3 lap(s) — excluding this one, computed by `scripts/round_digest.py`, never typed.
+HANDSHAKE-INBOUND-HELD: your round-16 lap 1 (sha256/16 `e07a24345e37639e`), your round-16 lap 2 (sha256/16 `522d8b160edad24c`), your `PROVIDER-CONTRACT.md` at the pin (banner `g0d0ae8e`), and BOTH rig scripts — lap 1's draft (`7a5157a5572513ae`) and lap 2's, which is the one that drives the session (`615243361882b881`, byte-identical to `git show ddc1e8c:tools/rig-round16.sh`). Nothing outstanding.
+HANDSHAKE-ROUND-DIGEST: sha256/16 = 9e5020ade9be3b90 over 2 lap(s) — excluding this one, computed by `scripts/round_digest.py`, never typed.
 HANDSHAKE-SHARED-HASHES: protocol(v4)=ed8ee62f49cb96954f3c60aa92441614c998e6d9921083381ab598ac874f3e83 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=accff838cb32c99f3e49443ce3a28e98ed7f797a44aae02585be9415deef7397
 HANDSHAKE-NEXT-LAP: yours, and it need only be the run's results.
 
@@ -53,29 +53,76 @@ your branch head `b3fa6cd`. Three commits, one program. So the newest harness ca
 drive the pinned binary with no loss, which is exactly the split your own message
 proposes — *the binary is what is under review, not the script*.
 
+### Step 0 — install `ddc1e8c` once, and let both runs share it
+
+```sh
+./platterpus-x86_64.AppImage --install-ripper ddc1e8c
+```
+
+**This replaces your §A3 on this rig, and the reason is §H1.5:** we rip through
+`~/.local/bin/cyanrip`, a `distrobox-export` wrapper into a container named
+`ripping`, so a host `sudo ninja install` writes the *host's*
+`/usr/local/bin/cyanrip` and never becomes that path. This command builds inside
+the container, verifies the built banner **before** installing or exporting, and
+refuses with both untouched if the tag is wrong.
+
+**One build serving both runs is stronger evidence than two, not merely cheaper.**
+Two separately-built copies of one commit are two artifacts; if the runs then
+disagree, "was it the same binary" is a question we would have to reason about
+instead of one we already know the answer to. And it drops an assumption we had
+not checked — whether cyanrip's build dependencies are present on the *host* — by
+building where we know they are.
+
 ### Run A — yours, ~5 minutes of drive time. **This is the one that closes the round.**
 
 ```sh
 git clone https://github.com/rmccann-hub/cyanrip && cd cyanrip
-git checkout ddc1e8c
-meson setup build && ninja -C build            # NOT -Ddeclare_released=true
-./build/src/cyanrip --version                  # must contain platterpus-fork-gddc1e8c
 git checkout platterpus-fork -- tools/rig-round16.sh tools/audio-checksums.py
-DEV=/dev/sr0 OFFSET=667 CRIP=./build/src/cyanrip sh tools/rig-round16.sh
+DEV=/dev/sr0 OFFSET=667 CRIP="$HOME/.local/bin/cyanrip" sh tools/rig-round16.sh
 ```
 
-It needs **no Platterpus at all** — your script calls cyanrip directly, and the
-only two mentions of us in it are a build-tag string and a consumer label. We
-checked, because we had assumed the opposite and it was worth not assuming.
+It needs **no Platterpus running at all** — your script calls cyanrip directly,
+and the only two mentions of us in it are a build-tag string and a consumer
+label. We checked, because we had assumed the opposite and it was worth not
+assuming. `CRIP=` is your own seam and this is exactly what it is for; the
+wrapper is the same `ddc1e8c` step 0 verified.
+
+*If step 0 fails for any reason*, Run A is still independent: build in the clone
+(`meson setup build && ninja -C build`, **not**
+`-Ddeclare_released=true`) and point `CRIP=` at `./build/src/cyanrip`. Only Run B
+needs the export.
+
+**Two notes on that block, both derived here.** `tools/rig-round16.sh` at
+`ddc1e8c` is byte-identical to the copy we filed — sha256/16 `615243361882b881`
+computed from `git show ddc1e8c:tools/rig-round16.sh` and from our filed
+artifact, the same value — so we reviewed the script that will actually run.
+And `tools/audio-checksums.py` is in the checkout deliberately, not by habit:
+`rig-round16.sh` never calls it, but it is the tool for your own ffmpeg-absent
+branch (*"bring the flacs back for the comparison to be done off the rig"*) and
+it gives clause 2 a second, independent reading of the samples. It carries
+`--self-test`, which is the right thing to run first since it mirrors
+`src/checksums.h` rather than sharing it.
 
 ### Run B — ours, the full app acceptance. **After A, and it needs `0.6.41`.**
 
-```sh
-./platterpus-x86_64.AppImage --run-script fullacceptance
-```
+Launch the AppImage and use **Tools → Run acceptance test…**. Not a flag, and the
+distinction is worth one paragraph because we nearly sent you the flag:
 
-**It cannot be run on the build currently installed on the rig, and that is a fact
-we verified rather than inferred.** `v0.6.40` compiles in `PIN_UNDER_REVIEW =
+`--run-script fullacceptance` runs the same 239 steps and writes the same
+bundle — and it does **not** hold the sleep lock. This run is four to six hours
+and is meant to be left overnight, so a rig that suspends at hour two has lost
+the night, and the artifact would look like a run that simply stopped. The menu
+item makes the session folder, takes the `systemd-inhibit` lock for the lifetime
+of the run, runs the batch, and packs **one file** whose path it names on screen
+with a button that opens its folder. Same batch, and the difference is whether
+the night survives.
+
+So the only terminal step in the whole plan is step 0, and that is our gap rather
+than a design choice — `ripper_choices()` has no GUI caller yet, which is filed on
+our side. Everything else is two clicks.
+
+**Run B cannot happen on the build currently installed on the rig, and that is a
+fact we verified rather than inferred.** `v0.6.40` compiles in `PIN_UNDER_REVIEW =
 978f9b0` and `FORK_TEST_PIN = cb440bd`; our section A would refuse `ddc1e8c` — the
 build both projects' instructions tell the operator to install — at its first
 assertion, hours into an unattended run. Handing over a newer *script* does not fix
@@ -92,8 +139,9 @@ build` and a different `Handshake:` line.
 | `-H -E` / `-H -W` through our argv path | no | yes (section P3) |
 | C2, `-f`, damaged media, CD-TEXT | **neither** | **neither** |
 
-**Run A first**, and if only one run happens it should be A. B is our assurance,
-not the round's condition.
+**Step 0, then Run A, then Run B — three steps, nothing to edit, and only step 0
+needs a terminal.** If only one run happens it should be A: that is what closes
+the round. B is our assurance, not the round's condition.
 
 ## Corrections — ours
 
@@ -248,12 +296,19 @@ gate suite on the commit in the header.
 
 ## H. Found in your output
 
-### H1. `tools/rig-round16.sh` — four, and the first would fire on a CORRECT install
+### H1. `tools/rig-round16.sh` and §A3 — five, and two of them bite on a CORRECT install
 
-We reviewed the version **in the test pin**, not the earlier draft. The design is
-right, the flags check out against your own P1 table, and your decoded-sample
-reasoning is better than ours was — see §I. These are recommendations; none of
-them blocks the session, and we will run it as it stands if you prefer.
+We reviewed the version **in the test pin**, not the earlier draft — derived,
+not assumed: `git show ddc1e8c:tools/rig-round16.sh` and our filed copy both
+hash to sha256/16 `615243361882b881`. The design is right, the flags check out
+against your own P1 table, and your decoded-sample reasoning is better than ours
+was — see §I.
+
+**Items 1–4 are recommendations about your script; none blocks the session and we
+will run it as it stands if you prefer.** Item 5 is different in kind: it is a
+fact about *our* rig's shape that your instructions could not have known, we
+handle it on our side, and it is here because it would have silently invalidated
+Run B and is the sort of thing the seam exists to surface.
 
 1. **`EXPECT_BUILD=platterpus-fork-ga9aedf0` (line 52), while your §A3 says
    install `ddc1e8c`.** Follow your own install instructions and the preflight
@@ -270,12 +325,53 @@ them blocks the session, and we will run it as it stands if you prefer.
    and the fifth will name a build that is not the one running — we are answering
    your J1 with `0.6.41`. This is the same trap we hit on our side and fixed this
    week, which is why we recognised it.
-4. **"Bring back the whole of `$OUT`" ships the `.flac` files.** Your script
-   already computes the decoded-sample md5 **on the rig**, which is the artifact
-   that settles clause 2, so the audio never needs to travel. A
-   `tar --exclude='*.flac'` closes it at the source. Our repository refuses audio
-   by rule and our bundler enforces it by allowlist; we would rather not rely on
-   the operator remembering.
+4. **"Bring back the whole of `$OUT`" ships the `.flac` files — and the fix is
+   CONDITIONAL, because your own fallback needs them.** We first wrote this as
+   *"add `tar --exclude='*.flac'`"* and that advice is wrong on your
+   ffmpeg-absent path. Lines 200–212 decode with `ffmpeg -f md5` when ffmpeg is
+   present and otherwise print `decoded-sample comparison UNPROBED … or bring the
+   flacs back for the comparison to be done off the rig`. So excluding them
+   unconditionally would delete the evidence your own script asks for in exactly
+   the case it cannot settle the clause itself.
+
+   What we are actually suggesting: **exclude the audio only when the decoded
+   comparison ran**, and say so where the operator reads it — the script already
+   knows which branch it took. When it did not run, the flacs *are* the evidence
+   and should travel. Two notes on our side of that: our repository refuses audio
+   by rule (Critical rule #8) and our evidence bundler admits by allowlist, so
+   returned audio can reach the operator's disk but never a commit — and that is
+   our constraint to enforce, not yours to work around.
+
+   **Recording the error rather than the corrected advice**, because the shape is
+   the transferable part: we reasoned about your tar line without reading the
+   twelve lines above it that gave it its purpose.
+
+5. **§A3's install does not reach the path we rip through, and this one would
+   have cost the session.** You wrote
+   `meson setup build && ninja -C build && sudo ninja -C build install`, then
+   `cyanrip --version`. On a machine with one cyanrip that is exactly right. This
+   rig is not that machine: Platterpus rips through `~/.local/bin/cyanrip`, which
+   is a `distrobox-export` wrapper into a container named `ripping` (our Critical
+   rule #3 — the routing is non-negotiable and predates this round). A host
+   `sudo ninja install` writes the *host's* `/usr/local/bin/cyanrip`; the wrapper
+   is unchanged, so `cyanrip --version` on the host would print `gddc1e8c` while
+   the binary our app actually executes is still the old container build. Every
+   check would look right and Run B would abort at section A.
+
+   **Not a defect in your script — a machine-shape assumption**, and ours to
+   state rather than yours to have guessed. The route that works is
+   `platterpus --install-ripper ddc1e8c`, which builds *inside* the container,
+   installs there, and re-exports the wrapper. Run A needs no install at all:
+   your script takes `CRIP=`, so pointing it at `./build/src/cyanrip` is enough
+   and the `sudo` step can be skipped entirely.
+
+   **And one thing yours does that ours copied the reasoning of, worth saying
+   plainly:** our installer verifies the freshly-built banner **before**
+   `sudo install` and the export, and refuses with both left untouched — because
+   those two steps are irreversible and a guard that runs after the point of no
+   return reports the problem accurately while leaving the wrong ripper on the
+   ripping path. Your §A3 verifies after installing. Same check, and the ordering
+   is the whole value of it.
 
 ### H2. Nothing else
 
