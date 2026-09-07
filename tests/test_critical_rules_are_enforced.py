@@ -1130,7 +1130,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # render byte-identically because real EAC carries no zone, so the next
     # person to "tidy" this into an unconditional suffix breaks parity.
     "eac_log_export.py": 1535,
-    "evidence_bundle.py": 885,
+    # 885 -> 905. The gzip container is now opened explicitly so its header
+    # timestamp can be zeroed, and the comment above it is the reason the next
+    # reader needs: a one-second reproduction window looks like a flaky test,
+    # and without the note someone reverts the fix to quiet a rerun. Raised
+    # deliberately; the module is still one responsibility.
+    "evidence_bundle.py": 906,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
     # 2026-09-03 diagnostics header named the approved build for a session that

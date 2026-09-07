@@ -731,7 +731,7 @@ def build_bundle(
         with (
             archive_path.open("wb") as _raw,
             gzip.GzipFile(fileobj=_raw, mode="wb", mtime=0, filename="") as _gz,
-            tarfile.open(fileobj=_gz, mode="w") as tar,  # type: ignore[call-overload]
+            tarfile.open(fileobj=_gz, mode="w") as tar,
         ):
 
             def _write(name: str, data: bytes) -> None:
