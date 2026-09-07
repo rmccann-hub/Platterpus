@@ -40,6 +40,17 @@ each side:
   ``--exclude round-14-lap-18.md`` then dropped *both* sides' laps, producing a
   confident digest over a population nobody asked for, **at the same count**.
 
+**And a THIRD refusal, found 2026-09-07 while re-deriving a peer's older digest.**
+`--exclude` was a single-value option, so ``--exclude A.md --exclude B.md``
+silently kept A: argparse takes the last value and nothing complained. The
+command printed a digest, an exit code of 0, and a lap count — over a population
+that still contained a lap the caller had explicitly named. Exactly the failure
+the two refusals above exist to prevent, arriving through the *interface* rather
+than through the matching, and it is reachable whenever a peer's digest predates
+laps that now exist: reproducing their lap-4 number needs both lap 4 and lap 5
+left out. `--exclude` now accumulates, and every name is still held to matching
+exactly one file.
+
 A digest that is wrong is recoverable. A digest that is wrong *and reports the
 expected number of laps* is the one that gets believed.
 """
@@ -50,6 +61,7 @@ import argparse
 import hashlib
 import re
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -141,33 +153,69 @@ def digest_of(rows: list[Row]) -> str:
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:16]
 
 
-def round_digest(round_number: int, *, exclude: str | None = None) -> tuple[str, int]:
-    """``(digest, lap count)`` for ``round_number``.
+def _exclusion_names(exclude: str | Sequence[str] | None) -> tuple[str, ...]:
+    """Normalise ``exclude`` to a tuple of names, refusing to iterate a string.
 
-    ``exclude`` names one lap to leave out — the usual case being *this* lap,
-    which does not exist yet when its own header is written. **It must match
-    exactly one file**; see the module docstring for what each refusal cost.
+    A bare `str` IS a `Sequence[str]`, so ``exclude="round-16-lap-05.md"`` would
+    otherwise iterate 22 single characters, none of which matches a lap — and the
+    first one raises the "matched NO lap" refusal, which is a confusing message
+    for a correct call. One name is the common case and must keep working; this is
+    the only place that decides which shape it got.
+    """
+    if exclude is None:
+        return ()
+    if isinstance(exclude, str):
+        return (exclude,)
+    return tuple(exclude)
+
+
+def laps_after_exclusions(
+    round_number: int, exclude: str | Sequence[str] | None = None
+) -> list[Path]:
+    """The population a digest is computed over, after honouring ``exclude``.
+
+    **Extracted so `--show-rows` and the digest cannot disagree about it.** They
+    did: `--show-rows` filtered the list inline with a bare name comparison and no
+    refusals, so a typo'd or ambiguous exclude printed a full set of rows and only
+    then hit the error — rows that describe a population the digest refused to
+    compute. Two implementations of one filter, which is the defect this project
+    keeps finding in other shapes.
+
+    Every name in ``exclude`` must match **exactly one** file. See the module
+    docstring for what each of the three refusals cost.
     """
     laps = _laps_for_round(round_number)
-    if exclude is not None:
-        matches = [p for p in laps if p.name == exclude]
+    for name in _exclusion_names(exclude):
+        matches = [p for p in laps if p.name == name]
         if not matches:
             raise DigestError(
-                f"--exclude {exclude!r} matched NO lap of round {round_number}. "
+                f"--exclude {name!r} matched NO lap of round {round_number}. "
                 f"Refusing rather than excluding nothing: a typo would otherwise "
                 f"produce a confident digest over the wrong population. "
                 f"Laps present: {[p.name for p in laps]}"
             )
         if len(matches) > 1:
             raise DigestError(
-                f"--exclude {exclude!r} matched {len(matches)} laps "
+                f"--exclude {name!r} matched {len(matches)} laps "
                 f"({[str(p.relative_to(_HANDSHAKE)) for p in matches]}). Refusing: "
                 f"two laps crossing at one number is exactly when this fires, and "
                 f"dropping both produces a digest over a population nobody asked "
                 f"for AT THE SAME COUNT — which is the version that gets believed."
             )
-        laps = [p for p in laps if p.name != exclude]
-    rows = [_row_for(p) for p in laps]
+        laps = [p for p in laps if p.name != name]
+    return laps
+
+
+def round_digest(
+    round_number: int, *, exclude: str | Sequence[str] | None = None
+) -> tuple[str, int]:
+    """``(digest, lap count)`` for ``round_number``.
+
+    ``exclude`` names laps to leave out — usually *this* lap, which does not exist
+    yet when its own header is written, and sometimes two, when reproducing a
+    peer's digest that predates a lap now in the tree.
+    """
+    rows = [_row_for(p) for p in laps_after_exclusions(round_number, exclude)]
     return digest_of(rows), len(rows)
 
 
@@ -177,7 +225,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--exclude",
         metavar="LAP.md",
-        help="one lap filename to leave out (usually the lap being written)",
+        action="append",
+        help="a lap filename to leave out (usually the lap being written). Repeat "
+        "to exclude more than one — it ACCUMULATES rather than overwriting, "
+        "because the single-value form silently kept the first name",
     )
     parser.add_argument(
         "--show-rows",
@@ -188,9 +239,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.show_rows:
-            laps = _laps_for_round(args.round)
-            if args.exclude is not None:
-                laps = [p for p in laps if p.name != args.exclude]
+            laps = laps_after_exclusions(args.round, args.exclude)
             for row in sorted((_row_for(p) for p in laps), key=lambda r: r.render()):
                 print(row.render())
         value, count = round_digest(args.round, exclude=args.exclude)

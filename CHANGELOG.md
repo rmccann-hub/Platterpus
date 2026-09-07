@@ -12,6 +12,44 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **`round_digest.py` silently ignored a second `--exclude`.** It was a
+  single-value argparse option, so `--exclude A.md --exclude B.md` kept only `B`:
+  the command printed a digest, exit `0`, and a lap count over a population that
+  still contained `A`. Found while re-deriving the cyanrip fork's round-16 lap-4
+  digest, which needs **two** laps left out — their lap 4 and our lap 5, the
+  latter not existing when they computed it. That case is reachable every time a
+  round continues past a peer's published number.
+  This is the **third** member of a family the module's own docstring already
+  documented twice (an exclude matching nothing must refuse; one matching two
+  must refuse), and it arrived through the *interface* rather than the matching,
+  which is why neither of those caught it. `--exclude` now accumulates, every
+  name is still held to matching exactly one file, a bare `str` is normalised to
+  one name rather than iterated as characters, and `--show-rows` shares the one
+  exclusion filter instead of re-implementing it without the refusals.
+  Both regression tests were graded **VACUOUS** by `revert_probe.py` on their
+  first pass: the CLI test asserted only `exit == 0` — true of the broken build,
+  which succeeded at doing the wrong thing — and the `--show-rows` test called the
+  shared helper directly rather than through `main`, so it passed against a
+  `--show-rows` that ignored the helper entirely.
+
+### Added
+- **A gate refusing an unresolved placeholder in a lap's provenance field.**
+  `HANDSHAKE-OUR-PIN` and `HANDSHAKE-FROM-COMMIT` name the commit a peer must
+  fetch, and round-16 lap 5 was written with `OUR_PIN_PENDING` in both while
+  `handshake.py --check` and all four gates stayed green. The existing
+  reachability sweep could not see it: that check probes only values matching a
+  bare sha and counts everything else UNPROBED, reporting UNPROBED out loud only
+  when *nothing* was probed — so its `probed >= 1` floor was satisfied by thirty
+  other laps while the one field that matters said nothing at all. A floor stops
+  an empty sweep; it does not stop an individually empty row.
+  Two checks, because an enumeration of placeholder spellings only knows the ones
+  somebody thought of: one refuses `TODO`/`TBD`/`FIXME`/`XXX`/`PENDING` and
+  `<angle>` forms, the other pins the shape positively — a provenance value is
+  either a bare sha or prose of at least four words, which is what the deliberate
+  rounds-8-to-11 *"see §G — a lap cannot carry the hash of a tree containing it"*
+  values are. The positive one earned its place immediately: the first version of
+  the placeholder pattern used `\bPENDING\b` and **passed** against
+  `OUR_PIN_PENDING`, because `_` is a word character.
 - **The rip plan denied a flag the rip argv carries, eight times in one rig run.**
   The `[plan]` block printed *"Diagnostics (-j) and cache probe (-x): NEVER sent by
   a rip"* while every rip argv ended `-G -j cyanrip-diagnostics.json`. Reported by

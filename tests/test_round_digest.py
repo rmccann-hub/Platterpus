@@ -124,8 +124,8 @@ class TestPopulation:
         assert "cyanrip-fork" in senders, "their laps are missing from the population"
 
 
-class TestTheTwoRefusals:
-    """Both cost a real defect — one on each side. Neither is polish."""
+class TestTheThreeRefusals:
+    """Each cost a real defect. None is polish."""
 
     def test_an_exclude_that_matches_nothing_refuses(self) -> None:
         """Found in our implementation in round 9; they had it too. A typo must
@@ -217,3 +217,127 @@ class TestConstructionDetails:
         assert rd.digest_of(rows) == rd.digest_of(list(reversed(rows))), (
             "the digest must not depend on input order"
         )
+
+
+class TestExcludeAccumulates:
+    """**The third refusal: a repeated `--exclude` silently kept one name.**
+
+    `--exclude` was a single-value argparse option, so ``--exclude A --exclude B``
+    resolved to `B` alone and the command printed a digest, exit 0, and a lap
+    count over a population that still held `A`. Found 2026-09-07 while
+    re-deriving the fork's lap-4 digest, which needs BOTH their lap 4 and our
+    lap 5 left out — the case is reachable whenever a peer's number predates a lap
+    now in the tree, which is every time a round continues.
+
+    Same family as the two refusals above and it arrived through the *interface*
+    rather than the matching, which is why neither of those caught it.
+    """
+
+    def test_two_excludes_drop_two_laps(self) -> None:
+        """The regression, on the real record, against the number they published.
+
+        `a82355334b9d1bfe over 3` is the value the fork's round-16 lap 4 declares
+        in its own header — so this asserts against THEIR artifact rather than
+        against our re-run, and it is only reachable if both names are honoured.
+        """
+        rd = _module()
+        both = rd.round_digest(16, exclude=["round-16-lap-04.md", "round-16-lap-05.md"])
+        assert both == ("a82355334b9d1bfe", 3), (
+            "excluding two laps must drop two: this is the fork's own published "
+            f"lap-4 digest and we got {both}"
+        )
+        one = rd.round_digest(16, exclude=["round-16-lap-05.md"])
+        assert one[1] == both[1] + 1 and one[0] != both[0], (
+            "one exclude and two excludes produced the same population, so the "
+            f"second name was ignored: {one} vs {both}"
+        )
+
+    def test_the_cli_accumulates_rather_than_overwriting(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Through `main`, because the defect lived in the argparse spec.
+
+        **And it asserts the DIGEST IT PRINTED, not that it exited 0.** The first
+        version of this test checked only the return code — which a revert probe
+        graded VACUOUS in one run, because dropping `action="append"` leaves a
+        perfectly successful command that silently excluded one lap instead of
+        two. An exit code cannot distinguish "did the right thing" from "did a
+        different thing without complaining", and a silent wrong answer is the
+        whole subject here.
+        """
+        rd = _module()
+        code = rd.main(
+            [
+                "16",
+                "--exclude",
+                "round-16-lap-04.md",
+                "--exclude",
+                "round-16-lap-05.md",
+            ]
+        )
+        assert code == 0
+        printed = capsys.readouterr().out
+        assert "a82355334b9d1bfe" in printed and "over 3 lap(s)" in printed, (
+            "the CLI did not honour both excludes — it printed a digest over the "
+            f"wrong population: {printed.strip()!r}"
+        )
+
+    def test_a_bare_string_is_ONE_name_not_a_sequence_of_characters(self) -> None:
+        """`str` is a `Sequence[str]`, so the widened parameter had a trap in it.
+
+        Without the normalisation, ``exclude="round-16-lap-05.md"`` iterates 22
+        characters and raises "matched NO lap" on the first — a confusing refusal
+        for a correct call, and the shape every existing caller here uses.
+        """
+        rd = _module()
+        assert rd.round_digest(16, exclude="round-16-lap-05.md") == rd.round_digest(
+            16, exclude=["round-16-lap-05.md"]
+        )
+
+    def test_show_rows_and_the_digest_share_ONE_exclusion_filter(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """The rows PRINTED must describe the population the digest used.
+
+        `--show-rows` filtered the list inline with no refusals, so an ambiguous
+        or typo'd exclude printed a full set of rows and only then errored — rows
+        describing a population the digest had refused to compute. Two
+        implementations of one filter.
+
+        **Driven through `main`, not through `laps_after_exclusions`.** The first
+        version called the shared helper directly and a revert probe graded it
+        VACUOUS: the helper was never the broken half, the CALL SITE was, so a
+        test of the helper passes against a `--show-rows` that ignores it
+        entirely. Asserting the function is not asserting the caller.
+        """
+        rd = _module()
+        assert rd.main(["16", "--show-rows", "--exclude", "round-16-lap-05.md"]) == 0
+        out = capsys.readouterr().out
+        rows = [line for line in out.splitlines() if "\t" in line]
+        _, count = rd.round_digest(16, exclude=["round-16-lap-05.md"])
+        assert len(rows) == count >= 3, (
+            f"--show-rows printed {len(rows)} rows for a {count}-lap digest:\n{out}"
+        )
+        excluded_sha = hashlib.sha256(
+            (rd._HANDSHAKE / "outbound" / "round-16-lap-05.md").read_bytes()
+        ).hexdigest()
+        assert excluded_sha not in out, (
+            "--show-rows printed the row for the lap it was told to exclude"
+        )
+
+    def test_a_typod_exclude_refuses_BEFORE_show_rows_prints_anything(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """The other half: rows must not be printed for a population that refuses.
+
+        A reader who sees rows and then an error has been shown a population the
+        tool declined to compute — worse than no output, because the rows look
+        like the answer.
+        """
+        rd = _module()
+        assert rd.main(["16", "--show-rows", "--exclude", "nope.md"]) == 2
+        captured = capsys.readouterr()
+        assert not [line for line in captured.out.splitlines() if "\t" in line], (
+            f"rows were printed despite the refusal:\n{captured.out}"
+        )
+        assert "matched NO lap" in captured.err
