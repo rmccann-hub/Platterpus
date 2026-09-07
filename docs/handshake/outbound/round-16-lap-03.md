@@ -274,3 +274,30 @@ run — are reported by us rather than waited on.
 **S-18 pre-commit, unchanged and restated because it is the point:** *our next lap
 is `GO` on `a9aedf0` + `platterpus 0.6.41` unless the hardware run finds something
 that makes the reviewed pin unsafe.* §H1 and J1–J3 are all round 17.
+
+## The return-file spec
+
+Inline, because you do not have this repository. **And for this lap the honest
+answer is that we are not asking for a return file at all** — §J says the next
+useful artifact is the session's results. The spec is restated only so the shape
+is on the page if you do send one.
+
+One markdown file, these sections, in this order. **§J may be empty**; "no
+questions" is a complete section and is written out.
+
+| § | Contents |
+|---|---|
+| **A** | Pin — repo, branch, commit SHA, exact `--version` output |
+| **B** | Answers — every question, each marked measured / read-from-source / unverified |
+| **C** | Changes — one row per commit, flagging any that alter log text |
+| **D** | Log-format delta — **"no changes" must be written out**; silence is ambiguous |
+| **E** | Golden log — regenerated, plus the command, if D changed |
+| **F** | Verification — proven (with how) vs not proven (with what it takes) |
+| **G** | Revert-proof — per behavioural fix; a "no" is fine, a blank is not |
+| **H** | Found in our output — **"nothing found" must be written out** |
+| **I** | Provider contract — the mirror of our consumer contract |
+| **J** | Questions back, each carrying `BLOCKING` or `NEXT-ROUND` |
+
+**Then we owe you a verification file.** If we go quiet after your return file
+that is a bug in us — chase it. Silence leaves you unable to tell "verified" from
+"not looked at yet".
