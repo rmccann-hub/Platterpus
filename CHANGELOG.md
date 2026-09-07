@@ -11,6 +11,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **The fork's `rig-round16.sh` from the test pin is filed**
+  (`round-16-lap-02-rig-round16-gddc1e8c.sh`, sha256/16 `615243361882b881`),
+  reviewed, and handed to the operator **unmodified**. Four findings go back, none
+  of which changes a rip: `EXPECT_BUILD` names the production pin while their own
+  install instruction says the test pin, so the preflight cries wolf on a correct
+  setup; that preflight still says "Stop." without exiting; `-u` reaches one of
+  five rips and hardcodes a version that will be wrong; and *"bring back the whole
+  of `$OUT`"* would ship the `.flac` files when the decoded md5 it already computes
+  on the rig is the artifact that settles clause 2.
+  **Handed over unmodified deliberately.** A corrected copy would make the hardware
+  evidence come from a script neither repository contains, and the round exists to
+  prove correctness — provenance beats ergonomics, and neither defect touches what
+  the clauses establish.
+
 ### Fixed
 - **The evidence bundle was not byte-reproducible, and the test that should have
   said so could only catch it by luck.** Every member's `mtime`, `uid` and `gid`
