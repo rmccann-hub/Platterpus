@@ -126,6 +126,48 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       only an informational line under-reports. Touching a verify path with a drive
       waiting is the trade this row refuses.
 
+- [ ] **A leaked evidence-bundle callback can hang an unrelated test, and only one
+      matrix leg saw it.** `main`'s CI on `65b20f0` failed `test (py3.12)` with a
+      5-minute pytest-timeout whose faulthandler dump reads:
+      `rip_progress.py:787 append_log_line` ← `main_window_rip.py:2893
+      _on_evidence_bundle_done` ← `conftest.py:418 pump` ←
+      `test_ui_pending_installs_dialog.py:293 test_install_one_mode_records_failures`.
+      An evidence-bundle completion signal from an EARLIER test delivered into an
+      install-dialog test's `pump()`.
+      **Established about its cause, and what is not:** the same content passed
+      `test (py3.12)` on PR #201 (`66ed5ef`), the only `src/` delta from the
+      previous `main` commit is the `__version__` string, and `closeEvent`
+      explicitly stops `_force_stop_timer` so the 2026-09-07 cancel fix leaks no
+      timer past teardown. So it is timing-dependent and the evidence points away
+      from that change — **not proven unrelated**, and it does not reproduce
+      running `tests/test_ui_pending_installs_dialog.py` alone three times on
+      py3.11.
+      **The real finding is the isolation gap**, not the timeout: a worker from
+      test A should not be able to deliver into test B's event pump at all. The
+      window fixture closes the window, which is why this is rare; what is missing
+      is draining or refusing queued cross-test signals. A rerun that goes green
+      is a datum about flakiness and NOT a fix — `CLAUDE.md`'s gzip lesson is
+      exactly a one-second window that read as flake.
+
+- [ ] **We do not hold the cyanrip fork's regenerated `PROVIDER-CONTRACT.md`.**
+      Their round-16 lap 4 §E says it *"**was** regenerated, at `0f8523b`, as its
+      own commit whose parent is the build its source anchor names"*, and that
+      version has never reached us. What is committed under
+      `docs/handshake/inbound/artifacts/` is their **lap-1** contract, banner
+      `platterpus-fork-g0d0ae8e`, and `tests/test_argv_surface_agreement.py`
+      resolves the newest committed contract — so the table our argv is diffed
+      against is the lap-1 one and the green test says nothing about their newest.
+      **Asked as lap 5 J4, `NEXT-ROUND` with one carve-out:** if the regeneration
+      changed a flag we send, we need to know before the run, because that is the
+      only path by which it reaches an argv — the `-V` blocker's exact shape.
+      Nothing about Run A or Run B depends on the document otherwise: the tip rig
+      script's flags were checked against the lap-1 table and conform.
+      **Also a note on our own claim discipline** — lap 5's §I asserted the
+      `0f8523b` contract was filed, from memory of their §E rather than from the
+      artifacts directory, and was corrected before the lap left the repository.
+      `CLAUDE.md`'s *"am I answering from the artifact, or from my memory of the
+      artifact"*, at the smallest possible scale.
+
 - [ ] **§J's drive-open proof is satisfiable by the wrong thing, and the 2026-09-07
       rig run proved it.** §J rips again after a cancel, on the reasoning quoted in
       `main_window_rip.py`: *"the only honest test of 'did cancelling release the

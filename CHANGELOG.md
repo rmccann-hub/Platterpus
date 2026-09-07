@@ -11,6 +11,81 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **`round_digest.py` silently ignored a second `--exclude`.** It was a
+  single-value argparse option, so `--exclude A.md --exclude B.md` kept only `B`:
+  the command printed a digest, exit `0`, and a lap count over a population that
+  still contained `A`. Found while re-deriving the cyanrip fork's round-16 lap-4
+  digest, which needs **two** laps left out — their lap 4 and our lap 5, the
+  latter not existing when they computed it. That case is reachable every time a
+  round continues past a peer's published number.
+  This is the **third** member of a family the module's own docstring already
+  documented twice (an exclude matching nothing must refuse; one matching two
+  must refuse), and it arrived through the *interface* rather than the matching,
+  which is why neither of those caught it. `--exclude` now accumulates, every
+  name is still held to matching exactly one file, a bare `str` is normalised to
+  one name rather than iterated as characters, and `--show-rows` shares the one
+  exclusion filter instead of re-implementing it without the refusals.
+  Both regression tests were graded **VACUOUS** by `revert_probe.py` on their
+  first pass: the CLI test asserted only `exit == 0` — true of the broken build,
+  which succeeded at doing the wrong thing — and the `--show-rows` test called the
+  shared helper directly rather than through `main`, so it passed against a
+  `--show-rows` that ignored the helper entirely.
+
+### Added
+- **A gate refusing an unresolved placeholder in a lap's provenance field.**
+  `HANDSHAKE-OUR-PIN` and `HANDSHAKE-FROM-COMMIT` name the commit a peer must
+  fetch, and round-16 lap 5 was written with `OUR_PIN_PENDING` in both while
+  `handshake.py --check` and all four gates stayed green. The existing
+  reachability sweep could not see it: that check probes only values matching a
+  bare sha and counts everything else UNPROBED, reporting UNPROBED out loud only
+  when *nothing* was probed — so its `probed >= 1` floor was satisfied by thirty
+  other laps while the one field that matters said nothing at all. A floor stops
+  an empty sweep; it does not stop an individually empty row.
+  Two checks, because an enumeration of placeholder spellings only knows the ones
+  somebody thought of: one refuses `TODO`/`TBD`/`FIXME`/`XXX`/`PENDING` and
+  `<angle>` forms, the other pins the shape positively — a provenance value is
+  either a bare sha or prose of at least four words, which is what the deliberate
+  rounds-8-to-11 *"see §G — a lap cannot carry the hash of a tree containing it"*
+  values are. The positive one earned its place immediately: the first version of
+  the placeholder pattern used `\bPENDING\b` and **passed** against
+  `OUR_PIN_PENDING`, because `_` is a word character.
+- **The rip plan denied a flag the rip argv carries, eight times in one rig run.**
+  The `[plan]` block printed *"Diagnostics (-j) and cache probe (-x): NEVER sent by
+  a rip"* while every rip argv ended `-G -j cyanrip-diagnostics.json`. Reported by
+  the cyanrip fork (round-16 lap 4 §H1), **counted rather than sampled**: 16
+  `[plan]` claims in the 2026-09-07 app log, and the 8 from 2026-09-06 23:07
+  onward are each followed 250–280 ms later by the contradicting argv. The 8 from
+  2026-09-05 were truthful — `-j` joined the builder that day and the sentence was
+  not revisited. Verified here independently: 16 total, 8 and 8.
+  It matters because that block exists to be compared against the ripper's own
+  `Invoked as:`, so a reader doing exactly what it asks finds a denial and the
+  flag. The two flags are now stated separately — `-j` always sent, `-x` never —
+  because lumping them is what let one half go stale unnoticed. Same shape as our
+  own §0b.1.
+
+- **`parser/interrupted` gave one verdict for two opposite states.** The absence
+  of an `Interrupted at:` line was reported as *"expected for a rip that ran to
+  the end"* regardless of outcome — right for the 6 completed rips in that
+  manifest, and exactly backwards for the 1 cancelled one, where the absence is
+  the **finding**. The fork counted both (lap 4 §H2). The state was known all
+  along: the `parser/log` row on the same log in the same manifest says *"this
+  rip's own report says it was CANCELLED"* — two checks reading one fact, one of
+  them using it. Now tri-state, with `None` getting its own "not determined"
+  sentence rather than being folded into either answer.
+
+### Changed
+- **The reviewed-pin/banner pairing check accepts the test pin too.** Their laps 1
+  and 2 paired `HANDSHAKE-RIPPER-VERSION`'s build tag with the reviewed pin; lap 4
+  moved it to the test pin, deliberately, since that is the build the joint session
+  installs — and `git diff a9aedf0..ddc1e8c -- src/ meson.build` is empty, so the
+  version string is correct for both and no build is misnamed. A test pin is a
+  second legitimate answer to "which build does the round's banner name", exactly
+  as it was for `expect-ripper-under-review` on 2026-09-07: the same widening, in
+  a second place, from the same cause. The mis-pairing refusal is intact — a tag
+  naming a third commit still fails.
+
+
 ## [0.6.42] — 2026-09-07
 
 ### Fixed

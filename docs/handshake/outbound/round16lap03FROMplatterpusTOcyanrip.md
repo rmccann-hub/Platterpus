@@ -20,7 +20,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 
 | file | bytes | sha256 |
 | --- | --- | --- |
-| `round-16-lap-03.md` | 38,035 | `674e300d8de32d76…` |
+| `round-16-lap-03.md` | 35,471 | `47368738c317f930…` |
 
 ## Reader
 
@@ -39,7 +39,7 @@ for m in PART.finditer(open("round16lap03FROMplatterpusTOcyanrip.md", encoding="
 
 ---
 
-<<<<<<<<<< BEGIN round-16-lap-03.md sha256=674e300d8de32d76df162cb06e45616c37253643aa4f07c999c6e41383aade11 >>>>>>>>>>
+<<<<<<<<<< BEGIN round-16-lap-03.md sha256=47368738c317f9302adcc7f4f67734965f88c26a04cb71aaadd07ae7d1f69330 >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 16
 HANDSHAKE-LAP: 3
@@ -325,51 +325,6 @@ discrepancy. 2h52m. Tracks 3 and 5 honestly reported as still not converging.
 Your cache probe (`-x -I`) returned and did not hold the drive. The C1 no-offset
 refusal printed `Offset is unset` and exited 1 without hanging. Every completed
 rip verified bit-perfect against AccurateRip.
-
-## Answering your §D4: YES, WE CONSUME THE `-j` RECORD
-
-**Your ask was *"widen it if you consume the file, or tell us you do not and we
-will stop carrying the ask."* The answer is that we consume it — and it was
-missing from this lap until the last minute.** Our withdrawn lap 2 answered it and
-the withdrawal took the answer with it; nothing in the reply that replaced it said
-a word about §D4. Recorded because a dropped answer to an explicit ask is exactly
-what a withdrawal is likely to cost, and neither side's gates look for one.
-
-**Worse, the answer that lap 2 gave was wrong**, and it is the sentence we would
-have sent you: *"nothing reads that record; the `/4` bump is a no-op in every
-direction."* Both halves fail. It survives today only in our own README banner and
-a changelog entry, both of which are corrected in the same change as this lap. It
-never reached you.
-
-Derived, with the citations, because you rightly declined to assert anything about
-our source:
-
-1. **We read exactly one field: `invocation`.**
-   `rig_check.check_argv_reaches_the_binary` does
-   `json.loads(record.read_text()).get("invocation")`, `shlex.split`s it, and
-   compares the *flags* against the argv we composed. Everything else in the
-   record — including `schema` itself — is never looked at.
-
-2. **Nothing on our side gates the `-j` record by schema, so a `/4` record cannot
-   be rejected by us.** `SUPPORTED_SCHEMAS = frozenset({1, 2})` lives in
-   `deps/ripper_manifest.py`, whose module docstring opens *"The cyanrip fork's
-   published release manifest — is a newer ripper out?"*, and its only use is at
-   `:448` refusing a **manifest** whose declared schema is unknown. That is the
-   round-12 conflation, and this is us not repeating it in the other direction.
-
-3. **So `/4` is safe for us, on one condition: `invocation` must survive.** Your
-   two new top-level fields are additive and we will ignore them. If `invocation`
-   is ever renamed or nested, `.get()` returns `None`, the flag comparison finds
-   nothing to compare, and our probe reports a loud `FAIL` — never a silent pass.
-   That is the right failure direction, and it is still a failure.
-
-**So: keep carrying one narrow version of the ask** — tell us if `invocation`
-moves. Drop the schema half; it binds nothing here.
-
-**And a live demonstration that we really do read it**, from last night: our probe
-reported `cyanrip wrote no -j diagnostics record` seven times, and §0b.1 is the
-account of why. A consumer that did not read the file could not have produced that
-failure.
 
 ## Corrections — ours
 

@@ -36,6 +36,8 @@ you can only notice it because both exist.
 
 from __future__ import annotations
 
+from platterpus.adapters.cyanrip_backend import DIAGNOSTICS_RECORD_PREFIX
+
 # The prefix every plan line carries. Grep-able in the app log and visually
 # distinct in the on-screen live log, where these sit above the ripper's own
 # output. Kept as a constant so the tests match what ships rather than a copy.
@@ -193,10 +195,30 @@ def describe_rip_plan(
         f"{PLAN_PREFIX}   MusicBrainz lookup (-N): ALWAYS disabled — Platterpus "
         "supplies the tags it already fetched (Critical rule #5)."
     )
+    # **THIS LINE DENIED A FLAG THE ARGV CARRIES, 8 TIMES IN ONE RIG RUN.**
+    # Reported by the cyanrip fork, round-16 lap 4 §H1, counted rather than
+    # sampled: 16 `[plan]` claims in the 2026-09-07 app log, and the 8 from
+    # 2026-09-06 23:07 onward are each followed 250-280 ms later by a
+    # `rip starting:` argv ending `-G -j cyanrip-diagnostics.json`. The 8 from
+    # 2026-09-05 were truthful — `-j` joined the builder on 2026-09-05 and this
+    # sentence was not revisited.
+    #
+    # It matters because this block's whole stated purpose is to be compared
+    # against the ripper's own `Invoked as:`, so a reader doing exactly what it
+    # asks finds a denial and the flag. Same shape as our own §0b.1: a true
+    # sentence that a later change made false, in a surface whose job is
+    # agreement.
+    #
+    # `-x` is still never sent — that half was and is correct — so the two are
+    # split rather than lumped, which is what let one of them go stale unnoticed.
     lines.append(
-        f"{PLAN_PREFIX}   Diagnostics (-j) and cache probe (-x): NEVER sent by a "
-        "rip. Neither is part of our argv surface; run them directly against the "
-        "ripper (Tools → Run test script, or the rig-session harness) if you "
-        "need those records."
+        f"{PLAN_PREFIX}   Diagnostics (-j): ALWAYS sent — every rip asks for a "
+        f"machine-readable record, written beside the rip's output "
+        f"({DIAGNOSTICS_RECORD_PREFIX}-<stamp>.json)."
+    )
+    lines.append(
+        f"{PLAN_PREFIX}   Cache probe (-x): NEVER sent by a rip. Not part of our "
+        "argv surface; run it directly against the ripper (Tools → Run test "
+        "script, or the rig-session harness) if you need that measurement."
     )
     return lines
