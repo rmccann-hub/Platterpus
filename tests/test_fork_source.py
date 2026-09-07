@@ -1167,6 +1167,62 @@ class TestTheRipperBuildMenu:
         pins = [c.pin for c in fork_source.ripper_choices()]
         assert len(pins) == len(set(pins)), f"a build is listed twice: {pins}"
 
+    def test_a_known_pin_typed_by_hand_gets_its_MEASURED_version(self) -> None:
+        """**The same false sentence as the production branch, one branch over.**
+
+        `target_for_commit`'s production branch carries a comment saying that
+        *"version not known"* about a commit we DO pin *"printed a false sentence
+        about our own pin"* and that *"a sentence false in a small way is how a
+        night gets lost"*. Both true — and the reviewed pin and the test pin fell
+        through to the arbitrary-commit default anyway, so `--install-ripper
+        ddc1e8c` told an operator the version was unpredictable for the one commit
+        round 16 agreed on, whose pairing both projects declared at column 0.
+
+        `docs/testing.md` §5.o at the scale of one function: the rule was written,
+        then applied only where it was learned.
+        """
+        for pin, expected in (
+            (fork_source.FORK_PIN, fork_source.FORK_EXPECTED_VERSION),
+            (fork_source.FORK_TEST_PIN, fork_source.FORK_TEST_VERSION),
+            (fork_source.PIN_UNDER_REVIEW, fork_source.UNDER_REVIEW_TARGET.version),
+        ):
+            target = fork_source.target_for_commit(pin)
+            assert target.version == expected, (
+                f"{pin} is a pin we hold a measured pairing for, but "
+                f"target_for_commit reported {target.version!r}"
+            )
+            assert "not known" not in target.version
+
+    def test_an_ARBITRARY_commit_still_says_the_version_is_unknown(self) -> None:
+        """The non-triviality floor, and the honest half of the same rule.
+
+        Without this the fix above is satisfiable by inventing a version for
+        every commit — which is the defect its own docstring warns against:
+        *"inventing one would put a number we never measured into a banner
+        comparison."*
+        """
+        target = fork_source.target_for_commit("deadbee")
+        assert "not known" in target.version, (
+            "an arbitrary commit must NOT be given a version we never measured: "
+            f"{target.version!r}"
+        )
+        assert not target.version_known
+
+    def test_a_known_non_approved_pin_says_WHICH_pin_it_is(self) -> None:
+        """Naming it is the point: the operator is deciding what to install.
+
+        *"NOT the approved pin"* alone reads as a warning to heed. *"NOT the
+        approved pin, but it IS the round-16 agreed test pin"* is the same fact
+        with the reason attached, which is what the acceptance script's header
+        spends four paragraphs explaining.
+        """
+        why = fork_source.target_for_commit(fork_source.FORK_TEST_PIN).why
+        assert "TEST PIN" in why and str(fork_source.FORK_TEST_PIN_ROUND) in why, why
+        assert "unapproved" in why, (
+            "it must still say the rip reports unapproved — that is correct and "
+            f"the operator needs to expect it: {why!r}"
+        )
+
     def test_exactly_one_choice_tells_the_operator_to_install_it(self) -> None:
         """**The menu offered two candidates and named the wrong one mandatory.**
 

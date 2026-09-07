@@ -1113,7 +1113,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # different file from the constants is the split this ratchet's own note
     # warns against. Moving it would separate the answer from the two facts it
     # is derived from.
-    "deps/fork_source.py": 1835,
+    #
+    # **1835 -> 1872 in the same session**, for `_known_pairing_for()`: the SWEEP
+    # of the rule the production branch of `target_for_commit` had already
+    # learned. That branch knew the approved pin's version and said "not known"
+    # for the reviewed and test pins — one of three. The lookup replaces three
+    # would-be special cases with one loop over the targets it already holds, so
+    # this is the shape that stops the file growing again when a fourth known pin
+    # appears.
+    "deps/fork_source.py": 1872,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
