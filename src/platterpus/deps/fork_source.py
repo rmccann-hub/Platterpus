@@ -451,7 +451,15 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: time. That window is real and this is what it costs; the fix that would close
 #: it is a round-16 conversation about what the constant should say when no round
 #: is open, not another copy of the value.
-PIN_UNDER_REVIEW: Final[str] = "978f9b0"
+#: **Round 16 (2026-09-07): `978f9b0` → `a9aedf0`.** Their lap 1 wire header,
+#: lines 10–11: `cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-ga9aedf0)`,
+#: `HANDSHAKE-PIN: a9aedf0`, declared frozen for the round under S-15. **The
+#: version did NOT move with it** — `+platterpus.11` covers both `978f9b0` and
+#: `a9aedf0`, so the pairing below carries the same string against a new commit.
+#: That is the opposite of the 2026-08-18 mis-pairing and it is legitimate: there
+#: the version was stale against a moved pin, here the fork has published both
+#: halves against this commit in its own header. Read off the artifact either way.
+PIN_UNDER_REVIEW: Final[str] = "a9aedf0"
 
 #: The fork's **test pin** — a build designated to gather the hardware evidence a
 #: close requires, which is *not* a release and never moves :data:`FORK_PIN`.
@@ -1009,10 +1017,14 @@ TEST_TARGET: Final[ForkTarget] = ForkTarget(
 #: wrong version string here would be caught rather than believed.
 UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     pin=PIN_UNDER_REVIEW,
-    # Round 15's pairing, from their lap-1 wire header lines 10–11:
-    # `cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-g978f9b0)`. Read off the
-    # artifact. **This field and `pin` above must move together** — they name one
-    # build, and a version rendered against a different commit is the mis-pairing
+    # Round 16's pairing, from their lap-1 wire header lines 10–11:
+    # `cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-ga9aedf0)`. Read off the
+    # artifact. **The version did not move this round and that is correct**: the
+    # fork published `+platterpus.11` against `a9aedf0` in its own header, and its
+    # ledger has no new numbered release — the same version legitimately covers
+    # `978f9b0` and `a9aedf0`. "Move together" means *the pairing is whatever the
+    # newest lap states*, never "both strings must change"; a version rendered
+    # against a commit the fork did NOT pair it with is the mis-pairing
     # of 2026-08-18 (every field true, the sentence false). It said
     # `+platterpus.10` while `pin` had moved for about as long as it took to
     # notice, which is why the pairing is now asserted by

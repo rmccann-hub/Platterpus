@@ -21,6 +21,75 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
+## ROUND 16 IS OPEN — their lap 1 filed, runbook run, everything verified (2026-09-07)
+
+**Their lap 1 arrived and the rehearsed runbook was run end to end.** Filed at
+`docs/handshake/inbound/round-16-lap-01.md`, byte-identical to their committed
+copy at `origin/platterpus-fork` (checked, not assumed). `CURRENT_ROUND` → 16,
+`PIN_UNDER_REVIEW` → `a9aedf0`, the round-16 row is in `docs/handshake/README.md`,
+and round 15's row — which still read OPEN — now reads its real verdict.
+
+**What was verified rather than accepted, all of it derived here:**
+
+- **All four shared-artifact hashes match byte for byte** — protocol v4,
+  `seam-rules.md`, `seam-commands.md`, `OWNERSHIP.md`.
+- **Both round digests re-derive exactly.** Our lap 16's declared
+  `696b8ada8b203d21 over 15` and their round-16 `01ba4719c80b6fe9 over 0`, from
+  our own implementation, which was built from their written spec rather than
+  their code. Tenth consecutive agreement.
+- **Their §D2 footer parses clean, and I nearly reported a defect against a line
+  they do not print.** Their lap says the new path reads ``no (aborted…)``; I
+  expanded the ellipsis myself, fed `no (aborted before any track was ripped)` to
+  the parser, and watched it drop the reason and log two `unusable integer`
+  warnings. **Their source says otherwise**: `src/cyanrip_log.c:907` at `a9aedf0`
+  is `"Rip completed:  no (aborted, %i of %i tracks)\n"` — counts present, comma
+  present, which is exactly the shape `_RIP_COMPLETED` expects. Measured:
+  `completed=False reason='aborted' tracks=0/0`, no warnings. **An ellipsis in a
+  peer's prose is not their output**; the rule is the one this repo keeps paying
+  for — answer from the artifact.
+- **Their §D1 timestamp is RFC 3339 at the pin**, `src/utils.h:213`
+  (`%Y-%m-%dT%H:%M:%S%z` with `+HHMM` rewritten to `+HH:MM`). The empty-`%z` case
+  degrades to a naive stamp, which our `_eac_date` already handles by omitting the
+  `(UTC±HH:MM)` marker rather than inventing one.
+- **§D3 is unreachable for us** — `-H` only, and we never pass it.
+
+- [ ] **ANSWER THEIR §D4 — and the answer is "no widening; stop carrying the ask".**
+      Derived from our source at `1654bdd`, all three legs:
+      **(1)** `SUPPORTED_SCHEMAS = frozenset({1, 2})` is at
+      `src/platterpus/deps/ripper_manifest.py:89` and gates their
+      **`release-manifest.json`** fetched from `MANIFEST_URL`; the refusal is at
+      `:448`. **It never sees the `-j` record.** This is the round-12 pairing again
+      — though *not* the round-12 error, because they explicitly declined to assert
+      what our code does, which is the discipline working.
+      **(2)** `DIAGNOSTICS_RECORD_NAME` appears exactly twice in `src/`: its
+      definition (`adapters/cyanrip_backend.py:688`) and the argv append (`:381`).
+      **Nothing reads the file.**
+      **(3)** `evidence_bundle.py` admits it by extension (`.json`, the allowlist at
+      `:69`) and never parses it.
+      So `cyanrip-diagnostics/4` is a no-op for us in every direction: we produce
+      the record on every rip, ship it as opaque bytes, and read none of it.
+
+- [ ] **Answer their J1 (`NEXT-ROUND`) — committed-is-sent.** They propose making
+      *committed* stand in for *sent*: once a lap is committed to the branch the
+      peer fetches, it is immutable and a gate refuses any edit. They name the cost
+      honestly (it would have forbidden their own `56e7d71`, which withdrew a draft
+      that really had not gone) and say it is ours as much as theirs — **we would be
+      the side that has to stop committing drafts into the lap namespace.**
+      Worth weighing against what actually ended our three failures: lap 13 by a
+      digest mismatch, lap 15 by the operator saying so, and **lap 16 by the peer
+      declaring the hash they hold**, which is now the first row in `SENT_LAPS`
+      recorded from their declaration rather than from being told.
+
+- [ ] **Their FIFO condvar finding bears on OUR acceptance run, and they said so
+      without overclaiming.** All three `pthread_cond_wait()` sites were guarded by
+      `if` rather than `while`; the program installs SIGINT/SIGTERM handlers and its
+      encoder threads sit in exactly those waits, so `fifo_pop()` could read an
+      unwritten slot and decrement the count to **-1**. Restoring the `if` makes
+      their test SIGSEGV (exit 139). **It is upstream's** — the third kind, the one
+      `CLAUDE.md` names as easiest to misattribute. Our acceptance run is unattended
+      and cancels rips, which is when signals are delivered. They explicitly do not
+      claim it explains anything we have seen.
+
 ## RUNBOOK — when the round-16 opener arrives (rehearsed 2026-09-06)
 
 **Not a guess: a realistic opener was filed against the real tree, the full suite
@@ -194,16 +263,14 @@ items it names, filed so none is lost between rounds.
 
 ## Left open by the 0.6.38 archival-check fixes (2026-09-05)
 
-- [ ] **Pass `-j` on every rip.** It appears once in `src/` (`rig_check.py:67`), a
-      separate probe, and never in the rip argv — so no rip writes cyanrip's own
-      diagnostics record. Their `PROVIDER-CONTRACT.md` P4 says a run refused during
-      argument validation **opens no logfile at all** and the `-j` record is the
-      only artifact for that class, which is the 2026-08-02 `-t 17=` shape. Held
-      out of 0.6.38 **deliberately**: introducing an argv flag we cannot exercise
-      in this container, hours before an eight-hour unattended run, risks the night
-      for a diagnostic that only helps when something else has already failed. Told
-      to the fork in round 15 lap 13 §C so it is a decision on the record and not
-      an oversight. **Round 16.**
+- [x] **Pass `-j` on every rip.** Landed in `f9376f2`. Measured rather than read:
+      `_build_rip_argv` emits `-j cyanrip-diagnostics.json` on **both** shapes
+      (no-metadata/unknown disc and full-metadata/known disc), and the relative path
+      is deliberate — the child's cwd is the rip's output directory, so the record
+      lands with the other artifacts and the evidence bundle takes it under the
+      existing `.json` allowlist. Their `PROVIDER-CONTRACT.md` P4 says a run refused
+      during argument validation **opens no logfile at all**, and the `-j` record is
+      the only artifact for that class — the 2026-08-02 `-t 17=` shape.
 - [ ] **Split `uiscript/runner.py` (3429 lines).** The oversize ratchet was raised
       rather than split for the same reason — refactoring the script engine on the
       night of the run it drives is the risk this project keeps paying for. The

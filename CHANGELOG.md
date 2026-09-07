@@ -11,6 +11,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **Round 16 filed and verified, and the reviewed pin moved to `a9aedf0`.**
+  Their lap 1 opens the round; `CURRENT_ROUND` → 16, `PIN_UNDER_REVIEW` →
+  `a9aedf0`, a round-16 row in the handshake README, and round 15's row corrected
+  from OPEN to its real `GO`/`GO`. The filed lap is byte-identical to their
+  committed copy — checked against their repository, not assumed.
+  Verified rather than accepted: **all four shared-artifact hashes match byte for
+  byte**, and **both round digests re-derive here** — our lap 16's declared
+  `696b8ada8b203d21 over 15` and their round-16 `01ba4719c80b6fe9 over 0` — from
+  an implementation built from their written spec rather than their code.
+  **The version deliberately did not move with the pin**: `+platterpus.11` covers
+  both `978f9b0` and `a9aedf0`, and the fork published both halves against this
+  commit in its own header. "Move together" means *the pairing is whatever the
+  newest lap states*, never "both strings must change".
+- **Round 15 lap 16 is the first `SENT_LAPS` row recorded from the PEER's
+  declaration.** Their `HANDSHAKE-INBOUND-HELD` names the hash they hold, which is
+  a fact about delivery neither tree can produce: they cannot hold a file they were
+  not sent. Laps 13 and 15 were caught by a digest mismatch and by the operator
+  saying so; this one was pinned because the peer said they had it, and their value
+  was verified byte-for-byte against ours rather than assumed to agree.
+
 ### Fixed
 - **A `--check` gate rejected a conforming lap, which is the expensive direction.**
   §F's entry in `scripts/handshake.py` describes itself as *"proven (with how) vs
