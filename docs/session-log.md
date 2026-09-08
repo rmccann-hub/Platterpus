@@ -11,6 +11,86 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-07 (night) — the rig stopped four seconds in, and the message it printed was wrong
+
+**One sentence: an acceptance run aborted at section A exactly as designed, and
+then told the operator to install the wrong build — the third surface with the
+same mis-pairing in one day, after a commit of mine had called two of them "the
+sweep".**
+
+### What the rig actually did
+
+`0.6.43`, `platterpus-fork-g978f9b0` installed, disc in the drive.
+`expect-ripper-under-review` **failed correctly** — `g978f9b0` is the approved
+production pin, not round 16's agreed `ddc1e8c` — and `abort-if-failed` stopped
+the batch. 14 steps executed, 223 skipped, **no drive time spent.** The guard did
+its job.
+
+Then it printed `--install-ripper a9aedf0`, and led with *"Help → Check for
+cyanrip updates… → Install it anyway"*. Both wrong:
+
+* **`a9aedf0` is the reviewed pin.** Both projects' records say the session
+  installs the **test pin** `ddc1e8c` — protocol §6a, *agree a test pin → both
+  install it → run the session*.
+* **The in-app route cannot reach either.** It reads the fork's *release
+  manifest*, and neither pin was ever published as a release, so its most honest
+  answer is *"your build is current"*. The acceptance script's **own header**
+  spends four paragraphs on precisely this and names `--install-ripper list` as
+  the second route. The failure message contradicted the header from the one
+  place an operator looks.
+
+### The lesson, and it is about a claim I made
+
+Earlier the same day I fixed this mis-pairing in `ripper_choices()`'s menu and in
+`target_for_commit()`'s version label, and wrote in the commit that
+`_known_pairing_for()` was **"the sweep"**. It swept the two surfaces I had
+*looked at*. `docs/testing.md` §5.o says enforce a rule across the codebase, not
+at the place it was learned — and **claiming a sweep for the instances you found
+is a stronger version of the error than not sweeping**, because it tells the next
+reader the question is settled. The surface I missed was the only one that speaks
+at the moment the night stops.
+
+Both halves now derive from `rig_installs_the_test_pin()`, so a closing round
+fixes them together.
+
+### The second defect: three archives and three dialogs
+
+The maintainer's report was *"it keeps asking me to open a folder and makes a new
+compressed file"*. A precondition abort packed a multi-hundred-megabyte `.tar.gz`
+— the app log dominates it — and put up a modal offering to open the folder, once
+per attempt.
+
+**The asymmetry is the whole design of the fix.** Suppressing an archive that
+*had* evidence costs an overnight disc pass; skipping one nothing needed costs a
+dialog. So `RunReport.produced_no_artifacts()` answers True only when certain —
+no *executed* `rip`, `screenshot` or `rig-check` — and an unreadable payload
+falls through to **building** the archive. `snapshot` is deliberately not an
+artifact verb: it renders into the transcript and writes no file, so counting it
+would make every run look artifact-rich and the predicate would never once fire.
+
+### Three process notes worth keeping
+
+1. **A revert probe graded the predicate's six unit tests `unaffected`** against
+   deleting the call-site guard — correctly, because they assert the *function*
+   and the guard lives in the *caller*. Same miss as the `--show-rows` test hours
+   earlier. Asserting the function is not asserting the caller, and the probe is
+   what says so out loud.
+2. **Nine existing tests broke and all nine were right to.** The harness's
+   default report had *no steps*, and `_steps()` built sources of `log step N` —
+   so every report in that file described a run that had executed nothing, which
+   no real finished acceptance run resembles. `CLAUDE.md`'s *what does my
+   stand-in do that the real thing does not?*, answered in the direction that
+   makes a **correct** guard look wrong. Fixed in the stand-in.
+3. **The recon pass turned up nothing needing repair, and one premise worth
+   checking.** A correction arrived saying the brief specifies Flatpak; it does
+   not — lines 234, 248 and 235 say single AppImage, `pipx` secondary, *"no
+   Flatpak sandbox"*. Flatpak appears six times as Picard's packaging and as the
+   candidate §3.5 rejected. Worth noting *why* it reads that way: line 151 is an
+   affirmative capability sentence and the disqualifier lands two lines later.
+
+`0.6.44` cut for the two fixes. The pin has not moved; round 16 is still open on
+`a9aedf0` with `ddc1e8c` as the test pin.
+
 ## 2026-09-07 (later still) — lap 5, and two verification tools that reported success while answering a different question
 
 **One sentence: round 16 lap 5 was written, and writing it found that our digest
