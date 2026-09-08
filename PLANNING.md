@@ -265,6 +265,7 @@ Platterpus/
         │   ├── unknown_album.py         # unknown-album helper flow
         │   ├── drive_setup_dialog.py    # drive-setup wizard (AccurateRip-list + manual offset; KDD-15)
         │   ├── host_setup_dialog.py     # host-setup wizard (no-terminal setup-host.sh; KDD-17c)
+        │   ├── ripper_picker.py        # pick a cyanrip build to install (GUI half of --install-ripper)
         │   ├── uninstall_dialog.py      # in-app Uninstaller (no-terminal uninstall.sh)
         │   ├── help_dialogs.py          # Help → About + User Guide dialogs
         │   └── dialogs/
@@ -456,6 +457,7 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`settings_dialog.py`** — `SettingsDialog(QDialog)`. One unified page: output/working dirs, track/disc templates, read-offset override, the metaflac path, output format, cover art, max-retries, secure re-rip, FLAC re-compress, CTDB/FLAC verify toggles, auto-launch-Picard, auto-eject. (The whipper-only force-overread / keep-going / CD-R widgets were removed with whipper — KDD-18.) Options the sole backend doesn't need are greyed out with a why+how-to tooltip (e.g. FLAC re-compress — cyanrip already maxes compression), and `to_config()` still reads disabled widgets so a value is never lost. Persists through `config.py`. (The old whipper|cyanrip backend toggle and `_apply_backend_capabilities` were removed when cyanrip became the sole backend — KDD-18/21.)
 - **`unknown_album.py`** — `UnknownAlbumDialog(QDialog)` + helper functions. Triggers an unknown-album rip (cyanrip, no MBID), applies placeholder tags via `MetaflacAdapter`, optionally invokes `flatpak run org.musicbrainz.Picard <output_folder>`.
 - **`drive_setup_dialog.py`** — `DriveSetupDialog`, the drive-setup wizard (KDD-15). The read offset comes from the bundled AccurateRip drive-model list (pre-filled when the drive is recognised) or manual entry, persisted to Platterpus's own config (applied to cyanrip as `-s`). cyanrip has **no** offset finder (its `-f` is force-overread, not detection) — so `RipBackend.supports_offset_detection()` is False for it and the wizard hides the "Detect" button rather than offer a probe that can only fail. The `DriveSetupWorker`/`find_offset` seam remains for a future backend that can genuinely measure an offset.
+- **`ripper_picker.py`** — `RipperPickerDialog`, the GUI half of `--install-ripper` (Help → Install a cyanrip build…). Lists `fork_source.ripper_choices()` — the same function the CLI prints, asserted as a relation — and pre-selects `fork_source.pin_the_rig_should_install()`, so an acceptance run needs no build chosen by hand. **Installs nothing itself:** it returns a commit to `main_window_update._begin_ripper_install`, which runs the build on `HostSetupWorker`'s thread, keeping one install subsystem (Critical rule #6). Exists because the in-app update check reads the fork's *release manifest* and so cannot offer a build the fork never released — the case a handshake round routinely creates, and the abort that ended an overnight run three times.
 - **`host_setup_dialog.py`** — `HostSetupDialog`, the no-terminal host-setup wizard (KDD-17c). Drives `deps/host_setup.py` off-thread via `HostSetupWorker` with live per-step progress; offered on first launch when the ripper is absent and on Tools → Set up Platterpus…. Installs the cyanrip backend into the container.
 - **`uninstall_dialog.py`** — `UninstallDialog`, the in-app Uninstaller (Tools → Uninstall Platterpus…, also launched directly by `platterpus --uninstall` from the menu entry). Confirmation gate + per-piece checkboxes (container, whipper.conf; the AppImage step appears only when running as one); drives `deps/host_teardown.py` via the shared worker; on success the main window offers to close itself (its settings no longer exist on disk).
 - **`help_dialogs.py`** — `AboutDialog` (version + Python/Qt/PySide6 versions + config/log/whipper paths) and `HelpDialog` (renders `help_content.USER_GUIDE`).
@@ -1174,7 +1176,7 @@ Three consequences, now standing:
 
 ---
 
-*Last updated for Platterpus v0.6.35.*
+*Last updated for Platterpus v0.6.45.*
 ### KDD-35 — A version number is a claim about the field, not about CI (decided 2026-08-19)
 
 **Decision.** Version thresholds are gated on *evidence from hardware in people's
