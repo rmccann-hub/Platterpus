@@ -1250,7 +1250,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ui/main_window_deps.py": 589,
     "ui/main_window_drive.py": 555,
     "ui/main_window_helpers.py": 508,
-    "ui/main_window_provision.py": 1212,
+    # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
+    # multi-hundred-megabyte archive and put up a folder prompt for a run that
+    # touched no drive. The growth is the guard, the dialog that states the fix
+    # instead of offering a folder, and the paragraphs recording why the
+    # predicate errs toward BUILDING the archive — suppressing one that had
+    # evidence costs an overnight disc pass. It belongs beside the bundle launch
+    # it gates; the decision and the launch in separate files is how a guard
+    # stops being read as part of the path it guards.
+    "ui/main_window_provision.py": 1283,
     "ui/main_window_rip.py": 4225,
     "ui/main_window_shared.py": 392,
     "ui/main_window_update.py": 953,

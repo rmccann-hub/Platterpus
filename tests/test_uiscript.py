@@ -830,3 +830,78 @@ def test_the_wrong_ripper_failure_names_a_command_not_a_gui_path() -> None:
         "the GUI-path remedy is still in the message — an operator who can paste a "
         "command should be given a command"
     )
+
+
+class TestNothingToSend:
+    """**A run that touched no drive must not pack an archive or ask for a folder.**
+
+    2026-09-08: an acceptance run aborted at section A four seconds in — wrong
+    ripper installed — and still built a multi-hundred-megabyte archive (the app
+    log dominates it) and put up a modal offering to open the folder. Three
+    attempts produced three archives and three dialogs. The maintainer's report:
+    *"it keeps asking me to open a folder and makes a new compressed file"*.
+
+    **The asymmetry is the whole design.** Suppressing an archive that HAD
+    evidence costs an overnight disc pass; skipping one nothing needed costs a
+    dialog. So the predicate answers True only when it is certain there is
+    nothing, and every doubtful case builds the archive.
+    """
+
+    @staticmethod
+    def _report(*steps: tuple[str, Outcome]) -> RunReport:
+        report = RunReport(started_at="s", app_version="v")
+        report.steps = [
+            StepRecord(line_no=n, source=src, outcome=out)
+            for n, (src, out) in enumerate(steps, start=1)
+        ]
+        return report
+
+    def test_a_precondition_abort_has_nothing_to_send(self) -> None:
+        """The real shape: 14 executed, 223 skipped, no disc touched."""
+        report = self._report(
+            ("cyanrip --version", Outcome.PASS),
+            ("expect-ripper-under-review", Outcome.FAIL),
+            ("abort-if-failed the installed ripper is wrong", Outcome.PASS),
+            ("rip", Outcome.SKIPPED),
+            ("screenshot afterfullrip", Outcome.SKIPPED),
+            ("rig-check", Outcome.SKIPPED),
+        )
+        assert report.produced_no_artifacts()
+
+    def test_an_EXECUTED_rip_always_has_something_to_send(self) -> None:
+        """The direction that must never be wrong. A rip ran; the archive is the
+        deliverable of the night and suppressing it would lose a disc pass."""
+        report = self._report(
+            ("cyanrip --version", Outcome.PASS),
+            ("rip", Outcome.PASS),
+            ("expect-rip-complete", Outcome.FAIL),
+        )
+        assert not report.produced_no_artifacts()
+
+    def test_a_screenshot_or_a_rig_check_alone_is_enough(self) -> None:
+        """Each artifact verb counts on its own — a loop that only looked for
+        `rip` would drop a run whose only output is images or a manifest."""
+        for verb in ("screenshot shot1", "rig-check"):
+            report = self._report(
+                ("cyanrip --version", Outcome.PASS), (verb, Outcome.PASS)
+            )
+            assert not report.produced_no_artifacts(), verb
+
+    def test_a_FAILED_rip_still_counts(self) -> None:
+        """A rip that failed part-way is exactly when the evidence matters most.
+        Only SKIPPED means it never ran."""
+        report = self._report(("rip", Outcome.FAIL))
+        assert not report.produced_no_artifacts()
+
+    def test_an_empty_run_has_nothing_to_send(self) -> None:
+        """Nothing executed, so nothing was produced. Stated because the first
+        version of the docstring claimed the opposite of what the code did."""
+        assert RunReport(started_at="s", app_version="v").produced_no_artifacts()
+
+    def test_snapshot_is_deliberately_not_an_artifact_verb(self) -> None:
+        """The non-triviality floor. `snapshot` renders into the transcript and
+        writes no file; counting it would make every real run look artifact-rich
+        and this predicate would never once answer True."""
+        assert "snapshot" not in RunReport.ARTIFACT_VERBS
+        report = self._report(("snapshot atstart", Outcome.PASS))
+        assert report.produced_no_artifacts()

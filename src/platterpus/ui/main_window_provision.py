@@ -799,8 +799,79 @@ class ProvisioningMixin(MainWindowShared):
         finally:
             self._release_acceptance_inhibitor()
 
+        # **A RUN WITH NOTHING IN IT GETS NO ARCHIVE AND NO FOLDER PROMPT.**
+        # A precondition abort — the wrong ripper installed, the disc not
+        # identified — stops in seconds having touched no drive, and still packed
+        # a multi-hundred-megabyte archive (the app log dominates it) and put up
+        # a modal offering to open the folder. Three attempts, three archives,
+        # three dialogs; the maintainer's report on 2026-09-08 was *"it keeps
+        # asking me to open a folder and makes a new compressed file"*.
+        #
+        # **The asymmetry decides the direction.** Suppressing an archive that
+        # HAD evidence costs an overnight disc pass; skipping one nothing needed
+        # costs a dialog. So the predicate answers True only when it is certain
+        # there is nothing (`RunReport.produced_no_artifacts`), and a payload we
+        # cannot read at all falls through to building the archive.
+        #
+        # The transcript is NOT lost: `ScriptRunner` has already written it, the
+        # report JSON and any screenshots to its own run folder, which the
+        # message below names. What is skipped is the redundant archive around
+        # them — and the prompt that implies there is something to send.
+        nothing_to_send = False
+        predicate = getattr(report, "produced_no_artifacts", None)
+        if callable(predicate):
+            try:
+                nothing_to_send = bool(predicate())
+            except Exception:  # noqa: BLE001 — never end a session on our own bug
+                log.exception("could not decide whether the run produced artifacts")
+                nothing_to_send = False
+        if nothing_to_send:
+            self._announce_run_with_nothing_to_send(report, artifact_dir)
+            return
+
         self._launch_acceptance_bundle(
             layout, transcript=transcript, facts=facts, artifact_dir=artifact_dir
+        )
+
+    def _announce_run_with_nothing_to_send(
+        self, report: object, artifact_dir: Path | None
+    ) -> None:
+        """Say what stopped the run and what to do — no archive, no folder button.
+
+        **The dialog states the fix rather than offering a folder.** A run that
+        aborted on a precondition has one useful sentence in it, and it is
+        already in the transcript: the failing step's own message, which names
+        the command that repairs it. Offering to open a folder instead asks the
+        operator to go and find that sentence.
+
+        `open_path` is deliberately omitted even though the run folder exists.
+        There is nothing in it to send, and a button that opens a folder is a
+        button that says *"there is something here for you"*.
+        """
+        reason = str(getattr(report, "ended_reason", "") or "")
+        first = ""
+        for step in getattr(report, "steps", []) or []:
+            outcome = str(getattr(step, "outcome", ""))
+            if outcome in ("fail", "error"):
+                detail = str(getattr(step, "detail", "") or "").strip()
+                line = getattr(step, "line_no", "?")
+                source = str(getattr(step, "source", "") or "").strip()
+                first = f"L{line}  {source}\n\n{detail}"
+                break
+        body = (
+            "The run stopped before it touched the drive, so there is nothing to "
+            "send and no archive was made.\n\n"
+            + (f"{first}\n\n" if first else "")
+            + (f"Why it stopped: {reason}\n\n" if reason else "")
+            + "Fix the step above and start the acceptance test again. The "
+            "transcript of this attempt is kept"
+            + (f" in {artifact_dir}" if artifact_dir is not None else "")
+            + "."
+        )
+        self._acceptance_message(
+            QMessageBox.Icon.Warning,
+            "The acceptance run stopped early — nothing to send",
+            body,
         )
 
     def _acceptance_run_facts(self, report: object) -> dict[str, str]:
