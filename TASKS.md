@@ -263,7 +263,30 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       cleverer argv. Small, and deliberately not done in the same change as the cancel
       fix: that one touches a destructive path and wanted its own commit.
 
-- [ ] **KDD-17 GAP: `ripper_choices()` has no GUI caller.** `--install-ripper` and
+- [x] **KDD-17 GAP: `ripper_choices()` has no GUI caller.**
+      **CLOSED 2026-09-08 (0.6.45).** `Help → Install a cyanrip build…` opens
+      `ui/ripper_picker.py`, which lists exactly what `--install-ripper list`
+      prints (same function, asserted as a relation) and **pre-selects the build
+      the run needs** via the new `fork_source.pin_the_rig_should_install()`. It
+      installs nothing itself: it returns a commit to
+      `_begin_ripper_install`, the path the release-manifest offer already uses,
+      which runs the build on `HostSetupWorker`'s thread — one install
+      subsystem, per Critical rule #6.
+      **Closed because the maintainer asked why a terminal was needed at all**
+      and was right to: the acceptance script's header had carried a
+      parenthetical admitting this gap and sending the operator to a command,
+      for a round. An excuse written into operator instructions is still a
+      manual step. Header now names the menu item and keeps the command as the
+      fallback for builds older than the picker.
+      Extracted `pin_the_rig_should_install()` in the same change: that
+      expression had reached two call sites and this would have been the third,
+      and two of the three surfaces answering *"which build?"* had already
+      disagreed that week.
+      Four reverts probed, all `detected` — including one proving the predicate
+      is genuinely shared, since reverting it fails both the picker's tests and
+      the abort-message tests.
+
+- [ ] **KDD-17 GAP (was): `ripper_choices()` GUI caller — original filing.** `--install-ripper` and
       `--install-ripper list` are CLI-only (`app.py:873`, `:889`), so a GUI-only
       operator has **no route** to the build an open round is reviewing whenever the
       fork has not published it — which is round 16. The update offer cannot serve
@@ -3534,4 +3557,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.44.*
+*Last updated for Platterpus v0.6.45.*

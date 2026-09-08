@@ -1129,7 +1129,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # would-be special cases with one loop over the targets it already holds, so
     # this is the shape that stops the file growing again when a fourth known pin
     # appears.
-    "deps/fork_source.py": 1872,
+    # **1872 -> 1890 on 2026-09-08**, for `pin_the_rig_should_install()`.
+    # One derived answer to "which build must an acceptance run have installed",
+    # extracted at the moment a THIRD caller was about to restate it — two of the
+    # three surfaces answering that question had already disagreed inside a week.
+    # It compares the two pins, so it belongs beside them for the reason the note
+    # above gives.
+    "deps/fork_source.py": 1890,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1246,7 +1252,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ui/disc_info_panel.py": 319,
     "ui/drive_setup_dialog.py": 500,
     "ui/host_setup_dialog.py": 341,
-    "ui/main_window.py": 1558,
+    # **1558 -> 1572 on 2026-09-08**: the `Help → Install a cyanrip build…`
+    # action, plus the paragraph saying why a SECOND ripper entry exists — the
+    # update check reads the fork's release manifest and cannot offer a build the
+    # fork never published, which is the abort that ended three overnight runs.
+    # Menu wiring lives with the menu; the dialog is its own module.
+    "ui/main_window.py": 1572,
     "ui/main_window_deps.py": 589,
     "ui/main_window_drive.py": 555,
     "ui/main_window_helpers.py": 508,
@@ -1261,7 +1272,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ui/main_window_provision.py": 1283,
     "ui/main_window_rip.py": 4225,
     "ui/main_window_shared.py": 392,
-    "ui/main_window_update.py": 953,
+    # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
+    # opens the picker and hands the commit to `_begin_ripper_install` — the
+    # install path already here. It belongs in this file precisely BECAUSE it is
+    # thin: putting a one-`exec`-and-delegate method in its own module would
+    # separate it from the install it delegates to, which is the split that makes
+    # a second install route look reasonable later.
+    "ui/main_window_update.py": 989,
     "ui/rip_progress.py": 1658,
     "ui/settings_dialog.py": 1303,
     "ui/track_table.py": 802,
@@ -1304,7 +1321,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # paragraphs recording why each exists — and it belongs in the verb, because
     # the message IS the verb's output and a failure message assembled elsewhere
     # is the split that let this one drift from the script's own header.
-    "uiscript/runner.py": 3486,
+    # **3486 -> 3482 the same day: it SHRANK.** Replacing the inline
+    # `FORK_TEST_PIN if … else PIN_UNDER_REVIEW` with a call to
+    # `fork_source.pin_the_rig_should_install()` cost four lines, and the
+    # ratchet's non-triviality twin refused the stale 3486 as unearned headroom
+    # — correctly: a recorded count above the real one is that many lines the
+    # ratchet would not notice. A ratchet may shrink, and this is what that
+    # looks like.
+    "uiscript/runner.py": 3482,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,

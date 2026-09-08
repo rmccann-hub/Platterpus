@@ -1034,6 +1034,20 @@ class MainWindow(
         # claim about itself, so the two decisions are kept apart on purpose.
         ripper_update_action = help_menu.addAction("Check for &cyanrip updates…")
         ripper_update_action.triggered.connect(self._on_check_ripper_updates)
+        # **AND A ROUTE THE CHECK ABOVE CANNOT PROVIDE.** That one reads the
+        # fork's RELEASE MANIFEST, so it can only offer builds the fork has
+        # published — and a handshake round routinely opens on a commit they have
+        # nominated and never released, which is when its most honest answer
+        # becomes "your build is current". True of the manifest, and not the
+        # build an acceptance run demands: that answer has ended an overnight run
+        # at section A three times.
+        #
+        # `--install-ripper list` has been the workaround, in a terminal, with
+        # the acceptance script's header carrying a parenthetical admitting the
+        # menu had no GUI caller. This is that caller (KDD-17: zero-terminal for
+        # anything the software can do).
+        pick_ripper_action = help_menu.addAction("&Install a cyanrip build…")
+        pick_ripper_action.triggered.connect(self._on_pick_ripper_build)
 
         # Actions that would conflict with an in-flight rip (change settings,
         # spin the drive, install/uninstall, swap the AppImage out from under a
