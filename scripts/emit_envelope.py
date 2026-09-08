@@ -73,7 +73,22 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-05.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-07.md",)
+
+# WHY IT MOVED TO ROUND-16 LAP 7 (2026-09-07), same day, same reasons.
+#
+# Lap 5 is DELIVERED — the fork's lap 6 line 24 declares holding it at
+# `ad77e1346fd47218`, split with our own reader and verified against our manifest
+# — so its envelope on disk is history and is not regenerated. Lap 7 leads
+# because it CORRECTS lap 5: that lap told them to run `0.6.42`, which does not
+# contain the two fixes the same lap describes. A correction and the thing it
+# corrects must not arrive in the wrong order, which is the round-14 lap-13
+# reasoning arriving again.
+#
+# One part again. Lap 7 quotes no sha of `fullacceptance.txt`, and Run B reaches
+# the script inside the AppImage, so shipping a copy would hand them an artifact
+# nothing in the lap references and a second copy of one that ships in the
+# release.
 
 # WHY IT MOVED TO ROUND-16 LAP 5 (2026-09-07), AND WHY IT TRAVELS ALONE.
 #

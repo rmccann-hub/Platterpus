@@ -11,6 +11,58 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.44] — 2026-09-07
+
+Two fixes to what the app *says and does when a run stops early*, cut so the
+round-16 session carries them. Neither changes a rip: `0.6.43` rips correctly
+and remains the build the run needs — this makes the failure path honest.
+
+### Fixed
+- **A run that touched no drive still packed an archive and asked to open a
+  folder.** A precondition abort — wrong ripper installed, or the disc never
+  identified — stops in seconds having read nothing, and the acceptance session
+  still built a multi-hundred-megabyte `.tar.gz` (the app log dominates it) and
+  put up a modal offering to open the session folder. Three attempts produced
+  three archives and three dialogs; reported on 2026-09-08 as *"it keeps asking
+  me to open a folder and makes a new compressed file"*.
+  `RunReport.produced_no_artifacts()` now decides it, and **the asymmetry sets
+  the direction**: suppressing an archive that HAD evidence costs an overnight
+  disc pass, while skipping one nothing needed costs a dialog. So it answers True
+  only when it is certain there is nothing — no *executed* `rip`, `screenshot` or
+  `rig-check` — and a payload that cannot be read at all falls through to
+  building the archive. `snapshot` is deliberately not an artifact verb: it
+  renders into the transcript and writes no file, so counting it would make every
+  run look artifact-rich and the predicate would never once answer True.
+  The dialog now **states the fix instead of offering a folder** — it names the
+  step that stopped the run and repeats that step's own message, which carries
+  the command that repairs it. Nothing is lost: the transcript, the report JSON
+  and any screenshots are already written to the run folder, which the message
+  names.
+  Tested in both directions and at both levels, because a revert probe graded the
+  predicate's unit tests `unaffected` against deleting the call-site guard —
+  asserting the function is not asserting the caller, which cost a vacuous test
+  earlier the same day.
+
+- **The one message an operator reads when the run aborts named the wrong build.**
+  A real rig run on 2026-09-08 stopped at section A — correctly, with `g978f9b0`
+  installed — and then told the operator to run `--install-ripper a9aedf0`, while
+  both projects' records say the round-16 session installs the **test pin**
+  `ddc1e8c`. It also led with *"Help → Check for cyanrip updates…"*, a route that
+  reads the fork's **release manifest** and therefore cannot offer a build the
+  fork never published, which is exactly what a test pin is. The acceptance
+  script's own header spends four paragraphs on that; the failure message
+  contradicted it.
+  Both halves now derive from `rig_installs_the_test_pin()`: the message names the
+  build the rig actually needs, and when that build is a test pin it leads with
+  the one command that can install it and says *why* the in-app route is not
+  offered. When a round closes and the pins coincide, the in-app route comes back.
+  **Third surface with this defect in one day**, and the one that mattered most —
+  `ripper_choices`' menu and `target_for_commit`'s version label were fixed hours
+  earlier and the commit called that a sweep. It swept the two places that had
+  been looked at. `docs/testing.md` §5.o: enforce a rule across the codebase, not
+  at the place it was learned.
+
+
 ## [0.6.43] — 2026-09-07
 
 Cut so the round-16 joint hardware session runs on a build that carries the
@@ -13835,7 +13887,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.43...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.44...HEAD
+[0.6.44]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.43...v0.6.44
 [0.6.43]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.42...v0.6.43
 [0.6.42]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.41...v0.6.42
 [0.6.41]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.40...v0.6.41
@@ -13966,4 +14019,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.43.*
+*Last updated for Platterpus v0.6.44.*

@@ -162,7 +162,43 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       unchanged) and `test_argv_surface_agreement.py` now resolves the lap-6
       contract and passes.
 
-- [ ] **Their lap 6 §2 attributes the one added contract row to P5; it is in P3.**
+- [x] **Their lap 6 §2 attributes the one added contract row to P5; it is in P3.**
+      **RESOLVED by their lap 8 (2026-09-07) — they confirmed it as their error**
+      and fixed the mechanism rather than the sentence: `tools/contract-delta.py`
+      now derives which section changed by splitting both contracts on their own
+      headings, and `tests/contract_delta.py` asserts *"P5 is reported identical
+      for this pair"* — the specific sentence that was wrong — revert-proved by
+      making the tool mislabel P5. Their account of the cause is worth keeping:
+      the regeneration diff showed one added table row that *looked* like a
+      message-inventory entry, "message inventory" is P5, and the label came from
+      that inference. **A claim about a generated artifact made by reading a diff
+      hunk instead of the artifact.**
+      Their published section hashes (`530de2abf812 -> af6ebfa08a87` for P3) did
+      not match ours at first. Established as a METHOD difference, not a content
+      one: they hash the section **body**, we included the **heading line**. Their
+      values reproduce exactly here once their spec is reimplemented, and both
+      constructions agree that exactly one section differs.
+
+- [ ] **Their lap 8 §3 misattributes a commit and undercounts the range.** Round
+      17, NOT blocking, and the safety-relevant half of the claim is TRUE.
+      **The misattribution:** §3 credits `bc2ef8e` with splitting the checker's
+      `AccurateRip:` handling into five values. `bc2ef8e` is *"Pin lap 6 as
+      sent"* and changes exactly one file, `tests/sent_laps.py`, `+7` lines. The
+      AccurateRip work is **`a0830e0`**, *"AccurateRip prints five values and the
+      checker collapsed four of them"*, touching `tools/round16-accept.py` and
+      `tests/round16_accept.py`.
+      **The undercount:** §3 says *"two commits"*. From lap 6's
+      `HANDSHAKE-FROM-COMMIT` (`0cd611a`) the range holds **7**; from the lap-6
+      commit (`c8a75b0`), **6**; from `bc2ef8e`, **3**. No reading gives 2. The
+      two they *describe* are the substantive ones — the rest are lap filing, a
+      STATUS doc, golden-reference regeneration and pinning.
+      **What IS true is the part that matters:** `git diff --name-only
+      0cd611a..343ebd1 -- src/` is empty, so `HANDSHAKE-BREAKING: None new` holds
+      for the whole range however it is counted, and the binary is untouched.
+      Same family as the P5/P3 mislabel one row up and as our own wrong-tree line
+      numbers in lap 5 §B2: **the substance right, the identifier written from
+      memory rather than read off the artifact.** Third instance this round,
+      which is what makes it worth a row rather than a shrug.
       Round 17, NOT blocking, and their substantive claim is TRUE — *"no flag, no
       exit code, no P2 stable line"* is exactly what the section-by-section diff
       shows. The mislabel is the delta table's last row, which reads `| P5 | — |
@@ -3498,4 +3534,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.43.*
+*Last updated for Platterpus v0.6.44.*
