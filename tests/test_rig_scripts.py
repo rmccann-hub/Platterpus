@@ -1465,33 +1465,64 @@ def test_the_header_names_the_route_that_reaches_an_UNPUBLISHED_build() -> None:
         f"detector has stopped finding it and this check is measuring nothing"
     )
 
-    assert "--install-ripper list" in header, (
-        "the header no longer names the route that reaches a build the fork has "
-        "not published. The in-app check cannot offer one, so while a round is "
-        "open on an unreleased pin this is the operator's ONLY way onto the "
-        "build section A demands"
+    # **THE ROUTE IS A MENU ITEM AS OF 0.6.45, AND THE TERMINAL ONE REMAINS.**
+    # Both are required: the click is what an operator uses, and the command is
+    # what still works on a build whose GUI predates the menu — this file ships
+    # inside a release and gets read by whoever has it, not only by whoever has
+    # the newest.
+    assert "Install a cyanrip build" in header, (
+        "the header no longer names the GUI route onto a build the fork has not "
+        "published. The in-app update check cannot offer one, so while a round "
+        "is open on an unreleased pin this is the operator's way onto the build "
+        "section A demands"
     )
-    # BOTH the explanation and the INSTRUCTION, and the split is the point.
-    # A first version of this asserted only `label in header`, and
-    # `revert_probe.py` showed that satisfiable by the wrong occurrence: each
-    # label appears twice in the header — once where the markers are explained,
-    # once in the sentence that says which to install — so deleting either left
-    # the assertion green. The explanation without the instruction tells the
-    # operator what the words mean and not what to do.
+    assert "--install-ripper list" in header, (
+        "the terminal route is gone from the header. It is the fallback for a "
+        "build whose menu predates the picker, and this file is read on builds "
+        "older than the one it shipped in"
+    )
+    # **THE INSTRUCTION, NOT ONLY THE EXPLANATION — and the mechanism changed
+    # rather than the requirement.** A first version asserted `label in header`
+    # and `revert_probe.py` showed that satisfiable by the wrong occurrence:
+    # each label appeared twice, once explaining the markers and once saying
+    # which to install, so deleting either left it green.
+    #
+    # The operator no longer picks: the dialog pre-selects the build this run
+    # needs, from the same constant section A checks. So the instruction the
+    # header must carry is that fact — *"already selected"* — and asserting the
+    # label twice would now be asserting a sentence we deliberately removed.
+    # The claim is backed where it can actually be checked:
+    # `tests/test_ripper_picker.py::test_the_preselected_build_is_the_one_the_rig_needs`
+    # asserts the dialog really does it. Header and behaviour, as a pair.
+    assert "already selected" in header, (
+        "the header explains the markers but never tells the operator what to "
+        "do. The explanation without the instruction says what the words mean "
+        "and not which build to end up on"
+    )
     for label in ("under-review", "test-pin"):
-        assert header.count(label) >= 2, (
-            f"the header mentions {label!r} only once. It needs both the "
-            f"explanation of the marker AND the sentence telling the operator to "
-            f"install that entry; one alone is a glossary or a guess"
+        assert header.count(label) >= 1, (
+            f"the header never explains the {label!r} marker. An operator who "
+            f"opens the dialog sees the word and cannot tell what it means for "
+            f"the run they are about to start"
         )
-    assert re.search(
-        r"install\s+the\s*\n?#?\s*`?under-review`?\s*or\s*`?test-pin`?\s*entry",
-        header,
-        re.IGNORECASE,
-    ), (
-        "the header explains the markers but no longer INSTRUCTS which entry to "
-        "install while a round is open. That sentence is the whole operative "
-        "content of the second route"
+    # **THE OPERATIVE SENTENCE, in the form the mechanism now takes.** Until
+    # 0.6.45 this matched *"install the `under-review` or `test-pin` entry"* —
+    # correct then, because the operator chose. The dialog now pre-selects the
+    # build from the same constant section A checks, so the operative content is
+    # that they need choose nothing and simply commit. Matched as the PAIR
+    # (already-selected + the click) because either half alone is a description:
+    # "already selected" without an action leaves them looking for one, and
+    # "click Install" without saying what is selected is the guess this whole
+    # route exists to remove.
+    assert re.search(r"already\s+selected", header, re.IGNORECASE), (
+        "the header no longer states that the needed build is pre-selected. "
+        "That fact is the whole operative content of the GUI route — without it "
+        "the dialog is a list and the operator is guessing again"
+    )
+    assert re.search(r"click\s+install", header, re.IGNORECASE), (
+        "the header says which build is selected but never says to commit it. "
+        "An operator who reads a status and no action goes looking for the "
+        "instruction, which is where the terminal command used to be"
     )
 
     # And the second route must not smuggle a build tag back in: same freeze

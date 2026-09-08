@@ -11,6 +11,42 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.45] — 2026-09-08
+
+**The acceptance run needs no terminal.** `Help → Install a cyanrip build…`
+replaces the `--install-ripper` command the operator was being handed, with
+the build the run needs already selected. The command remains as the fallback
+for builds older than the picker.
+
+### Added
+- **`Help → Install a cyanrip build…` — the GUI route onto a build the fork has
+  not released.** The in-app update check reads the fork's *release manifest*, so
+  it can only offer published builds; a handshake round routinely opens on a
+  commit they nominated and never released, and then its most honest answer is
+  *"your build is current"* — true of the manifest, false of the build an
+  acceptance run demands. That answer has ended an overnight run at section A
+  three times. `--install-ripper list` was the workaround, in a terminal, and the
+  acceptance script's header carried a parenthetical admitting *"the menu has no
+  GUI caller yet"* for a full round. **An excuse written into operator
+  instructions is still a manual step**, and KDD-17's bar is zero-terminal for
+  anything the software can do.
+  The dialog lists exactly what the CLI prints — the same `ripper_choices()`, and
+  a test asserts the two agree rather than each being checked alone — and
+  **pre-selects the build the run needs**, so the operator chooses nothing and
+  clicks Install. It installs nothing itself: it returns a commit to
+  `_begin_ripper_install`, the path the manifest offer already uses, which runs
+  the build on `HostSetupWorker`'s thread. One install subsystem (Critical rule
+  #6); a second route would drift the first time a build dependency changed, and
+  drift silently, because both would still produce a working binary most of the
+  time.
+  `fork_source.pin_the_rig_should_install()` is extracted in the same change: the
+  expression `FORK_TEST_PIN if rig_installs_the_test_pin() else PIN_UNDER_REVIEW`
+  had reached two call sites and this would have been the third, and two of the
+  three surfaces answering *"which build?"* had already disagreed within a week.
+  Cancelling installs nothing — falling back to `WIZARD_TARGET` would install a
+  build the user did not ask for, which is worse than the command it replaces.
+
+
 ## [0.6.44] — 2026-09-07
 
 Two fixes to what the app *says and does when a run stops early*, cut so the
@@ -13887,7 +13923,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.44...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.45...HEAD
+[0.6.45]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.44...v0.6.45
 [0.6.44]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.43...v0.6.44
 [0.6.43]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.42...v0.6.43
 [0.6.42]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.41...v0.6.42
@@ -14019,4 +14056,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.44.*
+*Last updated for Platterpus v0.6.45.*
