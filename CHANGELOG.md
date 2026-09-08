@@ -11,6 +11,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The one message an operator reads when the run aborts named the wrong build.**
+  A real rig run on 2026-09-08 stopped at section A — correctly, with `g978f9b0`
+  installed — and then told the operator to run `--install-ripper a9aedf0`, while
+  both projects' records say the round-16 session installs the **test pin**
+  `ddc1e8c`. It also led with *"Help → Check for cyanrip updates…"*, a route that
+  reads the fork's **release manifest** and therefore cannot offer a build the
+  fork never published, which is exactly what a test pin is. The acceptance
+  script's own header spends four paragraphs on that; the failure message
+  contradicted it.
+  Both halves now derive from `rig_installs_the_test_pin()`: the message names the
+  build the rig actually needs, and when that build is a test pin it leads with
+  the one command that can install it and says *why* the in-app route is not
+  offered. When a round closes and the pins coincide, the in-app route comes back.
+  **Third surface with this defect in one day**, and the one that mattered most —
+  `ripper_choices`' menu and `target_for_commit`'s version label were fixed hours
+  earlier and the commit called that a sweep. It swept the two places that had
+  been looked at. `docs/testing.md` §5.o: enforce a rule across the codebase, not
+  at the place it was learned.
+
+
 ## [0.6.43] — 2026-09-07
 
 Cut so the round-16 joint hardware session runs on a build that carries the

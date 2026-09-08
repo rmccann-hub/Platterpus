@@ -1287,7 +1287,16 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # session at its first assertion, on the build both projects told the
     # operator to install. This module is still the split candidate TASKS.md
     # tracks; raised deliberately rather than split under a hardware deadline.
-    "uiscript/runner.py": 3452,
+    # **3452 -> 3486 on 2026-09-08.** The `expect-ripper-under-review` failure
+    # message now derives WHICH build to name and WHICH route can install it,
+    # instead of hardcoding the reviewed pin and the in-app check. A real rig run
+    # aborted at section A and was handed `--install-ripper a9aedf0` when the
+    # round's agreed build is `ddc1e8c`, plus a route that cannot offer an
+    # unpublished build at all. The growth is two derived branches and the
+    # paragraphs recording why each exists — and it belongs in the verb, because
+    # the message IS the verb's output and a failure message assembled elsewhere
+    # is the split that let this one drift from the script's own header.
+    "uiscript/runner.py": 3486,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
