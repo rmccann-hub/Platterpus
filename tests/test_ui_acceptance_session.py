@@ -301,13 +301,31 @@ def _start(window_factory, session, process_until) -> MainWindow:
     return win
 
 
+def _a_run_that_ripped() -> RunReport:
+    """A report shaped like a run that actually did something.
+
+    **The default used to be an EMPTY `RunReport`, and no real finished run looks
+    like that.** A run that reaches the end has executed steps; an empty one has
+    executed nothing, which is now a meaningful state — `produced_no_artifacts()`
+    reads it as "nothing to send" and the session correctly skips the archive.
+    Four tests in this file asserted bundle behaviour against a shape the product
+    will never emit, and only noticed when the guard landed.
+
+    `CLAUDE.md`: *what does my stand-in do that the real thing does not?* This one
+    was **emptier** than the product, which made it look like the guard was wrong.
+    """
+    from platterpus.uiscript.report import Outcome, StepRecord
+
+    report = RunReport(started_at="t", app_version="v")
+    report.steps = [StepRecord(line_no=1, source="rip", outcome=Outcome.PASS)]
+    return report
+
+
 def _finish(win: MainWindow, process_until, report: object | None = None) -> None:
     """Fire the console's `run_finished` and pump until the bundle has landed."""
     console = win._acceptance_console
     assert console is not None
-    console.run_finished.emit(
-        report if report is not None else RunReport(started_at="t", app_version="v")
-    )
+    console.run_finished.emit(report if report is not None else _a_run_that_ripped())
     thread = win._acceptance_bundle_thread
     assert thread is not None, "no bundle daemon was started"
     assert process_until(lambda: not thread.is_alive()), "the bundle daemon wedged"
@@ -772,8 +790,22 @@ def quick_bundle(monkeypatch: pytest.MonkeyPatch):
 
 
 def _steps(*outcomes: Outcome) -> list[StepRecord]:
+    """Steps carrying the given outcomes, the first of them a `rip`.
+
+    **The `rip` is load-bearing, not decoration.** These tests are about how a
+    *finished* acceptance run is reported, and a finished acceptance run has
+    ripped — that is what the session exists to do. The sources used to be
+    uniformly `log step N`, which since 2026-09-08 means
+    `RunReport.produced_no_artifacts()` reads every one of these reports as a run
+    with nothing to send, so the session skips the archive and these dialogs are
+    never reached.
+
+    The stand-in was quietly *less* than the product it stood for. Fixed here
+    rather than by weakening the guard, because the guard is right: a run that
+    executed nothing but `log` really has produced nothing.
+    """
     return [
-        StepRecord(index, f"log step {index}", outcome)
+        StepRecord(index, "rip" if index == 1 else f"log step {index}", outcome)
         for index, outcome in enumerate(outcomes, start=1)
     ]
 
@@ -853,14 +885,29 @@ def test_a_report_with_no_steps_is_not_reported_as_a_pass(
     window, session, process_until, shown_boxes, quick_bundle
 ) -> None:
     """The floor. "All 0 step(s) passed" is a verdict satisfied by finding
-    nothing, and this is the dialog somebody acts on."""
+    nothing, and this is the dialog somebody acts on.
+
+    **The ROUTE changed on 2026-09-08 and the floor did not.** A report with no
+    steps now reaches the "nothing to send" dialog rather than the bundle dialog
+    — a run that executed nothing produced nothing, so no archive is built. What
+    must never change is that it is not reported as a pass, and that is asserted
+    here on whichever dialog it lands on.
+    """
     win = _start(window, session, process_until)
 
-    _finish(win, process_until, RunReport(started_at="t", app_version="v"))
+    console = win._acceptance_console
+    assert console is not None
+    console.run_finished.emit(RunReport(started_at="t", app_version="v"))
+    process_until(lambda: bool(shown_boxes))
 
     text = shown_boxes[-1].text()
-    assert "NOT DETERMINED" in text, f"an empty report read as a verdict:\n{text}"
-    assert not text.startswith("✓")
+    assert not text.startswith("✓"), f"an empty report was stamped a pass:\n{text}"
+    assert "nothing to send" in text.casefold(), (
+        f"an empty report did not take the nothing-to-send route:\n{text}"
+    )
+    assert win._acceptance_bundle_thread is None, (
+        "an archive was packed for a run that executed nothing"
+    )
 
 
 def test_an_unreadable_report_is_reported_as_not_determined(
@@ -1191,3 +1238,97 @@ def test_the_session_bundle_carries_the_diagnostics_blob(
     assert "Platterpus" in body, (
         f"the blob does not look like diagnostics: {body[:200]!r}"
     )
+
+
+# --- a run with nothing in it must not pack an archive ------------------------
+
+
+def _report_with(*steps: tuple[str, str]) -> object:
+    """A `RunReport` whose steps carry the given (source, outcome) pairs."""
+    from platterpus.uiscript.report import Outcome, RunReport, StepRecord
+
+    report = RunReport(started_at="s", app_version="v")
+    report.steps = [
+        StepRecord(line_no=n, source=src, outcome=Outcome(out))
+        for n, (src, out) in enumerate(steps, start=1)
+    ]
+    return report
+
+
+def test_a_precondition_abort_packs_no_archive_and_offers_no_folder(
+    window, session, shown_boxes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """**The call site, not the predicate.**
+
+    A revert probe graded the unit tests `unaffected` against deleting this
+    guard — correctly, because they assert the *function* and this asserts the
+    *caller*. That distinction cost a vacuous test earlier the same day, so the
+    branch gets its own test at the place it actually runs.
+    """
+    launched: list[object] = []
+    monkeypatch.setattr(
+        type(window()),
+        "_launch_acceptance_bundle",
+        lambda self, *a, **k: launched.append(a),
+    )
+    win = window()
+    win._acceptance_layout = object()  # type: ignore[assignment]  # armed enough
+
+    win._on_acceptance_run_finished(
+        _report_with(
+            ("cyanrip --version", "pass"),
+            ("expect-ripper-under-review", "fail"),
+            ("rip", "skipped"),
+        )
+    )
+
+    assert launched == [], "an archive was packed for a run that touched nothing"
+    assert shown_boxes, "the operator was told nothing at all"
+    said = shown_boxes[-1].text()
+    assert "nothing to send" in said.casefold(), said
+    assert "expect-ripper-under-review" in said, (
+        f"the dialog must name the step that stopped it, not just the fact: {said}"
+    )
+
+
+def test_a_run_that_ripped_still_packs_its_archive(
+    window, session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The direction that must never break: suppressing this loses a disc pass."""
+    launched: list[object] = []
+    monkeypatch.setattr(
+        type(window()),
+        "_launch_acceptance_bundle",
+        lambda self, *a, **k: launched.append(a),
+    )
+    win = window()
+    win._acceptance_layout = object()  # type: ignore[assignment]
+
+    win._on_acceptance_run_finished(
+        _report_with(("rip", "pass"), ("expect-rip-complete", "fail"))
+    )
+
+    assert launched, "a run that ripped was denied its evidence archive"
+
+
+def test_an_UNREADABLE_payload_still_packs_an_archive(
+    window, session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The doubtful case falls to the safe side.
+
+    `_on_acceptance_run_finished` reads its payload through `getattr` on purpose,
+    so a payload with no `produced_no_artifacts` must build the archive rather
+    than skip it — 'we could not tell' is not 'there is nothing'.
+    """
+    launched: list[object] = []
+    monkeypatch.setattr(
+        type(window()),
+        "_launch_acceptance_bundle",
+        lambda self, *a, **k: launched.append(a),
+    )
+    win = window()
+    win._acceptance_layout = object()  # type: ignore[assignment]
+
+    win._on_acceptance_run_finished("not a RunReport at all")
+
+    assert launched, "an unreadable report skipped the archive"

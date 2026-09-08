@@ -287,3 +287,91 @@ class TestStopWhileInFlight:
         assert run._pending_cyanrip is None
         _pump(run)
         assert [s.outcome for s in run._report.steps] == [Outcome.PASS]
+
+
+class TestTheUnderReviewFailureNamesTheRightBuild:
+    """**A real rig run aborted here and was told to install the wrong build.**
+
+    2026-09-08, `0.6.43`, `g978f9b0` installed: `expect-ripper-under-review`
+    failed correctly and then printed *"--install-ripper a9aedf0"* — while both
+    projects' records say the round-16 session installs the TEST PIN `ddc1e8c`.
+    It also led with *"Help -> Check for cyanrip updates..."*, a route that reads
+    the fork's release manifest and therefore cannot offer a build the fork never
+    published, which is what a test pin is.
+
+    Third surface with this defect in one day. `ripper_choices`' menu and
+    `target_for_commit`'s version label were both fixed hours earlier and the
+    commit message called that a sweep — for the two places that had been looked
+    at. This is the one an operator reads *at the moment of failure*.
+    """
+
+    @staticmethod
+    def _message(window: QWidget, fake_capture: _FakeCapture, banner: str) -> str:
+        """Drive the verb against `banner` and return the recorded detail."""
+        fake_capture._result = (0, banner)
+        fake_capture.released.set()
+        run = runner_mod.ScriptRunner(window)
+        run.start(_steps("cyanrip --version\nexpect-ripper-under-review"))
+        _pump(run)
+        rows = [r for r in run._report.steps if "under-review" in r.source]
+        assert rows, [r.source for r in run._report.steps]
+        return rows[0].detail
+
+    def test_it_names_the_TEST_pin_not_the_reviewed_one(
+        self, window: QWidget, fake_capture: _FakeCapture
+    ) -> None:
+        from platterpus.deps import fork_source
+
+        if not fork_source.rig_installs_the_test_pin():
+            pytest.skip("no separate test pin this round; the else-branch applies")
+        detail = self._message(
+            window, fake_capture, "cyanrip 0.9.4 (platterpus-fork-gdeadbee)\n"
+        )
+        assert f"--install-ripper {fork_source.FORK_TEST_PIN}" in detail, (
+            f"the fix message must name the build the rig actually needs: {detail!r}"
+        )
+        assert f"--install-ripper {fork_source.PIN_UNDER_REVIEW}" not in detail, (
+            "it still offers the reviewed pin, which is the 2026-09-08 defect: "
+            f"{detail!r}"
+        )
+
+    def test_it_does_not_send_them_to_a_route_that_cannot_work(
+        self, window: QWidget, fake_capture: _FakeCapture
+    ) -> None:
+        """The in-app check reads a RELEASE manifest; a test pin is not a release.
+
+        Sending an operator there produces "your build is current" — true of the
+        manifest, false of the build the run needs, and it ends the night at
+        section A. The acceptance script's own header says this at length; the
+        failure message used to contradict it.
+        """
+        from platterpus.deps import fork_source
+
+        if not fork_source.rig_installs_the_test_pin():
+            pytest.skip("no separate test pin this round; the else-branch applies")
+        detail = self._message(
+            window, fake_capture, "cyanrip 0.9.4 (platterpus-fork-gdeadbee)\n"
+        )
+        assert "Check for cyanrip updates" not in detail, (
+            "it leads with the in-app route, which cannot offer an unpublished "
+            f"build: {detail!r}"
+        )
+        assert "not a release" in detail, (
+            f"it should say WHY the in-app route is not offered: {detail!r}"
+        )
+
+    def test_an_ACCEPTED_build_still_passes(
+        self, window: QWidget, fake_capture: _FakeCapture
+    ) -> None:
+        """Non-triviality floor: a message check is worthless if the step always
+        fails. The test pin must still be accepted."""
+        from platterpus.deps import fork_source
+
+        detail = self._message(
+            window,
+            fake_capture,
+            f"cyanrip 0.9.4 ({fork_source.FORK_TEST_BUILD_TAG})\n",
+        )
+        assert "--install-ripper" not in detail, (
+            f"the agreed test pin must PASS, not be told to reinstall: {detail!r}"
+        )

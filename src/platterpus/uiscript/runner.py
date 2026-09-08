@@ -2762,17 +2762,51 @@ class ScriptRunner(QObject):
         # `tests/test_self_invocation_sweep.py` refused it — correctly, and for a
         # second reason it does not state: handing an operator a choice of two
         # commands, one of which will fail, is the "work handed back" shape again.
+        # **WHICH BUILD TO NAME, AND IT IS NOT ALWAYS THE REVIEWED ONE.** This
+        # message hardcoded `PIN_UNDER_REVIEW`, and on 2026-09-08 a real rig run
+        # aborted here and was told to install `a9aedf0` — while both projects'
+        # records say the round-16 session installs the TEST PIN `ddc1e8c`. Same
+        # defect as `ripper_choices`' menu and `target_for_commit`'s version, both
+        # fixed hours earlier the same day; this is the third surface, and the one
+        # an operator actually reads *at the moment of failure*.
+        #
+        # `docs/testing.md` §5.o, in the form that stings: a sweep was claimed in a
+        # commit message for the two surfaces that were found, and this one was
+        # not looked for. Derived now, so a closing round fixes it automatically.
+        wanted = (
+            fork_source.FORK_TEST_PIN
+            if fork_source.rig_installs_the_test_pin()
+            else fork_source.PIN_UNDER_REVIEW
+        )
+        # **AND THE IN-APP ROUTE CANNOT SERVE A TEST PIN.** The ripper check reads
+        # the fork's RELEASE MANIFEST, so it can only offer builds the fork has
+        # published, and a test pin is by definition not a release. Leading with
+        # "Help -> Check for cyanrip updates..." sends an operator to a dialog
+        # whose most honest answer is "your build is current" — which ends the
+        # night here, again. The acceptance script's own header spends four
+        # paragraphs on exactly this; the failure message contradicted it.
+        if fork_source.rig_installs_the_test_pin():
+            how = (
+                f"FIX IT WITH ONE COMMAND — the in-app check CANNOT offer this "
+                f"build, because {wanted} is a test pin and not a release:\n"
+                f"    {build_info.self_invocation()} --install-ripper {wanted}\n"
+                f"then start the acceptance test again.\n"
+            )
+        else:
+            how = (
+                f"FIX IT WITHOUT LEAVING THE APP:\n"
+                f"    Help -> Check for cyanrip updates... -> Install it anyway\n"
+                f"then start the acceptance test again.\n"
+                f"(Or, if you prefer a terminal: "
+                f"{build_info.self_invocation()} --install-ripper {wanted})\n"
+            )
         self._record(
             step,
             Outcome.FAIL,
             f"the installed cyanrip is NOT {expected} — {_pin_role_phrase()}. "
             f"Every later section would be evidence about a different binary.\n"
-            f"FIX IT WITHOUT LEAVING THE APP:\n"
-            f"    Help -> Check for cyanrip updates... -> Install it anyway\n"
-            f"then start the acceptance test again.\n"
-            f"(Or, if you prefer a terminal: {build_info.self_invocation()} "
-            f"--install-ripper {fork_source.PIN_UNDER_REVIEW})\n"
-            f"{_bounded_output(self._last_cyanrip_output)}",
+            + how
+            + f"{_bounded_output(self._last_cyanrip_output)}",
         )
 
     def _do_probe_ripper_wrapper(self, step: Step) -> None:
