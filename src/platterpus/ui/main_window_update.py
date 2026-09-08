@@ -583,6 +583,42 @@ class UpdateMixin(MainWindowShared):
             return
         self._begin_ripper_install(offer, commit)
 
+    def _on_pick_ripper_build(self) -> None:
+        """Help → Install a cyanrip build… — the GUI half of ``--install-ripper``.
+
+        **A thin caller, and that is the whole design.** It opens the picker,
+        takes a commit, and hands it to `_begin_ripper_install` — the path the
+        release-manifest offer already uses, which runs the build on
+        `HostSetupWorker`'s thread. Nothing here touches subprocess: this method
+        is one `exec()` and one delegation, so it cannot become the
+        dialog-does-its-own-blocking-work trap `CLAUDE.md` names.
+
+        `offer=None` is deliberate and safe: `_begin_ripper_install` narrows its
+        offer with `isinstance(offer, RipperOffer)` before reading a build hint,
+        so an operator-chosen commit simply gets no manifest hint — which is
+        correct, because a commit the fork never published has no manifest row to
+        hint from.
+
+        Empty means cancelled, and cancelled installs nothing. Falling back to
+        `WIZARD_TARGET` would install a build the user did not ask for, which is
+        the failure this dialog exists to remove.
+        """
+        from platterpus.ui.ripper_picker import RipperPickerDialog
+
+        dialog = RipperPickerDialog(self)
+        if not dialog.exec():
+            log.info("cyanrip build picker cancelled; nothing installed")
+            return
+        commit = dialog.chosen_pin()
+        if not commit:
+            # Not an error and not a silent pass: accepted-with-nothing-checked
+            # should be impossible (one radio is pre-selected), so if it happens
+            # the log says so rather than the method guessing.
+            log.warning("the build picker was accepted with no build selected")
+            return
+        log.info("cyanrip build picked in the GUI: %s", commit)
+        self._begin_ripper_install(None, commit)
+
     def _begin_ripper_install(self, offer: object, commit: str) -> None:
         """Build and install ``commit`` through the setup wizard's own step engine.
 

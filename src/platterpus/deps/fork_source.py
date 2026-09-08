@@ -1042,6 +1042,24 @@ def _pin_under_review_role_clause() -> str:
     )
 
 
+def pin_the_rig_should_install() -> str:
+    """The one commit an acceptance run must have installed. **One place.**
+
+    Extracted 2026-09-08 because the expression
+    ``FORK_TEST_PIN if rig_installs_the_test_pin() else PIN_UNDER_REVIEW`` had
+    reached two call sites and was about to reach a third (the GUI build picker).
+    Two of the three surfaces that answer *"which build?"* had already disagreed
+    that week — `ripper_choices`' menu called the reviewed pin mandatory, and the
+    acceptance script's abort message told an operator to install it — and both
+    were fixed by deriving rather than restating. Adding a third copy of the
+    derivation would be the same defect with the fix applied to it.
+
+    `docs/testing.md` §5.o, taken at the moment of writing the third caller
+    rather than after a rig run finds them disagreeing.
+    """
+    return FORK_TEST_PIN if rig_installs_the_test_pin() else PIN_UNDER_REVIEW
+
+
 def rig_installs_the_test_pin() -> bool:
     """Whether an acceptance run must install the TEST pin rather than the
     reviewed one.

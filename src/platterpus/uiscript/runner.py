@@ -2773,11 +2773,7 @@ class ScriptRunner(QObject):
         # `docs/testing.md` §5.o, in the form that stings: a sweep was claimed in a
         # commit message for the two surfaces that were found, and this one was
         # not looked for. Derived now, so a closing round fixes it automatically.
-        wanted = (
-            fork_source.FORK_TEST_PIN
-            if fork_source.rig_installs_the_test_pin()
-            else fork_source.PIN_UNDER_REVIEW
-        )
+        wanted = fork_source.pin_the_rig_should_install()
         # **AND THE IN-APP ROUTE CANNOT SERVE A TEST PIN.** The ripper check reads
         # the fork's RELEASE MANIFEST, so it can only offer builds the fork has
         # published, and a test pin is by definition not a release. Leading with

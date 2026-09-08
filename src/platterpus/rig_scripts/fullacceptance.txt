@@ -74,28 +74,28 @@
 #    manifest and is not the build section A wants. Taking it ends the night at
 #    section A.
 #
-#    So, from a terminal, in the AppImage's own directory:
+#        Help -> Install a cyanrip build...
 #
-#        ./platterpus-x86_64.AppImage --install-ripper list
-#
-#    It prints every build THIS version can install, each with a marker and a
+#    It lists every build THIS version can install, each with a marker and a
 #    reason: `✓ approved` is what a closed round verified, `⚠ under-review` is
 #    the build an open round is examining, `⚠ test-pin` is one both projects
-#    nominated for a joint hardware session. While a round is open, install the
-#    `under-review` or `test-pin` entry:
-#
-#        ./platterpus-x86_64.AppImage --install-ripper <the commit it printed>
+#    nominated for a joint hardware session. **The build this run needs is
+#    already selected when the dialog opens** — it is derived from the same
+#    constant section A checks, so the two cannot disagree. Click Install.
 #
 #    THIS FILE STILL NAMES NO BUILD, for the reason three paragraphs up, and
-#    that is exactly why the route is a COMMAND rather than a commit: the list
-#    is generated from the same constant section A checks, so it cannot be the
-#    stale half of a pair. A `⚠` here is the record being honest about an open
-#    round, not a warning to heed — every rip will report `unapproved`, which is
-#    the evidence the run exists to produce.
+#    that is exactly why the route is a MENU ITEM rather than a commit: the list
+#    and the pre-selection are generated from that constant, so neither can be
+#    the stale half of a pair. A `⚠` here is the record being honest about an
+#    open round, not a warning to heed — every rip will report `unapproved`,
+#    which is the evidence the run exists to produce.
 #
-#    (Why a terminal at all, when nothing else here needs one: the menu has no
-#    GUI caller yet. That is a real gap of ours, filed in TASKS.md, and it is
-#    the reason this paragraph exists instead of a second click.)
+#    (There is a terminal equivalent, `--install-ripper list` and
+#    `--install-ripper <commit>`, and it is the same function behind the same
+#    step engine. It is the older route: this paragraph used to send you there
+#    and admit in a parenthetical that the menu had no GUI caller. It has one as
+#    of 0.6.45 — an excuse written into operator instructions is still a manual
+#    step, and the whole point of this program is not to hand one back.)
 #
 #    Section A asserts the exact expected build and STOPS THE RUN in the first
 #    few seconds if you are not on it — before any drive time is spent.
