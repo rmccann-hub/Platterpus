@@ -12,6 +12,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A run that touched no drive still packed an archive and asked to open a
+  folder.** A precondition abort — wrong ripper installed, or the disc never
+  identified — stops in seconds having read nothing, and the acceptance session
+  still built a multi-hundred-megabyte `.tar.gz` (the app log dominates it) and
+  put up a modal offering to open the session folder. Three attempts produced
+  three archives and three dialogs; reported on 2026-09-08 as *"it keeps asking
+  me to open a folder and makes a new compressed file"*.
+  `RunReport.produced_no_artifacts()` now decides it, and **the asymmetry sets
+  the direction**: suppressing an archive that HAD evidence costs an overnight
+  disc pass, while skipping one nothing needed costs a dialog. So it answers True
+  only when it is certain there is nothing — no *executed* `rip`, `screenshot` or
+  `rig-check` — and a payload that cannot be read at all falls through to
+  building the archive. `snapshot` is deliberately not an artifact verb: it
+  renders into the transcript and writes no file, so counting it would make every
+  run look artifact-rich and the predicate would never once answer True.
+  The dialog now **states the fix instead of offering a folder** — it names the
+  step that stopped the run and repeats that step's own message, which carries
+  the command that repairs it. Nothing is lost: the transcript, the report JSON
+  and any screenshots are already written to the run folder, which the message
+  names.
+  Tested in both directions and at both levels, because a revert probe graded the
+  predicate's unit tests `unaffected` against deleting the call-site guard —
+  asserting the function is not asserting the caller, which cost a vacuous test
+  earlier the same day.
+
 - **The one message an operator reads when the run aborts named the wrong build.**
   A real rig run on 2026-09-08 stopped at section A — correctly, with `g978f9b0`
   installed — and then told the operator to run `--install-ripper a9aedf0`, while

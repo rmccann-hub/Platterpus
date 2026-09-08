@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
+from typing import ClassVar
 
 
 class Outcome(StrEnum):
@@ -102,6 +103,55 @@ class RunReport:
     #: failure in its own place, and stopping early would hide every finding
     #: behind it.
     preflight: list[str] = field(default_factory=list)
+
+    #: Verbs whose EXECUTION can leave a file outside the transcript. A run that
+    #: reached none of them has produced nothing the archive exists to carry:
+    #: no album folder, no screenshot, no rig-check manifest.
+    #:
+    #: `snapshot` is deliberately absent — it renders into the transcript and
+    #: writes no separate file, so counting it would make every run look like it
+    #: had artifacts and the predicate below would always answer False.
+    ARTIFACT_VERBS: ClassVar[frozenset[str]] = frozenset(
+        {"rip", "screenshot", "rig-check"}
+    )
+
+    def produced_no_artifacts(self) -> bool:
+        """True when this run's only output is its transcript and the app log.
+
+        **Asked before building the evidence archive, and the asymmetry decides
+        the shape of it.** Suppressing an archive that HAD evidence costs an
+        overnight disc pass; building one nothing needed costs a dialog. So this
+        answers True only when it is *certain* there is nothing — no executed
+        `rip`, `screenshot` or `rig-check`. A run that recorded NO steps also
+        answers True: nothing executed, so nothing was produced.
+
+        The genuinely doubtful case — a payload that is not a `RunReport` at all
+        — cannot be judged here and belongs to the caller, which builds the
+        archive rather than skipping it. Said explicitly because the first
+        version of this docstring claimed False for an empty list while the code
+        returned True, which is the kind of comment that outlives its code.
+
+        Written 2026-09-08, after a run that aborted at section A four seconds in
+        still packed a multi-hundred-megabyte archive (the app log dominates it)
+        and put up a modal offering to open the folder. Three attempts produced
+        three archives and three dialogs, and the maintainer's report was *"it
+        keeps asking me to open a folder and makes a new compressed file"*.
+        A precondition abort is exactly the run with nothing in it: 14 steps
+        executed, 223 skipped, no disc touched.
+
+        Never raises. A step whose source cannot be read is treated as an
+        artifact-producing step, which is the safe direction here.
+        """
+        for step in self.steps:
+            if step.outcome is Outcome.SKIPPED:
+                continue
+            try:
+                verb = step.source.strip().split()[0].casefold()
+            except Exception:  # noqa: BLE001 — an unreadable step is not proof
+                return False
+            if verb in self.ARTIFACT_VERBS:
+                return False
+        return True
 
     def counts(self) -> dict[str, int]:
         """Outcome tallies, every category present even at zero.
