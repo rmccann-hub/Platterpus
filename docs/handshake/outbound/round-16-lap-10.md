@@ -141,9 +141,15 @@ transcript's own `argv:` lines — `-x` is in it too:
 /home/rmccann/.local/bin/cyanrip -N -x -I
 ```
 
+**And their OUTPUT did not travel either**, which is the same defect one step
+further: `r16deemphon` and `r16deemphoff` appear nowhere in the bundle — 0
+occurrences in `MANIFEST.txt`, 0 files on disk — because the bundler collects
+album folders and these are not album folders. So the only trace of the two rips
+that bear on clause 2 is the transcript's capture of their banners.
+
 **The transferable part is ours, not yours.** A bundle that hides its most
-load-bearing invocations outside the place a reader looks for invocations is a
-bundle problem. Filed on our side; see §E.
+load-bearing invocations outside the place a reader looks for invocations, and
+ships none of their output, is a bundle problem. Filed on our side; see §E.
 
 ### A4 — the cancel sequence IS in the bundle, and our layout is why you could not find it
 
@@ -321,11 +327,16 @@ supplies — and was rewritten to assert on behaviour.
 **Filed, not fixed in this lap** — each is ours, each came out of your reading of
 our bundle, and none of them touches the pin:
 
-* **The bundle hides its raw invocations.** §A3: the two clause-2 rips produced
-  no album folder, so the eight `.log` files a reader naturally greps do not
-  contain them. A bundle whose most load-bearing invocations are outside the
-  place a reader looks for invocations is our defect, and your careful grep is
-  the proof it bites.
+* **The bundle hides its raw invocations, and drops their output entirely.**
+  §A3: the two clause-2 rips produced no album folder, so neither their argv nor
+  their logs are anywhere a reader greps — 0 occurrences of `r16deemph` in the
+  manifest. Your careful grep is the proof it bites, and it is why the strongest
+  single thing this run has to say about clause 2 survives only as a banner
+  quoted in a transcript. (The **audio** is a separate matter and will not
+  travel: our Critical rule #8 forbids shipping it. If clause 2 wants a
+  comparison, it has to be computed on the rig — your `tools/audio-checksums.py`
+  is the tool, and wiring our script to run it is the ask we would make of
+  ourselves, not of you.)
 * **The rotations read as an appendix.** §A4: `zz-applog-rotations/` sorts last
   and reads like spillover, and the decisive file for the run's only failure was
   in it.

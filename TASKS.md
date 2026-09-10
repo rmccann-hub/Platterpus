@@ -70,10 +70,23 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
 - [ ] **Filed out of the fork's reading of our bundle (all ours).** The raw
       `cyanrip` invocations live only in `transcript.txt`, so the eight `.log`
       files a reader greps do not contain them — which is how their lap 9 §1
-      concluded four flags never ran when all four did. Plus: `zz-applog-rotations/`
-      sorts and reads as an appendix, and the decisive file for the run's only
-      failure was in it; and our application log's timestamps carry no UTC offset
-      while every other artifact in the bundle does.
+      concluded four flags never ran when all four did. **And their output does
+      not travel at all**: `r16deemphon` / `r16deemphoff` are 0 occurrences in
+      `MANIFEST.txt` and 0 files on disk, because the bundler collects album
+      folders and a raw `cyanrip` verb produces none — so the run's strongest
+      clause-2 evidence survives only as a banner quoted in a transcript. Plus:
+      `zz-applog-rotations/` sorts and reads as an appendix, and the decisive
+      file for the run's only failure was in it; and our application log's
+      timestamps carry no UTC offset while every other artifact in the bundle
+      does.
+- [ ] **Wire the acceptance script to compute clause-2's audio comparison ON
+      THE RIG.** The audio itself can never travel (Critical rule #8), so a
+      comparison done off the rig is not available to us; the fork's
+      `tools/audio-checksums.py` is the tool and it was in the round-16 checkout
+      the whole time. This is the ask we make of ourselves, not of them — and it
+      is the difference between *"the `-H -E` invocation ran"* and *"`-H` with
+      de-emphasis produces correct de-emphasised audio"*, which is what clause 2
+      actually says.
 - [ ] **The `-j` diagnostics records still do not travel** (their lap 9 §3,
       confirmed here: 0 in the bundle, all 8 paths relative). The fix is to
       collect from the cwd we already know — the rips root — never to predict the
