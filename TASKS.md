@@ -60,6 +60,30 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       sheet; named as a label rather than a path, because a `docs/…` path in one
       of our live surfaces is read as one of OUR files — which is what the
       doc-index gate just told us.)
+- [x] **AUDITED 2026-09-10 — rounds 1–15 are closed and no lap of ours is
+      forgotten.** `handshake.py --status` reports all fifteen `GO`/`GO`; every
+      outbound lap file was compared against the `SENT_LAPS` ledger and the only
+      one not pinned as sent is lap 10, which is correct. The 2026-09-04 failure
+      (three round-15 laps written, never handed over) has not recurred.
+- [x] **CORRECTED — we were carrying three questions the fork had already
+      answered.** Our laps 5 and 7 both wrote *"J2 / J3 carried forward
+      unchanged"* and we held a fourth besides. Their lap 4 answered J1 (the
+      `8c2817219f6aa087` method — withdrawn, *"There is no method. We tried
+      600"*), J4 (the `-j` precedence, measured), and the `0f8523b` contract ask
+      is satisfied — derived here: `PROVIDER-CONTRACT.md` at `0f8523b` and at
+      `0cd611a` hash identically, and that IS the file we hold. Carrying an
+      answered question forward makes a lap look like it is waiting on the peer
+      when it is not, and pads a round both sides want to end. Lap 10 §I2.
+- [ ] **`PROTOCOL.md` v5 — the one item genuinely stuck, three rounds running.**
+      *"Accepted in principle, neither started"* since their lap 4, because
+      neither side may edit the jointly-owned file alone. One bump carries J2
+      (committed-is-sent, with our lap 2's three riders), J3 (`HANDSHAKE-TO` and
+      the repo pair normative), the `seam-commands` line-97 `-D` row, and
+      direction in envelope filenames. Lap 10 Q1 breaks the deadlock by offering
+      to draft it ourselves. **And we accept committed-is-sent's real cost,
+      measured on ourselves: lap 10 was committed to the lap namespace and
+      revised SIX times before being sent** — none of which would have been
+      allowed under the rule.
 - [ ] **Run A's result has not been seen, and round 16 stays open on it.**
       Corrected after reading their lap 9: Run B produced evidence bearing on
       **all three** clauses — a real AccurateRip host answered and the

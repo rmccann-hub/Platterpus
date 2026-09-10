@@ -174,6 +174,36 @@ here so the check is on the record rather than the finding.
 lap 7 §A's lesson applied *before* it bites: every field in that lap was true and
 the sentence it added up to was false.
 
+### The close-out audit the maintainer asked for
+
+*"lets get this, and all previous laps and rounds closed. if there are any.
+double check it"* — so it was audited rather than remembered, and the audit
+caught us rather than them.
+
+* **Rounds 1–15: closed, all fifteen `GO`/`GO`.** Round 16 is the only open one.
+  Every outbound lap file compared against the `SENT_LAPS` ledger: the only lap
+  of ours not pinned as sent is lap 10, correctly. The 2026-09-04 failure — three
+  round-15 laps written and never handed over — has not recurred.
+* **Three of the four questions we were still carrying were already answered.**
+  Our laps 5 and 7 both wrote *"J2 / J3 carried forward unchanged"* and we held a
+  fourth besides. Their lap 4 answered J1 (`8c2817219f6aa087` — withdrawn, *"There
+  is no method. We tried 600"*) and J4 (`-j` precedence, measured); and the
+  `0f8523b` contract ask is satisfied, derived here rather than assumed —
+  `PROVIDER-CONTRACT.md` at `0f8523b` and at `0cd611a` hash identically, and that
+  is the file already filed in our artifacts directory. **A first pass would have
+  put all three into a lap as outstanding**, which is why the instruction to
+  double-check earned its keep: an inventory nobody verifies is a claim.
+* **One item is genuinely stuck and has been for three rounds:** `PROTOCOL.md`
+  v5. *"Accepted in principle, neither started"*, because the file is jointly
+  owned and neither side may edit it alone — a structural deadlock, not anyone's
+  fault. Lap 10 Q1 ends it by offering to draft it.
+* **And we accepted committed-is-sent by measuring its cost on ourselves.** Their
+  lap 1 said the sharp part: *"you would be the one who has to stop committing
+  drafts."* Lap 10 was committed to the lap namespace and revised **six times**
+  before being sent. Under the rule, none of those six could have existed there.
+  Worth having anyway: it makes *"is this lap sent?"* a fact in the tree instead
+  of one outside it, which is exactly the fact that went missing in round 15.
+
 ### Still open (for the fork, and for us)
 
 * **Run A's result has not been seen**, and round 16 stays open on it. The close
