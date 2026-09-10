@@ -48,6 +48,18 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       to the snapshot, and a floor test requiring it across the whole population
       of log-grading verbs (§5.o — fixing only the one that failed would have
       left the other two waiting for a run where the timing bit them).
+- [x] **FIXED — our published Run A block was missing a file and a command.**
+      The fork's `7ace6e5` added `tools/round16-accept.py` to the checkout *and*
+      `python3 tools/round16-accept.py --out round16-<stamp>Z` as a third
+      command. That script **grades** the run against the close condition and
+      was written before any data existed, on purpose. Our lap 3 published the
+      two-command version, so a Run A from our instructions would have measured
+      everything and produced **no verdict**. Corrected in lap 10 §D. **The
+      current, correct block is three commands** — see lap 10 §D, which quotes
+      it in full. (Their own copy lives in the cyanrip fork's handshake STATUS
+      sheet; named as a label rather than a path, because a `docs/…` path in one
+      of our live surfaces is read as one of OUR files — which is what the
+      doc-index gate just told us.)
 - [ ] **Run A's result has not been seen, and round 16 stays open on it.**
       Corrected after reading their lap 9: Run B produced evidence bearing on
       **all three** clauses — a real AccurateRip host answered and the

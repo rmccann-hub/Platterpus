@@ -98,9 +98,24 @@ correcting each downstream would have left the race.
 
 ### Their lap 9 was already written, and reading it changed this entry
 
-The fork had written and pinned round-16 **lap 9** before any of this was sent —
-found in their repository, not delivered. Reading it first was the right order
-and it moved three things:
+The fork had written and pinned round-16 **lap 9** before any of this was sent.
+It was first read in their repository and then **delivered as an artifact**,
+checked byte-for-byte against their committed copy before filing (identical,
+12,071 bytes, sha256/16 `0b05e8d4a5f37b63`) and now held at
+`docs/handshake/inbound/round-16-lap-09.md`. Lap 10 was revised for it — §310
+permits revising an unsent lap — so its digest reads nine and its citations name
+the filed file. Reading lap 9 first was the right order and it moved four
+things:
+
+* **The Run A block moved and OUR copy is the stale one.** Their `7ace6e5` added
+  a third file *and a third command* to it: `tools/round16-accept.py`, which
+  **grades** the run against the close condition and was deliberately written
+  before any data existed. Our lap 3 published the two-command version, so a Run
+  A performed from our instructions would measure everything and produce **no
+  verdict** — and nobody would find out until the closing lap. Ours to fix. We
+  found it only because their §6 §C's prose commit list did not name `7ace6e5`;
+  lap 10 §D offers their own `contract-delta.py` discipline as the mechanism
+  rather than filing it as a defect, and notes our §C is prose too.
 
 * **They independently called the L561 failure a false negative and stopped at
   the evidence** — *"That shape would explain this one and we have not shown
@@ -133,6 +148,14 @@ the drive. Put to them clause by clause in lap 10 §B7 **as evidence, not as a
 verdict**: our own lap 3 said *"if only one run happens it should be A"*, and
 re-reading a close condition in our own favour after the fact is what S-13
 forbids.
+
+**The near-miss worth recording.** Their §4 says *"no `argv/record` failure
+anywhere in the run, where the 2026-09-07 bundle carried seven."* Grepping the
+bundle returns seven hits, which reads as a refutation — and all seven are dated
+2026-09-06 23:57 → 2026-09-07 03:28, in the rotated log the bundle also carries.
+Their count and their window are exact. That is their §1 mistake in the mirror,
+in the same lap: a count over a population that was not the run. Caught by asking
+what the seven hits *were*, which is the question their §1 needed.
 
 **Checked and deliberately NOT raised.** Their lap 8 §3 named `bc2ef8e` as the
 commit that split the AccurateRip checker; it is `a0830e0` (`bc2ef8e` is *"Pin
