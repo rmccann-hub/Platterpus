@@ -73,7 +73,28 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-07.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-10.md",)
+
+# WHY IT MOVED TO ROUND-16 LAP 10 (2026-09-10).
+#
+# Lap 7 is DELIVERED — the fork's lap 8 line 24 declares holding it at
+# `990bb6bb7d25ee4b`, split with our own reader and verified against their
+# manifest — so its envelope on disk is history and is not regenerated. Lap 10 is
+# the operative one: it answers their laps 8 and 9, and its §D corrects OUR OWN
+# published Run A block, which was missing the third file and the third command
+# their `7ace6e5` added. That correction is the reason the lap cannot wait: a Run
+# A performed from our instructions measures everything and grades nothing.
+#
+# **THE MAINTAINER ASKED FOR THIS ONE (2026-09-10): "do lap 10 back".** Recorded
+# because the standing rule is to ASK BEFORE WRITING A LAP, and the audit that
+# produced that rule found three round-15 laps written and never handed over
+# while this generator kept reporting success over a round the fork had closed
+# weeks earlier. A note saying who asked is the cheapest thing that distinguishes
+# "packed and waiting" from "packed and forgotten".
+#
+# One part again. Lap 10 quotes no sha of `fullacceptance.txt`, and the script
+# reaches the rig inside the AppImage, so shipping a copy would hand them an
+# artifact nothing in the lap references.
 
 # WHY IT MOVED TO ROUND-16 LAP 7 (2026-09-07), same day, same reasons.
 #
