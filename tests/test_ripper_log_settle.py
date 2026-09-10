@@ -308,3 +308,37 @@ def test_the_dataclass_is_frozen_and_is_settled_needs_the_footer() -> None:
     assert not LogSettle(NOT_SETTLED, "x").is_settled
     with __import__("pytest").raises(dataclasses.FrozenInstanceError):
         LogSettle(SETTLED, "x").state = NOT_SETTLED  # type: ignore[misc]
+
+
+def test_the_wait_seam_can_INTERRUPT_and_not_only_delay(tmp_path: Path) -> None:
+    """`wait` returns True to mean *stop waiting*, and the loop honours it.
+
+    The first version of this module documented that shape — it is
+    `threading.Event.wait`'s — and then discarded the return value, so a caller
+    passing `event.wait` was promised an interrupt and given up to one tick of
+    latency and no early exit. `CLAUDE.md`: *a documented capability is not a
+    capability* (`docs/testing.md` §5.p), and the fix is to honour it rather than
+    to reword the docstring.
+
+    Two routes to one stop is deliberate: `should_abandon` is *polled* before
+    each sleep, `wait` *returns* out of one. A caller with an Event can use
+    either; a caller with a plain sleep uses the first.
+    """
+    log = tmp_path / "album.log"
+    log.write_text("Ripping...\n")
+    clock = _Clock()
+    calls: list[float] = []
+
+    def wait(seconds: float) -> bool:
+        calls.append(seconds)
+        clock.wait(seconds)
+        return clock.t >= 1.0  # "stop waiting" once a second has passed
+
+    settle = await_ripper_log_settled(log, deadline_s=20.0, now=clock.now, wait=wait)
+
+    assert settle.state == NOT_SETTLED
+    assert "interrupted" in settle.reason, settle.reason
+    assert "NOT DETERMINED" in settle.reason
+    # It stopped when told to, not at the deadline: 20 s of ticks would be 80.
+    assert len(calls) <= 5, calls
+    assert 1.0 <= settle.waited_s < 2.0, settle.waited_s
