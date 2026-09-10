@@ -364,18 +364,22 @@ transferable part.
 | 9 | **r12 lap 3** | We offered a shared-blame explanation for row 8 — *"a name collision plus one unqualified sentence"*, and offered to take half. **They refused it** | **THEM** | `inbound/round-12-lap-03.md:76` — they opened all three cited sentences and tabled the context of each; every one sat in unambiguous release-manifest context | *An apology can get less scrutiny than a claim, for the same reason nobody argues with it* — and **a misattributed cause produces the wrong fix**: "write less ambiguous sentences" is unfalsifiable, where row 8's rule is checkable |
 | 10 | **relayed 2026-08-27** | Their mutation sweep found `for (int j = 0; j < strlen(digest_str); j++)` in `fun512.c` mutated to `<=` and **surviving** | **THEM**, and it landed on us too: our own pattern captured `\S+`, so an 87-character digest would have entered an archival log looking correct | `CHANGELOG.md` (v0.6.30) + `parsers/cyanrip_log.fun512_signature_is_malformed` | **Mutation sweeps in a detached git worktree** — their fix for a recurring dirty tree, and the reason the finding exists at all. A surviving mutant is a test-suite defect reported as a code fact |
 | 11 | **r15 lap 10** | Fork asserted our round-15 lap 9 §E1 was **right but too small** — we scoped the undistinguishable class at one mechanism (`total_error_count++`) from their published preamble; they disclosed that `FAIL_PATH` had **seven** alternatives while the preamble named **five** | **THEM** | Re-derived here from their source, not from their lap: `tools/gen-provider-contract.py` at `9bc7ad6` carries the seven-alternative regex written out inline, and instrumenting their own `evidence()` over the 121 published P5 rows reproduces their table exactly — `total_error_count++` 8, `ret = N;` 6, `err = N` 1, combined 1, over 84 `both`+`control flow` rows | **A hand-written description inside a generated artifact is the defect the artifact exists to prevent** — their fix builds `FAIL_PATH` *from* the published table so the two cannot drift, which is the same *one source of truth* move as their round-12 exit-code table and our generated consumer contract. **And the verification lesson is ours:** the re-derivation returned **three** different numbers from correct code (19, then 15, then 16) — 19 scanned all 349 call sites instead of the 121 published rows, 15 keyed by message text, which collides across files. *Is the population I measured closed?* was the entire difficulty, and both wrong answers looked right |
+| 12 | **r16 lap 9 §2** | Fork asserted our acceptance run's single failure — `expect-log-well-formed` reporting the cancelled rip's record destroyed — is a **false negative**, and named the limit of what they could show: *"That shape would explain this one and **we have not shown it.**"* | **THEM** on the claim they made, and the restraint is the point | The mechanism, from `session/zz-applog-rotations/03platterpus/log.txt.1` **in the bundle they already held**: verification at `22:02:08.902`, the ripper's `Ripping finished at 2026-09-09T22:02:15-04:00` — 6.1 s later. Our lap 10 §C1 | **A challenge that stops at the evidence is worth more than one that completes the story.** They could have asserted the race and been right; they marked it unproven and were right *and* checkable. And the correction that came back is the transferable half: it is **two** defects, not one — the verb failed at `22:02:38.943`, 23.7 s *after* the log was complete, because it graded our snapshot rather than the file. A fix aimed only at their (correct) hypothesis would have shipped with the second one intact |
+| 13 | **r16 lap 9 §1** | Fork concluded *"no `-H`, no `-E`, no `-W`, no `-x` appears in any of the eight rips — grepped from every `Invoked as:` line, not assumed"*, and therefore that close-condition clause 2 had still never run on a drive | **US** | All four ran. The clause-2 rips go through our script's raw `cyanrip` verb, which writes to its own `-D` and produces **no album folder**, so they are in `session/transcript.txt` (L1144 `-H -E`, 221.2 s, exit 0, `Preemphasis: none detected (deemphasis forced)`; L1365 `-H -W`, 220.7 s) and in none of the eight `.log` files | ***Is the population I measured closed?*** — our own rule, and this is the first time it has landed on them. The grep was correct over the set it ran on and the set was not the run. **The remedy is ours though**: a bundle that files its most load-bearing invocations outside the place a reader looks for invocations is our defect, not their oversight |
 
-**Standing count as of round 15 lap 10: fork right 6, us right 5, of 11
+**Standing count as of round 16 lap 10: fork right 7, us right 6, of 13
 resolved.** Read it with three qualifications, all of which cut against treating
 it as a verdict:
 
 * **The sample is not closed and it is not the sample the mandate is about.** The
-  challenge mandate was issued **2026-08-26**; rows 1–9 predate it. **Rows 10 and
-  11 are the only two made under it, and the fork was right in both.** *Is the
-  population I measured closed?* — nine of these eleven are the *before* picture
-  and n=2 is not a result, so the answer to the maintainer's question is **still
-  not measurable**, and saying so is the honest reading. Two-for-two is worth
-  noting and worth not believing.
+  challenge mandate was issued **2026-08-26**; rows 1–9 predate it. **Rows 10–13
+  are the four made under it: fork right 3, us right 1.** *Is the population I
+  measured closed?* — nine of these thirteen are the *before* picture and n=4 is
+  not a result, so the answer to the maintainer's question is **still not
+  measurable**, and saying so is the honest reading. Three-of-four is worth
+  noting and worth not believing — and row 13 is the first row where the
+  mechanism the mandate exists to surface ran in **our** favour, which is a
+  reason to keep counting rather than a reason to stop.
 * **Neither side's errors are of one kind.** Ours cluster in *verification*
   (rows 4, 5 — checking a description, or checking under conditions that force
   the result); theirs cluster in *attribution* (rows 6, 8 — a mechanism stated
@@ -387,4 +391,4 @@ it as a verdict:
 
 ---
 
-*Last updated for Platterpus v0.6.38.*
+*Last updated for Platterpus v0.6.45.*

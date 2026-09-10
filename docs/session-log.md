@@ -96,15 +96,80 @@ correcting each downstream would have left the race.
   a *behaviour* was meant. Rewritten to assert on the budget the worker
   **announces**; 13 reverts probed in total, all behaving as expected.
 
+### Their lap 9 was already written, and reading it changed this entry
+
+The fork had written and pinned round-16 **lap 9** before any of this was sent —
+found in their repository, not delivered. Reading it first was the right order
+and it moved three things:
+
+* **They independently called the L561 failure a false negative and stopped at
+  the evidence** — *"That shape would explain this one and we have not shown
+  it."* The restraint is the transferable part: they could have asserted the race
+  and been right. The mechanism is now shown (our lap 10 §C1) from a file that
+  was in the bundle they already held.
+* **They concluded no `-H`/`-E`/`-W`/`-x` reached the drive.** All four did. The
+  clause-2 rips go through the script's raw `cyanrip` verb, which produces no
+  album folder, so they are in the transcript and in none of the eight `.log`
+  files they grepped. Their population was not closed — the first time our own
+  rule has landed on them — **but the remedy is ours**: a bundle that hides its
+  most load-bearing invocations outside the place a reader looks for invocations
+  is our defect, not their oversight.
+* **They filed `HANDSHAKE-PEER-PIN: unknown` because our manifest carried no
+  commit.** Right, and the commit was in the bundle all along, in the app log's
+  banner. Fixed: the manifest now carries a `build` row from the same source.
+
+Two challenge-ledger rows added (12, 13) — standing count fork 7, us 6 of 13, and
+**under the mandate specifically fork 3, us 1 of 4**, which is still not a result
+and is written down as not a result.
+
+**And the run reached more of the close condition than either side thought.**
+`AccurateRip: found` in all eight rips with real per-track confidences (129, 200,
+131…) — a real AccurateRip host answered and the answer was parsed, which their
+lap 1 note 2 said had never happened and could not happen in their environment
+(their scenarios pass `-N -A -U` with no network). Whether it exercises their
+*specific* rewritten path is theirs to confirm; we report the artifact rather
+than assert a route through their code. Both clause-2 arms ran on
+the drive. Put to them clause by clause in lap 10 §B7 **as evidence, not as a
+verdict**: our own lap 3 said *"if only one run happens it should be A"*, and
+re-reading a close condition in our own favour after the fact is what S-13
+forbids.
+
+**Checked and deliberately NOT raised.** Their lap 8 §3 named `bc2ef8e` as the
+commit that split the AccurateRip checker; it is `a0830e0` (`bc2ef8e` is *"Pin
+lap 6 as sent"*), derived from `git log 0cd611a..343ebd1` in their tree. Their
+"two commits" is defensible measured from the sent baseline — three commits, two
+of substance — so the count is fine and only the label slipped. A one-word label
+slip in a prose section, in a round where they have already self-corrected a
+larger one, is exactly the noise round 7 taught against; S-14 says a finding
+defaults to the next round, and this one does not even reach that bar. Recorded
+here so the check is on the record rather than the finding.
+
+**Round-16 lap 10 is written and NOT sent**
+(`docs/handshake/outbound/round-16-lap-10.md`). Its `HANDSHAKE-FROM-COMMIT` is
+`62de7b6` — the `0.6.45` release commit — and the lap states at the top, before
+§C, that the fixes are at a branch commit and in no release. That placement is
+lap 7 §A's lesson applied *before* it bites: every field in that lap was true and
+the sentence it added up to was false.
+
 ### Still open (for the fork, and for us)
 
-* **Run A's result has not been seen.** Round 16's three close conditions are
-  settled by Run A, not Run B, so the round cannot be called closed without it.
+* **Run A's result has not been seen**, and round 16 stays open on it. The close
+  condition is *"a hardware acceptance run on this pin establishing three
+  things"*; Run B has now produced evidence bearing on all three, but clause 2's
+  audio was never compared and the reading is theirs, not ours.
+* **The lap is written and unsent**, and only the maintainer can send it. Three
+  round-15 laps sat unsent; this is the state that produces that.
 * The launch-time notice gap: the app knew the wrong build was installed and said
   nothing (the deferred automatic ripper check is a bare `return` with no retry).
-* Filed for the fork's next lap: their §3 misattribution of `bc2ef8e` vs
-  `a0830e0` and the "two commits" undercount; their open disk-full logging defect
-  `d812b70`, present in the installed build.
+* Filed on our side out of their reading of our bundle: the transcript-only raw
+  invocations, the `zz-` rotation prefix, the app log's offset-free timestamps,
+  and the `-j` records that still do not travel.
+* Their open disk-full defect — the log says `Ripping errors: 0` and
+  `Rip completed: yes` while the `-j` record from the same run says
+  `ripping_errors: 3`, `exit_code: 1`, because the footer is written before the
+  encoder loop (`cyanrip_main.c:2691` vs `:2693–2699`, read in their tree). Their
+  lap 9 §5 states it properly and asks us to accept or refuse an additive line;
+  lap 10 accepts it with two conditions, marked `NEXT-ROUND`.
 
 ## 2026-09-07 (night) — the rig stopped four seconds in, and the message it printed was wrong
 

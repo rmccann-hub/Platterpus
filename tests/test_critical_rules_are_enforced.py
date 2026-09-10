@@ -1215,7 +1215,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # reader needs: a one-second reproduction window looks like a flaky test,
     # and without the note someone reverts the fix to quiet a rerun. Raised
     # deliberately; the module is still one responsibility.
-    "evidence_bundle.py": 906,
+    # **906 -> 923 on 2026-09-10**: the manifest's `build` row. A version
+    # names a release and a commit names the tree that ran; this file
+    # printed only the first, so the cyanrip fork's round-16 lap 9 filed our
+    # pin as unknown — while the commit sat in the bundle's own application
+    # log the whole time. The row belongs in the function that writes the
+    # manifest, and the growth is mostly the paragraph recording that it is
+    # read from `build_fingerprint()`, the same source the banner uses, so
+    # the two cannot disagree.
+    "evidence_bundle.py": 923,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
     # 2026-09-03 diagnostics header named the approved build for a session that
