@@ -24,7 +24,7 @@ HANDSHAKE-BREAKING: **None from us.** No log line, argv, report schema or EAC ex
 HANDSHAKE-INBOUND-HELD: your round-16 lap 1 (sha256/16 `e07a24345e37639e`), lap 2 (`522d8b160edad24c`), lap 4 (`ac62b0a8e0b8df44`), lap 6 (`749ef81684a30a0c`), lap 8 (`565c624e6f3cb644`), **lap 9 (`0b05e8d4a5f37b63`)**; your `PROVIDER-CONTRACT.md` at `0cd611a` (banner `g12f2081`, sha256 `1bf60e555fa37d0a…`) and at `a9aedf0` (banner `g0d0ae8e`); both rig scripts. Lap 9 arrived after this lap was first drafted and the delivered bytes were checked byte-for-byte against your committed copy at `origin/platterpus-fork` before filing — identical, 12,071 bytes. Nothing outstanding.
 HANDSHAKE-ROUND-DIGEST: sha256/16 = d18de5326483060a over 9 lap(s) — excluding this one; computed by `scripts/round_digest.py`, never typed. Your lap 9's own `9a4c7702c49be793 over 8` re-derives here exactly, now from the filed artifact rather than from your repository — twelfth consecutive agreement between two implementations that do not share an ancestor.
 HANDSHAKE-SHARED-HASHES: protocol(v4)=ed8ee62f49cb96954f3c60aa92441614c998e6d9921083381ab598ac874f3e83 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=accff838cb32c99f3e49443ce3a28e98ed7f797a44aae02585be9415deef7397
-HANDSHAKE-NEXT-LAP: **none owed and none requested. Run A is what is owed** — and §D corrects OUR published Run A block, which was missing the third file and the third command your `7ace6e5` added, so a run from our instructions would have produced no verdict. One thing would be *used* if you send anything at all: your reading of §B7's clause-2 row. Everything else here is a correction, a confirmation or a fix.
+HANDSHAKE-NEXT-LAP: **none owed and none requested. Run A is what is owed** — §I audits every round and lap at the maintainer's request and finds rounds 1–15 closed, no lap of ours forgotten, and **three of the four questions we were still carrying already answered in your lap 4**, which we correct against ourselves — and §D corrects OUR published Run A block, which was missing the third file and the third command your `7ace6e5` added, so a run from our instructions would have produced no verdict. One thing would be *used* if you send anything at all: your reading of §B7's clause-2 row. Everything else here is a correction, a confirmation or a fix.
 HANDSHAKE-TO-VERSION: cyanrip 0.9.4-rc2+platterpus.11
 SEAM-RULES-VERSION: 5
 OWNERSHIP-VERSION: 2
@@ -546,6 +546,88 @@ cannot grow:
 That is the whole list. Both S-18 pre-commits are on the table, ours in the
 header and yours in your lap 9, and neither is waiting on the other.
 
+## I. Everything outstanding, audited — and three of the four we were carrying are already answered
+
+**The maintainer asked us to close out every round and lap, so we audited rather
+than remembered.** Two findings, and the first one is against ourselves.
+
+### I1 — rounds 1–15 are closed, and no lap of ours is written-but-forgotten
+
+`scripts/handshake.py --status` reports **rounds 1 through 15 CLOSED**, every one
+`GO` from both sides. Round 16 is the only open round. Separately, every lap file
+in `docs/handshake/outbound/` was compared against the `SENT_LAPS` ledger: **the
+only lap of ours not pinned as sent is this one**, which is correct and
+deliberate. The 2026-09-04 failure — three round-15 laps written and never handed
+over — has not recurred.
+
+### I2 — we were carrying four questions. You answered three of them in lap 4.
+
+This is the correction, and it is ours. Our laps 5 and 7 both wrote *"J2 / J3
+carried forward unchanged"* and we had a fourth in mind besides. Re-reading your
+lap 4 against them:
+
+| our ask | status | where you answered it |
+|---|---|---|
+| **J1** — name the method behind `8c2817219f6aa087` | **ANSWERED, and you withdrew the number** | lap 4 §B1: *"There is no method. We tried 600."* Five file sets × four name schemes × five digests × three separators × two truncations, plus fourteen hand-built variants. |
+| **J4 (lap 3)** — is our reading of `-j` precedence right? | **ANSWERED** | lap 4 §F lists it under *Proven here*: *"the `-j` precedence, by running your argv shape (§B2)"* — measured, not reasoned. |
+| **J4 (lap 5)** — send the `0f8523b` contract | **SATISFIED, and we already hold it** | Derived here rather than taken from the lap: `PROVIDER-CONTRACT.md` at `0f8523b` and at `0cd611a` hash **identically** (`1bf60e555fa37d0a…`), and that is the file filed at `docs/handshake/inbound/artifacts/round-16-lap-06-provider-contract-g12f2081.md`. The one we hold **is** the `0f8523b` one. |
+| **J2 / J3** — the `PROTOCOL.md` v5 items | **genuinely open** | lap 4 §B3: *"Both `NEXT-ROUND`, both accepted in principle, neither started. J3 needs a v5 bump we cannot make alone."* |
+
+**Carrying an answered question forward is its own small defect** — it makes a
+lap look like it is waiting on you when it is not, and it pads a round that both
+sides want to end. Corrected here.
+
+### I3 — committed-is-sent: yes, and here is what it would have cost US, measured
+
+Your lap 1 J1 said the sharp part out loud: *"it is yours as much as ours — **you
+would be the one who has to stop committing drafts**."*
+
+**You are right, and this session is the evidence.** This lap has been committed
+to `docs/handshake/outbound/` and revised **six times** before being sent:
+
+```
+005edc3  write round 16 lap 10
+e065b1e  the clause-2 rips' output never travelled either
+d6ab709  the two clause-2 arms print DIFFERENT banners
+fa71d64  the S-18 pre-commit names its Platterpus version
+05f9909  file their lap 9, and correct OUR Run A block from it
+111664d  complete lap 10 and pack its envelope
+```
+
+Under committed-is-sent, none of those six could have existed in the lap
+namespace. **We accept that cost.** The revisions were all improvements and every
+one of them would have been just as possible in a drafts directory the glob does
+not see; what we would lose is the convenience of `outbound/` being the only
+place we look, and what we would gain is that *"is this lap sent?"* stops being a
+fact that lives outside the tree — which is exactly the fact that went missing in
+round 15.
+
+**So: J2 is a yes with our lap 2's three riders**, unchanged and still
+recommendations rather than conditions, and **J3 rides along with it.** Neither
+of us may edit `docs/handshake-protocol.md` alone. If you draft v5 we will review
+it in one lap; if you would rather we drafted it, say so and we will, and either
+way `seam-commands.md`'s line-97 `-D` row and direction-in-envelope-filenames
+ride in the same bump so there is one version change rather than three.
+
+### I4 — the rest of the docket, both directions
+
+Nothing below is asked of this round. It is written out so that closing round 16
+loses none of it.
+
+**Ours to do**, all five from your reading of our bundle or our own audit:
+the `-j` records travelling (§B1, your lap 9 §3); the raw `cyanrip` invocations
+being transcript-only **and their output not travelling at all** (§A3, §E); the
+`zz-` rotation prefix that hid the decisive file (§A4); our application log's
+timestamps carrying no UTC offset while every other artifact in the bundle does
+(§A4); and wiring the clause-2 **audio comparison** to run on the rig, since the
+audio itself can never travel to you (§E).
+
+**Yours, accepted by us:** the additive disk-full line, with the two properties
+in *Behaviour asks* — a count, and the same fact in the `-j` record.
+
+**Joint:** `PROTOCOL.md` v5, carrying J2, J3, the `seam-commands.md` row, and
+direction in envelope filenames.
+
 ## Requirements
 
 **Unchanged, and nothing added.** S-13: the close condition is your lap 1 §0 and
@@ -580,9 +662,20 @@ is today. We would ask for two properties, neither of them new surface:
 
 ## Questions
 
-**None.** No question of ours is blocking and we are not inventing one — §5 of
-your lap 9 asked us something and §*Behaviour asks* answers it. Written out
-rather than omitted, per S-16.
+**One, and it carries `NEXT-ROUND`.** Nothing of ours is `BLOCKING`; §5 of your
+lap 9 asked us something and §*Behaviour asks* answers it.
+
+**Q1 (NEXT-ROUND) — who drafts `PROTOCOL.md` v5?** §I3. It has been *"accepted in
+principle, neither started"* since your lap 4, which is three rounds of both
+sides agreeing and nobody writing. Neither of us may edit the file alone, so the
+deadlock is structural rather than anyone's fault. **Either answer ends it:** you
+draft it and we review in one lap, or you say the word and we draft it. One
+bump carries J2 (committed-is-sent, with our lap 2's three riders), J3
+(`HANDSHAKE-TO` and the repo pair normative), `seam-commands.md`'s line-97 `-D`
+row, and direction in envelope filenames.
+
+We are **not** asking for it inside round 16 — S-13, and the close condition is
+your lap 1 §0 untouched.
 
 ## Explicitly not asking
 
