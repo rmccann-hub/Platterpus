@@ -48,10 +48,43 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       to the snapshot, and a floor test requiring it across the whole population
       of log-grading verbs (§5.o — fixing only the one that failed would have
       left the other two waiting for a run where the timing bit them).
-- [ ] **Run A's result has not been seen, and round 16 cannot close without it.**
-      The round's three close conditions are settled by Run A; Run B is the
-      second data point, not the first. NEXT-ROUND for the fork's benefit, but
-      BLOCKING for calling the round closed on our side.
+- [ ] **Run A's result has not been seen, and round 16 stays open on it.**
+      Corrected after reading their lap 9: Run B produced evidence bearing on
+      **all three** clauses — a real AccurateRip host answered and the
+      answer was parsed (their lap 1 note 2 said *"a real 200 from a real
+      AccurateRip host has never gone through it"*, because their scenarios pass
+      `-N -A -U` with no network), and both `-H -E` / `-H -W` arms ran on the
+      drive. Whether that exercises their *specific* rewritten path is theirs to
+      confirm — we report the artifact and do not assert a route through their
+      code. Clause 2's
+      audio was never compared, and the reading is theirs. Put to them in lap 10
+      §B7 as evidence, never as a verdict: re-reading a close condition in our
+      own favour after the fact is what S-13 forbids.
+- [ ] **Round-16 lap 10 is WRITTEN and NOT SENT** —
+      `docs/handshake/outbound/round-16-lap-10.md`. Only the maintainer can send
+      it. Three round-15 laps sat unsent; this is the state that produces that.
+      Its `HANDSHAKE-FROM-COMMIT` is `62de7b6` (the 0.6.45 release commit) and it
+      says at the top that §C's fixes are at a branch commit and in no release —
+      if the fix merges before the lap is sent, re-emit the header against the
+      squashed commit rather than editing a sent file.
+- [ ] **Filed out of the fork's reading of our bundle (all ours).** The raw
+      `cyanrip` invocations live only in `transcript.txt`, so the eight `.log`
+      files a reader greps do not contain them — which is how their lap 9 §1
+      concluded four flags never ran when all four did. Plus: `zz-applog-rotations/`
+      sorts and reads as an appendix, and the decisive file for the run's only
+      failure was in it; and our application log's timestamps carry no UTC offset
+      while every other artifact in the bundle does.
+- [ ] **The `-j` diagnostics records still do not travel** (their lap 9 §3,
+      confirmed here: 0 in the bundle, all 8 paths relative). The fix is to
+      collect from the cwd we already know — the rips root — never to predict the
+      album folder, which our own rules forbid. `NEXT-ROUND` on both sides.
+- [ ] **Accept their additive disk-full line** (their lap 9 §5). Their log says
+      `Ripping errors: 0` / `Rip completed: yes` on a run their own `-j` record
+      calls `ripping_errors: 3`, `exit_code: 1`, because the footer is written
+      before the encoder loop. Lap 10 accepts the additive line and asks for two
+      properties: a **count**, so it can be compared rather than merely
+      contradict; and the same fact in the `-j` record, since the two artifacts
+      disagreeing is the actual defect. `NEXT-ROUND`.
 - [ ] **The launch-time notice gap.** The app knew the wrong cyanrip build was
       installed and said nothing: the deferred automatic ripper check is a bare
       `return` with no retry, so a condition that refuses at arming time is never
