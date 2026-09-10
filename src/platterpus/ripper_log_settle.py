@@ -232,7 +232,24 @@ def await_ripper_log_settled(
             )
         # Sleep the smaller of one tick and the time left, so the deadline is the
         # deadline rather than the deadline rounded up to a tick.
-        sleeper(min(poll_s, deadline_s - waited))
+        #
+        # AND THE RETURN VALUE IS HONOURED. It is the `threading.Event.wait`
+        # shape — True means "stop waiting" — and the first version of this loop
+        # documented that and then dropped it on the floor, which is
+        # `CLAUDE.md`'s *a documented capability is not a capability*: a caller
+        # passing `event.wait` would have been told it interrupts and got up to
+        # one tick of latency and no early exit. Two routes to the same stop,
+        # deliberately, because they answer different questions — `should_abandon`
+        # is polled, `wait` returns.
+        if sleeper(min(poll_s, deadline_s - waited)):
+            waited = now() - started
+            return LogSettle(
+                NOT_SETTLED,
+                f"the wait for {path.name}'s completion footer was interrupted "
+                f"after {waited:.1f}s, so whether the ripper finished writing "
+                "this log is NOT DETERMINED",
+                waited,
+            )
         if _has_footer(path):
             waited = now() - started
             log.info(

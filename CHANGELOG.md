@@ -46,8 +46,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   exactly the wrong thing:
   - **`ripper_log_settle.py` (new)** waits, bounded, for the ripper's own
     completion footer to appear, and reports two outcomes with no inference
-    between them: the footer arrived, or *we still do not know*. Interruptible, so
-    window close is never held up by a footer that is not coming.
+    between them: the footer arrived, or *we still do not know*. Interruptible two
+    ways and both of them real — a polled `should_abandon`, which the window's
+    shutdown path sets, and a `wait` seam whose `threading.Event.wait`-shaped
+    return value the loop honours. The first version documented the second and
+    discarded it, which is *a documented capability is not a capability*: a
+    caller passing `event.wait` was promised an interrupt and given a delay.
   - **The rip worker** runs that wait before both readers — the verification and
     the GUI's own parse, which `finished` triggers — because fixing it at either
     one would leave the other reading a half-written file. Its budget derives from
