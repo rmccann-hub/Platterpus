@@ -1820,3 +1820,109 @@ def test_the_date_renderer_still_never_raises_and_passes_junk_through() -> None:
     assert _eac_date("2026-09-05 18:06:33") == "5. September 2026, 18:06"
     for junk in ("", "   ", "not a date", "2026-13-45T99:99:99", "\x00\x01"):
         assert _eac_date(junk) == junk.strip() or _eac_date(junk) == junk
+
+
+# --- The ripper's OWN completion record, which this document used to drop -----
+#
+# 2026-09-09, §I of the hardware run. The EAC-compatible log for a cancelled rip
+# read "Conclusive status report : absent — this log carries no end-of-rip
+# summary", while the cyanrip log beside it ended with six summary lines: an
+# AccurateRip tally, a paranoia block, an error count, a stall line, "Rip
+# completed:  no (interrupted by SIGTERM, 0 of 14 tracks)" and "Interrupted at:
+# track 1, mid-read". The parenthetical ("no AccurateRip total, no health line")
+# was accurate the whole time; the headline was not.
+#
+# Two facts we HELD and discarded — the completion verdict and the interruption
+# point — in the one artifact a person reads. Worse than facts never obtained,
+# because the document looked complete either way.
+
+
+def _cancelled_log() -> RipLog:
+    """A cancelled rip's parsed log, in the shape the fork actually writes.
+
+    Field values taken from the 2026-09-09 bundle rather than invented, so the
+    rendering is tested against a real ripper's output.
+    """
+    return RipLog(
+        log_creator="cyanrip 0.9.4 (platterpus-fork-gddc1e8c)",
+        tracks=(TrackResult(number=1),),
+        rip_completed=False,
+        rip_completed_reason="interrupted by SIGTERM, 0 of 14 tracks",
+        interrupted_at="track 1, mid-read",
+    )
+
+
+def test_a_cancelled_rip_renders_the_rippers_own_completion_record() -> None:
+    """The regression test. Both facts, named as the ripper's, marked as ours."""
+    text = render_eac_style_log(_cancelled_log())
+    assert "Ripper's own completion record : no" in text, text
+    assert "interrupted by SIGTERM, 0 of 14 tracks" in text, text
+    assert "Interrupted at : track 1, mid-read" in text, text
+
+
+def test_a_cancelled_rip_no_longer_claims_its_summary_is_absent() -> None:
+    """The false headline, gone — and replaced rather than merely deleted.
+
+    Deleting it would trade one wrong answer for silence about a real gap: the
+    AccurateRip total and health line genuinely are missing. So the line now says
+    *partial* and names what is absent, which is what the parenthetical always did
+    correctly.
+    """
+    text = render_eac_style_log(_cancelled_log())
+    assert "Conclusive status report : absent" not in text, text
+    assert "Conclusive status report : partial" in text, text
+    assert "what is absent is the AccurateRip total and the health line" in text
+
+
+def test_a_log_with_NO_completion_footer_still_says_absent() -> None:
+    """Tri-state, and the third state is not the new wording.
+
+    A log that carries no footer at all — a hand-trimmed one, another backend's
+    format, the `render_eac_log.py` CLI — must not gain a "partial" that implies a
+    completion record it does not have. If this passed with "partial" too, the fix
+    would have replaced a false claim of absence with a false claim of presence.
+    """
+    log = RipLog(log_creator="cyanrip 0.9.3", tracks=(TrackResult(number=1),))
+    text = render_eac_style_log(log)
+    assert "Conclusive status report : absent" in text, text
+    assert "Conclusive status report : partial" not in text
+    assert "Ripper's own completion record" not in text, (
+        "a log with no footer must say nothing here rather than implying one"
+    )
+
+
+def test_a_COMPLETED_rip_renders_its_completion_record_too() -> None:
+    """Not only the interrupted case.
+
+    The fact is worth recording either way, and scoping it to cancels would make
+    the successful log's silence read as "we do not know" — which is the tri-state
+    rule pointing the other direction. No `Interrupted at` row, because there was
+    no interruption.
+    """
+    log = RipLog(
+        log_creator="cyanrip 0.9.4 (platterpus-fork-gddc1e8c)",
+        tracks=(TrackResult(number=1),),
+        rip_completed=True,
+        rip_completed_reason="14 of 14 tracks",
+        health_status="No errors occurred",
+    )
+    text = render_eac_style_log(log)
+    assert "Ripper's own completion record : yes (14 of 14 tracks)" in text, text
+    assert "Interrupted at :" not in text, text
+    # And the health line it does have is still rendered, unchanged.
+    assert "No errors occurred" in text
+
+
+def test_the_completion_record_survives_the_log_checksum_round_trip() -> None:
+    """It is inside the attested text, not appended after the checksum.
+
+    An archival row that sits outside the SHA-256 the footer publishes is a row
+    anybody could add, so it would carry none of the document's own guarantee.
+    """
+    text = render_eac_style_log(_cancelled_log())
+    body, _, footer = text.rpartition("Platterpus log checksum")
+    assert footer, "the export lost its checksum footer"
+    assert "Ripper's own completion record" in body, (
+        "the completion record was rendered after the checksum line, so it is "
+        "outside the text the checksum attests"
+    )

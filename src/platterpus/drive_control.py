@@ -54,6 +54,18 @@ log = logging.getLogger(__name__)
 # The Distrobox container the ripper lives in (README/setup-host default).
 DEFAULT_CONTAINER: str = "ripping"
 
+# How long the GUI waits after a cancel before force-stopping whatever still
+# holds the drive.
+#
+# **It lives here rather than in the UI module that arms the timer**, because a
+# second reader now depends on it: the rip worker waits for the ripper to finish
+# writing its log, and that wait is only useful if it outlasts this countdown —
+# the in-container reader typically writes its completion footer *because* this
+# rescue fires (measured 2026-09-09: rescue at +4.9 s, footer at +6.6 s). Two
+# expressions of one number is how those two silently stopped agreeing; raising
+# this countdown now lengthens the wait that depends on it, in one edit.
+FORCE_STOP_COUNTDOWN_S: float = 5.0
+
 # The in-container ripper/reader process names, matched against the process
 # *name* (pkill default, NOT `-f`; `-f` would self-match the wrapper/pkill
 # command line). whipper spawns cdparanoia/cdrdao to do the reading; **cyanrip

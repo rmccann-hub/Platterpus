@@ -3375,3 +3375,196 @@ def test_the_trace_says_which_kind_of_pass_each_sample_came_from(
         f"an album sample was labelled with a securing branch: "
         f"{sorted({str(s['state']) for s in album})}"
     )
+
+
+# --- Waiting for the ripper to finish WRITING its log ------------------------
+#
+# The 2026-09-09 rig run, §I: a cancelled rip's log was read 6.1 s before the
+# ripper finished writing it, and three archival surfaces published the absence as
+# a finding. The wrapper we signal is the host-side Distrobox export; the process
+# that writes the log lives in the container and outlives it, so the wrapper's exit
+# proves nothing. `_await_ripper_log` is what closes that window.
+
+
+def _log_with_footer(tmp_path: Path) -> Path:
+    """A log carrying a REAL cyanrip footer line, read out of the corpus.
+
+    Not a hand-typed `Log FUN512:`: the shape is the whole subject, and a typed
+    one pins my belief about it rather than the parser's behaviour.
+    """
+    corpus = (
+        Path(__file__).resolve().parent.parent
+        / "output_reference"
+        / "cyanrip_fork_flac"
+        / "cyanrip_fork_police_classics.log"
+    )
+    footer = next(
+        line
+        for line in corpus.read_text(errors="replace").splitlines()
+        if line.startswith("Log FUN512:")
+    )
+    path = tmp_path / "signed.log"
+    path.write_text(f"Ripping finished at 2026-09-09\n{footer}\n", encoding="utf-8")
+    return path
+
+
+def test_a_rip_read_to_eof_does_not_wait_for_its_log(tmp_path: Path) -> None:
+    """The normal path must cost nothing.
+
+    `_cancelled` is False, so the read loop reached EOF, so the writer closed its
+    stdout, so the footer is already there. A wait here would tax every successful
+    rip for a bug that only exists on a cancel.
+    """
+    worker = RipWorker(_FakeBackend(), _params(tmp_path))
+    lines: list[str] = []
+    worker.log_line.connect(lines.append)
+    log = _log_with_footer(tmp_path)
+
+    settle = worker._await_ripper_log(str(log))
+
+    assert settle.is_settled
+    assert settle.waited_s == 0.0
+    # AND it says nothing. The zero-wait assertion above holds even if the
+    # cancelled branch were taken, because the settle short-circuits on a log
+    # that already has its footer — so on its own it does not distinguish the two
+    # paths (`revert_probe.py` graded it `unaffected` when the branch was forced).
+    # A successful rip announcing "the rip was cancelled, so the ripper may still
+    # be writing its log" is a false sentence in the log a user reads, and this is
+    # the assertion that catches it.
+    assert lines == [], f"a clean finish narrated a wait it did not perform: {lines}"
+
+
+def test_a_cancelled_rip_waits_for_the_footer_and_says_so(tmp_path: Path) -> None:
+    """The regression test. The wait is announced, not silent.
+
+    A 20-second pause with no explanation is the "working feature that FEELS
+    broken" the maintainer reports as a bug, so the reason goes to the rip log
+    before the wait, not after it.
+    """
+    worker = RipWorker(_FakeBackend(), _params(tmp_path))
+    lines: list[str] = []
+    worker.log_line.connect(lines.append)
+    worker._cancelled = True
+    # Abandon immediately so the test does not actually sit out the deadline —
+    # what is under test here is that the wait was ENTERED and narrated.
+    worker.abandon_log_wait()
+    unsigned = tmp_path / "unsigned.log"
+    unsigned.write_text("Ripping...\n", encoding="utf-8")
+
+    settle = worker._await_ripper_log(str(unsigned))
+
+    assert not settle.is_settled
+    joined = "\n".join(lines)
+    assert "the rip was cancelled" in joined, joined
+    assert "writing its log" in joined, joined
+    # The not-settled reason is surfaced too: a diagnosis we captured and never
+    # showed is the same bug from the user's side.
+    assert "NOT DETERMINED" in joined, joined
+
+
+def test_the_wait_budget_outlasts_the_force_stop_rescue(tmp_path: Path) -> None:
+    """The number is DERIVED, and this is what it has to be bigger than.
+
+    The in-container reader normally writes its footer *because* the GUI's
+    force-stop rescue reaches it — measured at +4.9 s, footer at +6.6 s. A budget
+    shorter than that countdown could never see the footer, so the wait would be
+    theatre.
+
+    **Asserted on the budget the worker ANNOUNCES, not on a mention of the
+    constant in its source.** The first version of this test grepped
+    `inspect.getsource` for ``drive_control.FORCE_STOP_COUNTDOWN_S`` — and passed
+    with the budget reverted to zero, because the method's own **docstring** names
+    that constant. `scripts/revert_probe.py` graded it VACUOUS, which is the
+    second time in this repo a detector has looked for a *mention* where a
+    *behaviour* was meant. The lesson generalises: when a check matches on a
+    label, the subject's own prose is the likeliest place to satisfy it.
+    """
+    import re
+
+    from platterpus import drive_control
+
+    worker = RipWorker(_FakeBackend(), _params(tmp_path))
+    lines: list[str] = []
+    worker.log_line.connect(lines.append)
+    worker._cancelled = True
+    worker.abandon_log_wait()  # so the test does not sit out the real budget
+    unsigned = tmp_path / "unsigned.log"
+    unsigned.write_text("Ripping...\n", encoding="utf-8")
+
+    worker._await_ripper_log(str(unsigned))
+
+    announced = re.search(r"Waiting up to (\d+(?:\.\d+)?)s", "\n".join(lines))
+    assert announced, f"the wait announced no budget at all: {lines}"
+    budget = float(announced.group(1))
+    assert budget > drive_control.FORCE_STOP_COUNTDOWN_S, (
+        f"the wait budget ({budget}s) does not outlast the force-stop rescue "
+        f"({drive_control.FORCE_STOP_COUNTDOWN_S}s), so it could never see the "
+        f"footer the rescue causes to be written"
+    )
+
+
+def test_the_budget_derives_from_the_countdown_rather_than_restating_it() -> None:
+    """One number, two readers — checked in the CODE, with the prose stripped.
+
+    Companion to the test above, and narrower on purpose: that one proves the
+    budget is big enough *today*, this one proves it cannot silently stop being so
+    when somebody raises the countdown. The docstring is cut off before matching,
+    because the docstring is what made the first version of this check vacuous.
+    """
+    import inspect
+
+    body = inspect.getsource(RipWorker._await_ripper_log)
+    # Everything after the closing triple-quote of the docstring. A literal-text
+    # match against a method that documents its own constants is not a check.
+    _, _, code = body.partition('"""')
+    _, _, code = code.partition('"""')
+    assert code.strip(), "could not separate the method body from its docstring"
+    assert "drive_control.FORCE_STOP_COUNTDOWN_S" in code, (
+        "the wait budget does not derive from the rescue countdown it must "
+        "outlast — two expressions of one number is how they came to disagree"
+    )
+    assert "_RIPPER_EXIT_GRACE_S" in code, (
+        "the budget does not include the ripper's own flush allowance for "
+        "closing the FLAC it was writing"
+    )
+
+
+def test_abandon_log_wait_is_reachable_from_the_windows_shutdown_path() -> None:
+    """A cancel that nothing calls is a false promise (`CLAUDE.md`, rule 9).
+
+    `RipHandle.cancel` was fully implemented and called from nowhere for months,
+    and the docstring that described the escalation was documentation of an
+    intention. So this greps for the CALL SITE, in the teardown path, rather than
+    trusting that the method exists.
+    """
+    import inspect
+
+    from platterpus.ui.main_window_rip import RipMixin
+
+    source = inspect.getsource(RipMixin._stop_rip_on_shutdown)
+    assert "abandon_log_wait()" in source, (
+        "nothing releases the rip worker from its bounded log wait at window "
+        "close, so closing the app mid-cancel can sit out a deadline it cannot "
+        "meet — the frozen-window bug"
+    )
+
+
+def test_the_verification_is_told_whether_the_writer_finished(tmp_path: Path) -> None:
+    """The plumbing, asserted end to end at the worker's own boundary.
+
+    Two surfaces used to answer *"is this log complete"* — the verifier and the
+    window's parse — and both read a file that was still being written. This pins
+    the half the worker owns: whatever `_await_ripper_log` concluded is what the
+    backend is told, unchanged.
+    """
+    seen: list[bool] = []
+
+    class _RecordingBackend(_FakeBackend):
+        def verify_log(self, log_path, *, writer_finished: bool = True):  # type: ignore[no-untyped-def]
+            seen.append(writer_finished)
+            return super().verify_log(log_path, writer_finished=writer_finished)
+
+    worker = RipWorker(_RecordingBackend(), _params(tmp_path))
+    worker._verify_ripper_log(str(_log_with_footer(tmp_path)), writer_finished=False)
+    worker._verify_ripper_log(str(_log_with_footer(tmp_path)), writer_finished=True)
+    assert seen == [False, True], seen

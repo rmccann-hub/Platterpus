@@ -103,7 +103,15 @@ log = logging.getLogger(__name__)
 # How long after Cancel to wait before auto-force-stopping the drive (the
 # in-container reader can keep it spinning). The user can hit Force stop to
 # escalate sooner.
-_FORCE_STOP_COUNTDOWN_MS: int = 5000
+_FORCE_STOP_COUNTDOWN_MS: int = int(drive_control.FORCE_STOP_COUNTDOWN_S * 1000)
+"""The cancel rescue countdown, in Qt's milliseconds.
+
+Derived from `drive_control.FORCE_STOP_COUNTDOWN_S` rather than spelled again:
+the rip worker's wait for the ripper's log footer is budgeted against that
+same number, and a countdown raised here while the wait stayed put would put
+the two back out of step — which is the shape that produced the defect the
+wait exists to fix.
+"""
 
 # How long window-close may spend stopping the in-container reader, in total.
 # Chosen against what the fast path actually costs: on rootless podman the
@@ -1140,6 +1148,15 @@ class RipMixin(MainWindowShared):
         if self._rip_worker is not None:
             # Host-side: set the cancel flag + killpg the wrapper group.
             self._rip_worker.cancel()
+            # AND release the worker from its bounded wait for the ripper's log
+            # footer. That wait exists because the in-container reader normally
+            # writes the footer only once the force-stop rescue reaches it — and on
+            # this path the rescue timer will never fire (the app is closing) while
+            # `free_drive` below kills the reader outright. So the footer is not
+            # coming, and a worker sitting out a 20-second deadline it cannot meet
+            # is exactly the frozen-window shape the maintainer reports as a bug.
+            # The verdict degrades to `not_determined`, which is the honest one.
+            self._rip_worker.abandon_log_wait()
         # The armed device, for the same reason the rescue timer captures it: the
         # picker is a live UI control and by the time we are closing it may point
         # at a drive that was never involved in this rip.
@@ -1670,36 +1687,9 @@ class RipMixin(MainWindowShared):
             self._rip_progress.set_log_path(log_file)
             # Parse and render AR results if the file exists.
             try:
-                # errors="replace" (matching the worker's own _parse_log): a rip
-                # log with a stray non-UTF-8 byte must NOT raise here — this runs
-                # on the GUI thread, and a UnicodeDecodeError (a ValueError, which
-                # the old `except OSError` didn't catch) would crash the finish
-                # handler and abort the entire post-rip chain (no report, no
-                # tagging, no cover art, no eject, and the rip state left uncleared
-                # so shutdown thinks a rip is still live).
-                # read_log_with_addendum folds in the auto-fix sidecar, which
-                # supersedes the first pass's per-track record for any swapped
-                # track (see platterpus.rip_addendum).
-                text = read_log_with_addendum(log_file)
-                # Sniff the format instead of trusting the configured
-                # backend: a folder can hold logs from either ripper, and
-                # the auto-heal path can change mid-session.
-                if looks_like_cyanrip_log(text):
-                    rip_log = parse_cyanrip_log(text)
-                else:
-                    rip_log = parse_rip_log(text)
-                # cyanrip's log has no cache line, so its parsed
-                # ``defeat_audio_cache`` is None. If we've MEASURED this drive's
-                # cache-defeat verdict (cd-paranoia -A, stored in the drive
-                # profile — KDD-29), fold it in so the EAC-compatible log and the
-                # JSON report show the real Yes/No instead of "(unknown)".
-                rip_log = self._inject_measured_cache_defeat(rip_log)
-                # The whole-disc log records the FIRST pass only, so a track the
-                # per-track auto-fix re-read and swapped in is still described by
-                # the read we THREW AWAY. Fold the shipped read's own record (and
-                # its convergence) in, so every surface below describes the audio
-                # actually on disk (KDD-30).
-                rip_log = self._apply_auto_fix_results(rip_log)
+                # ONE parse, shared with `parse_rip_log_from_disk` below, so a
+                # later re-read of the same file cannot answer differently.
+                rip_log = self.parse_rip_log_from_disk(log_file)
                 # The disc's own track count and the rip's outcome, both already
                 # known here (`_last_outcome` is built above, at build_outcome).
                 # Without them the trust headline's denominator is the number of
@@ -3381,6 +3371,58 @@ class RipMixin(MainWindowShared):
         except Exception:  # noqa: BLE001 — enrichment must never break finish
             log.warning("could not inject measured cache-defeat verdict", exc_info=True)
             return rip_log
+
+    def parse_rip_log_from_disk(self, log_file: Path) -> RipLog:
+        """Read and parse a ripper log FROM DISK — the one implementation.
+
+        Extracted from the rip-finish handler so a second reader cannot become a
+        second parse. The acceptance script's ``expect-log-well-formed`` grades
+        the ripper's log, and it used to grade ``_last_rip_log`` — the snapshot
+        this window happened to hold. That is *my memory of the artifact* rather
+        than the artifact, and the two diverged on the 2026-09-09 rig run: the
+        snapshot was parsed 6.1 s before the ripper finished writing its footer,
+        so a complete, signed log was graded as unsigned and the section that
+        exists to prove the record survived a cancel reported that it had not.
+
+        Everything the finish handler folds in is folded in here, because it IS
+        the finish handler's code: the format sniff (a folder can hold logs from
+        either ripper), the measured cache-defeat verdict, and the auto-fix
+        supersede. A re-parse that skipped any of them would answer a different
+        question while looking like the same one.
+
+        Raises whatever reading or parsing raises — the finish handler's own
+        ``try`` already handles that, and so must any new caller."""
+        # errors="replace" (matching the worker's own _parse_log): a rip
+        # log with a stray non-UTF-8 byte must NOT raise here — this runs
+        # on the GUI thread, and a UnicodeDecodeError (a ValueError, which
+        # the old `except OSError` didn't catch) would crash the finish
+        # handler and abort the entire post-rip chain (no report, no
+        # tagging, no cover art, no eject, and the rip state left uncleared
+        # so shutdown thinks a rip is still live).
+        # read_log_with_addendum folds in the auto-fix sidecar, which
+        # supersedes the first pass's per-track record for any swapped
+        # track (see platterpus.rip_addendum).
+        text = read_log_with_addendum(log_file)
+        # Sniff the format instead of trusting the configured
+        # backend: a folder can hold logs from either ripper, and
+        # the auto-heal path can change mid-session.
+        if looks_like_cyanrip_log(text):
+            rip_log = parse_cyanrip_log(text)
+        else:
+            rip_log = parse_rip_log(text)
+        # cyanrip's log has no cache line, so its parsed
+        # ``defeat_audio_cache`` is None. If we've MEASURED this drive's
+        # cache-defeat verdict (cd-paranoia -A, stored in the drive
+        # profile — KDD-29), fold it in so the EAC-compatible log and the
+        # JSON report show the real Yes/No instead of "(unknown)".
+        rip_log = self._inject_measured_cache_defeat(rip_log)
+        # The whole-disc log records the FIRST pass only, so a track the
+        # per-track auto-fix re-read and swapped in is still described by
+        # the read we THREW AWAY. Fold the shipped read's own record (and
+        # its convergence) in, so every surface below describes the audio
+        # actually on disk (KDD-30).
+        rip_log = self._apply_auto_fix_results(rip_log)
+        return rip_log
 
     def _apply_auto_fix_results(self, rip_log: RipLog) -> RipLog:
         """Make the parsed ``RipLog`` describe the files actually on disk.

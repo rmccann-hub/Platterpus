@@ -2427,6 +2427,104 @@ constant already held, so the new key reproduces the record instead of redefinin
 it. A derivation that changes a historical answer is a different claim wearing the
 same name.
 
+### §5.bg — An absence we published as a finding, because we looked too early
+
+*2026-09-09, on the rig. One failure in 238 steps, and it was ours.*
+
+Section I of the acceptance run is ARCHIVAL and its entire subject is whether
+cancelling a rip destroys its record. It reported the record destroyed. The record
+was intact — the cyanrip log on disk ends with `Rip completed:  no (interrupted by
+SIGTERM, 0 of 14 tracks)`, `Interrupted at: track 1, mid-read`, a full end-of-rip
+summary, and a valid `Log FUN512:` signature.
+
+The timeline, to the half-second, from the app's own log:
+
+```
+22:02:08.392  rip cancel requested; arming the 5s force-stop rescue
+22:02:08.902  ripper.log_verify_failed: cyanrip exit 3: No FUN512 checksum found
+22:02:08.903  rip finished: success=False    <- report + EAC export rendered here
+22:02:13.293  post-cancel rescue: device-scoped SIGTERM to whatever holds /dev/sr0
+22:02:15      Ripping finished at 2026-09-09T22:02:15-04:00   <- log actually done
+```
+
+**Three false statements in the archival record, from one race.** The report's
+`ripper_log_verification` said `verdict "failed"` about a correctly-signed log;
+`health_status` was `null` though `Ripping errors: 1` is in the file; and the
+EAC-compatible log said `Conclusive status report : absent — this log carries no
+end-of-rip summary` over a rip whose end-of-rip summary is six lines long. Every
+one of them was true of the file *at the instant we looked* and false of the
+artifact the user keeps.
+
+**This is §5.az again, from the other side.** That entry's rule is *an absence in a
+log is a fact about the logger before it is a fact about the subject* — written
+after we handed the fork a capture with the ripper's dying words silently dropped,
+and they reasoned correctly to the wrong conclusion. There the absence was in what
+we had **kept**; here it was in **when we looked**. Same obligation, and it now has
+a second form: *before inferring anything from a line that is not there, establish
+that the writer had finished putting things there.*
+
+Four things worth keeping:
+
+1. **The wrapper's exit is not the writer's exit, and Critical rule #3 says why.**
+   `~/.local/bin/cyanrip` is the host-exported Distrobox wrapper. Signalling it
+   reaches a process group on the *host*; the process that reads the disc and
+   writes the log is inside the container, in a tree podman does not forward the
+   signal into — the exact fact `drive_control` exists for. The discriminator is
+   therefore not *did the process exit* but **did we read its output to EOF**: EOF
+   means the writer closed its stdout, which it does at exit. A read loop that
+   `break`s on a cancel flag has no such proof, and that is the only path where
+   any of this bites.
+
+2. **The obvious fix is wrong, and the measurement says so.** "Wait until the file
+   stops growing, then call the writer finished" is what everybody reaches for. The
+   log went quiet at the cancel and stayed quiet for **6.6 seconds**, because
+   nothing kills the in-container reader until the GUI's own force-stop rescue
+   reaches it at +5 s. Any quiet window shorter than that concludes *"the writer
+   has stopped"* while the writer is merely waiting to be told to. So
+   `ripper_log_settle.py` has **two outcomes and no inference between them**: the
+   footer appeared, or we still do not know.
+
+3. **Say which failure the safe direction avoids.** A false *"the writer finished"*
+   stamps `failed` into the record the user keeps; a false *"still writing"* costs
+   one `not_determined` line in a report. That asymmetry is what makes
+   `not_determined` the default here — and note the fix keeps `failed` for a log
+   whose writer *has* been seen to stop, rather than trading away the 2026-08-20
+   "absent is not mismatched" work for a blanket refusal to answer. Softening every
+   verdict is the other way to be useless.
+
+4. **The number is derived, not chosen.** The wait must outlast
+   `drive_control.FORCE_STOP_COUNTDOWN_S`, because the rescue firing is *why* the
+   footer gets written. That constant moved out of the UI module into
+   `drive_control` so both readers share one expression of it — two expressions of
+   one number is how the countdown and the wait would silently stop agreeing, which
+   is the same shape as the offer-vs-verdict split in §5.al.
+
+**And the acceptance script was grading its own side's memory.**
+`expect-log-well-formed` read `window._last_rip_log` — the `RipLog` the window
+parsed at "finish", i.e. the stale one — so the check could not have detected the
+divergence it existed to catch. `CLAUDE.md` already carried the rule (*when a
+committed artifact can settle a question, the test should read the artifact*); what
+it had not carried is that **the acceptance script is where this project's tests are
+written**, so the rule binds there and not only in `tests/`. All three verbs that
+grade the ripper's log now delegate to one reader that re-parses the file through
+the window's own parse, with no fallback to the snapshot — a fallback restores the
+old reading silently on exactly the runs where the two disagree — and a
+disk/snapshot disagreement is itself reported, because it means the report and the
+EAC log describe a different document.
+
+*Enforced by:* `tests/test_ripper_log_settle.py` (including the assertion that
+silence is never read as completion, which is what stops the heuristic being
+reintroduced as an optimisation), `tests/test_ripper_log_verify.py`'s
+writer-unfinished cases, `tests/test_uiscript_log_from_disk.py` (a stale snapshot
+over a good log must PASS, plus a floor requiring the from-disk reader across
+*every* log-grading verb), and `tests/test_eac_log_export.py`'s completion-record
+rows. Thirteen reverts probed with `scripts/revert_probe.py`; one of mine came back
+`VACUOUS` — a source grep for `drive_control.FORCE_STOP_COUNTDOWN_S` that the
+method's own **docstring** satisfied. Second time in this repo a detector has looked
+for a *mention* where a *behaviour* was meant, and the generalisation is in §5.an's
+neighbourhood: when a check matches on a label, the subject's own prose is the
+likeliest place to satisfy it.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is

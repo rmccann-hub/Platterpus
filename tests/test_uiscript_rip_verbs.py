@@ -122,6 +122,24 @@ def _window(**overrides: Any):
     # Default None: "no rip has been parsed" is the state a fresh window is in,
     # and the handler's floor has to fail on it rather than pass on an empty room.
     win._last_rip_log = overrides.get("last_rip_log", None)
+    # Those verbs now read the log FROM DISK (`ScriptRunner._rip_log_from_disk`),
+    # so the stand-in carries the two attributes the product exposes for it: the
+    # path the log came from, and the window's single re-parse of it.
+    #
+    # PINNED DIFFERENCE, per `CLAUDE.md`'s stand-in rule — *what does my stand-in
+    # do that the real thing does not?* The product re-reads and re-parses the
+    # file, so it CAN raise and it CAN disagree with the snapshot. This one
+    # returns the snapshot, i.e. it models a disk that agrees, which is the
+    # ordinary case and keeps these tests about the grading logic. The two things
+    # it therefore cannot see are covered against real files in
+    # `tests/test_uiscript_log_from_disk.py`: a stale snapshot over a good log
+    # (the 2026-09-09 defect) and a log that cannot be re-read.
+    win._last_rip_log_file = overrides.get(
+        "last_rip_log_file", Path("/nonexistent/stand-in-rip.log")
+    )
+    win.parse_rip_log_from_disk = overrides.get(
+        "parse_rip_log_from_disk", lambda _path: win._last_rip_log
+    )
     win.rescanned = []
     win.cancelled = False
     win.saved = []
@@ -191,7 +209,20 @@ def test_every_attribute_the_stub_fakes_exists_on_the_real_classes() -> None:
         return False
 
     for owner, names in (
-        (MainWindow, ("_on_drive_changed", "_on_rip_cancel", "_save_config")),
+        (
+            MainWindow,
+            (
+                "_on_drive_changed",
+                "_on_rip_cancel",
+                "_save_config",
+                # The from-disk re-read the log-grading verbs delegate to. Named
+                # here for the reason the docstring gives: the stub would answer
+                # a method the real window lacks, and the verb would die in front
+                # of an unattended batch.
+                "_last_rip_log_file",
+                "parse_rip_log_from_disk",
+            ),
+        ),
         (RipControls, ("can_start", "_on_start", "set_config")),
         (TrackTable, ("tracks", "set_all_selected", "set_only_selected")),
         (DrivePicker, ("current_device",)),

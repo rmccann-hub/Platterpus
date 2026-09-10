@@ -11,6 +11,101 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-10 — the run passed 237 of 238, and the one failure was us reading a log six seconds early
+
+**One sentence: the 2026-09-09 hardware run reached the last step on
+`platterpus 0.6.45` + `platterpus-fork-gddc1e8c` with 237 passes, 0 errors and 0
+skips; its single failure was section I reporting a cancelled rip's record
+destroyed, and the record was intact — we verified it 6.1 seconds before the
+ripper finished writing it.**
+
+### What the run proved
+
+* **The 0.6.42 cancel fix holds on hardware.** cyanrip's log carries
+  `Rip completed:  no (interrupted by SIGTERM, 0 of 14 tracks)`,
+  `Interrupted at: track 1, mid-read` and a valid `Log FUN512:` — a complete,
+  signed record of an interrupted rip, which is exactly what the single-SIGTERM
+  chokepoint was built to preserve.
+* **`-H` with de-emphasis executed for the first time ever**, both P3 arms ok.
+* **The reviewed pin is not implicated.** cyanrip behaved correctly throughout;
+  under S-14 nothing here names anything broken in `ddc1e8c`.
+* 8 album folders, no audio in the bundle (Critical rule #8 held end to end).
+
+### The failure, from the artifact rather than from memory
+
+```
+22:02:08.392  rip cancel requested; arming the 5s force-stop rescue
+22:02:08.902  ripper.log_verify_failed: cyanrip exit 3: No FUN512 checksum found
+22:02:08.903  rip finished: success=False    <- report + EAC export rendered here
+22:02:13.293  post-cancel rescue: device-scoped SIGTERM to whatever holds /dev/sr0
+22:02:15      Ripping finished at 2026-09-09T22:02:15-04:00   <- log actually done
+```
+
+**I filed this as three defects and it is one.** That correction matters more
+than the fix. The report's `ripper_log_verification: "failed"`, its
+`health_status: null`, and the EAC-compatible log's *"Conclusive status report :
+absent — this log carries no end-of-rip summary"* are three faces of one race:
+every reader downstream of `finished.emit` was handed a file that was still being
+written. Checked against the bundle rather than asserted — all six footer facts
+(`Ripping errors:`, `Rip completed:`, `Interrupted at:`, `Tracks ripped
+accurately:`, `Ripping finished at`, `Log FUN512:`) are present on disk and none
+of them reached the report. So the fix belongs upstream of all three readers, and
+correcting each downstream would have left the race.
+
+### What was built
+
+* **`src/platterpus/ripper_log_settle.py`** (new) — a bounded wait for the
+  ripper's own completion footer, with **two** outcomes and no inference between
+  them. Deliberately no quiet-window heuristic: the log went quiet at the cancel
+  and stayed quiet 6.6 s, because nothing kills the in-container reader until the
+  GUI rescue reaches it, so *"it stopped growing"* would have concluded precisely
+  the wrong thing. Interruptible via `RipWorker.abandon_log_wait()`, called from
+  `_stop_rip_on_shutdown` so window close is never held by a footer that is not
+  coming.
+* **`RipWorker._await_ripper_log`** runs it before *both* readers — the
+  verification and the GUI's parse — because fixing either alone leaves the other
+  reading a half-written file. Budget derived from
+  `drive_control.FORCE_STOP_COUNTDOWN_S` + `_RIPPER_EXIT_GRACE_S`; the countdown
+  moved out of the UI module so there is one expression of it.
+* **`--verify-log`'s absent-footer verdict is tri-state**: `not_determined` when
+  the writer is unconfirmed, still `failed` when it has been seen to stop. The
+  gate touches that one branch — a *present* checksum that disagrees is `failed`
+  either way, pinned by a test.
+* **The EAC-compatible log renders `Rip completed:` / `Interrupted at:`**, which
+  it had in its parsed input and dropped, and its absent-summary headline no
+  longer claims an absence it can see is untrue.
+* **`ScriptRunner._rip_log_from_disk`** — the three log-grading verbs read the
+  artifact through the window's *own* parse (extracted, not copied), with no
+  fallback to the snapshot, and a disk/snapshot disagreement reported as INFO.
+
+### Lessons, graduated
+
+* **`docs/testing.md` §5.bg** — the full case, including why the wrapper's exit is
+  not the writer's exit and why the safe direction is `not_determined`.
+* **§5.az has a second form.** *An absence in a log is a fact about the logger
+  before it is a fact about the subject* was written about what we **kept**; this
+  is about **when we looked**. Same obligation.
+* **The acceptance script is where this project's tests are written, so
+  `CLAUDE.md`'s *read the artifact, not your memory of it* binds there too** — not
+  only under `tests/`. Three verbs graded `window._last_rip_log`; fixing only the
+  one that failed would have been §5.o exactly, so a floor now requires the
+  from-disk reader across the whole population of log-grading verbs.
+* **`scripts/revert_probe.py` caught one of my own tests as `VACUOUS`** — a source
+  grep for `drive_control.FORCE_STOP_COUNTDOWN_S` that the method's own docstring
+  satisfied. Second time in this repo a detector has looked for a *mention* where
+  a *behaviour* was meant. Rewritten to assert on the budget the worker
+  **announces**; 13 reverts probed in total, all behaving as expected.
+
+### Still open (for the fork, and for us)
+
+* **Run A's result has not been seen.** Round 16's three close conditions are
+  settled by Run A, not Run B, so the round cannot be called closed without it.
+* The launch-time notice gap: the app knew the wrong build was installed and said
+  nothing (the deferred automatic ripper check is a bare `return` with no retry).
+* Filed for the fork's next lap: their §3 misattribution of `bc2ef8e` vs
+  `a0830e0` and the "two commits" undercount; their open disk-full logging defect
+  `d812b70`, present in the installed build.
+
 ## 2026-09-07 (night) — the rig stopped four seconds in, and the message it printed was wrong
 
 **One sentence: an acceptance run aborted at section A exactly as designed, and

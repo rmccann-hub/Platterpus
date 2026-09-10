@@ -59,6 +59,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 
+from platterpus.build_info import build_fingerprint
+
 log = logging.getLogger(__name__)
 
 #: Extensions that may enter a bundle. **Allowlist, not denylist** — see the
@@ -576,6 +578,21 @@ def _render_manifest(
         "",
         f"created            {stamp}",
         f"platterpus         {app_version}",
+        # THE COMMIT, NOT ONLY THE VERSION, AND ON THE FIRST PAGE.
+        #
+        # A version names a release; a commit names the tree that ran. This
+        # manifest is the first file a reader opens, and it carried only the
+        # version — so the cyanrip fork's round-16 lap 9 recorded
+        # `HANDSHAKE-PEER-PIN: unknown — your 0.6.45 bundle carries no commit for
+        # itself`, and filed our pin as unknown rather than guess it from a
+        # superseded lap. They were right about the manifest and the fact was in
+        # the bundle all along, in the application log's banner (`Platterpus
+        # 0.6.45 (build 62de7b6)`) — which is a capture-without-surfacing gap of
+        # exactly the kind `CLAUDE.md` names: we had it, and the artifact a peer
+        # reads did not say it. Read from `build_fingerprint()`, the same source
+        # the banner uses, so the two cannot disagree; `source` on an unstamped
+        # checkout is a real answer and is printed as one.
+        f"build              {build_fingerprint()}",
         f"rip outcome        {outcome}",
         *_album_folder_lines(album_dirs, missing=missing_album_dirs),
         "",

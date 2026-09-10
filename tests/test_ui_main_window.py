@@ -3687,7 +3687,9 @@ def test_repaint_belt_timer_idle_until_rip(teardown_threads) -> None:
 
 def test_cancel_arms_force_stop_timer(teardown_threads) -> None:
     window = teardown_threads()
-    window._rip_worker = SimpleNamespace(cancel=lambda: None)
+    window._rip_worker = SimpleNamespace(
+        cancel=lambda: None, abandon_log_wait=lambda: None
+    )
     window._on_rip_cancel()
     try:
         assert window._rip_cancelled is True
@@ -3781,12 +3783,23 @@ def test_shutdown_stops_in_container_reader_during_rip(
     free_calls = _patch_free_drive(monkeypatch)
     window = teardown_threads()
     cancelled: list[bool] = []
-    window._rip_worker = SimpleNamespace(cancel=lambda: cancelled.append(True))
+    released: list[bool] = []
+    window._rip_worker = SimpleNamespace(
+        cancel=lambda: cancelled.append(True),
+        # The worker's bounded wait for the ripper's log footer. On THIS path the
+        # footer is not coming — the rescue timer will never fire and `free_drive`
+        # below kills the reader outright — so a worker sitting out a 20-second
+        # deadline it cannot meet is the frozen-window bug. Recorded rather than
+        # merely tolerated: a stand-in that only stops the AttributeError would
+        # let the release be deleted silently.
+        abandon_log_wait=lambda: released.append(True),
+    )
     window._rip_thread = SimpleNamespace()  # a rip is in flight
 
     window._stop_rip_on_shutdown()
 
     assert cancelled == [True]  # host-side wrapper group killed
+    assert released == [True]  # …and the log wait released, so close is not held
     assert len(free_calls) == 1  # …AND the in-container reader stopped
     assert "device" in free_calls[0]
 
@@ -3810,7 +3823,9 @@ def test_close_event_stops_in_flight_rip_in_container(
     app while a rip runs stops the drive (the 'exit = force stop' contract)."""
     free_calls = _patch_free_drive(monkeypatch)
     window = teardown_threads()
-    window._rip_worker = SimpleNamespace(cancel=lambda: None)
+    window._rip_worker = SimpleNamespace(
+        cancel=lambda: None, abandon_log_wait=lambda: None
+    )
     window._rip_thread = SimpleNamespace()  # a rip is in flight
 
     window.close()
@@ -6047,7 +6062,9 @@ def test_cancel_captures_the_rip_device_so_a_later_picker_change_is_ignored(
     calls = _patch_free_device_holders(monkeypatch)
     window = teardown_threads()
     # A rip is running on sr0.
-    window._rip_worker = SimpleNamespace(cancel=lambda: None)
+    window._rip_worker = SimpleNamespace(
+        cancel=lambda: None, abandon_log_wait=lambda: None
+    )
     window._active_rip_params = SimpleNamespace(drive="/dev/sr0")
     window._on_rip_cancel()
     try:
@@ -6083,7 +6100,9 @@ def test_shutdown_drive_free_targets_the_armed_device_and_is_bounded(
     """
     free_calls = _patch_free_drive(monkeypatch)
     window = teardown_threads()
-    window._rip_worker = SimpleNamespace(cancel=lambda: None)
+    window._rip_worker = SimpleNamespace(
+        cancel=lambda: None, abandon_log_wait=lambda: None
+    )
     window._rip_thread = SimpleNamespace()
     window._force_stop_device = "/dev/sr0"
     monkeypatch.setattr(
@@ -6755,7 +6774,9 @@ def test_cancel_arms_the_rescue_and_records_the_cancellation(
     _patch_force_stop(monkeypatch)
     window = teardown_threads()
     cancelled: list[bool] = []
-    window._rip_worker = SimpleNamespace(cancel=lambda: cancelled.append(True))
+    window._rip_worker = SimpleNamespace(
+        cancel=lambda: cancelled.append(True), abandon_log_wait=lambda: None
+    )
     window._active_rip_params = SimpleNamespace(drive="/dev/sr0")
     window._force_stop_done = True  # a previous rip's stale flag must be cleared
 
