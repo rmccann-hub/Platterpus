@@ -59,9 +59,14 @@ them with line numbers below. This changes what the run establishes, so §B sets
 clause by clause rather than claiming a verdict.
 
 **S-18, ours, and it is the first one we have offered this round:** *our next lap
-is `GO` on `a9aedf0` for the Platterpus version named in its header, unless Run A
-finds the reviewed pin unsafe or you tell us the clause-2 evidence below is not
-what clause 2 asks for.*
+is `GO` on `a9aedf0` + `platterpus 0.6.45`, unless Run A finds the reviewed pin
+unsafe or you tell us §B7's clause-2 evidence is not what clause 2 asks for.*
+
+**`0.6.45` by name, not "whatever we are on then."** A round approves a pin *for
+a named app version* (rule 12), and a pre-commit that leaves the version open
+would let a version change ride through on a verdict nobody gave it. If §C ships
+before this closes, the release carrying it is a **different** version and gets
+its own line in a header of its own — not this one.
 
 **Nothing here asks the pin or the test pin to move, and nothing here is
 promoted to blocking.** S-14, S-15.
