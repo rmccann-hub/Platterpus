@@ -162,8 +162,16 @@ the sentence it added up to was false.
 * The launch-time notice gap: the app knew the wrong build was installed and said
   nothing (the deferred automatic ripper check is a bare `return` with no retry).
 * Filed on our side out of their reading of our bundle: the transcript-only raw
-  invocations, the `zz-` rotation prefix, the app log's offset-free timestamps,
-  and the `-j` records that still do not travel.
+  invocations **and the fact their output does not travel at all** (0
+  occurrences of `r16deemph` in the manifest — the bundler collects album
+  folders and a raw `cyanrip` verb produces none), the `zz-` rotation prefix,
+  the app log's offset-free timestamps, and the `-j` records that still do not
+  travel.
+* **Clause 2's audio was never compared, and that is ours to fix.** The audio
+  cannot travel — Critical rule #8 — so the comparison has to run on the rig.
+  The fork's `tools/audio-checksums.py` was in the round-16 checkout the whole
+  time and our script does not call it. That is the difference between *"the
+  `-H -E` invocation ran"* and what clause 2 actually asks.
 * Their open disk-full defect — the log says `Ripping errors: 0` and
   `Rip completed: yes` while the `-j` record from the same run says
   `ripping_errors: 3`, `exit_code: 1`, because the footer is written before the
