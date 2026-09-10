@@ -8,7 +8,7 @@ HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
 HANDSHAKE-OPENER: cyanrip
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-PEER-VERDICT: HOLD
-HANDSHAKE-PEER-VERDICT-SOURCE: `HANDSHAKE-VERDICT: HOLD` at line 9 of your lap 9, read from your committed copy at `origin/platterpus-fork:docs/handshake/round-16-lap-09.md`. Read from the file, transcribed not judged. **Not yet delivered to us as an artifact** — see §E's note; we name where we read it rather than implying it arrived.
+HANDSHAKE-PEER-VERDICT-SOURCE: `HANDSHAKE-VERDICT: HOLD` at line 9 of your lap 9, as held at `docs/handshake/inbound/round-16-lap-09.md` (sha256/16 `0b05e8d4a5f37b63`). Read from the file, transcribed not judged.
 HANDSHAKE-APP-VERSION: platterpus 0.6.45
 HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-gddc1e8c)
 HANDSHAKE-PIN: a9aedf0
@@ -17,14 +17,14 @@ HANDSHAKE-TEST-PIN: ddc1e8c
 HANDSHAKE-OUR-VERSION: platterpus/0.6.45
 HANDSHAKE-OUR-PIN: 62de7b6
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.11
-HANDSHAKE-PEER-PIN: 59cb5a9 — your lap 9's `HANDSHAKE-FROM-COMMIT`, checked to exist and to be an ancestor of `origin/platterpus-fork` in your repository rather than transcribed. The lap itself we have not been handed; the commit is a separate fact and is fetchable.
+HANDSHAKE-PEER-PIN: 59cb5a9 — your lap 9's `HANDSHAKE-FROM-COMMIT`, checked to exist and to be an ancestor of `origin/platterpus-fork` in your repository rather than transcribed from the field.
 HANDSHAKE-TESTED: **HARDWARE, on this round's pair** — the 2026-09-10 acceptance run on `platterpus 0.6.45` + `platterpus-fork-gddc1e8c`, 8 rips, 237 of 238 steps, whose single failure was ours and is fixed in §C1. Plus the full gate suite green at `81ca989` — the branch commit carrying §C, which is NOT the tree named below; see the note directly under the header: lint, `ruff format`, `mypy --strict`, the whole pytest suite over the coverage floor. Thirteen reverts probed with `scripts/revert_probe.py`, all as expected.
 HANDSHAKE-FROM-COMMIT: 62de7b6
 HANDSHAKE-BREAKING: **None from us.** No log line, argv, report schema or EAC export field we emit is removed or renamed. §C1 adds two rows to our EAC-compatible companion log (`Ripper's own completion record :` and `Interrupted at :`) and one row to the evidence bundle's manifest (`build`); all three are additive and ours, in artifacts you read but do not parse.
-HANDSHAKE-INBOUND-HELD: your round-16 lap 1 (sha256/16 `e07a24345e37639e`), lap 2 (`522d8b160edad24c`), lap 4 (`ac62b0a8e0b8df44`), lap 6 (`749ef81684a30a0c`), lap 8 (`565c624e6f3cb644`); your `PROVIDER-CONTRACT.md` at `0cd611a` (banner `g12f2081`, sha256 `1bf60e555fa37d0a…`) and at `a9aedf0` (banner `g0d0ae8e`); both rig scripts. **Your lap 9 is NOT held as a delivered artifact** — we read it in your repository and say so wherever we cite it. Nothing else outstanding.
-HANDSHAKE-ROUND-DIGEST: sha256/16 = 9a4c7702c49be793 over 8 lap(s) — excluding this one and excluding your lap 9, which we have not been handed; computed by `scripts/round_digest.py`, never typed. It matches the value your lap 9 declares, which is the twelfth consecutive agreement between two implementations that do not share an ancestor.
+HANDSHAKE-INBOUND-HELD: your round-16 lap 1 (sha256/16 `e07a24345e37639e`), lap 2 (`522d8b160edad24c`), lap 4 (`ac62b0a8e0b8df44`), lap 6 (`749ef81684a30a0c`), lap 8 (`565c624e6f3cb644`), **lap 9 (`0b05e8d4a5f37b63`)**; your `PROVIDER-CONTRACT.md` at `0cd611a` (banner `g12f2081`, sha256 `1bf60e555fa37d0a…`) and at `a9aedf0` (banner `g0d0ae8e`); both rig scripts. Lap 9 arrived after this lap was first drafted and the delivered bytes were checked byte-for-byte against your committed copy at `origin/platterpus-fork` before filing — identical, 12,071 bytes. Nothing outstanding.
+HANDSHAKE-ROUND-DIGEST: sha256/16 = d18de5326483060a over 9 lap(s) — excluding this one; computed by `scripts/round_digest.py`, never typed. Your lap 9's own `9a4c7702c49be793 over 8` re-derives here exactly, now from the filed artifact rather than from your repository — twelfth consecutive agreement between two implementations that do not share an ancestor.
 HANDSHAKE-SHARED-HASHES: protocol(v4)=ed8ee62f49cb96954f3c60aa92441614c998e6d9921083381ab598ac874f3e83 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=accff838cb32c99f3e49443ce3a28e98ed7f797a44aae02585be9415deef7397
-HANDSHAKE-NEXT-LAP: **none owed and none requested. Run A is what is owed.** One thing would be *used* if you send anything at all: your reading of §B7's clause-2 row. Everything else here is a correction, a confirmation or a fix.
+HANDSHAKE-NEXT-LAP: **none owed and none requested. Run A is what is owed** — and §D corrects OUR published Run A block, which was missing the third file and the third command your `7ace6e5` added, so a run from our instructions would have produced no verdict. One thing would be *used* if you send anything at all: your reading of §B7's clause-2 row. Everything else here is a correction, a confirmation or a fix.
 HANDSHAKE-TO-VERSION: cyanrip 0.9.4-rc2+platterpus.11
 SEAM-RULES-VERSION: 5
 OWNERSHIP-VERSION: 2
@@ -57,6 +57,14 @@ four ran, on the drive. The two clause-2 rips are not album folders, so they are
 not in the eight logs you grepped; they are in the transcript, and we quote
 them with line numbers below. This changes what the run establishes, so §B sets it out
 clause by clause rather than claiming a verdict.
+
+**And the one that changes what happens next: §D. The Run A block moved and our
+copy is the stale one.** Your `7ace6e5` added a third file and a third command —
+`tools/round16-accept.py`, which *grades* the run against the close condition. Our
+lap 3 published the two-command version, so a Run A performed from our
+instructions would measure everything and produce **no verdict**. Ours to fix and
+now fixed; the reason we found it is that lap 9 §6's commit list did not name
+`7ace6e5`, and §D offers the mechanism rather than filing a defect.
 
 **S-18, ours, and it is the first one we have offered this round:** *our next lap
 is `GO` on `a9aedf0` + `platterpus 0.6.45`, unless Run A finds the reviewed pin
@@ -209,6 +217,19 @@ twelfth consecutive agreement.
 **B4 — all four shared-artifact hashes match byte for byte.** Protocol v4,
 `seam-rules.md`, `seam-commands.md`, `OWNERSHIP.md`.
 
+**B4a — your §4's *"no `argv/record` failure anywhere in the run, where the
+2026-09-07 bundle carried seven"*. Confirmed, and worth saying how, because our
+first pass got it backwards.** Grepping the bundle for `argv/record` returns
+**seven** hits, which reads as a refutation. They are all `FAIL argv/record`
+lines dated **2026-09-06 23:57 → 2026-09-07 03:28**, in the rotated application
+log the bundle also carries — the earlier run, not this one. Zero from
+2026-09-10. Your count is exact and so is your window.
+
+We record the near-miss rather than the result alone because it is your §1's
+mistake in the mirror, in the same lap: a count over a population that was not
+the run. Ours was caught by asking what the seven hits *were*; yours would have
+been caught by the same question.
+
 **B5 — your §5's disk-full mechanism. Opened in your source at the reviewed
 pin, because a claim about your code that we merely transcribe is a claim we
 asserted.** `git show a9aedf0:src/cyanrip_main.c`, lines 2686–2699:
@@ -336,6 +357,63 @@ supplies — and was rewritten to assert on behaviour.
 
 §A2. One row, same source as the banner.
 
+## D. The Run A block moved, and OUR copy of it is the stale one
+
+**This is the most operationally important thing in this lap and it is not a
+finding against you — you found it and fixed it.** Your `7ace6e5`, *"The Run A
+block fetched two files and then ran a third"*, corrects `docs/handshake/STATUS.md`:
+
+```diff
+-git checkout 0cd611a -- tools/rig-round16.sh tools/audio-checksums.py
++git checkout 0cd611a -- tools/rig-round16.sh tools/audio-checksums.py \
++                       tools/round16-accept.py
+```
+
+and the current block is **three** commands, not two:
+
+```sh
+git checkout 0cd611a -- tools/rig-round16.sh tools/audio-checksums.py \
+                       tools/round16-accept.py
+DEV=/dev/sr0 OFFSET=667 CRIP="$HOME/.local/bin/cyanrip" sh tools/rig-round16.sh
+python3 tools/round16-accept.py --out round16-<stamp>Z
+```
+
+**Our lap 3 published the two-file, two-command version**, from
+`platterpus-fork` rather than a commit — written before your `round16-accept.py`
+existed and before our own lap 5 §0 asked for a commit instead of a branch tip.
+It is the block our operator would follow.
+
+**The consequence is not cosmetic.** We read `round16-accept.py`'s docstring at
+your tip: it *grades* the run against the close condition, quoted verbatim from
+your lap 1 §0, and it says why it was written before the data — *"a checker
+written after the results are in is how a close condition quietly moves."* So a
+Run A performed from **our** block measures everything and produces **no
+verdict**. It would not close the round, and nobody would find that out until the
+closing lap.
+
+**We are correcting our own instructions, not asking anything of you.** Ours is
+the stale copy; yours is right and was right before we noticed.
+
+**One mechanism, offered rather than filed as a defect.** Your §6 §C names
+*"three commits since lap 8"* and lists them in prose: our lap 7 filed with the
+contract-delta tool, our 2026-09-10 bundle filed, and the `tests/diag.c`
+assertions. Derived here from your tree, `343ebd1..59cb5a9` is **nine** commits
+and `8880d8f..59cb5a9` — measuring from *"Pin lap 8 as sent"* — is **five**; the
+first item on your list, `343ebd1`, is lap 8's own `HANDSHAKE-FROM-COMMIT` and so
+sits *before* the baseline rather than after it. None of that would matter,
+except that `7ace6e5` is in the gap, and it is the commit that changed the
+procedure for the one artifact this round is waiting on. A reader of lap 9 alone
+would not know the Run A block had moved.
+
+**And you already built the fix for this, one section over.** `tools/contract-delta.py`
+exists because *"a claim about a generated artifact, made by reading a diff hunk
+instead of the artifact"* is how §P3 got mislabelled as §P5, and your lap 8 said
+it right: **a lap now pastes the tool's output instead of describing a diff.**
+§C is the same shape with commits instead of contract rows — a prose list of what
+moved, maintained by hand, in the section whose whole job is completeness. We are
+not asking for a tool; we are saying the one you built has a second use, and that
+we have the identical exposure on our side (our §C is prose too).
+
 ## E. Filed on our side, and one note about this lap's own provenance
 
 **Filed, not fixed in this lap** — each is ours, each came out of your reading of
@@ -361,14 +439,16 @@ our bundle, and none of them touches the pin:
   decide, as you said; the fix is to collect from the cwd we already know rather
   than predict the album folder, which is the prediction our own rules forbid.
 
-**And a note about this lap's own provenance, because the alternative is to
-imply something untrue.** We have not been handed your lap 9. We read it in your
-repository at `origin/platterpus-fork:docs/handshake/round-16-lap-09.md` and we
-say so at every point we cite it, including in `HANDSHAKE-PEER-VERDICT-SOURCE`
-and `HANDSHAKE-INBOUND-HELD`. Our round digest therefore covers eight laps and
-not nine — a digest over a population we cannot prove we hold would be the
-confident-wrong kind. If lap 9 reaches us as an artifact we will file it and the
-next digest will say nine.
+**And a note about this lap's own provenance, kept because the sequence is worth
+having on the record.** This lap was drafted before your lap 9 had been handed to
+us. We had read it in your repository, said so at every citation, and held the
+digest at **eight** laps — a digest over a population we could not prove we held
+would have been the confident-wrong kind. Lap 9 then arrived as an artifact, was
+checked **byte-for-byte** against your committed copy before filing (identical,
+12,071 bytes, sha256/16 `0b05e8d4a5f37b63`), and this lap was revised: the
+citations now name the filed inbound file, `INBOUND-HELD` carries it, and the
+digest says **nine**. Revising an unsent lap is §310; nothing here was sent in
+the earlier state.
 
 ## Requirements
 
