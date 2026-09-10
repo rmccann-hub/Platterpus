@@ -11,6 +11,85 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **A cancelled rip no longer archives its own record as broken.** On the
+  2026-09-09 hardware run the one failure in 238 steps was section I — the
+  ARCHIVAL section whose whole subject is whether cancelling a rip destroys its
+  record — reporting the record destroyed. It had not been. The cyanrip log on
+  disk carried `Rip completed:  no (interrupted by SIGTERM, 0 of 14 tracks)`,
+  `Interrupted at: track 1, mid-read` and a valid `Log FUN512:` signature. **We
+  read the file 6.1 seconds before the ripper finished writing it**, and
+  published the absence as a finding.
+
+  One race, three false statements in the record the user keeps: the report's
+  `ripper_log_verification` said `verdict "failed"` about a correctly-signed log;
+  `health_status` was `null` though `Ripping errors: 1` was in the file; and the
+  **EAC-compatible log** said `Conclusive status report : absent — this log
+  carries no end-of-rip summary` over a rip whose end-of-rip summary is six lines
+  long. Not three defects — one, with three faces, so the fix sits upstream of
+  all three readers rather than correcting each downstream.
+
+  **Why the ripper's exit was not evidence.** `~/.local/bin/cyanrip` is the
+  host-exported Distrobox wrapper (Critical rule #3). Signalling it reaches the
+  wrapper's process group on the host; the process that reads the disc and writes
+  the log lives inside the container, in a tree podman does not forward the signal
+  into — the same fact `drive_control` exists for. So the discriminator is not
+  *did the process exit* but **did we read its output to EOF**: EOF means the
+  writer closed its stdout, which it does at exit, and a read loop that `break`s
+  on a cancel flag has no such proof. That is the only path where the new wait
+  does any work; a successful rip pays one file read.
+
+  Fixed in four places, and deliberately **not** with a quiet-window heuristic —
+  the log went quiet at the cancel and stayed quiet for 6.6 s, because nothing
+  kills the in-container reader until the GUI's force-stop rescue reaches it, so
+  any "it stopped growing, therefore it is finished" rule would have concluded
+  exactly the wrong thing:
+  - **`ripper_log_settle.py` (new)** waits, bounded, for the ripper's own
+    completion footer to appear, and reports two outcomes with no inference
+    between them: the footer arrived, or *we still do not know*. Interruptible, so
+    window close is never held up by a footer that is not coming.
+  - **The rip worker** runs that wait before both readers — the verification and
+    the GUI's own parse, which `finished` triggers — because fixing it at either
+    one would leave the other reading a half-written file. Its budget derives from
+    `drive_control.FORCE_STOP_COUNTDOWN_S` plus the ripper's flush allowance
+    rather than being a chosen number, so raising the countdown cannot silently
+    make the wait too short again.
+  - **`--verify-log`'s absent-footer verdict is now tri-state.** With the writer
+    unconfirmed it is `not_determined` and says why; with the writer finished it
+    stays `failed`, so the 2026-08-20 "absent is not mismatched" work is kept
+    rather than traded away. A checksum that is *present* and disagrees is still
+    `failed` either way — the gate touches one branch only.
+  - **The EAC-compatible log now renders the ripper's own completion record** —
+    `Rip completed:` and `Interrupted at:` — which it held in its parsed input and
+    dropped, and its absent-summary headline no longer claims an absence it can
+    see is untrue. Facts we had and discarded, in the one artifact a person reads.
+
+- **The acceptance script's log graders read the log from disk, not the window's
+  parsed copy of it.** `expect-log-well-formed`, `expect-rip-complete` and
+  `expect-secure-rerip` all graded `window._last_rip_log` — a belief about the
+  artifact rather than the artifact — which is how a complete, signed log came to
+  be reported as destroyed. `CLAUDE.md` already had the rule (*when a committed
+  artifact can settle a question, the test should read the artifact*); the
+  acceptance script is where this project's tests are written, so it binds there.
+  All three now delegate to one shared reader that re-parses the file through the
+  window's **own** parse — extracted, not copied — and there is no fallback to the
+  snapshot, because a fallback would restore the old reading silently on exactly
+  the runs where the two disagree. A disagreement between disk and snapshot is
+  itself reported: it means the report and the EAC log, both rendered from that
+  snapshot, describe a different document.
+
+### Added
+- **The evidence bundle's manifest now names the build commit, not only the
+  version.** A version names a release; a commit names the tree that ran. The
+  cyanrip fork's round-16 lap 9 recorded `HANDSHAKE-PEER-PIN: unknown — your
+  0.6.45 bundle carries no commit for itself` and, correctly, filed our pin as
+  unknown rather than guess it from a superseded lap. They were right about the
+  manifest — and the fact was in the bundle the whole time, in the application
+  log's banner (`Platterpus 0.6.45 (build 62de7b6)`). We had it, and the first
+  file a peer opens did not say it. Read from `build_fingerprint()`, the same
+  source the banner uses, so the two cannot disagree; an unstamped checkout
+  prints `source`, which is a real answer and not a blank row.
+
 ## [0.6.45] — 2026-09-08
 
 **The acceptance run needs no terminal.** `Help → Install a cyanrip build…`

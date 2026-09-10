@@ -1062,6 +1062,21 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "adapters/cache_probe.py": 372,
     "adapters/cover_art.py": 566,
     "adapters/ctdb_client.py": 332,
+    # --- The 2026-09-09 log-verification race: eight files, one defect ------
+    #
+    # A cancelled rip's log was read 6.1 s before the ripper finished writing
+    # it, and three archival surfaces published the absence as a finding:
+    # `ripper_log_verification: "failed"` in the report, `health_status: null`
+    # beside it, and an EAC-compatible log reading "Conclusive status report :
+    # absent" over a rip whose end-of-rip summary is six lines long. The log on
+    # disk was complete and correctly signed throughout. The process we signal
+    # is the host-side Distrobox wrapper; the process that writes the log lives
+    # in the container and outlives it.
+    #
+    # The bumps below are all that one fix. Each entry says what its file took
+    # on and why that file rather than another; the new code that is genuinely
+    # its own concern went into a NEW focused module, `ripper_log_settle.py`,
+    # rather than into any of them.
     # +37 (2026-09-05): the `-j` diagnostics flag and the paragraph explaining
     # why it is the ONLY artifact for an argv-refused run, why it was added
     # after the acceptance run rather than before, and the two places its
@@ -1080,10 +1095,27 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # it belongs beside the guard it describes: a warning about a check, in a
     # different file from the check, is the split that makes the next reader
     # believe the check is unconditional.
-    "adapters/cyanrip_backend.py": 1567,
+    # **1567 -> 1577 on 2026-09-10** (log-verification race, above): the
+    # `writer_finished` keyword forwarded to the classifier, plus the
+    # paragraph saying why this class must FORWARD the caller's declaration
+    # rather than re-derive it: a second opinion about one fact is the shape
+    # `CLAUDE.md` names as guaranteed to drift, and here both opinions
+    # produce a `LogVerification`, so the drift would be invisible.
+    "adapters/cyanrip_backend.py": 1577,
     "adapters/musicbrainz_client.py": 524,
-    "adapters/rip_backend.py": 585,
-    "adapters/ripper_log_verify.py": 414,
+    # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
+    # keyword on the ABC, where it belongs: any ripper that writes its
+    # signature last has the window, so this is a property of the SEAM and
+    # not of cyanrip.
+    "adapters/rip_backend.py": 594,
+    # **414 -> 467 on 2026-09-10** (log-verification race, above): the
+    # branch that turns an absent footer into `not_determined` when the
+    # writer has not been seen to finish. Most of the growth is the comment
+    # recording the measurement — verdict stamped at 22:02:08.902, footer
+    # written at 22:02:15 — because the branch above it is the 2026-08-20
+    # fix for the same field and a reader needs to see the two are different
+    # questions, not a duplicate.
+    "adapters/ripper_log_verify.py": 467,
     "adapters/transcode.py": 305,
     "app.py": 1349,
     "appimage_integration.py": 326,
@@ -1153,7 +1185,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # and the three comment lines saying why it is not a fatal. The registry is
     # this module's point — a code declared anywhere else would defeat it.
     "diagnostics.py": 685,
-    "drive_control.py": 411,
+    # **411 -> 423 on 2026-09-10** (log-verification race, above):
+    # `FORCE_STOP_COUNTDOWN_S` moved here from the UI module that arms the
+    # timer, because the rip worker's log wait must outlast it. Two
+    # expressions of one number is exactly how the wait and the countdown
+    # could stop agreeing; this file is the one whose docstring already
+    # explains why the countdown exists at all.
+    "drive_control.py": 423,
     "drive_profiles.py": 488,
     # Raised 1450 -> 1490 on 2026-09-04, deliberately. The addition is the
     # tri-state `_status_line` honesty fix: an EAC-format log must not print
@@ -1165,7 +1203,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the docstring saying why the fix is ADDITIVE — a naive timestamp must
     # render byte-identically because real EAC carries no zone, so the next
     # person to "tidy" this into an unconditional suffix breaks parity.
-    "eac_log_export.py": 1535,
+    # **1535 -> 1576 on 2026-09-10** (log-verification race, above): the
+    # ripper's own completion record — `Rip completed:` and `Interrupted
+    # at:` — which this document held in its parsed input and dropped, while
+    # printing "this log carries no end-of-rip summary" over a six-line
+    # summary. Rendering rows belongs with the renderer; the growth is the
+    # two rows and the tri-state that keeps a footerless log silent here.
+    "eac_log_export.py": 1576,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -1270,7 +1314,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # it gates; the decision and the launch in separate files is how a guard
     # stops being read as part of the path it guards.
     "ui/main_window_provision.py": 1283,
-    "ui/main_window_rip.py": 4225,
+    # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
+    # `parse_rip_log_from_disk` extracted from the finish handler so the
+    # acceptance script's log graders can read the artifact through the SAME
+    # parse rather than a second one, plus the `abandon_log_wait()` release
+    # in the shutdown path. The extraction is net-neutral in code and pays
+    # for itself in the docstring; a copy of that parse in the ui-script
+    # layer would have been the drift this file exists to prevent.
+    "ui/main_window_rip.py": 4267,
     "ui/main_window_shared.py": 392,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
@@ -1328,7 +1379,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # — correctly: a recorded count above the real one is that many lines the
     # ratchet would not notice. A ratchet may shrink, and this is what that
     # looks like.
-    "uiscript/runner.py": 3482,
+    # **3482 -> 3557 on 2026-09-10** (log-verification race, above):
+    # `_rip_log_from_disk`, which the three log-grading verbs now delegate
+    # to. It ABSORBS the staleness and existence guards that were duplicated
+    # across all three, so the verbs shrank; the growth is the one shared
+    # reader plus the record of why grading the window's snapshot failed §I
+    # of the 2026-09-09 run on a log that was correct the whole time.
+    "uiscript/runner.py": 3557,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
@@ -1343,7 +1400,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
     # plus the comment recording the bundle measurement that produced it. The
     # line-classification loop is one cohesive read of the ripper's output.
-    "workers/rip_worker.py": 3309,
+    # **3309 -> 3413 on 2026-09-10** (log-verification race, above):
+    # `_await_ripper_log` and `abandon_log_wait`. The wait belongs to the
+    # worker because the worker is the only thing that knows whether its
+    # read loop reached EOF — the fact the whole fix turns on — and it must
+    # run off the GUI thread. The pure bounded wait itself is its own module
+    # (`ripper_log_settle.py`); what is here is the budget, the announcement
+    # and the interrupt.
+    "workers/rip_worker.py": 3413,
 }
 
 

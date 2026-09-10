@@ -424,8 +424,17 @@ class RipBackend(ABC):
     def version(self) -> str:
         """Return the backend's reported version string (raw, untrimmed)."""
 
-    def verify_log(self, log_path: str | Path) -> LogVerification:
+    def verify_log(
+        self, log_path: str | Path, *, writer_finished: bool = True
+    ) -> LogVerification:
         """Ask the backend to verify a rip log **it** wrote, against **its** checksum.
+
+        ``writer_finished`` is the caller declaring whether the process that writes
+        this log has demonstrably stopped. It exists on the ABC rather than on one
+        backend because it is a property of the *seam*, not of cyanrip: any ripper
+        that writes its signature last has a window in which an absent signature
+        means "not yet", and reporting that window as a failed verification is the
+        2026-09-09 defect (see :mod:`platterpus.ripper_log_settle`).
 
         The point is independence. We already check the EAC-style log we write
         against the SHA-256 footer we compute, and the cyanrip fork correctly noted

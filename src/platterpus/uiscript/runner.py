@@ -36,7 +36,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
@@ -45,6 +45,12 @@ from platterpus import __version__, build_info
 from platterpus.uiscript.report import Outcome, RunReport, StepRecord, render
 from platterpus.uiscript.script import Step, sanitise_cyanrip_args
 from platterpus.uiscript.verbs import OPENABLE, VERBS
+
+if TYPE_CHECKING:  # pragma: no cover — types only
+    # Imported for annotations only. The runtime imports stay lazy and
+    # inside the handlers, keeping the ui-script layer free of a hard
+    # dependency on the parsers while still giving mypy a real type.
+    from platterpus.parsers.rip_log import RipLog
 
 log = logging.getLogger(__name__)
 
@@ -1827,25 +1833,13 @@ class ScriptRunner(QObject):
         the run on an ordinary scratched CD — the same mistake
         ``expect-status Done`` made in this very section.
         """
-        from platterpus.parsers.rip_log import RipLog, secure_rerip_tracks_scoped
+        from platterpus.parsers.rip_log import secure_rerip_tracks_scoped
 
-        parsed = getattr(self._window, "_last_rip_log", None)
-        requested = getattr(self, "_rip_log_when_requested", _NO_RIP_REQUESTED)
-        if requested is not _NO_RIP_REQUESTED and parsed is requested:
-            self._record(
-                step,
-                Outcome.FAIL,
-                "no rip has finished since this section asked for one, so this "
-                "would grade a previous section's rip as this one's.",
-            )
-            return
-        if not isinstance(parsed, RipLog):
-            self._record(
-                step,
-                Outcome.FAIL,
-                "no rip log has been parsed in this session, so whether the "
-                "secure re-read ran is NOT DETERMINED — never a pass.",
-            )
+        # READ THE ARTIFACT, not the window's parsed snapshot of it. The two
+        # were different documents on the 2026-09-09 rig run; the guards and
+        # the reasoning live in `_rip_log_from_disk`.
+        parsed = self._rip_log_from_disk(step)
+        if parsed is None:
             return
         if not parsed.tracks:
             self._record(
@@ -1883,6 +1877,120 @@ class ScriptRunner(QObject):
                 "unmet, and until now it was reported as an INFO row that "
                 "nothing graded.",
             )
+
+    def _rip_log_from_disk(self, step: Step) -> RipLog | None:
+        """The ripper's log AS IT IS ON DISK, or ``None`` having recorded a FAIL.
+
+        **Why from disk and not from the window's parsed snapshot.** Three verbs
+        grade the ripper's log, and all three used to read ``_last_rip_log`` — the
+        `RipLog` the window parsed when the rip finished. That is a belief about
+        the artifact, not the artifact, and on the 2026-09-09 rig run the two were
+        different documents: the snapshot was parsed 6.1 s before the ripper wrote
+        its completion footer, health line and end-of-rip summary, so
+        ``expect-log-well-formed`` reported the record destroyed in the one
+        ARCHIVAL section whose whole subject is whether a cancel destroys it. The
+        log on disk was complete and correctly signed the entire time.
+
+        ``CLAUDE.md`` already had the rule — *when a committed artifact can settle
+        a question, the test should read the artifact* — and the acceptance script
+        is where this project's tests are written, so it binds here.
+
+        **It does NOT fall back to the snapshot.** A fallback would restore exactly
+        the reading it exists to replace, and it would do so silently, on the runs
+        where the two disagree — which are the only runs where any of this matters.
+        An unreadable log is a FAIL that names the file and the error.
+
+        The staleness and existence guards stay: reading the file the window last
+        recorded is only *this* section's rip if a rip has finished since this
+        section asked for one. Those two guards were duplicated across the three
+        verbs; they live here now, so a fourth verb cannot be written without them.
+        """
+        from platterpus.parsers.rip_log import RipLog
+
+        parsed = getattr(self._window, "_last_rip_log", None)
+        requested = getattr(self, "_rip_log_when_requested", _NO_RIP_REQUESTED)
+        if requested is not _NO_RIP_REQUESTED and parsed is requested:
+            self._record(
+                step,
+                Outcome.FAIL,
+                "no rip has finished since this section asked for one — the "
+                "window still holds the SAME parsed log it held when `rip` ran, "
+                "so grading it would report a previous section's rip as this "
+                "one's. `rip` can be refused (no disc, Start disabled, a rip "
+                "already running) and leave that field untouched.",
+            )
+            return None
+        if not isinstance(parsed, RipLog):
+            self._record(
+                step,
+                Outcome.FAIL,
+                "no rip log has been parsed in this session, so there is no "
+                "record to inspect — this step reports the state it found "
+                "rather than passing on an empty room. Put it after a `rip` "
+                "and its `wait-for-rip`.",
+            )
+            return None
+        log_file = getattr(self._window, "_last_rip_log_file", None)
+        if log_file is None:
+            self._record(
+                step,
+                Outcome.FAIL,
+                "the window holds a parsed rip log but not the path it came "
+                "from, so the file on disk cannot be re-read — and grading the "
+                "parsed copy instead is the stale-snapshot reading this step "
+                "exists to avoid.",
+            )
+            return None
+        reparse = getattr(self._window, "parse_rip_log_from_disk", None)
+        if reparse is None:  # pragma: no cover — the window always has it
+            self._record(
+                step,
+                Outcome.FAIL,
+                "this window cannot re-read a rip log from disk, so the record "
+                "cannot be graded against the artifact.",
+            )
+            return None
+        try:
+            fresh = reparse(log_file)
+        except (OSError, ValueError) as exc:
+            self._record(
+                step,
+                Outcome.FAIL,
+                f"{log_file} could not be re-read and re-parsed, so the record "
+                f"on disk cannot be graded: {exc!r}",
+            )
+            return None
+        if not isinstance(fresh, RipLog):  # pragma: no cover — parser contract
+            self._record(
+                step,
+                Outcome.FAIL,
+                f"re-parsing {log_file} produced {type(fresh).__name__} rather "
+                "than a rip log, so there is nothing to grade.",
+            )
+            return None
+        # THE DIVERGENCE IS ITSELF A FINDING, and it is the one no reading of
+        # either copy alone can express. If the file on disk says something the
+        # window's snapshot does not, then the report and the EAC-compatible log
+        # we already wrote from that snapshot are stale — which is the 2026-09-09
+        # defect, and it was invisible because every surface agreed with the one
+        # stale source. Reported (not graded) so it names the problem without
+        # deciding, for every caller at once, whether it is fatal to their claim.
+        if fresh.log_checksum.strip() != parsed.log_checksum.strip():
+            # INFO, not FAIL: `Outcome.INFO` exists for a step that GATHERS rather
+            # than asserts, and whether this divergence breaks a claim depends on
+            # which claim — so it is stated for every caller and graded by none.
+            self._record(
+                step,
+                Outcome.INFO,
+                f"the log on disk and the window's parsed copy DISAGREE about the "
+                f"`Log FUN512:` signature (disk: "
+                f"{'present' if fresh.log_checksum.strip() else 'absent'}, window: "
+                f"{'present' if parsed.log_checksum.strip() else 'absent'}) — the "
+                f"report and EAC-compatible log were rendered from the window's "
+                f"copy, so they describe a different document than "
+                f"{log_file.name}",
+            )
+        return fresh
 
     def _do_expect_log_well_formed(self, step: Step) -> None:
         """Assert the ripper's log is an INTACT, ATTESTED record — either verdict.
@@ -1928,28 +2036,12 @@ class ScriptRunner(QObject):
         be *this* section's rip, and it must carry at least one track block.
         """
         from platterpus.parsers.cyanrip_log import fun512_signature_is_malformed
-        from platterpus.parsers.rip_log import RipLog
 
-        parsed = getattr(self._window, "_last_rip_log", None)
-        requested = getattr(self, "_rip_log_when_requested", _NO_RIP_REQUESTED)
-        if requested is not _NO_RIP_REQUESTED and parsed is requested:
-            self._record(
-                step,
-                Outcome.FAIL,
-                "no rip has finished since this section asked for one — the "
-                "window still holds the SAME parsed log it held when `rip` ran, "
-                "so grading it would report a previous section's record as this "
-                "one's.",
-            )
-            return
-        if not isinstance(parsed, RipLog):
-            self._record(
-                step,
-                Outcome.FAIL,
-                "no rip log has been parsed in this session, so there is no "
-                "record to inspect — this step reports the state it found "
-                "rather than passing on an empty room.",
-            )
+        # READ THE ARTIFACT, not the window's parsed snapshot of it. The two
+        # were different documents on the 2026-09-09 rig run; the guards and
+        # the reasoning live in `_rip_log_from_disk`.
+        parsed = self._rip_log_from_disk(step)
+        if parsed is None:
             return
 
         problems: list[str] = []
@@ -2057,34 +2149,11 @@ class ScriptRunner(QObject):
         Floors, so this cannot pass by finding nothing: a log must exist, it must
         carry at least one track, and its own tally must agree with itself.
         """
-        # Imported here rather than at module scope: the ui-script layer is
-        # otherwise free of parser imports, and this is the one handler that
-        # needs the type. A lazy import keeps that boundary while still giving
-        # mypy something better than `Any` to narrow against.
-        from platterpus.parsers.rip_log import RipLog
-
-        parsed = getattr(self._window, "_last_rip_log", None)
-        requested = getattr(self, "_rip_log_when_requested", _NO_RIP_REQUESTED)
-        if requested is not _NO_RIP_REQUESTED and parsed is requested:
-            self._record(
-                step,
-                Outcome.FAIL,
-                "no rip has finished since this section asked for one — the "
-                "window still holds the SAME parsed log it held when `rip` ran, "
-                "so grading it would report a previous section's rip as this "
-                "one's. `rip` can be refused (no disc, Start disabled, a rip "
-                "already running) and leave that field untouched.",
-            )
-            return
-        if not isinstance(parsed, RipLog):
-            self._record(
-                step,
-                Outcome.FAIL,
-                "no rip log has been parsed in this session, so there is no "
-                "completion record to read — this step reports the state it "
-                "found rather than passing on an empty room. Put it after a "
-                "`rip` and its `wait-for-rip`.",
-            )
+        # READ THE ARTIFACT, not the window's parsed snapshot of it. The two
+        # were different documents on the 2026-09-09 rig run; the guards and
+        # the reasoning live in `_rip_log_from_disk`.
+        parsed = self._rip_log_from_disk(step)
+        if parsed is None:
             return
 
         problems: list[str] = []
@@ -2196,13 +2265,19 @@ class ScriptRunner(QObject):
         # REMEMBER WHICH LOG WAS CURRENT WHEN THIS SECTION ASKED FOR A RIP —
         # TAKEN HERE, AHEAD OF EVERY REFUSAL PATH, AND THAT PLACEMENT IS THE FIX.
         #
-        # `expect-rip-complete` reads `window._last_rip_log`, which is
-        # SESSION-scoped: it holds the previous section's log until a new rip
-        # finishes and replaces it. Without a freshness key the verb reports a
-        # green completion for a rip that never started — the previous
-        # section's, in a transcript claiming this one's. That is the "satisfied
-        # by the WRONG thing" shape, and strictly worse than the
-        # `expect-status Done` it replaced.
+        # The log-grading verbs read the file on disk (`_rip_log_from_disk`), and
+        # WHICH file that is comes from `window._last_rip_log_file` — which, like
+        # `_last_rip_log` beside it, is SESSION-scoped: both hold the previous
+        # section's rip until a new one finishes and replaces them. Without a
+        # freshness key a verb reports a green completion for a rip that never
+        # started — the previous section's, in a transcript claiming this one's.
+        # That is the "satisfied by the WRONG thing" shape, and strictly worse
+        # than the `expect-status Done` it replaced.
+        #
+        # So this key stays a fact about the WINDOW's state even though the
+        # grading moved to the artifact, and it has to: the file on disk has not
+        # changed at the moment a refused `rip` returns, so nothing about it could
+        # tell the two apart.
         #
         # The first version of this marker sat on the SUCCESS path, one line
         # above `QTimer.singleShot`. That is precisely backwards: the case the

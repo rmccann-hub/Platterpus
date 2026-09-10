@@ -39,6 +39,13 @@ timeout, a missing log, a log **we** could not read, and — round 12 onward —
 :data:`platterpus.cyanrip_cli.VERIFY_LOG_EXIT_NO_VERDICT`). Per the standing rule,
 ``not_determined`` is never rendered as the negative — an absent verifier is not a
 failed verification.
+
+One more joined that list on 2026-09-09, and it is a "we asked too **early**"
+rather than a "we could not ask": a log with no footer whose **writer has not been
+seen to finish**. That is ``writer_finished=False``, and it is the only thing that
+parameter gates. The window is real and was measured at 6.1 seconds on a cancelled
+rip; ``platterpus.ripper_log_settle`` exists to wait it out so the honest answer is
+usually the affirmative one.
 """
 
 from __future__ import annotations
@@ -119,6 +126,7 @@ def verify_rip_log(
     *,
     build_tag: str = "",
     runner: ToolRunner | None = None,
+    writer_finished: bool = True,
 ) -> LogVerification:
     """Run ``<binary> --verify-log <log_path>`` and classify the result.
 
@@ -126,6 +134,20 @@ def verify_rip_log(
     ripper — and, per the standing rule about stand-ins, the fake must be *less*
     capable than the real thing, not more: it returns a plain :class:`ToolRun`,
     which is exactly what the default runner returns.
+
+    ``writer_finished`` is the caller DECLARING whether the process that writes
+    this log has demonstrably finished writing it. It gates one branch and one
+    only — the absent-footer verdict — because an absent footer is a fact about
+    the file *at the instant we looked*, and only a caller that watched the writer
+    stop can turn that into a fact about the artifact. See
+    :mod:`platterpus.ripper_log_settle` for how the rip worker establishes it, and
+    why the wrapper's exit does not.
+
+    The default is ``True`` for the ordinary reading of an at-rest log — a rig
+    check, a log rendered offline, anything handed a file nobody is writing. It is
+    a parameter rather than something inferred here for the reason ``CLAUDE.md``
+    gives for ``pass_kind``: every heuristic that could tell the two apart is
+    downstream of the state we are trying to describe.
 
     Never raises. Blocking — see the module docstring on threading.
     """
@@ -313,6 +335,37 @@ def verify_rip_log(
             run,
         )
     if not _has_checksum_line_in(text):
+        if not writer_finished:
+            # WE LOOKED TOO EARLY, AND THAT IS NOT A FINDING ABOUT THE LOG.
+            #
+            # The branch below is right whenever the writer has stopped. On a
+            # CANCELLED rip it had not: the host-side wrapper we signalled is not
+            # the in-container reader that writes this file, so the wrapper's exit
+            # proves nothing (Critical rule #3's routing, seen from the other
+            # end). Measured on the 2026-09-09 rig run, §I: this function stamped
+            # `failed` into the report at 22:02:08.902 and the ripper finished
+            # writing a valid `Log FUN512:` footer at 22:02:15 — 6.1 s later. The
+            # log the user keeps is a complete, signed record of an interrupted
+            # rip, and the archived verdict on it says the opposite, permanently.
+            #
+            # Same shape as the two branches above, arriving from a third
+            # direction: `not_determined` is what a state of not-knowing renders
+            # as, and the negative is never the safe default. Which failure the
+            # safe direction avoids: a false `failed` accuses the user's archival
+            # record; a false `not_determined` costs a report line.
+            #
+            # The fix upstream of this is `platterpus.ripper_log_settle`, which
+            # waits for the footer so the usual answer becomes the true one. This
+            # branch is what remains when even that wait ran out.
+            return _not_determined(
+                f"{path.name} carries no 'Log FUN512:' checksum line, but the "
+                f"ripper had not been seen to finish writing it (exit "
+                f"{run.exit_code}), so this says nothing about the log: the "
+                "footer is written last, during the ripper's own shutdown. "
+                "Whether this record is complete is NOT DETERMINED",
+                str(path),
+                run,
+            )
         return LogVerification(
             verdict=FAILED,
             detail=(

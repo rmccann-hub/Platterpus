@@ -157,6 +157,66 @@ def test_the_manifest_carries_the_facts_the_label_came_from(tmp_path: Path) -> N
     assert "tracks in log" in manifest and "3" in manifest
 
 
+def test_the_manifest_names_the_BUILD_and_not_only_the_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A version names a release; a commit names the tree that ran.
+
+    The regression test for the cyanrip fork's round-16 lap 9, which recorded
+    `HANDSHAKE-PEER-PIN: unknown — your 0.6.45 bundle carries no commit for
+    itself` and filed our pin as unknown rather than guess it. They were right
+    about the manifest, and the fact was in the bundle the whole time — in the
+    application log's banner. We had it and the artifact a peer reads did not say
+    it, which is the capture-without-surfacing shape.
+
+    Asserted against a stubbed fingerprint rather than whatever this checkout
+    happens to report, so the test states the value rather than accepting one.
+    """
+    import platterpus.evidence_bundle as eb
+
+    monkeypatch.setattr(eb, "build_fingerprint", lambda: "deadbee")
+    result = build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260910T000000Z",
+        app_version="0.6.45",
+        outcome="acceptance test session",
+        album_dir=None,
+        log_dir=_log_dir(tmp_path),
+    )
+
+    assert result.path is not None
+    manifest = _read_from(result.path, "MANIFEST.txt")
+    assert "build              deadbee" in manifest, manifest[:400]
+    # The version row is still there — this ADDS a fact, it does not replace one.
+    assert "platterpus         0.6.45" in manifest
+
+
+def test_an_unstamped_checkout_says_source_rather_than_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Tri-state: "we were not built from a stamped tree" is a real answer.
+
+    A blank row would read as a missing field, which is the thing this change
+    exists to remove. `build_fingerprint()` already returns the `source`
+    sentinel for a dev checkout; the manifest must print it rather than swallow
+    it.
+    """
+    import platterpus.evidence_bundle as eb
+
+    monkeypatch.setattr(eb, "build_fingerprint", lambda: "source")
+    result = build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260910T000000Z",
+        app_version="0.6.45",
+        outcome="acceptance test session",
+        album_dir=None,
+        log_dir=_log_dir(tmp_path),
+    )
+
+    assert result.path is not None
+    assert "build              source" in _read_from(result.path, "MANIFEST.txt")
+
+
 def test_a_rip_with_no_album_folder_still_produces_a_bundle(tmp_path: Path) -> None:
     """The failure that never got far enough to make a folder is the one that
     most needs sending. A bundle keyed on the album folder existing would skip

@@ -21,6 +21,44 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
+## 2026-09-09 hardware run — 237/238, and the one failure was ours (2026-09-10)
+
+Full run on `platterpus 0.6.45` + `platterpus-fork-gddc1e8c`: 237 passed, 0
+errors, 0 skipped, reached the last step. `-H` with de-emphasis executed for the
+first time ever (both P3 arms ok). The 0.6.42 cancel fix is proven on hardware —
+cyanrip's log carries `Rip completed:  no (interrupted by SIGTERM, 0 of 14
+tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
+
+- [x] **FIXED — the log-verification race, §I. One defect with three faces, not
+      three defects.** We asked cyanrip to verify its own log at 22:02:08.902 and
+      it finished writing that log at 22:02:15 — 6.1 s later, because the process
+      we signal is the host-side Distrobox wrapper and the writer lives in the
+      container. Result: `ripper_log_verification: "failed"` about a correctly
+      signed log, `health_status: null` though `Ripping errors: 1` is in the file,
+      and an EAC-compatible log reading *"Conclusive status report : absent — this
+      log carries no end-of-rip summary"* over a six-line summary. New
+      `ripper_log_settle.py` waits (bounded, interruptible, no quiet-window
+      heuristic) before **both** readers; `--verify-log`'s absent-footer verdict
+      is now tri-state; the EAC export renders `Rip completed:` / `Interrupted
+      at:`. `docs/testing.md` §5.bg.
+- [x] **FIXED — the acceptance script's log graders read the artifact.**
+      `expect-log-well-formed`, `expect-rip-complete` and `expect-secure-rerip`
+      all graded `window._last_rip_log`, so §I's check could not have detected
+      the divergence it exists to catch. One shared from-disk reader, no fallback
+      to the snapshot, and a floor test requiring it across the whole population
+      of log-grading verbs (§5.o — fixing only the one that failed would have
+      left the other two waiting for a run where the timing bit them).
+- [ ] **Run A's result has not been seen, and round 16 cannot close without it.**
+      The round's three close conditions are settled by Run A; Run B is the
+      second data point, not the first. NEXT-ROUND for the fork's benefit, but
+      BLOCKING for calling the round closed on our side.
+- [ ] **The launch-time notice gap.** The app knew the wrong cyanrip build was
+      installed and said nothing: the deferred automatic ripper check is a bare
+      `return` with no retry, so a condition that refuses at arming time is never
+      re-asked. Same shape as the *"did I check the preconditions where the thing
+      HAPPENS"* rule — make the guards a named function that reports **which** one
+      refused, and call it at every point that can interrupt.
+
 ## ROUND 16 IS OPEN — their lap 1 filed, runbook run, everything verified (2026-09-07)
 
 **Their lap 1 arrived and the rehearsed runbook was run end to end.** Filed at
