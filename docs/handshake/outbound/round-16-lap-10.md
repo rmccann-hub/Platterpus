@@ -128,7 +128,16 @@ transcript L1363  [  ok  ] L931  log --- P3. R16 CC2: -H -W (de-emphasis disable
 transcript L1365  [  ok  ] L932  cyanrip -N -s 667 -l 1 -H -W -D r16deemphoff   (220.7s)
                     argv: /home/rmccann/.local/bin/cyanrip -N -s 667 -l 1 -H -W -D r16deemphoff
                     exit: 0
+                    Preemphasis:    none detected
 ```
+
+**The two banners DIFFER, and that is the part worth having.** Same disc, same
+offset, same track, 220–221 s each — and `-E` prints `none detected (deemphasis
+forced)` where `-W` prints `none detected`. Two exit-zeroes would only say the
+flags were *accepted*; the differing parenthetical says they were *acted on*, and
+it is a control that could have failed. Grepped per arm rather than over the
+whole transcript, because a count over the file would have been satisfied by the
+six ordinary rips above them.
 
 The complete set of raw invocations in the run, deduplicated from the
 transcript's own `argv:` lines — `-x` is in it too:
@@ -245,7 +254,7 @@ close condition is yours and S-13 fixes it as written in your lap 1 §0.
 | clause | evidence in the 2026-09-10 bundle | our reading |
 |---|---|---|
 | **1 — AccurateRip succeeds with the rewritten response parser** | `AccurateRip:    found` in **all eight** rips; real per-track rows, e.g. `Accurip v1: 5D3C90CB (accurately ripped, confidence 129)` / `Accurip v2: 22B9924D (… confidence 200)`; disc tallies `12/14`, `2/14`, `0/14` | **A real AccurateRip host answered and the answer was parsed.** Your lap 1 note 2: *"a real 200 from a real AccurateRip host has never gone through it"*, because every scenario there passes `-N -A -U` with no network. This run had a network and no `-A`, and the confidences came back per track — which cannot be produced without fetching and parsing a response. **Whether that exercises the specific rewritten path is yours to confirm**; we are reporting the artifact, not asserting a route through your code. |
-| **2 — `-H` with de-emphasis produces correct de-emphasised audio** | `-H -E` (221.2 s, exit 0, `Preemphasis: none detected (deemphasis forced)`) and the `-H -W` control (220.7 s, exit 0), both on the drive — §A3 | **The invocation ran; the audio was not compared.** Your lap 1 note 1 says `-H -E` satisfies the clause on any disc — but an exit code and a banner line are not an audio-correctness proof, and our script does not run `tools/audio-checksums.py`. **Yours to say whether this is the clause or only the setup for it.** |
+| **2 — `-H` with de-emphasis produces correct de-emphasised audio** | `-H -E` (221.2 s, exit 0, `Preemphasis: none detected (deemphasis forced)`) and the `-H -W` control (220.7 s, exit 0, `Preemphasis: none detected`), both on the drive, **banners differing** — §A3 | **The invocation ran; the audio was not compared.** Your lap 1 note 1 says `-H -E` satisfies the clause on any disc — but an exit code and a banner line are not an audio-correctness proof, and our script does not run `tools/audio-checksums.py`. **Yours to say whether this is the clause or only the setup for it.** |
 | **3 — no line we parse has moved except the ones §D names** | eight logs and eight cues parsed end to end; **zero** parse warnings across both application logs (66,452 + 70,813 lines, grepped for every phrase our parsers emit on an unrecognised line); the run's one parse-adjacent failure was ours and is §C1 | **Held, on our reader.** Stated as our reading of our own parser rather than as a fact about your output — a silent parser is evidence about the parser first. |
 
 **We are deliberately not claiming this closes the round.** Our own lap 3 said
