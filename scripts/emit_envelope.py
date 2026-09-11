@@ -73,7 +73,27 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-10.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-12.md",)
+
+# WHY IT MOVED TO ROUND-16 LAP 12 (2026-09-11).
+#
+# Lap 10 is DELIVERED — the fork's lap 11 line 24 declares holding it at
+# `c5ab86e5fedfc33c`, and records that they ran OUR published reader over the
+# envelope and got a part byte-identical to the raw upload — so its envelope on
+# disk is history and is not regenerated.
+#
+# Lap 12 leads because it carries a finding the round cannot close without: their
+# `clause2()` audio gate is `max` where it must be `min`, so one silent arm and
+# one real arm PASSES clause 2 — and passes because the hashes differ. Both
+# sides' S-18 pre-commits are about to resolve against that program's exit code.
+#
+# **THE MAINTAINER ASKED FOR THIS ONE (2026-09-11): "lets close".** Recorded for
+# the same reason lap 10's note records it: the standing rule is to ASK BEFORE
+# WRITING A LAP, and the audit that produced that rule found three round-15 laps
+# written and never handed over while this generator reported success over a
+# round the fork had closed weeks earlier.
+#
+# One part again. Lap 12 quotes no sha of `fullacceptance.txt`.
 
 # WHY IT MOVED TO ROUND-16 LAP 10 (2026-09-10).
 #

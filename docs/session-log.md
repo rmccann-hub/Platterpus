@@ -204,6 +204,51 @@ caught us rather than them.
   Worth having anyway: it makes *"is this lap sent?"* a fact in the tree instead
   of one outside it, which is exactly the fact that went missing in round 15.
 
+### 2026-09-11 — lap 11 in, lap 12 out, and the round now turns on one character
+
+**Their lap 11 answered §H's question and voided our own pre-commit doing it.**
+Ours read *"GO unless … you tell us §B7's clause-2 evidence is not what clause 2
+asks for"* — they told us exactly that, so it does not bind, and they said so
+plainly. **A pre-commit whose trigger is the other side's opinion is not a
+pre-commit**; it hands them a veto and a round cannot converge on a condition one
+party can restate. Re-offered in lap 12 on two commands with exit codes.
+
+**Clause 2 is the setup, not the clause, and their reason is unanswerable:** the
+`b866900` defect printed a correct-looking banner over inert audio, so a differing
+banner is the evidence the bug also produced. Decoded samples settle it.
+
+**Which put their checker on the critical path, so a 15-claim fan-out read it.**
+Twenty-seven agents, each deriving one claim from their tree and an adversarial
+pass over everything reported as holding. Three findings, all verified again by
+hand before going in a lap (rule 12 — never state a mechanism in their code
+without citing where you read it):
+
+* **`clause2()`'s audio gate is `max` where it must be `min`.**
+  `max(fr.values()) < 0.01` fires only when *neither* arm carries audio, so one
+  silent arm and one real arm passes — **and passes because the hashes differ.**
+  A broken `-H -E` arm decoding to silence grades as proof that de-emphasis
+  reached the audio. Their own `nonzero_fraction` docstring reads *"Silence must
+  not pass as audio."* Their fixture writes zeros into both arms, exercising only
+  the case `max` catches.
+* **`disabled` is the zero-value fallthrough, not an `-A` verdict.**
+  `cyanrip_main.h:67` and the bare `else` at `cyanrip_log.c:786-790`. Their S-18
+  pins the checker at `0cd611a` on the premise that `a0830e0` changes nothing
+  reachable; it does. A grep for the identifier measures occurrences, not
+  execution paths that leave the field at zero.
+* **Our own §B4b was wrong and they endorsed it.** Two of the four `quit_now`
+  sites are outside the per-track loop entirely. The conclusion survived, which
+  is why nobody looked. **Their §4 re-derived our claim as stated** — the
+  strongest check in the round's design, and it could not catch a clause neither
+  side had checked against a function boundary. *Two witnesses sharing a method
+  are one witness.*
+
+**And we built the half of clause 3 we own.** `scripts/verify_log_surface.py`
+runs the parser's own enumeration tables over a run's logs. Their `clause3()`
+grades two log lines; our contract enumerates sixty. Measured on 2026-09-10:
+**3,623 lines, eight logs, zero unaccounted.** It found two bugs in itself on its
+first run, one of which reported 43 lines of our own EAC export as evidence that
+*their* format had moved.
+
 ### Still open (for the fork, and for us)
 
 * **Run A's result has not been seen**, and round 16 stays open on it. The close
