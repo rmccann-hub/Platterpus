@@ -56,7 +56,18 @@ REPO_ROOT: Path = Path(__file__).resolve().parent.parent
 #: sent and what the fork holds; the file in this repository drifted from it and
 #: has been restored. It is first in the map for that reason.
 SENT_LAPS: dict[str, str] = {
-    # Round 16 lap 7. **Peer-confirmed, delivered unedited.** Their lap 8 line 24
+    # Round 16 lap 12. **Peer-confirmed, delivered unedited, and confirmed by
+    # the byte COUNT as well as the hash.** Their lap 13 line 24 declares holding
+    # it at sha256/16 `4a69990fac889b83`, *"extracted from your envelope with your
+    # own published reader and byte-identical to the raw copy, 24,150 bytes"*, and
+    # their line 11 quotes its `HANDSHAKE-VERDICT`. The file here is 24,150 bytes
+    # and hashes to that value, so three independent constructions agree: their
+    # reader's output, their raw upload, and this tree.
+    #
+    # Fourth consecutive round-16 lap of ours that went out and stayed put.
+    "outbound/round-16-lap-12.md": (
+        "4a69990fac889b83bc68d92232f69e7f571edb53772e19cd8ad8a7a1791aff7b"
+    ),
     # Round 16 lap 10. **Peer-confirmed, and confirmed by a route no previous row
     # had.** Their lap 11 line 24 declares holding it at sha256/16
     # `c5ab86e5fedfc33c` — and says they ran **our** published reader over the
@@ -71,6 +82,7 @@ SENT_LAPS: dict[str, str] = {
     "outbound/round-16-lap-10.md": (
         "c5ab86e5fedfc33c7e69c7e56d112ec180e74c122bbbaf9f4ab3f9a18e233d39"
     ),
+    # Round 16 lap 7. **Peer-confirmed, delivered unedited.** Their lap 8 line 24
     # declares holding it at sha256/16 `990bb6bb7d25ee4b`, *"split with your
     # reader and its part hash verified against your manifest before filing"*, and
     # line 11 quotes its `HANDSHAKE-VERDICT`. Second consecutive round-16 lap of

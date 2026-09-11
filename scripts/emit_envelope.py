@@ -73,7 +73,31 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-12.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-14.md",)
+
+# WHY IT MOVED TO ROUND-16 LAP 14 (2026-09-11).
+#
+# Lap 12 is DELIVERED — the fork's lap 13 line 24 declares holding it at
+# `4a69990fac889b83`, extracted with OUR published reader and byte-identical to
+# the raw upload at 24,150 bytes — so its envelope on disk is history and is not
+# regenerated. It is pinned in `SENT_LAPS` at those bytes.
+#
+# Lap 14 leads because it carries the one thing the round cannot close without
+# and which their lap 13 could not supply for us: our own S-18 pre-commit,
+# re-pointed at `5bbb5ae`. Lap 12's version named a REMEDY — "a commit carrying
+# both `a0830e0`'s clause-1 split and §C1's `max`->`min`" — and they improved on
+# `a0830e0` rather than carrying it, so the wording does not bind on the SHA they
+# named. That is the second consecutive pre-commit of ours that failed to bind,
+# for a second distinct reason, and an unbound pre-commit is a round that cannot
+# end on an exit code.
+#
+# **THE MAINTAINER ASKED FOR THIS ROUND TO CLOSE (2026-09-11): "lets close".**
+# Recorded for the same reason lap 10's and lap 12's notes record it: the standing
+# rule is to ASK BEFORE WRITING A LAP, and the audit that produced that rule found
+# three round-15 laps written and never handed over while this generator reported
+# success over a round the fork had closed weeks earlier.
+#
+# One part again. Lap 14 quotes no sha of `fullacceptance.txt`.
 
 # WHY IT MOVED TO ROUND-16 LAP 12 (2026-09-11).
 #

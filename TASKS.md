@@ -91,7 +91,13 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       conclusion (a mid-read SIGTERM is seen) is unaffected, which is why it
       survived. **The fork re-derived the claim AS STATED and agreed** — so two
       witnesses sharing a method were one witness. Corrected in lap 12 §A2.
-- [ ] **Their `clause2()` audio gate is `max` where it must be `min`** —
+- [x] **FIXED at `5bbb5ae` — their `clause2()` audio gate was `max` where it had
+      to be `min`.** Verified in their tree at lap 14 §B4: the gate now reads
+      `quiet = sorted(k for k, v in fr.items() if v < 0.01)` with `if quiet:`, so
+      it fires when *at least one* arm is silent, and the message names the silent
+      arm and derives `is`/`are` from the count. Our lap called it "one character"
+      and meant the predicate; they were right that a message fitting both
+      arities describes neither. Original finding:
       `round16-accept.py`, `max(fr.values()) < 0.01` fires only when NEITHER arm
       has audio, so one silent arm and one real arm passes clause 2, and passes
       *because* the hashes differ. A broken `-H -E` arm decoding to silence would
@@ -100,13 +106,48 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       regression fixture writes zeros into both arms, so it only exercises the
       case `max` catches. Raised in lap 12 §C1 — **blocks the observable both
       S-18 pre-commits resolve against, not the pin.**
-- [ ] **Their S-18's "`disabled` requires `-A`" premise is false** —
+- [x] **SETTLED at `5bbb5ae`, and OUR REMEDY WAS WRONG.** The finding stands and
+      they accepted it; the fix we proposed — pin the checker where `a0830e0` is
+      present — would not have worked, because `a0830e0`'s own `disabled` message
+      asserts *"the query never ran, because `-A` was passed"*, the exact claim
+      this finding disproves. So we would have shipped a **specific and wrong**
+      cause in place of a vague one. Their replacement answers from `Invoked as:`
+      — line 2 of every logfile — with three branches: `-A` an exact token is
+      `FAIL` (`:197-206`), `-A` absent is `WARN` naming both `:134` and `:211` and
+      saying in capitals that the line **cannot tell them apart** (`:207-216`),
+      and no `Invoked as:` at all is `WARN` that the clause is *"UNSETTLED
+      either way"* (`:191-196`) — all three quotations read out of the grader
+      at `5bbb5ae`, not out of their lap's summary of it.
+      That third branch is the one we would not have thought to ask for.
+      Accepted in lap 14 §A1. Original finding:
       `cyanrip_main.h:67` has `CYANRIP_ACCUDB_DISABLED = 0` and
       `cyanrip_log.c:786-790` ends in a bare `"disabled"` fallthrough, so every
       path leaving `ar_db_status` unwritten prints it, including `goto end` after
       `curl_easy_perform` returns `CURLE_OK`. So `a0830e0`'s clause-1 split IS
       reachable in Run A and the checker should not be pinned at `0cd611a`.
       Lap 12 §C2 and Q1.
+- [x] **FIXED — `verify_log_surface.py` excluded our own EAC exports by NAME, and
+      the artifact has three spellings.** `..._EACcompatible.log` in
+      `output_reference/`, `... (EAC-compatible).log` in an evidence bundle, and
+      `after-cancel.eac.log` where the fork files our logs in *theirs*. The name
+      rule caught the first two and missed the third the moment the file crossed a
+      repository boundary, reporting 43 lines of our own export as unaccounted-for
+      *cyanrip* output — a false format-change finding in the one tool an S-18
+      pre-commit hangs on. `CLAUDE.md`'s cross-machine filename rule prescribes
+      the remedy and this script's docstring **cites that rule** while doing only
+      its first half: *legislate the name **and** stop depending on it.* The
+      load-bearing check is now what the document says about itself; the name is a
+      pre-filter. Cross-checked over the fork's own filed copy: 8 logs, 3,623
+      lines, 0 unaccounted, identical to our bundle. Lap 14 §C.
+- [x] **CORRECTED — our S-18 pre-commit has failed to bind TWICE, for two
+      different reasons, and both are ours.** Lap 10's trigger was *"unless **you
+      tell us** …"* — the other side's opinion, which is a veto, not a condition.
+      Lap 12's named a **remedy** (*"a commit carrying both `a0830e0`'s clause-1
+      split and §C1's `max`→`min`"*) and they improved on `a0830e0` rather than
+      carrying it, so the wording did not bind on the SHA they named. Theirs has
+      been *"the checker at `<sha>` exits non-zero"* since lap 11 and has needed
+      no repair: **it names an artifact and an observable; ours twice named a
+      judgement about one.** Re-offered in lap 14 by SHA and nothing else.
 - [ ] **Run A's result has not been seen, and round 16 stays open on it.**
       Corrected after reading their lap 9: Run B produced evidence bearing on
       **all three** clauses — a real AccurateRip host answered and the

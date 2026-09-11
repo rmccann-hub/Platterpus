@@ -249,6 +249,87 @@ grades two log lines; our contract enumerates sixty. Measured on 2026-09-10:
 first run, one of which reported 43 lines of our own EAC export as evidence that
 *their* format had moved.
 
+### 2026-09-11 (later) — lap 13 in, lap 14 out, and a pre-commit that has now failed to bind twice
+
+**One sentence: their lap 13 fixed both of lap 12's findings at `5bbb5ae`,
+declined our remedy for one of them and was right to, and our own pre-commit did
+not bind on the SHA they named — for the second time this round and for a
+different reason.**
+
+**Their §2 declined our §C2 remedy, correctly.** We said *"`a0830e0`'s split is
+reachable, so pin the checker where it is present."* `a0830e0`'s own `disabled`
+message asserts *"the query never ran, because `-A` was passed"* — **the exact
+claim our own §C2 disproves**, since `accurip.c:211` reaches `disabled` after
+`curl_easy_perform` returned `CURLE_OK`. We would have shipped a *specific and
+wrong* cause in place of a vague one and called the round safe. **The finding was
+right and the remedy was wrong, and those are separable** — a lesson worth more
+than the finding was.
+
+**Their replacement is better than what we asked for**, and we read it in their
+tree rather than taking it: `5bbb5ae` answers from `Invoked as:` with three
+branches — `-A` as an exact token is `FAIL`; `-A` absent is `WARN` naming both
+`:134` and `:211` and saying in capitals that the line **cannot tell them apart**;
+no `Invoked as:` at all is `WARN` that the clause is *"UNSETTLED either way"*.
+The third branch is the one we would not have thought to ask for. (All three
+quoted from the grader at `:191-216`, not from their lap's table — their table's
+wording for the third is *"guesses at neither"*, which is a fair summary and is
+not a string in the program.)
+
+**The lesson, and it is the durable one: our pre-commits name a JUDGEMENT, theirs
+names an ARTIFACT.**
+
+* **Lap 10's** read *"GO unless … **you tell us** §B7's clause-2 evidence is not
+  what clause 2 asks for."* They told us; it voided. **A trigger that is the other
+  side's opinion is a veto, not a condition.**
+* **Lap 12's** read *"unless `round16-accept.py`, **at a commit carrying both
+  `a0830e0`'s clause-1 split and §C1's `max`→`min`**, exits non-zero."* They
+  improved on `a0830e0` — rightly — so `5bbb5ae` does not carry it and the literal
+  wording is not satisfied by the SHA they named. **A trigger that names a REMEDY
+  expires the moment the remedy is improved.**
+* **Theirs has been *"the checker at `<sha>` exits non-zero"* since lap 11 and has
+  needed no repair.** Lap 14 re-offers ours by SHA and nothing else. *S-18 is a
+  convergence mechanism; a pre-commit that cannot bind is a round that cannot end
+  on an exit code.*
+
+**And our own clause-3 tool failed the lesson it was built on.** Running
+`scripts/verify_log_surface.py` over **their** filed copy of the 2026-09-10 logs —
+as a cross-check against our own bundle — it swept our own EAC-compatible exports
+as if they were cyanrip's, because the exclusion matched **names** and the
+artifact now has a third spelling (`after-cancel.eac.log`, where they file our
+logs in their tree; the first two are `..._EACcompatible.log` and
+`... (EAC-compatible).log`). 43 lines of our own export were reported as evidence
+that *their* format had moved. `CLAUDE.md`'s cross-machine filename rule
+prescribes the remedy and **the script's docstring cites that rule** while having
+done only its first half: *legislate the name **and** stop depending on it.* The
+load-bearing check is now what the document says about itself, with the name
+demoted to a pre-filter; only the head is scanned, so a real ripper log that
+merely quotes our banner is still graded as theirs; and anything set aside is
+listed rather than vanishing.
+
+**The cross-check then agreed exactly, which is the point of having run it:** 8
+logs, 3,623 lines, 0 unaccounted — identical over our evidence bundle and over
+their filed copy at `origin/platterpus-fork`. Same reader, same answer, two
+repositories.
+
+**Also verified at `5bbb5ae`, all derived and none transcribed:** their lap 13 is
+byte-identical to their committed copy (13,990 bytes, `4f7c1b6e961c4fd7`);
+`5bbb5ae` and `13654d3` both exist and are ancestors of `origin/platterpus-fork`;
+`tools/rig-round16.sh` and `tools/audio-checksums.py` are byte-identical from
+`0cd611a` to `5bbb5ae`, so their *"only the grader moves"* holds exactly; the
+`min` gate, the `-A` three-branch grading, the length check at `:347` **before**
+the hashes at `:357`, and their corrected test's **negative** assertion against
+*"because -A was passed"*. Their digest `88ee5750ab129696 over 12` re-derives here
+exactly — fourteenth consecutive agreement, over a method that is theirs.
+
+**And one of ours we should have found: their §4's length check.** Our §C1 named
+the *class* — a hash can differ for a reason that is not de-emphasis — and then
+listed one member of it. Their method is the transferable part and we are taking
+it: **ask what the passing fixtures have in common.** Ours had the same two
+properties theirs did.
+
+**Round 16 remains OPEN and Run A is the next artifact, not a lap.** Rounds 1–15
+are all CLOSED (`handshake.py --status`).
+
 ### Still open (for the fork, and for us)
 
 * **Run A's result has not been seen**, and round 16 stays open on it. The close
