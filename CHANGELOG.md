@@ -11,6 +11,26 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **`scripts/verify_log_surface.py` — clause 3 of the cyanrip handshake, graded by
+  the reader the clause is actually about.** Round 16's close condition says *"no
+  line you parse has moved except the ones §D names"*, and "you" is Platterpus.
+  The fork's `round16-accept.py` grades all three clauses and its exit code is the
+  observable both sides' pre-commits now hang on — right for clauses 1 and 2,
+  which are facts about their ripper. Clause 3 is not: their checker can only
+  grade it by proxy, and measured, that proxy is the `-j` schema, two instants,
+  the banner, and the presence of **two** log lines — against the **sixty** our
+  generated contract says we parse. A pass resting on a 2-of-60 sample of one
+  third of the condition is not one either project would want on the record.
+  The script runs the parser's **own** enumeration tables — the same ones the
+  published contract is generated from, so it cannot drift from the parser — over
+  a run's logs and reports every line that is neither parsed nor knowingly
+  ignored. It refuses to report success on an empty or tiny population
+  (`UNPROBED` is not a pass, the fork's own rule), excludes artifacts *we* wrote
+  however they are spelled, and counts rather than drops anything it sets aside.
+  Measured on the 2026-09-10 run: **3,623 lines across all eight logs, zero
+  unaccounted.**
+
 ### Fixed
 - **A cancelled rip no longer archives its own record as broken.** On the
   2026-09-09 hardware run the one failure in 238 steps was section I — the
