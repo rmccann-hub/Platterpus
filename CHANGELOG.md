@@ -51,6 +51,34 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   same logs.**
 
 ### Fixed
+- **The acceptance run's clause-2 section stated a verdict rule that was
+  arithmetically impossible to satisfy, and it accused the cyanrip fork.** Section
+  P3 of `fullacceptance.txt` rips the same track twice, `-H -E` against `-H -W`,
+  and said: *"the two runs' track-1 checksums, AS PRINTED BY cyanrip IN THE
+  TRANSCRIPT, MUST DIFFER… Identical checksums mean the cascade is still
+  selecting rather than composing"* — i.e. that the fork's `b866900` de-emphasis
+  defect was unfixed. **Every checksum cyanrip prints is accumulated over the
+  buffer as it came off the drive**: `crip_process_checksums(&checksum_ctx, data,
+  bytes)` at `src/cyanrip_main.c:818`, `:872` and `:965` (read at `ddc1e8c`), each
+  one *before* `cyanrip_send_pcm_to_encoders(..., t->dec_ctx, ...)` at `:821`,
+  `:879`, `:968`, which is where the filter graph and therefore `aemphasis` live.
+  A checksum taken before a filter cannot record what the filter did, so the two
+  arms are **forced** to agree — and the rule reported a peer's defect as present
+  on every run that will ever be made. Not hypothetical: the 2026-09-11 rig run
+  printed `B0D122E7` for both arms, exactly as it must.
+  **The load-bearing sentence was a premise, not a measurement** — *"cyanrip's
+  printed per-track checksum is over the DECODED SAMPLES"* — and the section
+  stayed on FLAC output because of it. P3 now says plainly that it settles
+  nothing, that clause 2 is closed only by Run A (which rips `-o pcm` and
+  compares decoded samples, as does the fork's own grader), and it warns off
+  **both** nearest-to-hand readings, which fail in opposite directions: the
+  container md5 is a false pass, the printed checksum a false failure.
+  **The guarding test carried the same wrong premise**, asserting in its own
+  docstring that the printed checksums are *"over the decoded samples"* — so it
+  could never have caught this, and a green test was defending the defect. It has
+  been rewritten rather than exempted, and its phrase matching now normalises the
+  comment block's hand-wrapping, because the first version went red on a reflow
+  rather than on a regression. Four reverts probe `detected`.
 - **The fourth media guard did not know about `.pcm` or `.raw`.** Critical rule #8
   is enforced four ways — `.gitignore`, `.githooks/pre-commit`, CI's `media-guard`
   job, and the `PreToolUse` hook in `.claude/settings.json`. When raw PCM was added

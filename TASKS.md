@@ -179,6 +179,16 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       citing where it was read (rule #12). The ask is a measurement, not a fix:
       changing the rescue on a guess would be a change with nothing behind it.
       Not blocking under S-14 — it broke nothing in the artifact under review.
+- [ ] **We cannot settle clause 2 ourselves, and the missing piece is a digest
+      verb.** P3 captures the two `-H` arms and now says plainly that it settles
+      nothing. To settle it on our own rig we would need to rip `-o pcm` and
+      compare a digest of the two arms' raw samples — but the audio cannot enter
+      this repository or the evidence bundle (Critical rule #8), so **the digest
+      must be computed on the rig and only the digest travels** (`.md5`/`.sha256`
+      are already text). The script language has no verb that digests a file.
+      Per the *new capability is a SCRIPT VERB* rule this is a verb, not a flag.
+      Not urgent: Run A settles clause 2 for round 16. It matters the next time
+      a clause turns on audio identity and the fork's rig is not the one running.
 - [ ] **Run A's result has not been seen, and round 16 stays open on it.**
       Corrected after reading their lap 9: Run B produced evidence bearing on
       **all three** clauses — a real AccurateRip host answered and the

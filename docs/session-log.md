@@ -427,6 +427,66 @@ next session would have raised it again from there. What protection would buy is
 already covered another way: the agent proxy is fast-forward-only, nine gating CI
 jobs run on every PR, and releases go through `release.yml`.
 
+### 2026-09-11 (readiness sweep) — a verdict rule of ours that could only ever accuse the fork
+
+**One sentence: preparing for the next handshake artifact turned up a rule in our
+own acceptance script that reports the fork's `b866900` de-emphasis defect as
+unfixed on every run that will ever be made, because the quantity it compares is
+arithmetically forced to agree.**
+
+**The rule.** Section P3 rips one track twice, `-H -E` against `-H -W`, and said:
+*"the two runs' track-1 checksums, AS PRINTED BY cyanrip IN THE TRANSCRIPT, MUST
+DIFFER… Identical checksums mean the cascade is still selecting rather than
+composing."*
+
+**The derivation that kills it**, read in their tree at `ddc1e8c` rather than
+taken from anyone's summary: `crip_process_checksums(&checksum_ctx, data, bytes)`
+is called at `src/cyanrip_main.c:818`, `:872` and `:965`, always over `data` —
+the buffer as it came off the drive — and at every one of those sites it runs
+*before* `cyanrip_send_pcm_to_encoders(..., t->dec_ctx, ...)` at `:821`, `:879`,
+`:968`, which is where the filter graph and therefore `aemphasis` live.
+`src/checksums.h:62-90` shows the accumulation: EAC CRC32 and both AccurateRip
+sums, straight over raw bytes. **A checksum taken before a filter cannot record
+what the filter did.** The 2026-09-11 run printed `B0D122E7` for both arms —
+exactly as it must, and exactly what the old rule calls a failure.
+
+**Three lessons, and the second is the one worth keeping.**
+
+* **The load-bearing sentence was a premise wearing a measurement's clothes.**
+  *"cyanrip's printed per-track checksum is over the DECODED SAMPLES"* — asserted,
+  never derived, and the section stayed on FLAC output because of it. The source
+  was in a repository we have checked out. *A claim we could have derived and
+  merely repeated is a claim we asserted.*
+* **The guarding test was written from the same wrong premise, and said so in its
+  own docstring** — *"true of the checksums cyanrip PRINTS, which are over the
+  decoded samples."* So it could not have caught the defect; it was a green test
+  defending it. Rewritten, not exempted. This is the same shape the fork found in
+  their own clause-1 test and corrected at `5bbb5ae` — two projects, same week,
+  same defect class.
+* **The comment argued itself into the trap it was warning about.** It explained
+  at length that `md5sum *.flac` gives *"a CONFIRMING answer from an input that
+  cannot confirm anything"*, and then chose an input that cannot confirm anything
+  either, for the mirror reason, while crediting the fork for the insight. **The
+  fork had it right and we misread why**: their script decodes with `ffmpeg -f
+  md5`, and the decode is the whole mechanism. We dropped it believing cyanrip
+  had already done it for us.
+
+**What P3 says now.** That it settles nothing; that clause 2 is closed only by
+Run A; and that *both* nearest-to-hand readings are wrong in opposite directions
+— the container md5 is a false **pass**, the printed checksum a false **failure**.
+Filed in `TASKS.md`: settling it on our own rig needs a digest verb, because the
+audio may not travel and only a digest computed on the machine can.
+
+**A second, smaller find from the same sweep.** Rule #8 is enforced four ways and
+only three knew about `.pcm`/`.raw`; `.gitignore`'s own comment says the fix
+covered *"our three media guards"*. The population was counted as three when it
+is four, inside the guard for the rule it protects. Fixed in `a14b960`.
+
+**And a correction to my own reporting.** I told the maintainer four remote
+branches needed deleting; they had already been deleted, and I was reading
+remote-tracking refs I had never pruned. A remote-tracking ref is a memory of a
+remote, not the remote.
+
 ### Still open (for the fork, and for us)
 
 * **Run A's result has not been seen**, and round 16 stays open on it. The close
