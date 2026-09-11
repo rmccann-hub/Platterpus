@@ -148,6 +148,37 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       been *"the checker at `<sha>` exits non-zero"* since lap 11 and has needed
       no repair: **it names an artifact and an observable; ours twice named a
       judgement about one.** Re-offered in lap 14 by SHA and nothing else.
+- [x] **FIXED — §I's `expect-log-well-formed` had a SECOND defect, and the first
+      fix is what made it reachable.** The 2026-09-11 acceptance run failed the
+      same step again — 237/238, the one failure in the ARCHIVAL section — and the
+      log on disk was complete and attested: footer, `Interrupted at: track 1,
+      mid-read`, valid `Log FUN512:`. The remaining cause was an unconditional
+      floor, *no track blocks → FAIL*, in the one verb whose proposition holds for
+      a rip that did **not** finish: §I cancels during track 1, so zero completed
+      blocks is the expected shape. Now graded against the footer — a footer
+      claiming completion over zero blocks still fails. Proven against the run's
+      own artifact, committed as
+      `tests/fixtures/cyanrip_cancelled_at_track_one.log`; three reverts probe
+      `detected`. **Both lessons are already written rules:** *ask what state the
+      fix UNBLOCKS*, and *what does my stand-in do that the real thing does not*
+      (the earlier test's "disk" log was the 14-track corpus rip).
+- [ ] **HAZARD, latent, raise with the fork NEXT-ROUND: our post-cancel rescue
+      sends a SECOND signal toward the drive holder ~2 s before the ripper
+      finishes writing its footer.** Measured on 2026-09-11: cancel SIGTERM at
+      `11:17:36.104`; `post-cancel rescue: device-scoped SIGTERM` with
+      `fuser -k TERM /dev/sr0 rc=0` at `11:17:41.175` — `rc=0` means it found and
+      signalled something; the ripper's own `Ripping finished at` is `11:17:43`
+      with a valid `Log FUN512:`. **The record survived on this run**, and on the
+      2026-09-09 run too. The concern is the margin, not an observed loss:
+      `CLAUDE.md` already records that a second signal to cyanrip takes a
+      `_exit(1)` path that skips `atexit`, which is where the footer and the
+      FUN512 are written. What is NOT established, and must not be asserted: **we
+      cannot tell from our own log whether `fuser` reached cyanrip itself or only
+      the host wrapper / in-container reader** — our own log line says the reaped
+      process is the wrapper. Do not state a mechanism in their code without
+      citing where it was read (rule #12). The ask is a measurement, not a fix:
+      changing the rescue on a guess would be a change with nothing behind it.
+      Not blocking under S-14 — it broke nothing in the artifact under review.
 - [ ] **Run A's result has not been seen, and round 16 stays open on it.**
       Corrected after reading their lap 9: Run B produced evidence bearing on
       **all three** clauses — a real AccurateRip host answered and the

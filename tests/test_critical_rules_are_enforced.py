@@ -1393,7 +1393,18 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # across all three, so the verbs shrank; the growth is the one shared
     # reader plus the record of why grading the window's snapshot failed §I
     # of the 2026-09-09 run on a log that was correct the whole time.
-    "uiscript/runner.py": 3557,
+    # **3557 -> 3580 on 2026-09-11** (the SECOND defect in the same verb, which
+    # the entry above made reachable): `_do_expect_log_well_formed`'s track-block
+    # floor is now graded against the completion footer instead of
+    # unconditionally, because §I cancels during track 1 and a correct record
+    # therefore carries zero completed blocks — it failed one on hardware. The
+    # branch itself is five lines; the rest is the docstring's *Floors* paragraph,
+    # which had to change because it asserted the old floor in prose and a
+    # docstring that contradicts its own code is the defect this repo keeps
+    # naming. Deliberately NOT extracted: a five-line predicate in its own module
+    # would be splitting to hit a number, which the cohesion heuristic explicitly
+    # is not. The long-form reasoning lives in the test, not here.
+    "uiscript/runner.py": 3580,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,

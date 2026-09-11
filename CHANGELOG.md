@@ -51,6 +51,32 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   same logs.**
 
 ### Fixed
+- **A cancel that lands before the first track finishes no longer reads as a
+  destroyed record.** `expect-log-well-formed` — the only graded assertion in §I,
+  the ARCHIVAL section whose entire subject is whether cancelling a rip destroys
+  its record — carried an unconditional floor: *no track blocks → FAIL*. §I
+  cancels **during track 1**, so a correct record legitimately carries **zero**
+  completed track blocks. On the 2026-09-11 hardware run that floor failed a log
+  which was complete and attested in every other respect — `Rip completed:  no
+  (interrupted by SIGTERM, 0 of 14 tracks)`, `Interrupted at: track 1, mid-read`,
+  a valid `Log FUN512:`, not truncated. The floor is now graded **against the
+  footer**: a footer claiming the rip *completed* over zero track blocks is a
+  record contradicting itself and still fails; a footer saying it did not
+  complete is the expected shape and is reported rather than graded — the same
+  treatment the incomplete-last-block check three lines below already gave it.
+  The verb still cannot pass by finding nothing: the footer must be present
+  (tri-state), and the signature present and well-formed.
+  **Two things worth keeping about how this was missed.** It is the *second*
+  defect in this verb in three days, and the fix for the first one is what made it
+  reachable — grading the file instead of the window's stale snapshot unblocked a
+  state that had never executed, so it arrived already believed-in (`CLAUDE.md`:
+  *ask it about state the fix UNBLOCKS, not only state it adds*). And the test for
+  that first fix could not see it, because its stand-in "disk" log was the
+  14-track corpus rip: *what does my stand-in do that the real thing does not.*
+  The regression test now grades **the real artifact from the run that failed**,
+  committed as `tests/fixtures/cyanrip_cancelled_at_track_one.log`, and the
+  converse (a completed footer over zero blocks) is pinned separately so the floor
+  is proven to still bite. All three reverts probe `detected`.
 - **A cancelled rip no longer archives its own record as broken.** On the
   2026-09-09 hardware run the one failure in 238 steps was section I — the
   ARCHIVAL section whose whole subject is whether cancelling a rip destroys its

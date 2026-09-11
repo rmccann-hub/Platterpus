@@ -330,6 +330,80 @@ properties theirs did.
 **Round 16 remains OPEN and Run A is the next artifact, not a lap.** Rounds 1–15
 are all CLOSED (`handshake.py --status`).
 
+### 2026-09-11 (later still) — a second acceptance run, the same step, and a second defect in it that the first fix made reachable
+
+**One sentence: the 2026-09-11 run reached the last step on `0.6.45` +
+`platterpus-fork-gddc1e8c` with 237 of 238 passing, and its single failure was
+§I's `expect-log-well-formed` again — same step, same section, and *not* the same
+defect.**
+
+**The record was intact, again, and this time it is provable from the fixture in
+the tree.** The cyanrip log on disk carries `Rip completed:  no (interrupted by
+SIGTERM, 0 of 14 tracks)`, `Interrupted at: track 1, mid-read`, and a valid
+`Log FUN512:`, and it is not truncated. It is committed as
+`tests/fixtures/cyanrip_cancelled_at_track_one.log`.
+
+**The timeline reproduces 2026-09-09 almost exactly**, derived from
+`session/artifacts/02platterpus/log.txt`:
+
+```
+11:17:36.104  cancel requested; SIGTERM to the ripper
+11:17:36.601  --verify-log -> exit 3, "No FUN512 checksum found"   (+0.497s)
+11:17:36.602  rip finished: success=False   <- report + EAC export rendered here
+11:17:41.175  post-cancel rescue: fuser -k TERM /dev/sr0  rc=0
+11:17:43      the ripper's own "Ripping finished at", footer + FUN512 written
+11:18:06.703  L561 FAIL                                            (+23.7s)
+```
+
+So the race is **6.4 s** here against 6.1 s on 2026-09-09 — two measurements, and
+the unmerged settle-wait budget (`FORCE_STOP_COUNTDOWN_S + _RIPPER_EXIT_GRACE_S`
+= **20 s**) covers both with 3× margin. And L561 still failed **23.7 s after the
+log was complete**, which is the second defect the 09-09 session found: it graded
+the window's snapshot, not the file.
+
+**But the disk fix alone would NOT have passed this run, and that is the new
+finding.** Simulating the fixed verb against the real artifact returns
+`FAIL — the log carries no track blocks at all`. The verb carried an
+unconditional floor, *no track blocks → FAIL* — and §I cancels **during track 1**,
+so a correct record legitimately has zero completed blocks. The floor is now
+conditioned on the footer: a footer claiming the rip *completed* over zero blocks
+is a record contradicting itself and still fails; a footer saying it did not
+complete is the expected shape, reported rather than graded.
+
+**Two rules this project already had, both of which would have caught it:**
+
+* ***Ask what state the fix UNBLOCKS, not only what it adds.*** Grading the file
+  instead of the stale snapshot made a **correct** record reachable that the
+  snapshot had been masking — the snapshot failed earlier, on the missing footer,
+  so this floor had never met a real zero-track cancel. It arrived already
+  believed-in.
+* ***What does my stand-in do that the real thing does not.*** The test written
+  for the first fix used the 14-track corpus rip as its "disk" log, so the floor
+  could not fire in the harness. The regression test now grades the artifact from
+  the run that failed, with the converse pinned separately so the floor is proven
+  to still bite, and all three reverts probe `detected`.
+* **The asymmetry was the tell, one more time.** The self-consistency check three
+  lines below the floor already asks the footer first, and says in its own comment
+  that an incomplete last block is *"ordinary after a cancel"*. Same principle,
+  applied to one of the two checks that needed it — `docs/testing.md` §5.o at the
+  scale of a single function.
+
+**One hazard recorded and deliberately NOT fixed.** Our post-cancel rescue ran
+`fuser -k TERM /dev/sr0` at `11:17:41.175` with `rc=0` — it found and signalled
+something — about two seconds before the ripper wrote its footer. `CLAUDE.md`
+already records that a *second* signal to cyanrip takes a `_exit(1)` path that
+skips `atexit`, which is where the footer and FUN512 are written. The record
+survived on both runs, so this is a margin, not an observed loss — and **our own
+log cannot tell whether `fuser` reached cyanrip or only the host wrapper**, so
+asserting a mechanism in their code would break rule #12. Filed in `TASKS.md` as a
+measurement to ask for, NEXT-ROUND under S-14: it broke nothing in the artifact
+under review.
+
+**Nothing here is in a released build.** `0.6.45` carries none of the three fixes
+— the settle-wait, the read-from-disk, and now the footer-conditioned floor are
+all on `claude/session-omka9f`, unmerged. The run that failed was made on a build
+that could not have passed.
+
 ### Still open (for the fork, and for us)
 
 * **Run A's result has not been seen**, and round 16 stays open on it. The close

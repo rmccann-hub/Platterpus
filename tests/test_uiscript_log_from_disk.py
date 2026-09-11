@@ -270,3 +270,126 @@ def test_every_log_grading_verb_goes_through_the_from_disk_reader() -> None:
             "rather than leaving an entry that grants nothing"
         )
     assert inspect.getsource(runner_mod.ScriptRunner._rip_log_from_disk)
+
+
+# ---------------------------------------------------------------------------
+# THE SECOND DEFECT IN THE SAME VERB, found on the 2026-09-11 run — one run
+# after the fix above shipped, and made reachable BY it.
+#
+# `expect-log-well-formed` carried an unconditional floor: `if not parsed.tracks:
+# FAIL`. §I cancels during track 1, so a correct record legitimately has ZERO
+# completed track blocks. The floor could not fire while the verb graded the
+# window's stale snapshot, because that snapshot failed earlier on the missing
+# footer — so making the verb read the file *unblocked* a state that had never
+# executed, arriving already believed-in (`CLAUDE.md`: ask it about state the fix
+# UNBLOCKS, not only state it adds).
+#
+# And the test above could not see it: its stand-in "disk" log is the 14-track
+# corpus rip. *What does my stand-in do that the real thing does not.* So the
+# fixture below is the real artifact from the run that failed, not a
+# reconstruction of it.
+# ---------------------------------------------------------------------------
+
+_CANCELLED = (
+    Path(__file__).resolve().parent / "fixtures" / "cyanrip_cancelled_at_track_one.log"
+)
+
+#: The footer line the ripper wrote, and the one we swap in to build the converse
+#: case. Kept as module constants so a test cannot silently assert against a
+#: substitution that no longer matches anything.
+_CANCELLED_FOOTER = "Rip completed:  no (interrupted by SIGTERM, 0 of 14 tracks)"
+_COMPLETED_FOOTER = "Rip completed:  yes (14 of 14 tracks)"
+
+
+def test_the_cancelled_fixture_is_a_ZERO_TRACK_but_otherwise_INTACT_record() -> None:
+    """Floor, and it is the whole non-triviality argument for the test below.
+
+    If this artifact turned out to carry a track block, or to be missing its
+    footer or signature, a PASS below would prove nothing — it would be passing
+    for a reason that has nothing to do with the defect. Every property the verb
+    grades is asserted here, in the direction the artifact actually has it.
+    """
+    from platterpus.parsers.cyanrip_log import fun512_signature_is_malformed
+
+    assert _CANCELLED.is_file(), f"missing fixture {_CANCELLED}"
+    parsed = _parse(_CANCELLED.read_text(encoding="utf-8", errors="replace"))
+
+    assert len(parsed.tracks) == 0, "the fixture has track blocks — not the case"
+    assert parsed.rip_completed is False, "the footer must be present and say 'no'"
+    assert parsed.interrupted_at == "track 1, mid-read"
+    assert not parsed.log_truncated
+    signature = parsed.log_checksum.strip()
+    assert signature, "the fixture must carry a Log FUN512: signature"
+    assert fun512_signature_is_malformed(signature) is None
+
+
+def test_a_cancel_BEFORE_THE_FIRST_TRACK_BLOCK_is_a_well_formed_record(
+    tmp_path: Path, qapp: Any
+) -> None:
+    """**The regression test for the 2026-09-11 failure.**
+
+    The real artifact, graded by the real verb. It is complete and attested: a
+    completion footer that says the rip did not finish, the place it stopped, and
+    a valid signature. Zero track blocks is what a cancel during track 1 looks
+    like, and §I grades the RECORD, not the rip.
+    """
+    text = _CANCELLED.read_text(encoding="utf-8", errors="replace")
+    on_disk = tmp_path / "cancelled.log"
+    on_disk.write_text(text, encoding="utf-8")
+
+    parsed = _parse(text)
+    steps, _ = _run(_window(on_disk=on_disk, snapshot=parsed), "expect-log-well-formed")
+
+    assert [s.outcome for s in steps] == [Outcome.PASS], [s.detail for s in steps]
+    # And the report must say WHY zero is acceptable, or the next reader has to
+    # re-derive it from the source to know the floor did not simply fail to fire.
+    assert "zero blocks is expected here" in steps[0].detail
+    assert "track 1, mid-read" in steps[0].detail
+
+
+def test_a_COMPLETED_footer_over_zero_track_blocks_still_FAILS(
+    tmp_path: Path, qapp: Any
+) -> None:
+    """The converse — the floor moved, it did not go away.
+
+    A record claiming the rip finished while carrying no track blocks contradicts
+    itself, and that has to stay a failure or the fix above would have replaced a
+    false negative with a check that cannot fail.
+    """
+    text = _CANCELLED.read_text(encoding="utf-8", errors="replace")
+    assert text.count(_CANCELLED_FOOTER) == 1, "the fixture's footer line moved"
+    swapped = text.replace(_CANCELLED_FOOTER, _COMPLETED_FOOTER)
+
+    parsed = _parse(swapped)
+    # Assert the substitution produced the case this test is named for, rather
+    # than trusting that editing one line had the intended effect.
+    assert parsed.rip_completed is True and len(parsed.tracks) == 0
+
+    on_disk = tmp_path / "contradictory.log"
+    on_disk.write_text(swapped, encoding="utf-8")
+    steps, _ = _run(_window(on_disk=on_disk, snapshot=parsed), "expect-log-well-formed")
+
+    assert [s.outcome for s in steps] == [Outcome.FAIL], [s.detail for s in steps]
+    assert "record disagrees with itself" in steps[0].detail
+
+
+def test_the_other_two_graders_KEEP_their_unconditional_track_floor() -> None:
+    """Scope the fix, so it is not over-applied to verbs that need the old floor.
+
+    `expect-secure-rerip` asserts a re-read was *exercised* and `expect-rip-complete`
+    asserts the rip *finished* — for both, zero track blocks really is a failure,
+    and relaxing them would be the *can this be satisfied by finding nothing* defect
+    arriving through the fix for its opposite. Only the verb whose proposition holds
+    for an unfinished rip may condition its floor on the footer.
+    """
+    import inspect
+
+    conditional = inspect.getsource(ScriptRunner._do_expect_log_well_formed)
+    assert "if not parsed.tracks and parsed.rip_completed:" in conditional
+
+    for name in ("_do_expect_secure_rerip", "_do_expect_rip_complete"):
+        source = inspect.getsource(getattr(ScriptRunner, name))
+        assert "if not parsed.tracks:" in source, (
+            f"{name} lost its unconditional track floor — its proposition needs "
+            "tracks, so zero blocks is a real failure there"
+        )
