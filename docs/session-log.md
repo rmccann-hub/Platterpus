@@ -404,6 +404,29 @@ under review.
 all on `claude/session-omka9f`, unmerged. The run that failed was made on a build
 that could not have passed.
 
+### 2026-09-11 (housekeeping) — a stale ref I read as the remote, and a suggestion that is now ruled out
+
+**Two small things, both corrections of mine.**
+
+**I reported four branches as needing deletion and they were already gone.** I
+read `git branch -r` without ever running `git fetch --prune`, so five stale
+remote-tracking refs — `docaudit`, `relfix`, `relfix2`, `rigfix` and an old
+dependabot branch — looked like live remote branches. The maintainer's screenshot
+of GitHub's own branch page was the truth and my listing was a local cache.
+*Answer from the artifact, not from your memory of it* — a remote-tracking ref is
+**a memory of a remote**, and pruning is what refreshes it. Prune before reading
+refs as remote state.
+
+**`main` is not branch-protected and will not be** (maintainer ruling, 2026-09-11:
+*"i am not paying for this"*). Recorded as deliberate divergence **(5)** in
+`CLAUDE.md` → *Commit & PR hygiene*, and annotated at the place that generates the
+suggestion — `docs/github-workflow-sop.md` §7.2, which recommends server-enforced
+protection and is otherwise retained because it is the **upstream** playbook.
+Annotating only `CLAUDE.md` would have left the SOP still recommending it, and the
+next session would have raised it again from there. What protection would buy is
+already covered another way: the agent proxy is fast-forward-only, nine gating CI
+jobs run on every PR, and releases go through `release.yml`.
+
 ### Still open (for the fork, and for us)
 
 * **Run A's result has not been seen**, and round 16 stays open on it. The close
