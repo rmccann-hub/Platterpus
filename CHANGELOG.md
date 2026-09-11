@@ -51,6 +51,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   same logs.**
 
 ### Fixed
+- **The fourth media guard did not know about `.pcm` or `.raw`.** Critical rule #8
+  is enforced four ways — `.gitignore`, `.githooks/pre-commit`, CI's `media-guard`
+  job, and the `PreToolUse` hook in `.claude/settings.json`. When raw PCM was added
+  to the deny list on 2026-09-07 the first three got it and the fourth did not, and
+  `.gitignore`'s own comment records the reason it was missed: it says the fix
+  covered *"our three media guards"*. **The population was counted as three when it
+  is four** — the same *is the population I measured closed?* failure this repo has
+  now hit from several directions, arriving in the guard for the rule it protects.
+  Low real risk, because the canonical guard is the git hook and that one was
+  correct, so no commit could have landed. But it stops mattering only if the lists
+  agree: round 16's Run A produces its clause-2 and clause-3 evidence as `-o pcm`,
+  i.e. raw interleaved s16le samples of a commercial disc, which is precisely the
+  material rule #8 exists to keep out of a public repository.
 - **A cancel that lands before the first track finishes no longer reads as a
   destroyed record.** `expect-log-well-formed` — the only graded assertion in §I,
   the ARCHIVAL section whose entire subject is whether cancelling a rip destroys
