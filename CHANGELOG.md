@@ -30,6 +30,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   however they are spelled, and counts rather than drops anything it sets aside.
   Measured on the 2026-09-10 run: **3,623 lines across all eight logs, zero
   unaccounted.**
+  *Its first cross-repository run then found a bug in itself, which is the point
+  of running it twice.* The exclusion that keeps our own EAC-compatible exports
+  out of a sweep for **cyanrip** format changes matched on the **name**, and the
+  same artifact now exists under three spellings —
+  `cyanrip_fork_police_classics_EACcompatible.log` in `output_reference/`,
+  `… (EAC-compatible).log` in an evidence bundle, and `after-cancel.eac.log`
+  where the cyanrip fork files our logs in theirs. The name rule caught the first
+  two and missed the third the moment the file crossed a repository boundary, so
+  43 lines of our own export were reported as unaccounted-for ripper output.
+  The load-bearing check is now what the document **says about itself** in its
+  first line and its footer, with the name demoted to a cheap pre-filter;
+  renaming cannot defeat it, only the head of a file is scanned so a log that
+  merely *quotes* our banner is still graded as theirs, and anything set aside is
+  listed rather than vanishing. This is `CLAUDE.md`'s cross-machine filename rule
+  doing exactly what it predicts — *legislate the name **and** stop depending on
+  it* — in the one script whose docstring cites that rule and which had done only
+  the first half. Re-measured after the fix: **3,623 lines, zero unaccounted,
+  identical over our evidence bundle and over the fork's own filed copy of the
+  same logs.**
 
 ### Fixed
 - **A cancelled rip no longer archives its own record as broken.** On the
