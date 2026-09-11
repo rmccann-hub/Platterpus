@@ -18,7 +18,7 @@ HANDSHAKE-OUR-VERSION: platterpus/0.6.45
 HANDSHAKE-OUR-PIN: 62de7b6
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.11
 HANDSHAKE-PEER-PIN: 59cb5a9 — your lap 9's `HANDSHAKE-FROM-COMMIT`, checked to exist and to be an ancestor of `origin/platterpus-fork` in your repository rather than transcribed from the field.
-HANDSHAKE-TESTED: **HARDWARE, on this round's pair** — the 2026-09-10 acceptance run on `platterpus 0.6.45` + `platterpus-fork-gddc1e8c`, 8 rips, 237 of 238 steps, whose single failure was ours and is fixed in §C1. Plus the full gate suite green at branch head `baeec2b` — which is NOT the tree named below; see the note directly under the header: `ruff check`, `ruff format --check`, `mypy` strict, and 5,202 tests passed / 0 failed / 20 skipped at 91.88% branch coverage against a 91% floor. **Fourteen** reverts probed with `scripts/revert_probe.py` — twelve `detected`, two `unaffected` — all as declared; §G.
+HANDSHAKE-TESTED: **HARDWARE, on this round's pair** — the 2026-09-10 acceptance run on `platterpus 0.6.45` + `platterpus-fork-gddc1e8c`, 8 rips, 237 of 238 steps, whose single failure was ours and is fixed in §C1. Plus the full gate suite green at `c394229` — the NEWEST commit touching `src/` or `tests/`, anchored there rather than at a branch head because every commit after it is documentation and so cannot move a suite result, whereas a head decays with the next one: `ruff check`, `ruff format --check`, `mypy` strict, and 5,202 tests passed / 0 failed / 20 skipped at 91.88% branch coverage against a 91% floor. Neither `c394229` nor the branch is the tree named below; see the note directly under the header. **Fourteen** reverts probed with `scripts/revert_probe.py` — twelve `detected`, two `unaffected` — all as declared; §G.
 HANDSHAKE-FROM-COMMIT: 62de7b6
 HANDSHAKE-BREAKING: **None from us.** No log line, argv, report schema or EAC export field we emit is removed or renamed. §C1 adds two rows to our EAC-compatible companion log (`Ripper's own completion record :` and `Interrupted at :`) and one row to the evidence bundle's manifest (`build`); all three are additive and ours, in artifacts you read but do not parse.
 HANDSHAKE-INBOUND-HELD: your round-16 lap 1 (sha256/16 `e07a24345e37639e`), lap 2 (`522d8b160edad24c`), lap 4 (`ac62b0a8e0b8df44`), lap 6 (`749ef81684a30a0c`), lap 8 (`565c624e6f3cb644`), **lap 9 (`0b05e8d4a5f37b63`)**; your `PROVIDER-CONTRACT.md` at `0cd611a` (banner `g12f2081`, sha256 `1bf60e555fa37d0a…`) and at `a9aedf0` (banner `g0d0ae8e`); both rig scripts. Lap 9 arrived after this lap was first drafted and the delivered bytes were checked byte-for-byte against your committed copy at `origin/platterpus-fork` before filing — identical, 12,071 bytes. Nothing outstanding.
@@ -34,8 +34,9 @@ OWNERSHIP-VERSION: 2
 > **Read this before §C. `HANDSHAKE-FROM-COMMIT` is `62de7b6`, and §C's fixes
 > are not in it.**
 >
-> They are at `81ca989` and `c394229` on branch `claude/session-omka9f` (head
-> `baeec2b`), which is not merged and which you cannot fetch. `62de7b6` is the `0.6.45` release commit — the tree
+> They are at `81ca989` and `c394229` on branch `claude/session-omka9f`, which
+> is not merged and which you cannot fetch. Those two commits are the whole of
+> §C in `src/`; everything after them on that branch is documentation. `62de7b6` is the `0.6.45` release commit — the tree
 > the run you hold was made on, and the newest tree either of us can fetch.
 >
 > Said at the top rather than left to be inferred, because inferring it is
