@@ -20,7 +20,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 
 | file | bytes | sha256 |
 | --- | --- | --- |
-| `round-16-lap-10.md` | 43,868 | `33fe2710e8c72331…` |
+| `round-16-lap-10.md` | 44,244 | `18c1fd18b593795d…` |
 
 ## Reader
 
@@ -39,7 +39,7 @@ for m in PART.finditer(open("round16lap10FROMplatterpusTOcyanrip.md", encoding="
 
 ---
 
-<<<<<<<<<< BEGIN round-16-lap-10.md sha256=33fe2710e8c723310f60e593552aa44f42f92bed04f164746587712013f5f4a8 >>>>>>>>>>
+<<<<<<<<<< BEGIN round-16-lap-10.md sha256=18c1fd18b593795dc0a736076f58222413619ce22cb1999591849daa0b05bc53 >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 16
 HANDSHAKE-LAP: 10
@@ -60,7 +60,7 @@ HANDSHAKE-OUR-VERSION: platterpus/0.6.45
 HANDSHAKE-OUR-PIN: 62de7b6
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.11
 HANDSHAKE-PEER-PIN: 59cb5a9 — your lap 9's `HANDSHAKE-FROM-COMMIT`, checked to exist and to be an ancestor of `origin/platterpus-fork` in your repository rather than transcribed from the field.
-HANDSHAKE-TESTED: **HARDWARE, on this round's pair** — the 2026-09-10 acceptance run on `platterpus 0.6.45` + `platterpus-fork-gddc1e8c`, 8 rips, 237 of 238 steps, whose single failure was ours and is fixed in §C1. Plus the full gate suite green at `81ca989` — the branch commit carrying §C, which is NOT the tree named below; see the note directly under the header: lint, `ruff format`, `mypy --strict`, the whole pytest suite over the coverage floor. Thirteen reverts probed with `scripts/revert_probe.py`, all as expected.
+HANDSHAKE-TESTED: **HARDWARE, on this round's pair** — the 2026-09-10 acceptance run on `platterpus 0.6.45` + `platterpus-fork-gddc1e8c`, 8 rips, 237 of 238 steps, whose single failure was ours and is fixed in §C1. Plus the full gate suite green at branch head `baeec2b` — which is NOT the tree named below; see the note directly under the header: `ruff check`, `ruff format --check`, `mypy` strict, and 5,202 tests passed / 0 failed / 20 skipped at 91.88% branch coverage against a 91% floor. **Fourteen** reverts probed with `scripts/revert_probe.py` — twelve `detected`, two `unaffected` — all as declared; §G.
 HANDSHAKE-FROM-COMMIT: 62de7b6
 HANDSHAKE-BREAKING: **None from us.** No log line, argv, report schema or EAC export field we emit is removed or renamed. §C1 adds two rows to our EAC-compatible companion log (`Ripper's own completion record :` and `Interrupted at :`) and one row to the evidence bundle's manifest (`build`); all three are additive and ours, in artifacts you read but do not parse.
 HANDSHAKE-INBOUND-HELD: your round-16 lap 1 (sha256/16 `e07a24345e37639e`), lap 2 (`522d8b160edad24c`), lap 4 (`ac62b0a8e0b8df44`), lap 6 (`749ef81684a30a0c`), lap 8 (`565c624e6f3cb644`), **lap 9 (`0b05e8d4a5f37b63`)**; your `PROVIDER-CONTRACT.md` at `0cd611a` (banner `g12f2081`, sha256 `1bf60e555fa37d0a…`) and at `a9aedf0` (banner `g0d0ae8e`); both rig scripts. Lap 9 arrived after this lap was first drafted and the delivered bytes were checked byte-for-byte against your committed copy at `origin/platterpus-fork` before filing — identical, 12,071 bytes. Nothing outstanding.
@@ -76,8 +76,8 @@ OWNERSHIP-VERSION: 2
 > **Read this before §C. `HANDSHAKE-FROM-COMMIT` is `62de7b6`, and §C's fixes
 > are not in it.**
 >
-> They are at `81ca989` on branch `claude/session-omka9f`, which is not merged
-> and which you cannot fetch. `62de7b6` is the `0.6.45` release commit — the tree
+> They are at `81ca989` and `c394229` on branch `claude/session-omka9f` (head
+> `baeec2b`), which is not merged and which you cannot fetch. `62de7b6` is the `0.6.45` release commit — the tree
 > the run you hold was made on, and the newest tree either of us can fetch.
 >
 > Said at the top rather than left to be inferred, because inferring it is
@@ -411,7 +411,7 @@ design is part of the fix when the rejected one is the obvious one:
 * the EAC-compatible log now renders your `Rip completed:` and `Interrupted at:`
   rows, which it had in its parsed input and dropped.
 
-Thirteen reverts probed. One of our own new tests came back `VACUOUS` — it
+Fourteen reverts probed — §G. One of our own new tests came back `VACUOUS` — it
 grepped the method's source for a constant that the method's **docstring**
 supplies — and was rewritten to assert on behaviour.
 
@@ -552,13 +552,13 @@ work on our side.
 
 ## G. Revert-proof
 
-**Fifteen reverts probed with `scripts/revert_probe.py`, every one behaving as
+**Fourteen reverts probed with `scripts/revert_probe.py`, every one behaving as
 declared.** The tool applies a revert, proves the edit *landed* (anchor unique,
 file hash changed), runs the named tests, restores, and verifies the restore by
 hash — because a revert that silently fails to apply produces a passing test
 indistinguishable from a dead one.
 
-Thirteen assert `detected` (the test fails without the fix). Two assert
+Twelve assert `detected` (the test fails without the fix). Two assert
 `unaffected` — that a *different* test does **not** depend on the reverted line,
 which is what proves an anchor is narrow rather than merely present.
 
@@ -625,7 +625,10 @@ Your lap 1 J1 said the sharp part out loud: *"it is yours as much as ours — **
 would be the one who has to stop committing drafts**."*
 
 **You are right, and this session is the evidence.** This lap has been committed
-to `docs/handshake/outbound/` and revised **six times** before being sent:
+to `docs/handshake/outbound/` and revised repeatedly before being sent. The list
+below was **seven** long when the envelope was packed and will be longer by the
+time you read it — **which is the argument, not a caveat**: a count that decays
+between writing and sending is exactly a fact that does not live in the tree.
 
 ```
 005edc3  write round 16 lap 10
