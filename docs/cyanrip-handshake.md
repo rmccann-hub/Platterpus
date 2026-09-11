@@ -257,6 +257,41 @@ exactly that reason.
 
 ---
 
+### 7.5a How WE write an S-18 pre-commit: name an artifact and an observable, never a judgement about one
+
+S-18 (`seam-rules.md`) is the shared mechanism — *"our next lap is `GO` unless X"*
+binds — and it is the only thing that reliably ends a round. **This section is not
+that rule. It is the measured record of how *our* side kept writing X wrongly**,
+twice in one round, for two different reasons:
+
+| lap | the X we wrote | why it did not bind |
+|---|---|---|
+| r16 lap 10 | *"unless **you tell us** §B7's clause-2 evidence is not what clause 2 asks for"* | The trigger is **the other side's opinion**. That is a veto, not a condition — a round cannot converge on something one party can restate at will. They told us, and it voided. |
+| r16 lap 12 | *"unless `round16-accept.py`, **at a commit carrying both `a0830e0`'s clause-1 split and §C1's `max`→`min`**, exits non-zero"* | The trigger names a **remedy**. They improved on `a0830e0` rather than carrying it, so the SHA they named (`5bbb5ae`) does not satisfy the literal wording. **A pre-commit that names a remedy expires the moment the remedy is improved** — and the better the peer, the sooner. |
+
+**The fork's has been *"the checker at `<sha>` exits non-zero"* since round 16 lap
+11 and has needed no repair.** The difference is not care; it is shape. Theirs
+names an **artifact** (a program at a commit) and an **observable** (its exit
+code). Ours twice named a *judgement about* one.
+
+So, for every pre-commit we write:
+
+* **X is a command with an exit code, or a file with a hash.** If reading X
+  requires anybody's opinion — theirs or ours — it is not X.
+* **Name the artifact by identity, not by property.** `at 5bbb5ae`, never *"at a
+  commit carrying <fix>"*. If the artifact moves, take the new name as they give
+  it and re-offer; that is one line in the next lap, where a property-based
+  trigger is a silent non-binding nobody notices until the round will not close.
+* **Say which side runs it and publishes it.** Round 16's condition (b) grades
+  *our* reader, so we run it and publish the result either way, and its outcome
+  needs no agreement from them. Splitting that out in advance is what stops a
+  result becoming a negotiation.
+* **A pre-commit that cannot bind is worse than none**, because both sides plan
+  the close around it. Lap 14 exists solely to re-point ours; without it the
+  round had one binding pre-commit where the protocol expects two.
+
+---
+
 ## 7.6 Standing status — one home, and it is not this file
 
 **Not a round, and not a call for one.** Rounds are the *formal* channel and they
@@ -366,20 +401,24 @@ transferable part.
 | 11 | **r15 lap 10** | Fork asserted our round-15 lap 9 §E1 was **right but too small** — we scoped the undistinguishable class at one mechanism (`total_error_count++`) from their published preamble; they disclosed that `FAIL_PATH` had **seven** alternatives while the preamble named **five** | **THEM** | Re-derived here from their source, not from their lap: `tools/gen-provider-contract.py` at `9bc7ad6` carries the seven-alternative regex written out inline, and instrumenting their own `evidence()` over the 121 published P5 rows reproduces their table exactly — `total_error_count++` 8, `ret = N;` 6, `err = N` 1, combined 1, over 84 `both`+`control flow` rows | **A hand-written description inside a generated artifact is the defect the artifact exists to prevent** — their fix builds `FAIL_PATH` *from* the published table so the two cannot drift, which is the same *one source of truth* move as their round-12 exit-code table and our generated consumer contract. **And the verification lesson is ours:** the re-derivation returned **three** different numbers from correct code (19, then 15, then 16) — 19 scanned all 349 call sites instead of the 121 published rows, 15 keyed by message text, which collides across files. *Is the population I measured closed?* was the entire difficulty, and both wrong answers looked right |
 | 12 | **r16 lap 9 §2** | Fork asserted our acceptance run's single failure — `expect-log-well-formed` reporting the cancelled rip's record destroyed — is a **false negative**, and named the limit of what they could show: *"That shape would explain this one and **we have not shown it.**"* | **THEM** on the claim they made, and the restraint is the point | The mechanism, from `session/zz-applog-rotations/03platterpus/log.txt.1` **in the bundle they already held**: verification at `22:02:08.902`, the ripper's `Ripping finished at 2026-09-09T22:02:15-04:00` — 6.1 s later. Our lap 10 §C1 | **A challenge that stops at the evidence is worth more than one that completes the story.** They could have asserted the race and been right; they marked it unproven and were right *and* checkable. And the correction that came back is the transferable half: it is **two** defects, not one — the verb failed at `22:02:38.943`, 23.7 s *after* the log was complete, because it graded our snapshot rather than the file. A fix aimed only at their (correct) hypothesis would have shipped with the second one intact |
 | 13 | **r16 lap 9 §1** | Fork concluded *"no `-H`, no `-E`, no `-W`, no `-x` appears in any of the eight rips — grepped from every `Invoked as:` line, not assumed"*, and therefore that close-condition clause 2 had still never run on a drive | **US** | All four ran. The clause-2 rips go through our script's raw `cyanrip` verb, which writes to its own `-D` and produces **no album folder**, so they are in `session/transcript.txt` (L1144 `-H -E`, 221.2 s, exit 0, `Preemphasis: none detected (deemphasis forced)`; L1365 `-H -W`, 220.7 s) and in none of the eight `.log` files | ***Is the population I measured closed?*** — our own rule, and this is the first time it has landed on them. The grep was correct over the set it ran on and the set was not the run. **The remedy is ours though**: a bundle that files its most load-bearing invocations outside the place a reader looks for invocations is our defect, not their oversight |
+| 14 | **r16 lap 13 §2** | Fork accepted our §C2 **finding** (`disabled` is the zero-value fallthrough, so `a0830e0`'s clause-1 split IS reachable) and declined the **remedy** we attached to it — *'pin the checker where `a0830e0` is present'* | **THEM** | `a0830e0`'s own `disabled` string, opened in their tree: *'`AccurateRip: disabled` -- the query never ran, because -A was passed to the ONE rip that must not have it'* — **the exact claim our §C2 disproves.** Pinning there would have replaced a vague wrong cause with a specific wrong one. Their replacement reads `Invoked as:` and grades three ways (`round16-accept.py:191-216` at `5bbb5ae`) | **A finding and its remedy are separable, and being right about the first buys nothing for the second.** We proposed the remedy in the same breath as the finding and it inherited the finding's confidence. Their third branch — *no `Invoked as:` line at all* — is the one we would not have thought to ask for, which is the argument for naming the *property* we need and letting the owner of the code choose the fix |
 
-**Standing count as of round 16 lap 10: fork right 7, us right 6, of 13
+**Standing count as of round 16 lap 14: fork right 8, us right 6, of 14
 resolved.** Read it with three qualifications, all of which cut against treating
 it as a verdict:
 
 * **The sample is not closed and it is not the sample the mandate is about.** The
-  challenge mandate was issued **2026-08-26**; rows 1–9 predate it. **Rows 10–13
-  are the four made under it: fork right 3, us right 1.** *Is the population I
-  measured closed?* — nine of these thirteen are the *before* picture and n=4 is
+  challenge mandate was issued **2026-08-26**; rows 1–9 predate it. **Rows 10–14
+  are the five made under it: fork right 4, us right 1.** *Is the population I
+  measured closed?* — nine of these fourteen are the *before* picture and n=5 is
   not a result, so the answer to the maintainer's question is **still not
-  measurable**, and saying so is the honest reading. Three-of-four is worth
-  noting and worth not believing — and row 13 is the first row where the
-  mechanism the mandate exists to surface ran in **our** favour, which is a
-  reason to keep counting rather than a reason to stop.
+  measurable**, and saying so is the honest reading. Four-of-five is worth
+  noting and worth not believing — and row 13 is the one where the mechanism the
+  mandate exists to surface ran in **our** favour, which is a reason to keep
+  counting rather than a reason to stop. **And do not read the trend as a licence
+  to defer to them**: row 14 is a row we could have avoided by asking *"is my
+  remedy as well established as my finding?"*, which costs nothing and needs no
+  peer.
 * **Neither side's errors are of one kind.** Ours cluster in *verification*
   (rows 4, 5 — checking a description, or checking under conditions that force
   the result); theirs cluster in *attribution* (rows 6, 8 — a mechanism stated
