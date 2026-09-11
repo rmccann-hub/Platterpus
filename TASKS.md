@@ -84,6 +84,29 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       measured on ourselves: lap 10 was committed to the lap namespace and
       revised SIX times before being sent** — none of which would have been
       allowed under the rule.
+- [x] **CORRECTED — our lap 10 §B4b's "all within the per-track loop" was false
+      for two of four `quit_now` sites.** `:574` is in `search_for_offset`,
+      `:633` in `search_for_drive_offset`, both reachable only under
+      `find_drive_offset_range`, which `goto end`s without ripping a track. The
+      conclusion (a mid-read SIGTERM is seen) is unaffected, which is why it
+      survived. **The fork re-derived the claim AS STATED and agreed** — so two
+      witnesses sharing a method were one witness. Corrected in lap 12 §A2.
+- [ ] **Their `clause2()` audio gate is `max` where it must be `min`** —
+      `round16-accept.py`, `max(fr.values()) < 0.01` fires only when NEITHER arm
+      has audio, so one silent arm and one real arm passes clause 2, and passes
+      *because* the hashes differ. A broken `-H -E` arm decoding to silence would
+      grade as proof that de-emphasis reached the audio. Their own
+      `nonzero_fraction` docstring says *"Silence must not pass as audio."* Their
+      regression fixture writes zeros into both arms, so it only exercises the
+      case `max` catches. Raised in lap 12 §C1 — **blocks the observable both
+      S-18 pre-commits resolve against, not the pin.**
+- [ ] **Their S-18's "`disabled` requires `-A`" premise is false** —
+      `cyanrip_main.h:67` has `CYANRIP_ACCUDB_DISABLED = 0` and
+      `cyanrip_log.c:786-790` ends in a bare `"disabled"` fallthrough, so every
+      path leaving `ar_db_status` unwritten prints it, including `goto end` after
+      `curl_easy_perform` returns `CURLE_OK`. So `a0830e0`'s clause-1 split IS
+      reachable in Run A and the checker should not be pinned at `0cd611a`.
+      Lap 12 §C2 and Q1.
 - [ ] **Run A's result has not been seen, and round 16 stays open on it.**
       Corrected after reading their lap 9: Run B produced evidence bearing on
       **all three** clauses — a real AccurateRip host answered and the

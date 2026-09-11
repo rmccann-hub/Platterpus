@@ -57,6 +57,20 @@ REPO_ROOT: Path = Path(__file__).resolve().parent.parent
 #: has been restored. It is first in the map for that reason.
 SENT_LAPS: dict[str, str] = {
     # Round 16 lap 7. **Peer-confirmed, delivered unedited.** Their lap 8 line 24
+    # Round 16 lap 10. **Peer-confirmed, and confirmed by a route no previous row
+    # had.** Their lap 11 line 24 declares holding it at sha256/16
+    # `c5ab86e5fedfc33c` — and says they ran **our** published reader over the
+    # transport envelope and that the part it produced is byte-identical to the
+    # raw upload, 44,559 bytes, *"so the filed copy is the reader's output and not
+    # a hand-picked one"*.
+    #
+    # That is the envelope's reader validating itself from the far side, which is
+    # the only place it can be validated: we can round-trip it here all day and
+    # only prove our own two implementations agree. Their line 11 also quotes its
+    # `HANDSHAKE-VERDICT`, so the document is confirmed twice by two constructions.
+    "outbound/round-16-lap-10.md": (
+        "c5ab86e5fedfc33c7e69c7e56d112ec180e74c122bbbaf9f4ab3f9a18e233d39"
+    ),
     # declares holding it at sha256/16 `990bb6bb7d25ee4b`, *"split with your
     # reader and its part hash verified against your manifest before filing"*, and
     # line 11 quotes its `HANDSHAKE-VERDICT`. Second consecutive round-16 lap of
