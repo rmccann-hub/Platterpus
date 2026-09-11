@@ -32,6 +32,26 @@ UTF-16/CRLF** — read it via `platterpus.parity.decode_log_bytes`, never
 `read_text("utf-8")` (a UTF-8 copy once hid a real decoding bug in the parity
 checker).
 
+## cyanrip_cancelled_at_track_one.log (added 2026-09-11)
+
+**A real cyanrip log from a rip cancelled during track 1**, lifted verbatim from
+the 2026-09-11 acceptance run's §I (`cancel me …`, ripper
+`platterpus-fork-gddc1e8c`). It is here because §I's shape cannot be reconstructed
+from any other fixture we hold: the cancel lands before the first track block is
+written, so the log carries a completion footer (`Rip completed:  no (interrupted
+by SIGTERM, 0 of 14 tracks)`), an `Interrupted at:` line, a valid `Log FUN512:`
+signature — and **zero track blocks**.
+
+That combination is the whole point. `expect-log-well-formed`'s floor was *"at
+least one track block"*, and every stand-in the verb had been tested against was a
+completed 14-track rip, so the floor never met the case the section exists for and
+failed a correct archival record on hardware. *What does my stand-in do that the
+real thing does not.*
+
+It is text (rule #8: logs and CRCs travel, audio never does) and carries no home
+paths — its `Invoked as:` line names the in-container `/usr/local/bin/cyanrip`.
+Do not "tidy" it: it is evidence, and a hand-edited log proves nothing.
+
 ## Handshake artifacts are NOT copied in here (note added 2026-08-21)
 
 A test that needs a real cyanrip log from a handshake round reads it **from
@@ -51,4 +71,4 @@ documents (the interrupted sample carries one) at read time.
 
 ---
 
-*Last updated for Platterpus v0.6.24.*
+*Last updated for Platterpus v0.6.45.*

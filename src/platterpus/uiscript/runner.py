@@ -2033,7 +2033,17 @@ class ScriptRunner(QObject):
         and is reported rather than graded.
 
         Floors, so this cannot pass by finding nothing: a log must exist, it must
-        be *this* section's rip, and it must carry at least one track block.
+        be *this* section's rip, its completion footer must be present (tri-state
+        — absent is never a pass), and its ``Log FUN512:`` signature must be
+        present and well-formed. An empty or truncated file fails those.
+
+        **Track blocks are NOT among them, and that is deliberate.** The floor
+        used to be "at least one track block", and on the 2026-09-11 rig run it
+        failed a correct archival record: this section cancels during track 1, so
+        zero completed blocks is the *expected* shape and the log was otherwise
+        complete and signed. A count of track blocks is now graded only against
+        the footer — a footer claiming completion over zero blocks is a record
+        contradicting itself and still fails.
         """
         from platterpus.parsers.cyanrip_log import fun512_signature_is_malformed
 
@@ -2074,9 +2084,17 @@ class ScriptRunner(QObject):
                     "different findings and this is the wrong-digest one"
                 )
 
-        # FLOOR. A footer over no tracks is not a record of a rip.
-        if not parsed.tracks:
-            problems.append("the log carries no track blocks at all")
+        # FLOOR — CONDITIONED ON THE FOOTER, because this is the one verb whose
+        # proposition holds for a rip that did NOT finish. It was unconditional
+        # and failed a correct archival record on the 2026-09-11 rig run: §I
+        # cancels during track 1, so zero completed blocks is the expected shape.
+        # The docstring above carries the floors that remain; the reasoning and
+        # the artifact are in `tests/test_uiscript_log_from_disk.py`.
+        if not parsed.tracks and parsed.rip_completed:
+            problems.append(
+                "the footer claims the rip completed but the log carries no "
+                "track blocks at all — the record disagrees with itself"
+            )
 
         # SELF-CONSISTENCY, not a fixed expectation: an incomplete last block
         # contradicts a completed footer, and is ordinary after a cancel.
@@ -2098,6 +2116,11 @@ class ScriptRunner(QObject):
         )
         if parsed.last_track_incomplete:
             detail += "; last track block incomplete (reported, not graded here)"
+        if not parsed.tracks and parsed.rip_completed is False:
+            detail += (
+                "; zero blocks is expected here — the rip was stopped before it "
+                "finished a track, and this verb grades the RECORD, not the rip"
+            )
         if parsed.interrupted_at:
             detail += f"; interruption recorded at {parsed.interrupted_at!r}"
 
