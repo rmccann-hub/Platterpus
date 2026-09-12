@@ -2525,6 +2525,57 @@ for a *mention* where a *behaviour* was meant, and the generalisation is in §5.
 neighbourhood: when a check matches on a label, the subject's own prose is the
 likeliest place to satisfy it.
 
+### §5.bh — Two gates that cannot both pass in one commit are describing a sequence, not conflicting
+
+*2026-09-12. Round 17's filing had to be split across two merges, and the first
+instinct — that one of the two gates was wrong — was the thing to resist.*
+
+Round 17's close condition asks us to name a Platterpus release candidate by SHA.
+Two tests then applied at once:
+
+* `test_every_declared_from_commit_is_reachable_not_merely_resolvable` requires an
+  outbound lap's `HANDSHAKE-FROM-COMMIT` to be an **ancestor of `origin/main`** —
+  not merely a SHA `git cat-file -e` accepts. This repository squash-merges, so
+  every commit on a session branch is discarded at merge; a pin taken from the
+  branch passes locally and is **unfetchable for the peer**, who keeps the document
+  forever.
+* `test_no_lap_of_the_current_round_is_left_unsent` requires an outbound lap for the
+  current round the moment that round is filed as inbound.
+
+File the round and write the lap in the same change and the lap must name a commit
+that change has not created yet. There is no ordering of edits inside one commit
+that satisfies both, and **that is not the gates disagreeing** — it is both of them
+correctly describing a two-step sequence: merge the commit, then name it.
+
+Three things worth keeping.
+
+**1. The pin gate is not theoretical, and the cost is paid by the other project.**
+`our_pin()` searches `origin/main`, then `main`, then the unrestricted history, in
+that order, and the comment explaining why cites the measurement: lap 18 went out
+declaring `ed4f300`, taken from the branch by the first version of that function.
+After the squash-merge the sha was unreachable from `main`, CI's own pin check
+failed on all four matrix legs, and the commit actually carrying `0.6.28` was
+`b524936`. A branch sha in a handshake lap is a **value that is correct about the
+wrong scope** — the same defect class the function was written to fix.
+
+**2. The resolution is to split the change, not to relax the check.** The tempting
+repairs were an allowlist entry, a "branch commits are acceptable if the version
+matches" branch, or filing the round without the lap and letting the unsent-lap
+gate fail for one commit. Every one of them makes a gate quieter on exactly the
+occasion it is right. What the split costs is one extra merge; what it buys is that
+the lap the fork receives names a commit they can fetch.
+
+**3. Write the sequencing down where the next reader will hit it, because the shape
+recurs.** Any round whose close condition asks us to name *our own release commit*
+meets this, and that is now the normal shape of a release round. The reason sits in
+the `TASKS.md` row for the release hold rather than only in a commit message — a
+commit message is read by whoever runs `git log` on that file, and a two-step whose
+justification is invisible reads as an omission the next session should tidy up.
+
+*The generalisation:* when two checks cannot both be satisfied at once, ask whether
+they disagree about a **fact** or about a **time**. Disagreement about a fact is a
+defect in one of them. Disagreement about a time is a plan.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is
