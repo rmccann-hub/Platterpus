@@ -11,6 +11,105 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-12 — round 16 closed GO/GO, 0.6.46 landed, round 17 opened, and a filing that needed two merges
+
+**One sentence: Run A settled round 16's three close conditions on hardware, the
+round closed `GO`/`GO` at 17 laps — all sixteen now closed — `0.6.46` merged with
+the four fixes the round paid for, and round 17 opened as the release round, its
+filing split across two PRs because a lap must name a commit that exists on
+`main`.**
+
+### Round 16 closed, and both sides' pre-commits resolved on an exit code
+
+Run A ran 2026-09-11 on `ddc1e8c`. The fork's `tools/round16-accept.py` at
+`9ec722e` reported **`0 FAIL, 0 UNPROBED, exit 0`**, with clause 2 — `-H` with
+de-emphasis — exercised on a drive for the first time in twelve rig sessions. Our
+half, run here and published either way: `verify_log_surface.py` over its five
+logs, **1,055 lines, 0 unaccounted, exit 0**. Neither side had to argue a verdict,
+which is what S-18 is for.
+
+**The grader moved mid-round** (`5bbb5ae` → `9ec722e`) and our lap 14 had
+pre-authorised exactly that in writing. Run A found a defect no fixture could:
+`clause1/checksums` graded the *better* rip as a regression, because the 2026-08-05
+reference's track 3 was itself `not found`, and a reference line the database never
+recognised is not a reference. We verified from the diff that the move was a
+**strengthening** rather than accepting it — the new branch is guarded by
+`wc is None and gc is not None and gk == wk`, and it *adds* an `UNPROBED … NOT a
+pass` where the old code printed `OK`.
+
+### Closing the round took a second look at what a close is
+
+Lap 16's first draft declared round 16 CLOSED while our own `--status` said OPEN.
+Rather than argue with the tool I instrumented `close_blockers()`: the blocker was
+their lap 15 recording *our* verdict as `OPEN`. Checking all three prior closed
+rounds rather than one produced the rule the lap then stated — **a close needs the
+peer to have SEEN our GO**. In every closed round the *last inbound lap* carries
+both `HANDSHAKE-VERDICT: GO` and `HANDSHAKE-PEER-VERDICT: GO`; the closing side's
+lap is never the last one. Their lap 17 supplied it.
+
+### Four fixes the round paid for
+
+* **A cancel before the first track block produced a record our own gate called
+  malformed** — two defects wearing one symptom, now `ripper_log_settle.py` plus a
+  script that reads the file instead of our parsed snapshot (§5.bg).
+* **P3's clause-2 verdict rule was arithmetically impossible to satisfy.** Derived
+  from their source at `ddc1e8c`: `crip_process_checksums` runs at
+  `cyanrip_main.c:818`, `:872`, `:965`, each *before*
+  `cyanrip_send_pcm_to_encoders` at `:821`, `:879`, `:968` — so every checksum
+  cyanrip prints accumulates over the raw read buffer, and demanding the two runs'
+  printed track-1 checksums **differ** can never be met. Left alone it would have
+  reported their `b866900` as unfixed forever, which is the direction this project
+  must never get wrong: **a rule of ours that can only ever accuse the dependency.**
+  Notably a test guarding that section carried the *same* wrong premise in its
+  docstring — the fixture and the rule shared an ancestor (§5.ac) — so it was
+  rewritten rather than exempted.
+* **`$HOME` pollution**, on the maintainer's instruction: one deletable
+  `~/platterpus-rig` instead of a folder per run, swept for *every* `$HOME` write
+  rather than the two loud ones, with `~/Downloads` used for the bundle when it
+  exists.
+* **The pin-field guard we built in round 12 and aimed one family away.** Their own
+  gate refused their closing lap over `HANDSHAKE-PEER-PIN` carrying prose, and
+  asked us to check ours. We had exactly that guard — pointed at the verdict fields
+  only. `PIN_FIELDS` now gets the same treatment and `--emit` writes a bare SHA plus
+  a separate `-SOURCE:` line.
+
+### The filing that needed two merges
+
+Round 17 is the release round: it approves **two releases as a pair**, the fork's
+`fe4d2c4` and our `0.6.46`, published together and tested together, neither alone.
+Its close condition asks us to name our candidate by SHA — and that produced the
+lesson graduated to `docs/testing.md` **§5.bh**: two gates that cannot both pass in
+one commit are describing a **sequence**, not conflicting. The reachability gate
+wants a `HANDSHAKE-FROM-COMMIT` that is an ancestor of `origin/main`; the
+unsent-lap gate wants an outbound lap the moment the round is filed. So PR #208
+merged the release without round 17 existing at all, and PR #209 then filed the
+round and wrote lap 2 against `45663c3` — resolved by `our_pin()`, not typed.
+
+Lap 2 declares **`GO`** and neither trigger of their §5 pre-commit fires, so their
+lap 3 should close the round at three laps. It is **written and not sent**; only
+the maintainer can hand it over.
+
+### Two things I got wrong, both the same mistake
+
+**A remote-tracking ref is a memory of a remote, not the remote.** I reported four
+branches as deletable when they were already gone, because I read `git branch -r`
+without ever pruning — the maintainer corrected me with a screenshot. Hours later
+I nearly reported that the fork had cited commits they had not pushed:
+`git fetch --prune origin` had not moved `origin/platterpus-fork`, and
+`git ls-remote` showed their live head at `fbbb241` against our stale `a1d305a`.
+**My fetch, not their push** — and that one would have gone into a lap as an
+accusation. This is `CLAUDE.md`'s *answer it from the artifact, not from your
+memory of the artifact* with a sharpening: `git branch -r` **looks** like an
+artifact and is a cache. Ask what refreshed it and when.
+
+### Housekeeping
+
+`main` is confirmed **not** branch-protected and will not be (maintainer ruling:
+*"i am not paying for this"*); the rule now says so, `docs/github-workflow-sop.md`
+§7.2 is annotated out of scope, and it is not to be raised again. Three `TASKS.md`
+rows the round's close falsified were closed with their results rather than left
+reading as live work.
+
 ## 2026-09-10 — the run passed 237 of 238, and the one failure was us reading a log six seconds early
 
 **One sentence: the 2026-09-09 hardware run reached the last step on
