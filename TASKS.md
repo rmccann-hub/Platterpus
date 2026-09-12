@@ -189,24 +189,36 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       Per the *new capability is a SCRIPT VERB* rule this is a verb, not a flag.
       Not urgent: Run A settles clause 2 for round 16. It matters the next time
       a clause turns on audio identity and the fork's rig is not the one running.
-- [ ] **HOLD 0.6.46 until the fork opens round 17** (maintainer decision,
-      2026-09-12). Ten entries sit under `[Unreleased]` and nothing blocks a
-      release — round 16 is closed, `release.yml`'s handshake gate passes, gates
-      are 4/4. **This is a deliberate wait, not an oversight.**
-      *Why wait:* their lap 17 §4 says round 17 is theirs to open and that its
-      subject IS releases — *"both projects cut a release, each verifies the
-      other's"*. Its close conditions are fixed at its lap 1 under S-13, so cutting
-      first risks releasing something those terms then change. And their release of
-      `a9aedf0` is what unblocks our `FORK_PIN` roll, so a release cut *after*
-      theirs carries the rolled pin and the moved approval constants — **one
-      coherent release instead of two.**
-      *What the wait costs, recorded so it is not rediscovered:* the rig stays on
-      `0.6.45`, which false-fails §I's `expect-log-well-formed` in an ARCHIVAL
+- [x] **HOLD 0.6.46 until the fork opens round 17 — DISCHARGED 2026-09-12.**
+      The wait was a maintainer decision made the same day: ten entries sat under
+      `[Unreleased]` and nothing blocked a release, so this was recorded as a
+      deliberate wait rather than left to look like an oversight a later session
+      should tidy up by releasing. Their lap 17 §4 had said round 17 was theirs to
+      open and that its subject IS releases, with close conditions fixed at its
+      lap 1 under S-13 — so cutting first risked releasing something those terms
+      then changed.
+      *What discharged it:* their round-17 lap 1 arrived on 2026-09-12. It fixes
+      one close condition, it needs no hardware, and it asks for exactly the thing
+      this commit produces — **a Platterpus candidate named by SHA**. So the bump
+      lands here and the version commit IS the answer: `our_pin()` resolves
+      `HANDSHAKE-OUR-PIN` by finding the commit that introduced the current
+      `__version__` and refuses an uncommitted tree.
+      **Nothing publishes.** Their §0 condition 4 puts publication *after* the
+      close, and the round approves two releases as a pair — theirs and ours,
+      published together, neither alone. This change prepares and names the
+      candidate; it does not tag.
+      *Why round 17 is not filed in this change, which is a sequencing constraint
+      and not an omission:* `test_every_declared_from_commit_is_reachable_not_
+      merely_resolvable` requires an outbound lap's `HANDSHAKE-FROM-COMMIT` to be
+      an **ancestor of `origin/main`**, because this repository squash-merges and a
+      branch commit resolves without ever being reachable. Our round-17 lap 2 must
+      name 0.6.46's commit on `main` — which does not exist until this merges. So
+      the inbound filing, the four round-aware constants and lap 2 follow in the
+      next change, against the squashed SHA.
+      *What the wait cost, kept because it is still true of any rig still on
+      0.6.45:* that build false-fails §I's `expect-log-well-formed` in an ARCHIVAL
       section on every cancel, carries the P3 clause-2 rule that would report the
-      fork's `b866900` as unfixed, and litters `$HOME`. **Do not spend disc time on
-      an acceptance run against 0.6.45 while this hold stands** — a branch AppImage
-      exists if a run is needed before then.
-      *Release when:* their round-17 lap 1 lands and its close conditions are read.
+      fork's `b866900` as unfixed, and litters `$HOME`. All three are fixed here.
 - [ ] **`a_round_is_reviewing_a_build()` returns True with all sixteen rounds
       CLOSED, and it is user-facing.** The install menu currently tells an operator
       `a9aedf0` "is the build the **open** handshake round is reviewing". No round
@@ -227,7 +239,15 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       Not blocking: nothing ripped is mislabelled, the approval stamp on reports
       and EAC logs is correct, and the two staleness gates now wait on the fork's
       release manifest rather than failing. It is wrong text in a menu.
-- [ ] **Run A's result has not been seen, and round 16 stays open on it.**
+- [x] **Run A's result has not been seen, and round 16 stays open on it — DONE
+      2026-09-12.** Run A ran on 2026-09-11 on `ddc1e8c` and settled all three
+      clauses: their `tools/round16-accept.py` at `9ec722e` reports `0 FAIL,
+      0 UNPROBED, exit 0`, with clause 2 (`-H` with de-emphasis) exercised on a
+      drive for the first time in twelve rig sessions, and our own half —
+      `verify_log_surface.py` over its five logs — accounted for all **1,055**
+      lines with **0 unaccounted**, exit 0. Round 16 closed `GO`/`GO` at 17 laps.
+      The reading below was the state before that artifact existed; kept because
+      it records what was and was not claimed while it was outstanding.
       Corrected after reading their lap 9: Run B produced evidence bearing on
       **all three** clauses — a real AccurateRip host answered and the
       answer was parsed (their lap 1 note 2 said *"a real 200 from a real
@@ -239,7 +259,10 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       audio was never compared, and the reading is theirs. Put to them in lap 10
       §B7 as evidence, never as a verdict: re-reading a close condition in our
       own favour after the fact is what S-13 forbids.
-- [ ] **Round-16 lap 10 is WRITTEN and NOT SENT** —
+- [x] **Round-16 lap 10 is WRITTEN and NOT SENT — SENT; its delivered bytes are
+      pinned in `SENT_LAPS`, and the round has since closed at lap 17.** The note
+      below is kept for the rule it states, which did not stop being true: only
+      the maintainer can send a lap, and three round-15 laps sat unsent. —
       `docs/handshake/outbound/round-16-lap-10.md`. Only the maintainer can send
       it. Three round-15 laps sat unsent; this is the state that produces that.
       Its `HANDSHAKE-FROM-COMMIT` is `62de7b6` (the 0.6.45 release commit) and it

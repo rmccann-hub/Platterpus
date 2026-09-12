@@ -1173,21 +1173,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # three surfaces answering that question had already disagreed inside a week.
     # It compares the two pins, so it belongs beside them for the reason the note
     # above gives.
-    # **1890 -> 1900 on 2026-09-12, when round 17 opened** (+10): `PIN_UNDER_REVIEW`
-    # moved `a9aedf0` -> `fe4d2c4` and the paired version with it, and both carry the
-    # note saying WHY the candidate is deliberately not the bump — their lap 1 §2:
-    # `6a9a080` moved the version, `a2523c4` regenerated the artifacts, `fe4d2c4` is
-    # the first commit at which they agree, and `6a9a080` is red on its own suite.
-    # A bare SHA swap with no record of that distinction is how a release gets cut at
-    # the bump, which their §2 says has already cost them one.
-    # **1900 -> 1909 the same day** (+9): the round-17 candidate joins
-    # `BUILD_TAGS_ACCEPTING_CONSUMER_FLAG`, with the evidence rather than the bare
-    # tag. `test_handshake_pin_under_review` requires any capability claimed for the
-    # build under review to be listed in the newest FILED provider contract, so the
-    # comment cites where `--consumer` and `--verify-log` were read and notes that
-    # their lap 1 §3 says the same independently. A bare SHA in a capability set is
-    # the unbacked claim that test exists to refuse.
-    "deps/fork_source.py": 1909,
+    "deps/fork_source.py": 1890,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
