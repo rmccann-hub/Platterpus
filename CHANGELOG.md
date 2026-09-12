@@ -11,10 +11,55 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+
+## [0.6.47] — 2026-09-12
+
+### Fixed
+- **The build the fork just published was stamped `unapproved` in every archival
+  record, and the pin roll fixes it.** Round 17 closed `GO`/`GO`, and the fork
+  published `fe4d2c4` (`0.9.4-rc2+platterpus.12`) to **both** channels at
+  `release_seq` 22. Our approval constants still named **round 15** and pin
+  `978f9b0`, because rounds 16 and 17 had both approved builds the fork never
+  released and a pin cannot roll to something nobody can install. The moment they
+  published, that stopped being correct: `approve_ripper` keys the verdict on our
+  constants while the in-app update offer keys on *their* manifest, so the offer
+  would install the approved build and every rip report, cyanrip log and
+  EAC-compatible export made with it would say `unapproved`.
+  That is [`docs/testing.md`](docs/testing.md) §5.al — *two surfaces answering one
+  question by different keys* — arriving from the other direction, with the roles
+  swapped: last time we were ahead of the fork, this time they were ahead of us.
+  **A closed round whose pin has not rolled is not a neutral state**; it is a
+  window in which the approved build is reported as unapproved.
+  `FORK_PIN` → `fe4d2c4`, `release_seq` 22 recorded from their manifest rather than
+  their lap, `APPROVED_BY_ROUND` 15 → **17** (skipping 16 deliberately — its pin was
+  never published), and `APPROVED_FOR_PLATTERPUS_VERSION` → `0.6.46`, which stays at
+  `0.6.46` rather than following this release because round 17 approved *that* pair
+  and `0.6.47` is our own between-rounds change.
+  The `meson_options.txt` tripwire fired on the roll for the third time and the
+  answer was **re-derived, not carried over**: `git diff 978f9b0 fe4d2c4 --
+  meson_options.txt` in the fork's tree is empty, so we still decline
+  `-Ddeclare_released=true` — their manifest sets it on *their* release artifact,
+  and a binary we compile in a container on the operator's machine is not that,
+  whatever commit it came from.
+
 ### Changed
-- **Round 17 is open, and the four round-aware constants move with it.**
-  `PIN_UNDER_REVIEW` goes to `fe4d2c4` (`0.9.4-rc2+platterpus.12`) and
-  `CURRENT_ROUND` to 17. The candidate is deliberately **not** the version bump,
+- **Round 17 of the cyanrip handshake is CLOSED, `GO`/`GO`, at three laps — and
+  all seventeen rounds are now closed.** It was the release round and it approved
+  two releases as a pair. Their lap 3 was verified against its source rather than
+  accepted: byte-identical to their committed copy, all five SHAs it names resolve
+  in their tree with the subjects given, and their round digest re-derives here
+  exactly with an implementation built from their written spec rather than their
+  code. **Our gate disagreed with theirs and we said so rather than working around
+  it** — `close_blockers()` found nothing wrong with their lap and one thing wrong
+  with ours: in a three-lap round the peer both opens and closes, so our newest
+  file necessarily predates their verdict. The gate was right that our record was
+  incomplete; the fix is `docs/handshake/verified/round-17-lap-04.md`, our
+  acceptance, which is what round 13 did in the same situation. **We did not
+  loosen the gate** — it fails closed on purpose, and relaxing it to permit a
+  release it is refusing is the change this project trusts least.
+- **Round 17 opened, ran and closed inside this release, and the round-aware
+  constants moved with it.** `PIN_UNDER_REVIEW` goes to `fe4d2c4`
+  (`0.9.4-rc2+platterpus.12`) and `CURRENT_ROUND` to 17. The candidate is deliberately **not** the version bump,
   for the reason their lap 1 §2 gives and we checked rather than took: `6a9a080`
   moves the version while the generated artifacts still describe `.11`, `a2523c4`
   regenerates them, and `fe4d2c4` is the first commit at which the two agree —
@@ -14205,7 +14250,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.46...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.47...HEAD
+[0.6.47]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.46...v0.6.47
 [0.6.46]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.45...v0.6.46
 [0.6.45]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.44...v0.6.45
 [0.6.44]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.43...v0.6.44
@@ -14339,4 +14385,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.46.*
+*Last updated for Platterpus v0.6.47.*

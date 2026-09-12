@@ -1187,7 +1187,23 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # comment cites where `--consumer` and `--verify-log` were read and notes that
     # their lap 1 §3 says the same independently. A bare SHA in a capability set is
     # the unbacked claim that test exists to refuse.
-    "deps/fork_source.py": 1909,
+    # **1909 -> 1964 the same day, when round 17 CLOSED and the pin ROLLED** (+55).
+    # The roll is the first in three rounds: rounds 15, 16 and 17 all closed GO/GO,
+    # and only this one could move `FORK_PIN`, because the fork had never published
+    # round 16's `a9aedf0` and a pin cannot roll to a build nobody can install.
+    # Four constants moved and each carries its derivation rather than a bare value:
+    # `FORK_PIN` -> `fe4d2c4`; `FORK_RELEASE_SEQ_BY_PIN` gains `fe4d2c4: 22`, read
+    # out of their `release-manifest.json` rather than their lap;
+    # `PIN_UNDER_REVIEW_IS_PUBLISHED` False -> True, with the note that its honest
+    # value changed between two commits of ours with nothing in our tree changing;
+    # and `FORK_EXPECTED_VERSION` -> `.12`, which the sibling pairing guard caught
+    # in the same run as the roll rather than a release later.
+    #
+    # The growth is comment, and it belongs here for the reason the block above
+    # gives: the justification is the load-bearing part of each of these constants,
+    # and a roll with no record of why is how a pin moves to a build with nothing
+    # behind it.
+    "deps/fork_source.py": 1964,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1253,7 +1269,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # it was read from. These two constants went stale for two releases once
     # and stamped the wrong round into every archival log; the provenance is
     # the point, not decoration.
-    "handshake_approval.py": 526,
+    # **526 -> 547 on 2026-09-12** (+21), when round 17 closed: `APPROVED_BY_ROUND`
+    # 15 -> 17 and `APPROVED_FOR_PLATTERPUS_VERSION` -> 0.6.46. Both carry the two
+    # things a later reader needs and cannot reconstruct: why 16 is SKIPPED (it
+    # approved a pin the fork never published, so crediting it would name a pairing
+    # nobody could install), and why the app version stays 0.6.46 while the release
+    # carrying it is 0.6.47 (the round approved that pair; 0.6.47 is our own
+    # between-rounds change, which this constant's docstring already says is ours to
+    # make). A bare 15 -> 17 would read as an off-by-one.
+    "handshake_approval.py": 547,
     "help_content.py": 561,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because

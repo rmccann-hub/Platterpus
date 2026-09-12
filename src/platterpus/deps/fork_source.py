@@ -154,7 +154,26 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: this exact build, so the artifact and the approval describe the same binary.
 #: Their lap 14 notes their tree has since moved past it — those are round-16 fixes
 #: and none is part of this close.
-FORK_PIN: Final[str] = "978f9b0"
+#:
+#: **Rolled forward to `fe4d2c4` on 2026-09-12, when round 17 CLOSED with GO/GO —
+#: and this is the first roll in three rounds, because the two before it approved
+#: builds nobody could install.** Round 16 approved `a9aedf0` and round 17 approved
+#: `fe4d2c4`; the pin could not move to the first because the fork never published
+#: it, and `release_seq_for_commit("a9aedf0")` is still `None` today, which is *not
+#: determined* rather than a gap. `fe4d2c4` is different: their §5 step 2 published
+#: it, and `release-manifest.json` resolves **both** channels to it at `release_seq`
+#: 22 with `round_closed: true`.
+#:
+#: **The roll is not bookkeeping — it was a live defect the moment they published.**
+#: `approve_ripper` keys the verdict on these constants, and the in-app update offer
+#: keys on *their* manifest. Between their publish and this commit the two
+#: disagreed: the offer would install `fe4d2c4` and every report, log and EAC export
+#: made with it said `unapproved`. That is `docs/testing.md` §5.al arriving from the
+#: other direction — the same two-surfaces-two-keys shape, with the roles swapped,
+#: because last time *we* were ahead of them and this time they were ahead of us.
+#: A closed round whose pin has not rolled is not a neutral state; it is a window in
+#: which the approved build is stamped as unapproved.
+FORK_PIN: Final[str] = "fe4d2c4"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -267,6 +286,17 @@ FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
     # Their §6 states `git diff 978f9b0 HEAD -- src/` is empty, so the binary on
     # the rig is the binary their post-pin work was measured against.
     "978f9b0": 21,
+    # `release_seq` 22, **both channels**, from their round-17 lap 3 §5 step 2 and
+    # read out of `release-manifest.json` at their head rather than from the lap:
+    # `{"stable": {"commit": "fe4d2c4", "release_seq": 22, "round_closed": true,
+    # "handshake_round": 17}}`, and `beta` identical. The first fork build to be
+    # published as `stable` in the same round that approved it.
+    #
+    # **`a9aedf0` is deliberately absent and that is the honest answer.** Round 16
+    # approved it and the fork never released it, so it has no sequence — `None`
+    # here means *not determined*, which is what stops the update check offering an
+    # upgrade to someone already ahead of it.
+    "fe4d2c4": 22,
 }
 
 
@@ -341,7 +371,17 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: never been extended to the production pair. `docs/testing.md` §5.o: enforce a
 #: rule across the codebase, not at the place it was learned. It now has a
 #: sibling that derives this pairing from the newest CLOSED round's lap.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.11"
+#:
+#: **Rolled to `0.9.4-rc2+platterpus.12` on 2026-09-12, with `FORK_PIN`, and this
+#: time the sibling guard caught it in the same run as the roll.** That is the
+#: mechanism above working as designed rather than a near miss:
+#: `test_the_PRODUCTION_pin_and_version_are_one_pairing_too` failed with the exact
+#: sentence the 2026-09-06 defect needed — *"`FORK_EXPECTED_BUILD_TAG` is DERIVED
+#: from the pin and this is a literal, so a roll moves one and not the other"* —
+#: and named `round-17-lap-03.md` as the lap that declares the pairing. Read off
+#: their closing lap's `HANDSHAKE-RIPPER-VERSION`, not typed from the version we
+#: expected to see.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.12"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -493,7 +533,20 @@ PIN_UNDER_REVIEW: Final[str] = "fe4d2c4"
 #: no route to the build an open round is reviewing — a KDD-17 gap, tracked in
 #: `TASKS.md` and raised with the fork as a NEXT-ROUND ask rather than a blocker,
 #: because it does not make the reviewed pin unsafe and the rig has a terminal.
-PIN_UNDER_REVIEW_IS_PUBLISHED: Final[bool] = False
+#:
+#: **`True` for round 17, and it flipped mid-day rather than at the round's open.**
+#: Their lap 1 named `fe4d2c4` unpublished — `release-manifest.json` still resolved
+#: both channels to `978f9b0`, so this was `False` and correctly so. Their lap 3 §5
+#: step 2 then published it, at which point the manifest carried `release_seq` 22
+#: and this flag's honest value changed **without any lap being written**. The paired
+#: row in :data:`FORK_RELEASE_SEQ_BY_PIN` went in at the same time, which is what the
+#: two-directional test demands.
+#:
+#: The lesson worth keeping is the timing, not the value: a declaration whose subject
+#: is *the other project's publishing state* can go stale between two commits of
+#: ours, with nothing in our tree changing. That is why the test checks it against
+#: the sequence table in both directions instead of trusting the declaration.
+PIN_UNDER_REVIEW_IS_PUBLISHED: Final[bool] = True
 
 #: The fork's **test pin** — a build designated to gather the hardware evidence a
 #: close requires, which is *not* a release and never moves :data:`FORK_PIN`.
@@ -1113,12 +1166,14 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 14 approved, GO on both sides — and the first production "
-        f"pin that was already a release when it was reviewed (cyanrip "
-        f"{FORK_EXPECTED_VERSION}, release_seq 20). Its evidence is a whole-disc "
-        "uniform secure re-read on hardware: 14/14 tracks converged, zero ripping "
-        "errors, completion footer intact. See docs/handshake/outbound/"
-        "round-14-lap-18.md"
+        "the build round 17 approved, GO on both sides, and published by the fork "
+        f"to BOTH channels in the same round (cyanrip {FORK_EXPECTED_VERSION}, "
+        "release_seq 22). Its evidence is round 16's Run A on hardware — all three "
+        "close conditions settled, 0 FAIL and 0 UNPROBED, including -H with "
+        "de-emphasis on a drive for the first time — taken on this program minus "
+        "one src/ commit (12f2081, a repeated--j fix that cannot fire for a caller "
+        "passing -j once, which is ours). See docs/handshake/inbound/"
+        "round-17-lap-03.md"
     ),
 )
 
