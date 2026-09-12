@@ -73,7 +73,25 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-16.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-17-lap-02.md",)
+
+# WHY IT MOVED TO ROUND-17 LAP 2 (2026-09-12).
+#
+# Round 16 is CLOSED -- GO/GO, their lap 17 acknowledged our lap 16 and both
+# gates agree. Lap 16 is pinned in `SENT_LAPS` at the bytes their lap 17 declares.
+#
+# Lap 2 answers round 17's open conditions 2 and 3 and declares 4: it names
+# 0.6.46's commit, reports each of the three HANDSHAKE-BREAKING rows as handled
+# with the derivation for each, and declares GO. Their §5 pre-commit makes their
+# lap 3 GO unless we report a row unhandled or name a defect in `fe4d2c4`; this
+# lap does neither, so the round should close at two laps.
+#
+# **THE MAINTAINER ASKED FOR THIS ONE (2026-09-12), and approved the merge and
+# release preparation in the same breath.** Recorded like every note before it:
+# the standing rule is ASK BEFORE WRITING A LAP, because a send is an event
+# outside both trees and three round-15 laps were written and never handed over.
+#
+# One part. Lap 2 quotes no sha of `fullacceptance.txt`.
 
 # WHY IT MOVED TO ROUND-16 LAP 16 (2026-09-12).
 #
