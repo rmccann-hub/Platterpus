@@ -191,6 +191,35 @@ class SessionLayout:
 #: may well type it.
 SESSION_DIR_PREFIX: Final[str] = "platterpustestsession"
 
+#: The ONE directory everything this project creates on the rig lives under.
+#:
+#: **Maintainer instruction, 2026-09-11: "stop polluting my home directory".**
+#: Each acceptance run dropped its own `~/platterpustestsession<stamp>/` straight
+#: into `$HOME` and `--rig-session` dropped a second kind beside it, so the litter
+#: grew once per run and the operator had to garden it. The timestamping was never
+#: the problem — two runs must not overwrite each other's evidence — only where the
+#: stamped folder was put. `$HOME` now gains exactly one entry however many runs
+#: happen, and cleanup is `rm -rf ~/platterpus-rig`.
+#:
+#: **The name mirrors the cyanrip fork's `~/cyanrip-rig`**, adopted the same day on
+#: the same instruction. The operator holds both rigs on one machine; two projects
+#: each inventing a shape would be this defect at a larger scale.
+#:
+#: Deliberately NOT under `~/Music` — that is the operator's library. Rips still go
+#: there and the deliverable still goes to `~/Downloads`.
+RIG_PARENT_NAME: Final[str] = "platterpus-rig"
+
+
+def rig_parent(home: Path) -> Path:
+    """The single deletable directory every rig artifact of ours lives under.
+
+    One function rather than two call sites building the same path, because the
+    acceptance session and ``--rig-session`` both create workspaces and two
+    spellings of "where our stuff goes" is how ``$HOME`` grew two kinds of litter
+    in the first place.
+    """
+    return home / RIG_PARENT_NAME
+
 
 def downloads_dir(home: Path) -> Path | None:
     """``home/Downloads`` **if it really exists**, otherwise ``None``.
@@ -233,7 +262,8 @@ def plan_session(
     find it — would stop being assertable.
     """
     slug = _stamp_slug(stamp)
-    root = home / f"{SESSION_DIR_PREFIX}{slug}"
+    # Inside the one parent, never straight into $HOME — see `RIG_PARENT_NAME`.
+    root = rig_parent(home) / f"{SESSION_DIR_PREFIX}{slug}"
     # The archive's *name* comes from the bundler, so this module and the module
     # that writes the file cannot disagree about what the deliverable is called.
     # Two surfaces answering one question with two spellings is how a "send me

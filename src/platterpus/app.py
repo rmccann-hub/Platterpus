@@ -1014,7 +1014,14 @@ def main(argv: list[str] | None = None) -> int:
         chosen = str(args.rig_session or "")
         if not chosen:
             stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-            chosen = str(Path.home() / f"platterpus-rig-{stamp}")
+            # UNDER THE ONE PARENT, not loose in $HOME. This used to be
+            # `~/platterpus-rig-<stamp>`, a fresh top-level folder per run, and
+            # the acceptance session dropped another beside it — the litter the
+            # maintainer asked us to stop making on 2026-09-11. Same helper as
+            # `plan_session` uses, so the two cannot drift apart again.
+            from platterpus.test_session import rig_parent
+
+            chosen = str(rig_parent(Path.home()) / f"rigsession{stamp}")
             print(f"no output directory given — using {chosen}")
         return _run_rig_session(Path(chosen))
 
