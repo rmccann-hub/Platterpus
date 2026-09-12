@@ -738,6 +738,15 @@ SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = (
 BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
     {
         FORK_EXPECTED_BUILD_TAG,  # the current production pin
+        # **Round 17's candidate, and the claim is BACKED rather than assumed.**
+        # `tests/test_handshake_pin_under_review.py` requires any capability we
+        # assert for the build under review to be listed in the newest provider
+        # contract we hold, and `round-16-lap-06-provider-contract-g12f2081.md`
+        # lists `--consumer` and `--verify-log` both. Their round-17 lap 1 §3 says
+        # the same independently — *"The CLI surface did not move at all -- no flag
+        # added, removed or renamed"* — and their §2 reports `contract-delta.py`
+        # finding no P1 flag changed from `+platterpus.11`. Two routes, one answer.
+        "platterpus-fork-gfe4d2c4",
         # **SUPERSEDED PRODUCTION PINS STAY, and this one nearly did not.**
         # `ddf7ac3` was in this set only by way of `FORK_EXPECTED_BUILD_TAG`, so
         # rolling the pin forward at round 14's close removed it — silently, and
