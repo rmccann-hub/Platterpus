@@ -189,6 +189,26 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       Per the *new capability is a SCRIPT VERB* rule this is a verb, not a flag.
       Not urgent: Run A settles clause 2 for round 16. It matters the next time
       a clause turns on audio identity and the fork's rig is not the one running.
+- [ ] **`a_round_is_reviewing_a_build()` returns True with all sixteen rounds
+      CLOSED, and it is user-facing.** The install menu currently tells an operator
+      `a9aedf0` "is the build the **open** handshake round is reviewing". No round
+      is open. The predicate derives openness from pin coincidence —
+      `not same_commit(PIN_UNDER_REVIEW, FORK_PIN)` — on the premise, stated in its
+      own docstring, that *"the moment a round closes, the reviewed build IS the
+      approved build and the two coincide."* **Round 16 broke that premise in a way
+      its author did not anticipate: it closed on a commit the fork has never
+      released**, so `FORK_PIN` cannot roll and the two stay apart indefinitely.
+      The irony is exact — this function exists *because* two hard-coded sentences
+      claimed a round was open after round 14 closed, and it has now failed the
+      same way by a different route.
+      **Fix: derive it from the record** (the closed-rounds computation
+      `handshake.py --status` already performs and two tests already read), not
+      from pin coincidence. Same *one predicate, N callers* move as
+      `approves_commit`. Check `978f9b0`'s `why` string in the same pass — it says
+      "the build round 14 approved" while `APPROVED_BY_ROUND` is 15.
+      Not blocking: nothing ripped is mislabelled, the approval stamp on reports
+      and EAC logs is correct, and the two staleness gates now wait on the fork's
+      release manifest rather than failing. It is wrong text in a menu.
 - [ ] **Run A's result has not been seen, and round 16 stays open on it.**
       Corrected after reading their lap 9: Run B produced evidence bearing on
       **all three** clauses — a real AccurateRip host answered and the

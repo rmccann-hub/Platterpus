@@ -134,14 +134,60 @@ def test_the_pin_is_the_one_the_newest_closed_handshake_round_verified() -> None
         f"{newest.name} — the newest CLOSED round's verification — declares no "
         "HANDSHAKE-PIN, so there is nothing to hold the production pin to"
     )
-    assert declared.group(1).startswith(fork_source.FORK_PIN) or (
-        fork_source.FORK_PIN.startswith(declared.group(1))
-    ), (
-        f"{newest.name} declares HANDSHAKE-PIN: {declared.group(1)}, but "
-        f"FORK_PIN is {fork_source.FORK_PIN!r}. A CLOSED round approves the pin it "
-        "DECLARES — so either the production pin has not been rolled forward after "
-        "the close, or the wizard builds a commit no closed round approved. "
-        "Rolling it forward is the post-close step; do not relax this check."
+    approved = declared.group(1)
+    matches = approved.startswith(
+        fork_source.FORK_PIN
+    ) or fork_source.FORK_PIN.startswith(approved)
+
+    # **THE ROLL WAITS FOR A RELEASE, AND THE WAIT IS DERIVED, NOT ALLOWLISTED.**
+    #
+    # Round 16 closed approving `a9aedf0`, which the fork has never published. The
+    # obligation this test states is real and the roll is genuinely blocked: the
+    # in-app ripper offer computes what it can install from the fork's RELEASE
+    # MANIFEST, so pointing `FORK_PIN` at an unpublished commit would leave the
+    # setup path proposing a build it cannot obtain — `CLAUDE.md`'s *what is this
+    # surface's population, and is the answer I need inside it?*, which this
+    # project has already paid for once.
+    #
+    # So the condition is the manifest's own answer, and it is NOT an exemption:
+    # the moment the approved build is published this branch stops applying and the
+    # strict assertion below fires. A named-file allowlist would have to be
+    # remembered and would go stale silently; `release_seq_for_commit` cannot.
+    approved_is_published = fork_source.release_seq_for_commit(approved) is not None
+    if not matches and not approved_is_published:
+        # The waiting branch still asserts two things, because a branch that
+        # asserts nothing is the hole this whole test exists to refuse.
+        assert fork_source.release_seq_for_commit(fork_source.FORK_PIN) is not None, (
+            f"FORK_PIN is {fork_source.FORK_PIN!r}, which the fork has not "
+            "published either. While the approved build is unreleased the "
+            "production pin must at least remain one a user can actually install."
+        )
+        approved_anywhere = {
+            m.group(1)
+            for path in verified
+            if handshake.sort_key(path)[0] in closed_rounds
+            for m in re.finditer(
+                r"^HANDSHAKE-PIN:\s*([0-9a-f]{7,40})\b",
+                path.read_text(encoding="utf-8"),
+                re.M,
+            )
+        }
+        assert any(
+            fork_source.FORK_PIN.startswith(pin) or pin.startswith(fork_source.FORK_PIN)
+            for pin in approved_anywhere
+        ), (
+            f"FORK_PIN is {fork_source.FORK_PIN!r}, which no CLOSED round has ever "
+            f"declared. Waiting for {approved} to be released does not licence "
+            "pointing the wizard at an unapproved build."
+        )
+        return
+
+    assert matches, (
+        f"{newest.name} declares HANDSHAKE-PIN: {approved}, but "
+        f"FORK_PIN is {fork_source.FORK_PIN!r} — and {approved} IS published "
+        f"(release {fork_source.release_seq_for_commit(approved)}), so nothing is "
+        "blocking the roll. A CLOSED round approves the pin it DECLARES. Rolling "
+        "it forward is the post-close step; do not relax this check."
     )
 
 
