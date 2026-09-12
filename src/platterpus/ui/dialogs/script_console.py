@@ -74,6 +74,29 @@ log finished
 """
 
 
+def _transcript_save_default() -> Path:
+    """Where the "Save the transcript" dialog opens, and why not `$HOME`.
+
+    It used to propose ``~/platterpus-transcript.txt`` — a file dropped straight
+    into the home directory, which is the litter the maintainer asked us to stop
+    making on 2026-09-11. A save dialog only *proposes*, so this was the mildest
+    of the offenders; it is fixed anyway, because "we only suggested it" is how a
+    default becomes the thing everybody has.
+
+    ``~/Downloads`` first when it really exists — the same reasoning the evidence
+    bundle uses, and the same function answers it, so the two cannot disagree
+    about where a deliverable belongs. Otherwise the one deletable rig directory.
+    Neither is created here: proposing a path in a save dialog does not need the
+    folder to exist, and inventing a `Downloads` on a machine that has none puts
+    files where the operator has no habit of looking.
+    """
+    from platterpus.test_session import downloads_dir, rig_parent
+
+    home = Path.home()
+    parent = downloads_dir(home) or rig_parent(home)
+    return parent / "platterpus-transcript.txt"
+
+
 class ScriptConsoleDialog(CenteredDialog):
     """Paste a batch, run it against the live window, read the transcript."""
 
@@ -405,7 +428,9 @@ class ScriptConsoleDialog(CenteredDialog):
             self._append("nothing to save yet — run a script first.")
             return
         chosen, _ = QFileDialog.getSaveFileName(
-            self, "Save the transcript", str(Path.home() / "platterpus-transcript.txt")
+            self,
+            "Save the transcript",
+            str(_transcript_save_default()),
         )
         if not chosen:
             return

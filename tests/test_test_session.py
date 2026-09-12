@@ -200,20 +200,31 @@ def test_bundle_lands_in_downloads_when_one_exists(tmp_path: Path) -> None:
     assert layout.root.parent.parent == tmp_path
 
 
-def test_bundle_falls_back_to_home_and_downloads_is_never_invented(
+def test_bundle_falls_back_INSIDE_the_rig_dir_and_downloads_is_never_invented(
     tmp_path: Path,
 ) -> None:
-    """No `~/Downloads` → the archive goes to `$HOME`, and none is created.
+    """No `~/Downloads` → the archive goes under the ONE rig directory, not `$HOME`.
 
-    Creating the folder would put the deliverable somewhere the operator has no
-    habit of looking, which is the same problem the fallback exists to avoid.
+    **Two separate properties, and both have been wrong at some point.**
+
+    *Downloads is never invented* — still true, still asserted, and still the
+    right call: creating the folder would put the deliverable somewhere the
+    operator has no habit of looking, which is the problem the fallback exists to
+    avoid in the first place.
+
+    *The fallback is contained* — this is the part that changed. It used to drop
+    the tarball straight into `$HOME`, once per run, on any machine without a
+    Downloads folder. That is the litter the maintainer asked us to stop making
+    (2026-09-11), and containment costs nothing here because the session summary
+    prints the deliverable's absolute path either way.
     """
     assert downloads_dir(tmp_path) is None
     assert not (tmp_path / "Downloads").exists(), "asking must not create it"
 
     layout = plan_session(home=tmp_path, stamp=STAMP, downloads=downloads_dir(tmp_path))
-    assert layout.bundle.parent == tmp_path
-    assert layout.bundle == tmp_path / bundle_filename(STAMP)
+    assert layout.bundle.parent == rig_parent(tmp_path)
+    assert layout.bundle == rig_parent(tmp_path) / bundle_filename(STAMP)
+    assert layout.bundle.parent.parent == tmp_path, "still reachable from $HOME"
     assert not (tmp_path / "Downloads").exists(), "planning must not create it either"
 
 
@@ -351,7 +362,7 @@ def test_round_trip_produces_one_archive_with_the_text_artifacts(
     # "send me this file" instruction that names a path nobody wrote is the
     # failure this relation prevents.
     assert result.path == layout.bundle
-    assert layout.bundle.parent == home
+    assert layout.bundle.parent == rig_parent(home)
     assert layout.bundle.stat().st_size > 0
 
     members = _members(layout.bundle)
