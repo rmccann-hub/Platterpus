@@ -11,6 +11,9 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.46] — 2026-09-12
+
+
 ### Added
 - **`scripts/verify_log_surface.py` — clause 3 of the cyanrip handshake, graded by
   the reader the clause is actually about.** Round 16's close condition says *"no
@@ -14178,7 +14181,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.45...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.46...HEAD
+[0.6.46]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.45...v0.6.46
 [0.6.45]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.44...v0.6.45
 [0.6.44]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.43...v0.6.44
 [0.6.43]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.42...v0.6.43
@@ -14311,4 +14315,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.45.*
+*Last updated for Platterpus v0.6.46.*
