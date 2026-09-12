@@ -11,6 +11,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **Round 17 is open, and the four round-aware constants move with it.**
+  `PIN_UNDER_REVIEW` goes to `fe4d2c4` (`0.9.4-rc2+platterpus.12`) and
+  `CURRENT_ROUND` to 17. The candidate is deliberately **not** the version bump,
+  for the reason their lap 1 §2 gives and we checked rather than took: `6a9a080`
+  moves the version while the generated artifacts still describe `.11`, `a2523c4`
+  regenerates them, and `fe4d2c4` is the first commit at which the two agree —
+  `6a9a080` is red on its own suite and must never be released. The candidate also
+  joins `BUILD_TAGS_ACCEPTING_CONSUMER_FLAG` **with its evidence** rather than as a
+  bare tag, because `test_handshake_pin_under_review` requires any capability
+  claimed for a reviewed build to be listed in the newest *filed* provider
+  contract.
+  The argv-table lag goes 0 → 1: their lap 1 ships no `PROVIDER-CONTRACT.md`, and
+  their own `tools/contract-delta.py` reports *"No section changed"* between
+  `+platterpus.11` and this candidate — no flag, no log line, no exit code, no
+  message — which is what a pure version bump should look like. So round 16's
+  table **is** the candidate's table in substance and the gap is one round of
+  *filing*, not of drift. Deliberately **not** closed by fetching their contract
+  out of their repository: the record is what was *exchanged*, which they conceded
+  in their round-9 lap 3 §3.
+  **Nothing rips differently.** `FORK_PIN` is unchanged at `978f9b0`; a reviewed
+  pin is not an installed one, and the production pin rolls when the fork
+  publishes, not when a round opens or closes.
+
 ## [0.6.46] — 2026-09-12
 
 
