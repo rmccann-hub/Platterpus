@@ -189,6 +189,24 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       Per the *new capability is a SCRIPT VERB* rule this is a verb, not a flag.
       Not urgent: Run A settles clause 2 for round 16. It matters the next time
       a clause turns on audio identity and the fork's rig is not the one running.
+- [ ] **HOLD 0.6.46 until the fork opens round 17** (maintainer decision,
+      2026-09-12). Ten entries sit under `[Unreleased]` and nothing blocks a
+      release — round 16 is closed, `release.yml`'s handshake gate passes, gates
+      are 4/4. **This is a deliberate wait, not an oversight.**
+      *Why wait:* their lap 17 §4 says round 17 is theirs to open and that its
+      subject IS releases — *"both projects cut a release, each verifies the
+      other's"*. Its close conditions are fixed at its lap 1 under S-13, so cutting
+      first risks releasing something those terms then change. And their release of
+      `a9aedf0` is what unblocks our `FORK_PIN` roll, so a release cut *after*
+      theirs carries the rolled pin and the moved approval constants — **one
+      coherent release instead of two.**
+      *What the wait costs, recorded so it is not rediscovered:* the rig stays on
+      `0.6.45`, which false-fails §I's `expect-log-well-formed` in an ARCHIVAL
+      section on every cancel, carries the P3 clause-2 rule that would report the
+      fork's `b866900` as unfixed, and litters `$HOME`. **Do not spend disc time on
+      an acceptance run against 0.6.45 while this hold stands** — a branch AppImage
+      exists if a run is needed before then.
+      *Release when:* their round-17 lap 1 lands and its close conditions are read.
 - [ ] **`a_round_is_reviewing_a_build()` returns True with all sixteen rounds
       CLOSED, and it is user-facing.** The install menu currently tells an operator
       `a9aedf0` "is the build the **open** handshake round is reviewing". No round
