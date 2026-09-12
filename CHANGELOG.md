@@ -11,6 +11,37 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **A gate refusing the one sentence a green hardware run will tempt us to
+  write.** Round 17 approved the pair (`fe4d2c4`, Platterpus **0.6.46**); the run
+  is on **0.6.47**, because the pin roll that makes the fork's published build
+  report `approved` is itself 0.6.47. So a result from it is evidence about the
+  **ripper pin**, not about the approved pair, and *"the round-17 pair verified on
+  hardware"* would be false. Raised by the fork *before any artifact existed*,
+  which is the right time — once a result is in hand that sentence writes itself.
+  The guard scans the six documents a run actually gets written up in (not just
+  README/SECURITY, where no one writes up a run) with a population floor, and
+  skips itself when `APPROVED_FOR_PLATTERPUS_VERSION == __version__`, because then
+  the claim is simply true. **Its first run failed on the `TASKS.md` row written
+  to record the rule** — that row quotes the forbidden sentence in order to forbid
+  it — so the matcher now blanks fenced blocks and quoted spans before matching:
+  a declaration is what a document *states*, never what it *quotes*, the same rule
+  `handshake.py` applies to the wire header and for the same reason.
+
+### Changed
+- **`docs/cyanrip-handshake.md` §7.5b — which side's gate can close a round,
+  derived rather than accepted.** Round 17 closed on the fork's gate while ours
+  held it `OPEN` with both sides declaring `GO`. They generalised this as *"a
+  round can only close on the gate of whichever side sent the last lap, and both
+  implementations have that property"* and filed it as settled. **The second
+  clause is wrong about ours, and the record proves it**: rounds 9, 10, 13, 14 and
+  16 all had them sending the last lap and all five closed on our gate. The real
+  property is about *turn order* — our gate closes only if we hold an own-side lap
+  numbered **after** the peer's first `GO`. Round 17 is the first round short
+  enough that we did not, because their first `GO` *was* the closing lap. Their
+  half is confirmed where we could reach it: `stale_peer_verdict` exists at
+  `tools/release-gate.py:350`, a guard ours has no equivalent of.
+
 
 ## [0.6.47] — 2026-09-12
 

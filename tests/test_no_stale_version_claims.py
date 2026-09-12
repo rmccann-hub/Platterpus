@@ -703,6 +703,163 @@ def test_no_user_facing_doc_ASSERTS_an_open_round_when_none_is_open() -> None:
     )
 
 
+#: A claim that the *approved pair* was proven on hardware. The round approves a
+#: PAIR — a ripper pin AND a named Platterpus version — so a run on any other app
+#: version is evidence about the RIPPER, not about the pair.
+#:
+#: Deliberately narrow. "the pair" / "the approved pair" / "the round-N pair" next
+#: to a verification verb is the claim; a run reported as evidence about the pin
+#: ("fe4d2c4 passed on hardware") is correct and is not matched.
+_APPROVED_PAIR_PROVEN_CLAIM = re.compile(
+    r"(?:the\s+)?(?:approved\s+pair|round[-\s]?\d+\s+pair|pair\s+round[-\s]?\d+\s+approved)"
+    r"[^.\n]{0,80}?"
+    r"\b(?:verified|proven|validated|confirmed|passed|green)\b"
+    r"[^.\n]{0,40}?\b(?:on\s+)?(?:hardware|a\s+drive|the\s+rig|real\s+disc)",
+    re.IGNORECASE,
+)
+
+
+#: Where a hardware result actually gets WRITTEN UP — which is not where
+#: `USER_FACING_DOCS` points. That set is README + SECURITY, the two pages a user
+#: reads; a run is written up in the session log, the task list and the handshake
+#: record long before it reaches either. Guarding only the front page would have
+#: been a sweep whose name promised the write-up and whose population excluded it.
+_RUN_WRITEUP_DOCS: tuple[str, ...] = (
+    "README.md",
+    "TASKS.md",
+    "CHANGELOG.md",
+    "docs/session-log.md",
+    "docs/cyanrip-handshake.md",
+    "docs/testing.md",
+)
+
+
+#: A fenced code block, stripped before matching.
+_FENCED_BLOCK = re.compile(r"^```.*?^```", re.MULTILINE | re.DOTALL)
+#: A double-quoted span. Quoting a claim is not making it.
+_QUOTED_SPAN = re.compile(r"[\"\u201c\u201d][^\"\u201c\u201d\n]{0,200}[\"\u201c\u201d]")
+
+
+def _assertions_only(text: str) -> str:
+    """Blank out what a document QUOTES, keeping what it STATES.
+
+    The same rule `handshake.py` applies to the wire header, and for the same
+    reason it was needed there: **a document warning against a claim is the most
+    likely place that claim appears verbatim.** This gate proved it immediately —
+    the `TASKS.md` row written to record the constraint quoted the forbidden
+    sentence to say *do not write this*, and the first run flagged it.
+
+    Blanked, not deleted, so reported line numbers stay true to the file.
+
+    The evasion this permits — writing the false claim inside quotes — is the
+    shape the gate is content to miss: a quoted sentence reads as a citation, and
+    what it exists to stop is a *write-up asserting* the pair was proven.
+    """
+
+    def blank(match: re.Match[str]) -> str:
+        return re.sub(r"[^\n]", " ", match.group(0))
+
+    return _QUOTED_SPAN.sub(blank, _FENCED_BLOCK.sub(blank, text))
+
+
+def _run_writeup_text() -> dict[str, str]:
+    """Read the write-up docs, skipping any that have been retired.
+
+    Tolerant of absence on purpose: this list names documents by path, and a gate
+    that dies when one is renamed gets deleted rather than fixed. The floor below
+    is what stops tolerance becoming vacuity.
+    """
+    found = {
+        doc: (_REPO_ROOT / doc).read_text(encoding="utf-8")
+        for doc in _RUN_WRITEUP_DOCS
+        if (_REPO_ROOT / doc).is_file()
+    }
+    # A POPULATION FLOOR, because every other clause here can be satisfied by
+    # finding nothing. If the paths rot, this fails loudly instead of passing.
+    assert len(found) >= 4, (
+        f"only {len(found)} of {len(_RUN_WRITEUP_DOCS)} write-up docs resolve "
+        f"({sorted(found)}) — the sweep has lost its population and would pass "
+        "by not looking. Fix the paths rather than lowering this floor."
+    )
+    return found
+
+
+def test_no_doc_claims_the_APPROVED_PAIR_was_proven_while_the_app_has_moved_past_it() -> (
+    None
+):
+    """A hardware run on an app version the round never approved is evidence
+    about the RIPPER, not about the pair — and the write-up is where that slips.
+
+    **The fork asked for this in the record before any artifact exists**, which is
+    the right time: once a green run is in hand, "the round-17 pair verified on
+    hardware" is the sentence that writes itself, and it would be false. Round 17
+    approved (`fe4d2c4`, Platterpus **0.6.46**); the run is on **0.6.47**, because
+    the pin roll that makes their published build report `approved` is itself
+    0.6.47. So the pair under test is not the pair the round approved.
+
+    **This is a NEW STATE the pin roll created**, which is the question `CLAUDE.md`
+    asks of every fix: `APPROVED_FOR_PLATTERPUS_VERSION` and `__version__` had
+    always been allowed to diverge in principle, and until now nothing depended on
+    anyone noticing. The moment a hardware run is interpreted, it does.
+
+    Skips when the two agree, because then the claim is simply true and a gate
+    that fires on a correct sentence teaches people to route around it.
+    """
+    from platterpus import __version__
+    from platterpus.handshake_approval import APPROVED_FOR_PLATTERPUS_VERSION
+
+    if APPROVED_FOR_PLATTERPUS_VERSION == __version__:
+        pytest.skip(
+            f"the running app ({__version__}) IS the version the current pin was "
+            "approved for, so a claim about 'the approved pair' is accurate here."
+        )
+
+    offenders: list[str] = []
+    for doc, text in _run_writeup_text().items():
+        for match in _APPROVED_PAIR_PROVEN_CLAIM.finditer(_assertions_only(text)):
+            line = text.count("\n", 0, match.start()) + 1
+            offenders.append(f"{doc}:{line}: {match.group(0)!r}")
+    assert not offenders, (
+        "these claim the handshake-APPROVED PAIR was proven on hardware, but the "
+        f"app has moved past it: the round approved Platterpus "
+        f"{APPROVED_FOR_PLATTERPUS_VERSION} and this build is {__version__}.\n  "
+        + "\n  ".join(offenders)
+        + "\nA run on this build is evidence about the RIPPER PIN. Say that "
+        "instead — naming the pin is accurate and is not matched."
+    )
+
+
+def test_the_approved_pair_pattern_catches_the_sentence_it_exists_to_stop() -> None:
+    """Non-triviality. A prose gate that matches nothing is decoration, and this
+    one is guarding a sentence nobody has written yet — so the only evidence it
+    works is feeding it the sentence deliberately.
+    """
+    caught = "the round-17 pair verified on hardware with zero failures"
+    assert _APPROVED_PAIR_PROVEN_CLAIM.search(caught), (
+        "the pattern no longer catches the exact claim it was written for"
+    )
+    # And the sentence we DO want written must pass, or the gate pushes authors
+    # toward vagueness instead of precision.
+    allowed = "fe4d2c4 passed on hardware; this is evidence about the pin, not the pair"
+    assert not _APPROVED_PAIR_PROVEN_CLAIM.search(allowed), (
+        "the pattern fires on a correctly-scoped claim about the PIN, which would "
+        "make the honest sentence unwritable"
+    )
+
+    # QUOTED IS NOT ASSERTED, and both directions are pinned. The first run of
+    # this gate failed on the TASKS.md row written to record the rule, because
+    # that row quotes the sentence in order to forbid it.
+    quoting = 'do not write "the round-17 pair verified on hardware" — it is false'
+    assert not _APPROVED_PAIR_PROVEN_CLAIM.search(_assertions_only(quoting)), (
+        "a document that QUOTES the claim in order to warn against it is flagged, "
+        "which makes the warning unwritable"
+    )
+    assert _APPROVED_PAIR_PROVEN_CLAIM.search(_assertions_only(caught)), (
+        "stripping quotes has swallowed the bare assertion too — the gate would "
+        "now pass by not looking"
+    )
+
+
 def test_the_three_new_patterns_catch_the_text_that_actually_shipped() -> None:
     """Non-triviality, against the README's real line 9 as of 2026-08-27.
 
