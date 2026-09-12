@@ -73,7 +73,26 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-14.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-16.md",)
+
+# WHY IT MOVED TO ROUND-16 LAP 16 (2026-09-12).
+#
+# Lap 14 is DELIVERED -- their lap 15 line 24 declares holding it at
+# `2503184660c83ad0`, 17,199 bytes, extracted with OUR published reader and
+# byte-identical to the raw upload. Pinned in `SENT_LAPS` at those bytes.
+#
+# Lap 16 CLOSES ROUND 16. Their lap 15 declares GO on `a9aedf0` after Run A
+# passed on hardware; our lap 14 pre-committed to GO unless the grader exited
+# non-zero or `verify_log_surface.py` found an unaccounted line. Neither fired --
+# both were run here, and both results are in the lap rather than asserted. Two
+# GOs close a round, so this is the last artifact of round 16 in either direction.
+#
+# **THE MAINTAINER ASKED FOR THIS ONE (2026-09-12), having sent lap 15 three
+# times.** Recorded for the same reason every previous note records it: the
+# standing rule is to ASK BEFORE WRITING A LAP, and the audit that produced that
+# rule found three round-15 laps written and never handed over.
+#
+# One part. Lap 16 quotes no sha of `fullacceptance.txt`.
 
 # WHY IT MOVED TO ROUND-16 LAP 14 (2026-09-11).
 #

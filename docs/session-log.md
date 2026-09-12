@@ -538,6 +538,36 @@ holds both rigs on one machine. The test counts entries in `$HOME` rather than
 checking a path: a path check passes while a second writer adds a different one,
 which is how there came to be two kinds of litter.
 
+### 2026-09-12 (later) — lap 16 declares GO, and our own gate caught the lap overclaiming
+
+**Round 16's work is finished: Run A passed, both pre-commits resolved, lap 16
+declares `GO`.** Two things from writing it are worth keeping.
+
+**The lap's first draft said "round 16 is CLOSED" and `handshake.py --status`
+disagreed.** It printed `we-verified=yes (GO) they-verified=yes (GO) -> OPEN`,
+which looks like a broken gate and is not. Instrumented rather than guessed:
+`close_blockers()` over **their lap 15** returns *"peer verdict is 'OPEN', not GO
+(§5)"* — because our lap 14 was `OPEN` when they wrote it. **Their header said so
+in as many words** (*"The round is NOT closed by this lap"*) and we nearly
+transcribed a close straight over it.
+
+**Checked against the record, not one case:** rounds 13, 14 and 15 each have a
+**last inbound lap carrying both `HANDSHAKE-VERDICT: GO` and
+`HANDSHAKE-PEER-VERDICT: GO`.** A close needs the peer to have *seen* our GO, so
+the closing side's lap is never the last one. Lap 16 now says so and asks for the
+one acknowledging lap, rather than declaring a state our own tooling refuses.
+
+*A verdict stated as settled while the gate that governs it says otherwise is the
+defect this repo keeps naming, arriving in the one document whose entire job is
+to state a verdict.*
+
+**And the substantive correction lap 16 carries is ours.** Lap 3 §I told them we
+had adopted their decoded-sample point; what our script actually compared was
+cyanrip's **printed** checksums, which are accumulated over the raw read buffer
+upstream of the filter (`cyanrip_main.c:818/:872/:965` before
+`:821/:879/:968`). Their instrument was right and we misread why — their script
+decodes with `ffmpeg -f md5`, and the decode is the whole mechanism.
+
 ### Still open (for the fork, and for us)
 
 * **Run A's result has not been seen**, and round 16 stays open on it. The close
