@@ -1038,16 +1038,57 @@ def _status_report(
     if rip_log.health_status:
         out.append(rip_log.health_status)
         out.append("")
+    # THE RIPPER'S OWN COMPLETION RECORD, which this document used to discard.
+    #
+    # cyanrip signs off every rip — including one it was told to stop — with
+    # `Rip completed: …` and, when interrupted, `Interrupted at: …`. Those are the
+    # two most load-bearing sentences in an archival log about a stopped rip, and
+    # `eac_log_export` rendered neither: the parser had them, the JSON report had
+    # them, and the text artifact a person actually reads did not. Facts we held
+    # and dropped, which `CLAUDE.md`'s diagnostic-completeness rule calls worse
+    # than facts never obtained, because the document looked complete either way.
+    #
+    # Rendered as OURS, named as the ripper's, and only when the log carries it —
+    # tri-state, so a log with no footer says nothing here rather than implying
+    # completion. It goes above the absent-summary line so that line can stop
+    # over-claiming: a log whose end-of-rip summary is six lines long is not one
+    # that "carries no end-of-rip summary".
+    if rip_log.rip_completed is not None:
+        verdict = "yes" if rip_log.rip_completed else "no"
+        reason = rip_log.rip_completed_reason.strip()
+        line = f"Ripper's own completion record : {verdict}"
+        if reason:
+            line += f" ({reason})"
+        out.append(line)
+        if rip_log.interrupted_at:
+            out.append(f"Interrupted at : {rip_log.interrupted_at}")
+        out.append("")
     if not total and not rip_log.health_status:
         # An absent conclusive report is itself a fact worth recording. States only
         # WHAT is absent, never WHY — this also fires for a successful rip whose log
         # simply lacked those lines (a hand-trimmed log, another backend's format,
         # the render_eac_log.py CLI), so asserting a cause would invent one. The
         # INCOMPLETE RIP banner carries the cause when the caller knows it.
-        out.append(
-            "Conclusive status report : absent — this log carries no end-of-rip "
-            "summary (no AccurateRip total, no health line)"
-        )
+        #
+        # NAMES WHAT IS ABSENT, and no longer more than that. The unqualified
+        # "absent" was measured false on 2026-09-09: it stood over a cancelled rip
+        # whose ripper log ends with an AccurateRip tally, a paranoia block, an
+        # error count, a stall line, a completion verdict and an interruption
+        # point. The parenthetical was accurate the whole time and the headline
+        # was not — this project's recurring "every word accurate, the message
+        # wrong". So the headline now depends on whether the ripper's own record
+        # (rendered directly above) is here.
+        if rip_log.rip_completed is None:
+            out.append(
+                "Conclusive status report : absent — this log carries no "
+                "end-of-rip summary (no AccurateRip total, no health line)"
+            )
+        else:
+            out.append(
+                "Conclusive status report : partial — the ripper's own completion "
+                "record is above; what is absent is the AccurateRip total and the "
+                "health line"
+            )
         out.append("")
     if extra:
         out.extend(extra)

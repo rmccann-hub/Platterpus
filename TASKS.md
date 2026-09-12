@@ -21,6 +21,292 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
+## 2026-09-09 hardware run — 237/238, and the one failure was ours (2026-09-10)
+
+Full run on `platterpus 0.6.45` + `platterpus-fork-gddc1e8c`: 237 passed, 0
+errors, 0 skipped, reached the last step. `-H` with de-emphasis executed for the
+first time ever (both P3 arms ok). The 0.6.42 cancel fix is proven on hardware —
+cyanrip's log carries `Rip completed:  no (interrupted by SIGTERM, 0 of 14
+tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
+
+- [x] **FIXED — the log-verification race, §I. One defect with three faces, not
+      three defects.** We asked cyanrip to verify its own log at 22:02:08.902 and
+      it finished writing that log at 22:02:15 — 6.1 s later, because the process
+      we signal is the host-side Distrobox wrapper and the writer lives in the
+      container. Result: `ripper_log_verification: "failed"` about a correctly
+      signed log, `health_status: null` though `Ripping errors: 1` is in the file,
+      and an EAC-compatible log reading *"Conclusive status report : absent — this
+      log carries no end-of-rip summary"* over a six-line summary. New
+      `ripper_log_settle.py` waits (bounded, interruptible, no quiet-window
+      heuristic) before **both** readers; `--verify-log`'s absent-footer verdict
+      is now tri-state; the EAC export renders `Rip completed:` / `Interrupted
+      at:`. `docs/testing.md` §5.bg.
+- [x] **FIXED — the acceptance script's log graders read the artifact.**
+      `expect-log-well-formed`, `expect-rip-complete` and `expect-secure-rerip`
+      all graded `window._last_rip_log`, so §I's check could not have detected
+      the divergence it exists to catch. One shared from-disk reader, no fallback
+      to the snapshot, and a floor test requiring it across the whole population
+      of log-grading verbs (§5.o — fixing only the one that failed would have
+      left the other two waiting for a run where the timing bit them).
+- [x] **FIXED — our published Run A block was missing a file and a command.**
+      The fork's `7ace6e5` added `tools/round16-accept.py` to the checkout *and*
+      `python3 tools/round16-accept.py --out round16-<stamp>Z` as a third
+      command. That script **grades** the run against the close condition and
+      was written before any data existed, on purpose. Our lap 3 published the
+      two-command version, so a Run A from our instructions would have measured
+      everything and produced **no verdict**. Corrected in lap 10 §D. **The
+      current, correct block is three commands** — see lap 10 §D, which quotes
+      it in full. (Their own copy lives in the cyanrip fork's handshake STATUS
+      sheet; named as a label rather than a path, because a `docs/…` path in one
+      of our live surfaces is read as one of OUR files — which is what the
+      doc-index gate just told us.)
+- [x] **AUDITED 2026-09-10 — rounds 1–15 are closed and no lap of ours is
+      forgotten.** `handshake.py --status` reports all fifteen `GO`/`GO`; every
+      outbound lap file was compared against the `SENT_LAPS` ledger and the only
+      one not pinned as sent is lap 10, which is correct. The 2026-09-04 failure
+      (three round-15 laps written, never handed over) has not recurred.
+- [x] **CORRECTED — we were carrying three questions the fork had already
+      answered.** Our laps 5 and 7 both wrote *"J2 / J3 carried forward
+      unchanged"* and we held a fourth besides. Their lap 4 answered J1 (the
+      `8c2817219f6aa087` method — withdrawn, *"There is no method. We tried
+      600"*), J4 (the `-j` precedence, measured), and the `0f8523b` contract ask
+      is satisfied — derived here: `PROVIDER-CONTRACT.md` at `0f8523b` and at
+      `0cd611a` hash identically, and that IS the file we hold. Carrying an
+      answered question forward makes a lap look like it is waiting on the peer
+      when it is not, and pads a round both sides want to end. Lap 10 §I2.
+- [ ] **`PROTOCOL.md` v5 — the one item genuinely stuck, three rounds running.**
+      *"Accepted in principle, neither started"* since their lap 4, because
+      neither side may edit the jointly-owned file alone. One bump carries J2
+      (committed-is-sent, with our lap 2's three riders), J3 (`HANDSHAKE-TO` and
+      the repo pair normative), the `seam-commands` line-97 `-D` row, and
+      direction in envelope filenames. Lap 10 Q1 breaks the deadlock by offering
+      to draft it ourselves. **And we accept committed-is-sent's real cost,
+      measured on ourselves: lap 10 was committed to the lap namespace and
+      revised SIX times before being sent** — none of which would have been
+      allowed under the rule.
+- [x] **CORRECTED — our lap 10 §B4b's "all within the per-track loop" was false
+      for two of four `quit_now` sites.** `:574` is in `search_for_offset`,
+      `:633` in `search_for_drive_offset`, both reachable only under
+      `find_drive_offset_range`, which `goto end`s without ripping a track. The
+      conclusion (a mid-read SIGTERM is seen) is unaffected, which is why it
+      survived. **The fork re-derived the claim AS STATED and agreed** — so two
+      witnesses sharing a method were one witness. Corrected in lap 12 §A2.
+- [x] **FIXED at `5bbb5ae` — their `clause2()` audio gate was `max` where it had
+      to be `min`.** Verified in their tree at lap 14 §B4: the gate now reads
+      `quiet = sorted(k for k, v in fr.items() if v < 0.01)` with `if quiet:`, so
+      it fires when *at least one* arm is silent, and the message names the silent
+      arm and derives `is`/`are` from the count. Our lap called it "one character"
+      and meant the predicate; they were right that a message fitting both
+      arities describes neither. Original finding:
+      `round16-accept.py`, `max(fr.values()) < 0.01` fires only when NEITHER arm
+      has audio, so one silent arm and one real arm passes clause 2, and passes
+      *because* the hashes differ. A broken `-H -E` arm decoding to silence would
+      grade as proof that de-emphasis reached the audio. Their own
+      `nonzero_fraction` docstring says *"Silence must not pass as audio."* Their
+      regression fixture writes zeros into both arms, so it only exercises the
+      case `max` catches. Raised in lap 12 §C1 — **blocks the observable both
+      S-18 pre-commits resolve against, not the pin.**
+- [x] **SETTLED at `5bbb5ae`, and OUR REMEDY WAS WRONG.** The finding stands and
+      they accepted it; the fix we proposed — pin the checker where `a0830e0` is
+      present — would not have worked, because `a0830e0`'s own `disabled` message
+      asserts *"the query never ran, because `-A` was passed"*, the exact claim
+      this finding disproves. So we would have shipped a **specific and wrong**
+      cause in place of a vague one. Their replacement answers from `Invoked as:`
+      — line 2 of every logfile — with three branches: `-A` an exact token is
+      `FAIL` (`:197-206`), `-A` absent is `WARN` naming both `:134` and `:211` and
+      saying in capitals that the line **cannot tell them apart** (`:207-216`),
+      and no `Invoked as:` at all is `WARN` that the clause is *"UNSETTLED
+      either way"* (`:191-196`) — all three quotations read out of the grader
+      at `5bbb5ae`, not out of their lap's summary of it.
+      That third branch is the one we would not have thought to ask for.
+      Accepted in lap 14 §A1. Original finding:
+      `cyanrip_main.h:67` has `CYANRIP_ACCUDB_DISABLED = 0` and
+      `cyanrip_log.c:786-790` ends in a bare `"disabled"` fallthrough, so every
+      path leaving `ar_db_status` unwritten prints it, including `goto end` after
+      `curl_easy_perform` returns `CURLE_OK`. So `a0830e0`'s clause-1 split IS
+      reachable in Run A and the checker should not be pinned at `0cd611a`.
+      Lap 12 §C2 and Q1.
+- [x] **FIXED — `verify_log_surface.py` excluded our own EAC exports by NAME, and
+      the artifact has three spellings.** `..._EACcompatible.log` in
+      `output_reference/`, `... (EAC-compatible).log` in an evidence bundle, and
+      `after-cancel.eac.log` where the fork files our logs in *theirs*. The name
+      rule caught the first two and missed the third the moment the file crossed a
+      repository boundary, reporting 43 lines of our own export as unaccounted-for
+      *cyanrip* output — a false format-change finding in the one tool an S-18
+      pre-commit hangs on. `CLAUDE.md`'s cross-machine filename rule prescribes
+      the remedy and this script's docstring **cites that rule** while doing only
+      its first half: *legislate the name **and** stop depending on it.* The
+      load-bearing check is now what the document says about itself; the name is a
+      pre-filter. Cross-checked over the fork's own filed copy: 8 logs, 3,623
+      lines, 0 unaccounted, identical to our bundle. Lap 14 §C.
+- [x] **CORRECTED — our S-18 pre-commit has failed to bind TWICE, for two
+      different reasons, and both are ours.** Lap 10's trigger was *"unless **you
+      tell us** …"* — the other side's opinion, which is a veto, not a condition.
+      Lap 12's named a **remedy** (*"a commit carrying both `a0830e0`'s clause-1
+      split and §C1's `max`→`min`"*) and they improved on `a0830e0` rather than
+      carrying it, so the wording did not bind on the SHA they named. Theirs has
+      been *"the checker at `<sha>` exits non-zero"* since lap 11 and has needed
+      no repair: **it names an artifact and an observable; ours twice named a
+      judgement about one.** Re-offered in lap 14 by SHA and nothing else.
+- [x] **FIXED — §I's `expect-log-well-formed` had a SECOND defect, and the first
+      fix is what made it reachable.** The 2026-09-11 acceptance run failed the
+      same step again — 237/238, the one failure in the ARCHIVAL section — and the
+      log on disk was complete and attested: footer, `Interrupted at: track 1,
+      mid-read`, valid `Log FUN512:`. The remaining cause was an unconditional
+      floor, *no track blocks → FAIL*, in the one verb whose proposition holds for
+      a rip that did **not** finish: §I cancels during track 1, so zero completed
+      blocks is the expected shape. Now graded against the footer — a footer
+      claiming completion over zero blocks still fails. Proven against the run's
+      own artifact, committed as
+      `tests/fixtures/cyanrip_cancelled_at_track_one.log`; three reverts probe
+      `detected`. **Both lessons are already written rules:** *ask what state the
+      fix UNBLOCKS*, and *what does my stand-in do that the real thing does not*
+      (the earlier test's "disk" log was the 14-track corpus rip).
+- [ ] **HAZARD, latent, raise with the fork NEXT-ROUND: our post-cancel rescue
+      sends a SECOND signal toward the drive holder ~2 s before the ripper
+      finishes writing its footer.** Measured on 2026-09-11: cancel SIGTERM at
+      `11:17:36.104`; `post-cancel rescue: device-scoped SIGTERM` with
+      `fuser -k TERM /dev/sr0 rc=0` at `11:17:41.175` — `rc=0` means it found and
+      signalled something; the ripper's own `Ripping finished at` is `11:17:43`
+      with a valid `Log FUN512:`. **The record survived on this run**, and on the
+      2026-09-09 run too. The concern is the margin, not an observed loss:
+      `CLAUDE.md` already records that a second signal to cyanrip takes a
+      `_exit(1)` path that skips `atexit`, which is where the footer and the
+      FUN512 are written. What is NOT established, and must not be asserted: **we
+      cannot tell from our own log whether `fuser` reached cyanrip itself or only
+      the host wrapper / in-container reader** — our own log line says the reaped
+      process is the wrapper. Do not state a mechanism in their code without
+      citing where it was read (rule #12). The ask is a measurement, not a fix:
+      changing the rescue on a guess would be a change with nothing behind it.
+      Not blocking under S-14 — it broke nothing in the artifact under review.
+- [ ] **We cannot settle clause 2 ourselves, and the missing piece is a digest
+      verb.** P3 captures the two `-H` arms and now says plainly that it settles
+      nothing. To settle it on our own rig we would need to rip `-o pcm` and
+      compare a digest of the two arms' raw samples — but the audio cannot enter
+      this repository or the evidence bundle (Critical rule #8), so **the digest
+      must be computed on the rig and only the digest travels** (`.md5`/`.sha256`
+      are already text). The script language has no verb that digests a file.
+      Per the *new capability is a SCRIPT VERB* rule this is a verb, not a flag.
+      Not urgent: Run A settles clause 2 for round 16. It matters the next time
+      a clause turns on audio identity and the fork's rig is not the one running.
+- [x] **HOLD 0.6.46 until the fork opens round 17 — DISCHARGED 2026-09-12.**
+      The wait was a maintainer decision made the same day: ten entries sat under
+      `[Unreleased]` and nothing blocked a release, so this was recorded as a
+      deliberate wait rather than left to look like an oversight a later session
+      should tidy up by releasing. Their lap 17 §4 had said round 17 was theirs to
+      open and that its subject IS releases, with close conditions fixed at its
+      lap 1 under S-13 — so cutting first risked releasing something those terms
+      then changed.
+      *What discharged it:* their round-17 lap 1 arrived on 2026-09-12. It fixes
+      one close condition, it needs no hardware, and it asks for exactly the thing
+      this commit produces — **a Platterpus candidate named by SHA**. So the bump
+      lands here and the version commit IS the answer: `our_pin()` resolves
+      `HANDSHAKE-OUR-PIN` by finding the commit that introduced the current
+      `__version__` and refuses an uncommitted tree.
+      **Nothing publishes.** Their §0 condition 4 puts publication *after* the
+      close, and the round approves two releases as a pair — theirs and ours,
+      published together, neither alone. This change prepares and names the
+      candidate; it does not tag.
+      *Why round 17 is not filed in this change, which is a sequencing constraint
+      and not an omission:* `test_every_declared_from_commit_is_reachable_not_
+      merely_resolvable` requires an outbound lap's `HANDSHAKE-FROM-COMMIT` to be
+      an **ancestor of `origin/main`**, because this repository squash-merges and a
+      branch commit resolves without ever being reachable. Our round-17 lap 2 must
+      name 0.6.46's commit on `main` — which does not exist until this merges. So
+      the inbound filing, the four round-aware constants and lap 2 follow in the
+      next change, against the squashed SHA.
+      *What the wait cost, kept because it is still true of any rig still on
+      0.6.45:* that build false-fails §I's `expect-log-well-formed` in an ARCHIVAL
+      section on every cancel, carries the P3 clause-2 rule that would report the
+      fork's `b866900` as unfixed, and litters `$HOME`. All three are fixed here.
+- [ ] **`a_round_is_reviewing_a_build()` returns True with all sixteen rounds
+      CLOSED, and it is user-facing.** The install menu currently tells an operator
+      `a9aedf0` "is the build the **open** handshake round is reviewing". No round
+      is open. The predicate derives openness from pin coincidence —
+      `not same_commit(PIN_UNDER_REVIEW, FORK_PIN)` — on the premise, stated in its
+      own docstring, that *"the moment a round closes, the reviewed build IS the
+      approved build and the two coincide."* **Round 16 broke that premise in a way
+      its author did not anticipate: it closed on a commit the fork has never
+      released**, so `FORK_PIN` cannot roll and the two stay apart indefinitely.
+      The irony is exact — this function exists *because* two hard-coded sentences
+      claimed a round was open after round 14 closed, and it has now failed the
+      same way by a different route.
+      **Fix: derive it from the record** (the closed-rounds computation
+      `handshake.py --status` already performs and two tests already read), not
+      from pin coincidence. Same *one predicate, N callers* move as
+      `approves_commit`. Check `978f9b0`'s `why` string in the same pass — it says
+      "the build round 14 approved" while `APPROVED_BY_ROUND` is 15.
+      Not blocking: nothing ripped is mislabelled, the approval stamp on reports
+      and EAC logs is correct, and the two staleness gates now wait on the fork's
+      release manifest rather than failing. It is wrong text in a menu.
+- [x] **Run A's result has not been seen, and round 16 stays open on it — DONE
+      2026-09-12.** Run A ran on 2026-09-11 on `ddc1e8c` and settled all three
+      clauses: their `tools/round16-accept.py` at `9ec722e` reports `0 FAIL,
+      0 UNPROBED, exit 0`, with clause 2 (`-H` with de-emphasis) exercised on a
+      drive for the first time in twelve rig sessions, and our own half —
+      `verify_log_surface.py` over its five logs — accounted for all **1,055**
+      lines with **0 unaccounted**, exit 0. Round 16 closed `GO`/`GO` at 17 laps.
+      The reading below was the state before that artifact existed; kept because
+      it records what was and was not claimed while it was outstanding.
+      Corrected after reading their lap 9: Run B produced evidence bearing on
+      **all three** clauses — a real AccurateRip host answered and the
+      answer was parsed (their lap 1 note 2 said *"a real 200 from a real
+      AccurateRip host has never gone through it"*, because their scenarios pass
+      `-N -A -U` with no network), and both `-H -E` / `-H -W` arms ran on the
+      drive. Whether that exercises their *specific* rewritten path is theirs to
+      confirm — we report the artifact and do not assert a route through their
+      code. Clause 2's
+      audio was never compared, and the reading is theirs. Put to them in lap 10
+      §B7 as evidence, never as a verdict: re-reading a close condition in our
+      own favour after the fact is what S-13 forbids.
+- [x] **Round-16 lap 10 is WRITTEN and NOT SENT — SENT; its delivered bytes are
+      pinned in `SENT_LAPS`, and the round has since closed at lap 17.** The note
+      below is kept for the rule it states, which did not stop being true: only
+      the maintainer can send a lap, and three round-15 laps sat unsent. —
+      `docs/handshake/outbound/round-16-lap-10.md`. Only the maintainer can send
+      it. Three round-15 laps sat unsent; this is the state that produces that.
+      Its `HANDSHAKE-FROM-COMMIT` is `62de7b6` (the 0.6.45 release commit) and it
+      says at the top that §C's fixes are at a branch commit and in no release —
+      if the fix merges before the lap is sent, re-emit the header against the
+      squashed commit rather than editing a sent file.
+- [ ] **Filed out of the fork's reading of our bundle (all ours).** The raw
+      `cyanrip` invocations live only in `transcript.txt`, so the eight `.log`
+      files a reader greps do not contain them — which is how their lap 9 §1
+      concluded four flags never ran when all four did. **And their output does
+      not travel at all**: `r16deemphon` / `r16deemphoff` are 0 occurrences in
+      `MANIFEST.txt` and 0 files on disk, because the bundler collects album
+      folders and a raw `cyanrip` verb produces none — so the run's strongest
+      clause-2 evidence survives only as a banner quoted in a transcript. Plus:
+      `zz-applog-rotations/` sorts and reads as an appendix, and the decisive
+      file for the run's only failure was in it; and our application log's
+      timestamps carry no UTC offset while every other artifact in the bundle
+      does.
+- [ ] **Wire the acceptance script to compute clause-2's audio comparison ON
+      THE RIG.** The audio itself can never travel (Critical rule #8), so a
+      comparison done off the rig is not available to us; the fork's
+      `tools/audio-checksums.py` is the tool and it was in the round-16 checkout
+      the whole time. This is the ask we make of ourselves, not of them — and it
+      is the difference between *"the `-H -E` invocation ran"* and *"`-H` with
+      de-emphasis produces correct de-emphasised audio"*, which is what clause 2
+      actually says.
+- [ ] **The `-j` diagnostics records still do not travel** (their lap 9 §3,
+      confirmed here: 0 in the bundle, all 8 paths relative). The fix is to
+      collect from the cwd we already know — the rips root — never to predict the
+      album folder, which our own rules forbid. `NEXT-ROUND` on both sides.
+- [ ] **Accept their additive disk-full line** (their lap 9 §5). Their log says
+      `Ripping errors: 0` / `Rip completed: yes` on a run their own `-j` record
+      calls `ripping_errors: 3`, `exit_code: 1`, because the footer is written
+      before the encoder loop. Lap 10 accepts the additive line and asks for two
+      properties: a **count**, so it can be compared rather than merely
+      contradict; and the same fact in the `-j` record, since the two artifacts
+      disagreeing is the actual defect. `NEXT-ROUND`.
+- [ ] **The launch-time notice gap.** The app knew the wrong cyanrip build was
+      installed and said nothing: the deferred automatic ripper check is a bare
+      `return` with no retry, so a condition that refuses at arming time is never
+      re-asked. Same shape as the *"did I check the preconditions where the thing
+      HAPPENS"* rule — make the guards a named function that reports **which** one
+      refused, and call it at every point that can interrupt.
+
 ## ROUND 16 IS OPEN — their lap 1 filed, runbook run, everything verified (2026-09-07)
 
 **Their lap 1 arrived and the rehearsed runbook was run end to end.** Filed at
@@ -3557,4 +3843,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.45.*
+*Last updated for Platterpus v0.6.46.*

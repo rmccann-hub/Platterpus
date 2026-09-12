@@ -724,7 +724,13 @@ def emit_outbound(round_number: int) -> str:
             # on the page cannot be transcribed from the wrong project.
             f"HANDSHAKE-OUR-VERSION: platterpus/{_app_version}",
             f"HANDSHAKE-OUR-PIN: {our_pin()}",
+            # BARE SHA, and the provenance goes in the companion field. The
+            # skeleton is where a lap's shape is decided, so a generator that
+            # emitted the prose form would keep reintroducing the divergence the
+            # fork found in round 16 lap 17 §1a however many times we swept for it.
             f"HANDSHAKE-PEER-PIN: {_fork_pin()}",
+            "HANDSHAKE-PEER-PIN-SOURCE: <where you read it, and whether you "
+            "RESOLVED it in their tree or merely transcribed it>",
             "CONSUMER-CONTRACT: docs/cyanrip-consumer-contract.md @ <commit>",
         ]
     )
@@ -968,8 +974,39 @@ CLOSED_SET_FIELDS: tuple[str, ...] = (
     "HANDSHAKE-PEER-VERDICT",
 )
 
+#: Fields whose value is a **commit SHA and nothing else** (`handshake-protocol.md`
+#: §5: ``HANDSHAKE-PEER-PIN: <commit sha>``).
+#:
+#: **Added 2026-09-12, on the fork's round-16 lap 17 §1a, and they were right.**
+#: Their `PEER_PIN_RE` is ``^HANDSHAKE-PEER-PIN:[ \t]*(\S+)[ \t]*$`` — anchored to
+#: end of line — so our ``62d0d260 — your lap 15's HANDSHAKE-FROM-COMMIT…`` reads
+#: to their gate as the field being ABSENT, and it refused their own closing lap
+#: over it. They asked us to check whether ours accepts the prose form. It did.
+#:
+#: **The sharp part is that we had already built this exact guard and aimed it one
+#: field family away.** `closed_set_prose` has said since round 12 that prose after
+#: a token makes *"the peer's gate read this field as ABSENT — declare the bare
+#: token and move the provenance to <FIELD>-SOURCE"*, which is precisely the defect
+#: and precisely the remedy. It covered the verdicts and not the pins, so four laps
+#: of ours went out with prose in `HANDSHAKE-PEER-PIN` and nothing objected. A rule
+#: enforced at the place it was learned rather than across the surface it governs
+#: is `docs/testing.md` §5.o, arriving inside the checker written for §5.o.
+#:
+#: `HANDSHAKE-PIN` is deliberately NOT here: it names the ripper build under review
+#: and several laps legitimately qualify it (`a9aedf0`, `cyanrip 0.9.4-rc2…`), which
+#: no anchored pattern on either side reads as a pin field.
+PIN_FIELDS: tuple[str, ...] = (
+    "HANDSHAKE-OUR-PIN",
+    "HANDSHAKE-PEER-PIN",
+)
+
 #: A bare vocabulary token: `GO`, `HOLD`, `OPEN`, `WITHDRAWN`.
 _BARE_TOKEN: re.Pattern[str] = re.compile(r"^[A-Z][A-Z-]*$")
+#: A pin value: hex, 7-40 characters, nothing after it. Deliberately not
+#: `_BARE_TOKEN`, which matches SCREAMING-CASE verdicts and would accept none of
+#: these — two field families with two vocabularies need two patterns, and sharing
+#: one would have to be loosened until it checked neither.
+_BARE_SHA: re.Pattern[str] = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 #: Values that are *present* in `HANDSHAKE-TESTED` and say nothing. Not an attempt at
@@ -1084,19 +1121,39 @@ def closed_set_prose(text: str) -> list[str]:
     compliance checker that reads a document's example as a violation is the
     "satisfied by the wrong thing" failure, in the checker.
     """
+    return _bare_value_prose(text, CLOSED_SET_FIELDS, _BARE_TOKEN, "verdict token")
+
+
+def pin_field_prose(text: str) -> list[str]:
+    """Pin fields in ``text`` that carry prose after the SHA.
+
+    Same failure and same remedy as :func:`closed_set_prose`, one field family
+    over — see :data:`PIN_FIELDS` for why this exists and what it cost.
+
+    Shares that function's implementation rather than copying it: two spellings of
+    one safety check is two things to drift, and this whole defect is what happens
+    when one surface enforces a rule the other does not.
+    """
+    return _bare_value_prose(text, PIN_FIELDS, _BARE_SHA, "commit SHA")
+
+
+def _bare_value_prose(
+    text: str, fields: tuple[str, ...], bare: re.Pattern[str], what: str
+) -> list[str]:
+    """The shared body. ``what`` names the vocabulary in the message."""
     stripped = _strip_fences(text)
     problems: list[str] = []
-    for field in CLOSED_SET_FIELDS:
+    for field in fields:
         for match in re.finditer(
             rf"^{re.escape(field)}:[ \t]*(?P<v>.*)$", stripped, re.MULTILINE
         ):
             value = match.group("v").strip()
-            if value and not _BARE_TOKEN.match(value):
+            if value and not bare.match(value):
                 token = value.split()[0]
                 problems.append(
                     f"{field} carries prose after {token!r}; the peer's gate anchors "
-                    "its verdict pattern to end-of-line and will read this field as "
-                    "ABSENT. Declare the bare token and move the provenance to "
+                    f"its pattern to end-of-line and will read this field as "
+                    f"ABSENT. Declare the bare {what} and move the provenance to "
                     f"{field}-SOURCE."
                 )
     return problems

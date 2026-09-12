@@ -169,6 +169,8 @@ complete, deployable change). *(This is what Platterpus uses for **all** PRs int
 branch**. "Merge when ready" / auto-merge merges the instant CI passes.
 
 ### 7.2 Branch protection (admin, server-enforced on `main`/`release/*`)
+
+> **NOT USED IN THIS REPO, AND NOT A GAP.** Maintainer ruling, 2026-09-11: Platterpus's `main` is not branch-protected and will not be. Do not propose it, do not raise it as a finding, and do not "fix" this divergence to match the SOP below — `CLAUDE.md` → *Commit & PR hygiene* lists it as deliberate divergence (5). What protection would buy is already covered: the agent git proxy is fast-forward-only (no force-push, no branch delete, no tag push), every PR must pass nine gating CI jobs, and releases run through `release.yml` rather than a direct push. The rest of this section is retained because it is the **upstream** playbook — it applies when contributing to other people's repositories, which is what this document is for.
 Settings → **Branches** → **Add rule** → branch pattern → enable: **Require a
 pull request before merging** (blocks direct `git push` to `main`), **Require
 approvals** (≥1–2; blocks self-merge), **Require review from Code Owners** (via
@@ -201,4 +203,4 @@ what order.*
 
 ---
 
-*Last updated for Platterpus v0.6.4b1.*
+*Last updated for Platterpus v0.6.46.*

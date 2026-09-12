@@ -73,7 +73,91 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-07.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-16-lap-16.md",)
+
+# WHY IT MOVED TO ROUND-16 LAP 16 (2026-09-12).
+#
+# Lap 14 is DELIVERED -- their lap 15 line 24 declares holding it at
+# `2503184660c83ad0`, 17,199 bytes, extracted with OUR published reader and
+# byte-identical to the raw upload. Pinned in `SENT_LAPS` at those bytes.
+#
+# Lap 16 CLOSES ROUND 16. Their lap 15 declares GO on `a9aedf0` after Run A
+# passed on hardware; our lap 14 pre-committed to GO unless the grader exited
+# non-zero or `verify_log_surface.py` found an unaccounted line. Neither fired --
+# both were run here, and both results are in the lap rather than asserted. Two
+# GOs close a round, so this is the last artifact of round 16 in either direction.
+#
+# **THE MAINTAINER ASKED FOR THIS ONE (2026-09-12), having sent lap 15 three
+# times.** Recorded for the same reason every previous note records it: the
+# standing rule is to ASK BEFORE WRITING A LAP, and the audit that produced that
+# rule found three round-15 laps written and never handed over.
+#
+# One part. Lap 16 quotes no sha of `fullacceptance.txt`.
+
+# WHY IT MOVED TO ROUND-16 LAP 14 (2026-09-11).
+#
+# Lap 12 is DELIVERED — the fork's lap 13 line 24 declares holding it at
+# `4a69990fac889b83`, extracted with OUR published reader and byte-identical to
+# the raw upload at 24,150 bytes — so its envelope on disk is history and is not
+# regenerated. It is pinned in `SENT_LAPS` at those bytes.
+#
+# Lap 14 leads because it carries the one thing the round cannot close without
+# and which their lap 13 could not supply for us: our own S-18 pre-commit,
+# re-pointed at `5bbb5ae`. Lap 12's version named a REMEDY — "a commit carrying
+# both `a0830e0`'s clause-1 split and §C1's `max`->`min`" — and they improved on
+# `a0830e0` rather than carrying it, so the wording does not bind on the SHA they
+# named. That is the second consecutive pre-commit of ours that failed to bind,
+# for a second distinct reason, and an unbound pre-commit is a round that cannot
+# end on an exit code.
+#
+# **THE MAINTAINER ASKED FOR THIS ROUND TO CLOSE (2026-09-11): "lets close".**
+# Recorded for the same reason lap 10's and lap 12's notes record it: the standing
+# rule is to ASK BEFORE WRITING A LAP, and the audit that produced that rule found
+# three round-15 laps written and never handed over while this generator reported
+# success over a round the fork had closed weeks earlier.
+#
+# One part again. Lap 14 quotes no sha of `fullacceptance.txt`.
+
+# WHY IT MOVED TO ROUND-16 LAP 12 (2026-09-11).
+#
+# Lap 10 is DELIVERED — the fork's lap 11 line 24 declares holding it at
+# `c5ab86e5fedfc33c`, and records that they ran OUR published reader over the
+# envelope and got a part byte-identical to the raw upload — so its envelope on
+# disk is history and is not regenerated.
+#
+# Lap 12 leads because it carries a finding the round cannot close without: their
+# `clause2()` audio gate is `max` where it must be `min`, so one silent arm and
+# one real arm PASSES clause 2 — and passes because the hashes differ. Both
+# sides' S-18 pre-commits are about to resolve against that program's exit code.
+#
+# **THE MAINTAINER ASKED FOR THIS ONE (2026-09-11): "lets close".** Recorded for
+# the same reason lap 10's note records it: the standing rule is to ASK BEFORE
+# WRITING A LAP, and the audit that produced that rule found three round-15 laps
+# written and never handed over while this generator reported success over a
+# round the fork had closed weeks earlier.
+#
+# One part again. Lap 12 quotes no sha of `fullacceptance.txt`.
+
+# WHY IT MOVED TO ROUND-16 LAP 10 (2026-09-10).
+#
+# Lap 7 is DELIVERED — the fork's lap 8 line 24 declares holding it at
+# `990bb6bb7d25ee4b`, split with our own reader and verified against their
+# manifest — so its envelope on disk is history and is not regenerated. Lap 10 is
+# the operative one: it answers their laps 8 and 9, and its §D corrects OUR OWN
+# published Run A block, which was missing the third file and the third command
+# their `7ace6e5` added. That correction is the reason the lap cannot wait: a Run
+# A performed from our instructions measures everything and grades nothing.
+#
+# **THE MAINTAINER ASKED FOR THIS ONE (2026-09-10): "do lap 10 back".** Recorded
+# because the standing rule is to ASK BEFORE WRITING A LAP, and the audit that
+# produced that rule found three round-15 laps written and never handed over
+# while this generator kept reporting success over a round the fork had closed
+# weeks earlier. A note saying who asked is the cheapest thing that distinguishes
+# "packed and waiting" from "packed and forgotten".
+#
+# One part again. Lap 10 quotes no sha of `fullacceptance.txt`, and the script
+# reaches the rig inside the AppImage, so shipping a copy would hand them an
+# artifact nothing in the lap references.
 
 # WHY IT MOVED TO ROUND-16 LAP 7 (2026-09-07), same day, same reasons.
 #

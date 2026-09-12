@@ -691,7 +691,34 @@ def test_the_install_menu_offers_the_build_the_acceptance_gate_demands() -> None
         and (pin := approved_pin_declared_by(path.read_text(encoding="utf-8")))
     }
     assert approved_pins, "no verification declares HANDSHAKE-PIN — nothing to compare"
+
+    # **AN APPROVED PIN THE FORK HAS NOT PUBLISHED IS NOT YET OUR APPROVAL**, and
+    # the condition is derived from their release manifest rather than allowlisted.
+    #
+    # Round 16 closed GO/GO on `a9aedf0`, which the fork has never released. Our
+    # approval constants describe a *pair* — a ripper commit and the app version
+    # whose evidence closed the round — and they move with `FORK_PIN`, which cannot
+    # roll to an unpublished commit without pointing the setup wizard at a build it
+    # cannot obtain. So for the window between a close and the fork's release, the
+    # record legitimately says "approved" while the product legitimately says "not
+    # the build this Platterpus was verified against".
+    #
+    # This is NOT an exemption. `release_seq_for_commit` is the fork's own answer,
+    # so the moment `a9aedf0` is published it re-enters this population and the
+    # assertion below fires unless the menu has caught up. A named-pin allowlist
+    # would have to be remembered and would rot silently; this cannot.
+    unpublished = {
+        pin for pin in approved_pins if fork_source.release_seq_for_commit(pin) is None
+    }
+    approved_pins -= unpublished
+    assert approved_pins, (
+        "every record-approved pin is unpublished, so this check has nothing left "
+        "to compare and would pass by finding nothing"
+    )
+
     for choice in fork_source.ripper_choices():
+        if any(fork_source.same_commit(choice.pin, pin) for pin in unpublished):
+            continue
         in_record = any(
             fork_source.same_commit(choice.pin, pin) for pin in approved_pins
         )
@@ -724,30 +751,37 @@ def test_the_acceptance_script_asserts_the_build_it_was_written_for() -> None:
 # --- P3: a verdict sentence that cannot be satisfied by the wrong input ------
 
 
-def test_the_P3_verdict_names_WHICH_checksum_and_warns_off_the_obvious_one() -> None:
+def test_the_P3_verdict_warns_off_BOTH_readings_that_are_nearest_to_hand() -> None:
     """P3 does not decide its clause; a person does, afterwards, from the transcript.
 
-    That makes its verdict sentence load-bearing in a way an assertion is not: the
-    sentence IS the instrument. It read *"the two runs' track-1 checksums MUST
-    DIFFER"* — true of the checksums cyanrip PRINTS, which are over the decoded
-    samples, and **also satisfiable by the wrong input**. A reader who reaches for
-    `md5sum *.flac` gets two different values for byte-identical audio, because a
-    FLAC container carries a creation timestamp. That is a CONFIRMING answer from
-    an input that cannot confirm anything: the clause reads as settled while the
-    de-emphasis cascade is still broken, which is precisely the
-    self-consistently-wrong failure P3 exists to catch.
+    That makes its prose load-bearing in a way an assertion is not: **the sentence
+    IS the instrument.** And this test previously helped aim it at the wrong thing.
 
-    So the sentence must name its domain and name the reading it excludes. Both
-    halves are asserted, because naming the right one without excluding the wrong
-    one leaves the trap in place for someone who skims.
+    **WHAT THIS TEST USED TO ASSERT, AND WHY IT COULD NEVER HAVE CAUGHT THE BUG.**
+    It required P3 to say "decoded samples", and its own docstring explained why:
+    *"true of the checksums cyanrip PRINTS, which are over the decoded samples."*
+    That is false. `crip_process_checksums(&checksum_ctx, data, bytes)` runs at
+    ``src/cyanrip_main.c:818``, ``:872`` and ``:965`` (read at ``ddc1e8c``) over the
+    buffer as it came off the drive, at every site *before*
+    ``cyanrip_send_pcm_to_encoders(..., t->dec_ctx, ...)`` at ``:821``, ``:879``,
+    ``:968`` — where the filter graph and therefore ``aemphasis`` live.
 
-    Adopted from the cyanrip fork's round-16 harness, which prints the container
-    md5s, says in its own output that a difference there is "necessary and not
-    sufficient", and decodes separately with `ffmpeg -f md5` -- reporting
-    `UNPROBED` rather than a pass when ffmpeg is absent
-    (`round-16-lap-02-rig-round16.sh:181-212`). Their instrument was sharper than
-    ours here; the ledger records it, and this test is what stops the qualifier
-    being tidied back out.
+    So the test was written from the same wrong premise as the text it guarded,
+    and a test that shares the code's premise cannot catch the code; it makes the
+    defect *harder* to remove, because the defect now has a green test defending
+    it. That is the shape `CLAUDE.md` names, and it is the same shape the cyanrip
+    fork found in their own clause-1 case and corrected at ``5bbb5ae``.
+
+    **WHAT IT ASSERTS NOW.** Both nearest-to-hand readings are wrong, in opposite
+    directions, and P3 must warn off each:
+
+    * ``md5sum *.flac`` — DIFFERENT values for byte-identical audio, because a FLAC
+      container carries a creation timestamp. A false PASS.
+    * the checksums cyanrip PRINTS — the SAME value whatever the filter did. A
+      false FAILURE, and it accuses the fork of a defect they have fixed.
+
+    Naming one without the other leaves half the trap open, which is why both
+    halves are asserted, and why the section must also name what *does* settle it.
     """
     text = (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8")
 
@@ -757,16 +791,27 @@ def test_the_P3_verdict_names_WHICH_checksum_and_warns_off_the_obvious_one() -> 
         "is asserting a property of a section that no longer exists"
     )
 
-    lowered = text.lower()
-    assert "decoded samples" in lowered, (
-        "P3's verdict no longer says WHICH checksum it means. cyanrip's printed "
-        "per-track checksum is over the decoded samples; the files on disk are "
-        "not, and the difference decides whether the clause was actually tested"
-    )
+    # NORMALISE THE COMMENT'S OWN WRAPPING BEFORE MATCHING. These phrases live in
+    # a hand-wrapped comment block, so "a creation\n#   timestamp" is one phrase to
+    # a reader and two strings to `in`. The first version of this assertion matched
+    # the contiguous form and failed the moment the sentence was rewrapped — a
+    # test made vacuous-or-red by reflow, which `CLAUDE.md` names as one of the
+    # four measured ways to get a revert probe that lies. Collapse comment markers
+    # and runs of whitespace so the test asserts the PROSE, not its line breaks.
+    lowered = re.sub(r"\s*\n#\s*", " ", text).lower()
+    lowered = re.sub(r"\s+", " ", lowered)
     assert "creation timestamp" in lowered or "creation_time" in lowered, (
-        "P3's verdict no longer warns off comparing the .flac files. That reading "
-        "returns DIFFERING values for byte-identical audio, so it produces this "
-        "step's PASS verdict from an input that establishes nothing"
+        "P3 no longer warns off comparing the .flac files. That reading returns "
+        "DIFFERING values for byte-identical audio, so it produces a PASS from an "
+        "input that establishes nothing"
+    )
+    assert "false pass" in lowered and "false failure" in lowered, (
+        "P3 no longer names BOTH wrong readings. The container md5 is a false "
+        "pass and the printed checksum is a false failure; warning off one and "
+        "not the other leaves half the trap open"
+    )
+    assert "decodes the samples" in lowered or "decoded samples" in lowered, (
+        "P3 no longer names the reading that actually settles the clause"
     )
 
 
@@ -2313,3 +2358,82 @@ def test_expect_ripper_under_review_accepts_the_AGREED_TEST_PIN() -> None:
     assert outcome is not Outcome.PASS, (
         f"an unrelated build passed section A — the check was widened into nothing: {detail}"
     )
+
+
+# ---------------------------------------------------------------------------
+# P3 / CLAUSE 2 — the section must not claim it can settle what it cannot.
+# ---------------------------------------------------------------------------
+
+
+def test_P3_does_not_assert_the_printed_checksums_must_differ() -> None:
+    """**The rule P3 used to state was arithmetically impossible to satisfy.**
+
+    It read: *"the two runs' track-1 checksums, AS PRINTED BY cyanrip IN THE
+    TRANSCRIPT, MUST DIFFER"*, with identical checksums meaning the fork's
+    ``b866900`` cascade defect was still present.
+
+    Every checksum cyanrip prints is accumulated over the buffer as it came off
+    the drive — ``crip_process_checksums(&checksum_ctx, data, bytes)`` at
+    ``src/cyanrip_main.c:818``, ``:872`` and ``:965`` (read at ``ddc1e8c``),
+    every one of them *before* ``cyanrip_send_pcm_to_encoders(..., t->dec_ctx,
+    ...)`` at ``:821``, ``:879`` and ``:968``, which is where the filter graph and
+    therefore ``aemphasis`` live. So the two arms are **forced** to print the
+    same value whatever de-emphasis did, and the old rule reported a peer's
+    defect as present on every run that will ever be made.
+
+    That is the one thing `CLAUDE.md` is most explicit about — never put a defect
+    on the fork that is not theirs — and it was not hypothetical: the 2026-09-11
+    rig run printed ``B0D122E7`` for both arms, exactly as it must.
+
+    The phrase may still appear **quoted inside the paragraph that refutes it**,
+    because deleting the wrong claim would leave the next reader free to have the
+    idea again. What it may not do is stand as an instruction.
+    """
+    text = (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8")
+
+    # Floor: if the section itself vanished, the assertions below would pass by
+    # finding nothing.
+    assert "P3. R16 CC2: -H -E" in text, "the P3 section is gone — this test is vacuous"
+    assert "P3. R16 CC2: -H -W" in text
+
+    lines = text.splitlines()
+    refutation = next(
+        (i for i, ln in enumerate(lines) if "WHAT THIS COMMENT USED TO SAY" in ln),
+        None,
+    )
+    assert refutation is not None, (
+        "the paragraph that refutes the old rule is gone; without it a surviving "
+        "'MUST DIFFER' is an instruction again"
+    )
+
+    for i, ln in enumerate(lines):
+        if "MUST DIFFER" not in ln:
+            continue
+        # Allowed only inside the refutation, which is ~6 lines long.
+        assert refutation <= i <= refutation + 8, (
+            f"line {i + 1} states the refuted rule outside the paragraph that "
+            f"refutes it: {ln.strip()!r}"
+        )
+
+    assert "is over the DECODED SAMPLES." not in text, (
+        "the false premise is stated as fact again — cyanrip's printed checksum "
+        "is over the raw read buffer, not the decoded samples"
+    )
+
+
+def test_P3_says_plainly_that_clause_2_is_unprobed_by_it() -> None:
+    """A section that cannot settle its clause has to say so, in its own text.
+
+    Removing the wrong rule is half the fix: without a positive statement the
+    next reader meets two rips, two exit codes and no verdict, and supplies the
+    missing conclusion themselves — which is how the wrong rule got written the
+    first time. The section must name Run A as what closes clause 2, and must
+    carry the derivation rather than asserting the conclusion, because a claim
+    about the fork's code without a file and a line is not a claim we make.
+    """
+    text = (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8")
+
+    assert "UNPROBED by this section" in text
+    assert "closed only by Run A" in text
+    for citation in ("cyanrip_main.c:818", ":872", ":965", "checksums.h:62-90"):
+        assert citation in text, f"the derivation lost its citation {citation}"
