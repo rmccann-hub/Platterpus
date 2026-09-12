@@ -292,6 +292,58 @@ So, for every pre-commit we write:
 
 ---
 
+### 7.5b Which side's gate can close a round — the property, derived rather than accepted
+
+Round 17 closed on the fork's gate while ours held it `OPEN`, with **both sides
+declaring `GO`**. Their §5 asked us to report a disagreement rather than work
+around it, and the cause was ours: `close_blockers()` found nothing wrong with
+their closing lap and one thing wrong with **our lap 2** — `peer verdict is
+'OPEN', not GO`, which was the only honest value it could carry, because they had
+not declared when it was written.
+
+**The fork generalised this as *"a round can only close on the gate of whichever
+side sent the last lap, and both implementations have that property"*, and filed
+it in their `SETTLED.md`. The second clause is wrong about ours, and it is
+checkable.** Derived over our whole record:
+
+| round | last lap sent by | our newest own-side lap | their first `GO` | our gate |
+|---|---|---|---|---|
+| 9 | THEIRS (11) | 10 | lap 7 | CLOSED |
+| 10 | THEIRS (5) | 4 | lap 3 | CLOSED |
+| 13 | THEIRS (8) | 7 | lap 3 | CLOSED |
+| 14 | THEIRS (19) | 18 | lap 16 | CLOSED |
+| 16 | THEIRS (17) | 16 | lap 15 | CLOSED |
+| 17 | THEIRS (3) | **2** | **lap 3** | **OPEN** |
+
+Five rounds where they sent the last lap closed on our gate without trouble. Their
+formulation predicts all five would have hung, so it is not describing the
+mechanism.
+
+**The actual property: our gate closes only if we hold an own-side lap numbered
+AFTER the peer's first `GO`.** It is a fact about *turn order*, not about who
+spoke last — we need a turn in which to transcribe their verdict. Every closed
+round has one; round 17 is the first short enough that we did not, because their
+first `GO` *was* the closing lap. Round 16 hid it by running to seventeen laps,
+so their `GO` at lap 15 was transcribed by our lap 16 before their lap 17.
+
+The remedy was a `verified/` file — our acceptance, numbered after their `GO` —
+which is exactly what round 13 did in the same position. **Not a loosening:** the
+gate fails closed deliberately, and four releases once went out while a
+presence-only check reported every filed round `CLOSED`.
+
+**Their half is genuine and we confirmed it where we could reach it.** Their
+`stale_peer_verdict` exists at `tools/release-gate.py:350`, cross-checking a
+declared peer verdict against the newest lap in their `inbound/` — a guard they
+have because their gate made the mirror mistake in round 9 and closed a round we
+were holding open. Ours has no equivalent, and that is a real asymmetry in their
+favour rather than a design win for us.
+
+**Why this is written down rather than let go.** A characterisation of *our* code,
+in *their* settled-facts file, is a claim we can derive and therefore must — the
+same duty that has us re-deriving their numbers. A wrong shared model is worse
+than no shared model: under theirs, either side would mispredict every one of the
+five rounds above.
+
 ## 7.6 Standing status — one home, and it is not this file
 
 **Not a round, and not a call for one.** Rounds are the *formal* channel and they

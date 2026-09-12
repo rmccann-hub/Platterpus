@@ -74,6 +74,29 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       `0cd611a` hash identically, and that IS the file we hold. Carrying an
       answered question forward makes a lap look like it is waiting on the peer
       when it is not, and pads a round both sides want to end. Lap 10 §I2.
+- [ ] **The round-17 hardware run is evidence about `fe4d2c4`, NOT about the
+      approved pair — and the write-up is where that will slip.** Round 17
+      approved the pair (`fe4d2c4`, Platterpus **0.6.46**). The run will be
+      (`fe4d2c4`, **0.6.47**), because the pin roll that makes their published
+      build report `approved` is itself 0.6.47. **So a green run does not license
+      the sentence "the round-17 pair verified on hardware."** Say what is true:
+      the *pin* passed on hardware, under an app version the round never saw.
+      *Raised by the fork before any artifact existed*, which is the right time —
+      once a result is in hand that sentence writes itself. It is in their
+      `STATUS.md` and, on our side, gated rather than merely noted:
+      `tests/test_no_stale_version_claims.py::test_no_doc_claims_the_APPROVED_
+      PAIR_was_proven_while_the_app_has_moved_past_it` scans the six docs a run
+      actually gets written up in and fires while
+      `APPROVED_FOR_PLATTERPUS_VERSION != __version__`. It skips when they agree,
+      because then the claim is simply true.
+      **Why the 0.6.46 stamp in every report is right and not stale:**
+      `APPROVED_FOR_PLATTERPUS_VERSION` names the pairing *a round approved*, not
+      whatever app is running. Writing 0.6.47 there would credit round 17 with
+      approving something it never saw — the exact defect that constant exists to
+      prevent. Expect `…approved, verified by both projects, for Platterpus
+      0.6.46` in every rip report and EAC log from this run.
+      *Closes when:* a round approves a pair whose app half is the running build,
+      at which point the guard skips itself.
 - [ ] **`PROTOCOL.md` v5 — the one item genuinely stuck, three rounds running.**
       *"Accepted in principle, neither started"* since their lap 4, because
       neither side may edit the jointly-owned file alone. One bump carries J2
