@@ -1313,9 +1313,21 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # than a workspace. Not extracted: a two-line helper in its own module would
     # be splitting to hit a number, and this module already owns every other
     # answer to "where does a session put things".
-    "test_session.py": 824,
+    # **824 -> 833 the same day** (+9): the bundle's no-Downloads fallback moved
+    # from `$HOME` into the same one directory. It used to drop a tarball loose in
+    # the home folder once per run on any machine without a Downloads folder --
+    # the other half of the same instruction, found by sweeping for every
+    # HOME-derived write rather than fixing the two loudest.
+    "test_session.py": 833,
     "ui/dialogs/pending_installs.py": 419,
-    "ui/dialogs/script_console.py": 454,
+    # **454 -> 479 on 2026-09-12** (+25): `_transcript_save_default()`. The "Save
+    # the transcript" dialog proposed `~/platterpus-transcript.txt`, i.e. a file
+    # in the home directory. A save dialog only PROPOSES, which is why this was
+    # the mildest of the three offenders and why it was still fixed: "we only
+    # suggested it" is how a default becomes the thing everybody has. It asks the
+    # same `downloads_dir`/`rig_parent` pair the evidence bundle asks, so the two
+    # cannot disagree about where a deliverable belongs.
+    "ui/dialogs/script_console.py": 479,
     "ui/disc_info_panel.py": 319,
     "ui/drive_setup_dialog.py": 500,
     "ui/host_setup_dialog.py": 341,

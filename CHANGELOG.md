@@ -69,6 +69,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   in `$HOME` rather than checking a path, because a path check passes while a
   *second* writer quietly adds a different one, which is how there came to be two
   kinds of litter instead of one.
+  **Swept rather than spot-fixed**, after the instruction had to be given twice:
+  every `$HOME`-derived write in the package was enumerated, and two more were
+  found beyond the two loud ones. The evidence bundle's *no-Downloads fallback*
+  dropped a tarball straight into the home folder once per run on any machine
+  without a `Downloads` directory — it now lands in the same one place, and
+  `Downloads` is still never invented, because creating it would put the
+  deliverable where the operator has no habit of looking. And the script
+  console's **Save the transcript** dialog proposed `~/platterpus-transcript.txt`;
+  it now proposes `~/Downloads` when that exists and the rig directory otherwise,
+  asking the same two functions the bundle asks so the two cannot disagree about
+  where a deliverable belongs. A save dialog only *proposes*, which is why it was
+  the mildest of the three — and why it was fixed anyway: *"we only suggested
+  it"* is how a default becomes the thing everybody has. What is left writing
+  under `$HOME` is `~/Music/rips` (rips), `~/Applications` and `~/Desktop`
+  (desktop integration), and the XDG directories — all of them where those things
+  belong.
 - **The acceptance run's clause-2 section stated a verdict rule that was
   arithmetically impossible to satisfy, and it accused the cyanrip fork.** Section
   P3 of `fullacceptance.txt` rips the same track twice, `-H -E` against `-H -W`,

@@ -175,7 +175,7 @@ class SessionLayout:
     #: The stamp every path below descends from. Carried so callers (and the
     #: bundler) never have to re-derive it and get a different answer.
     stamp: str
-    #: The session folder. Staging happens here; it stays in `$HOME`.
+    #: The session folder. Staging happens here, under `RIG_PARENT_NAME`.
     root: Path
     #: Where the script run's transcript is written.
     transcript: Path
@@ -268,7 +268,16 @@ def plan_session(
     # that writes the file cannot disagree about what the deliverable is called.
     # Two surfaces answering one question with two spellings is how a "send me
     # this file" instruction stops naming a file that exists.
-    destination = downloads if downloads is not None else home
+    # FALLBACK GOES UNDER THE ONE PARENT, not loose in $HOME. `~/Downloads` is
+    # still preferred and still the reason this decision exists -- it is the
+    # folder a browser's upload dialog opens in, so the deliverable is already in
+    # front of the operator. But on a machine with no Downloads folder this used
+    # to drop a tarball straight into the home directory, once per run, which is
+    # the litter the maintainer asked us to stop making. Containing it costs no
+    # discoverability: the session's own summary prints the deliverable's
+    # absolute path (see `_render_summary`), so nothing depends on the operator
+    # guessing where it went.
+    destination = downloads if downloads is not None else rig_parent(home)
     return SessionLayout(
         stamp=stamp,
         root=root,
