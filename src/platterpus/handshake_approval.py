@@ -64,7 +64,16 @@ from platterpus.deps import fork_source
 #: 0.6.37 is the app version that produced the eight-rip acceptance bundle the
 #: close rests on, and stamping 0.6.28 beside pin `978f9b0` would name a pairing
 #: no evidence covers.
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.37"
+#: **Moved to `platterpus/0.6.46` when round 17 closed (2026-09-12)**, read off
+#: `HANDSHAKE-APP-VERSION` in our lap 2 and our verification
+#: `docs/handshake/verified/round-17-lap-04.md`, both of which name pin `fe4d2c4`.
+#: **It stays `0.6.46` even though the release carrying it is `0.6.47`**, and the
+#: distinction is the whole point of this constant: round 17 approved the *pair*
+#: (`fe4d2c4`, Platterpus `0.6.46`), and `0.6.47` is the commit that rolls the pin —
+#: our own change, made between rounds, which the docstring above already says is
+#: ours to make. Writing `0.6.47` here would credit the round with approving a
+#: pairing it never saw.
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.46"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -101,7 +110,19 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.37"
 #: binary that made it — and this is the constant that would otherwise have gone
 #: on naming round 14 for a pin round 15 approved. That is precisely the v0.6.4
 #: defect recorded above, and the derivation is why it cannot recur silently.
-APPROVED_BY_ROUND: Final[int] = 15
+#: **Moved 15 -> 17 on 2026-09-12, skipping 16, and the skip is correct rather than
+#: an omission.** Round 16 closed GO/GO on `a9aedf0` and the fork never published
+#: it, so the pin could not roll and this constant could not follow — an approval
+#: that names a round for a build nobody installed would be the same wrong pairing
+#: it exists to prevent. Round 17 approved `fe4d2c4` and their lap 3 §5 step 2
+#: published it to both channels, so the round, the pin and the installable artifact
+#: are one object again for the first time since round 14.
+#:
+#: **The window between their publish and this line was a live defect**, not a
+#: formality: `approve_ripper` reads these constants while the in-app update offer
+#: reads *their* manifest, so for that window the offer installed `fe4d2c4` and
+#: every report, log and EAC export stamped it `unapproved`.
+APPROVED_BY_ROUND: Final[int] = 17
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.
