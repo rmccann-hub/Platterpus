@@ -191,34 +191,35 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       a clause turns on audio identity and the fork's rig is not the one running.
 - [x] **HOLD 0.6.46 until the fork opens round 17 — DISCHARGED 2026-09-12.**
       The wait was a maintainer decision made the same day: ten entries sat under
-      `[Unreleased]` and nothing blocked a release, so this was recorded as a
+      `[Unreleased]` and nothing blocked a release, so it was recorded as a
       deliberate wait rather than left to look like an oversight a later session
       should tidy up by releasing. Their lap 17 §4 had said round 17 was theirs to
       open and that its subject IS releases, with close conditions fixed at its
       lap 1 under S-13 — so cutting first risked releasing something those terms
       then changed.
       *What discharged it:* their round-17 lap 1 arrived on 2026-09-12. It fixes
-      one close condition, it needs no hardware, and it asks for exactly the thing
-      this commit produces — **a Platterpus candidate named by SHA**. So the bump
-      lands here and the version commit IS the answer: `our_pin()` resolves
-      `HANDSHAKE-OUR-PIN` by finding the commit that introduced the current
-      `__version__` and refuses an uncommitted tree.
-      **Nothing publishes.** Their §0 condition 4 puts publication *after* the
-      close, and the round approves two releases as a pair — theirs and ours,
-      published together, neither alone. This change prepares and names the
-      candidate; it does not tag.
-      *Why round 17 is not filed in this change, which is a sequencing constraint
-      and not an omission:* `test_every_declared_from_commit_is_reachable_not_
-      merely_resolvable` requires an outbound lap's `HANDSHAKE-FROM-COMMIT` to be
-      an **ancestor of `origin/main`**, because this repository squash-merges and a
-      branch commit resolves without ever being reachable. Our round-17 lap 2 must
-      name 0.6.46's commit on `main` — which does not exist until this merges. So
-      the inbound filing, the four round-aware constants and lap 2 follow in the
-      next change, against the squashed SHA.
-      *What the wait cost, kept because it is still true of any rig still on
-      0.6.45:* that build false-fails §I's `expect-log-well-formed` in an ARCHIVAL
-      section on every cancel, carries the P3 clause-2 rule that would report the
-      fork's `b866900` as unfixed, and litters `$HOME`. All three are fixed here.
+      one close condition, it needs no hardware, and it asks for exactly what the
+      version commit produces — **a Platterpus candidate named by SHA**.
+      **Nothing is published yet.** Their §0 condition 4 puts publication *after*
+      the close, and the round approves two releases as a pair — theirs and ours,
+      together, neither alone. `0.6.46` exists on `main` and is named; the tag
+      waits for the close.
+      *Why this took two merges, recorded because the shape will recur:*
+      `test_every_declared_from_commit_is_reachable_not_merely_resolvable`
+      requires an outbound lap's `HANDSHAKE-FROM-COMMIT` to be an **ancestor of
+      `origin/main`**, not merely a SHA that resolves — this repository
+      squash-merges, so a branch commit resolves in the author's clone and then
+      never exists for the peer who keeps the document forever. Round 17 asks us
+      to name 0.6.46's commit, so lap 2 had to name it **on `main`**, which the
+      first merge created. Filing the round and the lap in the same change that
+      creates the commit they name is circular, and the gate says so. `our_pin()`
+      searches `origin/main` before the branch for the same reason, and it was
+      written after lap 18 went out declaring a branch sha that CI then failed on
+      across all four matrix legs.
+      *What the wait cost, still true of any rig on 0.6.45:* that build
+      false-fails §I's `expect-log-well-formed` in an ARCHIVAL section on every
+      cancel, carries the P3 clause-2 rule that would report the fork's `b866900`
+      as unfixed, and litters `$HOME`. All three are fixed in `0.6.46`.
 - [ ] **`a_round_is_reviewing_a_build()` returns True with all sixteen rounds
       CLOSED, and it is user-facing.** The install menu currently tells an operator
       `a9aedf0` "is the build the **open** handshake round is reviewing". No round

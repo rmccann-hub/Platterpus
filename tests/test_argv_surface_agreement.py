@@ -163,7 +163,19 @@ _TABLE_ROUND_FLOOR: int = 6
 #: contract out of their repository — the record is what was *exchanged*, and a
 #: document we helped ourselves to is not one they published to us. Their lap 3 §3:
 #: *"you were right not to help yourself to the copy in our repository."*
-_MAX_TABLE_LAG: int = 0
+#: **0 -> 1 on 2026-09-12, when round 17 opened without a provider contract.**
+#: Their lap 1 ships no `PROVIDER-CONTRACT.md` artifact, and the reason is in its
+#: §2, derived rather than asserted: `tools/contract-delta.py` reports *"No section
+#: changed"* between `+platterpus.11` and the `fe4d2c4` candidate — no P1 flag, no
+#: P2 line, no P4 exit code, no P5 message differs. A pure version bump should look
+#: exactly like that. So round 16's table IS the candidate's table in substance, and
+#: the lag is one round of *filing*, not one round of drift.
+#:
+#: **Deliberately not closed by fetching their contract from their repository**, for
+#: the reason recorded below and conceded by them in their round-9 lap 3 §3: the
+#: record is what was *exchanged*, and a document we helped ourselves to is not one
+#: they published to us. It closes when they file one, which the release will bring.
+_MAX_TABLE_LAG: int = 1
 #: **Back to 0 on 2026-08-15**, the same day it went to 1. cyanrip's round-9 lap 3
 #: sent `PROVIDER-CONTRACT.md` for `b56f936` in its envelope; it is committed at
 #: `docs/handshake/inbound/artifacts/round-09-lap-03-provider-contract-g42fe4f2.md`
