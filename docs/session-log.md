@@ -487,6 +487,57 @@ branches needed deleting; they had already been deleted, and I was reading
 remote-tracking refs I had never pruned. A remote-tracking ref is a memory of a
 remote, not the remote.
 
+### 2026-09-12 — Run A passes, both pre-commits resolve to GO, and we stop littering $HOME
+
+**Their lap 15 reports Run A on hardware: `0 FAIL, 0 UNPROBED, exit 0`, all three
+close conditions settled — including clause 2, which had never run on a drive in
+twelve rig sessions.** Verified here rather than taken.
+
+**The grader moved to `9ec722e`, and our lap 14 pre-authorised exactly that.**
+Their §2 quotes our own sentence back: *"If `5bbb5ae` turns out to need another
+commit we will take yours as you name it rather than re-deriving a condition
+around it"* (`round-16-lap-14.md:208`). That sentence was written for this case
+and it worked — which is §A2's lesson surviving contact.
+
+**Was the grader weakened to fit the run? No — derived from the diff, both ways.**
+`5bbb5ae..9ec722e` adds a narrow branch (`wc is None and gc is not None and
+gk == wk`) that reclassifies a reference line the database never recognised as
+`INFO clause1/reference` instead of `FAIL`; a genuine checksum mismatch still
+falls through to `FAIL`. And it **adds a failure mode that did not exist**: when
+every overlapping reference line is unrecognised the result is now `UNPROBED …
+NOT a pass`, where the old code printed `OK`. Stricter on one axis, more honest
+on the other.
+
+**Both halves of our pre-commit evaluated, and published as promised:**
+
+* **(b), ours alone** — `scripts/verify_log_surface.py` over Run A's five logs:
+  **1,055 lines, 0 unaccounted, exit 0.**
+* **(a)** — their grader at `9ec722e`, run *here* over their filed evidence:
+  **0 FAIL.** Reconstructing their layout with their own
+  `docs/rig-2026-08-05/cyanrip.log` reproduced §2 exactly — `#5 v1: reference
+  DCA378E8 NOT FOUND, ours 3C8BDDD2 at confidence 128`, `#6 v2: 36F6EA91 NOT
+  FOUND, ours 96DF8C22 at confidence 200` — and `clause1/checksums` OK on all 4
+  comparable lines, 0 fell. The one residual `UNPROBED` is clause 2's `.pcm`,
+  which cannot travel.
+
+**A near miss worth recording.** `git fetch --prune origin` in the fork clone did
+not move `origin/platterpus-fork`, so `9ec722e` and `2d0d260` did not resolve and
+I was one sentence from reporting that the fork had cited unpushed commits.
+`git ls-remote` showed the live branch at `fbbb241` against our tracking ref's
+`a1d305a` — **my fetch, not their push.** An explicit refspec fixed it. *Establish
+the origin before attributing*, and a remote-tracking ref is a memory of a remote.
+
+**And the maintainer's instruction, twice given: stop polluting `$HOME`.** Each
+acceptance run dropped `~/platterpustestsession<stamp>/` and `--rig-session`
+dropped `~/platterpus-rig-<stamp>/`, from two call sites that each built the path
+themselves. Now one `rig_parent()` helper, one deletable `~/platterpus-rig`, the
+stamped folder inside it. The fork did the same on the same day (`fbbb241`,
+`~/cyanrip-rig`) after a session left *"runA-work/, xtest/, ytest/, regrade/,
+keep/ and a tarball loose in $HOME"* — matched deliberately, because the operator
+holds both rigs on one machine. The test counts entries in `$HOME` rather than
+checking a path: a path check passes while a second writer adds a different one,
+which is how there came to be two kinds of litter.
+
 ### Still open (for the fork, and for us)
 
 * **Run A's result has not been seen**, and round 16 stays open on it. The close

@@ -56,6 +56,19 @@ REPO_ROOT: Path = Path(__file__).resolve().parent.parent
 #: sent and what the fork holds; the file in this repository drifted from it and
 #: has been restored. It is first in the map for that reason.
 SENT_LAPS: dict[str, str] = {
+    # Round 16 lap 14. **Peer-confirmed, delivered unedited, and the lap it
+    # confirms is the one that closes the round.** Their lap 15 line 24 declares
+    # holding it at sha256/16 `2503184660c83ad0`, 17,199 bytes, *"extracted with
+    # your published reader and byte-identical to the raw copy"*, and their line
+    # 11 quotes its `HANDSHAKE-VERDICT`. Both numbers re-derive here.
+    #
+    # It is also the lap their §2 leans on: our §A2 pre-authorised taking a grader
+    # SHA as they name it, and they moved the grader to `9ec722e` and cited that
+    # sentence back. A lap that gets acted on by the peer is one whose bytes must
+    # not move afterwards.
+    "outbound/round-16-lap-14.md": (
+        "2503184660c83ad0f73cc3d93d6f2529f9b6464de2f2fed1e32ac0f2932fe0f2"
+    ),
     # Round 16 lap 12. **Peer-confirmed, delivered unedited, and confirmed by
     # the byte COUNT as well as the hash.** Their lap 13 line 24 declares holding
     # it at sha256/16 `4a69990fac889b83`, *"extracted from your envelope with your

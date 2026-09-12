@@ -1117,7 +1117,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # questions, not a duplicate.
     "adapters/ripper_log_verify.py": 467,
     "adapters/transcode.py": 305,
-    "app.py": 1349,
+    # **1349 -> 1356 on 2026-09-12** (+7): `--rig-session`'s default output
+    # directory moved out of `$HOME` and under the one deletable parent, and the
+    # growth is the paragraph saying why plus the import of the shared helper.
+    # It DELEGATES to `test_session.rig_parent` rather than building the path
+    # again -- two call sites each spelling "where our stuff goes" is exactly how
+    # $HOME came to hold two different kinds of litter.
+    "app.py": 1356,
     "appimage_integration.py": 326,
     "config.py": 753,
     "cue_validate.py": 1257,
@@ -1298,7 +1304,16 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # naming.path_escape_reasons while keeping its own user-facing wording.
     "settings_validation.py": 886,
     "sleep_inhibit.py": 599,
-    "test_session.py": 794,
+    # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
+    # the single deletable directory every rig artifact of ours now lives under,
+    # on the maintainer's "stop polluting my home directory" instruction. The
+    # constant is four lines; the rest is why -- that the timestamping was never
+    # the problem, that the name deliberately mirrors the fork's `~/cyanrip-rig`
+    # because one operator holds both rigs, and that `~/Music` is a library rather
+    # than a workspace. Not extracted: a two-line helper in its own module would
+    # be splitting to hit a number, and this module already owns every other
+    # answer to "where does a session put things".
+    "test_session.py": 824,
     "ui/dialogs/pending_installs.py": 419,
     "ui/dialogs/script_console.py": 454,
     "ui/disc_info_panel.py": 319,

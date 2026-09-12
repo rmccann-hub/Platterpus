@@ -51,6 +51,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   same logs.**
 
 ### Fixed
+- **Every rig run used to leave a fresh folder loose in `$HOME`; now there is one
+  directory and `rm -rf ~/platterpus-rig` removes all of it.** An acceptance run
+  created `~/platterpustestsession<stamp>/` straight in the home directory and
+  `--rig-session` added `~/platterpus-rig-<stamp>/` beside it, so the litter grew
+  once per run — two different kinds of it, from two call sites that each built
+  the path themselves. **The timestamping was never the problem and has not been
+  removed**: two runs must not overwrite each other's evidence. What changed is
+  that the stamped folder now goes *inside* one stable parent, both call sites go
+  through one `rig_parent()` helper so they cannot drift apart again, and `$HOME`
+  gains exactly one entry no matter how many runs happen. Rips still land in
+  `~/Music`, and the deliverable archive still lands in `~/Downloads`, because
+  those are where music and downloads go. The name mirrors the cyanrip fork's
+  `~/cyanrip-rig`, adopted on the same instruction the same day — the operator
+  holds both rigs on one machine, and two projects each inventing their own shape
+  would be the same defect at a larger scale. The regression test counts entries
+  in `$HOME` rather than checking a path, because a path check passes while a
+  *second* writer quietly adds a different one, which is how there came to be two
+  kinds of litter instead of one.
 - **The acceptance run's clause-2 section stated a verdict rule that was
   arithmetically impossible to satisfy, and it accused the cyanrip fork.** Section
   P3 of `fullacceptance.txt` rips the same track twice, `-H -E` against `-H -W`,

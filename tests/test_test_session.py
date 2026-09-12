@@ -30,6 +30,7 @@ import pytest
 from platterpus import test_session
 from platterpus.evidence_bundle import bundle_filename
 from platterpus.test_session import (
+    RIG_PARENT_NAME,
     SESSION_DIR_PREFIX,
     SOURCES_RECORD_NAME,
     STAMP_FORMAT,
@@ -41,6 +42,7 @@ from platterpus.test_session import (
     finish_session,
     plan_session,
     prepare_session,
+    rig_parent,
     session_album_dirs,
     session_sources,
     session_stamp,
@@ -142,7 +144,7 @@ def test_plan_session_is_pure(tmp_path: Path) -> None:
 
     # Floor: the call really did produce paths under `tmp_path`, so "nothing was
     # created" is a statement about a call that did something.
-    assert first.root.parent == tmp_path
+    assert first.root.parent == rig_parent(tmp_path)
     assert first.transcript.parent == first.root
     assert first.artifacts.parent == first.root
 
@@ -192,8 +194,10 @@ def test_bundle_lands_in_downloads_when_one_exists(tmp_path: Path) -> None:
     layout = plan_session(home=tmp_path, stamp=STAMP, downloads=resolved)
     assert layout.bundle.parent == downloads
     assert layout.bundle == downloads / bundle_filename(STAMP)
-    # The staging folder always stays in $HOME; only the ONE file moves.
-    assert layout.root.parent == tmp_path
+    # The staging folder stays on the rig; only the ONE file moves to Downloads.
+    # It lives UNDER the single deletable parent, never loose in $HOME.
+    assert layout.root.parent == rig_parent(tmp_path)
+    assert layout.root.parent.parent == tmp_path
 
 
 def test_bundle_falls_back_to_home_and_downloads_is_never_invented(
@@ -807,4 +811,44 @@ def test_the_current_log_is_still_staged_ahead_of_the_transcript(
     assert current, f"the current app log was not staged: {order}"
     assert current[0] < order.index("transcript.txt"), (
         f"the current app log lost its priority to the transcript: {order}"
+    )
+
+
+def test_many_sessions_add_exactly_ONE_entry_to_home(tmp_path: Path) -> None:
+    """**The maintainer's requirement, stated as an assertion: stop littering $HOME.**
+
+    Instruction, 2026-09-11: *"stop polluting my home directory. /Music/ ,
+    /Downloads/ , these exist. if you need to make temprip or someother folder to
+    user i can then delete"*.
+
+    Every acceptance run used to create its own ``~/platterpustestsession<stamp>/``
+    directly in ``$HOME``, and ``--rig-session`` added a ``~/platterpus-rig-<stamp>/``
+    beside it, so the litter grew once per run and the operator had to garden it.
+
+    **The timestamping was never the problem and is not being removed** — two runs
+    must not overwrite each other's evidence. What changed is that the stamped
+    folder goes inside one stable parent, so cleanup is a single
+    ``rm -rf ~/platterpus-rig``.
+
+    Counting entries is the assertion rather than checking a path, because a path
+    check passes while a *second* writer quietly adds a different one — which is
+    exactly how there came to be two kinds of litter rather than one.
+    """
+    stamps = ("20260101T000000Z", "20260102T000000Z", "20260103T000000Z")
+    for stamp in stamps:
+        prepare_session(plan_session(home=tmp_path, stamp=stamp, downloads=None))
+
+    entries = sorted(p.name for p in tmp_path.iterdir())
+    assert entries == [RIG_PARENT_NAME], (
+        f"three sessions put {len(entries)} entries in $HOME: {entries}. Every "
+        f"directory this project creates on the rig belongs under "
+        f"{RIG_PARENT_NAME!r} so the operator can delete one thing."
+    )
+
+    # ...and the per-run isolation the stamping exists for is still intact.
+    runs = sorted(p.name for p in (tmp_path / RIG_PARENT_NAME).iterdir())
+    assert len(runs) == len(stamps), (
+        f"containing the sessions collapsed them into each other: {runs}. Two "
+        "runs overwriting one another is the failure the stamp prevents, and it "
+        "would be a worse defect than the litter."
     )
