@@ -1806,6 +1806,104 @@ _PROSE_IN_CLOSED_SET_FIELD: frozenset[str] = frozenset(
 )
 
 
+#: Laps of OURS that carry prose in a PIN field, frozen because they are SENT.
+#:
+#: **The fork's round-16 lap 17 §1a found this and asked us to check our side.**
+#: Their `PEER_PIN_RE` anchors to end of line, so `HANDSHAKE-PEER-PIN: 2d0d260 —
+#: your lap 15's…` reads to their gate as the field being ABSENT; it refused their
+#: own closing lap over exactly that. Ours accepted it, which is a real divergence
+#: between two implementations of one spec — `handshake-protocol.md` §5 says
+#: `HANDSHAKE-PEER-PIN: <commit sha>` and means it.
+#:
+#: All four are round-16 laps of ours and all four are SENT, so none can be
+#: corrected — §4a makes a correction a new lap, not an edit. **A ratchet: it may
+#: shrink, never grow.** Anything written from now on emits the bare SHA with the
+#: provenance in `HANDSHAKE-PEER-PIN-SOURCE`, which is the remedy our own
+#: `closed_set_prose` has recommended since round 12 for the field family it did
+#: cover.
+_PROSE_IN_PIN_FIELD: frozenset[str] = frozenset(
+    {
+        "round-16-lap-10.md",  # PEER-PIN: 59cb5a9 — …; sent 2026-09-10
+        "round-16-lap-12.md",  # PEER-PIN: f50e3ab — …; sent 2026-09-11
+        "round-16-lap-14.md",  # PEER-PIN: 13654d3 — …; sent 2026-09-11
+        "round-16-lap-16.md",  # PEER-PIN: 2d0d260 — …; sent 2026-09-12
+    }
+)
+
+
+def test_our_laps_declare_PIN_fields_as_bare_shas() -> None:
+    """The same sweep as the verdict one, on the family it never covered.
+
+    We had the guard and aimed it one field family away: `closed_set_prose` has
+    said since round 12 that prose after a token makes the peer read the field as
+    ABSENT, and it checked the verdicts only. Four laps went out with prose in
+    `HANDSHAKE-PEER-PIN` and nothing objected — *enforce a rule across the surface
+    it governs, not at the place it was learned* (`docs/testing.md` §5.o), arriving
+    inside the checker written for §5.o.
+    """
+    hs = _load()
+    offenders: dict[str, list[str]] = {}
+    checked = 0
+    for directory in ("outbound", "verified"):
+        for path in sorted(
+            (_REPO_ROOT / "docs" / "handshake" / directory).glob("round-*.md")
+        ):
+            checked += 1
+            problems = hs.pin_field_prose(path.read_text(encoding="utf-8"))
+            if problems and path.name not in _PROSE_IN_PIN_FIELD:
+                offenders[f"{directory}/{path.name}"] = problems
+    assert checked >= 10, f"only {checked} of our laps swept"
+    assert not offenders, (
+        "these laps of ours carry prose in a pin field, so the fork's gate reads "
+        f"the field as ABSENT: {offenders}. Declare the bare SHA and move the "
+        "provenance to <FIELD>-SOURCE."
+    )
+
+
+def test_the_frozen_PIN_prose_list_names_real_offenders_and_only_sent_laps() -> None:
+    """The pin exemption cannot widen, and must not cover a fixable file.
+
+    Same two directions as its verdict twin: a named file must still offend, or the
+    exemption is dead and hiding that it is dead; and it must be pinned as SENT,
+    because being unsendable-back is the only reason it cannot just be corrected.
+    """
+    hs = _load()
+    from test_sent_laps_are_immutable import SENT_LAPS
+
+    sent_names = {name.split("/")[-1] for name in SENT_LAPS}
+    for name in sorted(_PROSE_IN_PIN_FIELD):
+        matches = [
+            p
+            for d in ("outbound", "verified")
+            for p in (_REPO_ROOT / "docs" / "handshake" / d).glob(name)
+        ]
+        assert len(matches) == 1, f"{name}: expected exactly one, found {matches}"
+        assert hs.pin_field_prose(matches[0].read_text(encoding="utf-8")), (
+            f"{name} no longer carries prose in a pin field — remove it from the "
+            "frozen list rather than leaving a dead exemption"
+        )
+        assert name in sent_names, (
+            f"{name} is exempted as unfixable but is not pinned in SENT_LAPS. Only a "
+            "SENT lap cannot be corrected; if it was never sent, fix it instead."
+        )
+
+
+def test_the_pin_guard_accepts_the_forks_corrected_shape() -> None:
+    """Non-triviality, and it is the fork's own artifact rather than a mock.
+
+    A guard that flags everything is as useless as one that flags nothing, and the
+    natural mistake here is a pattern so strict that the *fixed* form fails too.
+    Their lap 17 is the first file either side wrote with the bare-SHA pin and a
+    separate `-SOURCE`, so it is the exact positive case.
+    """
+    hs = _load()
+    fixed = _REPO_ROOT / "docs" / "handshake" / "inbound" / "round-16-lap-17.md"
+    assert fixed.is_file(), "the fork's corrected lap is not filed; this proves nothing"
+    text = fixed.read_text(encoding="utf-8")
+    assert "HANDSHAKE-PEER-PIN-SOURCE:" in text, "wrong file — no -SOURCE companion"
+    assert hs.pin_field_prose(text) == []
+
+
 def test_our_laps_declare_closed_set_fields_as_bare_tokens() -> None:
     """Every lap of OURS, except the three frozen ones, emits a bare verdict token."""
     hs = _load()

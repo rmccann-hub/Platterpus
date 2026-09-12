@@ -32,7 +32,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from platterpus import diagnostics
+from platterpus import diagnostics, drive_control
 from platterpus.adapters.rip_backend import (
     RipBackend,
     RipError,
@@ -58,6 +58,12 @@ from platterpus.rip_addendum import (
     write_addendum,
 )
 from platterpus.rip_plan import describe_rip_plan
+from platterpus.ripper_log_settle import (
+    NOT_SETTLED,
+    LogSettle,
+    await_ripper_log_settled,
+    event_abandoner,
+)
 from platterpus.ripper_message_inventory import ALL_FORMATS
 from platterpus.ripper_messages import build_matcher
 from platterpus.safe_int import int_or_none
@@ -830,6 +836,13 @@ class RipWorker(QObject):
         # does not engage the never-block-the-GUI rule.
         self._sigterm_sent_for: RipHandle | None = None
         self._sigterm_lock: threading.Lock = threading.Lock()
+        #: Set by `abandon_log_wait` to interrupt the bounded wait for the
+        #: ripper's log footer. Its own event rather than a reuse of the cancel
+        #: flag: a cancel is what STARTS that wait, so keying the interrupt on the
+        #: same fact would make the wait unreachable. `CLAUDE.md`'s note on a flag
+        #: with no correct place to be reset applies — this one is per-worker and
+        #: a worker serves one rip.
+        self._abandon_log_wait: threading.Event = threading.Event()
         # Every NON-progress line the ripper printed, kept verbatim.
         #
         # This is the one artifact that survives a kill. cyanrip's logfile is
@@ -1856,7 +1869,24 @@ class RipWorker(QObject):
         # Runs HERE, on the worker thread, because it spawns a container exec. The
         # report's audit check reads the recorded verdict instead of probing, so no
         # subprocess ever lands in a GUI slot.
-        self._verify_ripper_log(log_path_str)
+        #
+        # FIRST, THOUGH: make sure the ripper has finished WRITING that file.
+        #
+        # On a cancel we stop reading its output at the cancel flag rather than at
+        # EOF, and the process we signalled is the host-side Distrobox wrapper —
+        # not the in-container reader that writes this log. So the wrapper's exit
+        # is not evidence the log is finished, and reading it here caught it
+        # mid-write on the 2026-09-09 rig run: we published `verdict "failed"`,
+        # `health_status: null` and an EAC log reading "Conclusive status report :
+        # absent" at 22:02:08.9, and the ripper wrote a valid footer, a health line
+        # and a six-line end-of-rip summary at 22:02:15. One race, three false
+        # statements in the record the user keeps. See `ripper_log_settle`.
+        #
+        # Placed before BOTH readers on purpose — the verification below and the
+        # GUI's own parse, which `finished` triggers — because fixing it at either
+        # reader would leave the other one reading a half-written file.
+        settle = self._await_ripper_log(log_path_str)
+        self._verify_ripper_log(log_path_str, writer_finished=settle.is_settled)
 
         if success:
             # Peg both bars at 100% so a finished rip never leaves the
@@ -1865,12 +1895,86 @@ class RipWorker(QObject):
             self.progress.emit(100.0, 100.0)
         self.finished.emit(success, log_path_str)
 
-    def _verify_ripper_log(self, log_path_str: str) -> None:
-        """Record the ripper's verdict on its own log. Best-effort; never raises."""
+    def _await_ripper_log(self, log_path_str: str) -> LogSettle:
+        """Wait, bounded, for the ripper to finish writing ``log_path_str``.
+
+        Free on the normal path: a rip whose output we read to EOF already has its
+        footer, so this is one file read. The wait only elapses after a cancel,
+        where the in-container reader outlives the wrapper we signalled.
+
+        The budget is derived, not chosen: the reader usually writes its footer
+        *because* the GUI's force-stop rescue fires, so the wait must outlast that
+        countdown (``drive_control.FORCE_STOP_COUNTDOWN_S``) plus the same flush
+        allowance ``_RIPPER_EXIT_GRACE_S`` already budgets for cyanrip closing the
+        FLAC it was writing. Measured on the run that produced this method: rescue
+        at +4.9 s, footer at +6.6 s.
+
+        Interruptible: ``abandon_log_wait`` sets an event this polls, so window
+        close is not held up by it. That is a real interrupt rather than a flag the
+        blocked call never reads — the requirement `CLAUDE.md` puts on any
+        ``cancel()``.
+        """
+        if not log_path_str:
+            return LogSettle(
+                NOT_SETTLED,
+                "this rip produced no ripper log, so there was nothing to wait for",
+            )
+        # `_cancelled` is the discriminator because it is the ONLY path that
+        # reaches here having stopped reading before EOF — the read loop's other
+        # early exit (a stream error) returns before any verification. Read to
+        # EOF means the writer closed its stdout, which it does at exit.
+        writer_exit_observed = not self._cancelled
+        if writer_exit_observed:
+            deadline = 0.0
+        else:
+            deadline = drive_control.FORCE_STOP_COUNTDOWN_S + _RIPPER_EXIT_GRACE_S
+            self.log_line.emit(
+                "[verify] the rip was cancelled, so the ripper may still be "
+                "writing its log. Waiting up to "
+                f"{deadline:.0f}s for it to finish before checking it — reading it "
+                "now would archive a complete log as unsigned."
+            )
+        settle = await_ripper_log_settled(
+            log_path_str,
+            deadline_s=deadline,
+            should_abandon=event_abandoner(self._abandon_log_wait),
+        )
+        if not settle.is_settled:
+            # Surfaced, not merely captured: the reason is what tells a reader why
+            # the verdict below is `not_determined` rather than a pass or a fail.
+            self.log_line.emit(f"[verify] {settle.reason}")
+            log.warning("ripper log never settled: %s", settle.reason)
+        elif settle.waited_s:
+            self.log_line.emit(f"[verify] {settle.reason}")
+        return settle
+
+    @Slot()
+    def abandon_log_wait(self) -> None:
+        """Stop waiting for the ripper's log footer — safe from the GUI thread.
+
+        Called from the window's shutdown path, where the in-container reader is
+        about to be killed synchronously anyway: there is no footer coming, and
+        holding teardown for a deadline that cannot be met is the frozen-window
+        bug. Setting an ``Event`` is thread-safe and the wait polls it, so this
+        interrupts a real block rather than promising to.
+        """
+        self._abandon_log_wait.set()
+
+    def _verify_ripper_log(
+        self, log_path_str: str, *, writer_finished: bool = True
+    ) -> None:
+        """Record the ripper's verdict on its own log. Best-effort; never raises.
+
+        ``writer_finished`` is forwarded, never re-derived: an absent footer means
+        opposite things depending on it, and a second opinion about it here is a
+        second thing to drift.
+        """
         if not log_path_str:
             return
         try:
-            verification = self._backend.verify_log(log_path_str)
+            verification = self._backend.verify_log(
+                log_path_str, writer_finished=writer_finished
+            )
         except Exception as exc:  # noqa: BLE001 — a probe must not cost a finished rip
             log.exception("ripper log verification raised")
             diagnostics.exception(

@@ -465,3 +465,139 @@ def test_the_footer_check_no_longer_owns_the_unreadable_case(tmp_path: Path) -> 
     written = tmp_path / "yes.log"
     written.write_text("Log FUN512: abc\n", encoding="utf-8")
     assert rlv._read_log_text(written) == "Log FUN512: abc\n"
+
+
+# --- Asked too EARLY, which is not a finding about the log -------------------
+#
+# The 2026-09-09 rig run, §I. A cancelled rip's log was verified at 22:02:08.902
+# and the ripper wrote its `Log FUN512:` footer at 22:02:15 — 6.1 s later, because
+# the process we signalled is the host-side Distrobox wrapper and the process that
+# writes the log lives in the container. So `verdict "failed"` went into the report
+# permanently, about a complete, correctly-signed archival record.
+#
+# `writer_finished` is the caller's declaration that the writer has been seen to
+# stop. These tests pin what it gates — and, just as importantly, what it does not.
+
+
+def test_no_footer_with_the_writer_unfinished_is_not_determined(
+    tmp_path: Path,
+) -> None:
+    """The regression test for the defect itself."""
+    result = rlv.verify_rip_log(
+        _unsigned_log(tmp_path),
+        build_tag=KNOWN_BUILD,
+        runner=_runner(
+            ToolRun(exit_code=3, output='No FUN512 checksum found in "x.log"!')
+        ),
+        writer_finished=False,
+    )
+    assert result.verdict == rlv.NOT_DETERMINED, result.detail
+    assert not result.is_verified
+    assert "NOT DETERMINED" in result.detail, result.detail
+    # It says WHY, so the reader is not left to guess whether the log is bad.
+    assert "written last" in result.detail, result.detail
+    # And it does NOT make the claim the old verdict made.
+    assert "do not cite it as one" not in result.detail, result.detail
+    # The diagnostic set survives the downgrade — a `not_determined` with no
+    # evidence is the capture-without-surfacing bug.
+    assert result.exit_code == 3
+    assert result.argv and result.argv[1] == "--verify-log"
+    assert "No FUN512 checksum found" in result.output
+
+
+def test_no_footer_with_the_writer_FINISHED_is_still_failed(tmp_path: Path) -> None:
+    """The 2026-08-20 behaviour is kept, not traded away.
+
+    A log whose writer has demonstrably exited and which still carries no footer
+    is an incomplete record, and saying so is right. If this test passed with
+    `writer_finished=False` too, the fix would have replaced one wrong answer with
+    a blanket refusal to answer — which is the other way to be useless.
+    """
+    result = rlv.verify_rip_log(
+        _unsigned_log(tmp_path),
+        build_tag=KNOWN_BUILD,
+        runner=_runner(ToolRun(exit_code=3, output="No FUN512 checksum found")),
+        writer_finished=True,
+    )
+    assert result.verdict == rlv.FAILED, result.detail
+    assert "NO 'Log FUN512:' checksum line" in result.detail
+
+
+def test_the_default_is_writer_finished_so_at_rest_logs_are_unaffected(
+    tmp_path: Path,
+) -> None:
+    """Every existing caller — rig checks, offline renders — keeps its verdict.
+
+    The parameter defaults to the ordinary reading of a file nobody is writing.
+    Stated as its own test because a default that silently flipped would soften
+    every verdict in the codebase at once.
+    """
+    result = rlv.verify_rip_log(
+        _unsigned_log(tmp_path),
+        build_tag=KNOWN_BUILD,
+        runner=_runner(ToolRun(exit_code=3, output="No FUN512 checksum found")),
+    )
+    assert result.verdict == rlv.FAILED
+
+
+def test_writer_finished_gates_ONLY_the_absent_footer_branch() -> None:
+    """A checksum that is PRESENT and disagrees is a finding either way.
+
+    This is the *can it be satisfied by the wrong thing* question asked of the
+    fix: a mid-write log cannot produce a footer that mismatches, so declaring
+    the writer unfinished must not soften the one verdict that matters. Proven
+    against a real signed log from the corpus.
+    """
+    result = rlv.verify_rip_log(
+        _REAL_LOG,
+        build_tag=KNOWN_BUILD,
+        runner=_runner(ToolRun(exit_code=2, output="Log checksum mismatch!")),
+        writer_finished=False,
+    )
+    assert result.verdict == rlv.FAILED, result.detail
+    assert "altered after the ripper signed it" in result.detail
+
+
+def test_an_unfinished_writer_does_not_override_a_PASS() -> None:
+    """Exit 0 is exit 0. The ripper accepted the file; nothing here second-guesses it.
+
+    Reachable in practice: the footer can land between our read loop breaking and
+    this probe running, which is precisely the outcome the settle wait exists to
+    produce.
+    """
+    result = rlv.verify_rip_log(
+        _REAL_LOG,
+        runner=_runner(ToolRun(exit_code=0)),
+        writer_finished=False,
+    )
+    assert result.verdict == rlv.VERIFIED
+    assert result.is_verified
+
+
+def test_the_backend_forwards_writer_finished_rather_than_deciding_it() -> None:
+    """The seam, not just the classifier.
+
+    `CyanripImpl.verify_log` must pass the caller's declaration through. A
+    backend that re-derived it would be a second opinion about one fact, which is
+    the shape `CLAUDE.md` names as guaranteed to drift — and it would be invisible
+    here, because both answers produce a `LogVerification`.
+    """
+    import inspect
+
+    from platterpus.adapters.cyanrip_backend import CyanripImpl
+    from platterpus.adapters.rip_backend import RipBackend
+
+    for owner in (RipBackend, CyanripImpl):
+        params = inspect.signature(owner.verify_log).parameters
+        assert "writer_finished" in params, (
+            f"{owner.__name__}.verify_log does not take writer_finished, so the "
+            "worker's knowledge of whether the ripper stopped cannot reach the "
+            "classifier"
+        )
+        assert params["writer_finished"].kind is inspect.Parameter.KEYWORD_ONLY
+
+    source = inspect.getsource(CyanripImpl.verify_log)
+    assert "writer_finished=writer_finished" in source, (
+        "the backend does not forward the caller's declaration — a re-derivation "
+        "here is a second opinion about one fact"
+    )

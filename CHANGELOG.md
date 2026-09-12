@@ -11,6 +11,264 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.46] — 2026-09-12
+
+
+### Added
+- **`scripts/verify_log_surface.py` — clause 3 of the cyanrip handshake, graded by
+  the reader the clause is actually about.** Round 16's close condition says *"no
+  line you parse has moved except the ones §D names"*, and "you" is Platterpus.
+  The fork's `round16-accept.py` grades all three clauses and its exit code is the
+  observable both sides' pre-commits now hang on — right for clauses 1 and 2,
+  which are facts about their ripper. Clause 3 is not: their checker can only
+  grade it by proxy, and measured, that proxy is the `-j` schema, two instants,
+  the banner, and the presence of **two** log lines — against the **sixty** our
+  generated contract says we parse. A pass resting on a 2-of-60 sample of one
+  third of the condition is not one either project would want on the record.
+  The script runs the parser's **own** enumeration tables — the same ones the
+  published contract is generated from, so it cannot drift from the parser — over
+  a run's logs and reports every line that is neither parsed nor knowingly
+  ignored. It refuses to report success on an empty or tiny population
+  (`UNPROBED` is not a pass, the fork's own rule), excludes artifacts *we* wrote
+  however they are spelled, and counts rather than drops anything it sets aside.
+  Measured on the 2026-09-10 run: **3,623 lines across all eight logs, zero
+  unaccounted.**
+  *Its first cross-repository run then found a bug in itself, which is the point
+  of running it twice.* The exclusion that keeps our own EAC-compatible exports
+  out of a sweep for **cyanrip** format changes matched on the **name**, and the
+  same artifact now exists under three spellings —
+  `cyanrip_fork_police_classics_EACcompatible.log` in `output_reference/`,
+  `… (EAC-compatible).log` in an evidence bundle, and `after-cancel.eac.log`
+  where the cyanrip fork files our logs in theirs. The name rule caught the first
+  two and missed the third the moment the file crossed a repository boundary, so
+  43 lines of our own export were reported as unaccounted-for ripper output.
+  The load-bearing check is now what the document **says about itself** in its
+  first line and its footer, with the name demoted to a cheap pre-filter;
+  renaming cannot defeat it, only the head of a file is scanned so a log that
+  merely *quotes* our banner is still graded as theirs, and anything set aside is
+  listed rather than vanishing. This is `CLAUDE.md`'s cross-machine filename rule
+  doing exactly what it predicts — *legislate the name **and** stop depending on
+  it* — in the one script whose docstring cites that rule and which had done only
+  the first half. Re-measured after the fix: **3,623 lines, zero unaccounted,
+  identical over our evidence bundle and over the fork's own filed copy of the
+  same logs.**
+
+### Fixed
+- **Two post-close gates now wait on the fork's release manifest instead of
+  failing.** Round 16 closed approving cyanrip `a9aedf0` — a commit the fork has
+  never published. Our production `FORK_PIN` therefore cannot roll to it: the
+  in-app ripper offer computes what it can install from their release manifest, so
+  pointing the wizard at an unpublished commit would leave the setup path
+  proposing a build it cannot obtain, which is a failure this project has already
+  paid for once. Both the pin-staleness check and the install-menu label check now
+  condition on `release_seq_for_commit(...)`, **the fork's own answer**, rather
+  than on a named-pin allowlist that would have to be remembered and would rot
+  silently. Neither is an exemption: both branches still assert something real —
+  the production pin must remain published *and* declared by some closed round —
+  and forcing the published case in a revert probe makes both fire immediately, so
+  the roll becomes due the moment `a9aedf0` is released.
+- **Our handshake gate accepted a pin field the fork's gate reads as absent — and
+  we had already built that exact guard, aimed one field family away.** The shared
+  spec says `HANDSHAKE-PEER-PIN: <commit sha>` (`handshake-protocol.md` §5) and
+  the fork's `PEER_PIN_RE` anchors to end of line, so our
+  `HANDSHAKE-PEER-PIN: 2d0d260 — your lap 15's …` reads to them as the field being
+  **absent**; their gate refused their own closing lap over it and they asked us
+  to check ours. Ours accepted it, in **four** sent laps. The sharp part is that
+  `closed_set_prose` has warned since round 12 that prose after a token makes *"the
+  peer's gate read this field as ABSENT — declare the bare token and move the
+  provenance to `<FIELD>-SOURCE`"* — the same defect and the same remedy, enforced
+  on the verdict fields and not the pins. *Enforce a rule across the surface it
+  governs, not at the place it was learned*, arriving inside the checker written
+  for that rule. Now one implementation with two callers (`closed_set_prose` and
+  `pin_field_prose`) rather than a second copy to drift, a sweep and a
+  shrink-only ratchet naming the four unfixable sent laps, and `--emit` produces
+  the bare SHA with a `HANDSHAKE-PEER-PIN-SOURCE` companion so the generator cannot
+  reintroduce it. The positive case is pinned against the fork's own corrected lap
+  rather than a mock, because the natural mistake is a pattern strict enough to
+  reject the fixed form too. Three reverts probe as expected.
+- **Every rig run used to leave a fresh folder loose in `$HOME`; now there is one
+  directory and `rm -rf ~/platterpus-rig` removes all of it.** An acceptance run
+  created `~/platterpustestsession<stamp>/` straight in the home directory and
+  `--rig-session` added `~/platterpus-rig-<stamp>/` beside it, so the litter grew
+  once per run — two different kinds of it, from two call sites that each built
+  the path themselves. **The timestamping was never the problem and has not been
+  removed**: two runs must not overwrite each other's evidence. What changed is
+  that the stamped folder now goes *inside* one stable parent, both call sites go
+  through one `rig_parent()` helper so they cannot drift apart again, and `$HOME`
+  gains exactly one entry no matter how many runs happen. Rips still land in
+  `~/Music`, and the deliverable archive still lands in `~/Downloads`, because
+  those are where music and downloads go. The name mirrors the cyanrip fork's
+  `~/cyanrip-rig`, adopted on the same instruction the same day — the operator
+  holds both rigs on one machine, and two projects each inventing their own shape
+  would be the same defect at a larger scale. The regression test counts entries
+  in `$HOME` rather than checking a path, because a path check passes while a
+  *second* writer quietly adds a different one, which is how there came to be two
+  kinds of litter instead of one.
+  **Swept rather than spot-fixed**, after the instruction had to be given twice:
+  every `$HOME`-derived write in the package was enumerated, and two more were
+  found beyond the two loud ones. The evidence bundle's *no-Downloads fallback*
+  dropped a tarball straight into the home folder once per run on any machine
+  without a `Downloads` directory — it now lands in the same one place, and
+  `Downloads` is still never invented, because creating it would put the
+  deliverable where the operator has no habit of looking. And the script
+  console's **Save the transcript** dialog proposed `~/platterpus-transcript.txt`;
+  it now proposes `~/Downloads` when that exists and the rig directory otherwise,
+  asking the same two functions the bundle asks so the two cannot disagree about
+  where a deliverable belongs. A save dialog only *proposes*, which is why it was
+  the mildest of the three — and why it was fixed anyway: *"we only suggested
+  it"* is how a default becomes the thing everybody has. What is left writing
+  under `$HOME` is `~/Music/rips` (rips), `~/Applications` and `~/Desktop`
+  (desktop integration), and the XDG directories — all of them where those things
+  belong.
+- **The acceptance run's clause-2 section stated a verdict rule that was
+  arithmetically impossible to satisfy, and it accused the cyanrip fork.** Section
+  P3 of `fullacceptance.txt` rips the same track twice, `-H -E` against `-H -W`,
+  and said: *"the two runs' track-1 checksums, AS PRINTED BY cyanrip IN THE
+  TRANSCRIPT, MUST DIFFER… Identical checksums mean the cascade is still
+  selecting rather than composing"* — i.e. that the fork's `b866900` de-emphasis
+  defect was unfixed. **Every checksum cyanrip prints is accumulated over the
+  buffer as it came off the drive**: `crip_process_checksums(&checksum_ctx, data,
+  bytes)` at `src/cyanrip_main.c:818`, `:872` and `:965` (read at `ddc1e8c`), each
+  one *before* `cyanrip_send_pcm_to_encoders(..., t->dec_ctx, ...)` at `:821`,
+  `:879`, `:968`, which is where the filter graph and therefore `aemphasis` live.
+  A checksum taken before a filter cannot record what the filter did, so the two
+  arms are **forced** to agree — and the rule reported a peer's defect as present
+  on every run that will ever be made. Not hypothetical: the 2026-09-11 rig run
+  printed `B0D122E7` for both arms, exactly as it must.
+  **The load-bearing sentence was a premise, not a measurement** — *"cyanrip's
+  printed per-track checksum is over the DECODED SAMPLES"* — and the section
+  stayed on FLAC output because of it. P3 now says plainly that it settles
+  nothing, that clause 2 is closed only by Run A (which rips `-o pcm` and
+  compares decoded samples, as does the fork's own grader), and it warns off
+  **both** nearest-to-hand readings, which fail in opposite directions: the
+  container md5 is a false pass, the printed checksum a false failure.
+  **The guarding test carried the same wrong premise**, asserting in its own
+  docstring that the printed checksums are *"over the decoded samples"* — so it
+  could never have caught this, and a green test was defending the defect. It has
+  been rewritten rather than exempted, and its phrase matching now normalises the
+  comment block's hand-wrapping, because the first version went red on a reflow
+  rather than on a regression. Four reverts probe `detected`.
+- **The fourth media guard did not know about `.pcm` or `.raw`.** Critical rule #8
+  is enforced four ways — `.gitignore`, `.githooks/pre-commit`, CI's `media-guard`
+  job, and the `PreToolUse` hook in `.claude/settings.json`. When raw PCM was added
+  to the deny list on 2026-09-07 the first three got it and the fourth did not, and
+  `.gitignore`'s own comment records the reason it was missed: it says the fix
+  covered *"our three media guards"*. **The population was counted as three when it
+  is four** — the same *is the population I measured closed?* failure this repo has
+  now hit from several directions, arriving in the guard for the rule it protects.
+  Low real risk, because the canonical guard is the git hook and that one was
+  correct, so no commit could have landed. But it stops mattering only if the lists
+  agree: round 16's Run A produces its clause-2 and clause-3 evidence as `-o pcm`,
+  i.e. raw interleaved s16le samples of a commercial disc, which is precisely the
+  material rule #8 exists to keep out of a public repository.
+- **A cancel that lands before the first track finishes no longer reads as a
+  destroyed record.** `expect-log-well-formed` — the only graded assertion in §I,
+  the ARCHIVAL section whose entire subject is whether cancelling a rip destroys
+  its record — carried an unconditional floor: *no track blocks → FAIL*. §I
+  cancels **during track 1**, so a correct record legitimately carries **zero**
+  completed track blocks. On the 2026-09-11 hardware run that floor failed a log
+  which was complete and attested in every other respect — `Rip completed:  no
+  (interrupted by SIGTERM, 0 of 14 tracks)`, `Interrupted at: track 1, mid-read`,
+  a valid `Log FUN512:`, not truncated. The floor is now graded **against the
+  footer**: a footer claiming the rip *completed* over zero track blocks is a
+  record contradicting itself and still fails; a footer saying it did not
+  complete is the expected shape and is reported rather than graded — the same
+  treatment the incomplete-last-block check three lines below already gave it.
+  The verb still cannot pass by finding nothing: the footer must be present
+  (tri-state), and the signature present and well-formed.
+  **Two things worth keeping about how this was missed.** It is the *second*
+  defect in this verb in three days, and the fix for the first one is what made it
+  reachable — grading the file instead of the window's stale snapshot unblocked a
+  state that had never executed, so it arrived already believed-in (`CLAUDE.md`:
+  *ask it about state the fix UNBLOCKS, not only state it adds*). And the test for
+  that first fix could not see it, because its stand-in "disk" log was the
+  14-track corpus rip: *what does my stand-in do that the real thing does not.*
+  The regression test now grades **the real artifact from the run that failed**,
+  committed as `tests/fixtures/cyanrip_cancelled_at_track_one.log`, and the
+  converse (a completed footer over zero blocks) is pinned separately so the floor
+  is proven to still bite. All three reverts probe `detected`.
+- **A cancelled rip no longer archives its own record as broken.** On the
+  2026-09-09 hardware run the one failure in 238 steps was section I — the
+  ARCHIVAL section whose whole subject is whether cancelling a rip destroys its
+  record — reporting the record destroyed. It had not been. The cyanrip log on
+  disk carried `Rip completed:  no (interrupted by SIGTERM, 0 of 14 tracks)`,
+  `Interrupted at: track 1, mid-read` and a valid `Log FUN512:` signature. **We
+  read the file 6.1 seconds before the ripper finished writing it**, and
+  published the absence as a finding.
+
+  One race, three false statements in the record the user keeps: the report's
+  `ripper_log_verification` said `verdict "failed"` about a correctly-signed log;
+  `health_status` was `null` though `Ripping errors: 1` was in the file; and the
+  **EAC-compatible log** said `Conclusive status report : absent — this log
+  carries no end-of-rip summary` over a rip whose end-of-rip summary is six lines
+  long. Not three defects — one, with three faces, so the fix sits upstream of
+  all three readers rather than correcting each downstream.
+
+  **Why the ripper's exit was not evidence.** `~/.local/bin/cyanrip` is the
+  host-exported Distrobox wrapper (Critical rule #3). Signalling it reaches the
+  wrapper's process group on the host; the process that reads the disc and writes
+  the log lives inside the container, in a tree podman does not forward the signal
+  into — the same fact `drive_control` exists for. So the discriminator is not
+  *did the process exit* but **did we read its output to EOF**: EOF means the
+  writer closed its stdout, which it does at exit, and a read loop that `break`s
+  on a cancel flag has no such proof. That is the only path where the new wait
+  does any work; a successful rip pays one file read.
+
+  Fixed in four places, and deliberately **not** with a quiet-window heuristic —
+  the log went quiet at the cancel and stayed quiet for 6.6 s, because nothing
+  kills the in-container reader until the GUI's force-stop rescue reaches it, so
+  any "it stopped growing, therefore it is finished" rule would have concluded
+  exactly the wrong thing:
+  - **`ripper_log_settle.py` (new)** waits, bounded, for the ripper's own
+    completion footer to appear, and reports two outcomes with no inference
+    between them: the footer arrived, or *we still do not know*. Interruptible two
+    ways and both of them real — a polled `should_abandon`, which the window's
+    shutdown path sets, and a `wait` seam whose `threading.Event.wait`-shaped
+    return value the loop honours. The first version documented the second and
+    discarded it, which is *a documented capability is not a capability*: a
+    caller passing `event.wait` was promised an interrupt and given a delay.
+  - **The rip worker** runs that wait before both readers — the verification and
+    the GUI's own parse, which `finished` triggers — because fixing it at either
+    one would leave the other reading a half-written file. Its budget derives from
+    `drive_control.FORCE_STOP_COUNTDOWN_S` plus the ripper's flush allowance
+    rather than being a chosen number, so raising the countdown cannot silently
+    make the wait too short again.
+  - **`--verify-log`'s absent-footer verdict is now tri-state.** With the writer
+    unconfirmed it is `not_determined` and says why; with the writer finished it
+    stays `failed`, so the 2026-08-20 "absent is not mismatched" work is kept
+    rather than traded away. A checksum that is *present* and disagrees is still
+    `failed` either way — the gate touches one branch only.
+  - **The EAC-compatible log now renders the ripper's own completion record** —
+    `Rip completed:` and `Interrupted at:` — which it held in its parsed input and
+    dropped, and its absent-summary headline no longer claims an absence it can
+    see is untrue. Facts we had and discarded, in the one artifact a person reads.
+
+- **The acceptance script's log graders read the log from disk, not the window's
+  parsed copy of it.** `expect-log-well-formed`, `expect-rip-complete` and
+  `expect-secure-rerip` all graded `window._last_rip_log` — a belief about the
+  artifact rather than the artifact — which is how a complete, signed log came to
+  be reported as destroyed. `CLAUDE.md` already had the rule (*when a committed
+  artifact can settle a question, the test should read the artifact*); the
+  acceptance script is where this project's tests are written, so it binds there.
+  All three now delegate to one shared reader that re-parses the file through the
+  window's **own** parse — extracted, not copied — and there is no fallback to the
+  snapshot, because a fallback would restore the old reading silently on exactly
+  the runs where the two disagree. A disagreement between disk and snapshot is
+  itself reported: it means the report and the EAC log, both rendered from that
+  snapshot, describe a different document.
+
+### Added
+- **The evidence bundle's manifest now names the build commit, not only the
+  version.** A version names a release; a commit names the tree that ran. The
+  cyanrip fork's round-16 lap 9 recorded `HANDSHAKE-PEER-PIN: unknown — your
+  0.6.45 bundle carries no commit for itself` and, correctly, filed our pin as
+  unknown rather than guess it from a superseded lap. They were right about the
+  manifest — and the fact was in the bundle the whole time, in the application
+  log's banner (`Platterpus 0.6.45 (build 62de7b6)`). We had it, and the first
+  file a peer opens did not say it. Read from `build_fingerprint()`, the same
+  source the banner uses, so the two cannot disagree; an unstamped checkout
+  prints `source`, which is a real answer and not a blank row.
+
 ## [0.6.45] — 2026-09-08
 
 **The acceptance run needs no terminal.** `Help → Install a cyanrip build…`
@@ -13923,7 +14181,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.45...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.46...HEAD
+[0.6.46]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.45...v0.6.46
 [0.6.45]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.44...v0.6.45
 [0.6.44]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.43...v0.6.44
 [0.6.43]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.42...v0.6.43
@@ -14056,4 +14315,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.45.*
+*Last updated for Platterpus v0.6.46.*

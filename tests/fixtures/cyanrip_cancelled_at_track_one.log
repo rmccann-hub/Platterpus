@@ -1,0 +1,91 @@
+cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-gddc1e8c)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 3 -l 1,2,3 -N --consumer platterpus/0.6.45 -c 1/1 -a "album=cancel me 20260911t141013 platterpus-fork-gddc1e8c:album_artist=Platterpus Acceptance:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=Platterpus Acceptance:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=Platterpus Acceptance:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=Platterpus Acceptance:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=Platterpus Acceptance:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=Platterpus Acceptance:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=Platterpus Acceptance:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=Platterpus Acceptance:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=Platterpus Acceptance:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=Platterpus Acceptance:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=Platterpus Acceptance:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=Platterpus Acceptance:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=Platterpus Acceptance:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=Platterpus Acceptance:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=Platterpus Acceptance:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -j cyanrip-diagnostics-20260911T151605Z.json
+Handshake:      round 16 lap 1 OPEN, verdict OPEN -- NOT a released build
+Consumer:       platterpus/0.6.45
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+Paranoia level: max
+Frame retries:  3
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  1, 2, 3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Album:          cancel me 20260911t141013 platterpus-fork-gddc1e8c
+Album artist:   Platterpus Acceptance
+AccurateRip:    found
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    94 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Tracks:
+
+Stopping, ripping incomplete!
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -14.4 LUFS
+    Threshold: -24.6 LUFS
+
+  Loudness range:
+    LRA:         6.9 LU
+    Threshold: -34.6 LUFS
+    LRA low:   -18.6 LUFS
+    LRA high:  -11.7 LUFS
+
+  Sample peak:
+    Peak:       -0.5 dBFS
+
+  True peak:
+    Peak:        0.1 dBFS
+
+Album integrated loudness (R128): -14.4 LUFS
+Album loudness range (R128):      6.9 LU (-18.6 to -11.7 LUFS)
+Album sample peak level:          -0.5 dBFS
+Album true peak level:            0.1 dBFS
+Tracks ripped accurately: 0/14
+Tracks ripped partially accurately: 1/14
+
+Paranoia status counts:
+  READ:          578
+  VERIFY:        36
+  OVERLAP:       3
+
+Ripping errors: 1
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  no (interrupted by SIGTERM, 0 of 14 tracks)
+Interrupted at: track 1, mid-read
+Ripping finished at 2026-09-11T11:17:43-04:00
+Log FUN512: f30qiUiDlh8o223CsxjchHt_hxGtJ5LoK27zXjxLI8C5L9mTXJc_WnfUHADyf9J9JW9m.9BGlbMdsM6SEOIt5A

@@ -513,20 +513,30 @@ class CyanripImpl(RipBackend):
         assert last_error is not None  # VERSION_FLAGS is never empty
         raise last_error
 
-    def verify_log(self, log_path: str | Path) -> LogVerification:
+    def verify_log(
+        self, log_path: str | Path, *, writer_finished: bool = True
+    ) -> LogVerification:
         """Run ``cyanrip --verify-log`` over a log cyanrip wrote.
 
         Delegates to the `ripper_log_verify` adapter so the classification (and its
         tri-state) lives in one testable place rather than inside this class, which
         needs a real binary to exercise. BLOCKING; the rip worker calls it off the
         GUI thread and the verdict travels into the report as data.
+
+        ``writer_finished`` is passed straight through — this class does not get to
+        decide it, because the fact belongs to whoever watched the ripper's output
+        end. Forwarding rather than re-deriving is the one-predicate-many-callers
+        rule; a second guess at it here is a second thing to drift.
         """
         # The build tag is what decides whether a non-zero exit is evidence against
         # the LOG or evidence the flag was rejected (lap 12 J4). Taken from the
         # ripper's own banner rather than from anything we remember about the install
         # — provenance derivable from the artifact, rule 12.
         return verify_rip_log(
-            log_path, self._binary, build_tag=self._observed_build_tag()
+            log_path,
+            self._binary,
+            build_tag=self._observed_build_tag(),
+            writer_finished=writer_finished,
         )
 
     def _observed_build_tag(self) -> str:

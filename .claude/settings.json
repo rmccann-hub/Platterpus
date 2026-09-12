@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "git diff --cached --name-only --diff-filter=ACMR 2>/dev/null | grep -qiE '\\.(flac|wav|mp3|m4a|aac|ogg|oga|opus|wv|ape|wma|aiff|aif|alac|dsf|dff)$' && { echo 'Blocked: audio/copyrighted media is staged (CLAUDE.md Critical Rule #8). Unstage it (git restore --staged <file>); test audio outside the repo.' >&2; exit 2; } || exit 0",
+            "command": "git diff --cached --name-only --diff-filter=ACMR 2>/dev/null | grep -qiE '\\.(flac|wav|pcm|raw|mp3|m4a|aac|ogg|oga|opus|wv|ape|wma|aiff|aif|alac|dsf|dff)$' && { echo 'Blocked: audio/copyrighted media is staged (CLAUDE.md Critical Rule #8). Unstage it (git restore --staged <file>); test audio outside the repo.' >&2; exit 2; } || exit 0",
             "timeout": 10
           }
         ]
