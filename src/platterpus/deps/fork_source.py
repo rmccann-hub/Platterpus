@@ -459,13 +459,7 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: That is the opposite of the 2026-08-18 mis-pairing and it is legitimate: there
 #: the version was stale against a moved pin, here the fork has published both
 #: halves against this commit in its own header. Read off the artifact either way.
-#: **Moved `a9aedf0` -> `fe4d2c4` on 2026-09-12, when round 17 opened.** Round 16
-#: closed GO/GO on `a9aedf0`; round 17 is the RELEASE round and proposes a new
-#: candidate. Their lap 1 §2 is explicit that `fe4d2c4` is deliberately NOT the
-#: bump: `6a9a080` moved the version, `a2523c4` regenerated the derived artifacts,
-#: and `fe4d2c4` is the first commit at which the version and every artifact
-#: agree. `6a9a080` is red on its own suite and must never be released.
-PIN_UNDER_REVIEW: Final[str] = "fe4d2c4"
+PIN_UNDER_REVIEW: Final[str] = "a9aedf0"
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
 #:
@@ -738,15 +732,6 @@ SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = (
 BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
     {
         FORK_EXPECTED_BUILD_TAG,  # the current production pin
-        # **Round 17's candidate, and the claim is BACKED rather than assumed.**
-        # `tests/test_handshake_pin_under_review.py` requires any capability we
-        # assert for the build under review to be listed in the newest provider
-        # contract we hold, and `round-16-lap-06-provider-contract-g12f2081.md`
-        # lists `--consumer` and `--verify-log` both. Their round-17 lap 1 §3 says
-        # the same independently — *"The CLI surface did not move at all -- no flag
-        # added, removed or renamed"* — and their §2 reports `contract-delta.py`
-        # finding no P1 flag changed from `+platterpus.11`. Two routes, one answer.
-        "platterpus-fork-gfe4d2c4",
         # **SUPERSEDED PRODUCTION PINS STAY, and this one nearly did not.**
         # `ddf7ac3` was in this set only by way of `FORK_EXPECTED_BUILD_TAG`, so
         # rolling the pin forward at round 14's close removed it — silently, and
@@ -1168,11 +1153,7 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     # `+platterpus.10` while `pin` had moved for about as long as it took to
     # notice, which is why the pairing is now asserted by
     # `tests/test_fork_source.py` against the newest inbound lap rather than read.
-    # **Round 17's pairing, from their lap-1 wire header lines 13-14:**
-    # `cyanrip 0.9.4-rc2+platterpus.12 (platterpus-fork-gfe4d2c4)`. Unlike round
-    # 16, the version DID move this round -- it is a release candidate, and the
-    # bump is what makes it one. Read off the artifact, not incremented.
-    version="0.9.4-rc2+platterpus.12",
+    version="0.9.4-rc2+platterpus.11",
     # **DERIVED, NOT ASSERTED.** This sentence used to read "round 14 is the round
     # that would [approve it], and it is open" — a hard-coded claim about round
     # state, which went false the moment round 14 closed and `PIN_UNDER_REVIEW`
