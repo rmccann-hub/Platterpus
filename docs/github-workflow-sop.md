@@ -203,4 +203,4 @@ what order.*
 
 ---
 
-*Last updated for Platterpus v0.6.46.*
+*Last updated for Platterpus v0.6.47.*
