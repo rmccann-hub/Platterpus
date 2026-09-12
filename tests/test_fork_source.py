@@ -1399,9 +1399,27 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # over unaltered, and it carries over because it was re-checked, not because
     # nothing looked different.
     #
+    # **IT FIRED A THIRD TIME ON THE ROLL TO `fe4d2c4` (round 17 close,
+    # 2026-09-12), AND THE ANSWER AGAIN DID NOT CHANGE — re-derived, not carried
+    # over.** `git diff 978f9b0 fe4d2c4 -- meson_options.txt` in the fork's own
+    # tree is **empty**: still exactly one option, `declare_released`,
+    # `value: false`, and its own comment still calls it *"a CLAIM, not a
+    # measurement"* that is *"release path only"*.
+    #
+    # Checked one thing further this time, because their manifest is now the thing
+    # a user installs from: `release-manifest.json` names the build command
+    # `meson setup build -Ddeclare_released=true && ninja -C build`. That is THEIR
+    # release path setting the flag on THEIR artifact, and it reads at a glance
+    # like an instruction to us. It is not, and the manifest at `978f9b0` said the
+    # same thing, so nothing changed — but the reason we decline is unchanged too:
+    # we build from source, in a container, on the operator's machine, so our
+    # binary is not their published artifact even when compiled from the published
+    # commit. Passing the flag would stamp a claim we are not entitled to make into
+    # an archival log, which their own comment says must never happen.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
-    assert fork_source.PRODUCTION_TARGET.pin == "978f9b0", (
+    assert fork_source.PRODUCTION_TARGET.pin == "fe4d2c4", (
         "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
         "whether we are entitled to any option it declares. Presence is not "
         "permission: `declare_released` is a claim about provenance, and a build "

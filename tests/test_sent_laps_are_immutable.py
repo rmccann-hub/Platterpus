@@ -64,6 +64,20 @@ SENT_LAPS: dict[str, str] = {
     #
     # It is also the lap that closed round 16: with it filed, `--status` moved
     # round-16 to CLOSED and every one of the sixteen rounds is now shut.
+    # Round 17 lap 2. **Peer-confirmed, delivered unedited, and it is the lap that
+    # earned their GO.** Their lap 3 names it in both line 11
+    # (`HANDSHAKE-PEER-VERDICT-SOURCE`) and line 25 (`HANDSHAKE-INBOUND-HELD`) at
+    # sha256/16 `404f07b58fec5c98`, 10,785 bytes, *"extracted with your published
+    # reader and byte-identical to the raw copy"*. Both numbers re-derive here, and
+    # the emitter reported the same pair when it packed the envelope.
+    #
+    # The round closed on it at three laps: their §5 pre-commit made their lap 3 a
+    # GO unless this lap reported a breaking row unhandled or named a defect in
+    # `fe4d2c4`, and it did neither. A lap a peer resolves a pre-commit against is
+    # one whose bytes must not move afterwards.
+    "outbound/round-17-lap-02.md": (
+        "404f07b58fec5c982e18f8b5ef803a11c538ed0344870a2986ef72de79fdb15e"
+    ),
     "outbound/round-16-lap-16.md": (
         "18cd6588321002ace694176901e6a1706bdfdf2ff7dc626bd245cd51d4515cc9"
     ),
