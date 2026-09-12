@@ -691,7 +691,34 @@ def test_the_install_menu_offers_the_build_the_acceptance_gate_demands() -> None
         and (pin := approved_pin_declared_by(path.read_text(encoding="utf-8")))
     }
     assert approved_pins, "no verification declares HANDSHAKE-PIN — nothing to compare"
+
+    # **AN APPROVED PIN THE FORK HAS NOT PUBLISHED IS NOT YET OUR APPROVAL**, and
+    # the condition is derived from their release manifest rather than allowlisted.
+    #
+    # Round 16 closed GO/GO on `a9aedf0`, which the fork has never released. Our
+    # approval constants describe a *pair* — a ripper commit and the app version
+    # whose evidence closed the round — and they move with `FORK_PIN`, which cannot
+    # roll to an unpublished commit without pointing the setup wizard at a build it
+    # cannot obtain. So for the window between a close and the fork's release, the
+    # record legitimately says "approved" while the product legitimately says "not
+    # the build this Platterpus was verified against".
+    #
+    # This is NOT an exemption. `release_seq_for_commit` is the fork's own answer,
+    # so the moment `a9aedf0` is published it re-enters this population and the
+    # assertion below fires unless the menu has caught up. A named-pin allowlist
+    # would have to be remembered and would rot silently; this cannot.
+    unpublished = {
+        pin for pin in approved_pins if fork_source.release_seq_for_commit(pin) is None
+    }
+    approved_pins -= unpublished
+    assert approved_pins, (
+        "every record-approved pin is unpublished, so this check has nothing left "
+        "to compare and would pass by finding nothing"
+    )
+
     for choice in fork_source.ripper_choices():
+        if any(fork_source.same_commit(choice.pin, pin) for pin in unpublished):
+            continue
         in_record = any(
             fork_source.same_commit(choice.pin, pin) for pin in approved_pins
         )

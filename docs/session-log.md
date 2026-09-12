@@ -568,6 +568,50 @@ upstream of the filter (`cyanrip_main.c:818/:872/:965` before
 `:821/:879/:968`). Their instrument was right and we misread why — their script
 decodes with `ffmpeg -f md5`, and the decode is the whole mechanism.
 
+### 2026-09-12 (close) — round 16 is CLOSED, and the closing lap exposed a gate divergence
+
+**`GO`/`GO`. All sixteen rounds are now closed** and the release gate is open for
+the first time this round.
+
+**Their lap 17 is the acknowledgement our §D asked for, and it confirms §D was
+right by an independent route.** Their `tools/release-gate.py` produced the same
+blocker ours did — *"round 16 is not closed (our verdict GO, peer verdict OPEN):
+round-16-lap-15.md"* — same cause, neither implementation having read the other's
+code. Two gates agreeing on a state and a remedy is worth the line they gave it.
+
+**Then their gate refused their own closing lap over a field ours accepts, and
+they asked us to check. They were right.** `handshake-protocol.md` §5 says
+`HANDSHAKE-PEER-PIN: <commit sha>`; their `PEER_PIN_RE` anchors to end of line;
+our `HANDSHAKE-PEER-PIN: 2d0d260 — your lap 15's …` reads to them as the field
+being **absent**. Four of our sent laps carry that shape (round 16 laps 10, 12,
+14, 16).
+
+**The lesson is not "we missed a check" — it is that we had this check and pointed
+it elsewhere.** `closed_set_prose` has said since round 12 that prose after a
+token makes the peer read the field as ABSENT, and prescribed the exact remedy the
+fork just adopted (`<FIELD>-SOURCE`). It covered `HANDSHAKE-VERDICT` and
+`HANDSHAKE-PEER-VERDICT` and stopped there. *Enforce a rule across the surface it
+governs, not at the place it was learned* — `docs/testing.md` §5.o, arriving
+inside the checker written for §5.o.
+
+Fixed as one implementation with two callers rather than a copy, a sweep, a
+shrink-only ratchet for the four unfixable sent laps, and `--emit` now producing
+the bare SHA plus a `-SOURCE` companion so the skeleton cannot reintroduce it. The
+non-triviality case asserts against **their** corrected lap rather than a mock.
+
+**Their §2 verified our §A1 in their own source and found a second route to it.**
+All three call-site pairs are as we cited. And independently, the peak/ebur128
+graph is built by its own `init_filtering()` with `hdcd` and `deemphasis` both `0`
+(`cyanrip_encode.c:480-483`), so the loudness and peak figures are pre-filter too.
+**Every audio number the log prints describes the input, not the output file.**
+They flagged the consequence as round-17 material rather than acting on it: a
+reader seeing `EAC CRC32:` above `File(s): …/01.pcm` is entitled to think the
+checksum describes that file, and with `-H` or `-E` it does not.
+
+**Round 17 is theirs to open and it is the release round** — both projects cut a
+release, each verifies the other's, close means go-test. Its `HANDSHAKE-BREAKING`
+will not be empty: a release crosses `978f9b0`, not `a9aedf0`.
+
 ### Still open (for the fork, and for us)
 
 * **Run A's result has not been seen**, and round 16 stays open on it. The close

@@ -51,6 +51,38 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   same logs.**
 
 ### Fixed
+- **Two post-close gates now wait on the fork's release manifest instead of
+  failing.** Round 16 closed approving cyanrip `a9aedf0` — a commit the fork has
+  never published. Our production `FORK_PIN` therefore cannot roll to it: the
+  in-app ripper offer computes what it can install from their release manifest, so
+  pointing the wizard at an unpublished commit would leave the setup path
+  proposing a build it cannot obtain, which is a failure this project has already
+  paid for once. Both the pin-staleness check and the install-menu label check now
+  condition on `release_seq_for_commit(...)`, **the fork's own answer**, rather
+  than on a named-pin allowlist that would have to be remembered and would rot
+  silently. Neither is an exemption: both branches still assert something real —
+  the production pin must remain published *and* declared by some closed round —
+  and forcing the published case in a revert probe makes both fire immediately, so
+  the roll becomes due the moment `a9aedf0` is released.
+- **Our handshake gate accepted a pin field the fork's gate reads as absent — and
+  we had already built that exact guard, aimed one field family away.** The shared
+  spec says `HANDSHAKE-PEER-PIN: <commit sha>` (`handshake-protocol.md` §5) and
+  the fork's `PEER_PIN_RE` anchors to end of line, so our
+  `HANDSHAKE-PEER-PIN: 2d0d260 — your lap 15's …` reads to them as the field being
+  **absent**; their gate refused their own closing lap over it and they asked us
+  to check ours. Ours accepted it, in **four** sent laps. The sharp part is that
+  `closed_set_prose` has warned since round 12 that prose after a token makes *"the
+  peer's gate read this field as ABSENT — declare the bare token and move the
+  provenance to `<FIELD>-SOURCE`"* — the same defect and the same remedy, enforced
+  on the verdict fields and not the pins. *Enforce a rule across the surface it
+  governs, not at the place it was learned*, arriving inside the checker written
+  for that rule. Now one implementation with two callers (`closed_set_prose` and
+  `pin_field_prose`) rather than a second copy to drift, a sweep and a
+  shrink-only ratchet naming the four unfixable sent laps, and `--emit` produces
+  the bare SHA with a `HANDSHAKE-PEER-PIN-SOURCE` companion so the generator cannot
+  reintroduce it. The positive case is pinned against the fork's own corrected lap
+  rather than a mock, because the natural mistake is a pattern strict enough to
+  reject the fixed form too. Three reverts probe as expected.
 - **Every rig run used to leave a fresh folder loose in `$HOME`; now there is one
   directory and `rm -rf ~/platterpus-rig` removes all of it.** An acceptance run
   created `~/platterpustestsession<stamp>/` straight in the home directory and

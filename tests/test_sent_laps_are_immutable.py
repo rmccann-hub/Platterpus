@@ -56,6 +56,17 @@ REPO_ROOT: Path = Path(__file__).resolve().parent.parent
 #: sent and what the fork holds; the file in this repository drifted from it and
 #: has been restored. It is first in the map for that reason.
 SENT_LAPS: dict[str, str] = {
+    # Round 16 lap 16. **The closing lap, peer-confirmed twice over.** Their lap 17
+    # names it in both line 11 (`HANDSHAKE-PEER-VERDICT-SOURCE`) and line 25
+    # (`HANDSHAKE-INBOUND-HELD`) at sha256/16 `18cd6588321002ac`, 14,032 bytes,
+    # *"extracted with your published reader and byte-identical to the raw copy"*.
+    # Both numbers re-derive here.
+    #
+    # It is also the lap that closed round 16: with it filed, `--status` moved
+    # round-16 to CLOSED and every one of the sixteen rounds is now shut.
+    "outbound/round-16-lap-16.md": (
+        "18cd6588321002ace694176901e6a1706bdfdf2ff7dc626bd245cd51d4515cc9"
+    ),
     # Round 16 lap 14. **Peer-confirmed, delivered unedited, and the lap it
     # confirms is the one that closes the round.** Their lap 15 line 24 declares
     # holding it at sha256/16 `2503184660c83ad0`, 17,199 bytes, *"extracted with
