@@ -73,7 +73,17 @@ from platterpus.deps import fork_source
 #: our own change, made between rounds, which the docstring above already says is
 #: ours to make. Writing `0.6.47` here would credit the round with approving a
 #: pairing it never saw.
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.46"
+#: **Moved to `platterpus/0.6.47` when round 18 closed (2026-09-13)** — because the
+#: RECORD moved, not because the awkwardness above went away. Round 18 shipped no
+#: build and moved no pin; what it did was close `GO`/`GO` with both sides declaring
+#: the pair (`fe4d2c4`, `0.6.47`), and their closing lap's `HANDSHAKE-PEER-VERSION`
+#: is the attestation this value is read from. **The consequence: the 2026-09-12
+#: full-green hardware run stops being evidence about the pin alone and becomes
+#: evidence about the approved pair** — so the guard written one day earlier to
+#: forbid exactly that sentence (`tests/test_no_stale_version_claims.py`) stands down
+#: of its own accord once this equals ``__version__``. Written for the window, not
+#: against the claim.
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.47"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -122,7 +132,13 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.46"
 #: formality: `approve_ripper` reads these constants while the in-app update offer
 #: reads *their* manifest, so for that window the offer installed `fe4d2c4` and
 #: every report, log and EAC export stamped it `unapproved`.
-APPROVED_BY_ROUND: Final[int] = 17
+#: **Moved 17 -> 18 on 2026-09-13, when round 18 closed GO/GO on the same
+#: `fe4d2c4`.** A round that moves no pin still moves this constant, because what it
+#: names is *which bilateral GO the pin rests on* — and re-approving the same binary
+#: against a newer app version is a stronger claim than round 17 made, not a repeat.
+#: Had round 18 instead been a HOLD, the pin would have stayed and this would have
+#: stayed at 17: the two disagreeing about one binary is a real state, not a slip.
+APPROVED_BY_ROUND: Final[int] = 18
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.

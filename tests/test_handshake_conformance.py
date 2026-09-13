@@ -22,6 +22,7 @@ weakened — a skipped conformance row is a divergence nobody can see.
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import re
 import sys
@@ -724,7 +725,67 @@ def test_no_test_here_claims_a_row_the_table_does_not_have() -> None:
 #:
 #: This constant is not the fix. It is the **counter** that makes the gap visible
 #: and stops it widening silently while the real work is queued in `TASKS.md`.
-_ROWS_NAMED_HERE: frozenset[str] = frozenset({"C9", "C10", "C17", "C18", "C19", "C20"})
+#: A conformance row id. **`[a-z]?` is load-bearing and was missing.**
+#:
+#: The table has one suffixed row, `C13a`, and `C\d+` cannot match it. The fork
+#: found this in their round-18 lap 3 §4a, in the ratchet below, one day after it
+#: was written — and their own coverage counter has the identical blind spot
+#: (`\bC[0-9]+\b`). Same defect, both projects, independently.
+#:
+#: **Why invisible beats uncovered.** A row the DENOMINATOR cannot include can
+#: never be reported as missing: the check would print full coverage while one row
+#: had no test at all. That is `CLAUDE.md`'s *can this check be satisfied by
+#: finding nothing?* applied to a set rather than a count.
+_ROW_ID: str = r"^\| (C\d+[a-z]?) "
+
+#: The same widening on the other side of the comparison. A test that NAMES `C13a`
+#: must be counted as covering it; with `\bC\d+\b` the mention would be read as
+#: `C13` and the real row would stay uncounted — a false positive and a false
+#: negative from one pattern.
+_NAMED_ID: str = r"\bC\d+[a-z]?\b"
+
+_ROWS_NAMED_HERE: frozenset[str] = frozenset(
+    {"C9", "C10", "C13a", "C17", "C18", "C19", "C20", "C31", "C32"}
+)
+
+#: **What this counts, stated because the number flatters us.** A row counts when a
+#: `test_` function NAMES it — in its name, docstring or body. That is an UPPER
+#: BOUND on behavioural coverage, not a measurement of it: `C31`, `C32` and `C13a`
+#: are named only inside assertion messages of the ratchet itself, so three of the
+#: nine are references rather than tests.
+#:
+#: Kept as an upper bound rather than tightened further, because the alternative is
+#: a heuristic guessing which mention is "real" and a gate whose rule cannot be
+#: stated in one sentence gets argued with instead of obeyed. The honest reading:
+#: *at most 9 of 37 rows are exercised; 28 certainly are not.*
+
+
+def _rows_named_by_tests() -> set[str]:
+    """Row ids named inside a TEST, never in surrounding prose.
+
+    **A scan over the whole file counts comments, which makes the ratchet
+    satisfiable by writing ABOUT a row instead of testing it.** Measured
+    immediately: widening the id pattern to catch `C13a` took apparent coverage
+    from 6 to 10, and all four new ids were ones mentioned in the comment
+    explaining the widening. The number went up because prose was added.
+
+    That is `CLAUDE.md`'s *where a check matches on a label, make it also require
+    the subject* — the label answers *did they name it*, the body answers *did they
+    write it*, and only the pair is a check. So this walks the AST and reads only
+    functions whose name starts with `test_`: their names, docstrings and bodies,
+    and no module-level comment.
+    """
+    source = (_REPO_ROOT / "tests" / "test_handshake_conformance.py").read_text(
+        encoding="utf-8"
+    )
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
+            found |= set(re.findall(_NAMED_ID, node.name))
+            found |= set(
+                re.findall(_NAMED_ID, ast.get_source_segment(source, node) or "")
+            )
+    return found
 
 
 def test_the_conformance_table_has_not_outgrown_this_file_any_further() -> None:
@@ -743,20 +804,23 @@ def test_the_conformance_table_has_not_outgrown_this_file_any_further() -> None:
     `TASKS.md` instead, with this counter stopping it growing.
     """
     proto = (_REPO_ROOT / "docs" / "handshake-protocol.md").read_text(encoding="utf-8")
-    rows = set(re.findall(r"^\| (C\d+) ", proto, re.M))
+    rows = set(re.findall(_ROW_ID, proto, re.M))
     assert len(rows) >= 30, (
-        f"the protocol parses to {len(rows)} conformance row(s); it had 36 on "
+        f"the protocol parses to {len(rows)} conformance row(s); it had 37 on "
         "2026-09-13, so either the table shrank or this parser stopped matching — "
         "and a coverage check over an empty table passes by not looking"
     )
-    named = set(
-        re.findall(
-            r"\bC\d+\b",
-            (_REPO_ROOT / "tests" / "test_handshake_conformance.py").read_text(
-                encoding="utf-8"
-            ),
-        )
+    # THE ROW THE FIRST VERSION OF THIS TEST COULD NOT SEE. Pinned by id, because
+    # a suffixed row is invisible to `C\d+` and invisible is worse than uncovered:
+    # a denominator that cannot include it reports FULL coverage while it has none.
+    assert "C13a" in rows, (
+        "the row-id pattern no longer matches C13a. It is the only suffixed row in "
+        "the table and the one both projects' counters missed — ours counted 36 "
+        "where there are 37, and the fork's own `\\bC[0-9]+\\b` cannot match it "
+        "either. If the suffix convention changed, widen _ROW_ID rather than "
+        "dropping this assertion."
     )
+    named = _rows_named_by_tests()
     stale = _ROWS_NAMED_HERE - rows
     assert not stale, (
         f"this file names conformance row(s) {sorted(stale)} that the protocol no "
@@ -764,7 +828,8 @@ def test_the_conformance_table_has_not_outgrown_this_file_any_further() -> None:
     )
     covered = rows & named
     assert len(covered) >= len(_ROWS_NAMED_HERE), (
-        f"conformance coverage SHRANK: {len(covered)} of {len(rows)} rows named, "
+        f"conformance coverage SHRANK: {len(covered)} of {len(rows)} rows NAMED "
+        "by a test (an upper bound on real coverage), "
         f"was {len(_ROWS_NAMED_HERE)}. This ratchet may only grow. The "
         f"{len(rows) - len(covered)} uncovered rows are itemised in TASKS.md; "
         "C31/C32 (operator override) are the two the fork found for us."

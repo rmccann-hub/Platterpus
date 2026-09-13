@@ -28,7 +28,55 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   a declaration is what a document *states*, never what it *quotes*, the same rule
   `handshake.py` applies to the wire header and for the same reason.
 
+### Fixed
+- **A conformance-coverage check that could not see one of the rows it counts,
+  found by the fork one day after we wrote it.** The shared protocol's §8 table
+  has 37 rows, not 36: `C13a` carries a letter suffix, and our row-id pattern was
+  `C\d+`. The miscount is not the severity — a row the *denominator* cannot
+  include can never be reported as uncovered, so the ratchet would have printed
+  complete coverage while that row had no test at all. Widened to `C\d+[a-z]?`
+  and `C13a` is now pinned by id so the blind spot cannot return. The fork's own
+  counter has the identical hole (`\bC[0-9]+\b`), which they found in themselves
+  while checking us — same defect, both projects, independently, on the one row
+  in the table that is not a bare number.
+- **The same gate was also satisfiable by prose.** Widening the pattern took
+  apparent coverage from 6 rows to 10 — and all four new ids came from the
+  *comment explaining the widening*, because the scan read the whole file. Writing
+  *about* a row counted as testing it. The scan now walks the AST and reads only
+  `test_`-prefixed functions, and the honest figure is published with its caveat:
+  at most 9 of 37 rows are exercised and 28 certainly are not, three of the nine
+  being named only inside an assertion message. Left as a declared upper bound
+  rather than tightened with a heuristic — a gate whose rule cannot be stated in
+  one sentence gets argued with instead of obeyed. Uncovered rows are itemised in
+  `TASKS.md`, C31/C32 first because a peer relies on them.
+
 ### Changed
+- **The approval constants move to round 18 / Platterpus 0.6.47, and the guard
+  added yesterday stands down of its own accord.** Round 18 closed `GO`/`GO` on the
+  same pin `fe4d2c4` — a procedure round moves no build — but both sides declared
+  the pair (`fe4d2c4`, **0.6.47**) in their wire headers, and their closing lap's
+  `HANDSHAKE-PEER-VERSION` is the attestation `APPROVED_FOR_PLATTERPUS_VERSION` is
+  derived from. So `APPROVED_BY_ROUND` goes 17 → 18 and the app version 0.6.46 →
+  0.6.47: a round that moves no pin still moves which bilateral `GO` the pin rests
+  on, and re-approving the same binary against a newer app version is a stronger
+  claim than round 17 made, not a repeat of it. The consequence is the one the
+  guard was written for: the 2026-09-12 full-green hardware run stops being
+  evidence about the ripper pin alone and becomes evidence about the approved pair,
+  so the sweep now skips itself with *"the running app IS the version the current
+  pin was approved for."* **It was written for the window, not against the claim**,
+  and it closed the window by itself rather than needing to be remembered and
+  removed. The derivation gate (`tests/test_fork_source.py`) caught both constants
+  in the same run that filed the closing lap — which is the mechanism working:
+  closing a round has a product consequence, because every rip report and
+  EAC-compatible log credits a round for approving the binary that made it.
+- **`docs/cyanrip-handshake.md` §9 — two challenge-ledger rows, one in each
+  direction, from the same day.** Row 15 is us finding that two tokens in their
+  proposed tier vocabulary mean the opposite things in our tree; row 16 is them
+  finding that our conformance ratchet could not see `C13a`. Standing count moves
+  to fork 9 / us 7 of 16 resolved (5/2 of the seven made under the challenge
+  mandate) — still **not** a measurable answer to the maintainer's question at
+  n=7, and the pair is the better illustration anyway: neither finding is reachable
+  by the side that wrote the thing.
 - **`docs/cyanrip-handshake.md` §7.5b — which side's gate can close a round,
   derived rather than accepted.** Round 17 closed on the fork's gate while ours
   held it `OPEN` with both sides declaring `GO`. They generalised this as *"a
@@ -41,7 +89,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   enough that we did not, because their first `GO` *was* the closing lap. Their
   half is confirmed where we could reach it: `stale_peer_verdict` exists at
   `tools/release-gate.py:350`, a guard ours has no equivalent of.
-
+- **`fullacceptance.txt` §12's `UNPROBED` note says which kind of unprobed it
+  means.** It read *"Clause 2 is UNPROBED by this section"*, which scans as a
+  scoping decision — we chose not to look. The fork read it that way and asked
+  whether it was a third sense of the word. It is not: that section does run both
+  the `-H -E` and `-H -W` arms on hardware, and cannot discriminate between them,
+  which the comment two lines below already said (*"agreement here is the null
+  result"*). Reworded to *ran here and cannot settle it either way* — an
+  unjudgeable subject, not a skipped one. Their misreading was our sentence's
+  fault.
 
 ## [0.6.47] — 2026-09-12
 

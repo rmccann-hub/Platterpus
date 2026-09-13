@@ -1288,7 +1288,21 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # carrying it is 0.6.47 (the round approved that pair; 0.6.47 is our own
     # between-rounds change, which this constant's docstring already says is ours to
     # make). A bare 15 -> 17 would read as an off-by-one.
-    "handshake_approval.py": 547,
+    # **547 -> 563 on 2026-09-13** (+16), when round 18 closed: `APPROVED_BY_ROUND`
+    # 17 -> 18 and `APPROVED_FOR_PLATTERPUS_VERSION` 0.6.46 -> 0.6.47. Raised
+    # deliberately, and the growth is the same kind as every entry above it: this
+    # file is where a round close is *justified*, not merely recorded, and round 18
+    # is the first close that moved these constants **without moving the pin** — a
+    # reader meeting `18` beside a pin round 17 approved needs the reason on the
+    # spot. It also retires the awkwardness the 526 -> 547 note had to explain:
+    # 0.6.46 and 0.6.47 are no longer different answers.
+    #
+    # **If this keeps growing, the fix is a data table, not a smaller comment.** The
+    # module is ~40% provenance chain by now; splitting the history into a
+    # structure (round, pin, app version, why) would make it iterable and testable.
+    # Not done today because a refactor of the approval constants during a round
+    # close is the wrong time to move them.
+    "handshake_approval.py": 563,
     "help_content.py": 561,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because

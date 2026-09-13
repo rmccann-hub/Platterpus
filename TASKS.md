@@ -106,11 +106,34 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       lap 1 §2 and §3: the escalation gate is withdrawn in favour of *a failure
       prunes its own dependents*, and the vocabulary goes from three states to
       five. Read before the lap was finished, which changed it.
-- [ ] **30 of 36 shared-protocol conformance rows have no test, and the file
+- [ ] **The fork is holding a description of our release gate that does not match
+      it, and the correction has never been sent.** Their standing status file
+      (`docs/handshake/inbound/cyanripstatus20260913.md:435`) calls it *"structural,
+      and it is a property both implementations share… a round can only close on
+      the gate of whichever side sent the last lap."* True of theirs; **false of
+      ours, and the record proves it** — rounds 9, 10, 13, 14 and 16 all had them
+      sending the last lap and all five closed on our gate. The real property is
+      *turn order*: our gate closes only if we hold an own-side lap numbered
+      **after** the peer's first `GO`. Derived 2026-09-12 and written into
+      `docs/cyanrip-handshake.md` §7.5b — **and then never put in a lap**; the
+      phrase appears in neither our round-17 nor our round-18 outbound file.
+      So we corrected our own record and left the peer's uncorrected, which is the
+      half that matters: a shared protocol where each side holds a different
+      description of when a round can close is the failure rule #12 exists to
+      prevent. **Round 19, §A.** Ask the maintainer before writing the lap.
+- [ ] **28 of 37 shared-protocol conformance rows have no test, and the file
       claiming "one test per row" was written when the table had 14.**
       `tests/test_handshake_conformance.py`'s docstring says *"`PROTOCOL.md` §8 is
       a 14-row table… one test per row, in the table's order"*. The jointly-owned
-      table now defines **C1–C36**; six are named here (C9, C10, C17–C20). The
+      table now defines **C1–C36 plus C13a — 37 rows**; nine are named by a test
+      here, and three of those only inside an assertion message, so nine is an
+      upper bound. **The fork found the miscount in their round-18 lap 3 §4a, one
+      day after this row was written**: our id pattern was `C\d+`, which cannot
+      match `C13a` — and a row the denominator cannot include can never be
+      reported as uncovered, so the check would have printed full coverage while
+      one row had none. Their own counter has the identical blind spot
+      (`\bC[0-9]+\b`); same defect, both projects, independently. Fixed here by
+      widening to `C\d+[a-z]?` and pinning `C13a` by id. The
       table grew 2.5× and the completeness claim did not — `CLAUDE.md`'s
       *a map is only ever wrong by omission*, in the file whose job is proving we
       conform to a spec neither project owns alone.
