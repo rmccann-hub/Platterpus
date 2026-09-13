@@ -75,6 +75,51 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   the entry when the divergence is fixed, and queued rather than hot-fixed.
 
 ### Changed
+- **A full documentation audit, and the recurring finding is that a map is only
+  ever wrong by omission.** Corrected across `README.md`, `PLANNING.md`,
+  `DEPENDENCIES.md`, `SECURITY.md`, `docs/README.md` and
+  `docs/handshake/README.md`. The serious one is user-facing: **the README's setup
+  installed a ripper it then asked the reader to verify a fork banner from.** Both
+  the scripted and manual paths add the `barsnick/non-fed` COPR, which ships stock
+  cyanrip 0.9.3.1 — which can never print a `platterpus-fork` parenthetical, and
+  which exits non-zero on `--version`, so the verification command one screen later
+  fails on the build the instructions just installed. Every rip made that way is
+  stamped `unapproved`. It described the COPR as the way to install the ripper for
+  the whole v0.6 line, three KDDs after the pinned fork became the shipped backend.
+  `--install-ripper` is now named at the point of the mistake rather than 380 lines
+  later. The same page also gave two different expected banners for one command,
+  49 lines apart (`+platterpus.12` and `+platterpus.10`, four pins back).
+- **`DEPENDENCIES.md` contradicted `pyproject.toml` on five facts, with a perfect
+  stamp.** Unchanged across **27 tagged releases** while the "before every tagged
+  release" cadence said otherwise — 3.4× the lapse the 2026-07-28 entry was written
+  to diagnose, and that entry had already named the cause (*"it is prose, not a
+  gate"*). `ruff` recorded as `>=0.15,<1` and `mypy` as `>=1.13,<3` — the floating
+  ranges Critical rule #11 forbids, written in the file the rule is about; mypy's
+  *"no per-module exclusions remain"*, true of def-typing and false as written;
+  `mutmut` as the weekly runner eight days after it was replaced; and cyanrip's
+  package source given as the COPR. **A stamp records when a doc was edited**, so a
+  document nobody edits keeps an accurate stamp while its prose expires — this one
+  was gate-clean with five wrong facts in it.
+- **`PLANNING.md` KDD-35 had received none of its three amendments** — `0.7.100`
+  (2026-08-21), the archival-severity rule (2026-08-26), and the 0.9.1 diversity
+  clause (2026-09-13) — all of them live in `CLAUDE.md` and `docs/testing.md` while
+  the decision log described the original ruling. `grep -c "0.7.100" PLANNING.md`
+  returned **0** for the gate on the next minor. Its §1 file map was missing **12 of
+  19 scripts**, ten of them named nowhere in the file including `handshake.py` and
+  `check.py`, plus four `docs/` entries two of which our own Critical rules name;
+  its CI list omitted `gitleaks` and `sbom` and called `tests-touched` advisory when
+  it has gated since 2026-08-20; and its module-map row named a constant
+  (`NEXT_PIN_UNDER_REVIEW`) that does not exist. **§2 of the same file is complete
+  at 150/150 — because §2 has a gate and §1 does not.**
+- **`docs/README.md` said a round is open until *our* verification file declares
+  `GO`** — one half of a two-half contract, the exact failure Critical rule #12's
+  obligation (1) names, and corrected in both handshake documents on 2026-08-27
+  without ever reaching the index. **`SECURITY.md`'s supply-chain section omitted
+  `gitleaks` and `sbom`**, the two most security-relevant gates added since it was
+  written. **`docs/handshake/README.md`'s round-8 row had been false since
+  2026-08-17**, claiming we hold none of their laps 3–17 when all nine were filed
+  27 days earlier — the row a peer reading our repo would use to judge whether
+  round 8 is settled.
 - **The approval constants move to round 18 / Platterpus 0.6.47, and the guard
   added yesterday stands down of its own accord.** Round 18 closed `GO`/`GO` on the
   same pin `fe4d2c4` — a procedure round moves no build — but both sides declared
