@@ -1259,7 +1259,18 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # manifest, and the growth is mostly the paragraph recording that it is
     # read from `build_fingerprint()`, the same source the banner uses, so
     # the two cannot disagree.
-    "evidence_bundle.py": 923,
+    # **923 -> 967 on 2026-09-13** (+44), for the middle-elision fix and the
+    # reasoning behind it. The growth is almost entirely the docstring of
+    # `_member_component`, and it belongs there rather than in a doc because the
+    # function is four lines of string slicing whose *cut direction* is the whole
+    # point: `cleaned[:64]` looks obviously correct and silently removed the build
+    # tag from every album folder over 64 characters, then manufactured a
+    # collision between two rips that differed only in a trailing suffix.
+    #
+    # A reader who trims the comment will re-introduce the tail-cut, because the
+    # tail-cut is the version that looks tidier. That is what this ratchet's own
+    # note means by growth that genuinely belongs.
+    "evidence_bundle.py": 967,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
     # 2026-09-03 diagnostics header named the approved build for a session that

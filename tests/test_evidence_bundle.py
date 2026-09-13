@@ -1217,3 +1217,87 @@ def test_the_gzip_HEADER_carries_no_timestamp(tmp_path: Path) -> None:
         "the gzip header has FNAME set, so it stores the archive's own name — and "
         "that name carries the run stamp"
     )
+
+
+# --- The 2026-09-12 acceptance run's album-folder truncation ---------------
+#
+# THE ARTIFACT SETTLES IT, so these are the names the run actually produced
+# rather than a plausible reconstruction. The run passed 238/238; nothing in the
+# acceptance script looks at bundle member names, so this shipped green.
+
+#: The album folder as it existed on disk. 71 characters, and the last seven are
+#: the build tag's sha — the part that answers *which binary made this*.
+_RUN_ALBUM: str = (
+    "full acceptance∶ angle‹bracket 20260912t204421 platterpus-fork-gfe4d2c4"
+)
+#: The second rip of the same disc. The app had already detected the first, so
+#: cyanrip wrote this one to `{album} (2)` — a distinction that lives in the
+#: LAST four characters.
+_RUN_ALBUM_2: str = _RUN_ALBUM + " (2)"
+
+
+def test_a_long_album_folder_keeps_its_build_tag_in_the_member_name() -> None:
+    """A tail-cut drops the sha, which is the one thing the name is for.
+
+    `CLAUDE.md`: *say which build produced an artifact*. The bundle a person
+    unpacks had stopped doing that for any album folder over 64 characters —
+    silently, because a truncated name still looks like a name.
+    """
+    member = evidence_bundle._member_component(_RUN_ALBUM)
+    assert "gfe4d2c4" in member, (
+        "the build tag has been cut off the member name: "
+        f"{member!r}. A head-only cap removes the sha, because the sha is last."
+    )
+    assert len(member) <= evidence_bundle.MEMBER_COMPONENT_MAX, (
+        f"member name is {len(member)} chars, over the "
+        f"{evidence_bundle.MEMBER_COMPONENT_MAX} budget"
+    )
+
+
+def test_truncation_does_not_collapse_two_DIFFERENT_album_folders() -> None:
+    """The truncation did not merely lose information — it manufactured a clash.
+
+    Both of these are real folders from the same run. Cut at 64 from the head
+    they become byte-identical, and the de-duplicator then appends `-2`, which
+    reads as *"two copies of the same thing"* when it is in fact two rips that
+    differed in their argv. A disambiguator papering over a distinction the name
+    used to carry is worse than a long name.
+    """
+    first = evidence_bundle._member_component(_RUN_ALBUM)
+    second = evidence_bundle._member_component(_RUN_ALBUM_2)
+    assert first != second, (
+        "two different album folders reduce to the same member name "
+        f"({first!r}), so the bundle cannot tell them apart"
+    )
+
+
+def test_the_old_tail_cut_is_what_these_tests_actually_detect() -> None:
+    """Non-vacuity: prove the regression tests fail against the shipped code.
+
+    Both assertions above pass trivially for any name under the cap, so the only
+    evidence they detect the real defect is to reproduce it and watch it caught —
+    the project's rule about a revert being proved rather than assumed, applied
+    where an actual revert would mean editing the module under test.
+    """
+
+    def old_behaviour(name: str) -> str:
+        cleaned = "".join(ch if ch.isalnum() or ch in "-_. " else "_" for ch in name)
+        return cleaned.strip(". ")[:64]
+
+    assert "gfe4d2c4" not in old_behaviour(_RUN_ALBUM), (
+        "the reconstruction of the old code does not lose the build tag, so it is "
+        "not the code that shipped and these tests prove nothing"
+    )
+    assert old_behaviour(_RUN_ALBUM) == old_behaviour(_RUN_ALBUM_2), (
+        "the reconstruction does not reproduce the collision either"
+    )
+
+
+def test_a_short_album_folder_is_left_exactly_as_it_was() -> None:
+    """Six of the run's eight folders were under the cap and must not move.
+
+    A fix that rewrote every member name would be a breaking change to an
+    artifact people already hold, made as a side effect of fixing the long case.
+    """
+    short = "derived wav 20260912t204421 platterpus-fork-gfe4d2c4"
+    assert evidence_bundle._member_component(short) == short

@@ -340,16 +340,60 @@ def _album_prefixes(album_dirs: Sequence[Path]) -> list[tuple[str, Path]]:
     return prefixes
 
 
+#: Longest album-folder component we put in an archive member name, and the
+#: marker that stands in for whatever a longer one elides.
+#:
+#: The marker is inside the safe character set on purpose — it survives the
+#: substitution above rather than being rewritten by it.
+MEMBER_COMPONENT_MAX: Final[int] = 64
+MEMBER_ELISION: Final[str] = "__"
+
+
 def _member_component(name: str) -> str:
     """One path component, reduced to what is safe inside an archive name.
 
     An album folder is named from MusicBrainz metadata, so it can contain
     anything a title can — including ``/`` lookalikes, control characters and a
     leading ``..``. None of that may reach a member name.
+
+    **Over-long names are elided in the MIDDLE, keeping head and tail.** This was
+    ``cleaned[:64]`` until the 2026-09-12 acceptance run, where it quietly did two
+    things at once to a 71-character album folder:
+
+    1. **It dropped the build tag.** The name ended
+       ``…platterpus-fork-gfe4d2c4`` and the member ended ``…platterpus-fork-g``
+       — the sha, the part that says *which binary made this*, is the last thing
+       in the name and so the first thing a tail-cut loses. `CLAUDE.md` requires
+       an artifact to say which build produced it, and the folder a person
+       unpacks had stopped doing so.
+    2. **It then CAUSED a collision.** Two genuinely different rips — one written
+       to ``{album}`` and one to ``{album} (2)``, because the app had detected the
+       first — differ only in a suffix, so both truncated to the same 64
+       characters and the de-duplicator appended ``-2``. The distinction the
+       directory name carried was destroyed and then papered over by a mechanism
+       that looks like it is disambiguating duplicates.
+
+    Head-and-tail is this project's own rule for bounded output, written for
+    exactly this failure: *"a tool's fatal message is the last thing it prints,
+    so a head-only cap drops precisely the line that explains the failure"*. An
+    album folder puts its most identifying content — build tag, disambiguating
+    suffix — at the end for the same structural reason.
+
+    Neither the archival records nor the audio were ever affected: every file
+    *inside* the folder kept its full name, and the rip's own log, cue and report
+    carry the complete build tag. This is the bundle's index being less
+    informative than the things it indexes.
     """
     cleaned = "".join(ch if ch.isalnum() or ch in "-_. " else "_" for ch in name)
     cleaned = cleaned.strip(". ")
-    return cleaned[:64]
+    if len(cleaned) <= MEMBER_COMPONENT_MAX:
+        return cleaned
+    # Split the remaining budget head-heavy: the head carries the album title a
+    # person scans for, the tail carries what distinguishes one rip from another.
+    budget = MEMBER_COMPONENT_MAX - len(MEMBER_ELISION)
+    tail = budget // 3
+    head = budget - tail
+    return f"{cleaned[:head]}{MEMBER_ELISION}{cleaned[-tail:]}".strip(". ")
 
 
 @dataclass(frozen=True)
