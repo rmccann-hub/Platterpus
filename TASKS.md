@@ -98,17 +98,29 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       *Closes when:* a round approves a pair whose app half is the running build,
       at which point the guard skips itself.
 - [ ] **Round-18 lap 2 is WRITTEN and NOT SENT** —
-      `docs/handshake/outbound/round-18-lap-02.md`, envelope at
-      `round18lap02FROMplatterpusTOcyanrip.md` (18,982 bytes; part sha256/16
-      `dbd5cc51e17d3aa1`, 17,320 bytes). Only the maintainer can send it. Declares
-      `GO` on the specification; their §5 pre-commit makes their lap 3 `GO` unless
-      we reject a tier boundary, reject the three-state rule, or claim to reach
-      something on their unreachable list — it does none of those.
-      **Two things in it were caught by verifying rather than reviewing**, at the
-      maintainer's instruction: a claim that our read-speed ladder never sends
-      `-S` is FALSE (`adapters/cyanrip_backend.py:278`), and the tier arithmetic
-      was wrong on first derivation (71 steps across 8 sections, not 69 across 7).
-      Both are stated in the lap rather than quietly corrected.
+      `docs/handshake/outbound/round-18-lap-02.md`; envelope
+      `round18lap02FROMplatterpusTOcyanrip.md` (29,090 bytes; part sha256/16
+      `aebe56b8bd953bbf`, 27,428 bytes). Only the maintainer can send it.
+      **It answers the REVISED specification.** Their `STATUS.md` of 2026-09-13
+      (filed at `docs/handshake/inbound/cyanripstatus20260913.md`) supersedes their
+      lap 1 §2 and §3: the escalation gate is withdrawn in favour of *a failure
+      prunes its own dependents*, and the vocabulary goes from three states to
+      five. Read before the lap was finished, which changed it.
+- [ ] **THE TOKEN COLLISION — our `SKIPPED`/`BLOCKED` mean the OPPOSITE of theirs,
+      and it is unfixed on our side.** `uiscript/report.py:31-32`: our `SKIPPED` is
+      *"never reached (the batch aborted before it)"* — a CONSEQUENCE — and our
+      `BLOCKED` is *"refused: needs the escape hatch the user has not enabled"* — a
+      DECISION. Their five-state spec defines `SKIPPED` as the decision and
+      `BLOCKED` as the consequence. **Same two tokens, opposite halves of the
+      distinction.** Either side adopting the other's word naively inverts both
+      meanings in a transcript that still looks well-formed — the exact drift their
+      §3 exists to prevent, already present, invisible to both gates because each
+      side is internally consistent.
+      Put to them as the lap's first question. Our position: theirs are the better
+      semantics and ours should move, but the rename costs a field in a committed
+      manifest format, so it does not happen on an assumption.
+      *Blocked on:* their answer, or a spec that names concepts and tokens
+      separately.
 - [ ] **`check_inbound`'s section table describes a REPLY, and it is run against
       OPENERS too — ~10 phantom omissions per opening lap, for at least two
       rounds.** `scripts/handshake.py --check` on their round-18 lap 1 reports 10

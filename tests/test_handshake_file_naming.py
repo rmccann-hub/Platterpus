@@ -358,7 +358,23 @@ def test_grandfathered_files_are_exactly_the_ones_with_no_lap_header(
         "of the parser is untested by the real tree"
     )
     # The skip must stay a narrow escape hatch, not a hole the whole sweep falls into.
-    assert len(out_of_scope) <= 3, (
+    #
+    # **3 -> 4 on 2026-09-13**, for `cyanripstatus20260913.md`. The peer's standing
+    # status is a RECEIVED artifact and is filed under the name they used, which is
+    # the convention `docs/handshake/README.md` already states; a status belongs to
+    # no round by design, because its whole purpose is to carry a fact that changes
+    # AFTER a lap is sent and a sent lap is immutable on both sides.
+    #
+    # This one earned its row immediately: it supersedes their round-18 lap 1 §2
+    # and §3 — withdrawing the escalation gate and taking the vocabulary from three
+    # states to five — and our lap 2 was mid-draft against the superseded version.
+    #
+    # **Raised rather than made a per-name allowlist, deliberately.** A named
+    # exception would grow one row per status they publish and stop meaning
+    # anything; a count that must be argued up keeps the pressure on. If it reaches
+    # 5 without a new CATEGORY of file appearing, retire their superseded statuses
+    # to docs/archive/ instead of raising it again.
+    assert len(out_of_scope) <= 4, (
         f"{len(out_of_scope)} files are neither named for a round nor declare one: "
         f"{out_of_scope}. Too many, and this test is skipping the tree rather than "
         "checking it."

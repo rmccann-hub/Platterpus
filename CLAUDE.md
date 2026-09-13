@@ -106,6 +106,35 @@ The GUI runs on the host. It calls the host-exported ripper binary in `~/.local/
       - **Outbound.** Every rip argv the app builds passes `assert_metadata_lookup_disabled` — one chokepoint, which refuses an argv lacking `-N` and validates the `--consumer` tag. But a **straight-passthrough** path that skips the chokepoint is a hole in a rule the rest of the codebase enforces, and the new script verb was exactly that. Any new route to the ripper — a script verb, a debug console, a CLI flag — **re-establishes the guard by delegating to the chokepoint**, never by restating its rule; a second copy of a safety check is a second thing to drift, and a test asserts the refusal text is byte-identical. The failure this prevents is not a wrong result but a **hang**: without `-N` the ripper runs its own lookup and can block on an interactive prompt with no terminal attached.
       - **Inbound.** Their output is **external input** and gets the same treatment: control characters and NULs flagged, absurd line lengths bounded (a multi-megabyte single line freezes the GUI thread rendering it), everything else verbatim, and **any elision counted and marked** — never a silent drop. And the rendering surface is pinned: Qt's default `Qt::AutoText` **auto-detects HTML**, so a captured line that merely looks like markup is *interpreted* rather than shown. The content is not the ripper's own — album and track titles come from MusicBrainz — so a title containing `<` is swallowed as an unknown tag and **the user never learns text went missing**. Every widget carrying dependency output is `PlainText`. **The sweep is `tests/test_message_boxes_are_plaintext.py`, and it covers `QMessageBox` only** — 6 sites, all pinned, with a ratcheted allowlist for literal-text boxes that is empty. Said precisely because this sentence used to read *"swept rather than fixed one at a time"* when **no sweep existed**: three of the six boxes had been fixed individually and three had not, including `_show_fatal_dialog`, whose `{exc}` is arbitrary external text in the one dialog a user screenshots to report a crash (found 2026-08-20 by an audit that went looking for the sweep this rule claimed). The 13 `QLabel(<non-literal>)` sites are **not** swept — most build their text from our own constants, so a blanket rule would need a long allowlist and a list of excuses enforces nothing; they are tracked in `TASKS.md`. Scoping a sweep is fine. Scoping it silently while the rule claims everything is the defect.
       - **Nothing crosses the seam unchecked in either direction, and neither half is evidence for the other.** The input half had a contract test and the output half did not; that asymmetry is what let the `-V` blocker sit in a committed file for a full round. Both halves are checked mechanically, every commit.
+      - **A FIX WE FIND IN OURSELVES THAT COULD HELP THEM IS SENT, AND THE BAR IS
+        *could in any possible way*, not *certainly does*** (maintainer directive,
+        2026-09-13: *"make sure any fixes you find on yourself that could in any
+        possible way help the other repo, you tell them"*). This is the missing
+        direction of the seam. The protocol already carries a §H *"Found in our
+        output"* for defects we find in **their** artifacts, and the challenge
+        mandate has them auditing **us** — nothing obliged either side to report a
+        defect found in its **own** code whose *shape* the peer might share.
+        **The trigger is the shape, not the subject.** A truncation that drops the
+        identifying end of a name, a gate satisfied by the document that documents
+        it, a checker scoped to one artifact role and applied to all — none of
+        those is about cyanrip, and each is a bug either project can hold. So the
+        test is *"is the MECHANISM portable?"*, never *"is their code affected?"* —
+        the second question requires reading their tree to answer, and under the
+        rule above we will not assert a mechanism in their code anyway. **Report
+        the shape with our citation and let them check their own side**; that costs
+        us three sentences and costs them one grep.
+        **Cheap to over-report and expensive to under-report, so err loudly.** A
+        finding they already knew is a paragraph they skim. A finding withheld
+        because it looked parochial is the class of defect this seam exists to
+        catch, found twice and shared zero times.
+        Vehicle: a NEXT-ROUND item in the current lap — not a new round, not a new
+        file, and never a reason to hold a round open (S-14: a finding defaults to
+        the next round).
+        **Bilateral, and it travels.** Unlike the two carve-outs below, this is a
+        term of the seam rather than a rule about our own operator: it is worth
+        exactly as much in the other direction, and a one-sided version would read
+        as us auditing them while keeping our own lessons.
+
       - **The fork does the same, as a double check.** Two independent validators at one boundary are worth more than one careful one, because a value either side waves through still meets a guard. They validate what they receive from us and what they emit to us; we do the same. Neither side treats the other's checking as a reason to skip its own.
 
     - **The fork has a standing CHALLENGE MANDATE, and it is asymmetric on purpose** (maintainer, 2026-08-26). They were told they are *"the adult in the room"*: as the ripping engine, most of the accuracy and correctness burden is theirs, so they are to **double-check, fact-check, and call out or question** us. Three consequences, and the third is the one that is easy to skip:

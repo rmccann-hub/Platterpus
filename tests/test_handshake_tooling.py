@@ -1778,6 +1778,102 @@ def test_the_declared_shared_hashes_match_the_files_on_disk() -> None:
         )
 
 
+def _latest_inbound_with_shared_hashes() -> tuple[Path, dict[str, str]] | None:
+    """The peer's newest lap that declares `HANDSHAKE-SHARED-HASHES`.
+
+    Same ordering rule as its outbound twin: by (round, lap), never by filename.
+    """
+
+    def _key(path: Path) -> tuple[int, int, str]:
+        match = re.search(r"round-(\d+)-lap-(\d+)", path.name)
+        if not match:
+            return (0, 0, path.name)
+        return (int(match.group(1)), int(match.group(2)), path.name)
+
+    inbound = _REPO_ROOT / "docs" / "handshake" / "inbound"
+    for path in sorted(inbound.glob("round-*-lap-*.md"), key=_key, reverse=True):
+        match = re.search(
+            r"^HANDSHAKE-SHARED-HASHES: (.+)$", path.read_text(encoding="utf-8"), re.M
+        )
+        if not match:
+            continue
+        declared: dict[str, str] = {}
+        for token in match.group(1).split():
+            if "=" in token:
+                name, _, value = token.partition("=")
+                declared[name] = value
+        if declared:
+            return path, declared
+    return None
+
+
+def test_the_PEERS_declared_shared_hashes_match_our_copies() -> None:
+    """The other half of a two-half check, which said so in its own docstring.
+
+    The test above verifies **our** declaration against **our** tree. Its
+    docstring then admits the gap in writing: *"We have told the fork we do not
+    yet compare their hashes against ours… This is the half we can do
+    unilaterally."* That was accurate when written and is the exact shape
+    `CLAUDE.md` names — *if the contract has two halves, did I check both?* — with
+    the missing half identified, recorded, and left undone.
+
+    **It is unilateral too, and always was.** It needs no network and no clone of
+    their repository: we hold their laps, they declare the hashes in the wire
+    header, and the files are supposed to be byte-identical in both trees. So the
+    comparison is `their declaration` against `our bytes`.
+
+    **What it catches that nothing else does.** These four files are jointly
+    owned — neither project may edit one unilaterally — so a divergence is not a
+    merge conflict anybody sees. It is silent: two projects reading two different
+    rulebooks, each internally consistent. The wire field exists precisely so a
+    lap carries the evidence, and a declared hash nobody compares is a second
+    description of a fact rather than a check on it.
+
+    **Scope, stated rather than implied.** This compares only the names the peer
+    declares AND that we know a path for. A file they declare and we do not know
+    fails loudly (below). A file *we* hold and they never declare is invisible
+    here — that asymmetry is the remaining third of the problem, and it belongs to
+    whichever side adds a shared file without announcing it.
+    """
+    found = _latest_inbound_with_shared_hashes()
+    assert found is not None, (
+        "no INBOUND lap declares HANDSHAKE-SHARED-HASHES. The field has been on "
+        "the wire since round 7 lap 33 and the peer carries it in every lap, so "
+        "an empty result means the parse broke, not that they stopped declaring."
+    )
+    lap, declared = found
+    # THE FLOOR. Every clause below iterates the declaration, so a declaration
+    # that parsed to nothing would pass by not looking — the shape this file
+    # exists to refuse, and the reason its twin carries the same assertion.
+    assert len(declared) >= 3, (
+        f"{lap.name} parsed down to {len(declared)} hash(es); the peer declares "
+        "four, so the parser has stopped matching"
+    )
+    mismatches: list[str] = []
+    for name, claimed in declared.items():
+        rel = _SHARED_FILE_PATHS.get(name)
+        if rel is None:
+            mismatches.append(
+                f"{name}: the peer declares a shared file we know no path for — "
+                "either they added one without telling us, or _SHARED_FILE_PATHS "
+                "is behind"
+            )
+            continue
+        actual = hashlib.sha256((_REPO_ROOT / rel).read_bytes()).hexdigest()
+        if actual != claimed:
+            mismatches.append(
+                f"{name}: they declare {claimed[:16]}… and our {rel} hashes to "
+                f"{actual[:16]}…"
+            )
+    assert not mismatches, (
+        f"the shared files have DIVERGED between the two repositories, per "
+        f"{lap.name}:\n  " + "\n  ".join(mismatches) + "\n"
+        "These four are jointly owned and neither project may edit one alone. A "
+        "divergence is not a merge conflict anybody sees — it is two projects "
+        "reading two different rulebooks. Reconcile before the round closes."
+    )
+
+
 # --- closed-set fields must be bare tokens on OUTPUT -------------------------------
 #
 # WHAT HAPPENED (2026-08-17, round 9 lap 7 §F2). The fork's gate anchors its verdict
