@@ -121,7 +121,8 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       half that matters: a shared protocol where each side holds a different
       description of when a round can close is the failure rule #12 exists to
       prevent. **Round 19, §A.** Ask the maintainer before writing the lap.
-- [ ] **28 of 37 shared-protocol conformance rows have no test, and the file
+- [ ] **14 of 37 shared-protocol conformance rows have no test — C21–C30 and
+      C33–C36, contiguous — and the file
       claiming "one test per row" was written when the table had 14.**
       `tests/test_handshake_conformance.py`'s docstring says *"`PROTOCOL.md` §8 is
       a 14-row table… one test per row, in the table's order"*. The jointly-owned

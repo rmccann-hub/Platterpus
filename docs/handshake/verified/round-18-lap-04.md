@@ -62,11 +62,30 @@ were ones mentioned in the comment explaining the widening.** The scan read the
 whole file, so writing *about* a row counted as testing it. A gate satisfiable by
 prose.
 
-Now scoped by AST to `test_` functions only, and the honest number is published
-with its own caveat: **at most 9 of 37 rows are exercised; 28 certainly are not**,
-and three of the nine are named only inside an assertion message. Stated as an
-upper bound rather than tightened further, because a heuristic guessing which
-mention is "real" is a rule that gets argued with instead of obeyed.
+Now scoped by AST to `test_` functions only.
+
+**CORRECTION, same day, and it is the third pass at one defect.** The number this
+section first carried — *"at most 9 of 37 exercised; 28 certainly are not"* — was
+**also wrong, by fourteen rows**, and wrong for a third variant of the same
+mistake. The AST scan's id pattern was `\bC\d+[a-z]?\b`, and `\b` does not fire
+between `C1` and the underscore in `test_C1_the_wire_header` because **`_` is a
+word character** — so all twenty rows with a dedicated test function were invisible
+to the check counting them.
+
+**The true figure is 23 of 37 named, 14 uncovered — and the 14 are contiguous**:
+C21–C30 and C33–C36, every one a row added in v3/v4. Twenty have a dedicated
+`def test_C<N>_`; C13a, C31 and C32 are named only in assertion messages.
+
+**And the first repair had reached one of FOUR extraction sites.** Three others
+still read `C\d+` the next day, including `_conformance_row_ids()`, which is what
+most of the file's tests actually call — so the fix had landed on the ratchet and
+not on the checks. That is why the remedy is now a sweep with a floor rather than a
+fourth edit, and why the comment claiming *"the blind spot cannot return"* was the
+tell: a comment where a check belongs is not a fix.
+
+**Widening the other three then made an existing gate fire correctly and expose a
+real divergence: we do not implement `C13a` at all.** Recorded as a counted
+divergence with an expiry test, and queued — it fails closed.
 
 ## W3. Their question about `UNPROBED`, answered — and the wording was ours to fix
 
