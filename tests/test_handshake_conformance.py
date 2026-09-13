@@ -703,3 +703,69 @@ def test_no_test_here_claims_a_row_the_table_does_not_have() -> None:
         f"test(s) here claim row(s) {', '.join(unknown)}, which the shared table "
         "does not define"
     )
+
+
+# --- the table GREW and this file did not notice -----------------------------------
+
+#: Conformance rows this file names today. **A ratchet: it may only grow.**
+#:
+#: **Found 2026-09-13, and the fork found the symptom first.** Their round-18
+#: status ran their own self-found checks against our public tree and reported
+#: that `HANDSHAKE-OVERRIDE` appears in `docs/handshake-protocol.md` and in **zero**
+#: `.py` files here — so C31 (refuse an override missing `-BY`/`-WHY`) and C32
+#: (honour it, and print it whenever the round's state is printed) are unimplemented
+#: and untested. Verified here rather than accepted: 0 references in any `.py`.
+#:
+#: **The disease is larger than that row.** This file's docstring says
+#: *"`PROTOCOL.md` §8 is a 14-row table… one test per row"*. The shared table now
+#: has **36** rows. It grew and the promise did not, which is `CLAUDE.md`'s
+#: *does this document promise completeness? then it needs a sweep, not a comment*
+#: — decaying invisibly, because a map is only ever wrong by omission.
+#:
+#: This constant is not the fix. It is the **counter** that makes the gap visible
+#: and stops it widening silently while the real work is queued in `TASKS.md`.
+_ROWS_NAMED_HERE: frozenset[str] = frozenset({"C9", "C10", "C17", "C18", "C19", "C20"})
+
+
+def test_the_conformance_table_has_not_outgrown_this_file_any_further() -> None:
+    """The sweep this file's own completeness claim always needed.
+
+    Derives the row set from the shared protocol rather than from a list here, so
+    a row added by either project is counted the round it lands. Asserts two
+    things and neither can be satisfied by finding nothing:
+
+    1. the protocol still parses to a substantial table (floor), and
+    2. every row this file claims to name is still in the protocol, and
+    3. the covered set has not SHRUNK.
+
+    It deliberately does **not** assert full coverage, because that would fail
+    today and a red suite is not a record — the shortfall is itemised in
+    `TASKS.md` instead, with this counter stopping it growing.
+    """
+    proto = (_REPO_ROOT / "docs" / "handshake-protocol.md").read_text(encoding="utf-8")
+    rows = set(re.findall(r"^\| (C\d+) ", proto, re.M))
+    assert len(rows) >= 30, (
+        f"the protocol parses to {len(rows)} conformance row(s); it had 36 on "
+        "2026-09-13, so either the table shrank or this parser stopped matching — "
+        "and a coverage check over an empty table passes by not looking"
+    )
+    named = set(
+        re.findall(
+            r"\bC\d+\b",
+            (_REPO_ROOT / "tests" / "test_handshake_conformance.py").read_text(
+                encoding="utf-8"
+            ),
+        )
+    )
+    stale = _ROWS_NAMED_HERE - rows
+    assert not stale, (
+        f"this file names conformance row(s) {sorted(stale)} that the protocol no "
+        "longer defines — the shared table changed under us"
+    )
+    covered = rows & named
+    assert len(covered) >= len(_ROWS_NAMED_HERE), (
+        f"conformance coverage SHRANK: {len(covered)} of {len(rows)} rows named, "
+        f"was {len(_ROWS_NAMED_HERE)}. This ratchet may only grow. The "
+        f"{len(rows) - len(covered)} uncovered rows are itemised in TASKS.md; "
+        "C31/C32 (operator override) are the two the fork found for us."
+    )

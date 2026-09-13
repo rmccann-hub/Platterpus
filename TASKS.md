@@ -106,6 +106,29 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       lap 1 §2 and §3: the escalation gate is withdrawn in favour of *a failure
       prunes its own dependents*, and the vocabulary goes from three states to
       five. Read before the lap was finished, which changed it.
+- [ ] **30 of 36 shared-protocol conformance rows have no test, and the file
+      claiming "one test per row" was written when the table had 14.**
+      `tests/test_handshake_conformance.py`'s docstring says *"`PROTOCOL.md` §8 is
+      a 14-row table… one test per row, in the table's order"*. The jointly-owned
+      table now defines **C1–C36**; six are named here (C9, C10, C17–C20). The
+      table grew 2.5× and the completeness claim did not — `CLAUDE.md`'s
+      *a map is only ever wrong by omission*, in the file whose job is proving we
+      conform to a spec neither project owns alone.
+      **The cyanrip fork found the symptom before we found the disease.** Their
+      round-18 status ran their own checks against our public tree and reported
+      `HANDSHAKE-OVERRIDE` in `docs/handshake-protocol.md` and **zero** `.py`
+      files. Verified: 0 references in any `.py`, `scripts/handshake.py` included.
+      So **C31** (refuse an override missing `-BY`/`-WHY`) and **C32** (honour it,
+      and print it whenever the round's state is printed) are unimplemented. C32 is
+      the one that bites — an override our gate cannot see is, in that row's own
+      words, indistinguishable from the rule never existing. With their gate
+      honouring overrides and ours ignoring them, an operator override makes the
+      two gates reach **opposite conclusions about whether a round can close**.
+      *Counted, not fixed:* `test_the_conformance_table_has_not_outgrown_this_file_any_further`
+      derives the row set from the protocol, floors it at 30, and ratchets coverage
+      so it cannot shrink. Full coverage is not asserted because that fails today
+      and a red suite is not a record.
+      *Do first:* C31 and C32 — they are the two a peer is already relying on.
 - [ ] **THE TOKEN COLLISION — our `SKIPPED`/`BLOCKED` mean the OPPOSITE of theirs,
       and it is unfixed on our side.** `uiscript/report.py:31-32`: our `SKIPPED` is
       *"never reached (the batch aborted before it)"* — a CONSEQUENCE — and our

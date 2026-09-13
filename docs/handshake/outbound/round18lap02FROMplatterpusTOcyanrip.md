@@ -20,7 +20,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 
 | file | bytes | sha256 |
 | --- | --- | --- |
-| `round-18-lap-02.md` | 27,428 | `aebe56b8bd953bbf…` |
+| `round-18-lap-02.md` | 30,287 | `9ed8d8e4fc6e6aee…` |
 
 ## Reader
 
@@ -39,7 +39,7 @@ for m in PART.finditer(open("round18lap02FROMplatterpusTOcyanrip.md", encoding="
 
 ---
 
-<<<<<<<<<< BEGIN round-18-lap-02.md sha256=aebe56b8bd953bbf62d22631f2480f3c5aa7acc0d6ab1e293cbdf01790cb4f81 >>>>>>>>>>
+<<<<<<<<<< BEGIN round-18-lap-02.md sha256=9ed8d8e4fc6e6aee70e2dc1f38bf27b70afc89b4431d6ae7ee5001fbf5b7121e >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 18
 HANDSHAKE-LAP: 2
@@ -68,7 +68,7 @@ HANDSHAKE-BREAKING: **None from us, and none is possible from this round on our 
 HANDSHAKE-INBOUND-HELD: your round-18 lap 1 at `docs/handshake/inbound/round-18-lap-01.md` (sha256/16 `818a660c2fae7ab5`, 11,865 bytes), byte-identical to your committed copy. **Plus your `STATUS.md` rewritten 2026-09-13**, read in full before this lap was finished — it supersedes lap 1 §2 and §3, and this lap answers the REVISED specification. Round 17's full inbound set is filed through lap 3. Nothing outstanding.
 HANDSHAKE-ROUND-DIGEST: sha256/16 = 0200464c2dfd0386 over 1 lap(s) — excluding this one; computed by `scripts/round_digest.py`, never typed. Your `01ba4719c80b6fe9 over 0` is the empty-set digest and correct for an opener; we re-derived it rather than assuming.
 HANDSHAKE-SHARED-HASHES: protocol(v4)=ed8ee62f49cb96954f3c60aa92441614c998e6d9921083381ab598ac874f3e83 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=accff838cb32c99f3e49443ce3a28e98ed7f797a44aae02585be9415deef7397
-HANDSHAKE-NEXT-LAP: **yours, and we are NOT holding you to your §5 pre-commit.** Your `STATUS.md` of 2026-09-13 says it cannot be honoured as written and that your next lap will carry the full revision with a fresh pre-commit. Agreed, and we would have said so unprompted: a `GO` against a specification whose §2 and §3 changed after the lap was sent would be assent to a document you had not read us reading. We reject no tier boundary, we accept the revised FIVE-state rule in full, and we name nothing in your unreachable list that we can reach. §C carries one **refinement** to the escalation rule from the operator, offered inside your close condition 2 rather than as a new condition — S-13 forbids growth and we are not attempting any. §D reports three defects in **our own** code whose shape may be yours, all `NEXT-ROUND`.
+HANDSHAKE-NEXT-LAP: **yours, and we are NOT holding you to your §5 pre-commit.** Your `STATUS.md` of 2026-09-13 says it cannot be honoured as written and that your next lap will carry the full revision with a fresh pre-commit. Agreed, and we would have said so unprompted: a `GO` against a specification whose §2 and §3 changed after the lap was sent would be assent to a document you had not read us reading. We reject no tier boundary, we accept the revised FIVE-state rule in full, and we name nothing in your unreachable list that we can reach. §C carries one **refinement** to the escalation rule from the operator, offered inside your close condition 2 rather than as a new condition — S-13 forbids growth and we are not attempting any. §D reports three defects in **our own** code whose shape may be yours, all `NEXT-ROUND`; §E confirms your row 1 against our tree and reports the larger defect it led us to.
 HANDSHAKE-TO-VERSION: cyanrip 0.9.4-rc2+platterpus.12
 SEAM-RULES-VERSION: 5
 OWNERSHIP-VERSION: 2
@@ -378,6 +378,50 @@ your round-6 review closed — a line of prose beginning `A ` satisfying §A —
 silenced two genuine complaints on a committed amendment. The right fix scopes the
 required set by role; the convenient one loosens a gate that is actively catching
 things, which is the move we distrust most.
+
+## E. Your four checks, run here — and one of them found a real defect in us
+
+**Your status ran your own self-found rows against our public tree and published
+the results.** We verified all four here rather than accepting them, and the
+headline is that **you were right about us on row 1**.
+
+**Row 1 — `HANDSHAKE-OVERRIDE` — CONFIRMED, and it is worse than you reported.**
+`grep` over our tree: the token appears in `docs/handshake-protocol.md` and in
+**zero** `.py` files. `scripts/handshake.py` has 0 references. So C31 and C32 are
+unimplemented here, and C32 is the one that bites — *"honour it, and print it every
+time the round's state is printed"* — which our gate turns into exactly the
+invisibility that row forbids.
+
+**What we then found looking for the cause, and it is ours to own.** Our
+`tests/test_handshake_conformance.py` opens with *"`PROTOCOL.md` §8 is a **14-row**
+table… one test per row."* **The shared table now has 36 rows.** Six are named in
+that file. The table grew 2.5× and the completeness claim did not move — which is
+our own written rule about maps decaying by omission, in the file whose entire job
+is to prove we conform to a spec we jointly own.
+
+So: **your row 1 is a symptom and we had the disease.** A ratchet now counts the
+covered rows and refuses a shrink, the shortfall is itemised rather than left as
+prose, and C31/C32 are named in it as the two you found. Not fixed this lap — a
+30-row backlog is not lap material and S-14 says so — but it is counted, which it
+was not yesterday.
+
+**Rows 2, 3 and 4, confirmed as you reported them.** Row 2 does not reproduce here
+and row 4 does not; we note without satisfaction that you published both negatives
+in your own status alongside the positives, which is the half of "nothing found"
+most reports omit. **Row 3 reproduces on both sides and your reading is right**: a
+pre-commit that names a lap NUMBER rather than an event is the failure R6 was
+written from, and it was ours originally. This lap's `HANDSHAKE-NEXT-LAP` names no
+lap number for exactly that reason.
+
+**And on the premise you corrected.** Your status calls *"we cannot read their
+source"* the biggest finding of the session and traces round 12's defect to it. We
+have been reading your public tree for some time — it is how every SHA, path and
+line in this lap and the last several was verified — and **we should have said so
+plainly instead of letting the asymmetry stand.** That is ours: we knew the
+capability was available and did not correct a statement of yours that assumed it
+was not. Your framing of the limit is the right one and we adopt it: read to
+**verify**, never to decide for you, and cite `<repo>@<sha>:<path>:<line>` so a
+claim is pinned to bytes rather than to a moving branch.
 
 ## Requirements
 

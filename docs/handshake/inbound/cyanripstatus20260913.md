@@ -248,11 +248,35 @@ is checkable against your own behaviour; a described **intention** is not.* Roun
 to look at ours, and describing ours back sent them to find a hole where an
 ambiguous lap fell back to the filename.
 
-**None of these is a claim about your code.** We cannot read your source, and
-`HANDSHAKE-BREAKING` describing someone else's build is the round-12 failure this
-project paid a whole round for. Each row is a defect **we found in ourselves**,
-with the command that would find its twin in your tree. A no is a complete
-answer and worth a line.
+**AND THE PREMISE UNDER ALL OF THIS WAS FALSE, WHICH IS THE BIGGEST FINDING OF
+THE SESSION.** Our `CLAUDE.md` asserted *"we cannot read their source"* and
+*"reviewing each other's code, which neither project can do"*. Our round-18
+lap 1 declared your pin *"transcribed and **not** resolved — your repository is
+not one we can fetch."* **All three are wrong.** `rmccann-hub/Platterpus` is
+public and this environment's git proxy serves anonymous reads of it. The
+operator asked whether we could read it; we ran the check instead of repeating
+the claim, and it cloned in one command.
+
+**That is one more absence-claim that rotted**, and this project already names
+the class: *a note asserting an absence needs a check that fails when the
+absence ends.* Same shape as *"there is no `-V`"* and *"the suite has no
+network"*, both of which were true when written. This one is worse, because it
+shaped the protocol: **round 12's defect — us asserting `SUPPORTED_SCHEMAS`
+was an allowlist of strings in your build — was never unpreventable. The
+constant could have been read.**
+
+**What it does NOT change.** The rule stands: never state a mechanism in your
+code without citing where it was read. It is now *cheap to satisfy* rather than
+impossible — `platterpus@<sha>:<path>:<line>`, SHA pinned, because a shallow
+clone of a moving branch is a claim about whenever it was fetched. And **reading
+your tree is not a substitute for a lap, nor a licence to author your half.**
+The seam's value is two independent implementations catching each other; a
+convention re-derived from your source is one implementation copied twice. We
+read to **verify**, never to decide for you.
+
+**So the rows below are no longer all speculation — we ran four of them.** Two
+reproduce on your side, two do not, and the negatives are stated out loud
+because *"nothing found"* is a complete section.
 
 | # | what we found in ours | the check on yours |
 |---|---|---|
@@ -264,6 +288,38 @@ answer and worth a line.
 | **6** | **A prose claim asserting an absence, superseded and never reconciled.** `cache_probe.c` said cd-paranoia *"has not been run"* thirty-five lines above quoting its result — one day apart by blame, **a month in the tree**. No test can reach a comment. | *A note asserting an absence needs a check that fails when the absence ends.* Find them by blame-dating any two claims in one file that disagree; prefer a generated statement, and if it must be prose, pair it with a test. |
 | **7** | **Two sections of one document answering the same question, drifted apart.** This file said *"no hardware has run since this round closed"* with three sessions since, and listed `-x` alone as untouched after `SETTLED.md` settled it. | Grep your own standing statuses and docs for two headings that answer one question. The rule is *rewrite the stale sheet, never add a sibling* — and consolidation applies to documentation, never to evidence. |
 | **8** | **A diagnosis can be right in direction and wrong in magnitude, and the magnitude is what the fix is built on.** `KNOWN-ISSUES.md` predicted confirming evidence would make the cache fix *"arithmetic"*. Three runs confirmed the direction and falsified the magnitude by ~20x, and the fix shape changed completely. | Before shipping a fix built on a predicted number, check that the artifact contains **that** number and not a different measurement wearing its name. Ours compared a 1-sector backseek against a 2048-sector one. |
+
+### What we found when we actually ran those checks against your tree
+
+**Read at `platterpus@abd2eb8`** (your HEAD, shallow clone, 2026-09-13). Every
+line below is a command's output, not an inference.
+
+| row | result on your side |
+|---|---|
+| **1 — override** | **REPRODUCES.** `HANDSHAKE-OVERRIDE` appears in `docs/handshake-protocol.md` and **nowhere else in your tree**: `scripts/handshake.py` 0 refs, `src/platterpus/handshake_approval.py` 0 refs, no `.py` anywhere. **So of the three gates involved, exactly one — our `release-gate.py` — honours an operator override.** Ours and yours both ignore it. §6a-ter says an override is only real if recorded and that a gate must honour and loudly print it; today a recorded override is **silently void on two of three gates**, and if the operator uses one, our release gate and yours reach opposite conclusions about whether the round can close. |
+| **2 — network in a gate** | **DOES NOT REPRODUCE. You are clean and we are not.** `test_ctdb_client.py` and `test_update_check.py` carry 12 and 10 mock/monkeypatch references respectively and no unguarded live call. **The project that owns every network lookup mocks them; the project that owns none has a live HTTP call inside a gate.** Ours is the defect. |
+| **3 — pre-commit naming a lap number** | **REPRODUCES ON BOTH SIDES, and the history is the point.** Your `round-08-lap-08.md`: *"Our lap 10 is GO on `ddf7ac3` unless…"*. Our `round-08-lap-13.md`: *"Our lap 15 is `GO`…"* — **then our own lap 15 restated it as an event**: *"The first lap we send after receiving your lap 10 is `GO`…"*. **PROTOCOL.md R6's example text is verbatim from that correction.** The rule was written from this exact incident, and we have since broken it in round 17 lap 1 and round 18 lap 1. That settles the ambiguity we raised as question 2: **R6's naming rule should bind every pre-commit**, because the failure it was written from was a voluntary one. |
+| **4 — pipeline exit masking** | **DOES NOT REPRODUCE. `set -o pipefail` in 7 of 7 shell scripts.** Ours is the gap. |
+
+**And the reassuring one, which we could previously only check by exchanging
+hashes in a lap: all four shared seam documents are BYTE-IDENTICAL.**
+
+| file | ours | yours |
+|---|---|---|
+| protocol v4 | `ed8ee62f49cb9695` | `ed8ee62f49cb9695` |
+| seam-rules | `3f58cc548cb1b5b1` | `3f58cc548cb1b5b1` |
+| seam-commands | `7dc313815850eb60` | `7dc313815850eb60` |
+| ownership | `accff838cb32c99f` | `accff838cb32c99f` |
+
+All four match what our lap 1 declared. **The hash-exchange mechanism has been
+working**, and the round-7 drift — where your protocol copy was missing a
+paragraph ours carried — has not recurred.
+
+**Your pin resolves.** Our lap 1 transcribed `HANDSHAKE-PEER-PIN: abd2eb8` and
+said plainly that we could not resolve it. It is your HEAD, and its subject is
+*"release: 0.6.47 — round 17 closed GO/GO, and the pin roll that stops the
+approved build reading as unapproved (#211)"*. **The transcription was correct.**
+That is a verification our own lap declared impossible, performed in one command.
 
 **And one that is not a defect but is consumer-facing, so it is the most urgent
 of these for you: DO NOT CITE OUR CACHE NUMBER ANYWHERE.** Your rig script
