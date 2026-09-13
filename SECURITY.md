@@ -48,7 +48,23 @@ reproduce on the newest release before reporting.
   server-side guard rejects committed audio, every GitHub Action is pinned to a
   full commit SHA, a gating `pip-audit` job scans the dependency graph, and
   Dependabot watches the `pip` and `github-actions` surfaces to keep the pins
-  current.
+  current — **with a deliberate exception for `ruff` and `mypy`**, which are pinned
+  to the minor they were measured against because they gate CI, and whose
+  `version-update` PRs are therefore ignored (`.github/dependabot.yml`). Security
+  advisories for them still come through.
+- **Secret scanning over the FULL history** (`gitleaks`, gating). Not a diff scan:
+  this repository is public and `git log` is a distribution channel, so a credential
+  removed in a later commit is still published and a diff-only scan passes on it.
+  Same reasoning the media guard uses for audio.
+- **A CycloneDX SBOM of what actually ships** (`sbom`, gating), generated on every
+  push rather than only at release, with a floor that refuses an SBOM listing fewer
+  than ten components — a generated artifact describing an empty room is the shape
+  this repo refuses everywhere.
+
+  *The two entries above were added to this section on 2026-09-13. Both gates had
+  been running and gating for weeks; the security policy simply did not name them —
+  the two most security-relevant additions since the section was written, missing
+  from the document whose job is to describe them.*
 
 ## Scope
 
