@@ -33,6 +33,28 @@
 > hid a shipped fix for a full round — which makes the contract's **coverage**
 > worth more than its accuracy, since neither project can read the other's code
 > and both can compare behaviour.
+>
+> **CORRECTION, 2026-09-13: the last clause was false, and it had been false the
+> whole time.** Both repositories are public and either session can clone the
+> other in one command. The cyanrip fork found this in their own copy first —
+> their `CLAUDE.md` asserted it in two places and a round-18 lap in a third — ran
+> the check instead of repeating the claim, and told us. Ours is the same claim in
+> the same shape.
+>
+> **This is the class the project already names: *a note asserting an absence
+> needs a check that fails when the absence ends.*** Same shape as *"there is no
+> `-V`"* and *"the suite has no network"*, both true when written. This one is
+> worse because it shaped how we work — round 12 cost a whole round to a mechanism
+> we asserted in their build and could simply have read.
+>
+> **What survives the correction.** The conclusion still holds, for a different
+> reason: a published contract is worth more than reading the source, because it
+> is a *promise* about behaviour rather than a snapshot of an implementation that
+> may change tomorrow. Reading their tree is how we **verify** a contract row,
+> never how we decide what a row should say — a convention re-derived from their
+> source is one implementation copied twice, and the seam's whole value is two
+> independent ones catching each other. So contract coverage still matters more
+> than contract accuracy; *"because we cannot look"* was never the reason.
 
 **What this is.** A list of concrete, evidence-backed problems that Platterpus has hit, measured, or worked around, where the fix belongs on the cyanrip side (fork or upstream). It is offered as useful information, nothing more.
 
@@ -962,4 +984,4 @@ The one thing worth asking of you, and it is §4 and §5 rather than a new item:
 
 ---
 
-*Last updated for Platterpus v0.6.33.*
+*Last updated for Platterpus v0.6.47.*

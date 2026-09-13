@@ -39,16 +39,40 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   counter has the identical hole (`\bC[0-9]+\b`), which they found in themselves
   while checking us — same defect, both projects, independently, on the one row
   in the table that is not a bare number.
-- **The same gate was also satisfiable by prose.** Widening the pattern took
-  apparent coverage from 6 rows to 10 — and all four new ids came from the
-  *comment explaining the widening*, because the scan read the whole file. Writing
-  *about* a row counted as testing it. The scan now walks the AST and reads only
-  `test_`-prefixed functions, and the honest figure is published with its caveat:
-  at most 9 of 37 rows are exercised and 28 certainly are not, three of the nine
-  being named only inside an assertion message. Left as a declared upper bound
-  rather than tightened with a heuristic — a gate whose rule cannot be stated in
-  one sentence gets argued with instead of obeyed. Uncovered rows are itemised in
-  `TASKS.md`, C31/C32 first because a peer relies on them.
+- **The same gate was also satisfiable by prose**, and the repair for *that* had a
+  third blind spot — so the honest account is that one defect took three passes.
+  Widening the row pattern took apparent coverage from 6 rows to 10, and all four
+  new ids came from the *comment explaining the widening*, because the scan read
+  the whole file. Writing *about* a row counted as testing it. Scoped to `test_`
+  functions by AST. **Then the AST scan reported 9 of 37 — also wrong, by fourteen
+  rows.** Its id pattern was `\bC\d+[a-z]?\b`, and `\b` does not fire between
+  `C1` and the underscore in `test_C1_the_wire_header`, because **`_` is a word
+  character** — so every one of the twenty rows with a dedicated test function was
+  invisible to the check counting them. Replaced with explicit alphanumeric
+  boundaries.
+- **The true figure is 23 of 37 named and 14 uncovered, and the 14 are
+  contiguous** — C21–C30 and C33–C36, every one a row added in v3/v4. That is a
+  usable statement where "28 uncovered" was not. Twenty rows have a dedicated
+  `def test_C<N>_`; C13a, C31 and C32 are named only inside assertion messages.
+- **The first repair reached one of four extraction sites**, which is why the fix
+  is now a sweep. `_conformance_row_ids()`, `_rows_after_heading()` and the
+  claim-checker all still read `C\d+` the day after the ratchet was widened — and
+  `_conformance_row_ids()` is what most tests in the file actually call, so the
+  repair had reached the ratchet and not the checks.
+  `test_no_narrow_row_id_pattern_survives_anywhere_in_this_file` now greps for the
+  narrow form with a floor, because *enforce a rule across the codebase, not at the
+  place it was learned* — and because the comment on the first repair said "the
+  blind spot cannot return."
+- **Widening those three sites made an existing gate fire correctly and expose a
+  real conformance divergence: we do not implement `C13a`.** The row requires that
+  a later lap arriving after a round reaches a terminal state is refused as an
+  illegal transition *with the round staying closed*; our `round_status` reads the
+  newest file on each side, so a later lap still reopens a closed round — the v2
+  behaviour `C13a` was written to replace. It had been unreportable for as long as
+  the row pattern could not produce the id. **It fails closed** (a stray later lap
+  turns the round `OPEN` and `--release-gate` refuses), so it over-blocks rather
+  than permits; recorded in a `_KNOWN_DIVERGENCES` ratchet with a test that expires
+  the entry when the divergence is fixed, and queued rather than hot-fixed.
 
 ### Changed
 - **The approval constants move to round 18 / Platterpus 0.6.47, and the guard

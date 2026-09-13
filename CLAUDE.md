@@ -211,36 +211,44 @@ The GUI runs on the host. It calls the host-exported ripper binary in `~/.local/
         read as a demotion of a peer this project depends on. Do the checking; do
         not publish the intention.
 
-    - **Writing a lap and sending one are two acts, and only the maintainer can
-      perform the second — so ASK BEFORE WRITING A LAP** (maintainer directive,
-      2026-09-04). Not after: by then the lap exists, and a lap that exists
-      without the maintainer knowing it exists is one nobody is waiting to carry.
-      **Measured: round 15 laps 4, 5 and 6 were written on three consecutive days
-      and none of them was ever handed over**, while the fork's lap 3 — a `GO`
-      asking nothing further — sat unanswered for two days. Neither project's
-      gates noticed, because both sides' gates grade *files in a directory* and a
-      send is an event outside the tree.
-      **The tooling actively hid it, which is why the rule is "ask" rather than
-      "remember".** `emit_envelope.py`'s `PARTS` still pointed at round 14 lap 16,
-      and the envelope was regenerated **four separate times in one day** —
-      incidentally, because it also carries `fullacceptance.txt`, which was being
-      edited — each run reporting success while packing a round the fork closed
-      weeks ago. That is the neighbour of the case the generator's own docstring
-      warns about (*"one artifact implying a send that did not happen"*, round 9
-      lap 6) and of the rule cyanrip argued us into keeping in their round-9 lap 3
-      §B1: that rule makes an envelope impossible to **miscount as a lap**, and
-      says nothing about one correctly built around the **wrong** lap. `SENT_LAPS`
-      could not catch it either — it holds no round-14 or round-15 rows, so it is
-      silent rather than negative, and *silent* is not *no*.
-      Asking first puts the one party who can observe a send into the loop at the
-      moment the lap is conceived. `tests/test_no_lap_is_left_unsent.py` is the
-      backstop, not the rule: a gate can see an unsent lap accumulating, but it
-      cannot ask a question.
-      **This one is NOT bilateral and does not travel to the fork** — see the
-      bullet below for what does. It governs how this project works with its
-      maintainer, not what crosses the seam, and shipping it to the fork would
-      hand them a rule about our operator.
-    - **This rule lives in both repos.** When it changes here, send the change to the fork in the same round so their `CLAUDE.md` (or equivalent) matches. Two projects with different copies of the protocol is the failure this rule exists to prevent. **The bullet directly above is the exception, and it says so**: an operational rule about asking our own maintainer is not part of the seam contract.
+    - **LAPS TRAVEL BY GIT. Write the lap, commit it, push it, then tell the
+      maintainer to point the peer at it** (maintainer directive, 2026-09-13:
+      *"no more laps i send manually, you make the doc and put into the repo,
+      then tell me to have the other repo take a look"*). This **supersedes** the
+      2026-09-04 rule that said to ask before writing a lap, and it supersedes it
+      by removing the reason rather than by overruling it: that rule existed
+      because *only the maintainer can perform the send*, so a written lap could
+      sit unsent indefinitely — and three did. Publishing **is** sending now, so
+      writing and sending are one act again.
+      **Both repos are public and either side can read the other. That premise was
+      wrong in both trees for the entire life of this protocol.** The fork found it
+      in themselves first — their `CLAUDE.md` asserted it twice and a round-18 lap
+      a third time — ran the check instead of repeating the claim, and told us;
+      ours said it too, in `docs/cyanrip-known-issues.md` and a session-log entry.
+      It is the class this file already names: **a note asserting an absence needs
+      a check that fails when the absence ends.** Same shape as *"there is no
+      `-V`"* and *"the suite has no network"*. This one is the most expensive of
+      the three, because it shaped the protocol: round 12 cost a whole round to a
+      mechanism we asserted in their build and could simply have read.
+      **`main` is the ref of record, and that is the new failure mode.** Work
+      happens on a `claude/…` branch and reaches `main` by squash merge, so a lap
+      can be committed, correct and invisible. Measured the day the rule changed:
+      `main` was **107 commits behind** and carried **none** of round 18's six
+      files. So the gate that used to be unable to see a send can now see one —
+      *is this lap on `main`?* is a question with an answer — and
+      `tests/test_no_lap_is_left_unsent.py` is where that answer belongs.
+      **What it does NOT license, and the fork said it first and better:** reading
+      their tree is not a substitute for a lap and not a licence to author their
+      half. *"The seam's value is two independent implementations catching each
+      other, and a convention re-derived from their source is one implementation
+      copied twice. Read to verify, never to decide for them."* And the citation
+      rule is unchanged — a mechanism claimed in their code carries
+      `cyanrip@<sha>:<path>:<line>` — it has merely gone from impossible to cheap.
+      **The half that stays with the maintainer is the NOTIFICATION**, which is why
+      the directive ends *"then tell me"*. A published lap nobody has been pointed
+      at is discoverable rather than lost, which is strictly better than the old
+      failure, but it is still not delivered. Say which commit it is on.
+    - **This rule lives in both repos.** When it changes here, send the change to the fork in the same round so their `CLAUDE.md` (or equivalent) matches. Two projects with different copies of the protocol is the failure this rule exists to prevent. **The bullet directly above USED to be the exception and no longer is** — when it was *"ask our maintainer before writing a lap"* it governed our operator and shipping it would have handed the fork a rule about a person they do not work with. Now that it is *"laps travel by git"* it is a **term of the seam**: it names where each side publishes and which ref the other reads, and a transport only one side has adopted is not a transport. It travels. (The two carve-outs that remain are the ones that still govern a duty of ours rather than a term between us — *the fork is the core* and the checking we owe them.)
 
 ## How to stop shipping the next one (read before calling a fix done)
 
@@ -285,7 +293,7 @@ When in doubt during any session, stop and ask the user before doing the followi
 - Bypassing the host-exported `~/.local/bin/<ripper>` routing (currently cyanrip)
 - Adding scattered dependency checks outside the self-management subsystem
 - **Releasing, or switching the container to a new cyanrip pin, while a handshake round is open** — the gate is bidirectional and both verifications must be in (`docs/cyanrip-handshake.md`)
-- **Writing a new handshake lap** (maintainer directive, 2026-09-04). Ask *before* writing it, not after. Reasoning and the measurement that produced it are in Critical rule #12's *Writing a lap and sending one are two acts* — the short version is that only the maintainer can perform the second, so a lap written without their knowledge can sit unsent indefinitely, and three did.
+- ~~**Writing a new handshake lap**~~ — **RETIRED 2026-09-13**, and moved to *just do it*: laps now travel by git, so writing one and sending it are the same act and the failure the ask guarded against (a lap written and never carried) is gone. Write it, commit it, push it, and tell the maintainer which commit it is on. See Critical rule #12's *Laps travel by git*. **Still ask before**: releasing, or switching the pin, while a round is open — that one is unchanged and is listed above.
 
 **Just do it (no ask needed):**
 - Renaming a function, variable, or local module

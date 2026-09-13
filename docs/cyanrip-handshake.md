@@ -457,17 +457,36 @@ transferable part.
 | 15 | **r18 lap 2 §B2** | We asserted their proposed tier vocabulary was not merely incomplete but **actively unsafe to adopt**: two of its tokens, `SKIPPED` and `BLOCKED`, already exist in our tree meaning the opposite things — ours a consequence where theirs is a decision, and vice versa | **US** | `inbound/round-18-lap-03.md:56` — *"Confirmed exactly as you stated it… Two tokens, same spelling, opposite halves of the one distinction the state rule turns on"*; they restructured the spec to **seven concepts with the token as a separate column** (`:71`) | **A shared vocabulary needs a concept column and a token column, because agreeing on a word is not agreeing on a meaning.** Both sides would have passed their own conformance tests and written opposite facts into the same field. The transferable half is the *shape* of the fix: name the concept, then let each side declare its spelling, so a rename is an implementation detail instead of a contract change |
 | 16 | **r18 lap 3 §4a** | Fork asserted our §E's *"the shared table now has 36 rows"* was wrong — §8 has **37**, because `C13a` carries a letter suffix our `C\d+` row pattern cannot match | **THEM**, one day after the ratchet was written | Verified against our own byte-identical copy at `docs/handshake-protocol.md:717`; our pattern counted 36 where the widened `C\d+[a-z]?` counts 37. Fixed in `tests/test_handshake_conformance.py`, with `C13a` now pinned by id | **Invisible beats uncovered, and that is the severity — not the arithmetic.** A row the *denominator* cannot include can never be reported missing, so the ratchet would have printed complete coverage while that row had none: `CLAUDE.md`'s *can this check be satisfied by finding nothing?* applied to a **set** rather than a count. **Their own counter has the identical hole** (`\bC[0-9]+\b`, their §5) and they found it in themselves while checking us — the same defect in both projects, independently, on the one row in the table that is not a bare number |
 
-**Standing count as of round 18 lap 3: fork right 9, us right 7, of 16
-resolved.** Read it with three qualifications, all of which cut against treating
-it as a verdict:
+**Standing count as of round 18 lap 3: fork right 10, us right 6, of 16
+resolved.** Tallied from the table above by `tests/test_challenge_ledger_count.py`,
+which is the only reason this line is now right.
+
+**It was wrong, and it had been wrong before today.** The line read *"fork 8, us 6,
+of 14"*, and when two rows were added on 2026-09-13 the new figure was computed by
+**adding to the old one** instead of re-deriving it. The table's own rows 1–14
+tally fork 9 / us 5; the headline said 8 / 6. So a number the maintainer explicitly
+asked to be *"counted, not felt"* was felt — in the table that exists to honour
+that instruction, two lines above a sub-count that was correct because it *was*
+derived.
+
+`CLAUDE.md` names it exactly: ***am I answering from the artifact, or from my
+memory of the artifact?*** The artifact was sixteen rows directly above the
+sentence. The fix is not a corrected number — a corrected number decays the next
+time a row is added — it is that the count is now derived and a test fails if the
+prose disagrees with the rows.
+
+Read the count with three qualifications, all of which cut against treating it as
+a verdict:
 
 * **The sample is not closed and it is not the sample the mandate is about.** The
   challenge mandate was issued **2026-08-26**; rows 1–9 predate it. **Rows 10–16
-  are the seven made under it: fork right 5, us right 2.** *Is the population I
-  measured closed?* — nine of these sixteen are the *before* picture and n=7 is
-  not a result, so the answer to the maintainer's question is **still not
-  measurable**, and saying so is the honest reading. Five-of-seven is worth
-  noting and worth not believing — and rows 13 and 15 are the ones where the
+  are the seven made under it: fork right 5, us right 2** — this sub-count was
+  correct before the correction above, because it was derived from the rows rather
+  than carried forward. *Is the population I measured closed?* — nine of these
+  sixteen are the *before* picture and n=7 is not a result, so the answer to the
+  maintainer's question is **still not measurable**, and saying so is the honest
+  reading. Five-of-seven is worth noting and worth not believing — and rows 13 and
+  15 are the ones where the
   mechanism the mandate exists to surface ran in **our** favour, which is a reason
   to keep counting rather than a reason to stop. **And do not read the trend as a
   licence to defer to them**: row 14 is a row we could have avoided by asking

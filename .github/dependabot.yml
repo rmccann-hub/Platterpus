@@ -13,6 +13,43 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
+    # THE TWO TOOLS THAT GATE CI ARE HELD HERE, DELIBERATELY.
+    #
+    # `CLAUDE.md` Critical rule #11 — *a tool that gates CI must not float* —
+    # pins `ruff` and `mypy` to the minor they were measured against, because
+    # `ruff format` and `mypy --strict` change what they ACCEPT between minor
+    # releases: a routine upstream release turns CI red with zero change to our
+    # code, and it reads as a code problem. Bumping one is meant to be a
+    # deliberate commit that re-runs the gate.
+    #
+    # **And there was an automated agent in this repository whose job was to
+    # undo that.** Dependabot had no `ignore` here, so it proposes range
+    # widenings against the pin as a matter of course — #182 has been open since
+    # 2026-09-02 asking to take `ruff` from `<0.16` to `<0.17`, which is the
+    # whole 0.16 line the rule exists to keep out. Merging it would have floated
+    # the gate with a green review, and nothing in CI would have objected: the
+    # rule was written in prose and enforced nowhere that Dependabot reads.
+    #
+    # Same shape as the rule's own recorded failure — it was stated in
+    # `pyproject.toml` while CI's `lint` job installed `ruff>=0.15,<1`, so the
+    # pin did not bind where the gate ran. This is that lesson arriving from a
+    # third direction: a pin also has to bind against whatever is authorised to
+    # CHANGE it.
+    #
+    # `version-update:semver-*` is ignored rather than the package: a security
+    # advisory still reaches us, which is the one case where floating the pin is
+    # the lesser risk and a human should see the PR.
+    ignore:
+      - dependency-name: "ruff"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+      - dependency-name: "mypy"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
 
   - package-ecosystem: "github-actions"
     directory: "/"
