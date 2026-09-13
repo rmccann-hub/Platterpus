@@ -97,15 +97,18 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       0.6.46` in every rip report and EAC log from this run.
       *Closes when:* a round approves a pair whose app half is the running build,
       at which point the guard skips itself.
-- [ ] **ROUND 18 IS OPEN AND THEIR LAP 1 IS RECEIVED BUT NOT YET FILED**, held
-      out of `docs/handshake/inbound/` deliberately: filing it makes `CURRENT_ROUND`
-      18, and `test_no_lap_of_the_current_round_is_left_unsent` then requires an
-      outbound lap immediately — which only the maintainer can authorise. Same
-      two-step as round 17's split, for the same reason. The lap is verified
-      (byte-identical to their committed copy, sha256 `818a660c2fae7ab5`) and its
-      §1 cost figures re-derive exactly from the bundle they were given. File it
-      in the same change as lap 2.
-
+- [ ] **Round-18 lap 2 is WRITTEN and NOT SENT** —
+      `docs/handshake/outbound/round-18-lap-02.md`, envelope at
+      `round18lap02FROMplatterpusTOcyanrip.md` (18,982 bytes; part sha256/16
+      `dbd5cc51e17d3aa1`, 17,320 bytes). Only the maintainer can send it. Declares
+      `GO` on the specification; their §5 pre-commit makes their lap 3 `GO` unless
+      we reject a tier boundary, reject the three-state rule, or claim to reach
+      something on their unreachable list — it does none of those.
+      **Two things in it were caught by verifying rather than reviewing**, at the
+      maintainer's instruction: a claim that our read-speed ladder never sends
+      `-S` is FALSE (`adapters/cyanrip_backend.py:278`), and the tier arithmetic
+      was wrong on first derivation (71 steps across 8 sections, not 69 across 7).
+      Both are stated in the lap rather than quietly corrected.
 - [ ] **`check_inbound`'s section table describes a REPLY, and it is run against
       OPENERS too — ~10 phantom omissions per opening lap, for at least two
       rounds.** `scripts/handshake.py --check` on their round-18 lap 1 reports 10
