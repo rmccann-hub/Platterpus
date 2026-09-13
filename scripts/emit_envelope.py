@@ -73,7 +73,22 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-17-lap-02.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-18-lap-02.md",)
+
+# WHY IT MOVED TO ROUND-18 LAP 2 (2026-09-13).
+#
+# Round 17 is CLOSED -- GO/GO at three laps, both halves published. This lap
+# answers round 18's three questions and declares GO on the specification.
+#
+# **THE MAINTAINER ASKED FOR THIS ONE (2026-09-13)**, and specifically asked that
+# the Q1 and Q3 derivations be VERIFIED before the lap was written. That paid:
+# one claim was refuted (our read-speed ladder does send `-S`) and one arithmetic
+# error was caught (71 steps across 8 sections, not 69 across 7). Both are in the
+# lap rather than quietly corrected. Recorded like every note before it: the
+# standing rule is ASK BEFORE WRITING A LAP, because a send is an event outside
+# both trees and three round-15 laps were written and never handed over.
+#
+# One part. Lap 2 quotes no sha of `fullacceptance.txt`.
 
 # WHY IT MOVED TO ROUND-17 LAP 2 (2026-09-12).
 #
