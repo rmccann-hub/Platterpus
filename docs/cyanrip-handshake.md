@@ -454,23 +454,33 @@ transferable part.
 | 12 | **r16 lap 9 §2** | Fork asserted our acceptance run's single failure — `expect-log-well-formed` reporting the cancelled rip's record destroyed — is a **false negative**, and named the limit of what they could show: *"That shape would explain this one and **we have not shown it.**"* | **THEM** on the claim they made, and the restraint is the point | The mechanism, from `session/zz-applog-rotations/03platterpus/log.txt.1` **in the bundle they already held**: verification at `22:02:08.902`, the ripper's `Ripping finished at 2026-09-09T22:02:15-04:00` — 6.1 s later. Our lap 10 §C1 | **A challenge that stops at the evidence is worth more than one that completes the story.** They could have asserted the race and been right; they marked it unproven and were right *and* checkable. And the correction that came back is the transferable half: it is **two** defects, not one — the verb failed at `22:02:38.943`, 23.7 s *after* the log was complete, because it graded our snapshot rather than the file. A fix aimed only at their (correct) hypothesis would have shipped with the second one intact |
 | 13 | **r16 lap 9 §1** | Fork concluded *"no `-H`, no `-E`, no `-W`, no `-x` appears in any of the eight rips — grepped from every `Invoked as:` line, not assumed"*, and therefore that close-condition clause 2 had still never run on a drive | **US** | All four ran. The clause-2 rips go through our script's raw `cyanrip` verb, which writes to its own `-D` and produces **no album folder**, so they are in `session/transcript.txt` (L1144 `-H -E`, 221.2 s, exit 0, `Preemphasis: none detected (deemphasis forced)`; L1365 `-H -W`, 220.7 s) and in none of the eight `.log` files | ***Is the population I measured closed?*** — our own rule, and this is the first time it has landed on them. The grep was correct over the set it ran on and the set was not the run. **The remedy is ours though**: a bundle that files its most load-bearing invocations outside the place a reader looks for invocations is our defect, not their oversight |
 | 14 | **r16 lap 13 §2** | Fork accepted our §C2 **finding** (`disabled` is the zero-value fallthrough, so `a0830e0`'s clause-1 split IS reachable) and declined the **remedy** we attached to it — *'pin the checker where `a0830e0` is present'* | **THEM** | `a0830e0`'s own `disabled` string, opened in their tree: *'`AccurateRip: disabled` -- the query never ran, because -A was passed to the ONE rip that must not have it'* — **the exact claim our §C2 disproves.** Pinning there would have replaced a vague wrong cause with a specific wrong one. Their replacement reads `Invoked as:` and grades three ways (`round16-accept.py:191-216` at `5bbb5ae`) | **A finding and its remedy are separable, and being right about the first buys nothing for the second.** We proposed the remedy in the same breath as the finding and it inherited the finding's confidence. Their third branch — *no `Invoked as:` line at all* — is the one we would not have thought to ask for, which is the argument for naming the *property* we need and letting the owner of the code choose the fix |
+| 15 | **r18 lap 2 §B2** | We asserted their proposed tier vocabulary was not merely incomplete but **actively unsafe to adopt**: two of its tokens, `SKIPPED` and `BLOCKED`, already exist in our tree meaning the opposite things — ours a consequence where theirs is a decision, and vice versa | **US** | `inbound/round-18-lap-03.md:56` — *"Confirmed exactly as you stated it… Two tokens, same spelling, opposite halves of the one distinction the state rule turns on"*; they restructured the spec to **seven concepts with the token as a separate column** (`:71`) | **A shared vocabulary needs a concept column and a token column, because agreeing on a word is not agreeing on a meaning.** Both sides would have passed their own conformance tests and written opposite facts into the same field. The transferable half is the *shape* of the fix: name the concept, then let each side declare its spelling, so a rename is an implementation detail instead of a contract change |
+| 16 | **r18 lap 3 §4a** | Fork asserted our §E's *"the shared table now has 36 rows"* was wrong — §8 has **37**, because `C13a` carries a letter suffix our `C\d+` row pattern cannot match | **THEM**, one day after the ratchet was written | Verified against our own byte-identical copy at `docs/handshake-protocol.md:717`; our pattern counted 36 where the widened `C\d+[a-z]?` counts 37. Fixed in `tests/test_handshake_conformance.py`, with `C13a` now pinned by id | **Invisible beats uncovered, and that is the severity — not the arithmetic.** A row the *denominator* cannot include can never be reported missing, so the ratchet would have printed complete coverage while that row had none: `CLAUDE.md`'s *can this check be satisfied by finding nothing?* applied to a **set** rather than a count. **Their own counter has the identical hole** (`\bC[0-9]+\b`, their §5) and they found it in themselves while checking us — the same defect in both projects, independently, on the one row in the table that is not a bare number |
 
-**Standing count as of round 16 lap 14: fork right 8, us right 6, of 14
+**Standing count as of round 18 lap 3: fork right 9, us right 7, of 16
 resolved.** Read it with three qualifications, all of which cut against treating
 it as a verdict:
 
 * **The sample is not closed and it is not the sample the mandate is about.** The
-  challenge mandate was issued **2026-08-26**; rows 1–9 predate it. **Rows 10–14
-  are the five made under it: fork right 4, us right 1.** *Is the population I
-  measured closed?* — nine of these fourteen are the *before* picture and n=5 is
+  challenge mandate was issued **2026-08-26**; rows 1–9 predate it. **Rows 10–16
+  are the seven made under it: fork right 5, us right 2.** *Is the population I
+  measured closed?* — nine of these sixteen are the *before* picture and n=7 is
   not a result, so the answer to the maintainer's question is **still not
-  measurable**, and saying so is the honest reading. Four-of-five is worth
-  noting and worth not believing — and row 13 is the one where the mechanism the
-  mandate exists to surface ran in **our** favour, which is a reason to keep
-  counting rather than a reason to stop. **And do not read the trend as a licence
-  to defer to them**: row 14 is a row we could have avoided by asking *"is my
-  remedy as well established as my finding?"*, which costs nothing and needs no
-  peer.
+  measurable**, and saying so is the honest reading. Five-of-seven is worth
+  noting and worth not believing — and rows 13 and 15 are the ones where the
+  mechanism the mandate exists to surface ran in **our** favour, which is a reason
+  to keep counting rather than a reason to stop. **And do not read the trend as a
+  licence to defer to them**: row 14 is a row we could have avoided by asking
+  *"is my remedy as well established as my finding?"*, which costs nothing and
+  needs no peer.
+* **Round 18 added one row in each direction on the same day, which is the
+  cleanest illustration of why this is not a scoreboard.** Row 15 is us catching a
+  defect in a spec they authored; row 16 is them catching a defect in a ratchet we
+  authored. Neither finding is reachable by the side that wrote the thing — and row
+  16's mechanism landed on *both* trees, because their counter has the same blind
+  spot ours did. **A second validator is worth having precisely because it is
+  second** (`CLAUDE.md` rule #12), and rows 15 and 16 are that sentence with
+  numbers attached.
 * **Neither side's errors are of one kind.** Ours cluster in *verification*
   (rows 4, 5 — checking a description, or checking under conditions that force
   the result); theirs cluster in *attribution* (rows 6, 8 — a mechanism stated

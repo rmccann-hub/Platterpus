@@ -75,6 +75,27 @@ SENT_LAPS: dict[str, str] = {
     # GO unless this lap reported a breaking row unhandled or named a defect in
     # `fe4d2c4`, and it did neither. A lap a peer resolves a pre-commit against is
     # one whose bytes must not move afterwards.
+    # Round 18 lap 2. **Peer-confirmed twice over, and the confirmation carries the
+    # byte COUNT as well as the hash — which in this round is the load-bearing half.**
+    # Their lap 3 names it in line 11 (`HANDSHAKE-PEER-VERDICT-SOURCE`) and line 25
+    # (`HANDSHAKE-INBOUND-HELD`) at sha256/16 `9ed8d8e4fc6e6aee`, 30,287 bytes,
+    # *"extracted from the transport envelope with your published reader"*. Both
+    # numbers re-derive here.
+    #
+    # **Why the count matters here specifically.** Round 18 turned on the difference
+    # between the lap and the envelope that carries it: their §4b nearly filed the
+    # envelope as the lap, which would have made their digest cover
+    # `4135f0bcf1d599e6` / 31,949 bytes where ours covers these. Two sides holding
+    # demonstrably different bytes under one lap number is the failure the digest
+    # exists to surface, and it was caught by the size disagreeing — a hash alone
+    # says *different*, a size says *different and here is roughly how*.
+    #
+    # It is also the lap that closed the round: their §5 declared GO and asked
+    # nothing further. A lap a peer resolves a verdict against is one whose bytes
+    # must not move afterwards.
+    "outbound/round-18-lap-02.md": (
+        "9ed8d8e4fc6e6aee70e2dc1f38bf27b70afc89b4431d6ae7ee5001fbf5b7121e"
+    ),
     "outbound/round-17-lap-02.md": (
         "404f07b58fec5c982e18f8b5ef803a11c538ed0344870a2986ef72de79fdb15e"
     ),
