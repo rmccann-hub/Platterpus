@@ -97,6 +97,44 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       0.6.46` in every rip report and EAC log from this run.
       *Closes when:* a round approves a pair whose app half is the running build,
       at which point the guard skips itself.
+- [ ] **ROUND 18 IS OPEN AND THEIR LAP 1 IS RECEIVED BUT NOT YET FILED**, held
+      out of `docs/handshake/inbound/` deliberately: filing it makes `CURRENT_ROUND`
+      18, and `test_no_lap_of_the_current_round_is_left_unsent` then requires an
+      outbound lap immediately — which only the maintainer can authorise. Same
+      two-step as round 17's split, for the same reason. The lap is verified
+      (byte-identical to their committed copy, sha256 `818a660c2fae7ab5`) and its
+      §1 cost figures re-derive exactly from the bundle they were given. File it
+      in the same change as lap 2.
+
+- [ ] **`check_inbound`'s section table describes a REPLY, and it is run against
+      OPENERS too — ~10 phantom omissions per opening lap, for at least two
+      rounds.** `scripts/handshake.py --check` on their round-18 lap 1 reports 10
+      problems (§A Pin, §B Answers, §C Changes, §D Log-format delta, §E Golden
+      log, §F Verification, §G Revert-proof, §H Found in our output, §I Provider
+      contract, §J Questions back). **None of them is a defect in their lap.**
+      *Derived, and the artifact settles it:* their round-17 lap **3** is equally
+      numbered — 0 lettered headings, 6 numbered — and `--check` says *"satisfies
+      the protocol (all sections present)"*. Their round-17 lap **1** is numbered
+      the same way and reports the **same 10 problems**. So the discriminator is
+      not the numbering scheme; it is the lap's ROLE. Every section in
+      `INBOUND_SECTIONS` is reply-shaped — *answers to our questions*, *changes
+      since*, *revert-proof per behavioural fix*, *found in our output* — and an
+      OPENING lap answers nothing because nothing has been asked yet.
+      **We closed round 17 with those 10 problems standing and nobody acted on
+      them**, which is the real finding: a gate whose output is routinely ignored
+      has stopped being a gate.
+      *Do NOT fix it the way it was first attempted.* Suppressing the MISSING
+      branch when a file letters no sections was tried on 2026-09-13 and reverted:
+      it reopened the round-6 hole (a line of prose beginning `A ` satisfying §A)
+      and silenced two genuine MISSING complaints on the committed round-6b
+      amendment. The gate is actively catching things; loosening it to quiet an
+      opener is the move this project distrusts most.
+      *The shape of a real fix:* scope the required set by lap role — an opener
+      owes its close condition and its asks; a reply owes answers, changes and
+      verification. Both halves keep their subject checks.
+      **Raise with the fork as a NEXT-ROUND observation, not as a finding against
+      their lap** — it is ours, it has been ours since round 17, and telling them
+      their opener omitted ten sections would be putting our defect on them.
 - [ ] **`PROTOCOL.md` v5 — the one item genuinely stuck, three rounds running.**
       *"Accepted in principle, neither started"* since their lap 4, because
       neither side may edit the jointly-owned file alone. One bump carries J2

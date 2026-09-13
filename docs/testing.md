@@ -2596,7 +2596,7 @@ month was found on hardware by a person, with a green suite the whole time.
 | Version | What it claims | What that requires |
 |---|---|---|
 | **0.x** | *"Under development; expect defects."* | The suite is green. Nothing else is asserted, so nothing else is owed. |
-| **0.9.1** | *"Feature-complete and internally proven."* | **A complete hardware pass — EVERY test green in ONE run — achieved at least TWICE.** Not "the failures were understood"; not "green except the known ones". One run with a full green sheet is a data point; two is the first evidence it was not luck. |
+| **0.9.1** | *"Feature-complete and internally proven."* | **A complete hardware pass — EVERY test green in ONE run — achieved at least TWICE, on at least TWO machines and TWO distros.** Not "the failures were understood"; not "green except the known ones". One run with a full green sheet is a data point; two is the first evidence it was not luck — **but two on the same rig are the same configuration measured twice** (maintainer ruling, 2026-09-13), so they answer *was it luck?* and say nothing at all about *is it green only because of something true of this machine?* The diversity floors here are deliberately **lower** than 1.0.0's, so the two bars stay distinct. |
 | **1.0.0** | *"Ready for people who are not us."* | Everything above, **plus independent field evidence: more than one person, more than one machine, more than one Linux distribution.** The maintainer's rig is one configuration out of every configuration a user might have, and a single-rig 1.0 is a claim the evidence cannot carry. |
 
 **The 0.9.1 bar is "all at once", and that word is the whole rule.** A run of
@@ -2605,6 +2605,22 @@ Explaining a failure is how you fix it; it is not how you count it. The reason t
 insist is measured in this project's own history: the 2026-08-19 run's five
 failures all descended from one defect nobody knew existed, and every one of them
 would have been waved through as "understood" by a looser rule.
+
+**The 0.9.1 bar gained a diversity clause on 2026-09-13, and the change was
+real rather than a clarification.** Until that day every diversity requirement
+sat on 1.0.0 and 0.9.1 was a pure count, so two green sheets from the
+maintainer's one rig satisfied *"feature-complete and internally proven"*. The
+maintainer's words: *"me passing full tests, even if different, on the same
+version of linux and hardware should not allow a 0.9.1"*. Recorded as an
+amendment and not as a restatement, because the file said otherwise and a rule
+that quietly acquires a clause is one nobody can cite.
+
+**The floors are counted over the FULL-GREEN rows, not over the whole ledger** —
+which is where this gate deliberately differs from 1.0.0's. For 1.0.0, a
+`partial` run on somebody else's machine is still evidence that another machine
+was tried, and it counts. Here it must not: this bar is about the *passes*, so a
+second machine that only ever produced a partial would let a green sheet from one
+rig borrow coverage from a failure on another.
 
 **The 1.0.0 bar cannot be met by working harder here.** It is not a quality bar
 that more diligence clears — it is a *coverage* bar, and the only way to move it
@@ -2689,6 +2705,7 @@ that makes you decide.
 | 2026-08-18 | 0.6.16 | maintainer | bdr209d | bazzite | partial |
 | 2026-08-19 | 0.6.17 | maintainer | bdr209d | bazzite | partial |
 | 2026-08-19 | 0.6.18 | maintainer | bdr209d | bazzite | partial |
+| 2026-09-12 | 0.6.47 | maintainer | bdr209d | bazzite | full-green |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 

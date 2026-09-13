@@ -306,6 +306,24 @@ MIN_DISTROS_FOR_1_0: int = 3
 #: and two is the first evidence it was not luck.
 MIN_FULL_GREEN_FOR_0_9_1: int = 2
 
+#: Distinct machines and distros a 0.9.1 claim ALSO needs (maintainer ruling,
+#: 2026-09-13): *"me passing full tests, even if different, on the same version of
+#: linux and hardware should not allow a 0.9.1"*.
+#:
+#: **The rule genuinely changed here — this was not a restatement.** Until today
+#: §5B put every diversity clause on 1.0.0 and 0.9.1 was a pure count, so two
+#: green sheets from one rig satisfied *"feature-complete and internally proven"*.
+#: Two passes on one machine and one distro measure the same configuration twice:
+#: they are evidence against luck, which is what the count was for, and no
+#: evidence at all against *"green because of something true only of this rig"*.
+#:
+#: Deliberately BELOW the 1.0.0 floors (2 people / 3 machines / 3 distros) so the
+#: two bars stay distinct. Collapsing them would delete the intermediate
+#: milestone, which is the failure mode of tightening a gate by copying the next
+#: one up.
+MIN_MACHINES_FOR_0_9_1: int = 2
+MIN_DISTROS_FOR_0_9_1: int = 2
+
 
 def _version_tuple(text: str) -> tuple[int, int, int]:
     """(major, minor, patch) from a version string, ignoring any suffix."""
@@ -384,11 +402,37 @@ def test_a_0_9_x_claim_needs_two_complete_hardware_passes() -> None:
     if _version_tuple(__version__) < (0, 9, 1):
         pytest.skip(f"v{__version__} makes no 0.9.x claim yet")
     passes = [r for r in _read_ledger() if r["result"] == "full-green"]
-    assert len(passes) >= MIN_FULL_GREEN_FOR_0_9_1, (
+    shortfalls: list[str] = []
+    if len(passes) < MIN_FULL_GREEN_FOR_0_9_1:
+        shortfalls.append(
+            f"{len(passes)} complete pass(es), need {MIN_FULL_GREEN_FOR_0_9_1}"
+        )
+    # DIVERSITY IS COUNTED OVER THE FULL-GREEN ROWS, not over the whole ledger.
+    #
+    # The 1.0.0 gate below counts across every row including `partial` ones, and
+    # that is right for it: a partial run on someone else's machine is still
+    # evidence that someone else's machine was tried. It is NOT right here. This
+    # bar is about the passes themselves, so a second machine that only ever
+    # produced a partial must not satisfy it — that would let a green sheet from
+    # one rig borrow coverage from a failure on another.
+    machines = {r["machine"].lower() for r in passes}
+    distros = {r["distro"].lower() for r in passes}
+    if len(machines) < MIN_MACHINES_FOR_0_9_1:
+        shortfalls.append(
+            f"{len(machines)} machine(s) among the passes, "
+            f"need {MIN_MACHINES_FOR_0_9_1}"
+        )
+    if len(distros) < MIN_DISTROS_FOR_0_9_1:
+        shortfalls.append(
+            f"{len(distros)} distro(s) among the passes, need {MIN_DISTROS_FOR_0_9_1}"
+        )
+    assert not shortfalls, (
         f"v{__version__} claims 0.9.1+ ('feature-complete and internally proven') "
-        f"on {len(passes)} complete hardware pass(es); {MIN_FULL_GREEN_FOR_0_9_1} "
-        "are required. Record them in docs/testing.md §5B, or drop the version "
-        "back. See §5B for why two rather than one."
+        "on " + "; ".join(shortfalls) + ". Two passes on ONE machine and ONE "
+        "distro measure the same configuration twice — evidence against luck, "
+        "and none against 'green because of something true only of this rig' "
+        "(maintainer ruling, 2026-09-13). Record real runs in docs/testing.md "
+        "§5B, or drop the version back."
     )
 
 
@@ -434,6 +478,19 @@ def test_the_version_gates_can_actually_fail() -> None:
     assert len([r for r in empty if r["result"] == "full-green"]) < (
         MIN_FULL_GREEN_FOR_0_9_1
     ), "an empty ledger must not satisfy the 0.9.1 bar"
+    # THE REAL LEDGER MUST NOT ALREADY SATISFY 0.9.1 EITHER. Without this the
+    # diversity clause added on 2026-09-13 could be silently vacuous: the gate
+    # skips below 0.9.1, so nothing would notice if it were satisfiable today.
+    real_passes = [r for r in _read_ledger() if r["result"] == "full-green"]
+    assert (
+        len(real_passes) < MIN_FULL_GREEN_FOR_0_9_1
+        or len({r["machine"].lower() for r in real_passes}) < MIN_MACHINES_FOR_0_9_1
+        or len({r["distro"].lower() for r in real_passes}) < MIN_DISTROS_FOR_0_9_1
+    ), (
+        "the ledger ALREADY satisfies the 0.9.1 bar, so that gate can no longer "
+        "fail and is not testing anything. Either the bar needs raising or the "
+        "version needs bumping — but it must not sit satisfied and skipped."
+    )
     assert len({r["machine"] for r in empty}) < MIN_MACHINES_FOR_1_0, (
         "an empty ledger must not satisfy the 1.0.0 coverage bar"
     )
