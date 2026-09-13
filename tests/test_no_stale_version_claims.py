@@ -737,7 +737,15 @@ _RUN_WRITEUP_DOCS: tuple[str, ...] = (
 #: A fenced code block, stripped before matching.
 _FENCED_BLOCK = re.compile(r"^```.*?^```", re.MULTILINE | re.DOTALL)
 #: A double-quoted span. Quoting a claim is not making it.
-_QUOTED_SPAN = re.compile(r"[\"\u201c\u201d][^\"\u201c\u201d\n]{0,200}[\"\u201c\u201d]")
+#: Allows ONE line break inside the span: prose wraps, so a quoted sentence in a
+#: CHANGELOG bullet routinely straddles two lines. Caught the second time this
+#: gate ran — on its own changelog entry, which quotes the forbidden sentence in
+#: order to say it would be false. Bounded to one newline so an unbalanced quote
+#: cannot swallow a following paragraph.
+_QUOTED_SPAN = re.compile(
+    r"[\"\u201c\u201d][^\"\u201c\u201d\n]{0,200}"
+    r"(?:\n[^\"\u201c\u201d\n]{0,200})?[\"\u201c\u201d]"
+)
 
 
 def _assertions_only(text: str) -> str:
@@ -853,6 +861,14 @@ def test_the_approved_pair_pattern_catches_the_sentence_it_exists_to_stop() -> N
     assert not _APPROVED_PAIR_PROVEN_CLAIM.search(_assertions_only(quoting)), (
         "a document that QUOTES the claim in order to warn against it is flagged, "
         "which makes the warning unwritable"
+    )
+    # A QUOTE THAT WRAPS IS STILL A QUOTE. Prose reflows, so the quoted sentence
+    # lands across two lines as often as not — which is how this gate failed on
+    # its own changelog entry the second time it ran.
+    wrapped = 'never write "the round-17 pair verified on\nhardware" — it is false'
+    assert not _APPROVED_PAIR_PROVEN_CLAIM.search(_assertions_only(wrapped)), (
+        "a quoted warning broken across two lines is flagged, so the rule cannot "
+        "be written down in wrapped prose"
     )
     assert _APPROVED_PAIR_PROVEN_CLAIM.search(_assertions_only(caught)), (
         "stripping quotes has swallowed the bare assertion too — the gate would "
