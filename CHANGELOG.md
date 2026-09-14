@@ -28,6 +28,32 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   a declaration is what a document *states*, never what it *quotes*, the same rule
   `handshake.py` applies to the wire header and for the same reason.
 
+### Added
+- **Tier scaffolding for round 18's acceptance procedure — the mechanism, and
+  deliberately not the policy.** Round 18 agreed that work is grouped into tiers and
+  that *a failure prunes its own dependents* rather than halting the run or
+  escalating. Two verbs carry it: `tier <0-4> <label>` groups and names a block, and
+  `needs <label…>` declares what the following steps rest on. A new focused module,
+  `uiscript/tiers.py`, holds the pure half — tier parsing and the `PruneLedger` —
+  because those are decisions, testable without a GUI.
+- **A pruned step is `BLOCKED` (*prevented*) and names its prerequisite — never
+  `SKIPPED` (*declined*).** That distinction is what round 18 spent its length
+  establishing, so a mechanism emitting one where the other is true would undo the
+  round that produced it: *declined* tells the operator to decide whether to
+  escalate, when the actual action is to fix the prerequisite.
+- **The run continues, and that is half the rule.** An escalation gate stops at the
+  first problem, which hides every problem behind it — and on this project a disc
+  pass costs hours nobody gets back. Only FAIL and ERROR prune: a block that was
+  itself blocked established nothing, and propagating from it turns one real failure
+  into a cascade whose reported cause is two removes from the defect. Same rule, and
+  the same reason, as `abort-if-failed`.
+- **What this does NOT do, on purpose.** It fixes no meaning for tiers 0–4, assigns
+  no tier to any committed script, and does not implement tier 4's sweep verb. Those
+  are round 19's to settle with the fork — a procedure only one side has decided is
+  not a procedure — and this is the scaffolding those decisions attach to. The tier
+  and label are carried on every step record so a transcript written now stays
+  readable by a reader that expects them.
+
 ### Changed
 - **Our script-outcome tokens move to round 18's agreed vocabulary — and two of
   them SWAP MEANING.** We found the collision ourselves (round-18 lap 2 §B2) and the

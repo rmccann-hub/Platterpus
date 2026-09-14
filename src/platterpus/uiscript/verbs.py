@@ -488,6 +488,25 @@ _VERB_LIST: tuple[Verb, ...] = (
         "a trailing '+' means 'at least this many', which is what a script that "
         "must work on any disc actually wants",
     ),
+    # --- Tiers and dependency pruning (round 18's procedure, scaffolding only) --
+    #
+    # A SCRIPT VERB rather than a CLI flag, per `CLAUDE.md`: the script language is
+    # where this project's tests are written, so a capability the language cannot
+    # reach is one the tests cannot reach.
+    Verb(
+        "tier",
+        2,
+        None,
+        "tier <0-4> <label> — the steps after this belong to tier N, in a block "
+        "named <label> that later steps can declare a dependency on",
+    ),
+    Verb(
+        "needs",
+        1,
+        None,
+        "needs <label…> — the steps after this are PREVENTED (not skipped) if any "
+        "named block already failed; the record names the prerequisite",
+    ),
     # --- cyanrip, passed through for real ------------------------------------
     Verb(
         "cyanrip",

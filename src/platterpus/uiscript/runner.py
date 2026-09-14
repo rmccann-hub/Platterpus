@@ -44,6 +44,7 @@ from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 from platterpus import __version__, build_info
 from platterpus.uiscript.report import Outcome, RunReport, StepRecord, render
 from platterpus.uiscript.script import Step, sanitise_cyanrip_args
+from platterpus.uiscript.tiers import PruneLedger, parse_tier
 from platterpus.uiscript.verbs import OPENABLE, VERBS
 
 if TYPE_CHECKING:  # pragma: no cover — types only
@@ -369,6 +370,17 @@ class ScriptRunner(QObject):
         self._index: int = 0
         self._report: RunReport = RunReport(started_at="", app_version=__version__)
         self._unsafe_allowed: bool = False
+        # TIER / PRUNE STATE (round 18's procedure, scaffolding). Declared here and
+        # annotated rather than sprung into existence by a handler, so a reader sees
+        # the runner's whole state in one place — and so `mypy` sees it too.
+        #: Tier of the block currently being executed; `None` until a `tier` verb.
+        self._tier: int | None = None
+        #: Label of that block. `needs` refers to these.
+        self._tier_label: str = ""
+        #: What the current block depends on, from the last `needs` verb.
+        self._needs: tuple[str, ...] = ()
+        #: Which labelled blocks have failed, so dependents can be pruned.
+        self._prune: PruneLedger = PruneLedger()
         self._artifact_dir: Path | None = None
         #: The daemon thread building this run's single-file evidence bundle, kept
         #: so the unattended-quit helper can WAIT for it. Retained rather than
@@ -461,6 +473,14 @@ class ScriptRunner(QObject):
         self._artifact_dir = None
         self._deadline = None
         self._pending_cyanrip = None
+        # A new run starts with no tier, no dependency and an empty ledger. Reset
+        # explicitly: a ledger surviving into the next run would prune steps on the
+        # strength of a failure in a different script, and report it as a
+        # prerequisite the reader cannot find.
+        self._tier = None
+        self._tier_label = ""
+        self._needs = ()
+        self._prune = PruneLedger()
         self._report = RunReport(
             started_at=datetime.now(UTC).isoformat(timespec="seconds"),
             app_version=__version__,
@@ -660,6 +680,18 @@ class ScriptRunner(QObject):
         record = StepRecord(
             step.line_no, step.source, outcome, detail, elapsed, artifact
         )
+        # Which tier block produced this, carried on the record so a reader of the
+        # JSON can group without re-parsing the script. Empty on a run that declares
+        # no tiers, which is every script today — the field arrives before its users.
+        record.tier = self._tier
+        record.tier_label = self._tier_label
+        # A FAIL or ERROR makes this block a broken prerequisite for anything that
+        # `needs` it. Only these two: a BLOCKED block established nothing, and a
+        # SKIPPED one was a decision — propagating from either turns one real
+        # failure into a cascade whose reported cause is two removes from the
+        # defect. Same rule, and the same reason, as `abort-if-failed`.
+        if outcome in (Outcome.FAIL, Outcome.ERROR):
+            self._prune.record_failure(self._tier_label)
         self._report.steps.append(record)
         if outcome is not Outcome.PASS:
             # WARNING, not DEBUG: a failing assertion in an unattended run is
@@ -697,6 +729,28 @@ class ScriptRunner(QObject):
             return
         if step.unsafe:
             self._report.used_unsafe = True
+        # PRUNING: a failure prunes its own dependents (round 18). The run keeps
+        # going — halting on the first problem hides every problem behind it, and a
+        # disc pass costs hours nobody gets back — but a step resting on something
+        # already known broken must not report a result.
+        #
+        # BLOCKED, never SKIPPED, and the record NAMES the prerequisite. Round 18
+        # spent its length establishing that *prevented* and *declined* are
+        # different facts about a run; emitting "declined" here would claim someone
+        # chose to leave this out, and would undo the round that produced the rule.
+        #
+        # `tier` and `needs` are exempt: they declare structure rather than test
+        # anything, so pruning them would erase the record of what the pruned block
+        # even was.
+        if step.verb not in {"tier", "needs"}:
+            blocker = self._prune.pruned_by(self._needs)
+            if blocker is not None:
+                self._record(
+                    step,
+                    Outcome.BLOCKED,
+                    f"prevented: '{blocker}' failed, and this step needs it",
+                )
+                return
         handler(step)
 
     # --- Verbs: narration and pacing ----------------------------------------
@@ -712,6 +766,43 @@ class ScriptRunner(QObject):
             self._section_start = len(self._report.steps)
             self._section_title = message.strip("- ").strip()
         self._record(step, Outcome.PASS, message)
+
+    def _do_tier(self, step: Step) -> None:
+        """Declare the tier and the label of the steps that follow.
+
+        **Scaffolding for round 18's tiered procedure, and it stops short on
+        purpose.** The tier number is range-checked and recorded; what tier 0
+        through 4 *mean*, and which tier each section of `fullacceptance.txt`
+        belongs to, are round 19's to settle with the fork. A procedure only one
+        side has decided is not a procedure.
+
+        The label is required rather than optional because it is what `needs`
+        refers to: an unnamed block cannot be depended on, and a dependency
+        mechanism whose targets are sometimes unnameable is one that silently
+        stops applying.
+        """
+        tier = parse_tier(step.args[0])
+        if isinstance(tier, str):
+            self._record(step, Outcome.ERROR, tier)
+            return
+        label = " ".join(step.args[1:]).strip()
+        if not label:
+            self._record(step, Outcome.ERROR, "a tier block needs a label")
+            return
+        self._tier = tier
+        self._tier_label = label
+        self._record(step, Outcome.PASS, f"tier {tier}: {label}")
+
+    def _do_needs(self, step: Step) -> None:
+        """Declare what the steps after this depend on.
+
+        Recorded as PASS whether or not the prerequisite is broken — this verb
+        *states* a relationship, it does not test one. The pruning happens per-step
+        in the dispatch loop, so each dependent carries its own record naming the
+        prerequisite, rather than one line standing in for twenty.
+        """
+        self._needs = tuple(a.strip() for a in step.args if a.strip())
+        self._record(step, Outcome.PASS, "needs " + ", ".join(self._needs))
 
     def _do_wait(self, step: Step) -> None:
         try:
