@@ -54,6 +54,14 @@ _NO_FLOOR: Final[str] = "NO FLOOR NEEDED:"
 #: genuinely cannot be floored, say why here in place of a test name — but a
 #: population that cannot state a minimum is usually one nobody has counted.
 _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
+    # Added 2026-09-14 with round 18's token rename. Parametrizes over
+    # `_AGREED.values()` — the seven agreed concepts — so an emptied or shrunken
+    # table would generate fewer cases, or none, while still reporting green. The
+    # floor pins it at seven concepts with seven DISTINCT tokens, because two
+    # concepts sharing a token is the precise defect round 18 was called to fix.
+    "test_outcome_vocabulary.py::test_only_pass_and_gathered_count_as_good": (
+        "test_the_good_sweep_has_something_to_sweep"
+    ),
     # Added 2026-08-21 with the artifact-naming check. Parametrizes over
     # `_artifacts()`, a glob over `docs/handshake/inbound/artifacts/` — so a
     # directory that moved, or a naming convention that changed, would generate
