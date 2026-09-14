@@ -190,6 +190,28 @@ _TABLE_ROUND_FLOOR: int = 6
 #: stops being a ratchet. It closes the moment a round ships a contract; if a third
 #: passes without one, ask for the table rather than raise this again.
 #:
+#: **BACK TO 0 on 2026-09-14, hours after the raise below. Round 19 lap 3
+#: answered Q2 by SHIPPING the contract** — filed at
+#: `docs/handshake/inbound/artifacts/round-19-lap-03-provider-contract-g7b2fda6.md`
+#: (sha256/16 `bc7285f65e37a909`, 73,486 bytes, source anchor
+#: `2a3d4f2934b39d6a`, all three recomputed here rather than accepted). So the
+#: flag table we check against is now the current round's own and there is no
+#: lag at all. **The excursion is left in the history deliberately**, as the
+#: 2026-08-15 note below says: a recorded gap that closes is the mechanism
+#: working, and a number that only ever grows is not a ratchet.
+#:
+#: **And asking was the right move rather than raising a third time.** The raise
+#: was defensible — the argv surface's non-movement was derived from their tree,
+#: not inferred from the pin sitting still — but the ask is what produced the
+#: artifact, and the artifact settles it permanently. Their contract's diff
+#: against the round-16 table is three lines, only one of which is not
+#: provenance: a single P5 citation moved `cache_probe.c:232` -> `:261` because
+#: that commit added 38 lines of comment. **No P1 flag, no P2 line, no P4 exit
+#: code and no P5 message text differs** — confirmed independently by
+#: regenerating the fatal-message inventory from the new contract and getting a
+#: byte-identical 120 P5 + 7 P5a.
+#:
+#: *(The superseded raise, kept for the record:)*
 #: **2 -> 3 on 2026-09-14, and the instruction above was followed rather than
 #: skipped: the ask is in round 19 lap 2 §H Q2.** Round 19 is a procedure round
 #: that ships no contract, so this is the third. What makes the raise defensible
@@ -205,7 +227,7 @@ _TABLE_ROUND_FLOOR: int = 6
 #: re-derive the span as above, and if it is still empty say so in the lap and
 #: leave the number where it is until a contract arrives. A derivation that has to
 #: be redone every round is a sign the artifact should be shipped.
-_MAX_TABLE_LAG: int = 3
+_MAX_TABLE_LAG: int = 0
 #: **Back to 0 on 2026-08-15**, the same day it went to 1. cyanrip's round-9 lap 3
 #: sent `PROVIDER-CONTRACT.md` for `b56f936` in its envelope; it is committed at
 #: `docs/handshake/inbound/artifacts/round-09-lap-03-provider-contract-g42fe4f2.md`
