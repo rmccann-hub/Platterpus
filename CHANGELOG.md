@@ -27,8 +27,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   it — so the matcher now blanks fenced blocks and quoted spans before matching:
   a declaration is what a document *states*, never what it *quotes*, the same rule
   `handshake.py` applies to the wire header and for the same reason.
-
-### Added
 - **Tier scaffolding for round 18's acceptance procedure — the mechanism, and
   deliberately not the policy.** Round 18 agreed that work is grouped into tiers and
   that *a failure prunes its own dependents* rather than halting the run or
@@ -87,89 +85,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   hour** — the reflowed-anchor failure documented in `CLAUDE.md` that morning,
   arriving in a test written to enforce the round that produced it. Layout is not a
   data structure.
-
-### Fixed
-- **"Publishing is sending" was wrong, and it was this repo's own rule for one
-  day.** Maintainer directive, 2026-09-14: *"a lap should not be seen as ready to
-  read and use until I am told to do so and let the other repo know. And it should
-  confirm that in the file as well."* Committing makes a lap **available**; the
-  operator's announcement makes it **live**. Moving transport to git collapsed two
-  acts that had been separate for eighteen rounds — and the reason nobody noticed is
-  the transferable part: **under hand transport the operator WAS the transport**, so
-  a lap nobody had weighed simply never moved. The separation was enforced
-  structurally and never written down, so replacing the structure deleted it. *Ask
-  of any mechanism being replaced: what was the old one doing that nobody wrote
-  down?*
-- **The lap now declares its own state**, rather than leaving a peer to infer it
-  from a commit date. `HANDSHAKE-READY-TO-READ: no` at `--emit`;
-  `handshake.py --announce <lap>` flips it to `yes` with the date and who released
-  it, **on the maintainer's word and never on our own judgement**. Tri-state and
-  fail-closed — absent is *not determined*, never *yes* — with a grandfather at
-  round 19, because every earlier lap was hand-carried and delivery *was* the
-  announcement. A test asserts against the **real** record that the boundary did not
-  reopen the eighteen closed rounds, which is the regression a correctness fix here
-  would otherwise cause.
-- **The gate refuses an unreleased lap in both directions, and says which one.**
-  Ours: committing a `GO` no longer closes a round, because otherwise `git commit`
-  is the release mechanism. Theirs: we can now read their tree before their operator
-  has released anything, and closing on their draft would make their draft our
-  decision. `--announce` refuses an inbound lap — the peer's operator releases the
-  peer's laps. `--status` names the held lap instead of printing a bare
-  `we-verified=NO`, because *"said nothing"* and *"said something we have not stood
-  behind"* are different states.
-- **No protocol version bump, by the shared spec's own §3** — *"unknown fields are
-  ignored by both parsers, so either side may add one without breaking the other."*
-  Emitted and enforced here, and **proposed** to the fork as normative rather than
-  assumed, the same route `HANDSHAKE-TO`/`-FROM-REPO` took. The standing status names
-  the one cost this imposes on them — until they adopt it, an absent field on a
-  round ≥ 19 lap of theirs reads as not-released and may hold a round they consider
-  sent — rather than letting them meet it as a surprise.
-- **A conformance-coverage check that could not see one of the rows it counts,
-  found by the fork one day after we wrote it.** The shared protocol's §8 table
-  has 37 rows, not 36: `C13a` carries a letter suffix, and our row-id pattern was
-  `C\d+`. The miscount is not the severity — a row the *denominator* cannot
-  include can never be reported as uncovered, so the ratchet would have printed
-  complete coverage while that row had no test at all. Widened to `C\d+[a-z]?`
-  and `C13a` is now pinned by id so the blind spot cannot return. The fork's own
-  counter has the identical hole (`\bC[0-9]+\b`), which they found in themselves
-  while checking us — same defect, both projects, independently, on the one row
-  in the table that is not a bare number.
-- **The same gate was also satisfiable by prose**, and the repair for *that* had a
-  third blind spot — so the honest account is that one defect took three passes.
-  Widening the row pattern took apparent coverage from 6 rows to 10, and all four
-  new ids came from the *comment explaining the widening*, because the scan read
-  the whole file. Writing *about* a row counted as testing it. Scoped to `test_`
-  functions by AST. **Then the AST scan reported 9 of 37 — also wrong, by fourteen
-  rows.** Its id pattern was `\bC\d+[a-z]?\b`, and `\b` does not fire between
-  `C1` and the underscore in `test_C1_the_wire_header`, because **`_` is a word
-  character** — so every one of the twenty rows with a dedicated test function was
-  invisible to the check counting them. Replaced with explicit alphanumeric
-  boundaries.
-- **The true figure is 23 of 37 named and 14 uncovered, and the 14 are
-  contiguous** — C21–C30 and C33–C36, every one a row added in v3/v4. That is a
-  usable statement where "28 uncovered" was not. Twenty rows have a dedicated
-  `def test_C<N>_`; C13a, C31 and C32 are named only inside assertion messages.
-- **The first repair reached one of four extraction sites**, which is why the fix
-  is now a sweep. `_conformance_row_ids()`, `_rows_after_heading()` and the
-  claim-checker all still read `C\d+` the day after the ratchet was widened — and
-  `_conformance_row_ids()` is what most tests in the file actually call, so the
-  repair had reached the ratchet and not the checks.
-  `test_no_narrow_row_id_pattern_survives_anywhere_in_this_file` now greps for the
-  narrow form with a floor, because *enforce a rule across the codebase, not at the
-  place it was learned* — and because the comment on the first repair said "the
-  blind spot cannot return."
-- **Widening those three sites made an existing gate fire correctly and expose a
-  real conformance divergence: we do not implement `C13a`.** The row requires that
-  a later lap arriving after a round reaches a terminal state is refused as an
-  illegal transition *with the round staying closed*; our `round_status` reads the
-  newest file on each side, so a later lap still reopens a closed round — the v2
-  behaviour `C13a` was written to replace. It had been unreportable for as long as
-  the row pattern could not produce the id. **It fails closed** (a stray later lap
-  turns the round `OPEN` and `--release-gate` refuses), so it over-blocks rather
-  than permits; recorded in a `_KNOWN_DIVERGENCES` ratchet with a test that expires
-  the entry when the divergence is fixed, and queued rather than hot-fixed.
-
-### Changed
 - **A full documentation audit, and the recurring finding is that a map is only
   ever wrong by omission.** Corrected across `README.md`, `PLANNING.md`,
   `DEPENDENCIES.md`, `SECURITY.md`, `docs/README.md` and
@@ -262,6 +177,87 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   result"*). Reworded to *ran here and cannot settle it either way* — an
   unjudgeable subject, not a skipped one. Their misreading was our sentence's
   fault.
+
+### Fixed
+- **"Publishing is sending" was wrong, and it was this repo's own rule for one
+  day.** Maintainer directive, 2026-09-14: *"a lap should not be seen as ready to
+  read and use until I am told to do so and let the other repo know. And it should
+  confirm that in the file as well."* Committing makes a lap **available**; the
+  operator's announcement makes it **live**. Moving transport to git collapsed two
+  acts that had been separate for eighteen rounds — and the reason nobody noticed is
+  the transferable part: **under hand transport the operator WAS the transport**, so
+  a lap nobody had weighed simply never moved. The separation was enforced
+  structurally and never written down, so replacing the structure deleted it. *Ask
+  of any mechanism being replaced: what was the old one doing that nobody wrote
+  down?*
+- **The lap now declares its own state**, rather than leaving a peer to infer it
+  from a commit date. `HANDSHAKE-READY-TO-READ: no` at `--emit`;
+  `handshake.py --announce <lap>` flips it to `yes` with the date and who released
+  it, **on the maintainer's word and never on our own judgement**. Tri-state and
+  fail-closed — absent is *not determined*, never *yes* — with a grandfather at
+  round 19, because every earlier lap was hand-carried and delivery *was* the
+  announcement. A test asserts against the **real** record that the boundary did not
+  reopen the eighteen closed rounds, which is the regression a correctness fix here
+  would otherwise cause.
+- **The gate refuses an unreleased lap in both directions, and says which one.**
+  Ours: committing a `GO` no longer closes a round, because otherwise `git commit`
+  is the release mechanism. Theirs: we can now read their tree before their operator
+  has released anything, and closing on their draft would make their draft our
+  decision. `--announce` refuses an inbound lap — the peer's operator releases the
+  peer's laps. `--status` names the held lap instead of printing a bare
+  `we-verified=NO`, because *"said nothing"* and *"said something we have not stood
+  behind"* are different states.
+- **No protocol version bump, by the shared spec's own §3** — *"unknown fields are
+  ignored by both parsers, so either side may add one without breaking the other."*
+  Emitted and enforced here, and **proposed** to the fork as normative rather than
+  assumed, the same route `HANDSHAKE-TO`/`-FROM-REPO` took. The standing status names
+  the one cost this imposes on them — until they adopt it, an absent field on a
+  round ≥ 19 lap of theirs reads as not-released and may hold a round they consider
+  sent — rather than letting them meet it as a surprise.
+- **A conformance-coverage check that could not see one of the rows it counts,
+  found by the fork one day after we wrote it.** The shared protocol's §8 table
+  has 37 rows, not 36: `C13a` carries a letter suffix, and our row-id pattern was
+  `C\d+`. The miscount is not the severity — a row the *denominator* cannot
+  include can never be reported as uncovered, so the ratchet would have printed
+  complete coverage while that row had no test at all. Widened to `C\d+[a-z]?`
+  and `C13a` is now pinned by id so the blind spot cannot return. The fork's own
+  counter has the identical hole (`\bC[0-9]+\b`), which they found in themselves
+  while checking us — same defect, both projects, independently, on the one row
+  in the table that is not a bare number.
+- **The same gate was also satisfiable by prose**, and the repair for *that* had a
+  third blind spot — so the honest account is that one defect took three passes.
+  Widening the row pattern took apparent coverage from 6 rows to 10, and all four
+  new ids came from the *comment explaining the widening*, because the scan read
+  the whole file. Writing *about* a row counted as testing it. Scoped to `test_`
+  functions by AST. **Then the AST scan reported 9 of 37 — also wrong, by fourteen
+  rows.** Its id pattern was `\bC\d+[a-z]?\b`, and `\b` does not fire between
+  `C1` and the underscore in `test_C1_the_wire_header`, because **`_` is a word
+  character** — so every one of the twenty rows with a dedicated test function was
+  invisible to the check counting them. Replaced with explicit alphanumeric
+  boundaries.
+- **The true figure is 23 of 37 named and 14 uncovered, and the 14 are
+  contiguous** — C21–C30 and C33–C36, every one a row added in v3/v4. That is a
+  usable statement where "28 uncovered" was not. Twenty rows have a dedicated
+  `def test_C<N>_`; C13a, C31 and C32 are named only inside assertion messages.
+- **The first repair reached one of four extraction sites**, which is why the fix
+  is now a sweep. `_conformance_row_ids()`, `_rows_after_heading()` and the
+  claim-checker all still read `C\d+` the day after the ratchet was widened — and
+  `_conformance_row_ids()` is what most tests in the file actually call, so the
+  repair had reached the ratchet and not the checks.
+  `test_no_narrow_row_id_pattern_survives_anywhere_in_this_file` now greps for the
+  narrow form with a floor, because *enforce a rule across the codebase, not at the
+  place it was learned* — and because the comment on the first repair said "the
+  blind spot cannot return."
+- **Widening those three sites made an existing gate fire correctly and expose a
+  real conformance divergence: we do not implement `C13a`.** The row requires that
+  a later lap arriving after a round reaches a terminal state is refused as an
+  illegal transition *with the round staying closed*; our `round_status` reads the
+  newest file on each side, so a later lap still reopens a closed round — the v2
+  behaviour `C13a` was written to replace. It had been unreportable for as long as
+  the row pattern could not produce the id. **It fails closed** (a stray later lap
+  turns the round `OPEN` and `--release-gate` refuses), so it over-blocks rather
+  than permits; recorded in a `_KNOWN_DIVERGENCES` ratchet with a test that expires
+  the entry when the divergence is fixed, and queued rather than hot-fixed.
 
 ## [0.6.47] — 2026-09-12
 
