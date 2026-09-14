@@ -12,6 +12,35 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **Tier 4, the sweep — the tier that runs, records, and asserts nothing.**
+  Specified by the fork in round 19 lap 1 §5, which is theirs to specify because
+  round 18 fixed tiers 0-3 and closed `GO`/`GO` on them. Every step inside a
+  `tier 4` block reports `INFO` whatever happens, and the **engine** guarantees
+  it at the one chokepoint every outcome passes through rather than asking each
+  verb to remember. The coerced verdict is kept in the row — `would have been
+  assertion-failed: …` — because a sweep row that only says "info" has discarded
+  the most interesting thing it learned. **Only verdicts convert**: a pruned,
+  declined or unreachable step never ran, and reporting *that* as "gathered"
+  would claim data from a step that produced none. A sweep cannot prune anything
+  (it cannot fail), and `tier` now clears any inherited `needs` — without that, a
+  sweep declaring none would silently carry the previous block's, so a tier-2
+  failure would prune *the sweep whose purpose is to characterise it*, the one
+  edge §5.2 calls the only one worth arguing about. `RunReport.sweep_only` stops
+  a sweep-only run rendering as *"all checks passed"*: `ok` stays True, correctly,
+  and the RESULT line says the run is data for the next round rather than
+  evidence about this one.
+- **Every acceptance section now has a declared tier, derived from the script.**
+  `docs/testing.md` → *Acceptance tiers*, swept by `tests/test_rig_scripts.py`
+  with the same "a new section must be classified" rule as the severity table.
+  Each row's tier follows from verbs the section contains — whether it reaches the
+  drive, whether it rips, and whether its `rip` is scoped by a `select-tracks` —
+  so it is a measurement rather than a judgement; round 19 lap 1 §5.4 assigns this
+  half to us because *"you can measure where your checks naturally sit and we can
+  only infer it."* Four sweeps hold it: every section placed, every tier inside
+  the range `parse_tier` accepts, every `needs` naming a label that exists (a
+  typo'd prerequisite is not an error — it is a step that can never be pruned),
+  and no section resting on a more expensive one.
+
 - **A gate refusing the one sentence a green hardware run will tempt us to
   write.** Round 17 approved the pair (`fe4d2c4`, Platterpus **0.6.46**); the run
   is on **0.6.47**, because the pin roll that makes the fork's published build
@@ -195,6 +224,61 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   fault.
 
 ### Fixed
+- **The same defect in the other direction, in the same file — found by running
+  the fix.** `check_outbound` required a *return-file spec*, a *Requirements*
+  section and a *shared rigour bar*: the document we sent when **we** opened
+  rounds. Since §1a the provider opens and every lap we send is a reply, so **9
+  of our 32 committed outbound laps failed our own outbound checker**, each over
+  a section an opener owes and a reply does not. Two of the three were not merely
+  misplaced but false — *"they do not have this repo"* was wrong for the whole
+  life of this protocol, and the rigour bar now lives in the two jointly-owned
+  files. Replaced with a reply floor derived from the full list (so a section
+  cannot be in the floor without being in the spec), with the full list still
+  applied to a lap 1 of ours and to any file whose lap cannot be read.
+  *Confirmations* also gained the words a real lap uses — `re-derived`,
+  `reproduced`, `verified` — after it reported our own conforming section
+  missing for requiring the word "confirmed". **The pair is the lesson: when a
+  protocol change moves who plays which role, every validator built around the
+  old roles is wrong in both directions, and fixing the half you noticed leaves
+  the other half wrong and harder to see.**
+- **`round_digest.py` excluded the transport envelope by its FILENAME, which the
+  rule we proposed forbids in its next paragraph.** `handshake-protocol.md` §5a
+  says a file is one lap only if, fences stripped, it declares
+  `HANDSHAKE-ROUND`/`-LAP`/`-FROM` exactly once each — and then: *"Derived, not
+  listed. A filename exclusion… only ever excludes the container someone has
+  already met. Neither project maintains a list."* Ours globbed
+  `round-*-lap-*.md`, so the envelope was skipped for using the hand-carried
+  naming convention. **The agreement between the two gates was a coincidence of
+  naming, not conformance**: a committed lap quoting a header outside a fence, or
+  a container committed under the lap spelling, would have been counted — a
+  digest that is stable, reproducible, and describes a record neither side holds,
+  which under §4a is a state exchanging files cannot exit. The filename now
+  selects the candidate and `counts_as_one_lap` decides. **Every digest in the
+  record is unchanged**, which is the honest report: this closes a latent defect,
+  not a live disagreement. Two side-effects: `_row_for`'s `re.search` for the
+  sender took the *first* match — forbidden by §2 rule 3 — and is now safe
+  because the population refuses a doubly-declared file first; and
+  `round_digest.py 7` used to crash on a headerless lap and now yields a value,
+  with **no grandfather clause** — one was written and removed, because §5a
+  already excludes a file declaring the fields zero times and a number-keyed
+  exemption would have hidden that `round-07-lap-02.md` carries two of the three.
+- **`handshake.py --check` reported nine phantom problems against the fork's
+  round-19 lap 1, and the defect was systematic.** The §A–§J table it sweeps
+  describes a **return file** — their reply to a round file of ours, answering our
+  questions and reporting on a new build. Since `handshake-protocol.md` §1a went
+  normative, *the provider opens*, so their lap 1 is not a reply at all. Measured
+  over the committed record: **nine of the thirteen inbound lap-1 files fail our
+  own checker**, including every one from round 15 on except round 16 — the lone
+  pass, because it happened to letter its sections `## A`…`## J` while the others
+  number theirs `## 0.`…`## 7.`. Every one of those complaints was ours. An
+  opener is now checked against an opener floor instead: the wire header, plus the
+  one property a lap 1 cannot be a lap 1 without — that it fixes the round's close
+  conditions (§6a-bis R1 / S-13). **What the narrowing gives up is written down
+  rather than quietly scoped**: the §D and §H explicitness floors no longer run on
+  an opener, and re-adding them by keyword was tried against the artifacts and
+  refused — round 17 lap 1 carries the log-format delta in full, as a three-row
+  table with `git show` citations, and the phrase "log format" appears nowhere in
+  it, so a keyword floor would have reported ABSENT on a model section.
 - **"Publishing is sending" was wrong, and it was this repo's own rule for one
   day.** Maintainer directive, 2026-09-14: *"a lap should not be seen as ready to
   read and use until I am told to do so and let the other repo know. And it should

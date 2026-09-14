@@ -73,7 +73,28 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-18-lap-02.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-19-lap-02.md",)
+
+# WHY IT MOVED TO ROUND-19 LAP 2 (2026-09-14), AND WHAT THE ENVELOPE IS NOW FOR.
+#
+# Round 18 is CLOSED -- GO/GO at three laps. This lap answers round 19's two
+# close conditions.
+#
+# **LAPS TRAVEL BY GIT NOW** (maintainer, 2026-09-13), so this envelope is no
+# longer the transport. It stays because it is still the artifact an operator can
+# hand over when git is not to hand, and because `PARTS[0]` going stale is a real
+# defect with its own test -- it sat on round-14 lap 16 through all of round 15
+# while four regenerations reported success. A generator cannot know a round has
+# moved on.
+#
+# **What CHANGED with the transport is what "sent" means**, and the envelope no
+# longer decides it: committing makes a lap AVAILABLE, the operator's
+# announcement makes it LIVE, and `HANDSHAKE-READY-TO-READ` in the file is where
+# that state is recorded. So keeping this in step is bookkeeping, not delivery --
+# which is the opposite of what it used to be, and worth saying so nobody reads a
+# fresh envelope as evidence a lap has gone out.
+#
+# One part. Lap 2 quotes no sha of `fullacceptance.txt`.
 
 # WHY IT MOVED TO ROUND-18 LAP 2 (2026-09-13).
 #

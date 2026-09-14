@@ -394,3 +394,109 @@ class TestExcludeAccumulates:
             f"rows were printed despite the refusal:\n{captured.out}"
         )
         assert "matched NO lap" in captured.err
+
+
+# --- §5a: what counts as one lap, derived from CONTENT not from the filename ---
+
+
+def test_a_container_is_excluded_even_when_its_NAME_is_a_laps_name() -> None:
+    """The rule we proposed in round 9 and did not implement until round 19.
+
+    `handshake-protocol.md` §5a excludes a file declaring the identity fields more
+    than once, and says in the next paragraph that a **filename** exclusion *"only
+    ever excludes the container someone has already met."* Ours was a filename
+    exclusion: the transport envelope is skipped because it uses the hand-carried
+    spelling, not because of what is in it. The two gates agreed by coincidence of
+    naming.
+
+    So the test is a container wearing a **lap's** name — the container this
+    project has not met — and it must still be refused.
+    """
+    rd = _module()
+    envelope = (
+        "HANDSHAKE-PROTOCOL: 4\n"
+        "HANDSHAKE-ROUND: 20\n"
+        "HANDSHAKE-LAP: not-a-lap (transport envelope)\n"
+        "HANDSHAKE-FROM: platterpus\n\n"
+        "# Three laps in one attachment\n\n"
+        "HANDSHAKE-ROUND: 20\nHANDSHAKE-LAP: 2\nHANDSHAKE-FROM: platterpus\n"
+    )
+    assert not rd.counts_as_one_lap(envelope)
+
+
+def test_a_lap_that_QUOTES_a_header_in_a_FENCE_is_still_one_lap() -> None:
+    """The false-positive direction, and it is the expensive one here.
+
+    A handshake lap quotes other headers constantly — the protocol's own
+    documentation is the densest example — so a count that did not strip fences
+    would disqualify the most careful laps and leave the careless ones counted.
+    §5a says *"after fenced code blocks are stripped"* for exactly this.
+    """
+    rd = _module()
+    lap = (
+        "HANDSHAKE-PROTOCOL: 4\n"
+        "HANDSHAKE-ROUND: 20\n"
+        "HANDSHAKE-LAP: 2\n"
+        "HANDSHAKE-FROM: platterpus\n\n"
+        "Your lap 1 declared:\n\n"
+        "```\nHANDSHAKE-ROUND: 20\nHANDSHAKE-LAP: 1\nHANDSHAKE-FROM: cyanrip-fork\n```\n"
+        "\nwhich we transcribe rather than judge.\n"
+    )
+    assert rd.counts_as_one_lap(lap)
+
+
+def test_the_REAL_transport_envelope_is_refused_by_the_CONTENT_test() -> None:
+    """Against the committed artifact, not a fixture of it (§5.u).
+
+    `round14lap16platterpus.md` is the envelope the rule was written from. It must
+    be excluded by what it says, so that the filename convention is a convenience
+    rather than the mechanism.
+    """
+    rd = _module()
+    envelope = (
+        Path(__file__).resolve().parents[1]
+        / "docs"
+        / "handshake"
+        / "outbound"
+        / "round14lap16platterpus.md"
+    )
+    assert envelope.is_file(), "the artifact this rule was derived from is gone"
+    assert not rd.counts_as_one_lap(envelope.read_text(encoding="utf-8"))
+
+
+def test_every_committed_lap_still_counts_as_one() -> None:
+    """The population floor: the new test must not quietly empty the record.
+
+    A content test that refused everything would make every digest the empty-set
+    value `01ba4719c80b6fe9` — stable, reproducible, and describing nothing. That
+    is the exact failure mode §5a exists to prevent, and it is what this fix would
+    look like if the fence-stripping were wrong.
+    """
+    rd = _module()
+    root = Path(__file__).resolve().parents[1] / "docs" / "handshake"
+    # Scoped to laps that CARRY a wire header. Rounds 1-7 predate it
+    # (`handshake.py` → `*_PRE_HEADER_ROUNDS`), and a file declaring none of the
+    # three identity fields is correctly not one lap: §5a says *exactly once*,
+    # and zero is not one. Excluding them *"is not an error"* in §5a's own words —
+    # and `_row_for` could never have placed them anyway, since a row needs a
+    # `HANDSHAKE-FROM` to key on. So this is the spec agreeing with itself rather
+    # than a grandfather clause, which is why there is no set of numbers here to
+    # keep in step with anything. The population is *"carries all three fields"*
+    # rather than *"is not round 7"* for the same reason §5a's own test is
+    # derived and not listed — `round-07-lap-02.md` carries two of the three, and
+    # a round-number filter would have hidden that.
+    laps = [
+        path
+        for path in sorted(root.glob("*bound/round-*-lap-*.md"))
+        if all(
+            f"\n{field}:" in "\n" + path.read_text(encoding="utf-8")
+            for field in rd._LAP_IDENTITY_FIELDS
+        )
+    ]
+    assert len(laps) >= 100, f"only {len(laps)} header-carrying laps found"
+    refused = [
+        path.name
+        for path in laps
+        if not rd.counts_as_one_lap(path.read_text(encoding="utf-8"))
+    ]
+    assert not refused, f"the content test refuses committed laps: {refused}"
