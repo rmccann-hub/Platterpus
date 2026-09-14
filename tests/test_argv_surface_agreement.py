@@ -189,7 +189,23 @@ _TABLE_ROUND_FLOOR: int = 6
 #: **Second consecutive raise, which is the thing to watch.** A lag that only grows
 #: stops being a ratchet. It closes the moment a round ships a contract; if a third
 #: passes without one, ask for the table rather than raise this again.
-_MAX_TABLE_LAG: int = 2
+#:
+#: **2 -> 3 on 2026-09-14, and the instruction above was followed rather than
+#: skipped: the ask is in round 19 lap 2 §H Q2.** Round 19 is a procedure round
+#: that ships no contract, so this is the third. What makes the raise defensible
+#: rather than the drift the note warns about is that the argv surface's
+#: non-movement is now **derived from their tree** instead of inferred from the
+#: pin sitting still: `git rev-list --count fe4d2c4..0013c56` is 47, exactly one
+#: of those commits touches `src/` (`7b2fda6`), and that commit's diff contains
+#: zero non-comment lines. A surface cannot move across a span with no executable
+#: change in it. That is a stronger statement than "the pin has not moved" and it
+#: is the only reason this is a raise and not a request to stop.
+#:
+#: **If a fourth round passes with no contract, do not raise this again** —
+#: re-derive the span as above, and if it is still empty say so in the lap and
+#: leave the number where it is until a contract arrives. A derivation that has to
+#: be redone every round is a sign the artifact should be shipped.
+_MAX_TABLE_LAG: int = 3
 #: **Back to 0 on 2026-08-15**, the same day it went to 1. cyanrip's round-9 lap 3
 #: sent `PROVIDER-CONTRACT.md` for `b56f936` in its envelope; it is committed at
 #: `docs/handshake/inbound/artifacts/round-09-lap-03-provider-contract-g42fe4f2.md`

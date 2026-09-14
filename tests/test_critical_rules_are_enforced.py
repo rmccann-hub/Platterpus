@@ -1069,7 +1069,17 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # other way to learn it changed meaning.
     # 356 -> 363 on 2026-09-14 (+7): the tier/label fields on StepRecord, with the
     # note saying they arrive before their users on purpose.
-    "uiscript/report.py": 363,
+    # 363 -> 428 on 2026-09-14 (+65): tier 4. `VERDICTS` (which outcomes are a
+    # claim about the subject rather than a statement about the run),
+    # `StepRecord.structural`, `RunReport.sweep_only`, and the render branch that
+    # stops a sweep-only run saying "all checks passed". **Still one job**, and the
+    # same argument as above with more force: `sweep_only` is a question about the
+    # record, asked of the outcome vocabulary, answered for the renderer. Those
+    # three already live here and a split would make the sweep rule a fact held in
+    # two files that must agree. Roughly two thirds of the +65 is comment, because
+    # every one of these encodes a decision the fork and we made jointly and a
+    # reader needs the reason, not the mechanics.
+    "uiscript/report.py": 428,
     "adapters/accuraterip_offsets.py": 308,
     "adapters/accuraterip_offsets_data.py": 388,
     "adapters/cache_probe.py": 372,
@@ -1520,7 +1530,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # part that genuinely belongs to the runner — dispatch, and the state a run
     # carries. Most of the +91 is the reasoning for why a pruned step is BLOCKED
     # and never SKIPPED, which is the one thing a later reader must not get wrong.
-    "uiscript/runner.py": 3676,
+    # 3676 -> 3731 on 2026-09-14 (+55): tier 4's coercion at `_record`, the
+    # `_STRUCTURAL_VERBS` constant both the prune exemption and the coercion read,
+    # and `tier` clearing an inherited `needs`. **Deliberately here rather than in
+    # `tiers.py`**: the coercion has to sit at the runner's single outcome
+    # chokepoint or it is N verb handlers to forget, and `tiers.py` is pure by
+    # design. Most of the +55 is the reason the sweep cannot prune and the reason
+    # a new block inherits nothing — the edge the fork's §5.2 calls the only one
+    # worth arguing about, which our own leftover state could have produced.
+    "uiscript/runner.py": 3731,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,

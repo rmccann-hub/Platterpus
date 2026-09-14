@@ -11,6 +11,86 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-14 — round 19 opened by the fork; both close conditions answered, and every finding in the lap was a defect in our own tooling
+
+**The fork opened round 19 at `fc25e49` — a procedure round on the unchanged pin
+`fe4d2c4`, two close conditions, no build and no hardware.** Their lap 1 is filed
+at `docs/handshake/inbound/round-19-lap-01.md`, verified byte-identical to their
+committed copy before filing. Our lap 2 answers both conditions and is committed
+**held** (`HANDSHAKE-READY-TO-READ: no`) until the operator announces it.
+
+**Filing their lap immediately exposed a defect in our own checker, and the
+defect was systematic.** `handshake.py --check` reported nine problems against a
+conforming lap. The §A–§J table it sweeps describes a **return file** — their
+reply to a round file of ours — and since `handshake-protocol.md` §1a went
+normative the **provider opens**, so their lap 1 is not a reply at all. Measured
+over the committed record: **nine of the thirteen inbound lap-1 files fail our own
+checker**, every opener from round 15 on except round 16, which passes only
+because it happened to letter its sections `## A`…`## J` while the others number
+theirs `## 0.`…`## 7.`.
+
+**Then running the fix on our own lap found the mirror, in the same file.**
+`check_outbound` required a *return-file spec* (*"inline — they do not have this
+repo"*), a *Requirements* section and a *shared rigour bar* — the document we sent
+when **we** opened rounds. **9 of our 32 committed outbound laps failed our own
+outbound checker.** Two of the three sections are not merely misplaced but false:
+*"they do not have this repo"* was wrong for the whole life of this protocol, and
+the rigour bar now lives in the two jointly-owned files.
+
+**And answering close condition 2 found the third.** The condition was *"does a
+transport envelope count as a lap under §5a, because our two gates disagree?"*
+The spec is unambiguous and **we proposed it** in round 9 from our own defect — a
+file declaring the identity fields more than once is not a lap. Our
+`round_digest.py` excluded the envelope **by its filename**, which the very next
+paragraph of §5a forbids: *"Derived, not listed… neither project maintains a
+list."* The two gates agreed by coincidence of naming, not conformance. Every
+digest in the record is unchanged after the fix, which is the honest report: a
+latent defect, not a live disagreement.
+
+**Three defects, one shape.** A validator built around the roles a protocol used
+to have, applied after the protocol moved the roles. The lesson graduated to
+`CLAUDE.md`'s question list: *when a change moves who plays which role, every
+validator built around the old roles is wrong in both directions, and fixing the
+half you noticed leaves the other half wrong and harder to see.*
+
+**Tier 4 implemented from their §5, whole.** The coercion to `INFO` sits at the
+runner's single outcome chokepoint rather than in ~40 verb handlers; the coerced
+verdict is kept in the row (*"would have been assertion-failed: …"*) rather than
+discarded; only **verdicts** convert, because a pruned or unreachable sweep step
+never ran and reporting that as *gathered* would claim data from a step that
+produced none. `tier` now clears an inherited `needs` — without it, a sweep
+declaring none would carry the previous block's and a tier-2 failure would prune
+*the sweep whose purpose is to characterise that failure*, which is the edge
+their §5.2 calls the only one worth arguing about, arriving through our state
+rather than through a wrong graph.
+
+**Every acceptance section now has a tier, derived from the script** — whether it
+reaches the drive, whether it rips, and whether its `rip` is scoped by a
+`select-tracks`. The derivation found that **K4 is graded `ARCHIVAL` and cannot
+fail for an archival reason**: titled *"back to FLAC, the archival master"*, it
+contains a settings round-trip and nothing else. Queued. *A severity attached to
+a subject rather than to what the check can detect* is the portable shape, and it
+read as correct for months.
+
+**A shared-spec clause found dead on both sides.** `HANDSHAKE-CLOSE-BY` is
+*"mandatory in the file"* per §6a-bis R2, and neither side has emitted it since
+round 14 — zero occurrences across rounds 15–19 in either tree, and neither gate
+references the field. Raised `NEXT-ROUND` with both answers offered: enforce it
+with a ratchet constant, or strike it in a v5 bump. What should not happen is the
+spec and the practice continuing to disagree.
+
+**Their §7 finding accepted.** We told them *"read us on `main`"* while the work
+was on the topic branch, so a reader following the instruction would implement
+against the **swapped** tokens — the exact defect round 18 exists to fix. The fix
+is not the merge; it is that a claim about code carries a SHA, the same rule
+`PROTOCOL.md` already applies to a pin.
+
+**Four of their claims re-derived rather than accepted**, including their 47/1/0
+pin span, which reproduces exactly. That derivation is also what let the
+argv-table tolerance move to 3 honestly: a surface cannot move across a span with
+no executable change in it, which is stronger than *"the pin has not moved"* —
+and the ask their own note prescribed went into the lap rather than being skipped.
+
 ## 2026-09-13 — round 17 and round 18 both closed GO/GO, 0.6.47 shipped, and a coverage gate that could not see one of its own rows
 
 **Two rounds closed in one day and every one of the eighteen is now shut.** Round

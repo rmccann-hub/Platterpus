@@ -1402,7 +1402,11 @@ def test_a_mid_round_lap_is_not_held_to_the_full_section_list(
     )
     assert hs.check_inbound(lap2) == [], hs.check_inbound(lap2)
 
-    # But a LAP 1 file is a full round file and IS swept.
+    # But a LAP 1 file is an OPENER and is held to the opener floor. It used to
+    # be swept against the A–J *return-file* table, which is the defect
+    # `OPENER_SUBJECTS` documents — this lap 1 states no close condition, so the
+    # floor still refuses it, and refuses it for the reason that is actually true
+    # of the document rather than for nine that are not.
     lap1 = tmp_path / "round-9.md"
     lap1.write_text(
         lap2.read_text(encoding="utf-8").replace(
@@ -1411,8 +1415,10 @@ def test_a_mid_round_lap_is_not_held_to_the_full_section_list(
         encoding="utf-8",
     )
     problems = hs.check_inbound(lap1)
-    assert any("§I" in p for p in problems), problems
-    assert len(problems) >= 5, problems
+    assert any("Close conditions" in p for p in problems), problems
+    assert not any("§I" in p for p in problems), (
+        f"the A–J return-file table must not run on an opener: {problems}"
+    )
 
 
 def test_our_own_committed_files_satisfy_the_format_we_publish(hs: ModuleType) -> None:
@@ -3321,14 +3327,249 @@ def test_the_real_record_did_not_reopen_when_this_rule_landed(hs: ModuleType) ->
     actually break.
     """
     lines = [ln for ln in hs.round_status() if ln.startswith("round-")]
-    assert len(lines) >= 18, (
+    numbers = [int(re.match(r"round-(\d+)", ln).group(1)) for ln in lines]  # type: ignore[union-attr]
+    assert len(lines) >= 19, (
         f"only {len(lines)} round(s) found in the real record; this check would pass "
         "by not looking"
     )
-    reopened = [ln for ln in lines if ln.endswith("OPEN")]
+    # THE NEWEST ROUND IS ALLOWED TO BE OPEN — that is what a round in flight is,
+    # and it is the normal state for most of a round's life. What this test exists
+    # to catch is a *closed* round being reopened by the release rule, so the
+    # population is every round the newest one supersedes. Scoping it to "all
+    # rounds" made it fail the moment round 19 opened, which would have taught the
+    # next reader that the fix is to delete the assertion.
+    in_flight = max(numbers)
+    settled = [ln for ln, n in zip(lines, numbers, strict=True) if n != in_flight]
+    assert len(settled) >= 18, (
+        f"only {len(settled)} settled round(s) to check; this check would pass by "
+        "not looking"
+    )
+    reopened = [ln for ln in settled if ln.endswith("OPEN")]
     assert not reopened, (
         "the release rule reopened closed round(s) in the real record:\n  "
         + "\n  ".join(reopened)
         + "\nEvery lap up to round 18 was hand-carried, so delivery WAS the "
         "announcement — check READY_TO_READ_REQUIRED_FROM_ROUND."
     )
+
+
+# --------------------------------------------------------------------------- #
+# The opener floor (§1a — the provider opens, so their lap 1 is not a reply).
+# --------------------------------------------------------------------------- #
+
+
+def test_the_opener_floor_is_not_empty(hs: ModuleType) -> None:
+    """A floor of zero subjects is an exemption wearing a check's name.
+
+    ``check_inbound`` stops applying the A–J return-file table to an inbound
+    lap 1. That narrowing is right and it is also the exact shape this repo
+    refuses elsewhere — *can this check be satisfied by finding nothing?* — so
+    the replacement has to have something in it, and every subject has to have
+    something to match on.
+    """
+    assert hs.OPENER_SUBJECTS, "an opener floor with no subjects is a free pass"
+    for subject in hs.OPENER_SUBJECTS:
+        assert subject.keywords, f"{subject.key} has no keywords to match on"
+        assert subject.why.strip(), f"{subject.key} does not say why it is required"
+
+
+def test_every_committed_opener_passes_the_opener_floor(hs: ModuleType) -> None:
+    """The artifacts settle it, not my memory of them (§5.u).
+
+    Nine of the thirteen inbound lap-1 files failed ``check_inbound`` before this
+    branch existed — every opener from round 15 on except round 16, which is the
+    lone one that happened to letter its sections ``## A``…``## J``. Each of those
+    complaints was ours. Scoped to the rounds that carry a declared lap, because a
+    pre-header file has no ``HANDSHAKE-LAP`` to be recognised by and those rounds
+    predate §1a anyway — we opened them.
+    """
+    inbound = _REPO_ROOT / "docs" / "handshake" / "inbound"
+    openers = [
+        path
+        for path in sorted(inbound.glob("round-*-lap-01.md"))
+        if hs.wire_fields(path.read_text(encoding="utf-8")).get("HANDSHAKE-LAP") == "1"
+    ]
+    assert len(openers) >= 11, (
+        f"only {len(openers)} declared opener(s) found — this check would pass by "
+        "not looking"
+    )
+    # Scoped to SECTION-shaped complaints. Header conformance is a different
+    # check with its own grandfathering, and round 8 lap 1 really is missing
+    # three required fields — a true complaint, predating this branch, and not
+    # the thing under test. Folding it in here would make this test fail for a
+    # reason it does not describe.
+    failures = {
+        path.name: [
+            problem
+            for problem in hs.check_inbound(path)
+            if not problem.startswith(f"{path.name}:")
+        ]
+        for path in openers
+    }
+    assert not any(failures.values()), {k: v for k, v in failures.items() if v}
+
+
+def test_an_opener_that_fixes_no_close_condition_is_REFUSED(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The one property a lap 1 cannot be a lap 1 without (§6a-bis R1 / S-13).
+
+    Round 7 ran 37 laps because it had no closing condition that could not be
+    extended. A gate that accepts an opener which fixes none is the gate that
+    would let it happen again, and "we relaxed the opener check" is exactly how
+    it would be reintroduced.
+    """
+    header = (
+        "HANDSHAKE-PROTOCOL: 4\nHANDSHAKE-ROUND: 20\nHANDSHAKE-LAP: 1\n"
+        "HANDSHAKE-FROM: cyanrip-fork\nHANDSHAKE-VERDICT: OPEN\n"
+        "HANDSHAKE-APP-VERSION: platterpus 0.6.47\n"
+        "HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4 (platterpus-fork-gfe4d2c4)\n"
+        "HANDSHAKE-PIN: fe4d2c4\n\n"
+    )
+    body = "# Round 20, lap 1\n\nHere is a pin and some prose about it.\n"
+
+    bare = tmp_path / "round-20-lap-01.md"
+    bare.write_text(header + body, encoding="utf-8")
+    problems = hs.check_inbound(bare)
+    assert any("Close conditions" in p for p in problems), problems
+
+    # And it passes the moment the subject is written, so the refusal is about
+    # the content and not about the file being synthetic.
+    fixed = tmp_path / "round-20-lap-01-fixed.md"
+    fixed.write_text(
+        header
+        + body
+        + "\n## 0. Close conditions, fixed here under S-13\n\nCC-1: one rip on "
+        "real hardware with the report's provenance fields populated.\n",
+        encoding="utf-8",
+    )
+    assert hs.check_inbound(fixed) == [], hs.check_inbound(fixed)
+
+
+def test_the_opener_and_reply_tables_are_never_both_applied(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """Two tables over one document reproduces the phantom complaints.
+
+    The opener branch runs *instead of* the A–J sweep, never as well as it. Uses
+    the real shape — a numbered opener, which is what every opener since round 15
+    has been — so a regression here fails against the document the fork actually
+    sends rather than against a fixture built to pass.
+    """
+    path = tmp_path / "round-20-lap-01.md"
+    path.write_text(
+        "HANDSHAKE-PROTOCOL: 4\nHANDSHAKE-ROUND: 20\nHANDSHAKE-LAP: 1\n"
+        "HANDSHAKE-FROM: cyanrip-fork\nHANDSHAKE-VERDICT: OPEN\n"
+        "HANDSHAKE-APP-VERSION: platterpus 0.6.47\n"
+        "HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4 (platterpus-fork-gfe4d2c4)\n"
+        "HANDSHAKE-PIN: fe4d2c4\n\n"
+        "# Round 20, lap 1\n\n"
+        "## 0. Close conditions, fixed here under S-13\n\n"
+        "CC-1: one rip on real hardware.\n\n"
+        "## 1. What this round does not do\n\nIt does not move the pin.\n",
+        encoding="utf-8",
+    )
+    problems = hs.check_inbound(path)
+    lettered = [p for p in problems if re.match(r"^§[A-J] ", p)]
+    assert not lettered, (
+        "the return-file table leaked onto an opener — this is the defect, and "
+        f"it is the one that produced 9 phantom complaints per lap: {lettered}"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# The reply floor — the outbound mirror of the opener floor above.
+# --------------------------------------------------------------------------- #
+
+
+def test_the_reply_floor_is_a_strict_subset_and_is_not_empty(hs: ModuleType) -> None:
+    """Narrowing, not replacing — and not narrowing to nothing.
+
+    `REPLY_SECTIONS` is derived from `OUTBOUND_SECTIONS` rather than retyped, so a
+    section cannot exist in the floor without existing in the full spec. The floor
+    still has to contain something: an empty one would make `check_outbound` a
+    function that always returns `[]` for every lap we actually send.
+    """
+    assert hs.REPLY_SECTIONS, "a reply floor with no sections is a free pass"
+    assert set(hs.REPLY_SECTIONS) < set(hs.OUTBOUND_SECTIONS), (
+        "the reply floor must be a strict subset of the outbound spec"
+    )
+
+
+def test_the_OPENER_ONLY_sections_are_gone_from_the_reply_floor(
+    hs: ModuleType,
+) -> None:
+    """The three a reply has no business carrying, named rather than counted.
+
+    Two of them are not merely misplaced but **false**: *"they do not have this
+    repo"* was wrong for the whole life of this protocol, and the shared rigour
+    bar now lives in the two jointly-owned files where a per-lap restatement would
+    be a second copy that can drift.
+    """
+    keys = {section.key for section in hs.REPLY_SECTIONS}
+    for opener_only in ("ReturnSpec", "Rigour", "Requirements"):
+        assert opener_only not in keys, (
+            f"{opener_only} is an opener's work — §1a gave the opening to the "
+            "provider, so a lap of ours is a reply"
+        )
+
+
+def test_a_lap_1_of_OURS_is_still_held_to_the_full_spec(hs: ModuleType) -> None:
+    """§1a's E3: the operator may hand us the opening, in writing.
+
+    Rare and bounded, but real — and an opener genuinely does owe the return-file
+    spec and the pin's binding terms. Failing closed also covers a file whose lap
+    cannot be read at all.
+    """
+    for header in ("HANDSHAKE-LAP: 1\n", ""):
+        problems = hs.check_outbound(header + "# a lap with no sections at all\n")
+        missing = {p.split("'")[1] for p in problems}
+        assert "The return-file spec" in missing, (header, problems)
+
+
+def test_every_committed_outbound_lap_is_free_of_ROLE_shaped_complaints(
+    hs: ModuleType,
+) -> None:
+    """The measurement that made this a defect rather than a preference.
+
+    Nine of our thirty-two committed outbound laps failed our own outbound
+    checker, every one of them over sections an opener owes and a reply does not.
+    What may remain are **true** complaints about historical laps that really did
+    omit a section — round 14's fast exchanges carry no *Corrections* heading —
+    and those are a record of a gap rather than a category error.
+    """
+    outbound = _REPO_ROOT / "docs" / "handshake" / "outbound"
+    laps = sorted(outbound.glob("round-*-lap-*.md"))
+    assert len(laps) >= 25, f"only {len(laps)} committed outbound laps found"
+    offenders: dict[str, list[str]] = {}
+    for path in laps:
+        problems = hs.check_outbound(path.read_text(encoding="utf-8", errors="replace"))
+        role = [
+            p
+            for p in problems
+            if any(t in p for t in ("return-file", "rigour", "Requirements"))
+        ]
+        if role:
+            offenders[path.name] = role
+    assert not offenders, offenders
+
+
+def test_CONFIRMATIONS_recognises_the_words_a_real_lap_uses(
+    hs: ModuleType,
+) -> None:
+    """The §F lesson, applied one direction over and in the same file.
+
+    Round 19 lap 2 headed this section *"Your claims, re-derived rather than
+    accepted"* and did precisely what the section's own description asks — the
+    peer's claims run against their own tree, with the commands. `--check`
+    reported it missing, because the keyword list required a word the section had
+    no reason to use.
+    """
+    section = next(s for s in hs.REPLY_SECTIONS if s.key == "Confirmations")
+    for word in ("re-derived", "reproduced", "verified"):
+        assert word in section.keywords, (word, section.keywords)
+    text = (
+        "HANDSHAKE-LAP: 2\n\n# lap\n\n## Corrections\n\n## Your claims, "
+        "re-derived rather than accepted\n\n## Questions\n\n## Explicitly not asking\n"
+    )
+    assert hs.check_outbound(text) == [], hs.check_outbound(text)

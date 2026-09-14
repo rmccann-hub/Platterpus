@@ -2698,6 +2698,77 @@ defect, and two of those sections are archival.
 rather than defaulting to ignorable — the direction that fails safe is the one
 that makes you decide.
 
+### Acceptance tiers — what each section costs, and what it rests on
+
+**Round 18 fixed the tiers and round 19 lap 1 §5.4 fixed whose job this is:**
+*"Which of YOUR acceptance sections sits at which tier is yours… you can measure
+where your checks naturally sit and we can only infer it."* Their guess — that
+`verify_log_surface.py` is tier-2-and-up because it reads logs after a rip — was
+offered explicitly as a guess. This table is the measurement.
+
+**Derived from the script, not decided about it.** Every row's tier follows from
+verbs the section actually contains: whether it reaches the drive at all
+(`rescan` / `pick-release` / a raw `cyanrip`), whether it rips, and — the number
+that separates tier 2 from tier 3 — whether its `rip` is scoped by a
+`select-tracks`. Re-derive with the same reading rather than trusting this
+paragraph; the script is the artifact and this is a view of it.
+
+**The tier is the cost class. The label is the prunable unit. They are not the
+same thing**, and our `needs` verb names the *label*. §5.2's five-node graph is
+the coarse view: it says a short rip rests on a disc being readable. It cannot
+say that **J rests on I specifically** — both are tier 2, and a tier cannot
+depend on itself — so a section-grained label is what makes the real dependency
+expressible. Reported rather than asked: the refinement is inside the half §5.4
+assigns to us, and it changes nothing on their side.
+
+<!-- ACCEPTANCE-TIER-TABLE: swept by tests/test_rig_scripts.py -->
+
+| section | tier | label | needs | derived from |
+|---|---|---|---|---|
+| A | 0 | a-identity | — | `cyanrip --version`; no disc verb |
+| B | 0 | b-settings | — | no disc verb, no rip |
+| C | 0 | c-validation | — | no disc verb, no rip |
+| D | 0 | d-dialogs | — | no disc verb, no rip |
+| K4 | 0 | k4-flac-restore | — | `set output_format flac` + `expect`; **no rip at all** |
+| L | 0 | l-presets | — | settings round-trips only |
+| M | 0 | m-templates | — | validator only |
+| Q | 0 | q-restore | — | settings only |
+| E | 1 | e-identify | a-identity | `rescan` + `pick-release`, no `rip` |
+| P | 1 | p-cacheprobe | e-identify | `cyanrip -N -x -I` — probe and TOC, no track read |
+| P2 | 1 | p2-c1-refusal | e-identify | `cyanrip -N -l 1` expecting **exit 1** `Offset is unset` — the graded path reads nothing; a regression that *does* read is the failure |
+| H | 2 | h-overwrite | e-identify | `rip` scoped by `select-tracks 1-2` |
+| I | 2 | i-cancel | e-identify | `rip` scoped by `1-3`, then `cancel-rip` |
+| J | 2 | j-reopen | i-cancel | `rescan` + `pick-release` + `rip` over `1-2` — **it proves the drive reopened after I's cancel, so it rests on I and not merely on its tier** |
+| K1 | 2 | k1-mp3 | e-identify | `rip` scoped by `select-tracks 1-2` |
+| K2 | 2 | k2-wavpack | e-identify | `rip` scoped by `select-tracks 1-2` |
+| K3 | 2 | k3-wav | e-identify | `rip` scoped by `select-tracks 1-2` |
+| P3 | 2 | p3-deemphasis | e-identify | `cyanrip … -l 1 …` twice — one track each, `-H -E` against `-H -W` |
+| F | 3 | f-fulldisc | e-identify | `rip` with **no** `select-tracks` — every track |
+| N | 3 | n-securereread | e-identify | `rip` with **no** `select-tracks`, uniform secure re-read |
+| G | 3 | g-postrip | f-fulldisc | no disc verb of its own: `rig-check` grades **F's** log, so it rests on F rather than on a rip in general |
+
+<!-- END-ACCEPTANCE-TIER-TABLE -->
+
+**Tier 4 has no row and that is not an omission.** The sweep is not a section of
+`fullacceptance.txt`; it is a different kind of run whose steps assert nothing
+(round 19 lap 1 §5.1) and whose output is input to the next round. It needs
+`a-identity` and nothing else — §5.2's one non-obvious edge, *"pruned only by a
+broken harness, never by a broken program"* — because hanging it off a rip tier
+would let a rip failure prune the sweep whose purpose is to characterise that
+failure. The engine holds up its half: `tier` clears any inherited `needs`, so a
+sweep that declares none cannot silently acquire the previous block's.
+
+**One thing this derivation found, and it is ours.** **K4 is classified
+`ARCHIVAL` and contains no rip and no assertion about any output.** Its title —
+*"back to FLAC, the archival master"* — promises a check on the archival format;
+what it does is `set output_format flac` and read the setting back, which is a
+settings round-trip section B already covers. Nothing about FLAC output is
+verified there. The severity is not wrong about FLAC's importance and the
+section is not wrong to restore the setting; what is wrong is that a row graded
+`ARCHIVAL` — a grade that can block a version — is satisfied by a check that
+cannot fail for any archival reason. Queued in `TASKS.md`; the tier table says
+`0` because that is what the section costs today, not what its title implies.
+
 <!-- FIELD-EVIDENCE-TABLE: parsed by tests/test_no_stale_version_claims.py -->
 
 | date | version | person | machine | distro | result |
