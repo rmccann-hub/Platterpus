@@ -125,22 +125,36 @@ never to decide for you.** And a mechanism claimed in your code still carries
 
 ---
 
-## As of Platterpus 0.6.47 (`abd2eb8`), 2026-09-13
+## As of Platterpus 0.6.48, 2026-09-14
 
 | | |
 |---|---|
-| our released version | **0.6.47** (pre-release, as all `v0.*` are), released 2026-09-12 |
+| our released version | **0.6.48**, released 2026-09-14 (pre-release, as all `v0.*` are) |
 | ripper we **pin** | **`fe4d2c4`** — `cyanrip 0.9.4-rc2+platterpus.12`, `release_seq` 22 |
-| approved by | **round 18**, for Platterpus **0.6.47** — both constants derived from the record, not set by hand |
+| approved by | **round 19**, for Platterpus **0.6.47** — both constants derived from the record, not set by hand. The approval names 0.6.47 because that is the app version round 19 reviewed; 0.6.48 changes no seam surface |
 | pin **under review** | none — `PIN_UNDER_REVIEW == FORK_PIN`, so no round is reviewing a build |
 | **test pin** | none |
-| rounds 1–18 | **all closed, bilateral `GO`** |
-| round 19 | **not open.** It is the hardware round, and by S-13 its close conditions are fixed in its lap 1 |
+| rounds 1–19 | **all closed, bilateral `GO`** |
+| round 20 | **not open.** Yours to open, and its lap 1 sets `HANDSHAKE-CLOSE-BY` per R2 — the field your round-19 §3 showed had been dead for five rounds |
 
-**Round 18 closed `GO`/`GO` at three laps** — your lap 1, our lap 2, your lap 3 —
-and settled the tiered acceptance vocabulary at **seven concepts with the token in
-a separate column**. Round 17 closed `GO`/`GO` at three laps on the same pin. Two
-three-lap rounds in a row; S-13 through S-16 are holding.
+**Round 19 closed `GO`/`GO` at three laps** — your lap 1, our lap 2, your lap 3 —
+and our lap 2's S-18 pre-commit resolved on its own terms. Rounds 17, 18 and 19
+each closed in three laps, on the same pin. **Three three-lap rounds in a row;
+S-13 through S-18 are holding**, against a round 7 that took 37.
+
+**Round 19 is the first whose approval rests on a provider contract regenerated
+from the pin itself.** Your lap 3 shipped `PROVIDER-CONTRACT.md` at `g7b2fda6`;
+our fatal-message inventory rebuilds from it **byte-identically at 120 P5 + 7
+P5a**, and `_MAX_TABLE_LAG` is back to **0** — the argv flag table we check every
+invocation against is the current round's own rather than three rounds old.
+
+**What 0.6.48 contains, and why it is not bookkeeping.** The acceptance script
+ships *inside* our AppImage, so a hardware run executes whatever the installed
+release carries. Section N — the whole-disc secure re-read, our accuracy claim —
+never asserted the output format it writes in, inheriting it from a preset field
+nothing checked. No live defect, one field from the archival test silently
+ripping to the wrong format with every section green. 0.6.48 is the release that
+puts the fix in the artifact an operator actually runs.
 
 **The pin, the approval and the installable artifact are one object.** You
 published `fe4d2c4` to both channels; our approval constants name it; every rip
@@ -207,10 +221,12 @@ twice than assume once.
 
 ---
 
-## What we owe round 19
+## What we owe round 20
 
-Round 19 is the **hardware round**: implement the seven-concept tiered procedure,
-run it and the full acceptance, and only then roll `0.7.100`. Carried in:
+**Round 19 turned out to be the specification round, not the hardware one** — it
+settled tier 4, the dependency graph and the envelope question, and asked for no
+drive. The hardware is now ours to run against 0.6.48, and `0.7.100` waits on it.
+Carried in, and none of it blocks you:
 
 * **Our tokens move** to the agreed concept/token mapping. `SKIPPED` and `BLOCKED`
   swap meaning on our side; that is ours to do and it is implementation, not
@@ -265,7 +281,7 @@ alternative is each side inferring the other's intent from a commit timestamp. I
 you adopt it, say from which round it is required on your side so our grandfather
 boundaries match — ours is 19.
 
-**No blocking questions.** Round 18 is closed and nothing here reopens it.
+**No blocking questions.** Round 19 is closed and nothing here reopens it.
 
 ---
 
