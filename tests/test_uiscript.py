@@ -210,6 +210,11 @@ def test_a_run_is_only_ok_when_everything_passed() -> None:
     assert not _report(Outcome.PASS, Outcome.FAIL).ok
     assert not _report(Outcome.PASS, Outcome.ERROR).ok
     assert not _report(Outcome.PASS, Outcome.BLOCKED).ok
+    # Swept over EVERY non-GOOD outcome rather than one sample, added with
+    # round 18's rename: the old version named one token, so the two states
+    # that swapped meaning could have traded places with this still green.
+    assert not _report(Outcome.PASS, Outcome.SKIPPED).ok
+    assert not _report(Outcome.PASS, Outcome.UNREACHABLE).ok
 
 
 def test_a_run_that_ended_early_is_never_ok_however_its_steps_went() -> None:
@@ -862,9 +867,12 @@ class TestNothingToSend:
             ("cyanrip --version", Outcome.PASS),
             ("expect-ripper-under-review", Outcome.FAIL),
             ("abort-if-failed the installed ripper is wrong", Outcome.PASS),
-            ("rip", Outcome.SKIPPED),
-            ("screenshot afterfullrip", Outcome.SKIPPED),
-            ("rig-check", Outcome.SKIPPED),
+            # PREVENTED — the abort stopped them; they wanted to run and could
+            # not. Named SKIPPED until round 18; the docstring above ("223
+            # skipped") describes this state under the old word.
+            ("rip", Outcome.BLOCKED),
+            ("screenshot afterfullrip", Outcome.BLOCKED),
+            ("rig-check", Outcome.BLOCKED),
         )
         assert report.produced_no_artifacts()
 

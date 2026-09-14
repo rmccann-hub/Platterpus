@@ -529,7 +529,9 @@ class ScriptRunner(QObject):
             self._pending_rig_check = None
         for step in self._steps[self._index :]:
             self._report.steps.append(
-                StepRecord(step.line_no, step.source, Outcome.SKIPPED)
+                # PREVENTED: the batch aborted, so this step wanted to run and
+                # could not. Round 18's agreed token for that is BLOCKED.
+                StepRecord(step.line_no, step.source, Outcome.BLOCKED)
             )
         self._report.ended_reason = reason
         log.info("ui script run ended: %s", reason)
@@ -686,7 +688,10 @@ class ScriptRunner(QObject):
         if step.unsafe and not self._unsafe_allowed:
             self._record(
                 step,
-                Outcome.BLOCKED,
+                # DECLINED: the operator chose not to enable the escape hatch, so
+                # we decline rather than fail. The action it implies is "decide
+                # whether to escalate", which is exactly enabling the setting.
+                Outcome.SKIPPED,
                 "this verb needs the 'allow unsafe script verbs' setting, which is off",
             )
             return
