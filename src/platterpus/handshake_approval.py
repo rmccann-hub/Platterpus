@@ -138,7 +138,15 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.47"
 #: against a newer app version is a stronger claim than round 17 made, not a repeat.
 #: Had round 18 instead been a HOLD, the pin would have stayed and this would have
 #: stayed at 17: the two disagreeing about one binary is a real state, not a slip.
-APPROVED_BY_ROUND: Final[int] = 18
+#: **Moved 18 -> 19 on 2026-09-14, when round 19 closed GO/GO on the same
+#: `fe4d2c4` and the same Platterpus `0.6.47`.** Third consecutive round to
+#: re-approve one binary, and the reason it is still not a repeat: round 19 is the
+#: first whose approval rests on a provider contract **regenerated from the pin
+#: itself** — `round-19-lap-03-provider-contract-g7b2fda6.md`, from which our
+#: fatal-message inventory rebuilds byte-identically (120 P5 + 7 P5a). Rounds 17
+#: and 18 approved this build against a flag table three rounds old. Same pin,
+#: better evidence.
+APPROVED_BY_ROUND: Final[int] = 19
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.

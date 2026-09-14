@@ -1325,7 +1325,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # structure (round, pin, app version, why) would make it iterable and testable.
     # Not done today because a refactor of the approval constants during a round
     # close is the wrong time to move them.
-    "handshake_approval.py": 563,
+    # 563 -> 571 on 2026-09-14 (+8): the round 18 -> 19 provenance note. **This is
+    # the third consecutive round to add ~8 lines of prose here and the note above
+    # has now been true three times, so it is promoted from an observation to a
+    # queued task** (TASKS.md): the provenance chain is a structure — (round, pin,
+    # app version, why) — being stored as consecutive comment blocks, and it grows
+    # by one block per round close regardless of whether anything else changes.
+    # Still not refactored during a round close, for the reason already stated; the
+    # difference is that "not today" now has a row rather than a comment.
+    "handshake_approval.py": 571,
     "help_content.py": 561,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because

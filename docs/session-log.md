@@ -11,6 +11,66 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-14 (later) — round 19 CLOSED `GO`/`GO` at three laps; all nineteen rounds shut
+
+**Their lap 3 at `cyanrip@bd1f43a` closes round 19 on the unchanged pin
+`fe4d2c4`.** Our lap 2's S-18 pre-commit resolved on its own terms — they did not
+amend the tier-4 spec, they **accepted** both of our corrections and superseded
+their own §5.1 with our A2(a) (only *verdicts* convert in a sweep; a pruned or
+unreachable step never ran and must not be reported as gathered). Three laps, one
+artifact each way, no hardware, no pin movement. Against round 7's 37.
+
+**Six of their claims re-derived rather than accepted**, and one of them is the
+instructive one. The round digest over 2 laps (`63ca29a67c9c633d`) and the
+cross-check over 1 (`d261f77040b90ba9`) both reproduce — two implementations, two
+numbers, neither copied, twice in one round. Ancestry and parentage check out. But
+the **provider contract's source anchor did not reproduce**: concatenating
+`src/*.c` + `src/*.h` gave `8ce6741473a79714`, and prefixing each with its full
+path gave `30e9d859310e1e79`. Neither is their `2a3d4f2934b39d6a`. Rather than
+report a mismatch we read `tools/gen-provider-contract.py:1432-1445` — their
+`source_hash()` hashes **basename** + content over `sorted(os.listdir(SRC))`, so
+the name bytes are `cache_probe.c`, not `src/cache_probe.c`. Replicating that over
+44 files reproduces their figure exactly. **A hash that does not reproduce is a
+statement about your method before it is a statement about their file** — two
+plausible constructions, both wrong, either one a confident false finding sent
+back to a peer.
+
+**Their §4 verified by regenerating, not by reading.** `emit_ripper_inventory.py`
+rebuilt our fatal-message inventory from their new contract: byte-identical, 120
+P5 + 7 P5a, only the provenance header moved. So *"no P5 message text differs"* is
+not something we took their word for. `_MAX_TABLE_LAG` is **back to 0** from 3 —
+the ratchet has now moved in both directions with a written reason each time, and
+**the ask is what produced the artifact**, not the raise.
+
+**Their §2 is the same defect as ours from the opposite direction, and theirs is
+more interesting.** Ours excluded the transport envelope by *filename*, which §5a
+forbids. Theirs implemented §5a's content test correctly and had it **defeated by
+value strictness**: `ROUND_RE` requiring `(\d+)` meant our envelope's
+`HANDSHAKE-ROUND: not-a-lap (transport envelope)` never matched, so the second
+declaration was invisible to a check that counts declarations. **The disclaimer
+written to say "this is not a lap" was unseeable by the check it was written for.**
+A stricter pattern weakening a count is a shape neither of us had considered.
+
+**Their §3 is a better version of our §E, and the lesson is ours to keep.** We
+reported `HANDSHAKE-CLOSE-BY` dead on both sides and offered striking it as an
+equal option. They established what it *gates*: it is the sole trigger for
+`EXPIRED`, a terminal verdict state, and `OPEN → EXPIRED` is a legal §4a
+transition — lines 281 and 292 of the shared spec, verified against our copy. So
+**the spec's own answer to a runaway round has been unreachable for five rounds**,
+and `EXPIRED` exists because of round 7. Q1 settled their way: enforce from round
+20. **Graduated: a dead field is worth checking for what it gates before proposing
+to strike it.**
+
+**Their §5 caught a line number we transcribed in a header that promised
+derivation.** Our lap 2 cited their verdict at line 6; it is at line 9, and line 6
+is `HANDSHAKE-FROM-REPO` — so not a stale draft, simply wrong. The field directly
+below it says *"resolved in your tree, not transcribed"*. **A field that asserts
+its own method binds every fact inside it, not just the one the method was written
+for.** Our lap 4's peer-verdict source is `grep -n`'d.
+
+`--release-gate` now reports every round closed; the release path is open for the
+first time since round 19 opened.
+
 ## 2026-09-14 — round 19 opened by the fork; both close conditions answered, and every finding in the lap was a defect in our own tooling
 
 **The fork opened round 19 at `fc25e49` — a procedure round on the unchanged pin

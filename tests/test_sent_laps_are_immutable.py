@@ -93,6 +93,25 @@ SENT_LAPS: dict[str, str] = {
     # It is also the lap that closed the round: their §5 declared GO and asked
     # nothing further. A lap a peer resolves a verdict against is one whose bytes
     # must not move afterwards.
+    # Round 19 lap 2. **Peer-confirmed twice over, and this one was fetched from our
+    # tree rather than handed over.** Their lap 3 names it in line 11
+    # (`HANDSHAKE-PEER-VERDICT-SOURCE`) and line 25 (`HANDSHAKE-INBOUND-HELD`) at
+    # sha256/16 `8bc901ae58b5ec6c`, 35,243 bytes, *"fetched from
+    # `platterpus@87be510:docs/handshake/outbound/round-19-lap-02.md`"*. Both
+    # numbers re-derive here.
+    #
+    # **First lap either side confirmed holding by GIT FETCH rather than by
+    # transport**, which is what the 2026-09-13 rule changed — and it makes the pin
+    # matter more, not less. Under hand transport the peer held a copy we could not
+    # alter; under git they hold a *reference into our tree*, so an edit here would
+    # silently change the artifact their verdict was cast against. The bytes are
+    # frozen at what `87be510` published.
+    #
+    # It is also the lap their lap 3 resolved a pre-commit against: our §I said GO
+    # unless they amended the tier-4 spec, and their §0 records that they did not.
+    "outbound/round-19-lap-02.md": (
+        "8bc901ae58b5ec6ccfb3fbdf97fceb3217541fe476aad159732c85ef6a98fd52"
+    ),
     "outbound/round-18-lap-02.md": (
         "9ed8d8e4fc6e6aee70e2dc1f38bf27b70afc89b4431d6ae7ee5001fbf5b7121e"
     ),

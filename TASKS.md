@@ -1356,17 +1356,45 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
   `tests/test_rig_scripts.py::test_every_WHOLE_DISC_rip_pins_the_format_it_writes_in`,
   revert-proved. Reported to the fork as round 19 lap 2 §D3.
 
-- [ ] **`HANDSHAKE-CLOSE-BY` is required by the shared spec and neither side has
-  emitted it since round 14.** `docs/handshake-protocol.md` §6a-bis R2: *"set in
-  lap 1 and is not extended… advisory to the gates and **mandatory in the file**."*
-  Measured 2026-09-14 over the committed record: present in 33 of 90 inbound files
-  and 16 of 57 outbound, and **zero occurrences in rounds 15, 16, 17, 18 or 19 on
-  either side**. Neither gate checks it, so a clause of a jointly-owned spec died
-  silently — the *"a note asserting a requirement needs a check that fails when the
-  requirement stops being met"* shape. Raised to the fork in round 19 lap 2 as
-  NEXT-ROUND; enforcing it unilaterally would reject their released lap 1 and the
-  file is not ours to tighten alone. Fix is a ratchet constant like
-  `READY_TO_READ_REQUIRED_FROM_ROUND`, from a round both sides agree.
+- [ ] **`handshake_approval.py`'s provenance chain wants to be a structure, not
+  consecutive comment blocks.** It has grown by ~8 lines on each of the last three
+  round closes (547 → 563 → 571) and will do so again every round, because what it
+  stores is a *table* — `(round, pin, app version, why)` — written as prose. The
+  module is ~40% provenance by line count. Making it iterable would let the tests
+  assert the chain rather than the endpoint, and would let a rip report cite the
+  round that approved its pin without a constant per round. **Deliberately not
+  done during a round close** — the constants are load-bearing at exactly the
+  moment a round closes — so this is queued for a quiet commit between rounds.
+  Promoted from a comment in `tests/test_critical_rules_are_enforced.py` after the
+  same note was written three times.
+
+- [~] **`HANDSHAKE-CLOSE-BY`: ENFORCE from round 20 — decided, not yet built.**
+  `docs/handshake-protocol.md` §6a-bis R2: *"set in lap 1 and is not extended…
+  advisory to the gates and **mandatory in the file**."* Measured 2026-09-14 over
+  the committed record: present in 33 of 90 inbound files and 16 of 57 outbound,
+  and **zero occurrences in rounds 15–19 on either side**, with neither gate
+  referencing the field.
+
+  Raised in round 19 lap 2 §E; **their lap 3 §3 confirmed it in their tree and
+  found the part we missed.** `HANDSHAKE-CLOSE-BY` is the *sole* trigger for
+  `EXPIRED`, a terminal verdict state, and `OPEN → EXPIRED` is a legal §4a
+  transition — `docs/handshake-protocol.md` lines **281** and **292**, verified
+  against our own copy. So the field is not dead plumbing: **the spec's own
+  answer to a runaway round has been unreachable for five rounds**, and `EXPIRED`
+  exists because of round 7's 37 laps. Striking the field would mean striking
+  `EXPIRED` and the transition with it.
+
+  **Settled their way — enforce, keyed to round 20.** Two things to build: the
+  ratchet constant (shape of `READY_TO_READ_REQUIRED_FROM_ROUND`), and **our gate
+  printing whether the date has passed** — R2's *"a gate prints whether it has
+  passed and never enforces it"* is unimplemented on both sides. Not built in
+  round 19 because its close conditions were fixed at lap 1 and S-13 forbids
+  growth; their round-20 lap 1 sets the field, ours reads it.
+
+  **Lesson kept: a dead field is worth checking for what it GATES before
+  proposing to strike it.** Our §E offered striking as an equal option without
+  doing that, and striking would have removed the mechanism the protocol carries
+  for the failure mode that has actually happened to this seam.
 
 ## Round 15 — ours to raise, the fork's to open (2026-08-27)
 

@@ -82,6 +82,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   readable by a reader that expects them.
 
 ### Changed
+- **Round 19 closed `GO`/`GO`, and `APPROVED_BY_ROUND` moves 18 → 19 on the same
+  pin `fe4d2c4` and the same Platterpus `0.6.47`.** Third consecutive round to
+  re-approve one binary, and still not a repeat: **round 19 is the first whose
+  approval rests on a provider contract regenerated from the pin itself.** Rounds
+  17 and 18 approved this build against a flag table three rounds old. Same pin,
+  better evidence — which is the distinction the constant exists to carry, since
+  what it names is *which bilateral GO the pin rests on*.
+- **Our round-19 lap 2 pinned in `SENT_LAPS`** at `8bc901ae58b5ec6c` / 35,243
+  bytes, the figures the fork's lap 3 confirms holding. **The first lap either
+  side confirmed by `git fetch` rather than by transport**, which makes the pin
+  matter more rather than less: under hand transport the peer held a copy we could
+  not alter, while under git they hold a *reference into our tree*, so an edit here
+  would silently change the artifact their verdict was cast against.
 - **`gitleaks-action` pinned to v3.0.0, two days before v2 stops working.** GitHub
   removes Node 20 from hosted runners on **2026-09-16**, after which
   `gitleaks-action@v2` stops running *regardless of any opt-out flag* — so our
@@ -224,6 +237,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   fault.
 
 ### Fixed
+- **The argv flag table is the current round's own again — tolerance back to 0
+  from 3.** Round 19 lap 3 answered our Q2 by shipping `PROVIDER-CONTRACT.md`,
+  now filed at
+  `docs/handshake/inbound/artifacts/round-19-lap-03-provider-contract-g7b2fda6.md`.
+  Its hash, byte count and source anchor were **recomputed rather than
+  accepted** — and the anchor is the one worth recording: two plausible
+  constructions of ours (`src/*.c` + `src/*.h` bytes concatenated; the same with
+  full paths prefixed) produced two wrong answers, and rather than report a
+  mismatch we read their generator, whose `source_hash()` hashes *basename* +
+  content over `sorted(os.listdir(SRC))`. Replicating that reproduces their
+  figure exactly. **A hash that does not reproduce is a statement about your
+  method before it is a statement about their file.** Their claim that no P5
+  message text moved was verified by regenerating our fatal-message inventory
+  from the new contract: byte-identical, 120 P5 + 7 P5a, only provenance moved.
+  The ratchet has now moved in both directions with a written reason each time,
+  which is what makes it a ratchet rather than a preference.
 - **The whole-disc secure re-read never asserted the format it writes in.**
   Section N of the acceptance script is the T1 uniform secure re-read — the
   accuracy claim itself — and it inherited its output format from `rip_goal
