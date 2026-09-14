@@ -106,6 +106,35 @@ The GUI runs on the host. It calls the host-exported ripper binary in `~/.local/
       - **Outbound.** Every rip argv the app builds passes `assert_metadata_lookup_disabled` — one chokepoint, which refuses an argv lacking `-N` and validates the `--consumer` tag. But a **straight-passthrough** path that skips the chokepoint is a hole in a rule the rest of the codebase enforces, and the new script verb was exactly that. Any new route to the ripper — a script verb, a debug console, a CLI flag — **re-establishes the guard by delegating to the chokepoint**, never by restating its rule; a second copy of a safety check is a second thing to drift, and a test asserts the refusal text is byte-identical. The failure this prevents is not a wrong result but a **hang**: without `-N` the ripper runs its own lookup and can block on an interactive prompt with no terminal attached.
       - **Inbound.** Their output is **external input** and gets the same treatment: control characters and NULs flagged, absurd line lengths bounded (a multi-megabyte single line freezes the GUI thread rendering it), everything else verbatim, and **any elision counted and marked** — never a silent drop. And the rendering surface is pinned: Qt's default `Qt::AutoText` **auto-detects HTML**, so a captured line that merely looks like markup is *interpreted* rather than shown. The content is not the ripper's own — album and track titles come from MusicBrainz — so a title containing `<` is swallowed as an unknown tag and **the user never learns text went missing**. Every widget carrying dependency output is `PlainText`. **The sweep is `tests/test_message_boxes_are_plaintext.py`, and it covers `QMessageBox` only** — 6 sites, all pinned, with a ratcheted allowlist for literal-text boxes that is empty. Said precisely because this sentence used to read *"swept rather than fixed one at a time"* when **no sweep existed**: three of the six boxes had been fixed individually and three had not, including `_show_fatal_dialog`, whose `{exc}` is arbitrary external text in the one dialog a user screenshots to report a crash (found 2026-08-20 by an audit that went looking for the sweep this rule claimed). The 13 `QLabel(<non-literal>)` sites are **not** swept — most build their text from our own constants, so a blanket rule would need a long allowlist and a list of excuses enforces nothing; they are tracked in `TASKS.md`. Scoping a sweep is fine. Scoping it silently while the rule claims everything is the defect.
       - **Nothing crosses the seam unchecked in either direction, and neither half is evidence for the other.** The input half had a contract test and the output half did not; that asymmetry is what let the `-V` blocker sit in a committed file for a full round. Both halves are checked mechanically, every commit.
+      - **A FIX WE FIND IN OURSELVES THAT COULD HELP THEM IS SENT, AND THE BAR IS
+        *could in any possible way*, not *certainly does*** (maintainer directive,
+        2026-09-13: *"make sure any fixes you find on yourself that could in any
+        possible way help the other repo, you tell them"*). This is the missing
+        direction of the seam. The protocol already carries a §H *"Found in our
+        output"* for defects we find in **their** artifacts, and the challenge
+        mandate has them auditing **us** — nothing obliged either side to report a
+        defect found in its **own** code whose *shape* the peer might share.
+        **The trigger is the shape, not the subject.** A truncation that drops the
+        identifying end of a name, a gate satisfied by the document that documents
+        it, a checker scoped to one artifact role and applied to all — none of
+        those is about cyanrip, and each is a bug either project can hold. So the
+        test is *"is the MECHANISM portable?"*, never *"is their code affected?"* —
+        the second question requires reading their tree to answer, and under the
+        rule above we will not assert a mechanism in their code anyway. **Report
+        the shape with our citation and let them check their own side**; that costs
+        us three sentences and costs them one grep.
+        **Cheap to over-report and expensive to under-report, so err loudly.** A
+        finding they already knew is a paragraph they skim. A finding withheld
+        because it looked parochial is the class of defect this seam exists to
+        catch, found twice and shared zero times.
+        Vehicle: a NEXT-ROUND item in the current lap — not a new round, not a new
+        file, and never a reason to hold a round open (S-14: a finding defaults to
+        the next round).
+        **Bilateral, and it travels.** Unlike the two carve-outs below, this is a
+        term of the seam rather than a rule about our own operator: it is worth
+        exactly as much in the other direction, and a one-sided version would read
+        as us auditing them while keeping our own lessons.
+
       - **The fork does the same, as a double check.** Two independent validators at one boundary are worth more than one careful one, because a value either side waves through still meets a guard. They validate what they receive from us and what they emit to us; we do the same. Neither side treats the other's checking as a reason to skip its own.
 
     - **The fork has a standing CHALLENGE MANDATE, and it is asymmetric on purpose** (maintainer, 2026-08-26). They were told they are *"the adult in the room"*: as the ripping engine, most of the accuracy and correctness burden is theirs, so they are to **double-check, fact-check, and call out or question** us. Three consequences, and the third is the one that is easy to skip:
@@ -182,36 +211,70 @@ The GUI runs on the host. It calls the host-exported ripper binary in `~/.local/
         read as a demotion of a peer this project depends on. Do the checking; do
         not publish the intention.
 
-    - **Writing a lap and sending one are two acts, and only the maintainer can
-      perform the second — so ASK BEFORE WRITING A LAP** (maintainer directive,
-      2026-09-04). Not after: by then the lap exists, and a lap that exists
-      without the maintainer knowing it exists is one nobody is waiting to carry.
-      **Measured: round 15 laps 4, 5 and 6 were written on three consecutive days
-      and none of them was ever handed over**, while the fork's lap 3 — a `GO`
-      asking nothing further — sat unanswered for two days. Neither project's
-      gates noticed, because both sides' gates grade *files in a directory* and a
-      send is an event outside the tree.
-      **The tooling actively hid it, which is why the rule is "ask" rather than
-      "remember".** `emit_envelope.py`'s `PARTS` still pointed at round 14 lap 16,
-      and the envelope was regenerated **four separate times in one day** —
-      incidentally, because it also carries `fullacceptance.txt`, which was being
-      edited — each run reporting success while packing a round the fork closed
-      weeks ago. That is the neighbour of the case the generator's own docstring
-      warns about (*"one artifact implying a send that did not happen"*, round 9
-      lap 6) and of the rule cyanrip argued us into keeping in their round-9 lap 3
-      §B1: that rule makes an envelope impossible to **miscount as a lap**, and
-      says nothing about one correctly built around the **wrong** lap. `SENT_LAPS`
-      could not catch it either — it holds no round-14 or round-15 rows, so it is
-      silent rather than negative, and *silent* is not *no*.
-      Asking first puts the one party who can observe a send into the loop at the
-      moment the lap is conceived. `tests/test_no_lap_is_left_unsent.py` is the
-      backstop, not the rule: a gate can see an unsent lap accumulating, but it
-      cannot ask a question.
-      **This one is NOT bilateral and does not travel to the fork** — see the
-      bullet below for what does. It governs how this project works with its
-      maintainer, not what crosses the seam, and shipping it to the fork would
-      hand them a rule about our operator.
-    - **This rule lives in both repos.** When it changes here, send the change to the fork in the same round so their `CLAUDE.md` (or equivalent) matches. Two projects with different copies of the protocol is the failure this rule exists to prevent. **The bullet directly above is the exception, and it says so**: an operational rule about asking our own maintainer is not part of the seam contract.
+    - **LAPS TRAVEL BY GIT. Write the lap, commit it, push it, then tell the
+      maintainer to point the peer at it** (maintainer directive, 2026-09-13:
+      *"no more laps i send manually, you make the doc and put into the repo,
+      then tell me to have the other repo take a look"*). This **supersedes** the
+      2026-09-04 rule that said to ask before writing a lap, and it supersedes it
+      by removing the reason rather than by overruling it: that rule existed
+      because *only the maintainer can perform the send*, so a written lap could
+      sit unsent indefinitely — and three did.
+      **BUT PUBLISHING IS NOT SENDING, AND THIS FILE SAID IT WAS FOR ONE DAY.**
+      Corrected 2026-09-14 on the maintainer's instruction: *"a lap should not be
+      seen as ready to read and use until I am told to do so and let the other repo
+      know. And it should confirm that in the file as well."* **Committing makes a
+      lap AVAILABLE; the operator's announcement makes it LIVE**, and the two are
+      separate acts — which is what *"publishing is sending"* collapsed. The error
+      is instructive rather than careless: under hand transport the operator **was**
+      the transport, so a lap nobody had weighed simply never moved, and the
+      separation was invisible because it was structural. Move the transport and the
+      structure stops enforcing it. Ask of any mechanism being replaced: *what was
+      the old one doing that nobody wrote down?*
+      **The file declares its own state**, so a peer never infers it from a commit
+      date: `HANDSHAKE-READY-TO-READ: no` at emit,
+      `handshake.py --announce <lap>` flips it to `yes` with the date and who
+      released it, and **`--announce` is run on the maintainer's word, never on our
+      own judgement.** Tri-state (`ready_to_read`), fail-closed, with a grandfather
+      at round 19 because every earlier lap was hand-carried and delivery *was* the
+      announcement. Our gate will not take a verdict from an unreleased lap **in
+      either direction** — theirs included, because we can now read their tree
+      before their operator has released anything, and acting on their draft would
+      make their draft our decision. It says *which* lap it is holding rather than
+      reporting a bare "no verdict"; **`--announce` refuses an inbound lap**, since
+      the peer's operator releases the peer's laps.
+      Permitted without a protocol bump by the shared spec's own §3 — *"unknown
+      fields are ignored by both parsers, so either side may add one without
+      breaking the other"* — so it is **emitted and enforced here, and proposed to
+      them as normative**, the same shape as `HANDSHAKE-TO`/`-FROM-REPO` in round 16.
+      **Both repos are public and either side can read the other. That premise was
+      wrong in both trees for the entire life of this protocol.** The fork found it
+      in themselves first — their `CLAUDE.md` asserted it twice and a round-18 lap
+      a third time — ran the check instead of repeating the claim, and told us;
+      ours said it too, in `docs/cyanrip-known-issues.md` and a session-log entry.
+      It is the class this file already names: **a note asserting an absence needs
+      a check that fails when the absence ends.** Same shape as *"there is no
+      `-V`"* and *"the suite has no network"*. This one is the most expensive of
+      the three, because it shaped the protocol: round 12 cost a whole round to a
+      mechanism we asserted in their build and could simply have read.
+      **`main` is the ref of record, and that is the new failure mode.** Work
+      happens on a `claude/…` branch and reaches `main` by squash merge, so a lap
+      can be committed, correct and invisible. Measured the day the rule changed:
+      `main` was **107 commits behind** and carried **none** of round 18's six
+      files. So the gate that used to be unable to see a send can now see one —
+      *is this lap on `main`?* is a question with an answer — and
+      `tests/test_no_lap_is_left_unsent.py` is where that answer belongs.
+      **What it does NOT license, and the fork said it first and better:** reading
+      their tree is not a substitute for a lap and not a licence to author their
+      half. *"The seam's value is two independent implementations catching each
+      other, and a convention re-derived from their source is one implementation
+      copied twice. Read to verify, never to decide for them."* And the citation
+      rule is unchanged — a mechanism claimed in their code carries
+      `cyanrip@<sha>:<path>:<line>` — it has merely gone from impossible to cheap.
+      **The half that stays with the maintainer is the NOTIFICATION**, which is why
+      the directive ends *"then tell me"*. A published lap nobody has been pointed
+      at is discoverable rather than lost, which is strictly better than the old
+      failure, but it is still not delivered. Say which commit it is on.
+    - **This rule lives in both repos.** When it changes here, send the change to the fork in the same round so their `CLAUDE.md` (or equivalent) matches. Two projects with different copies of the protocol is the failure this rule exists to prevent. **The bullet directly above USED to be the exception and no longer is** — when it was *"ask our maintainer before writing a lap"* it governed our operator and shipping it would have handed the fork a rule about a person they do not work with. Now that it is *"laps travel by git"* it is a **term of the seam**: it names where each side publishes and which ref the other reads, and a transport only one side has adopted is not a transport. It travels. (The two carve-outs that remain are the ones that still govern a duty of ours rather than a term between us — *the fork is the core* and the checking we owe them.)
 
 ## How to stop shipping the next one (read before calling a fix done)
 
@@ -221,6 +284,7 @@ Three consecutive releases each fixed a real bug and introduced the next. These 
 - **What new state does this fix create, and what tests *that*?** A scroll area creates nesting. A guard creates a precondition. An `os._exit` creates a skipped-teardown path. The fix's own failure modes need their own tests. **And ask it about state the fix *unblocks*, not only state it adds** — a correctness fix expands the reachable state space, and the states a bug was hiding have never executed and have no tests, so they arrive already believed-in. Making the ripper offer place a build it used to refuse to place made a mis-pairing reachable that had sat in the tree for weeks: the channel head's *version* rendered against the *installed* commit, described as "the newest published on stable" — every field true, the sentence false (2026-08-18, `docs/testing.md` §5.ak). Ask, of any fix that makes a function answer where it used to decline: *what does the code downstream do with answers it never used to receive?*
 - **Did I check the preconditions where the thing HAPPENS, or where it was scheduled?** Count the deferrals — a timer is the obvious one, and a worker's own completion is a second, longer one. The automatic ripper check's three guards were read at arming and never at surfacing, so a rip that started during the check got a modal over the live progress view with *"Install it now"* pre-selected (2026-08-18). The rule had been written into `docs/architecture.md` §3.12a *in the same session*, one screen from the code that violated it — a comment where a check belongs is not a fix. Make the conditions a named function that returns *which one refused*, and call it at every point that can interrupt.
 - **Would this test fail if I reverted the fix?** Check by actually reverting it. This has caught a vacuous detector here **twice** — including one whose first version passed against the very bug it was written for, because it looked for a *mention* of a thread rather than a *call* that stops it. **And prove the revert landed before believing the run.** A passing test after a revert that never applied is indistinguishable from a vacuous test, and there are now four measured ways to get one: a `str.replace` whose anchor the formatter has reflowed; a patch script that asserts *after* it edits, so the write never happens; `ruff --fix` deleting an import between two halves of a change; and — from the cyanrip fork, same week — a `sed` that produced non-compiling C while build output was suppressed, so the **stale binary** ran the test and passed. Assert the file changed (hash or re-read), assert the build/collection succeeded, and assert the reverted thing actually behaves differently, *then* believe the run.
+  **And the RESTORE step is the dangerous half, which none of those four cover.** `git checkout -- <file>` restores to **HEAD**, not to the state before the probe — so on a file whose changes are not yet committed it does not undo the revert, it deletes the whole feature. Measured 2026-09-14: a probe written to prove the new release-state guard was not vacuous wiped every edit to `scripts/handshake.py` — the emitter field, both predicates, `announce_lap`, the gate wiring and the CLI — and the next run failed with `module has no attribute`, which reads like a typo rather than an amputation. The tests and docs survived because they were different files, which is exactly what made it look survivable. **Copy the file aside and restore from the copy**, verify the restore by hash, and never point `git checkout` at uncommitted work. `scripts/revert_probe.py` exists so this is not hand-rolled each time; the incident is what happens when it is.
 - **Am I asserting that a thing HAPPENED, or that it was REQUESTED?** Across a thread hop those are different claims, and the second is the one a step can outrun. `pick-release` called `dialog.accept()` and recorded PASS; `MainWindow._fetch_release_detail` *emits* to the MusicBrainz worker rather than calling it, so the tracks arrived a network round-trip later — **124 ms** after `expect-tracks 3` had already failed with *"found 0"*. Eight of a rig run's eight failures were that one line, and the tracks were loading correctly the whole time (2026-08-18, `docs/testing.md` §5.ap). Ask of any step that drives an async subsystem: *what would still be false one millisecond after I return True?* Two corollaries: **the asymmetry is the tell** — that same method's other branch already refused to pass without loaded tracks, and its docstring argued for exactly that, so the rule was written down and applied to one of two branches (§5.o at the scale of one function; when a method takes a principled stance in one branch, read the other); and **a fixture that starts in the end state cannot see the transition** — every existing test used a stand-in track table that constructs itself with 14 rows, so the empty→full change the bug lived in did not exist in the harness.
 - **What pins my input?** Different question from "is my logic right", and the one nobody asked of two correct detectors. The stall detector and the ETA both read the album progress fraction; a secure re-read replays a track the bar has already counted and `_bump_overall` refuses to regress, so that fraction is **frozen for the whole re-read by design**. Both then described the design: a healthy disc reported as *"stuck on a hard-to-read spot (a scratch or smudge)"*, twice in one rip, in the same seconds its own log shows a steady 1× read — and an ETA that went 54m → 5h40m in 70 seconds with 22 minutes left (2026-08-05, b8; `docs/testing.md` §5.ah). Two corollaries: **a monotonic display value is not a measurement** (the clamp is there so a bar never goes backwards — the moment it became the input to an inference it stopped being cosmetic), and **the fix for a signal going quiet is a second signal, not an exemption** — suppressing the detector during re-reads passes the false-alarm test and silently restores the hours-long undetected hang it was written for.
 - **What else WRITES to the field I'm reading — and does it write for a reason I would not want to override?** The sibling of the question above: that one is about an input frozen by design, this one about an input *destroyed* by design. `(ripper)` in a script's album title read `_last_cyanrip_output`, a field a second feature **deliberately invalidates on every new `cyanrip` step** so an `expect-exit` can never grade a subject two commands old. Both requirements are right; they are incompatible on one field, and the one written second won. A timed-out cache probe overwrote the banner, both `album … (ripper)` steps failed *"no build tag captured yet"* twenty minutes after it was captured — and the real damage was elsewhere: with the placeholder refused, two rips fell back to the default album title and collided in the disc's real album folder (2026-08-19, `docs/testing.md` §5.aq). The tell is a **lifetime mismatch stated in the field's own docstring** — "the *last* invocation's output" cannot also hold a property of the installed binary. Two facts sharing one slot need two slots. And check the fixture: the old tests set that field directly, so they bypassed the absorber and would have passed against a build that never populated the latch at all.
@@ -256,7 +320,7 @@ When in doubt during any session, stop and ask the user before doing the followi
 - Bypassing the host-exported `~/.local/bin/<ripper>` routing (currently cyanrip)
 - Adding scattered dependency checks outside the self-management subsystem
 - **Releasing, or switching the container to a new cyanrip pin, while a handshake round is open** — the gate is bidirectional and both verifications must be in (`docs/cyanrip-handshake.md`)
-- **Writing a new handshake lap** (maintainer directive, 2026-09-04). Ask *before* writing it, not after. Reasoning and the measurement that produced it are in Critical rule #12's *Writing a lap and sending one are two acts* — the short version is that only the maintainer can perform the second, so a lap written without their knowledge can sit unsent indefinitely, and three did.
+- ~~**Writing a new handshake lap**~~ — **RETIRED 2026-09-13**, and moved to *just do it*: laps now travel by git, so writing one and sending it are the same act and the failure the ask guarded against (a lap written and never carried) is gone. Write it, commit it, push it, and tell the maintainer which commit it is on. See Critical rule #12's *Laps travel by git*. **Still ask before**: releasing, or switching the pin, while a round is open — that one is unchanged and is listed above.
 
 **Just do it (no ask needed):**
 - Renaming a function, variable, or local module
@@ -278,7 +342,7 @@ This project is as much about building durable standards as shipping the app —
 - **Build for contributors who aren't them, in ways not yet conceived.** Leave extension seams and document them (`docs/architecture.md`). Modular, adapter-bounded, test-covered code is the deliverable — not just working code.
 - **Real hardware is the ground truth.** Many of the best fixes came from real-disc testing on the Bazzite + Pioneer BDR-209D rig (the >587 offset bug → cyanrip; the cdrdao TOC flake → Rescan; the EAC baseline). Code-side prep is welcome, but the final proof is a hardware run; flag hardware-gated work honestly.
 - **Every shipped bug gets a regression test in the same change.** Institutional, non-negotiable (see `docs/testing.md`).
-- **A version number is a claim about the field, not about CI** (maintainer ruling, 2026-08-19; KDD-35, full statement + evidence ledger in `docs/testing.md` §5B). "The suite is green" describes this repository on a CI runner; a version describes software in somebody's hands, and this project has the measurement that they differ — every defect that mattered in August was found on hardware by a person with the suite green throughout. **0.9.1** needs a complete hardware pass — *every* test green in ONE run — achieved **twice**; "the five failures were each understood" is not a pass, because on 2026-08-19 all five descended from one unknown defect. **1.0.0** additionally needs more than one person, machine and distro: a *coverage* bar no amount of diligence on one rig can clear. `tests/test_no_stale_version_claims.py` §3 refuses a bump the ledger does not support. **Amended 2026-08-21 (maintainer): the next minor is `0.7.100`, and it is gated on a FULL hardware pass — *"fresh start, rip, every test there is, all of them"* — so the project stays on `0.6.x` until that run exists.** The gate moved earlier than KDD-35 put it (0.9.1) and the bar is the same in kind: a complete pass in ONE run, not a set of individually-explained failures. The jump to `.100` is the maintainer's numbering, not a typo — do not "correct" it to 0.7.0. **Sharpened 2026-08-26 (maintainer): "error free" is about what a failure MEANS, not how many there are.** *"If there is something minor like a window size was wrong, then ignore. But critical passing tests for cd accuracy and provenance, etc, for archive level records, if all those pass fine. Difference between not working as intended and not actually doing the job you were built for."* So the bar is **zero failures in the ARCHIVAL sections** — accuracy, provenance, and the records that make a rip trustworthy — with UX failures recorded, triaged, and non-blocking. Same ruling: *"it might take 1 more test, it might take 10, i dont care."* **The classification is a property of the TEST, declared in advance, never a judgement made about a FAILURE after seeing it** — that distinction is the whole safety of this amendment, because "the five failures were each understood" is the exact sentence 2026-08-19 disproved, and a severity decided at results time is that sentence with a nicer name. The per-section table is `docs/testing.md` → *Acceptance severity*, swept by `tests/test_rig_scripts.py` so a NEW section must be classified rather than defaulting to ignorable. And a UX failure is only non-blocking while it is **its own** defect: if it shares a root cause with an archival one it is archival, which is the 2026-08-19 lesson kept rather than traded away.
+- **A version number is a claim about the field, not about CI** (maintainer ruling, 2026-08-19; KDD-35, full statement + evidence ledger in `docs/testing.md` §5B). "The suite is green" describes this repository on a CI runner; a version describes software in somebody's hands, and this project has the measurement that they differ — every defect that mattered in August was found on hardware by a person with the suite green throughout. **0.9.1** needs a complete hardware pass — *every* test green in ONE run — achieved **twice, on at least two machines and two distros** (maintainer ruling, 2026-09-13: *"me passing full tests, even if different, on the same version of linux and hardware should not allow a 0.9.1"* — a real amendment, since every diversity clause previously sat on 1.0.0 and 0.9.1 was a pure count); "the five failures were each understood" is not a pass, because on 2026-08-19 all five descended from one unknown defect. Two passes on ONE rig answer *was it luck* and say nothing about *is it green only because of this machine*; the floors are counted over the **full-green rows only**, and are deliberately below 1.0.0's so the two bars stay distinct. **1.0.0** additionally needs more than one person, machine and distro: a *coverage* bar no amount of diligence on one rig can clear. `tests/test_no_stale_version_claims.py` §3 refuses a bump the ledger does not support. **Amended 2026-08-21 (maintainer): the next minor is `0.7.100`, and it is gated on a FULL hardware pass — *"fresh start, rip, every test there is, all of them"* — so the project stays on `0.6.x` until that run exists.** The gate moved earlier than KDD-35 put it (0.9.1) and the bar is the same in kind: a complete pass in ONE run, not a set of individually-explained failures. The jump to `.100` is the maintainer's numbering, not a typo — do not "correct" it to 0.7.0. **Sharpened 2026-08-26 (maintainer): "error free" is about what a failure MEANS, not how many there are.** *"If there is something minor like a window size was wrong, then ignore. But critical passing tests for cd accuracy and provenance, etc, for archive level records, if all those pass fine. Difference between not working as intended and not actually doing the job you were built for."* So the bar is **zero failures in the ARCHIVAL sections** — accuracy, provenance, and the records that make a rip trustworthy — with UX failures recorded, triaged, and non-blocking. Same ruling: *"it might take 1 more test, it might take 10, i dont care."* **The classification is a property of the TEST, declared in advance, never a judgement made about a FAILURE after seeing it** — that distinction is the whole safety of this amendment, because "the five failures were each understood" is the exact sentence 2026-08-19 disproved, and a severity decided at results time is that sentence with a nicer name. The per-section table is `docs/testing.md` → *Acceptance severity*, swept by `tests/test_rig_scripts.py` so a NEW section must be classified rather than defaulting to ignorable. And a UX failure is only non-blocking while it is **its own** defect: if it shares a root cause with an archival one it is archival, which is the 2026-08-19 lesson kept rather than traded away.
 - **Never hand back an instruction file. Hand back three steps and a file to run.** (Directive, 2026-08-11: *"i should never get an instruction file again for 99.9% of times. it should be some text telling me step 1 is to do a normal rip, step 2 is to download and run this X file and give me 2 or 3 steps on that and what to upload and to which repo."*) A document of manual steps is **work handed back**, and it is a symptom, not a deliverable: every hand-edit and every "now run this, then run that" in a written procedure is a thing the software was supposed to do. The shape of a correct answer is short prose in the reply — *do the ordinary thing; download and run this; upload the result here* — and the automation absorbs everything mechanical. Twice now a checklist was written where a command belonged (2026-08-09, a 3-command list with 2 hand-edits, which became `--rig-session`; 2026-08-11, the same reflex again). If a procedure cannot be reduced to that, say *which* step resisted automation and why, rather than writing the long version and calling it done.
 - **Momentum with safety.** The maintainer pushes for autonomous forward progress ("proceed", "get it done") — so act on reversible, in-scope work without asking, commit in small test-green units, and report at milestones. Still stop for destructive or scope-changing decisions.
 - **Autonomous releases are expected.** Cut releases via the `workflow_dispatch` path from the cloud session (see CI/release below); don't wait for a manual tag push.

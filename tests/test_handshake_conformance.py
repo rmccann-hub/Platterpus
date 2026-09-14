@@ -22,6 +22,7 @@ weakened — a skipped conformance row is a divergence nobody can see.
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import re
 import sys
@@ -70,6 +71,20 @@ def _header(**overrides: str | None) -> str:
         "HANDSHAKE-OUR-PIN": "abc1234",
         "HANDSHAKE-PEER-VERSION": "0.9.4-rc1+platterpus.4",
         "HANDSHAKE-PEER-PIN": "5bc654d",
+        # RELEASED, because this helper's contract is "a COMPLETE closing header"
+        # and from round 19 a lap that does not declare its release state cannot
+        # close (2026-09-14). Added when `test_C19_a_stable_release_is_allowed_...`
+        # went red: its fixture is `round-99`, so the grandfather does not cover it
+        # and the gate correctly refused a stand-in that declared nothing.
+        #
+        # **That is the floor working, not a false failure.** C19 is the half that
+        # asserts the gate can still say YES — a gate that can only refuse is a wall
+        # — so the one test guaranteed to catch an over-broad release rule is the one
+        # that caught it. Teaching the stand-in to declare is the fix; exempting
+        # fixtures from the rule would have made every other test here assert against
+        # a world the product does not have (`CLAUDE.md`: *what does my stand-in do
+        # that the real thing does not?*).
+        "HANDSHAKE-READY-TO-READ": "yes — released by the operator on 2026-09-14",
         # Long enough to clear the evidence floor. It read 'T1-T8 and T14 on the pair above' — 31 characters
         # naming nothing in particular — and the close/status tests leaned on that
         # passing. `evidence_blockers` (2026-08-18) refuses content-free evidence, so
@@ -618,7 +633,7 @@ def _conformance_row_ids() -> list[str]:
     first row either side adds.
     """
     text = (_REPO_ROOT / "docs" / "handshake-protocol.md").read_text(encoding="utf-8")
-    return re.findall(r"^\|\s*(C\d+)\s*\|", text, re.MULTILINE)
+    return re.findall(r"^\|\s*(C\d+[a-z]?)\s*\|", text, re.MULTILINE)
 
 
 def _rows_after_heading(heading_fragment: str) -> list[str]:
@@ -635,7 +650,7 @@ def _rows_after_heading(heading_fragment: str) -> list[str]:
     at = lowered.find(heading_fragment.lower())
     if at < 0:
         return []
-    return re.findall(r"^\|\s*\*{0,2}(C\d+)\*{0,2}\s*\|", text[at:], re.MULTILINE)
+    return re.findall(r"^\|\s*\*{0,2}(C\d+[a-z]?)\*{0,2}\s*\|", text[at:], re.MULTILINE)
 
 
 def test_every_conformance_row_has_a_test_here() -> None:
@@ -674,7 +689,11 @@ def test_every_conformance_row_has_a_test_here() -> None:
         "split is reading the table wrong"
     )
 
-    missing = [i for i in binding if f"def test_{i}_" not in source]
+    missing = [
+        i
+        for i in binding
+        if f"def test_{i}_" not in source and i not in _KNOWN_DIVERGENCES
+    ]
     assert not missing, (
         f"shared protocol §8 rows {', '.join(missing)} have no test in this file — "
         "a conformance row without a test is a divergence nobody can see"
@@ -684,6 +703,53 @@ def test_every_conformance_row_has_a_test_here() -> None:
     # is "both gates implement 3"; these are what that means for this file.
     unwritten = [i for i in pending if f"def test_{i}_" not in source]
     assert unwritten == sorted(unwritten, key=lambda s: int(s[1:])), unwritten
+
+
+#: Binding conformance rows our gate does NOT implement — **recorded, not hidden.**
+#:
+#: **A ratchet that may shrink and never grow**, and every entry carries what the
+#: divergence is and which direction it fails in. The point is that a row here is
+#: *counted*: the alternative is what actually happened to ``C13a``, which was
+#: invisible for as long as the row-id pattern was ``C\d+`` — not exempted, not
+#: deferred, simply unable to appear in any denominator.
+#:
+#: ``C13a`` — *"a later lap of any verdict after the round reached a terminal state
+#: → refuse the FILE as an illegal transition; the round stays closed. v3 changed
+#: this: under v2 it reopened the round."* Our ``round_status`` reads the newest
+#: file on each side, so a later lap still reopens a closed round — the v2
+#: behaviour. **It fails CLOSED**: every later-lap shape (``HOLD``, or no verdict
+#: at all) turns the round ``OPEN`` and ``--release-gate`` refuses, so the
+#: divergence over-blocks a release rather than permitting one. That is the right
+#: direction to be wrong in and it is still wrong, and it is why this is queued
+#: rather than hot-fixed at the end of a long change.
+_KNOWN_DIVERGENCES: frozenset[str] = frozenset({"C13a"})
+
+
+def test_every_known_divergence_is_still_real() -> None:
+    """A ratchet's exemptions have to expire, or the list becomes folklore.
+
+    If someone implements ``C13a`` and writes ``test_C13a_…``, the row above stops
+    being a divergence — and an exemption left behind would go on excusing a test
+    that now exists, which is how an allowlist outlives the thing it allowed.
+
+    Same shape as the ``_WORKERS_WITHOUT_CANCEL`` ratchet: the list may shrink,
+    never grow, and something has to notice when it should have shrunk.
+    """
+    source = Path(__file__).read_text(encoding="utf-8")
+    stale = sorted(i for i in _KNOWN_DIVERGENCES if f"def test_{i}_" in source)
+    assert not stale, (
+        f"{stale} are listed as known divergences but now have tests. Remove them "
+        "from _KNOWN_DIVERGENCES — an exemption that outlives its subject silently "
+        "excuses the next one."
+    )
+    # FLOOR, so the test cannot pass by the constant having been emptied out from
+    # under it without anyone deciding to.
+    ids = set(_conformance_row_ids())
+    unknown = sorted(_KNOWN_DIVERGENCES - ids)
+    assert not unknown, (
+        f"{unknown} are listed as divergences from rows the shared table does not "
+        "have. Either the table changed or this constant is naming nothing."
+    )
 
 
 def test_no_test_here_claims_a_row_the_table_does_not_have() -> None:
@@ -697,9 +763,210 @@ def test_no_test_here_claims_a_row_the_table_does_not_have() -> None:
     """
     ids = set(_conformance_row_ids())
     source = Path(__file__).read_text(encoding="utf-8")
-    claimed = set(re.findall(r"^def test_(C\d+)_", source, re.MULTILINE))
+    claimed = set(re.findall(r"^def test_(C\d+[a-z]?)_", source, re.MULTILINE))
     unknown = sorted(claimed - ids)
     assert not unknown, (
         f"test(s) here claim row(s) {', '.join(unknown)}, which the shared table "
         "does not define"
+    )
+
+
+# --- the table GREW and this file did not notice -----------------------------------
+
+#: Conformance rows this file names today. **A ratchet: it may only grow.**
+#:
+#: **Found 2026-09-13, and the fork found the symptom first.** Their round-18
+#: status ran their own self-found checks against our public tree and reported
+#: that `HANDSHAKE-OVERRIDE` appears in `docs/handshake-protocol.md` and in **zero**
+#: `.py` files here — so C31 (refuse an override missing `-BY`/`-WHY`) and C32
+#: (honour it, and print it whenever the round's state is printed) are unimplemented
+#: and untested. Verified here rather than accepted: 0 references in any `.py`.
+#:
+#: **The disease is larger than that row.** This file's docstring says
+#: *"`PROTOCOL.md` §8 is a 14-row table… one test per row"*. The shared table now
+#: has **36** rows. It grew and the promise did not, which is `CLAUDE.md`'s
+#: *does this document promise completeness? then it needs a sweep, not a comment*
+#: — decaying invisibly, because a map is only ever wrong by omission.
+#:
+#: This constant is not the fix. It is the **counter** that makes the gap visible
+#: and stops it widening silently while the real work is queued in `TASKS.md`.
+#: A conformance row id. **`[a-z]?` is load-bearing and was missing.**
+#:
+#: The table has one suffixed row, `C13a`, and `C\d+` cannot match it. The fork
+#: found this in their round-18 lap 3 §4a, in the ratchet below, one day after it
+#: was written — and their own coverage counter has the identical blind spot
+#: (`\bC[0-9]+\b`). Same defect, both projects, independently.
+#:
+#: **Why invisible beats uncovered.** A row the DENOMINATOR cannot include can
+#: never be reported as missing: the check would print full coverage while one row
+#: had no test at all. That is `CLAUDE.md`'s *can this check be satisfied by
+#: finding nothing?* applied to a set rather than a count.
+_ROW_ID: str = r"^\| (C\d+[a-z]?) "
+
+#: The same widening on the other side of the comparison. A test that NAMES `C13a`
+#: must be counted as covering it; with `\bC\d+\b` the mention would be read as
+#: `C13` and the real row would stay uncounted — a false positive and a false
+#: negative from one pattern.
+_NAMED_ID: str = r"(?<![A-Za-z0-9])C\d+[a-z]?(?![A-Za-z0-9])"
+
+_ROWS_NAMED_HERE: frozenset[str] = frozenset(
+    {f"C{n}" for n in range(1, 21)} | {"C13a", "C31", "C32"}
+)
+
+#: **What this counts, stated because the first two numbers here were both wrong.**
+#: A row counts when a ``test_`` function NAMES it — in its name, docstring or body.
+#: That is an UPPER BOUND on behavioural coverage: C13a, C31 and C32 appear only
+#: inside assertion messages, so **20 rows have a dedicated ``def test_C<N>_``
+#: function and three more are references**.
+#:
+#: **The honest reading: 23 of 37 named, 14 uncovered — and the 14 are contiguous.**
+#: They are C21–C30 and C33–C36, every one of them a row added in v3/v4. That is a
+#: far more actionable statement than a bare count, and it only became visible once
+#: the pattern could see the tests.
+#:
+#: **Two wrong numbers preceded it, both published, both from a regex that could not
+#: see its subject.** ``C\d+`` reported 36 rows and 6 named (it cannot match
+#: ``C13a``); widening it to ``\bC\d+[a-z]?\b`` reported 37 and 9 — still wrong,
+#: because ``\b`` does not fire between ``C1`` and the underscore in
+#: ``test_C1_the_wire_header``: **``_`` is a word character**, so every one of the
+#: twenty rows with a dedicated test was invisible to the check counting them. The
+#: fix for a blind spot was written with a different blind spot, and its own comment
+#: claimed *"the blind spot cannot return."*
+#:
+#: Hence ``_NAMED_ID``'s explicit alphanumeric boundaries rather than ``\b``, and
+#: hence ``test_no_narrow_row_id_pattern_survives_anywhere_in_this_file``: the sweep
+#: is the fix, because this file had **four** places that derive a row id and the
+#: first repair reached one of them.
+
+
+def _rows_named_by_tests() -> set[str]:
+    """Row ids named inside a TEST, never in surrounding prose.
+
+    **A scan over the whole file counts comments, which makes the ratchet
+    satisfiable by writing ABOUT a row instead of testing it.** Measured
+    immediately: widening the id pattern to catch `C13a` took apparent coverage
+    from 6 to 10, and all four new ids were ones mentioned in the comment
+    explaining the widening. The number went up because prose was added.
+
+    That is `CLAUDE.md`'s *where a check matches on a label, make it also require
+    the subject* — the label answers *did they name it*, the body answers *did they
+    write it*, and only the pair is a check. So this walks the AST and reads only
+    functions whose name starts with `test_`: their names, docstrings and bodies,
+    and no module-level comment.
+    """
+    source = (_REPO_ROOT / "tests" / "test_handshake_conformance.py").read_text(
+        encoding="utf-8"
+    )
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
+            found |= set(re.findall(_NAMED_ID, node.name))
+            found |= set(
+                re.findall(_NAMED_ID, ast.get_source_segment(source, node) or "")
+            )
+    return found
+
+
+def test_the_conformance_table_has_not_outgrown_this_file_any_further() -> None:
+    """The sweep this file's own completeness claim always needed.
+
+    Derives the row set from the shared protocol rather than from a list here, so
+    a row added by either project is counted the round it lands. Asserts two
+    things and neither can be satisfied by finding nothing:
+
+    1. the protocol still parses to a substantial table (floor), and
+    2. every row this file claims to name is still in the protocol, and
+    3. the covered set has not SHRUNK.
+
+    It deliberately does **not** assert full coverage, because that would fail
+    today and a red suite is not a record — the shortfall is itemised in
+    `TASKS.md` instead, with this counter stopping it growing.
+    """
+    proto = (_REPO_ROOT / "docs" / "handshake-protocol.md").read_text(encoding="utf-8")
+    rows = set(re.findall(_ROW_ID, proto, re.M))
+    assert len(rows) >= 30, (
+        f"the protocol parses to {len(rows)} conformance row(s); it had 37 on "
+        "2026-09-13, so either the table shrank or this parser stopped matching — "
+        "and a coverage check over an empty table passes by not looking"
+    )
+    # THE ROW THE FIRST VERSION OF THIS TEST COULD NOT SEE. Pinned by id, because
+    # a suffixed row is invisible to `C\d+` and invisible is worse than uncovered:
+    # a denominator that cannot include it reports FULL coverage while it has none.
+    assert "C13a" in rows, (
+        "the row-id pattern no longer matches C13a. It is the only suffixed row in "
+        "the table and the one both projects' counters missed — ours counted 36 "
+        "where there are 37, and the fork's own `\\bC[0-9]+\\b` cannot match it "
+        "either. If the suffix convention changed, widen _ROW_ID rather than "
+        "dropping this assertion."
+    )
+    named = _rows_named_by_tests()
+    stale = _ROWS_NAMED_HERE - rows
+    assert not stale, (
+        f"this file names conformance row(s) {sorted(stale)} that the protocol no "
+        "longer defines — the shared table changed under us"
+    )
+    covered = rows & named
+    assert len(covered) >= len(_ROWS_NAMED_HERE), (
+        f"conformance coverage SHRANK: {len(covered)} of {len(rows)} rows NAMED "
+        "by a test (an upper bound on real coverage), "
+        f"was {len(_ROWS_NAMED_HERE)}. This ratchet may only grow. The "
+        f"{len(rows) - len(covered)} uncovered rows are itemised in TASKS.md; "
+        "C31/C32 (operator override) are the two the fork found for us."
+    )
+
+
+def test_no_narrow_row_id_pattern_survives_anywhere_in_this_file() -> None:
+    """A sweep, because fixing this one site at a time is how it got to four.
+
+    **The incident.** The shared table has one suffixed row, ``C13a``. This file
+    derived a row id in **four** places; the fork found the first one, it was
+    widened, and its comment said *"so the blind spot cannot return."* The other
+    three were still ``C\\d+`` the next day — including
+    ``_conformance_row_ids()``, which is what most of the tests here actually call,
+    so the repair had reached the ratchet and not the checks.
+
+    That is this repo's own rule twice over: *enforce a rule across the codebase,
+    not at the place it was learned*, and *a comment where a check belongs is not a
+    fix.* So this greps the file for the narrow form rather than trusting that
+    every site was found — the next one gets caught the moment it is written.
+
+    **Scoped to row-id extraction, not to the characters.** A bare ``C\\d+`` inside
+    a prose comment ABOUT the defect is not a defect, so the sweep looks only at
+    lines that also carry a regex delimiter and a capture, which is what an
+    extraction site looks like.
+    """
+    source = (_REPO_ROOT / "tests" / "test_handshake_conformance.py").read_text(
+        encoding="utf-8"
+    )
+    offenders: list[str] = []
+    for number, line in enumerate(source.splitlines(), start=1):
+        if (
+            "re.findall" not in line
+            and "re.compile" not in line
+            and "re.match" not in line
+        ):
+            continue
+        # `C\d+` NOT followed by the `[a-z]?` that admits a suffixed row.
+        if re.search(r"C\\d\+(?!\[a-z\]\?)", line):
+            offenders.append(f"  line {number}: {line.strip()}")
+
+    assert not offenders, (
+        "a row-id pattern here is still `C\\d+`, which cannot match `C13a` — the "
+        "one suffixed row in the shared table:\n"
+        + "\n".join(offenders)
+        + "\n\nUse `C\\d+[a-z]?`. A row the denominator cannot include can never be "
+        "reported as uncovered, so a narrow pattern prints FULL coverage while a "
+        "row has none. This sweep exists because the first repair reached one of "
+        "four extraction sites and its comment said the blind spot could not return."
+    )
+
+    # FLOOR. The sweep above passes trivially if it is scanning nothing, which is
+    # the failure `CLAUDE.md` names as *can this check be satisfied by finding
+    # nothing?* — asked, here, of a check written to fix a check.
+    widened = len(re.findall(r"C\\d\+\[a-z\]\?", source))
+    assert widened >= 3, (
+        f"only {widened} widened row-id pattern(s) found in this file; there were "
+        "4 extraction sites plus their comments on 2026-09-13. Either they were "
+        "removed or this sweep has stopped matching — and a sweep that matches "
+        "nothing reports a clean file."
     )

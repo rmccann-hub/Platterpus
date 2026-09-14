@@ -11,6 +11,124 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-13 — round 17 and round 18 both closed GO/GO, 0.6.47 shipped, and a coverage gate that could not see one of its own rows
+
+**Two rounds closed in one day and every one of the eighteen is now shut.** Round
+17 approved `fe4d2c4` and the fork published it to both channels; round 18 was a
+pure procedure round that moved no pin and settled the tiered-acceptance
+vocabulary. v0.6.47 published at `abd2eb8` — AppImage, `.sha256`, `.zsync`, signed
+provenance, PyPI dispatched.
+
+**The hardware run is the headline.** 2026-09-12, Pioneer BDR-209D on Bazzite:
+238 of 238 across all 21 sections, zero failures. The first `full-green` row the
+field-evidence ledger has ever carried. Under KDD-35 as amended, that is **one** of
+the passes 0.9.1 needs, not the bar itself.
+
+### What the fork found in us
+
+**Their §4a: our conformance table has 37 rows, not 36.** `C13a` carries a letter
+suffix and our row-id pattern was `C\d+`. Verified against our own byte-identical
+copy at `docs/handshake-protocol.md:717` before accepting it.
+
+**The miscount is not the severity.** A row the *denominator* cannot include can
+never be reported as uncovered — the ratchet would have printed complete coverage
+while that row had no test at all. That is `CLAUDE.md`'s *can this check be
+satisfied by finding nothing?* applied to a **set** rather than a count, and it is
+the first time that question has landed on a set here. Widened to `C\d+[a-z]?`,
+with `C13a` now pinned by id so the blind spot cannot return.
+
+**Their own counter has the identical hole** (`\bC[0-9]+\b`) and they found it in
+themselves while checking us. Same defect, both projects, independently, on the one
+row in the table that is not a bare number — which is the argument for the
+challenge mandate stated more cleanly than either side could have written it.
+
+### And fixing it exposed a second defect that was ours alone
+
+Widening the pattern took apparent coverage from 6 rows to 10 — **and all four new
+ids came from the comment explaining the widening.** The scan read the whole file,
+so writing *about* a row counted as testing it. A gate satisfiable by prose,
+created by the commit that fixed the gate above it.
+
+Now AST-scoped to `test_`-prefixed functions. The honest number is published with
+its caveat: **at most 9 of 37 rows exercised, 28 certainly not**, three of the nine
+named only inside an assertion message. Left as a declared upper bound rather than
+tightened with a heuristic — a gate whose rule cannot be stated in one sentence
+gets argued with instead of obeyed.
+
+*This is the shape `CLAUDE.md` warns about directly: ask "can this check be
+satisfied by finding nothing?" **of the check you are writing to fix a check**,
+because that is where it hides — the new one arrives wearing the authority of
+having been added on purpose.*
+
+### A sentence of ours a peer misread, and the misreading was our fault
+
+They asked whether `fullacceptance.txt`'s *"Clause 2 is **UNPROBED by this
+section**"* was a third sense of the word. It is not — the section runs both the
+`-H -E` and `-H -W` arms on hardware and cannot discriminate between them, which
+the comment two lines below already said (*"agreement here is the null result"*).
+But *"by this section"* scans as a scoping decision, as in *we chose not to look*,
+and that is exactly how they read it.
+
+Reworded to *ran here and cannot settle it either way*. The test moved off the old
+phrase and now **forbids** it, because a test that only looked for the new wording
+would pass with both strings in the file. Third time in two rounds that a
+vocabulary defect of ours was found by a peer reading our *words* rather than our
+code.
+
+### The token collision — the same failure one level up
+
+Their round-18 lap 1 proposed a tier vocabulary whose `SKIPPED` and `BLOCKED`
+**mean the opposite things in our tree**: ours a consequence where theirs is a
+decision, and vice versa. Both sides would have passed their own conformance tests
+and written opposite facts into the same field.
+
+They confirmed it exactly as stated and restructured the spec: **seven concepts
+with the token as a separate column**, so a rename is an implementation detail
+instead of a contract change. Ours move in round 19.
+
+### A correction we made in our own record and never sent
+
+`docs/cyanrip-handshake.md` §7.5b refutes their generalisation that *"a round can
+only close on the gate of whichever side sent the last lap"* — true of theirs,
+false of ours, and the record proves it (rounds 9, 10, 13, 14 and 16 all had them
+sending the last lap and all five closed on our gate). The real property is turn
+order.
+
+**Derived 2026-09-12, written into our docs, and never put in a lap.** Checked
+rather than assumed: the phrase is in neither our round-17 nor our round-18
+outbound file, and their standing status file still carries the claim. So we
+corrected our own record and left the peer's uncorrected — which is the half that
+matters, since a shared protocol where each side holds a different description of
+when a round can close is precisely the failure rule #12 exists to prevent. Queued
+as round 19 §A in `TASKS.md`; **not written, because only the maintainer can send a
+lap.**
+
+### Closing round 18 had product consequences the suite found, not a person
+
+Filing the closing lap moved the newest CLOSED round to 18, and three derived
+gates failed in the same run: `APPROVED_BY_ROUND` (17 → 18),
+`APPROVED_FOR_PLATTERPUS_VERSION` (0.6.46 → 0.6.47, read off their closing lap's
+`HANDSHAKE-PEER-VERSION`), and `SENT_LAPS`, which wanted our lap 2 frozen at the
+bytes the peer confirmed holding.
+
+**A round that moves no pin still moves which bilateral `GO` the pin rests on**, and
+re-approving the same binary against a newer app version is a stronger claim than
+round 17 made, not a repeat of it. The knock-on is the good kind: the guard written
+*the day before* to forbid *"the round-17 pair verified on hardware"* now stands
+down by itself, reporting *"the running app IS the version the current pin was
+approved for."* It was written for the window, not against the claim, and it closed
+the window without needing to be remembered and removed.
+
+### Challenge ledger
+
+Rows 15 (us, the token collision) and 16 (them, `C13a`) — one in each direction on
+the same day. Standing count **fork 9 / us 7 of 16**, and **5/2 of the seven made
+under the mandate**. Still not a measurable answer at n=7, and saying so remains
+the honest reading. The pair is the better illustration anyway: neither finding was
+reachable by the side that wrote the thing.
+
+---
+
 ## 2026-09-12 — round 16 closed GO/GO, 0.6.46 landed, round 17 opened, and a filing that needed two merges
 
 **One sentence: Run A settled round 16's three close conditions on hardware, the

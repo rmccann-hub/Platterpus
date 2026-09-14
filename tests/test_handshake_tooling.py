@@ -1778,6 +1778,102 @@ def test_the_declared_shared_hashes_match_the_files_on_disk() -> None:
         )
 
 
+def _latest_inbound_with_shared_hashes() -> tuple[Path, dict[str, str]] | None:
+    """The peer's newest lap that declares `HANDSHAKE-SHARED-HASHES`.
+
+    Same ordering rule as its outbound twin: by (round, lap), never by filename.
+    """
+
+    def _key(path: Path) -> tuple[int, int, str]:
+        match = re.search(r"round-(\d+)-lap-(\d+)", path.name)
+        if not match:
+            return (0, 0, path.name)
+        return (int(match.group(1)), int(match.group(2)), path.name)
+
+    inbound = _REPO_ROOT / "docs" / "handshake" / "inbound"
+    for path in sorted(inbound.glob("round-*-lap-*.md"), key=_key, reverse=True):
+        match = re.search(
+            r"^HANDSHAKE-SHARED-HASHES: (.+)$", path.read_text(encoding="utf-8"), re.M
+        )
+        if not match:
+            continue
+        declared: dict[str, str] = {}
+        for token in match.group(1).split():
+            if "=" in token:
+                name, _, value = token.partition("=")
+                declared[name] = value
+        if declared:
+            return path, declared
+    return None
+
+
+def test_the_PEERS_declared_shared_hashes_match_our_copies() -> None:
+    """The other half of a two-half check, which said so in its own docstring.
+
+    The test above verifies **our** declaration against **our** tree. Its
+    docstring then admits the gap in writing: *"We have told the fork we do not
+    yet compare their hashes against ours… This is the half we can do
+    unilaterally."* That was accurate when written and is the exact shape
+    `CLAUDE.md` names — *if the contract has two halves, did I check both?* — with
+    the missing half identified, recorded, and left undone.
+
+    **It is unilateral too, and always was.** It needs no network and no clone of
+    their repository: we hold their laps, they declare the hashes in the wire
+    header, and the files are supposed to be byte-identical in both trees. So the
+    comparison is `their declaration` against `our bytes`.
+
+    **What it catches that nothing else does.** These four files are jointly
+    owned — neither project may edit one unilaterally — so a divergence is not a
+    merge conflict anybody sees. It is silent: two projects reading two different
+    rulebooks, each internally consistent. The wire field exists precisely so a
+    lap carries the evidence, and a declared hash nobody compares is a second
+    description of a fact rather than a check on it.
+
+    **Scope, stated rather than implied.** This compares only the names the peer
+    declares AND that we know a path for. A file they declare and we do not know
+    fails loudly (below). A file *we* hold and they never declare is invisible
+    here — that asymmetry is the remaining third of the problem, and it belongs to
+    whichever side adds a shared file without announcing it.
+    """
+    found = _latest_inbound_with_shared_hashes()
+    assert found is not None, (
+        "no INBOUND lap declares HANDSHAKE-SHARED-HASHES. The field has been on "
+        "the wire since round 7 lap 33 and the peer carries it in every lap, so "
+        "an empty result means the parse broke, not that they stopped declaring."
+    )
+    lap, declared = found
+    # THE FLOOR. Every clause below iterates the declaration, so a declaration
+    # that parsed to nothing would pass by not looking — the shape this file
+    # exists to refuse, and the reason its twin carries the same assertion.
+    assert len(declared) >= 3, (
+        f"{lap.name} parsed down to {len(declared)} hash(es); the peer declares "
+        "four, so the parser has stopped matching"
+    )
+    mismatches: list[str] = []
+    for name, claimed in declared.items():
+        rel = _SHARED_FILE_PATHS.get(name)
+        if rel is None:
+            mismatches.append(
+                f"{name}: the peer declares a shared file we know no path for — "
+                "either they added one without telling us, or _SHARED_FILE_PATHS "
+                "is behind"
+            )
+            continue
+        actual = hashlib.sha256((_REPO_ROOT / rel).read_bytes()).hexdigest()
+        if actual != claimed:
+            mismatches.append(
+                f"{name}: they declare {claimed[:16]}… and our {rel} hashes to "
+                f"{actual[:16]}…"
+            )
+    assert not mismatches, (
+        f"the shared files have DIVERGED between the two repositories, per "
+        f"{lap.name}:\n  " + "\n  ".join(mismatches) + "\n"
+        "These four are jointly owned and neither project may edit one alone. A "
+        "divergence is not a merge conflict anybody sees — it is two projects "
+        "reading two different rulebooks. Reconcile before the round closes."
+    )
+
+
 # --- closed-set fields must be bare tokens on OUTPUT -------------------------------
 #
 # WHAT HAPPENED (2026-08-17, round 9 lap 7 §F2). The fork's gate anchors its verdict
@@ -2986,4 +3082,253 @@ def test_every_provenance_value_is_a_sha_or_a_sentence() -> None:
     assert not problems, (
         "a provenance value is neither a bare sha nor a sentence a peer can act "
         "on:\n  " + "\n  ".join(problems)
+    )
+
+
+# --- A lap is not live because it is committed ---------------------------------
+#
+# Maintainer directive, 2026-09-14: *"a lap should not be seen as ready to read and
+# use until I am told to do so and let the other repo know. And it should confirm
+# that in the file as well."*
+#
+# This corrects a rule written ONE DAY EARLIER. When transport moved to git, this
+# repo wrote *"publishing IS sending"* — which collapses two acts that had been
+# separate for eighteen rounds. Under hand transport the operator **was** the
+# transport, so a lap nobody had weighed simply never moved; under git, nothing stops
+# a peer reading a draft, a lap found wrong ten minutes later, or one the operator
+# has not yet stood behind. The fix is not a convention: the FILE declares its own
+# state, so a reader never has to infer it from a commit date.
+
+
+def test_the_emitted_skeleton_is_born_UNRELEASED(hs: ModuleType) -> None:
+    """A lap must default to held. A default of `yes` is the old bug with a field."""
+    emitted = hs.emit_outbound(19)
+    assert "HANDSHAKE-READY-TO-READ:" in emitted, (
+        "the emitted skeleton carries no HANDSHAKE-READY-TO-READ line, so a lap "
+        "written from it declares nothing about whether it may be read"
+    )
+    assert hs.ready_to_read(emitted) is False, (
+        "the emitted skeleton reads as RELEASED. A lap is born unannounced; "
+        "--announce is the act that releases it, on the operator's instruction."
+    )
+
+
+def test_ready_to_read_is_TRI_STATE_and_absent_is_not_yes(hs: ModuleType) -> None:
+    """`None` is a real answer and it is not consent.
+
+    The same shape as this project's ripper-approval rule — *an unrecognised build
+    tag is never reported as unapproved* — read from the other side: an absent
+    release declaration is never reported as released.
+    """
+    assert hs.ready_to_read("HANDSHAKE-READY-TO-READ: yes — released 2026-09-14")
+    assert hs.ready_to_read(f"HANDSHAKE-READY-TO-READ: {hs.READY_TO_READ_NO}") is False
+    assert hs.ready_to_read("HANDSHAKE-ROUND: 19\nHANDSHAKE-VERDICT: GO") is None
+
+    # Declared twice with different values -> refuse, per protocol §2 rule 3. A held
+    # lap and a released lap in one file is the worst case to guess in.
+    both = "HANDSHAKE-READY-TO-READ: yes\nHANDSHAKE-READY-TO-READ: no\n"
+    assert hs.ready_to_read(both) is False
+
+    # A declaration is what a file STATES, never what it QUOTES (§2 rule 2).
+    fenced = "```\nHANDSHAKE-READY-TO-READ: yes — example only\n```\n"
+    assert hs.ready_to_read(fenced) is None
+
+
+def test_the_grandfather_boundary_is_pinned_and_exempts_only_hand_carried_rounds(
+    hs: ModuleType,
+) -> None:
+    """Rounds 1-18 were hand-carried, so delivery WAS the announcement.
+
+    Pinned as a constant and asserted here for the same reason the shared protocol
+    pins its own round-8 boundary: widening an exemption has to be a visible edit,
+    not a side effect. Without the boundary every historical lap would read as held
+    and all eighteen closed rounds would reopen — a correctness fix that breaks the
+    record it was meant to protect.
+    """
+    assert hs.READY_TO_READ_REQUIRED_FROM_ROUND == 19, (
+        "the boundary moved. Rounds up to 18 were hand-delivered and cannot carry a "
+        "field that did not exist; from 19 on, silence is not consent. Moving this "
+        "later exempts rounds that COULD have declared."
+    )
+    assert hs.is_released_for_reading("HANDSHAKE-ROUND: 18") is True
+    assert hs.is_released_for_reading("HANDSHAKE-ROUND: 19") is False
+    # An explicit declaration beats the grandfather in BOTH directions.
+    assert (
+        hs.is_released_for_reading("HANDSHAKE-ROUND: 18\nHANDSHAKE-READY-TO-READ: no")
+        is False
+    )
+    assert (
+        hs.is_released_for_reading("HANDSHAKE-ROUND: 19\nHANDSHAKE-READY-TO-READ: yes")
+        is True
+    )
+    # A file we cannot place at all fails closed.
+    assert hs.is_released_for_reading("HANDSHAKE-VERDICT: GO") is False
+
+
+def _round19(hs: ModuleType, root: Path, *, ours: str, theirs: str) -> None:
+    """Write a complete round 19 whose two laps carry the given release states."""
+    for name in ("outbound", "inbound", "verified"):
+        (root / name).mkdir(exist_ok=True)
+    header = _closing(
+        **{"HANDSHAKE-ROUND": "19", "HANDSHAKE-LAP": "2", "HANDSHAKE-PROTOCOL": "4"}
+    )
+    (root / "verified" / "round-19-lap-02.md").write_text(
+        header + f"HANDSHAKE-READY-TO-READ: {ours}\n", encoding="utf-8"
+    )
+    (root / "outbound" / "round-19-lap-02.md").write_text(
+        header + f"HANDSHAKE-READY-TO-READ: {ours}\n", encoding="utf-8"
+    )
+    (root / "inbound" / "round-19-lap-01.md").write_text(
+        _closing(
+            **{
+                "HANDSHAKE-ROUND": "19",
+                "HANDSHAKE-LAP": "1",
+                "HANDSHAKE-PROTOCOL": "4",
+                "HANDSHAKE-FROM": "cyanrip-fork",
+            }
+        )
+        + f"HANDSHAKE-READY-TO-READ: {theirs}\n",
+        encoding="utf-8",
+    )
+
+
+def _round19_line(hs: ModuleType, root: Path) -> str:
+    return next(ln for ln in hs.round_status(root) if ln.startswith("round-19"))
+
+
+def test_an_unreleased_lap_of_OURS_does_not_speak_for_us(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """Committing a GO is not declaring one.
+
+    The failure this prevents: write the lap, commit it, and the round closes — which
+    makes `git commit` the release mechanism and leaves the operator, the only party
+    who can weigh it, out of the loop entirely.
+    """
+    _round19(hs, tmp_path, ours=hs.READY_TO_READ_NO, theirs="yes — released")
+    line = _round19_line(hs, tmp_path)
+    assert line.endswith("OPEN"), line
+    # AND IT SAYS WHY. "no verdict" and "a verdict we have not released" are
+    # different states; a gate that renders them identically sends the next reader
+    # looking for a missing file.
+    assert "NOT released to read" in line and "round-19-lap-02.md" in line, (
+        f"the status line does not name the held lap: {line!r}. A reader must be "
+        "able to see that --announce is the fix, without reading the source."
+    )
+
+
+def test_an_unreleased_lap_of_THEIRS_does_not_speak_for_them(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The direction that only exists because we can now read their tree.
+
+    Under git transport we can fetch their repo before their operator has released a
+    lap. A file we CAN read is not one we may act on, and closing a round on their
+    draft would make their draft our decision.
+    """
+    _round19(hs, tmp_path, ours="yes — released", theirs=hs.READY_TO_READ_NO)
+    line = _round19_line(hs, tmp_path)
+    assert line.endswith("OPEN"), line
+    assert "NOT released to read" in line and "round-19-lap-01.md" in line, line
+
+
+def test_releasing_both_laps_lets_the_round_close(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """THE FLOOR: this gate must still be able to say yes.
+
+    Every assertion above is a refusal, and a gate that can only refuse is a wall.
+    Without this, narrowing the release rule until nothing ever closes would pass the
+    whole file — `CLAUDE.md`'s *can this check be satisfied by finding nothing?*
+    asked of a set of refusals.
+    """
+    _round19(hs, tmp_path, ours="yes — released", theirs="yes — released")
+    assert _round19_line(hs, tmp_path).endswith("CLOSED"), _round19_line(hs, tmp_path)
+
+
+def test_announce_flips_exactly_one_lap_and_proves_the_edit_landed(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The act that releases a lap, and its read-back.
+
+    `announce_lap` re-reads the file and re-derives the answer rather than trusting
+    its own write. A tool that reports success without changing the result is the
+    failure this field exists to prevent, arriving through the tool that sets it —
+    and this repo has four recorded instances of an edit that silently did not land.
+    """
+    lap = tmp_path / "verified" / "round-19-lap-02.md"
+    _round19(hs, tmp_path, ours=hs.READY_TO_READ_NO, theirs="yes — released")
+
+    assert hs.announce_lap(lap, on="2026-09-14") == 0
+    text = lap.read_text(encoding="utf-8")
+    assert hs.ready_to_read(text) is True
+    assert "2026-09-14" in text, "the release date is not recorded in the file"
+    assert "operator" in text, (
+        "the released line does not say WHO released it. The field exists to record "
+        "that a person stood behind the lap, not merely that a flag moved."
+    )
+
+
+@pytest.mark.parametrize(
+    ("case", "expect_in_stderr"),
+    [
+        ("missing", "no such lap"),
+        ("inbound", "INBOUND"),
+        ("already", "already released"),
+        ("nofield", "nothing to flip"),
+    ],
+)
+def test_announce_REFUSES_rather_than_guessing(
+    hs: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    case: str,
+    expect_in_stderr: str,
+) -> None:
+    """Four ways to release something nobody meant to, each refused by name.
+
+    `inbound` is the one worth stating out loud: the peer's operator releases the
+    peer's laps. Announcing one here would record OUR operator standing behind THEIR
+    file, which is a claim we have no standing to make.
+    """
+    _round19(hs, tmp_path, ours=hs.READY_TO_READ_NO, theirs=hs.READY_TO_READ_NO)
+    targets = {
+        "missing": tmp_path / "verified" / "round-19-lap-99.md",
+        "inbound": tmp_path / "inbound" / "round-19-lap-01.md",
+        "already": tmp_path / "verified" / "round-19-lap-02.md",
+        "nofield": tmp_path / "verified" / "round-19-lap-03.md",
+    }
+    if case == "already":
+        assert hs.announce_lap(targets["already"], on="2026-09-14") == 0
+        capsys.readouterr()
+    if case == "nofield":
+        targets["nofield"].write_text(
+            "HANDSHAKE-ROUND: 19\nHANDSHAKE-VERDICT: GO\n", encoding="utf-8"
+        )
+
+    assert hs.announce_lap(targets[case]) == 2, f"{case} was not refused"
+    assert expect_in_stderr in capsys.readouterr().err
+
+
+def test_the_real_record_did_not_reopen_when_this_rule_landed(hs: ModuleType) -> None:
+    """The regression the grandfather boundary exists to prevent, checked directly.
+
+    A correctness fix expands the reachable state space, and the states a bug was
+    hiding arrive already believed-in (`CLAUDE.md`). Here the risk runs the other
+    way: getting the boundary wrong would mark every historical lap held and reopen
+    eighteen closed rounds, blocking every release. Asserted against the real
+    `docs/handshake/` rather than a fixture, because that is the artifact that would
+    actually break.
+    """
+    lines = [ln for ln in hs.round_status() if ln.startswith("round-")]
+    assert len(lines) >= 18, (
+        f"only {len(lines)} round(s) found in the real record; this check would pass "
+        "by not looking"
+    )
+    reopened = [ln for ln in lines if ln.endswith("OPEN")]
+    assert not reopened, (
+        "the release rule reopened closed round(s) in the real record:\n  "
+        + "\n  ".join(reopened)
+        + "\nEvery lap up to round 18 was hand-carried, so delivery WAS the "
+        "announcement — check READY_TO_READ_REQUIRED_FROM_ROUND."
     )

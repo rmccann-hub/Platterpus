@@ -714,6 +714,27 @@ def emit_outbound(round_number: int) -> str:
             "HANDSHAKE-TO: cyanrip-fork",
             f"HANDSHAKE-FROM-REPO: {OUR_REPO_URL}",
             f"HANDSHAKE-TO-REPO: {FORK_REPO_URL}",
+            # A LAP IS NOT LIVE BECAUSE IT IS COMMITTED. Maintainer directive,
+            # 2026-09-14: *"a lap should not be seen as ready to read and use until
+            # I am told to do so and let the other repo know. And it should confirm
+            # that in the file as well."*
+            #
+            # This corrects a rule written ONE DAY earlier. When transport moved to
+            # git, *"publishing IS sending"* looked obviously true — and it makes the
+            # act of committing indistinguishable from the act of handing over. A lap
+            # can be committed mid-draft, committed and then found wrong, or committed
+            # correctly and not yet weighed by the one person who can weigh it. Under
+            # hand transport the operator WAS the transport, so an unwanted lap simply
+            # never moved; under git, nothing stops a peer reading a file we have not
+            # stood behind.
+            #
+            # So the two acts are separate again, and **the file says which state it
+            # is in** rather than leaving the peer to infer it from a commit date.
+            # Default `no`: a lap is born unannounced and stays that way until the
+            # operator says otherwise (`--announce`). Protocol §2 rule 4 — an absent
+            # required field fails closed — with a round-19 grandfather, because every
+            # earlier lap was hand-carried and delivery WAS the announcement.
+            f"HANDSHAKE-READY-TO-READ: {READY_TO_READ_NO}",
             "HANDSHAKE-VERDICT: OPEN",
             f"HANDSHAKE-APP-VERSION: platterpus {_app_version}",
             f"HANDSHAKE-RIPPER-VERSION: {_fork_banner()}",
@@ -895,7 +916,7 @@ RETROSPECTIVE_ROUNDS: frozenset[int] = frozenset({1, 2, 3})
 OUR_REPO_URL: Final[str] = "https://github.com/rmccann-hub/Platterpus"
 FORK_REPO_URL: Final[str] = "https://github.com/rmccann-hub/cyanrip"
 
-CURRENT_ROUND: Final[int] = 17
+CURRENT_ROUND: Final[int] = 18
 
 
 # --- The shared wire format (protocol §8) -----------------------------------
@@ -1260,6 +1281,158 @@ def wire_verdict(text: str) -> str | None:
     if token == AFFIRMATIVE:
         return AFFIRMATIVE
     return token if token in VERDICT_VOCABULARY else "HOLD"
+
+
+#: The value ``--emit`` writes, and the one a lap keeps until the operator releases it.
+#: Spelled as a sentence rather than a bare ``no`` so a human opening the file in a
+#: chat client or a file manager — the two places these are actually read — gets the
+#: instruction and not just a token to look up.
+READY_TO_READ_NO: str = "no — not announced; do not read or act on this lap yet"
+
+#: First round the field is REQUIRED on. Every lap up to and including 18 was
+#: hand-carried, so delivery *was* the announcement and there is nothing to record
+#: retroactively. Pinned as a constant, and asserted in a test, for the same reason
+#: the protocol pins its own round-8 boundary: widening an exemption must be a
+#: visible edit rather than a side effect.
+READY_TO_READ_REQUIRED_FROM_ROUND: int = 19
+
+
+def ready_to_read(text: str, *, round_hint: int | None = None) -> bool | None:
+    """Has the operator released this lap for the peer to read? **Tri-state.**
+
+    ``True`` released, ``False`` explicitly held, ``None`` *not determined* — the
+    field is absent.
+
+    **Why a lap is not live merely because it is committed.** Maintainer directive,
+    2026-09-14: *"a lap should not be seen as ready to read and use until I am told
+    to do so and let the other repo know."* When transport moved to git the day
+    before, this project wrote *"publishing IS sending"* — which collapses two acts
+    that had been separate for eighteen rounds. Under hand transport the operator
+    **was** the transport, so a lap they had not weighed simply never moved. Under
+    git nothing stops a peer reading a draft, a lap found wrong ten minutes later, or
+    one the operator has not yet stood behind.
+
+    **Tri-state, never a boolean, and never a permissive default.** ``None`` is a
+    real answer and it is not a yes: §2 rule 4 of the shared protocol says an absent
+    required field fails closed, and this module's own history is full of the other
+    mistake — *an unrecognised build tag is never reported as unapproved*, the same
+    shape from the other side. A caller that wants a decision asks
+    :func:`is_released_for_reading`, which resolves ``None`` against the round.
+    """
+    value = wire_fields(text).get("HANDSHAKE-READY-TO-READ")
+    if value is None:
+        return None
+    if value == AMBIGUOUS:
+        # Declared twice with different values. §2 rule 3: do not take the first, do
+        # not take the last — refuse. A held lap and a released lap in one file is
+        # exactly the case where guessing is worst.
+        return False
+    token = value.split()[0].strip().lower() if value.split() else ""
+    return token in {"yes", "released", "announced"}
+
+
+def is_released_for_reading(text: str, *, round_hint: int | None = None) -> bool:
+    """Resolve :func:`ready_to_read`'s tri-state against the grandfather boundary.
+
+    A lap from a round before :data:`READY_TO_READ_REQUIRED_FROM_ROUND` that says
+    nothing is treated as released — those were hand-carried and the hand-over was
+    the announcement. From that round on, silence is **not** consent.
+    """
+    state = ready_to_read(text, round_hint=round_hint)
+    if state is not None:
+        return state
+    number = round_hint if round_hint is not None else declared_round(text)
+    if number is None:
+        # No round to resolve against and no declaration. Fail closed: a file we
+        # cannot place is not one we act on.
+        return False
+    return number < READY_TO_READ_REQUIRED_FROM_ROUND
+
+
+def announce_lap(path: Path, *, on: str | None = None) -> int:
+    """Flip one lap to released. **Only ever on the operator's instruction.**
+
+    Editing a file after it exists is normally forbidden — protocol §3, *"never edit
+    a file already sent"* — and this is not an exception to that rule, it is the
+    rule's precondition made explicit. **An unannounced lap has not been sent**,
+    which is the entire point of the field: before the flip the peer has been told
+    not to read it, so its bytes are not yet anything anyone relies on. After the
+    flip they are frozen exactly as before, and ``tests/test_sent_laps_are_immutable``
+    pins them.
+
+    Refuses rather than guesses in four cases, because every one of them is a way to
+    release something nobody meant to:
+
+    * the file does not exist;
+    * it is **inbound** — the peer's operator releases their laps, not ours;
+    * it is already released — a second announcement would restamp the date and
+      quietly rewrite when we stood behind it;
+    * it declares no ``HANDSHAKE-READY-TO-READ`` line at all, which means it predates
+      the field or was hand-written; adding one here would be inventing a declaration
+      rather than changing one.
+    """
+    import datetime  # noqa: PLC0415
+
+    if not path.is_file():
+        sys.stderr.write(f"no such lap: {path}\n")
+        return 2
+    text = path.read_text(encoding="utf-8")
+    if "inbound" in path.parts:
+        sys.stderr.write(
+            f"{path.name} is INBOUND — it is the peer's lap and theirs to release. "
+            "Announcing it here would record our operator standing behind their "
+            "file.\n"
+        )
+        return 2
+    state = ready_to_read(text)
+    if state is None:
+        sys.stderr.write(
+            f"{path.name} declares no HANDSHAKE-READY-TO-READ line, so there is "
+            "nothing to flip. Adding one now would invent a declaration rather than "
+            "change one — regenerate the lap with --emit, or add the field by hand "
+            "and say why in the commit.\n"
+        )
+        return 2
+    if state:
+        sys.stderr.write(
+            f"{path.name} is already released. Re-announcing would restamp the date "
+            "and rewrite when we stood behind it.\n"
+        )
+        return 2
+
+    when = on or datetime.date.today().isoformat()
+    line_new = (
+        f"HANDSHAKE-READY-TO-READ: yes — released by the operator on {when}; "
+        "the peer has been told it is ready to read"
+    )
+    # Rewrite the whole declaration LINE rather than a substring of the emitted
+    # default, so a reworded `no` still flips — and assert the edit LANDED below,
+    # because a replace whose anchor has moved is this project's recorded way to get
+    # a confident no-op. (Measured again on 2026-09-14, in the probe written to test
+    # this very function.)
+    updated = re.sub(
+        r"^HANDSHAKE-READY-TO-READ:.*$", line_new, text, count=1, flags=re.MULTILINE
+    )
+    if updated == text:
+        sys.stderr.write(
+            f"the HANDSHAKE-READY-TO-READ line in {path.name} was not rewritten — "
+            "the edit did not land, so nothing was announced.\n"
+        )
+        return 2
+    path.write_text(updated, encoding="utf-8")
+    # Read it back and re-derive, rather than trusting the write. A tool that reports
+    # success without changing the answer is the failure this field exists to
+    # prevent, arriving through the tool that sets it.
+    if not ready_to_read(path.read_text(encoding="utf-8")):
+        sys.stderr.write(
+            f"{path.name} still does not read as released after the edit.\n"
+        )
+        return 2
+    sys.stdout.write(
+        f"{path.name}: released to read, {when}.\n"
+        "Commit and push it, then tell the operator which commit it is on.\n"
+    )
+    return 0
 
 
 def declared_round(text: str) -> int | None:
@@ -1942,6 +2115,11 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
             return 1 if (wire_verdict(text) or verification_verdict(text)) else 0
 
         ours = sorted([*sent, *done], key=lambda p: (sort_key(p), _states_a_verdict(p)))
+        # Names of laps that DECLARE a verdict the operator has not released. Kept so
+        # the status line can distinguish "said nothing" from "said something we have
+        # not stood behind" — see the comment at the assignment below.
+        our_held: str | None = None
+        their_held: str | None = None
         verdict: str | None = None
         if ours:
             our_text = ours[-1].read_text(encoding="utf-8")
@@ -1950,6 +2128,23 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
             # format — otherwise the two representations could disagree and the
             # older, looser one would win.
             verdict = wire_verdict(our_text)
+            # A LAP THE OPERATOR HAS NOT RELEASED DOES NOT SPEAK FOR US.
+            #
+            # Writing a verdict and standing behind it are two acts (maintainer
+            # directive, 2026-09-14). A lap sitting in the tree marked
+            # `HANDSHAKE-READY-TO-READ: no` is a draft, and a draft must not close a
+            # round — otherwise committing a file is enough to release, which is the
+            # whole thing the directive separates.
+            #
+            # Recorded on `our_held` rather than silently dropped, because the status
+            # line has to say WHICH reason it is reporting: "no verdict" and "a
+            # verdict we have not released" are different states, and a gate that
+            # renders them identically sends the reader looking for a missing file.
+            if verdict is not None and not is_released_for_reading(
+                our_text, round_hint=num
+            ):
+                our_held = ours[-1].name
+                verdict = None
             if verdict is None and num in OUR_PRE_HEADER_ROUNDS:
                 verdict = verification_verdict(our_text)
             if verdict is None and num in RETROSPECTIVE_ROUNDS:
@@ -1965,7 +2160,17 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
         # `HANDSHAKE-VERDICT: HOLD` at column 0; nothing here was reading it.
         theirs: str | None = None
         if back:
-            theirs = wire_verdict(back[-1].read_text(encoding="utf-8"))
+            their_text = back[-1].read_text(encoding="utf-8")
+            theirs = wire_verdict(their_text)
+            # THE SAME RULE IN THE DIRECTION IT MATTERS MOST. Under git transport we
+            # can read their tree before their operator has released a lap, so a file
+            # we *can* fetch is not automatically one we may act on. Reading a held
+            # lap and closing a round on it would make their draft our decision.
+            if theirs is not None and not is_released_for_reading(
+                their_text, round_hint=num
+            ):
+                their_held = back[-1].name
+                theirs = None
             if theirs is None and num in THEIR_PRE_HEADER_ROUNDS:
                 theirs = "GO"
         # A round closes on BOTH VERDICTS, not on the files existing. Round 7 is
@@ -2028,16 +2233,22 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
         # accepting either.
         state = "CLOSED" if (ours and back and both_go) else "OPEN"
 
-        def shown_verdict(value: str | None) -> str:
+        def shown_verdict(value: str | None, held: str | None = None) -> str:
             if value is None:
+                # HELD IS NOT SILENCE. Without this the line reads `we-verified=NO`
+                # for a lap that plainly declares GO, and the next reader goes looking
+                # for a missing file. Name the lap, so the fix (`--announce`) is
+                # obvious from the output rather than from reading this function.
+                if held is not None:
+                    return f"NO (written in {held}, NOT released to read)"
                 return "NO"
             return "yes (GO)" if value == "GO" else f"yes ({value} — not closed)"
 
         lines.append(
             f"{name}: sent={'yes' if sent else 'NO'} "
             f"returned={'yes' if back else 'NO'} "
-            f"we-verified={shown_verdict(verdict)} "
-            f"they-verified={shown_verdict(theirs)}  -> {state}"
+            f"we-verified={shown_verdict(verdict, our_held)} "
+            f"they-verified={shown_verdict(theirs, their_held)}  -> {state}"
         )
         # Named, not merely counted: a gate that refuses without saying which file
         # and which rule is a gate people route around.
@@ -2088,8 +2299,25 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="exit non-zero if any round is open (for the release workflow)",
     )
+    group.add_argument(
+        "--announce",
+        metavar="FILE",
+        default=None,
+        help="mark a lap released for the peer to read, ON THE OPERATOR'S "
+        "INSTRUCTION and never on your own. Flips HANDSHAKE-READY-TO-READ from "
+        "no to yes and stamps the date. Committing a lap does not release it "
+        "(maintainer directive, 2026-09-14); this is the act that does.",
+    )
+    parser.add_argument(
+        "--on",
+        metavar="YYYY-MM-DD",
+        default=None,
+        help="with --announce: the release date. Defaults to today.",
+    )
     args = parser.parse_args(argv)
 
+    if args.announce is not None:
+        return announce_lap(Path(args.announce), on=args.on)
     if args.emit is not None:
         sys.stdout.write(emit_outbound(args.emit))
         return 0

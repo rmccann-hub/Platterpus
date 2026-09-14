@@ -2430,10 +2430,37 @@ def test_P3_says_plainly_that_clause_2_is_unprobed_by_it() -> None:
     first time. The section must name Run A as what closes clause 2, and must
     carry the derivation rather than asserting the conclusion, because a claim
     about the fork's code without a file and a line is not a claim we make.
+
+    **And it must say WHICH KIND of unprobed it means** (added 2026-09-13, round
+    18 lap 3 §5). The line read *"Clause 2 is UNPROBED **by this section**"*, and
+    the fork asked whether that was a third sense of the word beside their two —
+    because *"by this section"* scans as a scoping decision, as in *we chose not
+    to look here*. It is not one: the section runs both the ``-H -E`` and ``-H -W``
+    arms on hardware and cannot discriminate between them, which the comment two
+    lines below already said in as many words (*"agreement here is the null
+    result"*). An unjudgeable subject, not a skipped one — and the two are
+    different facts about a run, which is exactly why the vocabulary this round
+    settled distinguishes them.
+
+    So the assertion moved off the scoping phrase and onto the disambiguation, and
+    the old string is now **forbidden** rather than merely absent: a test that only
+    looked for the new phrase would pass with both in the file, and reverting the
+    wording would restore a sentence a peer has already misread once.
     """
     text = (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8")
 
-    assert "UNPROBED by this section" in text
+    assert "UNPROBED by this section" not in text, (
+        'the scoping phrasing is back. "UNPROBED by this section" reads as "we '
+        'chose not to look here", which is not what happens: both arms run and the '
+        "result cannot discriminate between them. The fork misread it that way in "
+        "round 18 lap 3 §5 — say which sense is meant instead."
+    )
+    assert "ran and got no answer" in text, (
+        "the section no longer names WHICH sense of UNPROBED it means. It must "
+        'distinguish "ran and got no answer" from "we chose not to": an '
+        "unjudgeable subject is not a skipped one, and a reader who cannot tell "
+        "them apart supplies the missing verdict themselves."
+    )
     assert "closed only by Run A" in text
     for citation in ("cyanrip_main.c:818", ":872", ":965", "checksums.h:62-90"):
         assert citation in text, f"the derivation lost its citation {citation}"

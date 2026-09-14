@@ -74,6 +74,129 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       `0cd611a` hash identically, and that IS the file we hold. Carrying an
       answered question forward makes a lap look like it is waiting on the peer
       when it is not, and pads a round both sides want to end. Lap 10 §I2.
+- [ ] **The round-17 hardware run is evidence about `fe4d2c4`, NOT about the
+      approved pair — and the write-up is where that will slip.** Round 17
+      approved the pair (`fe4d2c4`, Platterpus **0.6.46**). The run will be
+      (`fe4d2c4`, **0.6.47**), because the pin roll that makes their published
+      build report `approved` is itself 0.6.47. **So a green run does not license
+      the sentence "the round-17 pair verified on hardware."** Say what is true:
+      the *pin* passed on hardware, under an app version the round never saw.
+      *Raised by the fork before any artifact existed*, which is the right time —
+      once a result is in hand that sentence writes itself. It is in their
+      `STATUS.md` and, on our side, gated rather than merely noted:
+      `tests/test_no_stale_version_claims.py::test_no_doc_claims_the_APPROVED_
+      PAIR_was_proven_while_the_app_has_moved_past_it` scans the six docs a run
+      actually gets written up in and fires while
+      `APPROVED_FOR_PLATTERPUS_VERSION != __version__`. It skips when they agree,
+      because then the claim is simply true.
+      **Why the 0.6.46 stamp in every report is right and not stale:**
+      `APPROVED_FOR_PLATTERPUS_VERSION` names the pairing *a round approved*, not
+      whatever app is running. Writing 0.6.47 there would credit round 17 with
+      approving something it never saw — the exact defect that constant exists to
+      prevent. Expect `…approved, verified by both projects, for Platterpus
+      0.6.46` in every rip report and EAC log from this run.
+      *Closes when:* a round approves a pair whose app half is the running build,
+      at which point the guard skips itself.
+- [ ] **Round-18 lap 2 is WRITTEN and NOT SENT** —
+      `docs/handshake/outbound/round-18-lap-02.md`; envelope
+      `round18lap02FROMplatterpusTOcyanrip.md` (29,090 bytes; part sha256/16
+      `aebe56b8bd953bbf`, 27,428 bytes). Only the maintainer can send it.
+      **It answers the REVISED specification.** Their `STATUS.md` of 2026-09-13
+      (filed at `docs/handshake/inbound/cyanripstatus20260913.md`) supersedes their
+      lap 1 §2 and §3: the escalation gate is withdrawn in favour of *a failure
+      prunes its own dependents*, and the vocabulary goes from three states to
+      five. Read before the lap was finished, which changed it.
+- [ ] **The fork is holding a description of our release gate that does not match
+      it, and the correction has never been sent.** Their standing status file
+      (`docs/handshake/inbound/cyanripstatus20260913.md:435`) calls it *"structural,
+      and it is a property both implementations share… a round can only close on
+      the gate of whichever side sent the last lap."* True of theirs; **false of
+      ours, and the record proves it** — rounds 9, 10, 13, 14 and 16 all had them
+      sending the last lap and all five closed on our gate. The real property is
+      *turn order*: our gate closes only if we hold an own-side lap numbered
+      **after** the peer's first `GO`. Derived 2026-09-12 and written into
+      `docs/cyanrip-handshake.md` §7.5b — **and then never put in a lap**; the
+      phrase appears in neither our round-17 nor our round-18 outbound file.
+      So we corrected our own record and left the peer's uncorrected, which is the
+      half that matters: a shared protocol where each side holds a different
+      description of when a round can close is the failure rule #12 exists to
+      prevent. **Round 19, §A.** Ask the maintainer before writing the lap.
+- [ ] **14 of 37 shared-protocol conformance rows have no test — C21–C30 and
+      C33–C36, contiguous — and the file
+      claiming "one test per row" was written when the table had 14.**
+      `tests/test_handshake_conformance.py`'s docstring says *"`PROTOCOL.md` §8 is
+      a 14-row table… one test per row, in the table's order"*. The jointly-owned
+      table now defines **C1–C36 plus C13a — 37 rows**; nine are named by a test
+      here, and three of those only inside an assertion message, so nine is an
+      upper bound. **The fork found the miscount in their round-18 lap 3 §4a, one
+      day after this row was written**: our id pattern was `C\d+`, which cannot
+      match `C13a` — and a row the denominator cannot include can never be
+      reported as uncovered, so the check would have printed full coverage while
+      one row had none. Their own counter has the identical blind spot
+      (`\bC[0-9]+\b`); same defect, both projects, independently. Fixed here by
+      widening to `C\d+[a-z]?` and pinning `C13a` by id. The
+      table grew 2.5× and the completeness claim did not — `CLAUDE.md`'s
+      *a map is only ever wrong by omission*, in the file whose job is proving we
+      conform to a spec neither project owns alone.
+      **The cyanrip fork found the symptom before we found the disease.** Their
+      round-18 status ran their own checks against our public tree and reported
+      `HANDSHAKE-OVERRIDE` in `docs/handshake-protocol.md` and **zero** `.py`
+      files. Verified: 0 references in any `.py`, `scripts/handshake.py` included.
+      So **C31** (refuse an override missing `-BY`/`-WHY`) and **C32** (honour it,
+      and print it whenever the round's state is printed) are unimplemented. C32 is
+      the one that bites — an override our gate cannot see is, in that row's own
+      words, indistinguishable from the rule never existing. With their gate
+      honouring overrides and ours ignoring them, an operator override makes the
+      two gates reach **opposite conclusions about whether a round can close**.
+      *Counted, not fixed:* `test_the_conformance_table_has_not_outgrown_this_file_any_further`
+      derives the row set from the protocol, floors it at 30, and ratchets coverage
+      so it cannot shrink. Full coverage is not asserted because that fails today
+      and a red suite is not a record.
+      *Do first:* C31 and C32 — they are the two a peer is already relying on.
+- [ ] **THE TOKEN COLLISION — our `SKIPPED`/`BLOCKED` mean the OPPOSITE of theirs,
+      and it is unfixed on our side.** `uiscript/report.py:31-32`: our `SKIPPED` is
+      *"never reached (the batch aborted before it)"* — a CONSEQUENCE — and our
+      `BLOCKED` is *"refused: needs the escape hatch the user has not enabled"* — a
+      DECISION. Their five-state spec defines `SKIPPED` as the decision and
+      `BLOCKED` as the consequence. **Same two tokens, opposite halves of the
+      distinction.** Either side adopting the other's word naively inverts both
+      meanings in a transcript that still looks well-formed — the exact drift their
+      §3 exists to prevent, already present, invisible to both gates because each
+      side is internally consistent.
+      Put to them as the lap's first question. Our position: theirs are the better
+      semantics and ours should move, but the rename costs a field in a committed
+      manifest format, so it does not happen on an assumption.
+      *Blocked on:* their answer, or a spec that names concepts and tokens
+      separately.
+- [ ] **`check_inbound`'s section table describes a REPLY, and it is run against
+      OPENERS too — ~10 phantom omissions per opening lap, for at least two
+      rounds.** `scripts/handshake.py --check` on their round-18 lap 1 reports 10
+      problems (§A Pin, §B Answers, §C Changes, §D Log-format delta, §E Golden
+      log, §F Verification, §G Revert-proof, §H Found in our output, §I Provider
+      contract, §J Questions back). **None of them is a defect in their lap.**
+      *Derived, and the artifact settles it:* their round-17 lap **3** is equally
+      numbered — 0 lettered headings, 6 numbered — and `--check` says *"satisfies
+      the protocol (all sections present)"*. Their round-17 lap **1** is numbered
+      the same way and reports the **same 10 problems**. So the discriminator is
+      not the numbering scheme; it is the lap's ROLE. Every section in
+      `INBOUND_SECTIONS` is reply-shaped — *answers to our questions*, *changes
+      since*, *revert-proof per behavioural fix*, *found in our output* — and an
+      OPENING lap answers nothing because nothing has been asked yet.
+      **We closed round 17 with those 10 problems standing and nobody acted on
+      them**, which is the real finding: a gate whose output is routinely ignored
+      has stopped being a gate.
+      *Do NOT fix it the way it was first attempted.* Suppressing the MISSING
+      branch when a file letters no sections was tried on 2026-09-13 and reverted:
+      it reopened the round-6 hole (a line of prose beginning `A ` satisfying §A)
+      and silenced two genuine MISSING complaints on the committed round-6b
+      amendment. The gate is actively catching things; loosening it to quiet an
+      opener is the move this project distrusts most.
+      *The shape of a real fix:* scope the required set by lap role — an opener
+      owes its close condition and its asks; a reply owes answers, changes and
+      verification. Both halves keep their subject checks.
+      **Raise with the fork as a NEXT-ROUND observation, not as a finding against
+      their lap** — it is ours, it has been ours since round 17, and telling them
+      their opener omitted ten sections would be putting our defect on them.
 - [ ] **`PROTOCOL.md` v5 — the one item genuinely stuck, three rounds running.**
       *"Accepted in principle, neither started"* since their lap 4, because
       neither side may edit the jointly-owned file alone. One bump carries J2
