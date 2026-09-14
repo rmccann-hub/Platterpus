@@ -53,6 +53,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   readable by a reader that expects them.
 
 ### Changed
+- **`gitleaks-action` pinned to v3.0.0, two days before v2 stops working.** GitHub
+  removes Node 20 from hosted runners on **2026-09-16**, after which
+  `gitleaks-action@v2` stops running *regardless of any opt-out flag* — so our
+  full-history secret scan, a gating job, would simply stop. v3 is a runtime
+  migration only (Node 20 → 24; the release notes say *"no changes to inputs,
+  outputs, or behavior"*).
+- **Taken by hand rather than by merging Dependabot's #207, which was wrong in a way
+  CI could not see.** That PR moved the SHA to the right commit and left the pin
+  comment reading `# v2.3.9` — so `ci.yml` would have *run* v3 while *claiming* v2.
+  The SHA is what executes; the comment is the only human-readable statement of what
+  we pin, and it would have been a lie in the one file that describes our security
+  gates. **It was 12/12 green**, because a comment cannot fail a job — the
+  *"satisfied by finding nothing"* shape, arriving through a dependency bot. The
+  commit was verified as v3.0.0 before taking it (*"chore: migrate to Node 24 runtime
+  (v3)"*), rather than trusting the PR title, which said *"2.3.6 to 3.0.0"* while the
+  file it edited said neither.
 - **Our script-outcome tokens move to round 18's agreed vocabulary — and two of
   them SWAP MEANING.** We found the collision ourselves (round-18 lap 2 §B2) and the
   fork confirmed it *"exactly as you stated it"*: our `SKIPPED` was a **consequence**
