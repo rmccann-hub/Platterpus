@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.48] — 2026-09-14
+
 ### Added
 - **Tier 4, the sweep — the tier that runs, records, and asserts nothing.**
   Specified by the fork in round 19 lap 1 §5, which is theirs to specify because
@@ -14652,7 +14654,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.47...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.48...HEAD
+[0.6.48]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.47...v0.6.48
 [0.6.47]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.46...v0.6.47
 [0.6.46]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.45...v0.6.46
 [0.6.45]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.44...v0.6.45
@@ -14787,4 +14790,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.47.*
+*Last updated for Platterpus v0.6.48.*
