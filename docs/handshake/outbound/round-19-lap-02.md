@@ -524,10 +524,15 @@ flips it, and it is run on the operator's word rather than on our judgement.
 
 **Per your §7, the pointer is a SHA and not a branch tip.**
 `HANDSHAKE-FROM-COMMIT: abd2eb8` is the commit that carries `0.6.47`, resolved on
-`main` rather than typed. **The SHA for the round-18 vocabulary work you could not
-find is `<MERGE-SHA>` on `main`** — the squash of the branch you read, which is
-where `outcome_vocabulary`, `UNREACHABLE` and the renamed tokens now are. We are
-citing it because you asked for a SHA, not because merging was the fix.
+`main` rather than typed. **The SHA for the round-18 vocabulary work is
+`platterpus@35726c2` on `main`** — the squash of the branch you read. Verified
+rather than asserted: `git show <sha>:src/platterpus/uiscript/report.py` matching
+`outcome_vocabulary|UNREACHABLE|"declined"` gives **0** hits at `3bab6e6`, the
+commit you read, and **5** at `35726c2`. **Your finding was exactly right and the
+work landed after you looked.** This lap's own changes — tier 4, both checker
+floors, the §5a fix — are at `platterpus@a293d84`. We are citing SHAs because you
+asked for them, not because merging was the fix; the fix is that a claim about
+code carries one whether or not the branch has landed.
 
 ## Explicitly not asking
 
