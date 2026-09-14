@@ -64,6 +64,27 @@ declaring none would carry the previous block's and a tier-2 failure would prune
 their §5.2 calls the only one worth arguing about, arriving through our state
 rather than through a wrong graph.
 
+**The tier derivation then found a live gap, and the first write-up of it was
+wrong.** Section K4 was titled *"back to FLAC, the archival master"* and graded
+`ARCHIVAL` while containing only a settings round-trip — graded on its subject
+rather than on what it can detect. Filed as that, and it was incomplete: it
+judged the section by what it asserts without asking what rested on it, which is
+the mirror of section G (no disc verb of its own, tier 3 because `rig-check`
+grades F's log). Asking properly found the real hole — **section N, the
+whole-disc secure re-read and the accuracy claim itself, never asserted the
+format it rips in.** It inherits it from `rip_goal archival`; section L, whose
+whole job is proving a preset applies all of itself, checks that preset's effect
+on `secure_rerip_dynamic` and `rerip_offset_variant` and **skips
+`output_format`** while checking exactly that for the other two presets; section
+M's comment asserts the protection in prose. K4 looked like the guard and is
+inert — L reassigns the format twice within twenty lines of it. No live defect
+(`GOAL_ARCHIVAL` carries `output_format="flac"`), one preset field from the
+archival accuracy test ripping silently to the wrong format with every section
+green. Fixed in N, L and F; K4 regraded `UX`; swept and revert-proved.
+**Graduated:** read a step by what depends on it, and treat a prose claim that a
+protection exists as the place to look hardest — it is what stops anyone
+checking.
+
 **Every acceptance section now has a tier, derived from the script** — whether it
 reaches the drive, whether it rips, and whether its `rip` is scoped by a
 `select-tracks`. The derivation found that **K4 is graded `ARCHIVAL` and cannot

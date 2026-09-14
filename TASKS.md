@@ -1337,16 +1337,24 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
 
 ## Round 19 — found while answering their lap 1 (2026-09-14)
 
-- [ ] **Section K4 is graded `ARCHIVAL` and cannot fail for an archival reason.**
-  Found by deriving the acceptance tier table (`docs/testing.md` → *Acceptance
-  tiers*) from the script rather than deciding it: K4 is titled *"back to FLAC, the
-  archival master"* and contains `set output_format flac` + `expect output_format
-  flac` — **no rip, no assertion about any output**. It is a settings round-trip,
-  which section B already covers, wearing a grade that can block a version. Either
-  give it a real FLAC-output assertion or regrade it and rename it so the title
-  stops promising one; a row that cannot fail is not evidence at either severity.
-  The tier table says `0` deliberately — that is what the section costs **today**,
-  not what its title implies.
+- [x] **Section K4 graded on its title, and the real hole behind it — DONE
+  2026-09-14.** Found by deriving the acceptance tier table from the script: K4
+  was titled *"back to FLAC, the archival master"*, graded `ARCHIVAL`, and
+  contains only `set output_format flac` + `expect output_format flac`. **The
+  first write-up was wrong** — it judged the section by what it asserts without
+  asking what depends on it. Looking properly found the live gap: **section N,
+  the whole-disc secure re-read and the accuracy claim itself, never asserted the
+  format it rips in**. It inherits it from `rip_goal archival`; section L checks
+  that preset's effect on two other settings and skips `output_format` while
+  checking it for the other two presets; section M's comment asserts the
+  protection in prose. K4 looked like the guard and is not — L reassigns the
+  format twice within twenty lines. No live defect (`GOAL_ARCHIVAL` carries
+  `output_format="flac"`), but one preset-field change away from the archival
+  accuracy test silently ripping to the wrong format with every section green.
+  **Fixed:** `expect output_format flac` in N (where the rip happens), in L's
+  `archival` row, and in F; K4 regraded `UX` and retitled; swept by
+  `tests/test_rig_scripts.py::test_every_WHOLE_DISC_rip_pins_the_format_it_writes_in`,
+  revert-proved. Reported to the fork as round 19 lap 2 §D3.
 
 - [ ] **`HANDSHAKE-CLOSE-BY` is required by the shared spec and neither side has
   emitted it since round 14.** `docs/handshake-protocol.md` §6a-bis R2: *"set in

@@ -2682,7 +2682,7 @@ defect, and two of those sections are archival.
 | K1 | ARCHIVAL | when a user selects MP3 the MP3 *is* their library entry — the thing they play, with its tags and art. "Lossy by design" describes the codec, not the importance of deriving it correctly |
 | K2 | ARCHIVAL | WavPack is lossless — a second archival-grade output |
 | K3 | ARCHIVAL | **WAV is raw PCM, i.e. lossless** — those bytes *are* the audio. Classified UX in the first draft, which contradicted K2: "lossless → archival" was applied to WavPack and not to WAV. The maintainer caught it |
-| K4 | ARCHIVAL | back to FLAC, the archival master |
+| K4 | UX | **regraded 2026-09-14.** A restore step: it sets `output_format` back to flac and reads it back, which B does verbatim at the top of the file and Q does verbatim at the bottom. It was graded ARCHIVAL on its title — *"back to FLAC, the archival master"* — which read as a check on the archival format and is not one. Its effect does not survive either: L reassigns the format twice within twenty lines. FLAC output stays covered by F and N, both whole-disc rips |
 | L | ARCHIVAL | a preset applies a *bundle* of settings, several reaching cyanrip's argv. B checks each setting round-trips; that a preset applies **all** of it is a different claim, and a preset that silently under-applies hands the user a fast rip they believe is a paranoid one |
 | M | UX | naming templates — where a file lands, not whether its bytes are right |
 | N | ARCHIVAL | T1, the whole-disc uniform secure re-read: the accuracy claim itself |
@@ -2693,7 +2693,7 @@ defect, and two of those sections are archival.
 
 <!-- END-ACCEPTANCE-SEVERITY-TABLE -->
 
-**18 ARCHIVAL, 3 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The three that remain are genuinely about the program rather than the disc — dialog plumbing (`D`), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), and hygiene for the *next* run (`Q`). The table is swept: every `log --- ` section in
+**17 ARCHIVAL, 4 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The four that remain are genuinely about the program rather than the disc — dialog plumbing (`D`), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), and hygiene for the *next* run (`Q`, and `K4` which is the same job done mid-run). **`K4` moved from ARCHIVAL on 2026-09-14** and the way it was found is worth keeping: it was graded on its TITLE — *"back to FLAC, the archival master"* — rather than on what the section can detect or on what depends on it. A grade is a claim about a check's failure, so read the check, not the heading. The table is swept: every `log --- ` section in
 `fullacceptance.txt` must appear, so a **new** section has to be classified
 rather than defaulting to ignorable — the direction that fails safe is the one
 that makes you decide.
@@ -2729,7 +2729,7 @@ assigns to us, and it changes nothing on their side.
 | B | 0 | b-settings | — | no disc verb, no rip |
 | C | 0 | c-validation | — | no disc verb, no rip |
 | D | 0 | d-dialogs | — | no disc verb, no rip |
-| K4 | 0 | k4-flac-restore | — | `set output_format flac` + `expect`; **no rip at all** |
+| K4 | 0 | k4-flac-restore | — | `set output_format flac` + `expect`; **no rip at all**. Regraded UX 2026-09-14 — a restore step, not a format check |
 | L | 0 | l-presets | — | settings round-trips only |
 | M | 0 | m-templates | — | validator only |
 | Q | 0 | q-restore | — | settings only |
