@@ -847,7 +847,7 @@ def test_a_run_that_was_aborted_says_it_did_not_complete(
             started_at="t",
             app_version="v",
             ended_reason="stopped from the console",
-            steps=_steps(Outcome.PASS, Outcome.SKIPPED, Outcome.SKIPPED),
+            steps=_steps(Outcome.PASS, Outcome.BLOCKED, Outcome.BLOCKED),
         ),
     )
 
@@ -1278,7 +1278,8 @@ def test_a_precondition_abort_packs_no_archive_and_offers_no_folder(
         _report_with(
             ("cyanrip --version", "pass"),
             ("expect-ripper-under-review", "fail"),
-            ("rip", "skipped"),
+            # PREVENTED, in its wire spelling. Vocabulary 2 (round 18).
+            ("rip", "blocked"),
         )
     )
 

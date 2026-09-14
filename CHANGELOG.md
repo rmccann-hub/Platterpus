@@ -28,6 +28,40 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   a declaration is what a document *states*, never what it *quotes*, the same rule
   `handshake.py` applies to the wire header and for the same reason.
 
+### Changed
+- **Our script-outcome tokens move to round 18's agreed vocabulary — and two of
+  them SWAP MEANING.** We found the collision ourselves (round-18 lap 2 §B2) and the
+  fork confirmed it *"exactly as you stated it"*: our `SKIPPED` was a **consequence**
+  where theirs is a **decision**, and our `BLOCKED` a decision where theirs is a
+  consequence. Two vocabularies used the same two tokens for opposite halves of one
+  distinction, so *"adopt their word"* — which our own standing status had
+  recommended — would have inverted both meanings **in transcripts that still look
+  well-formed**, with every gate on both sides green, because each side's tokens
+  were internally consistent. Round 18 fixed it structurally rather than by either
+  side renaming quietly: the spec names the **concept** and the **token**
+  separately. `SKIPPED` now means *declined* (we chose not to run it) and `BLOCKED`
+  means *prevented* (wanted to, could not).
+- **`UNREACHABLE` added** — cannot be run on this equipment at all. We had no state
+  for it, so a step that is impossible here was reported as one we *declined*, which
+  reads as a choice the operator could reverse. Deliberately **not** counted as
+  good: a rig missing hardware should not report a complete run.
+- **The report now declares which vocabulary it speaks (`outcome_vocabulary`), and
+  without it the rename would have put round 18's own defect inside our archive.**
+  `"skipped"` in a report written before 2026-09-14 means *prevented*; after, it
+  means *declined* — opposite halves of one distinction, same six characters,
+  nothing in the file to tell them apart. **Three committed handshake artifacts
+  already carry the old spelling and were sent to the fork as evidence**, so both
+  vocabularies coexist here permanently; they are frozen and correct for vocabulary
+  1, and a test names them so they are never "fixed" to the new spelling. Previously
+  the only version the script report carried was `app_version`, which makes the
+  vocabulary derivable only by looking up which release changed it.
+- **The concept lives in a mapping, not in the enum's comments.** The first
+  conformance test read each meaning out of the inline comment beside its member,
+  and `ruff format` wrapped one member onto two lines and broke it **the same
+  hour** — the reflowed-anchor failure documented in `CLAUDE.md` that morning,
+  arriving in a test written to enforce the round that produced it. Layout is not a
+  data structure.
+
 ### Fixed
 - **"Publishing is sending" was wrong, and it was this repo's own rule for one
   day.** Maintainer directive, 2026-09-14: *"a lap should not be seen as ready to

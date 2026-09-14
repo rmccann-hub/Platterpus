@@ -2005,9 +2005,10 @@ def test_abort_if_failed_stops_the_batch_once_something_has_failed(
         s for s in report.steps if s.source == "log the night that must not be spent"
     ]
     assert after, "the trailing step vanished from the transcript entirely"
-    assert after[0].outcome is Outcome.SKIPPED, (
+    assert after[0].outcome is Outcome.BLOCKED, (
         "the batch RAN past a failed precondition; the trailing step recorded "
-        f"{after[0].outcome} rather than SKIPPED"
+        f"{after[0].outcome} rather than BLOCKED (prevented — round 18's token "
+        "for a step that wanted to run and could not)"
     )
     guard = [s for s in report.steps if s.source.startswith("abort-if-failed")]
     assert guard, "the guard never executed"
@@ -2042,7 +2043,8 @@ def test_abort_if_failed_ignores_blocked_steps(qapp, tmp_path, monkeypatch) -> N
     monkeypatch.setattr(runner, "stop", lambda reason="": stopped.append(reason))
 
     runner._report.steps.append(
-        StepRecord(1, "call something", Outcome.BLOCKED, "the setting is off")
+        # DECLINED: the operator chose not to enable the escape hatch.
+        StepRecord(1, "call something", Outcome.SKIPPED, "the setting is off")
     )
     runner._do_abort_if_failed(parse("abort-if-failed")[0])
 
@@ -2504,7 +2506,7 @@ def test_abort_if_failed_still_stops_on_a_failure_in_its_OWN_section(
     trailing = [
         s for s in report.steps if s.source == "log the night that must not be spent"
     ]
-    assert trailing and trailing[0].outcome is Outcome.SKIPPED, (
+    assert trailing and trailing[0].outcome is Outcome.BLOCKED, (
         "the guard no longer stops on a failure in its own section — the scoping "
         f"disabled it: {[(s.source, s.outcome) for s in report.steps]}"
     )

@@ -29,8 +29,26 @@ class Outcome(StrEnum):
     PASS = "pass"
     FAIL = "fail"  # an assertion did not hold — the script's finding
     ERROR = "error"  # the step could not run — our problem, not the script's
-    SKIPPED = "skipped"  # never reached (the batch aborted before it)
-    BLOCKED = "blocked"  # refused: needs the escape hatch the user has not enabled
+    # THESE TWO WERE SWAPPED RELATIVE TO THE AGREED VOCABULARY, AND WE FOUND IT
+    # OURSELVES — round 18 §B2. Our `SKIPPED` was a CONSEQUENCE and the fork's is a
+    # DECISION; our `BLOCKED` was a decision and theirs is a consequence. Two
+    # vocabularies used the same two tokens for opposite halves of one distinction,
+    # so *"adopt their word"* in either direction would have inverted both meanings
+    # **in transcripts that still look well-formed**, and neither project's gate
+    # could have seen it, because each side's tokens were internally consistent.
+    #
+    # Round 18 settled it structurally rather than by either side renaming quietly:
+    # the spec names the CONCEPT and the TOKEN separately. These are ours moving to
+    # the agreed spelling. The concepts are unchanged; only the words are.
+    SKIPPED = (
+        "skipped"  # DECLINED: we chose not to run it -> decide whether to escalate
+    )
+    BLOCKED = "blocked"  # PREVENTED: wanted to, could not -> fix the prerequisite; row stays unknown
+    # Cannot be run on this equipment at all — different hardware, or permanently
+    # unverified. Added in the same change: we had no machine state for it (our own
+    # §B3 said so), so a step that is impossible here was reported as one we
+    # declined, which reads as a choice we could reverse.
+    UNREACHABLE = "unreachable"
     # A step that GATHERS rather than asserts. Added for `probe-ripper-wrapper`,
     # whose whole job is to record which link in the ripper chain fails to exit —
     # a fact worth having in the transcript and never a reason to fail a run,
@@ -39,6 +57,53 @@ class Outcome(StrEnum):
     # transcript claiming an assertion held when none was made.
     INFO = "info"
 
+
+#: The CONCEPT each token names, as round 18 settled it.
+#:
+#: **The concept and the token are separate columns, and this is that idea in code.**
+#: Round 18's finding was that two projects can share a token and mean opposite
+#: things by it; the structural fix was to name the concept independently of its
+#: spelling, so a rename is one deliberate edit instead of two sides quietly
+#: believing they agree.
+#:
+#: **A mapping rather than the enum's inline comments, because layout is not a data
+#: structure.** The first conformance test read these meanings out of the comments
+#: and `ruff format` broke it the same hour by wrapping one member onto two lines —
+#: the reflowed-anchor failure this repo documents, arriving in a test written the
+#: morning it was documented.
+CONCEPT: dict[Outcome, str] = {
+    Outcome.PASS: "pass",
+    Outcome.FAIL: "assertion-failed",
+    Outcome.ERROR: "harness-failed",
+    Outcome.SKIPPED: "declined",
+    Outcome.BLOCKED: "prevented",
+    Outcome.UNREACHABLE: "unreachable",
+    Outcome.INFO: "gathered",
+}
+
+
+#: Which OUTCOME VOCABULARY this report speaks. Bumped when a token changes
+#: meaning — not when one is added.
+#:
+#: **Without this the rename would have created, inside our own archive, the exact
+#: collision round 18 existed to fix.** ``"skipped"`` in a report written before
+#: 2026-09-14 means *prevented*; in one written after it means *declined* —
+#: opposite halves of one distinction, same six characters, and nothing in the file
+#: to tell a reader which. Three committed handshake artifacts already carry the old
+#: spelling and were sent to the fork as evidence
+#: (``docs/handshake/outbound/artifacts/round-15-lap-13-run-report.json`` and the
+#: two ``artifactsround08`` script reports); they are frozen and correct **for
+#: vocabulary 1**.
+#:
+#: ``app_version`` was the only version this report carried, which makes the
+#: vocabulary derivable only by looking up which release changed it — indirect,
+#: and exactly the kind of provenance this project refuses elsewhere.
+#:
+#: **1** = pre-2026-09-14: ``skipped`` prevented, ``blocked`` declined, no
+#: ``unreachable``.
+#: **2** = round 18's agreed vocabulary: ``skipped`` declined, ``blocked``
+#: prevented, ``unreachable`` added.
+OUTCOME_VOCABULARY: int = 2
 
 #: Outcomes that mean the step ran and did what it said.
 #:
@@ -143,7 +208,10 @@ class RunReport:
         artifact-producing step, which is the safe direction here.
         """
         for step in self.steps:
-            if step.outcome is Outcome.SKIPPED:
+            # PREVENTED — the batch aborted before this step, so it produced
+            # nothing. Named `SKIPPED` until round 18's rename; the docstring
+            # above ("223 skipped") describes this same state under the old word.
+            if step.outcome is Outcome.BLOCKED:
                 continue
             try:
                 verb = step.source.strip().split()[0].casefold()
@@ -177,6 +245,11 @@ class RunReport:
         return {
             "started_at": self.started_at,
             "app_version": self.app_version,
+            # WHICH VOCABULARY THE `outcome` VALUES BELOW SPEAK. See
+            # OUTCOME_VOCABULARY: two of the tokens changed meaning on 2026-09-14,
+            # so a reader without this field cannot tell `"skipped"` meaning
+            # *declined* from `"skipped"` meaning *prevented*.
+            "outcome_vocabulary": OUTCOME_VOCABULARY,
             # The input, beside the outcome. The maintainer's instruction:
             # "you need to make sure errors and error logs record anything we
             # are inputting as well." A failure whose input is not recorded
@@ -257,6 +330,7 @@ def render(report: RunReport) -> str:
             Outcome.ERROR: "ERROR ",
             Outcome.SKIPPED: " skip ",
             Outcome.BLOCKED: "BLOCK ",
+            Outcome.UNREACHABLE: "N/A   ",
             Outcome.INFO: " info ",
         }[step.outcome]
         line = f"[{mark}] L{step.line_no:<4} {step.source}"
