@@ -29,6 +29,41 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `handshake.py` applies to the wire header and for the same reason.
 
 ### Fixed
+- **"Publishing is sending" was wrong, and it was this repo's own rule for one
+  day.** Maintainer directive, 2026-09-14: *"a lap should not be seen as ready to
+  read and use until I am told to do so and let the other repo know. And it should
+  confirm that in the file as well."* Committing makes a lap **available**; the
+  operator's announcement makes it **live**. Moving transport to git collapsed two
+  acts that had been separate for eighteen rounds — and the reason nobody noticed is
+  the transferable part: **under hand transport the operator WAS the transport**, so
+  a lap nobody had weighed simply never moved. The separation was enforced
+  structurally and never written down, so replacing the structure deleted it. *Ask
+  of any mechanism being replaced: what was the old one doing that nobody wrote
+  down?*
+- **The lap now declares its own state**, rather than leaving a peer to infer it
+  from a commit date. `HANDSHAKE-READY-TO-READ: no` at `--emit`;
+  `handshake.py --announce <lap>` flips it to `yes` with the date and who released
+  it, **on the maintainer's word and never on our own judgement**. Tri-state and
+  fail-closed — absent is *not determined*, never *yes* — with a grandfather at
+  round 19, because every earlier lap was hand-carried and delivery *was* the
+  announcement. A test asserts against the **real** record that the boundary did not
+  reopen the eighteen closed rounds, which is the regression a correctness fix here
+  would otherwise cause.
+- **The gate refuses an unreleased lap in both directions, and says which one.**
+  Ours: committing a `GO` no longer closes a round, because otherwise `git commit`
+  is the release mechanism. Theirs: we can now read their tree before their operator
+  has released anything, and closing on their draft would make their draft our
+  decision. `--announce` refuses an inbound lap — the peer's operator releases the
+  peer's laps. `--status` names the held lap instead of printing a bare
+  `we-verified=NO`, because *"said nothing"* and *"said something we have not stood
+  behind"* are different states.
+- **No protocol version bump, by the shared spec's own §3** — *"unknown fields are
+  ignored by both parsers, so either side may add one without breaking the other."*
+  Emitted and enforced here, and **proposed** to the fork as normative rather than
+  assumed, the same route `HANDSHAKE-TO`/`-FROM-REPO` took. The standing status names
+  the one cost this imposes on them — until they adopt it, an absent field on a
+  round ≥ 19 lap of theirs reads as not-released and may hold a round they consider
+  sent — rather than letting them meet it as a surprise.
 - **A conformance-coverage check that could not see one of the rows it counts,
   found by the fork one day after we wrote it.** The shared protocol's §8 table
   has 37 rows, not 36: `C13a` carries a letter suffix, and our row-id pattern was
