@@ -1067,7 +1067,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # Most of the growth is comment: the swapped tokens carry their concept and the
     # reason inline, because a reader who meets `SKIPPED` in a transcript has no
     # other way to learn it changed meaning.
-    "uiscript/report.py": 356,
+    # 356 -> 363 on 2026-09-14 (+7): the tier/label fields on StepRecord, with the
+    # note saying they arrive before their users on purpose.
+    "uiscript/report.py": 363,
     "adapters/accuraterip_offsets.py": 308,
     "adapters/accuraterip_offsets_data.py": 388,
     "adapters/cache_probe.py": 372,
@@ -1510,7 +1512,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # concept it now records. The lines are the explanation, not new behaviour — a
     # bare swap would have been a five-character diff that reads as a typo and
     # inverts a state's meaning in every transcript after it.
-    "uiscript/runner.py": 3585,
+    # 3585 -> 3676 on 2026-09-14 (+91): round 18's tier scaffolding — two verb
+    # handlers, the per-step prune decision, and the state they need. **The pure
+    # half went to its own module** (`uiscript/tiers.py`, 97 lines): tier parsing
+    # and the prune ledger are decisions, testable without a GUI, and leaving them
+    # here would have added the same lines with none of that. What stays is the
+    # part that genuinely belongs to the runner — dispatch, and the state a run
+    # carries. Most of the +91 is the reasoning for why a pruned step is BLOCKED
+    # and never SKIPPED, which is the one thing a later reader must not get wrong.
+    "uiscript/runner.py": 3676,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
@@ -1519,7 +1529,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # +81 (2026-09-05): the three verb registrations for the handlers above.
     # Each carries its "why this verb exists" comment, which is the file's
     # established shape and the reason it is long.
-    "uiscript/verbs.py": 652,
+    "uiscript/verbs.py": 671,
     "update_install.py": 304,
     "verdict.py": 521,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,

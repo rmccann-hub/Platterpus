@@ -126,6 +126,13 @@ class StepRecord:
     #: when the file is later embedded elsewhere, because a reader needs to know
     #: it existed on disk.
     artifact: str = ""
+    #: Tier of the block this step ran in, and that block's label. `None`/`""` on a
+    #: run that declares no tiers — which is every committed script today, because
+    #: round 18 agreed the procedure and round 19 assigns it. The fields arrive
+    #: before their users on purpose: a transcript written now stays readable by a
+    #: reader that expects them.
+    tier: int | None = None
+    tier_label: str = ""
 
     def as_dict(self) -> dict[str, object]:
         data = asdict(self)

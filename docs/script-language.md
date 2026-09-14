@@ -81,6 +81,8 @@ text is taken verbatim as one value.
 | `expect-ripper-under-review` | 0 | ready | expect-ripper-under-review — assert the installed cyanrip is the build the handshake record names: the build under review while a round is open, and the approved production pin between rounds (run a `cyanrip --version` first) |
 | `probe-ripper-wrapper` | 0 | ready | probe-ripper-wrapper — time the host-exported ripper wrapper, the container entry and the in-container binary to find which one fails to exit. Records the verdict; never fails the run |
 | `expect-tracks` | 1 | ready | expect-tracks <count|count+> — assert how many track rows are loaded; a trailing '+' means 'at least this many', which is what a script that must work on any disc actually wants |
+| `tier` | 2+ (rest of line) | ready | tier <0-4> <label> — the steps after this belong to tier N, in a block named <label> that later steps can declare a dependency on |
+| `needs` | 1+ (rest of line) | ready | needs <label…> — the steps after this are PREVENTED (not skipped) if any named block already failed; the record names the prerequisite |
 | `cyanrip` | 1+ (rest of line) | ready | cyanrip <args…> — run the host-exported ripper for real and capture its exit code, exact argv and complete output |
 | `expect-cyanrip` | 1+ (rest of line) | ready | expect-cyanrip <text> — assert the last cyanrip output contains text |
 | `expect-exit` | 1 | ready | expect-exit <code> — assert the last cyanrip exit code |
@@ -357,6 +359,8 @@ found nothing wrong*.
       "album-artist",
       "expect-status",
       "expect-refused",
+      "tier",
+      "needs",
       "cyanrip",
       "expect-cyanrip",
       "rig-check",
@@ -643,6 +647,24 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-tracks <count|count+> \u2014 assert how many track rows are loaded; a trailing '+' means 'at least this many', which is what a script that must work on any disc actually wants"
+    },
+    {
+      "name": "tier",
+      "min_args": 2,
+      "max_args": null,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "tier <0-4> <label> \u2014 the steps after this belong to tier N, in a block named <label> that later steps can declare a dependency on"
+    },
+    {
+      "name": "needs",
+      "min_args": 1,
+      "max_args": null,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "needs <label\u2026> \u2014 the steps after this are PREVENTED (not skipped) if any named block already failed; the record names the prerequisite"
     },
     {
       "name": "cyanrip",
