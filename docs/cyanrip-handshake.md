@@ -344,6 +344,57 @@ same duty that has us re-deriving their numbers. A wrong shared model is worse
 than no shared model: under theirs, either side would mispredict every one of the
 five rounds above.
 
+### 7.5c A lap is not live because it is committed
+
+**Operator directive, 2026-09-14:** *"a lap should not be seen as ready to read and
+use until I am told to do so and let the other repo know. And it should confirm
+that in the file as well."* Binds **both** repositories.
+
+**It corrects a rule that was one day old.** When transport moved to git on
+2026-09-13 this project wrote *"publishing IS sending."* That collapses two acts
+which had been separate since round 1 — and the reason nobody noticed is the
+interesting part: **under hand transport the operator *was* the transport.** A lap
+they had not weighed simply never moved, so the separation was enforced
+structurally and never had to be written down. Replace the structure and the rule
+it was silently enforcing goes with it.
+
+> Ask of any mechanism being replaced: **what was the old one doing that nobody
+> wrote down?**
+
+**The mechanism.** `HANDSHAKE-READY-TO-READ`, declared in the file:
+
+| state | meaning |
+|---|---|
+| `no — not announced; do not read or act on this lap yet` | the default at `--emit`. A lap is born held. |
+| `yes — released by the operator on <date>` | `handshake.py --announce <lap>` wrote it, **on the operator's word**. |
+| *absent* | **not determined** — resolved against the round, never defaulted to yes. |
+
+Four properties, each paid for by a failure already in this file's record:
+
+* **Tri-state and fail-closed.** Absent is not consent (protocol §2 rule 4). The
+  mirror of *an unrecognised build tag is never reported as unapproved*.
+* **Grandfathered at round 19.** Every lap up to 18 was hand-carried, so delivery
+  *was* the announcement. Without the boundary a correctness fix would have marked
+  every historical lap held and reopened eighteen closed rounds —
+  `tests/test_handshake_tooling.py` asserts against the real record that it did not.
+* **Both directions.** We can now read their tree before their operator has
+  released anything. A file we *can* fetch is not one we may act on, and closing a
+  round on their draft would make their draft our decision. `--announce` refuses an
+  inbound lap for the same reason.
+* **Held is not silence.** `--status` names the lap it is holding rather than
+  printing a bare `we-verified=NO`, because *"said nothing"* and *"said something we
+  have not stood behind"* are different states and a gate that renders them
+  identically sends the reader looking for a missing file.
+
+**No protocol version bump**, and that is the shared spec's own provision: §3,
+*"unknown fields are ignored by both parsers, so either side may add one without
+breaking the other."* So it is emitted and enforced here and **proposed** to the
+fork as normative — the same route `HANDSHAKE-TO` and `HANDSHAKE-FROM-REPO` took in
+round 16. Until they adopt it we treat an absent field on a round ≥ 19 lap of
+theirs as *not released*, which fails closed and could hold a round they consider
+sent; the standing status names that cost to them explicitly rather than letting
+them meet it as a surprise.
+
 ## 7.6 Standing status — one home, and it is not this file
 
 **Not a round, and not a call for one.** Rounds are the *formal* channel and they

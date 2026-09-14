@@ -71,6 +71,20 @@ def _header(**overrides: str | None) -> str:
         "HANDSHAKE-OUR-PIN": "abc1234",
         "HANDSHAKE-PEER-VERSION": "0.9.4-rc1+platterpus.4",
         "HANDSHAKE-PEER-PIN": "5bc654d",
+        # RELEASED, because this helper's contract is "a COMPLETE closing header"
+        # and from round 19 a lap that does not declare its release state cannot
+        # close (2026-09-14). Added when `test_C19_a_stable_release_is_allowed_...`
+        # went red: its fixture is `round-99`, so the grandfather does not cover it
+        # and the gate correctly refused a stand-in that declared nothing.
+        #
+        # **That is the floor working, not a false failure.** C19 is the half that
+        # asserts the gate can still say YES — a gate that can only refuse is a wall
+        # — so the one test guaranteed to catch an over-broad release rule is the one
+        # that caught it. Teaching the stand-in to declare is the fix; exempting
+        # fixtures from the rule would have made every other test here assert against
+        # a world the product does not have (`CLAUDE.md`: *what does my stand-in do
+        # that the real thing does not?*).
+        "HANDSHAKE-READY-TO-READ": "yes — released by the operator on 2026-09-14",
         # Long enough to clear the evidence floor. It read 'T1-T8 and T14 on the pair above' — 31 characters
         # naming nothing in particular — and the close/status tests leaned on that
         # passing. `evidence_blockers` (2026-08-18) refuses content-free evidence, so
