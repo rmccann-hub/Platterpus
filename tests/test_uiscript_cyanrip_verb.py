@@ -264,8 +264,9 @@ class TestStopWhileInFlight:
         run.stop("stopped by the user")
         assert killed == [True], "stop() did not kill the in-flight child"
         outcomes = [s.outcome for s in run._report.steps]
-        # The open command is an ERROR; the step after it is SKIPPED, not passed.
-        assert outcomes == [Outcome.ERROR, Outcome.SKIPPED]
+        # The open command is an ERROR; the step after it is BLOCKED (prevented —
+        # it never got to run), not passed. Was SKIPPED before round 18's rename.
+        assert outcomes == [Outcome.ERROR, Outcome.BLOCKED]
         assert "still running" in run._report.steps[0].detail
         assert run._report.ended_reason
         fake_capture.released.set()
