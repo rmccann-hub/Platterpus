@@ -18,6 +18,8 @@ from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import ClassVar
 
+from platterpus.uiscript.tiers import is_sweep
+
 
 class Outcome(StrEnum):
     """What happened to one step.
@@ -112,6 +114,19 @@ OUTCOME_VOCABULARY: int = 2
 #: and make an acceptance pass look worse the more diagnostics it collected.
 GOOD: frozenset[Outcome] = frozenset({Outcome.PASS, Outcome.INFO})
 
+#: Outcomes that are a **verdict about the subject** rather than a statement about
+#: the run. Only these three claim something is or is not true; the rest
+#: (`SKIPPED`, `BLOCKED`, `UNREACHABLE`, `INFO`) say the step did not reach a
+#: verdict, and say *why*.
+#:
+#: The distinction earns its place in tier 4, whose steps assert nothing (round 19
+#: lap 1 §5.1) and whose outcomes are therefore converted to `INFO`. Converting the
+#: non-verdicts too would be a real loss of fact: a pruned sweep step reported as
+#: *gathered* claims data was collected from a step that never ran, which is the
+#: same shape as the skipped-reads-like-passed defect the round was about. A sweep
+#: may not assert; it must still be able to say it did not run.
+VERDICTS: frozenset[Outcome] = frozenset({Outcome.PASS, Outcome.FAIL, Outcome.ERROR})
+
 
 @dataclass
 class StepRecord:
@@ -131,6 +146,12 @@ class StepRecord:
     #: round 18 agreed the procedure and round 19 assigns it. The fields arrive
     #: before their users on purpose: a transcript written now stays readable by a
     #: reader that expects them.
+    #: True for a step that declares the run's SHAPE rather than testing anything —
+    #: today `tier` and `needs`. Kept as a field rather than re-derived from
+    #: `source` by the reader: the verb is known for certain at record time and
+    #: guessing it back out of the script text is the kind of second, disagreeing
+    #: surface this project keeps paying for.
+    structural: bool = False
     tier: int | None = None
     tier_label: str = ""
 
@@ -242,10 +263,43 @@ class RunReport:
 
     @property
     def ok(self) -> bool:
-        """True only when every step that ran passed and nothing was skipped."""
+        """True only when every step that ran passed and nothing was skipped.
+
+        **A sweep cannot rescue a failure, and the shape of this expression is why.**
+        Round 19 lap 1 §5.1: *"a run whose tier 4 emits two hundred INFO rows and
+        whose tier 2 emitted one FAIL is a FAILED run… a summary that lets the INFO
+        count soften the FAIL is the skipped-reads-like-passed defect in a new
+        suit."* ``all()`` over the steps cannot be outvoted by volume — there is no
+        ratio here and there must never be one.
+        """
         return (
             all(step.outcome in GOOD for step in self.steps) and not self.ended_reason
         )
+
+    @property
+    def sweep_only(self) -> bool:
+        """True when every step that ran was a sweep step, so nothing was asserted.
+
+        The other half of §5.1: *"a green tier 4 is not evidence and must never be
+        reported as any."* Such a run is legitimately :attr:`ok` — nothing failed,
+        because nothing could — and rendering that as *"all checks passed"* would be
+        a true flag on a false sentence, which is the failure mode this project
+        keeps meeting (`cyanrip 0.9.3 / 0 missing`: every word accurate, the message
+        wrong). ``ok`` answers *did anything go wrong*; this answers *was anything
+        checked*, and only the pair is a verdict.
+
+        Structural steps — the ``tier`` and ``needs`` declarations — are excluded:
+        they state the shape of the run rather than testing anything, and counting
+        them as checks would make a sweep look like it had asserted something merely
+        because it announced itself.
+
+        False for a run with no sweep steps at all, including an empty one. A run
+        that asserted nothing because it never started is also not evidence, but it
+        is a different problem and calling it a sweep would put a reassuring label
+        on a harness that never ran.
+        """
+        real = [step for step in self.steps if not step.structural]
+        return bool(real) and all(is_sweep(step.tier) for step in real)
 
     def as_dict(self) -> dict[str, object]:
         """The shape embedded in the rip report's ``ui_script`` block."""
@@ -356,8 +410,19 @@ def render(report: RunReport) -> str:
     ]
     if report.ended_reason:
         tail.append(f"ENDED EARLY: {report.ended_reason}")
-    tail.append(
-        "RESULT: " + ("all checks passed" if report.ok else "see failures above")
-    )
+    if report.ok and report.sweep_only:
+        # A SWEEP IS NOT A PASS, and `ok` alone would say it was. Round 19 lap 1
+        # §5.1: *"a green tier 4 is not evidence and must never be reported as
+        # any."* Every step here reported INFO by construction, so "all checks
+        # passed" would be a true flag on a false sentence — the `0 missing`
+        # shape, where every word is accurate and the message is wrong.
+        tail.append(
+            "RESULT: gathered only — tier 4 asserts nothing, so this run is DATA "
+            "for the next round, not evidence about this one"
+        )
+    else:
+        tail.append(
+            "RESULT: " + ("all checks passed" if report.ok else "see failures above")
+        )
     tail.append("=" * 64)
     return "\n".join(head + body + tail)

@@ -1335,6 +1335,31 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
 
 ---
 
+## Round 19 — found while answering their lap 1 (2026-09-14)
+
+- [ ] **Section K4 is graded `ARCHIVAL` and cannot fail for an archival reason.**
+  Found by deriving the acceptance tier table (`docs/testing.md` → *Acceptance
+  tiers*) from the script rather than deciding it: K4 is titled *"back to FLAC, the
+  archival master"* and contains `set output_format flac` + `expect output_format
+  flac` — **no rip, no assertion about any output**. It is a settings round-trip,
+  which section B already covers, wearing a grade that can block a version. Either
+  give it a real FLAC-output assertion or regrade it and rename it so the title
+  stops promising one; a row that cannot fail is not evidence at either severity.
+  The tier table says `0` deliberately — that is what the section costs **today**,
+  not what its title implies.
+
+- [ ] **`HANDSHAKE-CLOSE-BY` is required by the shared spec and neither side has
+  emitted it since round 14.** `docs/handshake-protocol.md` §6a-bis R2: *"set in
+  lap 1 and is not extended… advisory to the gates and **mandatory in the file**."*
+  Measured 2026-09-14 over the committed record: present in 33 of 90 inbound files
+  and 16 of 57 outbound, and **zero occurrences in rounds 15, 16, 17, 18 or 19 on
+  either side**. Neither gate checks it, so a clause of a jointly-owned spec died
+  silently — the *"a note asserting a requirement needs a check that fails when the
+  requirement stops being met"* shape. Raised to the fork in round 19 lap 2 as
+  NEXT-ROUND; enforcing it unilaterally would reject their released lap 1 and the
+  file is not ours to tighten alone. Fix is a ratchet constant like
+  `READY_TO_READ_REQUIRED_FROM_ROUND`, from a round both sides agree.
+
 ## Round 15 — ours to raise, the fork's to open (2026-08-27)
 
 - [ ] **We claim "one test per conformance row" and it is not true: 37 rows, 24

@@ -86,6 +86,66 @@ _LAP_NAME: Final[re.Pattern[str]] = re.compile(
 )
 
 
+#: The three fields §5a's "what counts as one lap" test keys on. **A file is one
+#: lap only if it declares each of these EXACTLY ONCE**, after fenced code blocks
+#: are stripped. Anything else is a file *containing* laps, and its exclusion is
+#: not an error.
+_LAP_IDENTITY_FIELDS: Final[tuple[str, ...]] = (
+    "HANDSHAKE-ROUND",
+    "HANDSHAKE-LAP",
+    "HANDSHAKE-FROM",
+)
+
+#: A fenced block's delimiter. Stripped before the count, because a lap that
+#: QUOTES another lap's header — which the protocol's own documentation does
+#: constantly — would otherwise disqualify itself. A declaration is what a file
+#: *states*, never what it *quotes*; the same rule `handshake.py` applies to the
+#: wire header, for the same reason.
+_FENCE: Final[re.Pattern[str]] = re.compile(r"^[ \t]{0,3}(?:```|~~~)", re.MULTILINE)
+
+
+def _unfenced(text: str) -> str:
+    """``text`` with the contents of fenced code blocks removed."""
+    out: list[str] = []
+    inside = False
+    for line in text.splitlines():
+        if _FENCE.match(line):
+            inside = not inside
+            continue
+        if not inside:
+            out.append(line)
+    return "\n".join(out)
+
+
+def counts_as_one_lap(text: str) -> bool:
+    """§5a's test, derived from the CONTENT — never from the filename.
+
+    **This is the rule we proposed and did not implement.** `handshake-protocol.md`
+    §5a: *"A file is one lap, for digest purposes, only if — after fenced code
+    blocks are stripped — it declares `HANDSHAKE-ROUND`, `HANDSHAKE-LAP` and
+    `HANDSHAKE-FROM` exactly once each."* It exists because Platterpus built a
+    transport envelope carrying three laps verbatim and our first enumerator read
+    the first `HANDSHAKE-LAP` in its body and counted the envelope as a fourth
+    lap — a digest that was stable, reproducible, and described a record neither
+    side held.
+
+    **We then excluded the envelope by its FILENAME**, which the same section
+    forbids in the next paragraph: *"a filename exclusion… only ever excludes the
+    container someone has already met. This test excludes the next one too.
+    Neither project maintains a list."* The agreement between the two gates was a
+    coincidence of naming, not conformance — the envelope happens to use the
+    hand-carried spelling. A committed lap that quotes another lap's header
+    outside a fence would have been counted, and the digest would have been wrong
+    in the one way §5a says puts a round into a state exchanging files cannot
+    exit.
+    """
+    body = _unfenced(text)
+    return all(
+        len(re.findall(rf"^{field}:", body, re.MULTILINE)) == 1
+        for field in _LAP_IDENTITY_FIELDS
+    )
+
+
 class DigestError(RuntimeError):
     """A refusal. Raised rather than returned so no caller can ignore it."""
 
@@ -114,8 +174,18 @@ def _laps_for_round(round_number: int) -> list[Path]:
             continue
         for path in sorted(directory.glob("round-*-lap-*.md")):
             match = _LAP_NAME.match(path.name)
-            if match and int(match.group("round")) == round_number:
-                found.append(path)
+            if not match or int(match.group("round")) != round_number:
+                continue
+            # THE FILENAME SELECTS THE CANDIDATE; THE CONTENT DECIDES. §5a's test
+            # is *derived, not listed*, and it has to run even on a file whose
+            # name is right — a committed lap that quotes another lap's header
+            # outside a fence is a container wearing a lap's name, and that is the
+            # container this project has not met yet.
+            if not counts_as_one_lap(
+                path.read_text(encoding="utf-8", errors="replace")
+            ):
+                continue
+            found.append(path)
     return sorted(found, key=lambda p: (p.name, p.parent.name))
 
 
@@ -128,6 +198,12 @@ def _row_for(path: Path) -> Row:
     pin from a covering message instead of the artifact.
     """
     raw = path.read_bytes()
+    # `search` takes the FIRST match, which §2 rule 3 forbids as a way of
+    # resolving a doubly-declared field. It is safe here only because
+    # `counts_as_one_lap` has already refused any file declaring it twice — the
+    # population guarantees the ambiguity cannot reach this line. Said out loud
+    # because the guarantee lives in a different function, and a reader of this
+    # one would be right to flag it otherwise.
     match = _FROM.search(raw.decode("utf-8", errors="replace"))
     if match is None:
         raise DigestError(

@@ -191,6 +191,54 @@ INBOUND_SECTIONS: tuple[Section, ...] = (
     ),
 )
 
+# WHAT AN INBOUND **OPENER** MUST CARRY — WHICH IS NOT THE A–J TABLE ABOVE.
+#
+# The A–J table describes a RETURN FILE: the fork's reply to a round file of
+# ours, answering our questions (§B), reporting on a new build (§C/§D/§E/§G) and
+# on what they found in our output (§H). Since `handshake-protocol.md` §1a went
+# normative in v3, **the provider opens**, so their lap 1 is not a reply at all —
+# it is the document that mints the round. Applying a reply's table to an opener
+# is a category error, and it was one we made on every opener but one:
+#
+#     round 15 lap 1: 9 problems      round 17 lap 1: 10 problems
+#     round 16 lap 1: 0 problems      round 18 lap 1: 10 problems
+#                                     round 19 lap 1:  9 problems
+#
+# Nine of the thirteen inbound lap-1 files on disk fail our own checker, and all
+# of the last five but one. Round 16 is the lone pass because it happened to
+# letter its sections `## A`…`## J`; the others number theirs `## 0.`…`## 7.`,
+# which is what an opener has looked like since round 15. Every one of those
+# complaints is ours, not theirs.
+#
+# WHAT THIS DELIBERATELY GIVES UP, SAID OUT LOUD RATHER THAN QUIETLY (the
+# "scoping a sweep is fine, scoping it silently is the defect" rule): the §D
+# log-format and §H found-in-your-output EXPLICITNESS floors no longer run on an
+# opener. Re-adding them by keyword was tried against the artifacts and refused:
+# round 17 lap 1 carries the log-format delta in full — a three-row table of
+# exactly which lines moved, with `git show` citations — and the phrase "log
+# format" appears nowhere in it. A keyword floor would have reported ABSENT on a
+# MODEL section, which is the expensive direction of wrong (the peer is then
+# asked to change a conforming file; see §F's note above). The replacement is a
+# FIELD, not a phrase — `HANDSHAKE-BREAKING`, which both sides already emit and
+# which round 17 lap 1 used correctly — and it is proposed to them rather than
+# imposed, because the opener's shape is theirs to declare.
+#
+# The floor is small on purpose, but it is a floor: an opener that fixes no close
+# condition is the failure S-13/R1 exists to prevent, and it is the one property
+# a lap 1 cannot be a lap 1 without. `HANDSHAKE-PIN` is already required of every
+# file by `REQUIRED_WIRE_FIELDS`, so the round's subject is checked without a
+# second, letter-shaped copy of the same requirement here.
+OPENER_SUBJECTS: tuple[Section, ...] = (
+    Section(
+        "R1",
+        "Close conditions",
+        "fixed in lap 1 and cannot grow (handshake-protocol.md §6a-bis R1 / S-13) "
+        "— a round with no closing condition is round 7 again",
+        keywords=("close condition", "close-condition", "acceptance criteri"),
+    ),
+)
+
+
 # What we must send them (protocol §3).
 #
 # Outbound headings are prose written by a human ("## §3 · What I fixed on my
@@ -215,7 +263,23 @@ OUTBOUND_SECTIONS: tuple[Section, ...] = (
         "Confirmations",
         "Confirmations",
         "their claims we checked, and how",
-        keywords=("confirmation", "confirmed"),
+        # `re-derived`, `reproduced` and `verified` ARE the subject, and omitting
+        # them rejected a conforming lap of our own. Round 19 lap 2 headed this
+        # section *"Your claims, re-derived rather than accepted"* and did exactly
+        # what the description asks — three of the peer's claims run against their
+        # own tree, with the commands — and `--check` reported it missing. Same
+        # failure as §F on the inbound side, in the same file, one direction over:
+        # a check can fail for the wrong reason, and that is the expensive
+        # direction because the output is an instruction to rewrite a file that
+        # was already right.
+        keywords=(
+            "confirmation",
+            "confirmed",
+            "re-derived",
+            "rederived",
+            "reproduced",
+            "verified",
+        ),
     ),
     Section(
         "Fixed",
@@ -323,6 +387,35 @@ def _safe_read(path: Path) -> str:
         return ""
 
 
+def check_opener(*paths: Path) -> list[str]:
+    """Return a list of problems with an inbound **opener** (a lap 1).
+
+    Separate from :func:`check_inbound`'s A–J sweep because an opener is a
+    different document — see ``OPENER_SUBJECTS``. Checks subjects only, never
+    section letters: how an opener numbers itself is the fork's to decide, and
+    round 15 lap 1 headed its close conditions ``## H.`` while round 19 lap 1
+    headed the same subject ``## 0.``. Both are conforming; a letter-keyed check
+    would have called one of them missing and the other the wrong section.
+
+    Never raises: a malformed file produces a report, not a traceback.
+    """
+    problems: list[str] = []
+    if not paths:
+        return ["no opener file given"]
+    text = "\n\n".join(_safe_read(path) for path in paths)
+    if not text.strip():
+        return [f"{paths[0]} is empty"]
+    lowered = text.casefold()
+    for subject in OPENER_SUBJECTS:
+        if not any(k in lowered for k in subject.keywords):
+            problems.append(
+                f"opener is missing its {subject.title} — none of "
+                f"{list(subject.keywords)} appears anywhere in the file "
+                f"— {subject.why}"
+            )
+    return problems
+
+
 def check_inbound(*paths: Path) -> list[str]:
     """Return a list of problems with a received cyanrip handshake round.
 
@@ -363,6 +456,14 @@ def check_inbound(*paths: Path) -> list[str]:
     if laps and all(lap and lap.strip().isdigit() and int(lap) > 1 for lap in laps):
         if not problems:
             return []
+        return problems
+    # A SET CONTAINING A LAP 1 IS AN **OPENER**, NOT A FULL ROUND FILE — see
+    # `OPENER_SUBJECTS` for the measurement that says so and for what this
+    # deliberately stops checking. The opener floor runs instead of the A–J
+    # sweep, never as well as it: two tables applied to one document would
+    # reproduce the phantom complaints this branch exists to remove.
+    if any(lap and lap.strip().isdigit() and int(lap) == 1 for lap in laps):
+        problems.extend(check_opener(*paths))
         return problems
     texts: list[str] = []
     for path in paths:
@@ -437,6 +538,38 @@ def _headings(text: str) -> list[str]:
     return [m.group("text").casefold() for m in _HEADING_LINE.finditer(text)]
 
 
+#: The sections a lap of OURS must carry when it is a **reply** — which, since
+#: `handshake-protocol.md` §1a went normative, is every lap we send.
+#:
+#: `OUTBOUND_SECTIONS` above describes the document we used to send when **we**
+#: opened rounds: it asks for a return file (*"inline — they do not have this
+#: repo"*), states *Requirements* — *"binding terms for the pin"* — and sets out
+#: a *shared rigour bar*. All three are an opener's work, and §1a gave the
+#: opening to the provider. Applying that list to a reply is the mirror of the
+#: defect `OPENER_SUBJECTS` documents on the inbound side, and it is measured the
+#: same way: **9 of our 32 committed outbound laps fail our own outbound
+#: checker**, every one of them for sections a reply has no business carrying.
+#:
+#: Two of those three are not merely misplaced, they are FALSE. *"They do not
+#: have this repo"* was wrong for the entire life of this protocol — both repos
+#: are public and either side can read the other, which cost round 12 a whole
+#: round to a mechanism we could simply have read. And the *shared rigour bar* now
+#: lives in `docs/seam-rules.md` and `docs/OWNERSHIP.md`, jointly owned, where
+#: restating it in each lap would be a second copy that can drift.
+#:
+#: WHAT THE NARROWING GIVES UP, SAID OUT LOUD: *What we fixed* is no longer
+#: required. A lap that fixed nothing is legitimate and demanding the section
+#: makes claiming a fix mandatory — R5's objection to a spec that requires
+#: questions, applied to a spec that requires repairs. The honesty obligation it
+#: was standing in for is *Corrections*, which stays and which a reply genuinely
+#: always owes.
+REPLY_SECTIONS: tuple[Section, ...] = tuple(
+    section
+    for section in OUTBOUND_SECTIONS
+    if section.key in {"Corrections", "Confirmations", "Questions", "NotAsking"}
+)
+
+
 def check_outbound(text: str) -> list[str]:
     """Return a list of problems with an outbound file we are about to send.
 
@@ -447,7 +580,14 @@ def check_outbound(text: str) -> list[str]:
     """
     problems: list[str] = []
     headings = _headings(text)
-    for section in OUTBOUND_SECTIONS:
+    # A LAP OF OURS IS A REPLY, and is held to the reply floor. The full list is
+    # kept for a lap 1 of ours — §1a's E3 lets the operator hand us the opening in
+    # writing, and an opener really does owe all of it — and for a file whose lap
+    # cannot be read, which fails closed to the stricter spec.
+    lap = wire_fields(text).get("HANDSHAKE-LAP", "")
+    is_reply = lap.strip().isdigit() and int(lap) > 1
+    sections = REPLY_SECTIONS if is_reply else OUTBOUND_SECTIONS
+    for section in sections:
         needles = section.keywords or (section.title.casefold(),)
         if not any(n in heading for heading in headings for n in needles):
             problems.append(f"outbound is missing '{section.title}' — {section.why}")
@@ -916,7 +1056,7 @@ RETROSPECTIVE_ROUNDS: frozenset[int] = frozenset({1, 2, 3})
 OUR_REPO_URL: Final[str] = "https://github.com/rmccann-hub/Platterpus"
 FORK_REPO_URL: Final[str] = "https://github.com/rmccann-hub/cyanrip"
 
-CURRENT_ROUND: Final[int] = 18
+CURRENT_ROUND: Final[int] = 19
 
 
 # --- The shared wire format (protocol §8) -----------------------------------

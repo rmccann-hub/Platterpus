@@ -236,3 +236,192 @@ def test_a_new_run_does_not_inherit_the_previous_runs_failures() -> None:
     assert final.outcome is Outcome.PASS, (
         f"a fresh run was pruned by a stale ledger: {final.detail!r}"
     )
+
+
+# --- Tier 4: the sweep ------------------------------------------------------
+#
+# Specified by the fork in round 19 lap 1 §5, which is theirs to specify because
+# round 18 lap 1 §2 fixed tiers 0-3 and that round closed GO/GO. Everything below
+# is their text turned into an assertion, not a re-derivation of it.
+
+
+def test_a_sweep_step_reports_INFO_even_when_it_FAILS() -> None:
+    """§5.1: *"it has no `PASS` and no `FAIL`"* — enforced by the engine.
+
+    Guaranteed here rather than asked of the script author, because "every verb
+    remembers to check what tier it is in" is N places to forget, and the one that
+    forgets is the one that reports a sweep observation as a failed acceptance
+    check.
+    """
+    records = _run("tier 4 sweep\neval nope")
+    final = records[-1]
+    assert final.outcome is Outcome.INFO, (
+        f"a sweep step reported {final.outcome.value}, so the sweep asserted "
+        "something — which is the one thing it may not do"
+    )
+
+
+def test_the_COERCED_outcome_is_recorded_not_discarded() -> None:
+    """A sweep row that only says "info" has thrown away what it learned.
+
+    `CLAUDE.md`: a deliberate drop is counted and marked, never silent. The whole
+    point of a sweep is that its observations are input to the next round, and
+    *"this would have failed"* is the most interesting observation it can make.
+    """
+    records = _run("tier 4 sweep\neval nope")
+    assert "would have been harness-failed" in records[-1].detail, records[-1].detail
+
+
+def test_a_PASS_in_a_sweep_is_also_only_gathered() -> None:
+    """The other direction, and it is the one that would be tempting to allow.
+
+    A sweep step that happens to succeed has still asserted nothing — it was not
+    run to establish anything. Letting a PASS through would make a sweep's tally
+    look like evidence in exactly the way §5.1 forbids, and it would do it on the
+    happy path, where nobody looks.
+    """
+    records = _run("tier 4 sweep\nlog looked at something")
+    assert records[-1].outcome is Outcome.INFO, records[-1].outcome
+
+
+def test_a_sweep_CANNOT_PRUNE_because_it_cannot_fail() -> None:
+    """§5.2: *"it cannot prune anything, because it cannot `FAIL`."*
+
+    Checked through the ledger rather than through a later step's outcome, so the
+    assertion is about the mechanism and not about one arrangement of a script.
+    """
+    runner = ScriptRunner(_NoWindow())
+    runner._report.steps.clear()
+    for step in parse("tier 4 sweep\neval nope\neval also nope"):
+        runner._execute(step)
+    assert runner._prune.failed == [], (
+        f"the sweep registered {runner._prune.failed} as broken prerequisites; a "
+        "tier that cannot fail must not be able to block anything downstream"
+    )
+
+
+def test_a_sweep_DOES_NOT_INHERIT_the_previous_blocks_needs() -> None:
+    """The edge §5.2 calls the only one worth arguing about, as state rather than graph.
+
+    **Tier 4 needs tier 0 and nothing else.** Hang it off tier 2 and a tier-2
+    failure prunes the sweep — the sweep whose purpose is to characterise the
+    failure that just happened. Our engine can produce that graph by accident:
+    `needs` persisted across blocks, so a sweep declaring none silently carried the
+    previous block's. The feature would be deleted by leftover state rather than by
+    anyone writing the wrong graph.
+    """
+    records = _run(
+        "\n".join(
+            [
+                "tier 0 core",
+                "tier 2 short-rip",
+                "needs core",
+                "eval nope",  # short-rip fails
+                "tier 4 sweep",  # declares no needs
+                "log characterise what just broke",
+            ]
+        )
+    )
+    final = records[-1]
+    assert final.outcome is not Outcome.BLOCKED, (
+        "the sweep inherited `needs core`… and worse, was pruned by the block "
+        f"above it: {final.detail!r}"
+    )
+    assert final.outcome is Outcome.INFO, final.outcome
+
+
+def test_a_sweep_that_DOES_declare_needs_core_is_still_pruned_by_a_broken_harness() -> (
+    None
+):
+    """The other half of §5.2: pruned by a broken harness, never by a broken program.
+
+    Without this the previous test could be satisfied by making a sweep unprunable
+    altogether, which would be a different rule — and the wrong one. A sweep whose
+    harness is broken is producing noise, not data.
+    """
+    records = _run(
+        "\n".join(
+            [
+                "tier 0 core",
+                "eval nope",  # the harness itself is broken
+                "tier 4 sweep",
+                "needs core",
+                "log characterise",
+            ]
+        )
+    )
+    final = records[-1]
+    assert final.outcome is Outcome.BLOCKED, final.outcome
+    assert "core" in final.detail, final.detail
+
+
+def test_the_BLOCK_HEADER_of_a_sweep_is_not_coerced() -> None:
+    """`tier`/`needs` declare the shape; they are not steps *contained in* the block.
+
+    Small, and it is the difference between a transcript whose structure is
+    readable and one where the block headers are indistinguishable from the
+    observations inside them.
+    """
+    records = _run("tier 4 sweep\nneeds core")
+    assert [r.outcome for r in records] == [Outcome.PASS, Outcome.PASS]
+    assert all(r.structural for r in records), records
+
+
+def test_a_PRUNED_sweep_step_still_says_it_was_PREVENTED() -> None:
+    """The non-verdict outcomes survive the sweep's coercion, and must.
+
+    A pruned step never ran. Reporting it as `INFO` would claim data was gathered
+    from it — the skipped-reads-like-passed defect arriving through the fix for it.
+    §5.1 forbids a sweep from *asserting*; it does not ask a sweep to lie about
+    what happened to it.
+    """
+    records = _run("tier 0 core\neval nope\ntier 4 sweep\nneeds core\nlog x")
+    final = records[-1]
+    assert final.outcome is Outcome.BLOCKED, final.outcome
+    assert "core" in final.detail, final.detail
+    assert "gathered" not in final.detail, final.detail
+
+
+def test_a_sweep_only_run_is_OK_but_is_NOT_rendered_as_a_pass() -> None:
+    """§5.1: *"a green tier 4 is not evidence and must never be reported as any."*
+
+    Both halves, because each alone is wrong. `ok` must stay True — nothing failed,
+    and forcing it False would invent a failure to report. The *rendered* verdict
+    must stop saying "all checks passed", because no check was made. `cyanrip
+    0.9.3 / 0 missing` is the shape being avoided: every word accurate, the
+    message wrong.
+    """
+    from platterpus.uiscript.report import render
+
+    runner = ScriptRunner(_NoWindow())
+    runner._report.steps.clear()
+    for step in parse("tier 4 sweep\nneeds core\nlog looked\neval nope"):
+        runner._execute(step)
+    assert runner._report.ok, runner._report.counts()
+    assert runner._report.sweep_only
+    result = [
+        ln for ln in render(runner._report).splitlines() if ln.startswith("RESULT")
+    ]
+    assert result and "all checks passed" not in result[0], result
+
+
+def test_ONE_failure_outside_the_sweep_outvotes_ANY_number_of_INFO_rows() -> None:
+    """§5.1's consequence, stated so a reader cannot take the silence for approval.
+
+    *"A run whose tier 4 emits two hundred INFO rows and whose tier 2 emitted one
+    FAIL is a FAILED run. The sweep cannot rescue it."* Two hundred rather than
+    three, because the failure mode being excluded is a **ratio** — a summary in
+    which enough good rows outweigh a bad one — and a test with three rows would
+    pass against an implementation that used one.
+    """
+    script = ["tier 2 short-rip", "needs core", "eval nope", "tier 4 sweep"]
+    script += [f"log observation {n}" for n in range(200)]
+    runner = ScriptRunner(_NoWindow())
+    runner._report.steps.clear()
+    for step in parse("\n".join(script)):
+        runner._execute(step)
+    counts = runner._report.counts()
+    assert counts["info"] >= 200, counts
+    assert counts["error"] == 1, counts
+    assert not runner._report.ok, counts
+    assert not runner._report.sweep_only, "a run containing a real check is not a sweep"

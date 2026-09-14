@@ -2464,3 +2464,112 @@ def test_P3_says_plainly_that_clause_2_is_unprobed_by_it() -> None:
     assert "closed only by Run A" in text
     for citation in ("cyanrip_main.c:818", ":872", ":965", "checksums.h:62-90"):
         assert citation in text, f"the derivation lost its citation {citation}"
+
+
+# --- Acceptance tiers: what each section costs, and what it rests on ---------
+
+_TIER_START = "<!-- ACCEPTANCE-TIER-TABLE:"
+_TIER_END = "<!-- END-ACCEPTANCE-TIER-TABLE -->"
+
+
+def _declared_tiers() -> dict[str, tuple[int, str, str]]:
+    """The per-section tier table from `docs/testing.md` as ``{section: (tier, label, needs)}``."""
+    doc = (DOCS / "testing.md").read_text(encoding="utf-8")
+    assert _TIER_START in doc and _TIER_END in doc, (
+        "the acceptance-tier table markers are gone from docs/testing.md — either "
+        "it was deleted or renamed, and this sweep now checks nothing"
+    )
+    block = doc.split(_TIER_START, 1)[1].split(_TIER_END, 1)[0]
+    out: dict[str, tuple[int, str, str]] = {}
+    for line in block.splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) >= 4 and re.fullmatch(r"\d", cells[1]):
+            out[cells[0]] = (int(cells[1]), cells[2], cells[3])
+    # THE FLOOR IS HERE, IN THE READER, so it protects every test that calls it.
+    # Three of the four sweeps below iterate this dict, and each of them passes
+    # cheerfully over an empty one — a reformatted table, a changed column order,
+    # or a row shape the regex stops matching would silently turn four checks into
+    # four no-ops. `Can this check be satisfied by finding nothing?` answered once,
+    # where the nothing would come from.
+    assert len(out) >= 15, (
+        f"only {len(out)} tier row(s) parsed out of docs/testing.md — the table "
+        "shape changed and these sweeps are now checking almost nothing"
+    )
+    return out
+
+
+def test_every_acceptance_section_has_a_declared_TIER() -> None:
+    """Same shape as the severity sweep, and for the same reason.
+
+    Round 19 lap 1 §5.4 assigns this classification to us — *"you can measure
+    where your checks naturally sit and we can only infer it"* — which makes an
+    unclassified section our gap rather than an open question. The population is
+    derived from the script so a **new** section has to be placed rather than
+    defaulting to nothing.
+    """
+    declared = _declared_tiers()
+    sections = _script_sections()
+    assert len(sections) >= 15, (
+        f"only {len(sections)} sections parsed out of fullacceptance.txt — if the "
+        "`log --- X.` shape changed, this sweep is checking almost nothing"
+    )
+    missing = [s for s in sections if s not in declared]
+    assert not missing, (
+        f"acceptance sections with no declared tier: {missing}. Place each in "
+        "docs/testing.md → 'Acceptance tiers'."
+    )
+
+
+def test_every_tier_is_in_the_range_the_ENGINE_accepts() -> None:
+    """The doc and the parser must agree about what a tier is.
+
+    A table naming `tier 5` would read as settled procedure and be refused by
+    `parse_tier` the first time anyone wrote it into a script — a disagreement
+    between the map and the mechanism, discovered at the rig.
+    """
+    from platterpus.uiscript.tiers import MAX_TIER, MIN_TIER
+
+    for section, (tier, _label, _needs) in _declared_tiers().items():
+        assert MIN_TIER <= tier <= MAX_TIER, f"{section} declares tier {tier}"
+
+
+def test_every_declared_NEEDS_names_a_label_that_exists() -> None:
+    """A dependency on a label nothing defines prunes nothing, silently.
+
+    This is the `needs`-side version of *can this be satisfied by finding
+    nothing?* — `PruneLedger.pruned_by` matches labels, so a typo'd prerequisite
+    is not an error, it is a step that can never be pruned. The table is the one
+    place that mistake is visible before a rig run.
+    """
+    declared = _declared_tiers()
+    labels = {label for _tier, label, _needs in declared.values()}
+    assert len(labels) == len(declared), (
+        "two sections share a label, so `needs` cannot tell them apart: "
+        f"{sorted(labels)}"
+    )
+    for section, (_tier, _label, needs) in declared.items():
+        if needs in {"", "—", "-"}:
+            continue
+        assert needs in labels, (
+            f"{section} needs {needs!r}, which no row defines — a prerequisite "
+            "nothing declares is a step that can never be pruned"
+        )
+
+
+def test_a_section_never_depends_on_something_at_a_HIGHER_tier() -> None:
+    """Tiers are a cost order: cheap work must not rest on expensive work.
+
+    A tier-1 section needing a tier-3 label would make the cheap tier unrunnable
+    without the three-hour one, which is the whole thing tiering exists to avoid.
+    Equal tiers are allowed — J rests on I and both are tier 2, which is exactly
+    why the prunable unit is the label rather than the tier.
+    """
+    declared = _declared_tiers()
+    by_label = {label: tier for tier, label, _needs in declared.values()}
+    for section, (tier, _label, needs) in declared.items():
+        if needs in {"", "—", "-"}:
+            continue
+        assert by_label[needs] <= tier, (
+            f"{section} is tier {tier} but needs {needs!r}, which is tier "
+            f"{by_label[needs]} — a cheap section cannot rest on an expensive one"
+        )

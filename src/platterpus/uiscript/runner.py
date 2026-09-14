@@ -42,9 +42,16 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 
 from platterpus import __version__, build_info
-from platterpus.uiscript.report import Outcome, RunReport, StepRecord, render
+from platterpus.uiscript.report import (
+    CONCEPT,
+    VERDICTS,
+    Outcome,
+    RunReport,
+    StepRecord,
+    render,
+)
 from platterpus.uiscript.script import Step, sanitise_cyanrip_args
-from platterpus.uiscript.tiers import PruneLedger, parse_tier
+from platterpus.uiscript.tiers import PruneLedger, is_sweep, parse_tier
 from platterpus.uiscript.verbs import OPENABLE, VERBS
 
 if TYPE_CHECKING:  # pragma: no cover — types only
@@ -52,6 +59,15 @@ if TYPE_CHECKING:  # pragma: no cover — types only
     # inside the handlers, keeping the ui-script layer free of a hard
     # dependency on the parsers while still giving mypy a real type.
     from platterpus.parsers.rip_log import RipLog
+
+#: Verbs that declare the run's SHAPE rather than testing anything. They are
+#: exempt from pruning — pruning them would erase the record of what the pruned
+#: block even was — and exempt from tier 4's INFO coercion, because a block header
+#: is not a step "contained in" the block it opens. One constant rather than two
+#: inline sets: the two rules must agree about what structural means, and two
+#: literals that must agree are two literals that eventually do not.
+_STRUCTURAL_VERBS: frozenset[str] = frozenset({"tier", "needs"})
+
 
 log = logging.getLogger(__name__)
 
@@ -677,12 +693,36 @@ class ScriptRunner(QObject):
         elapsed: float = 0.0,
         artifact: str = "",
     ) -> None:
+        structural = step.verb in _STRUCTURAL_VERBS
+        # TIER 4 ASSERTS NOTHING, AND THE ENGINE GUARANTEES THAT — not the script
+        # author. Round 19 lap 1 §5.1: *"`tier 4 sweep` runs, records, and asserts
+        # NOTHING. Every step it contains reports `INFO`, whatever happens. It has
+        # no `PASS` and no `FAIL`."* A sweep exists to characterise behaviour the
+        # run is not yet entitled to have an opinion about, so its verdicts are
+        # converted to observations here, at the one chokepoint every outcome
+        # passes through. Doing it per-verb would be N places to forget.
+        #
+        # THE ORIGINAL OUTCOME IS KEPT IN THE DETAIL, never dropped: a sweep row
+        # that merely says "info" has thrown away the most interesting thing it
+        # learned, and this project's rule is that a deliberate drop is counted
+        # and marked rather than silent. The row reads `[ info ] ... would have
+        # been assertion-failed: <detail>`, which is the sentence the next round
+        # actually wants.
+        # ONLY VERDICTS ARE CONVERTED. A sweep step that was pruned, declined or
+        # unreachable never ran, and reporting *that* as `INFO` would claim data
+        # was gathered from a step that produced none — the skipped-reads-like-
+        # passed defect, arriving through the fix for it. A sweep may not assert;
+        # it must still be able to say it did not run, and why.
+        if is_sweep(self._tier) and not structural and outcome in VERDICTS:
+            detail = f"would have been {CONCEPT[outcome]}: {detail}".rstrip(": ")
+            outcome = Outcome.INFO
         record = StepRecord(
             step.line_no, step.source, outcome, detail, elapsed, artifact
         )
         # Which tier block produced this, carried on the record so a reader of the
         # JSON can group without re-parsing the script. Empty on a run that declares
         # no tiers, which is every script today — the field arrives before its users.
+        record.structural = structural
         record.tier = self._tier
         record.tier_label = self._tier_label
         # A FAIL or ERROR makes this block a broken prerequisite for anything that
@@ -690,6 +730,11 @@ class ScriptRunner(QObject):
         # SKIPPED one was a decision — propagating from either turns one real
         # failure into a cascade whose reported cause is two removes from the
         # defect. Same rule, and the same reason, as `abort-if-failed`.
+        #
+        # A sweep block can never reach this: its outcomes are INFO by the time
+        # they get here. That is the rule rather than an accident — §5.2, *"it
+        # cannot prune anything, because it cannot FAIL"* — so nothing downstream
+        # is ever blocked by a tier whose job is to look rather than to judge.
         if outcome in (Outcome.FAIL, Outcome.ERROR):
             self._prune.record_failure(self._tier_label)
         self._report.steps.append(record)
@@ -742,7 +787,7 @@ class ScriptRunner(QObject):
         # `tier` and `needs` are exempt: they declare structure rather than test
         # anything, so pruning them would erase the record of what the pruned block
         # even was.
-        if step.verb not in {"tier", "needs"}:
+        if step.verb not in _STRUCTURAL_VERBS:
             blocker = self._prune.pruned_by(self._needs)
             if blocker is not None:
                 self._record(
@@ -791,6 +836,16 @@ class ScriptRunner(QObject):
             return
         self._tier = tier
         self._tier_label = label
+        # A NEW BLOCK INHERITS NOTHING. Without this, a block that declares no
+        # `needs` silently carries the previous one's, and the case that breaks is
+        # the one round 19 lap 1 §5.2 calls the only edge worth arguing about:
+        # **tier 4 needs tier 0 and nothing else.** A sweep following a tier-2
+        # block would inherit `needs short-rip`, so a tier-2 failure would prune
+        # *the sweep whose whole purpose is to characterise that failure* — the
+        # feature deleted, not by a wrong graph, but by our own leftover state.
+        # The general form is this repo's own question: what else writes to the
+        # field I am reading?
+        self._needs = ()
         self._record(step, Outcome.PASS, f"tier {tier}: {label}")
 
     def _do_needs(self, step: Step) -> None:
