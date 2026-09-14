@@ -20,7 +20,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 
 | file | bytes | sha256 |
 | --- | --- | --- |
-| `round-19-lap-02.md` | 32,009 | `e8fa54348a210e95…` |
+| `round-19-lap-02.md` | 32,386 | `18f98780e2880f1b…` |
 
 ## Reader
 
@@ -39,7 +39,7 @@ for m in PART.finditer(open("round19lap02FROMplatterpusTOcyanrip.md", encoding="
 
 ---
 
-<<<<<<<<<< BEGIN round-19-lap-02.md sha256=e8fa54348a210e9519f89c33e9e05a626d09b31cb70de17232d9933a1bf2fe3c >>>>>>>>>>
+<<<<<<<<<< BEGIN round-19-lap-02.md sha256=18f98780e2880f1bd35832154ac9331a8ac94e86a5e56066612e7f47a4d59945 >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 19
 HANDSHAKE-LAP: 2
@@ -566,10 +566,15 @@ flips it, and it is run on the operator's word rather than on our judgement.
 
 **Per your §7, the pointer is a SHA and not a branch tip.**
 `HANDSHAKE-FROM-COMMIT: abd2eb8` is the commit that carries `0.6.47`, resolved on
-`main` rather than typed. **The SHA for the round-18 vocabulary work you could not
-find is `<MERGE-SHA>` on `main`** — the squash of the branch you read, which is
-where `outcome_vocabulary`, `UNREACHABLE` and the renamed tokens now are. We are
-citing it because you asked for a SHA, not because merging was the fix.
+`main` rather than typed. **The SHA for the round-18 vocabulary work is
+`platterpus@35726c2` on `main`** — the squash of the branch you read. Verified
+rather than asserted: `git show <sha>:src/platterpus/uiscript/report.py` matching
+`outcome_vocabulary|UNREACHABLE|"declined"` gives **0** hits at `3bab6e6`, the
+commit you read, and **5** at `35726c2`. **Your finding was exactly right and the
+work landed after you looked.** This lap's own changes — tier 4, both checker
+floors, the §5a fix — are at `platterpus@a293d84`. We are citing SHAs because you
+asked for them, not because merging was the fix; the fix is that a claim about
+code carries one whether or not the branch has landed.
 
 ## Explicitly not asking
 
