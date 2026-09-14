@@ -18,11 +18,11 @@ All dependencies, with last upstream release date and replacement plan. Reviewed
 | python-appimage | `>=1.4,<2` (current: 1.4.5) | 2025-07-02 | GPL-3.0 (package itself); MIT for files under `python_appimage/data` | Active | `appimage-builder` only if `python-appimage` cannot express a required build step (CLAUDE.md Critical Rule #2). The recipe must avoid `appimage-builder`-specific features so swapping back is cheap. |
 | build | `>=1,<2` (pinned in `release.yml`/`appimage.yml`/`build_appimage.sh`, 2026-07-21) | (per PyPI at first install) | MIT | Active | — (PEP 517 build frontend; used by `build/build_appimage.sh`) |
 | pytest | `>=8,<10` | (per PyPI at first install) | MIT | Active | — |
-| ruff | `>=0.15,<1` | (per PyPI at first install) | MIT | Active | — (linter + formatter; CI runs `ruff check` + `ruff format --check`. Rules `E,F,W,I,B,UP`, `E501` off. Config in `pyproject.toml`.) |
+| ruff | **`>=0.15.22,<0.16`** — pinned to the minor, deliberately | (per PyPI at first install) | MIT | Active | **A tool that gates CI must not float** (CLAUDE.md Critical rule #11): `ruff format` changes what it accepts between minors, so a routine upstream release turns CI red with no change to our code and reads as a code problem. Bumping is a deliberate commit that re-runs the gate. CI derives this spec from `pyproject.toml` rather than restating it (`ci.yml` "Install ruff (pin read from pyproject…)"), and `.github/dependabot.yml` ignores version-updates for it — a pin has to bind against whatever is allowed to change it. *This row read `>=0.15,<1` until 2026-09-13, recording exactly the floating range the rule forbids.* |
 | pytest-cov | `>=5` | (per PyPI at first install) | MIT | Active | — (dev/test only; CI runs branch coverage with `--cov-fail-under=91` (ratchets up). See [docs/testing.md](docs/testing.md).) |
 | hypothesis | `>=6` | (per PyPI at first install) | MPL-2.0 | Active | — (dev/test only; property-based tests in `tests/test_parsers_property.py`. MPL-2.0 is fine — test-time tool, not linked/distributed.) |
-| mutmut | not installed (unpinned by design) | — | BSD-3-Clause | Active | — (dev/test only; mutation-testing **audit**, not a CI gate — see [docs/testing.md](docs/testing.md) §7. Runs weekly in CI via `.github/workflows/mutation.yml` (non-gating) and on demand via `pipx run mutmut`.) |
-| mypy | `>=1.13,<3` | (per PyPI at first install) | MIT | Active | — (dev/test only; static type-checking. CI `typecheck` job runs `mypy` on every push/PR. **Strict def-typing (`disallow_untyped_defs`/`disallow_incomplete_defs`) enforced across the entire package since 2026-07-19/20** — the Qt UI mixin layer, the last hold-out, was brought in via the `MainWindowShared` typing seam (`docs/architecture.md` §3.6); no per-module exclusions remain. Approved as a new dev dep 2026-07-08.) |
+| ~~mutmut~~ | **not used since 2026-09-05** | — | BSD-3-Clause | **Retired** | Replaced by **`scripts/mutation_sweep.py`, ours**, which `.github/workflows/mutation.yml` runs weekly (non-gating). The reason is Critical rule #11 applied to a *signal* rather than a gate: swapping one external mutator for another keeps the failure mode that lost seven consecutive green-but-empty runs. The sweep has no dependency beyond pytest and carries a floor on mutants actually **checked**, so a sweep that measured nothing cannot read as a clean one. *This row still described mutmut as the weekly runner until 2026-09-13.* |
+| mypy | **`>=2.3,<2.4`** — pinned to the minor, deliberately | (per PyPI at first install) | MIT | Active | — (dev/test only; static type-checking. CI `typecheck` job runs `mypy` on every push/PR. **Strict def-typing (`disallow_untyped_defs`/`disallow_incomplete_defs`) enforced across the entire package since 2026-07-19/20** — the Qt UI mixin layer, the last hold-out, was brought in via the `MainWindowShared` typing seam (`docs/architecture.md` §3.6). **Correction 2026-09-13: "no per-module exclusions remain" was true of *def-typing* and false as written** — `[[tool.mypy.overrides]]` carries six live modules with `disallow_any_generics = false` (`rip_report`, `rip_compare`, `adapters.musicbrainz_client`, `ui.main_window_shared`, `ui.main_window`, `workers.rip_worker`). Critical rule #10 calls that "a shrinking per-module opt-out list"; retire one per commit, never add one. Pin rationale as for ruff. Approved as a new dev dep 2026-07-08.) |
 
 ## System dependencies (user-system, surfaced via the dependency subsystem or the setup wizard)
 
@@ -32,7 +32,7 @@ All dependencies, with last upstream release date and replacement plan. Reviewed
 
 | Name | Where it comes from | Version constraint | Status | Replacement plan |
 |---|---|---|---|---|
-| cyanrip (**the** ripping backend, KDD-18) | Distrobox container `ripping`, host-exported to `~/.local/bin/cyanrip`. **Package source: COPR `barsnick/non-fed`** (GPG-checked; cyanrip 0.9.3.1 built for Fedora 42–44 + rawhide) — verified 2026-06-09 that neither Fedora nor RPM Fusion packages cyanrip. The wizard writes the standard COPR `.repo` stanza itself (version-generic `$releasever/$basearch`), so no `dnf copr` plugin is needed. | `>=0.9.0` | Active (v0.9.3.1, 2024-06-05; LGPL-2.1 — fine: subprocess, no linking) | If the COPR disappears: meson source build inside the container — all build deps are in Fedora proper (`ffmpeg-free-devel`, `libcdio-paranoia-devel`, `libmusicbrainz5-devel`, `libcurl-devel`). See [docs/archive/ecosystem-audit-2026-06.md](docs/archive/ecosystem-audit-2026-06.md). |
+| cyanrip (**the** ripping backend, KDD-18) | Distrobox container `ripping`, host-exported to `~/.local/bin/cyanrip`. **The shipped backend is the PINNED FORK, built from source by the wizard and by `--install-ripper` (KDD-33/34): `fe4d2c4`, `cyanrip 0.9.4-rc2+platterpus.12`, approved by handshake round 18.** A rip made with any other build is stamped `unapproved` in its report, log and EAC export. **Fallback package source only: COPR `barsnick/non-fed`** (GPG-checked; cyanrip 0.9.3.1 built for Fedora 42–44 + rawhide) — verified 2026-06-09 that neither Fedora nor RPM Fusion packages cyanrip. The wizard writes the standard COPR `.repo` stanza itself (version-generic `$releasever/$basearch`), so no `dnf copr` plugin is needed. | `>=0.9.0` for a stock build; the approved build is a **pin, not a range** (`deps/fork_source.FORK_PIN`) | Active — fork at `fe4d2c4`; the COPR carries stock 0.9.3.1 (2024-06-05). LGPL-2.1 — fine: subprocess, no linking. *This row named the COPR as the package source until 2026-09-13, three KDDs after the fork became the shipped backend.* | If the COPR disappears: meson source build inside the container — all build deps are in Fedora proper (`ffmpeg-free-devel`, `libcdio-paranoia-devel`, `libmusicbrainz5-devel`, `libcurl-devel`). See [docs/archive/ecosystem-audit-2026-06.md](docs/archive/ecosystem-audit-2026-06.md). |
 | ~~whipper~~ (**removed 2026-06-30**) | ~~Distrobox container, host-exported to `~/.local/bin/whipper`~~ | — | **Removed.** Stalled since v0.10.0 (2021), `pkg_resources` cliff, and the >587 read-offset bug that failed tracks on the BDR-209D. cyanrip replaced it with no functional loss (KDD-18 amendment). | — |
 | metaflac | Distrobox container `ripping` (same export route) | (whatever ships with the container's `flac` package) | Active (FLAC project) | — |
 | flac (decoder) | Host, **optional** — used by CTDB verify to decode FLAC→PCM if present; the feature degrades with a clear message if absent (decision 2026-06-03). No required dependency added. | any | Active (FLAC project) | — |
@@ -95,6 +95,29 @@ A retirement review is recorded inline below as a dated bullet so future-you can
 
 ## Retirement review log
 
+- **2026-09-13 — Catch-up review covering v0.6.21 – v0.6.47, and the cadence failed
+  worse than the entry that diagnosed why.** The "before every tagged release" rule
+  had lapsed across **27 tagged releases** — 3.4× the eight-release lapse the
+  2026-07-28 entry was written about, and that entry had already named the cause:
+  *it is prose, not a gate.* Nothing changed after it said so, which is the finding.
+  **Five rows were falsified by the code they describe**, found by an audit reading
+  this file against `pyproject.toml` rather than against memory: `ruff` recorded as
+  `>=0.15,<1` and `mypy` as `>=1.13,<3` (both are minor-pinned, and recording the
+  floating range here contradicted Critical rule #11 in the file the rule is about);
+  *"no per-module exclusions remain"* for mypy, true of def-typing and false as
+  written — six modules carry `disallow_any_generics = false`; `mutmut` described as
+  the weekly mutation runner eight days after it was replaced by
+  `scripts/mutation_sweep.py`; and **cyanrip's package source given as the COPR**,
+  three KDDs after the pinned fork became the shipped backend — the most consequential
+  of the five, because a reader following it installs a build that stamps every rip
+  `unapproved`. All five corrected in this commit. **No retirements triggered.**
+  `python-musicbrainzngs` stays frozen at 0.7.1 and unmaintained, adapter unchanged.
+  **The structural lesson, since restating the rule is what did not work:** a stamp
+  records when a doc was *edited*, so a document nobody edits keeps a perfect stamp
+  while its prose expires — this file was gate-clean at v0.6.20 with five wrong facts
+  in it. The gate that would catch this reads the *claims* against the code, not the
+  footer against the tag.
+
 - **2026-08-18 — PySide6 minor-pinned after a shipped accessibility regression.** Not a
   retirement: a *bound* correction, logged here because the review log is where "why is this
   pin what it is" has to be answerable. `>=6.7,<7` was a claim that every Qt 6.x behaves the
@@ -122,4 +145,4 @@ A retirement review is recorded inline below as a dated bullet so future-you can
 
 ---
 
-*Last updated for Platterpus v0.6.20.*
+*Last updated for Platterpus v0.6.47.*

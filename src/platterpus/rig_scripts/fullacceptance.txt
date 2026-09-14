@@ -937,7 +937,9 @@ snapshot afterc1
 # WHAT THESE TWO RUNS ARE FOR, STATED HONESTLY. They exercise the `-H -E` and
 # `-H -W` code paths on real hardware and record the exact argv, the exit code
 # and the complete output of each. That is worth having and it is all it is.
-# **Clause 2 is UNPROBED by this section and is closed only by Run A**, the
+# **Clause 2 RAN here and this section's result cannot settle it either way — it
+# is UNPROBED in the "ran and got no answer" sense, not the "we chose not to"
+# sense — and it is closed only by Run A**, the
 # fork's own `tools/rig-round16.sh`, which rips both arms with `-o pcm` and
 # compares the decoded samples. Their grader does the same
 # (`tools/round16-accept.py`, clause 2). Do not read these two arms as evidence

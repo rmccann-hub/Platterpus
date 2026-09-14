@@ -6,11 +6,11 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.6.47 — out of beta.** Handshake rounds 1 through **17** are all closed with `GO` from both projects. **Round 17 was the release round and it closed in three laps**, approving two releases as a pair — cyanrip `0.9.4-rc2+platterpus.12` at `fe4d2c4` and Platterpus `0.6.46` — to be published together and tested together. The fork has published theirs to both channels, so **for the first time since round 14 the approved build, the reviewed build and the build you can actually install are one object**, and this release rolls the production pin onto it. **That roll is the substance of 0.6.47, not bookkeeping**: between their publish and this build, the in-app update offer (which reads *their* release manifest) would have installed `fe4d2c4` while every rip report, cyanrip log and EAC-compatible export made with it said `unapproved` — two surfaces answering one question by different keys. Round 16 closed the same way on `a9aedf0` and the pin could *not* roll, because the fork never published that commit; `release_seq_for_commit` still returns *not determined* for it, which is the honest answer rather than a gap. **Before it: round 16's Run A**, which settled all three of its close conditions on hardware with `0 FAIL, 0 UNPROBED` — including **`-H` with de-emphasis on a drive for the first time in twelve rig sessions** — while our own `verify_log_surface.py` accounted for every one of 1,055 log lines across its five logs. **What 0.6.46 carried**, and this release carries with it: two fixes to the one archival step that grades a cancelled rip's record, a clause-2 verdict rule that was arithmetically impossible to satisfy and so could only ever have accused the fork, one deletable `~/platterpus-rig` instead of a folder per run in `$HOME`, and a pin-field guard the fork's own gate caught us needing.
+> **Status: v0.6.47 — out of beta.** Handshake rounds **1 through 18** are all closed with `GO` from both projects. The approved pair is cyanrip `0.9.4-rc2+platterpus.12` at **`fe4d2c4`** and Platterpus **`0.6.47`** — the fork has published theirs to both channels, so the approved build, the reviewed build and the build you can actually install are one object. **Round 17** closed in three laps and approved the pair against 0.6.46; **round 18** closed in three laps on the same pin, re-approving it against 0.6.47 and settling a tiered acceptance procedure. Two three-lap rounds in a row, after a round 7 that took 37. **The pin roll is the substance of 0.6.47, not bookkeeping**: between the fork's publish and this build, the in-app update offer (which reads *their* release manifest) would have installed `fe4d2c4` while every rip report, cyanrip log and EAC-compatible export made with it said `unapproved` — two surfaces answering one question by different keys.
 >
 > **One hardware-gated item remains, and it is a drive limitation rather than a gap in the app.** **Overread is `-O`, it has run on the Pioneer BDR-209D, and it hung the drive ~23 minutes** — do not reach for that toggle on this drive (`docs/dependency-contracts.md`). The fork's `-x` **cache probe** is no longer outstanding, and not because anyone fixed it: `-x` is a *modifier*, not a mode — it proceeds into a full rip by design, which the fork [declined to change](docs/handshake/inbound/round-14-lap-03.md) — and `-x -I` is the probe-only invocation that writes no audio. Platterpus always passes both, and that pairing ran clean on 2026-08-26 (`-N -x -I`, exit 0), as did the C1 detector (`-N -l 1`, exit 1, *Offset is unset*, no hang). The next minor is **0.7.100**, gated on a full hardware pass — and the bar was sharpened by the maintainer on 2026-08-26: **zero failures in the archival sections** — accuracy, provenance, and the records that make a rip trustworthy — with UX failures recorded, triaged and non-blocking. Severity is declared per section *before* the disc goes in, never decided after seeing a failure: 17 sections are archival, 3 are UX.
 >
-> **Latest hardware.** The 2026-08-26 full acceptance run on the Pioneer BDR-209D took 218 steps: **211 passed**, and all seven failures were *one* duplicate-MusicBrainz-picker defect in the app, since fixed. The secure re-read case passed outright. Two later attempts on 2026-08-27 both stopped at section E without ripping — the first on a wrong ripper, the second because a rescan of the *same* disc landed between the release picker opening and being answered, so the answer was discarded and no tracks ever loaded. **v0.6.31 fixed that second one, and the honest statement is unchanged: sections F–Q have still not executed on any 0.6.x build.** The fix is pinned by three tests, one of which caught the first attempt at it re-opening the wrong-album bug. **v0.6.33 audited the audit, and nearly half the findings were wrong.** Six lenses over the new in-app acceptance session produced 60 findings, and every one went to a separate agent whose only job was to **refute** it: **23 refuted, 6 overstated, 11 confirmed**. Applying them unexamined would have degraded correct code while looking like diligence. The two that mattered most were established by *measurement* rather than reading — a test proved vacuous by deleting the guard it claimed to cover and watching it pass, and a symlink defeating the audio allowlist, reproduced. Two of the eight fixes would have cost the evidence a hardware run exists to produce: app-log rotations could spend the whole 64 MiB archive (`applog/` can present **88 MiB**) and were collected *first*, so a long run could hand back a bundle with no rip log, no cue sheet and no checksums; and `wait-for-rip 21600` met a **three-hour** cap against a secure re-read this project's own rig sheet puts at 2–2.5 hours, past which the batch keeps issuing drive commands on top of a live rip. Both are fixed with **both sides derived**, so neither can drift back silently. **v0.6.32 is a testing-infrastructure release, and it starts with an embarrassment: mutation testing had never run.** Seven weekly jobs since 2026-07-13 all reported `success`; every one finished in under 90 seconds for a job whose suite takes minutes to run once. `mutmut` was installed unpinned, mutmut 3.0 removed the flag the job was built around, and `|| true` made `exit 2` and a completed audit produce the same green tick. That prompted a wider question — *which of this project's rules would actually catch a recurrence?* — and the answer, across **187 audited items**, is **54 gated, 69 partial, 61 ungated**, with **52 existing gates satisfiable by finding nothing**: more than the number that genuinely work. Two real bugs fell out of asking: a **dead button** in the update dialog (the “Open the download page” action discarded the only signal that nothing on the system claims the URL) and a **cubic hang** parsing the ripper's version banner — 3,000 separators took 45 seconds, on every rip. Both are fixed and swept. The method and the numbers are [`docs/testing.md` §5C](docs/testing.md); the 130 remaining gaps are rows in [`TASKS.md`](TASKS.md), not prose. 
+> **Latest hardware — the first full green.** On **2026-09-12** the full acceptance run on the Pioneer BDR-209D under Bazzite passed **238 of 238 steps across all 21 sections, with zero failures** — the first `full-green` row this project's field-evidence ledger has ever carried, on app `0.6.47` against ripper `fe4d2c4`. **Sections F–Q have now executed**, which this page denied for the whole v0.6 line: the 2026-09-09 run on 0.6.45 reached the last step at 237/238, and 2026-09-12 completed clean. Before those, the 2026-08-26 run took 218 steps with 211 passing, all seven failures being *one* duplicate-MusicBrainz-picker defect since fixed. **Read the green run for what it is and not more.** It is **one machine and one distro**. The next minor, `0.7.100`, is gated on a full hardware pass, which this is; `0.9.1` needs **two** full-green passes across **at least two machines and two distros** (maintainer ruling, 2026-09-13) — one rig passing twice answers *was it luck* and says nothing about *is it green only because of this machine*. A gate refuses a version bump the ledger does not support. The run also predates the round-18 tiered procedure, which has never been executed.
 >
 > **What is in it.** Implemented end-to-end with 4,600+ tests (including a full-pipeline end-to-end test) at 91.6% branch coverage (91% enforced in CI, and the floor ratchets up, never down), and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (actively maintained, no >587 read-offset bug — whipper was retired, see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast Verified / Archival Exact / Portable), an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line**, **true in-app updates**, **cover art** from the Cover Art Archive, **auto-filing finished rips into your library folder**, an **EAC-compatible companion log** with a per-track **EAC CRC32 column**, and **software-version provenance** recorded in the log header and the window title. Release-by-release detail lives in [`CHANGELOG.md`](CHANGELOG.md) — the single authoritative record — rather than accumulating on this page. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
 
@@ -259,7 +259,37 @@ You're now inside the container. The prompt should change to show you're in the 
 
 ### Step 3 — Install cyanrip and flac
 
-> **Easiest path:** run [`setup-host.sh`](setup-host.sh) (or the one-line installer above) — it adds cyanrip's COPR repo and installs everything for you. The manual steps below are only if you're doing it by hand.
+> ### ⚠ READ THIS BEFORE YOU RUN EITHER PATH ON THIS PAGE
+>
+> **Neither the script nor the manual steps below install the ripper Platterpus
+> is verified against.** Both add the `barsnick/non-fed` COPR, which ships
+> **stock cyanrip 0.9.3.1**. Platterpus pins a *fork* — currently `fe4d2c4`,
+> `cyanrip 0.9.4-rc2+platterpus.12`, approved by handshake round 18 — and a rip
+> made with any other build is stamped **`unapproved`** in its rip report, its
+> cyanrip log and its EAC-compatible export. That is not a warning about
+> quality: the audio is still bit-perfect and still AccurateRip-verified. It is
+> a provenance fact, and provenance is most of why this project exists.
+>
+> **The route to the pinned fork is in the app**, and it needs no terminal: the
+> first-run wizard offers it, and `--install-ripper` does it on demand —
+> see *[Command-line usage (advanced)](#command-line-usage-advanced)* and the
+> `--install-ripper` entry there.
+> It builds the pinned commit; nothing packaged can, because the fork publishes
+> no COPR.
+>
+> **So use the steps below only to get a working container and `flac`**, or as a
+> fallback if the in-app build fails. Then run `--install-ripper` to replace the
+> stock binary. Two consequences you would otherwise meet as bugs: stock 0.9.3
+> **exits non-zero on `--version`** (the flag table below explains why), so the
+> verification command in the next section fails on it; and the banner it prints
+> carries no `platterpus-fork` parenthetical, which is the thing that section
+> tells you to look for.
+>
+> *This page described the COPR path as the way to install the ripper for the
+> whole v0.6 line, while the verification step one screen later demanded a banner
+> that path cannot produce. Found 2026-09-13 by an audit reading the two together.*
+
+> **Easiest path for the container and `flac`:** run [`setup-host.sh`](setup-host.sh) (or the one-line installer above). The manual steps below are only if you're doing it by hand.
 
 Inside the container (your prompt should still show you're in `ripping`):
 
@@ -279,10 +309,17 @@ cyanrip --version
 metaflac --version
 ```
 
-`cyanrip --version` should report something like
+`cyanrip --version` should report
 `cyanrip 0.9.4-rc2+platterpus.12 (platterpus-fork-gfe4d2c4)`. The parenthetical is
 the part that matters: it names the **fork**, which is the build Platterpus is
-verified against.
+verified against — and it is what `approved` versus `unapproved` in every rip
+report is keyed on.
+
+**If you got here straight from the COPR step above, this command will fail**, and
+that is expected rather than a broken install: stock 0.9.3 exits non-zero on
+`--version`, and even when it prints a banner there is no `platterpus-fork`
+parenthetical in it. Run `--install-ripper` first (see the warning in Step 3), then
+come back to this check.
 
 **On the version flag, because the obvious advice is wrong in both directions.**
 There is no single spelling that works on every cyanrip, and this README used to
@@ -329,9 +366,12 @@ which cyanrip
 # → /home/<you>/.local/bin/cyanrip
 
 cyanrip --version
-# → cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-gd9c058c)
+# → cyanrip 0.9.4-rc2+platterpus.12 (platterpus-fork-gfe4d2c4)
 #   (`--version`, not `-V` — see the flag table above. A stock build prints
 #    its own version with no `platterpus-fork` parenthetical.)
+#   This must match the banner named earlier on this page. It said
+#   `+platterpus.10 (…gd9c058c)` until 2026-09-13 — four pins back — so the
+#   same page told you to expect two different builds from one command.)
 ```
 
 If `which` returns nothing, your `~/.local/bin` isn't on `$PATH`. Most desktop Linux setups put it there automatically; if yours doesn't, add this to `~/.bashrc` or `~/.zshrc`:

@@ -175,7 +175,21 @@ _TABLE_ROUND_FLOOR: int = 6
 #: the reason recorded below and conceded by them in their round-9 lap 3 §3: the
 #: record is what was *exchanged*, and a document we helped ourselves to is not one
 #: they published to us. It closes when they file one, which the release will bring.
-_MAX_TABLE_LAG: int = 1
+#: **1 -> 2 on 2026-09-13, when round 18 opened.** Round 17 shipped no provider
+#: contract (a pure version bump whose `contract-delta.py` reported "No section
+#: changed"); round 18 ships none because it is a SPECIFICATION round proposing a
+#: testing procedure, whose own `HANDSHAKE-BREAKING` reads *"None, and none is
+#: possible from this round… No log line, argv, exit code, schema or output file
+#: changes, and the pin does not move."*
+#:
+#: So round 16's table IS the current binary's table: the pin has not moved since
+#: `fe4d2c4` was published and neither intervening round touched the argv surface.
+#: The lag is two rounds of FILING, not two of drift.
+#:
+#: **Second consecutive raise, which is the thing to watch.** A lag that only grows
+#: stops being a ratchet. It closes the moment a round ships a contract; if a third
+#: passes without one, ask for the table rather than raise this again.
+_MAX_TABLE_LAG: int = 2
 #: **Back to 0 on 2026-08-15**, the same day it went to 1. cyanrip's round-9 lap 3
 #: sent `PROVIDER-CONTRACT.md` for `b56f936` in its envelope; it is committed at
 #: `docs/handshake/inbound/artifacts/round-09-lap-03-provider-contract-g42fe4f2.md`

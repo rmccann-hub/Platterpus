@@ -292,6 +292,109 @@ So, for every pre-commit we write:
 
 ---
 
+### 7.5b Which side's gate can close a round — the property, derived rather than accepted
+
+Round 17 closed on the fork's gate while ours held it `OPEN`, with **both sides
+declaring `GO`**. Their §5 asked us to report a disagreement rather than work
+around it, and the cause was ours: `close_blockers()` found nothing wrong with
+their closing lap and one thing wrong with **our lap 2** — `peer verdict is
+'OPEN', not GO`, which was the only honest value it could carry, because they had
+not declared when it was written.
+
+**The fork generalised this as *"a round can only close on the gate of whichever
+side sent the last lap, and both implementations have that property"*, and filed
+it in their `SETTLED.md`. The second clause is wrong about ours, and it is
+checkable.** Derived over our whole record:
+
+| round | last lap sent by | our newest own-side lap | their first `GO` | our gate |
+|---|---|---|---|---|
+| 9 | THEIRS (11) | 10 | lap 7 | CLOSED |
+| 10 | THEIRS (5) | 4 | lap 3 | CLOSED |
+| 13 | THEIRS (8) | 7 | lap 3 | CLOSED |
+| 14 | THEIRS (19) | 18 | lap 16 | CLOSED |
+| 16 | THEIRS (17) | 16 | lap 15 | CLOSED |
+| 17 | THEIRS (3) | **2** | **lap 3** | **OPEN** |
+
+Five rounds where they sent the last lap closed on our gate without trouble. Their
+formulation predicts all five would have hung, so it is not describing the
+mechanism.
+
+**The actual property: our gate closes only if we hold an own-side lap numbered
+AFTER the peer's first `GO`.** It is a fact about *turn order*, not about who
+spoke last — we need a turn in which to transcribe their verdict. Every closed
+round has one; round 17 is the first short enough that we did not, because their
+first `GO` *was* the closing lap. Round 16 hid it by running to seventeen laps,
+so their `GO` at lap 15 was transcribed by our lap 16 before their lap 17.
+
+The remedy was a `verified/` file — our acceptance, numbered after their `GO` —
+which is exactly what round 13 did in the same position. **Not a loosening:** the
+gate fails closed deliberately, and four releases once went out while a
+presence-only check reported every filed round `CLOSED`.
+
+**Their half is genuine and we confirmed it where we could reach it.** Their
+`stale_peer_verdict` exists at `tools/release-gate.py:350`, cross-checking a
+declared peer verdict against the newest lap in their `inbound/` — a guard they
+have because their gate made the mirror mistake in round 9 and closed a round we
+were holding open. Ours has no equivalent, and that is a real asymmetry in their
+favour rather than a design win for us.
+
+**Why this is written down rather than let go.** A characterisation of *our* code,
+in *their* settled-facts file, is a claim we can derive and therefore must — the
+same duty that has us re-deriving their numbers. A wrong shared model is worse
+than no shared model: under theirs, either side would mispredict every one of the
+five rounds above.
+
+### 7.5c A lap is not live because it is committed
+
+**Operator directive, 2026-09-14:** *"a lap should not be seen as ready to read and
+use until I am told to do so and let the other repo know. And it should confirm
+that in the file as well."* Binds **both** repositories.
+
+**It corrects a rule that was one day old.** When transport moved to git on
+2026-09-13 this project wrote *"publishing IS sending."* That collapses two acts
+which had been separate since round 1 — and the reason nobody noticed is the
+interesting part: **under hand transport the operator *was* the transport.** A lap
+they had not weighed simply never moved, so the separation was enforced
+structurally and never had to be written down. Replace the structure and the rule
+it was silently enforcing goes with it.
+
+> Ask of any mechanism being replaced: **what was the old one doing that nobody
+> wrote down?**
+
+**The mechanism.** `HANDSHAKE-READY-TO-READ`, declared in the file:
+
+| state | meaning |
+|---|---|
+| `no — not announced; do not read or act on this lap yet` | the default at `--emit`. A lap is born held. |
+| `yes — released by the operator on <date>` | `handshake.py --announce <lap>` wrote it, **on the operator's word**. |
+| *absent* | **not determined** — resolved against the round, never defaulted to yes. |
+
+Four properties, each paid for by a failure already in this file's record:
+
+* **Tri-state and fail-closed.** Absent is not consent (protocol §2 rule 4). The
+  mirror of *an unrecognised build tag is never reported as unapproved*.
+* **Grandfathered at round 19.** Every lap up to 18 was hand-carried, so delivery
+  *was* the announcement. Without the boundary a correctness fix would have marked
+  every historical lap held and reopened eighteen closed rounds —
+  `tests/test_handshake_tooling.py` asserts against the real record that it did not.
+* **Both directions.** We can now read their tree before their operator has
+  released anything. A file we *can* fetch is not one we may act on, and closing a
+  round on their draft would make their draft our decision. `--announce` refuses an
+  inbound lap for the same reason.
+* **Held is not silence.** `--status` names the lap it is holding rather than
+  printing a bare `we-verified=NO`, because *"said nothing"* and *"said something we
+  have not stood behind"* are different states and a gate that renders them
+  identically sends the reader looking for a missing file.
+
+**No protocol version bump**, and that is the shared spec's own provision: §3,
+*"unknown fields are ignored by both parsers, so either side may add one without
+breaking the other."* So it is emitted and enforced here and **proposed** to the
+fork as normative — the same route `HANDSHAKE-TO` and `HANDSHAKE-FROM-REPO` took in
+round 16. Until they adopt it we treat an absent field on a round ≥ 19 lap of
+theirs as *not released*, which fails closed and could hold a round they consider
+sent; the standing status names that cost to them explicitly rather than letting
+them meet it as a surprise.
+
 ## 7.6 Standing status — one home, and it is not this file
 
 **Not a round, and not a call for one.** Rounds are the *formal* channel and they
@@ -402,23 +505,52 @@ transferable part.
 | 12 | **r16 lap 9 §2** | Fork asserted our acceptance run's single failure — `expect-log-well-formed` reporting the cancelled rip's record destroyed — is a **false negative**, and named the limit of what they could show: *"That shape would explain this one and **we have not shown it.**"* | **THEM** on the claim they made, and the restraint is the point | The mechanism, from `session/zz-applog-rotations/03platterpus/log.txt.1` **in the bundle they already held**: verification at `22:02:08.902`, the ripper's `Ripping finished at 2026-09-09T22:02:15-04:00` — 6.1 s later. Our lap 10 §C1 | **A challenge that stops at the evidence is worth more than one that completes the story.** They could have asserted the race and been right; they marked it unproven and were right *and* checkable. And the correction that came back is the transferable half: it is **two** defects, not one — the verb failed at `22:02:38.943`, 23.7 s *after* the log was complete, because it graded our snapshot rather than the file. A fix aimed only at their (correct) hypothesis would have shipped with the second one intact |
 | 13 | **r16 lap 9 §1** | Fork concluded *"no `-H`, no `-E`, no `-W`, no `-x` appears in any of the eight rips — grepped from every `Invoked as:` line, not assumed"*, and therefore that close-condition clause 2 had still never run on a drive | **US** | All four ran. The clause-2 rips go through our script's raw `cyanrip` verb, which writes to its own `-D` and produces **no album folder**, so they are in `session/transcript.txt` (L1144 `-H -E`, 221.2 s, exit 0, `Preemphasis: none detected (deemphasis forced)`; L1365 `-H -W`, 220.7 s) and in none of the eight `.log` files | ***Is the population I measured closed?*** — our own rule, and this is the first time it has landed on them. The grep was correct over the set it ran on and the set was not the run. **The remedy is ours though**: a bundle that files its most load-bearing invocations outside the place a reader looks for invocations is our defect, not their oversight |
 | 14 | **r16 lap 13 §2** | Fork accepted our §C2 **finding** (`disabled` is the zero-value fallthrough, so `a0830e0`'s clause-1 split IS reachable) and declined the **remedy** we attached to it — *'pin the checker where `a0830e0` is present'* | **THEM** | `a0830e0`'s own `disabled` string, opened in their tree: *'`AccurateRip: disabled` -- the query never ran, because -A was passed to the ONE rip that must not have it'* — **the exact claim our §C2 disproves.** Pinning there would have replaced a vague wrong cause with a specific wrong one. Their replacement reads `Invoked as:` and grades three ways (`round16-accept.py:191-216` at `5bbb5ae`) | **A finding and its remedy are separable, and being right about the first buys nothing for the second.** We proposed the remedy in the same breath as the finding and it inherited the finding's confidence. Their third branch — *no `Invoked as:` line at all* — is the one we would not have thought to ask for, which is the argument for naming the *property* we need and letting the owner of the code choose the fix |
+| 15 | **r18 lap 2 §B2** | We asserted their proposed tier vocabulary was not merely incomplete but **actively unsafe to adopt**: two of its tokens, `SKIPPED` and `BLOCKED`, already exist in our tree meaning the opposite things — ours a consequence where theirs is a decision, and vice versa | **US** | `inbound/round-18-lap-03.md:56` — *"Confirmed exactly as you stated it… Two tokens, same spelling, opposite halves of the one distinction the state rule turns on"*; they restructured the spec to **seven concepts with the token as a separate column** (`:71`) | **A shared vocabulary needs a concept column and a token column, because agreeing on a word is not agreeing on a meaning.** Both sides would have passed their own conformance tests and written opposite facts into the same field. The transferable half is the *shape* of the fix: name the concept, then let each side declare its spelling, so a rename is an implementation detail instead of a contract change |
+| 16 | **r18 lap 3 §4a** | Fork asserted our §E's *"the shared table now has 36 rows"* was wrong — §8 has **37**, because `C13a` carries a letter suffix our `C\d+` row pattern cannot match | **THEM**, one day after the ratchet was written | Verified against our own byte-identical copy at `docs/handshake-protocol.md:717`; our pattern counted 36 where the widened `C\d+[a-z]?` counts 37. Fixed in `tests/test_handshake_conformance.py`, with `C13a` now pinned by id | **Invisible beats uncovered, and that is the severity — not the arithmetic.** A row the *denominator* cannot include can never be reported missing, so the ratchet would have printed complete coverage while that row had none: `CLAUDE.md`'s *can this check be satisfied by finding nothing?* applied to a **set** rather than a count. **Their own counter has the identical hole** (`\bC[0-9]+\b`, their §5) and they found it in themselves while checking us — the same defect in both projects, independently, on the one row in the table that is not a bare number |
 
-**Standing count as of round 16 lap 14: fork right 8, us right 6, of 14
-resolved.** Read it with three qualifications, all of which cut against treating
-it as a verdict:
+**Standing count as of round 18 lap 3: fork right 10, us right 6, of 16
+resolved.** Tallied from the table above by `tests/test_challenge_ledger_count.py`,
+which is the only reason this line is now right.
+
+**It was wrong, and it had been wrong before today.** The line read *"fork 8, us 6,
+of 14"*, and when two rows were added on 2026-09-13 the new figure was computed by
+**adding to the old one** instead of re-deriving it. The table's own rows 1–14
+tally fork 9 / us 5; the headline said 8 / 6. So a number the maintainer explicitly
+asked to be *"counted, not felt"* was felt — in the table that exists to honour
+that instruction, two lines above a sub-count that was correct because it *was*
+derived.
+
+`CLAUDE.md` names it exactly: ***am I answering from the artifact, or from my
+memory of the artifact?*** The artifact was sixteen rows directly above the
+sentence. The fix is not a corrected number — a corrected number decays the next
+time a row is added — it is that the count is now derived and a test fails if the
+prose disagrees with the rows.
+
+Read the count with three qualifications, all of which cut against treating it as
+a verdict:
 
 * **The sample is not closed and it is not the sample the mandate is about.** The
-  challenge mandate was issued **2026-08-26**; rows 1–9 predate it. **Rows 10–14
-  are the five made under it: fork right 4, us right 1.** *Is the population I
-  measured closed?* — nine of these fourteen are the *before* picture and n=5 is
-  not a result, so the answer to the maintainer's question is **still not
-  measurable**, and saying so is the honest reading. Four-of-five is worth
-  noting and worth not believing — and row 13 is the one where the mechanism the
-  mandate exists to surface ran in **our** favour, which is a reason to keep
-  counting rather than a reason to stop. **And do not read the trend as a licence
-  to defer to them**: row 14 is a row we could have avoided by asking *"is my
-  remedy as well established as my finding?"*, which costs nothing and needs no
-  peer.
+  challenge mandate was issued **2026-08-26**; rows 1–9 predate it. **Rows 10–16
+  are the seven made under it: fork right 5, us right 2** — this sub-count was
+  correct before the correction above, because it was derived from the rows rather
+  than carried forward. *Is the population I measured closed?* — nine of these
+  sixteen are the *before* picture and n=7 is not a result, so the answer to the
+  maintainer's question is **still not measurable**, and saying so is the honest
+  reading. Five-of-seven is worth noting and worth not believing — and rows 13 and
+  15 are the ones where the
+  mechanism the mandate exists to surface ran in **our** favour, which is a reason
+  to keep counting rather than a reason to stop. **And do not read the trend as a
+  licence to defer to them**: row 14 is a row we could have avoided by asking
+  *"is my remedy as well established as my finding?"*, which costs nothing and
+  needs no peer.
+* **Round 18 added one row in each direction on the same day, which is the
+  cleanest illustration of why this is not a scoreboard.** Row 15 is us catching a
+  defect in a spec they authored; row 16 is them catching a defect in a ratchet we
+  authored. Neither finding is reachable by the side that wrote the thing — and row
+  16's mechanism landed on *both* trees, because their counter has the same blind
+  spot ours did. **A second validator is worth having precisely because it is
+  second** (`CLAUDE.md` rule #12), and rows 15 and 16 are that sentence with
+  numbers attached.
 * **Neither side's errors are of one kind.** Ours cluster in *verification*
   (rows 4, 5 — checking a description, or checking under conditions that force
   the result); theirs cluster in *attribution* (rows 6, 8 — a mechanism stated

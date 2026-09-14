@@ -1259,7 +1259,18 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # manifest, and the growth is mostly the paragraph recording that it is
     # read from `build_fingerprint()`, the same source the banner uses, so
     # the two cannot disagree.
-    "evidence_bundle.py": 923,
+    # **923 -> 967 on 2026-09-13** (+44), for the middle-elision fix and the
+    # reasoning behind it. The growth is almost entirely the docstring of
+    # `_member_component`, and it belongs there rather than in a doc because the
+    # function is four lines of string slicing whose *cut direction* is the whole
+    # point: `cleaned[:64]` looks obviously correct and silently removed the build
+    # tag from every album folder over 64 characters, then manufactured a
+    # collision between two rips that differed only in a trailing suffix.
+    #
+    # A reader who trims the comment will re-introduce the tail-cut, because the
+    # tail-cut is the version that looks tidier. That is what this ratchet's own
+    # note means by growth that genuinely belongs.
+    "evidence_bundle.py": 967,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
     # 2026-09-03 diagnostics header named the approved build for a session that
@@ -1277,7 +1288,21 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # carrying it is 0.6.47 (the round approved that pair; 0.6.47 is our own
     # between-rounds change, which this constant's docstring already says is ours to
     # make). A bare 15 -> 17 would read as an off-by-one.
-    "handshake_approval.py": 547,
+    # **547 -> 563 on 2026-09-13** (+16), when round 18 closed: `APPROVED_BY_ROUND`
+    # 17 -> 18 and `APPROVED_FOR_PLATTERPUS_VERSION` 0.6.46 -> 0.6.47. Raised
+    # deliberately, and the growth is the same kind as every entry above it: this
+    # file is where a round close is *justified*, not merely recorded, and round 18
+    # is the first close that moved these constants **without moving the pin** — a
+    # reader meeting `18` beside a pin round 17 approved needs the reason on the
+    # spot. It also retires the awkwardness the 526 -> 547 note had to explain:
+    # 0.6.46 and 0.6.47 are no longer different answers.
+    #
+    # **If this keeps growing, the fix is a data table, not a smaller comment.** The
+    # module is ~40% provenance chain by now; splitting the history into a
+    # structure (round, pin, app version, why) would make it iterable and testable.
+    # Not done today because a refactor of the approval constants during a round
+    # close is the wrong time to move them.
+    "handshake_approval.py": 563,
     "help_content.py": 561,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
