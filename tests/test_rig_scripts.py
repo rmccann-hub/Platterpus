@@ -2573,3 +2573,60 @@ def test_a_section_never_depends_on_something_at_a_HIGHER_tier() -> None:
             f"{section} is tier {tier} but needs {needs!r}, which is tier "
             f"{by_label[needs]} — a cheap section cannot rest on an expensive one"
         )
+
+
+def test_every_WHOLE_DISC_rip_pins_the_format_it_writes_in() -> None:
+    """A whole-disc rip is an archival master, and it must not take its format on trust.
+
+    **The gap this closes was real and had no live symptom.** Section N — the T1
+    uniform secure re-read, the accuracy claim itself — inherited its output format
+    from `set rip_goal archival` and asserted nothing about it. Section L checked
+    that preset's effect on `secure_rerip_dynamic` and `rerip_offset_variant` and
+    skipped `output_format`, while checking exactly that for the other two presets.
+    Section M's comment asserted the protection in prose — *"the rip in section N
+    runs on the restored default"* — which is a comment where a check belongs.  And
+    section K4 looked like the guard and was not: L reassigns the format twice
+    within twenty lines of it.
+
+    Nothing was broken, because `GOAL_ARCHIVAL.output_format` is `"flac"`. Change
+    that one field and the archival accuracy test silently rips to another format
+    with every section still green.
+
+    **Scoped to whole-disc rips, and the narrowing is deliberate rather than
+    silent.** The population is derived — a section containing `rip` over
+    `select-tracks all` — not listed. The two-track rips in H, I and J are archival
+    for other reasons (the collision guard, the cancel's log integrity, drive
+    state) and their format is not what they establish; requiring it there would
+    need an allowlist of excuses, and a list of excuses enforces nothing.
+    """
+    text = (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8")
+    sections: dict[str, list[str]] = {}
+    current: str | None = None
+    for line in text.splitlines():
+        match = re.match(r"^log --- ([A-Z][0-9]*)\.\s", line)
+        if match:
+            current = match.group(1)
+            sections[current] = []
+        elif current is not None:
+            sections[current].append(line.strip())
+
+    whole_disc = [
+        key
+        for key, body in sections.items()
+        if any(ln == "select-tracks all" for ln in body)
+        and any(re.match(r"^rip\b", ln) for ln in body)
+    ]
+    assert len(whole_disc) >= 2, (
+        f"only {whole_disc} parsed as whole-disc rips — if the `select-tracks all` or "
+        "`rip` spelling changed, this sweep is checking almost nothing"
+    )
+    missing = [
+        key
+        for key in whole_disc
+        if not any(ln.startswith("expect output_format ") for ln in sections[key])
+    ]
+    assert not missing, (
+        f"whole-disc rip section(s) {missing} never assert the format they write in. "
+        "An archival master that takes its format from an unasserted preset field is "
+        "one config change from being silently written in the wrong one."
+    )

@@ -224,6 +224,32 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   fault.
 
 ### Fixed
+- **The whole-disc secure re-read never asserted the format it writes in.**
+  Section N of the acceptance script is the T1 uniform secure re-read — the
+  accuracy claim itself — and it inherited its output format from `rip_goal
+  archival` with nothing checking it. Section L, whose whole job is proving a
+  preset applies all of itself, checked that preset's effect on
+  `secure_rerip_dynamic` and `rerip_offset_variant` and **skipped
+  `output_format`**, while checking exactly that for the other two presets.
+  Section M's comment asserted the protection in prose — *"the rip in section N
+  runs on the restored default"* — and section K4 looked like the guard but is
+  not, since L reassigns the format twice within twenty lines of it. **No live
+  defect**: `GOAL_ARCHIVAL` carries `output_format="flac"`, so N has always
+  ripped FLAC. Change that one field and the archival accuracy test rips
+  silently to another format with every section of the run still green.
+  `expect output_format flac` now sits in N where the rip happens, in L's
+  `archival` row, and in F; swept by a test scoped to whole-disc rips (derived
+  from `rip` over `select-tracks all`, with the narrowing stated rather than
+  silently applied) and revert-proved by removing N's line.
+- **Acceptance section K4 was graded on its title.** Titled *"back to FLAC, the
+  archival master"* and classified `ARCHIVAL` — the grade that can block a
+  version — while containing only a settings round-trip that section B does
+  verbatim at the top of the file and section Q does verbatim at the bottom.
+  Regraded `UX` and retitled *"restore the output format K1-K3 changed"*, which
+  is what it does. FLAC output stays covered by F and N, both whole-disc rips; a
+  fourth two-track rip here would have spent six minutes of drive time
+  re-proving them. The table is now 17 ARCHIVAL / 4 UX. **A grade is a claim
+  about what a check can catch, not about what the row is named.**
 - **The same defect in the other direction, in the same file — found by running
   the fix.** `check_outbound` required a *return-file spec*, a *Requirements*
   section and a *shared rigour bar*: the document we sent when **we** opened

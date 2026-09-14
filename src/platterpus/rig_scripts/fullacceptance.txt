@@ -432,6 +432,11 @@ set ctdb_verify_after_rip on
 set verify_flac_after_rip on
 set write_eac_log_after_rip on
 expect write_eac_log_after_rip on
+# The format this rip writes in, asserted where the rip happens. Section B pins
+# it 150 lines up and nothing between changes it, so this is the low-risk twin
+# of the same assertion in N — where the chain was genuinely broken. Cheap, and
+# it means a whole-disc rip never takes its format on trust.
+expect output_format flac
 select-tracks all
 album full acceptance: angle<bracket (run) (ripper)
 album-artist Platterpus Acceptance
@@ -647,7 +652,24 @@ screenshot afterwav
 expect-rip-complete
 rig-check
 
-log --- K4. back to FLAC, the archival master ---
+# --- K4. RESTORE THE FORMAT K1-K3 CHANGED ----------------------------------
+# **A restore step, and graded UX accordingly** (regraded 2026-09-14). It was
+# titled "back to FLAC, the archival master" and graded ARCHIVAL, which read as
+# a check on the archival format and is not one: it sets a setting and reads it
+# back, which section B already does verbatim at the top of this file and
+# section Q does verbatim at the bottom.
+#
+# **And its effect does not survive to protect anything** — section L reassigns
+# `output_format` twice within twenty lines (`portable` -> mp3, then
+# `fast_verified` -> flac), so nothing downstream rests on this restore. The
+# protection it appeared to provide is now asserted where it is actually needed,
+# in L and in N.
+#
+# FLAC output is not unverified by the regrade: section F rips the whole disc in
+# FLAC with `verify_flac_after_rip on`, and section N rips it again under the
+# archival preset. Two whole-disc rips are the evidence; a fourth two-track rip
+# here would spend six minutes of drive time re-proving them.
+log --- K4. restore the output format K1-K3 changed ---
 set output_format flac
 expect output_format flac
 
@@ -666,6 +688,9 @@ set rip_goal archival
 expect rip_goal archival
 expect secure_rerip_dynamic off
 expect rerip_offset_variant on
+# One of three preset rows was missing its format assertion, and it was the row
+# section N depends on — `portable` and `fast_verified` below both had theirs.
+expect output_format flac
 set rip_goal portable
 expect rip_goal portable
 expect output_format mp3
@@ -727,6 +752,16 @@ log --- N. T1: uniform secure re-read, WHOLE DISC, so the counters actually move
 set rip_goal archival
 expect secure_rerip_dynamic off
 expect rerip_offset_variant on
+# THE FORMAT THIS RIP WRITES IN, ASSERTED HERE RATHER THAN ASSUMED UPSTREAM.
+# This is the accuracy claim itself, and until 2026-09-14 nothing in this file
+# pinned the format it lands in: the section inherits it from `rip_goal
+# archival`, section L checked that preset's effect on two OTHER settings and
+# skipped this one, and section M's comment asserted the protection in prose
+# ("the rip in section N runs on the restored default"). Section K4 looked like
+# the guard and is not — L reassigns the format twice after it. So the archival
+# accuracy test's output format rested on a preset field with no assertion
+# anywhere in the chain. Check the precondition where the thing HAPPENS.
+expect output_format flac
 set secure_rerip_matches 2
 expect secure_rerip_matches 2
 rescan
