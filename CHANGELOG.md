@@ -11,6 +11,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+
+- **A rip's verification results are no longer lost when the next rip starts
+  moments later.** The report is written on a 750 ms debounce, and starting a
+  rip clears the previous one's results — so a check that *finished* in that
+  last three-quarters of a second had its result computed correctly and then
+  discarded, leaving a report that said the check ran with nothing to show for
+  it. Measured on the 2026-09-15 acceptance run: the MP3 rip's CTDB, FLAC-
+  integrity, derived-format and checksum results all landed **655 ms** before
+  the next rip began. The outgoing rip's report is now written out
+  unconditionally before its state is cleared.
+- **The acceptance run no longer performs its whole-disc rip twice.** Section F
+  (the fast whole-disc rip) took whatever rip goal the configuration happened to
+  hold, while section N sets the archival goal explicitly — so a run that
+  started with the archival preset already selected ran the same test in both
+  sections, took over three extra hours, and exercised the default
+  configuration's whole-disc path not at all. Section F now pins its own goal.
+
 ## [0.6.49] — 2026-09-15
 
 ### Fixed

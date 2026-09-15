@@ -11,7 +11,44 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
-## 2026-09-15 (latest) — the acceptance run passed 241/241 and produced no MP3
+## 2026-09-15 (later) — the fix held, and the re-run found what it could not have
+
+**244 of 244 on v0.6.49, the derived files present, and still `partial`.** Full
+case study: `docs/testing.md` §5.bj.
+
+**What held.** `expect-derived-output` ran on hardware for the first time and
+found 2 `.mp3`, 2 `.wv`, 2 `.wav` beside their masters — the manifest and three
+`Transcode:` log lines agree independently. The steps took 7.1 s, 4.6 s, 3.6 s:
+**non-zero is the part that matters**, because it shows the verb waited for the
+asynchronous transcode rather than finding files already there. A new check's
+first real execution is also its own test, and elapsed time was the cheapest
+discriminator available between "it worked" and "it looked at the wrong moment".
+
+**Finding 1 — the backstop caught its own author.** Three rips reported
+`verification_result_missing`, and they were right. The MP3 rip's entire chain
+*succeeded* and the next rip started **655 ms** later, against a **750 ms**
+debounce on the report write. Correct values, computed on time, discarded. The
+seal could not save them because it returned early when nothing had been
+superseded — backwards: a check still in flight is one the generation guard drops
+anyway, while a check that has just finished is the one holding an armed timer.
+Graduated to `CLAUDE.md`: *of any early return, ask which case it skips and
+whether that case is the expensive one* — and the reason it was found at all is
+that the backstop needs no cooperation from the code that broke.
+
+**Finding 2 — sections F and N ran the same test for 6h21m.** F is the fast
+whole-disc rip, N the uniform secure re-read; the run's accuracy argument is that
+they differ. N pins its goal, F inherited one, and this run's config was already
+`archival`. Both came back whole-disc, uniform, 14/14, 13-converged-1-not, 3h10m
+each. No coverage of the default `fast_verified` path, every section green,
+nothing asked. **Third instance of one shape** — N's format, K1/K2's assertion,
+F's goal — graduated as *a section's distinguishing property is asserted at the
+section, never inherited*, with the non-triviality clause the sweep needs
+(pinning both to the *same* goal passes "every whole-disc section pins its goal"
+and is the defect wearing the fix's clothes).
+
+Ledger: six rows, six `partial`, zero `full-green`.
+
+## 2026-09-15 — the acceptance run passed 241/241 and produced no MP3
 
 **The hardware run came back green and it was not a pass.** `platterpus 0.6.48` +
 `platterpus-fork-gfe4d2c4`, the round-19 approved pin: 241 pass, 0 fail, 0 error,

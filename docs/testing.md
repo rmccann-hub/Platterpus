@@ -2672,6 +2672,63 @@ important claim and ask what artifact would have to go missing for that step to 
 red — and if the answer is "nothing", the step is a decoration with a severity
 grade on it.
 
+### §5.bj — The fix worked, and the re-run found the two things it could not have
+
+*2026-09-15, the same day. 244 of 244, the derived files present, and still not a
+pass — for two reasons neither run before it could have surfaced.*
+
+**What the re-run settled.** `expect-derived-output` executed on hardware for the
+first time and reported 2 `.mp3`, 2 `.wv` and 2 `.wav` beside their masters. The
+evidence-bundle manifest agrees independently, and the app log carries three
+`Transcode: 2 file(s) written.` lines where the previous run had one. The steps
+took **7.1 s, 4.6 s and 3.6 s** — non-zero, which is the part that matters: the
+verb waited for an asynchronous transcode rather than finding files already
+there, so it passed for the reason it was written for rather than by accident.
+**A new check's first real execution is also that check's own test**, and elapsed
+time was the cheapest available discriminator between "it worked" and "it looked
+at the wrong moment".
+
+**Finding 1: the backstop caught its own author.** `verification_result_missing`
+was added in the same change as the seal it reports on, precisely because a check
+that needs no cooperation from the code that broke is worth more than one that
+does. It fired on three rips, and it was right. The MP3 rip's entire post-rip
+chain **succeeded** — transcode 12:15:26.160, digests .225, MP3 verify .801, CTDB
+.949, FLAC verify 12:15:27.074 — and the next rip started at **12:15:27.729**.
+The report write is debounced by **750 ms**; the last result landed **655 ms**
+before the Start that wipes `self._last_*`. Every value was computed correctly,
+on time, and discarded.
+
+And the seal could not save it, because of how the seal was written: it returned
+early when nothing had been superseded. **That is exactly backwards.** A check
+still in flight is one the generation guard will drop anyway; a check that has
+just *finished* is the one holding an armed timer and nothing on disk. The guard
+keyed on the wrong half of its own subject. *Of any early return, ask which case
+it is skipping and whether that case is the expensive one.*
+
+**Finding 2: two sections ran the same test for six hours.** Section F is the
+fast whole-disc rip; section N is the uniform secure re-read of the same disc,
+and the run's accuracy argument is that they differ. N sets `rip_goal archival`
+explicitly. F set nothing and inherited whatever the config held — which on this
+run was already `archival`. Both rips came back whole-disc, uniform secure
+re-read, 14/14, the same 13-converged-1-not, **3h10m each**. The run spent
+**6h21m proving one thing twice**, produced no coverage at all of the default
+`fast_verified` whole-disc path, and reported every section green, because
+nothing asked.
+
+**This is the third instance of one shape, and the first two are in §5.bi one
+screen up.** Section N inherited `output_format` from a preset. K1 and K2
+inherited their only real assertion from a witness that could not see it. F
+inherited its goal from the configuration. In each case the section's
+*distinguishing property* was the thing not asserted, and in each case the run
+stayed green while the property quietly went missing.
+
+*The generalisation:* **a section's distinguishing property is asserted AT the
+section, never inherited.** A run cannot tell you two tests differ if nothing
+pinned the difference — and the sweep that enforces it needs the non-triviality
+clause too, because pinning both whole-disc rips to the *same* goal satisfies
+"every whole-disc section pins its goal" and is the original defect wearing the
+fix's clothes.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is
@@ -2874,6 +2931,7 @@ cannot fail for any archival reason. Queued in `TASKS.md`; the tier table says
 | 2026-08-19 | 0.6.18 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-12 | 0.6.47 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-15 | 0.6.48 | maintainer | bdr209d | bazzite | partial |
+| 2026-09-15 | 0.6.49 | maintainer | bdr209d | bazzite | partial |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
@@ -2910,7 +2968,19 @@ deliberate. `test_no_stale_version_claims.py` counts the column; a cell reading
 field saying one thing while the truth sits somewhere the gate cannot read — the
 exact defect §5.bi is about, reproduced in the file that records it.
 
-Five rows, five `partial`, zero `full-green`. **No full-green pass has been
+**The 2026-09-15 0.6.49 row is the re-run, and it is `partial` for a reason that
+is not the previous one.** 244 of 244 passed and the derived-output fix held:
+`expect-derived-output` ran on hardware for the first time and found 2 `.mp3`,
+2 `.wv` and 2 `.wav` beside their masters, each after a real wait (7.1 s, 4.6 s,
+3.6 s) rather than instantly, so the sections that could not fail now can and
+did not. What the run also showed is that **sections F and N ran the identical
+test** — both whole-disc under uniform secure re-read, 14/14 each, 3h10m each —
+because F inherited its rip goal from the configuration while N sets its own. So
+the run did not exercise the fast whole-disc path at all, and a pass over a
+suite that silently ran one of its two accuracy tests twice is not the full pass
+this bar means. Fixed by pinning F's goal; the row stays `partial`.
+
+Six rows, six `partial`, zero `full-green`. **No full-green pass has been
 achieved**, so 0.9.1 is not reachable and the count toward it is zero. Recording
 the partials anyway matters — a ledger that held only successes would make the
 denominator invisible. The first row that earns `full-green` will be one where K1
