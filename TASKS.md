@@ -1000,11 +1000,24 @@ items it names, filed so none is lost between rounds.
       existing `.json` allowlist. Their `PROVIDER-CONTRACT.md` P4 says a run refused
       during argument validation **opens no logfile at all**, and the `-j` record is
       the only artifact for that class — the 2026-08-02 `-t 17=` shape.
-- [ ] **Split `uiscript/runner.py` (3429 lines).** The oversize ratchet was raised
+- [ ] **Split `uiscript/runner.py` (3898 lines).** The oversize ratchet was raised
       rather than split for the same reason — refactoring the script engine on the
       night of the run it drives is the risk this project keeps paying for. The
       raised numbers are the debt marker, not a settlement. Mixins, per the
       `MainWindow` precedent in `docs/architecture.md`.
+- [ ] **Split the post-rip chain out of `ui/main_window_rip.py` (4458 lines).**
+      **Raised for the third time in a month** (2026-08-18, 2026-09-08,
+      2026-09-15), which is the signal the ratchet exists to produce rather than a
+      number to keep nudging. The seam is obvious and the 2026-09-15 defect is the
+      argument for it: tagging → cover art → re-compress → transcode → the three
+      verify daemons is a *pipeline with its own lifetime*, and it lives inside the
+      window, which is why its results have nowhere to go once "the current rip"
+      moves on. A `PostRipChain` owning `(rip_dir, rip_log, settings snapshot,
+      report handle)` would make the superseded case a state of that object instead
+      of a hole in the window's, and would close the TASKS row above it about
+      routing a late result back into the album it belongs to. Deliberately NOT
+      done in 0.6.49: a hardware re-run is waiting on the fix, and a structural move
+      shipped under a release is how a correct fix arrives broken.
 - [ ] **The receiving half of the omission gate still does not exist.** Nothing
       checks that every artifact a lap names was actually filed; we do it by hand,
       and so does the fork (their lap 12 §4). Answering their v5 5b.3 question with

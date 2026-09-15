@@ -1127,6 +1127,21 @@ def pin_under_review_label() -> str:
     return "the approved production pin"
 
 
+def pin_under_review_reason() -> str:
+    """WHY the pin has the standing it has, without restating the standing.
+
+    A companion to :func:`pin_under_review_label`, for the caller that has
+    already printed the label and would otherwise repeat it. Section A's message
+    is that caller: with the label derived it read *"the approved production pin
+    (fe4d2c4 is the APPROVED production pin (no handshake round is open, so there
+    is no build under review))"* — self-consistent at last, and saying the same
+    thing three times inside two nested parentheses.
+    """
+    if a_round_is_reviewing_a_build():
+        return "a handshake round is reviewing it"
+    return "no handshake round is open"
+
+
 def _pin_under_review_role_clause() -> str:
     """The clause alone, for a caller that has already named the pin."""
     if a_round_is_reviewing_a_build():

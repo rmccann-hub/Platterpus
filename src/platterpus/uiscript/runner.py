@@ -2143,6 +2143,38 @@ class ScriptRunner(QObject):
             )
         return fresh
 
+    def _rip_album_dir(self, step: Step) -> Path | None:
+        """The folder this section's rip wrote into, or ``None`` having FAILed.
+
+        **Delegates to :meth:`_rip_log_from_disk` rather than restating its
+        guards**, which is the whole reason that method exists: *"those two guards
+        were duplicated across the three verbs; they live here now, so a fourth
+        verb cannot be written without them."* This is the fourth verb, and the
+        first version of it walked straight to ``_last_rip_log_file.parent`` and
+        skipped both.
+
+        `tests/test_uiscript_log_from_disk.py` caught that, and it was not a
+        substring collision: without the freshness guard, a `rip` that was
+        REFUSED — no disc, Start disabled, a rip already running — leaves that
+        attribute pointing at a **previous section's** album, and a verb whose
+        whole job is counting files in a folder would then count the wrong
+        folder and could pass on it. Exactly the defect `_rip_log_from_disk`'s
+        docstring describes, arriving through the one verb that wants the
+        directory rather than the document.
+        """
+        if self._rip_log_from_disk(step) is None:
+            return None  # it recorded the FAIL and said why
+        log_file = getattr(self._window, "_last_rip_log_file", None)
+        if log_file is None:  # pragma: no cover — the reader above requires it
+            self._record(
+                step,
+                Outcome.FAIL,
+                "the window holds a parsed rip log but not the path it came "
+                "from, so the album folder cannot be located.",
+            )
+            return None
+        return Path(log_file).parent
+
     def _do_expect_derived_output(self, step: Step) -> None:
         """Assert the derived files the chosen output format calls for EXIST.
 
@@ -2208,18 +2240,9 @@ class ScriptRunner(QObject):
             return
         seconds = min(seconds, MAX_WAIT_S)
 
-        log_file = getattr(self._window, "_last_rip_log_file", None)
-        if log_file is None:
-            self._record(
-                step,
-                Outcome.FAIL,
-                "no rip has recorded a log path in this session, so there is no "
-                "album folder to look in — this step reports the state it found "
-                "rather than passing over an empty room. Put it after a `rip` "
-                "and its `wait-for-rip`.",
-            )
-            return
-        folder = Path(log_file).parent
+        folder = self._rip_album_dir(step)
+        if folder is None:
+            return  # the shared reader recorded the FAIL and named the reason
         try:
             masters = [
                 p
@@ -3125,7 +3148,11 @@ class ScriptRunner(QObject):
                     step,
                     Outcome.PASS,
                     f"installed build is {tag} — {role}"
-                    + (f" ({_pin_role_phrase()})" if tag == reviewed else ""),
+                    + (
+                        f" ({fork_source.pin_under_review_reason()})"
+                        if tag == reviewed
+                        else ""
+                    ),
                 )
                 return
         # **NAME THE COMMAND, AND DO NOT CLAIM A ROUND IS OPEN WHEN NONE IS.**

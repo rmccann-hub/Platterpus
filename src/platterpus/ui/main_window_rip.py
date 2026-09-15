@@ -2567,9 +2567,9 @@ class RipMixin(MainWindowShared):
         # has to remember to update. A check with no gate (checksums, the library
         # move) simply does not register.
         if gate is not None:
-            self._post_rip_pending = set(
-                getattr(self, "_post_rip_pending", set())
-            ) | {gate}
+            self._post_rip_pending = set(getattr(self, "_post_rip_pending", set())) | {
+                gate
+            }
 
         def still_current() -> bool:
             """False once a newer rip has started. Read from the worker thread;
@@ -3861,9 +3861,9 @@ class RipMixin(MainWindowShared):
             }
             if not dropped:
                 return
-            self._post_rip_superseded = set(
-                getattr(self, "_post_rip_superseded", set())
-            ) | dropped
+            self._post_rip_superseded = (
+                set(getattr(self, "_post_rip_superseded", set())) | dropped
+            )
             log.info(
                 "post-rip checks superseded by a new rip and recorded as such: %s",
                 ", ".join(sorted(dropped)),

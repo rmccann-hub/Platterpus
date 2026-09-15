@@ -2432,8 +2432,14 @@ def test_expect_ripper_under_review_accepts_the_AGREED_TEST_PIN() -> None:
         assert recorded, "the verb recorded nothing at all"
         return recorded[-1]
 
+    # The reviewed pin's label is DERIVED — it is "the build under review" while a
+    # round is open and "the approved production pin" when none is. This used to
+    # read `(reviewed, "the build under review")`, pinning the hardcoded literal
+    # that section A printed on 2026-09-15 immediately before the derived clause
+    # denying there was any build under review. The requirement in the comment
+    # below is that the message says WHICH build ran, and that is what is checked.
     for tag, why in (
-        (reviewed, "the build under review"),
+        (reviewed, fork_source.pin_under_review_label()),
         (test_pin, "the agreed test pin"),
     ):
         outcome, detail = _run(f"cyanrip 0.9.4-rc2 ({tag})")
@@ -2746,7 +2752,9 @@ def test_the_pin_role_label_and_the_clause_beside_it_never_disagree() -> None:
 
     for open_round, expected in ((True, "under review"), (False, "production pin")):
         original = fork_source.a_round_is_reviewing_a_build
-        fork_source.a_round_is_reviewing_a_build = lambda: open_round  # type: ignore[assignment]
+        fork_source.a_round_is_reviewing_a_build = (  # type: ignore[assignment]
+            lambda state=open_round: state
+        )
         try:
             label = fork_source.pin_under_review_label()
             clause = fork_source.pin_under_review_role()
