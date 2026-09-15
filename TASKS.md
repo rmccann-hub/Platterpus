@@ -63,13 +63,17 @@ Still open out of this run:
       album's report means writing to a path whose `_last_*` state has moved on.
       Honest today (the gate says superseded) and incomplete. The shape of a fix
       is a report handle bound to the album rather than to "the current rip".
-- [ ] **Decide whether the 2026-09-12 `full-green` ledger row still counts.**
-      Its app log shows the same abandonment and the same two inert sections, so
-      it and the 2026-09-15 row share a blind spot — *two witnesses that are
-      related*. Left as recorded rather than re-graded (a verdict decided after
-      the fact is what the severity rules forbid), and annotated under the table.
-      **Maintainer's call**, and it decides whether `0.7.100` needs one more
-      clean run or two.
+- [x] **Decided: the 2026-09-12 `full-green` ledger row does NOT count.**
+      Maintainer's ruling, 2026-09-15 — *"it does not count now."* Re-graded to
+      `partial` in the `result` column, not merely annotated, because
+      `test_no_stale_version_claims.py` counts the column and a cell disagreeing
+      with the prose beside it is §5.bi reproduced in the file that records it.
+      The ledger now holds **five `partial` rows and zero `full-green`**, so the
+      count toward `0.9.1` is zero and `0.7.100` waits on a run where K1 and K2
+      can fail. The direction is what makes this legitimate rather than the
+      after-the-fact re-grading the severity rules forbid: that prohibition stops
+      a failure being reclassified so a run counts, and this removed credit from
+      a pass that was never measured.
 - [ ] **`verification.transcode` is still null when the emit is suppressed**,
       even though the files now exist. A reader cannot tell "no transcode" from
       "transcode ran, result not recorded" — the same ambiguity `gates` was
