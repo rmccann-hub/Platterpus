@@ -2729,6 +2729,72 @@ clause too, because pinning both whole-disc rips to the *same* goal satisfies
 "every whole-disc section pins its goal" and is the original defect wearing the
 fix's clothes.
 
+### §5.bk — Three defects, one shape: an album's facts stored on an object that is about to describe a different album
+
+*2026-09-15, after the re-run. The shape underneath §5.bi and two of its
+neighbours, fixed at the shape rather than at each instance.*
+
+**Three defects in two days, all fixed where they were found, none of them fixed
+at the root:**
+
+| Found | Symptom | Fixed by |
+|---|---|---|
+| 09-14 | The report's `settings` block described a configuration the rip never ran under — `output_format: "flac"` for a WAV rip, with its own `verification.derived` saying `wav` two lines below | freezing the settings at Start |
+| 09-15 am | Both derived-format transcodes dropped; **no `.mp3` and no `.wv` written at all**, under `✓ Bit-perfect` | moving the generation check from the work to the emit |
+| 09-15 pm | The MP3 rip's whole chain *succeeded* and every result was discarded — they landed **655 ms** before the next Start, against a 750 ms debounce, and the Start path cleared the fields the pending write would have read | flushing unconditionally before the reset |
+
+Each fix is correct and each was verified. **The root was none of them.** Every
+per-album fact the report needs lived on the *window* as a `_last_*` attribute,
+and the window's lifetime is "the current rip" — so each of those facts moved out
+from under its readers the moment the next rip started. The file's own comments
+described the mechanism without naming it as a defect: *"a `_last_*` snapshot,
+like every other fact the report needs after the worker is gone"* — snapshotting
+a disappearing owner's facts onto an owner that is itself about to move.
+
+**What to carry.** *When the same fix keeps arriving in different clothes, the
+thing being fixed is not the bug.* Three symptoms with nothing in common at the
+call site — a settings block, a transcode, a debounce race — and one sentence
+covers all three. The tell is that each fix had to **add a guard**: freeze this,
+check that generation, flush before that reset. A guard is what you write when a
+value's owner and its reader disagree about lifetime; three of them in two days
+is the codebase asking for the lifetime to be fixed instead.
+
+**The fix, and the one thing it does not do.** `ui/post_rip_record.py` gives the
+album its own record, keyed by the rip generation that produced it and still
+addressable after the next rip begins. A late CTDB, FLAC-integrity,
+derived-verify, transcode or checksum result is now *written into the report of
+the album it describes* rather than dropped. What a stale result still cannot do
+is touch the status line or the buttons — those describe whatever disc is on
+screen, and that distinction is the one the old code collapsed.
+
+**A fix that expands the reachable state space arrives with states nobody has
+run.** `CLAUDE.md` asks this of any change that makes a function answer where it
+used to decline, and here the answer was concrete: late writes now *happen*, and
+a write goes to a path. A path belongs to an album only while it still holds that
+album — and choosing **Overwrite** on the already-ripped prompt sends the next
+rip into the same folder. So a recovered result could have replaced a live
+album's report with a finished one's: the contamination the generation guard
+exists to prevent, re-entering through the door the fix opened.
+`_folder_reclaimed_by_a_newer_rip` closes it by asking the only question that
+settles ownership — *does a record with a newer generation name this folder?* —
+and the guard is revert-proved **in both directions**, because a check that
+refuses *every* late write also passes "nothing was clobbered" while silently
+restoring the 655 ms data loss.
+
+**And a dead field is a finding about the fix, not only about the field.** Nine
+`_last_*` result attributes were left writing to nobody and reading from nobody.
+Struck — but one test still asserted `_last_flac_verify_result is None`, which
+after the refactor could only ever pass. *A check that cannot fail is
+decoration*, and the refactor manufactured one silently, which is why the sweep
+for them belongs in the same change rather than a later one.
+
+**Honest accounting of what it cost.** `ui/main_window_rip.py` **grew** by 198
+lines. The state moved out (24 attributes into a 184-line module, nine
+declarations struck from the shared surface — the only ratchet entry this session
+to go *down*); the plumbing to route it did not. Recording that here because a
+ratchet raise filed as a win is how the next reader concludes an extraction is
+finished when it is half done.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is

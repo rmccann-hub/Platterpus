@@ -28,6 +28,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   started with the archival preset already selected ran the same test in both
   sections, took over three extra hours, and exercised the default
   configuration's whole-disc path not at all. Section F now pins its own goal.
+- **A verification result that arrives after the next rip has started is now
+  written into the report of the album it describes**, instead of being thrown
+  away. Every fact a rip report is built from used to live on the window under a
+  `_last_*` name, and the window's lifetime is "the current rip" — so each of
+  those facts moved out from under its readers the moment the next rip began.
+  That one shape caused three separate defects in two days: a report describing
+  a configuration its rip never ran under, a post-rip chain abandoned mid-way so
+  that no `.mp3` or `.wv` was written at all, and a chain that *succeeded* and
+  had every result discarded 655 ms later. Each was fixed where it was found;
+  the shape underneath was not. An album now owns its own record, keyed to the
+  rip that produced it and still addressable after the next rip starts, so a
+  late CTDB, FLAC-integrity, derived-format, transcode or checksum result lands
+  in its own album's report and that report is rewritten. What a stale result
+  still cannot do is change the status line or the buttons, which describe
+  whatever disc is on screen.
+- **`verification.transcode` is no longer null after a transcode that ran.** It
+  was the last block where a reader could not tell "no transcode was asked for"
+  from "a transcode ran and its result was not recorded" — the ambiguity the
+  `verification.gates` block exists to remove, one block over, with no gate key
+  to carry it.
+- **After a rip is filed in your library, a late verification result follows it
+  there.** The move repoints the View log and Open folder buttons; the album's
+  own report path was left pointing at the old, now-empty folder, so a result
+  arriving after the move would have recreated it.
 
 ## [0.6.49] — 2026-09-15
 

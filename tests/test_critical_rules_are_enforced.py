@@ -1449,7 +1449,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # and the post-rip pending/superseded ledger beside `_rip_generation`, which is
     # the field they exist to correct. Seven lines, and splitting them from their
     # sibling would be the drift.
-    "ui/main_window.py": 1579,
+    # **1579 -> 1578 on 2026-09-15**: one line, the `_last_derived_verify_result`
+    # initialiser, struck with the eight sibling fields the album now owns.
+    # Recorded because the ratchet's own non-triviality twin refuses HEADROOM:
+    # a count left above the file's real length is room to grow unnoticed.
+    "ui/main_window.py": 1578,
     "ui/main_window_deps.py": 589,
     "ui/main_window_drive.py": 555,
     "ui/main_window_helpers.py": 508,
@@ -1490,13 +1494,32 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # between "the current rip" and "the album that just finished", which is
     # exactly what a `PostRipChain` owning its own `(rip_dir, rip_log, settings,
     # report handle)` would make impossible to get wrong.
-    "ui/main_window_rip.py": 4480,
+    #
+    # **4480 -> 4678 on 2026-09-15 (+198), and the honest reading is that the
+    # refactor above did NOT relieve this file.** The paragraph directly above
+    # predicted the fix — *"a `PostRipChain` owning its own `(rip_dir, rip_log,
+    # settings, report handle)`"* — and `ui/post_rip_record.py` is that object:
+    # 24 per-album facts left the window for a 184-line module that owns them.
+    # What stayed, and what grew, is the *routing*: opening a record at Start,
+    # filling it at finish, looking one up by generation, writing a report from
+    # one rather than from `self`, and the guard that refuses a late write into a
+    # folder a newer rip has claimed. So the STATE moved and the PLUMBING did
+    # not, which is half the job — and saying so here matters more than the
+    # number, because a raise recorded as a win is how the next reader concludes
+    # the extraction is done. It is not: the `TASKS.md` row stands, and what it
+    # now asks for is narrower and more tractable than before — move the post-rip
+    # CHAIN (the five-step daemon and the six launchers) out beside the record it
+    # already populates.
+    "ui/main_window_rip.py": 4678,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
     # surface, so an undeclared attribute reachable only through `getattr` is the
     # hole it exists to close.
-    "ui/main_window_shared.py": 414,
+    # **414 -> 407 on 2026-09-15**: nine post-rip RESULT declarations struck. They
+    # moved to `ui/post_rip_record.py`, where they are the album's rather than the
+    # window's. The only ratchet entry this session that went DOWN.
+    "ui/main_window_shared.py": 407,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
