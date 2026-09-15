@@ -324,6 +324,28 @@ class MainWindowShared(_SeamBase):
 
     # Rip generation guard (drops a stale previous rip's late verify).
     _rip_generation: int
+    #: This rip's `settings` block and gate inputs, FROZEN AT START.
+    #:
+    #: Added 2026-09-15. `build_settings`/`build_gates` read the live `Config`, and
+    #: the report is re-written every time a post-rip check lands — so a report
+    #: finalized after the user changed a setting described the wrong rip. Measured
+    #: on that night's acceptance run: the WAV rip's report says
+    #: `output_format: "flac"`, `rip_goal: "archival"`, and its gates say
+    #: `derived: "flac-only"` — beside a `verification.derived` in the same
+    #: document reading `{"format": "wav", "ran": true}`. The report contradicted
+    #: itself because half of it was read six seconds late.
+    #:
+    #: `None` means "no snapshot for this rip", and every reader falls back to the
+    #: live config rather than dropping the block — a missing snapshot must cost a
+    #: stale field, never the whole `settings` record.
+    _rip_settings_snapshot: dict | None
+    _rip_gate_inputs: dict | None
+    #: Post-rip checks currently in flight for this rip, by `verification.gates`
+    #: key, and the ones a newer rip cut short. Registered at the single launcher
+    #: chokepoint rather than listed anywhere, so the ledger cannot drift from
+    #: what actually ran.
+    _post_rip_pending: set[str]
+    _post_rip_superseded: set[str]
     _drive_access_nudged: bool
 
     # --- Child widgets -----------------------------------------------------

@@ -11,6 +11,32 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+
+- **A rip no longer loses the output format you chose when you start the next
+  one.** The post-rip daemon runs tagging, cover art, re-compress and the
+  transcode in that order, and each step ended by dropping out entirely if a
+  newer rip had started — which suppressed the result *and* skipped every
+  remaining step. The transcode is the last of the four, so it was the first
+  thing lost: on the 2026-09-15 acceptance run the MP3 and WavPack rips were
+  each cut short about three seconds after finishing and wrote **no `.mp3` and
+  no `.wv` at all**, while reporting `✓ Bit-perfect`. The guard now gates the
+  *result* (which still must never land in the next album's report) and lets the
+  work finish.
+- **`verification.gates` can no longer claim a check ran when its result was
+  never recorded.** The gates are derived from configuration — from what was
+  *asked for* — so they described work that was requested, begun and then
+  abandoned as `"ran"` beside a null result, which is the one ambiguity the
+  block exists to remove. Checks cut short by a new rip are now recorded as
+  superseded, and any gate claiming `"ran"` over a missing result is raised in
+  `issues[]` regardless of the reason.
+- **A rip report's `settings` now describe that rip**, not the configuration in
+  force whenever the report was last written. The report is re-written as each
+  post-rip check lands, and the settings were re-read live each time, so a check
+  finishing after a settings change produced a record of a rip that never
+  happened — one report named `flac`/`archival` for a WAV rip, with its own
+  `verification.derived` block saying `wav` two lines away.
+
 ## [0.6.48] — 2026-09-14
 
 ### Added
