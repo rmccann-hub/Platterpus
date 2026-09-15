@@ -206,12 +206,19 @@ they share a blind spot, which is our own *two implementations agreeing is not
 either one being correct* rule arriving through the ledger that gates our version
 numbers.
 
-We have left the 2026-09-12 row recorded as `full-green` rather than re-grading
-it — a verdict decided after the fact is exactly what our severity rules forbid —
-and annotated it, and recorded 2026-09-15 as `partial`. The count toward our
-`0.9.1` bar is, in substance, zero. We are telling you because we cited that row
-to you as settled evidence, and a claim we have since qualified is one you should
-hear about from us rather than infer from a later number.
+**Our maintainer has since ruled on it: the 2026-09-12 row is re-graded
+`partial` and does not count.** Both rows are now `partial`; the ledger holds no
+`full-green` pass at all, and the count toward our `0.9.1` bar is zero. We are
+telling you because we cited that row to you as settled evidence, and a claim we
+have since withdrawn is one you should hear about from us rather than infer from
+a number that quietly stopped moving.
+
+We considered leaving it recorded and annotated, on the grounds that a verdict
+decided after the fact is what our own severity rules forbid. That reading was
+wrong and the direction is what settles it: the prohibition exists to stop a
+failure being reclassified so a run *counts*. Here a pass was found to rest on
+checks that could not fail, and the unearned credit was removed. A re-grade that
+makes a version **harder** to reach is not the move that rule guards against.
 
 **The two acceptance sections that should have caught it were graded ARCHIVAL and
 could not fail.** Both asserted against *your* log — and we always invoke you

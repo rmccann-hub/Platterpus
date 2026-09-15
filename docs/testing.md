@@ -2872,34 +2872,49 @@ cannot fail for any archival reason. Queued in `TASKS.md`; the tier table says
 | 2026-08-18 | 0.6.16 | maintainer | bdr209d | bazzite | partial |
 | 2026-08-19 | 0.6.17 | maintainer | bdr209d | bazzite | partial |
 | 2026-08-19 | 0.6.18 | maintainer | bdr209d | bazzite | partial |
-| 2026-09-12 | 0.6.47 | maintainer | bdr209d | bazzite | full-green |
+| 2026-09-12 | 0.6.47 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-15 | 0.6.48 | maintainer | bdr209d | bazzite | partial |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
 **The 2026-09-15 row reported `241 pass, 0 fail, 0 error` and is recorded
-`partial`, deliberately.** The run wrote no `.mp3` and no `.wv` file at all —
-both derived-format transcodes were dropped seconds after their rips — and the
-two sections that exist to prove those outputs, K1 and K2, are graded `ARCHIVAL`
-and passed anyway, because neither could see a derived file (§5.bi). A count of
+`partial`.** The run wrote no `.mp3` and no `.wv` file at all — both
+derived-format transcodes were dropped seconds after their rips — and the two
+sections that exist to prove those outputs, K1 and K2, are graded `ARCHIVAL` and
+passed anyway, because neither could see a derived file (§5.bi). A count of
 passing steps measures the script. **"Zero failures in the ARCHIVAL sections"
 presupposes those sections can fail**, and on that night two of them could not.
 
-**And that qualification reaches the row above it.** The 2026-09-12 run used the
-same script with the same two inert sections, and its app log shows the same
-abandonment — one `Transcode:` line for three derived-format rips. Its
-`full-green` verdict is an accurate record of what the run reported and it is
-**not two independent pieces of evidence with the row below**: the same blind
-spot is in both, which is this file's own *two witnesses that are related* rule
-arriving through the ledger. Left as recorded rather than re-graded, because a
-verdict decided after the fact is the thing the severity rules forbid — but a
-version bump counting it should know what it is counting. The first run that
-clears this honestly will be one where K1 and K2 *could* have failed and did not.
+**The 2026-09-12 row was `full-green` and is now `partial` — maintainer's ruling,
+2026-09-15: *"it does not count now."*** That run used the same script with the
+same two inert sections, and its app log shows the same abandonment: one
+`Transcode:` line for three derived-format rips. It reported 238 of 238, and that
+remains true of what it reported; what it could not do was fail over the derived
+output. The two runs were therefore **not two independent pieces of evidence** —
+the same blind spot is in both, which is this file's own *two witnesses that are
+related* rule arriving through the very table that gates a version bump.
 
-One `full-green` row with a named qualification, four `partial`. So 0.9.1 is not
-reachable today and the count toward it is, in substance, zero. Recording the
-partials anyway matters — a ledger that held only successes would make the
-denominator invisible.
+**Why this is not the thing the severity rules forbid, because it looks like
+it.** That prohibition — *never decide a severity after seeing a failure* —
+exists to stop evidence being **inflated** after the fact: a failure appears, and
+someone reclassifies it as ignorable so the run counts. This is the opposite
+direction. Nothing was reclassified to rescue a pass; a pass was found to rest on
+checks that could not fail, and the unearned credit was removed. Deflating a
+claim on discovering it was never measured is the rule working. The direction is
+the test: **if the re-grade makes a version easier to reach, be suspicious of
+it.** This one makes `0.7.100` harder.
+
+**The change is in the `result` column, not only in this prose**, and that is
+deliberate. `test_no_stale_version_claims.py` counts the column; a cell reading
+`full-green` beside a paragraph explaining that it does not count would be a
+field saying one thing while the truth sits somewhere the gate cannot read — the
+exact defect §5.bi is about, reproduced in the file that records it.
+
+Five rows, five `partial`, zero `full-green`. **No full-green pass has been
+achieved**, so 0.9.1 is not reachable and the count toward it is zero. Recording
+the partials anyway matters — a ledger that held only successes would make the
+denominator invisible. The first row that earns `full-green` will be one where K1
+and K2 *could* have failed and did not.
 
 **How a row gets produced** is `docs/test-plan.md` **Part E** — the
 failure-derived gate: the twelve defect classes that have actually bitten here,
