@@ -1476,7 +1476,21 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # window stands; it is not done here because a hardware re-run is waiting on
     # this fix, and a structural move under a release is how a correct fix ships
     # broken. The code is the smallest form of the fix, not a resting place.
-    "ui/main_window_rip.py": 4458,
+    # **4458 -> 4480 on 2026-09-15 (same day, second raise, FOURTH this month)**:
+    # twenty-two lines, and all of them are the comment on why the report flush
+    # is unconditional — the 655 ms measured against the 750 ms debounce, and the
+    # reasoning that a check which has just FINISHED is the one at risk, not one
+    # still in flight. That comment is the whole defence against the early return
+    # being put back by someone who reads the guard as an optimisation; a shorter
+    # note would lose the number, which is the part that convinces.
+    #
+    # **The ratchet is doing its job and the answer is not another raise.** The
+    # `TASKS.md` row for extracting the post-rip chain stands, and this run is
+    # more evidence for it: both defects found on 2026-09-15 live in the seam
+    # between "the current rip" and "the album that just finished", which is
+    # exactly what a `PostRipChain` owning its own `(rip_dir, rip_log, settings,
+    # report handle)` would make impossible to get wrong.
+    "ui/main_window_rip.py": 4480,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
