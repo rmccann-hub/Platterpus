@@ -917,6 +917,66 @@ def _section_bodies() -> dict[str, list[str]]:
     return bodies
 
 
+def test_the_two_whole_disc_rips_each_pin_the_goal_that_makes_them_different() -> None:
+    """F is the fast whole-disc rip and N is the uniform secure re-read. If either
+    inherits its goal, the run can do one of them twice and report success.
+
+    **Measured, not hypothetical.** The 2026-09-15 12:01 run began with the config
+    already on `archival`. Section N sets that explicitly; section F set nothing,
+    so both rips ran whole-disc under uniform secure re-read — 14/14 each, the
+    same 13-converged/1-not, 3h10m each. **Six hours and twenty-one minutes to
+    prove one thing twice**, with the `fast_verified` whole-disc path (the default
+    configuration) getting no hardware coverage at all, and every section green
+    because nothing asked.
+
+    Third instance of one shape: N inherited `output_format` from a preset, K1/K2
+    inherited their assertion from a witness that could not see it, F inherited its
+    goal from whatever the config held. **A section's distinguishing property is
+    asserted at the section.**
+    """
+    bodies = _section_bodies()
+    assert len(bodies) >= 15, (
+        f"only {len(bodies)} sections parsed — this sweep is checking almost nothing"
+    )
+
+    # Population derived: a section is whole-disc if it rips over `select-tracks all`.
+    whole_disc: dict[str, str | None] = {}
+    for letter, lines in bodies.items():
+        everything = False
+        goal: str | None = None
+        for line in lines:
+            if line == "select-tracks all":
+                everything = True
+            m = re.match(r"^set\s+rip_goal\s+(\S+)$", line)
+            if m:
+                goal = m.group(1)
+            if line == "rip" and everything:
+                whole_disc[letter] = goal
+                break
+
+    assert len(whole_disc) >= 2, (
+        f"found {len(whole_disc)} whole-disc rip(s) ({sorted(whole_disc)}). The run "
+        "is built around two of them differing; with fewer than two there is "
+        "nothing for this sweep to compare and the acceptance run has lost its "
+        "accuracy comparison."
+    )
+    unpinned = sorted(k for k, v in whole_disc.items() if v is None)
+    assert not unpinned, (
+        f"whole-disc section(s) that do not pin `rip_goal`: {unpinned}. Each one "
+        "takes whatever the config happened to hold, so two sections meant to be "
+        "different tests can silently become the same test — which is what "
+        "happened on 2026-09-15, costing 3h10m of drive time and all coverage of "
+        "the default configuration."
+    )
+    # NON-TRIVIALITY: pinning them all to the SAME goal satisfies every assertion
+    # above and still runs one test twice, which is the defect itself.
+    assert len(set(whole_disc.values())) >= 2, (
+        f"every whole-disc section rips under the same goal ({whole_disc}). They "
+        "are pinned, and they are still one test run twice — the run's accuracy "
+        "comparison needs a fast rip AND a uniform secure re-read."
+    )
+
+
 def test_every_section_that_rips_in_a_derived_format_asserts_the_files_exist() -> None:
     """A section whose subject is a derived output must be able to FAIL over it.
 

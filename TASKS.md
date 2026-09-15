@@ -21,6 +21,26 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
+## 2026-09-15 re-run on 0.6.49 — the fix held; two new findings
+
+244/244, derived files present, `expect-derived-output` green on real hardware
+with non-zero waits. Recorded `partial`. Write-up: `docs/testing.md` §5.bj.
+
+- [x] **A finished check's result was lost to the report debounce.** The seal
+      returned before flushing when nothing had been superseded — the opposite of
+      the case at risk. Measured at 655 ms against a 750 ms debounce. The flush is
+      now unconditional. Found by `verification_result_missing`, the backstop
+      added in the same change as the bug.
+- [x] **Sections F and N ran the identical test for 6h21m.** F inherited its rip
+      goal; N pins its own. F now pins `fast_verified`, with a sweep that also
+      refuses both whole-disc sections being pinned to the *same* goal.
+- [ ] **`verification.transcode` is still null when the emit is suppressed**,
+      even though the files exist — carried over, now the only remaining case
+      where a reader cannot tell "no transcode" from "ran, not recorded". The
+      unconditional flush narrows it but does not close it: a result emitted
+      after the seal has already run still has nowhere to go. Closes with the
+      post-rip-chain extraction below.
+
 ## 2026-09-15 hardware run — 241/241, and it produced no MP3 and no WavPack
 
 Full run on `platterpus 0.6.48` + `platterpus-fork-gfe4d2c4` (the round-19

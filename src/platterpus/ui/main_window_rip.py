@@ -3859,18 +3859,40 @@ class RipMixin(MainWindowShared):
                 for gate, attr in self._GATE_RESULTS.items()
                 if gate in pending and getattr(self, attr, None) is None
             }
-            if not dropped:
-                return
-            self._post_rip_superseded = (
-                set(getattr(self, "_post_rip_superseded", set())) | dropped
-            )
-            log.info(
-                "post-rip checks superseded by a new rip and recorded as such: %s",
-                ", ".join(sorted(dropped)),
-            )
-            # Write it into the album it belongs to, now, while `_last_rip_log`
-            # and `_last_rip_log_file` still point there. `_flush_rip_report` is a
-            # no-op when there is no rip log, which is the first-rip case.
+            if dropped:
+                self._post_rip_superseded = (
+                    set(getattr(self, "_post_rip_superseded", set())) | dropped
+                )
+                log.info(
+                    "post-rip checks superseded by a new rip and recorded as such: %s",
+                    ", ".join(sorted(dropped)),
+                )
+            # FLUSH UNCONDITIONALLY — dropped or not, and while `_last_rip_log`
+            # and `_last_rip_log_file` still point at the outgoing album.
+            #
+            # This used to sit behind an `if not dropped: return`, and that guard
+            # threw away the case it was most needed for.
+            # `_schedule_rip_report_write` is **debounced by 750 ms**, so a result
+            # arriving in the last three-quarters of a second before the next Start
+            # is sitting in `self._last_*` with a timer armed and nothing on disk —
+            # and the lines after this call wipe exactly those fields. The checks
+            # that *finish* are therefore the ones at risk, which is the opposite of
+            # what an early return keyed on "was anything dropped" assumes.
+            #
+            # Measured on the 2026-09-15 12:01 acceptance run — the run that proved
+            # the transcode fix worked. The MP3 rip's whole chain succeeded:
+            # transcode 12:15:26.160, digests .225, MP3 verify .801, CTDB .949,
+            # FLAC verify 12:15:27.074 — and the next rip started at 12:15:27.729.
+            # **655 ms against a 750 ms debounce.** Every result was correct, on
+            # time, and lost; the report then carried `gates: {"derived": "ran"}`
+            # over three null blocks.
+            #
+            # Found by the `verification_result_missing` backstop added in the same
+            # change as the early return it caught — which is the argument for a
+            # check that needs no cooperation from the code that broke.
+            #
+            # `_flush_rip_report` is a no-op when there is no rip log (the first-rip
+            # case), so calling it every Start costs nothing.
             self._flush_rip_report()
         except Exception:  # noqa: BLE001 — must never block a Start
             log.exception("could not record superseded post-rip checks")

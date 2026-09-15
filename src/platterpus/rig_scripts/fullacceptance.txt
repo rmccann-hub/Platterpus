@@ -424,7 +424,33 @@ abort-if-failed the disc was never identified — the picker did not resolve or 
 #
 # So it matches section N's budget, because it is section N's workload.
 
+# **SECTION F PINS ITS GOAL, and until 2026-09-15 it inherited one.** F is the
+# FAST whole-disc rip and section N is the UNIFORM SECURE RE-READ of the same
+# disc; the run's value is that they are two different tests. N sets
+# `rip_goal archival` explicitly. F set nothing and took whatever the config
+# happened to hold — so on the 2026-09-15 12:01 run, which began with the config
+# already on `archival`, **F and N ran the identical test**: both whole-disc,
+# both uniform secure re-read, both 14/14 with the same 13-converged/1-not, both
+# 3h10m. The run spent **six hours and twenty-one minutes proving one thing
+# twice**, and the `fast_verified` whole-disc path — the DEFAULT most users have
+# — got no hardware coverage at all. Every section still passed, because nothing
+# asked.
+#
+# This is the third time the same shape has cost this file, and the first two are
+# one screen apart in `docs/testing.md` §5.bi: section N inherited its
+# `output_format` from a preset (fixed 2026-09-14), sections K1/K2 inherited
+# their only real assertion from a witness that could not see it (fixed
+# 2026-09-15). **A section's distinguishing property is asserted AT the section,
+# never inherited** — a run cannot tell you two things differ if nothing pinned
+# the difference.
+#
+# `fast_verified` is also the correct restore target for section Q, so this line
+# and that one now agree about what the rig's resting state is.
+
 log --- F. the main event: full-disc rip, all tracks, every post-rip check on ---
+set rip_goal fast_verified
+expect rip_goal fast_verified
+expect secure_rerip_dynamic on
 set cover_art embed
 expect cover_art embed
 set save_additional_art on

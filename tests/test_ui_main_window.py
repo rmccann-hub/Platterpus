@@ -9804,3 +9804,57 @@ def test_a_check_never_launched_is_not_reported_as_interrupted(
     window._seal_superseded_post_rip_work()
 
     assert window._post_rip_superseded == set()
+
+
+def test_a_result_that_lands_just_before_the_next_start_is_still_written(
+    teardown_threads, monkeypatch
+) -> None:
+    """The report write is debounced by 750 ms; Start wipes the fields it would
+    have written. So a check that FINISHES in that window is the one at risk.
+
+    Measured on the 2026-09-15 12:01 run — the one that proved the transcode fix
+    worked. The MP3 rip's whole post-rip chain succeeded and the next rip started
+    **655 ms** after the last result landed, against a 750 ms debounce. Every
+    result was correct, on time, and lost, and the report then said
+    `gates: {"derived": "ran"}` over three null blocks.
+
+    The seal used to `return` before flushing when nothing had been superseded,
+    which is exactly the case this covers: nothing was dropped, everything
+    finished, and that is *why* there was a pending write to lose.
+    """
+    window = teardown_threads()
+    flushed: list[bool] = []
+    monkeypatch.setattr(
+        type(window), "_flush_rip_report", lambda self, **kw: flushed.append(True)
+    )
+    # Nothing in flight and every result present: the "all finished" shape.
+    window._post_rip_pending = set()
+    window._last_ctdb_result = object()
+    window._last_flac_verify_result = object()
+    window._last_derived_verify_result = object()
+
+    window._seal_superseded_post_rip_work()
+
+    assert window._post_rip_superseded == set(), "nothing was dropped"
+    assert flushed, (
+        "the outgoing rip's report was not flushed, so a debounced write armed in "
+        "the last 750 ms is destroyed by the state reset that follows"
+    )
+
+
+def test_the_flush_happens_even_when_checks_were_superseded(
+    teardown_threads, monkeypatch
+) -> None:
+    """The other branch, so making the flush unconditional cannot regress it."""
+    window = teardown_threads()
+    flushed: list[bool] = []
+    monkeypatch.setattr(
+        type(window), "_flush_rip_report", lambda self, **kw: flushed.append(True)
+    )
+    window._post_rip_pending = {"ctdb"}
+    window._last_ctdb_result = None
+
+    window._seal_superseded_post_rip_work()
+
+    assert window._post_rip_superseded == {"ctdb"}
+    assert flushed
