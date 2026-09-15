@@ -34,12 +34,11 @@ with non-zero waits. Recorded `partial`. Write-up: `docs/testing.md` §5.bj.
 - [x] **Sections F and N ran the identical test for 6h21m.** F inherited its rip
       goal; N pins its own. F now pins `fast_verified`, with a sweep that also
       refuses both whole-disc sections being pinned to the *same* goal.
-- [ ] **`verification.transcode` is still null when the emit is suppressed**,
-      even though the files exist — carried over, now the only remaining case
-      where a reader cannot tell "no transcode" from "ran, not recorded". The
-      unconditional flush narrows it but does not close it: a result emitted
-      after the seal has already run still has nowhere to go. Closes with the
-      post-rip-chain extraction below.
+- [x] **`verification.transcode` is no longer null when the emit is suppressed.**
+      Closed 2026-09-15 by the per-album record (`ui/post_rip_record.py`): the
+      result now has somewhere to go, because the album it belongs to is still
+      addressable after the next rip starts. Both this row and its duplicate in
+      the section below close on the same change.
 
 ## 2026-09-15 hardware run — 241/241, and it produced no MP3 and no WavPack
 
@@ -76,13 +75,18 @@ failure. Every log verified against its own FUN512. The defects below are ours.
 
 Still open out of this run:
 
-- [ ] **A superseded post-rip result is recorded as superseded, not RECOVERED.**
-      The files are now produced, and the derived-verify / CTDB / FLAC-integrity
-      results for that album still have nowhere to go: the report was sealed when
-      the next rip started, and routing a late result back into a previous
-      album's report means writing to a path whose `_last_*` state has moved on.
-      Honest today (the gate says superseded) and incomplete. The shape of a fix
-      is a report handle bound to the album rather than to "the current rip".
+- [x] **A superseded post-rip result is now RECOVERED, not merely recorded as
+      superseded.** Done 2026-09-15, and the fix is the shape this row named: a
+      report handle bound to the album rather than to "the current rip".
+      `ui/post_rip_record.py` holds all 24 per-album report inputs keyed by rip
+      generation, so a late CTDB / FLAC-integrity / derived-verify / transcode /
+      checksum result is written into the report of the album it describes. The
+      `_last_*` state it named as the obstacle is gone: nine result fields struck
+      from the window. What a stale result still cannot do is touch the status
+      line or the buttons, which belong to whatever disc is on screen. **New
+      state, new guard:** a late write is refused when a *newer* record claims
+      the same folder (the Overwrite case), so recovering a result can never
+      clobber a live album's report — both directions revert-proved.
 - [x] **Decided: the 2026-09-12 `full-green` ledger row does NOT count.**
       Maintainer's ruling, 2026-09-15 — *"it does not count now."* Re-graded to
       `partial` in the `result` column, not merely annotated, because
@@ -94,10 +98,11 @@ Still open out of this run:
       after-the-fact re-grading the severity rules forbid: that prohibition stops
       a failure being reclassified so a run counts, and this removed credit from
       a pass that was never measured.
-- [ ] **`verification.transcode` is still null when the emit is suppressed**,
-      even though the files now exist. A reader cannot tell "no transcode" from
-      "transcode ran, result not recorded" — the same ambiguity `gates` was
-      invented for, one block over. `gates` has no `transcode` key to carry it.
+- [x] **`verification.transcode` is no longer null when the emit is suppressed.**
+      It was the last block where a reader could not tell "no transcode" from
+      "transcode ran, result not recorded" — the ambiguity `gates` was invented
+      for, one block over, with no `transcode` key to carry it. Closed by the
+      per-album record: the result is routed rather than dropped.
 
 ## 2026-09-09 hardware run — 237/238, and the one failure was ours (2026-09-10)
 

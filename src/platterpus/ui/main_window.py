@@ -67,6 +67,7 @@ from platterpus.ui.main_window_helpers import (  # noqa: F401
 from platterpus.ui.main_window_provision import ProvisioningMixin
 from platterpus.ui.main_window_rip import RipMixin, _PendingBundle
 from platterpus.ui.main_window_update import UpdateMixin
+from platterpus.ui.post_rip_record import PostRipRecord
 from platterpus.ui.release_picker import ReleasePickerDialog
 from platterpus.ui.rip_controls import RipControls
 from platterpus.ui.rip_progress import RipProgress
@@ -226,29 +227,29 @@ class MainWindow(
     # queued by Qt, so the slot runs on the GUI thread) with the post-rip
     # cover-art outcome — a CoverArtResult (folded into the rip report), or a
     # bare string for back-compat. `object` so it can carry either.
-    cover_art_done = Signal(object)
+    cover_art_done = Signal(int, object)  # (rip generation, result)
     # Emitted (from the post-rip processing daemon thread; queued to the GUI
     # thread) with a main_window_rip.TaggingResult — how the unknown-album
     # tagging pass went. It exists because `apply_track_tags` reported per-file
     # failures ONLY to the log file, so an album that shipped entirely untagged
     # still ended with the window saying "Done."
-    tagging_done = Signal(object)
+    tagging_done = Signal(int, object)  # (rip generation, result)
     # Emitted (from the post-rip CTDB-verify daemon thread; queued to the GUI
     # thread) with the CtdbVerifyResult, so the verdict renders on the GUI
     # thread.
-    ctdb_verify_done = Signal(object)
+    ctdb_verify_done = Signal(int, object)  # (rip generation, result)
     # Emitted (from the post-rip FLAC-verify daemon thread; queued to the GUI
     # thread) with the FlacVerifyResult, so the integrity outcome renders on the
     # GUI thread.
-    flac_verify_done = Signal(object)
+    flac_verify_done = Signal(int, object)  # (rip generation, result)
     # Emitted (from the post-rip processing daemon thread; queued to the GUI
     # thread) with the RecompressResult, so the FLAC re-compress outcome renders
     # on the GUI thread.
-    flac_recompress_done = Signal(object)
+    flac_recompress_done = Signal(int, object)  # (rip generation, result)
     # Emitted (from the post-rip processing daemon thread; queued to the GUI
     # thread) with the TranscodeResult, so the FLAC→MP3/WavPack/WAV transcode
     # outcome renders on the GUI thread.
-    transcode_done = Signal(object)
+    transcode_done = Signal(int, object)  # (rip generation, result)
     # Emitted (from the evidence-bundle daemon thread; queued to the GUI thread)
     # with the BundleResult, so the "Report bundle" button is enabled on the GUI
     # thread. Fires for EVERY rip outcome — success, partial, cancelled, failed.
@@ -269,21 +270,21 @@ class MainWindow(
     # Emitted (from the post-transcode derived-verify daemon thread; queued to
     # the GUI thread) with the DerivedVerifyResult, so the per-format proof of
     # the derived MP3/WavPack/WAV files renders on the GUI thread.
-    derived_verify_done = Signal(object)
+    derived_verify_done = Signal(int, object)  # (rip generation, result)
     # Emitted (from a daemon thread; queued to the GUI thread) once every audio
     # file (masters + any derived) has been hashed, so the report's checksums
     # land on the GUI thread. The payload is the {relpath: sha256} digest map.
-    checksums_done = Signal(object)  # dict[str, str]
+    checksums_done = Signal(int, object)  # (rip generation, dict[str, str])
     # Emitted (from the re-rip-comparison daemon thread; queued to the GUI
     # thread) with a rip_compare.RipComparison when a prior rip of the same disc
     # was found in the library, so the comparison banner renders on the GUI
     # thread. Never emitted when there's no prior rip.
-    rip_comparison_done = Signal(object)
+    rip_comparison_done = Signal(int, object)  # (rip generation, comparison)
     # Emitted (from the library-move daemon thread; queued to the GUI thread)
     # with a library_move.MoveResult once a finished rip's folder has been
     # moved into the configured library (or the move failed) — so the post-rip
     # buttons can be repointed at the new location on the GUI thread.
-    library_move_done = Signal(object)
+    library_move_done = Signal(int, object)  # (rip generation, MoveResult)
     # (ok, device) — emitted from the eject daemon thread; queued to the GUI
     # thread so a tray that never opened is CORRECTED on screen. Before this the
     # `eject_drive` bool was discarded and the status line went on reading
@@ -575,7 +576,6 @@ class MainWindow(
         # + queued-signal pattern; only runs when a non-FLAC output was produced.
         # Stored so tests can join it. The last result is folded into the report.
         self._derived_verify_thread: threading.Thread | None = None
-        self._last_derived_verify_result = None  # type on MainWindowShared
         # Rip generation, bumped on each Start (see main_window_rip). Post-rip
         # verify daemons capture it and drop their result if a newer rip has begun
         # since, so a previous album's late verify can't contaminate this one.
@@ -585,8 +585,7 @@ class MainWindow(
         # checks were begun and which a newer rip cut short.
         self._rip_settings_snapshot: dict | None = None
         self._rip_gate_inputs: dict | None = None
-        self._post_rip_pending: set[str] = set()
-        self._post_rip_superseded: set[str] = set()
+        self._post_rip_records: dict[int, PostRipRecord] = {}
         # The system-tray icon for the rip-complete notification, created lazily
         # by `_ensure_tray_icon`. Initialised HERE, at runtime, and not only
         # declared on `MainWindowShared`: that seam's declarations live under

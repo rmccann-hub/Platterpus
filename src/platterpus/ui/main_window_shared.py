@@ -95,7 +95,6 @@ if TYPE_CHECKING:
     from platterpus.adapters import cover_art
     from platterpus.adapters.accuraterip_offsets import OffsetDatabase
     from platterpus.adapters.ctdb_client import CTDBClient
-    from platterpus.adapters.derived_verify import DerivedVerifyResult
     from platterpus.adapters.metaflac import MetaflacAdapter
     from platterpus.adapters.musicbrainz_client import (
         MusicBrainzClient,
@@ -118,6 +117,7 @@ if TYPE_CHECKING:
     # would be a cycle. Under ``from __future__ import annotations`` the
     # reference below is a string mypy resolves and the interpreter never does.
     from platterpus.ui.main_window_rip import _PendingBundle
+    from platterpus.ui.post_rip_record import PostRipRecord
     from platterpus.ui.rip_controls import RipControls
     from platterpus.ui.rip_progress import RipProgress
     from platterpus.ui.track_table import TrackTable
@@ -291,13 +291,16 @@ class MainWindowShared(_SeamBase):
     #: The queued bundle's GUI-thread snapshot, or None when none is armed.
     _pending_evidence_bundle: _PendingBundle | None
 
-    # Per-rip result snapshots, reset to None at the start of each finish and
-    # filled as each (possibly async) check lands, so the coalesced report
-    # re-write can pass every outcome regardless of completion order. The ones
-    # delivered via a ``Signal(object)`` are typed ``object | None`` because that
-    # is exactly what their queued-signal handlers receive and store (they do
-    # not narrow); ``_last_derived_verify_result`` is the exception — its handler
-    # ``isinstance``-narrows, so it carries the concrete type.
+    # Per-rip facts captured at finish. The nine post-rip RESULT snapshots that
+    # used to sit here — the CTDB and FLAC-integrity verdicts, the transcode and
+    # its verification, the re-compress, the cover art, the tagging, and the two
+    # digest maps — have moved to `ui/post_rip_record.py`, which is owned by the
+    # album rather than by the window. They were declared here so a coalesced
+    # report re-write could read every outcome regardless of completion order,
+    # and that worked right up until the *next rip* started, at which point the
+    # window they hung on was describing a different album and had to clear them.
+    # What remains below is what genuinely belongs to "the rip the window is
+    # showing" rather than to a finished album.
     _last_rip_error: str | None
     _last_outcome: dict | None
     # The system-tray icon, created lazily by `_ensure_tray_icon` for the
@@ -309,17 +312,6 @@ class MainWindowShared(_SeamBase):
     _last_disc: dict | None
     _last_read_offset_effective: int | None
     _last_secure_rerip: object | None
-    _last_ctdb_result: object | None
-    _last_flac_verify_result: object | None
-    _last_transcode_result: object | None
-    _last_derived_verify_result: DerivedVerifyResult | None
-    _last_cover_art_result: object | None
-    _last_recompress_result: object | None
-    _last_checksums: dict | None
-    #: The retag-surviving audio identity, set beside `_last_checksums` by the
-    #: same handler. Declared here for the same reason as its sibling — it was
-    #: reachable only through `getattr`, so nothing held the two in step.
-    _last_audio_md5: dict | None
     _last_dependency_report: DependencyReport | None
 
     # Rip generation guard (drops a stale previous rip's late verify).
@@ -340,12 +332,13 @@ class MainWindowShared(_SeamBase):
     #: stale field, never the whole `settings` record.
     _rip_settings_snapshot: dict | None
     _rip_gate_inputs: dict | None
-    #: Post-rip checks currently in flight for this rip, by `verification.gates`
-    #: key, and the ones a newer rip cut short. Registered at the single launcher
-    #: chokepoint rather than listed anywhere, so the ledger cannot drift from
-    #: what actually ran.
-    _post_rip_pending: set[str]
-    _post_rip_superseded: set[str]
+    #: One record per finished album, by the rip generation that produced it —
+    #: see `ui/post_rip_record.py`. This is where a rip's own facts live now; the
+    #: `_last_*` fields above are the window's working copy while a rip is in
+    #: flight, and are frozen into a record at finish. Keeping the records keyed
+    #: by generation is what lets a post-rip result that lands after the next
+    #: Start be written into the album it actually describes.
+    _post_rip_records: dict[int, PostRipRecord]
     _drive_access_nudged: bool
 
     # --- Child widgets -----------------------------------------------------

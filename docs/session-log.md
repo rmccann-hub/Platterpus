@@ -11,6 +11,55 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-15 (latest) — the album owns its own facts
+
+**The state-ownership refactor the last three fixes were each working around.**
+Full case study: `docs/testing.md` §5.bk.
+
+**Why.** Three defects in two days — a report describing a configuration its rip
+never ran under (09-14), a post-rip chain abandoned so that no `.mp3` or `.wv`
+was written at all (09-15 am), and a chain that *succeeded* and had every result
+discarded 655 ms later (09-15 pm) — were each fixed where they were found, and
+each fix was a **guard**: freeze this, check that generation, flush before that
+reset. Three guards in two days is the codebase saying the lifetime is wrong, not
+the call sites. Every per-album fact the rip report needs lived on the *window*
+under a `_last_*` name, and the window's lifetime is "the current rip".
+
+**Built.** `ui/post_rip_record.py` — a plain dataclass, no Qt, holding all 24
+report inputs for one album, keyed by the rip generation that produced it.
+Opened at Start (freezing what the rip was *asked* to do), filled at finish (what
+it *did*), and still addressable after the next rip begins. Eight signals became
+`Signal(int, object)`; the daemon launcher and the post-rip chain now **always**
+emit and let the slot route. A late CTDB / FLAC-integrity / derived-verify /
+transcode / checksum result is written into its own album's report; only the UI
+half — status line, buttons — is suppressed for a disc no longer on screen.
+Nine now-dead `_last_*` result fields struck.
+
+**The new state it creates, and its guard.** Late writes now happen, and a write
+goes to a *path* — which belongs to an album only while it still holds that
+album. Choosing **Overwrite** sends the next rip into the same folder, so a
+recovered result could have replaced a live album's report with a finished one's.
+`_folder_reclaimed_by_a_newer_rip` refuses that write and keeps the result on the
+record. Revert-proved **in both directions**: a guard that refuses every late
+write also passes "nothing was clobbered" while restoring the data loss.
+
+**Closed.** Both `verification.transcode` rows in `TASKS.md` and the
+"superseded, not RECOVERED" row — the last one had named this exact fix (*"a
+report handle bound to the album rather than to 'the current rip'"*) and so had
+the oversize-ratchet comment on `main_window_rip.py`, one release earlier.
+
+**Learned, and graduated to `testing.md` §5.bk:** when the same fix keeps
+arriving in different clothes, the thing being fixed is not the bug. Two
+corollaries paid for in the same hour — a refactor can *manufacture* a vacuous
+check (one test asserted a struck field was `None`, which after the change could
+only ever pass), and a ratchet raise filed as a win is how the next reader
+concludes a half-done extraction is finished. `main_window_rip.py` **grew** by
+198 lines: the state moved, the plumbing did not.
+
+**Suite:** 5347 passed / 21 skipped, coverage 91.89%, all four gates green.
+
+---
+
 ## 2026-09-15 (later) — the fix held, and the re-run found what it could not have
 
 **244 of 244 on v0.6.49, the derived files present, and still `partial`.** Full
