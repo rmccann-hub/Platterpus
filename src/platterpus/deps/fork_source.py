@@ -1100,6 +1100,48 @@ def pin_under_review_role() -> str:
     return f"{PIN_UNDER_REVIEW} {_pin_under_review_role_clause()}"
 
 
+def pin_under_review_label() -> str:
+    """The SHORT noun phrase for what ``PIN_UNDER_REVIEW`` is right now.
+
+    The same fact as :func:`pin_under_review_role`, for a caller that needs a
+    label rather than a sentence — *"the build under review"* while a round is
+    open, *"the approved production pin"* when none is.
+
+    **Added 2026-09-15 because a caller composed its own copy**, which is the one
+    thing this function's neighbours' docstrings ask callers not to do. The
+    acceptance run's section A printed:
+
+        installed build is platterpus-fork-gfe4d2c4 — **the build under review**
+        (fe4d2c4 **is the APPROVED production pin (no handshake round is open, so
+        there is no build under review)**)
+
+    Both halves come from this module; only the second was derived. The first was
+    a dict literal in `uiscript/runner.py`, written when a round happened to be
+    open, and it contradicts the clause printed beside it in the same breath —
+    the same two-surfaces-one-question shape as `docs/testing.md` §5.al, at the
+    scale of a single sentence, in the message an operator reads at 2am to decide
+    whether the night's run is about the right binary.
+    """
+    if a_round_is_reviewing_a_build():
+        return "the build under review"
+    return "the approved production pin"
+
+
+def pin_under_review_reason() -> str:
+    """WHY the pin has the standing it has, without restating the standing.
+
+    A companion to :func:`pin_under_review_label`, for the caller that has
+    already printed the label and would otherwise repeat it. Section A's message
+    is that caller: with the label derived it read *"the approved production pin
+    (fe4d2c4 is the APPROVED production pin (no handshake round is open, so there
+    is no build under review))"* — self-consistent at last, and saying the same
+    thing three times inside two nested parentheses.
+    """
+    if a_round_is_reviewing_a_build():
+        return "a handshake round is reviewing it"
+    return "no handshake round is open"
+
+
 def _pin_under_review_role_clause() -> str:
     """The clause alone, for a caller that has already named the pin."""
     if a_round_is_reviewing_a_build():

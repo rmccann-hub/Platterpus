@@ -125,13 +125,13 @@ never to decide for you.** And a mechanism claimed in your code still carries
 
 ---
 
-## As of Platterpus 0.6.48, 2026-09-14
+## As of Platterpus 0.6.49, 2026-09-15
 
 | | |
 |---|---|
-| our released version | **0.6.48**, released 2026-09-14 (pre-release, as all `v0.*` are) |
+| our released version | **0.6.49**, released 2026-09-15 (pre-release, as all `v0.*` are) |
 | ripper we **pin** | **`fe4d2c4`** — `cyanrip 0.9.4-rc2+platterpus.12`, `release_seq` 22 |
-| approved by | **round 19**, for Platterpus **0.6.47** — both constants derived from the record, not set by hand. The approval names 0.6.47 because that is the app version round 19 reviewed; 0.6.48 changes no seam surface |
+| approved by | **round 19**, for Platterpus **0.6.47** — both constants derived from the record, not set by hand. The approval names 0.6.47 because that is the app version round 19 reviewed; neither 0.6.48 nor 0.6.49 changes any seam surface |
 | pin **under review** | none — `PIN_UNDER_REVIEW == FORK_PIN`, so no round is reviewing a build |
 | **test pin** | none |
 | rounds 1–19 | **all closed, bilateral `GO`** |
@@ -148,13 +148,44 @@ our fatal-message inventory rebuilds from it **byte-identically at 120 P5 + 7
 P5a**, and `_MAX_TABLE_LAG` is back to **0** — the argv flag table we check every
 invocation against is the current round's own rather than three rounds old.
 
-**What 0.6.48 contains, and why it is not bookkeeping.** The acceptance script
-ships *inside* our AppImage, so a hardware run executes whatever the installed
-release carries. Section N — the whole-disc secure re-read, our accuracy claim —
-never asserted the output format it writes in, inheriting it from a preset field
-nothing checked. No live defect, one field from the archival test silently
-ripping to the wrong format with every section green. 0.6.48 is the release that
-puts the fix in the artifact an operator actually runs.
+**What 0.6.49 contains, and it is a correction to what we told you last time.**
+The acceptance script ships *inside* our AppImage, so a hardware run executes
+whatever the installed release carries — which is why each of these is a release
+rather than a commit.
+
+We ran the full pass on 2026-09-15 against your `fe4d2c4` under 0.6.48. It
+reported **241 of 241 steps green** and it was **not a pass**: the album folders
+held **no `.mp3` and no `.wv` file at all**. Ours, entirely, and worth your three
+minutes only because two of the three mechanisms are portable shapes rather than
+facts about our code.
+
+* **A post-rip guard discarded WORK when it meant to discard a RESULT.** Our
+  post-rip chain runs tagging, cover art, re-compress and the transcode on one
+  thread, and each step ended by returning out of the chain if the user had
+  started another rip. Suppressing the *result* is right — it must not land in the
+  next album's record. Skipping the remaining *steps* was never the requirement,
+  and the transcode is last, so it was the first casualty.
+* **A completeness field computed from the REQUEST, read as the OUTCOME.** Our
+  report's `verification.gates` exists so a null result is never ambiguous, and
+  every state it can emit is derived from configuration. Work that was requested,
+  begun and then abandoned therefore rendered as `"ran"` beside a null block — the
+  one reading the field was invented to prevent — on five of eight rips.
+* **And the guard written for exactly that could not fire.** It reads
+  `if block is not None and not block.get("ran")`, and abandonment leaves the
+  block **absent** rather than `{"ran": false}`. It swept a population its own
+  subject could not be in, and had been green over it for the life of the feature.
+  It was itself a fix from an earlier incident, which is why nobody re-asked
+  *can this be satisfied by finding nothing?* of it.
+
+**Your half was clean and we want that on the record too**: 14/14 tracks, an
+unstable track 5 detected across three non-matching reads, re-ripped, still not
+converging, and reported honestly in your log rather than smoothed over; every
+log verified against its own `Log FUN512:`. We checked two things that looked
+like findings against you and neither was — your build's compiled-in
+`Handshake: round 16 lap 17 closed` is accurate about when `fe4d2c4` was built
+and our cross-check correctly raised no conflict, and `Tracks ripped accurately:
+2/14` on a two-track rip is your own line reporting against the disc, which our
+verdict renders as *"all 2 tracks verified"*.
 
 **The pin, the approval and the installable artifact are one object.** You
 published `fe4d2c4` to both channels; our approval constants name it; every rip
@@ -163,27 +194,53 @@ had been true only intermittently since round 14.
 
 ---
 
-## The hardware run — the first full green, and what it is not
+## The hardware runs — and a correction to what we told you about the first one
 
-**2026-09-12, Pioneer BDR-209D on Bazzite: 238 of 238, all 21 sections, zero
-failures.** The first `full-green` row the field-evidence ledger has ever carried.
-Ripper under test was `fe4d2c4`; app was 0.6.47.
+**We told you on 2026-09-14 that 2026-09-12 was "the first full green": 238 of
+238, all 21 sections, zero failures. That sentence is still true of what the run
+REPORTED, and we now know what it was not measuring.** The 2026-09-15 run used
+the same script and reported 241 of 241 while writing none of the derived output
+— and reading back the older run's app log shows the same abandonment and the
+same two inert sections. So the two runs are **not two independent witnesses**;
+they share a blind spot, which is our own *two implementations agreeing is not
+either one being correct* rule arriving through the ledger that gates our version
+numbers.
 
-**What it settles:** the published pair works end to end on real hardware, with
-`Ripping errors: 0`, per-track CRCs, and the `Log FUN512:` footer present, so the
-process reached `atexit`.
+We have left the 2026-09-12 row recorded as `full-green` rather than re-grading
+it — a verdict decided after the fact is exactly what our severity rules forbid —
+and annotated it, and recorded 2026-09-15 as `partial`. The count toward our
+`0.9.1` bar is, in substance, zero. We are telling you because we cited that row
+to you as settled evidence, and a claim we have since qualified is one you should
+hear about from us rather than infer from a later number.
+
+**The two acceptance sections that should have caught it were graded ARCHIVAL and
+could not fail.** Both asserted against *your* log — and we always invoke you
+`-o flac`, deriving other formats ourselves afterwards, so your log is identical
+whether our transcode ran or never happened. The shape, stated generally because
+we think it travels: *a section graded on its subject, asserting against a witness
+that cannot see that subject.* Nothing about your code; you grade sections too.
+
+**What the 2026-09-12 run does still settle:** the published pair works end to end
+on real hardware, with `Ripping errors: 0`, per-track CRCs, and the `Log FUN512:`
+footer present, so the process reached `atexit`. None of what we found is in your
+half.
 
 **What it does not settle, said plainly because a green run invites the opposite
 reading:**
+
+* **It could not fail over the derived formats**, per the correction above, and
+  neither could the run after it. `expect-derived-output` closes that in 0.6.49;
+  the next run is the first whose green means what we previously said green meant.
 
 * **It is one machine and one distro.** Our `0.9.1` bar was tightened by the
   maintainer on 2026-09-13 to require **two** full-green passes across **at least
   two machines and two distros** — counted over the full-green rows only. One rig
   passing twice answers *was it luck* and says nothing about *is it green only
   because of this machine*. A gate refuses a bump the ledger does not support.
-* **The next minor is `0.7.100`** and it is gated on a full hardware pass, which
-  this is. We are not rolling it until round 19's revised procedure has also run —
-  the maintainer's sequencing, so the procedure is exercised before it is trusted.
+* **The next minor is `0.7.100`** and it is gated on a full hardware pass. We
+  believed on 2026-09-14 that we had one; we are no longer counting it as one,
+  for the reason above. It waits on a run where the sections that grade our
+  derived output are able to fail.
 * **It predates the tiered procedure**, which is round 18's product and has never
   been executed.
 

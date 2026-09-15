@@ -11,7 +11,88 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
-## 2026-09-14 (latest) — v0.6.48 cut so the rig runs the script this cycle fixed
+## 2026-09-15 (latest) — the acceptance run passed 241/241 and produced no MP3
+
+**The hardware run came back green and it was not a pass.** `platterpus 0.6.48` +
+`platterpus-fork-gfe4d2c4`, the round-19 approved pin: 241 pass, 0 fail, 0 error,
+1 info, every ARCHIVAL section green. The album folders held **no `.mp3` and no
+`.wv` file at all**. Full case study: `docs/testing.md` §5.bi.
+
+**How it was found, which is the part worth keeping.** Not by a failing check —
+there were none. By reading the report's own blocks against each other: `gates`
+said `derived: "ran"` while `verification.derived` was `null`, and `gates` said
+`derived: "flac-only"` on the one rip whose `verification.derived` read
+`{"format": "wav", "ran": true}`. A document contradicting itself twice, in
+opposite directions. Three independent witnesses then settled it: the evidence
+bundle's manifest is an **allowlist**, so its silence is evidence — it named the
+`.flac` and `.wav` files it refused and no `.mp3` or `.wv`; the app log carries
+exactly one `Transcode: N file(s) written.` line for three derived-format rips;
+and `verification.transcode` is null for the other two.
+
+**One mechanism under all of it.** The post-rip daemon's five steps each ended
+`if self._rip_generation != gen: return`. That is a *result* guard — album A's
+verdict must not land in album B's record — written as a *control-flow* guard, so
+it also skipped every remaining step. The transcode is last, so it went first.
+The acceptance script starts the next rip ~2s after the previous one finishes;
+five of eight rips were cut short, the fourteen-track section-F rip among them.
+
+**Why nothing caught it, three ways, all graduated to `CLAUDE.md`:**
+
+1. **The completeness field was computed from the request.** Every
+   `verification.gates` state is derived from settings, so *requested, begun,
+   abandoned* had no representation and rendered as `"ran"` — the one reading the
+   block exists to prevent, and its docstring promises it prevents.
+2. **The guard for exactly this swept a population the failure could not be in.**
+   `if block is not None and not block.get("ran")` — abandonment leaves the block
+   absent. It was itself a fix from an earlier incident, which is why nobody
+   re-asked *can this be satisfied by finding nothing?* of it.
+3. **Two ARCHIVAL sections could not fail.** K1's severity reason is *"when a
+   user selects MP3 the MP3 **is** their library entry"*, and it asserted a
+   setting against itself plus `expect-rip-complete` — which grades **cyanrip's**
+   log, and we always invoke cyanrip `-o flac`. Both sections would pass with
+   `adapters/transcode.py` deleted.
+
+**And the probe found a fourth, one level up.** After adding
+`expect-derived-output` to K1–K3, `scripts/revert_probe.py` was pointed at
+deleting it from the shipped script again and reported **VACUOUS**: nothing
+required it. So the new assertion could have been removed and the suite stayed
+green — the same defect shape as the one it was written for. The sweep that
+closes it derives its population from the script.
+
+**A fourth product defect, found by the same reading.** The report's `settings`
+were rebuilt from the live config on every re-write, so the one rip whose chain
+finished got its settings read six seconds late: its report says `flac`/`archival`
+for a WAV rip. The only report that completed its work is the only one describing
+the wrong rip.
+
+**What was NOT a defect, checked rather than filed** — two of these look alarming
+and reporting either would have cost the fork a lap. `ripper_handshake_note:
+"round 16 lap 17 closed"` is the **fork's** compiled-in sentence, true of when
+`fe4d2c4` was built, and `cross_check_note` compared the two provenance witnesses
+and correctly found no conflict. `Tracks ripped accurately: 2/14` on a two-track
+rip is cyanrip's own line, parsed verbatim; our verdict says *"all 2 tracks
+verified"*. Track 5's non-convergence (three reads, three CRCs, re-ripped once
+more, still no, not replaced) is a property of the disc, recorded honestly in the
+log, the report's `retried_tracks` and the step's detail, and deliberately not
+graded. CTDB `no_match` over 102 entries beside 12/14 exact AccurateRip and 2
+offset-variant is a pressing variant, and the report's own issue text says so.
+
+**The ledger row was decided, not defaulted.** Recorded `partial`. And the
+qualification reaches backwards: the 2026-09-12 `full-green` row ran the same
+script with the same two inert sections and shows the same abandonment in its
+log, so the two are not independent evidence — *two witnesses that are related*,
+arriving through the table that gates a version bump. Left as recorded rather
+than re-graded, annotated under the table, and flagged in `TASKS.md` as the
+maintainer's call.
+
+**Sent to the fork** as a note rather than a lap (round 19 is closed): the two
+portable shapes — a completeness gate computed from the request, and a guard
+whose population excludes its own subject — with our citations, under the
+*could in any possible way help* bar.
+
+Released as **v0.6.49** for the re-run.
+
+## 2026-09-14 — v0.6.48 cut so the rig runs the script this cycle fixed
 
 **The release exists because the acceptance script ships *inside* the AppImage.**
 `rig_scripts/*.txt` is package data (`pyproject.toml:124`) and the script's own
@@ -6501,4 +6582,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.48.*
+*Last updated for Platterpus v0.6.49.*

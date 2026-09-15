@@ -75,6 +75,7 @@ text is taken verbatim as one value.
 | `expect-status` | 1+ (rest of line) | ready | expect-status <text> — assert the rip status line (the one under the Overall progress bar) contains text, case-insensitively |
 | `expect-rip-complete` | 0 | ready | expect-rip-complete — assert the last rip FINISHED, read from the ripper's own log (completion footer, track tally, no truncation) rather than from the status line; read instability is reported, not graded |
 | `expect-log-well-formed` | 0 | ready | expect-log-well-formed — assert the ripper's log is an intact, attested record (completion footer present with EITHER verdict, not truncated, FUN512 signature well-formed); use where a rip was cancelled and `expect-rip-complete` cannot state the claim |
+| `expect-derived-output` | 1–2 | ready | expect-derived-output <mp3|wavpack|wav> [seconds] — assert the derived files the chosen output format calls for exist beside the FLAC masters, one per master. Waits (default 600s) because the transcode runs after `wait-for-rip` returns; the format is named here rather than read from Settings, so the step cannot check a setting against itself |
 | `expect-secure-rerip` | 0 | ready | expect-secure-rerip — assert the secure re-read actually RAN on this rip (at least one track block carries cyanrip's Scope: line), the graded form of rig-check's 'genuinely exercised' row |
 | `expect-identified` | 0 | ready | expect-identified — assert the disc was identified against MusicBrainz (a well-formed release MBID is held), not merely that the track table has rows, which placeholder rows also satisfy |
 | `expect-refused` | 2+ (rest of line) | ready | expect-refused <setting> <value> — assert the validator REFUSES this value and leaves the setting unchanged (the pass condition is a refusal) |
@@ -339,7 +340,7 @@ found nothing wrong*.
 {
   "language": "platterpus-uiscript",
   "grammar_version": 1,
-  "platterpus_version": "0.6.48",
+  "platterpus_version": "0.6.49",
   "syntax": {
     "one_statement_per_line": true,
     "comment_prefix": "#",
@@ -593,6 +594,15 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-log-well-formed \u2014 assert the ripper's log is an intact, attested record (completion footer present with EITHER verdict, not truncated, FUN512 signature well-formed); use where a rip was cancelled and `expect-rip-complete` cannot state the claim"
+    },
+    {
+      "name": "expect-derived-output",
+      "min_args": 1,
+      "max_args": 2,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-derived-output <mp3|wavpack|wav> [seconds] \u2014 assert the derived files the chosen output format calls for exist beside the FLAC masters, one per master. Waits (default 600s) because the transcode runs after `wait-for-rip` returns; the format is named here rather than read from Settings, so the step cannot check a setting against itself"
     },
     {
       "name": "expect-secure-rerip",
@@ -918,4 +928,4 @@ found nothing wrong*.
 }
 ```
 
-*Last updated for Platterpus v0.6.48.*
+*Last updated for Platterpus v0.6.49.*
