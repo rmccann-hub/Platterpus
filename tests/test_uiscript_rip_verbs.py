@@ -2737,3 +2737,180 @@ def test_snapshot_still_passes_when_it_captured_the_panel(qapp) -> None:
     record, _ = _run_one(win, "snapshot real")
     assert record.outcome is Outcome.PASS
     assert "/dev/sr0" in record.detail
+
+
+# --- expect-derived-output -------------------------------------------------
+#
+# The verb written because sections K1 and K2 could not fail. Both are graded
+# ARCHIVAL, and between them they asserted the setting round-trip,
+# `expect-rip-complete` and `rig-check` — none of which can see a derived file,
+# because cyanrip is always invoked `-o flac` and the transcode happens after it
+# in us. On the 2026-09-15 acceptance run both passed and no `.mp3` and no `.wv`
+# was written at all.
+
+
+def _window_after_a_rip_into(log_file: Path) -> Any:
+    """A window whose state says a rip finished, writing `log_file`.
+
+    `expect-derived-output` goes through `ScriptRunner._rip_log_from_disk`, so it
+    inherits that reader's freshness and existence guards — which is the point:
+    without them a `rip` that was REFUSED leaves `_last_rip_log_file` pointing at
+    a PREVIOUS section's album, and a verb that counts files in a folder would
+    count the wrong folder. The stand-in therefore has to satisfy the same
+    precondition the product does, rather than the verb reaching past it.
+    """
+    from platterpus.parsers.rip_log import RipLog
+
+    return _window(last_rip_log=RipLog(), last_rip_log_file=log_file)
+
+
+def _album_with(tmp_path: Path, masters: int, derived_ext: str, derived: int) -> Path:
+    album = tmp_path / "The Police" / "derived mp3 test"
+    album.mkdir(parents=True)
+    for n in range(1, masters + 1):
+        (album / f"{n:02d} - Track.flac").write_text("master", encoding="utf-8")
+    for n in range(1, derived + 1):
+        (album / f"{n:02d} - Track.{derived_ext}").write_text(
+            "derived", encoding="utf-8"
+        )
+    log_file = album / "derived mp3 test.log"
+    log_file.write_text("log", encoding="utf-8")
+    return log_file
+
+
+def _step_outcome(runner: Any, qapp: Any, process_until: Any, source: str) -> Any:
+    emitted: list[Any] = []
+    runner.finished.connect(emitted.append)
+    runner.start(parse(source), source=source)
+    assert process_until(lambda: bool(emitted)), "the run never finished"
+    return emitted[0].steps[-1]
+
+
+def test_expect_derived_output_passes_when_every_master_has_its_derived_file(
+    qapp, process_until, tmp_path
+) -> None:
+    win = _window_after_a_rip_into(
+        _album_with(tmp_path, masters=2, derived_ext="mp3", derived=2)
+    )
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-derived-output mp3 5"
+    )
+    assert step.outcome is Outcome.PASS, step.detail
+    assert "2 .mp3 file(s)" in step.detail
+
+
+def test_expect_derived_output_fails_when_the_transcode_never_ran(
+    qapp, process_until, tmp_path
+) -> None:
+    """THE 2026-09-15 SHAPE, exactly: FLAC masters present, zero derived files,
+    and a ripper log that is complete and correct because cyanrip did its job."""
+    win = _window_after_a_rip_into(
+        _album_with(tmp_path, masters=2, derived_ext="mp3", derived=0)
+    )
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-derived-output mp3 1"
+    )
+    assert step.outcome is Outcome.FAIL, step.detail
+    assert "-o flac" in step.detail, "the detail must explain why the rip log agrees"
+
+
+def test_expect_derived_output_fails_on_a_short_count_not_only_on_zero(
+    qapp, process_until, tmp_path
+) -> None:
+    """ "At least one" would pass a transcode that wrote one file of fourteen."""
+    win = _window_after_a_rip_into(
+        _album_with(tmp_path, masters=3, derived_ext="wv", derived=1)
+    )
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-derived-output wavpack 1"
+    )
+    assert step.outcome is Outcome.FAIL, step.detail
+
+
+def test_expect_derived_output_refuses_flac_rather_than_passing_on_it(
+    qapp, process_until, tmp_path
+) -> None:
+    """FLAC is the master and is derived from nothing, so the claim is empty —
+    and an empty claim that PASSES is how a section comes to assert nothing."""
+    win = _window_after_a_rip_into(
+        _album_with(tmp_path, masters=2, derived_ext="mp3", derived=2)
+    )
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-derived-output flac"
+    )
+    assert step.outcome is Outcome.ERROR, step.detail
+
+
+def test_expect_derived_output_fails_rather_than_passing_over_an_empty_room(
+    qapp, process_until, tmp_path
+) -> None:
+    win = _window(last_rip_log=None)
+    win._last_rip_log_file = None
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-derived-output mp3 1"
+    )
+    assert step.outcome is Outcome.FAIL, step.detail
+
+
+def test_expect_derived_output_waits_for_a_transcode_that_is_still_running(
+    qapp, process_until, tmp_path
+) -> None:
+    """The transcode runs after `wait-for-rip` returns, so a step that looked once
+    would be asserting the work was REQUESTED. Same class as the `pick-release`
+    step that outran its own worker by 124 ms."""
+    log_file = _album_with(tmp_path, masters=2, derived_ext="mp3", derived=0)
+    win = _window_after_a_rip_into(log_file)
+    album = log_file.parent
+
+    emitted: list[Any] = []
+    runner = ScriptRunner(win)
+    runner.finished.connect(emitted.append)
+    source = "expect-derived-output mp3 30"
+    runner.start(parse(source), source=source)
+
+    # Still nothing on disk: the step must not have resolved yet.
+    assert not emitted, "the step resolved before the transcode could have finished"
+
+    for n in range(1, 3):
+        (album / f"{n:02d} - Track.mp3").write_text("derived", encoding="utf-8")
+    assert process_until(lambda: bool(emitted)), "the wait never resolved"
+    assert emitted[0].steps[-1].outcome is Outcome.PASS
+
+
+def test_expect_derived_output_will_not_grade_a_previous_sections_album(
+    qapp, process_until, tmp_path
+) -> None:
+    """The guard `tests/test_uiscript_log_from_disk.py` bought us.
+
+    The first version of this verb walked straight to
+    `_last_rip_log_file.parent`, skipping `_rip_log_from_disk`'s freshness check.
+    A `rip` can be REFUSED — no disc, Start disabled, a rip already running — and
+    leave that attribute pointing at the album a PREVIOUS section wrote. A verb
+    whose whole job is counting files in a folder would then count the wrong
+    folder, and if that album happened to be a complete MP3 rip it would PASS,
+    which is worse than failing.
+    """
+    from platterpus.parsers.rip_log import RipLog
+
+    previous = RipLog()
+    # A complete, correct previous album: if the folder were graded, it passes.
+    win = _window(
+        last_rip_log=previous,
+        last_rip_log_file=_album_with(
+            tmp_path, masters=2, derived_ext="mp3", derived=2
+        ),
+    )
+    runner = ScriptRunner(win)
+    # `rip` snapshots the log that was current when this section asked — the same
+    # object, because no rip has finished since.
+    runner._rip_log_when_requested = previous
+
+    emitted: list[Any] = []
+    runner.finished.connect(emitted.append)
+    source = "expect-derived-output mp3 1"
+    runner.start(parse(source), source=source)
+    assert process_until(lambda: bool(emitted)), "the run never finished"
+    step = emitted[0].steps[-1]
+
+    assert step.outcome is Outcome.FAIL, step.detail
+    assert "no rip has finished since this section asked for one" in step.detail

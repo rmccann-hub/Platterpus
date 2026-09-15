@@ -580,6 +580,13 @@ class MainWindow(
         # verify daemons capture it and drop their result if a newer rip has begun
         # since, so a previous album's late verify can't contaminate this one.
         self._rip_generation: int = 0
+        # The settings this rip runs under, frozen at Start (see
+        # `main_window_shared`), and the post-rip ledger that says which
+        # checks were begun and which a newer rip cut short.
+        self._rip_settings_snapshot: dict | None = None
+        self._rip_gate_inputs: dict | None = None
+        self._post_rip_pending: set[str] = set()
+        self._post_rip_superseded: set[str] = set()
         # The system-tray icon for the rip-complete notification, created lazily
         # by `_ensure_tray_icon`. Initialised HERE, at runtime, and not only
         # declared on `MainWindowShared`: that seam's declarations live under

@@ -8161,9 +8161,25 @@ def test_a_stale_recompress_or_transcode_result_is_dropped(
     qapp.processEvents()
 
     assert window._last_recompress_result is None
-    # ...and the daemon returned at the generation check, so the LATER steps never
-    # ran against the old album's folder either.
-    assert transcoded == []
+    # ...AND THE LATER STEPS STILL RAN. This assertion used to be `transcoded == []`,
+    # with a comment approving of it: "the daemon returned at the generation check,
+    # so the LATER steps never ran against the old album's folder either." The
+    # requirement in this test's own docstring is that a result from album A is not
+    # RECORDED against album B — which the line above checks. Skipping the work as
+    # well was never part of it, and the transcode is step 4 of 4, so it was the
+    # first casualty and the least visible one.
+    #
+    # What that cost, on the 2026-09-15 acceptance run: the MP3 and WavPack rips
+    # were each cut short ~3 seconds after finishing and wrote **no `.mp3` and no
+    # `.wv` at all**, while their reports said `✓ Bit-perfect` and
+    # `gates: {"derived": "ran"}`. Two ARCHIVAL acceptance sections passed over it.
+    # The files belong to the previous album and are named from its own log, so
+    # finishing them is safe; what must not happen is the result landing in the
+    # new album's record, and that is the assertion above.
+    assert transcoded != [], (
+        "the transcode must still produce the user's chosen output format for the "
+        "album that was ripped — only its RESULT is dropped"
+    )
 
 
 def test_a_destroyed_window_does_not_break_a_late_post_rip_step(
@@ -9697,3 +9713,94 @@ def test_every_place_that_clears_the_disc_id_also_clears_the_chosen_marker() -> 
         f"expected at least two reset sites to check, found {sites} — if the "
         "sweep stopped matching, it is asserting nothing"
     )
+
+
+# --- the rip's own settings, and the checks a newer rip cut short -----------
+#
+# Both from the 2026-09-15 acceptance run, which passed 241/241 while holding
+# reports that contradicted themselves.
+
+
+def test_the_settings_block_describes_the_rip_not_the_moment_it_was_written(
+    teardown_threads, monkeypatch
+) -> None:
+    """The report is re-written each time a post-rip check lands, and
+    `build_settings` read the LIVE config — so a check that finished after the
+    user changed a setting produced a record of a configuration the rip never ran
+    under.
+
+    Measured: the WAV rip's report says `output_format: "flac"` and
+    `rip_goal: "archival"`, and its gates say `derived: "flac-only"`, beside a
+    `verification.derived` in the same document reading `{"format": "wav"}`.
+    """
+    window = teardown_threads()
+    window._config.output_format = "wav"
+    window._config.rip_goal = "custom"
+    from platterpus import rip_report
+
+    window._rip_settings_snapshot = rip_report.build_settings(window._config)
+
+    # The script moves on while the transcode is still finishing.
+    window._config.output_format = "flac"
+    window._config.rip_goal = "archival"
+
+    settings = window._rip_settings_block()
+    assert settings["output_format"] == "wav"
+    assert settings["rip_goal"] == "custom"
+
+
+def test_without_a_snapshot_the_settings_block_still_describes_something() -> None:
+    """The fallback is deliberate: a stale-proof block is not worth an absent one."""
+    from platterpus.ui.main_window_rip import RipMixin
+
+    class _Stub:
+        _config = type("C", (), {"output_format": "flac"})()
+        _rip_settings_snapshot = None
+        _last_read_offset_effective = 667
+
+    settings = RipMixin._rip_settings_block(_Stub())  # type: ignore[arg-type]
+    assert settings["output_format"] == "flac"
+    assert settings["read_offset"]["effective"] == 667
+
+
+def test_a_check_still_in_flight_when_the_next_rip_starts_is_sealed_superseded(
+    teardown_threads,
+) -> None:
+    """The gate said "ran" over a null block on five of eight rips, because the
+    only thing that recorded the drop was a log line."""
+    window = teardown_threads()
+    window._post_rip_pending = {"ctdb", "derived"}
+    window._last_ctdb_result = None
+    window._last_derived_verify_result = None
+
+    window._seal_superseded_post_rip_work()
+
+    assert window._post_rip_superseded == {"ctdb", "derived"}
+
+
+def test_a_check_that_landed_just_before_the_next_start_is_not_called_dropped(
+    teardown_threads,
+) -> None:
+    """Both halves are required, in both directions. A result sitting in the
+    report must not be labelled superseded, or the label stops meaning anything."""
+    window = teardown_threads()
+    window._post_rip_pending = {"ctdb"}
+    window._last_ctdb_result = object()  # came back microseconds before Start
+
+    window._seal_superseded_post_rip_work()
+
+    assert window._post_rip_superseded == set()
+
+
+def test_a_check_never_launched_is_not_reported_as_interrupted(
+    teardown_threads,
+) -> None:
+    """The other half: a rip that never reached its post-rip phase has nothing to
+    supersede, and saying otherwise claims work that was never begun."""
+    window = teardown_threads()
+    window._post_rip_pending = set()
+    window._last_ctdb_result = None
+
+    window._seal_superseded_post_rip_work()
+
+    assert window._post_rip_superseded == set()

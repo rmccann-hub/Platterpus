@@ -607,6 +607,12 @@ class ArtifactEntry(TypedDict):
     truncated: NotRequired[bool]
     text: NotRequired[str]
     error: NotRequired[str]
+    #: True when ``error`` is simply "the file is not there", as opposed to
+    #: unreadable or a refused suffix. Added 2026-09-15: the embedder already drew
+    #: this distinction for its own log line and recorded it nowhere, so every
+    #: reader downstream would have had to match errno text to tell an OPTIONAL
+    #: artifact's healthy absence from a real failure — and none did.
+    missing: NotRequired[bool]
 
 
 class ArtifactsBlock(TypedDict):

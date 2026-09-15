@@ -11,6 +11,49 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.49] — 2026-09-15
+
+### Fixed
+
+- **A rip no longer loses the output format you chose when you start the next
+  one.** The post-rip daemon runs tagging, cover art, re-compress and the
+  transcode in that order, and each step ended by dropping out entirely if a
+  newer rip had started — which suppressed the result *and* skipped every
+  remaining step. The transcode is the last of the four, so it was the first
+  thing lost: on the 2026-09-15 acceptance run the MP3 and WavPack rips were
+  each cut short about three seconds after finishing and wrote **no `.mp3` and
+  no `.wv` at all**, while reporting `✓ Bit-perfect`. The guard now gates the
+  *result* (which still must never land in the next album's report) and lets the
+  work finish.
+- **`verification.gates` can no longer claim a check ran when its result was
+  never recorded.** The gates are derived from configuration — from what was
+  *asked for* — so they described work that was requested, begun and then
+  abandoned as `"ran"` beside a null result, which is the one ambiguity the
+  block exists to remove. Checks cut short by a new rip are now recorded as
+  superseded, and any gate claiming `"ran"` over a missing result is raised in
+  `issues[]` regardless of the reason.
+- **The acceptance script now checks that the output format you chose was
+  actually written.** Sections K1–K3 (MP3, WavPack, WAV) asserted that the
+  setting round-tripped and that the *ripper's* log showed a completed rip —
+  and the ripper is always invoked `-o flac`, because FLAC is the archival
+  master and every other format is derived from it afterwards, so that log
+  looks the same whether the derived files were written or not. A new
+  `expect-derived-output <format>` script verb reads the album folder instead.
+- **A rip's report no longer warns that an optional companion file is
+  missing.** The auto-fix addendum is written only when a track was actually
+  replaced by a re-rip, so its absence is what a clean rip looks like — and
+  every clean rip carried a warning about it, which teaches a reader to skim
+  the one line that is sometimes real.
+- **The acceptance run's ripper-identity step no longer contradicts itself.**
+  It could print "the build under review" and, in the same sentence, "no
+  handshake round is open, so there is no build under review".
+- **A rip report's `settings` now describe that rip**, not the configuration in
+  force whenever the report was last written. The report is re-written as each
+  post-rip check lands, and the settings were re-read live each time, so a check
+  finishing after a settings change produced a record of a rip that never
+  happened — one report named `flac`/`archival` for a WAV rip, with its own
+  `verification.derived` block saying `wav` two lines away.
+
 ## [0.6.48] — 2026-09-14
 
 ### Added
@@ -14654,7 +14697,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.48...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.49...HEAD
+[0.6.49]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.48...v0.6.49
 [0.6.48]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.47...v0.6.48
 [0.6.47]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.46...v0.6.47
 [0.6.46]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.45...v0.6.46
@@ -14790,4 +14834,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.48.*
+*Last updated for Platterpus v0.6.49.*

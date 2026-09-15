@@ -97,7 +97,19 @@ def build_artifact(path: Path | None) -> ArtifactEntry:
         # A missing file is the common, uninteresting case; anything else is
         # worth a log line. Both land in the report either way.
         entry["error"] = str(exc)
-        if not isinstance(exc, FileNotFoundError):
+        # ...AND THE DISTINCTION IS RECORDED, not only logged. It was drawn here
+        # for the log line and nowhere in the entry, so every reader downstream
+        # had to tell "the file is not there" from "the file could not be read"
+        # by matching errno text in `error` — which nothing does, so nothing did.
+        # The consequence was a `warning` on every healthy rip: the auto-fix
+        # addendum is written ONLY when a track was swapped, so its absence is the
+        # normal case, and 7 of the 8 rips in the 2026-09-15 bundle carried
+        # "the addendum artifact could not be embedded". A warning that fires on
+        # every clean run is one a reader learns to skim — including the round-08
+        # report where the SAME code flagged a genuinely missing `eac_log`.
+        if isinstance(exc, FileNotFoundError):
+            entry["missing"] = True
+        else:
             log.warning("could not embed %s in the rip report: %s", p, exc)
         return entry
     entry["exists"] = True

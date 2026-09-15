@@ -1226,7 +1226,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # gives: the justification is the load-bearing part of each of these constants,
     # and a roll with no record of why is how a pin moves to a build with nothing
     # behind it.
-    "deps/fork_source.py": 1964,
+    # **1964 -> 2006 on 2026-09-15**: `pin_under_review_label()` and
+    # `pin_under_review_reason()`, the two short accessors section A needed so it
+    # could stop composing its own copy of a sentence this module already owns.
+    # Almost all of the growth is the docstrings recording what it printed on the
+    # acceptance run — "the build under review (… there is no build under review)"
+    # — because the next caller tempted to inline that literal needs the reason,
+    # not the rule. They belong beside the pins they read, which is this file.
+    "deps/fork_source.py": 2006,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1361,7 +1368,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "parsers/rip_log.py": 831,
     "preflight.py": 905,
     "read_speed_ladder.py": 367,
-    "report_types.py": 667,
+    # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
+    # there" stops being something a reader has to infer from errno text.
+    "report_types.py": 673,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1375,7 +1384,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "rip_audit.py": 1216,
     "rip_compare.py": 1404,
     "rip_files.py": 422,
-    "rip_report.py": 2302,
+    # **2302 -> 2402 on 2026-09-15**: `SUPERSEDED_GATE`, `OPTIONAL_ARTIFACTS`, and
+    # the gate-vs-result check in `_issues`. It is the block that decides whether
+    # this report tells the truth about what was verified, and the 2026-09-15 run
+    # is why: five of eight rips said `"ran"` over a null result. The added lines
+    # are mostly the account of how the existing guard could not fire — which is
+    # the part a future reader has to have before they "simplify" it back.
+    "rip_report.py": 2402,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -1430,7 +1445,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # update check reads the fork's release manifest and cannot offer a build the
     # fork never published, which is the abort that ended three overnight runs.
     # Menu wiring lives with the menu; the dialog is its own module.
-    "ui/main_window.py": 1572,
+    # **1572 -> 1579 on 2026-09-15**: initialising the START-time settings snapshot
+    # and the post-rip pending/superseded ledger beside `_rip_generation`, which is
+    # the field they exist to correct. Seven lines, and splitting them from their
+    # sibling would be the drift.
+    "ui/main_window.py": 1579,
     "ui/main_window_deps.py": 589,
     "ui/main_window_drive.py": 555,
     "ui/main_window_helpers.py": 508,
@@ -1450,8 +1469,20 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # in the shutdown path. The extraction is net-neutral in code and pays
     # for itself in the docstring; a copy of that parse in the ui-script
     # layer would have been the drift this file exists to prevent.
-    "ui/main_window_rip.py": 4267,
-    "ui/main_window_shared.py": 392,
+    # **4267 -> 4458 on 2026-09-15**: the post-rip supersede work — `emit_if_current`
+    # (gating the emit rather than the work), `_seal_superseded_post_rip_work`, and
+    # the settings/gates snapshot helpers. This is the THIRD raise of this file in a
+    # month and the row in `TASKS.md` for splitting the post-rip chain out of the
+    # window stands; it is not done here because a hardware re-run is waiting on
+    # this fix, and a structural move under a release is how a correct fix ships
+    # broken. The code is the smallest form of the fix, not a resting place.
+    "ui/main_window_rip.py": 4458,
+    # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
+    # gate inputs, and the two post-rip ledgers — with the measurement that made
+    # them necessary. This file is the single source of truth for the shared
+    # surface, so an undeclared attribute reachable only through `getattr` is the
+    # hole it exists to close.
+    "ui/main_window_shared.py": 414,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -1546,7 +1577,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # design. Most of the +55 is the reason the sweep cannot prune and the reason
     # a new block inherits nothing — the edge the fork's §5.2 calls the only one
     # worth arguing about, which our own leftover state could have produced.
-    "uiscript/runner.py": 3731,
+    # **3731 -> 3898 on 2026-09-15**: `_do_expect_derived_output` and the shared
+    # `_rip_album_dir` reader. The verb is what makes acceptance sections K1 and K2
+    # able to fail at all — both are graded ARCHIVAL and on 2026-09-15 both passed
+    # over a folder containing none of the output they exist to prove. A handler
+    # lives beside its siblings because `_execute` dispatches by name; moving one
+    # out would be a second dispatch surface.
+    "uiscript/runner.py": 3898,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
@@ -1555,7 +1592,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # +81 (2026-09-05): the three verb registrations for the handlers above.
     # Each carries its "why this verb exists" comment, which is the file's
     # established shape and the reason it is long.
-    "uiscript/verbs.py": 671,
+    # **671 -> 713 on 2026-09-15**: the `expect-derived-output` entry. This table is
+    # the security boundary — the parser refuses anything not in it — so a verb
+    # cannot live anywhere else, and the growth is the comment explaining why
+    # `expect-rip-complete` could not state this claim (cyanrip is always invoked
+    # `-o flac`, so its log is identical whether our transcode ran or not).
+    "uiscript/verbs.py": 713,
     "update_install.py": 304,
     "verdict.py": 521,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,

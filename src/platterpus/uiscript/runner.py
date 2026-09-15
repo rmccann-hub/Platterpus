@@ -2143,6 +2143,160 @@ class ScriptRunner(QObject):
             )
         return fresh
 
+    def _rip_album_dir(self, step: Step) -> Path | None:
+        """The folder this section's rip wrote into, or ``None`` having FAILed.
+
+        **Delegates to :meth:`_rip_log_from_disk` rather than restating its
+        guards**, which is the whole reason that method exists: *"those two guards
+        were duplicated across the three verbs; they live here now, so a fourth
+        verb cannot be written without them."* This is the fourth verb, and the
+        first version of it walked straight to ``_last_rip_log_file.parent`` and
+        skipped both.
+
+        `tests/test_uiscript_log_from_disk.py` caught that, and it was not a
+        substring collision: without the freshness guard, a `rip` that was
+        REFUSED — no disc, Start disabled, a rip already running — leaves that
+        attribute pointing at a **previous section's** album, and a verb whose
+        whole job is counting files in a folder would then count the wrong
+        folder and could pass on it. Exactly the defect `_rip_log_from_disk`'s
+        docstring describes, arriving through the one verb that wants the
+        directory rather than the document.
+        """
+        if self._rip_log_from_disk(step) is None:
+            return None  # it recorded the FAIL and said why
+        log_file = getattr(self._window, "_last_rip_log_file", None)
+        if log_file is None:  # pragma: no cover — the reader above requires it
+            self._record(
+                step,
+                Outcome.FAIL,
+                "the window holds a parsed rip log but not the path it came "
+                "from, so the album folder cannot be located.",
+            )
+            return None
+        return Path(log_file).parent
+
+    def _do_expect_derived_output(self, step: Step) -> None:
+        """Assert the derived files the chosen output format calls for EXIST.
+
+        **The assertion sections K1 and K2 did not have, in the sections graded
+        ARCHIVAL for exactly this.** Between them they asserted that the setting
+        round-tripped, that the rip finished, and `rig-check`. None of those can
+        see a derived file: `expect-rip-complete` reads cyanrip's own log, and
+        cyanrip is always invoked ``-o flac`` because FLAC is the archival master
+        and every other format is derived from it afterwards (Critical rule #4) —
+        so that log is identical whether the transcode ran or never happened.
+        `rig_check.py` mentions no derived format at all.
+
+        On the 2026-09-15 acceptance run both sections passed while **no `.mp3`
+        and no `.wv` file was written**; each transcode was dropped about three
+        seconds after its rip by the next section's Start.
+
+        **It WAITS, because the transcode is asynchronous.** The post-rip daemon
+        runs tagging, cover art, re-compress and then the transcode, after
+        `wait-for-rip` has already returned — so a step that looked once, straight
+        after the rip, would be asserting that the work was *requested*. That is
+        the distinction `CLAUDE.md` names (a `pick-release` step outran its own
+        worker by 124 ms and failed eight steps), and it applies here with a much
+        longer deferral: the whole post-rip chain.
+
+        **Read from the folder, not from the app.** `_last_derived_verify_result`
+        is the wrong witness twice over: it is a belief about the artifact rather
+        than the artifact (the rule `_rip_log_from_disk` exists for), and it is
+        itself `None` in precisely the case that produced this verb.
+
+        **The format is the step's argument**, never read back from
+        ``config.output_format`` — that would check a setting against itself,
+        which is what the section already did on the line above.
+
+        Floors, so this cannot pass by finding nothing: the folder must be
+        readable, it must hold at least one FLAC master, and the derived count
+        must **equal** the master count. "At least one" would pass a transcode
+        that wrote one file of fourteen, which is the partial failure a count is
+        for.
+        """
+        from platterpus.adapters.transcode import SUPPORTED_FORMATS, extension_for
+
+        fmt = step.args[0].strip().lower()
+        ext = extension_for(fmt)
+        if ext is None:
+            self._record(
+                step,
+                Outcome.ERROR,
+                f"{fmt!r} is not a derived output format — this verb takes one of "
+                f"{', '.join(sorted(SUPPORTED_FORMATS))}. FLAC is the master and "
+                f"is never derived from anything, so `expect-derived-output flac` "
+                f"would be a claim about nothing.",
+            )
+            return
+        try:
+            seconds = float(step.args[1]) if len(step.args) > 1 else 600.0
+        except ValueError:
+            self._record(
+                step, Outcome.ERROR, f"{step.args[1]!r} is not a number of seconds"
+            )
+            return
+        if seconds <= 0:
+            self._record(step, Outcome.ERROR, "the timeout must be positive")
+            return
+        seconds = min(seconds, MAX_WAIT_S)
+
+        folder = self._rip_album_dir(step)
+        if folder is None:
+            return  # the shared reader recorded the FAIL and named the reason
+        try:
+            masters = [
+                p
+                for p in folder.iterdir()
+                if p.is_file() and p.suffix.lower() == ".flac"
+            ]
+        except OSError as exc:
+            self._record(
+                step,
+                Outcome.FAIL,
+                f"{folder} could not be read, so whether the derived files exist "
+                f"is NOT DETERMINED — which is never a pass: {exc!r}",
+            )
+            return
+        if not masters:
+            self._record(
+                step,
+                Outcome.FAIL,
+                f"{folder} holds no FLAC master, so there is nothing the derived "
+                f"files could have been derived FROM. Every rip writes FLAC first "
+                f"(Critical rule #4), so this is a broken rip rather than a "
+                f"missing transcode.",
+            )
+            return
+        wanted = len(masters)
+
+        def _derived_are_all_there() -> bool:
+            try:
+                return (
+                    sum(
+                        1
+                        for p in folder.iterdir()
+                        if p.is_file() and p.suffix.lower() == f".{ext}"
+                    )
+                    >= wanted
+                )
+            except OSError:
+                return False
+
+        self._arm_deadline(step, seconds, _derived_are_all_there)
+        self._deadline_outcome = Outcome.PASS
+        self._deadline_detail = (
+            f"{wanted} .{ext} file(s) beside {wanted} FLAC master(s) in "
+            f"{folder.name} — one per master, as {fmt} calls for"
+        )
+        self._deadline_timeout_detail = (
+            f"no complete set of .{ext} files appeared beside the {wanted} FLAC "
+            f"master(s) in {folder.name} within {seconds:.0f}s. The rip was made "
+            f"with {fmt} selected and the derived output is what the user actually "
+            f"plays, so this is a missing library entry. Note that the ripper's "
+            f"own log cannot show this either way — cyanrip is always invoked "
+            f"`-o flac` and the transcode happens afterwards, in us."
+        )
+
     def _do_expect_log_well_formed(self, step: Step) -> None:
         """Assert the ripper's log is an INTACT, ATTESTED record — either verdict.
 
@@ -2969,7 +3123,16 @@ class ScriptRunner(QObject):
         # two apart without re-deriving it.
         reviewed = f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}"
         test_pin = fork_source.FORK_TEST_BUILD_TAG
-        accepted = {reviewed: "the build under review", test_pin: "the agreed test pin"}
+        # THE LABEL IS DERIVED, not written here. This was
+        # `{reviewed: "the build under review", ...}` — a fourth hard-coded copy
+        # of a fact `fork_source` already computes, and on 2026-09-15 it printed
+        # "the build under review" immediately followed by the derived clause
+        # "(fe4d2c4 is the APPROVED production pin (no handshake round is open,
+        # so there is NO build under review))". One sentence, both answers.
+        accepted = {
+            reviewed: fork_source.pin_under_review_label(),
+            test_pin: "the agreed test pin",
+        }
         expected = reviewed if reviewed == test_pin else f"{reviewed} or {test_pin}"
         if not self._last_cyanrip_argv:
             self._record(
@@ -2985,7 +3148,11 @@ class ScriptRunner(QObject):
                     step,
                     Outcome.PASS,
                     f"installed build is {tag} — {role}"
-                    + (f" ({_pin_role_phrase()})" if tag == reviewed else ""),
+                    + (
+                        f" ({fork_source.pin_under_review_reason()})"
+                        if tag == reviewed
+                        else ""
+                    ),
                 )
                 return
         # **NAME THE COMMAND, AND DO NOT CLAIM A ROUND IS OPEN WHEN NONE IS.**

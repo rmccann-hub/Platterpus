@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Collection
 from pathlib import Path
 from typing import Final
 
@@ -745,6 +746,27 @@ def build_settings(config: object, *, read_offset_effective: int | None = None) 
     return settings
 
 
+#: The gate value for a check whose work was dropped because the user started
+#: another rip before it finished. **Added 2026-09-15**, and the reason is the
+#: one this whole vocabulary exists for: every other state here is derived from
+#: *config*, i.e. from what was ASKED FOR, so none of them can describe work that
+#: was asked for, begun, and then abandoned. On the 2026-09-15 acceptance run
+#: five of eight rips lost their post-rip chain to the next Start — including
+#: both derived-format transcodes, so no `.mp3` and no `.wv` was ever written —
+#: and every one of those reports said `"ran"`.
+SUPERSEDED_GATE: Final[str] = "superseded — a newer rip started before this finished"
+
+#: Report companions whose ABSENCE is the healthy answer, so a reader is not told
+#: about it. Today: the auto-fix swap addendum, written only when a track was
+#: actually replaced by a re-rip (`rip_addendum.write_addendum` returns early on
+#: an empty swap list), which is the uncommon case by design.
+#:
+#: Kept as a named set rather than a condition at each call site because the
+#: question — *is this companion required?* — belongs to the artifact, not to
+#: whoever happens to be reading the block.
+OPTIONAL_ARTIFACTS: Final[frozenset[str]] = frozenset({"addendum"})
+
+
 def build_gates(
     *,
     ctdb_enabled: bool,
@@ -753,6 +775,7 @@ def build_gates(
     recompress_enabled: bool,
     backend_maxes_compression: bool,
     transcode_requested: bool,
+    superseded: Collection[str] = (),
 ) -> dict:
     """Build ``verification.gates``: WHY each verification sub-block is or isn't
     populated.
@@ -761,6 +784,12 @@ def build_gates(
     is ambiguous on its own — did the check fail to run, or was it never meant to?
     This turns each into an explicit state the report is self-describing about, so
     "didn't run" is never misread as "passed" (or "failed"). Pure; never raises.
+
+    ``superseded`` names the gate keys (``"ctdb"``, ``"flac_integrity"``,
+    ``"derived"``, ``"recompress"``) whose work was dropped because a newer rip
+    started. Those win over every config-derived state below, because they are a
+    fact about what HAPPENED and the rest are facts about what was REQUESTED —
+    and when those two disagree the second one is the one that lies.
     """
     if not flac_verify_enabled:
         flac_gate = "disabled"
@@ -774,12 +803,19 @@ def build_gates(
         recompress_gate = "backend already maxes compression"
     else:
         recompress_gate = "ran"
-    return {
+    gates = {
         "ctdb": "ran" if ctdb_enabled else "disabled",
         "flac_integrity": flac_gate,
         "recompress": recompress_gate,
         "derived": "ran" if transcode_requested else "flac-only",
     }
+    # Only over a gate that claims the work RAN. A `disabled`/`flac-only` gate is
+    # already an accurate account of a null block, and overwriting it would say a
+    # check was interrupted when it was never scheduled.
+    for key in superseded:
+        if gates.get(key) == "ran":
+            gates[key] = SUPERSEDED_GATE
+    return gates
 
 
 def _eta_trace_block(eta_trace: list | None, timing: TimingBlock | None) -> dict | None:
@@ -1020,6 +1056,7 @@ def _build(
         artifacts=artifacts,
         ripper_log_verification=verify_block,
         dependencies=(environment or {}).get("dependencies"),
+        gates=gates,
     )
     built: dict = {
         "schema_version": REPORT_SCHEMA_VERSION,
@@ -1707,6 +1744,10 @@ def _issues(
     # The already-serialized v18 block, so this list and the block it summarises
     # read the same verdict.
     ripper_log_verification: dict | None = None,
+    # `verification.gates`, so this list can compare what the report CLAIMS was
+    # checked against what it actually holds. Passed as the serialized dict for
+    # the same reason as every other block here: read what the report shows.
+    gates: dict | None = None,
 ) -> list[dict]:
     """Derive the consolidated ``issues`` list from the already-assembled blocks.
 
@@ -2004,6 +2045,46 @@ def _issues(
                 f"this rip carries no {label} result either way",
             )
 
+    # THE SAME CLAIM, CHECKED THE ONLY WAY THAT CANNOT BE SATISFIED BY FINDING
+    # NOTHING. The loop above needs `block is not None`, so it sweeps a population
+    # that EXCLUDES the commonest way a check fails to produce a result: the work
+    # being dropped when the user starts another rip, which leaves the block `None`
+    # rather than `{"ran": false}`. A check written to catch "we did not check is
+    # not it passed" could not see it, and on the 2026-09-15 acceptance run it did
+    # not see it five times out of eight — including on the 14-track rip, whose
+    # CTDB, FLAC-integrity and checksum results were all dropped 13 seconds in
+    # while `gates` said `"ran"` beside three nulls.
+    #
+    # So this compares the two things the report actually holds — what the gate
+    # CLAIMS and what the block CONTAINS — and needs no cooperation from whoever
+    # dropped the work. `SUPERSEDED_GATE` is the caller telling us why; this is the
+    # backstop for every reason nobody thought to pass down.
+    for gate_key, label, block in (
+        ("ctdb", "the CTDB check", ctdb),
+        ("flac_integrity", "FLAC integrity", flac_integrity),
+        ("derived", "derived-format verification", derived),
+        ("recompress", "re-compress", recompress),
+    ):
+        state = (gates or {}).get(gate_key)
+        if block is not None:
+            continue
+        if state == SUPERSEDED_GATE:
+            add(
+                "warning",
+                "verification_superseded",
+                f"{label} was started for this rip and dropped unfinished because "
+                f"a newer rip began — this record carries no {label} result, and "
+                f"an absent result is not a passed one",
+            )
+        elif state == "ran":
+            add(
+                "warning",
+                "verification_result_missing",
+                f"{label} is recorded as having run but this report carries no "
+                f"result for it — the two disagree, and the gate is the weaker "
+                f"evidence because it is derived from the settings, not the work",
+            )
+
     # DERIVED INCOMPLETE with no per-file failure: fewer derived files than masters
     # slipped past the mismatch/failure checks entirely.
     if derived and derived.get("ran") and derived.get("complete") is False:
@@ -2102,14 +2183,33 @@ def _issues(
 
     # AN ARTIFACT WE COULD NOT EMBED. The report's own attachments failing is
     # exactly the case where a reader most needs to be told.
+    #
+    # **Except where absence is the healthy answer.** `OPTIONAL_ARTIFACTS` names
+    # the companions that are written only under a condition, so "not there" is
+    # what a good rip looks like: the auto-fix addendum exists only when a track
+    # was actually swapped (`rip_addendum.write_addendum` returns early on an
+    # empty swap list). Warning about it unconditionally put a `warning` on every
+    # clean rip — 7 of the 8 in the 2026-09-15 bundle, and both reports in the
+    # round-08 artifacts — and the cost is not the noise: it is that a reader
+    # learns to skim `artifact_unavailable`, and the round-08 `eac_log` entry
+    # sitting beside it was real.
+    #
+    # Narrow on purpose, in two ways. Only the artifacts NAMED here are exempt,
+    # and only when the file is simply absent: a permission error or a refused
+    # suffix still warns, because those mean something went wrong reading a file
+    # that may well be there. `missing` is a field the embedder sets rather than
+    # errno text this end matches, so the two cannot drift.
     for name, entry in (artifacts or {}).items():
-        if isinstance(entry, dict) and entry.get("error"):
-            add(
-                "warning",
-                "artifact_unavailable",
-                f"the {name} artifact could not be embedded in this report "
-                f"({entry['error']}) — it may still exist on disk",
-            )
+        if not isinstance(entry, dict) or not entry.get("error"):
+            continue
+        if name in OPTIONAL_ARTIFACTS and entry.get("missing"):
+            continue
+        add(
+            "warning",
+            "artifact_unavailable",
+            f"the {name} artifact could not be embedded in this report "
+            f"({entry['error']}) — it may still exist on disk",
+        )
 
     # A DEPENDENCY BELOW ITS MINIMUM. `min_version_met: false` was the only
     # per-tool failure signal in the whole report and nothing surfaced it.
