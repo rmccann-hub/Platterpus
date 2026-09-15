@@ -1810,3 +1810,79 @@ def test_a_gate_that_never_claimed_to_run_raises_nothing() -> None:
     codes = [i["code"] for i in report["issues"]]
     assert "verification_result_missing" not in codes
     assert "verification_superseded" not in codes
+
+
+# --- an optional companion's absence is not a fault ------------------------
+
+
+def test_the_optional_addendum_missing_raises_nothing() -> None:
+    """The auto-fix addendum is written only when a track was actually swapped,
+    so its absence is what a clean rip looks like — yet 7 of the 8 rips in the
+    2026-09-15 bundle carried a warning about it, as did both round-08 reports.
+
+    The cost is not the noise. It is that `artifact_unavailable` becomes a line
+    readers skim, and the round-08 `eac_log` entry sitting beside it was real.
+    """
+    report = build_report(
+        _clean_log(),
+        outcome=build_outcome(status="success", ripper_exit_code=0),
+        artifacts={
+            "note": "n/a",
+            "addendum": {
+                "path": "/x/a.platterpus-addendum.txt",
+                "exists": False,
+                "error": "[Errno 2] No such file or directory: '/x/a...'",
+                "missing": True,
+            },
+        },
+    )
+    assert [i for i in report["issues"] if i["code"] == "artifact_unavailable"] == []
+
+
+def test_an_optional_artifact_that_is_UNREADABLE_still_warns() -> None:
+    """Narrow in the second direction too: exempting the whole artifact would
+    hide a permission error on a file that is very much there."""
+    report = build_report(
+        _clean_log(),
+        outcome=build_outcome(status="success", ripper_exit_code=0),
+        artifacts={
+            "note": "n/a",
+            "addendum": {
+                "path": "/x/a.platterpus-addendum.txt",
+                "exists": False,
+                "error": "[Errno 13] Permission denied",
+            },
+        },
+    )
+    issue = next(i for i in report["issues"] if i["code"] == "artifact_unavailable")
+    assert "Permission denied" in issue["message"]
+
+
+def test_a_REQUIRED_artifact_going_missing_still_warns() -> None:
+    """The exemption is per-artifact, not a blanket rule about absence. The
+    round-08 reports flagged a genuinely missing `eac_log` through this path."""
+    report = build_report(
+        _clean_log(),
+        outcome=build_outcome(status="success", ripper_exit_code=0),
+        artifacts={
+            "note": "n/a",
+            "eac_log": {
+                "path": "/x/a (EAC-compatible).log",
+                "exists": False,
+                "error": "[Errno 2] No such file or directory",
+                "missing": True,
+            },
+        },
+    )
+    issue = next(i for i in report["issues"] if i["code"] == "artifact_unavailable")
+    assert "eac_log" in issue["message"]
+
+
+def test_the_embedder_records_absence_as_a_field_not_as_errno_text(tmp_path) -> None:
+    """The two ends must not agree by string-matching: `missing` is set by the
+    embedder and read by the issues layer, so a reader never parses an errno."""
+    from platterpus.report_artifacts import build_artifact
+
+    entry = build_artifact(tmp_path / "nope.log")
+    assert entry["missing"] is True
+    assert entry["exists"] is False

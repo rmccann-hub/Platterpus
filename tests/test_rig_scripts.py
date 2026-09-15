@@ -895,6 +895,101 @@ def test_every_acceptance_section_is_classified_in_advance() -> None:
     )
 
 
+def _section_bodies() -> dict[str, list[str]]:
+    """Each acceptance section's executable lines, keyed by its letter.
+
+    Derived from the shipped script rather than listed here, for the same reason
+    `_script_sections` is: a hand-kept list of sections is a second map that goes
+    stale the first time one is added.
+    """
+    text = (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8")
+    bodies: dict[str, list[str]] = {}
+    current: str | None = None
+    for line in text.splitlines():
+        m = re.match(r"^log --- ([A-Z][0-9]*)\.\s", line)
+        if m:
+            current = m.group(1)
+            bodies.setdefault(current, [])
+            continue
+        stripped = line.strip()
+        if current and stripped and not stripped.startswith("#"):
+            bodies[current].append(stripped)
+    return bodies
+
+
+def test_every_section_that_rips_in_a_derived_format_asserts_the_files_exist() -> None:
+    """A section whose subject is a derived output must be able to FAIL over it.
+
+    **This sweep exists because the probe that proved the fix found nothing.**
+    `expect-derived-output` was added to K1-K3 on 2026-09-15, and
+    `scripts/revert_probe.py` then reported `VACUOUS` for deleting it from the
+    shipped script — correctly: nothing here required it, so the one real
+    assertion in two ARCHIVAL sections could be removed and the suite stay green.
+    That is the same shape as the defect it was added for, one level up.
+
+    The original: K1 and K2 are graded ARCHIVAL — K1's reason in `docs/testing.md`
+    is *"when a user selects MP3 the MP3 IS their library entry"* — and asserted
+    only that the setting round-tripped, that `expect-rip-complete` passed, and
+    `rig-check`. None of those can see a derived file. `expect-rip-complete`
+    grades **cyanrip's own log**, and cyanrip is always invoked `-o flac` because
+    FLAC is the archival master and every other format is derived afterwards by
+    our transcode adapter (Critical rule #4) — so that witness is identical
+    whether the transcode ran or never happened. On the 2026-09-15 run both
+    sections passed while no `.mp3` and no `.wv` file existed at all.
+
+    The population is derived: any section that sets `output_format` to a
+    transcoded format and then rips. A section that merely restores the format
+    (K4) does not rip and is not in it.
+    """
+    from platterpus.adapters.transcode import SUPPORTED_FORMATS
+
+    bodies = _section_bodies()
+    assert len(bodies) >= 15, (
+        f"only {len(bodies)} sections parsed — if the `log --- X.` shape changed "
+        "this sweep is checking almost nothing"
+    )
+
+    expected: dict[str, str] = {}
+    for letter, lines in bodies.items():
+        fmt = ""
+        for line in lines:
+            m = re.match(r"^set\s+output_format\s+(\S+)$", line)
+            if m:
+                fmt = m.group(1)
+            if line == "rip" and fmt in SUPPORTED_FORMATS:
+                expected[letter] = fmt
+                break
+
+    # NON-TRIVIALITY. Without a floor this test passes on a script that rips in
+    # no derived format at all — which is precisely the "satisfied by finding
+    # nothing" shape, and the reason the population is checked before it is used.
+    assert len(expected) >= 3, (
+        f"only {len(expected)} section(s) found ripping in a derived format "
+        f"({sorted(expected)}). The acceptance run is supposed to exercise every "
+        "output format the program offers; if this set has shrunk, the gate below "
+        "has almost nothing left to hold."
+    )
+    assert set(expected.values()) == set(SUPPORTED_FORMATS), (
+        f"the acceptance run rips in {sorted(set(expected.values()))} but the "
+        f"program offers {sorted(SUPPORTED_FORMATS)} — a format nobody rips in is "
+        "a format no hardware run has ever produced"
+    )
+
+    missing = [
+        f"{letter} (rips in {fmt})"
+        for letter, fmt in sorted(expected.items())
+        if f"expect-derived-output {fmt}" not in bodies[letter]
+    ]
+    assert not missing, (
+        f"acceptance section(s) that rip in a derived format without asserting "
+        f"the derived files exist: {missing}. `expect-rip-complete` cannot state "
+        "this claim — cyanrip is always invoked `-o flac` and the transcode "
+        "happens after it, in us — so without `expect-derived-output <fmt>` the "
+        "section passes whether or not the user's chosen output was ever written. "
+        "That is not hypothetical: it is what the 2026-09-15 run did."
+    )
+
+
 # -----------------------------------------------------------------------------
 # The morning collector's version probe — tested by RUNNING it
 # -----------------------------------------------------------------------------
@@ -2630,3 +2725,37 @@ def test_every_WHOLE_DISC_rip_pins_the_format_it_writes_in() -> None:
         "An archival master that takes its format from an unasserted preset field is "
         "one config change from being silently written in the wrong one."
     )
+
+
+def test_the_pin_role_label_and_the_clause_beside_it_never_disagree() -> None:
+    """One sentence must not give two answers to "what is this pin?".
+
+    Section A's pass message on the 2026-09-15 run read:
+
+        installed build is platterpus-fork-gfe4d2c4 — the build under review
+        (fe4d2c4 is the APPROVED production pin (no handshake round is open, so
+        there is no build under review))
+
+    The clause was derived from `fork_source`; the label was a dict literal in
+    `uiscript/runner.py`, written when a round happened to be open. Both are now
+    derived from the same predicate, and this asserts they agree in BOTH states
+    rather than in whichever one happens to hold today — a test that only checked
+    the current state would have passed while the bug was live.
+    """
+    from platterpus.deps import fork_source
+
+    for open_round, expected in ((True, "under review"), (False, "production pin")):
+        original = fork_source.a_round_is_reviewing_a_build
+        fork_source.a_round_is_reviewing_a_build = lambda: open_round  # type: ignore[assignment]
+        try:
+            label = fork_source.pin_under_review_label()
+            clause = fork_source.pin_under_review_role()
+        finally:
+            fork_source.a_round_is_reviewing_a_build = original  # type: ignore[assignment]
+
+        assert expected in label, (label, open_round)
+        # The clause's own wording differs, so agreement is checked on the claim:
+        # a label saying "under review" beside a clause denying there is one is
+        # exactly what shipped.
+        denies = "no build under review" in clause
+        assert denies is not (expected == "under review"), (label, clause)

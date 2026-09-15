@@ -756,6 +756,16 @@ def build_settings(config: object, *, read_offset_effective: int | None = None) 
 #: and every one of those reports said `"ran"`.
 SUPERSEDED_GATE: Final[str] = "superseded — a newer rip started before this finished"
 
+#: Report companions whose ABSENCE is the healthy answer, so a reader is not told
+#: about it. Today: the auto-fix swap addendum, written only when a track was
+#: actually replaced by a re-rip (`rip_addendum.write_addendum` returns early on
+#: an empty swap list), which is the uncommon case by design.
+#:
+#: Kept as a named set rather than a condition at each call site because the
+#: question — *is this companion required?* — belongs to the artifact, not to
+#: whoever happens to be reading the block.
+OPTIONAL_ARTIFACTS: Final[frozenset[str]] = frozenset({"addendum"})
+
 
 def build_gates(
     *,
@@ -2173,14 +2183,33 @@ def _issues(
 
     # AN ARTIFACT WE COULD NOT EMBED. The report's own attachments failing is
     # exactly the case where a reader most needs to be told.
+    #
+    # **Except where absence is the healthy answer.** `OPTIONAL_ARTIFACTS` names
+    # the companions that are written only under a condition, so "not there" is
+    # what a good rip looks like: the auto-fix addendum exists only when a track
+    # was actually swapped (`rip_addendum.write_addendum` returns early on an
+    # empty swap list). Warning about it unconditionally put a `warning` on every
+    # clean rip — 7 of the 8 in the 2026-09-15 bundle, and both reports in the
+    # round-08 artifacts — and the cost is not the noise: it is that a reader
+    # learns to skim `artifact_unavailable`, and the round-08 `eac_log` entry
+    # sitting beside it was real.
+    #
+    # Narrow on purpose, in two ways. Only the artifacts NAMED here are exempt,
+    # and only when the file is simply absent: a permission error or a refused
+    # suffix still warns, because those mean something went wrong reading a file
+    # that may well be there. `missing` is a field the embedder sets rather than
+    # errno text this end matches, so the two cannot drift.
     for name, entry in (artifacts or {}).items():
-        if isinstance(entry, dict) and entry.get("error"):
-            add(
-                "warning",
-                "artifact_unavailable",
-                f"the {name} artifact could not be embedded in this report "
-                f"({entry['error']}) — it may still exist on disk",
-            )
+        if not isinstance(entry, dict) or not entry.get("error"):
+            continue
+        if name in OPTIONAL_ARTIFACTS and entry.get("missing"):
+            continue
+        add(
+            "warning",
+            "artifact_unavailable",
+            f"the {name} artifact could not be embedded in this report "
+            f"({entry['error']}) — it may still exist on disk",
+        )
 
     # A DEPENDENCY BELOW ITS MINIMUM. `min_version_met: false` was the only
     # per-tool failure signal in the whole report and nothing surfaced it.

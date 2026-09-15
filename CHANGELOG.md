@@ -30,6 +30,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   block exists to remove. Checks cut short by a new rip are now recorded as
   superseded, and any gate claiming `"ran"` over a missing result is raised in
   `issues[]` regardless of the reason.
+- **The acceptance script now checks that the output format you chose was
+  actually written.** Sections K1–K3 (MP3, WavPack, WAV) asserted that the
+  setting round-tripped and that the *ripper's* log showed a completed rip —
+  and the ripper is always invoked `-o flac`, because FLAC is the archival
+  master and every other format is derived from it afterwards, so that log
+  looks the same whether the derived files were written or not. A new
+  `expect-derived-output <format>` script verb reads the album folder instead.
+- **A rip's report no longer warns that an optional companion file is
+  missing.** The auto-fix addendum is written only when a track was actually
+  replaced by a re-rip, so its absence is what a clean rip looks like — and
+  every clean rip carried a warning about it, which teaches a reader to skim
+  the one line that is sometimes real.
+- **The acceptance run's ripper-identity step no longer contradicts itself.**
+  It could print "the build under review" and, in the same sentence, "no
+  handshake round is open, so there is no build under review".
 - **A rip report's `settings` now describe that rip**, not the configuration in
   force whenever the report was last written. The report is re-written as each
   post-rip check lands, and the settings were re-read live each time, so a check

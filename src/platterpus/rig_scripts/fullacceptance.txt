@@ -615,6 +615,32 @@ rig-check
 # A DIFFERENT ALBUM TITLE PER FORMAT, so the three land in three folders and
 # none of them collides with section F's archival master.
 
+# --- K1-K3. THE DERIVED FORMATS, AND THE ASSERTION THEY DID NOT HAVE -------
+# **Added 2026-09-15, after this run passed while producing nothing.** K1 and K2
+# are graded ARCHIVAL -- K1's reason in `docs/testing.md` is *"when a user selects
+# MP3 the MP3 IS their library entry"* -- and between them they asserted the
+# setting round-trip, `expect-rip-complete`, and `rig-check`. None of the three
+# can see a derived file:
+#
+#   * `expect-rip-complete` grades **cyanrip's own log**, and cyanrip is always
+#     invoked `-o flac` -- FLAC is the archival master and every other format is
+#     derived from it afterwards by our transcode adapter (Critical rule #4),
+#     which that log knows nothing about. The witness is identical whether the
+#     transcode ran or never happened.
+#   * `rig_check.py` contains **zero** mentions of mp3, wavpack, or any derived
+#     format. Derived by grep, not assumed.
+#   * `set`/`expect output_format mp3` checks a setting against itself.
+#
+# So on the 2026-09-15 run both sections were green and the folders held **no
+# `.mp3` and no `.wv` at all**: each transcode was dropped about three seconds
+# after its rip finished, by the next section's Start. Two ARCHIVAL sections
+# cannot fail is not a detail of those two sections -- the maintainer's bar is
+# *zero failures in the ARCHIVAL sections*, and that sentence means nothing over
+# a section with no way to fail.
+#
+# `expect-derived-output` names the format rather than reading it back from
+# Settings, for the reason in the third bullet above.
+
 log --- K1. MP3: the lossy derived output, with a real VBR quality ---
 set output_format mp3
 expect output_format mp3
@@ -627,6 +653,7 @@ wait-for-rip 3600
 snapshot aftermp3
 screenshot aftermp3
 expect-rip-complete
+expect-derived-output mp3
 rig-check
 
 log --- K2. WavPack: the second lossless format ---
@@ -638,6 +665,7 @@ rip
 wait-for-rip 3600
 snapshot afterwavpack
 expect-rip-complete
+expect-derived-output wavpack
 rig-check
 
 log --- K3. WAV: raw PCM, no tags, no art - the UI must say so ---
@@ -650,6 +678,7 @@ wait-for-rip 3600
 snapshot afterwav
 screenshot afterwav
 expect-rip-complete
+expect-derived-output wav
 rig-check
 
 # --- K4. RESTORE THE FORMAT K1-K3 CHANGED ----------------------------------

@@ -2576,6 +2576,102 @@ justification is invisible reads as an omission the next session should tidy up.
 they disagree about a **fact** or about a **time**. Disagreement about a fact is a
 defect in one of them. Disagreement about a time is a plan.
 
+### §5.bi — A full-green acceptance run that produced none of the output it graded
+
+*2026-09-15. The first hardware run to report `241 pass, 0 fail, 0 error` — and
+it wrote no MP3 and no WavPack. Three defects, one mechanism, and the reason none
+of them could be seen is more useful than any of them.*
+
+**What the run said.** `ok: true`, 241 of 242 steps PASS and the 242nd INFO, every
+ARCHIVAL section green, on the approved pin `platterpus-fork-gfe4d2c4` under
+0.6.48. It is the shape the `0.7.100` gate has been waiting for since 2026-08-21.
+
+**What was on disk.** The evidence bundle's manifest is an *allowlist* — it names
+every file it refused and why — so its silence is evidence. It listed the `.flac`
+masters and the two `.wav` files it refused, and named **no `.mp3` and no `.wv`
+at all**. The app log agreed from the other side: exactly one
+`Transcode: 2 file(s) written.` line in the whole run, for the WAV section. Two
+`verification.transcode: null` blocks agreed from a third.
+
+**The mechanism.** The post-rip daemon runs colon-restore → tagging → cover art →
+re-compress → transcode on one thread, and each step ended with
+`if self._rip_generation != gen: return`. That is a *result* guard — the next
+album's report must not receive the previous album's verdicts — and it was written
+as a *control-flow* guard, so it also skipped every remaining step. The transcode
+is last of five, so it was the first thing lost and the last thing anyone would
+look for. The acceptance script starts the next rip about two seconds after the
+previous one finishes; five of eight rips were cut short, the fourteen-track
+section-F rip among them.
+
+**Why no gate saw it, and this is the part to keep.**
+
+**1. The completeness field was computed from the request.**
+`verification.gates` exists to make a null result unambiguous — its docstring
+promises *"a missing check is never confused with a failed one"* — and every state
+it can emit (`"ran"`, `"disabled"`, `"flac-only"`, `"backend self-verifies"`) is
+derived from configuration. Configuration records what was **asked for**. There was
+no state for *asked for, begun, abandoned*, so that case rendered as `"ran"`, which
+is the single reading the block was invented to prevent. Ask of any field that
+asserts a check happened: *is this computed from the request or from the result?*
+
+**2. The guard for exactly this swept a population the failure could not be in.**
+`_issues` already carried a loop commented *"A VERIFICATION STEP THAT COULD NOT RUN
+was silent … 'We did not check' is not 'it passed'"*. It reads
+`if block is not None and not block.get("ran") and block.get("error")`. Abandonment
+leaves the block **absent**, not `{"ran": false}` — so the check could not fire on
+the commonest way its own subject occurs, and had been green over it for the whole
+life of the feature. This is §5.aw again (*a gate's population is part of the
+gate*) with one addition: **the check was itself a fix**, so it arrived wearing the
+authority of having been added on purpose, and nobody re-asked *can this be
+satisfied by finding nothing?* of it. Add that question to the fix, not only to the
+original.
+
+**3. Two ARCHIVAL sections asserted against a witness that cannot see their
+subject.** K1 is graded ARCHIVAL with the reason *"when a user selects MP3 the MP3
+**is** their library entry"*. Its assertions were: the setting round-trips
+(`set`/`expect output_format mp3` — a setting checked against itself),
+`expect-rip-complete`, and `rig-check`. `expect-rip-complete` grades **cyanrip's own
+log**, and we always invoke cyanrip `-o flac` because FLAC is the archival master
+and every other format is derived afterwards by our transcode adapter — so that log
+is byte-identical whether the transcode ran or never happened. `rig_check.py`
+contains zero mentions of any derived format (derived by grep, not assumed). Both
+sections would pass with `adapters/transcode.py` deleted.
+
+The maintainer's bar is *zero failures in the ARCHIVAL sections*. That sentence
+presupposes the sections can fail, and it is the presupposition nothing checked.
+**A severity grade is a claim about consequence; it is not evidence that the check
+exists.** Same family as §D3's K4 finding one day earlier — there, a step graded on
+its title with nothing resting on it; here, two steps graded on their subject with
+no assertion that could reach it. Both come from reading a section's *name* instead
+of its *witness*.
+
+**4. And the sweep that would have caught (3) did not exist either.** After adding
+`expect-derived-output` to K1–K3, `scripts/revert_probe.py` was pointed at deleting
+it again from the shipped script, and reported **VACUOUS**: nothing required it, so
+the only real assertion in two ARCHIVAL sections could be removed and the suite stay
+green. `tests/test_rig_scripts.py::test_every_section_that_rips_in_a_derived_format_asserts_the_files_exist`
+derives the population from the script and closes that. *The probe is what found
+this*, one level up from the defect it was run about — which is the argument for
+running it on every fix rather than on the ones that feel uncertain.
+
+**A fourth defect, found by the same reading and worth its own sentence.** The
+report's `settings` block was rebuilt from the **live** config on every re-write,
+and the report is re-written each time a post-rip check lands. So the one rip whose
+chain *did* finish got its settings read six seconds late, by which point the script
+had moved two sections on: its report says `output_format: "flac"` and
+`rip_goal: "archival"` for a rip made under `wav`, with its own
+`verification.derived` saying `{"format": "wav"}` two lines below. **The only report
+that completed its work is the only one that describes the wrong rip** — the
+lifetime bug hid inside the block that looked immune because "the settings" sounds
+like a constant.
+
+*The generalisation, and it is the one sentence to carry:* **a run is only evidence
+about the things its checks could have failed over.** Counting passes measures the
+script; it does not measure the product. Before believing a green run, pick its most
+important claim and ask what artifact would have to go missing for that step to go
+red — and if the answer is "nothing", the step is a decoration with a severity
+grade on it.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is
@@ -2679,9 +2775,9 @@ defect, and two of those sections are archival.
 | H | ARCHIVAL | the overwrite prompt; missing the collision destroys a finished master |
 | I | ARCHIVAL | cancel; the defect this exists for destroyed the log's completion footer |
 | J | ARCHIVAL | identify and rip again after a cancel — a rip, and a drive-state proof |
-| K1 | ARCHIVAL | when a user selects MP3 the MP3 *is* their library entry — the thing they play, with its tags and art. "Lossy by design" describes the codec, not the importance of deriving it correctly |
-| K2 | ARCHIVAL | WavPack is lossless — a second archival-grade output |
-| K3 | ARCHIVAL | **WAV is raw PCM, i.e. lossless** — those bytes *are* the audio. Classified UX in the first draft, which contradicted K2: "lossless → archival" was applied to WavPack and not to WAV. The maintainer caught it |
+| K1 | ARCHIVAL | when a user selects MP3 the MP3 *is* their library entry — the thing they play, with its tags and art. "Lossy by design" describes the codec, not the importance of deriving it correctly. **Asserts `expect-derived-output mp3` since 2026-09-15**: until then this section asserted only that the setting round-tripped and that *cyanrip's* log showed a completed rip, and cyanrip is always invoked `-o flac` — so it passed on 2026-09-15 with no `.mp3` file written at all (§5.bi) |
+| K2 | ARCHIVAL | WavPack is lossless — a second archival-grade output. **Asserts `expect-derived-output wavpack` since 2026-09-15**, for the reason in K1's row — it too passed over a folder holding no `.wv` |
+| K3 | ARCHIVAL | **WAV is raw PCM, i.e. lossless** — those bytes *are* the audio. Classified UX in the first draft, which contradicted K2: "lossless → archival" was applied to WavPack and not to WAV. The maintainer caught it. **Asserts `expect-derived-output wav` since 2026-09-15**; this is the one derived section whose files the 2026-09-15 run did produce, and only because nothing started after it for six minutes |
 | K4 | UX | **regraded 2026-09-14.** A restore step: it sets `output_format` back to flac and reads it back, which B does verbatim at the top of the file and Q does verbatim at the bottom. It was graded ARCHIVAL on its title — *"back to FLAC, the archival master"* — which read as a check on the archival format and is not one. Its effect does not survive either: L reassigns the format twice within twenty lines. FLAC output stays covered by F and N, both whole-disc rips |
 | L | ARCHIVAL | a preset applies a *bundle* of settings, several reaching cyanrip's argv. B checks each setting round-trips; that a preset applies **all** of it is a different claim, and a preset that silently under-applies hands the user a fast rip they believe is a paranoid one |
 | M | UX | naming templates — where a file lands, not whether its bytes are right |
@@ -2777,13 +2873,33 @@ cannot fail for any archival reason. Queued in `TASKS.md`; the tier table says
 | 2026-08-19 | 0.6.17 | maintainer | bdr209d | bazzite | partial |
 | 2026-08-19 | 0.6.18 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-12 | 0.6.47 | maintainer | bdr209d | bazzite | full-green |
+| 2026-09-15 | 0.6.48 | maintainer | bdr209d | bazzite | partial |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
-Three runs, three `partial`. That is the honest state: **no full-green pass has
-been achieved yet**, so 0.9.1 is not reachable today and the count toward it is
-zero. Recording the partials anyway matters — a ledger that held only successes
-would make the denominator invisible.
+**The 2026-09-15 row reported `241 pass, 0 fail, 0 error` and is recorded
+`partial`, deliberately.** The run wrote no `.mp3` and no `.wv` file at all —
+both derived-format transcodes were dropped seconds after their rips — and the
+two sections that exist to prove those outputs, K1 and K2, are graded `ARCHIVAL`
+and passed anyway, because neither could see a derived file (§5.bi). A count of
+passing steps measures the script. **"Zero failures in the ARCHIVAL sections"
+presupposes those sections can fail**, and on that night two of them could not.
+
+**And that qualification reaches the row above it.** The 2026-09-12 run used the
+same script with the same two inert sections, and its app log shows the same
+abandonment — one `Transcode:` line for three derived-format rips. Its
+`full-green` verdict is an accurate record of what the run reported and it is
+**not two independent pieces of evidence with the row below**: the same blind
+spot is in both, which is this file's own *two witnesses that are related* rule
+arriving through the ledger. Left as recorded rather than re-graded, because a
+verdict decided after the fact is the thing the severity rules forbid — but a
+version bump counting it should know what it is counting. The first run that
+clears this honestly will be one where K1 and K2 *could* have failed and did not.
+
+One `full-green` row with a named qualification, four `partial`. So 0.9.1 is not
+reachable today and the count toward it is, in substance, zero. Recording the
+partials anyway matters — a ledger that held only successes would make the
+denominator invisible.
 
 **How a row gets produced** is `docs/test-plan.md` **Part E** — the
 failure-derived gate: the twelve defect classes that have actually bitten here,

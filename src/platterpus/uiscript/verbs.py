@@ -355,6 +355,48 @@ _VERB_LIST: tuple[Verb, ...] = (
         "`expect-rip-complete` cannot state the claim",
     ),
     Verb(
+        # `expect-derived-output` — assert the file the user actually asked for
+        # EXISTS.
+        #
+        # **Written 2026-09-15, because sections K1 and K2 could not fail.** Both
+        # are graded ARCHIVAL — K1's stated reason is *"when a user selects MP3 the
+        # MP3 IS their library entry"* — and between them they asserted: the
+        # setting round-trips (`set`/`expect`), the rip finished
+        # (`expect-rip-complete`), and `rig-check`. Not one of those can see a
+        # derived file.
+        #
+        # `expect-rip-complete` reads **cyanrip's own log**, and cyanrip is always
+        # invoked `-o flac`: FLAC is the archival master and every other format is
+        # derived from it afterwards by our transcode adapter (Critical rule #4),
+        # which that log knows nothing about. So the witness is byte-for-byte the
+        # same whether the transcode ran or never happened. `rig_check.py` contains
+        # zero mentions of mp3, wavpack, or any derived format.
+        #
+        # On the 2026-09-15 acceptance run both sections passed and **no `.mp3`
+        # and no `.wv` file was written** — the transcodes were dropped ~3 seconds
+        # after each rip by the next Start. Two ARCHIVAL sections, green, over
+        # their own subject missing. The bar the maintainer set is *zero failures
+        # in the ARCHIVAL sections*, and that presupposes the sections can fail.
+        #
+        # **The format is an ARGUMENT, not read back from the setting.** Reading
+        # `config.output_format` would check the setting against itself — which is
+        # what K1 was already doing one line up, and is the vacuity this verb
+        # exists to end. The script states the claim; the folder answers it.
+        #
+        # Floors, so it cannot pass by finding nothing: the album folder must be
+        # readable, it must hold at least one FLAC master, and the derived count
+        # must EQUAL the master count. "Some" is not a floor — a transcode that
+        # writes one file of fourteen is the partial failure the count is for.
+        "expect-derived-output",
+        1,
+        2,
+        "expect-derived-output <mp3|wavpack|wav> [seconds] — assert the derived "
+        "files the chosen output format calls for exist beside the FLAC masters, "
+        "one per master. Waits (default 600s) because the transcode runs after "
+        "`wait-for-rip` returns; the format is named here rather than read from "
+        "Settings, so the step cannot check a setting against itself",
+    ),
+    Verb(
         # `expect-secure-rerip` — grade what section N only ever REPORTED.
         #
         # §N is ARCHIVAL and its stated pass criterion is `rig-check`'s paranoia

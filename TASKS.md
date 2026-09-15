@@ -21,6 +21,60 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
+## 2026-09-15 hardware run — 241/241, and it produced no MP3 and no WavPack
+
+Full run on `platterpus 0.6.48` + `platterpus-fork-gfe4d2c4` (the round-19
+approved pin): `241 pass, 0 fail, 0 error, 1 info`, every ARCHIVAL section green.
+It was not a pass. Full write-up: `docs/testing.md` §5.bi. Fixed in 0.6.49;
+what remains is below.
+
+**The ripper's half was clean** and is worth saying before anything else: 14/14
+tracks, an unstable track 5 detected across three non-matching reads, re-ripped,
+still not converging, and reported honestly in the log, the report's
+`retried_tracks` and the step's own detail — not hidden, not graded as a rip
+failure. Every log verified against its own FUN512. The defects below are ours.
+
+- [x] **The post-rip daemon abandoned the user's chosen output format.** Each of
+      its five steps ended with a generation check that `return`ed out of the
+      daemon — a *result* guard written as a *control-flow* guard. The transcode
+      is last, so it went first: both derived-format rips were cut short ~3s
+      after finishing and wrote nothing. Fixed: the guard now gates the emit.
+- [x] **`verification.gates` claimed `"ran"` over a null result**, on five of
+      eight rips. Every gate state is derived from configuration, so none of them
+      could describe work that was requested, begun and abandoned. Fixed:
+      `SUPERSEDED_GATE`, sealed before the outgoing rip's state is reset, plus a
+      backstop that fires on *any* gate claiming `"ran"` over a missing block.
+- [x] **The report's `settings` were re-read live on every re-write**, so the one
+      rip whose chain finished describes the wrong configuration. Fixed: frozen
+      at Start.
+- [x] **K1 and K2 could not fail.** `expect-derived-output` added to K1–K3, plus
+      `test_every_section_that_rips_in_a_derived_format_asserts_the_files_exist`
+      — which exists because `revert_probe.py` reported VACUOUS for deleting the
+      new assertion from the shipped script.
+- [x] **The addendum sidecar's healthy absence warned on every clean rip.**
+- [x] **Section A's pass message contradicted itself in one sentence.**
+
+Still open out of this run:
+
+- [ ] **A superseded post-rip result is recorded as superseded, not RECOVERED.**
+      The files are now produced, and the derived-verify / CTDB / FLAC-integrity
+      results for that album still have nowhere to go: the report was sealed when
+      the next rip started, and routing a late result back into a previous
+      album's report means writing to a path whose `_last_*` state has moved on.
+      Honest today (the gate says superseded) and incomplete. The shape of a fix
+      is a report handle bound to the album rather than to "the current rip".
+- [ ] **Decide whether the 2026-09-12 `full-green` ledger row still counts.**
+      Its app log shows the same abandonment and the same two inert sections, so
+      it and the 2026-09-15 row share a blind spot — *two witnesses that are
+      related*. Left as recorded rather than re-graded (a verdict decided after
+      the fact is what the severity rules forbid), and annotated under the table.
+      **Maintainer's call**, and it decides whether `0.7.100` needs one more
+      clean run or two.
+- [ ] **`verification.transcode` is still null when the emit is suppressed**,
+      even though the files now exist. A reader cannot tell "no transcode" from
+      "transcode ran, result not recorded" — the same ambiguity `gates` was
+      invented for, one block over. `gates` has no `transcode` key to carry it.
+
 ## 2026-09-09 hardware run — 237/238, and the one failure was ours (2026-09-10)
 
 Full run on `platterpus 0.6.45` + `platterpus-fork-gddc1e8c`: 237 passed, 0
