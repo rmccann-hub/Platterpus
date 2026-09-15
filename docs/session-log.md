@@ -92,6 +92,26 @@ whose population excludes its own subject — with our citations, under the
 
 Released as **v0.6.49** for the re-run.
 
+**The ledger decision came back the same day, and it went the other way from our
+draft.** We had left the 2026-09-12 row recorded as `full-green` and annotated,
+reasoning that re-grading after the fact is what the severity rules forbid. The
+maintainer ruled *"it does not count now"*, and on reflection our caution had the
+rule backwards. **That prohibition is directional**: it exists to stop a failure
+being reclassified as ignorable so a run *counts* — evidence inflated after the
+fact. Removing credit from a pass that turned out to rest on checks which could
+not fail is the opposite, and it makes `0.7.100` harder rather than easier to
+reach. **If a re-grade makes a version easier to reach, be suspicious of it; if
+harder, the rule is not the objection.** Graduated to `docs/testing.md` §5B
+beside the ledger, where the next person re-reading that rule will be standing.
+
+Re-graded in the `result` **column**, not only in the prose, because
+`test_no_stale_version_claims.py` counts the column — a cell reading `full-green`
+beside a paragraph saying it does not count is §5.bi reproduced in the file that
+records §5.bi. Ledger now: five `partial`, zero `full-green`.
+
+The fork was told, since we had cited that row to them as settled evidence the
+day before.
+
 ## 2026-09-14 — v0.6.48 cut so the rig runs the script this cycle fixed
 
 **The release exists because the acceptance script ships *inside* the AppImage.**
