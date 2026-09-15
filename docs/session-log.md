@@ -6582,4 +6582,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.48.*
+*Last updated for Platterpus v0.6.49.*
