@@ -11,6 +11,58 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-14 (latest) — v0.6.48 cut so the rig runs the script this cycle fixed
+
+**The release exists because the acceptance script ships *inside* the AppImage.**
+`rig_scripts/*.txt` is package data (`pyproject.toml:124`) and the script's own
+header says *"there is nothing to download"* — so a hardware run executes
+whatever the **installed release** carries, not what is on `main`. Six commits
+had accumulated since `v0.6.47` and two of them changed that script. A run
+tonight on 0.6.47 would not have contained section N's format assertion, which is
+the whole point of this cycle's fix. **Measured before deciding**: `git log
+v0.6.47..HEAD` → 6, and the package-data line names the file.
+
+**Two gates refused, and both were right.** `our_pin()` would not name a commit
+introducing `__version__ = "0.6.48"` before that commit existed — commit the
+bump, then the field resolves. Then the **CI gate** refused the release dispatch:
+I fired it eight seconds into a seven-minute CI run on the merge commit. That
+gate exists so a release cannot ship a commit whose suite is red *or has never
+run*, and it caught exactly the second case. **Graduated to `CLAUDE.md` →
+CI / release**: a squash merge starts a *fresh* CI run on `main`, and the
+release's CI gate reads that run, not the PR's.
+
+**The approval version deliberately did not follow the release.**
+`APPROVED_FOR_PLATTERPUS_VERSION` stays `0.6.47` — the version round 19 actually
+reviewed — while the app is `0.6.48`. The rip verdict is still `approved`,
+because it keys on the ripper *build tag* and not on our version. A constant that
+silently tracked the release would be claiming an approval nobody gave. **Side
+effect worth knowing: this ARMS the pair-claim guard added earlier the same day**,
+since it stands down only when the two versions match. Any document claiming
+*"the round-19 pair verified on hardware"* is now refused; after the run the
+honest sentence is *"0.6.48 against ripper `fe4d2c4`"*.
+
+**Verified rather than assumed, before recommending the run:** the tag's embedded
+script carries the fix (`v0.6.48:…/fullacceptance.txt` has `expect output_format
+flac` at N:764 and L:700); the tier-4 coercion is **inert** for a script that
+declares no tiers, which every committed script is — outcomes pass through
+unchanged, `sweep_only` False, prune ledger empty, checked because `_record` is
+the chokepoint every step passes through; the pin is published on both channels
+with `round_closed: true`; `approve_ripper` returns `approved` and the
+offer/verdict relation agrees on both channels despite the manifest labelling the
+build round 17 and our record saying 19 — different keys, same answer, §5.al not
+firing; and the script parses to 242 steps, 22 sections, 0 unknown verbs, 0
+preflight problems.
+
+**Not done, deliberately: tiers are not wired into `fullacceptance.txt`.** Adding
+structure to a 242-step script before a 4–6 hour unattended run is the hazard that
+script's own §P3 comment names — *"adding one hours before an unattended run is
+how a run is lost to its own instrumentation."* It goes in between runs, proved by
+a short run first.
+
+**Next:** the hardware run on 0.6.48 against `fe4d2c4`. A full-green result gives
+the ledger its second pass and makes `0.7.100` reachable; the first is recorded
+from 2026-09-12. Round 20 is the fork's to open and its lap 1 carries `CLOSE-BY`.
+
 ## 2026-09-14 (later) — round 19 CLOSED `GO`/`GO` at three laps; all nineteen rounds shut
 
 **Their lap 3 at `cyanrip@bd1f43a` closes round 19 on the unchanged pin
