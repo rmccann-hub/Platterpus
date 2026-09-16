@@ -196,9 +196,46 @@ def test_the_envelope_leads_with_a_lap_of_the_CURRENT_round() -> None:
     first = re.search(r'"(round-\d+-lap-\d+\.md)"', block.group(1))
     assert first, "PARTS[0] does not name a lap file"
     lead = first.group(1)
-    assert lead.startswith(f"round-{number:02d}-"), (
-        f"the envelope leads with {lead!r} while the open round is {number}. "
-        "PARTS[0] is the OPERATIVE lap and names the file the operator sends, so "
-        "this ships a round the peer has already closed — regenerating it will "
-        "keep reporting success while it does."
-    )
+    if not lead.startswith(f"round-{number:02d}-"):
+        # THE ONE NARROWING, AND IT IS WRITTEN DOWN RATHER THAN QUIETLY SCOPED.
+        #
+        # The release-state mechanism (round 19) created a state this test
+        # predates: our newest lap can exist, be correct, and be HELD. An envelope
+        # is a hand-carry artifact naming the file an operator sends, and a lap
+        # nobody may read yet is not a file anyone sends — `emit_envelope.py`
+        # refuses to pack one, which is right. So during that window the newest
+        # packable lap really is the previous round's, and the two tools are not
+        # in conflict; the assumption that "newest lap" and "newest sendable lap"
+        # are the same thing is what has expired.
+        #
+        # Narrow on purpose: this excuses a lag ONLY while the current round's own
+        # lap is present and held. A round with no lap of ours, or one whose lap is
+        # released, still fails — which is the defect the test was written for
+        # (`PARTS[0]` sat on round 14 while round 15 ran, through four green
+        # regenerations).
+        import sys
+
+        sys.path.insert(0, str(REPO_ROOT / "scripts"))
+        import handshake as hs  # noqa: PLC0415
+
+        ours = sorted(
+            (REPO_ROOT / "docs" / "handshake" / "outbound").glob(
+                f"round-{number:02d}-lap-*.md"
+            )
+        )
+        held = [
+            path
+            for path in ours
+            if not hs.is_released_for_reading(
+                path.read_text(encoding="utf-8"), round_hint=number
+            )
+        ]
+        assert held and len(held) == len(ours), (
+            f"the envelope leads with {lead!r} while the open round is {number}. "
+            "PARTS[0] is the OPERATIVE lap and names the file the operator sends, "
+            "so this ships a round the peer has already closed — regenerating it "
+            "will keep reporting success while it does. (A lag is excused only "
+            "while EVERY lap of ours in the open round is still held and so "
+            "cannot be packed; here "
+            f"{len(held)} of {len(ours)} are.)"
+        )

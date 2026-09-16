@@ -84,6 +84,7 @@ from platterpus.ui.main_window_helpers import (
     unique_album_title,
 )
 from platterpus.ui.main_window_shared import MainWindowShared
+from platterpus.ui.post_rip_record import PostRipRecord
 from platterpus.ui.unknown_album import (
     UnknownAlbumDialog,
     apply_track_tags,
@@ -409,6 +410,15 @@ class _PendingBundle:
     facts: dict[str, str]
 
 
+#: How many finished albums' records to keep addressable at once.
+#:
+#: Two: the album being finished and the one before it. A post-rip result that
+#: arrives late arrives within seconds — the longest measured gap is the transcode
+#: at ~8 s — so a deeper history would be memory held against a case that cannot
+#: happen, while one would drop exactly the late result this exists to catch.
+_POST_RIP_RECORDS_KEPT: Final[int] = 2
+
+
 class RipMixin(MainWindowShared):
     """Start/cancel/finish a rip, plus eject, unknown-album, and cover art."""
 
@@ -622,33 +632,27 @@ class RipMixin(MainWindowShared):
         self._last_rip_log_file = None
         self._last_rip_timing = None
         self._current_rip_window = None
-        # Async post-rip verification outcomes, accumulated as each finishes.
-        # The report is re-written after each, passing all of them, so the final
-        # .platterpus.json holds every check regardless of completion order — and
-        # a late-finishing verify from THIS rip never carries into the next
-        # (they're reset here at the start of each finish).
-        self._last_ctdb_result = None
-        self._last_flac_verify_result = None
-        self._last_transcode_result = None
-        self._last_derived_verify_result = None
-        self._last_checksums = None
-        # Reset BESIDE its sibling, which it was not (found 2026-08-19 while
-        # investigating a null `audio_md5` in a rig report). Both are set by the
-        # same handler in the same instant, and only one was cleared here — so a
-        # second rip whose digests step failed or was superseded would have
-        # inherited the PREVIOUS rip's audio identity into its archival record,
-        # under a schema key whose whole purpose is answering "is this the same
-        # audio". A stale answer there is worse than none. The two fields answer
-        # one question together; they get one lifetime.
-        self._last_audio_md5 = None
-        # Reset BESIDE its sibling, which it was not (found 2026-08-19 while
-        # investigating a null `audio_md5` in a rig report). Both are set by the
-        # same handler in the same instant, and only one was cleared here — so a
-        # second rip whose digests step failed or was superseded would have
-        # inherited the PREVIOUS rip's audio identity into its archival record,
-        # under a schema key whose whole purpose is answering "is this the same
-        # audio". A stale answer there is worse than none. The two fields answer
-        # one question together; they get one lifetime.
+        # THE POST-RIP RESULTS ARE NOT RESET HERE ANY MORE, because they no
+        # longer live here. Nine `_last_*` fields used to hold them — the CTDB and
+        # FLAC-integrity verdicts, the transcode and its verification, the cover
+        # art, the tagging, the re-compress, and the two digest maps — and every
+        # one had to be cleared at this line so a late result from the previous
+        # album could not be read as this one's. That reset is what *discarded*
+        # them: a check that finished 655 ms before this Start had its result
+        # computed correctly and then wiped, because the field it lived in
+        # belonged to "the current rip" rather than to an album. They are now
+        # attributes of `ui/post_rip_record.py`'s per-album record, which is
+        # created below and stays addressable afterwards, so there is nothing to
+        # clear and a late result has somewhere to land.
+        #
+        # The `audio_md5` lesson that lived here survives the move and is worth
+        # restating, because it is the reason the record holds both digests as
+        # plain sibling fields: it and `checksums` are written by one handler in
+        # one instant and answer one question together, and for a while only one
+        # of the two was being cleared — so a rip whose digests step failed
+        # inherited the previous rip's audio identity into its archival record,
+        # under the schema key whose entire purpose is "is this the same audio".
+        # One lifetime, because one fact.
         # v7 report snapshots (0.4.10): the PROCESS outcome, disc provenance, the
         # effective read offset, and the cover-art / re-compress / secure-re-rip
         # results. Reset per rip so a debounced re-write for a NEW rip can never
@@ -662,9 +666,6 @@ class RipMixin(MainWindowShared):
         #: re-writes still carry it after the worker is torn down. See `_finish_rip`.
         self._last_ripper_stdout = ""
         self._last_ripper_log_verification = None
-        self._last_cover_art_result = None
-        self._last_recompress_result = None
-        self._last_tagging_result = None
         self._last_rip_error = None
         # Post-rip daemons that died instead of returning a result. Cleared per
         # Start for the same reason as the results above: a crash recorded against
@@ -684,9 +685,6 @@ class RipMixin(MainWindowShared):
         from platterpus import rip_report as _rr
 
         self._rip_settings_snapshot = _rr.build_settings(self._config)
-        # A fresh ledger for this rip: nothing launched yet, nothing dropped yet.
-        self._post_rip_pending = set()
-        self._post_rip_superseded = set()
         self._rip_gate_inputs = {
             "ctdb_enabled": self._config.ctdb_verify_after_rip,
             "flac_verify_enabled": self._config.verify_flac_after_rip,
@@ -695,11 +693,17 @@ class RipMixin(MainWindowShared):
             "backend_maxes_compression": self._backend.produces_max_compression_flac(),
             "transcode_requested": self._config.output_format in TRANSCODE_FORMATS,
         }
-        # Rip generation, bumped every Start. Each post-rip verify daemon captures
-        # the generation it launched under and drops its result if a NEWER rip has
-        # started since — so a slow verify from album A (FLAC-verify waits up to
-        # 120s) can't write its verdict into album B's report/UI after B begins.
+        # Rip generation, bumped every Start. It is the identity of this album's
+        # record: every post-rip check carries the generation it launched under,
+        # so its result can find its own album even after the window has moved on.
         self._rip_generation += 1
+        # OPEN THE RECORD HERE, not at finish. A result has somewhere to land from
+        # the moment the rip exists, so "which album is this?" has one answer
+        # rather than a create-if-missing branch at each caller — and the two facts
+        # frozen at Start (what the rip was ASKED to do) are written down at the
+        # moment they are true rather than re-read later, which is defect #1 in
+        # `ui/post_rip_record.py`.
+        self._open_post_rip_record()
         # Allow exactly one auto-heal retry (rip-as-unknown) per Start, so a
         # persistent failure can't loop.
         self._auto_retry_done = False
@@ -1790,7 +1794,7 @@ class RipMixin(MainWindowShared):
                 # multiplier (elapsed ÷ the disc's audio length) — a meaningful
                 # metric that replaces cyanrip's bogus ETA. Best-effort.
                 self._enrich_timing_with_disc_duration(rip_log)
-                self._write_rip_report(rip_log, log_file)
+                self._write_rip_report(self._capture_post_rip_record(rip_log, log_file))
                 # If a prior rip of THIS disc exists in the library, compare them
                 # and surface a banner — the "you've ripped this before" catch for
                 # a track that silently changed on a re-rip. Off-thread (it scans
@@ -2234,7 +2238,7 @@ class RipMixin(MainWindowShared):
         emit (the same pattern the cover-art fetch always used). Tests join the
         handle on ``self._post_rip_thread`` for determinism.
         """
-        gen = self._rip_generation  # drop the transcode result if a newer rip starts
+        gen = self._rip_generation  # the album these results belong to, forever
 
         def emit_if_current(signal: object, payload: object) -> None:
             """Publish a post-rip step's result, unless a newer rip has started.
@@ -2265,23 +2269,15 @@ class RipMixin(MainWindowShared):
             somebody else's bytes is worth abandoning; producing the user's chosen
             output is not.
             """
-            if self._rip_generation != gen:
-                # SAID, NOT SWALLOWED. The step finished and its result has
-                # nowhere to go — the album it describes is no longer the one the
-                # window is showing. That is a real gap in the record and the app
-                # log is where it has to land, because the report for that album
-                # has already been sealed (`_seal_superseded_post_rip_work`) and
-                # the progress view now belongs to a different disc.
-                log.info(
-                    "post-rip %s for %s completed after a newer rip started: the "
-                    "files on disk are correct, but this result is not in that "
-                    "album's report",
-                    getattr(signal, "__name__", "step"),
-                    rip_dir,
-                )
-                return
+            # ALWAYS EMIT, and let the slot route by generation. This used to
+            # return here when the generation had moved, logging that the result
+            # had "nowhere to go" — which was true only because the result was
+            # addressed to *the window* rather than to an album. It has somewhere
+            # to go now: `_record_post_rip_result` writes it against the record for
+            # `gen` and rewrites that album's report. What the slot still suppresses
+            # is the UI half, which does belong to whatever disc is on screen.
             try:
-                signal.emit(payload)  # type: ignore[attr-defined]
+                signal.emit(gen, payload)  # type: ignore[attr-defined]
             except RuntimeError:  # window destroyed — nothing to update
                 pass
 
@@ -2430,7 +2426,7 @@ class RipMixin(MainWindowShared):
         self._post_rip_thread = thread
         thread.start()
 
-    def _on_cover_art_done(self, result: object) -> None:
+    def _on_cover_art_done(self, generation: int, result: object) -> None:
         """Cover-art thread finished — record the outcome (runs on the GUI thread).
 
         Carries a :class:`~platterpus.adapters.cover_art.CoverArtResult` (folded
@@ -2439,8 +2435,9 @@ class RipMixin(MainWindowShared):
         view either way.
         """
         if isinstance(result, cover_art.CoverArtResult):
-            self._last_cover_art_result = result
-            self._schedule_rip_report_write()
+            self._record_post_rip_result(generation, "cover_art", result)
+            if generation != self._rip_generation:
+                return  # recorded against its own album; the UI shows another
             message = result.message or "Cover art applied."
         elif isinstance(result, str):
             message = result
@@ -2449,7 +2446,7 @@ class RipMixin(MainWindowShared):
         log.info("%s", message)
         self._rip_progress.append_log_line(message)
 
-    def _on_tagging_done(self, result: object) -> None:
+    def _on_tagging_done(self, generation: int, result: object) -> None:
         """Post-rip tagging finished — surface + record it (runs on the GUI thread).
 
         Why this slot exists (2026-07-31): ``apply_track_tags`` writes a WARNING
@@ -2472,8 +2469,9 @@ class RipMixin(MainWindowShared):
         # Recorded even when it went fine, so the report can state positively that
         # tagging ran (an absent field is the ambiguity `verification.gates` was
         # invented to remove).
-        self._last_tagging_result = result
-        self._schedule_rip_report_write()
+        self._record_post_rip_result(generation, "tagging", result)
+        if generation != self._rip_generation:
+            return
         if result.error:
             # A whole-pass failure: we cannot say which files got tags.
             message = (
@@ -2560,16 +2558,15 @@ class RipMixin(MainWindowShared):
         ahead exactly as if the check had passed. See
         :meth:`_record_post_rip_failure`.
         """
-        gen = self._rip_generation  # drop the result if a newer rip starts
+        gen = self._rip_generation  # the album this result belongs to, forever
         # `gate` names the `verification.gates` key this check feeds. Registering
         # it HERE — at the one chokepoint every post-rip check goes through — is
         # what makes "this check was started" a fact rather than a list somebody
         # has to remember to update. A check with no gate (checksums, the library
         # move) simply does not register.
-        if gate is not None:
-            self._post_rip_pending = set(getattr(self, "_post_rip_pending", set())) | {
-                gate
-            }
+        record = self._post_rip_record()
+        if gate is not None and record is not None:
+            record.pending.add(gate)
 
         def still_current() -> bool:
             """False once a newer rip has started. Read from the worker thread;
@@ -2587,10 +2584,8 @@ class RipMixin(MainWindowShared):
                 # `finally` for the reason `_record_post_rip_failure` exists: a
                 # crashed check that stayed "pending" would be indistinguishable
                 # from one still working.
-                if gate is not None:
-                    self._post_rip_pending = set(
-                        getattr(self, "_post_rip_pending", set())
-                    ) - {gate}
+                if gate is not None and record is not None:
+                    record.pending.discard(gate)
 
         def _run() -> None:
             try:
@@ -2611,10 +2606,16 @@ class RipMixin(MainWindowShared):
                 return
             if result is None:
                 return  # the work opted out (e.g. didn't settle) — nothing to emit
-            if self._rip_generation != gen:
-                return  # a newer rip started — this result is for the old album
+            # EMIT UNCONDITIONALLY, carrying the generation. This used to be
+            # `if self._rip_generation != gen: return`, whose own comment — "this
+            # result is for the old album" — states the reason it was wrong: the
+            # old album is exactly who wants it, and since the record refactor it
+            # is still addressable. Dropping here is what cost the 2026-09-15 MP3
+            # rip a complete, successful post-rip chain that landed 655 ms before
+            # the next Start. The slot routes by generation and suppresses only
+            # the *UI* text for an album the user is no longer looking at.
             try:
-                signal.emit(result)  # type: ignore[attr-defined]
+                signal.emit(gen, result)  # type: ignore[attr-defined]
             except RuntimeError:  # window already destroyed — nothing to update
                 pass
 
@@ -3011,7 +3012,7 @@ class RipMixin(MainWindowShared):
             gate="ctdb",
         )
 
-    def _on_ctdb_verified(self, result: object) -> None:
+    def _on_ctdb_verified(self, generation: int, result: object) -> None:
         """CTDB verify finished — render the verdict under the AR table.
 
         Runs on the GUI thread (ctdb_verify_done is queued there). `result` is
@@ -3023,8 +3024,7 @@ class RipMixin(MainWindowShared):
         log.info("CTDB verify verdict: %s", verdict)
         # Record + schedule a (debounced) re-write so the report picks up the
         # CTDB verdict alongside whatever else has finished.
-        self._last_ctdb_result = result
-        self._schedule_rip_report_write()
+        self._record_post_rip_result(generation, "ctdb", result)
 
     # --- Re-rip comparison ("you've ripped this disc before") ---------------
 
@@ -3114,10 +3114,17 @@ class RipMixin(MainWindowShared):
             thread_attr="_comparison_thread",
         )
 
-    def _on_rip_comparison_done(self, comparison: object) -> None:
-        """Render the re-rip comparison banner (queued to the GUI thread)."""
-        self._rip_progress.set_comparison(comparison)
+    def _on_rip_comparison_done(self, generation: int, comparison: object) -> None:
+        """Render the re-rip comparison banner (queued to the GUI thread).
+
+        The banner describes the disc on screen, so a comparison that lands after
+        the next Start is logged and not shown — unlike a verification result,
+        there is nothing to file against the old album: the banner IS the output.
+        """
         log.info("re-rip comparison: %s", getattr(comparison, "summary", ""))
+        if generation != self._rip_generation:
+            return
+        self._rip_progress.set_comparison(comparison)
 
     # --- Auto-move finished rips to the library ------------------------------
 
@@ -3264,7 +3271,7 @@ class RipMixin(MainWindowShared):
             thread_attr="_library_move_thread",
         )
 
-    def _on_library_moved(self, result: object) -> None:
+    def _on_library_moved(self, generation: int, result: object) -> None:
         """The library move finished (queued to the GUI thread).
 
         On success, repoint everything that references the album's old home —
@@ -3273,6 +3280,12 @@ class RipMixin(MainWindowShared):
         NEW location, never resurrects the old one). On failure the rip simply
         stays in the output directory: the rip itself already succeeded, so
         this reports, it never alarms.
+
+        ``generation`` names the album that moved. Its record's ``log_file`` is
+        repointed unconditionally — a late report write for that album must land
+        in the folder's new home whether or not the user is still looking at it —
+        while the buttons and status line, which describe the disc on screen, are
+        only touched when it is still that album's.
         """
         message = str(getattr(result, "message", ""))
         destination = getattr(result, "destination", None)
@@ -3284,6 +3297,12 @@ class RipMixin(MainWindowShared):
             )
             return
         new_dir = Path(destination)
+        record = self._post_rip_record(generation)
+        if record is not None and record.log_file is not None:
+            record.log_file = new_dir / record.log_file.name
+        if generation != self._rip_generation:
+            log.info("library move complete for an earlier album: %s", new_dir)
+            return
         if self._last_rip_log_file is not None:
             new_log = new_dir / self._last_rip_log_file.name
             self._last_rip_log_file = new_log
@@ -3379,7 +3398,9 @@ class RipMixin(MainWindowShared):
         )
         timing.update(enriched)
 
-    def _build_rip_debug_log(self) -> DebugBlock | None:
+    def _build_rip_debug_log(
+        self, rip_window: tuple[float, float] | None = None
+    ) -> DebugBlock | None:
         """Capture this session's log for the report, minus other albums' rips.
 
         Returns a ``{"scope", "truncated", "lines"}`` dict (see
@@ -3396,7 +3417,12 @@ class RipMixin(MainWindowShared):
         buffer = get_session_buffer()
         if buffer is None:
             return None
-        others = [w for w in self._rip_windows if w is not self._current_rip_window]
+        # The album's OWN window, not the window's idea of the current one — a
+        # rewrite of a previous album's report must still keep its own lines and
+        # exclude every other rip's, and `_current_rip_window` has moved on by
+        # then. Falls back to the live value for callers with no record.
+        mine = rip_window if rip_window is not None else self._current_rip_window
+        others = [w for w in self._rip_windows if w is not mine]
         return build_debug_log(
             buffer.lines_excluding(others), truncated=buffer.truncated
         )
@@ -3660,10 +3686,208 @@ class RipMixin(MainWindowShared):
         except Exception:  # noqa: BLE001 — a companion log must never crash finish
             log.warning("could not write EAC-layout log", exc_info=True)
 
-    def _write_rip_report(self, rip_log: object, log_file: Path) -> None:
-        """Write the JSON rip report beside ``log_file`` (best-effort).
+    # --- the per-album record: creation, lookup, retirement -----------------
 
-        Pulls every accumulated post-rip result from ``self`` (CTDB, FLAC-verify,
+    def _open_post_rip_record(self) -> PostRipRecord:
+        """Start this rip's record, at Start, holding what it was ASKED to do.
+
+        The two blocks frozen here — ``settings`` and ``gate_inputs`` — are the
+        rip's *request*, and both are already snapshotted on the window one screen
+        up; copying them onto the album's own object is what stops a report
+        written an hour later describing a configuration the rip never ran under.
+
+        Registered under the rip generation, which is what lets a post-rip result
+        that lands *after* the next Start still find its own album. Older records
+        are pruned to a small window — a late result arrives within seconds, so
+        keeping more would hold memory against a case that cannot happen.
+        """
+        record = PostRipRecord(
+            generation=self._rip_generation,
+            settings=self._rip_settings_block(),
+            gate_inputs=dict(getattr(self, "_rip_gate_inputs", None) or {}),
+        )
+        self._post_rip_records[record.generation] = record
+        for stale in sorted(self._post_rip_records)[:-_POST_RIP_RECORDS_KEPT]:
+            del self._post_rip_records[stale]
+        return record
+
+    def _capture_post_rip_record(
+        self, rip_log: object, log_file: Path
+    ) -> PostRipRecord:
+        """Fill in this album's record with what the rip actually DID, at finish.
+
+        Called from the finish handler after the `_last_*` fields are set and
+        before the first report write. From here on the report is built from the
+        record, so the window is free to move on to the next rip without taking
+        this album's facts with it.
+
+        **Fills in rather than replaces.** The record was opened at Start, and a
+        result can already be sitting on it — a rip that fails, or a check that
+        somehow lands early, would otherwise have its result silently dropped by
+        its own album's finish handler. ``settings`` is re-read here for the one
+        value that is not knowable at Start: the read offset cyanrip was actually
+        handed.
+        """
+        record = self._post_rip_records.get(self._rip_generation)
+        if record is None:  # no Start ran — a report written outside a rip
+            record = self._open_post_rip_record()
+        updates: dict[str, object] = dict(
+            log_file=log_file,
+            rip_log=rip_log,
+            settings=self._rip_settings_block(),
+            gate_inputs=dict(getattr(self, "_rip_gate_inputs", None) or {}),
+            outcome=getattr(self, "_last_outcome", None),
+            disc=getattr(self, "_last_disc", None),
+            timing=self._last_rip_timing,
+            secure_rerip=getattr(self, "_last_secure_rerip", None),
+            eta_trace=getattr(self, "_last_eta_trace", None),
+            ripper_stdout=getattr(self, "_last_ripper_stdout", "") or "",
+            ripper_log_verification=getattr(
+                self, "_last_ripper_log_verification", None
+            ),
+            disc_track_total=(
+                getattr(self, "_last_expected_track_total", None)
+                or expected_track_total(
+                    getattr(self, "_current_num_tracks", 0) or None,
+                    getattr(self._active_rip_params, "only_tracks", ())
+                    if getattr(self, "_active_rip_params", None) is not None
+                    else (),
+                )
+            ),
+            speed_attempts=list(getattr(self, "_last_speed_attempts", []) or []),
+            unstable_tracks=list(getattr(self, "_last_unstable_tracks", []) or []),
+            retried_tracks=list(getattr(self, "_last_retried_tracks", []) or []),
+            rip_window=getattr(self, "_current_rip_window", None),
+        )
+        for attribute, value in updates.items():
+            setattr(record, attribute, value)
+        return record
+
+    def _post_rip_record(self, generation: int | None = None) -> PostRipRecord | None:
+        """The record for ``generation``, or for the album being finished now."""
+        if generation is None:
+            generation = self._rip_generation
+        return self._post_rip_records.get(generation)
+
+    def _gates_for(self, record: PostRipRecord) -> dict[str, object]:
+        """``verification.gates`` for one album, from that album's own inputs.
+
+        Folds in the record's superseded set, so a gate can never claim a check
+        ran when its result was dropped — the ambiguity the block exists to
+        remove, and the one it re-created by deriving every state from config.
+        """
+        from platterpus import rip_report
+
+        inputs = record.gate_inputs or {
+            "ctdb_enabled": self._config.ctdb_verify_after_rip,
+            "flac_verify_enabled": self._config.verify_flac_after_rip,
+            "backend_self_verifies": self._backend.self_verifies_encode(),
+            "recompress_enabled": self._config.recompress_flac_after_rip,
+            "backend_maxes_compression": self._backend.produces_max_compression_flac(),
+            "transcode_requested": self._config.output_format in TRANSCODE_FORMATS,
+        }
+        return rip_report.build_gates(**inputs, superseded=sorted(record.superseded))
+
+    def _record_post_rip_result(
+        self, generation: int, attribute: str, value: object
+    ) -> None:
+        """Store one post-rip result against the album it belongs to.
+
+        **The routing is the point.** A result used to be written to
+        ``self._last_<x>`` — the window's slot for "the current rip" — so a result
+        that arrived after the next Start either overwrote the wrong album's
+        record or, once that was guarded against, was thrown away. Both happened:
+        the guard was added, and then the MP3 rip's entire chain succeeded 655 ms
+        before the next Start and every value was discarded anyway.
+
+        With the generation carried alongside the result there is no such choice
+        to get wrong. A late result lands on its own record and that album's report
+        is rewritten — which is safe precisely because the record holds everything
+        the report needs, so nothing is read from a window that has moved on.
+        """
+        record = self._post_rip_records.get(generation)
+        if record is None:
+            if generation != self._rip_generation:
+                return  # a past album's record, already pruned
+            # The CURRENT album always has somewhere to put a result. Start opens
+            # the record, so reaching here means no Start ran — a report written
+            # outside a rip. One construction site, so a record can never exist in
+            # two shapes.
+            record = self._open_post_rip_record()
+        setattr(record, attribute, value)
+        if generation == self._rip_generation:
+            self._schedule_rip_report_write()
+            return
+        # A LATE RESULT, for an album the window is no longer showing. Written
+        # immediately rather than debounced: the debounce exists to coalesce a
+        # burst of writes for the *current* rip, and there is no burst coming for
+        # this one — only the risk that the next Start prunes it first.
+        if self._folder_reclaimed_by_a_newer_rip(record):
+            # The result stays on the record and the gate still describes what
+            # happened; what does not happen is the write. See the method.
+            log.warning(
+                "a late %s result for %s is not being written: a newer rip has "
+                "claimed that folder, so the report there is no longer this "
+                "album's to rewrite",
+                attribute,
+                record.log_file.parent.name if record.log_file else "(unknown)",
+            )
+            return
+        log.info(
+            "recording a late %s result against %s, the album it belongs to",
+            attribute,
+            record.log_file.parent.name if record.log_file else "(no album on disk)",
+        )
+        self._write_rip_report(record)
+
+    def _folder_reclaimed_by_a_newer_rip(self, record: PostRipRecord) -> bool:
+        """True when a NEWER album's record points at this one's folder.
+
+        **A hazard this refactor created, so it gets its own guard and its own
+        test.** Routing a late result back into its own album's report is the
+        whole point of the record — but "its own album's report" is a *path*, and
+        a path is only that album's while it still holds that album. Choosing
+        **Overwrite** on the already-ripped prompt sends the next rip into the
+        same folder, and from that moment the `.platterpus.json` there describes
+        whichever rip finishes last. A late result arriving after the new rip has
+        written its own report would replace a live album's record with a
+        finished one's — the exact contamination the generation guard exists to
+        prevent, re-entering by the door the fix opened.
+
+        So this asks the only question that settles it: *does a record with a
+        newer generation name this folder?* If one does, the folder was handed
+        over deliberately and its report belongs to the newer rip. We keep the
+        result on the record (nothing is lost that we had) and decline the write.
+
+        Answered from our own records rather than from the disk, because the
+        question is about **ownership**, not contents: a file's presence cannot
+        distinguish "this album's report, still correct" from "the next album's
+        report, already written".
+        """
+        if record.log_file is None:
+            return False
+        folder = record.log_file.parent
+        return any(
+            other.generation > record.generation
+            and other.log_file is not None
+            and other.log_file.parent == folder
+            for other in self._post_rip_records.values()
+        )
+
+    def _write_rip_report(self, record: PostRipRecord) -> None:
+        """Write one album's JSON rip report, from that album's own record.
+
+        **Takes a record rather than reading the window**, which is the whole
+        point of `ui/post_rip_record.py`: every value below used to be a
+        `self._last_*` attribute, and the window's lifetime is "the current rip",
+        so each of them moved under this function the moment the next rip began.
+        Three measured defects came out of that in two days — a report describing
+        a configuration its rip never used, two derived formats never written, and
+        a set of results computed correctly 655 ms too late to be kept. The record
+        is addressable after the next rip starts, so this can be called for an
+        album the window is no longer showing.
+
+        Pulls every accumulated post-rip result from the record (CTDB, FLAC-verify,
         transcode, checksums) so the file always reflects whatever has finished
         so far. The first write (from ``_on_rip_finished``) calls this directly
         so the report exists the instant the rip ends; the later async verifies
@@ -3722,31 +3946,36 @@ class RipMixin(MainWindowShared):
 
         from platterpus import report_writer
 
+        if record.log_file is None:
+            # A record whose rip never reached the finish handler has no album on
+            # disk to describe. Both callers already check; this is the floor, so a
+            # third caller cannot write a report for nothing.
+            return
         job = partial(
             rip_report.write_report,
-            rip_log,
-            log_file,
-            ctdb_result=getattr(self, "_last_ctdb_result", None),
-            flac_verify_result=getattr(self, "_last_flac_verify_result", None),
-            transcode_result=getattr(self, "_last_transcode_result", None),
-            derived_verify_result=getattr(self, "_last_derived_verify_result", None),
-            recompress_result=getattr(self, "_last_recompress_result", None),
-            cover_art_result=getattr(self, "_last_cover_art_result", None),
+            record.rip_log,
+            record.log_file,
+            ctdb_result=record.ctdb,
+            flac_verify_result=record.flac_verify,
+            transcode_result=record.transcode,
+            derived_verify_result=record.derived_verify,
+            recompress_result=record.recompress,
+            cover_art_result=record.cover_art,
             # The post-rip tagging outcome. Recorded as an `issues` entry rather
             # than a block of its own — see rip_report._tagging.
-            tagging_result=getattr(self, "_last_tagging_result", None),
+            tagging_result=record.tagging,
             read_speed=read_speed_ladder.attempts_to_report(
-                getattr(self, "_last_speed_attempts", []) or [],
-                getattr(self, "_last_unstable_tracks", []) or [],
-                getattr(self, "_last_retried_tracks", []) or [],
+                record.speed_attempts,
+                record.unstable_tracks,
+                record.retried_tracks,
             ),
-            secure_rerip=getattr(self, "_last_secure_rerip", None),
-            eta_trace=getattr(self, "_last_eta_trace", None) or None,
-            checksums=getattr(self, "_last_checksums", None),
-            audio_md5=getattr(self, "_last_audio_md5", None),
+            secure_rerip=record.secure_rerip,
+            eta_trace=record.eta_trace or None,
+            checksums=record.checksums,
+            audio_md5=record.audio_md5,
             generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
-            timing=self._last_rip_timing,
-            debug_log=self._build_rip_debug_log(),
+            timing=record.timing,
+            debug_log=self._build_rip_debug_log(record.rip_window),
             # The verbatim text of the three files written beside this report
             # (v12). Derived from `log_file`, so a library move — which re-calls
             # this with the new path — re-reads them from their new home rather
@@ -3754,14 +3983,16 @@ class RipMixin(MainWindowShared):
             # microseconds; this is already off the rip's critical path (the
             # write is debounced), so it does not warrant a worker thread.
             artifacts=report_artifacts.build_artifacts(
-                rip_log=log_file,
-                eac_log=log_file.with_name(f"{log_file.stem} (EAC-compatible).log"),
-                cue=log_file.with_suffix(".cue"),
+                rip_log=record.log_file,
+                eac_log=record.log_file.with_name(
+                    f"{record.log_file.stem} (EAC-compatible).log"
+                ),
+                cue=record.log_file.with_suffix(".cue"),
                 # The auto-fix addendum, derived through the one helper that owns the
                 # naming convention rather than re-spelling the suffix here. This is
                 # the companion that SUPERSEDES `rip_log` for a re-ripped track, and
                 # it was the only one this call omitted.
-                addendum=rip_addendum.addendum_path_for(log_file),
+                addendum=rip_addendum.addendum_path_for(record.log_file),
                 # The ripper's own stdout, which survives a kill when its
                 # block-buffered logfile does not — the capture that would have
                 # shown the track a truncated log lost. There is no file to read
@@ -3782,17 +4013,19 @@ class RipMixin(MainWindowShared):
                 # the ripper was killed". Accurate about the mechanism, false about
                 # the file — and this is the one artifact the cyanrip project cannot
                 # produce for itself, which round 7 lap 10 tells them we capture.
-                ripper_stdout=getattr(self, "_last_ripper_stdout", ""),
+                ripper_stdout=record.ripper_stdout,
             ),
             # The one verdict in the report that is not ours (round 7 lap 10, J3).
-            ripper_log_verification=getattr(
-                self, "_last_ripper_log_verification", None
-            ),
-            # v7 process/settings/provenance blocks. `outcome`/`disc` are
-            # snapshotted at finish (worker/params are cleared before the debounced
-            # re-writes); `settings`/`gates` come from the persistent config +
-            # backend, so they're rebuilt here each write (pure + cheap).
-            outcome=getattr(self, "_last_outcome", None),
+            ripper_log_verification=record.ripper_log_verification,
+            # v7 process/settings/provenance blocks — ALL of them off the record.
+            #
+            # This comment used to say `settings`/`gates` "come from the persistent
+            # config + backend, so they're rebuilt here each write (pure + cheap)".
+            # Pure and cheap and wrong: rebuilding them each write is what let a
+            # report finalized six seconds late describe a configuration its rip
+            # never ran under (2026-09-14). They are frozen at Start, carried on the
+            # record, and never re-read.
+            outcome=record.outcome,
             # The disc's own track count, so the JSON's verdict and the window's
             # agree about the denominator on a rip that stopped early.
             #
@@ -3805,33 +4038,16 @@ class RipMixin(MainWindowShared):
             # the finish path uses keeps them in step, and folds in the Rip?
             # selection so a *deliberate* subset is not reported as 12 missing
             # tracks — the false alarm the finish-time fix already had to solve.
-            disc_track_total=getattr(self, "_last_expected_track_total", None)
-            or expected_track_total(
-                getattr(self, "_current_num_tracks", 0) or None,
-                getattr(self._active_rip_params, "only_tracks", ())
-                if getattr(self, "_active_rip_params", None) is not None
-                else (),
-            ),
-            settings=self._rip_settings_block(),
-            disc=getattr(self, "_last_disc", None),
+            disc_track_total=record.disc_track_total,
+            settings=record.settings,
+            disc=record.disc,
             environment=environment,
-            gates=self._rip_gates_block(),
+            gates=self._gates_for(record),
         )
         # Newest-wins: a job still sitting unstarted is replaced, which is
         # lossless because every write carries ALL accumulated results — the same
         # property the 750 ms debounce above already depends on.
         report_writer.writer().submit(job)
-
-    #: Which ``verification.gates`` key each post-rip result feeds, and the
-    #: attribute that holds that result. One table, because the two halves of the
-    #: question — *"was this check meant to produce something?"* and *"did it?"* —
-    #: were previously answered in different modules by different keys, which is
-    #: how a gate and its own result came to disagree in the same document.
-    _GATE_RESULTS: Final[dict[str, str]] = {
-        "ctdb": "_last_ctdb_result",
-        "flac_integrity": "_last_flac_verify_result",
-        "derived": "_last_derived_verify_result",
-    }
 
     def _seal_superseded_post_rip_work(self) -> None:
         """Record which of the outgoing rip's post-rip checks never came back.
@@ -3853,24 +4069,41 @@ class RipMixin(MainWindowShared):
         one.
         """
         try:
-            pending = getattr(self, "_post_rip_pending", None) or set()
-            dropped = {
-                gate
-                for gate, attr in self._GATE_RESULTS.items()
-                if gate in pending and getattr(self, attr, None) is None
-            }
-            if not dropped:
-                return
-            self._post_rip_superseded = (
-                set(getattr(self, "_post_rip_superseded", set())) | dropped
-            )
-            log.info(
-                "post-rip checks superseded by a new rip and recorded as such: %s",
-                ", ".join(sorted(dropped)),
-            )
-            # Write it into the album it belongs to, now, while `_last_rip_log`
-            # and `_last_rip_log_file` still point there. `_flush_rip_report` is a
-            # no-op when there is no rip log, which is the first-rip case.
+            record = self._post_rip_record()
+            if record is None:
+                return  # the first rip of the session has nothing behind it
+            dropped = record.seal_superseded()
+            if dropped:
+                log.info(
+                    "post-rip checks superseded by a new rip and recorded as such: %s",
+                    ", ".join(sorted(dropped)),
+                )
+            # FLUSH UNCONDITIONALLY — dropped or not, and while `_last_rip_log`
+            # and `_last_rip_log_file` still point at the outgoing album.
+            #
+            # This used to sit behind an `if not dropped: return`, and that guard
+            # threw away the case it was most needed for.
+            # `_schedule_rip_report_write` is **debounced by 750 ms**, so a result
+            # arriving in the last three-quarters of a second before the next Start
+            # is sitting in `self._last_*` with a timer armed and nothing on disk —
+            # and the lines after this call wipe exactly those fields. The checks
+            # that *finish* are therefore the ones at risk, which is the opposite of
+            # what an early return keyed on "was anything dropped" assumes.
+            #
+            # Measured on the 2026-09-15 12:01 acceptance run — the run that proved
+            # the transcode fix worked. The MP3 rip's whole chain succeeded:
+            # transcode 12:15:26.160, digests .225, MP3 verify .801, CTDB .949,
+            # FLAC verify 12:15:27.074 — and the next rip started at 12:15:27.729.
+            # **655 ms against a 750 ms debounce.** Every result was correct, on
+            # time, and lost; the report then carried `gates: {"derived": "ran"}`
+            # over three null blocks.
+            #
+            # Found by the `verification_result_missing` backstop added in the same
+            # change as the early return it caught — which is the argument for a
+            # check that needs no cooperation from the code that broke.
+            #
+            # `_flush_rip_report` writes the record looked up above, so calling it
+            # every Start costs nothing when there is nothing to write.
             self._flush_rip_report()
         except Exception:  # noqa: BLE001 — must never block a Start
             log.exception("could not record superseded post-rip checks")
@@ -3903,29 +4136,6 @@ class RipMixin(MainWindowShared):
             offset["effective"] = effective
             settings["read_offset"] = offset
         return settings
-
-    def _rip_gates_block(self) -> dict[str, object]:
-        """This rip's ``verification.gates``, from the same START-time snapshot.
-
-        Folds in ``_post_rip_superseded`` — the checks that were begun for this rip
-        and dropped when a newer one started. Without it the gate is a statement
-        about what was REQUESTED standing where a reader expects a statement about
-        what HAPPENED, which is how five of eight rips on 2026-09-15 reported
-        ``"ran"`` over a null result.
-        """
-        from platterpus import rip_report
-
-        inputs = getattr(self, "_rip_gate_inputs", None) or {
-            "ctdb_enabled": self._config.ctdb_verify_after_rip,
-            "flac_verify_enabled": self._config.verify_flac_after_rip,
-            "backend_self_verifies": self._backend.self_verifies_encode(),
-            "recompress_enabled": self._config.recompress_flac_after_rip,
-            "backend_maxes_compression": self._backend.produces_max_compression_flac(),
-            "transcode_requested": self._config.output_format in TRANSCODE_FORMATS,
-        }
-        return rip_report.build_gates(
-            **inputs, superseded=sorted(getattr(self, "_post_rip_superseded", set()))
-        )
 
     def _write_minimal_failure_report(self, params: RipParameters | None) -> None:
         """Write a report for a rip that produced NO log at all.
@@ -4115,8 +4325,9 @@ class RipMixin(MainWindowShared):
         no-op until a rip log exists; flushed on window close so nothing pending
         is dropped.
         """
-        if self._last_rip_log is None or self._last_rip_log_file is None:
-            return
+        record = self._post_rip_record()
+        if record is None or record.log_file is None:
+            return  # nothing on disk to describe yet
         self._rip_report_timer.start()  # (re)arm; single-shot, so it coalesces
 
     def _flush_rip_report(self, *, wait: bool = False) -> None:
@@ -4134,8 +4345,9 @@ class RipMixin(MainWindowShared):
         would put the freeze back at the moment the user is trying to leave.
         """
         self._rip_report_timer.stop()
-        if self._last_rip_log is not None and self._last_rip_log_file is not None:
-            self._write_rip_report(self._last_rip_log, self._last_rip_log_file)
+        record = self._post_rip_record()
+        if record is not None and record.log_file is not None:
+            self._write_rip_report(record)
         if wait:
             from platterpus import report_writer
 
@@ -4209,7 +4421,7 @@ class RipMixin(MainWindowShared):
             thread_attr="_checksums_thread",
         )
 
-    def _on_checksums_done(self, digests: object) -> None:
+    def _on_checksums_done(self, generation: int, digests: object) -> None:
         """Digests computed — record + re-write the report (on the GUI thread).
 
         Accepts the two-map form and, for safety, the bare ``{path: sha256}`` map
@@ -4221,17 +4433,21 @@ class RipMixin(MainWindowShared):
         if not isinstance(digests, dict):
             return
         if "sha256" in digests and isinstance(digests.get("sha256"), dict):
-            self._last_checksums = digests["sha256"]
-            self._last_audio_md5 = digests.get("audio_md5") or {}
+            checksums = digests["sha256"]
+            audio_md5 = digests.get("audio_md5") or {}
         else:
-            self._last_checksums = digests
-            self._last_audio_md5 = {}
+            checksums = digests
+            audio_md5 = {}
         log.info(
             "digests: %d file(s) hashed (SHA256), %d FLAC audio MD5(s) read",
-            len(self._last_checksums),
-            len(self._last_audio_md5),
+            len(checksums),
+            len(audio_md5),
         )
-        self._schedule_rip_report_write()
+        # BOTH, against the same album, for the reason the reset block gives: they
+        # are one fact in two halves and a rip that inherited the previous album's
+        # `audio_md5` would carry a stale answer to "is this the same audio".
+        self._record_post_rip_result(generation, "checksums", checksums)
+        self._record_post_rip_result(generation, "audio_md5", audio_md5)
 
     # --- Post-rip FLAC encode-verify (opt-in, default on) -------------------
 
@@ -4256,7 +4472,7 @@ class RipMixin(MainWindowShared):
             gate="flac_integrity",
         )
 
-    def _on_flac_verified(self, result: object) -> None:
+    def _on_flac_verified(self, generation: int, result: object) -> None:
         """FLAC verify finished — record the outcome (runs on the GUI thread).
 
         Loud on failure (a corrupt archival file is a real problem): the message
@@ -4267,8 +4483,9 @@ class RipMixin(MainWindowShared):
             return
         # Record + schedule a re-write so the FLAC-integrity outcome lands in the
         # one debug file alongside the other checks (debounced/coalesced).
-        self._last_flac_verify_result = result
-        self._schedule_rip_report_write()
+        self._record_post_rip_result(generation, "flac_verify", result)
+        if generation != self._rip_generation:
+            return
         if result.error:
             message = f"FLAC verify: skipped — {result.error}"
         elif result.failures:
@@ -4300,7 +4517,7 @@ class RipMixin(MainWindowShared):
 
     # --- Post-rip FLAC re-compress (opt-in, off by default) -----------------
 
-    def _on_flac_recompressed(self, result: object) -> None:
+    def _on_flac_recompressed(self, generation: int, result: object) -> None:
         """FLAC re-compress finished — record the outcome (runs on the GUI
         thread).
 
@@ -4315,8 +4532,9 @@ class RipMixin(MainWindowShared):
         # Record + schedule a (debounced) re-write so the re-compress outcome
         # lands in the report's verification block (it mutates the masters, so
         # its result belongs in the one debug file alongside the other checks).
-        self._last_recompress_result = result
-        self._schedule_rip_report_write()
+        self._record_post_rip_result(generation, "recompress", result)
+        if generation != self._rip_generation:
+            return
         if result.error:
             message = f"FLAC re-compress: skipped — {result.error}"
         elif result.failures:
@@ -4337,7 +4555,7 @@ class RipMixin(MainWindowShared):
 
     # --- Post-rip transcode (when a non-FLAC output format is selected) -------
 
-    def _on_transcoded(self, result: object) -> None:
+    def _on_transcoded(self, generation: int, result: object) -> None:
         """Transcode finished — record the outcome (runs on the GUI thread).
 
         The FLAC master is always kept, so a transcode failure never costs the
@@ -4350,8 +4568,9 @@ class RipMixin(MainWindowShared):
             return
         # Record + schedule a (debounced) re-write so the transcode outcome is
         # in the report too.
-        self._last_transcode_result = result
-        self._schedule_rip_report_write()
+        self._record_post_rip_result(generation, "transcode", result)
+        if generation != self._rip_generation:
+            return
         if result.error:
             message = f"Transcode: skipped — {result.error} (FLAC master kept)"
         elif result.failures:
@@ -4393,7 +4612,7 @@ class RipMixin(MainWindowShared):
             gate="derived",
         )
 
-    def _on_derived_verified(self, result: object) -> None:
+    def _on_derived_verified(self, generation: int, result: object) -> None:
         """Derived-file verify finished — record + surface the outcome.
 
         Runs on the GUI thread (``derived_verify_done`` is queued there). The
@@ -4405,8 +4624,9 @@ class RipMixin(MainWindowShared):
         """
         if not isinstance(result, DerivedVerifyResult):
             return
-        self._last_derived_verify_result = result
-        self._schedule_rip_report_write()
+        self._record_post_rip_result(generation, "derived_verify", result)
+        if generation != self._rip_generation:
+            return
         fmt = (result.fmt or "").upper()
         if result.error:
             message = f"{fmt} verify: skipped — {result.error} (FLAC master kept)"

@@ -1359,7 +1359,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # named group the completeness sweep requires, and why each exists. The
     # module is long because it is a line-by-line contract with another
     # project; splitting it is tracked separately and is not this change.
-    "parsers/cyanrip_log.py": 2819,
+    # **2819 -> 2831 on 2026-09-16 (+12)**: the round-20 rename, accepting BOTH
+    # `Frame retries:` and `Retry limit:` permanently, plus the comment saying
+    # why both and why in advance — the rename is invisible to the parse and not
+    # to the completeness sweep, so the new label has to be here before their
+    # build ships. The eleven lines of reasoning are the load-bearing part: a
+    # later reader tidying this to a single label breaks every acceptance log
+    # already filed under `docs/`.
+    "parsers/cyanrip_log.py": 2831,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1449,7 +1456,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # and the post-rip pending/superseded ledger beside `_rip_generation`, which is
     # the field they exist to correct. Seven lines, and splitting them from their
     # sibling would be the drift.
-    "ui/main_window.py": 1579,
+    # **1579 -> 1578 on 2026-09-15**: one line, the `_last_derived_verify_result`
+    # initialiser, struck with the eight sibling fields the album now owns.
+    # Recorded because the ratchet's own non-triviality twin refuses HEADROOM:
+    # a count left above the file's real length is room to grow unnoticed.
+    "ui/main_window.py": 1578,
     "ui/main_window_deps.py": 589,
     "ui/main_window_drive.py": 555,
     "ui/main_window_helpers.py": 508,
@@ -1476,13 +1487,46 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # window stands; it is not done here because a hardware re-run is waiting on
     # this fix, and a structural move under a release is how a correct fix ships
     # broken. The code is the smallest form of the fix, not a resting place.
-    "ui/main_window_rip.py": 4458,
+    # **4458 -> 4480 on 2026-09-15 (same day, second raise, FOURTH this month)**:
+    # twenty-two lines, and all of them are the comment on why the report flush
+    # is unconditional — the 655 ms measured against the 750 ms debounce, and the
+    # reasoning that a check which has just FINISHED is the one at risk, not one
+    # still in flight. That comment is the whole defence against the early return
+    # being put back by someone who reads the guard as an optimisation; a shorter
+    # note would lose the number, which is the part that convinces.
+    #
+    # **The ratchet is doing its job and the answer is not another raise.** The
+    # `TASKS.md` row for extracting the post-rip chain stands, and this run is
+    # more evidence for it: both defects found on 2026-09-15 live in the seam
+    # between "the current rip" and "the album that just finished", which is
+    # exactly what a `PostRipChain` owning its own `(rip_dir, rip_log, settings,
+    # report handle)` would make impossible to get wrong.
+    #
+    # **4480 -> 4678 on 2026-09-15 (+198), and the honest reading is that the
+    # refactor above did NOT relieve this file.** The paragraph directly above
+    # predicted the fix — *"a `PostRipChain` owning its own `(rip_dir, rip_log,
+    # settings, report handle)`"* — and `ui/post_rip_record.py` is that object:
+    # 24 per-album facts left the window for a 184-line module that owns them.
+    # What stayed, and what grew, is the *routing*: opening a record at Start,
+    # filling it at finish, looking one up by generation, writing a report from
+    # one rather than from `self`, and the guard that refuses a late write into a
+    # folder a newer rip has claimed. So the STATE moved and the PLUMBING did
+    # not, which is half the job — and saying so here matters more than the
+    # number, because a raise recorded as a win is how the next reader concludes
+    # the extraction is done. It is not: the `TASKS.md` row stands, and what it
+    # now asks for is narrower and more tractable than before — move the post-rip
+    # CHAIN (the five-step daemon and the six launchers) out beside the record it
+    # already populates.
+    "ui/main_window_rip.py": 4678,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
     # surface, so an undeclared attribute reachable only through `getattr` is the
     # hole it exists to close.
-    "ui/main_window_shared.py": 414,
+    # **414 -> 407 on 2026-09-15**: nine post-rip RESULT declarations struck. They
+    # moved to `ui/post_rip_record.py`, where they are the album's rather than the
+    # window's. The only ratchet entry this session that went DOWN.
+    "ui/main_window_shared.py": 407,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is

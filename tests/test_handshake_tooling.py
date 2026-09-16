@@ -3573,3 +3573,60 @@ def test_CONFIRMATIONS_recognises_the_words_a_real_lap_uses(
         "re-derived rather than accepted\n\n## Questions\n\n## Explicitly not asking\n"
     )
     assert hs.check_outbound(text) == [], hs.check_outbound(text)
+
+
+def test_close_by_never_reaches_a_verdict() -> None:
+    """R2: `HANDSHAKE-CLOSE-BY` is advisory. It must not decide anything.
+
+    Round 20 §0.1 — both sides answered *enforce* in R2's own sense of the word,
+    **print, never block**, and both built it. The fork's structural argument is
+    better than the guard we would have written and is adopted verbatim: *"a rule
+    that must not affect a verdict is safest when it cannot reach the code that
+    forms one"*, rather than reaching it behind a condition a later reader can
+    simplify away.
+
+    So this asserts the SEPARATION rather than the behaviour: `round_status` — the
+    function that forms the verdict and whose output the release gate greps — must
+    not call `close_by_lines`, transitively or otherwise. Checked against the
+    source, because the property is "does not depend on", and a value-level test
+    cannot see a dependency that happens to be inert today.
+    """
+    import inspect
+
+    hs = _load()
+    body = inspect.getsource(hs.round_status)
+    assert "close_by" not in body, (
+        "round_status now references close_by — the advisory report has reached "
+        "the function that forms the verdict, which is exactly what R2 forbids"
+    )
+    # And the release gate's own text, for the same reason one directory over.
+    gate = inspect.getsource(hs.main)
+    status_branch = gate[gate.find("if args.release_gate") :]
+    assert "close_by" not in status_branch, (
+        "the release-gate branch references close_by; CLOSE-BY must never gate"
+    )
+
+
+def test_the_close_by_report_refuses_a_bare_date_rather_than_assuming_midnight() -> (
+    None
+):
+    """A bare date names no timezone, and guessing gave two answers in one afternoon.
+
+    `datetime.fromisoformat` parses `2026-08-14` happily and returns a NAIVE
+    datetime, so the only thing between that and a confident wrong answer is the
+    `tzinfo` branch. Asserted on the WORDING, not merely on the word "timezone":
+    the fork reported that their first version of this test passed with the guard
+    reverted, because both branches' messages contained that word — a pattern
+    matching both branches asserts nothing about either.
+    """
+    hs = _load()
+    bare = hs._close_by_verdict("2026-08-14")
+    assert bare.startswith("unknown (a bare date"), (
+        f"a bare date must be refused as unreadable, not defaulted; got {bare!r}"
+    )
+    instant = hs._close_by_verdict("2099-01-01T00:00:00Z")
+    assert "day(s) remaining" in instant and "unknown" not in instant, (
+        f"a well-formed future instant must report remaining days; got {instant!r}"
+    )
+    passed = hs._close_by_verdict("2020-01-01T00:00:00Z")
+    assert "has PASSED" in passed, f"a past instant must say so; got {passed!r}"

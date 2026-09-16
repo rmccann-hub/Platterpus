@@ -1734,11 +1734,12 @@ def test_stale_verify_result_dropped_when_a_newer_rip_starts(
 
     window = teardown_threads()
     window._rip_generation = 5
-    window._last_checksums = None
+    album_a = window._open_post_rip_record()
 
     def fake_compute(rip_dir: Path) -> dict[str, str]:
         # Simulate a NEWER rip starting while this album's hashing runs.
         window._rip_generation += 1
+        window._open_post_rip_record()
         return {"01 - A.flac": "deadbeef"}
 
     monkeypatch = pytest.MonkeyPatch()
@@ -1751,9 +1752,12 @@ def test_stale_verify_result_dropped_when_a_newer_rip_starts(
     finally:
         monkeypatch.undo()
 
-    # The generation advanced during hashing, so the result was dropped — it did
-    # NOT land in the (now newer) rip's state.
-    assert window._last_checksums is None
+    # BOTH HALVES. The requirement is that album A's digests never land against
+    # album B, and asserting only that B is empty would also pass if the result
+    # had been thrown away — which is what this code used to do, and what cost
+    # the 2026-09-15 MP3 rip its entire post-rip chain.
+    assert window._post_rip_record().checksums is None  # album B: untouched
+    assert album_a.checksums == {"01 - A.flac": "deadbeef"}  # album A: recorded
 
 
 def test_checksums_skipped_when_post_rip_work_never_settles(
@@ -1770,7 +1774,7 @@ def test_checksums_skipped_when_post_rip_work_never_settles(
     from platterpus.ui import main_window_rip as mwr
 
     window = teardown_threads()
-    window._last_checksums = None
+    window._open_post_rip_record()
 
     # A post-rip thread that stays alive well past the (shortened) settle bound.
     release = threading.Event()
@@ -1810,7 +1814,7 @@ def test_checksums_skipped_when_post_rip_work_never_settles(
         monkeypatch.undo()
 
     assert computed == []  # never hashed the unsettled (mid-rewrite) files
-    assert window._last_checksums is None  # and recorded nothing
+    assert window._post_rip_record().checksums is None  # and recorded nothing
 
 
 def test_metadata_contains_colon_checks_every_cyanrip_field() -> None:
@@ -4309,7 +4313,9 @@ def test_cover_art_off_skips_the_fetch(teardown_threads, tmp_path: Path) -> None
 
 def test_cover_art_outcome_lands_in_the_log_view(teardown_threads) -> None:
     window = teardown_threads()
-    window._on_cover_art_done("Cover art: embedded in 14 track(s).")
+    window._on_cover_art_done(
+        window._rip_generation, "Cover art: embedded in 14 track(s)."
+    )
     assert "Cover art: embedded in 14 track(s)." in (
         window._rip_progress._log_view.toPlainText()
     )
@@ -4520,15 +4526,18 @@ def test_rip_report_accumulates_verify_results_and_checksums(
     log_file.write_text("log", encoding="utf-8")
     window._last_rip_log = RipLog(tracks=())
     window._last_rip_log_file = log_file
+    window._capture_post_rip_record(window._last_rip_log, window._last_rip_log_file)
     window._last_rip_timing = None
     # Skip the session-log machinery — not what this test is about.
-    monkeypatch.setattr(window, "_build_rip_debug_log", lambda: None)
+    monkeypatch.setattr(window, "_build_rip_debug_log", lambda rip_window=None: None)
 
     # Arrive out of order: checksums first, then FLAC verify. Each async result
     # schedules a coalesced write on the debounce timer; flush it (as window
     # close does) to serialize the accumulated state now, without a real wait.
-    window._on_checksums_done({"01 - A.flac": "deadbeef", "01 - A.mp3": "cafe"})
-    window._on_flac_verified(FlacVerifyResult(checked=3))
+    window._on_checksums_done(
+        window._rip_generation, {"01 - A.flac": "deadbeef", "01 - A.mp3": "cafe"}
+    )
+    window._on_flac_verified(window._rip_generation, FlacVerifyResult(checked=3))
     window._flush_rip_report(wait=True)
 
     report = _json.loads((tmp_path / "Album.platterpus.json").read_text())
@@ -4558,15 +4567,16 @@ def test_async_rip_report_rewrites_are_debounced_into_one_write(
     log_file.write_text("log", encoding="utf-8")
     window._last_rip_log = RipLog(tracks=())
     window._last_rip_log_file = log_file
+    window._capture_post_rip_record(window._last_rip_log, window._last_rip_log_file)
     window._last_rip_timing = None
-    monkeypatch.setattr(window, "_build_rip_debug_log", lambda: None)
+    monkeypatch.setattr(window, "_build_rip_debug_log", lambda rip_window=None: None)
 
     writes: list[int] = []
     monkeypatch.setattr(rr, "write_report", lambda *a, **k: writes.append(1))
 
-    window._on_checksums_done({"01 - A.flac": "deadbeef"})
-    window._on_flac_verified(FlacVerifyResult(checked=1))
-    window._on_transcoded(TranscodeResult(transcoded=1))
+    window._on_checksums_done(window._rip_generation, {"01 - A.flac": "deadbeef"})
+    window._on_flac_verified(window._rip_generation, FlacVerifyResult(checked=1))
+    window._on_transcoded(window._rip_generation, TranscodeResult(transcoded=1))
 
     # All three coalesced onto the single-shot timer: it's armed, nothing written.
     assert window._rip_report_timer.isActive()
@@ -4601,11 +4611,14 @@ def test_successful_rip_starts_checksum_thread(
 
     for _ in range(50):
         QApplication.processEvents()
-        if window._last_checksums:
+        if window._post_rip_record().checksums:
             break
     import hashlib
 
-    assert window._last_checksums["01 - A.flac"] == hashlib.sha256(b"audio").hexdigest()
+    assert (
+        window._post_rip_record().checksums["01 - A.flac"]
+        == hashlib.sha256(b"audio").hexdigest()
+    )
 
 
 def test_on_flac_verified_surfaces_failure_loudly(teardown_threads) -> None:
@@ -4618,13 +4631,14 @@ def test_on_flac_verified_surfaces_failure_loudly(teardown_threads) -> None:
     window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
 
     window._on_flac_verified(
-        FlacVerifyResult(checked=2, failures=(Path("02 - Bad.flac"),))
+        window._rip_generation,
+        FlacVerifyResult(checked=2, failures=(Path("02 - Bad.flac"),)),
     )
     assert "FAILED" in window._rip_progress._status_label.text()
     assert any("FAILED" in line for line in lines)
 
     window._rip_progress.set_status("Done.")
-    window._on_flac_verified(FlacVerifyResult(checked=2))
+    window._on_flac_verified(window._rip_generation, FlacVerifyResult(checked=2))
     assert window._rip_progress._status_label.text().endswith(
         "Done."
     )  # clean pass is quiet
@@ -4871,15 +4885,18 @@ def test_on_flac_recompressed_logs_outcome(teardown_threads) -> None:
     window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
     window._rip_progress.set_status("Done.")
 
-    window._on_flac_recompressed(RecompressResult(reencoded=3))
+    window._on_flac_recompressed(window._rip_generation, RecompressResult(reencoded=3))
     assert any("3 file(s) re-compressed" in line for line in lines)
 
     window._on_flac_recompressed(
-        RecompressResult(reencoded=1, failures=(Path("02 - Bad.flac"),))
+        window._rip_generation,
+        RecompressResult(reencoded=1, failures=(Path("02 - Bad.flac"),)),
     )
     assert any("left as-is" in line and "02 - Bad.flac" in line for line in lines)
 
-    window._on_flac_recompressed(RecompressResult(error="'flac' not found"))
+    window._on_flac_recompressed(
+        window._rip_generation, RecompressResult(error="'flac' not found")
+    )
     assert any("skipped" in line for line in lines)
 
     # None of these are alarming enough to replace the status line.
@@ -4979,15 +4996,18 @@ def test_on_transcoded_logs_outcome(teardown_threads) -> None:
     window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
     window._rip_progress.set_status("Done.")
 
-    window._on_transcoded(TranscodeResult(transcoded=3))
+    window._on_transcoded(window._rip_generation, TranscodeResult(transcoded=3))
     assert any("3 file(s) written" in line for line in lines)
 
     window._on_transcoded(
-        TranscodeResult(transcoded=1, failures=(Path("02 - Bad.flac"),))
+        window._rip_generation,
+        TranscodeResult(transcoded=1, failures=(Path("02 - Bad.flac"),)),
     )
     assert any("failed" in line and "02 - Bad.flac" in line for line in lines)
 
-    window._on_transcoded(TranscodeResult(error="'ffmpeg' not found"))
+    window._on_transcoded(
+        window._rip_generation, TranscodeResult(error="'ffmpeg' not found")
+    )
     assert any("skipped" in line and "FLAC master kept" in line for line in lines)
 
     assert window._rip_progress._status_label.text().endswith("Done.")
@@ -5046,11 +5066,13 @@ def test_on_derived_verified_records_and_reports(
     log_file.write_text("log", encoding="utf-8")
     window._last_rip_log = RipLog(tracks=())
     window._last_rip_log_file = log_file
+    window._capture_post_rip_record(window._last_rip_log, window._last_rip_log_file)
     window._last_rip_timing = None
-    monkeypatch.setattr(window, "_build_rip_debug_log", lambda: None)
+    monkeypatch.setattr(window, "_build_rip_debug_log", lambda rip_window=None: None)
 
     window._on_derived_verified(
-        DerivedVerifyResult(fmt="wavpack", lossless=True, checked=2, expected=2)
+        window._rip_generation,
+        DerivedVerifyResult(fmt="wavpack", lossless=True, checked=2, expected=2),
     )
     window._flush_rip_report(wait=True)
 
@@ -5069,13 +5091,14 @@ def test_on_derived_verified_lossless_mismatch_is_loud(teardown_threads) -> None
     window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
 
     window._on_derived_verified(
+        window._rip_generation,
         DerivedVerifyResult(
             fmt="wav",
             lossless=True,
             checked=2,
             expected=2,
             mismatches=(Path("02 - B.wav"),),
-        )
+        ),
     )
     assert any("NOT bit-identical" in line and "02 - B.wav" in line for line in lines)
     assert "NOT bit-identical" in window._rip_progress._status_label.text()
@@ -5170,7 +5193,8 @@ def test_on_derived_verified_mp3_states_decode_clean_not_bit_identity(
     window._rip_progress.set_status("Done.")
 
     window._on_derived_verified(
-        DerivedVerifyResult(fmt="mp3", lossless=False, checked=3, expected=3)
+        window._rip_generation,
+        DerivedVerifyResult(fmt="mp3", lossless=False, checked=3, expected=3),
     )
     # Honest wording: decode-clean, explicitly NOT bit-identity; not alarming so
     # the status line is untouched.
@@ -5221,7 +5245,9 @@ def test_window_closes_during_ctdb_verify_without_blocking(
 
 def test_on_ctdb_verified_renders_verdict(teardown_threads) -> None:
     window = teardown_threads()
-    window._on_ctdb_verified(CtdbVerifyResult(Verdict.NO_MATCH, crc_validated=False))
+    window._on_ctdb_verified(
+        window._rip_generation, CtdbVerifyResult(Verdict.NO_MATCH, crc_validated=False)
+    )
     # Gate re-opened (crc_validated=False, KDD-16): an unvalidated no_match renders
     # as "not confirmed / experimental", never "your rip differs" (honesty guard).
     # The shipped default is now True; pin False here to keep this path covered.
@@ -6506,12 +6532,12 @@ def test_total_tagging_failure_is_reported_not_swallowed(
     assert result.ok is False
 
     # Now the GUI-thread slot the daemon delivers it to.
-    window._on_tagging_done(result)
+    window._on_tagging_done(window._rip_generation, result)
 
     status = window._rip_progress.current_status()
     assert "Tagging FAILED" in status
     assert "2 of 2" in status
-    assert window._last_tagging_result is result
+    assert window._post_rip_record().tagging is result
     # The trust banner must not stay green over an album that carries no tags.
     assert window._rip_progress._verdict_downgrades
 
@@ -6529,7 +6555,7 @@ def test_partial_tagging_failure_is_reported_with_the_failing_names(
     result = window.run_unknown_post_processing(
         album, launch_picard=False, rip_log=_parsed_log(log_file)
     )
-    window._on_tagging_done(result)
+    window._on_tagging_done(window._rip_generation, result)
 
     assert result.tagged == 1 and result.failures == (_THIS_RIP[1],)
     assert _THIS_RIP[1] in window._rip_progress.current_status()
@@ -6552,8 +6578,10 @@ def test_tagging_failure_reaches_the_json_report_as_an_issue(
     window = teardown_threads()
     window._last_rip_log = RipLog()
     window._last_rip_log_file = log_file
+    window._capture_post_rip_record(window._last_rip_log, window._last_rip_log_file)
     window._on_tagging_done(
-        TaggingResult(ran=True, attempted=2, tagged=0, failures=tuple(_THIS_RIP))
+        window._rip_generation,
+        TaggingResult(ran=True, attempted=2, tagged=0, failures=tuple(_THIS_RIP)),
     )
     window._flush_rip_report(wait=True)
 
@@ -6590,11 +6618,12 @@ def test_a_clean_tagging_pass_does_not_alarm_or_add_an_issue(
     window._track_table.set_placeholder_tracks(2)
     window._last_rip_log = RipLog()
     window._last_rip_log_file = log_file
+    window._capture_post_rip_record(window._last_rip_log, window._last_rip_log_file)
 
     result = window.run_unknown_post_processing(
         album, launch_picard=False, rip_log=_parsed_log(log_file)
     )
-    window._on_tagging_done(result)
+    window._on_tagging_done(window._rip_generation, result)
     window._flush_rip_report(wait=True)
 
     assert result.ok is True
@@ -6632,7 +6661,7 @@ def test_tagging_crash_mid_pass_still_reaches_the_user(
     window._post_rip_thread.join(timeout=10)
     qapp.processEvents()  # deliver the queued tagging_done
 
-    recorded = window._last_tagging_result
+    recorded = window._post_rip_record().tagging
     assert recorded is not None and recorded.ran is True
     assert "metaflac vanished" in recorded.error
     assert "Tagging FAILED" in window._rip_progress.current_status()
@@ -7003,7 +7032,11 @@ def test_a_report_rewrite_does_not_empty_the_rippers_captured_output(
     # re-write after the first.
     window._rip_worker = None
 
-    window._write_rip_report(RipLog(log_creator="cyanrip 0.9.4-rc1"), log_file)
+    window._write_rip_report(
+        window._capture_post_rip_record(
+            RipLog(log_creator="cyanrip 0.9.4-rc1"), log_file
+        )
+    )
 
     # The write is asynchronous now; wait for it before reading the
 
@@ -7440,7 +7473,8 @@ def test_library_move_failure_reports_without_alarming(teardown_threads) -> None
     window = teardown_threads()
 
     window._on_library_moved(
-        SimpleNamespace(ok=False, destination=None, message="Permission denied")
+        window._rip_generation,
+        SimpleNamespace(ok=False, destination=None, message="Permission denied"),
     )
 
     line = window._rip_progress._log_view.toPlainText()
@@ -7456,11 +7490,19 @@ def test_library_move_success_repoints_the_view_log_button(
     old_dir = tmp_path / "out" / "Artist" / "Album"
     old_dir.mkdir(parents=True)
     window._last_rip_log_file = old_dir / "Album.log"
+    record = window._capture_post_rip_record(None, old_dir / "Album.log")
     new_dir = tmp_path / "library" / "Artist" / "Album"
 
-    window._on_library_moved(SimpleNamespace(ok=True, destination=new_dir, message=""))
+    window._on_library_moved(
+        window._rip_generation,
+        SimpleNamespace(ok=True, destination=new_dir, message=""),
+    )
 
     assert window._last_rip_log_file == new_dir / "Album.log"
+    # The album's OWN record follows the folder too: a late post-rip result
+    # rewrites this report, and it must land in the new home rather than
+    # recreating the old one.
+    assert record.log_file == new_dir / "Album.log"
     assert "filed in your library" in window._rip_progress._log_view.toPlainText()
 
 
@@ -7595,10 +7637,11 @@ def test_cache_defeat_injection_is_a_no_op_with_no_drive_selected(
 def test_the_post_rip_result_handlers_ignore_a_payload_of_the_wrong_type(
     teardown_threads,
 ) -> None:
-    """Every `_on_*_done` slot is reachable from a queued `Signal(object)`, so it
-    type-checks its payload and drops anything else. Pinned because a slot that
-    trusted the payload would crash the GUI thread from a worker's mistake."""
+    """Every `_on_*_done` slot is reachable from a queued `Signal(int, object)`,
+    so it type-checks its payload and drops anything else. Pinned because a slot
+    that trusted the payload would crash the GUI thread from a worker's mistake."""
     window = teardown_threads()
+    record = window._open_post_rip_record()
     for handler in (
         window._on_checksums_done,
         window._on_flac_verified,
@@ -7608,19 +7651,22 @@ def test_the_post_rip_result_handlers_ignore_a_payload_of_the_wrong_type(
         window._on_tagging_done,
         window._on_cover_art_done,
     ):
-        handler(object())  # must not raise
+        handler(window._rip_generation, object())  # must not raise
     # None of them recorded anything either: an unrecognised payload is dropped,
-    # not stored (a stored junk payload would reach the JSON report).
+    # not stored (a stored junk payload would reach the JSON report). Asserted
+    # against the ALBUM'S record, which is where a result now lands — checking
+    # the window's own attributes would pass while the junk sat in the report.
     for attr in (
-        "_last_checksums",
-        "_last_flac_verify_result",
-        "_last_recompress_result",
-        "_last_transcode_result",
-        "_last_derived_verify_result",
-        "_last_tagging_result",
-        "_last_cover_art_result",
+        "checksums",
+        "audio_md5",
+        "flac_verify",
+        "recompress",
+        "transcode",
+        "derived_verify",
+        "tagging",
+        "cover_art",
     ):
-        assert getattr(window, attr, None) is None, f"{attr} stored a junk payload"
+        assert getattr(record, attr) is None, f"{attr} stored a junk payload"
 
 
 def test_a_destroyed_window_does_not_break_a_late_post_rip_emit(
@@ -7632,7 +7678,10 @@ def test_a_destroyed_window_does_not_break_a_late_post_rip_emit(
     window = teardown_threads()
 
     class _DeadSignal:
-        def emit(self, _payload: object) -> None:
+        # Same arity as the real `Signal(int, object)` — a stand-in taking a
+        # single argument would raise TypeError instead of the RuntimeError this
+        # test exists to pin, and would pass for the wrong reason.
+        def emit(self, _generation: int, _payload: object) -> None:
             raise RuntimeError("Internal C++ object already deleted.")
 
     thread = window._launch_post_rip_daemon(
@@ -7952,7 +8001,7 @@ def test_a_cover_art_crash_becomes_a_reported_result_not_a_dead_daemon(
     )
     qapp.processEvents()
 
-    result = window._last_cover_art_result
+    result = window._post_rip_record().cover_art
     assert result is not None and result.found is False
     assert result.reason == "error"
     assert "rip unaffected" in result.message
@@ -7989,7 +8038,7 @@ def test_a_local_cover_choice_takes_the_local_path_not_the_archive(
     qapp.processEvents()
 
     assert fetched == [], "the archive was consulted despite an explicit local pick"
-    result = window._last_cover_art_result
+    result = window._post_rip_record().cover_art
     assert result is not None and result.mode == "local" and result.found is True
 
 
@@ -8032,7 +8081,7 @@ def test_additional_art_failure_does_not_lose_the_front_cover_result(
     window._post_rip_thread.join(timeout=10)
     qapp.processEvents()
 
-    result = window._last_cover_art_result
+    result = window._post_rip_record().cover_art
     assert result is not None and result.found is True
     assert result.additional_saved == []
 
@@ -8059,10 +8108,14 @@ def test_a_slow_cover_fetch_that_lands_after_the_next_rip_is_dropped(
     window = teardown_threads(
         config=Config(host_setup_prompted=True, save_additional_art=False)
     )
-    window._last_cover_art_result = None
+    older = window._rip_generation
+    window._capture_post_rip_record(None, None)  # the album about to be finished
 
     def _slow(*a, **k):
-        window._rip_generation += 1  # a NEWER rip starts while the GET is in flight
+        # A NEWER rip starts while the GET is in flight — and it gets its own
+        # record, exactly as a real Start does.
+        window._rip_generation += 1
+        window._capture_post_rip_record(None, None)
         return _ca.CoverArtResult(mode="embed", found=True, reason="ok", message="ok")
 
     monkeypatch.setattr(_ca, "apply_cover_art", _slow)
@@ -8078,7 +8131,10 @@ def test_a_slow_cover_fetch_that_lands_after_the_next_rip_is_dropped(
     )
     assert window._post_rip_thread is not None
     window._post_rip_thread.join(timeout=10)
-    # A thread that never finished also leaves `_last_cover_art_result` at None,
+    # Read AFTER the join: the daemon is what bumps the generation, so reading it
+    # before would race the thread and silently compare the wrong two records.
+    newer = window._rip_generation
+    # A thread that never finished also leaves the cover-art slot at None,
     # so without this the assertion below passes for the wrong reason — the exact
     # "can this check be satisfied by finding nothing?" shape.
     assert not window._post_rip_thread.is_alive(), (
@@ -8087,7 +8143,23 @@ def test_a_slow_cover_fetch_that_lands_after_the_next_rip_is_dropped(
     )
     qapp.processEvents()
 
-    assert window._last_cover_art_result is None
+    # THE REQUIREMENT IS UNCHANGED AND NOW HAS A SECOND HALF.
+    #
+    # This test's subject is that album A's result must not be written into album
+    # B's report, and that still holds: the new album's record carries nothing.
+    # What changed on 2026-09-15 is where the result goes INSTEAD. It used to be
+    # thrown away — correct about B, and a silent loss for A — and it is now
+    # recorded against A's own record, which is addressable precisely so a late
+    # result has somewhere true to land.
+    #
+    # Both halves are asserted, because checking only the first passes just as
+    # well when the result is destroyed, which is the state this used to describe.
+    assert window._post_rip_record(newer).cover_art is None, (
+        "the late result reached the album the window had moved on to"
+    )
+    assert window._post_rip_record(older).cover_art is not None, (
+        "the late result was dropped rather than recorded against its own album"
+    )
 
 
 def test_a_recompress_crash_becomes_a_reported_result(
@@ -8108,7 +8180,7 @@ def test_a_recompress_crash_becomes_a_reported_result(
     _run_post_rip(window, album, log_file, recompress=True)
     qapp.processEvents()
 
-    result = window._last_recompress_result
+    result = window._post_rip_record().recompress
     assert result is not None and result.error == "failed unexpectedly"
 
 
@@ -8130,7 +8202,7 @@ def test_a_transcode_crash_becomes_a_reported_result(
     _run_post_rip(window, album, log_file, transcode_fmt="mp3")
     qapp.processEvents()
 
-    result = window._last_transcode_result
+    result = window._post_rip_record().transcode
     assert result is not None and result.error == "failed unexpectedly"
 
 
@@ -8144,11 +8216,11 @@ def test_a_stale_recompress_or_transcode_result_is_dropped(
 
     album, log_file = _album_with_leftovers(tmp_path)
     window = teardown_threads()
-    window._last_recompress_result = None
-    window._last_transcode_result = None
+    album_a = window._open_post_rip_record()
 
     def _slow(files):
         window._rip_generation += 1
+        window._open_post_rip_record()  # album B, exactly as Start would
         return RecompressResult(reencoded=2)
 
     monkeypatch.setattr(mwr, "recompress_flac_files", _slow)
@@ -8160,7 +8232,12 @@ def test_a_stale_recompress_or_transcode_result_is_dropped(
     _run_post_rip(window, album, log_file, recompress=True, transcode_fmt="mp3")
     qapp.processEvents()
 
-    assert window._last_recompress_result is None
+    assert window._post_rip_record().recompress is None  # album B: untouched
+    # ...AND IT LANDED ON ALBUM A, which is the other half of the same
+    # requirement. An assertion that only album B is clean would also pass if the
+    # result had been thrown away — and that is precisely what this code did, so
+    # the half that would have caught it has to be here.
+    assert album_a.recompress == RecompressResult(reencoded=2)
     # ...AND THE LATER STEPS STILL RAN. This assertion used to be `transcoded == []`,
     # with a comment approving of it: "the daemon returned at the generation check,
     # so the LATER steps never ran against the old album's folder either." The
@@ -8192,7 +8269,10 @@ def test_a_destroyed_window_does_not_break_a_late_post_rip_step(
     window = teardown_threads()
 
     class _DeadSignal:
-        def emit(self, _payload: object) -> None:
+        # Same arity as the real `Signal(int, object)` — a stand-in taking a
+        # single argument would raise TypeError instead of the RuntimeError this
+        # test exists to pin, and would pass for the wrong reason.
+        def emit(self, _generation: int, _payload: object) -> None:
             raise RuntimeError("Internal C++ object already deleted.")
 
     for name in (
@@ -8295,7 +8375,8 @@ def test_flac_verify_failure_is_loud_and_downgrades_the_trust_banner(
     window = teardown_threads()
 
     window._on_flac_verified(
-        FlacVerifyResult(checked=2, failures=(Path("01 - A.flac"),))
+        window._rip_generation,
+        FlacVerifyResult(checked=2, failures=(Path("01 - A.flac"),)),
     )
 
     assert "FLAC verify FAILED" in window._rip_progress.current_status()
@@ -8311,7 +8392,9 @@ def test_flac_verify_that_could_not_run_is_a_skip_not_a_failure(
 
     window = teardown_threads()
 
-    window._on_flac_verified(FlacVerifyResult(error="flac is not installed"))
+    window._on_flac_verified(
+        window._rip_generation, FlacVerifyResult(error="flac is not installed")
+    )
 
     line = window._rip_progress._log_view.toPlainText()
     assert "skipped" in line and "FAILED" not in line
@@ -8326,7 +8409,8 @@ def test_a_lossy_mp3_pass_is_stated_honestly_and_never_as_bit_perfect(
     window = teardown_threads()
 
     window._on_derived_verified(
-        DerivedVerifyResult(fmt="mp3", checked=2, expected=2, lossless=False)
+        window._rip_generation,
+        DerivedVerifyResult(fmt="mp3", checked=2, expected=2, lossless=False),
     )
 
     line = window._rip_progress._log_view.toPlainText()
@@ -8341,25 +8425,27 @@ def test_a_lossless_derived_mismatch_downgrades_but_a_lossy_one_does_not(
     differs is expected by definition. Only the first may touch the banner."""
     lossless = teardown_threads()
     lossless._on_derived_verified(
+        lossless._rip_generation,
         DerivedVerifyResult(
             fmt="wv",
             checked=2,
             expected=2,
             lossless=True,
             mismatches=(Path("01 - A.wv"),),
-        )
+        ),
     )
     assert lossless._rip_progress._verdict_downgrades
 
     lossy = teardown_threads()
     lossy._on_derived_verified(
+        lossy._rip_generation,
         DerivedVerifyResult(
             fmt="mp3",
             checked=2,
             expected=2,
             lossless=False,
             mismatches=(Path("01 - A.mp3"),),
-        )
+        ),
     )
     assert not lossy._rip_progress._verdict_downgrades
 
@@ -8369,7 +8455,9 @@ def test_an_incomplete_transcode_reaches_the_status_line(teardown_threads) -> No
     9 of 14 found out only by scrolling the log pane."""
     window = teardown_threads()
 
-    window._on_derived_verified(DerivedVerifyResult(fmt="mp3", checked=9, expected=14))
+    window._on_derived_verified(
+        window._rip_generation, DerivedVerifyResult(fmt="mp3", checked=9, expected=14)
+    )
 
     assert "only 9/14" in window._rip_progress.current_status()
 
@@ -8381,7 +8469,9 @@ def test_a_derived_verify_that_could_not_run_keeps_the_master_claim_intact(
     the FLAC master is in doubt."""
     window = teardown_threads()
 
-    window._on_derived_verified(DerivedVerifyResult(fmt="wv", error="wvunpack missing"))
+    window._on_derived_verified(
+        window._rip_generation, DerivedVerifyResult(fmt="wv", error="wvunpack missing")
+    )
 
     line = window._rip_progress._log_view.toPlainText()
     assert "skipped" in line and "FLAC master kept" in line
@@ -8619,6 +8709,10 @@ def test_an_in_progress_report_does_not_claim_bit_perfect_for_the_whole_disc(
         ),
     )
     window._last_rip_log_file = log_file
+    # Freeze the record in that state — no finish-time snapshot, disc count known
+    # — and write it. The denominator has to come from the live disc count, and
+    # the record is where that fallback now runs.
+    window._capture_post_rip_record(window._last_rip_log, log_file)
     window._flush_rip_report(wait=True)
 
     report = _json.loads((album_dir / "Album.platterpus.json").read_text())
@@ -8655,7 +8749,7 @@ def test_the_json_report_embeds_the_three_files_written_beside_it(
     rip_log = RipLog(log_creator="cyanrip 0.9.3", tracks=(TrackResult(number=1),))
 
     window._write_eac_log(rip_log, log_file)
-    window._write_rip_report(rip_log, log_file)
+    window._write_rip_report(window._capture_post_rip_record(rip_log, log_file))
     # The write is asynchronous now; wait for it before reading the
     # file, the same way closeEvent does.
     assert report_writer.writer().flush(), "report write timed out"
@@ -8693,6 +8787,7 @@ def test_writing_the_eac_log_rearms_the_report_so_it_can_be_embedded(
     # _schedule_rip_report_write only arms when there IS something to write.
     window._last_rip_log = rip_log
     window._last_rip_log_file = log_file
+    window._capture_post_rip_record(window._last_rip_log, window._last_rip_log_file)
     window._rip_report_timer.stop()
 
     window._write_eac_log(rip_log, log_file)
@@ -8718,7 +8813,11 @@ def test_the_report_never_embeds_audio_even_if_asked(
     window._config.write_eac_log_after_rip = False
     log_file = tmp_path / "Album.flac"  # a caller that got it badly wrong
     log_file.write_bytes(b"fLaC\x00\x00\x00\x22" + b"\xde\xad\xbe\xef" * 64)
-    window._write_rip_report(RipLog(tracks=(TrackResult(number=1),)), log_file)
+    window._write_rip_report(
+        window._capture_post_rip_record(
+            RipLog(tracks=(TrackResult(number=1),)), log_file
+        )
+    )
     # The write is asynchronous now; wait for it before reading the
     # file, the same way closeEvent does.
     assert report_writer.writer().flush(), "report write timed out"
@@ -9480,43 +9579,44 @@ def test_the_bundle_follows_the_album_folder_to_its_new_home(
     )
 
 
-def test_the_audio_md5_snapshot_is_reset_beside_its_sibling() -> None:
-    """`_last_audio_md5` must be cleared per rip, as `_last_checksums` always was.
+def test_the_audio_md5_snapshot_shares_a_lifetime_with_its_sibling() -> None:
+    """`audio_md5` and `checksums` are one fact in two halves and must live and
+    die together.
 
     Both are set by `_on_checksums_done` in the same instant and answer one
-    question together — "is this the same file" and "is this the same audio" — but
-    only the SHA256 half was cleared when a new rip began. A second rip whose
-    digests step failed, crashed or was superseded would have carried the FIRST
-    rip's audio MD5 into its own archival record, under the one key whose entire
-    purpose is identifying the audio. A stale answer there is worse than a missing
-    one: `audio_md5: null` reads as "not computed"; a wrong hash reads as fact.
+    question between them — "is this the same file" and "is this the same audio" —
+    but only the SHA256 half was cleared when a new rip began. A second rip whose
+    digests step failed, crashed or was superseded carried the FIRST rip's audio
+    MD5 into its own archival record, under the one key whose entire purpose is
+    identifying the audio. A stale answer there is worse than a missing one:
+    `audio_md5: null` reads as "not computed"; a wrong hash reads as fact. (Found
+    2026-08-19 while investigating a rig report whose `audio_md5` was null — not
+    the cause of that, a second defect the investigation turned up.)
 
-    Asserted against the SOURCE rather than by driving a rip, deliberately. The
-    reset sits behind `_on_rip_requested`'s validation, so reaching it from a test
-    needs a drive, a disc and a backend — and a test that stubbed all three would
-    be pinning the stub. What must hold is narrow and structural: the two fields
-    are reset together, in the same block. Same shape as
-    `tests/test_qthread_ownership.py`, which derives its expectations from the
-    source for the same reason.
-
-    Found 2026-08-19 while investigating a rig report whose `audio_md5` was null.
-    It is NOT the cause of that — a stale value is the opposite symptom — it is a
-    second defect the investigation turned up.
+    **The guarantee changed shape on 2026-09-15 and got stronger.** It used to be
+    "two reset lines sit in the same block", which this test asserted by reading
+    the source, because the reset sat behind `_on_rip_requested`'s validation and
+    reaching it needed a drive, a disc and a backend. Now both fields are
+    attributes of `PostRipRecord`, one object created per album — so they share a
+    lifetime *by construction*, and no reset block can forget one of them. What is
+    asserted is therefore the structural fact rather than the textual one, which
+    is also why this no longer has to read source text to say it.
     """
-    source = (
-        Path(__file__).resolve().parent.parent / "src/platterpus/ui/main_window_rip.py"
-    ).read_text(encoding="utf-8")
+    from platterpus.ui.post_rip_record import PostRipRecord
 
-    anchor = "self._last_checksums = None"
-    assert source.count(anchor) == 1, (
-        "the per-rip reset of _last_checksums moved or was duplicated; this test "
-        "anchors on it and needs updating with whatever replaced it"
-    )
-    window = source[source.index(anchor) : source.index(anchor) + 1200]
-    assert "self._last_audio_md5 = None" in window, (
-        "_last_audio_md5 is not reset beside _last_checksums. The two are written "
-        "together by _on_checksums_done, so resetting one without the other lets a "
-        "new rip inherit the previous rip's audio identity."
+    fresh = PostRipRecord(generation=0)
+    assert fresh.checksums is None and fresh.audio_md5 is None
+
+    carrying = PostRipRecord(generation=1)
+    carrying.checksums = {"a.flac": "sha"}
+    carrying.audio_md5 = {"a.flac": "md5"}
+    # The next album is a NEW record, so there is no path by which it inherits
+    # either half — which is the whole point of the album owning its own facts.
+    nxt = PostRipRecord(generation=2)
+    assert nxt.checksums is None, "a new album inherited the previous one's digests"
+    assert nxt.audio_md5 is None, (
+        "a new album inherited the previous one's audio identity — the exact "
+        "stale-value defect this guards, arriving through the other half"
     )
 
 
@@ -9574,6 +9674,7 @@ def test_a_post_rip_check_stops_working_when_a_newer_rip_starts(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, str(log_file))
+    finished_generation = window._rip_generation
     assert window._flac_verify_thread is not None
     assert entered.wait(10), "the FLAC verify daemon never started"
     # The next rip starts while the check is in flight — the 2.4 s window.
@@ -9587,10 +9688,15 @@ def test_a_post_rip_check_stops_working_when_a_newer_rip_starts(
         "The launcher would discard the verdict, but the reading is what "
         "produced a false 'your master is corrupt' ERROR on the rig"
     )
-    # `getattr`: the attribute is created by `_reset_rip_results` on Start, and
-    # this test drives `_on_rip_finished` directly. Reading it bare raises
-    # AttributeError, which is the same illegible failure the cover-art tests hit.
-    assert getattr(window, "_last_flac_verify_result", None) is None, (
+    # ASSERTED AGAINST THE ALBUM'S OWN RECORD, which is where a verdict lands
+    # now. This used to read `window._last_flac_verify_result`, a field the
+    # record replaced — so once nothing wrote to it the assertion could only ever
+    # pass, and a check that CAN'T fail is decoration. The record for the
+    # generation this rip ran under is the one that would have received a verdict
+    # had the abandoned check produced one.
+    record = window._post_rip_record(finished_generation)
+    assert record is not None, "the finished rip should have left a record"
+    assert record.flac_verify is None, (
         "a verdict from an abandoned check reached the report"
     )
 
@@ -9769,13 +9875,12 @@ def test_a_check_still_in_flight_when_the_next_rip_starts_is_sealed_superseded(
     """The gate said "ran" over a null block on five of eight rips, because the
     only thing that recorded the drop was a log line."""
     window = teardown_threads()
-    window._post_rip_pending = {"ctdb", "derived"}
-    window._last_ctdb_result = None
-    window._last_derived_verify_result = None
+    record = window._capture_post_rip_record(None, None)
+    record.pending = {"ctdb", "derived"}
 
     window._seal_superseded_post_rip_work()
 
-    assert window._post_rip_superseded == {"ctdb", "derived"}
+    assert record.superseded == {"ctdb", "derived"}
 
 
 def test_a_check_that_landed_just_before_the_next_start_is_not_called_dropped(
@@ -9784,12 +9889,13 @@ def test_a_check_that_landed_just_before_the_next_start_is_not_called_dropped(
     """Both halves are required, in both directions. A result sitting in the
     report must not be labelled superseded, or the label stops meaning anything."""
     window = teardown_threads()
-    window._post_rip_pending = {"ctdb"}
-    window._last_ctdb_result = object()  # came back microseconds before Start
+    record = window._capture_post_rip_record(None, None)
+    record.pending = {"ctdb"}
+    record.ctdb = object()  # came back microseconds before Start
 
     window._seal_superseded_post_rip_work()
 
-    assert window._post_rip_superseded == set()
+    assert record.superseded == set()
 
 
 def test_a_check_never_launched_is_not_reported_as_interrupted(
@@ -9798,9 +9904,151 @@ def test_a_check_never_launched_is_not_reported_as_interrupted(
     """The other half: a rip that never reached its post-rip phase has nothing to
     supersede, and saying otherwise claims work that was never begun."""
     window = teardown_threads()
-    window._post_rip_pending = set()
-    window._last_ctdb_result = None
+    record = window._capture_post_rip_record(None, None)
+    record.pending = set()
 
     window._seal_superseded_post_rip_work()
 
-    assert window._post_rip_superseded == set()
+    assert record.superseded == set()
+
+
+def test_a_result_that_lands_just_before_the_next_start_is_still_written(
+    teardown_threads, monkeypatch
+) -> None:
+    """The report write is debounced by 750 ms; Start wipes what it would write.
+    So a check that FINISHES in that window is the one at risk.
+
+    Measured on the 2026-09-15 12:01 run: the MP3 rip's whole post-rip chain
+    succeeded and the next rip started **655 ms** after the last result landed.
+    Every result was correct, on time, and lost, and the report then said
+    `gates: {"derived": "ran"}` over three null blocks.
+
+    The seal used to `return` before flushing when nothing had been superseded,
+    which is exactly this case: nothing was dropped, everything finished, and that
+    is *why* there was a pending write to lose.
+    """
+    window = teardown_threads()
+    record = window._capture_post_rip_record(None, None)
+    record.pending = set()
+    record.ctdb = object()
+    record.flac_verify = object()
+    record.derived_verify = object()
+    flushed: list[bool] = []
+    monkeypatch.setattr(
+        type(window), "_flush_rip_report", lambda self, **kw: flushed.append(True)
+    )
+
+    window._seal_superseded_post_rip_work()
+
+    assert record.superseded == set(), "nothing was dropped"
+    assert flushed, (
+        "the outgoing rip's report was not flushed, so a debounced write armed in "
+        "the last 750 ms is destroyed by the state reset that follows"
+    )
+
+
+def test_the_flush_happens_even_when_checks_were_superseded(
+    teardown_threads, monkeypatch
+) -> None:
+    """The other branch, so making the flush unconditional cannot regress it."""
+    window = teardown_threads()
+    record = window._capture_post_rip_record(None, None)
+    record.pending = {"ctdb"}
+    flushed: list[bool] = []
+    monkeypatch.setattr(
+        type(window), "_flush_rip_report", lambda self, **kw: flushed.append(True)
+    )
+
+    window._seal_superseded_post_rip_work()
+
+    assert record.superseded == {"ctdb"}
+    assert flushed
+
+
+def test_a_late_result_does_not_write_into_a_folder_the_next_rip_claimed(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """A hazard the per-album record CREATED, so it gets its own regression test.
+
+    Routing a late post-rip result back into its own album's report is the point
+    of `ui/post_rip_record.py` — but "its own album's report" is a *path*, and a
+    path is only that album's while it still holds that album. Choosing
+    **Overwrite** on the already-ripped prompt sends the next rip into the same
+    folder, so a late result arriving after that rip has written its own report
+    would replace a live album's record with a finished one's: the contamination
+    the generation guard exists to prevent, walking back in through the door the
+    fix opened.
+
+    Both halves are asserted, because "nothing was written" alone would also pass
+    if late writes had simply been switched off — which would put back the data
+    loss this whole change is about.
+    """
+    from platterpus.adapters.flac_recompress import RecompressResult
+
+    window = teardown_threads()
+    shared = tmp_path / "Artist" / "Album"
+    shared.mkdir(parents=True)
+    log_file = shared / "Album.log"
+    log_file.write_text("cyanrip 0.9.4\n", encoding="utf-8")
+
+    # Album A finished here...
+    window._rip_generation = 7
+    album_a = window._capture_post_rip_record(None, log_file)
+    # ...and album B was started with Overwrite, into the very same folder.
+    window._rip_generation = 8
+    album_b = window._capture_post_rip_record(None, log_file)
+
+    report = shared / "Album.platterpus.json"
+    assert not report.exists(), "nothing should have been written yet"
+
+    # A's re-compress lands late. It belongs to A, and A's folder is now B's.
+    window._record_post_rip_result(
+        album_a.generation, "recompress", RecompressResult(reencoded=2)
+    )
+    assert report_writer.writer().flush(), "report write timed out"
+
+    assert album_a.recompress == RecompressResult(reencoded=2), (
+        "the result still belongs to album A and must be kept on its record — "
+        "declining the WRITE is not a licence to drop the RESULT"
+    )
+    assert not report.exists(), (
+        "album A's late result overwrote the report in a folder album B now owns"
+    )
+    assert album_b.recompress is None, "and it certainly must not land on album B"
+
+
+def test_a_late_result_still_writes_when_the_folder_is_still_its_own(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """The other side of the guard above — the case it must NOT block.
+
+    Without this, the reclaimed-folder check could be satisfied by refusing every
+    late write, which passes that test and silently restores the 655 ms data loss
+    the record was built to fix. Two albums, two folders, one late result.
+    """
+    from platterpus.adapters.flac_recompress import RecompressResult
+
+    window = teardown_threads()
+    dir_a = tmp_path / "Artist" / "Album A"
+    dir_b = tmp_path / "Artist" / "Album B"
+    dir_a.mkdir(parents=True)
+    dir_b.mkdir(parents=True)
+    (dir_a / "A.log").write_text("cyanrip 0.9.4\n", encoding="utf-8")
+    (dir_b / "B.log").write_text("cyanrip 0.9.4\n", encoding="utf-8")
+
+    window._rip_generation = 3
+    album_a = window._capture_post_rip_record(None, dir_a / "A.log")
+    window._rip_generation = 4
+    window._capture_post_rip_record(None, dir_b / "B.log")
+
+    window._record_post_rip_result(
+        album_a.generation, "recompress", RecompressResult(reencoded=2)
+    )
+    assert report_writer.writer().flush(), "report write timed out"
+
+    assert (dir_a / "A.platterpus.json").exists(), (
+        "a late result for an album whose folder is still its own must be written"
+    )
+    assert not (dir_b / "B.platterpus.json").exists(), (
+        "and it must not have been written against the album that is current"
+    )

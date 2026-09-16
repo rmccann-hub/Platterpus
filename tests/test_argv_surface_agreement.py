@@ -227,7 +227,20 @@ _TABLE_ROUND_FLOOR: int = 6
 #: re-derive the span as above, and if it is still empty say so in the lap and
 #: leave the number where it is until a contract arrives. A derivation that has to
 #: be redone every round is a sign the artifact should be shipped.
-_MAX_TABLE_LAG: int = 0
+_MAX_TABLE_LAG: int = 1
+#: **1 on 2026-09-16, for round 20.** Their lap 1 is a procedure round: it ships no
+#: `PROVIDER-CONTRACT.md`, declares `HANDSHAKE-BREAKING: none in this lap`, and moves
+#: no pin. So the newest contract on disk is round 19 lap 3's `g7b2fda6` and it is
+#: still the current description of `fe4d2c4` — the table is one round behind by the
+#: fork's own account rather than by our omission. Back to 0 the moment a round ships
+#: one, which is the cycle rounds 17 and 18 already went through.
+#:
+#: **What this number does NOT excuse, and the reason it is a recorded constant
+#: instead of a `>=`:** a round that DID ship a contract we failed to file would look
+#: identical from here. The guard against that is
+#: `test_the_provider_contract_resolver_is_lap_aware` plus the artifact filename
+#: convention — not this constant, which only records how far behind we have agreed
+#: to be.
 #: **Back to 0 on 2026-08-15**, the same day it went to 1. cyanrip's round-9 lap 3
 #: sent `PROVIDER-CONTRACT.md` for `b56f936` in its envelope; it is committed at
 #: `docs/handshake/inbound/artifacts/round-09-lap-03-provider-contract-g42fe4f2.md`

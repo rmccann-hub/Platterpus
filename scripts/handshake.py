@@ -1056,7 +1056,7 @@ RETROSPECTIVE_ROUNDS: frozenset[int] = frozenset({1, 2, 3})
 OUR_REPO_URL: Final[str] = "https://github.com/rmccann-hub/Platterpus"
 FORK_REPO_URL: Final[str] = "https://github.com/rmccann-hub/cyanrip"
 
-CURRENT_ROUND: Final[int] = 19
+CURRENT_ROUND: Final[int] = 20
 
 
 # --- The shared wire format (protocol §8) -----------------------------------
@@ -2399,6 +2399,98 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
     return lines
 
 
+#: The first round whose laps are expected to carry `HANDSHAKE-CLOSE-BY`.
+#:
+#: Named in a constant rather than buried in a comparison, the way
+#: `CLOSE_BY_FROM_ROUND` is on the fork's side and `ADDRESSING_FROM_ROUND` is here,
+#: so widening it is a visible act in a diff rather than a number someone nudged.
+#: Rounds 5-7 predate the field and are grandfathered.
+CLOSE_BY_FROM_ROUND: Final[int] = 8
+
+
+def close_by_lines(root: Path | None = None) -> list[str]:
+    """Report each round's `HANDSHAKE-CLOSE-BY`. **Advisory. Never a verdict.**
+
+    Round 20 §0.1: both sides answered *enforce* in R2's own sense of the word —
+    **print, never block** — and both built it rather than proposing it, because
+    what our round-19 §E actually measured was not a disagreement about the rule.
+    It was that *neither gate had ever implemented it*, so the rule had no
+    observable consequence and drifted out of practice on both sides at once. Four
+    rounds declared nothing and one set it in lap 3.
+
+    **This function is deliberately NOT called by :func:`round_status` or by the
+    release gate, and that placement is the enforcement mechanism.** R2 forbids
+    `CLOSE-BY` from affecting a verdict; a rule that must not reach the verdict is
+    safest when it *cannot* reach the code that forms one, rather than reaching it
+    behind a guard somebody can later "simplify". Adopted from the fork's own
+    reasoning in their §2, which is better than the guard we would have written.
+    `test_close_by_never_reaches_a_verdict` asserts the separation directly.
+
+    **A bare date is reported as unknown, not assumed to mean midnight.** R2
+    forbids that form by name because it gave two defensible answers to *has it
+    passed?* on the same afternoon, and the lap that did it is still in the record.
+    """
+    base = root if root is not None else HANDSHAKE_DIR
+    rounds: set[int] = set()
+    for directory in ("outbound", "inbound", "verified"):
+        if (base / directory).is_dir():
+            for path in (base / directory).glob("round-*.md"):
+                num = round_number(path)
+                if num is not None:
+                    rounds.add(num)
+    out: list[str] = []
+    for num in sorted(rounds):
+        if num < CLOSE_BY_FROM_ROUND:
+            continue  # grandfathered: the field did not exist yet
+        laps = [
+            (path, wire_fields(path.read_text(encoding="utf-8")))
+            for directory in ("outbound", "inbound", "verified")
+            if (base / directory).is_dir()
+            for path in sorted((base / directory).glob("round-*.md"))
+            if round_number(path) == num
+        ]
+        declared = [
+            (path, fields["HANDSHAKE-CLOSE-BY"])
+            for path, fields in laps
+            if fields.get("HANDSHAKE-CLOSE-BY")
+        ]
+        if not declared:
+            out.append(
+                f"round {num:2d} close-by: none declared -- R2 requires one in "
+                "lap 1 (advisory; this gate never enforces it)"
+            )
+            continue
+        path, raw = declared[0]
+        value = raw.split()[0] if raw.split() else raw
+        out.append(f"round {num:2d} close-by: {_close_by_verdict(value)}")
+        lap = (name_round_and_lap(path) or (num, 1))[1]
+        if lap != DEFAULT_LAP:
+            out.append(
+                f"round {num:2d} close-by: set in lap {lap}, not lap 1 -- R2 says lap 1"
+            )
+    return out
+
+
+def _close_by_verdict(value: str) -> str:
+    """Render one `CLOSE-BY` value: passed, remaining, or why it cannot be read."""
+    from datetime import UTC, datetime
+
+    try:
+        when = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return f"unknown (not an ISO-8601 instant: {value!r})"
+    if when.tzinfo is None:
+        # THE BARE-DATE CASE, refused rather than defaulted. `fromisoformat`
+        # happily parses `2026-08-14` and hands back a NAIVE datetime, so the
+        # only thing standing between that and a confident wrong answer is this
+        # branch. R2 forbids the form because it names no timezone.
+        return f"unknown (a bare date names no timezone; R2 requires an instant) -- {value}"
+    remaining = (when - datetime.now(UTC)).days
+    if remaining < 0:
+        return f"{value} has PASSED (advisory only; nothing here acts on it)"
+    return f"{value}, {remaining} day(s) remaining"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
@@ -2466,6 +2558,15 @@ def main(argv: list[str] | None = None) -> int:
         status_lines = round_status(record_root)
         for line in status_lines:
             sys.stdout.write(line + "\n")
+        # THE CLOSE-BY REPORT IS PRINTED AFTER THE VERDICT IS ALREADY DECIDED, and
+        # from a separate function that `round_status` never calls. Round 20 §0.1:
+        # advisory, print-never-block. The exit status below is computed from
+        # `status_lines` alone, so no arrangement of close-by output can change it.
+        close_by = close_by_lines(record_root)
+        if close_by:
+            sys.stdout.write("\n")
+            for line in close_by:
+                sys.stdout.write(line + "\n")
         return 1 if any(ln.endswith("OPEN") for ln in status_lines) else 0
     if args.release_gate:
         # A PRE-RELEASE is permitted while a round is open. A stable release is not.
