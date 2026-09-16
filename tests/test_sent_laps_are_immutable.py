@@ -56,6 +56,18 @@ REPO_ROOT: Path = Path(__file__).resolve().parent.parent
 #: sent and what the fork holds; the file in this repository drifted from it and
 #: has been restored. It is first in the map for that reason.
 SENT_LAPS: dict[str, str] = {
+    # Round 20 lap 2. **The closing lap of round 20, peer-confirmed with a git
+    # blob as well as a digest.** Their lap 3 names it at sha256/16
+    # `84fb47ab6b160ed0`, 17,483 bytes, and additionally quotes the blob
+    # `7ff5ce4af53faf3336a85aef883783d722cfb1ea` — a second, independent identity
+    # for the same bytes, which is stronger than either alone. Both re-derive here.
+    #
+    # Frozen at the bytes that were SENT, which is the point of this file: the lap
+    # was edited once between being written and being released (the announce, which
+    # moved HANDSHAKE-READY-TO-READ and finalised HANDSHAKE-FROM-COMMIT), and that
+    # is legal precisely because an unannounced lap has not been sent. After the
+    # flip it is immutable, and this row is what makes that true rather than said.
+    "outbound/round-20-lap-02.md": "84fb47ab6b160ed0181b65db7b0e602273f7740dec7a353aa1908a1588442ca6",
     # Round 16 lap 16. **The closing lap, peer-confirmed twice over.** Their lap 17
     # names it in both line 11 (`HANDSHAKE-PEER-VERDICT-SOURCE`) and line 25
     # (`HANDSHAKE-INBOUND-HELD`) at sha256/16 `18cd6588321002ac`, 14,032 bytes,
