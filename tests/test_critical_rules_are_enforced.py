@@ -1340,7 +1340,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # by one block per round close regardless of whether anything else changes.
     # Still not refactored during a round close, for the reason already stated; the
     # difference is that "not today" now has a row rather than a comment.
-    "handshake_approval.py": 571,
+    # **571 -> 584 on 2026-09-16 (+13)**: round 20 closed, so both approval
+    # constants moved to the pair it reviewed — and the thirteen lines are the
+    # reason, not the values. One lap earlier we argued this field should track
+    # the shipped version and the fork refused it correctly; the note records
+    # that the reasoning did not change, the RECORD did. Without it the next
+    # reader sees a constant chasing __version__ and "helpfully" automates it.
+    "handshake_approval.py": 584,
     "help_content.py": 561,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because

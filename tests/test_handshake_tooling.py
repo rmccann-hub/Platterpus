@@ -3630,3 +3630,62 @@ def test_the_close_by_report_refuses_a_bare_date_rather_than_assuming_midnight()
     )
     passed = hs._close_by_verdict("2020-01-01T00:00:00Z")
     assert "has PASSED" in passed, f"a past instant must say so; got {passed!r}"
+
+
+def test_close_by_is_attributed_to_the_earliest_lap_across_every_directory() -> None:
+    """Round 20 §1, found by the fork in our code within hours of it shipping.
+
+    The first version built its lap list **directory-major** — all of `outbound/`,
+    then all of `inbound/` — with `sorted()` inside each directory. `declared[0]`
+    was therefore not the earliest lap but *the earliest lap in the first directory
+    that had one*, and that tuple order has nothing to do with laps.
+
+    Rounds 13 and 14 were reported as "set in lap 2, not lap 1" when their lap 1 —
+    the fork's, so it lives in `inbound/` — declares the field. Rounds 8 and 19 came
+    out right only because no outbound lap of ours declared it at all, which is the
+    uncomfortable kind of agreement: the output matched wherever our own side
+    happened to stay silent.
+
+    Asserted against the REAL record rather than a fixture, because the committed
+    files are what settled the disagreement: two implementations of one spec
+    disagreeing on byte-identical input, resolved by reading the files.
+    """
+    hs = _load()
+    lines = hs.close_by_lines()
+    for round_number in (13, 14):
+        provenance = [
+            line
+            for line in lines
+            if line.startswith(f"round {round_number:2d} close-by:")
+            and "set in lap" in line
+        ]
+        assert not provenance, (
+            f"round {round_number}'s CLOSE-BY is declared in its lap 1 (the fork's, "
+            f"in inbound/) and must not be attributed to a later lap: {provenance}"
+        )
+    # NON-TRIVIALITY: the check above passes if the reporter emits nothing at all,
+    # and a provenance line that CAN still fire is what makes its absence mean
+    # something. Round 19's really was set in lap 3 and must still say so.
+    assert any(
+        line.startswith("round 19 close-by:") and "set in lap 3" in line
+        for line in lines
+    ), "round 19's CLOSE-BY was set in lap 3 and the reporter must still report it"
+
+
+def test_a_laps_number_is_read_from_its_declaration_not_its_filename() -> None:
+    """The filename is a SECOND description of the lap number, so it needs a check.
+
+    `docs/handshake-protocol.md` orders laps by the declared `HANDSHAKE-LAP`. The
+    fork reads that field and pins it; ours read the filename until round 20 lap 3
+    pointed at the line. Two descriptions of one fact, with nothing comparing them,
+    is the shape this repo refuses everywhere else.
+    """
+    from pathlib import Path
+
+    hs = _load()
+    # A file whose NAME says lap 9 and whose DECLARATION says lap 2: the declaration
+    # wins, or the ordering above is decided by the wrong key.
+    assert hs._declared_lap(Path("round-20-lap-09.md"), {"HANDSHAKE-LAP": "2"}, 20) == 2
+    # No declaration (the pre-header rounds) falls back to the name, then to lap 1.
+    assert hs._declared_lap(Path("round-20-lap-09.md"), {}, 20) == 9
+    assert hs._declared_lap(Path("notes.md"), {}, 20) == hs.DEFAULT_LAP
