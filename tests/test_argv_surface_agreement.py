@@ -227,7 +227,21 @@ _TABLE_ROUND_FLOOR: int = 6
 #: re-derive the span as above, and if it is still empty say so in the lap and
 #: leave the number where it is until a contract arrives. A derivation that has to
 #: be redone every round is a sign the artifact should be shipped.
-_MAX_TABLE_LAG: int = 1
+_MAX_TABLE_LAG: int = 0
+#: **Back to 0 on 2026-09-16, for round 21** — the cycle the note below predicted,
+#: arriving one round later. Their lap 1 ships `PROVIDER-CONTRACT.md` regenerated at
+#: `3952c03` (banner `gb2c9527`, sha256/16 `fb8b4b62d9d0f1c9`), filed here as
+#: `docs/handshake/inbound/artifacts/round-21-lap-01-provider-contract-gb2c9527.md`,
+#: so the table we diff against is the current round's own and there is no lag left
+#: to excuse.
+#:
+#: What the new contract changes was derived before it was filed, not assumed: **1**
+#: of 303 two-column format-string rows (the declared `Retry limit:` rename), **0**
+#: of 120 P5 fatal message texts, **0** of 7 P5a, and one P5 citation moved
+#: (`diagnostics.c:572` → `:618`). So `emit_ripper_inventory.py` rewrites citations
+#: and no message text.
+#:
+#: *(The superseded value, kept for the record:)*
 #: **1 on 2026-09-16, for round 20.** Their lap 1 is a procedure round: it ships no
 #: `PROVIDER-CONTRACT.md`, declares `HANDSHAKE-BREAKING: none in this lap`, and moves
 #: no pin. So the newest contract on disk is round 19 lap 3's `g7b2fda6` and it is
