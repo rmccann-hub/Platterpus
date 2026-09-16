@@ -168,7 +168,7 @@ dropped.
 | `^System device:\\s` | device node; GUI already knows it |
 | `^(?:Over\|Under)read:\\s` | derived from offset; not a verdict |
 | `^Repeating ripping\\s+\\(` | secure re-rip attempt; the Done; line carries the verdict |
-| `^Frame retries:\\s` | candidate: rip-effort setting |
+| `^(?:Frame retries\|Retry limit):\\s` | candidate: rip-effort setting (renamed Retry limit in round 20) |
 | `^Disc number:\\s` | our own -a tag echoed back; we hold it |
 | `^Total discs:\\s` | our own -a tag echoed back; we hold it |
 | `^.*cannot search Cover Art DB!$` | cyanrip's cover-art path is unused under -N; we fetch art ourselves |

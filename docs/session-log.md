@@ -11,7 +11,157 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
-## 2026-09-15 (latest) — the acceptance run passed 241/241 and produced no MP3
+## 2026-09-16 — round 20 answered: CLOSE-BY enforced, the log rename assented
+
+**Their lap 1 released at `cyanrip@6c86689` and verified before it was read** —
+42,039 bytes, sha256/16 `2d8113129aa5bcd6`, both exact, and an ancestor of
+`origin/platterpus-fork`. Filed inbound; our `--check` passes it.
+
+**§0.1 — `HANDSHAKE-CLOSE-BY`: ENFORCE, built not promised.** `close_by_lines()`
+is a separate function `round_status()` never calls, and that placement *is* the
+enforcement — their argument, adopted verbatim: a rule that must not affect a
+verdict is safest when it cannot reach the code that forms one, rather than
+reaching it behind a guard someone later simplifies. Our reporter agrees with
+every row they published (round 8's bare date refused rather than defaulted,
+rounds 15–18 silent, round 19 set in lap 3) and finds two more — rounds 13 and 14
+also set it in lap 2. **Two implementations built from the spec, not from each
+other**, which is the only reason the agreement is worth anything.
+
+**§0.2 — `Frame retries:` → `Retry limit:`: ASSENT**, with the cost stated. We
+extract nothing from the line, so the rename is invisible to the *parse* — and
+not to the completeness sweep, which fails on any unrecognised disc line on
+purpose. Both labels landed **in advance**, permanently, the way
+`Overread:`/`Underread:` already are. Their `-j` duplicate-key plan is right and
+does not reach the log: a key can carry a duplicate for a release, a log line
+cannot.
+
+**Two claims of ours withdrawn.** Their §2.3 refuted our NEXT-ROUND item on
+`APPROVED_FOR_PLATTERPUS_VERSION` — it names the pairing the record *approves*,
+not the newest that exists — and **our own `handshake_approval.py` docstring had
+said exactly that since round 17**. Raised without reading our own module: this
+project's rule about answering from the artifact rather than memory of it, failed
+on our own file. They also corrected two citations of ours, both fairly: a SHA on
+a session branch rather than `main`, and "0.6.50 built and green" when
+`__version__` still reads 0.6.49 and no bump exists.
+
+**Sent back, ours.** They corrected themselves that we read `Ripping errors:`.
+We do — `_take_rip_errors` turns `0` into the `"No errors occurred"` string our
+**EAC-compatible log export writes**, so the trailer-write failure they
+demonstrated would reach an archival artifact a user might upload to a tracker.
+The half that is ours: nothing reconciles that summary against the error lines
+above it.
+
+**Learned, and it is the recurring one.** Filing the lap tripped eight gates.
+Six were mechanical, one was the documented `_MAX_TABLE_LAG` cycle — and one had
+**expired**: `test_the_envelope_leads_with_a_lap_of_the_CURRENT_round` assumes
+"newest lap" and "newest sendable lap" are the same thing, which round 19's own
+`READY-TO-READ` mechanism made false. `emit_envelope.py` correctly refuses to
+pack a held lap. Narrowed in writing, not quietly: the lag is excused only while
+*every* lap of ours in the open round is held, revert-proved by flipping the flag
+to `yes` and watching it fail again. **A change moved who plays which role, and a
+validator built around the old arrangement went quietly wrong** — the same shape
+as round 19's checker finding, one mechanism over.
+
+**Process failure worth recording against myself:** three pushes in this round
+went out before a full suite had finished, and two cost a red CI. Each time the
+individual suites I had run did pass — which is not the same claim, and is
+exactly the partial-run trap `scripts/check.py` exists to remove.
+
+**Suite:** 4/4 gates, 5,355 passed, coverage 91.89%.
+
+**Open:** lap 2 is `HANDSHAKE-READY-TO-READ: no`. Announcing is the operator's
+act. `HANDSHAKE-FROM-COMMIT` names `origin/main` and is provisional until the
+merge, the same treatment their lap 1 gives it.
+
+---
+
+## 2026-09-15 (latest) — the album owns its own facts
+
+**The state-ownership refactor the last three fixes were each working around.**
+Full case study: `docs/testing.md` §5.bk.
+
+**Why.** Three defects in two days — a report describing a configuration its rip
+never ran under (09-14), a post-rip chain abandoned so that no `.mp3` or `.wv`
+was written at all (09-15 am), and a chain that *succeeded* and had every result
+discarded 655 ms later (09-15 pm) — were each fixed where they were found, and
+each fix was a **guard**: freeze this, check that generation, flush before that
+reset. Three guards in two days is the codebase saying the lifetime is wrong, not
+the call sites. Every per-album fact the rip report needs lived on the *window*
+under a `_last_*` name, and the window's lifetime is "the current rip".
+
+**Built.** `ui/post_rip_record.py` — a plain dataclass, no Qt, holding all 24
+report inputs for one album, keyed by the rip generation that produced it.
+Opened at Start (freezing what the rip was *asked* to do), filled at finish (what
+it *did*), and still addressable after the next rip begins. Eight signals became
+`Signal(int, object)`; the daemon launcher and the post-rip chain now **always**
+emit and let the slot route. A late CTDB / FLAC-integrity / derived-verify /
+transcode / checksum result is written into its own album's report; only the UI
+half — status line, buttons — is suppressed for a disc no longer on screen.
+Nine now-dead `_last_*` result fields struck.
+
+**The new state it creates, and its guard.** Late writes now happen, and a write
+goes to a *path* — which belongs to an album only while it still holds that
+album. Choosing **Overwrite** sends the next rip into the same folder, so a
+recovered result could have replaced a live album's report with a finished one's.
+`_folder_reclaimed_by_a_newer_rip` refuses that write and keeps the result on the
+record. Revert-proved **in both directions**: a guard that refuses every late
+write also passes "nothing was clobbered" while restoring the data loss.
+
+**Closed.** Both `verification.transcode` rows in `TASKS.md` and the
+"superseded, not RECOVERED" row — the last one had named this exact fix (*"a
+report handle bound to the album rather than to 'the current rip'"*) and so had
+the oversize-ratchet comment on `main_window_rip.py`, one release earlier.
+
+**Learned, and graduated to `testing.md` §5.bk:** when the same fix keeps
+arriving in different clothes, the thing being fixed is not the bug. Two
+corollaries paid for in the same hour — a refactor can *manufacture* a vacuous
+check (one test asserted a struck field was `None`, which after the change could
+only ever pass), and a ratchet raise filed as a win is how the next reader
+concludes a half-done extraction is finished. `main_window_rip.py` **grew** by
+198 lines: the state moved, the plumbing did not.
+
+**Suite:** 5347 passed / 21 skipped, coverage 91.89%, all four gates green.
+
+---
+
+## 2026-09-15 (later) — the fix held, and the re-run found what it could not have
+
+**244 of 244 on v0.6.49, the derived files present, and still `partial`.** Full
+case study: `docs/testing.md` §5.bj.
+
+**What held.** `expect-derived-output` ran on hardware for the first time and
+found 2 `.mp3`, 2 `.wv`, 2 `.wav` beside their masters — the manifest and three
+`Transcode:` log lines agree independently. The steps took 7.1 s, 4.6 s, 3.6 s:
+**non-zero is the part that matters**, because it shows the verb waited for the
+asynchronous transcode rather than finding files already there. A new check's
+first real execution is also its own test, and elapsed time was the cheapest
+discriminator available between "it worked" and "it looked at the wrong moment".
+
+**Finding 1 — the backstop caught its own author.** Three rips reported
+`verification_result_missing`, and they were right. The MP3 rip's entire chain
+*succeeded* and the next rip started **655 ms** later, against a **750 ms**
+debounce on the report write. Correct values, computed on time, discarded. The
+seal could not save them because it returned early when nothing had been
+superseded — backwards: a check still in flight is one the generation guard drops
+anyway, while a check that has just finished is the one holding an armed timer.
+Graduated to `CLAUDE.md`: *of any early return, ask which case it skips and
+whether that case is the expensive one* — and the reason it was found at all is
+that the backstop needs no cooperation from the code that broke.
+
+**Finding 2 — sections F and N ran the same test for 6h21m.** F is the fast
+whole-disc rip, N the uniform secure re-read; the run's accuracy argument is that
+they differ. N pins its goal, F inherited one, and this run's config was already
+`archival`. Both came back whole-disc, uniform, 14/14, 13-converged-1-not, 3h10m
+each. No coverage of the default `fast_verified` path, every section green,
+nothing asked. **Third instance of one shape** — N's format, K1/K2's assertion,
+F's goal — graduated as *a section's distinguishing property is asserted at the
+section, never inherited*, with the non-triviality clause the sweep needs
+(pinning both to the *same* goal passes "every whole-disc section pins its goal"
+and is the defect wearing the fix's clothes).
+
+Ledger: six rows, six `partial`, zero `full-green`.
+
+## 2026-09-15 — the acceptance run passed 241/241 and produced no MP3
 
 **The hardware run came back green and it was not a pass.** `platterpus 0.6.48` +
 `platterpus-fork-gfe4d2c4`, the round-19 approved pin: 241 pass, 0 fail, 0 error,

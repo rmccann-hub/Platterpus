@@ -11,6 +11,61 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+
+- **Cyanrip's rip logs will keep parsing when the ripper renames one of its
+  lines.** The `Frame retries:` line becomes `Retry limit:` in the next cyanrip
+  build — the same setting caps both per-frame retries and whole-track re-reads,
+  and the old name described only the first. Platterpus reads nothing out of that
+  line, but it does check that it recognises every line a rip log contains, so
+  both spellings are now accepted: new rips keep working the day that build
+  arrives, and the logs already on your disk keep working too.
+- **`platterpus --doctor`-style handshake reporting now prints each cyanrip
+  release round's agreed close-by date** alongside its status. Advisory only — it
+  never blocks a release, by design.
+
+### Fixed
+
+- **A rip's verification results are no longer lost when the next rip starts
+  moments later.** The report is written on a 750 ms debounce, and starting a
+  rip clears the previous one's results — so a check that *finished* in that
+  last three-quarters of a second had its result computed correctly and then
+  discarded, leaving a report that said the check ran with nothing to show for
+  it. Measured on the 2026-09-15 acceptance run: the MP3 rip's CTDB, FLAC-
+  integrity, derived-format and checksum results all landed **655 ms** before
+  the next rip began. The outgoing rip's report is now written out
+  unconditionally before its state is cleared.
+- **The acceptance run no longer performs its whole-disc rip twice.** Section F
+  (the fast whole-disc rip) took whatever rip goal the configuration happened to
+  hold, while section N sets the archival goal explicitly — so a run that
+  started with the archival preset already selected ran the same test in both
+  sections, took over three extra hours, and exercised the default
+  configuration's whole-disc path not at all. Section F now pins its own goal.
+- **A verification result that arrives after the next rip has started is now
+  written into the report of the album it describes**, instead of being thrown
+  away. Every fact a rip report is built from used to live on the window under a
+  `_last_*` name, and the window's lifetime is "the current rip" — so each of
+  those facts moved out from under its readers the moment the next rip began.
+  That one shape caused three separate defects in two days: a report describing
+  a configuration its rip never ran under, a post-rip chain abandoned mid-way so
+  that no `.mp3` or `.wv` was written at all, and a chain that *succeeded* and
+  had every result discarded 655 ms later. Each was fixed where it was found;
+  the shape underneath was not. An album now owns its own record, keyed to the
+  rip that produced it and still addressable after the next rip starts, so a
+  late CTDB, FLAC-integrity, derived-format, transcode or checksum result lands
+  in its own album's report and that report is rewritten. What a stale result
+  still cannot do is change the status line or the buttons, which describe
+  whatever disc is on screen.
+- **`verification.transcode` is no longer null after a transcode that ran.** It
+  was the last block where a reader could not tell "no transcode was asked for"
+  from "a transcode ran and its result was not recorded" — the ambiguity the
+  `verification.gates` block exists to remove, one block over, with no gate key
+  to carry it.
+- **After a rip is filed in your library, a late verification result follows it
+  there.** The move repoints the View log and Open folder buttons; the album's
+  own report path was left pointing at the old, now-empty folder, so a result
+  arriving after the move would have recreated it.
+
 ## [0.6.49] — 2026-09-15
 
 ### Fixed
