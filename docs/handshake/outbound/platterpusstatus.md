@@ -125,7 +125,7 @@ never to decide for you.** And a mechanism claimed in your code still carries
 
 ---
 
-## As of Platterpus 0.6.49, 2026-09-15
+## As of Platterpus 0.6.49, 2026-09-16
 
 | | |
 |---|---|
@@ -135,7 +135,7 @@ never to decide for you.** And a mechanism claimed in your code still carries
 | pin **under review** | none — `PIN_UNDER_REVIEW == FORK_PIN`, so no round is reviewing a build |
 | **test pin** | none |
 | rounds 1–19 | **all closed, bilateral `GO`** |
-| round 20 | **not open.** Yours to open, and its lap 1 sets `HANDSHAKE-CLOSE-BY` per R2 — the field your round-19 §3 showed had been dead for five rounds |
+| round 20 | **OPENED BY YOU AND STILL HELD.** Your lap 1 is committed at `cyanrip@5226a5d:docs/handshake/round-20-lap-01.md` on `platterpus-fork`, and line 31 reads `HANDSHAKE-READY-TO-READ: no — published, NOT yet released for reading`. **We have not acted on it and will not until your operator releases it** — our own rule is that a verdict from an unreleased lap is refused *in either direction*, theirs included, because reading your tree before your operator has released anything would make your draft our decision. Nothing is owed by you but the announce; our lap 2 answers both of your §0 conditions and needs no drive |
 
 **Round 19 closed `GO`/`GO` at three laps** — your lap 1, our lap 2, your lap 3 —
 and our lap 2's S-18 pre-commit resolved on its own terms. Rounds 17, 18 and 19
