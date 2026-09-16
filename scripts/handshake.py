@@ -2442,16 +2442,43 @@ def close_by_lines(root: Path | None = None) -> list[str]:
     for num in sorted(rounds):
         if num < CLOSE_BY_FROM_ROUND:
             continue  # grandfathered: the field did not exist yet
-        laps = [
-            (path, wire_fields(path.read_text(encoding="utf-8")))
-            for directory in ("outbound", "inbound", "verified")
-            if (base / directory).is_dir()
-            for path in sorted((base / directory).glob("round-*.md"))
-            if round_number(path) == num
-        ]
+        # ORDERED BY DECLARED LAP, ACROSS ALL THREE DIRECTORIES AT ONCE.
+        #
+        # **The first version built this list directory-major** — every
+        # `outbound/` lap, then every `inbound/` one — with `sorted()` *inside*
+        # each directory. `declared[0]` was then not the earliest lap but the
+        # earliest lap in the first directory that had one, and
+        # `("outbound", "inbound", "verified")` is a fixed order with nothing to do
+        # with laps. Rounds 13 and 14 were reported as "set in lap 2" when their
+        # lap 1 — theirs, in `inbound/` — declares the field. Rounds 8 and 19 came
+        # out right only because no outbound lap of ours declared it at all: the
+        # uncomfortable kind of agreement, where the output matches wherever our own
+        # side happened to stay silent.
+        #
+        # Found by the cyanrip fork in round 20 lap 3 §1 within hours of this code
+        # shipping, by printing their reporter's output beside ours on files that
+        # are byte-identical in both trees. Two implementations of one spec
+        # disagreeing on identical input is the thing the seam exists to surface.
+        #
+        # **And the lap number comes from the DECLARATION, not the filename.** The
+        # filename is a second description of the same fact, and this project's rule
+        # is that two descriptions need a check or one of them is decoration.
+        # `PROTOCOL.md` says lap order comes from the declared number; theirs reads
+        # the declared field and pins it with a test, and now so does this.
+        laps = sorted(
+            (
+                (path, fields, _declared_lap(path, fields, num))
+                for directory in ("outbound", "inbound", "verified")
+                if (base / directory).is_dir()
+                for path in (base / directory).glob("round-*.md")
+                if round_number(path) == num
+                for fields in (wire_fields(path.read_text(encoding="utf-8")),)
+            ),
+            key=lambda row: row[2],
+        )
         declared = [
-            (path, fields["HANDSHAKE-CLOSE-BY"])
-            for path, fields in laps
+            (path, fields["HANDSHAKE-CLOSE-BY"], lap)
+            for path, fields, lap in laps
             if fields.get("HANDSHAKE-CLOSE-BY")
         ]
         if not declared:
@@ -2460,15 +2487,30 @@ def close_by_lines(root: Path | None = None) -> list[str]:
                 "lap 1 (advisory; this gate never enforces it)"
             )
             continue
-        path, raw = declared[0]
+        _path, raw, lap = declared[0]
         value = raw.split()[0] if raw.split() else raw
         out.append(f"round {num:2d} close-by: {_close_by_verdict(value)}")
-        lap = (name_round_and_lap(path) or (num, 1))[1]
         if lap != DEFAULT_LAP:
             out.append(
                 f"round {num:2d} close-by: set in lap {lap}, not lap 1 -- R2 says lap 1"
             )
     return out
+
+
+def _declared_lap(path: Path, fields: dict[str, str], num: int) -> int:
+    """A lap's number, from its OWN declaration — the filename is the fallback.
+
+    `docs/handshake-protocol.md` orders laps by the declared number, and a filename
+    is a *second* description of that fact. Reading the second one is safe only with
+    a check, so this reads the declaration and falls back to the name (then to lap 1)
+    only when the file has none, which is the pre-header rounds.
+    """
+    raw = fields.get("HANDSHAKE-LAP", "")
+    token = raw.split()[0] if raw.split() else ""
+    if token.isdigit():
+        return int(token)
+    named = name_round_and_lap(path)
+    return named[1] if named is not None else DEFAULT_LAP
 
 
 def _close_by_verdict(value: str) -> str:
