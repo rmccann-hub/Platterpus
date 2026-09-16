@@ -869,98 +869,102 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       and cancels rips, which is when signals are delivered. They explicitly do not
       claim it explains anything we have seen.
 
-## RUNBOOK — when a round opener arrives (rehearsed 2026-09-06; RUN, rounds 16–20)
+## Round 21 — ours to build, and one deliberately NOT built yet (2026-09-16)
 
-> **SWEPT 2026-09-16 — every step below is DONE and its checkbox is closed.**
-> This is a *procedure*, not a task list: the boxes were the rehearsal's own
-> checklist and stayed `[ ]` after it was run, which is how a finished runbook
-> reads as eight outstanding jobs. Evidence that it ran, derived rather than
-> recalled: `CURRENT_ROUND` is **20** (step 2), `PIN_UNDER_REVIEW` and `FORK_PIN`
-> are both `fe4d2c4` (steps 3–4), `docs/handshake/README.md` carries rows for
-> rounds **16 and 20** (step 6), ten round-16 laps are filed under
-> `docs/handshake/inbound/` (step 1), and the fork clone reads (step 0).
-> Rounds 16, 17, 18, 19 and 20 have all since closed `GO`/`GO` through it.
->
-> **Kept, not deleted** — it is the rehearsed procedure for the *next* opener,
-> and round 21's is already expected (the build carrying `Retry limit:`).
-> Re-reading it is the point; re-doing it is not.
+- [ ] **A summary field and the error lines above it are two claims about one
+      rip, and nothing on our side checks that they agree.** Our half of round
+      20 §F, which the fork accepted as stated. `_take_rip_errors`
+      (`parsers/cyanrip_log.py:1621`) turns `Ripping errors: 0` into
+      `health_status = "No errors occurred"`, and that exact string is what
+      `main_window_helpers.py:416` reads to print *"no read errors"* and what the
+      **EAC-compatible export** writes — an artifact a user may upload to a
+      tracker. On the rip they demonstrated, their log prints
+      `Error writing trailer: File too large!` **six lines above**
+      `Ripping errors: 0`, so the false summary reaches an archival record
+      through us.
+      **NOT BUILT YET, deliberately, and this is the reasoning rather than an
+      excuse:** their half is a *placement* fix at `cyanrip_main.c:2690`, queued
+      for round 21 with the rename. It changes where that field sits relative to
+      the diagnosable lines — so a reconciler written against today's log shape
+      would be built against a shape round 21 changes, and we would be pinning a
+      fixture to a log that is about to stop existing. Build it with their
+      contract in hand. `ripper_messages.build_matcher` is the right input: it is
+      derived from the fork's published format strings rather than a hand list.
+- [ ] **No sweep exists for "a check that agrees for the wrong reason".** Raised
+      in our round-20 verification §E as an open problem, not a solved one. Our
+      close-by reporter agreed with the fork's on three of four rounds while
+      ordering by the wrong key; the rows matched wherever our own side happened
+      not to declare the field. **It is invisible from the side that wrote it** —
+      we could not have found it from our own output — and we have no mechanism
+      that would. Not proposing one yet; naming it so it is not mistaken for
+      handled.
 
-**Not a guess: a realistic opener was filed against the real tree, the full suite
-run, and every failure recorded.** Eight tests fail on arrival, all deliberately,
-and every message names its file and its action. Do them in this order.
+## RUNBOOK — when a round opener arrives (re-rehearsed 2026-09-16 for round 21)
 
-- [x] **0. Confirm you can read their source.** `git -C /home/user/cyanrip log -1
-      <their pin>`. **This was broken and is now fixed** (2026-09-06): the clone was
-      **shallow** — `origin/master` held exactly **one** commit — and it tracked only
-      `master`, while all their work is on **`platterpus-fork`**. Three commits their
-      lap 14 cited were unreadable. Unshallowed and the branch added; 468 commits and
-      `origin/platterpus-fork` now present. If a future clone is remade, do
-      `git fetch --unshallow` and `git fetch origin 'refs/heads/*:refs/remotes/origin/*'`
-      **first** — rule #12 says derive from their source, and you cannot derive from a
-      repository that does not have it.
-- [x] **1. File it** into the handshake `inbound/` directory under the round-16
-      lap-1 name `handshake_filename()` generates — written that way rather than as
-      a literal path because the file does not exist yet and
-      `test_every_docs_pointer_in_a_live_surface_resolves` holds every `docs/…md`
-      path in a live surface to resolving. (It caught this line when the runbook was
-      written, which is the gate doing its job on a *forward* reference rather than
-      a retired one.) Then
-      `python3 scripts/handshake.py --check` it. `--status` will flip round 16 to
-      OPEN, which correctly closes the release gate.
-- [x] **2. `CURRENT_ROUND` 15 → 16** in `scripts/handshake.py`
-      (*"bump it or the newer round is invisible to the gate"*).
-- [x] **3. `PIN_UNDER_REVIEW` → their new pin** in `src/platterpus/deps/fork_source.py`.
-      The failure message spells out the consequence of leaving it: a rip against the
-      build under review reports *"NOT the build this Platterpus was verified
-      against"* **with no reason at all**.
-- [x] **4. `UNDER_REVIEW_TARGET.pin` AND `.version`, together.** They are one
-      pairing and a separate guard enforces it; moving one is the 2026-08-18
-      mis-pairing.
-- [x] **5. `FORK_RELEASE_SEQ_BY_PIN`** if the new pin is a numbered release. Absent →
-      `release_seq_for_commit` returns `None` → "not determined", and
-      `tests/test_ripper_manifest.py` fails outright, which is the designed behaviour.
-- [x] **6. A round-16 row in `docs/handshake/README.md`** — `docs/README.md` links it
-      as the map, so a stale map is a broken promise in the canonical index.
-- [x] **7. Their round-16 P1 flag table and `PROVIDER-CONTRACT.md`.** Three tests
-      depend on it and the recorded lag is **0**. **You do not have to wait for them
-      to attach it:** their branch head carries `PROVIDER-CONTRACT.md` and they
-      regenerate it per change — `git -C /home/user/cyanrip show
-      origin/platterpus-fork:PROVIDER-CONTRACT.md`. Pre-checked 2026-09-06 against
-      their head `2aba770` (contract generated by `…-g8d465f1`, source anchor
-      `a3c64b922de58feb`): **every flag we emit is in it** — so no `-V`-class
-      blocker is waiting. Deliberately not a count: how many flags a rip emits
-      depends on the disc and the settings (a multi-disc rip with an offset and a
-      naming scheme emits 13; a bare one fewer), so a number here would decay on the
-      next feature rather than on a real change. `tests/test_argv_surface_agreement.py`
-      is the mechanical check and the authority.
+**Rewritten in place, not joined by a sibling.** The round-16 version's steps
+named round 16 and its boxes were the rehearsal's own checklist, so a procedure
+that had been run five times read as eight outstanding jobs. This is the same
+topic at a new value.
 
-**What they have already landed since the pin** (read from `platterpus-fork`,
-90 commits): items 1, 3, 4, 5 and 7 of their lap-14 §5 hold list, plus the `--check`
-they proposed. Verified against our side on 2026-09-06 and all clean:
+**Re-rehearsed against the real tree on 2026-09-16**, the way the original was
+built: a realistic round-21 opener was filed into `docs/handshake/inbound/`, the
+round-keyed suites run, every failure recorded, and the file removed in a
+`finally`. **Six tests fire on arrival, all deliberately, and each names its
+action.** The gate state is correct the moment the lap lands — `--status` reports
+`round-21 … -> OPEN` and `--release-gate` exits 1 — so *nothing* has to be
+remembered to stop a release.
 
-- **item 7** — they emit `%Y-%m-%dT%H:%M:%S%z` normalised to RFC 3339 (`crip_iso8601_now`).
-  All five shapes parse byte-exactly here and render as five *distinct* EAC lines.
-- **item 4** — they substitute **U+FFFD** rather than truncating, so the empty-component
-  absolute-path hazard is gone at source; our argv guard stays as defence in depth.
-  U+FFFD flows clean through parser, EAC renderer, path guard and the cross-filesystem
-  check.
-- **item 3** — bare apostrophes in `-a`/`-t` (`crip_escape_bare_quotes`, `src/naming.c:49`,
-  their `c59dea3`). Their fix is **deliberately asymmetric and keyed on us**: it escapes a
-  bare `'` and leaves an already-escaped `\'` alone, because escaping unconditionally
-  would turn our `\'` into `\\'` and put a literal backslash in the archival record.
-  So *"our escaper's output is a fixed point of their scanner"* is now a property of the
-  **seam**, which neither side can assert alone. Pinned here as
-  `test_our_escaped_value_is_a_FIXED_POINT_of_their_scanner` and
-  `test_the_whole_ASSEMBLED_blob_is_a_fixed_point_too` — their scanner transcribed from
-  their source (cited), the transcription itself pinned against the three cases their
-  commit measured, and both halves of the failure proven by `revert_probe`. **Their count
-  of our call sites was right and ours was wrong**: the chokepoint docstring said *twelve*
-  places build a tag pair and eleven do — now measured by a test rather than remembered,
-  because the fork reads that number out of our source.
-- **their `--check`** adopted **both** of our lap-15 §E riders (explicit delimiters, and
-  the build tag of the measured binary) and cites them in the code. They have
-  **deliberately not corrected** `seam-commands.md` yet — jointly owned, needs a version
-  bump both sides ship. Our `-D` finding therefore still stands for round 16.
+### What fires, and what each one wants
+
+| test | action |
+|---|---|
+| `test_fork_source::test_the_floor_tracks_the_newest_round_on_disk` | `CURRENT_ROUND` → 21 in `scripts/handshake.py` |
+| `test_handshake_tooling::test_the_handshake_readme_covers_every_round_on_disc` | a round-21 row in `docs/handshake/README.md` |
+| `test_argv_surface_agreement` (**3 tests**) | the flag table is now 2 rounds behind — see below |
+| `test_provider_contract_agreement::test_the_contract_we_read_is_the_current_rounds_own` | same cause |
+
+### The provider-contract fork in the road
+
+The last four tests all key on one question: **did their lap ship a
+`PROVIDER-CONTRACT.md`?**
+
+* **If YES** (likely — round 21 carries the `Retry limit:` rename, and their
+  contract is generated from the source that changes): file it under
+  `docs/handshake/inbound/artifacts/` as
+  `round-21-lap-NN-provider-contract-g<sha>.md`, run
+  `python3 scripts/emit_ripper_inventory.py` (**not** part of the version-bump
+  ordering — it is keyed to *their* releases), and set `_MAX_TABLE_LAG` back to
+  **0** in `tests/test_argv_surface_agreement.py`.
+* **If NO**: `_MAX_TABLE_LAG` → **2**, with the reason written into the constant.
+  It is 1 today for round 20, which shipped none. Never raise it silently: the
+  number records how far behind we have *agreed* to be, and it does not excuse a
+  round that DID ship one we failed to file — those look identical from here.
+
+### Only if the pin moves
+
+`PIN_UNDER_REVIEW` and `UNDER_REVIEW_TARGET.pin`/`.version` together (one fact,
+two fields), plus `FORK_RELEASE_SEQ_BY_PIN` if it is a numbered release. Today
+`PIN_UNDER_REVIEW == FORK_PIN == fe4d2c4`, so `a_round_is_reviewing_a_build()`
+is False and the install menu offers the approved build with no warning.
+
+### What round 21 is expected to contain
+
+**Theirs, both already declared:** the `Retry limit:` rename as
+`HANDSHAKE-BREAKING` (our parser already accepts both labels permanently, so it
+cannot break us on arrival — verified 2026-09-16, and we pass `-j` but read
+neither `frame_retries` nor `retry_limit`, so the key rename costs us nothing);
+and the `Ripping errors: 0` placement fix at `cyanrip_main.c:2690`, which they
+own and have queued.
+
+**Ours to raise:** the second half of that one — *a summary field and the error
+lines above it are two claims about one rip, and nothing on our side checks that
+they agree*. `_take_rip_errors` turns `0` into the `"No errors occurred"` string
+our EAC-compatible export writes, so their demonstrated trailer-write failure
+reaches an archival artifact through us. Also the `READY_TO_READ` ratchet if they
+want it (we withdrew the proposal; *print first, ratchet on evidence* is right),
+and the open problem with no sweep behind it: **a check whose output agrees with
+a correct implementation for the wrong reason is invisible from the side that
+wrote it.**
 
 ## Round 15 CLOSED — what their lap 14 leaves for round 16 (2026-09-06)
 
