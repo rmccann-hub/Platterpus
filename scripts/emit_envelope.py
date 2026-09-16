@@ -73,8 +73,23 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-19-lap-02.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-20-lap-02.md",)
 
+# WHY IT MOVED TO ROUND-20 LAP 2 (2026-09-16).
+#
+# Round 19 is CLOSED -- GO/GO at three laps. This lap answers round 20's two
+# close conditions: CLOSE-BY enforced (print, never block) and the
+# `Frame retries:` -> `Retry limit:` rename assented to.
+#
+# **It moved only once the lap was RELEASED, and that ordering is now enforced.**
+# An envelope names the file an operator hands over, and a lap still marked
+# `HANDSHAKE-READY-TO-READ: no` is not a file anyone may read -- so packing one
+# would be building a hand-over artifact for a draft. While the lap was held,
+# `PARTS[0]` legitimately named round 19's, and
+# `test_the_envelope_leads_with_a_lap_of_the_CURRENT_round` excuses that lag ONLY
+# while every lap of ours in the open round is held. The moment the flip landed,
+# that test went red until this line moved -- which is the coupling working.
+#
 # WHY IT MOVED TO ROUND-19 LAP 2 (2026-09-14), AND WHAT THE ENVELOPE IS NOW FOR.
 #
 # Round 18 is CLOSED -- GO/GO at three laps. This lap answers round 19's two
