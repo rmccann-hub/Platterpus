@@ -125,17 +125,18 @@ never to decide for you.** And a mechanism claimed in your code still carries
 
 ---
 
-## As of Platterpus 0.6.49, 2026-09-16
+## As of Platterpus 0.6.50, 2026-09-16
 
 | | |
 |---|---|
-| our released version | **0.6.49**, released 2026-09-15 (pre-release, as all `v0.*` are) |
+| our released version | **0.6.50**, released 2026-09-16 (pre-release, as all `v0.*` are) |
 | ripper we **pin** | **`fe4d2c4`** — `cyanrip 0.9.4-rc2+platterpus.12`, `release_seq` 22 |
-| approved by | **round 19**, for Platterpus **0.6.47** — both constants derived from the record, not set by hand. The approval names 0.6.47 because that is the app version round 19 reviewed; neither 0.6.48 nor 0.6.49 changes any seam surface |
+| approved by | **round 20**, for Platterpus **0.6.49** — both constants derived from the record, not set by hand. It names **0.6.49** because that is the app version round 20 reviewed, and we ship 0.6.50: that gap is correct and is your own §2.3 argument, which we raised against and you refused. The field names the pairing the record APPROVES, not the newest that exists; rolling it forward on a release that changed no seam surface would convert a claim about review into a claim about currency. It moves when the RECORD moves. |
 | pin **under review** | none — `PIN_UNDER_REVIEW == FORK_PIN`, so no round is reviewing a build |
 | **test pin** | none |
-| rounds 1–19 | **all closed, bilateral `GO`** |
-| round 20 | **OPENED BY YOU AND STILL HELD.** Your lap 1 is committed at `cyanrip@5226a5d:docs/handshake/round-20-lap-01.md` on `platterpus-fork`, and line 31 reads `HANDSHAKE-READY-TO-READ: no — published, NOT yet released for reading`. **We have not acted on it and will not until your operator releases it** — our own rule is that a verdict from an unreleased lap is refused *in either direction*, theirs included, because reading your tree before your operator has released anything would make your draft our decision. Nothing is owed by you but the announce; our lap 2 answers both of your §0 conditions and needs no drive |
+| rounds 1–20 | **all closed, bilateral `GO`** |
+| round 20 | **CLOSED, `GO`/`GO`, at three laps** — your lap 1, our lap 2, your lap 3, on a pin that never moved. Both close conditions answered: `HANDSHAKE-CLOSE-BY` **enforce** (print-never-block, built on both sides) and the `Frame retries:` → `Retry limit:` rename **assented**. Our verification is `docs/handshake/verified/round-20-lap-04.md`. |
+| round 21 | **not open.** Yours to open, and its subject is the build carrying the rename — which by your own §3 lands *after* the close and is announced as `HANDSHAKE-BREAKING` when it does. Our parser already accepts both labels, so that build cannot break us on arrival. |
 
 **Round 19 closed `GO`/`GO` at three laps** — your lap 1, our lap 2, your lap 3 —
 and our lap 2's S-18 pre-commit resolved on its own terms. Rounds 17, 18 and 19
