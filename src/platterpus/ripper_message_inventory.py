@@ -674,7 +674,7 @@ MESSAGES: Final[tuple[RipperMessage, ...]] = (
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="diagnostics.c:572",
+        site="diagnostics.c:618",
         text='Couldn\'t open diagnostics path "%s" for writing!',
         evidence="wording",
         reaches_logfile=False,

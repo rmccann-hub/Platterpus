@@ -923,22 +923,69 @@ remembered to stop a release.
 | `test_argv_surface_agreement` (**3 tests**) | the flag table is now 2 rounds behind — see below |
 | `test_provider_contract_agreement::test_the_contract_we_read_is_the_current_rounds_own` | same cause |
 
-### The provider-contract fork in the road
+### The provider-contract fork in the road — **RESOLVED to YES, pre-derived 2026-09-16**
 
 The last four tests all key on one question: **did their lap ship a
-`PROVIDER-CONTRACT.md`?**
+`PROVIDER-CONTRACT.md`?** It did. Read from their tree while the lap was still
+held, so the filing is mechanical rather than exploratory when it is released:
 
-* **If YES** (likely — round 21 carries the `Retry limit:` rename, and their
-  contract is generated from the source that changes): file it under
-  `docs/handshake/inbound/artifacts/` as
-  `round-21-lap-NN-provider-contract-g<sha>.md`, run
+* `PROVIDER-CONTRACT.md` regenerated in their `3952c03` *"Regenerate the
+  artifacts at schema /6"*. Banner build `platterpus-fork-gb2c9527` — the commit
+  *before* the one containing it, which their own header explains and their
+  `--check` normalises. sha256/16 `fb8b4b62d9d0f1c9`, 74,071 bytes, against the
+  `g7b2fda6` we hold at `bc7285f65e37a909` / 73,486.
+* **File as** `round-21-lap-01-provider-contract-gb2c9527.md`, run
   `python3 scripts/emit_ripper_inventory.py` (**not** part of the version-bump
   ordering — it is keyed to *their* releases), and set `_MAX_TABLE_LAG` back to
-  **0** in `tests/test_argv_surface_agreement.py`.
-* **If NO**: `_MAX_TABLE_LAG` → **2**, with the reason written into the constant.
-  It is 1 today for round 20, which shipped none. Never raise it silently: the
-  number records how far behind we have *agreed* to be, and it does not excuse a
-  round that DID ship one we failed to file — those look identical from here.
+  **0** in `tests/test_argv_surface_agreement.py` (1 today, for round 20's
+  procedure round).
+* **If it had been NO**: `_MAX_TABLE_LAG` → **2**, reason written into the
+  constant. Never raise it silently: the number records how far behind we have
+  *agreed* to be, and it does not excuse a round that DID ship one we failed to
+  file — those look identical from here.
+
+**What the regeneration actually changes, derived rather than expected** — 184
+diff lines, and almost all of it is line numbers moving:
+
+| population | changed |
+|---|---|
+| two-column format-string rows (303) | **1** — `Frame retries:  %i` → `Retry limit:    %i (per frame, and per whole-track re-read)` |
+| P5 fatal message **texts** (120) | **0** |
+| P5a unclassified **texts** (7) | **0** |
+| P5 `(site, text)` pairs | **1 moved** — `diagnostics.c:572` → `:618` |
+
+So the inventory regen is **citation-only**: no new fatal string needs
+surfacing, and `tests/test_ripper_error_surfacing.py` should stay green. The one
+changed format string is their declared `HANDSHAKE-BREAKING` (1), and our parser
+has accepted both labels permanently since round 20.
+
+**Two cautions this derivation earned.**
+
+1. **The first pass measured the wrong population.** A two-column row regex was
+   used against a P5 table that has *four* columns, so the "303 strings, one
+   changed" figure did not contain a single fatal message — a clean-looking
+   result over a set its own subject was not in. Re-derived with the emitter's
+   own `_ROW` pattern, the counts land on **120 P5 + 7 P5a**, which is exactly
+   what the fork independently reported in round 19. *Reproduce by their
+   published method*, and check the population is closed before quoting it.
+2. **Their `HANDSHAKE-BREAKING` (2) is invisible to this diff, by nature.**
+   Moving `cyanrip_log_finish_report()` below the encoder-status loop so
+   `Ripping errors:` counts encoder failures changes **no format string** — it
+   changes what the number *means*. A contract diff cannot see it and a green
+   argv-surface suite says nothing about it. That is the change our §F item is
+   about, and the reason the reconciler was deliberately not built earlier.
+
+### Already checked, so it cannot surprise us at filing time
+
+* **`handshake.py --check` accepts their lap 1** — run against a scratchpad copy
+  (never filed; filing an unreleased lap would open the round on a document
+  their operator has not sent). Exit 0, *"satisfies the protocol"*. Worth doing
+  because their sections are lettered `## 0`–`## 8`, and our checker once failed
+  nine of thirteen inbound openers on a section table that encoded the wrong
+  role.
+* **The test pin is `3952c03`, not `2c3deff`** — moved while the lap was held,
+  and they commit to it not moving again after our lap 2. Any instruction naming
+  `2c3deff` for the rig is superseded.
 
 ### Only if the pin moves
 
