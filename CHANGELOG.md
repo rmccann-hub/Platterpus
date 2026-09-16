@@ -11,6 +11,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+
+- The cyanrip test pin moves to `3952c03` for handshake round 21. Unlike round
+  16's, it is deliberately **not** the same program as the reviewed release pin:
+  it carries both of round 21's breaking log changes, so its logs differ from
+  `fe4d2c4`'s on `Retry limit:` and on what `Ripping errors:` counts. The release
+  pin is unchanged. `ddc1e8c` is retired but still recognised, so a rig that has
+  not rebuilt keeps receiving `--consumer`.
+- The cyanrip fatal-message inventory is regenerated from round 21's provider
+  contract. No message text changed (120 P5 + 7 P5a, same as round 19); one
+  source citation moved.
+
 ## [0.6.50] — 2026-09-16
 
 ### Added

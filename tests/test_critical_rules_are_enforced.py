@@ -1233,7 +1233,18 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # acceptance run — "the build under review (… there is no build under review)"
     # — because the next caller tempted to inline that literal needs the reason,
     # not the rule. They belong beside the pins they read, which is this file.
-    "deps/fork_source.py": 2006,
+    # **2006 -> 2029 on 2026-09-16**, for round 21's test pin: `ddc1e8c` ->
+    # `3952c03`, plus its retirement row. **Every one of the 23 lines is the
+    # REASON, not the values** — the three constants themselves are three lines.
+    # What the note has to carry is that this test pin INVERTS the round-16 one
+    # directly above it: that one was worth recording because it was byte-identical
+    # to the reviewed pin, and this one is worth recording because it is NOT, by
+    # 211 insertions across five source files carrying both of round 21's breaking
+    # changes. A reader who takes the adjacent reasoning forward gets the opposite
+    # of the truth, and this is the one file where "the test pin is the same
+    # program" would be believed. The derivation is in the note so nobody has to
+    # re-run it, which is the same argument as the accessors' docstrings below.
+    "deps/fork_source.py": 2029,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the

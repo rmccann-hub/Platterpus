@@ -676,12 +676,30 @@ PIN_UNDER_REVIEW_IS_PUBLISHED: Final[bool] = True
 #: logs say `Handshake: round 16 lap 1 OPEN` instead of `round 15 lap 14 closed`, so
 #: a rip gathered for this round cannot label itself with the previous, closed one —
 #: and it is the commit that carries their rig script.
-FORK_TEST_PIN: Final[str] = "ddc1e8c"
-FORK_TEST_VERSION: Final[str] = "0.9.4-rc2+platterpus.11"
+#: **Round 21 (2026-09-16): `ddc1e8c` → `3952c03`.** Named in their lap 1 as
+#: `HANDSHAKE-TEST-PIN` and declared here as our half of §6a's both-sides-in-writing
+#: requirement.
+#:
+#: **It is NOT the same program as the reviewed pin, and that is the point of it** —
+#: the inverse of round 16's note above, so do not read that reasoning forward.
+#: `git diff fe4d2c4..3952c03 -- src/ meson.build` is 211 insertions across five
+#: files, and it carries both of round 21's declared breaking changes: the
+#: `Frame retries:` → `Retry limit:` rename in `cyanrip_log.c`, and the
+#: `cyanrip_log_finish_report()` move in `cyanrip_main.c` that makes
+#: `Ripping errors:` count encoder failures. Also `cache_probe.c`/`.h` for the new
+#: `-j` block and `diagnostics.c` for schema `cyanrip-diagnostics/6`. A rip on this
+#: pin therefore differs from one on `fe4d2c4` **on both fields**, which is exactly
+#: the evidence §0.1's hardware session is for — and every logfile it writes says
+#: `NOT a released build`.
+#:
+#: The release pin has not moved and is not being asked to: `FORK_PIN` stays
+#: `fe4d2c4` (`release_seq` 22, stable).
+FORK_TEST_PIN: Final[str] = "3952c03"
+FORK_TEST_VERSION: Final[str] = "0.9.4-rc2+platterpus.12"
 #: Which round nominated it. Stated rather than derived from the approved round + 1:
 #: a test pin belongs to *a* round, and arithmetic on the approved round is only
 #: accidentally right — it breaks the first time two rounds pass without a close.
-FORK_TEST_PIN_ROUND: Final[int] = 16
+FORK_TEST_PIN_ROUND: Final[int] = 21
 FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 
 #: Test pins this round has already retired. Listed **only** so a rig that built one
@@ -696,6 +714,11 @@ FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 #: still have built: it was the pin for thirteen laps and it is what the 2026-08-04 rig
 #: session actually ran, so every artifact we hold from real hardware came from it.
 SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = (
+    # Retired when round 21 moved the test pin to `3952c03`. `ddc1e8c` was round
+    # 16's pin and is the build the 2026-09-11 rig session ran, so it stays listed
+    # for the same reason `9003e6f` and `c5fb909` do: a rig that has not rebuilt
+    # must still receive `--consumer`, or its log records a half-identified pair.
+    "ddc1e8c",
     # Retired when round 8 opened with `cb440bd`. `104f6d4` was round SEVEN's final test
     # pin (beta.8) and round 7 CLOSED at lap 39 with a mutual GO, so a rig still holding
     # it is not merely stale — it is gathering evidence for a round that is over.
