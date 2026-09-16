@@ -11,6 +11,54 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-16 (later) — v0.6.50 shipped, and the TASKS sweep
+
+**Released v0.6.50.** AppImage 243.0 MB + `.sha256` + `.zsync` + both install
+scripts, pre-release as all `v0.*` are, tagged on `4bedb45`. The ordering that
+matters was followed rather than remembered: `main`'s **own** CI run (#823, a
+different run from the PR's) was confirmed `completed`/`success` before the
+dispatch, which is the step that gets a release refused when skipped.
+
+**Two ordering traps avoided rather than discovered.** The generators ran *after*
+the version bump — they embed `__version__` in body content, not just a footer,
+so a pre-bump run yields pages the emitted-doc tests reject and editing the footer
+does not fix it. And the editable install needed `--no-deps`, because a
+Debian-packaged `cryptography` blocks the normal path; without it the local suite
+fails on metadata that CI never sees.
+
+**The gate worth naming fired on the release run:**
+`test_standing_status_is_current`. The file the fork opens *first* still said we
+ship 0.6.49 with round 20 held. Brought current, plus a round-21 row and — the
+part that earns its place — *why* the approval constant reads 0.6.49 while we
+ship 0.6.50, so the next reader does not reopen a question the fork already
+settled against us.
+
+**The TASKS.md sweep: 234 → 221 open rows, every closure carrying evidence.**
+
+What was stale was **not** what I expected. The decay was concentrated entirely
+in *round-procedure* sections — an eight-step runbook whose boxes were the
+rehearsal's own checklist and stayed `[ ]` after it ran, so a finished procedure
+read as eight outstanding jobs; and rows asserting states that later rounds had
+resolved (`round-18 lap 2 NOT SENT` against a round that reads `CLOSED GO/GO`;
+`a_round_is_reviewing_a_build()` returns True, which now returns **False**; the
+`ripper_choices()` GUI gap, which `ui/ripper_picker.py` closed).
+
+**The 130-row lesson→gate backlog is genuine and was left alone.** Checked rather
+than assumed: all 20 rows naming a specific test still name a test that exists,
+so those rows are about *those tests being vacuous* — live work, not decay. The
+lesson is that an index filed deliberately ages differently from a checklist
+filed as a procedure, and only the second kind rots silently.
+
+**Hardware readiness, verified not assumed.** The script header delegates the
+ripper choice to the in-app check, which has aborted an overnight run **three
+times** because that surface can only offer builds the fork has *published*. This
+time `ripper_choices()` offers `fe4d2c4` labelled `✓ approved` — the exact pin the
+run needs — so it resolves. Section F pins `fast_verified` (line 451),
+`expect-derived-output` is on K1/K2/K3, and the packaged resource resolves, so the
+AppImage carries both.
+
+---
+
 ## 2026-09-16 — round 20 answered: CLOSE-BY enforced, the log rename assented
 
 **Their lap 1 released at `cyanrip@6c86689` and verified before it was read** —
