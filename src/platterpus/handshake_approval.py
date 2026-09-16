@@ -83,7 +83,20 @@ from platterpus.deps import fork_source
 #: forbid exactly that sentence (`tests/test_no_stale_version_claims.py`) stands down
 #: of its own accord once this equals ``__version__``. Written for the window, not
 #: against the claim.
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.47"
+#: **Moved to `platterpus/0.6.49` when round 20 closed (2026-09-16)** — because
+#: the RECORD moved, which is the only thing that ever moves it. Round 20 shipped
+#: no build and moved no pin; it closed `GO`/`GO` with both sides declaring the
+#: pair (`fe4d2c4`, `0.6.49`), and their lap 3's `HANDSHAKE-PEER-VERSION:
+#: platterpus/0.6.49` is the attestation this value is read from.
+#: **The fork argued the other side of this one round earlier and was right then
+#: too.** Our round-20 lap 2 raised the `0.6.47`-while-`0.6.49`-ships gap as a
+#: NEXT-ROUND item; their §2.3 refused it, because the field names *the pairing
+#: the record approves*, not the newest that exists — rolling it forward on a
+#: release that changed no seam surface would convert a claim about REVIEW into a
+#: claim about CURRENCY, and those come apart exactly when a release does change
+#: something. Nothing about that reasoning changed; what changed is that a round
+#: closed on the new pair, so the review now covers it.
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.49"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -146,7 +159,7 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.47"
 #: fatal-message inventory rebuilds byte-identically (120 P5 + 7 P5a). Rounds 17
 #: and 18 approved this build against a flag table three rounds old. Same pin,
 #: better evidence.
-APPROVED_BY_ROUND: Final[int] = 19
+APPROVED_BY_ROUND: Final[int] = 20
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.
