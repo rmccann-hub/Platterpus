@@ -11,6 +11,70 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-16 — round 20 answered: CLOSE-BY enforced, the log rename assented
+
+**Their lap 1 released at `cyanrip@6c86689` and verified before it was read** —
+42,039 bytes, sha256/16 `2d8113129aa5bcd6`, both exact, and an ancestor of
+`origin/platterpus-fork`. Filed inbound; our `--check` passes it.
+
+**§0.1 — `HANDSHAKE-CLOSE-BY`: ENFORCE, built not promised.** `close_by_lines()`
+is a separate function `round_status()` never calls, and that placement *is* the
+enforcement — their argument, adopted verbatim: a rule that must not affect a
+verdict is safest when it cannot reach the code that forms one, rather than
+reaching it behind a guard someone later simplifies. Our reporter agrees with
+every row they published (round 8's bare date refused rather than defaulted,
+rounds 15–18 silent, round 19 set in lap 3) and finds two more — rounds 13 and 14
+also set it in lap 2. **Two implementations built from the spec, not from each
+other**, which is the only reason the agreement is worth anything.
+
+**§0.2 — `Frame retries:` → `Retry limit:`: ASSENT**, with the cost stated. We
+extract nothing from the line, so the rename is invisible to the *parse* — and
+not to the completeness sweep, which fails on any unrecognised disc line on
+purpose. Both labels landed **in advance**, permanently, the way
+`Overread:`/`Underread:` already are. Their `-j` duplicate-key plan is right and
+does not reach the log: a key can carry a duplicate for a release, a log line
+cannot.
+
+**Two claims of ours withdrawn.** Their §2.3 refuted our NEXT-ROUND item on
+`APPROVED_FOR_PLATTERPUS_VERSION` — it names the pairing the record *approves*,
+not the newest that exists — and **our own `handshake_approval.py` docstring had
+said exactly that since round 17**. Raised without reading our own module: this
+project's rule about answering from the artifact rather than memory of it, failed
+on our own file. They also corrected two citations of ours, both fairly: a SHA on
+a session branch rather than `main`, and "0.6.50 built and green" when
+`__version__` still reads 0.6.49 and no bump exists.
+
+**Sent back, ours.** They corrected themselves that we read `Ripping errors:`.
+We do — `_take_rip_errors` turns `0` into the `"No errors occurred"` string our
+**EAC-compatible log export writes**, so the trailer-write failure they
+demonstrated would reach an archival artifact a user might upload to a tracker.
+The half that is ours: nothing reconciles that summary against the error lines
+above it.
+
+**Learned, and it is the recurring one.** Filing the lap tripped eight gates.
+Six were mechanical, one was the documented `_MAX_TABLE_LAG` cycle — and one had
+**expired**: `test_the_envelope_leads_with_a_lap_of_the_CURRENT_round` assumes
+"newest lap" and "newest sendable lap" are the same thing, which round 19's own
+`READY-TO-READ` mechanism made false. `emit_envelope.py` correctly refuses to
+pack a held lap. Narrowed in writing, not quietly: the lag is excused only while
+*every* lap of ours in the open round is held, revert-proved by flipping the flag
+to `yes` and watching it fail again. **A change moved who plays which role, and a
+validator built around the old arrangement went quietly wrong** — the same shape
+as round 19's checker finding, one mechanism over.
+
+**Process failure worth recording against myself:** three pushes in this round
+went out before a full suite had finished, and two cost a red CI. Each time the
+individual suites I had run did pass — which is not the same claim, and is
+exactly the partial-run trap `scripts/check.py` exists to remove.
+
+**Suite:** 4/4 gates, 5,355 passed, coverage 91.89%.
+
+**Open:** lap 2 is `HANDSHAKE-READY-TO-READ: no`. Announcing is the operator's
+act. `HANDSHAKE-FROM-COMMIT` names `origin/main` and is provisional until the
+merge, the same treatment their lap 1 gives it.
+
+---
+
 ## 2026-09-15 (latest) — the album owns its own facts
 
 **The state-ownership refactor the last three fixes were each working around.**
