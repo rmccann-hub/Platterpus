@@ -1220,7 +1220,7 @@ Three consequences, now standing:
 
 ---
 
-*Last updated for Platterpus v0.6.49.*
+*Last updated for Platterpus v0.6.50.*
 ### KDD-35 — A version number is a claim about the field, not about CI (decided 2026-08-19)
 
 **Decision.** Version thresholds are gated on *evidence from hardware in people's
