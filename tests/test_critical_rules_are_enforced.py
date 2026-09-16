@@ -1359,7 +1359,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # named group the completeness sweep requires, and why each exists. The
     # module is long because it is a line-by-line contract with another
     # project; splitting it is tracked separately and is not this change.
-    "parsers/cyanrip_log.py": 2819,
+    # **2819 -> 2831 on 2026-09-16 (+12)**: the round-20 rename, accepting BOTH
+    # `Frame retries:` and `Retry limit:` permanently, plus the comment saying
+    # why both and why in advance — the rename is invisible to the parse and not
+    # to the completeness sweep, so the new label has to be here before their
+    # build ships. The eleven lines of reasoning are the load-bearing part: a
+    # later reader tidying this to a single label breaks every acceptance log
+    # already filed under `docs/`.
+    "parsers/cyanrip_log.py": 2831,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one

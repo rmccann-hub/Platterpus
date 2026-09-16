@@ -3607,7 +3607,9 @@ def test_close_by_never_reaches_a_verdict() -> None:
     )
 
 
-def test_the_close_by_report_refuses_a_bare_date_rather_than_assuming_midnight() -> None:
+def test_the_close_by_report_refuses_a_bare_date_rather_than_assuming_midnight() -> (
+    None
+):
     """A bare date names no timezone, and guessing gave two answers in one afternoon.
 
     `datetime.fromisoformat` parses `2026-08-14` happily and returns a NAIVE
