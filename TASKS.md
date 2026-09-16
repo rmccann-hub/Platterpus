@@ -180,7 +180,11 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       0.6.46` in every rip report and EAC log from this run.
       *Closes when:* a round approves a pair whose app half is the running build,
       at which point the guard skips itself.
-- [ ] **Round-18 lap 2 is WRITTEN and NOT SENT** —
+- [x] **~~Round-18 lap 2 is WRITTEN and NOT SENT~~ — SENT AND CLOSED.** Swept
+      2026-09-16. `handshake.py --status` reports `round-18: sent=yes returned=yes
+      we-verified=yes (GO) they-verified=yes (GO) -> CLOSED`. Rounds 19 and 20 have
+      since closed on top of it. Original text below for the record:
+- [x] ~~**Round-18 lap 2 is WRITTEN and NOT SENT**~~ —
       `docs/handshake/outbound/round-18-lap-02.md`; envelope
       `round18lap02FROMplatterpusTOcyanrip.md` (29,090 bytes; part sha256/16
       `aebe56b8bd953bbf`, 27,428 bytes). Only the maintainer can send it.
@@ -251,7 +255,11 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       manifest format, so it does not happen on an assumption.
       *Blocked on:* their answer, or a spec that names concepts and tokens
       separately.
-- [ ] **`check_inbound`'s section table describes a REPLY, and it is run against
+- [x] **~~`check_inbound`'s section table describes a REPLY~~ — FIXED.** Swept
+      2026-09-16: `handshake.py --check docs/handshake/inbound/round-20-lap-01.md`
+      (an OPENER, the exact shape that produced the phantom omissions) exits 0 with
+      *"satisfies the protocol (all sections present)"*. Original below:
+- [x] ~~**`check_inbound`'s section table describes a REPLY, and it is run against
       OPENERS too — ~10 phantom omissions per opening lap, for at least two
       rounds.** `scripts/handshake.py --check` on their round-18 lap 1 reports 10
       problems (§A Pin, §B Answers, §C Changes, §D Log-format delta, §E Golden
@@ -426,7 +434,11 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       false-fails §I's `expect-log-well-formed` in an ARCHIVAL section on every
       cancel, carries the P3 clause-2 rule that would report the fork's `b866900`
       as unfixed, and litters `$HOME`. All three are fixed in `0.6.46`.
-- [ ] **`a_round_is_reviewing_a_build()` returns True with all sixteen rounds
+- [x] **~~`a_round_is_reviewing_a_build()` returns True with all rounds CLOSED~~ —
+      FIXED.** Swept 2026-09-16: the function returns **False**, and
+      `PIN_UNDER_REVIEW == FORK_PIN == fe4d2c4`, so the install menu no longer
+      tells an operator a closed round's pin is under review. Original below:
+- [x] ~~**`a_round_is_reviewing_a_build()` returns True with all sixteen rounds
       CLOSED, and it is user-facing.** The install menu currently tells an operator
       `a9aedf0` "is the build the **open** handshake round is reviewing". No round
       is open. The predicate derives openness from pin coincidence —
@@ -546,7 +558,12 @@ and round 15's row — which still read OPEN — now reads its real verdict.
   `(UTC±HH:MM)` marker rather than inventing one.
 - **§D3 is unreachable for us** — `-H` only, and we never pass it.
 
-- [ ] **ANSWER THEIR §D4 — and the answer is "no widening; stop carrying the ask".**
+- [x] **~~ANSWER THEIR §D4~~ — ANSWERED AND SENT.** Swept 2026-09-16: the answer
+      went out as §D of `docs/handshake/outbound/round-16-lap-05.md` (*"The §D4
+      answer that never reached you"*), round 16 closed `GO`/`GO`, and the
+      decision still holds in the tree — `SUPPORTED_SCHEMAS` is
+      `frozenset({1, 2})`, unwidened. Original below:
+- [x] ~~**ANSWER THEIR §D4 — and the answer is "no widening; stop carrying the ask".**
       Derived from our source at `1654bdd`, all three legs:
       **(1)** `SUPPORTED_SCHEMAS = frozenset({1, 2})` is at
       `src/platterpus/deps/ripper_manifest.py:89` and gates their
@@ -779,7 +796,11 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       is genuinely shared, since reverting it fails both the picker's tests and
       the abort-message tests.
 
-- [ ] **KDD-17 GAP (was): `ripper_choices()` GUI caller — original filing.** `--install-ripper` and
+- [x] **~~KDD-17 GAP: `ripper_choices()` has no GUI caller~~ — SHIPPED.** Swept
+      2026-09-16: `src/platterpus/ui/ripper_picker.py` exists, calls
+      `ripper_choices()`, and `RipperPickerDialog` is wired into
+      `main_window_update`. A GUI-only operator can pick a build. Original below:
+- [x] ~~**KDD-17 GAP (was): `ripper_choices()` GUI caller — original filing.** `--install-ripper` and
       `--install-ripper list` are CLI-only (`app.py:873`, `:889`), so a GUI-only
       operator has **no route** to the build an open round is reviewing whenever the
       fork has not published it — which is round 16. The update offer cannot serve
@@ -848,13 +869,27 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       and cancels rips, which is when signals are delivered. They explicitly do not
       claim it explains anything we have seen.
 
-## RUNBOOK — when the round-16 opener arrives (rehearsed 2026-09-06)
+## RUNBOOK — when a round opener arrives (rehearsed 2026-09-06; RUN, rounds 16–20)
+
+> **SWEPT 2026-09-16 — every step below is DONE and its checkbox is closed.**
+> This is a *procedure*, not a task list: the boxes were the rehearsal's own
+> checklist and stayed `[ ]` after it was run, which is how a finished runbook
+> reads as eight outstanding jobs. Evidence that it ran, derived rather than
+> recalled: `CURRENT_ROUND` is **20** (step 2), `PIN_UNDER_REVIEW` and `FORK_PIN`
+> are both `fe4d2c4` (steps 3–4), `docs/handshake/README.md` carries rows for
+> rounds **16 and 20** (step 6), ten round-16 laps are filed under
+> `docs/handshake/inbound/` (step 1), and the fork clone reads (step 0).
+> Rounds 16, 17, 18, 19 and 20 have all since closed `GO`/`GO` through it.
+>
+> **Kept, not deleted** — it is the rehearsed procedure for the *next* opener,
+> and round 21's is already expected (the build carrying `Retry limit:`).
+> Re-reading it is the point; re-doing it is not.
 
 **Not a guess: a realistic opener was filed against the real tree, the full suite
 run, and every failure recorded.** Eight tests fail on arrival, all deliberately,
 and every message names its file and its action. Do them in this order.
 
-- [ ] **0. Confirm you can read their source.** `git -C /home/user/cyanrip log -1
+- [x] **0. Confirm you can read their source.** `git -C /home/user/cyanrip log -1
       <their pin>`. **This was broken and is now fixed** (2026-09-06): the clone was
       **shallow** — `origin/master` held exactly **one** commit — and it tracked only
       `master`, while all their work is on **`platterpus-fork`**. Three commits their
@@ -863,7 +898,7 @@ and every message names its file and its action. Do them in this order.
       `git fetch --unshallow` and `git fetch origin 'refs/heads/*:refs/remotes/origin/*'`
       **first** — rule #12 says derive from their source, and you cannot derive from a
       repository that does not have it.
-- [ ] **1. File it** into the handshake `inbound/` directory under the round-16
+- [x] **1. File it** into the handshake `inbound/` directory under the round-16
       lap-1 name `handshake_filename()` generates — written that way rather than as
       a literal path because the file does not exist yet and
       `test_every_docs_pointer_in_a_live_surface_resolves` holds every `docs/…md`
@@ -872,21 +907,21 @@ and every message names its file and its action. Do them in this order.
       a retired one.) Then
       `python3 scripts/handshake.py --check` it. `--status` will flip round 16 to
       OPEN, which correctly closes the release gate.
-- [ ] **2. `CURRENT_ROUND` 15 → 16** in `scripts/handshake.py`
+- [x] **2. `CURRENT_ROUND` 15 → 16** in `scripts/handshake.py`
       (*"bump it or the newer round is invisible to the gate"*).
-- [ ] **3. `PIN_UNDER_REVIEW` → their new pin** in `src/platterpus/deps/fork_source.py`.
+- [x] **3. `PIN_UNDER_REVIEW` → their new pin** in `src/platterpus/deps/fork_source.py`.
       The failure message spells out the consequence of leaving it: a rip against the
       build under review reports *"NOT the build this Platterpus was verified
       against"* **with no reason at all**.
-- [ ] **4. `UNDER_REVIEW_TARGET.pin` AND `.version`, together.** They are one
+- [x] **4. `UNDER_REVIEW_TARGET.pin` AND `.version`, together.** They are one
       pairing and a separate guard enforces it; moving one is the 2026-08-18
       mis-pairing.
-- [ ] **5. `FORK_RELEASE_SEQ_BY_PIN`** if the new pin is a numbered release. Absent →
+- [x] **5. `FORK_RELEASE_SEQ_BY_PIN`** if the new pin is a numbered release. Absent →
       `release_seq_for_commit` returns `None` → "not determined", and
       `tests/test_ripper_manifest.py` fails outright, which is the designed behaviour.
-- [ ] **6. A round-16 row in `docs/handshake/README.md`** — `docs/README.md` links it
+- [x] **6. A round-16 row in `docs/handshake/README.md`** — `docs/README.md` links it
       as the map, so a stale map is a broken promise in the canonical index.
-- [ ] **7. Their round-16 P1 flag table and `PROVIDER-CONTRACT.md`.** Three tests
+- [x] **7. Their round-16 P1 flag table and `PROVIDER-CONTRACT.md`.** Three tests
       depend on it and the recorded lag is **0**. **You do not have to wait for them
       to attach it:** their branch head carries `PROVIDER-CONTRACT.md` and they
       regenerate it per change — `git -C /home/user/cyanrip show
