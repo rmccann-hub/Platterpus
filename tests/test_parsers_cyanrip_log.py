@@ -2631,3 +2631,39 @@ def test_a_per_track_paranoia_count_of_ZERO_is_recorded_as_zero() -> None:
         "a per-track paranoia count of zero was not recorded as zero: "
         f"{log.tracks[0].paranoia_counts}"
     )
+
+
+def test_the_renamed_retry_limit_label_is_recognised_before_their_build_ships() -> None:
+    """Round 20 §3: `Frame retries:` becomes `Retry limit:` in the fork's log.
+
+    We extract nothing from the line — it sits in `_IGNORED_DISC_LINES` as a
+    recorded decision — so the rename is invisible to the *parse*. What it is not
+    invisible to is the completeness sweep, which treats an unrecognised disc line
+    as a FAILURE on purpose. So the day their build lands, every rip log would trip
+    that sweep unless the new label is already accepted here.
+
+    That asymmetry is the whole reason this is landed in advance and the reason we
+    could assent to the rename at all: their `-j` key can carry `frame_retries` as
+    a duplicate for a release, but **a log line has no duplicate** — the old label
+    is simply gone from the next build's output.
+
+    Both labels, permanently, the same way `_OVERREAD_MODE` accepts `Overread:`
+    and `Underread:`: a consumer that drops the old spelling cannot read the eight
+    acceptance logs already filed under `docs/`.
+    """
+    from platterpus.parsers import cyanrip_log
+
+    old_label = "Frame retries:  3"
+    new_label = "Retry limit:    3 (per frame, and per whole-track re-read)"
+    matched = {
+        line: any(p.match(line) for p, _r in cyanrip_log._IGNORED_DISC_LINES)
+        for line in (old_label, new_label)
+    }
+    assert matched[old_label], (
+        "the OLD label stopped being recognised — the filed acceptance logs still "
+        "carry it, so dropping it breaks every artifact already in the record"
+    )
+    assert matched[new_label], (
+        "the NEW label is not recognised, so the completeness sweep will fail on "
+        "every rip log the moment the fork's round-20 build ships"
+    )

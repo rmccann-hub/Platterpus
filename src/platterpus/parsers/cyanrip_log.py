@@ -1864,7 +1864,19 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
         re.compile(r"^Repeating ripping\s+\("),
         "secure re-rip attempt; the Done; line carries the verdict",
     ),
-    (re.compile(r"^Frame retries:\s"), "candidate: rip-effort setting"),
+    # BOTH LABELS, for the same reason `_OVERREAD_MODE` accepts both. The fork
+    # is renaming this line in round 20 (`Frame retries:` names half of what
+    # `-r` does — it caps paranoia's per-frame retries AND the whole-track
+    # re-read loop, and their log printed both numbers as a bare `3` with
+    # nothing saying they were one knob). We extract nothing from it either
+    # way, so the rename is invisible to the PARSE — but this file's
+    # completeness sweep fails on any unrecognised disc line, so the new label
+    # has to be here BEFORE their build ships or every rip log trips it. A
+    # `-j` key can carry a duplicate for a release; a log label cannot.
+    (
+        re.compile(r"^(?:Frame retries|Retry limit):\s"),
+        "candidate: rip-effort setting (renamed Retry limit in round 20)",
+    ),
     # The disc/release identifiers cyanrip echoes back from OUR OWN `-a` tags. We
     # already hold them (they came from MusicBrainz through this process), so the
     # log's copy adds no fact — it is our input reflected. Recorded here rather than

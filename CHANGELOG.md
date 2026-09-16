@@ -11,6 +11,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+
+- **Cyanrip's rip logs will keep parsing when the ripper renames one of its
+  lines.** The `Frame retries:` line becomes `Retry limit:` in the next cyanrip
+  build — the same setting caps both per-frame retries and whole-track re-reads,
+  and the old name described only the first. Platterpus reads nothing out of that
+  line, but it does check that it recognises every line a rip log contains, so
+  both spellings are now accepted: new rips keep working the day that build
+  arrives, and the logs already on your disk keep working too.
+- **`platterpus --doctor`-style handshake reporting now prints each cyanrip
+  release round's agreed close-by date** alongside its status. Advisory only — it
+  never blocks a release, by design.
+
 ### Fixed
 
 - **A rip's verification results are no longer lost when the next rip starts
