@@ -32,6 +32,7 @@ HANDSHAKE-ROUND-DIGEST: filled at release, over the three laps preceding this on
 HANDSHAKE-SHARED-HASHES: protocol(v4)=ed8ee62f49cb96954f3c60aa92441614c998e6d9921083381ab598ac874f3e83 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=accff838cb32c99f3e49443ce3a28e98ed7f797a44aae02585be9415deef7397
 HANDSHAKE-CLOSE-BY: 2026-10-20T23:59:59Z
 HANDSHAKE-NEXT-LAP: **yours, and your pre-commit says it is the last.** We raise no new condition and ask no question that must be answered before the round can close.
+HANDSHAKE-LAP-NUMBERING-NOTE: **Both projects wrote a held lap 4, and yours is withdrawn by your own proposal — which we accepted because it overrules nothing.** Your lap 3 and our lap 2 are both SENT and both put lap 4 on us; your draft was the only document saying otherwise and it was unsent. Recorded here rather than left to inference. **The collision is a class, not an instance**: each side allocates the next number from its own tree and neither gate can see the other's held laps, so it recurs. Our round-22 proposal is that a lap number is claimed on RELEASE, not on writing — a `docs/handshake-protocol.md` change, so it needs both of us.
 HANDSHAKE-TO-VERSION: cyanrip 0.9.4-rc2+platterpus.12
 
 SEAM-RULES-VERSION: 5
@@ -57,36 +58,109 @@ so out loud; this is the same move applied to a section instead of a field.
 Each heading below is one of the three things your §0.1 names, **and no more than
 three** — R1 fixed them at your lap 1 and we are not adding a fourth.
 
-#### (1) The `fast_verified` whole-disc path runs on hardware — *not yet run*
+#### (1) The `fast_verified` whole-disc path runs on hardware — **ESTABLISHED**
+
+A session ran on 2026-09-17 with Platterpus **0.6.50** (`build 4bedb45`), and
+section F executed `set rip_goal fast_verified` / `expect rip_goal fast_verified`
+at transcript lines 451–452, with section N's archival secure re-read separate
+from it. The path that had never run on hardware ran. The
+`20260915T120109Z` six-hours-twice cannot recur.
+
+**This item survives the session being void for the other two** (§0.1a), and we
+want to be explicit about why rather than let it look like salvage: it is a
+property of **our** script setting its own rip goal, and the ripper build is not
+in that causal path. Items 2 and 3 are readings of a **ripper log**, which is
+exactly why they do not survive.
+
+#### (2) Our parser reads `Retry limit:` on real logs — *not established; the session was on the wrong build*
 
 > *Nothing measured. This is where the result goes.*
 
-What will be reported: the section-F outcome on the real rig, and whether the
-path ran at all — which is the thing that has never been true. Your citation was
-checked when your lap 1 was filed and it holds:
-`platterpus@4bedb45:src/platterpus/rig_scripts/fullacceptance.txt:451` carries
-`set rip_goal fast_verified` / `expect rip_goal fast_verified`, so F no longer
-inherits N's goal and the `20260915T120109Z` six-hours-twice cannot recur.
+The 2026-09-17 logs read **`Frame retries:  3`** — the pre-rename label — because
+the build was `fe4d2c4`. Our parser has accepted both labels permanently since
+round 20 and the fixture passes, but **a fixture we wrote cannot establish this**;
+that is the whole content of the condition.
 
-#### (2) Our parser reads `Retry limit:` on real logs — *not yet run*
+#### (3) `Ripping errors:` is the moved field, and our export reflects it — *not established; same cause*
 
 > *Nothing measured. This is where the result goes.*
 
-Our parser has accepted both labels permanently since round 20, and the fixture
-passes. **A fixture we wrote cannot establish this** — that is the whole content
-of the condition, and it is why this heading is empty rather than answered from
-the suite.
-
-#### (3) `Ripping errors:` on a real session is the moved field, and our export reflects it — *not yet run*
-
-> *Nothing measured. This is where the result goes.*
-
-The interesting case is the one your round-21 change creates: a non-zero count
-beside a completed loop, and what our EAC-compatible export's `health_status`
-does with it. See §B — we expect this to expose our own defect rather than
-yours, and we would rather it did so on the rig than in a user's library.
+`fe4d2c4` predates the `cyanrip_log_finish_report()` move, so the field was in its
+old position and the session could say nothing about the new one. The interesting
+case remains the one your change creates: a non-zero count beside a completed
+loop, and what our EAC-compatible export's `health_status` does with it. See §B —
+we expect that to expose our defect rather than yours, and we would rather it did
+so on the rig than in a user's library.
 
 ---
+
+## §0.1a — **the session ran, passed 247 of 247, and was VOID. Ours, entirely.**
+
+On 2026-09-17 a full acceptance session ran to the last step and reported
+**`pass 247, fail 0, error 0`**, every ARCHIVAL section green. It was run on the
+**release pin `fe4d2c4`**, not the test pin. `3952c03` appears **nowhere** in the
+bundle's 277 files, and the ripper logs read `Frame retries:  3`.
+
+**The guard for exactly this exists, was called, and passed.**
+`expect-ripper-under-review` is asserted at `fullacceptance.txt:216`, and it
+accepted the reviewed pin because it accepts **either** `PIN_UNDER_REVIEW` or the
+test pin. That widening is round 16's, and its own committed comment says why it
+was safe: `git diff a9aedf0..ddc1e8c -- src/ meson.build` was **empty**, so the
+two builds were interchangeable evidence and no build could be misnamed.
+
+**That is a fact about one pair of pins, not a property of test pins, and round
+21 is the first round where it is false.** Your test pin is 211 insertions across
+five files and carries both breaking changes.
+
+**The part we want on the record is worse than the bug.** When we landed your
+test pin in our constants at lap 2, we wrote this into the file, by hand, one
+screen from the guard:
+
+> It is **NOT** the same program as the reviewed pin, and that is the point of it
+> — the inverse of round 16's note above, **so do not read that reasoning
+> forward.**
+
+We wrote the warning and did not check the guard whose safety depended on the
+assumption the warning was retiring. Six hours of hardware time bought nothing,
+and nothing in 247 green steps could say so.
+
+Two compounding facts, both ours: **nothing in the bundle recorded which build
+the session was FOR**, only which one ran; and `ripper_handshake_approval` read
+`approved`, which is true of our record and exactly the wrong answer to *"is this
+the build this session needed"*. The bundle read as **more** verified than it was.
+
+**Fixed before the re-run, not promised** (`platterpus@0950f05`): the verb now
+accepts both pins only while they are the same program and otherwise requires the
+test pin, naming it in the refusal; `TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED` is
+declared with its measurement and pinned to the `(reviewed, test, flag)` triple so
+a pin move forces re-declaration; and the bundle manifest now carries
+`ripper build wanted`. Proved non-vacuous with `scripts/revert_probe.py` —
+restoring the widening gives `detected … pytest exited 1`.
+
+**Not fixed, and reported rather than quietly widened:**
+`a_round_is_reviewing_a_build()` still returns `False` for round 21, because it
+compares `PIN_UNDER_REVIEW` against `FORK_PIN` and neither moved — the round's
+subject lives in the *test* pin. Same two-keys-one-question root. It is why the
+app told the operator nothing was under review. Round 22.
+
+## §H — the portable shape, and it is not about ripping
+
+**A guard widened under an assumption, and the note recording that the assumption
+had lapsed written one screen away by the same hand.**
+
+The widening was correct and documented. The lapse was correct and documented.
+Nothing connected them, because a comment explaining why a premise no longer
+holds is not a thing any checker reads. The two artifacts were three hundred
+lines apart in one repository and both were written deliberately.
+
+Reported under the standing rule, at the *could-in-any-possible-way* bar. We
+assert nothing about your tree and have not looked for it there. The test is
+whether the **mechanism** is portable: any project with a guard whose safety rests
+on a stated premise can hold it, and the tell is a comment that says *"this used
+to be true"* with no assertion beside it.
+
+The check we would want, and do not have: **when a premise is retired in prose,
+what reads that premise?** We found this one by losing six hours to it.
 
 ## A. Withdrawn: our round-20 claim about rounds 13 and 14
 
