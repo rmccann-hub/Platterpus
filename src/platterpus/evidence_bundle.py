@@ -562,6 +562,46 @@ def _collect(
 _NOT_ARCHIVED_MARK: Final[str] = "   -- NOT ARCHIVED (see NOT INCLUDED below)"
 
 
+def _expected_ripper_build() -> str:
+    """Which cyanrip build the current handshake round's session is FOR.
+
+    Names the round's subject, which is not always the build that ran — and the
+    gap between those two is the thing this line exists to make visible. Reads
+    `fork_source` rather than restating any of it, so it cannot drift from the
+    constant `expect-ripper-under-review` asserts against.
+
+    **Tri-state in effect, and deliberately wordy on the dangerous branch.** When
+    the test pin is a different program from the reviewed pin, a session on the
+    wrong one answers nothing however green it is, so the line says so outright
+    rather than leaving a reader to compare two hashes and infer it.
+
+    Never raises: a bundle is written on the failure path too, and a manifest that
+    cannot be produced because a constant moved is worse than one that says it
+    could not determine this.
+    """
+    try:
+        from platterpus.deps import fork_source
+
+        test_tag = fork_source.FORK_TEST_BUILD_TAG
+        reviewed_tag = f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}"
+        if test_tag == reviewed_tag:
+            return f"{reviewed_tag} (reviewed pin and test pin are the same commit)"
+        if fork_source.TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED:
+            return (
+                f"{test_tag} or {reviewed_tag} — same program, so either is "
+                f"interchangeable evidence"
+            )
+        return (
+            f"{test_tag} ONLY — round {fork_source.FORK_TEST_PIN_ROUND}'s test pin "
+            f"is a DIFFERENT PROGRAM from the reviewed pin ({reviewed_tag}), so a "
+            f"session on the reviewed pin cannot answer this round's close "
+            f"condition no matter how many steps pass"
+        )
+    except Exception:  # noqa: BLE001 - a manifest must still be written
+        log.warning("could not determine the expected ripper build", exc_info=True)
+        return "not determined"
+
+
 def _album_folder_lines(
     album_dirs: Sequence[Path], *, missing: Sequence[Path] = ()
 ) -> list[str]:
@@ -638,6 +678,22 @@ def _render_manifest(
         # checkout is a real answer and is printed as one.
         f"build              {build_fingerprint()}",
         f"rip outcome        {outcome}",
+        # **WHICH RIPPER BUILD THIS SESSION WAS FOR, stated whether or not it is
+        # the one that ran.** Added 2026-09-17, because a bundle that records only
+        # what DID run cannot be read against what was SUPPOSED to run, and on
+        # that date one could not: an acceptance session went 247 of 247 green on
+        # the reviewed pin while the round's close condition was about the test
+        # pin, and every artifact in the bundle named `gfe4d2c4` without a word
+        # about `3952c03` anywhere in 277 files. The approval field said
+        # `approved` — true of our record, and exactly wrong as an answer to "is
+        # this the build the session needed" — so the bundle read as MORE verified
+        # than it was.
+        #
+        # Two facts, two lines, never folded into one: the build the round names,
+        # and whether the two pins are the same program. The second is what
+        # decides whether running the other one was harmless, and a reader who has
+        # only the first cannot tell.
+        f"ripper build wanted {_expected_ripper_build()}",
         *_album_folder_lines(album_dirs, missing=missing_album_dirs),
         "",
         "Raw facts this outcome was derived from (a label can be wrong; these",
