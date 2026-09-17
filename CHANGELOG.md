@@ -11,6 +11,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+
+- The acceptance run now refuses to grade a session against the wrong cyanrip
+  build. `expect-ripper-under-review` accepted either the reviewed pin or the
+  round's test pin unconditionally; it now accepts both only while they are the
+  same program, and otherwise requires the test pin and names it in the refusal.
+  A 2026-09-17 session passed 247 of 247 steps on the reviewed pin while
+  establishing nothing about either of the round's breaking log changes, because
+  the build predates both.
+- The evidence bundle's manifest records which ripper build the session was
+  **for**, not only which one ran. A bundle that names only what ran cannot be
+  read against what was required.
+
 ### Changed
 
 - The cyanrip test pin moves to `3952c03` for handshake round 21. Unlike round

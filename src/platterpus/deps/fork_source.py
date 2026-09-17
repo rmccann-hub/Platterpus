@@ -702,6 +702,37 @@ FORK_TEST_VERSION: Final[str] = "0.9.4-rc2+platterpus.12"
 FORK_TEST_PIN_ROUND: Final[int] = 21
 FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 
+#: **Is the agreed test pin the SAME PROGRAM as the reviewed pin?**
+#:
+#: `False` for round 21, and this constant exists because its being `True` was an
+#: unstated assumption that two separate checks had already been widened on.
+#:
+#: When round 16 agreed a test pin, `git diff a9aedf0..ddc1e8c -- src/ meson.build`
+#: was **empty** — the test pin differed only in `tools/`, `docs/` and regenerated
+#: artifacts, so a rip on either produced byte-identical behaviour and "accept
+#: either build" cost nothing. Both `expect-ripper-under-review` and
+#: `tests/test_handshake_pin_under_review.py` were widened to accept either on
+#: exactly that reasoning, and both recorded it.
+#:
+#: **Round 21 is the first round where it is false.** `git diff fe4d2c4..3952c03
+#: -- src/ meson.build` is 211 insertions across five files and carries both
+#: breaking changes, so a rip on the reviewed pin prints `Frame retries:` where a
+#: rip on the test pin prints `Retry limit:`, and counts `Ripping errors:`
+#: differently. Two builds that answer the round's close condition differently are
+#: not interchangeable evidence, and "accept either" stops being free.
+#:
+#: **Measured, on 2026-09-17, by the session that proved it:** an acceptance run
+#: on `fe4d2c4` passed **247 of 247 steps** — including
+#: `expect-ripper-under-review`, which accepted it — while establishing nothing
+#: about either breaking change, because the build predates both. The guard was
+#: present, called, and pointed at a key that could not distinguish the two.
+#:
+#: A `bool` rather than a diff at runtime: the rig cannot clone the fork, and the
+#: fact is settled when the test pin is agreed. It is declared here beside the pin
+#: it describes, and `tests/test_fork_source.py` holds it to the pins' actual
+#: relationship so it cannot rot into a lie the next time a pin moves.
+TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED: Final[bool] = False
+
 #: Test pins this round has already retired. Listed **only** so a rig that built one
 #: before the pin moved still receives ``--consumer`` (they all carry the flag — it
 #: landed in r4, before any of them). Not an endorsement: the current test pin is
