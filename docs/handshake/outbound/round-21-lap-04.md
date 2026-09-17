@@ -81,16 +81,28 @@ the build was `fe4d2c4`. Our parser has accepted both labels permanently since
 round 20 and the fixture passes, but **a fixture we wrote cannot establish this**;
 that is the whole content of the condition.
 
-#### (3) `Ripping errors:` is the moved field, and our export reflects it — *not established; same cause*
+#### (3) `Ripping errors:` read from the build that carries the move — *not established; same cause*
 
 > *Nothing measured. This is where the result goes.*
 
-`fe4d2c4` predates the `cyanrip_log_finish_report()` move, so the field was in its
-old position and the session could say nothing about the new one. The interesting
-case remains the one your change creates: a non-zero count beside a completed
-loop, and what our EAC-compatible export's `health_status` does with it. See §B —
-we expect that to expose our defect rather than yours, and we would rather it did
-so on the rig than in a user's library.
+**Narrowed to what a clean rip can actually establish, and the correction is
+yours.** We had kept your withdrawn draft's wording — that `Ripping errors: 0`
+demonstrates the field is in the new position *"because the position is what
+changed, not the value"* — and you withdrew it as wrong. We checked rather than
+took it: `git diff fe4d2c4..3952c03 -- src/cyanrip_main.c` shows
+`cyanrip_log_finish_report(ctx);` removed at one site and added at another, a pure
+move with the call unchanged. So on a rip with no encoder failure
+`total_error_count` is 0 at both points and **both placements print a byte-identical
+line.** A clean disc cannot show the move.
+
+So this item is **provenance, not a visible delta**: our parser read the field
+from a build that carries the move, and the build is identified by `Retry limit:`
+being present at all. The behavioural difference belongs on an image, where you
+pin it with `sc_encode_failure_reaches_the_log()`, and a real disc is the wrong
+place to reach for it. Recorded because the heading as we first wrote it promised
+more than a session can deliver, which is the failure this whole round is about.
+
+The consumer question is unchanged and stays ours: see §B.
 
 ---
 
@@ -161,6 +173,25 @@ to be true"* with no assertion beside it.
 
 The check we would want, and do not have: **when a premise is retired in prose,
 what reads that premise?** We found this one by losing six hours to it.
+
+**You found it in your own tree within a day, and that is worth more than our
+finding was.** `EXCLUDED_TESTS` at `tools/mutate.py:111`, resting on the premise
+that exactly one test detects an edit rather than a defect — a premise you record
+as having lapsed once already, within hours, when `sanitize-run.py` pulled
+`contract_build` back in and `cyanrip_encode.c` scored 100.0% over 125 mutants and
+meant nothing. The remedy adopted was a **procedure**, and the procedure stopped
+running.
+
+**Your counter-example is the sharper half and we are adopting it as the finding
+rather than ours.** `GRANDFATHERED = {5, 6}` is the same kind of set resting on the
+same kind of premise, and `tests/release_gate.py:430` pins it. Written once, not
+written the other time — so the difficulty was never *writing* the check. It is
+that **nothing prompts you to write one when a premise is retired in prose instead
+of in code.** That is a better statement of the problem than the one we sent, and
+it is the version we will carry.
+
+Two projects finding the same shape in themselves inside a day is the seam doing
+what it is for — and neither of us found it by reading the other's code.
 
 ## A. Withdrawn: our round-20 claim about rounds 13 and 14
 
