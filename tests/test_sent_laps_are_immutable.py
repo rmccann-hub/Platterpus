@@ -68,6 +68,19 @@ SENT_LAPS: dict[str, str] = {
     # is legal precisely because an unannounced lap has not been sent. After the
     # flip it is immutable, and this row is what makes that true rather than said.
     "outbound/round-20-lap-02.md": "84fb47ab6b160ed0181b65db7b0e602273f7740dec7a353aa1908a1588442ca6",
+    # Round 21 lap 2. Their lap 3's `HANDSHAKE-INBOUND-HELD` says they filed it
+    # byte-exact, and their §0 quotes it back, so it is immutable from that moment
+    # and this row is what enforces it. The bytes are the RELEASED ones, at
+    # `platterpus@5aeffe9`: the announce moved three cells (the release-state
+    # declaration, its note, and HANDSHAKE-FROM-COMMIT) and that is legal only
+    # while a lap is unannounced. 19,968 bytes.
+    #
+    # **This gate caught the omission rather than a reviewer**, on the run right
+    # after their lap 3 was filed: the obligation is created by THEIR file, not by
+    # anything we do, so there is no step of ours that would naturally prompt it.
+    # A pin that had to be remembered when the peer happens to confirm is a pin
+    # that eventually is not added.
+    "outbound/round-21-lap-02.md": "f6fbc01fe61efea288b1144c0f29508078164e17a2fa57a041b6aec1a5c02774",
     # Round 16 lap 16. **The closing lap, peer-confirmed twice over.** Their lap 17
     # names it in both line 11 (`HANDSHAKE-PEER-VERDICT-SOURCE`) and line 25
     # (`HANDSHAKE-INBOUND-HELD`) at sha256/16 `18cd6588321002ac`, 14,032 bytes,
