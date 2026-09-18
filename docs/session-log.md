@@ -13,6 +13,83 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ## 2026-09-18 — round 21's session finally ran on the right build, and lap 4 is filled
 
+**ROUND 21 IS CLOSED, `GO`/`GO`, at five laps.** Their lap 5 released, filed here
+byte-exact (sha256 `9c69fce540f8e751…`, 35,198 bytes) after verifying all four
+declarations before the body was opened. Our verification is
+`verified/round-21-lap-06.md` — numbered 6 because our gate reads a round's state
+from the newest file on each side, and their lap 5 says *"lap 6 does not exist"*
+about **sent** laps, which this is not. `--status` reads CLOSED and
+`--release-gate` exits **0** for the first time since the round opened. That
+authorises a release; it does not perform one, and `3952c03` does not become a
+release — their §6a, carried into our own record because a constant that moves on
+a close is exactly where a close could be misread as a promotion.
+
+**Closing the round moved two constants, and the gate derived that rather than
+anyone remembering it.** `test_the_approval_round_and_app_version_match_the_record`
+failed with *"APPROVED_BY_ROUND is 20 but the newest CLOSED round is 21"*, so both
+moved: round 21, for Platterpus 0.6.50, the app version read from **their** closing
+lap because an approval is what the other side granted. Every rip report, rendered
+log and EAC export carries it, so the generated consumer contract followed and the
+oversize ratchet on `handshake_approval.py` went 584 → 610 with its reason.
+
+**The interesting failure was ours, in a reader, and it is the same shape the fork
+had just fixed in a writer.** `test_a_hash_the_peer_DECLARES_for_our_lap_matches_our_copy`
+reported that their lap 5 declared lap **2**'s digest for our lap **4** — about
+files neither side had touched. Their lap is correct and unambiguous; our
+extractor collected every hex run on a line and handed the same list to every lap
+that line mentioned, with a comment arguing it was safe: *"ANY, not ALL: a line may
+carry digests for several artifacts."* That holds while a field names one lap of
+ours plus unrelated files, and breaks the moment it names **two of our laps with a
+digest for only one** — which their `HANDSHAKE-PEER-VERDICT-SOURCE` does, correctly,
+citing lap 4 as the live source and lap 2 as the superseded one.
+
+**Two reasons it mattered more than a red suite.** It is a **false alarm on an
+immutability gate**, and its own message instructs a destructive remedy — *"restore
+ours from the commit that sent it"* — so following it would have overwritten a
+correct lap. And it is *one field carrying two subjects, read by something that
+cannot tell which value belongs to which*: theirs was in the writer and they fixed
+it as `HANDSHAKE-INBOUND-OBSERVED`; ours was in the reader, one day later, in the
+test that consumes the very field they split.
+
+Fixed by scoping each hash to the nearest lap reference at or before it. **The
+narrowing is proved in both directions**, because a narrowing is where coverage is
+lost silently: real drift in lap 4 is still `detected`, and so is drift in lap **2**
+— the lap whose digest shares a line with lap 4's reference, which is the case a
+positional scope could have dropped.
+
+**Round 21 in one line: two of R1's three conditions answered by measurement, one
+by being corrected, three ledger challenges resolved against us, one void session,
+and a close 32 days before its `HANDSHAKE-CLOSE-BY`.**
+
+
+**RELEASED, end of day.** `handshake.py --announce` run on the maintainer's word:
+`HANDSHAKE-READY-TO-READ: yes — released by the operator (rmccann), 2026-09-18`,
+in the fork's own spelling rather than ours, because actor-and-date in the field
+carries more than the bare state. `HANDSHAKE-FROM-COMMIT` finalised to `5aeffe9`
+— *the commit the lap was written against*, which is the convention rounds 20 and
+21 already used and which resolves the recursion a file naming its own container
+would otherwise create. Merged to `main` at **`5ea3d2c`**; the lap is
+byte-identical there to what was published — sha256
+`a0b1719db336dbcc74bd5ef4be24ee614ebb257619c14919bd0a52be274e88a6`, **52,821
+bytes**, blob `f1714da1…`.
+
+**Two gate readings worth keeping.** `--status` flipped to `we-verified=yes (GO)`
+and the round stays `OPEN` on *their* verdict, read from their lap 3 — their lap 5
+is written but held and we have not read it, not even its wire headers.
+`--release-gate` exits **1**, correctly refusing a release while the round is
+open: verified **unpiped**, because `| tail` reported `0` — tail's own status, the
+exact trap this repo has a written rule about and has still been caught by four
+times.
+
+**Lap 4 grew from 18,576 bytes to 52,821 across five revisions while held**, every
+one of them a response to something the fork sent through the operator. That is
+the correspondence working rather than drifting — two accepted corrections to our
+own claims, two proposals of ours settled by them, one finding of theirs fixed
+rather than filed — but it is also the argument for announcing: they could read
+none of it while it was held, and each revision moved the digest they were trying
+to pin.
+
+
 **The rip that answers §0.1 happened, and it happened on `3952c03`.** One
 whole-disc `fast_verified` rip — The Police, *Every Breath You Take: The
 Classics*, 14 tracks — on the round-21 test pin, reached through
