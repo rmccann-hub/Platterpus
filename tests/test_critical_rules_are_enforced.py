@@ -1244,7 +1244,16 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # of the truth, and this is the one file where "the test pin is the same
     # program" would be believed. The derivation is in the note so nobody has to
     # re-run it, which is the same argument as the accessors' docstrings below.
-    "deps/fork_source.py": 2029,
+    # **2029 -> 2060 on 2026-09-17**, for `TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED`.
+    # The constant is one line; the other 30 are why it exists, and they have to
+    # be here because this is the file a reader consults when a pin moves. It
+    # records that round 16's "accept either pin" widening rested on
+    # `git diff a9aedf0..ddc1e8c -- src/` being EMPTY, that round 21 is the first
+    # round where that is false, and that the 2026-09-17 session went 247 of 247
+    # green on the wrong build because two checks had been widened on the unstated
+    # assumption. A bare `False` would be re-derived wrongly the first time
+    # somebody assumed test pins are always cosmetic.
+    "deps/fork_source.py": 2060,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1311,7 +1320,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # A reader who trims the comment will re-introduce the tail-cut, because the
     # tail-cut is the version that looks tidier. That is what this ratchet's own
     # note means by growth that genuinely belongs.
-    "evidence_bundle.py": 967,
+    # **967 -> 1023 on 2026-09-17**: `_expected_ripper_build()` and the manifest
+    # line it feeds. The bundle recorded what RAN and never what the session was
+    # FOR, so 277 files could describe a run on the wrong ripper without a word of
+    # alarm — and the approval field said "approved", which was true of our record
+    # and exactly wrong as an answer to the question a reader was asking. The
+    # helper belongs here because the manifest is this module's product; splitting
+    # it out would put the sentence and the reason for the sentence in two files.
+    "evidence_bundle.py": 1023,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
     # 2026-09-03 diagnostics header named the approved build for a session that
@@ -1644,7 +1660,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # over a folder containing none of the output they exist to prove. A handler
     # lives beside its siblings because `_execute` dispatches by name; moving one
     # out would be a second dispatch surface.
-    "uiscript/runner.py": 3898,
+    # **3898 -> 3929 on 2026-09-17**: `expect-ripper-under-review` stops accepting
+    # the reviewed pin when it is a different program from the round's test pin.
+    # The branch is four lines; the rest is the measurement that forced it — a
+    # 247-of-247 green acceptance session on a build that could not answer either
+    # of the round's breaking changes, with this verb among the steps that passed.
+    # The next reader to find "accept either" tempting needs the number, not the
+    # rule.
+    "uiscript/runner.py": 3929,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,

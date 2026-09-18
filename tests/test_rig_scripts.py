@@ -2498,10 +2498,23 @@ def test_expect_ripper_under_review_accepts_the_AGREED_TEST_PIN() -> None:
     # that section A printed on 2026-09-15 immediately before the derived clause
     # denying there was any build under review. The requirement in the comment
     # below is that the message says WHICH build ran, and that is what is checked.
-    for tag, why in (
-        (reviewed, fork_source.pin_under_review_label()),
-        (test_pin, "the agreed test pin"),
-    ):
+    # **AND "EITHER" IS CONDITIONAL NOW, which is the 2026-09-17 amendment.**
+    # This loop asserted both tags PASS unconditionally. That was right while the
+    # two pins were the same program — round 16's were, byte-identical in `src/`
+    # — and it silently became wrong in round 21, where the test pin carries two
+    # breaking log changes the reviewed pin does not. The old assertion is kept
+    # for the same-program case and is the reason this is a branch rather than a
+    # replacement: round 16's session must still not be killed at section A.
+    same_program = fork_source.TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED
+    expected_to_pass = (
+        (
+            (reviewed, fork_source.pin_under_review_label()),
+            (test_pin, "the agreed test pin"),
+        )
+        if same_program
+        else ((test_pin, "the agreed test pin"),)
+    )
+    for tag, why in expected_to_pass:
         outcome, detail = _run(f"cyanrip 0.9.4-rc2 ({tag})")
         assert outcome is Outcome.PASS, (
             f"{why} ({tag}) was refused by section A: {detail}"
@@ -2511,6 +2524,27 @@ def test_expect_ripper_under_review_accepts_the_AGREED_TEST_PIN() -> None:
         # to tell them apart without re-deriving it.
         assert why in detail, (
             f"section A passed but does not say which build it accepted: {detail!r}"
+        )
+
+    # **THE REVIEWED PIN MUST BE REFUSED when the two are different programs, and
+    # this is the assertion the 2026-09-17 session needed and did not have.**
+    # That run installed the REVIEWED pin, passed this very verb, and went on to
+    # pass 247 of 247 steps while establishing nothing about either of round 21's
+    # breaking changes — the build predates both. Nothing in six hours of green
+    # could fail over "this is the wrong build for the condition being answered",
+    # because the only check that could have was keyed on a value that accepted
+    # both. A green run is evidence only about what its checks could have failed
+    # over.
+    if not same_program:
+        outcome, detail = _run(f"cyanrip 0.9.4-rc2 ({reviewed})")
+        assert outcome is not Outcome.PASS, (
+            f"the REVIEWED pin ({reviewed}) passed section A while the round's "
+            f"subject is the test pin ({test_pin}) and the two are different "
+            f"programs. This is the 2026-09-17 defect: {detail}"
+        )
+        assert test_pin in detail, (
+            f"section A refused the wrong build without naming the right one, so "
+            f"an operator cannot act on it: {detail!r}"
         )
 
     # A build that is NEITHER must still be refused, or the fix removed the check

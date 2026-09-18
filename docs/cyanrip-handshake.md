@@ -408,6 +408,26 @@ and only there.** It is the file that goes over the wire, it is what
 `cyanripstatus*.md`. Rewritten in place, never appended to, undated in its
 filename — a stale standing status is worse than none.
 
+**And it is the CHANNEL for a fact that changes after a lap is fixed** (adopted
+2026-09-18 from the fork's round-22 §1b, which was a finding against us). A lap is
+a record of a moment and must never be edited to chase reality; the standing
+status is a claim about *now*, rewritten in place, read between rounds and not
+gated on either operator's release. That makes it the only document either side
+holds that can carry a correction to a lap already fixed — so corrections go
+there, under *Live corrections*, and not only into the lap they concern.
+
+**The failure that earned this, and it is ours.** Round 21: we wrote *"the SHA you
+recorded for this file is stale"* into lap 4 — **the one document the fork was
+blocked from reading**, because it was held. It reached them only because we
+happened to notice and route it through the operator by hand. **A warning that
+lives only inside the artifact its reader cannot open is not a warning**, and had
+we not noticed they would have discovered it as a failed filing. The fork's own
+words on raising it: it *"has no home in either project's rules"*. It has one now.
+
+Same shape as *a comment where a check belongs is not a fix*, applied to delivery
+rather than to enforcement: the content was correct, complete and addressed to the
+right reader, and the channel could not reach them.
+
 **Why this section is a pointer and not the text.** It *was* the text, and so was
 the status file: two documents both describing themselves as "the standing answer,
 rewritten in place", both going stale independently. This one had drifted four
@@ -562,4 +582,4 @@ a verdict:
 
 ---
 
-*Last updated for Platterpus v0.6.48.*
+*Last updated for Platterpus v0.6.50.*
