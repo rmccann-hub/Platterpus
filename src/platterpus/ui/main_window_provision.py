@@ -263,8 +263,20 @@ class ProvisioningMixin(MainWindowShared):
         # (real-user report, 2026-06-10).
         if ai.is_integrated(appimage) and ai.is_settled(appimage):
             return
-        if self._config.integration_declined_path == str(appimage):
-            return  # the user said No to this very file — don't nag
+        # **The pair, and BOTH halves must match to stay silent.** Keying on the
+        # path alone silenced this offer forever for anyone who updates in place:
+        # `update_install` writes the canonical name into `~/Applications` and
+        # replaces it, so the path is byte-identical across every update, and one
+        # "No" was permanent (real-user report, 2026-09-18 — the same reporter,
+        # and the same symptom, as the boolean this key replaced in June).
+        # Including the version means a decline lasts exactly one release.
+        from platterpus import __version__  # noqa: PLC0415
+
+        if (
+            self._config.integration_declined_path == str(appimage)
+            and self._config.integration_declined_version == __version__
+        ):
+            return  # said No to this file at this version — don't nag until the next
         choice = QMessageBox.question(
             self,
             "Add to your applications menu?",
@@ -277,6 +289,7 @@ class ProvisioningMixin(MainWindowShared):
         )
         if choice != QMessageBox.StandardButton.Yes:
             self._config.integration_declined_path = str(appimage)
+            self._config.integration_declined_version = __version__
             self._config.appimage_integration_prompted = True  # legacy flag
             self._save_config(self._config)
             return
@@ -287,6 +300,7 @@ class ProvisioningMixin(MainWindowShared):
             new_path = ai.relocate_to_applications(appimage)
             ai.integrate(new_path)
             self._config.integration_declined_path = ""
+            self._config.integration_declined_version = ""
             self._config.appimage_integration_prompted = True  # legacy flag
             self._save_config(self._config)
             if new_path != appimage:

@@ -166,6 +166,7 @@ than the UI it stands in for.
 | `host_setup_prompted` | boolean (on/off) |
 | `appimage_integration_prompted` | boolean (on/off) |
 | `integration_declined_path` | text |
+| `integration_declined_version` | text |
 | `library_dir` | text |
 | `debug_logging` | boolean (on/off) |
 | `cover_art` | text |
@@ -819,6 +820,10 @@ found nothing wrong*.
     },
     {
       "field": "integration_declined_path",
+      "type": "text"
+    },
+    {
+      "field": "integration_declined_version",
       "type": "text"
     },
     {

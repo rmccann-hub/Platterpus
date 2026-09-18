@@ -11,6 +11,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+
+- **"Add Platterpus to your applications menu?" comes back after an update.**
+  Answering No once silenced it permanently: the decision was remembered against
+  the AppImage's **path**, and every in-place update writes the same canonical
+  file in `~/Applications`, so the check matched on every launch afterwards.
+  Settings deliberately preserves that field, so there was no way back through
+  the UI either. The decision is now remembered against the path **and** the
+  version, so declining lasts exactly one release. **Configs silenced by the old
+  behaviour release themselves on upgrade**, with nothing to edit by hand.
+  (Real-user report; the same reporter and the same symptom as the June 2026
+  report whose fix this replaces — that one retired a boolean for suppressing the
+  offer forever, and keying on the path reproduced it for anyone who updates in
+  place.)
+
 ## [0.6.51] — 2026-09-18
 
 ### Changed

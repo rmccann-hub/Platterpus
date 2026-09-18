@@ -281,6 +281,7 @@ _BAD_VALUES: dict[str, object] = {
     "update_channel": "nightly",  # bad enum — only stable/beta exist
     "ripper_channel": "nightly",  # bad enum — only stable/beta exist
     "integration_declined_path": "bad\x00path",  # control char
+    "integration_declined_version": "bad\x00version",  # control char
     "schema_version": "six",  # not an int
     "override_read_offset": "yes",  # not a bool
     "force_overread": "yes",

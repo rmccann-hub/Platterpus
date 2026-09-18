@@ -3291,16 +3291,34 @@ def test_integration_offer_runs_on_yes(teardown_threads, monkeypatch, tmp_path) 
 def test_integration_offer_skips_only_the_declined_file(
     teardown_threads, monkeypatch, tmp_path
 ) -> None:
-    """Declining silences the offer for THAT file only — a different file
-    (a freshly downloaded update) gets the offer again."""
+    """Declining silences the offer for a given file AT A GIVEN VERSION.
+
+    **This docstring used to say "a different file (a freshly downloaded
+    update)", and that parenthetical was the bug.** An update does not arrive
+    as a different file: ``update_install.install_update`` writes
+    ``dest_dir / CANONICAL_APPIMAGE_NAME`` and calls ``part.replace(target)``,
+    so it lands on the byte-identical path every time. The test was correct
+    about what it asserts — a different PATH re-offers — and wrong about what
+    it claimed that covered, which let the update case go untested while
+    reading as tested.
+
+    The missing half is the test directly below.
+    """
     import platterpus.appimage_integration as ai
+    from platterpus import __version__
 
     declined = tmp_path / "platterpus-x86_64.AppImage"
     declined.write_bytes(b"x")
     monkeypatch.setattr(ai, "appimage_path", lambda: declined)
     monkeypatch.setattr(ai, "is_integrated", lambda p: False)
     window = teardown_threads(
-        config=Config(integration_declined_path=str(declined)),
+        # BOTH halves, because both are what silences it now. Setting only the
+        # path here is what the pre-fix test did, and under the pair rule that
+        # case correctly re-offers — which is the test two functions below.
+        config=Config(
+            integration_declined_path=str(declined),
+            integration_declined_version=__version__,
+        ),
         save_cfg=lambda c: None,
     )
     asked: list[bool] = []
@@ -3311,6 +3329,89 @@ def test_integration_offer_skips_only_the_declined_file(
     )
     window._maybe_offer_appimage_integration()
     assert asked == []  # same file declined before → no nag
+
+
+def test_integration_reoffers_after_an_IN_PLACE_update_at_the_same_path(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """REGRESSION (real-user report 2026-09-18): one "No" silenced it forever.
+
+    **The same reporter, the same symptom, and the same shape as 2026-06-10 —
+    one iteration later, inside the fix for it.** June retired a boolean because
+    it "suppressed the offer FOREVER"; the replacement keyed on the AppImage
+    path, on the stated reasoning that *"a new download/version offers again"*.
+    That holds only if an update changes the path. Ours does not — every update
+    replaces the canonical name in ``~/Applications`` — so the comparison matched
+    on every launch and the offer never returned. Settings deliberately preserves
+    the field, so there was no route back through the UI either.
+
+    **The key changed and the lifetime did not.** Scoping the decision to
+    ``(path, version)`` makes a decline last exactly one release.
+    """
+    import platterpus.appimage_integration as ai
+    from platterpus import __version__
+
+    # The SAME path the user declined at — which is what an in-place update
+    # produces, and the whole point of the case.
+    same_path = tmp_path / "platterpus-x86_64.AppImage"
+    same_path.write_bytes(b"x")
+    monkeypatch.setattr(ai, "appimage_path", lambda: same_path)
+    monkeypatch.setattr(ai, "is_integrated", lambda p: False)
+    window = teardown_threads(
+        config=Config(
+            integration_declined_path=str(same_path),
+            integration_declined_version="0.0.1-an-older-release",
+        ),
+        save_cfg=lambda c: None,
+    )
+    asked: list[bool] = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "question",
+        lambda *a, **k: (asked.append(True), QMessageBox.StandardButton.No)[1],
+    )
+
+    window._maybe_offer_appimage_integration()
+
+    assert asked == [True], (
+        "the offer did not come back after an in-place update: the user declined "
+        f"at an older version and is now running {__version__} from the same path, "
+        "which is exactly the case that shipped broken twice"
+    )
+
+
+def test_a_config_declined_before_the_version_key_existed_is_released(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Anyone silenced by the 2026-09-18 defect un-sticks themselves by upgrading.
+
+    Their config carries a declined path and **no** version, because the field did
+    not exist when it was written. An empty version cannot equal any real one, so
+    the pair cannot match and the offer returns on the next launch — with nothing
+    to edit by hand. Pinned because "old configs migrate correctly" is the kind of
+    claim that is made in a comment and never executed.
+    """
+    import platterpus.appimage_integration as ai
+
+    path = tmp_path / "platterpus-x86_64.AppImage"
+    path.write_bytes(b"x")
+    monkeypatch.setattr(ai, "appimage_path", lambda: path)
+    monkeypatch.setattr(ai, "is_integrated", lambda p: False)
+    window = teardown_threads(
+        # Exactly what a pre-fix config deserialises to: path set, version absent.
+        config=Config(integration_declined_path=str(path)),
+        save_cfg=lambda c: None,
+    )
+    asked: list[bool] = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "question",
+        lambda *a, **k: (asked.append(True), QMessageBox.StandardButton.No)[1],
+    )
+
+    window._maybe_offer_appimage_integration()
+
+    assert asked == [True], "an old declined-path config must not stay silenced"
 
 
 def test_integration_reoffers_for_a_new_file_despite_legacy_flag(

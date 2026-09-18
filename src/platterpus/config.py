@@ -174,7 +174,38 @@ class Config:
     # declined). Replaces the boolean above for offer decisions: declining
     # silences the offer for THAT file only, so a new download/version offers
     # again — exactly the update case where re-offering is wanted.
+    #
+    # **AND THAT PREMISE WAS FALSE FOR THE ORDINARY UPDATE PATH, which is how
+    # this field reproduced the exact bug it was written to fix** (real-user
+    # report, 2026-09-18 — the same reporter as 2026-06-10). The boolean above
+    # was retired because it "suppressed the offer FOREVER"; keying on the path
+    # fixes that only if an update CHANGES the path, and ours does not:
+    # `update_install.install_update` writes `dest_dir / CANONICAL_APPIMAGE_NAME`
+    # and calls `part.replace(target)`, so every in-place update lands on the
+    # byte-identical path. One "No" therefore silenced the offer for every
+    # version that followed — and Settings deliberately PRESERVES this field, so
+    # there was no route back through the UI either.
+    #
+    # **The key changed and the LIFETIME did not.** That is the whole lesson: a
+    # suppression needs to be scoped to something that actually moves when the
+    # thing being offered moves. So the decision is now keyed on the pair below,
+    # and BOTH must match to stay silent.
     integration_declined_path: str = ""
+
+    # The Platterpus version that was running when the user declined ("" = never
+    # declined, and also what every pre-2026-09-18 config loads as).
+    #
+    # **Paired with `integration_declined_path`, and the pair is the point.** A
+    # decline silences the offer for *this file at this version*; the next
+    # update changes the version, so the offer comes back exactly once per
+    # release rather than never. A fresh download to a different folder changes
+    # the path, so that case still works as it was designed to.
+    #
+    # **Old configs un-stick themselves on load**, which is deliberate: they
+    # carry a declined path and no version, so the pair cannot match and the
+    # offer returns on the next launch. Anyone silenced by the 2026-09-18 defect
+    # is released by upgrading, with nothing to edit by hand.
+    integration_declined_version: str = ""
 
     # Library folder for finished rips ("" = off, the default). When set, a
     # SUCCESSFUL rip's album folder is moved here — but only after every
