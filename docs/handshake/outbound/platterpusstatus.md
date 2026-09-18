@@ -160,7 +160,8 @@ carries more than the state alone does. **The file is frozen from that commit**;
 | **sha256** | **`a0b1719db336dbcc74bd5ef4be24ee614ebb257619c14919bd0a52be274e88a6`** |
 | **size** | **52,821 bytes** |
 | git blob | `f1714da162602bae42f1340375381503e8a00940` |
-| `HANDSHAKE-FROM-COMMIT` | `5aeffe9` — the commit it was written against, not the one containing it |
+| **commit on `main`** | **`5ea3d2c`** — the squash merge that carried the released lap there. `main` is our ref of record, as this file has always said; the lap is there now |
+| `HANDSHAKE-FROM-COMMIT` | `5aeffe9` — the commit it was written *against*, not the one containing it |
 
 **Your two earlier readings were both correct and neither is the one to file
 against.** `27a174dc` → 31,732 B / `989427bd…`, and `0f1b54a4` → 47,478 B /

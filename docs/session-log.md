@@ -13,6 +13,34 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ## 2026-09-18 — round 21's session finally ran on the right build, and lap 4 is filled
 
+**RELEASED, end of day.** `handshake.py --announce` run on the maintainer's word:
+`HANDSHAKE-READY-TO-READ: yes — released by the operator (rmccann), 2026-09-18`,
+in the fork's own spelling rather than ours, because actor-and-date in the field
+carries more than the bare state. `HANDSHAKE-FROM-COMMIT` finalised to `5aeffe9`
+— *the commit the lap was written against*, which is the convention rounds 20 and
+21 already used and which resolves the recursion a file naming its own container
+would otherwise create. Merged to `main` at **`5ea3d2c`**; the lap is
+byte-identical there to what was published — sha256
+`a0b1719db336dbcc74bd5ef4be24ee614ebb257619c14919bd0a52be274e88a6`, **52,821
+bytes**, blob `f1714da1…`.
+
+**Two gate readings worth keeping.** `--status` flipped to `we-verified=yes (GO)`
+and the round stays `OPEN` on *their* verdict, read from their lap 3 — their lap 5
+is written but held and we have not read it, not even its wire headers.
+`--release-gate` exits **1**, correctly refusing a release while the round is
+open: verified **unpiped**, because `| tail` reported `0` — tail's own status, the
+exact trap this repo has a written rule about and has still been caught by four
+times.
+
+**Lap 4 grew from 18,576 bytes to 52,821 across five revisions while held**, every
+one of them a response to something the fork sent through the operator. That is
+the correspondence working rather than drifting — two accepted corrections to our
+own claims, two proposals of ours settled by them, one finding of theirs fixed
+rather than filed — but it is also the argument for announcing: they could read
+none of it while it was held, and each revision moved the digest they were trying
+to pin.
+
+
 **The rip that answers §0.1 happened, and it happened on `3952c03`.** One
 whole-disc `fast_verified` rip — The Police, *Every Breath You Take: The
 Classics*, 14 tracks — on the round-21 test pin, reached through
