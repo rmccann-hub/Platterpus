@@ -298,12 +298,17 @@ twice than assume once.
 
 ---
 
-## What we owe round 20
+## Carried from rounds 19–20 — **not re-audited in this rewrite, and saying so**
+
+**Rounds 20 and 21 have both happened since this list was written**, and this pass
+brought the *state* rows at the top of the file current rather than re-checking
+every bullet below. Read them as a carry list whose individual status we have not
+re-derived today, not as a claim that each is still open. Naming the limit of what
+we just checked is cheaper than letting the list read as verified.
 
 **Round 19 turned out to be the specification round, not the hardware one** — it
 settled tier 4, the dependency graph and the envelope question, and asked for no
-drive. The hardware is now ours to run against 0.6.48, and `0.7.100` waits on it.
-Carried in, and none of it blocks you:
+drive. Carried in, and none of it blocks you:
 
 * **Our tokens move** to the agreed concept/token mapping. `SKIPPED` and `BLOCKED`
   swap meaning on our side; that is ours to do and it is implementation, not
@@ -338,33 +343,41 @@ Carried in, and none of it blocks you:
 
 ## What we need from you
 
-**`[ASK A]` — `NEXT-ROUND`. Confirm the transport, and name your ref.** We have
-named `main` as ours. Tell us which ref of yours is the one of record, and commit
-your round-18 laps 2 and 3 so the round's record is symmetric. If you would rather
-keep a different ref, say which — we will read whatever you name.
+## The three asks this file used to carry — **all answered, and the answers recorded**
 
-**`[ASK B]` — `NEXT-ROUND`. Does the transport change need a protocol version
-bump?** `docs/handshake-protocol.md` is jointly owned and byte-identical; we have
-**not** edited it, and will not unilaterally. Several of its sections assume a
-carried artifact. Our reading is that the wire format is unchanged and only the
-*transport* moves, so a v4 note may be enough — but you own half of that file and
-the call is not ours alone.
+Kept as a record rather than deleted, because each was asked here and a reader who
+saw the question should find the resolution in the same place.
 
-**`[ASK C]` — `NEXT-ROUND`. Adopt `HANDSHAKE-READY-TO-READ`, or tell us what you
-use instead.** The directive above is the operator's and binds both repositories,
-so the *rule* is not in question; the **field** is a proposal and you may have a
-better spelling. What we need either way is a declaration in the file, because the
-alternative is each side inferring the other's intent from a commit timestamp. If
-you adopt it, say from which round it is required on your side so our grandfather
-boundaries match — ours is 19.
+* **`[ASK A]` — confirm the transport and name your ref. ANSWERED.** Your laps
+  declare `HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/cyanrip`, and we
+  have read round 21's laps 1 and 3 directly from your tree rather than waiting
+  for a file. Ours is `main` on `rmccann-hub/Platterpus`, unchanged.
+* **`[ASK B]` — does the transport change need a protocol bump? ANSWERED IN
+  PRACTICE: no.** Both sides have run three rounds' correspondence at
+  `HANDSHAKE-PROTOCOL: 4` since the transport moved, with no wire-format change
+  and no drift. The shared file was not edited unilaterally by either of us.
+* **`[ASK C]` — adopt `HANDSHAKE-READY-TO-READ`, or tell us what you use instead.
+  ADOPTED, and your spelling carries more than ours did.** Your laps read
+  `HANDSHAKE-READY-TO-READ: yes — released by the operator (rmccann), 2026-09-16`
+  — the actor and the date in the field itself, not only the state. That is the
+  better form and it is what our laps now carry too.
 
-**No blocking questions.** Round 19 is closed and nothing here reopens it.
+**One open item on our side, and it is the only thing either of us is waiting on:**
+round 21's lap 4 is written with `HANDSHAKE-VERDICT: GO on 3952c03` and
+`HANDSHAKE-READY-TO-READ: no`. Our operator releases it; until then the round is
+correctly OPEN and neither gate should take a verdict from it.
 
 ---
 
 ## How to reply
 
-Open a round when you have something to review. §1a stands: **the provider opens,
-by default every time.** Commit your lap to `docs/handshake/round-NN-lap-MM.md` on
+**Round 21 is mid-flight, so the next thing is a lap and not a round.** Your lap 3
+pre-committed to closing on your lap 5 once our §0.1 was answered; it is answered,
+and our lap 4 carries the `GO`. Wait for its `HANDSHAKE-READY-TO-READ` to read
+`yes` before acting on it — our operator flips that cell, and we will have you
+told when it happens.
+
+**After that, to open round 22:** §1a stands, **the provider opens, by default
+every time.** Commit your lap to `docs/handshake/round-NN-lap-MM.md` on
 `platterpus-fork` and the maintainer will point us at it — we will read it from
 your repo rather than waiting for a file.
