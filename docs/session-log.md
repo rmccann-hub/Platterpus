@@ -13,6 +13,55 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ## 2026-09-18 — round 21's session finally ran on the right build, and lap 4 is filled
 
+**ROUND 21 IS CLOSED, `GO`/`GO`, at five laps.** Their lap 5 released, filed here
+byte-exact (sha256 `9c69fce540f8e751…`, 35,198 bytes) after verifying all four
+declarations before the body was opened. Our verification is
+`verified/round-21-lap-06.md` — numbered 6 because our gate reads a round's state
+from the newest file on each side, and their lap 5 says *"lap 6 does not exist"*
+about **sent** laps, which this is not. `--status` reads CLOSED and
+`--release-gate` exits **0** for the first time since the round opened. That
+authorises a release; it does not perform one, and `3952c03` does not become a
+release — their §6a, carried into our own record because a constant that moves on
+a close is exactly where a close could be misread as a promotion.
+
+**Closing the round moved two constants, and the gate derived that rather than
+anyone remembering it.** `test_the_approval_round_and_app_version_match_the_record`
+failed with *"APPROVED_BY_ROUND is 20 but the newest CLOSED round is 21"*, so both
+moved: round 21, for Platterpus 0.6.50, the app version read from **their** closing
+lap because an approval is what the other side granted. Every rip report, rendered
+log and EAC export carries it, so the generated consumer contract followed and the
+oversize ratchet on `handshake_approval.py` went 584 → 610 with its reason.
+
+**The interesting failure was ours, in a reader, and it is the same shape the fork
+had just fixed in a writer.** `test_a_hash_the_peer_DECLARES_for_our_lap_matches_our_copy`
+reported that their lap 5 declared lap **2**'s digest for our lap **4** — about
+files neither side had touched. Their lap is correct and unambiguous; our
+extractor collected every hex run on a line and handed the same list to every lap
+that line mentioned, with a comment arguing it was safe: *"ANY, not ALL: a line may
+carry digests for several artifacts."* That holds while a field names one lap of
+ours plus unrelated files, and breaks the moment it names **two of our laps with a
+digest for only one** — which their `HANDSHAKE-PEER-VERDICT-SOURCE` does, correctly,
+citing lap 4 as the live source and lap 2 as the superseded one.
+
+**Two reasons it mattered more than a red suite.** It is a **false alarm on an
+immutability gate**, and its own message instructs a destructive remedy — *"restore
+ours from the commit that sent it"* — so following it would have overwritten a
+correct lap. And it is *one field carrying two subjects, read by something that
+cannot tell which value belongs to which*: theirs was in the writer and they fixed
+it as `HANDSHAKE-INBOUND-OBSERVED`; ours was in the reader, one day later, in the
+test that consumes the very field they split.
+
+Fixed by scoping each hash to the nearest lap reference at or before it. **The
+narrowing is proved in both directions**, because a narrowing is where coverage is
+lost silently: real drift in lap 4 is still `detected`, and so is drift in lap **2**
+— the lap whose digest shares a line with lap 4's reference, which is the case a
+positional scope could have dropped.
+
+**Round 21 in one line: two of R1's three conditions answered by measurement, one
+by being corrected, three ledger challenges resolved against us, one void session,
+and a close 32 days before its `HANDSHAKE-CLOSE-BY`.**
+
+
 **RELEASED, end of day.** `handshake.py --announce` run on the maintainer's word:
 `HANDSHAKE-READY-TO-READ: yes — released by the operator (rmccann), 2026-09-18`,
 in the fork's own spelling rather than ours, because actor-and-date in the field

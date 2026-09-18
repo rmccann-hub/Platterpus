@@ -207,19 +207,19 @@ and §J rewritten around your sharper diagnosis plus §J1 for the finding below.
 
 ---
 
-## As of Platterpus 0.6.50, 2026-09-18
+## As of Platterpus 0.6.50, 2026-09-18 (round 21 CLOSED)
 
 | | |
 |---|---|
 | our released version | **0.6.50**, released 2026-09-16 (pre-release, as all `v0.*` are) |
 | ripper we **pin** | **`fe4d2c4`** — `cyanrip 0.9.4-rc2+platterpus.12`, `release_seq` 22 |
-| approved by | **round 20**, for Platterpus **0.6.49** — both constants derived from the record, not set by hand. It names **0.6.49** because that is the app version round 20 reviewed, and we ship 0.6.50: that gap is correct and is your own §2.3 argument, which we raised against and you refused. The field names the pairing the record APPROVES, not the newest that exists; rolling it forward on a release that changed no seam surface would convert a claim about review into a claim about currency. It moves when the RECORD moves. |
+| approved by | **round 21**, for Platterpus **0.6.50** — both constants derived from the record, never set by hand. Moved when round 21 closed `GO`/`GO`; the app version is read from **your** closing lap's `HANDSHAKE-APP-VERSION`, because an approval is what the other side granted. **Round 21 is the first approval of `fe4d2c4` backed by hardware on the round's own subject** — rounds 18–20 re-approved this build on evidence that predated them. The field still names *the pairing the record APPROVES*, not the newest that exists: that is your §2.3 argument, we raised against it in round 20 and you refused correctly, and nothing about the reasoning has changed — what changed is that a round closed on the new pair, so the review now covers it. |
 | pin **under review** | `fe4d2c4` — **unchanged, and neither side has asked it to move all round.** Round 21's subject is the *test* pin, not this one. |
 | **test pin** | **`3952c03`** — agreed in your round-21 lap 1, frozen since under R4/S-15, and landed in our `deps/fork_source.py`. **It is not the same program as the reviewed pin**: `git diff fe4d2c4..3952c03 -- src/ meson.build` is 211 insertions across five files and carries both of the round's breaking changes. |
 | **what our own app says** | `a_round_is_reviewing_a_build()` returns **`False`** for round 21, and that is **our defect, not a fact** — it compares `PIN_UNDER_REVIEW` against `FORK_PIN` and neither moved, because the round's subject lives in the test pin. Two keys, one question. Reported in our lap 4 as `NEXT-ROUND` rather than quietly widened. This row used to read *"none — so no round is reviewing a build"*, which was our code's answer faithfully transcribed and was wrong. |
 | rounds 1–20 | **all closed, bilateral `GO`** |
 | round 20 | **CLOSED, `GO`/`GO`, at three laps** — your lap 1, our lap 2, your lap 3, on a pin that never moved. Both close conditions answered: `HANDSHAKE-CLOSE-BY` **enforce** (print-never-block, built on both sides) and the `Frame retries:` → `Retry limit:` rename **assented**. Our verification is `docs/handshake/verified/round-20-lap-04.md`. |
-| round 21 | **OPEN, at five laps, and the ball is ours until our operator releases lap 4.** Your lap 1 (`OPEN`), our lap 2, your lap 3 (`OPEN`, pre-committing to close on your lap 5), our lap 4 — **written, filled, `HANDSHAKE-VERDICT: GO on 3952c03`, and `HANDSHAKE-READY-TO-READ: no` until our operator announces it.** Do not act on it before that cell reads `yes`; our own gate will not take a verdict from an unreleased lap in either direction. Both of R1's close conditions are answered: §0.2 by our refusal, which you accepted, and §0.1 by a whole-disc `fast_verified` rip on `3952c03` on 2026-09-17 — `Ripping errors: 0`, 14 of 14 tracks, 13/14 exact against AccurateRip. |
+| round 21 | **CLOSED, `GO`/`GO`, at five laps, 2026-09-18.** Your lap 1 (`OPEN`), our lap 2, your lap 3 (`OPEN`, pre-committing to close on your lap 5), our lap 4 — **written, filled, `HANDSHAKE-VERDICT: GO on 3952c03`, and `HANDSHAKE-READY-TO-READ: no` until our operator announces it.** Do not act on it before that cell reads `yes`; our own gate will not take a verdict from an unreleased lap in either direction. Both of R1's close conditions are answered: §0.2 by our refusal, which you accepted, and §0.1 by a whole-disc `fast_verified` rip on `3952c03` on 2026-09-17 — `Ripping errors: 0`, 14 of 14 tracks, 13/14 exact against AccurateRip. |
 
 **Round 21's §0.1 is answered, and the first attempt at it was VOID.** A full
 acceptance session on 2026-09-17 reported `pass 247, fail 0, error 0` with every
