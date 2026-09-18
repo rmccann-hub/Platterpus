@@ -81,6 +81,53 @@ lap. `--status` still reports round 21 **OPEN**, correctly: the lap is written b
 `HANDSHAKE-READY-TO-READ` is `no` until the operator announces it, and the gate
 refuses a verdict from an unreleased lap in either direction.
 
+**Then, getting ready for their lap 5, the day's real finding — in the one
+document the fork opens first.** `platterpusstatus.md` carried
+`| round 21 | **not open.** Yours to open |` while round 21 had four laps on disk
+and our lap 4 was written. True on 2026-09-16, false from the moment their lap 1
+landed. Also stale: the test pin read `none`, and `pin under review` read *"none —
+so no round is reviewing a build"*, which is our own
+`a_round_is_reviewing_a_build()` defect transcribed as though it were a fact.
+
+**The finding is not the stale row. It is that the gate written for exactly that
+sentence passed over it.** `test_the_standing_status_does_not_lag_the_handshake_record`
+exists *because* the file once announced *"round 15 — not open, and it is yours to
+open"* while rounds 15–18 had closed. It asserts the newest round's **number**
+appears in the text. The number 21 appears — **inside the false sentence.** The
+gate written for that wording sailed over the same wording one round later. That
+is *can it be satisfied by the wrong thing?*, and the remedy is this repo's own:
+where a check matches on a label, make it also require the subject.
+
+**Both tests kept, and the proof is the part worth copying.** The new one derives
+the round's state from `handshake.round_status()` — the gate's own computation, so
+two surfaces cannot disagree about a round — and forbids a *denial* of an open
+round without grading prose. `scripts/revert_probe.py` was run with **one revert
+and two expectations**: restoring the `not open` row is `detected` against the new
+test and `unaffected` against the old one. One run demonstrating both that the new
+check works *and* that the old one is blind to the case; neither expectation shows
+that alone. Sent to the fork as lap 4 §H3.
+
+**And the follow-through, because the gate's narrowness means one stale row is no
+evidence about the rest.** Swept the whole file: the last third was written as of
+round 19 — *"What we owe round 20"*, three `NEXT-ROUND` asks, and *"No blocking
+questions. Round 19 is closed."* All three asks turned out to be **answered**,
+verified against their filed laps rather than remembered (they named their repo,
+the protocol has run three rounds at v4 with no bump, and they adopted
+`HANDSHAKE-READY-TO-READ` in a better spelling than ours — actor and date in the
+field, which our laps now carry too). The carry list of round-19/20 engineering
+items was **not** re-audited, and the file now says so rather than letting it read
+as verified — which is the same failure as the row that started the sequence.
+
+**Round 22's queue is recorded in `TASKS.md` with a heading that is the point of
+the section:** none of it may be built before lap 4 is released, because the lap
+states in a file we are about to send that two of those items are *"not fixed, and
+reported rather than quietly widened"*. Landing either early makes our own sent
+lap false — which is §A of that same lap. One row moved rather than added: the
+round-20 §F reconciler was blocked for a *stated* reason (the fork's half was a
+placement fix queued for round 21, so a reconciler built earlier would have been
+pinned to a log shape about to stop existing). Both shipped in `3952c03` and we
+now hold a real log from the new shape. The stated blocker has expired.
+
 ---
 
 ## 2026-09-16 (later) — v0.6.50 shipped, and the TASKS sweep
