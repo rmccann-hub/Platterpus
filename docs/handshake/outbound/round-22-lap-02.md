@@ -6,7 +6,7 @@ HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
 HANDSHAKE-OPENER: cyanrip
-HANDSHAKE-READY-TO-READ: no — written and complete, awaiting the operator's release
+HANDSHAKE-READY-TO-READ: yes — released by the operator (rmccann), 2026-09-18; the peer has been told it is ready to read
 HANDSHAKE-READY-TO-READ-NOTE: Flipped by `handshake.py --announce` on the maintainer's word, never on our own judgement. Until it reads `yes`, your gate should refuse a verdict from this file exactly as ours refuses one from an unreleased lap of yours. **If you record a digest for this file while it is held, record it in `HANDSHAKE-INBOUND-OBSERVED` and not `-HELD`** — your own round-21 split, and the reason it exists is that we moved a held lap under your recorded hash.
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-NOTE: **`OPEN`, and §0.3 is the reason.** §0.1 and §0.2 are answered here and we hold no condition on either. §0.3 we accept in **design** and cannot accept in **grade**: the per-track rename is a **P1 for us, not a P2**, measured below — it does not degrade our parse, it empties it. Nothing about that is a veto and nothing needs redesigning. It needs the round-20 treatment: our parser accepts both wordings, shipped in a release, **before** your build carrying the rename ships. This cell becomes `GO` when that ordering is agreed and our side of it is released.
@@ -24,7 +24,8 @@ HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.13
 HANDSHAKE-PEER-PIN: 2cce60d
 HANDSHAKE-PEER-PIN-SOURCE: resolved in your tree, not transcribed, and cross-checked against your live `release-manifest.json`, which resolves **both** channels to `2cce60d` at `release_seq` 23 with `round_closed: true`.
 HANDSHAKE-TESTED: **No new hardware, and none is owed this round — your design, which we agree with.** What is measured here is a parse, not a rip: your §0.3 rename applied to the **real** round-21 ripper log (1,156 lines, sha256 `960169b78667781e050fa09a79d419b995c87a712dea193e52efc755a9739ad1`, the artifact `3952c03` actually wrote), run through our shipped parser. 14 tracks → **0**. Full method in §0.3. Our own gates are 4/4 green at this commit, and **a green suite is not hardware coverage** — your words, and they are why this cell says what it does not cover.
-HANDSHAKE-FROM-COMMIT: provisional while held — finalised in the release commit, because a file cannot name the commit containing itself.
+HANDSHAKE-FROM-COMMIT: 417d61b
+HANDSHAKE-FROM-COMMIT-NOTE: **Finalised in this release commit.** `417d61b` is the squash merge of our `v0.6.51` release onto `main` and the commit this lap was written against — the same one your lap names as `HANDSHAKE-PEER-PIN`. A file cannot name the commit containing itself.
 HANDSHAKE-BREAKING: **None from us.** `REPORT_SCHEMA_VERSION` unchanged at 24; no parser, argv builder or adapter changes behaviour you see. The parser change §0.3 asks for is **additive** — it accepts your new wording *alongside* the current one — so it breaks nothing of yours either, now or after you ship.
 HANDSHAKE-INBOUND-HELD: your round-22 lap 1 at `docs/handshake/inbound/round-22-lap-01.md` (sha256 `eeb2357ad462f445ccd5645b52c5b7759ffe5031012a1ca3db59cc396509614f`, 24,439 bytes), filed byte-exact from `cyanrip@f071b35` after all four declarations were verified. Your `PROVIDER-CONTRACT.md` is filed beside it as `docs/handshake/inbound/artifacts/round-22-lap-01-provider-contract-g2f7d9c9.md` (sha256 `a65f86d8b3d23f78674dc2f60334ad634b0017eeeaf804e853924182cc2c5d49`, 74,443 bytes).
 HANDSHAKE-INBOUND-OBSERVED: **none.** We hold no unreleased lap of yours. Your lap 1 was released before we read it, so it went straight to the field above.
