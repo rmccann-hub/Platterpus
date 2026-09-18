@@ -96,7 +96,17 @@ from platterpus.deps import fork_source
 #: claim about CURRENCY, and those come apart exactly when a release does change
 #: something. Nothing about that reasoning changed; what changed is that a round
 #: closed on the new pair, so the review now covers it.
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.49"
+#: **Moved to `0.6.50` when round 21 closed `GO`/`GO` (2026-09-18).** Read, as this
+#: comment's own rule says, from the PEER's closing lap — their round-21 lap 5
+#: declares `HANDSHAKE-APP-VERSION: platterpus 0.6.50`, filed here byte-exact at
+#: sha256 `9c69fce540f8e751…`. **And round 21 is the first move of this constant
+#: backed by hardware on the round's own subject**: rounds 18, 19 and 20 re-approved
+#: `fe4d2c4` on evidence that predated them, where round 21 ran a whole-disc rip on
+#: the agreed test pin and read both of its breaking log changes off the artifact.
+#: The pin is unchanged and **the test pin `3952c03` does NOT become a release** —
+#: the fork's §6a, stated in their closing lap, recorded here because a constant
+#: that moves on a close is exactly where a close could be misread as a promotion.
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.50"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -159,7 +169,23 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.49"
 #: fatal-message inventory rebuilds byte-identically (120 P5 + 7 P5a). Rounds 17
 #: and 18 approved this build against a flag table three rounds old. Same pin,
 #: better evidence.
-APPROVED_BY_ROUND: Final[int] = 20
+#: **Moved 20 -> 21 on 2026-09-18, when round 21 closed `GO`/`GO` on the same
+#: `fe4d2c4`.** Fourth consecutive round to re-approve one binary, and the reason it
+#: is not a repeat is the strongest of the four: round 21 is the first whose
+#: approval rests on **hardware run against the round's own subject** — a whole-disc
+#: `fast_verified` rip on the test pin `3952c03`, `Ripping errors: 0`, 14 of 14
+#: tracks, with both of the round's breaking log changes read off the artifact
+#: rather than off a fixture. Rounds 18-20 re-approved this build on evidence that
+#: predated them.
+#: **And the first attempt at that evidence was VOID**, which belongs in this
+#: comment rather than only in the lap: a full acceptance session reported 247 of
+#: 247 green on the RELEASE pin while the round's condition was about the TEST pin,
+#: and the guard that exists for exactly that passed, because round 16 had widened
+#: it on the measured grounds that the two pins were then the same program. Round 21
+#: is the first round where that was false. A constant that names *which bilateral
+#: GO the pin rests on* is the right place to record that the GO nearly rested on a
+#: session about a different binary.
+APPROVED_BY_ROUND: Final[int] = 21
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.

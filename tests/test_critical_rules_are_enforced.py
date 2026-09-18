@@ -1373,7 +1373,19 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the shipped version and the fork refused it correctly; the note records
     # that the reasoning did not change, the RECORD did. Without it the next
     # reader sees a constant chasing __version__ and "helpfully" automates it.
-    "handshake_approval.py": 584,
+    # **584 -> 610 on 2026-09-18 (+26)**: round 21 closed, so both constants moved
+    # again — and once more every one of the lines is reasoning, not values. Two
+    # facts needed recording where a future reader will look for them. Round 21 is
+    # the first approval of `fe4d2c4` backed by hardware on the round's OWN subject
+    # (rounds 18-20 re-approved it on evidence that predated them), and the first
+    # attempt at that hardware was **void** — 247 of 247 green on the release pin
+    # while the condition was about the test pin, with the guard for exactly that
+    # passing because round 16 had widened it when the two pins were the same
+    # program. A constant naming *which bilateral GO the pin rests on* is the right
+    # place to record that the GO nearly rested on a session about a different
+    # binary. The queued refactor still stands and this is still not the commit for
+    # it: a round close is when the file is being read, not when it should move.
+    "handshake_approval.py": 610,
     "help_content.py": 561,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because

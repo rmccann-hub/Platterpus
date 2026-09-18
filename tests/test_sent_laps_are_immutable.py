@@ -81,6 +81,17 @@ SENT_LAPS: dict[str, str] = {
     # A pin that had to be remembered when the peer happens to confirm is a pin
     # that eventually is not added.
     "outbound/round-21-lap-02.md": "f6fbc01fe61efea288b1144c0f29508078164e17a2fa57a041b6aec1a5c02774",
+    # Round 21 lap 4. **The closing lap of our side**, released 2026-09-18 and
+    # confirmed by their lap 5 at sha256 `a0b1719d…`, blob `f1714da1…`, **52,821
+    # bytes**, *"read at your `5ea3d2c` on `main`"* and re-derived on their filed
+    # copy rather than taken from our message. All three values reproduce here.
+    #
+    # **It was revised five times while held and is frozen from the release
+    # commit**, which is the whole point of the release cell: an unannounced lap has
+    # not been sent, so its bytes are not yet anything anyone relies on. Their own
+    # `-OBSERVED-HISTORY` records two of those intermediate readings, and the first
+    # of them is what would have failed their filing had we not flagged it.
+    "outbound/round-21-lap-04.md": "a0b1719db336dbcc74bd5ef4be24ee614ebb257619c14919bd0a52be274e88a6",
     # Round 16 lap 16. **The closing lap, peer-confirmed twice over.** Their lap 17
     # names it in both line 11 (`HANDSHAKE-PEER-VERDICT-SOURCE`) and line 25
     # (`HANDSHAKE-INBOUND-HELD`) at sha256/16 `18cd6588321002ac`, 14,032 bytes,
@@ -526,23 +537,63 @@ def _our_lap_path(name: str) -> Path | None:
 
 
 def _peer_references() -> list[tuple[str, str, list[str]]]:
-    """``(inbound lap, our lap filename, hashes declared on that line)``.
+    """``(inbound lap, our lap filename, hashes declared FOR THAT LAP on that line)``.
 
     One entry per (peer lap, lap of ours it names). The hash list is usually empty —
     most laps name what they hold without publishing a digest for it.
+
+    **Hashes are scoped POSITIONALLY to the lap they follow, and that is the whole
+    substance of this function.** The first version collected every hex run on the
+    line and handed the same list to every lap the line mentioned, with a comment
+    arguing it was safe: *"ANY, not ALL: a line may carry digests for several
+    artifacts, so the question is whether ours is among them."* That reasoning holds
+    while a field names **one** lap of ours plus unrelated files. It breaks the
+    moment a field names **two of our laps and publishes a digest for only one**.
+
+    Round 21 lap 5 did exactly that, correctly and unambiguously, in two fields:
+    ``HANDSHAKE-PEER-VERDICT-SOURCE`` cites our lap 4 as the live source and then
+    explains that the **superseded** source was our lap 2, quoting lap 2's sha256.
+    All-to-all pairing therefore claimed the peer declared lap 2's digest *for our
+    lap 4*, and the test failed with *"either the file was edited after it was sent
+    … or the peer is holding different bytes"* — **about a file neither side had
+    touched.**
+
+    Two reasons this mattered more than a red suite. The failure is a **false
+    alarm on an immutability gate**, and its own message instructs a destructive
+    remedy — *"restore ours from the commit that sent it"* — so following it would
+    have overwritten a correct lap. And it is the same shape the fork had just
+    fixed on their side of the same field: **one field carrying two subjects, read
+    by something that cannot tell which value belongs to which.** Theirs was in the
+    writer; ours is in the reader.
+
+    Scoping rule: a hash belongs to the nearest lap reference **at or before** it.
+    Hashes preceding every reference are attributed to nothing, which is correct —
+    an unattributed digest is not evidence about any particular lap. A line naming
+    exactly one lap is unchanged by this, so the lap-14 case (our lap plus a digest
+    for ``fullacceptance.txt``) still works the way its comment describes.
     """
     out: list[tuple[str, str, list[str]]] = []
     for path in sorted(HANDSHAKE.glob("inbound/round-*-lap-*.md")):
         for line in path.read_text(encoding="utf-8").splitlines():
             if line.split(":", 1)[0] not in _PEER_FIELDS:
                 continue
-            refs = list(_LAP_REF.findall(line))
-            for rnd, stem, group in _LAP_BRACE.findall(line):
-                refs += [(rnd, stem + digit) for digit in group.split(",")]
-            hashes = _HEX.findall(line)
-            for rnd, lap in refs:
+            # (start offset, our-lap filename) for every reference, in line order.
+            spans: list[tuple[int, str]] = [
+                (m.start(), f"round-{int(m.group(1)):02d}-lap-{int(m.group(2)):02d}.md")
+                for m in _LAP_REF.finditer(line)
+            ]
+            for m in _LAP_BRACE.finditer(line):
+                rnd, stem, group = m.group(1), m.group(2), m.group(3)
+                spans += [
+                    (m.start(), f"round-{int(rnd):02d}-lap-{int(stem + d):02d}.md")
+                    for d in group.split(",")
+                ]
+            spans.sort()
+            hits = [(m.start(), m.group(1)) for m in _HEX.finditer(line)]
+            for index, (start, name) in enumerate(spans):
+                end = spans[index + 1][0] if index + 1 < len(spans) else len(line)
                 out.append(
-                    (path.name, f"round-{int(rnd):02d}-lap-{int(lap):02d}.md", hashes)
+                    (path.name, name, [h for at, h in hits if start <= at < end])
                 )
     return out
 

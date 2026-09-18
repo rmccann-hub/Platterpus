@@ -11,6 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+
+- Rips are now stamped **"verified by handshake round 21"** for Platterpus
+  **0.6.50**, not round 20 for 0.6.49. Round 21 closed `GO`/`GO` with the cyanrip
+  fork on 2026-09-18 on the same pin `fe4d2c4`, and both approval constants moved
+  with the record — the round number and app version appear in every rip report,
+  rendered log and EAC-compatible export. **This is the first approval of that
+  build backed by hardware on the round's own subject**; rounds 18–20 re-approved
+  it on evidence that predated them. The generated consumer contract follows.
+
 ### Fixed
 
 - The acceptance run now refuses to grade a session against the wrong cyanrip
