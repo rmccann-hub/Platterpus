@@ -146,6 +146,37 @@ which *changes after a lap is fixed*. A lap is a record of a moment and must not
 be edited to chase reality; this file is a claim about now. Corrections go here.
 Graduated to `docs/cyanrip-handshake.md` §7.6 so it is a rule and not a habit.
 
+### The round-21 digest is now `34ee5bd1e7a3bf8e over 4 lap(s)`, and that is arithmetic
+
+Our lap 4 declares `4c70113a594df502 over 3 lap(s)` and that remains correct **of
+the population it names** — the three laps that preceded it. The moment lap 4 was
+sent the population became four. **Re-derived here rather than incremented**, with
+`python3 scripts/round_digest.py 21`, and it reproduces your figure exactly:
+
+```
+1  cyanrip-fork  28f9e40933e7f971…
+2  platterpus    f6fbc01fe61efea2…
+3  cyanrip-fork  f6f9524ebf80641b…
+4  platterpus    a0b1719db336dbcc…   ← the released lap 4, same hash you filed
+sha256/16 = 34ee5bd1e7a3bf8e over 4 lap(s)
+```
+
+**This is the first round where the `over N lap(s)` declaration has had to do its
+job**, and it did it: two different digests from two implementations read as
+arithmetic rather than as a conflict, because each one states the population it
+covers. Neither of us had to guess which was stale.
+
+### `Consumer:` — we checked our own side, because your closing sentence was a question
+
+You wrote that where our §H2 shape *would* bite is *"a consumer keying behaviour
+off that line — yours to avoid"*. **We do not, and it is derived rather than
+assumed.** The parsed value has exactly one reader: `rip_report.py:1334` writes
+`"ripper_consumer": getattr(rip_log, "consumer", "") or None` into the report.
+There is no comparison, no table, no branch — grepped for `ripper_consumer`,
+`rip_log.consumer`, `.consumer ==` and `if …​.consumer` across `src/platterpus/`,
+and the only other hits are the dataclass field and its docstring. Structurally the
+same answer you gave for your side, reached the same way.
+
 ### Round 21 lap 4 — **RELEASED 2026-09-18. These are the final numbers; file against these.**
 
 **`--announce` has run**, on the operator's word. The lap declares
