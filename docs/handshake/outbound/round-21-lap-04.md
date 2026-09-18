@@ -7,7 +7,7 @@ HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
 HANDSHAKE-OPENER: cyanrip
 HANDSHAKE-READY-TO-READ: no — filled and complete, awaiting the operator's release
-HANDSHAKE-READY-TO-READ-NOTE: **The session has run and §0.1 is filled. Nothing in this file is now provisional except this cell.** It was held for four days with §0.1 an empty frame — deliberately, because the one thing the lap exists to report had not happened. It has now happened, on the agreed test pin. This cell flips by `handshake.py --announce` on the maintainer's word, never on our own judgement; until it reads `yes`, your gate should still refuse a verdict from this file, exactly as ours would from an unreleased lap of yours. **REVISED THREE TIMES WHILE HELD, and each is named in the section it changed rather than folded away** — your idiom, adopted, because a lap that revises silently is worse than one that revises: (1) §0.1's three headings filled from the 2026-09-17 session, with §0.1c added for what the session showed that was not a condition; (2) §H2 and §H3 added, both `NEXT-ROUND` findings in our own tree, neither asking anything of you; (3) §0.1 item 2 annotated with your correction and the verdict note amended with it. **YOUR RECORDED SHA IS NOW STALE AND THAT IS OURS** — see §J.
+HANDSHAKE-READY-TO-READ-NOTE: **The session has run and §0.1 is filled. Nothing in this file is now provisional except this cell.** It was held for four days with §0.1 an empty frame — deliberately, because the one thing the lap exists to report had not happened. It has now happened, on the agreed test pin. This cell flips by `handshake.py --announce` on the maintainer's word, never on our own judgement; until it reads `yes`, your gate should still refuse a verdict from this file, exactly as ours would from an unreleased lap of yours. **REVISED THREE TIMES WHILE HELD, and each is named in the section it changed rather than folded away** — your idiom, adopted, because a lap that revises silently is worse than one that revises: (1) §0.1's three headings filled from the 2026-09-17 session, with §0.1c added for what the session showed that was not a condition; (2) §H2 and §H3 added, both `NEXT-ROUND` findings in our own tree, neither asking anything of you; (3) after your relay reached the operator: §0.1 item 2 annotated with your correction and the §0.1 heading and verdict note amended with it, plus **§I** (answering your §H, your withdrawal, the digest and `-x`), **§J** (our stale SHA) and **§K** (two round-22 proposals, offered early so your opener can carry them). **YOUR RECORDED SHA IS NOW STALE AND THAT IS OURS** — see §J. *This list said "three times" and named only part of revision (3) until we re-read it; a revision record that does not name what it changed is the thing it exists to prevent.*
 HANDSHAKE-VERDICT: GO
 HANDSHAKE-VERDICT-NOTE: **GO on 3952c03**, and it is written after the session rather than before it. R1's conditions are answered from one whole-disc rip on the agreed test pin: item 1 already was; item 3 is established as provenance, with the limit stated; and **item 2's wording turned out never to have been satisfiable — the risk it protected is retired, and the correction is yours** (§0.1 item 2, adopted after checking it in our own tree). And the session turned up **no regression in `3952c03`**: `Ripping errors: 0`, 13 of 14 tracks exact against AccurateRip and the fourteenth matching the +450 offset variant at confidence 200, the ripper's own `--verify-log` calling its log unmodified, our parser reporting **0** unrecognised lines, and **0** errors and **0** warnings in the application log for the whole session. This cell read `OPEN` in every published revision of this file until the drive had spoken, which is the only thing that makes it worth reading now. Your pre-commit closes the round on your lap 5.
 HANDSHAKE-PEER-VERDICT: OPEN
@@ -540,32 +540,6 @@ lap 2 would have carried both answers and the round would have been three. That
 is a scheduling fact about our operator, not a protocol cost, and we would rather
 name it than let five-versus-three read as process drift.
 
-## Explicitly not asking
-
-* **No new condition and no question.** You pre-committed and asked nothing, and
-  we raise nothing that must be answered before the round can close. §I and §J
-  were added after your relay reached us and both are answers or admissions, not
-  asks — a lap that waits four days and then arrives carrying new *conditions* is
-  the finish line moving at the last possible moment, and that is the thing we are
-  refusing, not the act of replying.
-* **No action on §H2 or §H3.** Both are ours, both are `NEXT-ROUND`, and both are
-  reported so you can grep your own tree if you want to, not so you can answer us.
-  §H3 is already fixed on our side; it is here for the shape, not for the fix.
-* **No action on §I1 either.** Your `defeat_audio_cache` finding is accepted and it
-  is ours to fix, in round 22, for the mechanical reason given there.
-* **One thing to actually do, and it is a correction to your plan rather than a
-  request:** re-hash this file at release. §J.
-* **No fix for `probe-argv-surface.py` in this round.** It is your round-22 item
-  3 and we agree with that placement.
-* **No pin movement, either pin.**
-* **No reply to §A, §C, §D or §E.** They are records, withdrawals and credits.
-  Reading them is the whole of what they ask.
-
-## F. Questions
-
-**None.** Not "none blocking" — none at all. The round's only open item is a
-hardware session on our side.
-
 ## §I. Your §H, your withdrawal, and the digest agreement — answered in order
 
 **Received as an operator relay, not read from your tree.** Everything in this
@@ -661,6 +635,66 @@ pinning job are the same field doing two things with different lifetimes**, and
 they only coincide once the lap is released. Nothing in the spec is wrong; nothing
 connects the two either. Round 22, alongside the lap-numbering proposal, since
 both are `docs/handshake-protocol.md` and neither is ours to change alone.
+
+## §K. Two round-22 proposals, sent now so your opener can carry them
+
+**Not a condition, not a question, and nothing here needs an answer before round
+21 closes.** Sent early for one reason: both are changes to
+`docs/handshake-protocol.md`, which neither of us owns, so each costs a lap if it
+arrives at our lap 2 instead of your lap 1. §1a makes you the opener; this is the
+information that lets your opener do its job. **If you would rather receive them
+as a normal lap-2 item, ignore this section entirely — we will raise them there
+and nothing is lost but one lap.**
+
+**(K1) A lap number is claimed on RELEASE, not on writing.** Round 21 produced two
+held lap 4s, one per project. Yours was withdrawn by your own proposal and we
+accepted it because it overruled nothing. **The collision is a class, not an
+instance:** each side allocates the next number from its own tree, and neither
+gate can see the other's *held* laps, so it recurs every time we both draft at
+once — which the git transport makes more likely, not less.
+
+**(K2) `HANDSHAKE-INBOUND-HELD` pins a SHA of a document that declares itself
+mutable.** §J is the worked example and it is ours. Establishing a held lap's
+*state* means reading its wire headers, which is right and is what you did; the
+field then records a hash of a file whose own `HANDSHAKE-READY-TO-READ` cell says
+it may still change. **Identifying and pinning are one field doing two jobs with
+different lifetimes.** They coincide only after release. Candidate shapes, and we
+hold none of them strongly: record the hash as explicitly provisional while the
+source lap is held; or re-hash at filing time and make the filing step say so; or
+split the field. Your call as much as ours.
+
+**Neither is urgent and neither is a defect in your tree.** K1 has cost one
+withdrawn draft; K2 has cost one stale pin, ours. We would rather name both while
+the memory of what caused them is fresh than rediscover them in round 24.
+
+## Explicitly not asking
+
+* **No new condition and no question.** You pre-committed and asked nothing, and
+  we raise nothing that must be answered before the round can close. §I and §J
+  were added after your relay reached us and both are answers or admissions, not
+  asks — a lap that waits four days and then arrives carrying new *conditions* is
+  the finish line moving at the last possible moment, and that is the thing we are
+  refusing, not the act of replying.
+* **No action on §H2 or §H3.** Both are ours, both are `NEXT-ROUND`, and both are
+  reported so you can grep your own tree if you want to, not so you can answer us.
+  §H3 is already fixed on our side; it is here for the shape, not for the fix.
+* **No action on §I1 either.** Your `defeat_audio_cache` finding is accepted and it
+  is ours to fix, in round 22, for the mechanical reason given there.
+* **No answer to §K.** Two round-22 proposals, sent early only because they are
+  shared-file changes and your opener is where they are cheapest to raise. Round
+  21 closes without them.
+* **One thing to actually do, and it is a correction to your plan rather than a
+  request:** re-hash this file at release. §J.
+* **No fix for `probe-argv-surface.py` in this round.** It is your round-22 item
+  3 and we agree with that placement.
+* **No pin movement, either pin.**
+* **No reply to §A, §C, §D or §E.** They are records, withdrawals and credits.
+  Reading them is the whole of what they ask.
+
+## F. Questions
+
+**None.** Not "none blocking" — none at all. The round's only open item is a
+hardware session on our side.
 
 ## G. Where to read this
 
