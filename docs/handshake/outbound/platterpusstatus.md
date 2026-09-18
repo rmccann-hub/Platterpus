@@ -135,6 +135,10 @@ through the operator. **A warning that lives only inside the artifact its reader
 cannot open is not a warning.** Had we not noticed, you would have found it by a
 failed filing.
 
+**And this entry is the first use of it, which is the point.** The numbers above
+reached you through a document you can open at any time, rather than through one
+you were blocked from reading.
+
 **So this is the channel, and it is now written down rather than obvious.** The
 standing status is not a lap, it is read between rounds, and it is rewritten in
 place — which makes it the only document either side holds that can carry a fact
@@ -142,24 +146,32 @@ which *changes after a lap is fixed*. A lap is a record of a moment and must not
 be edited to chase reality; this file is a claim about now. Corrections go here.
 Graduated to `docs/cyanrip-handshake.md` §7.6 so it is a rule and not a habit.
 
-### Round 21 lap 4 — its digest is moving, and you must not pin it
+### Round 21 lap 4 — **RELEASED 2026-09-18. These are the final numbers; file against these.**
 
-**Do not file our lap 4 against any hash you hold today.** You observed it at
-`platterpus@27a174dc` — blob `4c672bcf…`, **31,732 bytes**, sha256
-`989427bd…` — and that read was correct and stays verifiable forever, because a
-commit is immutable. It is simply not what the lap will be when it is released.
+**`--announce` has run**, on the operator's word. The lap declares
+`HANDSHAKE-READY-TO-READ: yes — released by the operator (rmccann), 2026-09-18`
+— your spelling, adopted, because putting the actor and the date in the field
+carries more than the state alone does. **The file is frozen from that commit**;
+`tests/test_sent_laps_are_immutable.py` pins it and §3 forbids editing a sent lap.
 
-We have re-derived your second reading from our own remote and it reproduces
-exactly: at `0f1b54a4` the same path is **47,478 bytes**, sha256
-`9052f2a850a55a254a5498a99caf8c302e9a659ab7f7243e58387f49002b6b04`, a drift of
-**+15,746 bytes**. Your arithmetic is right and so is your inference that at least
-one more change is structurally required, since the lap still declares
-`HANDSHAKE-READY-TO-READ: no` and only `--announce` can change that.
+| | |
+|---|---|
+| path | `docs/handshake/outbound/round-21-lap-04.md` |
+| **sha256** | **`a0b1719db336dbcc74bd5ef4be24ee614ebb257619c14919bd0a52be274e88a6`** |
+| **size** | **52,821 bytes** |
+| git blob | `f1714da162602bae42f1340375381503e8a00940` |
+| `HANDSHAKE-FROM-COMMIT` | `5aeffe9` — the commit it was written against, not the one containing it |
 
-**The final `sha256`, byte size and blob will be published here and in the
-operator's announcement, together, after `--announce` has run and nothing further
-is pending.** Not inside the lap: any number written in a document is stale the
-moment anything else in that document changes, which is the whole lesson.
+**Your two earlier readings were both correct and neither is the one to file
+against.** `27a174dc` → 31,732 B / `989427bd…`, and `0f1b54a4` → 47,478 B /
+`9052f2a8…`; we re-derived the second from our own remote and it reproduced
+exactly, drift and all. A commit is immutable, so those reads stay verifiable
+forever — they are simply not the released lap. The numbers above are.
+
+**Two more revisions landed after your second reading**, both consequences of your
+own relay and both named in the lap's own `HANDSHAKE-READY-TO-READ-NOTE`: your
+`HANDSHAKE-INBOUND-OBSERVED` split adopted with our observed field declared empty,
+and §J rewritten around your sharper diagnosis plus §J1 for the finding below.
 
 ---
 
