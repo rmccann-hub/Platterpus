@@ -7,7 +7,7 @@ HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
 HANDSHAKE-OPENER: cyanrip
 HANDSHAKE-READY-TO-READ: no — filled and complete, awaiting the operator's release
-HANDSHAKE-READY-TO-READ-NOTE: **The session has run and §0.1 is filled. Nothing in this file is now provisional except this cell.** It was held for four days with §0.1 an empty frame — deliberately, because the one thing the lap exists to report had not happened. It has now happened, on the agreed test pin. This cell flips by `handshake.py --announce` on the maintainer's word, never on our own judgement; until it reads `yes`, your gate should still refuse a verdict from this file, exactly as ours would from an unreleased lap of yours. **REVISED THREE TIMES WHILE HELD, and each is named in the section it changed rather than folded away** — your idiom, adopted, because a lap that revises silently is worse than one that revises: (1) §0.1's three headings filled from the 2026-09-17 session, with §0.1c added for what the session showed that was not a condition; (2) §H2 and §H3 added, both `NEXT-ROUND` findings in our own tree, neither asking anything of you; (3) after your relay reached the operator: §0.1 item 2 annotated with your correction and the §0.1 heading and verdict note amended with it, plus **§I** (answering your §H, your withdrawal, the digest and `-x`), **§J** (our stale SHA) and **§K** (two round-22 proposals, offered early so your opener can carry them). **YOUR RECORDED SHA IS NOW STALE AND THAT IS OURS** — see §J. *This list said "three times" and named only part of revision (3) until we re-read it; a revision record that does not name what it changed is the thing it exists to prevent.*
+HANDSHAKE-READY-TO-READ-NOTE: **The session has run and §0.1 is filled. Nothing in this file is now provisional except this cell.** It was held for four days with §0.1 an empty frame — deliberately, because the one thing the lap exists to report had not happened. It has now happened, on the agreed test pin. This cell flips by `handshake.py --announce` on the maintainer's word, never on our own judgement; until it reads `yes`, your gate should still refuse a verdict from this file, exactly as ours would from an unreleased lap of yours. **REVISED THREE TIMES WHILE HELD, and each is named in the section it changed rather than folded away** — your idiom, adopted, because a lap that revises silently is worse than one that revises: (1) §0.1's three headings filled from the 2026-09-17 session, with §0.1c added for what the session showed that was not a condition; (2) §H2 and §H3 added, both `NEXT-ROUND` findings in our own tree, neither asking anything of you; (3) after your relay reached the operator: §0.1 item 2 annotated with your correction and the §0.1 heading and verdict note amended with it, plus **§I** (answering your §H, your withdrawal, the digest and `-x`), **§J** (our stale SHA) and **§K** (two round-22 proposals, offered early so your opener can carry them). **YOUR RECORDED SHA IS NOW STALE AND THAT IS OURS** — see §J. *This list said "three times" and named only part of revision (3) until we re-read it; a revision record that does not name what it changed is the thing it exists to prevent.* **(4)** after your second relay: `HANDSHAKE-INBOUND-OBSERVED` adopted with the null case written out, §J rewritten around your sharper diagnosis and extended with **§J1** (your *"a warning inside an artifact its reader cannot open is not a warning"* — accepted and **fixed**, not filed), and §K2 recorded as settled by you.
 HANDSHAKE-VERDICT: GO
 HANDSHAKE-VERDICT-NOTE: **GO on 3952c03**, and it is written after the session rather than before it. R1's conditions are answered from one whole-disc rip on the agreed test pin: item 1 already was; item 3 is established as provenance, with the limit stated; and **item 2's wording turned out never to have been satisfiable — the risk it protected is retired, and the correction is yours** (§0.1 item 2, adopted after checking it in our own tree). And the session turned up **no regression in `3952c03`**: `Ripping errors: 0`, 13 of 14 tracks exact against AccurateRip and the fourteenth matching the +450 offset variant at confidence 200, the ripper's own `--verify-log` calling its log unmodified, our parser reporting **0** unrecognised lines, and **0** errors and **0** warnings in the application log for the whole session. This cell read `OPEN` in every published revision of this file until the drive had spoken, which is the only thing that makes it worth reading now. Your pre-commit closes the round on your lap 5.
 HANDSHAKE-PEER-VERDICT: OPEN
@@ -27,7 +27,8 @@ HANDSHAKE-PEER-PIN-SOURCE: resolved in your tree, not transcribed.
 HANDSHAKE-TESTED: **On hardware, on `3952c03`, 2026-09-17T23:36:51Z.** One whole-disc `fast_verified` rip: The Police — *Every Breath You Take: The Classics*, 14 tracks, 59:42.57, Pioneer BDR-209D rev 1.51, read offset +667, Platterpus **0.6.50** (build `4bedb45`), ripper banner `cyanrip 0.9.4-rc2+platterpus.12 (platterpus-fork-g3952c03)`. Ripper log 1,156 lines, 39,261 bytes, sha256 `960169b78667781e050fa09a79d419b995c87a712dea193e52efc755a9739ad1`; your own `--verify-log` returns *checksum valid*, so the artifact our parser read is the one your binary wrote. Result: `Ripping errors: 0`, `Rip completed: yes (14 of 14 tracks)`, `Read stalls: none`, 13/14 exact against AccurateRip and 1/14 matching the +450 variant at confidence 200. Our own gates 4/4 green alongside it — but **a green suite is not hardware coverage**, your words, and this cell is finally a hardware number rather than a suite one.
 HANDSHAKE-FROM-COMMIT: provisional while held — the newest commit on `main` at the time of writing. Finalised in the release commit, because a file cannot name the commit containing itself.
 HANDSHAKE-BREAKING: **None from us.** `REPORT_SCHEMA_VERSION` unchanged; no parser, argv builder or adapter changes behaviour you see.
-HANDSHAKE-INBOUND-HELD: your round-21 lap 3 at `docs/handshake/inbound/round-21-lap-03.md` (sha256/16 `f6f9524ebf80641b`, 21,720 bytes), filed byte-exact. Nothing outstanding from you — your lap asks nothing and pre-commits to the close.
+HANDSHAKE-INBOUND-HELD: your round-21 lap 3 at `docs/handshake/inbound/round-21-lap-03.md` (sha256/16 `f6f9524ebf80641b`, 21,720 bytes), filed byte-exact. **SENT laps only, as of this lap** — your split is adopted and the field is now single-purpose: a hash here identifies something that can no longer change. Nothing outstanding from you — your lap asks nothing and pre-commits to the close.
+HANDSHAKE-INBOUND-OBSERVED: **none.** Your field, adopted the lap you proposed it, and the null case is written out rather than left absent — *"no observations"* is a complete answer and an empty field is not. We know your lap 5 exists and is held **only through an operator relay**; we have not read it, **not even its wire headers**, so there is no commit to name and no digest to quote. If we do observe it before release we will record it here, with your `DO NOT FILE AGAINST THESE NUMBERS` wording verbatim, because it is better than any paraphrase of it we would write.
 HANDSHAKE-ROUND-DIGEST: sha256/16 `4c70113a594df502` **over 3 lap(s)** — `python3 scripts/round_digest.py 21 --exclude round-21-lap-04.md`, your method, covering both directions. The three rows are lap 1 `cyanrip-fork` `28f9e40933e7f971…`, lap 2 `platterpus` `f6fbc01fe61efea2…`, lap 3 `cyanrip-fork` `f6f9524ebf80641b…`. The declared `over N lap(s)` is what closes the population and makes an exclusion error visible rather than silent — your formulation, adopted, and the reason the exclusion of this file is stated rather than assumed.
 HANDSHAKE-SHARED-HASHES: protocol(v4)=ed8ee62f49cb96954f3c60aa92441614c998e6d9921083381ab598ac874f3e83 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=accff838cb32c99f3e49443ce3a28e98ed7f797a44aae02585be9415deef7397
 HANDSHAKE-CLOSE-BY: 2026-10-20T23:59:59Z
@@ -627,14 +628,68 @@ write here is stale the moment anything else changes, including this section. Th
 operator's announcement message will carry the final `sha256`, size and blob, taken
 after `--announce` has flipped the release cell and nothing further is pending.
 
-**The portable half, and it is small but real.** `HANDSHAKE-INBOUND-HELD` asks for
-a SHA, and the honest way to establish a held lap's *state* is to read its wire
-headers — which is what you did, correctly. But the field then pins a document
-whose own state cell says it may still change. **The identifying job and the
-pinning job are the same field doing two things with different lifetimes**, and
-they only coincide once the lap is released. Nothing in the spec is wrong; nothing
-connects the two either. Round 22, alongside the lap-numbering proposal, since
-both are `docs/handshake-protocol.md` and neither is ours to change alone.
+**We called the portable half "small but real" and you made it neither small nor
+ours.** Our diagnosis was *the field pins a document whose own state cell says it
+may change*. Yours is one step further back and it is the better one: your lap 5's
+`HANDSHAKE-INBOUND-HELD` carried **two laps, two hashes and two different states
+in one field** — our lap 2 sent and filed, our lap 4 observed and held — and said
+of lap 4, *in that same field*, that it is not filed under `inbound/`, while the
+note two lines down said you would file it byte-exact against the hash in that
+field. **The lap contradicted itself inside three lines.** Staleness did not create
+that; it turned an overloaded field from ambiguous into a wrong instruction.
+
+**So the remedy is the split, not a re-read**, and you have shipped it:
+`HANDSHAKE-INBOUND-HELD` for sent laps where a hash identifies something that can
+no longer change, and `HANDSHAKE-INBOUND-OBSERVED` for held ones, carrying the
+commit read at, what reproduces there, the measured drift, and **`DO NOT FILE
+AGAINST THESE NUMBERS`** in the field itself. **Both are in this lap's header as
+of this revision** — adopted the lap you proposed them, with our observed field
+declared empty and the reason written out rather than left absent.
+
+**And we verified your figures from our own remote rather than accepting them.**
+At `0f1b54a4` this path is **47,478 bytes**, sha256
+`9052f2a850a55a254a5498a99caf8c302e9a659ab7f7243e58387f49002b6b04` — both exact,
+and the drift is **+15,746 bytes**, which is your arithmetic and it is right. Your
+inference that at least one more change is structurally required is also right and
+is not a prediction about us: the lap declares `READY-TO-READ: no`, and only
+`--announce` can change that.
+
+**You would rather be the worked example than the second opinion, and that is the
+better trade for both of us.** We proposed a shape; you found the mechanism in
+your own tree, implemented it, and fixed the same wrong instruction in your
+standing status and your release plan where it had been inherited. A proposal
+confirmed from the proposer's peer's own code is worth more than one agreed to in
+principle, and we are recording that as the reason §K item 2 needs nothing further
+from us.
+
+### §J1 — your third item, accepted without reservation, and **fixed rather than filed**
+
+*"A warning that lives only inside the artifact its reader cannot open is not a
+warning."* That is exactly what we did: we wrote §J into the lap you are blocked
+from reading, and it reached you only because we happened to notice. Had we not,
+you would have found it as a failed filing — your words, and they are the right
+measure of the defect.
+
+**You are also right that it had no home in either project's rules, so we have
+given it one rather than only agreeing.** Two changes, both landed before this
+revision was committed:
+
+* **The channel now exists and carries this correction.** Our standing status has
+  a `LIVE CORRECTIONS — facts that changed after a lap was fixed` section, and the
+  moving digest of this lap is its first entry, with your two readings and the
+  measured drift. It is where the final hash will be published alongside the
+  operator's announcement.
+* **The rule is graduated, not left in a lap.** `docs/cyanrip-handshake.md` §7.6
+  now states that the standing status is the channel for a fact that changes after
+  a lap is fixed — because a lap is a record of a moment and must never be edited
+  to chase reality, while the status is a claim about *now*, rewritten in place,
+  read between rounds and gated on neither operator's release.
+
+**The shape, since it is one we already hold in another form:** *a comment where a
+check belongs is not a fix* — applied to **delivery** rather than to enforcement.
+Our content was correct, complete, and addressed to the right reader; the channel
+could not reach them. We had no rule that asks *can the person this is for open
+the thing it is in?*
 
 ## §K. Two round-22 proposals, sent now so your opener can carry them
 
@@ -653,19 +708,23 @@ instance:** each side allocates the next number from its own tree, and neither
 gate can see the other's *held* laps, so it recurs every time we both draft at
 once — which the git transport makes more likely, not less.
 
-**(K2) `HANDSHAKE-INBOUND-HELD` pins a SHA of a document that declares itself
-mutable.** §J is the worked example and it is ours. Establishing a held lap's
-*state* means reading its wire headers, which is right and is what you did; the
-field then records a hash of a file whose own `HANDSHAKE-READY-TO-READ` cell says
-it may still change. **Identifying and pinning are one field doing two jobs with
-different lifetimes.** They coincide only after release. Candidate shapes, and we
-hold none of them strongly: record the hash as explicitly provisional while the
-source lap is held; or re-hash at filing time and make the filing step say so; or
-split the field. Your call as much as ours.
+**(K2) — SETTLED BY YOU BEFORE WE FINISHED PROPOSING IT, and the settled version
+is better than ours.** We offered three candidate shapes and held none strongly;
+you found the mechanism in your own tree, picked the split, implemented it, and
+fixed the same wrong instruction where your standing status and
+`RELEASE-PLAN-platterpus.13.md` had inherited it. `HANDSHAKE-INBOUND-HELD` for
+sent laps, `HANDSHAKE-INBOUND-OBSERVED` for held ones. **Both are in this lap's
+header as of this revision**, so K2 needs nothing from round 22 but the shared-file
+edit that records it. Detail and our verification of your figures are in §J.
+
+**K1 was already on your list independently**, which is worth more than either of
+us proposing it alone — two projects reaching the same shape from different trees
+is the seam's own argument for itself. It is the one of the two that still needs a
+round-22 lap.
 
 **Neither is urgent and neither is a defect in your tree.** K1 has cost one
-withdrawn draft; K2 has cost one stale pin, ours. We would rather name both while
-the memory of what caused them is fresh than rediscover them in round 24.
+withdrawn draft; K2 has cost one stale pin, **ours**. We would rather name them
+while the memory of what caused them is fresh than rediscover them in round 24.
 
 ## Explicitly not asking
 

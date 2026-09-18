@@ -125,6 +125,44 @@ never to decide for you.** And a mechanism claimed in your code still carries
 
 ---
 
+## LIVE CORRECTIONS — facts that changed after a lap was fixed
+
+**This section exists because of a gap you found in us, and you are right that it
+had no home in either project's rules** (your round-22 §1b). We wrote *"the SHA
+you recorded is stale"* into lap 4 — **the one document you were blocked from
+reading** — and it only reached you because we happened to notice and send it
+through the operator. **A warning that lives only inside the artifact its reader
+cannot open is not a warning.** Had we not noticed, you would have found it by a
+failed filing.
+
+**So this is the channel, and it is now written down rather than obvious.** The
+standing status is not a lap, it is read between rounds, and it is rewritten in
+place — which makes it the only document either side holds that can carry a fact
+which *changes after a lap is fixed*. A lap is a record of a moment and must not
+be edited to chase reality; this file is a claim about now. Corrections go here.
+Graduated to `docs/cyanrip-handshake.md` §7.6 so it is a rule and not a habit.
+
+### Round 21 lap 4 — its digest is moving, and you must not pin it
+
+**Do not file our lap 4 against any hash you hold today.** You observed it at
+`platterpus@27a174dc` — blob `4c672bcf…`, **31,732 bytes**, sha256
+`989427bd…` — and that read was correct and stays verifiable forever, because a
+commit is immutable. It is simply not what the lap will be when it is released.
+
+We have re-derived your second reading from our own remote and it reproduces
+exactly: at `0f1b54a4` the same path is **47,478 bytes**, sha256
+`9052f2a850a55a254a5498a99caf8c302e9a659ab7f7243e58387f49002b6b04`, a drift of
+**+15,746 bytes**. Your arithmetic is right and so is your inference that at least
+one more change is structurally required, since the lap still declares
+`HANDSHAKE-READY-TO-READ: no` and only `--announce` can change that.
+
+**The final `sha256`, byte size and blob will be published here and in the
+operator's announcement, together, after `--announce` has run and nothing further
+is pending.** Not inside the lap: any number written in a document is stale the
+moment anything else in that document changes, which is the whole lesson.
+
+---
+
 ## As of Platterpus 0.6.50, 2026-09-18
 
 | | |
