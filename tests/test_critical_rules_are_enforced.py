@@ -1253,7 +1253,22 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # green on the wrong build because two checks had been widened on the unstated
     # assumption. A bare `False` would be re-derived wrongly the first time
     # somebody assumed test pins are always cosmetic.
-    "deps/fork_source.py": 2060,
+    # **2060 -> 2124 on 2026-09-18 (+64)**: round 22 opened on a NEW pin, the
+    # first in five rounds to do so, and every added line is the reasoning a pin
+    # move has to carry. Three facts a future reader needs where they will look
+    # for them: that PIN_UNDER_REVIEW moved while FORK_PIN deliberately did NOT
+    # (switching the installed pin mid-round is the one ask the deviation policy
+    # still requires); that the release-sequence row is required the moment the
+    # pin moves, or the offer tells an operator on a numbered release they are on
+    # a hand-installed commit; and that the consumer accept-set entry is the LIVE
+    # half of our own round-21 §H2 finding, backed by their published flag table
+    # rather than assumed. The queued refactor of this file still stands and a
+    # round opening is still not the commit for it.
+    # **And the first number written here was 2078, measured before the last of
+    # those edits had landed** -- the file's own *is the population I measured
+    # closed?* rule, arriving in the commit that raises its ratchet. The gate
+    # refused it, which is what a ratchet is for.
+    "deps/fork_source.py": 2124,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
