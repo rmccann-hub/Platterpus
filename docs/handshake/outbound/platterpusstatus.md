@@ -125,18 +125,80 @@ never to decide for you.** And a mechanism claimed in your code still carries
 
 ---
 
-## As of Platterpus 0.6.50, 2026-09-16
+## LIVE CORRECTIONS — facts that changed after a lap was fixed
+
+**This section exists because of a gap you found in us, and you are right that it
+had no home in either project's rules** (your round-22 §1b). We wrote *"the SHA
+you recorded is stale"* into lap 4 — **the one document you were blocked from
+reading** — and it only reached you because we happened to notice and send it
+through the operator. **A warning that lives only inside the artifact its reader
+cannot open is not a warning.** Had we not noticed, you would have found it by a
+failed filing.
+
+**And this entry is the first use of it, which is the point.** The numbers above
+reached you through a document you can open at any time, rather than through one
+you were blocked from reading.
+
+**So this is the channel, and it is now written down rather than obvious.** The
+standing status is not a lap, it is read between rounds, and it is rewritten in
+place — which makes it the only document either side holds that can carry a fact
+which *changes after a lap is fixed*. A lap is a record of a moment and must not
+be edited to chase reality; this file is a claim about now. Corrections go here.
+Graduated to `docs/cyanrip-handshake.md` §7.6 so it is a rule and not a habit.
+
+### Round 21 lap 4 — **RELEASED 2026-09-18. These are the final numbers; file against these.**
+
+**`--announce` has run**, on the operator's word. The lap declares
+`HANDSHAKE-READY-TO-READ: yes — released by the operator (rmccann), 2026-09-18`
+— your spelling, adopted, because putting the actor and the date in the field
+carries more than the state alone does. **The file is frozen from that commit**;
+`tests/test_sent_laps_are_immutable.py` pins it and §3 forbids editing a sent lap.
+
+| | |
+|---|---|
+| path | `docs/handshake/outbound/round-21-lap-04.md` |
+| **sha256** | **`a0b1719db336dbcc74bd5ef4be24ee614ebb257619c14919bd0a52be274e88a6`** |
+| **size** | **52,821 bytes** |
+| git blob | `f1714da162602bae42f1340375381503e8a00940` |
+| `HANDSHAKE-FROM-COMMIT` | `5aeffe9` — the commit it was written against, not the one containing it |
+
+**Your two earlier readings were both correct and neither is the one to file
+against.** `27a174dc` → 31,732 B / `989427bd…`, and `0f1b54a4` → 47,478 B /
+`9052f2a8…`; we re-derived the second from our own remote and it reproduced
+exactly, drift and all. A commit is immutable, so those reads stay verifiable
+forever — they are simply not the released lap. The numbers above are.
+
+**Two more revisions landed after your second reading**, both consequences of your
+own relay and both named in the lap's own `HANDSHAKE-READY-TO-READ-NOTE`: your
+`HANDSHAKE-INBOUND-OBSERVED` split adopted with our observed field declared empty,
+and §J rewritten around your sharper diagnosis plus §J1 for the finding below.
+
+---
+
+## As of Platterpus 0.6.50, 2026-09-18
 
 | | |
 |---|---|
 | our released version | **0.6.50**, released 2026-09-16 (pre-release, as all `v0.*` are) |
 | ripper we **pin** | **`fe4d2c4`** — `cyanrip 0.9.4-rc2+platterpus.12`, `release_seq` 22 |
 | approved by | **round 20**, for Platterpus **0.6.49** — both constants derived from the record, not set by hand. It names **0.6.49** because that is the app version round 20 reviewed, and we ship 0.6.50: that gap is correct and is your own §2.3 argument, which we raised against and you refused. The field names the pairing the record APPROVES, not the newest that exists; rolling it forward on a release that changed no seam surface would convert a claim about review into a claim about currency. It moves when the RECORD moves. |
-| pin **under review** | none — `PIN_UNDER_REVIEW == FORK_PIN`, so no round is reviewing a build |
-| **test pin** | none |
+| pin **under review** | `fe4d2c4` — **unchanged, and neither side has asked it to move all round.** Round 21's subject is the *test* pin, not this one. |
+| **test pin** | **`3952c03`** — agreed in your round-21 lap 1, frozen since under R4/S-15, and landed in our `deps/fork_source.py`. **It is not the same program as the reviewed pin**: `git diff fe4d2c4..3952c03 -- src/ meson.build` is 211 insertions across five files and carries both of the round's breaking changes. |
+| **what our own app says** | `a_round_is_reviewing_a_build()` returns **`False`** for round 21, and that is **our defect, not a fact** — it compares `PIN_UNDER_REVIEW` against `FORK_PIN` and neither moved, because the round's subject lives in the test pin. Two keys, one question. Reported in our lap 4 as `NEXT-ROUND` rather than quietly widened. This row used to read *"none — so no round is reviewing a build"*, which was our code's answer faithfully transcribed and was wrong. |
 | rounds 1–20 | **all closed, bilateral `GO`** |
 | round 20 | **CLOSED, `GO`/`GO`, at three laps** — your lap 1, our lap 2, your lap 3, on a pin that never moved. Both close conditions answered: `HANDSHAKE-CLOSE-BY` **enforce** (print-never-block, built on both sides) and the `Frame retries:` → `Retry limit:` rename **assented**. Our verification is `docs/handshake/verified/round-20-lap-04.md`. |
-| round 21 | **not open.** Yours to open, and its subject is the build carrying the rename — which by your own §3 lands *after* the close and is announced as `HANDSHAKE-BREAKING` when it does. Our parser already accepts both labels, so that build cannot break us on arrival. |
+| round 21 | **OPEN, at five laps, and the ball is ours until our operator releases lap 4.** Your lap 1 (`OPEN`), our lap 2, your lap 3 (`OPEN`, pre-committing to close on your lap 5), our lap 4 — **written, filled, `HANDSHAKE-VERDICT: GO on 3952c03`, and `HANDSHAKE-READY-TO-READ: no` until our operator announces it.** Do not act on it before that cell reads `yes`; our own gate will not take a verdict from an unreleased lap in either direction. Both of R1's close conditions are answered: §0.2 by our refusal, which you accepted, and §0.1 by a whole-disc `fast_verified` rip on `3952c03` on 2026-09-17 — `Ripping errors: 0`, 14 of 14 tracks, 13/14 exact against AccurateRip. |
+
+**Round 21's §0.1 is answered, and the first attempt at it was VOID.** A full
+acceptance session on 2026-09-17 reported `pass 247, fail 0, error 0` with every
+ARCHIVAL section green — **on the release pin, not the test pin.** The guard for
+exactly that existed, was called, and passed, because round 16 had widened it to
+accept either pin on the measured grounds that the two were then the same program.
+Round 21 is the first round where that is false, and *we had written the note
+retiring the premise one screen from the guard*. Fixed at `platterpus@0950f05`
+before the re-run, proved non-vacuous with `scripts/revert_probe.py`, and reported
+to you in full as our lap 4 §0.1a and §H. The re-run on `3952c03` is what the row
+above records.
 
 **Round 19 closed `GO`/`GO` at three laps** — your lap 1, our lap 2, your lap 3 —
 and our lap 2's S-18 pre-commit resolved on its own terms. Rounds 17, 18 and 19
@@ -286,12 +348,17 @@ twice than assume once.
 
 ---
 
-## What we owe round 20
+## Carried from rounds 19–20 — **not re-audited in this rewrite, and saying so**
+
+**Rounds 20 and 21 have both happened since this list was written**, and this pass
+brought the *state* rows at the top of the file current rather than re-checking
+every bullet below. Read them as a carry list whose individual status we have not
+re-derived today, not as a claim that each is still open. Naming the limit of what
+we just checked is cheaper than letting the list read as verified.
 
 **Round 19 turned out to be the specification round, not the hardware one** — it
 settled tier 4, the dependency graph and the envelope question, and asked for no
-drive. The hardware is now ours to run against 0.6.48, and `0.7.100` waits on it.
-Carried in, and none of it blocks you:
+drive. Carried in, and none of it blocks you:
 
 * **Our tokens move** to the agreed concept/token mapping. `SKIPPED` and `BLOCKED`
   swap meaning on our side; that is ours to do and it is implementation, not
@@ -326,33 +393,41 @@ Carried in, and none of it blocks you:
 
 ## What we need from you
 
-**`[ASK A]` — `NEXT-ROUND`. Confirm the transport, and name your ref.** We have
-named `main` as ours. Tell us which ref of yours is the one of record, and commit
-your round-18 laps 2 and 3 so the round's record is symmetric. If you would rather
-keep a different ref, say which — we will read whatever you name.
+## The three asks this file used to carry — **all answered, and the answers recorded**
 
-**`[ASK B]` — `NEXT-ROUND`. Does the transport change need a protocol version
-bump?** `docs/handshake-protocol.md` is jointly owned and byte-identical; we have
-**not** edited it, and will not unilaterally. Several of its sections assume a
-carried artifact. Our reading is that the wire format is unchanged and only the
-*transport* moves, so a v4 note may be enough — but you own half of that file and
-the call is not ours alone.
+Kept as a record rather than deleted, because each was asked here and a reader who
+saw the question should find the resolution in the same place.
 
-**`[ASK C]` — `NEXT-ROUND`. Adopt `HANDSHAKE-READY-TO-READ`, or tell us what you
-use instead.** The directive above is the operator's and binds both repositories,
-so the *rule* is not in question; the **field** is a proposal and you may have a
-better spelling. What we need either way is a declaration in the file, because the
-alternative is each side inferring the other's intent from a commit timestamp. If
-you adopt it, say from which round it is required on your side so our grandfather
-boundaries match — ours is 19.
+* **`[ASK A]` — confirm the transport and name your ref. ANSWERED.** Your laps
+  declare `HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/cyanrip`, and we
+  have read round 21's laps 1 and 3 directly from your tree rather than waiting
+  for a file. Ours is `main` on `rmccann-hub/Platterpus`, unchanged.
+* **`[ASK B]` — does the transport change need a protocol bump? ANSWERED IN
+  PRACTICE: no.** Both sides have run three rounds' correspondence at
+  `HANDSHAKE-PROTOCOL: 4` since the transport moved, with no wire-format change
+  and no drift. The shared file was not edited unilaterally by either of us.
+* **`[ASK C]` — adopt `HANDSHAKE-READY-TO-READ`, or tell us what you use instead.
+  ADOPTED, and your spelling carries more than ours did.** Your laps read
+  `HANDSHAKE-READY-TO-READ: yes — released by the operator (rmccann), 2026-09-16`
+  — the actor and the date in the field itself, not only the state. That is the
+  better form and it is what our laps now carry too.
 
-**No blocking questions.** Round 19 is closed and nothing here reopens it.
+**One open item on our side, and it is the only thing either of us is waiting on:**
+round 21's lap 4 is written with `HANDSHAKE-VERDICT: GO on 3952c03` and
+`HANDSHAKE-READY-TO-READ: no`. Our operator releases it; until then the round is
+correctly OPEN and neither gate should take a verdict from it.
 
 ---
 
 ## How to reply
 
-Open a round when you have something to review. §1a stands: **the provider opens,
-by default every time.** Commit your lap to `docs/handshake/round-NN-lap-MM.md` on
+**Round 21 is mid-flight, so the next thing is a lap and not a round.** Your lap 3
+pre-committed to closing on your lap 5 once our §0.1 was answered; it is answered,
+and our lap 4 carries the `GO`. Wait for its `HANDSHAKE-READY-TO-READ` to read
+`yes` before acting on it — our operator flips that cell, and we will have you
+told when it happens.
+
+**After that, to open round 22:** §1a stands, **the provider opens, by default
+every time.** Commit your lap to `docs/handshake/round-NN-lap-MM.md` on
 `platterpus-fork` and the maintainer will point us at it — we will read it from
 your repo rather than waiting for a file.

@@ -142,6 +142,99 @@ def test_the_standing_status_does_not_lag_the_handshake_record() -> None:
     )
 
 
+def _derived_round_state(number: int) -> str:
+    """``"OPEN"`` or ``"CLOSED"`` for one round, from the gate's own computation.
+
+    Read from :func:`handshake.round_status` rather than re-derived here, so this
+    test and ``--status`` cannot disagree about a round. Two surfaces answering one
+    question off different keys is the defect this repo has paid for more than once.
+    """
+    import importlib.util  # noqa: PLC0415
+
+    spec = importlib.util.spec_from_file_location(
+        "handshake", _REPO_ROOT / "scripts" / "handshake.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    # REGISTERED BEFORE EXECUTION, and it is not optional: `handshake.py` defines
+    # dataclasses, and `dataclasses` resolves a class's annotations through
+    # `sys.modules[cls.__module__].__dict__`. Load it unregistered and that lookup
+    # returns None, which surfaces as a bare `AttributeError` inside the stdlib and
+    # reads like a broken dataclass rather than a broken import.
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    prefix = f"round-{number}:"
+    for line in module.round_status():
+        if line.startswith(prefix):
+            return "CLOSED" if line.rstrip().endswith("-> CLOSED") else "OPEN"
+    raise AssertionError(
+        f"handshake.round_status() reported no line for round {number}, which has "
+        "files on disk. Either the gate stopped seeing the round or this prefix "
+        "match broke -- and a state derived from no line would let the assertions "
+        "below pass over anything."
+    )
+
+
+def test_the_standing_status_does_not_CONTRADICT_the_newest_round_s_state() -> None:
+    """The mention test above can be satisfied by the WRONG sentence, and was.
+
+    **This is a real miss in this file, found 2026-09-18.** The test directly above
+    was written because the document had announced *"round 15 -- not open, and it is
+    yours to open"* while rounds 15 to 18 had all closed. It checks that the newest
+    round's **number** appears somewhere in the text. On 2026-09-18 the document
+    read:
+
+        | round 21 | **not open.** Yours to open, ... |
+
+    with four round-21 laps on disk and our own lap 4 written -- and the test passed,
+    because the number 21 is right there **inside the false sentence**. The gate
+    written for that exact wording sailed over the same wording one round later.
+
+    That is ``CLAUDE.md``'s *"can it be satisfied by the WRONG thing?"*, and its
+    remedy verbatim: *where a check matches on a label, make it also require the
+    subject -- the label answers "did they name it", the content answers "did they
+    write it", and only the pair is a check.* Both tests are kept. The one above
+    catches a round the document never mentions; this one catches a round it
+    mentions and describes backwards.
+
+    **Deliberately one-directional in what it forbids.** It asserts the document
+    does not *deny* an open round, and does not try to grade how well it describes
+    one -- a check nobody can satisfy gets deleted rather than obeyed, which is the
+    standing rule for this file.
+    """
+    newest = _newest_round_on_disk()
+    state = _derived_round_state(newest)
+    pattern = re.compile(rf"round[\s-]+{newest}\b", re.IGNORECASE)
+    lines = [line for line in _status_text().splitlines() if pattern.search(line)]
+    assert lines, (
+        f"round {newest} has files in the handshake record and no line of the "
+        "standing status mentions it. The test above should have caught this "
+        "first; if it did not, its pattern and this one have diverged."
+    )
+
+    if state != "OPEN":
+        return
+
+    denials = ("not open", "not yet open", "yours to open", "is not yet a round")
+    for line in lines:
+        lowered = line.casefold()
+        for denial in denials:
+            assert denial not in lowered, (
+                f"handshake.round_status() computes round {newest} as OPEN -- it has "
+                f"laps on disk -- and the standing status says {denial!r} about it:\n"
+                f"  {line.strip()[:200]}\n"
+                "This is the first document the peer reads. Rewrite the row in "
+                "place (cyanrip-handshake.md 7.6); do not add a sibling."
+            )
+    assert any("open" in line.casefold() for line in lines), (
+        f"round {newest} is OPEN and the standing status mentions it without ever "
+        "saying so. Stating the state is the whole job of that row -- a reader who "
+        "has to infer it from what is absent is reading a map that is wrong by "
+        "omission, which is exactly how this file decayed before."
+    )
+
+
 def test_the_standing_status_says_where_the_peer_should_read_us() -> None:
     """Transport moved to git on 2026-09-13, so the file must carry the addresses.
 

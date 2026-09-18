@@ -1776,3 +1776,57 @@ def test_an_arbitrary_commit_still_declares_its_version_unknown() -> None:
         "the build TAG is still verified for an arbitrary commit — that is what "
         "makes the honest 'version unknown' safe rather than a hole"
     )
+
+
+def test_the_same_program_flag_is_redeclared_whenever_either_pin_moves() -> None:
+    """`TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED` must not rot into a lie.
+
+    **The flag cannot be derived at test time and that is the whole problem.**
+    Settling it needs `git diff <reviewed>..<test> -- src/ meson.build` in the
+    fork's tree, which CI does not have and a rig certainly does not. So it is a
+    declared fact, and a declared fact about two moving values is exactly the
+    shape that goes stale silently — which is what this test is for.
+
+    The mechanism is a pinned triple rather than a re-derivation: move either pin
+    without re-declaring the flag and this fails, naming the diff to run. That
+    turns "remember to re-check" into "the suite refuses until you have".
+
+    **Why it matters more than it looks.** The flag decides whether
+    `expect-ripper-under-review` accepts the reviewed pin. Getting it wrong in
+    the `True` direction restores the 2026-09-17 defect exactly: a six-hour
+    acceptance session, 247 of 247 green, on a build that could not answer the
+    round's close condition — and nothing in the run able to say so.
+
+    The trivial case is asserted too: when the two pins are the same commit they
+    are necessarily the same program, and a `False` there would be incoherent.
+    """
+    from platterpus.deps import fork_source
+
+    #: The triple this flag was last derived for. Update ALL THREE together, and
+    #: only after running the diff named in the failure message.
+    DECLARED_FOR: tuple[str, str, bool] = ("fe4d2c4", "3952c03", False)
+
+    reviewed, test_pin, flag = DECLARED_FOR
+    assert (fork_source.PIN_UNDER_REVIEW, fork_source.FORK_TEST_PIN) == (
+        reviewed,
+        test_pin,
+    ), (
+        f"a pin moved since TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED was declared: "
+        f"declared for reviewed={reviewed} test={test_pin}, now "
+        f"reviewed={fork_source.PIN_UNDER_REVIEW} test={fork_source.FORK_TEST_PIN}. "
+        f"Run `git diff {fork_source.PIN_UNDER_REVIEW}..{fork_source.FORK_TEST_PIN} "
+        f"-- src/ meson.build` in the cyanrip fork, set the flag from the RESULT, "
+        f"and update DECLARED_FOR here. Do not carry the old value forward — that "
+        f"is the 2026-09-17 defect, where a guard kept passing against a build "
+        f"that could not answer the round."
+    )
+    assert fork_source.TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED is flag, (
+        "the flag was changed without updating DECLARED_FOR, so nothing records "
+        "which pair it was derived for"
+    )
+
+    if fork_source.same_commit(fork_source.PIN_UNDER_REVIEW, fork_source.FORK_TEST_PIN):
+        assert fork_source.TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED, (
+            "the reviewed pin and the test pin are the SAME COMMIT, so they are "
+            "necessarily the same program and the flag cannot be False"
+        )

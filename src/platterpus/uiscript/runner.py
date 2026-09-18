@@ -3129,11 +3129,42 @@ class ScriptRunner(QObject):
         # "the build under review" immediately followed by the derived clause
         # "(fe4d2c4 is the APPROVED production pin (no handshake round is open,
         # so there is NO build under review))". One sentence, both answers.
-        accepted = {
-            reviewed: fork_source.pin_under_review_label(),
-            test_pin: "the agreed test pin",
-        }
-        expected = reviewed if reviewed == test_pin else f"{reviewed} or {test_pin}"
+        # **AND "EITHER" IS ONLY SAFE WHILE THEY ARE THE SAME PROGRAM.** The
+        # widening above was correct for round 16 and its own reasoning says why:
+        # `git diff a9aedf0..ddc1e8c -- src/ meson.build` was EMPTY, so no build
+        # could be misnamed and the two were interchangeable evidence. That
+        # premise is a fact about a particular pair of pins, not a property of
+        # test pins, and round 21 is the first round where it is false.
+        #
+        # Measured 2026-09-17, and it is why this branch exists: an acceptance run
+        # on the REVIEWED pin passed 247 of 247 steps, this assertion among them,
+        # while establishing nothing about either of the round's two breaking
+        # changes — the build predates both and prints `Frame retries:` where the
+        # test pin prints `Retry limit:`. The guard was present, called, and
+        # keyed on something that could not tell the two apart. A green run is
+        # evidence only about what its checks could have failed over.
+        #
+        # So when the pins are NOT the same program, the test pin is the only
+        # answer: it is the build the round's close condition is about, and a
+        # session on the other one cannot answer it however many steps pass.
+        if reviewed == test_pin or fork_source.TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED:
+            accepted = {
+                reviewed: fork_source.pin_under_review_label(),
+                test_pin: "the agreed test pin",
+            }
+        else:
+            accepted = {
+                test_pin: "the agreed test pin, and the ONLY build this round's close condition can be answered on"
+            }
+        expected = (
+            reviewed
+            if reviewed == test_pin
+            else (
+                f"{reviewed} or {test_pin}"
+                if fork_source.TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED
+                else f"{test_pin} (and NOT {reviewed}: the two are different programs this round)"
+            )
+        )
         if not self._last_cyanrip_argv:
             self._record(
                 step,
