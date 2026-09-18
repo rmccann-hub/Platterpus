@@ -1148,7 +1148,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # $HOME came to hold two different kinds of litter.
     "app.py": 1356,
     "appimage_integration.py": 326,
-    "config.py": 753,
+    # **753 -> 784 on 2026-09-18**: the paired `integration_declined_version` field and the note recording why the path-only key reproduced the bug it replaced.
+    "config.py": 784,
     "cue_validate.py": 1257,
     "cyanrip_cli.py": 327,
     "deps/checks.py": 437,
@@ -1478,7 +1479,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ripper_message_inventory.py": 1081,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
-    "settings_validation.py": 886,
+    # **886 -> 896 on 2026-09-18**: the new field validated on its own
+    # rather than folded in with its sibling — a path and a version are two
+    # shapes, and one check loose enough for both checks neither properly.
+    "settings_validation.py": 896,
     "sleep_inhibit.py": 599,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
     # the single deletable directory every rig artifact of ours now lives under,
@@ -1532,7 +1536,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # evidence costs an overnight disc pass. It belongs beside the bundle launch
     # it gates; the decision and the launch in separate files is how a guard
     # stops being read as part of the path it guards.
-    "ui/main_window_provision.py": 1283,
+    # **1283 -> 1297 on 2026-09-18**: the suppression check keyed on the pair, with the measurement that in-place updates land on the byte-identical path.
+    "ui/main_window_provision.py": 1297,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -1595,7 +1600,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # a second install route look reasonable later.
     "ui/main_window_update.py": 989,
     "ui/rip_progress.py": 1658,
-    "ui/settings_dialog.py": 1303,
+    # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
+    "ui/settings_dialog.py": 1304,
     "ui/track_table.py": 802,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
