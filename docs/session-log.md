@@ -11,6 +11,78 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-18 — round 21's session finally ran on the right build, and lap 4 is filled
+
+**The rip that answers §0.1 happened, and it happened on `3952c03`.** One
+whole-disc `fast_verified` rip — The Police, *Every Breath You Take: The
+Classics*, 14 tracks — on the round-21 test pin, reached through
+`--install-ripper 3952c03` rather than through a release, because the test pin
+cannot ship inside one while the round is open. `Ripping errors: 0`, 13/14 exact
+against AccurateRip, the fourteenth an offset-variant pressing at confidence 200,
+0 errors and 0 warnings in the app log. Round 21's three close conditions are all
+established and `HANDSHAKE-VERDICT` reads `GO`.
+
+**The two measurements, both derived rather than accepted.** `Retry limit:` is at
+log line 16 and our parser reports **0** unrecognised top-level lines over the
+real 1,156-line file. That alone would have been a claim about a passing test, so
+the detector was proved non-vacuous *against the same real log*: narrowing the row
+back to the pre-round-20 `^Frame retries:\s` yields exactly one unrecognised
+line, and it is the `Retry limit:` line. `Ripping errors:` at line 1152 was
+established by consequence rather than inspection — `_take_rip_errors` is the only
+writer of `health_status`, which defaults to `""` and came back `"No errors
+occurred"`, and that reading reaches the EAC-compatible log's status section.
+
+**A prediction of ours reproduced on hardware, which is the part worth keeping.**
+The fork corrected our framing of item 3: the `cyanrip_log_finish_report(ctx)`
+move is a pure relocation, so on a clean rip both placements print a
+byte-identical line. Rather than cite their diff a second time, the two sessions'
+logs were compared directly — same disc, `fe4d2c4` archival versus `3952c03`
+`fast_verified` — and `Ripping errors: 0` sits in the identical relative position
+in both. Their correction was right and we now have our own measurement of it.
+
+**The finding the session produced was not in any of the three items.** The
+citable log reads `Consumer: not identified (no --consumer given)`, because
+`accepts_consumer_flag` is deliberately `False` for an unrecognised build and the
+operator's released **0.6.50** AppImage (`4bedb45`, the v0.6.50 release commit)
+contains **zero** occurrences of `3952c03` — the pin was agreed after that
+release. Nothing is broken; the gate did exactly what it was built to do. But the
+consequence had never been written down: **for the whole life of a round, every
+rip on the agreed test pin from a released app records a half-identified pair**,
+which is the precise thing that accept-set exists to prevent, arriving from the
+direction it was not written for. It was designed against *their build being too
+old for the flag*; this is *our app being too old to know their build*, and the
+fail-closed default is identical in both cases while only one is a real risk.
+Reported to the fork as §H2 at the *could-in-any-possible-way* bar, `NEXT-ROUND`
+under S-14. Same family as *"a moving pin needs a route that does not ship inside
+a release"* — already solved once with `--install-ripper`; the accept-set needs
+the equivalent, or needs to stop being a table.
+
+**One observation declined rather than published.** Track 3 read differently
+between the two sessions and *this* session's reading is the one AccurateRip
+confirms exactly. Three variables differ between the runs — build, rip goal
+(`-Z 2` vs none), and session — so the comparison isolates nothing, and the
+direction happens to flatter the pin under review, which is exactly when a
+confounded number is most tempting to publish. Recorded in the lap as an
+observation with its confound named, and explicitly not attributed. Track 5, by
+contrast, produced the **identical** +450 CRC `4CCBCF89` in both runs, which is a
+clean unconfounded fact and is what establishes it as a pressing property rather
+than a read defect.
+
+**A small correction of our own, kept rather than deleted.** Lap 4 §B had said
+that if the session produced a non-zero `Ripping errors:` we would be able to
+demonstrate the `rip_audit._audit_completion` defect from a real artifact. It
+produced zero, so we still cannot, and the wait bought nothing on that item. The
+lesson is worth more than the item: *a plan to obtain evidence as a by-product of
+a run you are doing anyway is a plan with no owner* — and a clean disc is the
+likeliest outcome of every rip we do.
+
+Gates 4/4 green, coverage 91.88%. `handshake.py --check` passes on the filled
+lap. `--status` still reports round 21 **OPEN**, correctly: the lap is written but
+`HANDSHAKE-READY-TO-READ` is `no` until the operator announces it, and the gate
+refuses a verdict from an unreleased lap in either direction.
+
+---
+
 ## 2026-09-16 (later) — v0.6.50 shipped, and the TASKS sweep
 
 **Released v0.6.50.** AppImage 243.0 MB + `.sha256` + `.zsync` + both install

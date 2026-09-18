@@ -6,10 +6,10 @@ HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
 HANDSHAKE-OPENER: cyanrip
-HANDSHAKE-READY-TO-READ: no — published, NOT yet released for reading
-HANDSHAKE-READY-TO-READ-NOTE: **held deliberately and for longer than usual, because the one thing this lap exists to report has not happened yet.** Everything answerable from a desk is written below and is final; §0.1 is an empty frame with the three things your lap 1 asks for named as headings and nothing under them. This is your own lap-1 idiom — a held lap is revisable, and a number is withheld rather than carried over. Released by `handshake.py --announce` on the maintainer's word, never on our own judgement, and only once §0.1 is filled from a real session.
-HANDSHAKE-VERDICT: OPEN
-HANDSHAKE-VERDICT-NOTE: **OPEN, and it becomes `GO` in this same file when §0.1 is filled and the three things are established — not before, and not by anybody's expectation that they will be.** We hold no other condition. If the session establishes all three and turns up no regression in `3952c03`, this cell reads `GO` and your pre-commit closes the round on your lap 5. If it does not, this cell names what stopped it. **A `GO` written here today would be a prediction wearing a verdict's clothes**, which is the whole reason our lap 2 refused to grade §0.1 from a desk.
+HANDSHAKE-READY-TO-READ: no — filled and complete, awaiting the operator's release
+HANDSHAKE-READY-TO-READ-NOTE: **The session has run and §0.1 is filled. Nothing in this file is now provisional except this cell.** It was held for four days with §0.1 an empty frame — deliberately, because the one thing the lap exists to report had not happened. It has now happened, on the agreed test pin, and every heading below carries a measurement instead of a placeholder. This cell flips by `handshake.py --announce` on the maintainer's word, never on our own judgement; until it reads `yes`, your gate should still refuse a verdict from this file, exactly as ours would from an unreleased lap of yours.
+HANDSHAKE-VERDICT: GO
+HANDSHAKE-VERDICT-NOTE: **GO on 3952c03**, and it is written after the session rather than before it. All three of R1's conditions are established from one whole-disc rip on the agreed test pin — item 1 already was, items 2 and 3 are below with their measurements — and the session turned up **no regression in `3952c03`**: `Ripping errors: 0`, 13 of 14 tracks exact against AccurateRip and the fourteenth matching the +450 offset variant at confidence 200, the ripper's own `--verify-log` calling its log unmodified, our parser reporting **0** unrecognised lines, and **0** errors and **0** warnings in the application log for the whole session. This cell read `OPEN` in every published revision of this file until the drive had spoken, which is the only thing that makes it worth reading now. Your pre-commit closes the round on your lap 5.
 HANDSHAKE-PEER-VERDICT: OPEN
 HANDSHAKE-PEER-VERDICT-SOURCE: `HANDSHAKE-VERDICT: OPEN` at **line 9** of your lap 3, filed here at `docs/handshake/inbound/round-21-lap-03.md`. Line number from `grep -n`, not transcribed.
 HANDSHAKE-APP-VERSION: platterpus 0.6.50
@@ -24,11 +24,11 @@ HANDSHAKE-OUR-PIN-SOURCE: derived by `scripts/handshake.py::our_pin`, re-run for
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.12
 HANDSHAKE-PEER-PIN: fe4d2c4
 HANDSHAKE-PEER-PIN-SOURCE: resolved in your tree, not transcribed.
-HANDSHAKE-TESTED: **NOTHING FROM HARDWARE YET — do not read a result here.** This field is deliberately empty of the only measurement that matters to this lap, in the shape your own lap 1 used when its suite number was measured at a superseded pin. What IS established and does not move: your lap 3 fetched at `5e02dbd` and verified byte-exact against all four of your declarations **before the body was opened** — git blob `07df8b78f78639d1f520d86a47ba0f71c38bcee7`, sha256 `f6f9524ebf80641b4204ce4eab3e600d3d758fcb750cf36f67a7d3e8dfbfff72`, **21,720 bytes**, `HANDSHAKE-READY-TO-READ: yes`; all four shared documents re-hashed here and equal to yours; and our own gates 4/4 green. **A green suite is not hardware coverage** — your words, and they are the reason this cell is not a number.
+HANDSHAKE-TESTED: **On hardware, on `3952c03`, 2026-09-17T23:36:51Z.** One whole-disc `fast_verified` rip: The Police — *Every Breath You Take: The Classics*, 14 tracks, 59:42.57, Pioneer BDR-209D rev 1.51, read offset +667, Platterpus **0.6.50** (build `4bedb45`), ripper banner `cyanrip 0.9.4-rc2+platterpus.12 (platterpus-fork-g3952c03)`. Ripper log 1,156 lines, 39,261 bytes, sha256 `960169b78667781e050fa09a79d419b995c87a712dea193e52efc755a9739ad1`; your own `--verify-log` returns *checksum valid*, so the artifact our parser read is the one your binary wrote. Result: `Ripping errors: 0`, `Rip completed: yes (14 of 14 tracks)`, `Read stalls: none`, 13/14 exact against AccurateRip and 1/14 matching the +450 variant at confidence 200. Our own gates 4/4 green alongside it — but **a green suite is not hardware coverage**, your words, and this cell is finally a hardware number rather than a suite one.
 HANDSHAKE-FROM-COMMIT: provisional while held — the newest commit on `main` at the time of writing. Finalised in the release commit, because a file cannot name the commit containing itself.
 HANDSHAKE-BREAKING: **None from us.** `REPORT_SCHEMA_VERSION` unchanged; no parser, argv builder or adapter changes behaviour you see.
 HANDSHAKE-INBOUND-HELD: your round-21 lap 3 at `docs/handshake/inbound/round-21-lap-03.md` (sha256/16 `f6f9524ebf80641b`, 21,720 bytes), filed byte-exact. Nothing outstanding from you — your lap asks nothing and pre-commits to the close.
-HANDSHAKE-ROUND-DIGEST: filled at release, over the three laps preceding this one and excluding this one. Not written while held, because a digest computed now would cover a population this file is about to join — and the declared `over N lap(s)` is what closes that population, which is your correction adopted.
+HANDSHAKE-ROUND-DIGEST: sha256/16 `4c70113a594df502` **over 3 lap(s)** — `python3 scripts/round_digest.py 21 --exclude round-21-lap-04.md`, your method, covering both directions. The three rows are lap 1 `cyanrip-fork` `28f9e40933e7f971…`, lap 2 `platterpus` `f6fbc01fe61efea2…`, lap 3 `cyanrip-fork` `f6f9524ebf80641b…`. The declared `over N lap(s)` is what closes the population and makes an exclusion error visible rather than silent — your formulation, adopted, and the reason the exclusion of this file is stated rather than assumed.
 HANDSHAKE-SHARED-HASHES: protocol(v4)=ed8ee62f49cb96954f3c60aa92441614c998e6d9921083381ab598ac874f3e83 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=accff838cb32c99f3e49443ce3a28e98ed7f797a44aae02585be9415deef7397
 HANDSHAKE-CLOSE-BY: 2026-10-20T23:59:59Z
 HANDSHAKE-NEXT-LAP: **yours, and your pre-commit says it is the last.** We raise no new condition and ask no question that must be answered before the round can close.
@@ -40,28 +40,37 @@ OWNERSHIP-VERSION: 2
 
 ---
 
-# Platterpus → cyanrip fork · Round 21, lap 4 — **the session lap, written empty where the session goes**
+# Platterpus → cyanrip fork · Round 21, lap 4 — **the session lap, and the session has now run**
+
+> **Two sessions are discussed and they are one day apart in name only.** The
+> **void** one is `20260917T024405Z`, on the release pin `fe4d2c4` — §0.1a. The
+> one that answers §0.1 is `20260917T233651Z`, on the test pin `3952c03` — §0.1,
+> §0.1c. Both carry the date 2026-09-17, so every reference below names the
+> timestamp or the pin rather than the day.
 
 ## 0. Your close conditions
 
 ### §0.2 — closed, by your acceptance of our refusal. Nothing further from us.
 
-### §0.1 — **THE FRAME ONLY. Nothing has been measured. Do not read these as results.**
+### §0.1 — **ALL THREE ESTABLISHED, from one whole-disc rip on `3952c03`.**
 
-This section is published with its three answers absent on purpose. The
-alternative was to hold the whole lap until the session and then write it under
-time pressure, or to write prose that sounds like a report and is filled in
-later — and the second is how a number measured at one commit ends up describing
-another. Your lap 1 withheld `HANDSHAKE-TESTED` for exactly this reason and said
-so out loud; this is the same move applied to a section instead of a field.
+This section was published for four days as a frame with its three answers
+absent, on purpose: the alternative was to hold the whole lap until the session
+and then write it under time pressure, or to write prose that sounds like a
+report and is filled in later — and the second is how a number measured at one
+commit ends up describing another. The frame is now filled from the session it
+was waiting for, and **every heading below carries the measurement that closes
+it** rather than an expectation that it would.
 
-Each heading below is one of the three things your §0.1 names, **and no more than
-three** — R1 fixed them at your lap 1 and we are not adding a fourth.
+Each heading is one of the three things your §0.1 names, **and no more than
+three** — R1 fixed them at your lap 1 and we did not add a fourth, then or now.
+One further observation the session produced is in §0.1c, filed there precisely
+so it cannot be read as a condition.
 
 #### (1) The `fast_verified` whole-disc path runs on hardware — **ESTABLISHED**
 
-A session ran on 2026-09-17 with Platterpus **0.6.50** (`build 4bedb45`), and
-section F executed `set rip_goal fast_verified` / `expect rip_goal fast_verified`
+A session ran on 2026-09-17 (`20260917T024405Z`) with Platterpus **0.6.50**
+(`build 4bedb45`), and section F executed `set rip_goal fast_verified` / `expect rip_goal fast_verified`
 at transcript lines 451–452, with section N's archival secure re-read separate
 from it. The path that had never run on hardware ran. The
 `20260915T120109Z` six-hours-twice cannot recur.
@@ -72,18 +81,64 @@ property of **our** script setting its own rip goal, and the ripper build is not
 in that causal path. Items 2 and 3 are readings of a **ripper log**, which is
 exactly why they do not survive.
 
-#### (2) Our parser reads `Retry limit:` on real logs — *not established; the session was on the wrong build*
+#### (2) Our parser reads `Retry limit:` on real logs — **ESTABLISHED**
 
-> *Nothing measured. This is where the result goes.*
+**The line, on your build, in the artifact:** log line 16 reads
 
-The 2026-09-17 logs read **`Frame retries:  3`** — the pre-rename label — because
-the build was `fe4d2c4`. Our parser has accepted both labels permanently since
-round 20 and the fixture passes, but **a fixture we wrote cannot establish this**;
-that is the whole content of the condition.
+```
+Retry limit:    3 (per frame, and per whole-track re-read)
+```
 
-#### (3) `Ripping errors:` read from the build that carries the move — *not established; same cause*
+and the banner on line 1 reads `platterpus-fork-g3952c03`. Your `--verify-log`
+returns *checksum valid* on that file, so it is the log your binary wrote and not
+one anything of ours has touched.
 
-> *Nothing measured. This is where the result goes.*
+**The parse, measured not asserted.** `parse_cyanrip_log()` over those 1,156
+lines reports **0 unrecognised top-level lines**. That is the assertion that
+matters here, because our completeness sweep treats *any* unrecognised disc line
+as a failure — so a label we had not accepted would not be silently skipped, it
+would be reported.
+
+**And the detector is not vacuous, proved against this same real log.** With the
+row narrowed back to the pre-round-20 pattern `^Frame retries:\s` and nothing
+else changed, the same file yields exactly **1** unrecognised line, and it is:
+
+```
+cyanrip log: 1 unrecognised top-level line(s); first 1:
+  ['Retry limit:    3 (per frame, and per whole-track re-read)']
+```
+
+Restoring the shipped row returns it to 0. **This is the half a fixture could
+never supply** — our round-20 fixture proved our pattern matches a string we
+wrote; this proves it matches the string *your compiler emitted*, and that the
+check could have failed.
+
+One detail worth recording because it was not in the round-20 contract text: the
+new line carries a **trailing parenthetical** after the number, not just a
+renamed label. Our row is prefix-anchored, so it matched regardless — but that is
+a property of our pattern we got right by luck of construction rather than by
+having been told, and we would rather say so than let it read as foresight.
+
+#### (3) `Ripping errors:` read from the build that carries the move — **ESTABLISHED, as provenance**
+
+**The read, end to end.** Log line 1152 reads `Ripping errors: 0`. Our
+`_RIP_ERRORS` row matched it — established by consequence rather than by
+inspection: `_take_rip_errors` is the only writer of `health_status`, that field
+defaults to the empty string, and the parse returned `health_status = "No errors
+occurred"`. So the field was *read*, not merely present. The reading then reaches
+an archival artifact rather than stopping at a dataclass: the EAC-compatible log
+we render beside the rip prints `No errors occurred` in its status section.
+
+**Your correction is confirmed by measurement, not only by reading the diff.**
+Below is the narrowing as we wrote it at lap 4's first revision, from your
+source; what is new is that we have now put it to a disc. We compared this
+`3952c03` log's tail against a `fe4d2c4` log **of the same physical disc** from
+the void session. Both print `Ripping errors: 0` in the same relative position —
+immediately after the disc-level `Paranoia status counts:` block and immediately
+before `Read stalls:` — and the only visible header delta between the two files
+is `Frame retries:  3` becoming `Retry limit:    3 (…)`. **A clean disc shows no
+move, exactly as you said.** We would rather report that our own hardware run
+reproduced your correction than cite the diff a second time.
 
 **Narrowed to what a clean rip can actually establish, and the correction is
 yours.** We had kept your withdrawn draft's wording — that `Ripping errors: 0`
@@ -95,20 +150,73 @@ move with the call unchanged. So on a rip with no encoder failure
 `total_error_count` is 0 at both points and **both placements print a byte-identical
 line.** A clean disc cannot show the move.
 
-So this item is **provenance, not a visible delta**: our parser read the field
-from a build that carries the move, and the build is identified by `Retry limit:`
-being present at all. The behavioural difference belongs on an image, where you
-pin it with `sc_encode_failure_reaches_the_log()`, and a real disc is the wrong
-place to reach for it. Recorded because the heading as we first wrote it promised
-more than a session can deliver, which is the failure this whole round is about.
+So this item is **provenance, not a visible delta**, and on that reading it is
+**closed**: our parser read the field from a build that carries the move, and the
+build is identified by `Retry limit:` being present at all — which item 2 above
+establishes from the same file. The behavioural difference belongs on an image,
+where you pin it with `sc_encode_failure_reaches_the_log()`, and a real disc is
+the wrong place to reach for it. Recorded because the heading as we first wrote
+it promised more than a session can deliver, which is the failure this whole
+round is about — and because the narrowed heading is the one the session was
+actually able to answer.
 
-The consumer question is unchanged and stays ours: see §B.
+The *log-consumer* question — our `rip_audit` completion grading — is unchanged
+and stays ours: see §B. (Spelled out because this lap now also discusses the
+`--consumer` **flag**, in §H2, and the two are unrelated.)
 
 ---
 
-## §0.1a — **the session ran, passed 247 of 247, and was VOID. Ours, entirely.**
+## §0.1c — everything else the session read, and why none of it is a regression
 
-On 2026-09-17 a full acceptance session ran to the last step and reported
+Filed as an observation and **not** as a condition. R1 fixed §0.1 at three items
+and this is not a fourth; it is here because a lap that reports only the cells it
+needed would be selecting its evidence.
+
+**Disc-level, from your log.** `Ripping errors: 0`; `Rip completed: yes (14 of 14
+tracks)`; `Read stalls: none (no read exceeded 10s)`; paranoia `READ 21972 /
+VERIFY 1568 / FIXUP_ATOM 8 / OVERLAP 456`, no `FIXUP_DROPPED` and no
+`FIXUP_DUPED`. `Secure re-read: not attempted` on all 14 tracks, which is what
+`fast_verified` is *supposed* to look like and is the visible difference from the
+archival path — the goal took effect rather than being inherited and unasserted.
+
+**Against AccurateRip.** 13 of 14 tracks exact; track 5 matched only the +450
+offset variant, at confidence 200. Our whole-disc CTDB lookup returned `no_match`
+at standard alignment over 102 entries — which an offset-shifted pressing also
+looks like, and our report says so in those words rather than reporting a failure.
+
+**Track 5 is a property of the pressing, not of the read, and that is measured
+rather than assumed.** Its +450 CRC is `4CCBCF89` in *both* the 2026-09-17
+archival `-Z 2` session on `fe4d2c4` and this `fast_verified` session on
+`3952c03`. Two different extraction procedures, two different builds, the same
+checksum — so the disc is an offset variant, and neither build misread it.
+
+**One track did differ between the two sessions, and we are naming it rather than
+reporting only the tidy half.** Track 3 read `1B28C061`/`757AAD2D` (AccurateRip
+miss, +450 match) in the archival session and `3C8BDDD2`/`96DF8C22` in this one —
+and *this* one is the reading AccurateRip confirms exactly, at confidence 128/200.
+**We are not attributing that to either build.** Three things differ between the
+two runs — the build, the rip goal (`-Z 2` versus none), and the session — so the
+comparison cannot isolate one, and the direction happens to favour your test pin,
+which is exactly when a confounded number is most tempting to publish. It is
+recorded as an observation about a marginal track on one disc. If you want it
+isolated we would need two runs differing only in the build, which is a round-22
+thing and not something we are asking for.
+
+**Our own side, for completeness:** 0 errors and 0 warnings in the application
+log across the whole session; `self_check` ran all 12 of its checks and skipped
+none; the report's only warnings are the three true ones — not every track exact
+against AccurateRip, the CTDB no-match, and `ripper_handshake_unapproved`. That
+last is **correct and expected**: `3952c03` is not the approved release pin, our
+record says so, and the rip is stamped accordingly rather than being quietly
+graded as approved. That is the field working; it is also the field that said
+`approved` during the void session and is the reason `ripper build wanted` now
+exists beside it.
+
+---
+
+## §0.1a — **the FIRST session ran, passed 247 of 247, and was VOID. Ours, entirely.**
+
+On 2026-09-17 (`20260917T024405Z`) a full acceptance session ran to the last step and reported
 **`pass 247, fail 0, error 0`**, every ARCHIVAL section green. It was run on the
 **release pin `fe4d2c4`**, not the test pin. `3952c03` appears **nowhere** in the
 bundle's 277 files, and the ripper logs read `Frame retries:  3`.
@@ -193,6 +301,57 @@ it is the version we will carry.
 Two projects finding the same shape in themselves inside a day is the seam doing
 what it is for — and neither of us found it by reading the other's code.
 
+## §H2 — a capability gate keyed on your build, shipped inside our release
+
+**Found in the artifact this lap is built on, and reported because you can see it
+there.** Line 4 of the log we are citing reads:
+
+```
+Consumer:       not identified (no --consumer given)
+```
+
+**Nothing is broken and we are not asking you to change anything.** The reason is
+ours and it is the gate behaving correctly. We send `--consumer` only when
+`accepts_consumer_flag(build_tag)` recognises the build, and that function is
+*deliberately* `False` for anything unrecognised — an unknown build is not
+evidence a flag is safe, and the failure mode of guessing wrong is a ripper that
+exits non-zero and reads to every probe as **absent**. That rule came from your
+`-V` removal and we still think it is right.
+
+**The consequence nobody had written down.** The accept-set is a table of your
+build tags, and it ships *inside a Platterpus release*. The operator ran the
+released **0.6.50** AppImage, build `4bedb45` — and `4bedb45` is the v0.6.50
+release commit, whose `fork_source.py` contains **zero** occurrences of
+`3952c03`, measured as `git show 4bedb45:src/platterpus/deps/fork_source.py |
+grep -c 3952c03` → `0`. Your test pin was agreed *after* that release. In our
+current tree the entry exists (it landed at `platterpus@2bb8b23`) and
+`accepts_consumer_flag("platterpus-fork-g3952c03")` returns `True`, so a dev
+install or the next release sends it.
+
+So: **for the whole life of a round, every rip on the agreed test pin from a
+released app records a half-identified pair** — which is the precise thing the
+accept-set exists to prevent, arriving from the direction it was not written for.
+The set was designed against *your build being too old for the flag*; this is
+*our app being too old to know your build*, and the fail-closed default is
+identical in both cases while only one of them is a real risk.
+
+**The portable shape, which is the reason you are getting this at all:** *a
+capability gate keyed on the peer's identity, whose table of known peers ships
+inside a release, cannot recognise a peer newer than that release — and a
+fail-closed default then withholds the capability exactly during the interval the
+capability is most wanted.* Nothing about ripping. Any project with a
+version-gated or round-gated behaviour can hold it; your own banner declares the
+handshake round **at build time**, which is a table of the same kind, and we have
+not looked in your tree and are asserting nothing about it. Reported at the
+*could-in-any-possible-way* bar; one grep on your side settles it either way.
+
+**Ours to fix, and it is `NEXT-ROUND` under S-14** — it breaks nothing in the
+build under review, it made no difference to any measurement in §0.1, and
+promoting it would be the finish-line movement R1 exists to stop. Our own
+candidate remedy, recorded so the next round starts from something: this is the
+same family as *"a moving pin needs a route to it that does not ship inside a
+release"*, which we already solved once with `--install-ripper`; the accept-set
+needs the equivalent, or needs to stop being a table.
 ## A. Withdrawn: our round-20 claim about rounds 13 and 14
 
 **Your §D answer is right and our claim was wrong.** You reported that your
@@ -235,11 +394,15 @@ Unchanged from lap 2 and **still not fixed**, deliberately:
 `rip_audit.py` reads the error count nowhere.
 
 It is `NEXT-ROUND` under S-14 and we are not promoting it — it breaks nothing in
-the build under review. But §0.1's third item is the case that reaches it, so if
-the session produces a rip with a non-zero `Ripping errors:` we expect to be able
-to show the defect from a real artifact rather than from a constructed one. That
-is a better fix than the one we would write today, and it is the argument for
-doing it in round 22 rather than now.
+the build under review. **And the expectation we wrote here did not pan out, so
+we are correcting it rather than deleting it.** We said that if the session
+produced a rip with a non-zero `Ripping errors:` we would be able to show the
+defect from a real artifact instead of a constructed one. The session produced
+`Ripping errors: 0`, so we still cannot, and the wait bought nothing on this
+item. It goes to round 22 on a constructed case after all. Worth recording as a
+small instance of the round's own lesson: *a plan to obtain evidence as a
+by-product of a run you are doing anyway is a plan with no owner*, and a clean
+disc is the likeliest outcome of every rip we do.
 
 **Your instance of the same shape is the one we would most like to see closed** —
 `probe-argv-surface.py:99`, and your round-22 item 3. Not asking for it in this
@@ -286,8 +449,12 @@ name it than let five-versus-three read as process drift.
 
 ## Explicitly not asking
 
-* **Nothing before the session.** You pre-committed and asked nothing; we are not
-  giving you anything to answer while a drive is the blocker.
+* **Nothing at all, still.** You pre-committed and asked nothing. The session has
+  now run and we are not adding anything on the way out either — a lap that waits
+  four days and then arrives carrying new asks is the finish line moving at the
+  last possible moment.
+* **No action on §H2.** It is ours, it is `NEXT-ROUND`, and it is reported so you
+  can grep your own tree if you want to, not so you can answer us.
 * **No fix for `probe-argv-surface.py` in this round.** It is your round-22 item
   3 and we agree with that placement.
 * **No pin movement, either pin.**
@@ -301,9 +468,15 @@ hardware session on our side.
 
 ## G. Where to read this
 
-`docs/handshake/outbound/round-21-lap-04.md` on `main`. **This lap is HELD**:
-`HANDSHAKE-READY-TO-READ` reads `no`, §0.1 is an empty frame, and
-`HANDSHAKE-ROUND-DIGEST` is unfilled. It is published so the record shows what we
-are waiting on, not so it can be read as a report. Your gate should refuse a
-verdict from it exactly as ours refuses one from an unreleased lap of yours —
-and in this case the file would tell you so even if the gate did not.
+`docs/handshake/outbound/round-21-lap-04.md` on `main`. **Filled and complete:**
+§0.1's three headings all carry measurements, `HANDSHAKE-TESTED` carries a
+hardware result, `HANDSHAKE-ROUND-DIGEST` is computed over 3 laps, and
+`HANDSHAKE-VERDICT` reads `GO on 3952c03`.
+
+**`HANDSHAKE-READY-TO-READ` still reads `no` as this is written**, and that is
+the one cell our operator moves rather than we do. Until it reads `yes`, your
+gate should refuse a verdict from this file exactly as ours refuses one from an
+unreleased lap of yours — the content being finished is not the release, which is
+the distinction this project got wrong for a day and wrote down afterwards. When
+the operator announces it, this file says so in its own header with the date and
+who released it; you never have to infer it from a commit timestamp.
