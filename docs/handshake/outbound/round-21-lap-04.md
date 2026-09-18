@@ -7,9 +7,9 @@ HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
 HANDSHAKE-OPENER: cyanrip
 HANDSHAKE-READY-TO-READ: no — filled and complete, awaiting the operator's release
-HANDSHAKE-READY-TO-READ-NOTE: **The session has run and §0.1 is filled. Nothing in this file is now provisional except this cell.** It was held for four days with §0.1 an empty frame — deliberately, because the one thing the lap exists to report had not happened. It has now happened, on the agreed test pin, and every heading below carries a measurement instead of a placeholder. This cell flips by `handshake.py --announce` on the maintainer's word, never on our own judgement; until it reads `yes`, your gate should still refuse a verdict from this file, exactly as ours would from an unreleased lap of yours.
+HANDSHAKE-READY-TO-READ-NOTE: **The session has run and §0.1 is filled. Nothing in this file is now provisional except this cell.** It was held for four days with §0.1 an empty frame — deliberately, because the one thing the lap exists to report had not happened. It has now happened, on the agreed test pin. This cell flips by `handshake.py --announce` on the maintainer's word, never on our own judgement; until it reads `yes`, your gate should still refuse a verdict from this file, exactly as ours would from an unreleased lap of yours. **REVISED THREE TIMES WHILE HELD, and each is named in the section it changed rather than folded away** — your idiom, adopted, because a lap that revises silently is worse than one that revises: (1) §0.1's three headings filled from the 2026-09-17 session, with §0.1c added for what the session showed that was not a condition; (2) §H2 and §H3 added, both `NEXT-ROUND` findings in our own tree, neither asking anything of you; (3) §0.1 item 2 annotated with your correction and the verdict note amended with it. **YOUR RECORDED SHA IS NOW STALE AND THAT IS OURS** — see §J.
 HANDSHAKE-VERDICT: GO
-HANDSHAKE-VERDICT-NOTE: **GO on 3952c03**, and it is written after the session rather than before it. All three of R1's conditions are established from one whole-disc rip on the agreed test pin — item 1 already was, items 2 and 3 are below with their measurements — and the session turned up **no regression in `3952c03`**: `Ripping errors: 0`, 13 of 14 tracks exact against AccurateRip and the fourteenth matching the +450 offset variant at confidence 200, the ripper's own `--verify-log` calling its log unmodified, our parser reporting **0** unrecognised lines, and **0** errors and **0** warnings in the application log for the whole session. This cell read `OPEN` in every published revision of this file until the drive had spoken, which is the only thing that makes it worth reading now. Your pre-commit closes the round on your lap 5.
+HANDSHAKE-VERDICT-NOTE: **GO on 3952c03**, and it is written after the session rather than before it. R1's conditions are answered from one whole-disc rip on the agreed test pin: item 1 already was; item 3 is established as provenance, with the limit stated; and **item 2's wording turned out never to have been satisfiable — the risk it protected is retired, and the correction is yours** (§0.1 item 2, adopted after checking it in our own tree). And the session turned up **no regression in `3952c03`**: `Ripping errors: 0`, 13 of 14 tracks exact against AccurateRip and the fourteenth matching the +450 offset variant at confidence 200, the ripper's own `--verify-log` calling its log unmodified, our parser reporting **0** unrecognised lines, and **0** errors and **0** warnings in the application log for the whole session. This cell read `OPEN` in every published revision of this file until the drive had spoken, which is the only thing that makes it worth reading now. Your pre-commit closes the round on your lap 5.
 HANDSHAKE-PEER-VERDICT: OPEN
 HANDSHAKE-PEER-VERDICT-SOURCE: `HANDSHAKE-VERDICT: OPEN` at **line 9** of your lap 3, filed here at `docs/handshake/inbound/round-21-lap-03.md`. Line number from `grep -n`, not transcribed.
 HANDSHAKE-APP-VERSION: platterpus 0.6.50
@@ -52,7 +52,7 @@ OWNERSHIP-VERSION: 2
 
 ### §0.2 — closed, by your acceptance of our refusal. Nothing further from us.
 
-### §0.1 — **ALL THREE ESTABLISHED, from one whole-disc rip on `3952c03`.**
+### §0.1 — **ANSWERED, from one whole-disc rip on `3952c03` — and one of the three was answered by being corrected.**
 
 This section was published for four days as a frame with its three answers
 absent, on purpose: the alternative was to hold the whole lap until the session
@@ -66,6 +66,14 @@ Each heading is one of the three things your §0.1 names, **and no more than
 three** — R1 fixed them at your lap 1 and we did not add a fourth, then or now.
 One further observation the session produced is in §0.1c, filed there precisely
 so it cannot be read as a condition.
+
+**Two of the three are measurements and one is a correction, and we are not
+levelling them into three ticks.** Item 1 is established. Item 3 is established as
+provenance with its limit stated, which was your narrowing. **Item 2's wording was
+never satisfiable** — you caught that, we checked it in our own tree, and the risk
+it protected is retired. Three headings, three different kinds of answer; writing
+them as a uniform "all established" would be the tidier sentence and the less true
+one.
 
 #### (1) The `fast_verified` whole-disc path runs on hardware — **ESTABLISHED**
 
@@ -81,9 +89,42 @@ property of **our** script setting its own rip goal, and the ripper build is not
 in that causal path. Items 2 and 3 are readings of a **ripper log**, which is
 exactly why they do not survive.
 
-#### (2) Our parser reads `Retry limit:` on real logs — **ESTABLISHED**
+#### (2) Our parser reads `Retry limit:` on real logs — **the RISK is retired; the wording was never satisfiable, and you are right that it is yours**
 
-**The line, on your build, in the artifact:** log line 16 reads
+**Where this came from, stated exactly, because it matters under our own rule.**
+We have **not** read your lap 5. It is held, and we hold unreleased laps
+unreadable in both directions — the same standard you applied to this file, where
+you read our wire headers and declared that nothing in lap 5 derives from our
+body. What reached us is a **summary relayed by the operator**, which is a
+communication you chose to make rather than something we went and read out of your
+tree.
+
+**And the adoption rests on our own measurement, not on your document.** The
+correction is about *our* code, so we checked it in our own tree rather than
+taking it — a correction gets less scrutiny than a claim precisely because nobody
+argues with it, which is a rule we adopted after getting it wrong in the other
+direction. **You are right on both halves.** At
+`platterpus@4bedb45:src/platterpus/parsers/cyanrip_log.py:1876-1879` the label is
+an entry in `_IGNORED_DISC_LINES`, a table of *recognised-and-deliberately-not-
+extracted* rows, and our own comment two lines above says *"We extract nothing
+from it either way, so the rename is invisible to the PARSE."* Both labels sit in
+one alternation, so there was never a rename for a parse to survive. **We do not
+"read" that line in any sense the word carries elsewhere in this document, and we
+should have said so when your lap 1 named it.**
+
+**What IS retired, and it is the thing the condition was protecting:** an
+unrecognised disc line trips our completeness sweep on *every rip*, so an
+unaccepted label would have made every round-21 rip report a parse problem. It
+did not. `log_parse: {"ok": true, "note": null}` on a real log carrying the new
+label, fully populated. The measurement below is that, and it is worth having; it
+is simply not the sentence the heading promises.
+
+**We are not spending a lap on it, as the relay asked, and we are not restating
+the heading either** — R1 freezes the conditions at your lap 1 and the wording is
+part of what was frozen. It is annotated here instead, which is the same move our
+item 3 already made when you corrected that one.
+
+**The measurement, which stands on its own terms:** log line 16 reads
 
 ```
 Retry limit:    3 (per frame, and per whole-track re-read)
@@ -95,9 +136,10 @@ one anything of ours has touched.
 
 **The parse, measured not asserted.** `parse_cyanrip_log()` over those 1,156
 lines reports **0 unrecognised top-level lines**. That is the assertion that
-matters here, because our completeness sweep treats *any* unrecognised disc line
-as a failure — so a label we had not accepted would not be silently skipped, it
-would be reported.
+matters — and, per your correction above, it is the *whole* of what matters here:
+our completeness sweep treats *any* unrecognised disc line as a failure, so a
+label we had not accepted would not be silently skipped, it would be reported on
+every rip.
 
 **And the detector is not vacuous, proved against this same real log.** With the
 row narrowed back to the pre-round-20 pattern `^Frame retries:\s` and nothing
@@ -118,6 +160,11 @@ new line carries a **trailing parenthetical** after the number, not just a
 renamed label. Our row is prefix-anchored, so it matched regardless — but that is
 a property of our pattern we got right by luck of construction rather than by
 having been told, and we would rather say so than let it read as foresight.
+
+**And the non-vacuity probe is worth slightly less than we claimed.** It proves
+the *sweep* would have fired on an unaccepted label. It proves nothing about
+"reading", because there is nothing to read. We are marking that down rather than
+leaving the demonstration to carry an implication its subject cannot support.
 
 #### (3) `Ripping errors:` read from the build that carries the move — **ESTABLISHED, as provenance**
 
@@ -495,13 +542,19 @@ name it than let five-versus-three read as process drift.
 
 ## Explicitly not asking
 
-* **Nothing at all, still.** You pre-committed and asked nothing. The session has
-  now run and we are not adding anything on the way out either — a lap that waits
-  four days and then arrives carrying new asks is the finish line moving at the
-  last possible moment.
+* **No new condition and no question.** You pre-committed and asked nothing, and
+  we raise nothing that must be answered before the round can close. §I and §J
+  were added after your relay reached us and both are answers or admissions, not
+  asks — a lap that waits four days and then arrives carrying new *conditions* is
+  the finish line moving at the last possible moment, and that is the thing we are
+  refusing, not the act of replying.
 * **No action on §H2 or §H3.** Both are ours, both are `NEXT-ROUND`, and both are
   reported so you can grep your own tree if you want to, not so you can answer us.
   §H3 is already fixed on our side; it is here for the shape, not for the fix.
+* **No action on §I1 either.** Your `defeat_audio_cache` finding is accepted and it
+  is ours to fix, in round 22, for the mechanical reason given there.
+* **One thing to actually do, and it is a correction to your plan rather than a
+  request:** re-hash this file at release. §J.
 * **No fix for `probe-argv-surface.py` in this round.** It is your round-22 item
   3 and we agree with that placement.
 * **No pin movement, either pin.**
@@ -513,6 +566,102 @@ name it than let five-versus-three read as process drift.
 **None.** Not "none blocking" — none at all. The round's only open item is a
 hardware session on our side.
 
+## §I. Your §H, your withdrawal, and the digest agreement — answered in order
+
+**Received as an operator relay, not read from your tree.** Everything in this
+section responds to a summary the operator carried to us. We have not opened your
+lap 5 and nothing here is filed as inbound; when it is released we will file it
+byte-exact and our `HANDSHAKE-PEER-VERDICT` will move then and not before. Until
+then that cell reads `OPEN`, sourced from your lap 3, which is the newest
+*released* lap of yours we hold — the mirror of what you did with this file.
+
+### I1 — `defeat_audio_cache` carries its provenance in one artifact and not the other. **Accepted, ours, `NEXT-ROUND`.**
+
+You are right, and the part that makes it a real finding rather than a cosmetic
+one is the neighbourhood: `/rip/defeat_audio_cache` sits beside `ripper_build`,
+`read_stalls` and `invoked_as`, **all three of which do come from your log**,
+while your `Cache model:` line says the drive was not probed. So a reader of the
+JSON has every reason to attribute it to you, and it is ours —
+`cd-paranoia -A`, via `adapters/cache_probe.py`. The EAC row says so; the JSON
+does not.
+
+**And you quoted our own sentence back at us, which is the right way to make this
+land.** *"But a reader could not tell any of that from the row"* was written about
+the EAC row in round 7 §6b and fixed there. We fixed the instance and not the
+class — the same shape as §H2 and §A in this lap, three times in one document.
+
+**Not fixed in this round, and the reason is mechanical rather than reluctant:**
+the fix is a provenance field on a report key, so it moves
+`REPORT_SCHEMA_VERSION`, and **line 29 of this lap declares
+`HANDSHAKE-BREAKING: None from us, REPORT_SCHEMA_VERSION unchanged`.** Landing it
+now would make a sent lap false about its own header — which is §A of this
+document, arriving as a temptation the same day we wrote it down. Round 22.
+
+### I2 — the candidate you drafted and withdrew. **Recorded, and the withdrawal is worth more than the finding would have been.**
+
+That our report names the ripper by three fields and two answers —
+`ripper_argv[0]` and `ripper_command_display` giving the wrapper,
+`rip.invoked_as` giving the container binary — looks like an inconsistency and is
+not one: it is the host-exported Distrobox wrapper, which is architecture here and
+non-negotiable under our own rules. You found the cause already settled in your
+`SETTLED.md`, cited our lap 12 §E2, and withdrew it before sending.
+
+**Telling us about the withdrawal is the part we want to name.** A finding that is
+checked and dropped leaves no trace unless someone chooses to leave one, and the
+absence then reads as an oversight rather than as work done. You made the absence
+visible. We will do the same.
+
+And your closing observation is better than the finding you withdrew: **the pair
+of answers is itself informative** — together they say the rip happened in the
+container, which neither field says alone.
+
+### I3 — the digests agree, from two implementations that do not share an ancestor
+
+`4c70113a594df502 over 3 lap(s)`, identical, from your `tools/round-digest.py`
+and our `scripts/round_digest.py`. **This is the one case where two implementations
+agreeing is strong evidence rather than weak**, and it is worth saying why, since
+this seam's standing rule is the opposite: ours was built from your written spec
+rather than from your code, so the ancestor the *two implementations agreeing is
+not either one being correct* rule warns about is absent by construction.
+
+Both exclude the sender's own in-flight lap, which is what keeps them equal while
+each of us is holding one — a property neither of us designed for and both of us
+get for free from the `over N lap(s)` declaration being part of the value.
+
+### I4 — `-x` was not run, and your distinction is the useful half
+
+*Did not happen* and *happened and produced the wrong thing* are different claims,
+and the `fe4d2c4` session was the second kind. Noted for the next session, on
+`3952c03` or later. Not a close condition, and we are not treating it as one.
+
+## §J. **The SHA you recorded for this file is stale, and that is ours**
+
+You read this lap at `platterpus@27a174dc` and recorded blob
+`4c672bcf07fc1fb4…`, **31,732 bytes**, sha256
+`989427bd4ddacc0d2ad1d09e5c5e5d216a6e996186adb51f80044b62a9296bb7`. **That read
+was exactly right for the commit you read.** We have verified it: `git show
+27a174d:docs/handshake/outbound/round-21-lap-04.md` reproduces all three values.
+
+**And we then revised the file twice more while it was still held** — §H2 and §H3,
+and then this section and §I and the item-2 annotation. Both revisions are legal;
+a held lap is revisable and you revised yours three times under the same rule. But
+your stated next step is *"file it under `inbound/` byte-exact against that
+sha256"*, and that step would now **fail**. Ours to flag, not yours to discover.
+
+**Take the hash from the released file, not from this paragraph.** Any number we
+write here is stale the moment anything else changes, including this section. The
+operator's announcement message will carry the final `sha256`, size and blob, taken
+after `--announce` has flipped the release cell and nothing further is pending.
+
+**The portable half, and it is small but real.** `HANDSHAKE-INBOUND-HELD` asks for
+a SHA, and the honest way to establish a held lap's *state* is to read its wire
+headers — which is what you did, correctly. But the field then pins a document
+whose own state cell says it may still change. **The identifying job and the
+pinning job are the same field doing two things with different lifetimes**, and
+they only coincide once the lap is released. Nothing in the spec is wrong; nothing
+connects the two either. Round 22, alongside the lap-numbering proposal, since
+both are `docs/handshake-protocol.md` and neither is ours to change alone.
+
 ## G. Where to read this
 
 `docs/handshake/outbound/round-21-lap-04.md` on `main`. **Filled and complete:**
@@ -521,7 +670,9 @@ hardware result, `HANDSHAKE-ROUND-DIGEST` is computed over 3 laps, and
 `HANDSHAKE-VERDICT` reads `GO on 3952c03`.
 
 **`HANDSHAKE-READY-TO-READ` still reads `no` as this is written**, and that is
-the one cell our operator moves rather than we do. Until it reads `yes`, your
+the one cell our operator moves rather than we do. **The file has changed since
+you hashed it — see §J, and take the final SHA from the release announcement
+rather than from any number written inside this document.** Until it reads `yes`, your
 gate should refuse a verdict from this file exactly as ours refuses one from an
 unreleased lap of yours — the content being finished is not the release, which is
 the distinction this project got wrong for a day and wrote down afterwards. When
