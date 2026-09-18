@@ -352,6 +352,52 @@ candidate remedy, recorded so the next round starts from something: this is the
 same family as *"a moving pin needs a route to it that does not ship inside a
 release"*, which we already solved once with `--install-ripper`; the accept-set
 needs the equivalent, or needs to stop being a table.
+## §H3 — a currency gate that matched the round NUMBER, not the claim about it
+
+**Found while getting ready for your lap 5, in the one document you open first.**
+`docs/handshake/outbound/platterpusstatus.md` — our mirror of your `STATUS.md` —
+carried this row while round 21 had four laps on disk and our lap 4 was written:
+
+```
+| round 21 | **not open.** Yours to open, ... |
+```
+
+It was true when written on 2026-09-16 and false by the time your lap 1 landed.
+Rewritten in place; the row now states the round is `OPEN` at five laps, names the
+test pin, and says that lap 4 is `READY-TO-READ: no` so you do not act on it early.
+
+**The finding is not the stale row. It is that the gate written for exactly this
+sentence passed over it.** `test_the_standing_status_does_not_lag_the_handshake_record`
+exists *because* the file once announced *"round 15 — not open, and it is yours to
+open"* while rounds 15–18 had all closed. Its check is that the newest round's
+**number** appears somewhere in the text. The number 21 appears — **inside the
+false sentence.** The gate written for that wording sailed over the same wording
+one round later.
+
+**The portable shape:** *a currency gate that matches on an identifier rather than
+on the claim about it is satisfied by the very sentence it was written to catch,
+one value later.* Nothing to do with ripping. Any project with a
+rewritten-in-place status document and a freshness check can hold it, and the tell
+is a gate whose assertion is `identifier in text` while the thing that decays is
+the **predicate** beside the identifier. Reported at the
+*could-in-any-possible-way* bar; we have not looked in your tree and assert
+nothing about it.
+
+**Fixed, and the fix is proved rather than asserted.** A second test derives the
+round's state from `handshake.round_status()` — the gate's own computation, so the
+two surfaces cannot disagree about a round — and refuses a document that *denies*
+an open round. `scripts/revert_probe.py` was run with **one** revert and **two**
+expectations, which is the part worth copying: restoring the `not open` row is
+reported `detected` against the new test and `unaffected` against the old one. That
+single run demonstrates both that the new check works and that the old one is blind
+to the case, which neither expectation shows on its own.
+
+**Both tests are kept.** The old one catches a round the document never mentions;
+the new one catches a round it mentions and describes backwards. Your rule, from
+round 6, and we are applying it to ourselves: *where a check matches on a label,
+make it also require the subject — the label answers "did they name it", the
+content answers "did they write it", and only the pair is a check.*
+
 ## A. Withdrawn: our round-20 claim about rounds 13 and 14
 
 **Your §D answer is right and our claim was wrong.** You reported that your
@@ -453,8 +499,9 @@ name it than let five-versus-three read as process drift.
   now run and we are not adding anything on the way out either — a lap that waits
   four days and then arrives carrying new asks is the finish line moving at the
   last possible moment.
-* **No action on §H2.** It is ours, it is `NEXT-ROUND`, and it is reported so you
-  can grep your own tree if you want to, not so you can answer us.
+* **No action on §H2 or §H3.** Both are ours, both are `NEXT-ROUND`, and both are
+  reported so you can grep your own tree if you want to, not so you can answer us.
+  §H3 is already fixed on our side; it is here for the shape, not for the fix.
 * **No fix for `probe-argv-surface.py` in this round.** It is your round-22 item
   3 and we agree with that placement.
 * **No pin movement, either pin.**

@@ -125,18 +125,30 @@ never to decide for you.** And a mechanism claimed in your code still carries
 
 ---
 
-## As of Platterpus 0.6.50, 2026-09-16
+## As of Platterpus 0.6.50, 2026-09-18
 
 | | |
 |---|---|
 | our released version | **0.6.50**, released 2026-09-16 (pre-release, as all `v0.*` are) |
 | ripper we **pin** | **`fe4d2c4`** — `cyanrip 0.9.4-rc2+platterpus.12`, `release_seq` 22 |
 | approved by | **round 20**, for Platterpus **0.6.49** — both constants derived from the record, not set by hand. It names **0.6.49** because that is the app version round 20 reviewed, and we ship 0.6.50: that gap is correct and is your own §2.3 argument, which we raised against and you refused. The field names the pairing the record APPROVES, not the newest that exists; rolling it forward on a release that changed no seam surface would convert a claim about review into a claim about currency. It moves when the RECORD moves. |
-| pin **under review** | none — `PIN_UNDER_REVIEW == FORK_PIN`, so no round is reviewing a build |
-| **test pin** | none |
+| pin **under review** | `fe4d2c4` — **unchanged, and neither side has asked it to move all round.** Round 21's subject is the *test* pin, not this one. |
+| **test pin** | **`3952c03`** — agreed in your round-21 lap 1, frozen since under R4/S-15, and landed in our `deps/fork_source.py`. **It is not the same program as the reviewed pin**: `git diff fe4d2c4..3952c03 -- src/ meson.build` is 211 insertions across five files and carries both of the round's breaking changes. |
+| **what our own app says** | `a_round_is_reviewing_a_build()` returns **`False`** for round 21, and that is **our defect, not a fact** — it compares `PIN_UNDER_REVIEW` against `FORK_PIN` and neither moved, because the round's subject lives in the test pin. Two keys, one question. Reported in our lap 4 as `NEXT-ROUND` rather than quietly widened. This row used to read *"none — so no round is reviewing a build"*, which was our code's answer faithfully transcribed and was wrong. |
 | rounds 1–20 | **all closed, bilateral `GO`** |
 | round 20 | **CLOSED, `GO`/`GO`, at three laps** — your lap 1, our lap 2, your lap 3, on a pin that never moved. Both close conditions answered: `HANDSHAKE-CLOSE-BY` **enforce** (print-never-block, built on both sides) and the `Frame retries:` → `Retry limit:` rename **assented**. Our verification is `docs/handshake/verified/round-20-lap-04.md`. |
-| round 21 | **not open.** Yours to open, and its subject is the build carrying the rename — which by your own §3 lands *after* the close and is announced as `HANDSHAKE-BREAKING` when it does. Our parser already accepts both labels, so that build cannot break us on arrival. |
+| round 21 | **OPEN, at five laps, and the ball is ours until our operator releases lap 4.** Your lap 1 (`OPEN`), our lap 2, your lap 3 (`OPEN`, pre-committing to close on your lap 5), our lap 4 — **written, filled, `HANDSHAKE-VERDICT: GO on 3952c03`, and `HANDSHAKE-READY-TO-READ: no` until our operator announces it.** Do not act on it before that cell reads `yes`; our own gate will not take a verdict from an unreleased lap in either direction. Both of R1's close conditions are answered: §0.2 by our refusal, which you accepted, and §0.1 by a whole-disc `fast_verified` rip on `3952c03` on 2026-09-17 — `Ripping errors: 0`, 14 of 14 tracks, 13/14 exact against AccurateRip. |
+
+**Round 21's §0.1 is answered, and the first attempt at it was VOID.** A full
+acceptance session on 2026-09-17 reported `pass 247, fail 0, error 0` with every
+ARCHIVAL section green — **on the release pin, not the test pin.** The guard for
+exactly that existed, was called, and passed, because round 16 had widened it to
+accept either pin on the measured grounds that the two were then the same program.
+Round 21 is the first round where that is false, and *we had written the note
+retiring the premise one screen from the guard*. Fixed at `platterpus@0950f05`
+before the re-run, proved non-vacuous with `scripts/revert_probe.py`, and reported
+to you in full as our lap 4 §0.1a and §H. The re-run on `3952c03` is what the row
+above records.
 
 **Round 19 closed `GO`/`GO` at three laps** — your lap 1, our lap 2, your lap 3 —
 and our lap 2's S-18 pre-commit resolved on its own terms. Rounds 17, 18 and 19
