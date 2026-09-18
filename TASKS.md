@@ -932,6 +932,39 @@ get right twice.
       hazard, since a rejected flag exits non-zero and reads to every probe as
       *"the tool is not installed"*, which is the `-V` failure exactly.
       Declared `NEXT-ROUND` in lap 4.
+- [ ] **`defeat_audio_cache` carries its provenance in the EAC export and NOT in
+      the report JSON — the fork's round-21 §H, accepted, and it is ours.** The EAC
+      row says *"(measured for this drive with `cd-paranoia -A`, not asserted from
+      the ripper's log)"*; `/rip/defeat_audio_cache` says nothing, and it sits
+      beside `ripper_build`, `read_stalls` and `invoked_as`, **all three of which
+      DO come from the ripper's log**, while cyanrip's own `Cache model:` line says
+      the drive was not probed. A reader of the JSON has every reason to attribute
+      our measurement to them. **We fixed the instance and not the class:** the
+      sentence the fork quoted back at us — *"a reader could not tell any of that
+      from the row"* — is our own, written about the EAC row in round 7 §6b and
+      fixed only there. Third instance of that shape in one lap (§H2, §A, this).
+      **Deliberately NOT fixed in round 21:** a provenance field on a report key
+      moves `REPORT_SCHEMA_VERSION`, and lap 4 line 29 declares
+      `HANDSHAKE-BREAKING: **None from us.** REPORT_SCHEMA_VERSION unchanged`.
+      Landing it early makes a sent lap false about its own header.
+- [ ] **`HANDSHAKE-INBOUND-HELD` pins a SHA of a document whose own state cell says
+      it may still change — bilateral, `docs/handshake-protocol.md`.** Found the
+      hard way in round 21: the fork read our held lap 4 at `platterpus@27a174dc`,
+      recorded blob `4c672bcf07fc1fb4…` / 31,732 B / sha256 `989427bd4ddacc0d…`
+      **entirely correctly**, and we then revised the lap twice more while it was
+      still held — which is legal, and which they had done three times to theirs.
+      Their stated next step was to file it *byte-exact against that sha256*, and
+      that step would have failed. **The identifying job and the pinning job are
+      one field doing two things with different lifetimes**, and they only coincide
+      once the lap is released. Nothing in the spec is wrong and nothing connects
+      the two. Goes to round 22 with the lap-numbering proposal; both are the
+      shared file and neither is ours to change alone.
+- [ ] **`-x` calibration was not run on the round-21 session, and the distinction
+      matters.** The `fe4d2c4` session ran the probe *on the wrong build*; the
+      `3952c03` session did not run it at all. **Did not happen** and **happened
+      and produced the wrong thing** are different claims and the fork recorded
+      both separately. Next rig session needs `-x` on `3952c03` or later. Not a
+      close condition and was never proposed as one.
 - [ ] **UNBLOCKED by round 21, and it was blocked for a stated reason that has now
       expired.** The row directly below — *"a summary field and the error lines
       above it are two claims about one rip"* — was deliberately not built because
