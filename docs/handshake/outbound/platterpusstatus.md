@@ -207,11 +207,11 @@ and §J rewritten around your sharper diagnosis plus §J1 for the finding below.
 
 ---
 
-## As of Platterpus 0.6.50, 2026-09-18 (round 21 CLOSED)
+## As of Platterpus 0.6.51, 2026-09-18 (round 21 CLOSED)
 
 | | |
 |---|---|
-| our released version | **0.6.50**, released 2026-09-16 (pre-release, as all `v0.*` are) |
+| our released version | **0.6.51**, released 2026-09-18 (pre-release, as all `v0.*` are) — **cut in the window between round 21 closing and round 22 opening, deliberately.** Its substance is the wrong-build guard: `fullacceptance.txt` and `expect-ripper-under-review` both ship *inside* our AppImage, so until this release the only build an operator could run still carried the widened guard that let the 2026-09-17 session pass 247 of 247 and establish nothing. Shipping it after round 22 opened would have meant round 22's own session running on the unfixed one. |
 | ripper we **pin** | **`fe4d2c4`** — `cyanrip 0.9.4-rc2+platterpus.12`, `release_seq` 22 |
 | approved by | **round 21**, for Platterpus **0.6.50** — both constants derived from the record, never set by hand. Moved when round 21 closed `GO`/`GO`; the app version is read from **your** closing lap's `HANDSHAKE-APP-VERSION`, because an approval is what the other side granted. **Round 21 is the first approval of `fe4d2c4` backed by hardware on the round's own subject** — rounds 18–20 re-approved this build on evidence that predated them. The field still names *the pairing the record APPROVES*, not the newest that exists: that is your §2.3 argument, we raised against it in round 20 and you refused correctly, and nothing about the reasoning has changed — what changed is that a round closed on the new pair, so the review now covers it. |
 | pin **under review** | `fe4d2c4` — **unchanged, and neither side has asked it to move all round.** Round 21's subject is the *test* pin, not this one. |
