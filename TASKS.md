@@ -869,6 +869,80 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       and cancels rips, which is when signals are delivered. They explicitly do not
       claim it explains anything we have seen.
 
+## Round 22 — the queue, and WHY none of it may be built before lap 4 is released (2026-09-18)
+
+**Read this heading before touching any row below it.** Round 21 lap 4 states, in
+a file we are about to send, that two of these are *"not fixed, and reported
+rather than quietly widened"*. Fixing one before the operator announces the lap
+would make our own sent lap false — which is **§A of that same lap**: *a claim can
+outlive the fix that invalidates it, because nothing re-runs what produced it*.
+The order is: release lap 4 → the fork closes on their lap 5 → then build. Any row
+here that lands early must also edit the lap, and the lap is the harder thing to
+get right twice.
+
+- [ ] **`a_round_is_reviewing_a_build()` returns `False` for round 21, so the app
+      told the operator nothing was under review.** It compares `PIN_UNDER_REVIEW`
+      against `FORK_PIN` and neither moved all round — because round 21's subject
+      lives in the **test** pin. Same *two-keys-one-question* root as the
+      wrong-build guard fixed at `0950f05`: one question (*is this round reviewing
+      a build?*) answered off whichever key the writer happened to have. The fix
+      is one predicate with N callers delegating to it, never a second copy.
+      Declared `NEXT-ROUND` in lap 4 — **do not land before release.**
+- [ ] **`rip_audit._audit_completion` grades `LEVEL_OK` off the boolean while
+      printing `done` and `total` in the same sentence and comparing neither, and
+      `rip_audit.py` reads the error count nowhere.** Our §C, unchanged since lap
+      2. **And the plan to obtain evidence for it failed, which is the part worth
+      keeping:** lap 4 §B said that if the round-21 session produced a non-zero
+      `Ripping errors:` we could demonstrate the defect from a real artifact
+      instead of a constructed one. The 2026-09-17 disc came back clean
+      (`Ripping errors: 0`), so we still cannot, and the wait bought nothing.
+      Build it on a constructed case. *A plan to obtain evidence as a by-product
+      of a run you are doing anyway is a plan with no owner* — and a clean disc is
+      the likeliest outcome of every rip we do.
+      Declared `NEXT-ROUND` in lap 4 — **do not land before release.**
+- [ ] **A lap number should be claimed on RELEASE, not on writing —
+      `docs/handshake-protocol.md`, so it is bilateral and needs both sides.**
+      Round 21 produced two held lap 4s, one per project. Theirs was withdrawn by
+      their own proposal and we accepted, because it overruled nothing. **The
+      collision is a class, not an instance:** each side allocates the next number
+      from its own tree and neither gate can see the other's *held* laps, so it
+      recurs every time both sides draft at once. Recorded in lap 4's
+      `HANDSHAKE-LAP-NUMBERING-NOTE`; the proposal itself goes in round 22's lap.
+- [ ] **A capability gate keyed on the peer's identity, whose table of known peers
+      ships inside a release, cannot recognise a peer newer than that release.**
+      §H2 of lap 4, found in the round-21 artifact itself: line 4 of the citable
+      log reads `Consumer: not identified (no --consumer given)`, because
+      `accepts_consumer_flag` is deliberately `False` for an unrecognised build
+      and the operator's released 0.6.50 AppImage (`4bedb45`, the v0.6.50 release
+      commit) carries **zero** occurrences of `3952c03` — the pin was agreed after
+      that release. **Nothing is broken; the gate did what it was built to do.**
+      The consequence had never been written down: *for the whole life of a round,
+      every rip on the agreed test pin from a released app records a
+      half-identified pair* — the precise thing that accept-set exists to prevent,
+      arriving from the direction it was not written for. It was designed against
+      *their build being too old for the flag*; this is *our app being too old to
+      know their build*, and the fail-closed default is identical in both cases
+      while only one of them is a real risk.
+      **Two candidate remedies, and the choice is NOT made — do not pick one
+      silently.** (a) The `--install-ripper` move: give the accept-set a route to
+      it that does not ship inside a release, same family as *"a moving pin needs a
+      route to it that does not ship inside a release"*, which we already solved
+      once. (b) Stop it being a table: derive acceptance from something the binary
+      itself answers — probing the flag is the obvious candidate and the obvious
+      hazard, since a rejected flag exits non-zero and reads to every probe as
+      *"the tool is not installed"*, which is the `-V` failure exactly.
+      Declared `NEXT-ROUND` in lap 4.
+- [ ] **UNBLOCKED by round 21, and it was blocked for a stated reason that has now
+      expired.** The row directly below — *"a summary field and the error lines
+      above it are two claims about one rip"* — was deliberately not built because
+      the fork's half was a **placement** fix queued for round 21 with the rename,
+      so a reconciler built then would have been pinned to a log shape about to
+      stop existing. **Both shipped in `3952c03`, and we now hold a real log from
+      the new shape** (`Retry limit:` at line 16, `Ripping errors:` at line 1152,
+      sha256 `960169b78667781e…`). The stated blocker is gone; the row is
+      buildable. Move it into round 22 rather than leaving it filed under a round
+      that has closed.
+
 ## Round 21 — ours to build, and one deliberately NOT built yet (2026-09-16)
 
 - [ ] **A summary field and the error lines above it are two claims about one
