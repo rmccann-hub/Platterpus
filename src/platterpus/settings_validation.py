@@ -231,6 +231,15 @@ def validate_config(config: Config) -> list[ValidationIssue]:
         "integration_declined_path",
         config.integration_declined_path,
     )
+    # Its other half. Validated separately rather than as one blob because they
+    # are two values with two shapes — a filesystem path and a version string —
+    # and a single check would have to be loose enough for both.
+    run(
+        "integration_declined_version",
+        _validate_str,
+        "integration_declined_version",
+        config.integration_declined_version,
+    )
     run("test_script_path", _validate_test_script_path, config.test_script_path)
     run(
         "schema_version",
@@ -354,6 +363,7 @@ def validated_field_names() -> frozenset[str]:
             "update_channel",
             "ripper_channel",
             "integration_declined_path",
+            "integration_declined_version",
             "library_dir",
             "schema_version",
             "test_script_path",

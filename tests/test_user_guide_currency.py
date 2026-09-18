@@ -81,6 +81,10 @@ _NOT_IN_GUIDE: dict[str, str] = {
     "host_setup_prompted": "internal one-shot 'have we offered host setup' flag",
     "appimage_integration_prompted": "internal one-shot 'menu integration offered' flag",
     "integration_declined_path": "internal: remembers a declined integration path",
+    "integration_declined_version": (
+        "internal: the other half of the declined-integration key — the version it "
+        "was declined at, so a decline lasts one release rather than forever"
+    ),
     "schema_version": "internal config-schema version, migration bookkeeping",
 }
 

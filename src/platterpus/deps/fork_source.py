@@ -200,6 +200,16 @@ FORK_PIN: Final[str] = "fe4d2c4"
 #: pin that was never a numbered release is deliberately absent: it has no sequence,
 #: and inventing one would order it against releases it was never part of.
 FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
+    # Round 22's subject and the fork's CURRENT published release on both channels:
+    # `release_seq` 23, `round_closed: true`, version `0.9.4-rc2+platterpus.13`. Read
+    # off their live `release-manifest.json`, not from the lap that announced it.
+    #
+    # **Required the moment `PIN_UNDER_REVIEW` moved**, because the two are checked
+    # against each other in BOTH directions: a pin declared published with no row
+    # here makes `release_seq_for_commit` return `None`, and the offer then tells an
+    # operator sitting on a numbered release that they are on *"a mid-round test pin,
+    # or a commit installed by hand"* — the 2026-08-17 defect.
+    "2cce60d": 23,
     # Round 7's release, and the first commit whose derived artifacts agree with its
     # own version — see the FORK_PIN note above for why `422d12a` was withdrawn.
     "ddf7ac3": 11,
@@ -505,7 +515,20 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: bump: `6a9a080` moved the version, `a2523c4` regenerated the derived artifacts,
 #: and `fe4d2c4` is the first commit at which the version and every artifact
 #: agree. `6a9a080` is red on its own suite and must never be released.
-PIN_UNDER_REVIEW: Final[str] = "fe4d2c4"
+#: **Moved `fe4d2c4` -> `2cce60d` on 2026-09-18, when round 22 opened**, and it is
+#: **the first round in five to open on a new pin** -- rounds 18 through 21 all sat
+#: on `fe4d2c4`. `+platterpus.13` was cut on round 21's authority: `release_seq` 23,
+#: published to BOTH channels, `round_closed: true`, read off their live
+#: `release-manifest.json` rather than transcribed from the lap.
+#: **`2cce60d` and round 21's test pin `3952c03` are the same SOURCE** -- their lap 1
+#: declares `git diff --stat 3952c03 2cce60d -- src/` empty -- so round 21's hardware
+#: session transfers to this pin, which is why round 22 opens with
+#: `HANDSHAKE-TEST-PIN: none` and needs no drive at all.
+#: **This is NOT :data:`FORK_PIN`**, which stays at `fe4d2c4` until round 22 closes.
+#: Switching the installed pin while a round is open is the one thing the deviation
+#: policy still requires asking about; a round's OPENING is exactly the moment the
+#: subject moves and the approval does not.
+PIN_UNDER_REVIEW: Final[str] = "2cce60d"
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
 #:
@@ -731,7 +754,26 @@ FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 #: fact is settled when the test pin is agreed. It is declared here beside the pin
 #: it describes, and `tests/test_fork_source.py` holds it to the pins' actual
 #: relationship so it cannot rot into a lie the next time a pin moves.
-TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED: Final[bool] = False
+#: **RE-DECLARED `False` -> `True` on 2026-09-18, when round 22 moved the reviewed
+#: pin to `2cce60d`.** Derived here, not taken from their lap: `git diff --stat
+#: 2cce60d..3952c03 -- src/ meson.build` in the fork reports **one** changed file,
+#: `meson.build`, **one** line, and that line is the version string
+#: (`+platterpus.12` -> `+platterpus.13`). `src/` is byte-identical.
+#:
+#: **Their lap's claim is narrower than this flag's scope, and both are right.**
+#: They declare `git diff --stat 3952c03 2cce60d -- src/` empty, which is exactly
+#: true. This declaration covers `src/` **and** `meson.build`, so it has to account
+#: for one more file — and the delta there is a release bump rather than behaviour.
+#: Same program; different name for itself.
+#:
+#: **What flipping this to `True` re-enables, stated plainly because `False` is what
+#: round 21 needed:** `expect-ripper-under-review` accepts either pin again. That is
+#: correct now and was a defect then. Round 21's test pin carried both breaking log
+#: changes and the reviewed pin did not, so accepting either graded a session against
+#: a program that could not answer the question. Here the two ARE one program, which
+#: is the premise round 16 asserted, round 21 falsified, and this round re-establishes
+#: by measurement rather than by inheritance.
+TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED: Final[bool] = True
 
 #: Test pins this round has already retired. Listed **only** so a rig that built one
 #: before the pin moved still receives ``--consumer`` (they all carry the flag — it
@@ -854,6 +896,23 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         # added, removed or renamed"* — and their §2 reports `contract-delta.py`
         # finding no P1 flag changed from `+platterpus.11`. Two routes, one answer.
         "platterpus-fork-gfe4d2c4",
+        # **Round 22's subject, and adding it here is the LIVE HALF of a finding we
+        # sent them last round.** Our lap-4 §H2 reported that this accept-set is a
+        # table of THEIR build tags shipped inside OUR release, so it cannot know a
+        # pin agreed after that release — and for the whole life of round 21 every
+        # rip on the test pin logged `Consumer: not identified (no --consumer
+        # given)`. The gate that caught it here is
+        # `tests/test_rig_scripts.py::test_the_pin_under_review_is_resolved_in_the_
+        # consumer_flag_set`, which fires the moment the reviewed pin moves rather
+        # than waiting for someone to read a log.
+        #
+        # **Backed, not assumed**, which is what the capability rule demands: the
+        # contract they shipped with this lap —
+        # `round-22-lap-01-provider-contract-g2f7d9c9.md` — lists `--consumer`. And
+        # independently, `2cce60d` is byte-identical to `3952c03` across `src/`
+        # (their declaration, re-derived here), and `3952c03` is already in this set.
+        # Two routes, one answer, same as the row above.
+        "platterpus-fork-g2cce60d",
         # **SUPERSEDED PRODUCTION PINS STAY, and this one nearly did not.**
         # `ddf7ac3` was in this set only by way of `FORK_EXPECTED_BUILD_TAG`, so
         # rolling the pin forward at round 14's close removed it — silently, and
@@ -1323,7 +1382,12 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     # `cyanrip 0.9.4-rc2+platterpus.12 (platterpus-fork-gfe4d2c4)`. Unlike round
     # 16, the version DID move this round -- it is a release candidate, and the
     # bump is what makes it one. Read off the artifact, not incremented.
-    version="0.9.4-rc2+platterpus.12",
+    # **Round 22's pairing, from their lap-1 wire header:**
+    # `cyanrip 0.9.4-rc2+platterpus.13 (platterpus-fork-g2cce60d)`. Both halves moved
+    # this round, and both are read off that ONE line of that ONE lap -- which is the
+    # whole point of the pairing test, since reading them from two places is how they
+    # came apart before.
+    version="0.9.4-rc2+platterpus.13",
     # **DERIVED, NOT ASSERTED.** This sentence used to read "round 14 is the round
     # that would [approve it], and it is open" — a hard-coded claim about round
     # state, which went false the moment round 14 closed and `PIN_UNDER_REVIEW`

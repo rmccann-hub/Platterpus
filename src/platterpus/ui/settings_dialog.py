@@ -993,6 +993,7 @@ class SettingsDialog(CenteredDialog):
             host_setup_prompted=self._config.host_setup_prompted,
             appimage_integration_prompted=self._config.appimage_integration_prompted,
             integration_declined_path=self._config.integration_declined_path,
+            integration_declined_version=self._config.integration_declined_version,
             schema_version=self._config.schema_version,
         )
 
