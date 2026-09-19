@@ -1504,6 +1504,20 @@ _BODY_CLAIMS_HELD: re.Pattern[str] = re.compile(
 )
 
 
+def _without_quoted_spans(line: str) -> str:
+    """``line`` with quoted material removed, so a REPORT is not read as a CLAIM.
+
+    Backticked code, ``*"…"*`` emphasis-quotes and a leading ``>`` blockquote are
+    how this correspondence cites the other side — and how a lap cites its own
+    earlier wording when reporting a defect in it. Matching inside them makes the
+    lap that explains a problem indistinguishable from the lap that has it.
+    """
+    if line.lstrip().startswith(">"):
+        return ""
+    without_code = re.sub(r"`[^`]*`", " ", line)
+    return re.sub(r'\*"[^"]*"\*|"[^"]*"', " ", without_code)
+
+
 def announce_lap(path: Path, *, on: str | None = None) -> int:
     """Flip one lap to released. **Only ever on the operator's instruction.**
 
@@ -1576,7 +1590,21 @@ def announce_lap(path: Path, *, on: str | None = None) -> int:
     # which is the one line `--announce` exists to rewrite. A guard that refuses
     # every held lap refuses every announce, which is the check being satisfied by
     # its own subject rather than by the defect.
-    all_lines = text.splitlines()
+    # **A CLAIM IS WHAT A FILE STATES, NEVER WHAT IT QUOTES** — the rule this
+    # project already holds for wire fields (`_strip_fences`), applied to prose.
+    #
+    # The first version of this check had no such exclusion and **refused the very
+    # lap that reports the defect**: round 22 lap 4 quotes lap 2's offending
+    # sentence three times while explaining the fix, and every quotation looked
+    # like a claim. That is `CLAUDE.md`'s *"a format's own documentation is the
+    # likeliest place to trip its parser"*, arriving inside the parser written that
+    # hour — and it is the false-alarm case the narrowness test was supposed to
+    # cover and did not, because that test only covered discussing OTHER laps.
+    #
+    # So: fences out, then markdown-quoted spans out. A sentence inside `*"…"*`,
+    # inside backticks, or on a `>` blockquote line is being reported, not asserted.
+    body_text = _strip_fences(text)
+    all_lines = body_text.splitlines()
     body_starts_at = next(
         (i + 1 for i, line in enumerate(all_lines) if line.rstrip() == "---"),
         0,  # no separator: treat the whole file as body rather than skipping it
@@ -1584,7 +1612,7 @@ def announce_lap(path: Path, *, on: str | None = None) -> int:
     stale = [
         (number, line.strip())
         for number, line in enumerate(all_lines[body_starts_at:], start=body_starts_at + 1)
-        if _BODY_CLAIMS_HELD.search(line)
+        if _BODY_CLAIMS_HELD.search(_without_quoted_spans(line))
     ]
     if stale:
         sys.stderr.write(

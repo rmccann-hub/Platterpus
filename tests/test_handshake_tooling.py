@@ -93,6 +93,49 @@ def test_announce_refuses_a_lap_whose_BODY_still_says_it_is_held(
     )
 
 
+def test_announce_releases_the_very_lap_that_REPORTS_the_held_body_defect(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The first version of this guard refused the lap that reports the defect.
+
+    **Found by running it, within the hour, on round-22 lap 4** — the lap whose
+    whole subject is the fork's §H1. It quotes lap 2's offending sentence three
+    times while explaining the fix, and every quotation read as a fresh claim, so
+    `--announce` refused a lap that asserts nothing of the kind.
+
+    That is ``CLAUDE.md``'s *"a declaration is what a file states, never what it
+    quotes … a format's own documentation is the likeliest place to trip its
+    parser"* — the rule this repo already holds for wire fields via
+    ``_strip_fences`` — arriving inside a parser written the same hour and not
+    applying it.
+
+    **The narrowness test above did not cover this**, because it covers discussing
+    OTHER laps; the uncovered case was a lap quoting ITSELF. Two different false
+    alarms, and only one had a test.
+    """
+    lap = tmp_path / "outbound" / "round-30-lap-06.md"
+    lap.parent.mkdir(parents=True)
+    lap.write_text(
+        "HANDSHAKE-READY-TO-READ: no — held\n"
+        "\n---\n\n"
+        "## Corrections\n\n"
+        'Our lap 2 said *"This lap is HELD"* in its §F while its header declared\n'
+        "`yes`, which is the defect you found. The offending text was\n"
+        "`HANDSHAKE-READY-TO-READ` reads `no` and it is corrected here.\n\n"
+        "> This lap is HELD: HANDSHAKE-READY-TO-READ reads no\n\n"
+        "```\n"
+        "**This lap is HELD**\n"
+        "```\n",
+        encoding="utf-8",
+    )
+
+    assert hs.announce_lap(lap) == 0, (
+        "a lap that QUOTES the defect it reports must still release — refusing it "
+        "makes the finding unreportable, which is worse than the finding"
+    )
+    assert hs.ready_to_read(lap.read_text(encoding="utf-8")) is True
+
+
 def test_announce_still_releases_a_lap_that_only_DISCUSSES_held_laps(
     hs: ModuleType, tmp_path: Path
 ) -> None:
