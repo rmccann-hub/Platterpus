@@ -1489,6 +1489,21 @@ def is_released_for_reading(text: str, *, round_hint: int | None = None) -> bool
     return number < READY_TO_READ_REQUIRED_FROM_ROUND
 
 
+#: Prose that asserts a lap is HELD. Matched on the BODY at release time, because
+#: `--announce` rewrites the declaration and cannot rewrite a sentence about it.
+#:
+#: Deliberately narrow: it looks for a claim ABOUT THE FIELD or a bolded "this lap
+#: is HELD", not for the word "held" anywhere — a lap legitimately discusses held
+#: laps (its own `-OBSERVED` cell, the peer's drafts), and a pattern that fired on
+#: those would be refused wholesale rather than obeyed.
+_BODY_CLAIMS_HELD: re.Pattern[str] = re.compile(
+    r"(?:this lap is\s+\**HELD)"
+    r"|(?:HANDSHAKE-READY-TO-READ`?\s+reads\s+`?no)"
+    r"|(?:`?HANDSHAKE-READY-TO-READ`?:\s*no\b(?!\s*—\s*not))",
+    re.IGNORECASE,
+)
+
+
 def announce_lap(path: Path, *, on: str | None = None) -> int:
     """Flip one lap to released. **Only ever on the operator's instruction.**
 
@@ -1537,6 +1552,52 @@ def announce_lap(path: Path, *, on: str | None = None) -> int:
         sys.stderr.write(
             f"{path.name} is already released. Re-announcing would restamp the date "
             "and rewrite when we stood behind it.\n"
+        )
+        return 2
+
+    # REFUSE A LAP WHOSE BODY STILL SAYS IT IS HELD, and refuse at the moment of
+    # release, which is the one moment the prose can still be fixed.
+    #
+    # **The fork found this in our round-22 lap 2 (their §H1).** Line 9 declared
+    # `yes`; line 283 — our §F, the section a reader opens *to find out whether they
+    # may read it* — still read *"This lap is HELD: HANDSHAKE-READY-TO-READ reads
+    # `no`"*. The field is authoritative and both gates read the field, so nothing
+    # mis-parsed. **The exposure is the human**, and the half a human reads was the
+    # stale one.
+    #
+    # The cause is this function: it rewrites the DECLARATION and leaves the PROSE,
+    # so an automated release necessarily leaves any lap that restates the field
+    # asserting both states at once. That is not a mistake a careful author avoids —
+    # it is a thing the tool does, so the tool is where it gets caught. Fail closed:
+    # the operator fixes one sentence and re-runs, rather than discovering it in a
+    # peer's lap.
+    # **Scanned from the BODY only, and the first version of this check did not
+    # do that** — it flagged the declaration line `HANDSHAKE-READY-TO-READ: no`,
+    # which is the one line `--announce` exists to rewrite. A guard that refuses
+    # every held lap refuses every announce, which is the check being satisfied by
+    # its own subject rather than by the defect.
+    all_lines = text.splitlines()
+    body_starts_at = next(
+        (i + 1 for i, line in enumerate(all_lines) if line.rstrip() == "---"),
+        0,  # no separator: treat the whole file as body rather than skipping it
+    )
+    stale = [
+        (number, line.strip())
+        for number, line in enumerate(all_lines[body_starts_at:], start=body_starts_at + 1)
+        if _BODY_CLAIMS_HELD.search(line)
+    ]
+    if stale:
+        sys.stderr.write(
+            f"{path.name} declares itself HELD in its own body, so releasing it "
+            "would leave the document asserting both states — and the half a human "
+            "reads is the one that would be wrong:\n"
+        )
+        for number, line in stale:
+            sys.stderr.write(f"  line {number}: {line[:100]}\n")
+        sys.stderr.write(
+            "Rewrite those sentences to CITE the HANDSHAKE-READY-TO-READ field "
+            "rather than restate its value, then re-run --announce. Nothing was "
+            "announced.\n"
         )
         return 2
 

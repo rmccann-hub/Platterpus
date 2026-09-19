@@ -48,6 +48,75 @@ def hs() -> ModuleType:
     return _load()
 
 
+def test_announce_refuses_a_lap_whose_BODY_still_says_it_is_held(
+    hs: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """REGRESSION (cyanrip fork, round 22 lap 3 §H1): released header, held body.
+
+    Our round-22 lap 2 declared ``HANDSHAKE-READY-TO-READ: yes`` on line 9 and, on
+    line 283 — its §F, **the section a reader opens to find out whether they may
+    read it** — still said *"This lap is HELD: HANDSHAKE-READY-TO-READ reads no"*.
+    Both gates read the field, so nothing mis-parsed; the exposure is the human,
+    and the half a human reads was the stale one.
+
+    **The cause is ``announce_lap`` itself**, which rewrites the declaration and
+    leaves the prose. So this is not a mistake a careful author avoids — it is a
+    thing the tool does to any lap that restates the field, which is why the check
+    belongs in the tool and at the moment of release, when one sentence can still
+    be fixed.
+    """
+    lap = tmp_path / "outbound" / "round-30-lap-02.md"
+    lap.parent.mkdir(parents=True)
+    lap.write_text(
+        "HANDSHAKE-READY-TO-READ: no — held\n"
+        "HANDSHAKE-ROUND: 30\n"
+        "\n---\n\n"
+        "## F. Where to read this\n\n"
+        "**This lap is HELD**: `HANDSHAKE-READY-TO-READ` reads `no` until our\n"
+        "operator announces it.\n",
+        encoding="utf-8",
+    )
+    before = lap.read_text(encoding="utf-8")
+
+    assert hs.announce_lap(lap) == 2, "a self-contradicting lap must not release"
+
+    err = capsys.readouterr().err
+    assert "declares itself HELD in its own body" in err
+    # Assert it quotes the SENTENCE, not that it reports a particular line number.
+    # The operator has to find and rewrite one sentence in a 20 KB document; a bare
+    # "this lap contradicts itself" would be a true message they cannot act on.
+    assert "This lap is HELD" in err, f"the offending sentence must be quoted: {err}"
+    assert "line " in err, f"and located: {err}"
+    assert lap.read_text(encoding="utf-8") == before, (
+        "a refused announce must change nothing — a partial release is worse than "
+        "none, because the declaration would then be the half that is wrong"
+    )
+
+
+def test_announce_still_releases_a_lap_that_only_DISCUSSES_held_laps(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The narrowing has to be narrow, or it gets switched off rather than obeyed.
+
+    A lap legitimately talks about held laps — its own ``-OBSERVED`` cell, the
+    peer's drafts, the rule itself. A check that fired on the word "held" would
+    refuse almost every lap we write, and a gate that cries wolf is removed. This
+    pins that the refusal keys on a claim about **this** lap's own state.
+    """
+    lap = tmp_path / "outbound" / "round-30-lap-04.md"
+    lap.parent.mkdir(parents=True)
+    lap.write_text(
+        "HANDSHAKE-READY-TO-READ: no — held\n"
+        "HANDSHAKE-INBOUND-OBSERVED: none — we hold no unreleased lap of yours.\n"
+        "\n---\n\n"
+        "We observed your held lap 4 before release and recorded its digest.\n",
+        encoding="utf-8",
+    )
+
+    assert hs.announce_lap(lap) == 0
+    assert hs.ready_to_read(lap.read_text(encoding="utf-8")) is True
+
+
 def _closing(**overrides: str | None) -> str:
     """A complete §5 closing header. ``None`` omits a field.
 
