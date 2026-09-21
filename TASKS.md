@@ -21,6 +21,86 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
+## 2026-09-21 UX audit — the post-update prompt chain, and the menu (real-user report)
+
+*Maintainer, after updating: "when i went to check for updates it kept asking me,
+repeatedy or this that or the other, and other dependanciessn, other
+applications, other whatever, this was too much. also audit the menu and what is
+needed. can they be in sub menues? are some thing not needed or can be put into
+other things. we dont need 20 menues when 5 will do."*
+
+### The prompt chain — MEASURED, not estimated
+
+One update-and-relaunch can present **five sequential modals**, each its own
+decision, with no shared OK:
+
+| # | Prompt | Where |
+|---|---|---|
+| 1 | *"Update available … Update now?"* | `main_window_update.py:778` |
+| 2 | *"Update installed. Restart Platterpus now?"* | `main_window_update.py:943` |
+| 3 | *"Add Platterpus to your applications menu?"* | `main_window_provision.py:161` |
+| 4 | *"Set up Platterpus…"* (dependencies) | `main_window_provision.py:163` |
+| 5 | *"Set up drive…"* | `main_window_provision.py:165` |
+
+…plus **6.** the cyanrip-build offer, armed separately on a timer
+(`main_window.py:759`, `_maybe_check_ripper_updates`).
+
+3, 4 and 5 are called **one after another inside
+`_maybe_offer_first_run_setup`** — a straight-line sequence, which is why it
+reads as "this, that, or the other". The maintainer's three nouns map exactly:
+*applications* → 3, *dependencies* → 4, *whatever* → 5/6.
+
+- [ ] **Fold 3-6 into ONE post-launch "Finish setting up" dialog** — a checklist
+      of what is outstanding, with one confirm, instead of a modal chain. Each
+      item keeps its own skip. Anything already satisfied is simply absent, so a
+      fully-provisioned launch shows nothing at all.
+      **Name the tension honestly: the menu-entry fix in this same change makes
+      the chain WORSE before it gets better.** Declining used to be permanent
+      (the bug), so prompt 3 had stopped appearing; keying it on path+version
+      restores it once per release — which is what the maintainer asked for in
+      the same session, and they answer Yes. So the consolidation is the thing
+      that makes both asks true at once, not a nice-to-have on top of it.
+      **Do not "fix" this by making prompts permanent-dismiss again** — that is
+      the bug we just removed, and it is how prompt 3 disappeared for several
+      releases without anyone choosing that.
+
+### The menu — the full inventory, 3 top-level and 18 items
+
+`main_window.py:968-1088`. It is not 20 menus; it is 3 menus and 18 items, and
+the sprawl is concentrated in two of them.
+
+| Menu | Items |
+|---|---|
+| **&File** (2) | Rip as Unknown Album…, Quit |
+| **&Tools** (9) | Settings…, Set up Platterpus…, Add app shortcut, Set up drive…, Set cover art from file…, Diagnose drive access…, Run test script…, Run acceptance test…, Uninstall Platterpus… |
+| **&Help** (7) | User Guide…, Check for updates…, Check for cyanrip updates…, Install a cyanrip build…, Open logs folder…, Copy diagnostics…, About Platterpus… |
+
+- [ ] **Help carries four things that are not help.** *Check for updates*, *Check
+      for cyanrip updates*, *Install a cyanrip build* and *Copy diagnostics* are
+      actions, not documentation. Help should be User Guide / About, plus
+      whatever troubleshooting genuinely belongs there.
+- [ ] **Three separate update entries is the sprawl the report is about.** One
+      *Updates ▸* submenu (or a single *Check for updates…* that covers both the
+      app and the ripper) replaces three top-level items with one.
+- [ ] **Tools mixes three unrelated jobs**: everyday (*Settings*, *Set cover art
+      from file*), one-time setup (*Set up Platterpus*, *Add app shortcut*, *Set
+      up drive*, *Uninstall*), and developer/test (*Run test script*, *Run
+      acceptance test*). Proposal: *Setup ▸* submenu for the second group;
+      the third group under *Advanced ▸*, or hidden unless a dev flag is set —
+      an end user who has never written a rig script does not need two entries
+      for running them.
+- [ ] **"Set cover art from file…" is a per-album action in a global menu.** It
+      belongs with the album it acts on (File, or the album context menu).
+- [ ] **Check every regrouping against the accessibility rules before landing**:
+      submenus must keep their mnemonics unique within their parent, and no
+      single-character shortcuts (`CLAUDE.md` code conventions; enforcement is
+      `tests/test_accessibility_standards.py`).
+
+**Not started — this is the audit, not the change.** The regrouping touches the
+menu tests and the UX principles doc, and "which items does an end user actually
+need" is the maintainer's call, not ours.
+
+
 ## 2026-09-15 re-run on 0.6.49 — the fix held; two new findings
 
 244/244, derived files present, `expect-derived-output` green on real hardware
@@ -847,6 +927,65 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       `…_the_operators_instructions_agree_with_the_offer_they_will_actually_see`.
       Four of the five fail inside one fixture helper (`_offer_for`), so they are
       **one signal reported five times**, not five findings.
+
+- [x] **Our close gate could not close a round WE close — fixed here, and the
+      shape goes to the fork NEXT-ROUND.** `HANDSHAKE-PEER-VERDICT` is the author
+      transcribing what the *other* side had declared when they wrote. On a
+      round's last lap somebody speaks last, so the side that spoke first can only
+      ever have transcribed `OPEN` — the closing verdict did not exist yet.
+      `close_blockers` treated that `OPEN` exactly like a `HOLD`, so the gate was
+      satisfiable **only by a round the peer closes**.
+      Invisible for rounds 19, 20 and 21 because the fork wrote the final lap in
+      all three (each carries `HANDSHAKE-PEER-VERDICT: GO` in our newest inbound
+      file). Round 22 is the first we closed: their lap 3 declared `GO` with a
+      **pre-commit** — *"if your lap declares GO this round closes at four"* — so
+      no lap 5 of theirs exists to record our GO. `--status` printed its own
+      contradiction, `we-verified=yes (GO) they-verified=yes (GO)  -> OPEN`, and
+      `--release-gate` refused **every future release** off the back of it.
+      The sharp part: the pre-commit is the mechanism this project *adopted* to
+      make rounds terminate (Critical rule #12 — *"the one that actually ends
+      rounds"*). A close gate no pre-commit close can satisfy defeats the only
+      mechanism that ends rounds, and it would have done so silently and
+      permanently.
+      Fixed by separating `OPEN` (not yet spoken) from `HOLD` (an objection) and
+      discharging the stale transcription at the round level — the only place
+      holding the two facts that discharge it: our own first-hand verdict, and a
+      lap ordering that makes their `OPEN` *stale* rather than *wrong*. Both
+      conditions are pinned by `scripts/revert_probe.py`, including the
+      `unaffected` assertion that the `HOLD` limit does not move with the
+      discharge.
+      **Report to the fork under the standing "a fix we find in ourselves" rule**
+      (bar: *could in any possible way* help them). The mechanism is portable and
+      the question costs them one grep: *does your close gate read our
+      transcription of YOUR verdict, and can it be satisfied when you speak last?*
+      Their gate has the mirror shape by construction. Per that rule this is a
+      NEXT-ROUND item and **not** a reason to hold round 22 open — round 22's
+      artifact is unaffected, and lap 4 is sent and immutable, so it goes in our
+      next lap rather than as an edit.
+
+- [ ] **NEXT-ROUND observation: their manifest's `handshake_round` means two
+      different things, and `2cce60d` is the first build where they diverge.**
+      Derived from their tree, not from a lap: `release-manifest.json` on
+      `origin/platterpus-fork` labels `2cce60d` `handshake_round: 21` with
+      `round_closed: true` (cyanrip@bb34136, *"PUBLISH 0.9.4-rc2+platterpus.13 at
+      2cce60d"*, 2026-09-18). Round **22** is the round that reviewed and approved
+      `2cce60d`; round 21 is merely the newest round that had closed when they
+      published it.
+      Their two previous rows read the same either way — `fe4d2c4` labelled 17 and
+      round 17 approved it (cyanrip@393e8dc); `978f9b0` labelled 14
+      (cyanrip@83a1d94). So *"the approving round"* and *"the newest closed round
+      at publish time"* have agreed for every row until this one, which is why the
+      ambiguity has never shown.
+      **It costs us nothing today and that is the point of saying so.** Our offer
+      keys on the COMMIT through `handshake_approval`'s own predicate
+      (`ripper_offer.py` — the 2026-08-18 fix for exactly this, `docs/testing.md`
+      §5.al), so a round label cannot make an unapproved build auto-installable
+      here any more. The field is read only for the *"round N still OPEN"* note,
+      which `round_closed: true` suppresses. Report it as the **shape** —
+      *a label whose meaning is unambiguous only while two readings coincide* —
+      and let them decide which one the field is; do not assert a defect in their
+      code. **NEXT-ROUND under S-14**: it does not make `2cce60d` unsafe, and round
+      22 has closed `GO`/`GO` on it.
 
 - [ ] **Answer their J1 (`NEXT-ROUND`) — committed-is-sent.** They propose making
       *committed* stand in for *sent*: once a lap is committed to the branch the

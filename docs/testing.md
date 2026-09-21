@@ -2795,6 +2795,79 @@ to go *down*); the plumbing to route it did not. Recording that here because a
 ratchet raise filed as a win is how the next reader concludes an extraction is
 finished when it is half done.
 
+### §5.bl — A gate that could only be satisfied by the other side going last
+
+*2026-09-21, closing round 22. Found by running our own `--status` on a round
+that had just gone `GO`/`GO` and reading the line it printed.*
+
+**The line was its own bug report:**
+
+```
+round-22: sent=yes returned=yes we-verified=yes (GO) they-verified=yes (GO)  -> OPEN
+```
+
+Both verdicts `GO`, and the round refused to close. `--release-gate` refused
+every future release on the strength of it.
+
+**The mechanism.** `HANDSHAKE-PEER-VERDICT` is a *transcription*: the author
+writing down what the **other** side had declared at the moment they wrote.
+`close_blockers` required the peer's newest file to transcribe our verdict as
+`GO`. But on a round's final lap somebody speaks last, and **the side that
+speaks first can only ever transcribe `OPEN`** — the closing verdict does not
+exist yet. So the check was satisfiable only by a round the *peer* closes.
+
+**Why three rounds of evidence said nothing.** Rounds 19, 20 and 21 all carry
+`HANDSHAKE-PEER-VERDICT: GO` in our newest inbound file, because the fork wrote
+the final lap in every one of them. Round 22 is the first round we closed. Their
+lap 3 declared `GO` with a **pre-commit** — *"if your lap declares GO this round
+closes at four"* — so no lap 5 of theirs exists, and their honest `OPEN` would
+have held the round open **permanently**.
+
+**The sharp part, and the reason this is a §5 entry rather than a one-line fix:
+the pre-commit is the mechanism this project adopted to make rounds terminate.**
+`CLAUDE.md` Critical rule #12 calls it *"the one that actually ends rounds"*,
+adopted after round 7 took 37 laps. A close gate that no pre-commit close can
+satisfy **defeats the only mechanism that ends rounds** — silently, and in the
+fail-closed direction, which is the direction that looks responsible.
+
+**What the check was actually protecting, and how the fix keeps it.** A
+transcribed `HOLD` must block: *"they did not object" is never "they agreed"*,
+and a peer objection written down honestly is real evidence. The defect was
+conflating that with `OPEN`, which is not an objection but an absence. The fix
+separates them and discharges the stale transcription **at the round level**,
+which is the only place holding the two facts that discharge it:
+
+* **our own verdict is `GO`**, read first-hand from our own newest file — a
+  stale mirror must never outrank the original it mirrors; and
+* **our closing lap came after theirs**, which is what makes their `OPEN`
+  *stale* rather than *wrong*. If our `GO` predated their file and they still
+  wrote `OPEN`, the two sides disagree about what we said — a real discrepancy,
+  and it still blocks.
+
+Dropping either condition re-opens a hole, so both are pinned by
+`scripts/revert_probe.py`, including an `expect: "unaffected"` revert asserting
+that the `HOLD` limit does **not** move with the discharge. A limit that moves
+with the thing it limits is not a limit.
+
+**The transferable question.** This is *can this check be satisfied by the wrong
+thing?* asked in the mirror — ours could be satisfied by the *right* thing only
+under a condition nothing guaranteed. So, of any cross-party gate:
+
+> **Does satisfying this require the other side's artifact to record a state
+> that only comes into existence after that artifact was written?**
+
+If yes, the gate is not checking agreement; it is checking turn order. And the
+population that would reveal it is *the rounds we close*, which was empty for
+21 rounds — the same closed-population trap as §5.ao, arriving as "every
+observation so far had the peer going last".
+
+**Reported to the fork as a NEXT-ROUND item** under the standing *a fix we find
+in ourselves that could help them* rule, whose bar is *could in any possible
+way*. Their gate reads our transcription of their verdict by construction, so
+the mirror is theirs to check — we report the **shape** with our citation and do
+not assert a mechanism in their code.
+
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is

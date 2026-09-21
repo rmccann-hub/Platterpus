@@ -1104,6 +1104,19 @@ AFFIRMATIVE: str = "GO"
 #: unrecognised value is not agreement and not an error to skip past.
 VERDICT_VOCABULARY: frozenset[str] = frozenset({"OPEN", "HOLD", "GO"})
 
+#: The verdict token meaning **"the other side had not declared when I wrote this"**.
+#: Distinct from ``HOLD``, which means "they declared, and they objected". The
+#: difference decides whether a transcribed peer verdict blocks a close — see
+#: :func:`close_blockers`.
+NOT_YET_SPOKEN: Final[str] = "OPEN"
+
+#: The blocker :func:`close_blockers` returns for a file transcribing the peer's
+#: verdict as ``OPEN``. Named, not formatted, so the round-level caller can
+#: recognise and discharge exactly this one without pattern-matching on prose.
+PEER_VERDICT_NOT_YET_SPOKEN: Final[str] = (
+    "peer verdict is 'OPEN' — the peer had not declared when this file was written"
+)
+
 #: The fields every file must declare, either side (§3).
 REQUIRED_WIRE_FIELDS: tuple[str, ...] = (
     "HANDSHAKE-PROTOCOL",
@@ -1611,7 +1624,9 @@ def announce_lap(path: Path, *, on: str | None = None) -> int:
     )
     stale = [
         (number, line.strip())
-        for number, line in enumerate(all_lines[body_starts_at:], start=body_starts_at + 1)
+        for number, line in enumerate(
+            all_lines[body_starts_at:], start=body_starts_at + 1
+        )
         if _BODY_CLAIMS_HELD.search(_without_quoted_spans(line))
     ]
     if stale:
@@ -1748,7 +1763,38 @@ def close_blockers(text: str, round_hint: int | None = None) -> list[str]:
     if peer is not None and peer != AMBIGUOUS and peer.split()[:1] != [AFFIRMATIVE]:
         # "They did not object" is never "they agreed" — and the peer verdict is
         # TRANSCRIBED, not judged, so a peer HOLD written down honestly must block.
-        blockers.append(f"peer verdict is {peer!r}, not GO (§5)")
+        #
+        # **BUT `OPEN` IS NOT AN OBJECTION, AND TREATING IT AS ONE MADE A CORRECTLY
+        # CLOSED ROUND IMPOSSIBLE TO CLOSE.** `HANDSHAKE-PEER-VERDICT` is this
+        # file's author transcribing what the OTHER side had declared *at the moment
+        # they wrote*. On the last lap of a round, one side necessarily speaks last
+        # — and the side that speaks first can only ever transcribe `OPEN`, because
+        # the closing verdict does not exist yet. So this check could be satisfied
+        # only by a round in which the PEER writes the final lap.
+        #
+        # Invisible for three rounds because the peer did write last in every one of
+        # them (19, 20, 21 all carry `HANDSHAKE-PEER-VERDICT: GO` in their newest
+        # inbound file). Round 22 is the first where we close: their lap 3 declared
+        # GO with a **pre-commit** — *"if your lap declares GO this round closes at
+        # four"* — so by design there is no lap 5 of theirs to record our GO, and
+        # their honest `OPEN` would have held the round open permanently. The gate
+        # printed its own contradiction: `we-verified=yes (GO) they-verified=yes
+        # (GO)  -> OPEN`.
+        #
+        # The pre-commit is the mechanism this project ADOPTED to make rounds
+        # terminate (CLAUDE.md Critical rule #12, round 7's convergence proposal —
+        # *"the one that actually ends rounds"*). A close gate that no pre-commit
+        # close can satisfy defeats the only mechanism that ends rounds.
+        #
+        # Returned as a DISTINCT, named blocker rather than silently dropped: it is
+        # a real blocker on this file alone, and only the round-level caller holds
+        # the evidence that discharges it (our own first-hand verdict, and the lap
+        # ordering that makes the transcription stale rather than wrong). A
+        # per-file check must not guess at a round-level fact.
+        if peer.split()[:1] == [NOT_YET_SPOKEN]:
+            blockers.append(PEER_VERDICT_NOT_YET_SPOKEN)
+        else:
+            blockers.append(f"peer verdict is {peer!r}, not GO (§5)")
     # A TEST PIN IS NOT A PIN AGREEMENT (§6a, row C18). A test pin may accompany a
     # valid close — that is the normal sequence, since the evidence a close cites
     # was gathered on it — but it must never *substitute* for `HANDSHAKE-PIN`. The
@@ -2430,6 +2476,36 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
                 their_blockers = close_blockers(
                     back[-1].read_text(encoding="utf-8"), round_hint=num
                 )
+        # DISCHARGE A STALE PEER TRANSCRIPTION — the ONE blocker that a correct
+        # round can be unable to clear. See `close_blockers` for why `OPEN` is not
+        # an objection. Two conditions, both required, and each one is the reason
+        # the other is not enough on its own:
+        #
+        #   * **Our own verdict is GO** — read first-hand from our own newest file,
+        #     not from their copy of it. A stale mirror must never outrank the
+        #     original it is a mirror of; that is the whole defect.
+        #   * **Our closing lap came AFTER theirs.** This is what makes their
+        #     `OPEN` *stale* rather than *wrong*. If our GO predated their file and
+        #     they still transcribed `OPEN`, the two sides disagree about what we
+        #     said — a real discrepancy, and it must still block.
+        #
+        # Laps are read from `HANDSHAKE-LAP` via `_lap_of`, header-first, so this
+        # cannot be steered by a filename. An undeterminable lap on either side
+        # leaves the blocker standing: the discharge needs positive evidence of the
+        # ordering, and "I could not tell" is not that. Fail-closed, as everywhere
+        # else in this gate.
+        our_lap = _lap_of(ours[-1]) if ours else None
+        their_lap = _lap_of(back[-1]) if back else None
+        if (
+            PEER_VERDICT_NOT_YET_SPOKEN in their_blockers
+            and verdict == AFFIRMATIVE
+            and our_lap not in (None, AMBIGUOUS_LAP)
+            and their_lap not in (None, AMBIGUOUS_LAP)
+            and our_lap > their_lap  # type: ignore[operator]  # both are ints here
+        ):
+            their_blockers = [
+                b for b in their_blockers if b != PEER_VERDICT_NOT_YET_SPOKEN
+            ]
         both_go = (
             verdict == "GO"
             and theirs == "GO"

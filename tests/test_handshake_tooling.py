@@ -3801,3 +3801,107 @@ def test_a_laps_number_is_read_from_its_declaration_not_its_filename() -> None:
     # No declaration (the pre-header rounds) falls back to the name, then to lap 1.
     assert hs._declared_lap(Path("round-20-lap-09.md"), {}, 20) == 9
     assert hs._declared_lap(Path("notes.md"), {}, 20) == hs.DEFAULT_LAP
+
+
+# ---------------------------------------------------------------------------
+# A STALE PEER TRANSCRIPTION MUST NOT HOLD A CLOSED ROUND OPEN.
+#
+# `HANDSHAKE-PEER-VERDICT` is the author transcribing what the OTHER side had
+# declared when they wrote. On a round's final lap somebody speaks last, and the
+# side that spoke FIRST can only ever have transcribed `OPEN` — the closing
+# verdict did not exist yet. Requiring that transcription to read `GO` therefore
+# made the gate satisfiable only by rounds the PEER closes.
+#
+# Round 22 is the first round we closed. Their lap 3 declared `GO` with a
+# pre-commit — *"if your lap declares GO this round closes at four"* — so no lap
+# 5 of theirs exists to record our GO, and `--status` printed its own
+# contradiction: `we-verified=yes (GO) they-verified=yes (GO)  -> OPEN`, with
+# `--release-gate` refusing every future release off the back of it.
+#
+# The tests below pin the discharge AND its two limits, because a discharge with
+# no limit is just a deleted check.
+# ---------------------------------------------------------------------------
+
+
+def _pair(tmp_path: Path, *, our_lap: int, their_lap: int, their_peer: str) -> None:
+    """Lay down one round as two closing files, ours and theirs.
+
+    Round 9 deliberately: it predates the release-state field, so these fixtures
+    exercise the verdict logic without also having to satisfy
+    `HANDSHAKE-READY-TO-READ` — which is a different gate with its own tests.
+    """
+    for name in ("outbound", "inbound", "verified"):
+        (tmp_path / name).mkdir(exist_ok=True)
+    (tmp_path / "inbound" / f"round-09-lap-{their_lap:02d}.md").write_text(
+        _closing(
+            **{
+                "HANDSHAKE-FROM": "cyanrip-fork",
+                "HANDSHAKE-LAP": str(their_lap),
+                "HANDSHAKE-PEER-VERDICT": their_peer,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "outbound" / f"round-09-lap-{our_lap:02d}.md").write_text(
+        _closing(**{"HANDSHAKE-LAP": str(our_lap)}),
+        encoding="utf-8",
+    )
+
+
+def test_a_round_closes_when_WE_speak_last_and_they_transcribed_OPEN(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The round-22 shape: their lap 3 GO, our lap 4 GO, their copy of us stale."""
+    _pair(tmp_path, our_lap=4, their_lap=3, their_peer="OPEN")
+    line = hs.round_status(tmp_path)[0]
+    assert line.endswith("CLOSED"), line
+
+
+def test_a_transcribed_peer_HOLD_still_blocks_the_close(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """`HOLD` is an OBJECTION, not silence, and the discharge must not reach it.
+
+    This is the case the original check was written for, and the one a careless
+    widening would have taken with it: "they did not object" is never "they
+    agreed".
+    """
+    _pair(tmp_path, our_lap=4, their_lap=3, their_peer="HOLD")
+    line = hs.round_status(tmp_path)[0]
+    assert line.endswith("OPEN"), line
+
+
+def test_an_OPEN_transcription_is_NOT_discharged_when_our_GO_came_FIRST(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """Staleness is what excuses the `OPEN`, and staleness needs the ordering.
+
+    If our verdict predates their file and they *still* wrote `OPEN`, the two
+    sides disagree about what we said. That is a real discrepancy, not a
+    transcription lag, and dropping the ordering condition would have silently
+    accepted it.
+    """
+    _pair(tmp_path, our_lap=2, their_lap=3, their_peer="OPEN")
+    line = hs.round_status(tmp_path)[0]
+    assert line.endswith("OPEN"), line
+
+
+def test_close_blockers_reports_the_not_yet_spoken_case_as_its_own_blocker(
+    hs: ModuleType,
+) -> None:
+    """Per-file, an `OPEN` transcription is still a blocker — just a NAMED one.
+
+    The round-level caller is the only one holding the evidence that discharges
+    it (our own first-hand verdict plus the lap ordering), so the per-file check
+    must keep reporting it rather than guessing at a round-level fact.
+    """
+    text = _closing(**{"HANDSHAKE-PEER-VERDICT": "OPEN"})
+    blockers = hs.close_blockers(text, round_hint=9)
+    assert hs.PEER_VERDICT_NOT_YET_SPOKEN in blockers, blockers
+    # And it is distinguishable from the objection case, which is the whole point
+    # of naming it: matching on "peer verdict" alone would catch both.
+    hold = hs.close_blockers(
+        _closing(**{"HANDSHAKE-PEER-VERDICT": "HOLD"}), round_hint=9
+    )
+    assert hs.PEER_VERDICT_NOT_YET_SPOKEN not in hold, hold
+    assert hold, "a transcribed HOLD must still block"
