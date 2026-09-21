@@ -153,14 +153,14 @@ class Config:
 
     # Set once we've auto-offered the drive-setup wizard on first run (when no
     # read offset was configured). Keeps the offer to a single, dismissible
-    # prompt — afterwards the user runs it from Tools → Set up drive…. Pure UI
+    # prompt — afterwards the user runs it from Tools → Setup & Updates… → Set up drive…. Pure UI
     # bookkeeping, not a rip parameter.
     drive_setup_prompted: bool = False
 
     # Set once we've auto-offered the host-setup wizard on first run (when the
     # ripper binary isn't present — the container stack isn't installed yet).
     # Same one-time, dismissible model as drive_setup_prompted; afterwards it
-    # lives on Tools → Set up Platterpus….
+    # lives on Tools → Setup & Updates… → Run setup….
     host_setup_prompted: bool = False
 
     # Set once we've offered (on first AppImage run) to add Platterpus to the

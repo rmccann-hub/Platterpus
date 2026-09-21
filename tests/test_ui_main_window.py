@@ -2717,13 +2717,33 @@ class _FakeThread:
 # --- Update check (KDD-17b) -------------------------------------------------
 
 
-def test_help_menu_has_check_for_updates(teardown_threads) -> None:
+def test_the_update_checks_are_reachable_from_the_menu(teardown_threads) -> None:
+    """Both update checks are reachable — through the one window, not six items.
+
+    This asserted a *"Check for … updates"* entry on the menubar until the six
+    setup/update items were consolidated (2026-09-21). The requirement was never
+    "there is a menu item with this label"; it was **a user can reach the update
+    check**, so the test now follows the route instead of the wording. Written as
+    two halves on purpose: the menu entry existing proves nothing if the window
+    behind it does not offer the check, and that is exactly the gap a consolidation
+    could open.
+    """
     window = teardown_threads()
     menubar = window.menuBar()
     actions: list[str] = []
     for menu in menubar.findChildren(type(menubar.addMenu("tmp"))):
         actions += [a.text() for a in menu.actions()]
-    assert any("Check for" in text and "updates" in text for text in actions)
+    assert any("Setup" in text and "Updates" in text for text in actions), actions
+
+    # And the window behind it really offers both checks plus the dependency one.
+    opened = window.open_setup_center()
+    try:
+        assert {"app_update", "ripper_update", "dep_check"} <= set(opened._actions)
+        # Every wired key resolves to something callable — a dead button in the
+        # one window that replaced six menu items would be worse than the sprawl.
+        assert all(callable(fn) for fn in opened._actions.values())
+    finally:
+        opened.close()
 
 
 def test_update_result_none_reports_check_failure(
@@ -9031,7 +9051,7 @@ def test_dep_summary_counts_a_wrong_build_as_needing_attention(
     assert "1 ok, 1 missing/needs-attention." in text
     assert "Wrong build:" in text
     assert "NOT the Platterpus fork" in text
-    assert "Set up Platterpus" in text  # and how to fix it
+    assert "Setup & Updates" in text  # and how to fix it
 
 
 def test_dep_summary_stays_informational_when_the_build_is_right(
@@ -10153,3 +10173,199 @@ def test_a_late_result_still_writes_when_the_folder_is_still_its_own(
     assert not (dir_b / "B.platterpus.json").exists(), (
         "and it must not have been written against the album that is current"
     )
+
+
+# ---------------------------------------------------------------------------
+# ONE INSTALL AT A TIME, WHATEVER OPENED IT.
+#
+# Three launch-time surfaces open modal dialogs, and only ONE of them asked
+# whether something else already had the floor. `_interruption_blocker` was
+# written for the cyanrip check and its docstring predicted this exact failure
+# — *"stacking a window-modal box on top of an application-modal 'Set up
+# Platterpus?' — input-blocked, and answering both runs the install pipeline
+# twice"* — and it was never applied to the other two. That is `docs/testing.md`
+# §5.o: a rule enforced at the place it was learned.
+#
+# The sequence on a machine with no cyanrip, which is every fresh install:
+#
+#   1. `app.py` arms `run_dependency_check_async()` — off-thread, and slow,
+#      because probing cyanrip enters a cold Distrobox container.
+#   2. `singleShot(0)` runs `_maybe_offer_first_run_setup`; the host stack is
+#      not ready, so "Set up Platterpus?" opens a nested `exec()` loop.
+#   3. The dependency worker finishes INSIDE that loop. `_on_dependency_check_done`
+#      is a queued slot, so Qt delivers it there, and `_resolve_missing_unified`
+#      calls `open_host_setup_dialog()` for the wizard items.
+#   4. The user answers Yes to the question still underneath → a second
+#      `open_host_setup_dialog()`.
+#
+# Each dialog owns its own `HostSetupWorker`, and that worker's guard is
+# per-dialog (`if self._thread is not None`), so two of them run `git`, `meson`,
+# `ninja`, `sudo install` and `distrobox-export` against the same container at
+# once. The double dialog and the failed install are one defect.
+# ---------------------------------------------------------------------------
+
+
+class _StubSignal:
+    def connect(self, *_a: object, **_k: object) -> None:
+        return None
+
+
+def test_the_setup_wizard_cannot_be_opened_on_top_of_itself(
+    teardown_threads, monkeypatch
+) -> None:
+    """Re-entering `open_host_setup_dialog` during its own nested loop is refused.
+
+    Modelled as the real thing does it: a queued slot arriving while the wizard's
+    `exec()` is spinning. `exec()` blocks *clicks*, which is why this was never
+    caught by hand — but it does not block a signal Qt delivers on the GUI thread.
+    """
+    import platterpus.ui.host_setup_dialog as hsd
+
+    built: list[object] = []
+    reentered: list[bool] = []
+
+    class FakeDialog:
+        def __init__(self, *_a: object, **_k: object) -> None:
+            built.append(self)
+            self.setup_finished = _StubSignal()
+            self.raised = 0
+
+        def exec(self) -> int:
+            if not reentered:
+                reentered.append(True)
+                window.open_host_setup_dialog()
+            return 1
+
+        # The refusal RAISES the open wizard rather than dropping the request, so
+        # the stand-in has to answer these or the test passes for the wrong reason
+        # — a stub thinner than the product hides the product's behaviour.
+        def raise_(self) -> None:
+            self.raised += 1
+
+        def activateWindow(self) -> None:  # noqa: N802 — Qt API
+            return None
+
+    monkeypatch.setattr(hsd, "HostSetupDialog", FakeDialog)
+    window = teardown_threads()
+    monkeypatch.setattr(window, "_build_host_setup", lambda: object())
+
+    window.open_host_setup_dialog()
+
+    assert reentered == [True], "the re-entry this test models did not happen"
+    assert len(built) == 1, (
+        f"{len(built)} setup wizards were constructed from one entry point "
+        "re-entered during its own nested event loop; each owns a HostSetupWorker, "
+        "so both build and `sudo install` into the same container concurrently"
+    )
+    # And the refusal is not a silent drop: the user asked for a setup window and
+    # there is one, so it is put in front of them.
+    assert built[0].raised == 1, "the already-open wizard was not raised"
+
+
+def test_a_dependency_report_waits_for_the_floor_instead_of_stacking(
+    teardown_threads, monkeypatch
+) -> None:
+    """The launch-time race, from the other side: the queued slot must not stack.
+
+    `_on_dependency_check_done` is delivered on the GUI thread inside whatever
+    nested `exec()` loop is spinning — at launch, routinely the first-run
+    "Set up Platterpus?" box. Opening the wizard from there put a second modal
+    over an unanswered one.
+    """
+    window = teardown_threads()
+    resolved: list[object] = []
+    monkeypatch.setattr(window, "_resolve_missing_unified", resolved.append)
+    monkeypatch.setattr(
+        window, "_modal_floor_blocker", lambda: "a dialog has the floor"
+    )
+
+    deferred: list[int] = []
+    from PySide6.QtCore import QTimer
+
+    monkeypatch.setattr(
+        QTimer, "singleShot", staticmethod(lambda ms, _cb: deferred.append(ms))
+    )
+
+    required = SimpleNamespace(spec=SimpleNamespace(optional=False))
+    report = SimpleNamespace(missing=[required], install_results=[])
+    window._apply_dependency_report(object(), report, show_summary=False)
+
+    assert resolved == [], "the wizard was opened over a dialog that had the floor"
+    assert deferred, "the report was dropped rather than re-delivered"
+
+
+def test_a_deferred_dependency_report_gives_up_loudly_not_forever(
+    teardown_threads, monkeypatch, caplog
+) -> None:
+    """The bound, and that it says so.
+
+    Without it a modal the user never closes leaves a timer firing for the life
+    of the process. Giving up is correct; giving up *silently* would be the
+    no-op-failure shape this project forbids, so the log line is the assertion.
+    """
+    import logging as _logging
+
+    from platterpus.ui import main_window_deps
+
+    window = teardown_threads()
+    monkeypatch.setattr(window, "_resolve_missing_unified", lambda _r: None)
+    monkeypatch.setattr(
+        window, "_modal_floor_blocker", lambda: "a dialog has the floor"
+    )
+    from PySide6.QtCore import QTimer
+
+    monkeypatch.setattr(QTimer, "singleShot", staticmethod(lambda _ms, _cb: None))
+
+    required = SimpleNamespace(spec=SimpleNamespace(optional=False))
+    report = SimpleNamespace(missing=[required], install_results=[])
+    with caplog.at_level(_logging.WARNING):
+        for _ in range(main_window_deps._DEP_RESOLVE_MAX_DEFERRALS + 1):
+            window._apply_dependency_report(object(), report, show_summary=False)
+
+    assert any("gave up re-delivering" in r.message for r in caplog.records), (
+        "the deferral budget ran out without saying so"
+    )
+    # And the budget resets, so a later report is not born already exhausted.
+    assert window._dep_resolve_deferrals == 0
+
+
+# --- The Setup & Updates window's one piece of logic ------------------------
+#
+# It owns no behaviour by design, but it does render a verdict, and a verdict
+# rendered wrong is the failure this project cares about most: a window that
+# says "all present" before anything has looked would be asserting something it
+# cannot know.
+
+
+def test_the_dependency_line_is_tri_state_not_a_boolean() -> None:
+    """ "Not checked yet" must never render as "nothing is wrong"."""
+    from platterpus.ui.dialogs.setup_center import dependency_summary_line
+
+    assert "Not checked yet" in dependency_summary_line(None)
+    # And it is not accidentally the same string as the healthy case.
+    healthy = dependency_summary_line(SimpleNamespace(missing=[]))
+    assert "Not checked yet" not in healthy
+    assert "✓" in healthy
+
+
+def test_the_dependency_line_separates_required_from_optional() -> None:
+    """A missing optional tool is not a problem; a missing required one is.
+
+    They render with different markers because status is never colour alone —
+    a greyscale screenshot or a forced-colors theme drops hue entirely.
+    """
+    from platterpus.ui.dialogs.setup_center import dependency_summary_line
+
+    def item(name: str, *, optional: bool) -> object:
+        return SimpleNamespace(name=name, spec=SimpleNamespace(optional=optional))
+
+    required = dependency_summary_line(
+        SimpleNamespace(missing=[item("cyanrip", optional=False)])
+    )
+    assert "⚠" in required and "cyanrip" in required
+
+    optional_only = dependency_summary_line(
+        SimpleNamespace(missing=[item("picard", optional=True)])
+    )
+    assert "✓" in optional_only, "a missing OPTIONAL tool must not read as a fault"
+    assert "picard" in optional_only, "…but it must still be named"

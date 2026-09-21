@@ -1416,7 +1416,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # re-approve it. Same judgement as the entry above -- a round close is when this
     # file is read, not when it should be split.
     "handshake_approval.py": 619,
-    "help_content.py": 561,
+    # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
+    # Setup & Updates window. The guide is prose by definition, and a menu item
+    # a user cannot find described in the app is the defect
+    # `test_help_documents_the_menu.py` exists to catch — so this growth is the
+    # other half of a gate, not incidental.
+    "help_content.py": 582,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1448,7 +1453,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # pure function would be the new-file-as-last-resort rule broken to satisfy
     # a line count.
     "parsers/rip_log.py": 831,
-    "preflight.py": 905,
+    "preflight.py": 903,
     "read_speed_ladder.py": 367,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
@@ -1538,8 +1543,17 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # initialiser, struck with the eight sibling fields the album now owns.
     # Recorded because the ratchet's own non-triviality twin refuses HEADROOM:
     # a count left above the file's real length is room to grow unnoticed.
-    "ui/main_window.py": 1578,
-    "ui/main_window_deps.py": 589,
+    # **1578 -> 1562 (2026-09-21): it SHRANK.** Six menu items became one, so the
+    # ratchet comes down with it — a recorded count above the real length is
+    # silent room to grow, which the sibling test refuses for exactly that reason.
+    "ui/main_window.py": 1562,
+    # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
+    # dependency report that arrives inside another dialog's nested event loop
+    # must wait rather than stack, and must not be dropped while it waits. Most
+    # of the growth is the comment explaining the launch-time race, which is the
+    # part a reader needs and the part a reviewer would otherwise have to
+    # reconstruct from two other files.
+    "ui/main_window_deps.py": 686,
     "ui/main_window_drive.py": 555,
     "ui/main_window_helpers.py": 508,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
@@ -1551,7 +1565,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # it gates; the decision and the launch in separate files is how a guard
     # stops being read as part of the path it guards.
     # **1283 -> 1297 on 2026-09-18**: the suppression check keyed on the pair, with the measurement that in-place updates land on the byte-identical path.
-    "ui/main_window_provision.py": 1297,
+    # **1297 -> 1423 (2026-09-21).** Two additions: `run_setup_wizard`, the one
+    # chokepoint through which every `HostSetupDialog` now opens (the fix for two
+    # concurrent installs into one container), and `open_setup_center`, which
+    # opens the window that replaced six menu items. The queued split of this
+    # file still stands and this is still not the commit for it: both additions
+    # are about the dialogs this mixin already owns.
+    "ui/main_window_provision.py": 1423,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -1605,14 +1625,24 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **414 -> 407 on 2026-09-15**: nine post-rip RESULT declarations struck. They
     # moved to `ui/post_rip_record.py`, where they are the album's rather than the
     # window's. The only ratchet entry this session that went DOWN.
-    "ui/main_window_shared.py": 407,
+    # **407 -> 427 (2026-09-21).** Seam declarations only — the cross-mixin
+    # methods the consolidated window calls on `self`, plus the two blocker
+    # predicates. This file growing is the type seam doing its job: an undeclared
+    # cross-mixin call is a mypy error, which is how the wiring gets checked.
+    "ui/main_window_shared.py": 427,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
     # thin: putting a one-`exec`-and-delegate method in its own module would
     # separate it from the install it delegates to, which is the split that makes
     # a second install route look reasonable later.
-    "ui/main_window_update.py": 989,
+    # **989 -> 1019 (2026-09-21).** `_modal_floor_blocker` split out of
+    # `_interruption_blocker`, which now delegates to it. Two questions were
+    # sharing one answer — *"may I interrupt this person?"* and *"may I stack on
+    # what is already on screen?"* — and the wide one would have dropped the
+    # resolution of a missing required dependency because the window was not yet
+    # visible.
+    "ui/main_window_update.py": 1019,
     "ui/rip_progress.py": 1658,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     "ui/settings_dialog.py": 1304,

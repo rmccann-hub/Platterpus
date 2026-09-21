@@ -133,7 +133,7 @@ one CRC over the whole disc, so one differing track changes it. Either outcome i
 
 ## 0 — [ ] Update to the release under test
 
-*Help → Check for updates…* → download → verify → restart. *Help → About* names the version —
+*Tools → Setup & Updates… → Check for updates* → download → verify → restart. *Help → About* names the version —
 write it into the **App version tested** blank at the top of this sheet, because every result
 below is about that build.
 Nothing else to set up — your settings are already right (see above).
@@ -261,7 +261,7 @@ default on the base class that this backend never overrode — so the flag was s
 probe carried on to its 600-second ceiling. Three separate comments in the code claimed it
 killed the process.
 
-1. Disc in. *Tools → Set up drive…* → **Analyse cache**.
+1. Disc in. *Tools → Setup & Updates… → Set up drive…* → **Analyse cache**.
 2. Wait ~15 seconds so it is genuinely reading, then **close the dialog**.
 
 - Expected: the dialog closes immediately, the app stays responsive, and **the disc spins
@@ -350,7 +350,7 @@ Its minimum size was a hand-picked guess 185 px shorter than the content needs. 
 440×300, the intro label was **73 px short** — the last lines of the explanation of what a
 read offset *is* simply weren't drawn.
 
-1. *Tools → Set up drive…*
+1. *Tools → Setup & Updates… → Set up drive…*
 2. Try to make the dialog as small as it will go. Drag every edge.
 
 - Expected: it **refuses** to shrink past the point where text would be cut off.
@@ -795,7 +795,7 @@ so the default setting destroyed a cover you had put there yourself.
 
 ### B7 — [ ] A bad read offset is refused, visibly
 
-*Tools → Set up drive…* → try an offset far outside the sane range. Then try to force one
+*Tools → Setup & Updates… → Set up drive…* → try an offset far outside the sane range. Then try to force one
 past the widget by hand-editing `~/.config/platterpus/config.toml` to
 `read_offset = 999999` and relaunching.
 
@@ -816,7 +816,7 @@ ls ~/.local/bin/ | grep -E "cyanrip|metaflac|flac|cd-paranoia"
 
 - Expected: **all four gone.** `cd-paranoia` was being orphaned — the exact repeat of the
   `flac` bug from earlier.
-- Re-run *Tools → Set up Platterpus…* afterwards to put them back.
+- Re-run *Tools → Setup & Updates… → Run setup…* afterwards to put them back.
 
 **Result:** ☐ PASS ☐ FAIL — left behind: ____________
 
@@ -892,7 +892,7 @@ mv ~/.local/bin/cd-paranoia ~/.local/bin/cd-paranoia.bak
 ```
 
 1. Relaunch. *Set up drive* → **Analyse cache**. Expected: it says **cd-paranoia isn't
-   installed** and points at *Tools → Set up Platterpus…* — not a vague "could not be
+   installed** and points at *Tools → Setup & Updates… → Run setup…* — not a vague "could not be
    determined".
 2. Rip a CD → works. **Cache defeat** keeps saying **Yes** because your drive's verdict is
    saved *per drive* and isn't re-probed — correct, it really was measured. What must never
@@ -1050,7 +1050,7 @@ Defensible either way, so it's your decision rather than something I'll just cha
 
 ## E — retired: the setup wizard builds the pinned fork (KDD-33)
 
-There is no hand-build step any more. *Tools → Set up Platterpus…* clones the fork, detaches
+There is no hand-build step any more. *Tools → Setup & Updates… → Run setup…* clones the fork, detaches
 onto the handshake-verified pin, compiles it and re-exports it, and `--install-ripper` is the
 same step engine from a terminal — so the `INDEX 00` work arrives with the pin. Do **not**
 build upstream `master` over it: that replaces the binary every other result on this sheet is
@@ -1214,4 +1214,4 @@ with `rip stream error:`** — that is the v0.5.20 fix's signature and I want th
 
 ---
 
-*Last updated for Platterpus v0.6.33.*
+*Last updated for Platterpus v0.6.51.*

@@ -13,6 +13,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Changed
 
+- **Setup, dependencies and both update checks are now one window** —
+  **Tools → Setup & Updates…**. It replaces six menu items spread across two
+  menus (*Set up Platterpus…*, *Add app shortcut*, *Set up drive…* in Tools;
+  *Check for updates…*, *Check for cyanrip updates…*, *Install a cyanrip
+  build…* in Help) plus the dependency check, which had no menu item at all and
+  was reachable only as a button inside Settings. Every operator instruction and
+  User Guide section that named an old menu path was updated in the same change —
+  a menu path is an exact string to the person following it. Reported by a real
+  user: *"we dont need 20 menues when 5 will do."*
+
 - **The approved cyanrip build rolls to `2cce60d` (`0.9.4-rc2+platterpus.13`)**
   on round 22's close — the post-close step the round authorises. The setup
   wizard and the in-app ripper check now offer that build, and every rip
@@ -25,6 +35,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   about a binary compiled on the operator's own machine.
 
 ### Fixed
+
+- **Two setup wizards could run at once, and the second install failed.** On a
+  machine with no cyanrip — every fresh install — the launch-time dependency
+  probe runs off-thread while the first-run *"Set up Platterpus?"* question opens
+  a nested event loop. The probe's result is a **queued slot**, so Qt delivered
+  it inside that loop and it opened the setup wizard for its container tools;
+  answering the question still underneath opened a second. `exec()` blocks
+  clicks, which is why this was never hit by hand, but it does not block a
+  signal. Each wizard owns its own worker, so two of them ran `git`, `meson`,
+  `ninja`, `sudo install` and `distrobox-export` against the same container
+  concurrently. Every wizard now opens through one chokepoint that refuses a
+  second and raises the open one, and a dependency report that arrives while any
+  dialog has the floor **waits** — bounded, and saying so in the log — rather
+  than stacking or being dropped.
 
 - **The handshake release gate could not close a round Platterpus closes, and
   would have blocked every future release.** A round's closing file transcribes

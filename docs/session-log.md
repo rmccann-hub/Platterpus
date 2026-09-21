@@ -11,6 +11,82 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-21 — the install failure and the double dialog were one bug, and six menu items became one
+
+**A real user reported three things and two of them were the same defect.**
+*"I am getting failure to install, menus double oepnig, etc."* — and separately
+*"Why the need for 2 menu items for updating, and a separate for set up and
+dependcies, can't this all be shown on one window?"*
+
+**The bug, reproduced rather than explained.** On a machine with no cyanrip —
+which is every fresh install — `app.py` arms the dependency probe off-thread, and
+`QTimer.singleShot(0)` opens the first-run *"Set up Platterpus?"* question. The
+probe is slow because it enters a cold Distrobox container, so it finishes
+**inside that question's nested `exec()` loop**; its result is a **queued slot**,
+which Qt delivers on the GUI thread right there, and `_resolve_missing_unified`
+opens the setup wizard for its container tools. Answer the question still
+underneath and you get a second. `HostSetupDialog` guards its own worker, but that
+guard is **per dialog**, so two dialogs are two workers running `git`, `meson`,
+`ninja`, `sudo install` and `distrobox-export` against one container. The double
+dialog and the failed install are the same defect.
+
+**`exec()` blocks clicks, not signals — which is exactly why nobody hit it by
+hand.** And the rule was already written down: `_interruption_blocker`'s docstring
+predicted this failure verbatim — *"stacking a window-modal box on top of an
+application-modal 'Set up Platterpus?' — input-blocked, and answering both runs
+the install pipeline twice"* — for the cyanrip check, **at one of the three
+launch-time surfaces that raise modals**. `grep` for its call sites returned two,
+both in `main_window_update.py`. `docs/testing.md` §5.o, again: a rule enforced at
+the place it was learned.
+
+Fixed at the shape rather than the instance. `run_setup_wizard` is now the one
+chokepoint every `HostSetupDialog` opens through — both creators
+(`open_host_setup_dialog` and `_begin_ripper_install`) delegate to it, because
+they install the same thing into the same container and *"is an install
+running?"* must have one answer. The dependency result **waits** for the floor
+rather than stacking, bounded at 40 × 750 ms and saying so in the log when the
+budget runs out: dropping it silently would be worse than the stacking, since the
+thing being dropped is a missing **required** dependency.
+
+**And the predicate had to be split, which the tests found rather than review.**
+`_interruption_blocker` answers *"may I interrupt this person?"* and refuses when
+the window is not visible — right for an offer nobody asked for, and wrong for
+resolving a missing required dependency, which must not be dropped because a
+launch-time probe returned before the window was shown. `_modal_floor_blocker` is
+the narrow half (*"may I stack on what is already on screen?"*), and the wide one
+delegates to it rather than restating it.
+
+**Six menu items became one.** *Set up Platterpus…*, *Add app shortcut* and *Set
+up drive…* were in Tools; *Check for updates…*, *Check for cyanrip updates…* and
+*Install a cyanrip build…* were in **Help**, which is for documentation; and the
+dependency check had no menu item at all — a button inside Settings. Somebody
+asking *"is my install healthy?"* had to know which of three places held which
+half. They are now four sections of **Tools → Setup & Updates…**
+(`dialogs/setup_center.py`), which **owns no logic**: every button delegates to
+the method that already does the job, because a consolidated window that
+re-derived any of those answers would be a second opinion free to disagree with
+the one a rip records. Modeless for a structural reason — its buttons open modals,
+so an `exec()` would nest them inside its own loop, which is the stacking above.
+
+**55 navigation references updated in the same change**, across source, the User
+Guide, the acceptance script header, README and four rig docs. A menu path is an
+exact string to the person following it; sent handshake laps and `docs/archive/`
+were deliberately left alone, being immutable record.
+
+**Three things the gates caught that review would not have.** The User-Guide
+sweep's normaliser stripped Qt's `&&` — a *literal* ampersand — along with the
+mnemonic markers, so `Setup && &Updates…` became `Setup  Updates` with two spaces
+and it reported a documented item as undocumented; the label was right and the
+checker was wrong, which is the expensive direction because its output is an
+instruction to edit a file that was already correct. The size ratchet refused
+recorded counts *above* the real length, so the two modules the consolidation
+**shrank** had to ratchet down — slack in a ratchet is silent room to grow. And
+the menu sweep's non-triviality floor (`>= 8` Tools actions) had to be re-based to
+7 deliberately, since the menu really did shrink.
+
+Four revert probes, all detecting; `scripts/check.py` 4/4 with a real exit code.
+
+
 ## 2026-09-21 — round 22 closed at four laps, and the gate that would not let us close it
 
 **ROUND 22 IS CLOSED, `GO`/`GO`, at four laps** — the fork's laps 1 and 3, ours
