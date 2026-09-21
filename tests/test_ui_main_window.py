@@ -10369,3 +10369,79 @@ def test_the_dependency_line_separates_required_from_optional() -> None:
     )
     assert "✓" in optional_only, "a missing OPTIONAL tool must not read as a fault"
     assert "picard" in optional_only, "…but it must still be named"
+
+
+# ---------------------------------------------------------------------------
+# THE BUNDLE STAMP MAY NOT ASSERT THE FLUSH BEFORE THE FLUSH HAPPENS.
+#
+# Found by the cyanrip fork in our own 2026-09-19 evidence bundle (round 23 lap 1
+# §H1): the stamp reads twelve seconds BEFORE the `generated_at` of the report it
+# bundles. The sentence used to read "...and the report was flushed" and was
+# composed five lines above the `_flush_rip_report()` call — so the archive
+# asserted a state that came into being afterwards, about a revision of the report
+# that did not exist yet.
+#
+# It is the shape their own §0.3 is built on, arriving in our tooling: *no line
+# printed at time T can report a fact that comes into being at T+1.* Their
+# per-track line claimed an encode that had not been joined; ours claimed a flush
+# that had not been called.
+# ---------------------------------------------------------------------------
+
+
+def _seal_bundle(window, monkeypatch, *, flush):
+    """Drive one bundle seal to completion and return its facts."""
+    from platterpus.ui.main_window_rip import _PendingBundle
+
+    built: list[tuple[object, dict[str, str]]] = []
+    monkeypatch.setattr(
+        window, "_launch_evidence_bundle", lambda p, f: built.append((p, f))
+    )
+    monkeypatch.setattr(window, "_album_folder_settled", lambda: True)
+    monkeypatch.setattr(window, "_post_rip_failure_summary", lambda: "")
+    monkeypatch.setattr(window, "_flush_rip_report", flush)
+    window._pending_evidence_bundle = _PendingBundle(
+        stamp="20260921t000000z",
+        app_version="0.6.52",
+        outcome="ok",
+        album_dir=None,
+        diagnostics="",
+        generation=window._rip_generation,
+        deadline=float("inf"),
+        facts={},
+    )
+    window._poll_evidence_bundle()
+    assert built, "the bundle never sealed"
+    return built[0][1]
+
+
+def test_the_bundle_stamp_reports_the_flush_it_actually_did(
+    teardown_threads, monkeypatch
+) -> None:
+    """A flush that SUCCEEDED is reported, and one that FAILED is not claimed.
+
+    The second half is the real assertion. The old stamp predicted the flush
+    ("...and the report was flushed") five lines before calling it, then appended
+    "The final report write could not be flushed." on the failure path — so a
+    failed flush produced an archive asserting **both**. Deriving the sentence
+    from the outcome is what makes the two mutually exclusive.
+    """
+    window = teardown_threads()
+    ok = _seal_bundle(window, monkeypatch, flush=lambda: None)["waited for post-rip"]
+    assert ok.startswith("yes"), ok
+    assert "was then flushed" in ok, ok
+    assert "could not be flushed" not in ok, ok
+
+
+def test_a_failed_flush_is_never_reported_as_a_successful_one(
+    teardown_threads, monkeypatch
+) -> None:
+    def boom() -> None:
+        raise OSError("disk went away")
+
+    window = teardown_threads()
+    stamp = _seal_bundle(window, monkeypatch, flush=boom)["waited for post-rip"]
+    assert "could not be flushed" in stamp, stamp
+    assert "was then flushed" not in stamp, (
+        "the stamp claims the flush succeeded AND failed — which is what "
+        "predicting it above the call produced"
+    )

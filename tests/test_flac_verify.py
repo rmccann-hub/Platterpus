@@ -195,3 +195,91 @@ def test_worker_never_raises_when_verifier_explodes(tmp_path: Path) -> None:
     result = verify_rip_dir(tmp_path, verifier=verifier)
     assert not result.ran
     assert "unexpected error" in result.error
+
+
+# ---------------------------------------------------------------------------
+# A MISSING BINARY IS NOT A CORRUPT FILE — INCLUDING WHEN IT EXITS 127.
+#
+# Found by the cyanrip fork in our own 2026-09-19 evidence bundle (round 23 lap 1
+# §H2), derived from the three files inside it with no code of ours read: every
+# `verification.gates.flac_integrity` failure was `exit 127: /usr/bin/flac not
+# found`, recorded as `ran: true, ok: false`. An archival record stating the
+# user's masters failed an integrity check that never ran.
+#
+# The guard for exactly this already existed and could not fire. It keyed on
+# `run.started`, which the runner sets False only on `FileNotFoundError` — a
+# DIRECT exec of an absent binary. Every dependency here is reached through a
+# host-exported Distrobox wrapper in ~/.local/bin: the wrapper exists, so the exec
+# succeeds and `started` is True; it enters the container, cannot find the real
+# binary, and exits 127. The guard was written against a failure mode this
+# architecture cannot produce, and was blind to the one it does.
+#
+# The fork reported shipping the same defect in their own `rig-check.py` the same
+# week, which is what makes this a shape rather than an incident.
+# ---------------------------------------------------------------------------
+
+
+def test_exit_127_aborts_the_pass_instead_of_blaming_the_files() -> None:
+    """The shape that actually occurs: the wrapper ran, the binary did not."""
+
+    def runner(argv: list[str]) -> ToolRun:
+        return ToolRun(
+            exit_code=127,
+            output="/usr/bin/flac: not found",
+            argv=argv,
+            started=True,  # the EXPORT WRAPPER started; the binary did not exist
+        )
+
+    result = verify_flac_files([Path("a.flac"), Path("b.flac")], runner=runner)
+    assert result.error, "a missing binary must set `error`, not mark files failed"
+    assert "cannot verify FLAC integrity" in result.error
+    assert result.failures == (), (
+        "files were blamed for a tool that was never there — the archival claim "
+        "the fork found in our own bundle"
+    )
+
+
+def test_a_direct_FileNotFoundError_still_aborts_the_pass() -> None:
+    """The original shape stays covered — the fix widened the guard, not moved it."""
+
+    def runner(argv: list[str]) -> ToolRun:
+        return ToolRun(
+            exit_code=None, output="", argv=argv, error="flac not found", started=False
+        )
+
+    result = verify_flac_files([Path("a.flac")], runner=runner)
+    assert result.error
+    assert result.failures == ()
+
+
+def test_a_real_decode_failure_is_still_a_failure() -> None:
+    """The non-triviality half: widening the guard must not swallow real corruption.
+
+    Without this, a `binary_missing` that returned True for everything would pass
+    both tests above while silently ending our ability to report a corrupt master
+    at all — which is a worse defect than the one being fixed.
+    """
+
+    def runner(argv: list[str]) -> ToolRun:
+        return ToolRun(exit_code=1, output="ERROR while decoding", argv=argv)
+
+    result = verify_flac_files([Path("bad.flac")], runner=runner)
+    assert result.error == "", "a decode failure is not a missing tool"
+    assert result.failures == (Path("bad.flac"),)
+    assert result.checked == 1
+
+
+def test_binary_missing_is_the_shared_predicate_not_a_local_rule() -> None:
+    """Stated on `ToolRun`, because every dependency is reached the same way.
+
+    `flac` is where the fork found it; `cyanrip` and `metaflac` are invoked
+    through the same kind of export wrapper and can fail the same way. A rule
+    living in one adapter would have to be rediscovered in each of the others.
+    """
+    assert ToolRun(exit_code=127, output="", argv=[], started=True).binary_missing
+    assert ToolRun(
+        exit_code=None, output="", argv=[], error="nope", started=False
+    ).binary_missing
+    # And it does not fire on an ordinary failure or a success.
+    assert not ToolRun(exit_code=1, output="", argv=[]).binary_missing
+    assert not ToolRun(exit_code=0, output="", argv=[]).binary_missing

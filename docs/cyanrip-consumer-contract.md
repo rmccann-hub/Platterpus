@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (60)
+## 1. Log lines we parse (61)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -77,6 +77,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `accuraterip_total` | disc | `^Tracks ripped accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `accuraterip_partial_total` | disc | `^Tracks ripped partially accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `ripping_errors` | disc | `^Ripping errors:\\s+(?P<count>\\d+)` |
+| `encoder_errors` | disc | `^Encoder errors:\\s+(?P<value>\\S.*?)\\s*$` |
 | `interrupted_at` **(fork-only)** | disc | `^Interrupted at:\\s+(?P<where>\\S.*?)\\s*$` |
 | `rip_completed` **(fork-only)** | disc | `^Rip completed:\\s+(?P<verdict>yes\|no)(?:\\s+\\((?:(?P<reason>[^,)]{1,64}),\\s*)?(?P<done>\\d{1,4})\\s+of\\s+(?P<total>\\d{1,4})\\s+tracks?\\))?` |
 | `read_stalls` **(fork-only)** | disc | `^Read stalls:\\s+(?P<value>\\S.*?)\\s*$` |
@@ -84,7 +85,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `gaps_section` | section header | `^Gaps:\\s*$` |
 | `paranoia_counts_section` | section header | `^Paranoia status counts:\\s*$` |
 | `album_loudness_section` | section header | `^Album Loudness\\b` |
-| `track_block_start` | section header | `^Track (?P<number>\\d+) (?P<what>ripped and encoded successfully!\|ripped and encoded with errors\\.\|is data:)` |
+| `track_block_start` | section header | `^Track (?P<number>\\d+) (?P<what>ripped and encoded successfully!\|ripped and encoded with errors\\.\|read successfully!\|read with errors\\.\|is data:)` |
 | `secure_rerip_converged` **(fork-only)** | section header | `^\\s*Done;\\s+\\((?P<agreed>\\d{1,6})\\s+out of\\s+(?P<total>\\d{1,6})\\s+matches\\b` |
 | `secure_rerip_no_match` | section header | `^\\s*Done;\\s+\\(no matches found\\b` |
 | `gaps_value` | indented | `^\\s+(?P<value>\\S.*?)\\s*$` |

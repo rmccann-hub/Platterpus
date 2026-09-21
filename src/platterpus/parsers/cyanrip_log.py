@@ -209,9 +209,38 @@ _RELEASE_ID = re.compile(r"^Release ID:\s+(?P<value>\S+)")
 # skip the speed rungs (see RippingInfo.speed_changeable).
 _SPEED_CAP = re.compile(r"^Speed:\s+(?P<text>.+?)\s*$")
 # A track block opens with its outcome line.
+#
+# **BOTH WORDINGS, AND THAT IS THE WHOLE POINT OF THIS PATTERN.** This line is the
+# block DELIMITER — every per-track fact we hold (CRCs, AccurateRip, the secure
+# re-read verdict, the file list) is attributed to whichever track block it falls
+# inside, so a pattern that stops matching does not lose one field, it loses the
+# structure. Measured on round 21's real `3952c03` log: with only the old wording,
+# the fork's proposed rename takes our parse from **14 tracks to 0** while the
+# report still says `rip_completed_tracks: 14` and `"No errors occurred"` — a
+# silent zeroing that reads as a clean rip. That measurement is why we re-graded
+# their §0.3 from P2 to **P1** in round 22 lap 2, and they accepted it.
+#
+# The two wordings are the same fact under two spellings, and the ORDERING between
+# our release and theirs is what the round agreed (laps 2–5): we ship a parser that
+# accepts both FIRST, and only then may a build emit the new one. That way no
+# build of theirs can ever meet a parser that cannot read it — which is the
+# property, not the courtesy. Until `+platterpus.14` exists, only the old wording
+# is emitted by anything, so this arm is inert and cannot regress today's logs.
+#
+# **`read` is not a relaxation of `ripped and encoded`; it is a different claim.**
+# Their §0.3: the old line printed immediately after the flush signal went to the
+# encoders and long before any was joined, so *"the fact it asserted did not exist
+# when it printed"* — no line printed at T can report a fact that comes into being
+# at T+1. The per-track block reports the READ; the footer reports the ENCODE
+# (`Encoder errors:`, below). We keep both spellings because logs already written
+# carry the old one and are archival records we must never stop being able to read.
 _TRACK_START = re.compile(
     r"^Track (?P<number>\d+) "
-    r"(?P<what>ripped and encoded successfully!|ripped and encoded with errors\.|is data:)"
+    r"(?P<what>"
+    r"ripped and encoded successfully!|ripped and encoded with errors\.|"  # <= .13
+    r"read successfully!|read with errors\.|"  # >= .14, their §0.3
+    r"is data:"
+    r")"
 )
 # cyanrip's secure re-read (-Z N) verdict for a track, printed on the line JUST
 # BEFORE that track's "Track N ripped…" line. Either the reads converged —
@@ -429,6 +458,31 @@ _PARTIAL_TOTAL = re.compile(
     r"^Tracks ripped partially accurately:\s+(?P<hit>\d+)/(?P<total>\d+)"
 )
 _RIP_ERRORS = re.compile(r"^Ripping errors:\s+(?P<count>\d+)")
+# "Encoder errors: none; 3 tracks encoded" — NEW in +platterpus.14, their §0.3,
+# printed directly below `Ripping errors:` at the same value column.
+#
+# **Why we parse it rather than ignore it as an unknown line.** The rename above
+# splits one claim in two: the per-track block now reports the READ and this line
+# reports the ENCODE. A parser that took the first half and dropped the second
+# would read a disc whose encode failed as a clean rip — which is the exact defect
+# their §0.3 exists to fix, inherited by us at the moment they fix it on their
+# side. Taking half of a split claim is worse than taking neither.
+#
+# The whole value is captured and interpreted in the handler rather than being
+# pinned arm-by-arm here, because their three arms carry a bounded track list that
+# may end `, list truncated` — and a pattern tight enough to enumerate the arms is
+# a pattern that stops matching the first time one gains a clause. Parsers of
+# external output are best-effort and never raise (`CLAUDE.md`).
+_ENCODER_ERRORS = re.compile(r"^Encoder errors:\s+(?P<value>\S.*?)\s*$")
+#: How the failure arm states its count: "2 tracks failed (2, 3)", "1 track failed
+#: (2)". Singular and plural, because their spec derives the plural from the count
+#: rather than spelling `track(s)`.
+#:
+#: **Every quantifier bounded**, because `tests/test_regex_bounded_time.py` caught
+#: the unbounded form as super-linear and it is right to: this runs against
+#: external output on a worker thread, and a long line of whitespace would make it
+#: backtrack. A CD holds at most 99 tracks, so four digits is already generous.
+_ENCODER_FAILED_COUNT = re.compile(r"(?P<failed>\d{1,4})\s{1,4}tracks?\s{1,4}failed")
 # "Interrupted at: track 1, mid-read" / "Interrupted at: between tracks, no read
 # in progress" — added by the fork in round 13 to answer OUR round-12 ask: which
 # track was in progress when a rip was interrupted, which the log could not say.
@@ -1153,6 +1207,11 @@ class _Disc:
     #: The count inside it, tri-state. See :func:`read_stall_count`.
     read_stalls_count: int | None = None
     health_status: str = ""
+    #: The `Encoder errors:` line verbatim, or "" if the build did not print one.
+    #: Kept as text because its three arms carry a population count the verdict
+    #: does not: "none; 3 tracks encoded" and "not applicable; no track was
+    #: encoded" are different facts and only one of them is an absence.
+    encoder_errors: str = ""
     log_checksum: str = ""
     # FORK-ONLY, and the strongest provenance line in the file: the binary's own
     # statement of which handshake round it was built from, derived at ITS build time
@@ -1624,6 +1683,47 @@ def _take_rip_errors(disc: _Disc, match: re.Match[str]) -> bool:
     return True
 
 
+def _take_encoder_errors(disc: _Disc, match: re.Match[str]) -> bool:
+    """Fold an encode failure into the health verdict (their §0.3, `.14`+).
+
+    **Runs after `_take_rip_errors` and amends what it wrote**, which is safe
+    because `Encoder errors:` is printed directly below `Ripping errors:` — the
+    placement is part of their spec, not an accident of this file.
+
+    Three arms, and the third is why this reads the text rather than a count:
+
+    * ``none; N tracks encoded`` — nothing to say, the rip verdict stands.
+    * ``N tracks failed (…); M tracks encoded`` — the disc is NOT clean, whatever
+      the ripping-error count says.
+    * ``not applicable; no track was encoded`` — **not a failure**, and must not be
+      rendered as one. Their spec keeps this arm separate precisely so `none` is
+      never asserted over an empty population; collapsing it into either of the
+      others would be us undoing that distinction one layer down.
+
+    Never raises: an arm we cannot interpret leaves the verdict exactly as the
+    ripping-error line set it, which is the pre-`.14` behaviour.
+    """
+    value = match.group("value")
+    disc.encoder_errors = value
+    failed = _ENCODER_FAILED_COUNT.search(value)
+    if failed is None:
+        # `none`, `not applicable`, or an arm we do not recognise. In all three the
+        # honest move is to leave the rip verdict alone rather than invent one.
+        return True
+    count = int_or_none(failed.group("failed"), field="cyanrip encoder-error count")
+    if not count:
+        return True
+    note = f"{count} encoder error{'s' if count != 1 else ''}"
+    # "No errors occurred" is the string downstream checks treat as clean, so it
+    # must not survive an encode failure. A real ripping-error count is kept and
+    # the encode note appended: two different failures, both worth reading.
+    if disc.health_status in ("", "No errors occurred"):
+        disc.health_status = note
+    else:
+        disc.health_status = f"{disc.health_status}; {note}"
+    return True
+
+
 def _take_finished_at(disc: _Disc, match: re.Match[str]) -> bool:
     disc.creation_date = match.group("when").strip()
     return True
@@ -1721,6 +1821,7 @@ _RULES_AFTER_TRACKS: tuple[_LineRule, ...] = (
     _LineRule("accuraterip_total", _ACCURATE_TOTAL, _take_accurate_total),
     _LineRule("accuraterip_partial_total", _PARTIAL_TOTAL, _take_partial_total),
     _LineRule("ripping_errors", _RIP_ERRORS, _take_rip_errors),
+    _LineRule("encoder_errors", _ENCODER_ERRORS, _take_encoder_errors),
     _LineRule("interrupted_at", _INTERRUPTED_AT, _take_interrupted_at),
     _LineRule("rip_completed", _RIP_COMPLETED, _take_rip_completed),
     _LineRule("read_stalls", _READ_STALLS, _take_read_stalls),
@@ -1773,6 +1874,11 @@ _FRAGMENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # `read_stall_count`). The line itself is claimed by the `read_stalls` rule.
     ("read_stalls_count", _READ_STALLS_COUNT),
     ("read_stalls_none", _READ_STALLS_NONE),
+    # The failure count inside an `Encoder errors:` value (their §0.3). The line
+    # itself is claimed by the `encoder_errors` rule; this reads the one number
+    # that decides whether the disc is clean, out of an arm whose track list is
+    # bounded and may end `, list truncated`.
+    ("encoder_failed_count", _ENCODER_FAILED_COUNT),
     # The alphabet a FUN512 signature must be drawn from, applied to the `sig`
     # group captured by `_LOG_CHECKSUM` — a fragment, not a line. Declared here
     # because this module's enumeration is what the generated consumer contract

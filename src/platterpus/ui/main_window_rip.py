@@ -2816,9 +2816,21 @@ class RipMixin(MainWindowShared):
         self._pending_evidence_bundle = None
         self._evidence_bundle_timer.stop()
         if settled:
-            waited = (
-                "yes — every post-rip check had finished and the report was flushed"
-            )
+            # **"had finished" only. The flush has NOT happened yet** — it is five
+            # lines below — and this sentence used to claim it had.
+            #
+            # The fork found the consequence in our own 2026-09-19 bundle (round 23
+            # lap 1 §H1): the stamp reads twelve seconds BEFORE the `generated_at`
+            # of the report it bundles. So the archive asserted a state that came
+            # into being after it was written, about a revision of the report that
+            # did not exist yet.
+            #
+            # It is the shape their own §0.3 is built on, arriving in our tooling:
+            # *no line printed at time T can report a fact that comes into being at
+            # T+1.* Their per-track line claimed an encode that had not been joined;
+            # ours claimed a flush that had not been called. The flush's outcome is
+            # appended below, from what actually happened.
+            waited = "yes — every post-rip check had finished"
         else:
             waited = (
                 f"NO — gave up after {self._BUNDLE_POST_RIP_WAIT_S:.0f}s. Still "
@@ -2835,6 +2847,12 @@ class RipMixin(MainWindowShared):
         except Exception:  # noqa: BLE001 — the bundle must survive this
             log.exception("could not flush the rip report before bundling")
             waited += " The final report write could not be flushed."
+        else:
+            # Stated here, after the act, rather than predicted above. The symmetry
+            # is the point: both outcomes of the flush are now reported from the
+            # same place, so neither can be asserted before it is known.
+            waited += " The report was then flushed, so the archived revision is"
+            waited += " the final one."
         facts = dict(pending.facts)
         facts["waited for post-rip"] = waited
         # **READ THE ALBUM'S CURRENT HOME, NOT THE ONE IT HAD AT FINISH.** The
