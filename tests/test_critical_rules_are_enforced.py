@@ -2000,3 +2000,81 @@ def test_the_open_url_detector_fires_and_does_not_over_fire() -> None:
             and n.value.func.attr == "openUrl"
             for n in ast.walk(tree)
         ), f"a correctly-checked call is being flagged: {correct!r}"
+
+
+# ---------------------------------------------------------------------------
+# NO COMMIT MAY CARRY AN UNRESOLVED CONFLICT MARKER.
+#
+# Shipped to `main` on 2026-09-21 in PR #235: two `<<<<<<< HEAD` blocks sat in
+# `CHANGELOG.md`, through nine green CI jobs and a squash merge. `lint` never saw
+# them because ruff does not read Markdown; the `changelog` gate checks that
+# `[Unreleased]` is empty and the tag's section exists, which both were.
+#
+# **The cause was a truncated command, not a hard problem.** The merge was run as
+# `git merge origin/main 2>&1 | tail -6` — and the output of that command IS the
+# list of files needing resolution. Two conflicts appeared in the visible tail
+# and were fixed; `CHANGELOG.md` was above the cut. The verification that
+# followed grepped the two known files rather than the tree, so it confirmed
+# exactly the subset already known. `CLAUDE.md`'s *"a silent truncation reads as
+# completeness"*, arriving through a pipe rather than through the product.
+#
+# A marker is unambiguous, costs nothing to detect, and no judgement is involved
+# — which is precisely the kind of thing a person should never be the check for.
+# ---------------------------------------------------------------------------
+
+#: Text extensions worth scanning. Binary and vendored trees are skipped; the
+#: point is the files a human edits and a merge can conflict in.
+_CONFLICT_SCAN_SUFFIXES: frozenset[str] = frozenset(
+    {".py", ".md", ".txt", ".toml", ".yml", ".yaml", ".json", ".cfg", ".sh", ".tsv"}
+)
+
+#: Directories that are not ours to police.
+_CONFLICT_SKIP_DIRS: frozenset[str] = frozenset(
+    {".git", "__pycache__", ".venv", "node_modules", ".check-logs", ".pytest_cache"}
+)
+
+
+def test_no_file_carries_an_unresolved_conflict_marker() -> None:
+    """A `<<<<<<<` / `>>>>>>>` pair anywhere in the tree fails the build.
+
+    Anchored at column 0 and requiring the trailing space git writes, so prose
+    *about* conflict markers — including this test and the comment above it —
+    does not trip it. That exemption is the narrow kind: a real marker always
+    starts the line and always carries a label after the space.
+    """
+    root = Path(__file__).resolve().parent.parent
+    opener = re.compile(r"^<<<<<<< \S", re.MULTILINE)
+    closer = re.compile(r"^>>>>>>> \S", re.MULTILINE)
+
+    offenders: list[str] = []
+    examined = 0
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix not in _CONFLICT_SCAN_SUFFIXES:
+            continue
+        if any(part in _CONFLICT_SKIP_DIRS for part in path.parts):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        examined += 1
+        if opener.search(text) or closer.search(text):
+            rel = path.relative_to(root)
+            first = next(
+                (
+                    i
+                    for i, line in enumerate(text.splitlines(), 1)
+                    if line.startswith(("<<<<<<< ", ">>>>>>> "))
+                ),
+                0,
+            )
+            offenders.append(f"{rel}:{first}")
+
+    assert examined >= 300, (
+        f"only {examined} file(s) scanned — the sweep has stopped finding the "
+        "tree and would pass over anything"
+    )
+    assert not offenders, (
+        "unresolved merge-conflict markers are committed in these files:\n  "
+        + "\n  ".join(offenders)
+    )
