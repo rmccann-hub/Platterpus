@@ -57,7 +57,7 @@ def test_a_stock_banner_reads_as_the_wrong_build_and_says_what_it_costs() -> Non
     # The detail has to say what the difference *costs*, not just that it exists —
     # otherwise a user reasonably concludes it does not matter.
     assert "pre-gap" in note.detail
-    assert "Set up Platterpus" in note.fix_hint
+    assert "Setup & Updates" in note.fix_hint
 
 
 @pytest.mark.parametrize(

@@ -87,7 +87,7 @@ itself up by asking a couple of questions.
 3. **Double-click it.** On first launch it will offer to:
    - **add Platterpus to your applications menu** (so next time you just click it in the menu), and
    - **set up the ripping tool** — a guided wizard installs everything ripping needs (it may ask for your password once; on Bazzite/Silverblue it's instant). No terminal.
-4. Then in the app: **Tools → Set up drive…** — your drive's read offset is
+4. Then in the app: **Tools → Setup & Updates… → Set up drive…** — your drive's read offset is
    filled in automatically; click **Save offset**. Insert a CD and **Start**.
 
 That's the whole thing: one download, a couple of clicks, answer the prompts.
@@ -123,7 +123,7 @@ curl -fsSL https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/install
 
 Prefer to download and run it yourself? Grab `install.sh` from the [Releases page](https://github.com/rmccann-hub/Platterpus/releases/latest), then `bash install.sh`. Useful flags: `--dry-run` (preview), `--no-host` (GUI only, host stack already set up), `--appimage PATH` (use a local AppImage). First run takes ~20–40 min because it builds the container.
 
-Then, inside the GUI: **Tools → Set up drive…** to calibrate your drive's read offset (one time), insert a CD, and rip. To remove everything later, use the **Uninstall Platterpus** shortcut (or see [Uninstalling](#uninstalling)).
+Then, inside the GUI: **Tools → Setup & Updates… → Set up drive…** to calibrate your drive's read offset (one time), insert a CD, and rip. To remove everything later, use the **Uninstall Platterpus** shortcut (or see [Uninstalling](#uninstalling)).
 
 > **Already have cyanrip + Distrobox set up** (e.g. re-installing on the same machine, or installing the GUI on a second box that shares the stack)? Skip the host build and just add the GUI: `curl -fsSL …/install.sh | bash -s -- --no-host` (or `bash install.sh --no-host`).
 
@@ -159,7 +159,7 @@ bash setup-host.sh
 curl -fsSL https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/setup-host.sh | bash
 ```
 
-Useful flags: `--dry-run` (print every command, change nothing), `--yes` (skip confirmations), `--no-gui` (host stack only). It's idempotent — safe to re-run. It does **not** calibrate your drive (do that in the GUI: **Tools → Set up drive…**) or install Picard (the GUI offers that on first run).
+Useful flags: `--dry-run` (print every command, change nothing), `--yes` (skip confirmations), `--no-gui` (host stack only). It's idempotent — safe to re-run. It does **not** calibrate your drive (do that in the GUI: **Tools → Setup & Updates… → Set up drive…**) or install Picard (the GUI offers that on first run).
 
 Prefer to do it by hand, or the script hit a snag? The manual steps below are the source of truth.
 
@@ -386,7 +386,7 @@ Then open a new terminal.
 
 Every optical drive reads audio slightly off from where it "should" — by a positive or negative number of samples. For bit-perfect archival rips that match AccurateRip's database, the offset for your drive has to be known so cyanrip can correct for it.
 
-**This is a one-time, in-app step — there's no terminal command for it.** cyanrip reads no config file of its own; Platterpus stores the offset in its own config at `~/.config/platterpus/config.toml` and passes it to cyanrip at rip time via the `-s` flag. You set it through the **drive-setup wizard**, offered on first launch (or anytime from **Tools → Set up drive…**), which gives you two ways to get the value:
+**This is a one-time, in-app step — there's no terminal command for it.** cyanrip reads no config file of its own; Platterpus stores the offset in its own config at `~/.config/platterpus/config.toml` and passes it to cyanrip at rip time via the `-s` flag. You set it through the **drive-setup wizard**, offered on first launch (or anytime from **Tools → Setup & Updates… → Set up drive…**), which gives you two ways to get the value:
 
 - **Automatic, no disc needed** — if Platterpus recognises your drive model, it fills the offset in from the bundled AccurateRip drive-offset list (e.g. `+667` for the Pioneer BDR-209D). Just click **Save offset**.
 - **Enter it by hand** — look your drive up in the [AccurateRip offset list](https://www.accuraterip.com/driveoffsets.htm) and type the value into the wizard's manual-entry field. Handy if your model isn't recognised, or if you only have CD-Rs.
@@ -440,7 +440,7 @@ That's it — the AppImage bundles Python, Qt, and the GUI's dependencies, so th
 
 **Menu entry / desktop icon:** you don't need to do anything — on its **first run the AppImage offers to add itself to your applications menu** (and copies its icon), **moving itself to `~/Applications`** so it lives with your other apps instead of staying in Downloads. Just say yes. (The old `install-appimage.sh` helper still exists for scripted setups and offers an `--uninstall`, but it's no longer required. [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) also works if you prefer.)
 
-**Updates:** use **Help → Check for updates…** — if a newer release exists the app downloads it in the background, verifies it against the release's published checksum, installs it to `~/Applications`, and restarts itself. (Releases also ship a `.zsync` file and the AppImage embeds standard update-information, so [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) delta updates work too, for those who use it.)
+**Updates:** use **Tools → Setup & Updates… → Check for updates** — if a newer release exists the app downloads it in the background, verifies it against the release's published checksum, installs it to `~/Applications`, and restarts itself. (Releases also ship a `.zsync` file and the AppImage embeds standard update-information, so [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) delta updates work too, for those who use it.)
 
 > **On a FUSE-less host** (rare on desktop Linux, but some minimal setups): run with `APPIMAGE_EXTRACT_AND_RUN=1 ./platterpus-x86_64.AppImage`, or see [AppImage won't launch](#appimage-wont-launch) in Troubleshooting.
 
@@ -642,7 +642,7 @@ When you launch Platterpus for the first time:
    - **Pending installs:** a checklist for items that need batching or confirmation.
    - **Manual install:** a copyable search string for anything that needs root (or a reboot) to install.
 
-2. **Drive offset (first launch only).** Rips can't be made bit-perfect until your drive's read offset is set. If none is configured yet, the GUI offers the drive-setup wizard once. It can fill the offset in **automatically** from the bundled AccurateRip drive list (no disc needed), or take a value you **enter by hand** (look your drive up at [accuraterip.com/driveoffsets.htm](https://www.accuraterip.com/driveoffsets.htm) — handy if your model isn't recognised or you only have CD-Rs). It's a one-time, dismissible prompt; afterwards re-run it anytime from **Tools → Set up drive…**.
+2. **Drive offset (first launch only).** Rips can't be made bit-perfect until your drive's read offset is set. If none is configured yet, the GUI offers the drive-setup wizard once. It can fill the offset in **automatically** from the bundled AccurateRip drive list (no disc needed), or take a value you **enter by hand** (look your drive up at [accuraterip.com/driveoffsets.htm](https://www.accuraterip.com/driveoffsets.htm) — handy if your model isn't recognised or you only have CD-Rs). It's a one-time, dismissible prompt; afterwards re-run it anytime from **Tools → Setup & Updates… → Set up drive…**.
 
 3. **Pick a drive.** The dropdown at the top of the window lists the optical drives detected on your system. Click Refresh if you plug in a drive after launch.
 
@@ -756,7 +756,7 @@ found); let the shell supply the real character — `cd` into the folder and pas
 
 **Keeping cyanrip up to date: the app does it, and you never type a commit.**
 Platterpus checks the fork's published releases a few seconds after launch and
-again from **Help → Check for cyanrip updates…**. When the build it finds is one
+again from **Tools → Setup & Updates… → Check for cyanrip updates**. When the build it finds is one
 the handshake record in this repository has approved — which includes the common
 case of *your ripper isn't the build this Platterpus was verified against* — it
 offers **Install it now**, and one click builds and installs it. There is no SHA
@@ -846,7 +846,7 @@ If you plan to **push changes**, GitHub deprecated HTTPS password auth in 2021, 
 
 ### Where is my drive's read offset stored?
 
-cyanrip uses **no config file** of its own. Platterpus stores your drive's read offset in its own config at `~/.config/platterpus/config.toml` and passes it to cyanrip at rip time. Set or change it in the GUI via **Tools → Set up drive…**. (A `~/.config/whipper/whipper.conf` left over from an older whipper install is legacy reference only — cyanrip doesn't read it.)
+cyanrip uses **no config file** of its own. Platterpus stores your drive's read offset in its own config at `~/.config/platterpus/config.toml` and passes it to cyanrip at rip time. Set or change it in the GUI via **Tools → Setup & Updates… → Set up drive…**. (A `~/.config/whipper/whipper.conf` left over from an older whipper install is legacy reference only — cyanrip doesn't read it.)
 
 ### `cyanrip: command not found`
 

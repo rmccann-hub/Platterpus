@@ -278,10 +278,31 @@ When you accept the "Add to your applications menu?" offer, the app
 moves itself from Downloads to `~/Applications` and the menu entry
 points there — so cleaning out Downloads never removes it.
 
-Declined it, or moved the file since? **Tools → Add app shortcut** does the same
+Declined it, or moved the file since? **Tools → Setup & Updates… → Add app shortcut** does the same
 thing on demand, and is safe to use twice.
 
-## Updates (Help → Check for updates)
+## Setup && Updates (Tools → Setup && Updates…)
+
+**One window for everything about keeping Platterpus healthy.** It used to be
+six menu items spread across two menus — three in Help, three in Tools — plus a
+dependency check that lived only as a button inside Settings, so working out
+whether your install was in good shape meant knowing which menu held which half
+of the answer.
+
+Now it is one window with four sections:
+
+* **Platterpus** — which version you are on, and *Check for updates*.
+* **Ripper (cyanrip)** — which build this Platterpus is verified against, plus
+  *Check for cyanrip updates* and *Choose a build…* (that second one reaches
+  builds the fork has not published as a release, which the check cannot see).
+* **Dependencies** — what the last check found, and a button to re-run it.
+* **Setup** — *Run setup…* to install the ripping tools, *Add app shortcut*, and
+  *Set up drive…*.
+
+The window stays open while you work, and each check runs in the background, so
+none of it freezes the app. Nothing here changes anything without asking first.
+
+## Updates (Tools → Setup & Updates… → Check for updates)
 
 Asks GitHub whether a newer release exists. If one does, the app updates
 itself: the new version downloads in the background (with a progress
@@ -305,7 +326,7 @@ during testing, not a fault). You can return to a stable release at any
 time by downloading it from the releases page. Leave the box off unless you
 are testing.
 
-## Ripper updates (Help → Check for cyanrip updates)
+## Ripper updates (Tools → Setup & Updates… → Check for cyanrip updates)
 
 Separate from the app's own update check, because it is a different
 decision. Platterpus rips with a **pinned build** of the Platterpus fork of
@@ -342,7 +363,7 @@ AppImage file, and the app's own settings and logs. **Your music is never
 touched**, and Distrobox/podman stay installed (other containers keep working).
 You'll confirm before anything is removed.
 
-## Drive setup (Tools → Set up drive)
+## Drive setup (Tools → Setup & Updates… → Set up drive)
 
 Sets your drive's **read offset** — the one calibration a bit-perfect rip
 depends on (without the right offset, even a clean disc won't match AccurateRip).
@@ -414,7 +435,7 @@ It takes four to six hours, because it rips the disc twice — once fast, once
 reading every track at least twice — plus six shorter partial rips. Leave it
 overnight.
 
-**Before you start, check the ripper.** **Help → Check for cyanrip updates…**,
+**Before you start, check the ripper.** **Tools → Setup & Updates… → Check for cyanrip updates**,
 and take the offer only if it is a plain one-click install. An offer that warns
 you first is a newer build no closed handshake round has reviewed; the acceptance
 run refuses to start on one, in the first few seconds, before any drive time is
@@ -516,7 +537,7 @@ footer, and the command line it received — comes from that fork. Upstream cyan
 still rips perfectly and bit-perfectly; its logs simply cannot carry those rows,
 so they do not reach EAC parity.
 
-**Tools → Set up Platterpus…** installs it for you, no terminal needed. The
+**Tools → Setup & Updates… → Run setup…** installs it for you, no terminal needed. The
 wizard installs upstream's packaged build first (fast, signed, and it brings in
 every library the fork needs), then builds the fork from the exact commit this
 release was tested against, installs it, points `~/.local/bin/cyanrip` at it, and

@@ -138,7 +138,7 @@ distrobox needs installing (none on Bazzite/Silverblue). (3) Picard offer — yo
 call. Record any wizard step that fails **verbatim**.
 
 ### A5 — [ ] Drive setup (read offset)
-**Tools → Set up drive…** *Expected:* the offset is **pre-filled** from the
+**Tools → Setup & Updates… → Set up drive…** *Expected:* the offset is **pre-filled** from the
 AccurateRip drive list (e.g. **+667** for a BDR-209D) — one **Save offset**
 click, no disc. If your drive isn't in the list: look it up at
 accuraterip.com/driveoffsets.htm and **type it** into the manual field, then
@@ -192,7 +192,7 @@ full text in git history. Parity checklist: **Test 8**.)*
   and the time advances as phases change.
 
 ### A10 — [ ] In-app update (when a newer release exists)
-**Help → Check for updates.** *Expected:* if newer, it downloads (cancellable
+**Tools → Setup & Updates… → Check for updates.** *Expected:* if newer, it downloads (cancellable
 progress), shows phase labels (Downloading → Verifying → *"Installing — almost
 done, please don't close…"*), verifies the checksum, installs to `~/Applications`,
 and offers to **restart**. The window must **not** go "Not Responding," and
@@ -473,7 +473,7 @@ screenshots/strings for the README and the wizard's own help text — and confir
 the auto-filled offset matches an independent manual lookup.
 
 **Steps**
-1. Run **Tools → Set up drive…** with your drive connected (no disc needed —
+1. Run **Tools → Setup & Updates… → Set up drive…** with your drive connected (no disc needed —
    the lookup is by drive model).
 2. Capture the wizard's screens: the recognized-drive state (offset pre-filled,
    e.g. **+667** for the BDR-209D), and the save confirmation. Note the exact
@@ -897,4 +897,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.6.33.*
+*Last updated for Platterpus v0.6.51.*

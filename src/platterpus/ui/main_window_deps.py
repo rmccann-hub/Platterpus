@@ -22,6 +22,7 @@ Contract this mixin expects from the host window (set in
 
 from __future__ import annotations
 
+import logging
 import threading
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING
@@ -44,6 +45,20 @@ if TYPE_CHECKING:
     from platterpus.deps.build_notes import BuildNote
     from platterpus.deps.manager import DependencyManager, DependencyReport
     from platterpus.deps.registry import DependencySpec
+
+
+log = logging.getLogger(__name__)
+
+#: How long to wait before re-offering a dependency report that arrived while a
+#: dialog had the floor. Short enough that a user who dismisses the blocking box
+#: sees the result as part of the same moment, long enough not to spin.
+_DEP_RESOLVE_RETRY_MS: int = 750
+
+#: How many times to re-offer before giving up **loudly**. 40 x 750 ms is 30
+#: seconds. The bound is the point: a modal the user never closes must not leave
+#: a timer firing for the life of the process, and a dependency dialog that
+#: surfaces minutes later is attached to nothing the user is still doing.
+_DEP_RESOLVE_MAX_DEFERRALS: int = 40
 
 
 def _optional_purpose(item: MissingItem) -> str:
@@ -98,6 +113,11 @@ def _installed_line(
 
 class DependencyMixin(MainWindowShared):
     """Run the dependency subsystem with GUI-backed resolvers + summary."""
+
+    #: How many times the current report has been held back because a dialog had
+    #: the floor. Reset the moment it is delivered, so the budget is per-report
+    #: rather than per-session — a second check hours later starts fresh.
+    _dep_resolve_deferrals: int = 0
 
     def _on_check_dependencies(self) -> None:
         """Run the dependency subsystem with GUI-backed resolvers.
@@ -239,6 +259,39 @@ class DependencyMixin(MainWindowShared):
         # report.missing in place and only appends results, so we'd lose the
         # "was anything required actually wrong?" signal otherwise.
         had_required_missing = bool(report.missing)
+        # **NOTHING BELOW MAY OPEN A DIALOG WHILE SOMETHING ELSE HAS THE FLOOR.**
+        #
+        # This method runs from `_on_dependency_check_done`, a QUEUED SLOT off the
+        # probe worker's `finished` signal — so Qt delivers it on the GUI thread
+        # inside whatever nested `exec()` loop happens to be spinning. At launch
+        # that is routinely the first-run *"Set up Platterpus?"* question, because
+        # `singleShot(0)` opens it while the probe is still entering a cold
+        # container. `_resolve_missing_unified` then opens the setup wizard for its
+        # container tools, stacked on top of a box the user has not answered.
+        #
+        # `_modal_floor_blocker` is the project's existing answer to *"may I raise
+        # a dialog right now?"*, and its own docstring predicted this exact failure
+        # — *"answering both runs the install pipeline twice"*. It was written for
+        # the cyanrip check and applied only there, at one of the three launch-time
+        # surfaces that raise modals. `docs/testing.md` §5.o: enforce a rule across
+        # the codebase, not at the place it was learned.
+        #
+        # **The NARROW half of it**, and the distinction matters here more than
+        # anywhere. The wide test also refuses when the window is not visible —
+        # right for an offer nobody asked for, wrong for this, which resolves a
+        # MISSING REQUIRED DEPENDENCY and must not be dropped because the window
+        # had not been shown yet when a launch-time probe returned.
+        #
+        # **DEFERRED, NEVER DROPPED.** A missing required dependency is the thing
+        # that stops the app working, so skipping its resolution silently would be
+        # the no-op-failure shape this project forbids — and worse than the stacking
+        # it avoids. We re-deliver once the floor is free, bounded, and say so in
+        # the log either way. The bound matters: a modal a user never closes must
+        # not leave a timer firing for the life of the process.
+        if (had_required_missing or show_summary) and self._defer_if_floor_is_busy(
+            gui_manager, report, show_summary
+        ):
+            return
         if had_required_missing:
             self._resolve_missing_unified(report)
 
@@ -262,6 +315,50 @@ class DependencyMixin(MainWindowShared):
         # way to add Picard/flac.
         if optional_missing and show_summary:
             self._offer_optional_install(gui_manager, optional_missing)
+
+    def _defer_if_floor_is_busy(
+        self, gui_manager: object, report: DependencyReport, show_summary: bool
+    ) -> bool:
+        """Re-deliver this report later if a dialog already has the floor.
+
+        Returns True when it has taken responsibility for the report (the caller
+        must return); False when it is safe to open dialogs now.
+
+        The retry is bounded. An unbounded one would keep firing against a modal
+        the user simply leaves open — a timer for the life of the process, and a
+        dependency dialog that appears minutes later attached to nothing the user
+        is doing. When the budget runs out we give up **loudly**, in the log, with
+        the reason: the check can be re-run from Settings, and a user whose
+        required tools are missing will be told so by the thing that needs them.
+        """
+        from PySide6.QtCore import QTimer
+
+        blocker = self._modal_floor_blocker()
+        if not blocker:
+            self._dep_resolve_deferrals = 0
+            return False
+        self._dep_resolve_deferrals += 1
+        if self._dep_resolve_deferrals > _DEP_RESOLVE_MAX_DEFERRALS:
+            log.warning(
+                "gave up re-delivering the dependency report after %d attempts — "
+                "%s. Re-run the check from Settings once the dialog is closed.",
+                _DEP_RESOLVE_MAX_DEFERRALS,
+                blocker,
+            )
+            self._dep_resolve_deferrals = 0
+            return True
+        log.info(
+            "holding the dependency report (attempt %d) — %s",
+            self._dep_resolve_deferrals,
+            blocker,
+        )
+        QTimer.singleShot(
+            _DEP_RESOLVE_RETRY_MS,
+            lambda: self._apply_dependency_report(
+                gui_manager, report, show_summary=show_summary
+            ),
+        )
+        return True
 
     def _offer_optional_install(
         self,
@@ -484,7 +581,7 @@ class DependencyMixin(MainWindowShared):
         # For tools the setup wizard provides (whipper/metaflac/flac), hand the
         # dialog a callback so it can offer the one-click wizard instead of only
         # a copyable search string — the user shouldn't have to paste a query to
-        # install something the app installs itself (Tools → Set up Platterpus…).
+        # install something the app installs itself (Tools → Setup & Updates… → Run setup…).
         on_setup_wizard = (
             self.open_host_setup_dialog
             if getattr(item.spec, "from_setup_wizard", False)

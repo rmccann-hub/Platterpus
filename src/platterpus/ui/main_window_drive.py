@@ -65,7 +65,7 @@ class DriveMixin(MainWindowShared):
     """Drive setup wizard, read-offset auto-apply/override, access diagnostics."""
 
     def _on_drive_setup(self) -> None:
-        """Tools → Set up drive: launch the calibration wizard.
+        """Tools → Setup & Updates… → Set up drive: launch the calibration wizard.
 
         Targets the currently-selected drive (the ripper auto-detects a single
         drive anyway, but passing the device is correct for multi-drive).
@@ -120,7 +120,7 @@ class DriveMixin(MainWindowShared):
         if not self._should_offer_drive_setup():
             return
         # Record the offer first so a decline (or any path out) never re-nags;
-        # afterwards calibration lives on Tools → Set up drive….
+        # afterwards calibration lives on Tools → Setup & Updates… → Set up drive….
         self._config.drive_setup_prompted = True
         self._save_config(self._config)
         choice = QMessageBox.question(
@@ -129,7 +129,7 @@ class DriveMixin(MainWindowShared):
             "Your drive's read offset isn't configured yet — it's needed for "
             "a bit-perfect rip. Set it up now?\n\n"
             "You can auto-detect it (insert a popular commercial CD) or enter "
-            "it by hand. You can also do this later from Tools → Set up drive….",
+            "it by hand. You can also do this later from Tools → Setup & Updates… → Set up drive….",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes,
         )
@@ -221,7 +221,7 @@ class DriveMixin(MainWindowShared):
             f"({OFFSET_MIN:+d} to {OFFSET_MAX:+d}), so it was not saved.\n\n"
             "Real drive offsets are small — the AccurateRip database's values "
             "all sit within a few hundred samples of zero. Check the value and "
-            "try again, or run Tools → Set up drive… to detect it.",
+            "try again, or run Tools → Setup & Updates… → Set up drive… to detect it.",
         )
 
     def _auto_apply_known_offset(self) -> bool:
@@ -249,7 +249,7 @@ class DriveMixin(MainWindowShared):
             "Read offset set automatically",
             f"Using read offset {known:+d} for {label}, from the AccurateRip "
             "drive list — no setup needed. You can change it any time in "
-            "Settings or Tools → Set up drive….",
+            "Settings or Tools → Setup & Updates… → Set up drive….",
         )
         return True
 

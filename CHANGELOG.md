@@ -13,6 +13,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Changed
 
+<<<<<<< HEAD
+- **Setup, dependencies and both update checks are now one window** —
+  **Tools → Setup & Updates…**. It replaces six menu items spread across two
+  menus (*Set up Platterpus…*, *Add app shortcut*, *Set up drive…* in Tools;
+  *Check for updates…*, *Check for cyanrip updates…*, *Install a cyanrip
+  build…* in Help) plus the dependency check, which had no menu item at all and
+  was reachable only as a button inside Settings. Every operator instruction and
+  User Guide section that named an old menu path was updated in the same change —
+  a menu path is an exact string to the person following it. Reported by a real
+  user: *"we dont need 20 menues when 5 will do."*
+
+=======
+>>>>>>> origin/main
 - **The approved cyanrip build rolls to `2cce60d` (`0.9.4-rc2+platterpus.13`)**
   on round 22's close — the post-close step the round authorises. The setup
   wizard and the in-app ripper check now offer that build, and every rip
@@ -26,6 +39,44 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Fixed
 
+- **Uninstalling left a broken Platterpus entry in the applications menu.**
+  Installing refreshes the freedesktop and KDE menu caches; uninstalling never
+  did. The `.desktop` files went from disk, but KDE serves its menu from a cache,
+  so the launcher kept an entry pointing at an AppImage that was no longer there
+  — *"Launching Platterpus (Failed) — Could not find the program
+  '~/Applications/platterpus-x86_64.AppImage'"*, which reads as a broken install
+  rather than a finished uninstall. The uninstaller now rebuilds the caches it
+  invalidated, including after a failed or cancelled run (the shortcuts are
+  removed first, so the cache is already stale by the time anything else can go
+  wrong). A dry run still refreshes nothing, because it removed nothing.
+
+- **Dialogs that carried wrapped text but set no width sized themselves wrongly.**
+  A word-wrapped `QLabel` has a height-for-width policy, so with no width to wrap
+  to Qt takes one from whatever else is in the layout — usually a radio button or
+  checkbox, whose own label does *not* wrap. The dialog ended up as wide as its
+  longest unwrappable line and the paragraphs reflowed to that, which is what made
+  the cyanrip build picker look wrong. Eight of the twelve prose-carrying dialogs
+  already set a width; the remaining four now inherit a floor from the shared
+  dialog base, and a dialog that chooses its own size keeps it. (Real-user report:
+  *"window sizing is wrong."*)
+
+<<<<<<< HEAD
+- **Two setup wizards could run at once, and the second install failed.** On a
+  machine with no cyanrip — every fresh install — the launch-time dependency
+  probe runs off-thread while the first-run *"Set up Platterpus?"* question opens
+  a nested event loop. The probe's result is a **queued slot**, so Qt delivered
+  it inside that loop and it opened the setup wizard for its container tools;
+  answering the question still underneath opened a second. `exec()` blocks
+  clicks, which is why this was never hit by hand, but it does not block a
+  signal. Each wizard owns its own worker, so two of them ran `git`, `meson`,
+  `ninja`, `sudo install` and `distrobox-export` against the same container
+  concurrently. Every wizard now opens through one chokepoint that refuses a
+  second and raises the open one, and a dependency report that arrives while any
+  dialog has the floor **waits** — bounded, and saying so in the log — rather
+  than stacking or being dropped.
+
+=======
+>>>>>>> origin/main
 - **The handshake release gate could not close a round Platterpus closes, and
   would have blocked every future release.** A round's closing file transcribes
   the peer's verdict as it stood when that file was written — so whichever side

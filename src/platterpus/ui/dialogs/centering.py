@@ -139,8 +139,46 @@ class CenteredDialog(QDialog):
     """
 
     _centered_once: bool = False
+    _width_floor_applied: bool = False
+
+    #: The width a dialog gets when it does not choose one.
+    #:
+    #: **Word-wrapped prose with no width is an unpredictable dialog.** A
+    #: `QLabel` with `setWordWrap(True)` has a height-for-width policy, so with no
+    #: width to wrap to Qt takes one from whatever else is in the layout — and in
+    #: this app that is usually a `QRadioButton` or a `QCheckBox`, whose label
+    #: does NOT wrap. The dialog therefore ends up as wide as its longest
+    #: unwrappable line, and the paragraphs reflow to that: a build label like
+    #: `approved: 2cce60d (platterpus-fork-g2cce60d)` stretches the whole window,
+    #: while a dialog with no such control collapses and goes very tall.
+    #: Real-user report, 2026-09-21, on the cyanrip build picker: *"window sizing
+    #: is wrong."*
+    #:
+    #: 560 px matches the settled dialogs: the setup wizard opens at 580 with a
+    #: 480 minimum, the uninstaller and drive setup are in the same band. Chosen
+    #: to sit inside that range rather than invent a number.
+    #:
+    #: **A MINIMUM, not a fixed size**, and only applied when the subclass has not
+    #: set one — so a dialog that knows its own shape keeps it, and this is a
+    #: floor for the ones that never thought about it rather than a value imposed
+    #: on the ones that did. `CLAUDE.md`'s *"an explicit size is a size you own"*
+    #: cuts both ways: the four dialogs that set nothing were not exercising Qt's
+    #: default deliberately, they had simply never been sized.
+    DEFAULT_MINIMUM_WIDTH: int = 560
 
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 — Qt override
+        # Applied HERE rather than in `__init__` because a subclass populates its
+        # layout after calling `super().__init__()`, so at construction time there
+        # is nothing to measure and `minimumWidth()` is still Qt's placeholder.
+        # First show is the first moment the question "did this dialog choose a
+        # width?" has a real answer.
+        if not self._width_floor_applied:
+            self._width_floor_applied = True
+            if (
+                self.minimumWidth() < self.DEFAULT_MINIMUM_WIDTH
+                and not self.isMaximized()
+            ):
+                self.setMinimumWidth(self.DEFAULT_MINIMUM_WIDTH)
         super().showEvent(event)
         if self._centered_once:
             return

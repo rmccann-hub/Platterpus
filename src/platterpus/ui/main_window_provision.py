@@ -38,6 +38,7 @@ from PySide6.QtWidgets import QMessageBox
 from platterpus.ui.main_window_shared import MainWindowShared
 
 if TYPE_CHECKING:  # import only for type hints — runtime import stays lazy
+    from collections.abc import Callable
     from pathlib import Path
 
     from PySide6.QtCore import Signal
@@ -46,6 +47,10 @@ if TYPE_CHECKING:  # import only for type hints — runtime import stays lazy
     from platterpus.sleep_inhibit import SleepInhibitor
     from platterpus.test_session import SessionLayout
     from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
+    from platterpus.ui.dialogs.setup_center import (
+        SetupCenterDialog as SetupCenterDialogT,
+    )
+    from platterpus.ui.host_setup_dialog import HostSetupDialog as HostSetupDialogT
 
 log = logging.getLogger(__name__)
 
@@ -60,6 +65,27 @@ class ProvisioningMixin(MainWindowShared):
     #: would pull the whole scripting package into every main-window import for
     #: a feature most sessions never open.
     _script_console: ScriptConsoleDialog | None = None
+
+    #: The setup/install wizard **that is currently on screen**, or None.
+    #:
+    #: Doubles as the "is an install running?" flag, and that is the whole point:
+    #: `HostSetupDialog` guards its own worker (`if self._thread is not None`),
+    #: but that guard is PER DIALOG, so two dialogs are two workers running `git`,
+    #: `meson`, `ninja`, `sudo install` and `distrobox-export` against the same
+    #: `ripping` container at once. The guard has to live where the dialogs are
+    #: created, not inside one of them.
+    #:
+    #: Declared on the mixin that owns the wizard even though
+    #: `_begin_ripper_install` (UpdateMixin) is the other creator — one flag, one
+    #: meaning. Two flags would be two answers to "is an install running?".
+    _host_setup_dialog: HostSetupDialogT | None = None
+
+    #: The modeless Setup & Updates window, once opened. Held for the same reason
+    #: `_script_console` is: `show()` alone would let Qt collect it as soon as the
+    #: opening call returns, and re-opening must raise the existing one rather
+    #: than stack a second copy of a window whose whole purpose is to be the one
+    #: place these answers live.
+    _setup_center: SetupCenterDialogT | None = None
 
     # --- Acceptance-session state ------------------------------------------
     #
@@ -195,7 +221,7 @@ class ProvisioningMixin(MainWindowShared):
         )
 
     def _on_add_app_shortcut(self) -> None:
-        """Tools → Add app shortcut: (re)create the menu entry + desktop icon.
+        """Tools → Setup & Updates… → Add app shortcut: (re)create the menu entry + desktop icon.
 
         Always available, so a user who dismissed the first-run offer (or whose
         menu cache went stale) can redo it. Only meaningful for the AppImage —
@@ -344,7 +370,7 @@ class ProvisioningMixin(MainWindowShared):
             "Set up Platterpus",
             "Platterpus needs a one-time setup to install its ripping tool "
             "(cyanrip) in a small container — no terminal required. Set it up "
-            "now?\n\nYou can also do this later from Tools → Set up Platterpus….",
+            "now?\n\nYou can also do this later from Tools → Setup & Updates… → Run setup….",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes,
         )
@@ -363,13 +389,113 @@ class ProvisioningMixin(MainWindowShared):
 
         return HostSetup(runner=SubprocessRunner())
 
+    def run_setup_wizard(self, build: Callable[[], HostSetupDialogT]) -> None:
+        """Run ``build()``'s wizard as **the** install, or refuse and raise the open one.
+
+        THE chokepoint for every `HostSetupDialog` this window shows. Both creators
+        — `open_host_setup_dialog` here and `_begin_ripper_install` in UpdateMixin —
+        go through it, because they install the same thing into the same container
+        and "is an install running?" must have one answer. A second copy of this
+        check is a second thing to drift (`CLAUDE.md`: one predicate, N callers).
+
+        **Why `exec()` is not already the guard.** It blocks *clicks*, so this
+        cannot be reached by a second menu selection — and that is exactly why it
+        went unnoticed. It does not block a **queued slot**, which Qt delivers on
+        the GUI thread inside whatever nested loop is spinning. Three launch-time
+        surfaces raise modals and only the cyanrip check asked whether something
+        else had the floor; `_interruption_blocker`'s own docstring predicted this
+        failure — *"answering both runs the install pipeline twice"* — for that one
+        surface and was never applied to the others. `docs/testing.md` §5.o.
+
+        The sequence, on a machine with no cyanrip, which is every fresh install:
+        `app.py` arms the off-thread dependency probe; `singleShot(0)` opens
+        *"Set up Platterpus?"*; the probe finishes inside that nested loop and
+        `_resolve_missing_unified` opens the wizard for its container tools; the
+        user then answers Yes to the question still underneath and opens a second.
+        Two wizards, two workers, one container — the double dialog and the failed
+        install are the same defect.
+
+        Refusing RAISES rather than silently dropping, the same choice
+        `open_script_console` makes below: the user asked for a setup window and
+        there is one, so put it in front of them.
+        """
+        existing = self._host_setup_dialog
+        if existing is not None:
+            log.info(
+                "a setup/install wizard is already open — raising it instead of "
+                "starting a second install into the same container"
+            )
+            existing.raise_()
+            existing.activateWindow()
+            return
+        dialog = build()
+        self._host_setup_dialog = dialog
+        try:
+            dialog.exec()
+        finally:
+            # `finally`, not after `exec()`: the dialog runs a nested event loop, so
+            # anything delivered into it can raise — and a flag left set would make
+            # the wizard permanently unopenable, turning a double-install bug into a
+            # dead menu item. Fail toward the state the user can recover from.
+            self._host_setup_dialog = None
+
     def open_host_setup_dialog(self) -> None:
-        """Open the host-setup wizard (Tools → Set up Platterpus…)."""
+        """Open the host-setup wizard (Tools → Setup & Updates… → Run setup…)."""
         from platterpus.ui.host_setup_dialog import HostSetupDialog
 
-        dialog = HostSetupDialog(self, host_setup=self._build_host_setup())
-        dialog.setup_finished.connect(self._on_host_setup_finished)
-        dialog.exec()
+        def build() -> HostSetupDialogT:
+            dialog = HostSetupDialog(self, host_setup=self._build_host_setup())
+            dialog.setup_finished.connect(self._on_host_setup_finished)
+            return dialog
+
+        self.run_setup_wizard(build)
+
+    def open_setup_center(self) -> SetupCenterDialogT:
+        """Open Tools → Setup & Updates… — one window for six old menu items.
+
+        **Modeless, and re-opening raises rather than stacks.** Its buttons open
+        modal dialogs, so this window must not be modal itself: an `exec()` here
+        would nest every one of them inside this window's event loop, which is the
+        stacking `run_setup_wizard` exists to stop. Same shape as
+        `open_script_console` below, for the same two reasons.
+
+        The dialog is handed callables rather than the window, so what it may do
+        is visible here in one list instead of being discoverable only by reading
+        the dialog. Everything it calls already existed — this method adds a
+        place, not a behaviour.
+        """
+        from platterpus.ui.dialogs.setup_center import SetupCenterDialog
+
+        existing = self._setup_center
+        if existing is not None and existing.isVisible():
+            existing.raise_()
+            existing.activateWindow()
+            return existing
+
+        from platterpus import __version__
+        from platterpus.deps import fork_source
+        from platterpus.handshake_approval import APPROVED_BY_ROUND
+
+        dialog = SetupCenterDialog(
+            self,
+            app_version=__version__,
+            ripper_pin=fork_source.FORK_PIN,
+            ripper_version=fork_source.FORK_EXPECTED_VERSION,
+            approved_by_round=APPROVED_BY_ROUND,
+            dependency_report=getattr(self, "_last_dependency_report", None),
+            actions={
+                "app_update": self._on_check_updates,
+                "ripper_update": self._on_check_ripper_updates,
+                "ripper_pick": self._on_pick_ripper_build,
+                "dep_check": self._on_check_dependencies,
+                "host_setup": self.open_host_setup_dialog,
+                "shortcut": self._on_add_app_shortcut,
+                "drive_setup": self._on_drive_setup,
+            },
+        )
+        self._setup_center = dialog
+        dialog.show()
+        return dialog
 
     def open_script_console(self, *, autorun: bool = False) -> ScriptConsoleDialog:
         """Open Tools → Run test script…, the unattended-batch console.

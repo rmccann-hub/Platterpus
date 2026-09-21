@@ -29,11 +29,11 @@
 # -----------------------------------------------------------------------------
 # BEFORE YOU START — two things, and only two
 # -----------------------------------------------------------------------------
-# 1. Be on the newest Platterpus. Help -> Check for updates, or download the
+# 1. Be on the newest Platterpus. Tools -> Setup & Updates... -> Check for updates, or download the
 #    AppImage from the releases page.
 # 2. Be on the cyanrip build THIS Platterpus expects — which is **not** always
 #    the newest one, and **not** always the one that installs without a warning.
-#    Help -> Check for cyanrip updates..., and TAKE WHATEVER OFFER IT MAKES:
+#    Tools -> Setup & Updates... -> Check for cyanrip updates, and TAKE WHATEVER OFFER IT MAKES:
 #    a plain one-click install if that is what appears, and the warned
 #    "Install it anyway" if that is what appears instead. Either way, accept it.
 #
@@ -74,7 +74,7 @@
 #    manifest and is not the build section A wants. Taking it ends the night at
 #    section A.
 #
-#        Help -> Install a cyanrip build...
+#        Tools -> Setup & Updates... -> Choose a build...
 #
 #    It lists every build THIS version can install, each with a marker and a
 #    reason: `✓ approved` is what a closed round verified, `⚠ under-review` is

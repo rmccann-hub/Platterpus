@@ -256,7 +256,7 @@ def check_dependencies(manager: DependencyManager) -> CheckResult:
             Status.FAIL,
             f"{len(missing_required)} required tool(s) missing: {names}",
             detail=detail,
-            hint="Run the host-setup wizard (Tools → Set up Platterpus…) "
+            hint="Run the host-setup wizard (Tools → Setup & Updates… → Run setup…) "
             "or install the missing tools, then re-run preflight.",
         )
     if missing_optional:
@@ -368,7 +368,7 @@ def check_backend_build(backend: RipBackend, *, backend_name: str) -> CheckResul
             hint=(
                 "Rips will work and will be bit-perfect. What is missing is "
                 "archival detail: pre-gap length and provenance, sample peak, "
-                "and per-track timings. Run Tools → Set up Platterpus… to build "
+                "and per-track timings. Run Tools → Setup & Updates… → Run setup… to build "
                 "and install the pinned fork — it needs no terminal, keeps the "
                 "working upstream binary if the build fails, and verifies the "
                 "result identifies as the fork before finishing."
@@ -463,9 +463,7 @@ def check_backend_routing(
 
 
 # Standard remediation for any broken link in the provisioning chain.
-_WIZARD_HINT = (
-    "Run Tools → Set up Platterpus… (or scripts/setup-host.sh) to provision it."
-)
+_WIZARD_HINT = "Run Tools → Setup & Updates… → Run setup… (or scripts/setup-host.sh) to provision it."
 
 
 def routing_drilldown(backend_name: str, host: HostSetup) -> tuple[str, str]:
