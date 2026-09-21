@@ -13,6 +13,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Fixed
 
+- **`handshake.py --announce` no longer releases a lap whose body still says it
+  is held.** The command rewrites the `HANDSHAKE-READY-TO-READ` declaration in
+  the header and left the prose alone, so a lap could go out declaring `yes` at
+  column 0 while a section below it read "This lap is HELD" — which is exactly
+  the contradiction the declaration exists to remove, and the peer found it in
+  our round-22 lap 2 rather than a gate of ours. `--announce` now refuses such a
+  file and names the offending line. The scan covers the body only (the
+  declaration line it is there to rewrite is not a body claim) and ignores
+  fenced blocks and quoted spans, because a lap that *quotes* the defect is
+  reporting it, not committing it — the repo's existing rule that a declaration
+  is what a file states, never what it quotes.
+
 - **"Add Platterpus to your applications menu?" comes back after an update.**
   Answering No once silenced it permanently: the decision was remembered against
   the AppImage's **path**, and every in-place update writes the same canonical
