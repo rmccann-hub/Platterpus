@@ -244,7 +244,7 @@ def describe(result: CacheProbeResult) -> str:
         if "not installed" in low:
             return (
                 "cd-paranoia isn't installed, so the cache couldn't be measured. "
-                "Run Tools → Set up Platterpus… to install it, then try again."
+                "Run Tools → Setup & Updates… → Run setup… to install it, then try again."
             )
         if "timed out" in low:
             return (

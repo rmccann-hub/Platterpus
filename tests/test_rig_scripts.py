@@ -1670,7 +1670,12 @@ def test_the_header_names_the_route_that_reaches_an_UNPUBLISHED_build() -> None:
     # what still works on a build whose GUI predates the menu — this file ships
     # inside a release and gets read by whoever has it, not only by whoever has
     # the newest.
-    assert "Install a cyanrip build" in header, (
+    # The label moved into the consolidated window on 2026-09-21 ("Install a
+    # cyanrip build…" -> Setup & Updates… -> "Choose a build…"). The ASSERTION IS
+    # ABOUT THE ROUTE, not the wording, so it tracks the wording rather than being
+    # relaxed: an operator follows a menu path as an exact string, and a header
+    # naming a path that no longer exists is the dead end this test prevents.
+    assert "Choose a build" in header, (
         "the header no longer names the GUI route onto a build the fork has not "
         "published. The in-app update check cannot offer one, so while a round "
         "is open on an unreleased pin this is the operator's way onto the build "

@@ -1,0 +1,281 @@
+"""One window for setup, dependencies and both update checks.
+
+**Why this exists.** A real user, after an update (2026-09-21): *"when i went to
+check for updates it kept asking me, repeatedy or this that or the other, and
+other dependanciessn, other applications, other whatever, this was too much…
+Why the need for 2 menu items for updating, and a separate for set up and
+dependcies, can't this all be shown on one window?"*
+
+They were describing two separate things that felt like one, and both were real:
+
+* **Six menu items for four questions.** *Check for updates*, *Check for cyanrip
+  updates* and *Install a cyanrip build* sat in **Help**, which is for
+  documentation; *Set up Platterpus*, *Add app shortcut* and *Set up drive* sat
+  in **Tools**; and the dependency check had no menu item at all — it was a
+  button inside Settings. Somebody asking "is my install healthy?" had to know
+  which of three menus held which half of the answer.
+* **A chain of modals at launch.** Up to five, in sequence, each its own
+  decision. That half is fixed at its cause (`run_setup_wizard` and the
+  dependency check's floor check); this window is the other half — the place the
+  answers live when the user goes looking for them instead of being asked.
+
+**It owns no logic, and that is deliberate.** Every button here delegates to the
+method that already does the job — `_on_check_updates`, `_on_check_ripper_updates`,
+`_on_pick_ripper_build`, `_on_check_dependencies`, `open_host_setup_dialog`,
+`_on_drive_setup`, `_on_add_app_shortcut`. A consolidated window that
+re-implemented any of them would be a second answer to a question that already
+has one, free to disagree with the report a rip writes (`CLAUDE.md`: one
+predicate, N callers). What this file contributes is *placement*, not behaviour.
+
+**It never probes.** Everything it displays is either a module constant or a
+value the window already cached — nothing here shells out, and in particular
+nothing asks the container what ripper is installed, because that enters
+Distrobox and would freeze the GUI thread for the length of a cold start. The
+live answers arrive the way they always did: through the checks the buttons
+start, which run on workers.
+
+**Modeless, and held by the window.** Its buttons open modal dialogs on top of
+it, so it must not be modal itself — an `exec()` here would put every one of them
+inside this window's nested event loop, which is the stacking this whole change
+exists to stop. `show()` alone would let Qt garbage-collect it the moment the
+opening call returns, so the window keeps the reference and re-opening raises the
+existing one, exactly as `open_script_console` does.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING
+
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QDialogButtonBox,
+    QFrame,
+    QGridLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+from platterpus.ui.dialogs.centering import CenteredDialog
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+log = logging.getLogger(__name__)
+
+#: Minimum height for a control that commits an action, and the floor for one
+#: that does not — the accessibility convention in `CLAUDE.md`. An explicit size
+#: is a size you own: Qt's platform default is the user-agent exception, and
+#: setting one forfeits it.
+_COMMIT_HEIGHT: int = 44
+
+#: The status marker vocabulary. **Never colour alone** — around 8% of men have
+#: red/green colour-vision deficiency, and a greyscale screenshot or a
+#: forced-colors theme drops hue entirely, so every level carries a glyph.
+_OK: str = "✓"
+_WARN: str = "⚠"
+_INFO: str = "ⓘ"
+
+
+def dependency_summary_line(report: object | None) -> str:
+    """One line describing the last dependency probe, for a person.
+
+    Pure, and separated from the widget so it can be tested without a display —
+    the same split the rest of this project makes between what a value *is* and
+    how it is drawn.
+
+    **Tri-state, like every other verdict here.** "We have not looked yet" is a
+    real answer and must not render as "nothing is wrong": a window that says
+    `✓ All present` before any probe has run would be asserting something it
+    cannot know, which is the failure mode this project keeps a marker
+    vocabulary for.
+    """
+    if report is None:
+        return f"{_INFO} Not checked yet in this session."
+    missing = list(getattr(report, "missing", []) or [])
+    required = [
+        m for m in missing if not getattr(getattr(m, "spec", None), "optional", False)
+    ]
+    optional = [
+        m for m in missing if getattr(getattr(m, "spec", None), "optional", False)
+    ]
+    if required:
+        names = ", ".join(str(getattr(m, "name", "?")) for m in required)
+        return f"{_WARN} {len(required)} required missing: {names}"
+    if optional:
+        names = ", ".join(str(getattr(m, "name", "?")) for m in optional)
+        return f"{_OK} All required tools present. Optional not installed: {names}"
+    return f"{_OK} All required tools present."
+
+
+class SetupCenterDialog(CenteredDialog):
+    """Setup, dependencies and updates, in one place.
+
+    The parent window is the only collaborator: this dialog reads a few cached
+    values off it and calls its existing slots. It is constructed with explicit
+    callables rather than reaching into the window itself, so the wiring is
+    visible at the call site and the dialog is testable without a MainWindow.
+    """
+
+    def __init__(
+        self,
+        parent: QWidget | None,
+        *,
+        app_version: str,
+        ripper_pin: str,
+        ripper_version: str,
+        approved_by_round: int,
+        dependency_report: object | None,
+        actions: dict[str, Callable[[], object]],
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Setup & Updates")
+        # NOT modal — see the module docstring. Its buttons open modal dialogs,
+        # and a modal parent would nest every one of them inside this window's
+        # event loop.
+        self.setModal(False)
+
+        self._actions: dict[str, Callable[[], object]] = actions
+        self._dependency_label: QLabel | None = None
+
+        layout = QVBoxLayout(self)
+
+        intro = QLabel(
+            "Everything about keeping Platterpus and its ripper healthy, in one "
+            "place. Each check runs in the background and reports back here or "
+            "in its own window."
+        )
+        # PlainText everywhere text can carry a version string, a commit or a
+        # dependency's own output: Qt's default AutoText auto-detects HTML, so a
+        # line that merely looks like markup is interpreted rather than shown,
+        # and the user never learns text went missing.
+        intro.setTextFormat(Qt.TextFormat.PlainText)
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+
+        grid = QGridLayout()
+        layout.addLayout(grid)
+        row = 0
+
+        row = self._add_section(
+            grid,
+            row,
+            title="Platterpus",
+            status=f"{_OK} Version {app_version}",
+            buttons=[("Check for &updates", "app_update")],
+        )
+        row = self._add_section(
+            grid,
+            row,
+            title="Ripper (cyanrip)",
+            # The APPROVED build, which is a constant, not a probe. What is
+            # actually installed is only knowable by entering the container, so
+            # the check button is what answers that — stating the approved build
+            # here and the installed one there keeps the two claims apart.
+            status=(
+                f"{_INFO} Approved build: {ripper_pin} ({ripper_version}), "
+                f"from handshake round {approved_by_round}"
+            ),
+            buttons=[
+                ("Check for cyanrip &updates", "ripper_update"),
+                ("Choose a &build…", "ripper_pick"),
+            ],
+        )
+        self._dependency_label = QLabel(dependency_summary_line(dependency_report))
+        self._dependency_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._dependency_label.setWordWrap(True)
+        row = self._add_section(
+            grid,
+            row,
+            title="Dependencies",
+            status_widget=self._dependency_label,
+            buttons=[("Check &dependencies", "dep_check")],
+        )
+        row = self._add_section(
+            grid,
+            row,
+            title="Setup",
+            status=(
+                f"{_INFO} Installs the ripping tools in their container, adds the "
+                "menu entry, and calibrates the drive."
+            ),
+            buttons=[
+                ("Run &setup…", "host_setup"),
+                ("Add app &shortcut", "shortcut"),
+                ("Set up d&rive…", "drive_setup"),
+            ],
+        )
+
+        box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        box.rejected.connect(self.reject)
+        layout.addWidget(box)
+
+    def _add_section(
+        self,
+        grid: QGridLayout,
+        row: int,
+        *,
+        title: str,
+        buttons: list[tuple[str, str]],
+        status: str | None = None,
+        status_widget: QLabel | None = None,
+    ) -> int:
+        """Lay out one section and return the next free row.
+
+        Sections are uniform on purpose: a user scanning for "where do I check X"
+        should not have to read four different layouts.
+        """
+        if row:
+            line = QFrame()
+            line.setFrameShape(QFrame.Shape.HLine)
+            grid.addWidget(line, row, 0, 1, 2)
+            row += 1
+
+        heading = QLabel(title)
+        heading.setTextFormat(Qt.TextFormat.PlainText)
+        font = heading.font()
+        font.setBold(True)
+        heading.setFont(font)
+        grid.addWidget(heading, row, 0, 1, 2)
+        row += 1
+
+        if status_widget is None:
+            status_widget = QLabel(status or "")
+            status_widget.setTextFormat(Qt.TextFormat.PlainText)
+            status_widget.setWordWrap(True)
+        grid.addWidget(status_widget, row, 0, 1, 2)
+        row += 1
+
+        for label, key in buttons:
+            button = QPushButton(label)
+            button.setMinimumHeight(_COMMIT_HEIGHT)
+            button.clicked.connect(lambda _checked=False, k=key: self._run(k))
+            grid.addWidget(button, row, 0, 1, 2)
+            row += 1
+        return row
+
+    def _run(self, key: str) -> None:
+        """Invoke the delegated action, never swallowing what it raises.
+
+        A button that silently does nothing is the dead-menu-item shape this
+        project forbids, and the likeliest cause here is a wiring mistake — a key
+        with no action behind it — which must be loud rather than invisible.
+        """
+        action = self._actions.get(key)
+        if action is None:
+            log.error("Setup & Updates: no action wired for %r", key)
+            return
+        log.info("Setup & Updates: running %s", key)
+        action()
+
+    def refresh_dependencies(self, report: object | None) -> None:
+        """Re-render the dependency line after a check has reported.
+
+        Called by the window when a probe lands, so the window this user opened
+        to answer a question actually shows the answer rather than making them
+        close and reopen it.
+        """
+        if self._dependency_label is not None:
+            self._dependency_label.setText(dependency_summary_line(report))

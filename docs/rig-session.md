@@ -117,7 +117,7 @@ which build did what.
 
 ## Step 0 — Update, and confirm both halves
 
-**Help → Check for updates** → accept → restart. Beta updates are already enabled.
+**Tools → Setup & Updates… → Check for updates** → accept → restart. Beta updates are already enabled.
 
 Then:
 
@@ -321,4 +321,4 @@ Critical rule #8, no exceptions including temporary ones.
 
 ---
 
-*Last updated for Platterpus v0.6.33.*
+*Last updated for Platterpus v0.6.51.*

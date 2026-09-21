@@ -3224,7 +3224,7 @@ class ScriptRunner(QObject):
         # **AND THE IN-APP ROUTE CANNOT SERVE A TEST PIN.** The ripper check reads
         # the fork's RELEASE MANIFEST, so it can only offer builds the fork has
         # published, and a test pin is by definition not a release. Leading with
-        # "Help -> Check for cyanrip updates..." sends an operator to a dialog
+        # "Tools -> Setup & Updates... -> Check for cyanrip updates" sends an operator to a dialog
         # whose most honest answer is "your build is current" — which ends the
         # night here, again. The acceptance script's own header spends four
         # paragraphs on exactly this; the failure message contradicted it.
@@ -3238,7 +3238,7 @@ class ScriptRunner(QObject):
         else:
             how = (
                 f"FIX IT WITHOUT LEAVING THE APP:\n"
-                f"    Help -> Check for cyanrip updates... -> Install it anyway\n"
+                f"    Tools -> Setup & Updates... -> Check for cyanrip updates -> Install it anyway\n"
                 f"then start the acceptance test again.\n"
                 f"(Or, if you prefer a terminal: "
                 f"{build_info.self_invocation()} --install-ripper {wanted})\n"

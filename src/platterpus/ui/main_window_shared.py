@@ -111,6 +111,7 @@ if TYPE_CHECKING:
     from platterpus.report_types import TimingBlock
     from platterpus.ui.disc_info_panel import DiscInfoPanel
     from platterpus.ui.drive_picker import DrivePicker
+    from platterpus.ui.host_setup_dialog import HostSetupDialog
 
     # TYPE_CHECKING-only, and it has to be: ``main_window_rip`` imports THIS
     # module at runtime (every mixin inherits the seam), so a real import here
@@ -194,7 +195,7 @@ class MainWindowShared(_SeamBase):
     # Update check + install workers/threads and the install progress dialog.
     _update_worker: UpdateCheckWorker | None
     _update_thread: QThread | None
-    # The *ripper* update check (Help → Check for cyanrip updates…). A separate
+    # The *ripper* update check (Tools → Setup & Updates… → Check for cyanrip updates). A separate
     # slot from the app's own check on purpose: they are different subjects with
     # different consequences — taking a newer app is routine, taking a newer ripper
     # changes what every subsequent rip can claim about itself.
@@ -386,9 +387,28 @@ class MainWindowShared(_SeamBase):
 
         # Defined in ProvisioningMixin (main_window_provision.py):
         def open_host_setup_dialog(self) -> None: ...
+        def run_setup_wizard(self, build: Callable[[], HostSetupDialog]) -> None: ...
 
         # Defined in DependencyMixin (main_window_deps.py):
         def run_dependency_check_async(self, show_summary: bool = ...) -> None: ...
+
+        # Defined in UpdateMixin (main_window_update.py). Declared on the seam
+        # because it answers "may I raise a dialog right now?" for EVERY surface
+        # that raises one, not just the cyanrip check it was written for — which
+        # is the whole of docs/testing.md §5.o applied to this predicate.
+        def _interruption_blocker(self) -> str: ...
+        def _modal_floor_blocker(self) -> str: ...
+
+        # Also UpdateMixin — the three checks the Setup & Updates window offers.
+        # Declared here because ProvisioningMixin owns that window and calls them
+        # on ``self``; the window is a placement, so the actions stay where their
+        # logic lives.
+        def _on_check_updates(self) -> None: ...
+        def _on_check_ripper_updates(self, *, automatic: bool = ...) -> None: ...
+        def _on_pick_ripper_build(self) -> None: ...
+
+        # Defined in DependencyMixin (main_window_deps.py):
+        def _on_check_dependencies(self) -> None: ...
 
         # Defined in DriveMixin (main_window_drive.py):
         def _set_read_offset_override(self, value: int) -> bool: ...

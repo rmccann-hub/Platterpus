@@ -122,7 +122,7 @@ class BuildNote:
 #: stays free of build machinery; the pin itself lives in
 #: :mod:`platterpus.deps.fork_source` and is asserted equal by a test.
 _FORK_FIX_HINT: str = (
-    "Tools → Set up Platterpus… rebuilds the container's cyanrip from the "
+    "Tools → Setup & Updates… → Run setup… rebuilds the container's cyanrip from the "
     "Platterpus fork and re-exports it to ~/.local/bin."
 )
 

@@ -340,4 +340,53 @@ class HostTeardown:
                 # system — real-user report 2026-06-26: "uninstall didn't do all".
                 record(StepResult(step_id, title, StepStatus.FAILED, detail))
                 any_failed = True
+
+        # **REBUILD THE MENU CACHE WE JUST INVALIDATED.**
+        #
+        # `appimage_integration.integrate()` refreshes it on the way IN and
+        # nothing refreshed it on the way OUT — install rebuilt the menu,
+        # uninstall did not. The desktop entries are gone from disk, but KDE
+        # serves its menu from the `sycoca` cache, so the launcher keeps showing
+        # a Platterpus entry pointing at an AppImage that no longer exists.
+        # Clicking it gives the real-user report of 2026-09-21:
+        #
+        #     Launching Platterpus (Failed)
+        #     Could not find the program '/home/…/Applications/platterpus-x86_64.AppImage'
+        #
+        # Which reads as a broken *install*, not as a completed uninstall — so the
+        # obvious next move is to reinstall the thing you had just removed.
+        #
+        # **Unconditional, including after a failure and after a cancel.** The
+        # shortcuts step runs FIRST, so by the time anything else can fail the
+        # entries are already off disk and the cache is already wrong; skipping
+        # the refresh on the unhappy path would leave the phantom entry in
+        # exactly the runs most likely to confuse somebody.
+        #
+        # **Not a step.** It removes nothing, `_is_done` could not answer for it,
+        # and a user reading a row called "refresh the menu" learns nothing about
+        # what was deleted. It is fire-and-forget (`kbuildsycoca6` can take tens
+        # of seconds and this is reachable from the GUI thread — the 2026-06-13
+        # freeze), so there is no result to report even if it were one.
+        #
+        # **`dry_run` refreshes nothing**, because it removed nothing.
+        if not dry_run:
+            self._refresh_menu()
         return results
+
+    def _refresh_menu(self) -> None:
+        """Best-effort rebuild of the freedesktop + KDE menu caches.
+
+        Delegates to `appimage_integration`'s refresh rather than restating it:
+        the commands, the detach and the never-wait are one decision, and a second
+        copy here would drift the first time a desktop environment changed. Never
+        raises — a cache that does not rebuild is a stale menu entry, which is
+        what we are fixing, not a reason to fail an uninstall that succeeded.
+        """
+        from platterpus import appimage_integration as _integration
+
+        try:
+            _integration._default_refresh()
+        except Exception:  # noqa: BLE001 — a menu refresh must never fail a removal
+            log.warning(
+                "could not refresh the menu caches after uninstall", exc_info=True
+            )

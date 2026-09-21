@@ -99,6 +99,12 @@ SENT_LAPS: dict[str, str] = {
     # what was said, and correcting it here would erase the evidence for a finding
     # we accepted. The tool now refuses that shape at release time instead.
     "outbound/round-22-lap-02.md": "206be6e101abb47188e2567460c3afd65e80e7553122adad596dd9bb8d352906",
+    # Round 22 lap 4. **The closing lap, and the peer confirms holding it.** Their
+    # round-22 lap 5 enumerates it in `HANDSHAKE-INBOUND-HELD` and quotes its §F
+    # and "Explicitly not asking" verbatim while explaining that our close-gate
+    # question did NOT reach them in it — so the bytes are cited evidence for a
+    # finding on the record, in both directions. 15,283 bytes.
+    "outbound/round-22-lap-04.md": "614c6115cb5a8601f746f32b579f40b3cdf717d9b542b448db71b4f7a8400e91",
     # Round 16 lap 16. **The closing lap, peer-confirmed twice over.** Their lap 17
     # names it in both line 11 (`HANDSHAKE-PEER-VERDICT-SOURCE`) and line 25
     # (`HANDSHAKE-INBOUND-HELD`) at sha256/16 `18cd6588321002ac`, 14,032 bytes,

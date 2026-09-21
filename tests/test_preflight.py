@@ -793,7 +793,7 @@ def test_the_doctor_warns_but_does_not_fail_on_upstream() -> None:
     # The remedy names the in-app path now that the wizard can do it — the fork
     # install used to require a terminal, which broke the zero-terminal bar in
     # the one place it mattered most.
-    assert "Set up Platterpus" in (result.hint or "")
+    assert "Setup & Updates" in (result.hint or "")
 
 
 def test_an_unidentified_build_warns_rather_than_claiming_upstream() -> None:

@@ -375,13 +375,13 @@ class MainWindow(
         # Active rip's worker/thread; set during a rip, cleared on finish.
         self._rip_worker: RipWorker | None = None
         self._rip_thread: QThread | None = None
-        # Update-check worker/thread (Help → Check for updates…); one at a
+        # Update-check worker/thread (Tools → Setup & Updates… → Check for updates); one at a
         # time, joined in closeEvent so a slow check can't outlive the window.
         # Type declared on MainWindowShared (the mixins share it); a bare
         # assignment here so there's one source of truth for the type.
         self._update_worker = None
         self._update_thread: QThread | None = None
-        # The RIPPER update check (Help → Check for cyanrip updates…). Its own
+        # The RIPPER update check (Tools → Setup & Updates… → Check for cyanrip updates). Its own
         # slot rather than sharing the one above: the two checks answer different
         # questions and a user can plausibly run both, so sharing would make the
         # second silently no-op while the first was in flight.
@@ -982,19 +982,23 @@ class MainWindow(
         )
         settings_action.triggered.connect(self._on_open_settings)
 
-        # Host bootstrap (installs the cyanrip container stack) — the
-        # no-terminal replacement for setup-host.sh. Listed first: without it
-        # there's nothing to rip with.
-        host_setup_action = tools_menu.addAction("Set up &Platterpus…")
-        host_setup_action.triggered.connect(self.open_host_setup_dialog)
-
-        # Re-runnable menu/desktop integration (the first-run offer is one-shot;
-        # this lets the user (re)create the shortcut any time).
-        shortcut_action = tools_menu.addAction("Add &app shortcut")
-        shortcut_action.triggered.connect(self._on_add_app_shortcut)
-
-        drive_setup_action = tools_menu.addAction("Set up &drive…")
-        drive_setup_action.triggered.connect(self._on_drive_setup)
+        # ONE ENTRY POINT FOR SETUP, DEPENDENCIES AND BOTH UPDATE CHECKS.
+        #
+        # Real-user report, 2026-09-21: *"Why the need for 2 menu items for
+        # updating, and a separate for set up and dependcies, can't this all be
+        # shown on one window?"* It could, and the split was not a design — it was
+        # six items accreted one per feature, across two menus, with the
+        # dependency check reachable only from a button inside Settings. Somebody
+        # asking "is my install healthy?" had to know which menu held which half.
+        #
+        # What this replaced: Tools → *Set up Platterpus…*, *Add app shortcut*,
+        # *Set up drive…*, and Help → *Check for updates…*, *Check for cyanrip
+        # updates…*, *Install a cyanrip build…*. All six are sections of the one
+        # window now, and every operator instruction that named an old path was
+        # updated in the same commit — a menu path is an exact string to the
+        # person following it, and a stale one is a dead end.
+        setup_center_action = tools_menu.addAction("Setup && &Updates…")
+        setup_center_action.triggered.connect(self.open_setup_center)
 
         cover_from_file_action = tools_menu.addAction("Set &cover art from file…")
         cover_from_file_action.triggered.connect(self._on_set_cover_art_from_file)
@@ -1033,28 +1037,6 @@ class MainWindow(
             standard_shortcut(QKeySequence.StandardKey.HelpContents, "F1")
         )
         guide_action.triggered.connect(self._on_show_help)
-        update_action = help_menu.addAction("Check for &updates…")
-        update_action.triggered.connect(self._on_check_updates)
-        # A SEPARATE entry, not a line in the dialog above. Updating the app is
-        # routine; taking a newer ripper changes what every subsequent rip can
-        # claim about itself, so the two decisions are kept apart on purpose.
-        ripper_update_action = help_menu.addAction("Check for &cyanrip updates…")
-        ripper_update_action.triggered.connect(self._on_check_ripper_updates)
-        # **AND A ROUTE THE CHECK ABOVE CANNOT PROVIDE.** That one reads the
-        # fork's RELEASE MANIFEST, so it can only offer builds the fork has
-        # published — and a handshake round routinely opens on a commit they have
-        # nominated and never released, which is when its most honest answer
-        # becomes "your build is current". True of the manifest, and not the
-        # build an acceptance run demands: that answer has ended an overnight run
-        # at section A three times.
-        #
-        # `--install-ripper list` has been the workaround, in a terminal, with
-        # the acceptance script's header carrying a parenthetical admitting the
-        # menu had no GUI caller. This is that caller (KDD-17: zero-terminal for
-        # anything the software can do).
-        pick_ripper_action = help_menu.addAction("&Install a cyanrip build…")
-        pick_ripper_action.triggered.connect(self._on_pick_ripper_build)
-
         # Actions that would conflict with an in-flight rip (change settings,
         # spin the drive, install/uninstall, swap the AppImage out from under a
         # running rip). `_set_rip_lock` greys these while a rip runs; Quit, the
@@ -1063,13 +1045,15 @@ class MainWindow(
         self._rip_locked_actions = [
             unknown_action,
             settings_action,
-            host_setup_action,
-            shortcut_action,
-            drive_setup_action,
+            # ONE action now covers what were five entries in this list: setup,
+            # the app shortcut, drive setup and both update checks are sections
+            # of the Setup & Updates window. Locking the door locks every room —
+            # which is stricter than before, and correctly so: the old list
+            # locked the five it happened to name, and the dependency check (a
+            # button in Settings, itself locked) was never in it.
+            setup_center_action,
             diagnose_action,
             uninstall_action,
-            update_action,
-            ripper_update_action,
             # Locked during a rip like the rest: an acceptance session rips
             # discs itself, so starting one on top of a live rip would have two
             # sessions driving one drive.

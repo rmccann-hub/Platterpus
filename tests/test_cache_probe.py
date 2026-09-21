@@ -216,7 +216,7 @@ def test_describe_distinguishes_the_three_unknown_causes() -> None:
     timed_out = describe(CacheProbeResult(error="timed out", analyzed=True))
     inconclusive = describe(CacheProbeResult(analyzed=True, raw_output="odd report"))
 
-    assert "Set up Platterpus" in missing  # tells them how to fix it
+    assert "Setup & Updates" in missing  # tells them how to fix it
     assert "too long" in timed_out or "timed out" in timed_out
     assert "log" in inconclusive  # points at the captured output
     # The whole point: three different problems read differently.

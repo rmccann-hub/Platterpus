@@ -60,15 +60,31 @@ def _searchable(label: str) -> str:
     Qt's `&` accelerator and the trailing ellipsis are chrome — the Guide writes
     *"Tools → Run acceptance test…"* but it may equally write *"Run acceptance
     test"* mid-sentence, and failing on the ellipsis would be a false alarm.
+
+    **`&&` IS A LITERAL AMPERSAND, NOT TWO ACCELERATORS.** Stripping every `&`
+    turned ``Setup && &Updates…`` into ``Setup  Updates`` — two spaces where the
+    user sees an ampersand — so the sweep looked for a string no Guide would ever
+    contain and reported the item as undocumented when it was documented. The
+    label was right and the normaliser was wrong, which is the more expensive
+    direction: its output is an instruction to go and edit a file that was
+    already correct. Unescape first, then strip the accelerators.
     """
-    return label.replace("&", "").rstrip("…").strip()
+    literal = "\x00"  # a byte no menu label contains
+    text = label.replace("&&", literal).replace("&", "").replace(literal, "&")
+    return text.rstrip("…").strip()
 
 
 def test_the_menu_sweep_actually_finds_the_menu() -> None:
     """The floor. A regex that stopped matching would pass every case below
     while checking nothing — the shape this repo has 52 live instances of."""
     labels = _menu_labels()
-    assert len(labels) >= 8, (
+    # **7, down from 8 on 2026-09-21, and lowered deliberately.** The Tools menu
+    # really did shrink: *Set up Platterpus…*, *Add app shortcut* and *Set up
+    # drive…* became sections of the one *Setup & Updates…* window, which is a net
+    # -2. The floor exists to catch the regex silently ceasing to match, so it has
+    # to track the real count; leaving it at 8 would have been a floor nothing
+    # could satisfy, and raising it back later is how it stops meaning anything.
+    assert len(labels) >= 7, (
         f"only {len(labels)} Tools action(s) found in {MAIN_WINDOW.name}; the "
         "pattern has stopped matching and this file is measuring nothing"
     )

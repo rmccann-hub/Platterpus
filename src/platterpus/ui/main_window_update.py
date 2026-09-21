@@ -121,10 +121,10 @@ def _is_download_phase(status_message: str) -> bool:
 
 
 class UpdateMixin(MainWindowShared):
-    """Help → Check for updates, and the download/verify/install/restart UI."""
+    """Tools → Setup & Updates… → Check for updates, and the download/verify/install/restart UI."""
 
     def _on_check_updates(self) -> None:
-        """Help → Check for updates: ask GitHub for the newest release.
+        """Tools → Setup & Updates… → Check for updates: ask GitHub for the newest release.
 
         Runs off-thread (a slow connection must not freeze the window);
         the result lands in _on_update_result. Delivery of the update is
@@ -286,7 +286,6 @@ class UpdateMixin(MainWindowShared):
         twice. ``activeModalWidget()`` is Qt's own answer to "does something else have
         the floor", so we ask it rather than tracking our own dialogs.
         """
-        from PySide6.QtWidgets import QApplication
 
         if not self.isVisible():
             return "the window is not shown"
@@ -315,6 +314,31 @@ class UpdateMixin(MainWindowShared):
         session: object | None = getattr(self, "_acceptance_layout", None)
         if session is not None:
             return "an acceptance test session is running"
+        return self._modal_floor_blocker()
+
+    def _modal_floor_blocker(self) -> str:
+        """Why a dialog must not be STACKED right now, or ``""`` if it may open.
+
+        The narrow half of :meth:`_interruption_blocker`, split out on 2026-09-21
+        because two different questions were sharing one answer:
+
+        * *"May I interrupt this person?"* — the full test, for an offer **nobody
+          asked for**. A hidden window or a running rip means the answer is no,
+          because the premise of an unprompted offer is somebody sitting there.
+        * *"May I open a dialog on top of what is already on screen?"* — this one.
+          It is about **stacking**, and it applies even to work the user asked for
+          and even when the window is not visible, because the failure it prevents
+          is two modals fighting over one input queue.
+
+        Using the wide test for the second question was wrong in the expensive
+        direction: it would have held back the resolution of a **missing required
+        dependency** — the thing that stops the app working at all — because the
+        window happened not to be shown yet. `_interruption_blocker` delegates
+        here rather than restating it: a second copy of a safety check is a second
+        thing to drift.
+        """
+        from PySide6.QtWidgets import QApplication
+
         modal = QApplication.activeModalWidget()
         if modal is not None:
             # **Including one of ours.** The first draft of this excluded
@@ -584,7 +608,7 @@ class UpdateMixin(MainWindowShared):
         self._begin_ripper_install(offer, commit)
 
     def _on_pick_ripper_build(self) -> None:
-        """Help → Install a cyanrip build… — the GUI half of ``--install-ripper``.
+        """Tools → Setup & Updates… → Choose a build… — the GUI half of ``--install-ripper``.
 
         **A thin caller, and that is the whole design.** It opens the picker,
         takes a commit, and hands it to `_begin_ripper_install` — the path the
@@ -688,7 +712,13 @@ class UpdateMixin(MainWindowShared):
             ),
             start_immediately=True,
         )
-        dialog.exec()
+        # **Through the window's one wizard chokepoint, not `dialog.exec()`.**
+        # This is the second place a `HostSetupDialog` is created, and it installs
+        # the same thing into the same container as `open_host_setup_dialog` — so
+        # "is an install running?" has to have one answer. Calling `exec()` here
+        # directly is how a dependency-check result arriving in a nested loop could
+        # start a build alongside the setup wizard's. See `run_setup_wizard`.
+        self.run_setup_wizard(lambda: dialog)
 
     def _update_channel(self) -> str:
         """The user's update channel, defensively.

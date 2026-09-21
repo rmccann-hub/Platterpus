@@ -313,3 +313,81 @@ def test_container_probe_treats_list_failure_as_absent(tmp_path: Path) -> None:
     container = next(r for r in results if r.step_id == "container")
     assert container.status is StepStatus.DONE
     assert all(c[:2] != ["distrobox", "rm"] for c in runner.calls)
+
+
+# ---------------------------------------------------------------------------
+# THE UNINSTALLER MUST REBUILD THE MENU CACHE IT INVALIDATES.
+#
+# `appimage_integration.integrate()` refreshes the freedesktop + KDE caches on
+# the way IN, and nothing refreshed them on the way OUT — install rebuilt the
+# menu, uninstall did not. The `.desktop` files go from disk, but KDE serves its
+# menu from the `sycoca` cache, so the launcher keeps a Platterpus entry pointing
+# at an AppImage that is no longer there.
+#
+# Real-user report, 2026-09-21, a screenshot of the launcher:
+#     Launching Platterpus (Failed)
+#     Could not find the program '/home/…/Applications/platterpus-x86_64.AppImage'
+#
+# Which reads as a broken *install* rather than a finished uninstall — so the
+# obvious next move is to reinstall the thing you had just removed.
+# ---------------------------------------------------------------------------
+
+
+def test_uninstall_rebuilds_the_menu_cache(tmp_path: Path, monkeypatch) -> None:
+    from platterpus import appimage_integration
+
+    calls: list[int] = []
+    monkeypatch.setattr(
+        appimage_integration, "_default_refresh", lambda: calls.append(1)
+    )
+    _teardown(tmp_path, _FakeRunner()).run()
+    assert calls, (
+        "the uninstaller removed the desktop entries and never rebuilt the menu "
+        "cache, so the launcher keeps a phantom Platterpus entry pointing at a "
+        "deleted AppImage"
+    )
+
+
+def test_the_refresh_still_happens_when_a_step_FAILED(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The unhappy path is the one that most needs it.
+
+    The shortcuts step runs FIRST, so by the time anything else can fail the
+    entries are already off disk and the cache is already wrong. Skipping the
+    refresh on failure would leave the phantom entry in exactly the runs a user
+    is most likely to be confused by.
+    """
+    from platterpus import appimage_integration
+
+    calls: list[int] = []
+    monkeypatch.setattr(
+        appimage_integration, "_default_refresh", lambda: calls.append(1)
+    )
+    # Populate first: a clean tree makes every step "already removed", so nothing
+    # would reach `_do_step` and the test would pass without testing anything.
+    _populate_everything(tmp_path)
+
+    def explode(path: Path) -> None:
+        raise OSError("permission denied")
+
+    teardown = _teardown(tmp_path, _FakeRunner(), remove_file=explode)
+    results = teardown.run()
+    assert any(r.status is StepStatus.FAILED for r in results), "no step failed"
+    assert calls, "a failed removal skipped the menu refresh"
+
+
+def test_a_dry_run_refreshes_nothing(tmp_path: Path, monkeypatch) -> None:
+    """It removed nothing, so there is nothing to rebuild.
+
+    The converse, and it is what stops the fix being "just always call it" — a
+    preview with a side effect on the user's menu is not a preview.
+    """
+    from platterpus import appimage_integration
+
+    calls: list[int] = []
+    monkeypatch.setattr(
+        appimage_integration, "_default_refresh", lambda: calls.append(1)
+    )
+    _teardown(tmp_path, _FakeRunner()).run(dry_run=True)
+    assert calls == []

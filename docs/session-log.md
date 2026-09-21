@@ -11,6 +11,190 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-21 (later still) — the uninstaller's phantom menu entry, and a sizing rule 8 of 12 dialogs followed
+
+**The maintainer asked what I was waiting on for the window sizing. Nothing.**
+They had said *"hold on window size"* while we were shipping a release — a
+scheduling instruction — and I carried it as "on hold per your instruction" for
+the rest of the session without ever asking whether to pick it up. A
+deprioritisation is not a blocker, and reporting it as one every turn made it
+look like one. Worth writing down because it cost nothing to fix and was
+invisible from my side.
+
+**The missing AppImage: a real defect found by inspection, not reproduced.**
+`appimage_integration.integrate()` refreshes the freedesktop and KDE menu caches
+on the way IN; `deps/host_teardown.py` had **no refresh at all** on the way out.
+The `.desktop` files go from disk, but KDE serves its menu from the `sycoca`
+cache, so the launcher keeps an entry pointing at an AppImage that is no longer
+there — which produces the reported screenshot exactly: *"Launching Platterpus
+(Failed) — Could not find the program '…/Applications/platterpus-x86_64.AppImage'"*.
+That reads as a broken **install**, so the obvious next move is to reinstall the
+thing you just removed.
+**Stated honestly: this is a confirmed defect that produces that symptom, not a
+reproduction of theirs.** Whether it is what happened to them depends on whether
+an uninstall ran, which I cannot know from here — and `host_teardown` is the only
+code in the tree that removes the AppImage at all, so if no uninstall ran, the
+cause is outside the app. The fix is right either way. Unconditional on the
+failure and cancel paths (shortcuts are removed *first*, so the cache is already
+stale by the time anything else can fail) and absent on a dry run, because a
+preview with a side effect on the user's menu is not a preview.
+
+**Window sizing was a convention 8 of 12 dialogs followed.** A `QLabel` with
+`setWordWrap(True)` has a height-for-width policy, so with no width to wrap to Qt
+takes one from whatever else is in the layout — usually a `QRadioButton`, whose
+label does *not* wrap. The dialog becomes as wide as its longest unwrappable line
+and the prose reflows to that. Eight dialogs set a width; four never had, and the
+sweep found that **one of the four was the Setup & Updates window I had written
+an hour earlier** — I introduced a fifth instance of the defect in the same
+session I was asked to fix it.
+Fixed once on `CenteredDialog` as a **floor**, not a fixed size, and only when
+the subclass has not chosen one: `CLAUDE.md`'s *"an explicit size is a size you
+own"* cuts both ways, and those four were not exercising Qt's default
+deliberately — they had simply never been sized. A source sweep now refuses a new
+one, with a `>= 8` examined floor so it cannot pass by matching nothing.
+
+**And the sweep's first version could be satisfied by the wrong thing.** It
+tested `"CenteredDialog" in text`, which an *import* satisfies — so a class
+declared `(QDialog)` in a file that merely mentions the base would have passed.
+Rewritten to ask what each class actually inherits. The repo's own question,
+asked of a check I had just written to enforce it.
+
+**Six revert probes, and two of them refused before they ran** — the formatter
+had reflowed the `if` I anchored on, so the edit could not land. That is the
+probe doing its job rather than a nuisance: a "passing" run against an edit that
+never applied is indistinguishable from a vacuous test, and it is one of the four
+measured ways to get one.
+
+
+## 2026-09-21 (later) — round 22 closed at FIVE, and a finding of mine that never travelled
+
+**Their lap 5 arrived after we had closed the round at four**, released at
+`23c18d2`, filed byte-exact (sha256 `2b0e9107b524cd80…`, 18,664 bytes) after
+verifying all four declarations. `GO`/`GO`, and its declared round digest
+`de9f8893e5fc1abd over 4 lap(s)` reproduces here exactly — the fourth independent
+agreement this round between two implementations that share only a written spec.
+
+**The lap exists because a finding of mine did not travel in a lap.** Our lap 4
+says *"F. Questions: **None.** Not 'none blocking' — none at all"*, which was
+true when it was written; I found the close-gate defect afterwards and put it in
+`TASKS.md` and a chat reply. They fetched our lap and envelope, counted the bytes,
+and confirmed neither contains the question, the `handshake_round` observation or
+anything else — *"it exists nowhere, in no digest, uncitable by either side
+forever."* They answered anyway. **The rule is theirs and I broke it: next
+round's items travel in the lap, not in our task file.**
+
+**My `handshake_round` finding was WRONG, and wrong by the rule I had just
+written.** I said the field had two readings and that `2cce60d` was the first row
+where they diverge. It has one, by construction: `latest["round"]` from the
+append-only release ledger (`gen-release-manifest.py:233`, row 23 →
+`… 2cce60d 21`), meaning *the round that AUTHORISED the release* — and it is
+load-bearing, because their generator refuses to emit a `stable` row pointing at
+an unclosed round. Sharper still: **my own stated alternative reading gives 21
+too**, so my example never separated the two readings I claimed. I analysed the
+derived *manifest* and never opened the *generator*, with their repo already
+cloned in this session — one commit after graduating §5.bl about deriving rather
+than assuming. Verified their answer from their tree before accepting it, which
+is the only part of this I did right.
+
+**Both gates had the same root and neither had the other's version of it.** Ours
+was blocked by the peer's stale transcription of us; theirs was refusing the same
+round on its **own** newest lap's `peer_verdict` cell. Their statement of the root
+is better than mine: *"A close requires each side's newest lap to name the other's
+verdict. The side that speaks last can do that. The side that speaks first cannot
+— its file was written before the answer existed."* A third instance this round of
+the shape our C1 named, a condition gated on a consequence of itself. They
+proposed a `PROTOCOL.md` v5 change and **changed nothing unilaterally**, which is
+right; it is a round-23 item needing our assent, and a no is complete.
+
+**And their §H2 found something in us they were not looking for.** Their digest
+*checker* silently skipped every round-22 declaration and exited 0, because it
+matched a bare-hex spelling while both sides had started emphasising the cell —
+six laps across the record carried a digest it could not read, three of them ours.
+They fixed it and added a loud `unparsed` state. Checking ours found the mirror:
+**`scripts/round_digest.py` has no `--check` at all.** We cannot have their
+silent-pass bug because we have no pass to give — and the consequence is that
+every digest agreement in this session was a **hand comparison**, in the one field
+whose purpose is that a human cannot proofread it. Queued for round 23, to be
+written from their published rule rather than their code so the implementations
+stay independent.
+
+
+## 2026-09-21 — the install failure and the double dialog were one bug, and six menu items became one
+
+**A real user reported three things and two of them were the same defect.**
+*"I am getting failure to install, menus double oepnig, etc."* — and separately
+*"Why the need for 2 menu items for updating, and a separate for set up and
+dependcies, can't this all be shown on one window?"*
+
+**The bug, reproduced rather than explained.** On a machine with no cyanrip —
+which is every fresh install — `app.py` arms the dependency probe off-thread, and
+`QTimer.singleShot(0)` opens the first-run *"Set up Platterpus?"* question. The
+probe is slow because it enters a cold Distrobox container, so it finishes
+**inside that question's nested `exec()` loop**; its result is a **queued slot**,
+which Qt delivers on the GUI thread right there, and `_resolve_missing_unified`
+opens the setup wizard for its container tools. Answer the question still
+underneath and you get a second. `HostSetupDialog` guards its own worker, but that
+guard is **per dialog**, so two dialogs are two workers running `git`, `meson`,
+`ninja`, `sudo install` and `distrobox-export` against one container. The double
+dialog and the failed install are the same defect.
+
+**`exec()` blocks clicks, not signals — which is exactly why nobody hit it by
+hand.** And the rule was already written down: `_interruption_blocker`'s docstring
+predicted this failure verbatim — *"stacking a window-modal box on top of an
+application-modal 'Set up Platterpus?' — input-blocked, and answering both runs
+the install pipeline twice"* — for the cyanrip check, **at one of the three
+launch-time surfaces that raise modals**. `grep` for its call sites returned two,
+both in `main_window_update.py`. `docs/testing.md` §5.o, again: a rule enforced at
+the place it was learned.
+
+Fixed at the shape rather than the instance. `run_setup_wizard` is now the one
+chokepoint every `HostSetupDialog` opens through — both creators
+(`open_host_setup_dialog` and `_begin_ripper_install`) delegate to it, because
+they install the same thing into the same container and *"is an install
+running?"* must have one answer. The dependency result **waits** for the floor
+rather than stacking, bounded at 40 × 750 ms and saying so in the log when the
+budget runs out: dropping it silently would be worse than the stacking, since the
+thing being dropped is a missing **required** dependency.
+
+**And the predicate had to be split, which the tests found rather than review.**
+`_interruption_blocker` answers *"may I interrupt this person?"* and refuses when
+the window is not visible — right for an offer nobody asked for, and wrong for
+resolving a missing required dependency, which must not be dropped because a
+launch-time probe returned before the window was shown. `_modal_floor_blocker` is
+the narrow half (*"may I stack on what is already on screen?"*), and the wide one
+delegates to it rather than restating it.
+
+**Six menu items became one.** *Set up Platterpus…*, *Add app shortcut* and *Set
+up drive…* were in Tools; *Check for updates…*, *Check for cyanrip updates…* and
+*Install a cyanrip build…* were in **Help**, which is for documentation; and the
+dependency check had no menu item at all — a button inside Settings. Somebody
+asking *"is my install healthy?"* had to know which of three places held which
+half. They are now four sections of **Tools → Setup & Updates…**
+(`dialogs/setup_center.py`), which **owns no logic**: every button delegates to
+the method that already does the job, because a consolidated window that
+re-derived any of those answers would be a second opinion free to disagree with
+the one a rip records. Modeless for a structural reason — its buttons open modals,
+so an `exec()` would nest them inside its own loop, which is the stacking above.
+
+**55 navigation references updated in the same change**, across source, the User
+Guide, the acceptance script header, README and four rig docs. A menu path is an
+exact string to the person following it; sent handshake laps and `docs/archive/`
+were deliberately left alone, being immutable record.
+
+**Three things the gates caught that review would not have.** The User-Guide
+sweep's normaliser stripped Qt's `&&` — a *literal* ampersand — along with the
+mnemonic markers, so `Setup && &Updates…` became `Setup  Updates` with two spaces
+and it reported a documented item as undocumented; the label was right and the
+checker was wrong, which is the expensive direction because its output is an
+instruction to edit a file that was already correct. The size ratchet refused
+recorded counts *above* the real length, so the two modules the consolidation
+**shrank** had to ratchet down — slack in a ratchet is silent room to grow. And
+the menu sweep's non-triviality floor (`>= 8` Tools actions) had to be re-based to
+7 deliberately, since the menu really did shrink.
+
+Four revert probes, all detecting; `scripts/check.py` 4/4 with a real exit code.
+
+
 ## 2026-09-21 — round 22 closed at four laps, and the gate that would not let us close it
 
 **ROUND 22 IS CLOSED, `GO`/`GO`, at four laps** — the fork's laps 1 and 3, ours

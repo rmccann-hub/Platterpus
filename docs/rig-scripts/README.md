@@ -11,7 +11,7 @@ product's gap invisible.
 > one `.tar.gz` into `~/Downloads` — then names it, with a button that opens the
 > folder. **There is nothing to download and no second command in the morning.**
 >
-> Check the ripper first: **Help → Check for cyanrip updates…** — and *which*
+> Check the ripper first: **Tools → Setup & Updates… → Check for cyanrip updates** — and *which*
 > offer to take depends on whether a handshake round is open, which is the thing
 > this note got backwards until v0.6.35.
 >
@@ -377,4 +377,4 @@ disappointment is still true. What we still do not know, said out loud so nobody
 the silence as a pass: whether 32 sectors is this drive's real cache, and which of the
 `Cache probe:` states a different drive would report.
 
-*Last updated for Platterpus v0.6.38.*
+*Last updated for Platterpus v0.6.51.*

@@ -963,29 +963,79 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       artifact is unaffected, and lap 4 is sent and immutable, so it goes in our
       next lap rather than as an edit.
 
-- [ ] **NEXT-ROUND observation: their manifest's `handshake_round` means two
-      different things, and `2cce60d` is the first build where they diverge.**
-      Derived from their tree, not from a lap: `release-manifest.json` on
-      `origin/platterpus-fork` labels `2cce60d` `handshake_round: 21` with
-      `round_closed: true` (cyanrip@bb34136, *"PUBLISH 0.9.4-rc2+platterpus.13 at
-      2cce60d"*, 2026-09-18). Round **22** is the round that reviewed and approved
-      `2cce60d`; round 21 is merely the newest round that had closed when they
-      published it.
-      Their two previous rows read the same either way — `fe4d2c4` labelled 17 and
-      round 17 approved it (cyanrip@393e8dc); `978f9b0` labelled 14
-      (cyanrip@83a1d94). So *"the approving round"* and *"the newest closed round
-      at publish time"* have agreed for every row until this one, which is why the
-      ambiguity has never shown.
-      **It costs us nothing today and that is the point of saying so.** Our offer
-      keys on the COMMIT through `handshake_approval`'s own predicate
-      (`ripper_offer.py` — the 2026-08-18 fix for exactly this, `docs/testing.md`
-      §5.al), so a round label cannot make an unapproved build auto-installable
-      here any more. The field is read only for the *"round N still OPEN"* note,
-      which `round_closed: true` suppresses. Report it as the **shape** —
-      *a label whose meaning is unambiguous only while two readings coincide* —
-      and let them decide which one the field is; do not assert a defect in their
-      code. **NEXT-ROUND under S-14**: it does not make `2cce60d` unsafe, and round
-      22 has closed `GO`/`GO` on it.
+- [x] **WITHDRAWN — my `handshake_round` finding was wrong, on its own evidence.**
+      I claimed the field had *two* readings ("the approving round" vs "the newest
+      round closed at publish time") and that `2cce60d` was the first row where
+      they diverge. The fork checked and answered in round 22 lap 5, and they are
+      right on both halves.
+      **Verified from their source, not from their lap** (`add_repo` clone,
+      cyanrip@b293f32): `tools/gen-release-manifest.py:233` is
+      `"handshake_round": latest["round"],`, taken verbatim from the `round`
+      column of the append-only `docs/release-ledger.tsv`, whose row 23 reads
+      `23 stable 0.9.4-rc2+platterpus.13 2cce60d 21`. So the field means **the
+      round that AUTHORISED the release**, by construction — and it is
+      load-bearing: their generator raises `LedgerError` when `stable` points at
+      a round that is not closed, so had the field named 22 the manifest would
+      have failed to generate for the whole window in which `.13` was stable.
+      **And the sharper half: my own stated alternative reading gives 21 here
+      too**, so my example never separated the two readings. I asserted a
+      divergence and supplied an example that does not show one.
+      **What I actually did wrong, and it is the rule I had just written.** I
+      analysed their *manifest* — the derived artifact — and never opened the
+      *generator* that produces it, with their repo already cloned in the session.
+      `CLAUDE.md`: *"Where their source is reachable, DERIVE the number; do not
+      accept the lap's"*, and *"a number that does not reproduce is a statement
+      about my method before it is a statement about their file."* One commit
+      after I graduated §5.bl about deriving rather than assuming.
+
+- [ ] **ROUND 23 — assent needed on their PROTOCOL v5 close-rule proposal.**
+      Their round-22 lap 5 §H1 answers our close-gate question from their source
+      and finds the root is **shared and not fixable on one side**. Their gate does
+      NOT have our exact defect — `tools/release-gate.py:727-732` builds
+      `peer_latest` from the newest inbound lap and `:552-556` reads *that lap's
+      own* `HANDSHAKE-VERDICT`, never our transcription — but it was refusing the
+      same round anyway, on its **own** newest lap's `peer_verdict` cell. Both
+      gates stuck, mirror reasons.
+      Their statement of the root, which is better than ours: *"A close requires
+      each side's newest lap to name the other's verdict. The side that speaks
+      last can do that. The side that speaks first cannot — its file was written
+      before the answer existed."* So under §5 a round is mutually closeable only
+      if the first speaker writes one more lap, which makes the other side the
+      first speaker. They call it a **third instance** of the shape our C1 named:
+      a condition gated on a consequence of itself.
+      **They changed nothing unilaterally**, correctly — the close rule is a
+      shared spec. The proposal: a close may read the peer verdict from the newest
+      peer lap the writer holds and has enumerated in `HANDSHAKE-INBOUND-HELD`,
+      with `HANDSHAKE-PEER-VERDICT` kept as the declaration and cross-checked
+      against it. Needs a `HANDSHAKE-PROTOCOL` bump shipped to both sides before
+      either gate implements it. **A no is a complete answer.**
+      Note our own discharge stays either way: it is narrower than their proposal
+      and its tests are what keep it honest, since their lap 5 means the live
+      record no longer exercises it.
+
+- [ ] **OURS, found by their §H2: we have NEVER mechanically verified a declared
+      round digest, in either direction.** Their digest checker had a real defect
+      — `tools/round-digest.py --check` matched a literal `sha256/16 = <hex>` with
+      the hex bare, so it skipped **every** declaration in round 22 and exited 0,
+      including six laps across the record that carried a real digest it could not
+      see (three of them ours, in the emphasised spelling we adopted at round 21
+      lap 4). They fixed it, added a third `unparsed` state that fails loudly, and
+      re-derived our `8cca64201759ae74 over 3` on their implementation.
+      **Checking ours found something different and arguably worse: `scripts/
+      round_digest.py` has no `--check` mode at all.** It computes and prints;
+      nothing of ours ever reads a declared `HANDSHAKE-ROUND-DIGEST` back and
+      compares it. So we cannot have their silent-pass bug — and every digest
+      agreement reported this session (`8cca64201759ae74`, `de9f8893e5fc1abd`,
+      their `9a1be65b7f779cf3`) was a **hand comparison** of printed output
+      against a value read out of a file by eye. The field whose own purpose is
+      that *"a human cannot proofread a digest"* has been proofread by a human
+      every time.
+      Build `--check`: parse the declaration head-first (their fixed rule — the
+      value is the leading token sequence, prose follows and is ignored), compare
+      against the computed value, and make an unreadable-but-present declaration
+      **fail** rather than count as absent. Their fix is the reference; write ours
+      from their published rule rather than their code, as round 15 did, so the
+      two implementations stay independent.
 
 - [ ] **Answer their J1 (`NEXT-ROUND`) — committed-is-sent.** They propose making
       *committed* stand in for *sent*: once a lap is committed to the branch the

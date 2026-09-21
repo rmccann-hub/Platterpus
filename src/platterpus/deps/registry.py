@@ -78,7 +78,7 @@ class DependencySpec:
     # Picard is the case in point — handy for unknown discs, not required.
     optional: bool = False
     # When True, this tool is provided by the one-time host-setup WIZARD
-    # (Tools → Set up Platterpus…), not a package the user installs by hand —
+    # (Tools → Setup & Updates… → Run setup…), not a package the user installs by hand —
     # it's installed into the `ripping` container and exported to ~/.local/bin.
     # So when it's missing, the right fix is "run the wizard" (one click, no
     # terminal), NOT the tier-(c) "copy this search string" dialog. The manual
