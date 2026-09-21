@@ -11,6 +11,64 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-21 (release) — v0.6.52 shipped, and it fixed a defect I had shipped
+
+**v0.6.52 is out** — tag on `a0aed36`, pre-release as all `v0.*` are, AppImage
+(243,026,424 B) with its `.sha256` and `.zsync`, and the PyPI publish green on the
+same commit. Verified from the release API rather than from the workflow saying
+so.
+
+**Cut in the window between round 22 closing and round 23 opening**, the same
+deliberate placement as 0.6.51 and for the same reason: the deviation policy
+forbids releasing while a round is open, and the fork opens the next one. It is
+also the release that carries the `FORK_PIN` roll to `2cce60d` — the approval
+constants ship *inside* the AppImage, so until a release existed an operator's
+rips stamped `unapproved` against the build round 22 had approved. Stays on
+`0.6.x`: the next minor is `0.7.100`, gated on a full hardware pass that has not
+happened.
+
+**AND THE RELEASE FOUND TWO `<<<<<<< HEAD` BLOCKS I HAD SHIPPED TO `main`.**
+They were in `CHANGELOG.md`, committed in #235, through nine green CI jobs and a
+squash merge. `lint` is ruff and does not read Markdown; the `changelog` gate
+checks `[Unreleased]` is empty and the tag's section exists — both true of a file
+with conflict markers in it. They surfaced only because the next release edited
+the same file.
+
+**The cause was a pipe.** The merge ran as `git merge origin/main 2>&1 | tail -6`,
+and *the output of that command is the list of files needing resolution.* Two
+conflicts were in the visible tail and I fixed them; `CHANGELOG.md` was above the
+cut. Then I verified by grepping **the two files I already knew about** — so the
+check's population was the answer it was checking. `git status` would have said
+`UU CHANGELOG.md`; I never asked it.
+
+This repo has *"a silent truncation reads as completeness"* written down three
+times, each about a capture path **in the product**. It had never been said about
+the commands I drive the repo with, and that is where it bit. Graduated to
+`docs/testing.md` **§5.bm**, with the general form: never pipe a command whose
+output is a work list, and verify over the population rather than over the
+findings.
+
+Gated now — a sweep over every text file, proved by reintroducing the exact bytes
+that shipped (it reports `CHANGELOG.md:18`, the line the real one was on). The
+restore was the dangerous half again: that file held the uncommitted version bump,
+so `git checkout --` would have destroyed the release. Copied aside, restored from
+the copy.
+
+**The operator assented to the fork's v5 close-rule proposal**, conditional on the
+released-for-reading check becoming normative in the shared spec rather than
+staying one implementation's habit — because the proposal moves the verdict from
+our transcription of their lap to *their lap itself*, and both repos are public,
+so it becomes possible to read a lap before its operator has released it.
+**Recorded in the standing status, not in `TASKS.md`**: round 23 is theirs to open
+under §1a so our lap cannot exist yet, and their lap 5 had just established that a
+position of ours living only in our task file is uncitable by either side. Second
+use of the LIVE CORRECTIONS section, which exists for exactly that.
+
+Their diagnosis was verified in their source before assenting
+(`release-gate.py:727-732` and `:552-556` at `cyanrip@b293f32`) — the standard we
+owe them, and the one we failed on `handshake_round` one round earlier.
+
+
 ## 2026-09-21 (later still) — the uninstaller's phantom menu entry, and a sizing rule 8 of 12 dialogs followed
 
 **The maintainer asked what I was waiting on for the window sizing. Nothing.**
