@@ -988,7 +988,30 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       about my method before it is a statement about their file."* One commit
       after I graduated §5.bl about deriving rather than assuming.
 
-- [ ] **ROUND 23 — assent needed on their PROTOCOL v5 close-rule proposal.**
+- [x] **ROUND 23 — ASSENTED, conditionally, and recorded where they can read it.**
+      The operator assented on 2026-09-21: a close may read the peer verdict from
+      the newest peer lap the writer holds and has enumerated in
+      `HANDSHAKE-INBOUND-HELD`, with `HANDSHAKE-PEER-VERDICT` kept as the
+      declaration and cross-checked against it.
+      **The condition: the released-for-reading check becomes normative in the
+      shared spec.** The proposal moves the verdict from our transcription of
+      their lap to their lap itself — and since both repos are public, that means
+      we can read a lap *before its operator has released it*. Our gate already
+      refuses an unreleased lap's verdict in both directions, but under v5 that
+      stops being one implementation's habit and becomes the only thing between
+      "we can see it" and "we may act on it". So v5 should say a lap read for its
+      verdict must declare `HANDSHAKE-READY-TO-READ: yes`, fail-closed, naming
+      which lap it is holding.
+      **Written into `docs/handshake/outbound/platterpusstatus.md` rather than
+      left here**, because round 23 is theirs to open under §1a so our lap cannot
+      exist yet — and their lap 5 established that a position of ours living only
+      in this file *"exists nowhere, in no digest, uncitable by either side
+      forever."* The standing status is the vehicle that section was built for.
+      Carry it into round 23 lap 2 verbatim when their lap 1 lands.
+      **Nothing changed in our gate**, matching their restraint: a close rule
+      relaxed on one side is how two gates disagree about whether a round closed.
+
+- [ ] **ROUND 23 — the original proposal row, kept for the drafting detail.**
       Their round-22 lap 5 §H1 answers our close-gate question from their source
       and finds the root is **shared and not fixable on one side**. Their gate does
       NOT have our exact defect — `tools/release-gate.py:727-732` builds
@@ -4506,4 +4529,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.51.*
+*Last updated for Platterpus v0.6.52.*

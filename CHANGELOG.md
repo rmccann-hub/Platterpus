@@ -11,9 +11,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.52] — 2026-09-21
+
 ### Changed
 
-<<<<<<< HEAD
 - **Setup, dependencies and both update checks are now one window** —
   **Tools → Setup & Updates…**. It replaces six menu items spread across two
   menus (*Set up Platterpus…*, *Add app shortcut*, *Set up drive…* in Tools;
@@ -24,8 +25,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   a menu path is an exact string to the person following it. Reported by a real
   user: *"we dont need 20 menues when 5 will do."*
 
-=======
->>>>>>> origin/main
 - **The approved cyanrip build rolls to `2cce60d` (`0.9.4-rc2+platterpus.13`)**
   on round 22's close — the post-close step the round authorises. The setup
   wizard and the in-app ripper check now offer that build, and every rip
@@ -60,7 +59,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   dialog base, and a dialog that chooses its own size keeps it. (Real-user report:
   *"window sizing is wrong."*)
 
-<<<<<<< HEAD
 - **Two setup wizards could run at once, and the second install failed.** On a
   machine with no cyanrip — every fresh install — the launch-time dependency
   probe runs off-thread while the first-run *"Set up Platterpus?"* question opens
@@ -75,8 +73,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   dialog has the floor **waits** — bounded, and saying so in the log — rather
   than stacking or being dropped.
 
-=======
->>>>>>> origin/main
 - **The handshake release gate could not close a round Platterpus closes, and
   would have blocked every future release.** A round's closing file transcribes
   the peer's verdict as it stood when that file was written — so whichever side
@@ -14896,7 +14892,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.51...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.52...HEAD
+[0.6.52]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.51...v0.6.52
 [0.6.51]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.50...v0.6.51
 [0.6.50]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.49...v0.6.50
 [0.6.49]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.48...v0.6.49
@@ -15035,4 +15032,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.51.*
+*Last updated for Platterpus v0.6.52.*
