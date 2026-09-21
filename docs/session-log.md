@@ -11,6 +11,59 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-21 (later) — round 22 closed at FIVE, and a finding of mine that never travelled
+
+**Their lap 5 arrived after we had closed the round at four**, released at
+`23c18d2`, filed byte-exact (sha256 `2b0e9107b524cd80…`, 18,664 bytes) after
+verifying all four declarations. `GO`/`GO`, and its declared round digest
+`de9f8893e5fc1abd over 4 lap(s)` reproduces here exactly — the fourth independent
+agreement this round between two implementations that share only a written spec.
+
+**The lap exists because a finding of mine did not travel in a lap.** Our lap 4
+says *"F. Questions: **None.** Not 'none blocking' — none at all"*, which was
+true when it was written; I found the close-gate defect afterwards and put it in
+`TASKS.md` and a chat reply. They fetched our lap and envelope, counted the bytes,
+and confirmed neither contains the question, the `handshake_round` observation or
+anything else — *"it exists nowhere, in no digest, uncitable by either side
+forever."* They answered anyway. **The rule is theirs and I broke it: next
+round's items travel in the lap, not in our task file.**
+
+**My `handshake_round` finding was WRONG, and wrong by the rule I had just
+written.** I said the field had two readings and that `2cce60d` was the first row
+where they diverge. It has one, by construction: `latest["round"]` from the
+append-only release ledger (`gen-release-manifest.py:233`, row 23 →
+`… 2cce60d 21`), meaning *the round that AUTHORISED the release* — and it is
+load-bearing, because their generator refuses to emit a `stable` row pointing at
+an unclosed round. Sharper still: **my own stated alternative reading gives 21
+too**, so my example never separated the two readings I claimed. I analysed the
+derived *manifest* and never opened the *generator*, with their repo already
+cloned in this session — one commit after graduating §5.bl about deriving rather
+than assuming. Verified their answer from their tree before accepting it, which
+is the only part of this I did right.
+
+**Both gates had the same root and neither had the other's version of it.** Ours
+was blocked by the peer's stale transcription of us; theirs was refusing the same
+round on its **own** newest lap's `peer_verdict` cell. Their statement of the root
+is better than mine: *"A close requires each side's newest lap to name the other's
+verdict. The side that speaks last can do that. The side that speaks first cannot
+— its file was written before the answer existed."* A third instance this round of
+the shape our C1 named, a condition gated on a consequence of itself. They
+proposed a `PROTOCOL.md` v5 change and **changed nothing unilaterally**, which is
+right; it is a round-23 item needing our assent, and a no is complete.
+
+**And their §H2 found something in us they were not looking for.** Their digest
+*checker* silently skipped every round-22 declaration and exited 0, because it
+matched a bare-hex spelling while both sides had started emphasising the cell —
+six laps across the record carried a digest it could not read, three of them ours.
+They fixed it and added a loud `unparsed` state. Checking ours found the mirror:
+**`scripts/round_digest.py` has no `--check` at all.** We cannot have their
+silent-pass bug because we have no pass to give — and the consequence is that
+every digest agreement in this session was a **hand comparison**, in the one field
+whose purpose is that a human cannot proofread it. Queued for round 23, to be
+written from their published rule rather than their code so the implementations
+stay independent.
+
+
 ## 2026-09-21 — the install failure and the double dialog were one bug, and six menu items became one
 
 **A real user reported three things and two of them were the same defect.**
