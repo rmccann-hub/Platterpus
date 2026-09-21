@@ -1452,7 +1452,16 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # build ships. The eleven lines of reasoning are the load-bearing part: a
     # later reader tidying this to a single label breaks every acceptance log
     # already filed under `docs/`.
-    "parsers/cyanrip_log.py": 2831,
+    # **2831 -> 2937 (2026-09-21).** The both-wordings parser: `_TRACK_START`
+    # accepts the fork's §0.3 rename alongside the wording every log written so
+    # far carries, and the new `Encoder errors:` footer is parsed rather than
+    # ignored. Nearly all of it is the reasoning — why the delimiter is
+    # structural (the rename alone takes a real 14-track log to 0 tracks under a
+    # report still claiming 14), why taking half of a split claim is worse than
+    # taking neither, and why `not applicable` is not a failure. That reasoning is
+    # the seam contract in prose, and it is what stops the next reader
+    # "simplifying" the old wording away once .14 ships.
+    "parsers/cyanrip_log.py": 2937,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1622,7 +1631,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # now asks for is narrower and more tractable than before — move the post-rip
     # CHAIN (the five-step daemon and the six launchers) out beside the record it
     # already populates.
-    "ui/main_window_rip.py": 4678,
+    # **4678 -> 4696 (2026-09-21).** The bundle stamp no longer predicts the flush
+    # it is about to perform; the outcome is appended from the `else:` branch so a
+    # failed flush can never be reported as a successful one. Found by the fork in
+    # our own evidence bundle — the stamp read twelve seconds before the
+    # `generated_at` of the report it bundles.
+    "ui/main_window_rip.py": 4696,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared

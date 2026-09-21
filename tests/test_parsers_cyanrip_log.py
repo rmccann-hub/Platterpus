@@ -2667,3 +2667,114 @@ def test_the_renamed_retry_limit_label_is_recognised_before_their_build_ships() 
         "the NEW label is not recognised, so the completeness sweep will fail on "
         "every rip log the moment the fork's round-20 build ships"
     )
+
+
+# ---------------------------------------------------------------------------
+# THE BOTH-WORDINGS PARSER — the fork's §0.3, agreed across round 22 laps 2-5.
+#
+# The ordering the round settled: we ship a parser that accepts BOTH per-track
+# wordings first, and only then may a build emit the new one. That way no build
+# of theirs can ever meet a parser that cannot read it.
+#
+# The stakes are structural, not cosmetic. `_TRACK_START` is the block DELIMITER:
+# every per-track fact (CRCs, AccurateRip, the secure re-read verdict, the file
+# list) is attributed to whichever block it falls inside. Measured on round 21's
+# real 3952c03 log, the rename alone takes the parse from 14 tracks to 0 while the
+# report still says `rip_completed_tracks: 14` and "No errors occurred" — which is
+# why lap 2 re-graded it P2 -> P1 and they accepted.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        # <= +platterpus.13. Logs already written carry these and are archival
+        # records, so they must never stop parsing.
+        ("Track 1 ripped and encoded successfully!", "ripped successfully"),
+        ("Track 2 ripped and encoded with errors.", "ripped with errors"),
+        # >= +platterpus.14, their §0.3.
+        ("Track 3 read successfully!", "ripped successfully"),
+        ("Track 4 read with errors.", "ripped with errors"),
+        # Unchanged by the rename.
+        ("Track 5 is data:", "data track (skipped)"),
+    ],
+)
+def test_both_per_track_wordings_open_a_track_block(line: str, expected: str) -> None:
+    """Old and new spellings are the same fact, and both must delimit a block."""
+    result = parse_cyanrip_log(f"{line}\n")
+    assert len(result.tracks) == 1, f"{line!r} did not open a track block"
+    assert result.tracks[0].status == expected
+
+
+def test_the_new_wording_keeps_the_facts_inside_the_block() -> None:
+    """The delimiter is the point: a block that does not open loses everything in it.
+
+    Asserting the *contents* rather than just the count, because a pattern could
+    match the line and still misattribute what follows.
+    """
+    log = (
+        "Track 7 read successfully!\n"
+        "    Accurip v1:  BF62B1DA (accurately ripped, confidence 3)\n"
+    )
+    result = parse_cyanrip_log(log)
+    assert len(result.tracks) == 1
+    assert result.tracks[0].number == 7
+    assert result.tracks[0].accuraterip_v1 is not None
+    assert result.tracks[0].accuraterip_v1.local_crc == "BF62B1DA"
+
+
+# --- `Encoder errors:`, the other half of the split claim --------------------
+#
+# Their §0.3 splits one claim in two: the per-track block reports the READ, the
+# footer reports the ENCODE. Taking the first half and dropping the second would
+# read a disc whose encode failed as a clean rip — the exact defect their change
+# exists to fix, inherited by us at the moment they fix it.
+
+
+@pytest.mark.parametrize(
+    ("arm", "expected"),
+    [
+        ("none; 3 tracks encoded", "No errors occurred"),
+        ("2 tracks failed (2, 3); 2 tracks encoded", "2 encoder errors"),
+        # Singular, because their spec derives the plural from the count rather
+        # than spelling `track(s)`.
+        ("1 track failed (2); 2 tracks encoded", "1 encoder error"),
+        # The bounded list may be cut; the count still governs.
+        (
+            "4 tracks failed (2, 3, 5, 9, list truncated); 8 tracks encoded",
+            "4 encoder errors",
+        ),
+    ],
+)
+def test_an_encode_failure_is_not_reported_as_a_clean_rip(
+    arm: str, expected: str
+) -> None:
+    log = f"Ripping errors: 0\nEncoder errors: {arm}\n"
+    assert parse_cyanrip_log(log).health_status == expected
+
+
+def test_not_applicable_is_not_a_failure_and_not_an_absence() -> None:
+    """Their third arm exists so `none` is never asserted over an empty population.
+
+    Collapsing it into either of the other two would be us undoing that
+    distinction one layer down. It is not an encode failure, so the rip verdict
+    stands.
+    """
+    log = "Ripping errors: 0\nEncoder errors: not applicable; no track was encoded\n"
+    assert parse_cyanrip_log(log).health_status == "No errors occurred"
+
+
+def test_ripping_and_encoder_failures_are_both_reported() -> None:
+    """Two different failures, both worth reading — neither masks the other."""
+    log = (
+        "Ripping errors: 3\nEncoder errors: 2 tracks failed (2, 3); 2 tracks encoded\n"
+    )
+    assert parse_cyanrip_log(log).health_status == "3 ripping errors; 2 encoder errors"
+
+
+def test_a_build_that_prints_no_encoder_line_is_unchanged() -> None:
+    """Non-regression for every build <= .13, which is all of them today."""
+    assert (
+        parse_cyanrip_log("Ripping errors: 0\n").health_status == "No errors occurred"
+    )
+    assert parse_cyanrip_log("Ripping errors: 2\n").health_status == "2 ripping errors"

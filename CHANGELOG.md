@@ -11,6 +11,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+
+- **A rip whose FLAC encode failed could be reported as a clean rip.** The
+  per-track "ripped and encoded successfully!" line is being split by the ripper
+  into a per-track *read* line and a disc-level `Encoder errors:` footer, because
+  the old line printed before any encoder had been joined — it asserted a fact
+  that did not exist yet. Platterpus now reads **both** per-track wordings, so no
+  build can meet a parser that cannot read it, and folds the new footer into the
+  rip's health verdict: an encode failure is no longer rendered as
+  "No errors occurred".
+
+- **A missing `flac` was recorded as a failed integrity check on your masters.**
+  The guard that exists to tell "couldn't check" from "corrupt" keyed on the
+  binary failing to *launch* — but `flac` is reached through a host-exported
+  container wrapper, which launches fine and then exits 127 from inside the
+  container. So a broken install wrote `✗` against files nothing had tested. Both
+  shapes now abort the pass with a reason instead of blaming the audio.
+  (Reported by the cyanrip fork from our own evidence bundle.)
+
+- **An evidence bundle claimed it had flushed the report before it had.** The
+  stamp was composed five lines above the flush and asserted it, so a failed
+  flush produced an archive saying the report both was and was not written. The
+  outcome is now reported after the act.
+
 ## [0.6.52] — 2026-09-21
 
 ### Changed
