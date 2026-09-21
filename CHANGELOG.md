@@ -39,6 +39,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Fixed
 
+- **Uninstalling left a broken Platterpus entry in the applications menu.**
+  Installing refreshes the freedesktop and KDE menu caches; uninstalling never
+  did. The `.desktop` files went from disk, but KDE serves its menu from a cache,
+  so the launcher kept an entry pointing at an AppImage that was no longer there
+  — *"Launching Platterpus (Failed) — Could not find the program
+  '~/Applications/platterpus-x86_64.AppImage'"*, which reads as a broken install
+  rather than a finished uninstall. The uninstaller now rebuilds the caches it
+  invalidated, including after a failed or cancelled run (the shortcuts are
+  removed first, so the cache is already stale by the time anything else can go
+  wrong). A dry run still refreshes nothing, because it removed nothing.
+
+- **Dialogs that carried wrapped text but set no width sized themselves wrongly.**
+  A word-wrapped `QLabel` has a height-for-width policy, so with no width to wrap
+  to Qt takes one from whatever else is in the layout — usually a radio button or
+  checkbox, whose own label does *not* wrap. The dialog ended up as wide as its
+  longest unwrappable line and the paragraphs reflowed to that, which is what made
+  the cyanrip build picker look wrong. Eight of the twelve prose-carrying dialogs
+  already set a width; the remaining four now inherit a floor from the shared
+  dialog base, and a dialog that chooses its own size keeps it. (Real-user report:
+  *"window sizing is wrong."*)
+
 <<<<<<< HEAD
 - **Two setup wizards could run at once, and the second install failed.** On a
   machine with no cyanrip — every fresh install — the launch-time dependency

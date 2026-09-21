@@ -11,6 +11,61 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-21 (later still) — the uninstaller's phantom menu entry, and a sizing rule 8 of 12 dialogs followed
+
+**The maintainer asked what I was waiting on for the window sizing. Nothing.**
+They had said *"hold on window size"* while we were shipping a release — a
+scheduling instruction — and I carried it as "on hold per your instruction" for
+the rest of the session without ever asking whether to pick it up. A
+deprioritisation is not a blocker, and reporting it as one every turn made it
+look like one. Worth writing down because it cost nothing to fix and was
+invisible from my side.
+
+**The missing AppImage: a real defect found by inspection, not reproduced.**
+`appimage_integration.integrate()` refreshes the freedesktop and KDE menu caches
+on the way IN; `deps/host_teardown.py` had **no refresh at all** on the way out.
+The `.desktop` files go from disk, but KDE serves its menu from the `sycoca`
+cache, so the launcher keeps an entry pointing at an AppImage that is no longer
+there — which produces the reported screenshot exactly: *"Launching Platterpus
+(Failed) — Could not find the program '…/Applications/platterpus-x86_64.AppImage'"*.
+That reads as a broken **install**, so the obvious next move is to reinstall the
+thing you just removed.
+**Stated honestly: this is a confirmed defect that produces that symptom, not a
+reproduction of theirs.** Whether it is what happened to them depends on whether
+an uninstall ran, which I cannot know from here — and `host_teardown` is the only
+code in the tree that removes the AppImage at all, so if no uninstall ran, the
+cause is outside the app. The fix is right either way. Unconditional on the
+failure and cancel paths (shortcuts are removed *first*, so the cache is already
+stale by the time anything else can fail) and absent on a dry run, because a
+preview with a side effect on the user's menu is not a preview.
+
+**Window sizing was a convention 8 of 12 dialogs followed.** A `QLabel` with
+`setWordWrap(True)` has a height-for-width policy, so with no width to wrap to Qt
+takes one from whatever else is in the layout — usually a `QRadioButton`, whose
+label does *not* wrap. The dialog becomes as wide as its longest unwrappable line
+and the prose reflows to that. Eight dialogs set a width; four never had, and the
+sweep found that **one of the four was the Setup & Updates window I had written
+an hour earlier** — I introduced a fifth instance of the defect in the same
+session I was asked to fix it.
+Fixed once on `CenteredDialog` as a **floor**, not a fixed size, and only when
+the subclass has not chosen one: `CLAUDE.md`'s *"an explicit size is a size you
+own"* cuts both ways, and those four were not exercising Qt's default
+deliberately — they had simply never been sized. A source sweep now refuses a new
+one, with a `>= 8` examined floor so it cannot pass by matching nothing.
+
+**And the sweep's first version could be satisfied by the wrong thing.** It
+tested `"CenteredDialog" in text`, which an *import* satisfies — so a class
+declared `(QDialog)` in a file that merely mentions the base would have passed.
+Rewritten to ask what each class actually inherits. The repo's own question,
+asked of a check I had just written to enforce it.
+
+**Six revert probes, and two of them refused before they ran** — the formatter
+had reflowed the `if` I anchored on, so the edit could not land. That is the
+probe doing its job rather than a nuisance: a "passing" run against an edit that
+never applied is indistinguishable from a vacuous test, and it is one of the four
+measured ways to get one.
+
+
 ## 2026-09-21 (later) — round 22 closed at FIVE, and a finding of mine that never travelled
 
 **Their lap 5 arrived after we had closed the round at four**, released at

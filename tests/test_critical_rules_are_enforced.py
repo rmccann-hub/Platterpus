@@ -1288,7 +1288,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # heuristic is explicitly not meant to punish.
     "deps/ripper_wrapper_probe.py": 510,
     "deps/host_setup.py": 663,
-    "deps/host_teardown.py": 343,
+    # **343 -> 392 (2026-09-21).** The menu-cache rebuild the uninstaller never
+    # did, and the comment saying why it is unconditional on the failure path and
+    # absent on a dry run. Installing refreshed the caches and uninstalling did
+    # not, so the launcher kept an entry pointing at a deleted AppImage — a
+    # real-user screenshot. Most of the growth is that explanation, which is the
+    # part that stops somebody "simplifying" it back to a step or to always-on.
+    "deps/host_teardown.py": 392,
     "deps/ripper_manifest.py": 608,
     "deps/ripper_offer.py": 777,
     # +4 on 2026-09-04: one KNOWN_CODES entry (`ripper.secure_rerip_verdict`)
