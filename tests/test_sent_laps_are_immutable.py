@@ -92,6 +92,13 @@ SENT_LAPS: dict[str, str] = {
     # `-OBSERVED-HISTORY` records two of those intermediate readings, and the first
     # of them is what would have failed their filing had we not flagged it.
     "outbound/round-21-lap-04.md": "a0b1719db336dbcc74bd5ef4be24ee614ebb257619c14919bd0a52be274e88a6",
+    # Round 22 lap 2, confirmed held by their lap 3 at this sha256, 19,775 bytes,
+    # read at our `67aa051`. **The lap their §H1 is about** — it declared `yes` in
+    # its header and `HELD` in its §F, because `--announce` rewrites the declaration
+    # and not the prose. Frozen as sent, defect and all: a sent lap is a record of
+    # what was said, and correcting it here would erase the evidence for a finding
+    # we accepted. The tool now refuses that shape at release time instead.
+    "outbound/round-22-lap-02.md": "206be6e101abb47188e2567460c3afd65e80e7553122adad596dd9bb8d352906",
     # Round 16 lap 16. **The closing lap, peer-confirmed twice over.** Their lap 17
     # names it in both line 11 (`HANDSHAKE-PEER-VERDICT-SOURCE`) and line 25
     # (`HANDSHAKE-INBOUND-HELD`) at sha256/16 `18cd6588321002ac`, 14,032 bytes,

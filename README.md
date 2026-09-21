@@ -310,7 +310,7 @@ metaflac --version
 ```
 
 `cyanrip --version` should report
-`cyanrip 0.9.4-rc2+platterpus.12 (platterpus-fork-gfe4d2c4)`. The parenthetical is
+`cyanrip 0.9.4-rc2+platterpus.13 (platterpus-fork-g2cce60d)`. The parenthetical is
 the part that matters: it names the **fork**, which is the build Platterpus is
 verified against — and it is what `approved` versus `unapproved` in every rip
 report is keyed on.

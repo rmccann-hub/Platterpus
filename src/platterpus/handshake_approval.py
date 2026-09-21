@@ -106,7 +106,16 @@ from platterpus.deps import fork_source
 #: The pin is unchanged and **the test pin `3952c03` does NOT become a release** —
 #: the fork's §6a, stated in their closing lap, recorded here because a constant
 #: that moves on a close is exactly where a close could be misread as a promotion.
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.50"
+#: **Round 22 moves it to 0.6.51**, read from the peer's closing lap as the rule
+#: above requires: their round-22 lap 3 declares
+#: `HANDSHAKE-APP-VERSION: platterpus 0.6.51`, filed byte-exact at sha256
+#: `9931dc3c00f246ee…`. Round 22 approved a *new* pin (`fe4d2c4` -> `2cce60d`), so
+#: unlike rounds 18-20 this is a genuine move of the subject rather than a
+#: re-approval, and unlike round 21 the evidence is a parse measurement rather than
+#: a disc: their §0.3 per-track rename applied to the real `3952c03` log takes our
+#: track count from 14 to 0. Both sides recorded that the rename is still untested
+#: on real output, because no build emits it yet.
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.51"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -185,7 +194,7 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.50"
 #: is the first round where that was false. A constant that names *which bilateral
 #: GO the pin rests on* is the right place to record that the GO nearly rested on a
 #: session about a different binary.
-APPROVED_BY_ROUND: Final[int] = 21
+APPROVED_BY_ROUND: Final[int] = 22
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.

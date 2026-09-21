@@ -1417,9 +1417,19 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # commit. Passing the flag would stamp a claim we are not entitled to make into
     # an archival log, which their own comment says must never happen.
     #
+    # **IT FIRED A FOURTH TIME ON THE ROLL TO `2cce60d` (round 22 close,
+    # 2026-09-21), AND THE ANSWER AGAIN DID NOT CHANGE — derived from their tree,
+    # not carried over.** `git diff fe4d2c4 2cce60d -- meson_options.txt` in the
+    # fork's own checkout is **empty**, and the file at `2cce60d` is 973 bytes
+    # declaring exactly one option, `declare_released`, `value: false`, with the
+    # same *"a CLAIM, not a measurement"* / *"release path only"* comment. So the
+    # provenance reasoning below carries over unaltered — and it carries over
+    # because it was re-checked against `rmccann-hub/cyanrip`, which is public and
+    # cheap for us to read, not because the diff was assumed to be empty.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
-    assert fork_source.PRODUCTION_TARGET.pin == "fe4d2c4", (
+    assert fork_source.PRODUCTION_TARGET.pin == "2cce60d", (
         "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
         "whether we are entitled to any option it declares. Presence is not "
         "permission: `declare_released` is a claim about provenance, and a build "

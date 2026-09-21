@@ -48,6 +48,118 @@ def hs() -> ModuleType:
     return _load()
 
 
+def test_announce_refuses_a_lap_whose_BODY_still_says_it_is_held(
+    hs: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """REGRESSION (cyanrip fork, round 22 lap 3 §H1): released header, held body.
+
+    Our round-22 lap 2 declared ``HANDSHAKE-READY-TO-READ: yes`` on line 9 and, on
+    line 283 — its §F, **the section a reader opens to find out whether they may
+    read it** — still said *"This lap is HELD: HANDSHAKE-READY-TO-READ reads no"*.
+    Both gates read the field, so nothing mis-parsed; the exposure is the human,
+    and the half a human reads was the stale one.
+
+    **The cause is ``announce_lap`` itself**, which rewrites the declaration and
+    leaves the prose. So this is not a mistake a careful author avoids — it is a
+    thing the tool does to any lap that restates the field, which is why the check
+    belongs in the tool and at the moment of release, when one sentence can still
+    be fixed.
+    """
+    lap = tmp_path / "outbound" / "round-30-lap-02.md"
+    lap.parent.mkdir(parents=True)
+    lap.write_text(
+        "HANDSHAKE-READY-TO-READ: no — held\n"
+        "HANDSHAKE-ROUND: 30\n"
+        "\n---\n\n"
+        "## F. Where to read this\n\n"
+        "**This lap is HELD**: `HANDSHAKE-READY-TO-READ` reads `no` until our\n"
+        "operator announces it.\n",
+        encoding="utf-8",
+    )
+    before = lap.read_text(encoding="utf-8")
+
+    assert hs.announce_lap(lap) == 2, "a self-contradicting lap must not release"
+
+    err = capsys.readouterr().err
+    assert "declares itself HELD in its own body" in err
+    # Assert it quotes the SENTENCE, not that it reports a particular line number.
+    # The operator has to find and rewrite one sentence in a 20 KB document; a bare
+    # "this lap contradicts itself" would be a true message they cannot act on.
+    assert "This lap is HELD" in err, f"the offending sentence must be quoted: {err}"
+    assert "line " in err, f"and located: {err}"
+    assert lap.read_text(encoding="utf-8") == before, (
+        "a refused announce must change nothing — a partial release is worse than "
+        "none, because the declaration would then be the half that is wrong"
+    )
+
+
+def test_announce_releases_the_very_lap_that_REPORTS_the_held_body_defect(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The first version of this guard refused the lap that reports the defect.
+
+    **Found by running it, within the hour, on round-22 lap 4** — the lap whose
+    whole subject is the fork's §H1. It quotes lap 2's offending sentence three
+    times while explaining the fix, and every quotation read as a fresh claim, so
+    `--announce` refused a lap that asserts nothing of the kind.
+
+    That is ``CLAUDE.md``'s *"a declaration is what a file states, never what it
+    quotes … a format's own documentation is the likeliest place to trip its
+    parser"* — the rule this repo already holds for wire fields via
+    ``_strip_fences`` — arriving inside a parser written the same hour and not
+    applying it.
+
+    **The narrowness test above did not cover this**, because it covers discussing
+    OTHER laps; the uncovered case was a lap quoting ITSELF. Two different false
+    alarms, and only one had a test.
+    """
+    lap = tmp_path / "outbound" / "round-30-lap-06.md"
+    lap.parent.mkdir(parents=True)
+    lap.write_text(
+        "HANDSHAKE-READY-TO-READ: no — held\n"
+        "\n---\n\n"
+        "## Corrections\n\n"
+        'Our lap 2 said *"This lap is HELD"* in its §F while its header declared\n'
+        "`yes`, which is the defect you found. The offending text was\n"
+        "`HANDSHAKE-READY-TO-READ` reads `no` and it is corrected here.\n\n"
+        "> This lap is HELD: HANDSHAKE-READY-TO-READ reads no\n\n"
+        "```\n"
+        "**This lap is HELD**\n"
+        "```\n",
+        encoding="utf-8",
+    )
+
+    assert hs.announce_lap(lap) == 0, (
+        "a lap that QUOTES the defect it reports must still release — refusing it "
+        "makes the finding unreportable, which is worse than the finding"
+    )
+    assert hs.ready_to_read(lap.read_text(encoding="utf-8")) is True
+
+
+def test_announce_still_releases_a_lap_that_only_DISCUSSES_held_laps(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The narrowing has to be narrow, or it gets switched off rather than obeyed.
+
+    A lap legitimately talks about held laps — its own ``-OBSERVED`` cell, the
+    peer's drafts, the rule itself. A check that fired on the word "held" would
+    refuse almost every lap we write, and a gate that cries wolf is removed. This
+    pins that the refusal keys on a claim about **this** lap's own state.
+    """
+    lap = tmp_path / "outbound" / "round-30-lap-04.md"
+    lap.parent.mkdir(parents=True)
+    lap.write_text(
+        "HANDSHAKE-READY-TO-READ: no — held\n"
+        "HANDSHAKE-INBOUND-OBSERVED: none — we hold no unreleased lap of yours.\n"
+        "\n---\n\n"
+        "We observed your held lap 4 before release and recorded its digest.\n",
+        encoding="utf-8",
+    )
+
+    assert hs.announce_lap(lap) == 0
+    assert hs.ready_to_read(lap.read_text(encoding="utf-8")) is True
+
+
 def _closing(**overrides: str | None) -> str:
     """A complete §5 closing header. ``None`` omits a field.
 
@@ -3689,3 +3801,107 @@ def test_a_laps_number_is_read_from_its_declaration_not_its_filename() -> None:
     # No declaration (the pre-header rounds) falls back to the name, then to lap 1.
     assert hs._declared_lap(Path("round-20-lap-09.md"), {}, 20) == 9
     assert hs._declared_lap(Path("notes.md"), {}, 20) == hs.DEFAULT_LAP
+
+
+# ---------------------------------------------------------------------------
+# A STALE PEER TRANSCRIPTION MUST NOT HOLD A CLOSED ROUND OPEN.
+#
+# `HANDSHAKE-PEER-VERDICT` is the author transcribing what the OTHER side had
+# declared when they wrote. On a round's final lap somebody speaks last, and the
+# side that spoke FIRST can only ever have transcribed `OPEN` — the closing
+# verdict did not exist yet. Requiring that transcription to read `GO` therefore
+# made the gate satisfiable only by rounds the PEER closes.
+#
+# Round 22 is the first round we closed. Their lap 3 declared `GO` with a
+# pre-commit — *"if your lap declares GO this round closes at four"* — so no lap
+# 5 of theirs exists to record our GO, and `--status` printed its own
+# contradiction: `we-verified=yes (GO) they-verified=yes (GO)  -> OPEN`, with
+# `--release-gate` refusing every future release off the back of it.
+#
+# The tests below pin the discharge AND its two limits, because a discharge with
+# no limit is just a deleted check.
+# ---------------------------------------------------------------------------
+
+
+def _pair(tmp_path: Path, *, our_lap: int, their_lap: int, their_peer: str) -> None:
+    """Lay down one round as two closing files, ours and theirs.
+
+    Round 9 deliberately: it predates the release-state field, so these fixtures
+    exercise the verdict logic without also having to satisfy
+    `HANDSHAKE-READY-TO-READ` — which is a different gate with its own tests.
+    """
+    for name in ("outbound", "inbound", "verified"):
+        (tmp_path / name).mkdir(exist_ok=True)
+    (tmp_path / "inbound" / f"round-09-lap-{their_lap:02d}.md").write_text(
+        _closing(
+            **{
+                "HANDSHAKE-FROM": "cyanrip-fork",
+                "HANDSHAKE-LAP": str(their_lap),
+                "HANDSHAKE-PEER-VERDICT": their_peer,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "outbound" / f"round-09-lap-{our_lap:02d}.md").write_text(
+        _closing(**{"HANDSHAKE-LAP": str(our_lap)}),
+        encoding="utf-8",
+    )
+
+
+def test_a_round_closes_when_WE_speak_last_and_they_transcribed_OPEN(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The round-22 shape: their lap 3 GO, our lap 4 GO, their copy of us stale."""
+    _pair(tmp_path, our_lap=4, their_lap=3, their_peer="OPEN")
+    line = hs.round_status(tmp_path)[0]
+    assert line.endswith("CLOSED"), line
+
+
+def test_a_transcribed_peer_HOLD_still_blocks_the_close(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """`HOLD` is an OBJECTION, not silence, and the discharge must not reach it.
+
+    This is the case the original check was written for, and the one a careless
+    widening would have taken with it: "they did not object" is never "they
+    agreed".
+    """
+    _pair(tmp_path, our_lap=4, their_lap=3, their_peer="HOLD")
+    line = hs.round_status(tmp_path)[0]
+    assert line.endswith("OPEN"), line
+
+
+def test_an_OPEN_transcription_is_NOT_discharged_when_our_GO_came_FIRST(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """Staleness is what excuses the `OPEN`, and staleness needs the ordering.
+
+    If our verdict predates their file and they *still* wrote `OPEN`, the two
+    sides disagree about what we said. That is a real discrepancy, not a
+    transcription lag, and dropping the ordering condition would have silently
+    accepted it.
+    """
+    _pair(tmp_path, our_lap=2, their_lap=3, their_peer="OPEN")
+    line = hs.round_status(tmp_path)[0]
+    assert line.endswith("OPEN"), line
+
+
+def test_close_blockers_reports_the_not_yet_spoken_case_as_its_own_blocker(
+    hs: ModuleType,
+) -> None:
+    """Per-file, an `OPEN` transcription is still a blocker — just a NAMED one.
+
+    The round-level caller is the only one holding the evidence that discharges
+    it (our own first-hand verdict plus the lap ordering), so the per-file check
+    must keep reporting it rather than guessing at a round-level fact.
+    """
+    text = _closing(**{"HANDSHAKE-PEER-VERDICT": "OPEN"})
+    blockers = hs.close_blockers(text, round_hint=9)
+    assert hs.PEER_VERDICT_NOT_YET_SPOKEN in blockers, blockers
+    # And it is distinguishable from the objection case, which is the whole point
+    # of naming it: matching on "peer verdict" alone would catch both.
+    hold = hs.close_blockers(
+        _closing(**{"HANDSHAKE-PEER-VERDICT": "HOLD"}), round_hint=9
+    )
+    assert hs.PEER_VERDICT_NOT_YET_SPOKEN not in hold, hold
+    assert hold, "a transcribed HOLD must still block"

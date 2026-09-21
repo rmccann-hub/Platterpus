@@ -173,7 +173,14 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: because last time *we* were ahead of them and this time they were ahead of us.
 #: A closed round whose pin has not rolled is not a neutral state; it is a window in
 #: which the approved build is stamped as unapproved.
-FORK_PIN: Final[str] = "fe4d2c4"
+#: **Rolled to `2cce60d` on round 22's close (2026-09-21).** Lap 4 named this as
+#: the post-close step in its own `HANDSHAKE-PIN-POLICY` — *"`FORK_PIN` on our side
+#: moves to `2cce60d` when this round closes and not before — that is the act a
+#: close authorises, and it is separate from the close itself."* The roll is not
+#: optional once the round closes: the comment above describes the window it would
+#: otherwise open, where the approved build is stamped `unapproved` in every report,
+#: log and EAC export we write.
+FORK_PIN: Final[str] = "2cce60d"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -391,7 +398,7 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: and named `round-17-lap-03.md` as the lap that declares the pairing. Read off
 #: their closing lap's `HANDSHAKE-RIPPER-VERSION`, not typed from the version we
 #: expected to see.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.12"
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.13"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -1321,14 +1328,16 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 17 approved, GO on both sides, and published by the fork "
-        f"to BOTH channels in the same round (cyanrip {FORK_EXPECTED_VERSION}, "
-        "release_seq 22). Its evidence is round 16's Run A on hardware — all three "
-        "close conditions settled, 0 FAIL and 0 UNPROBED, including -H with "
-        "de-emphasis on a drive for the first time — taken on this program minus "
-        "one src/ commit (12f2081, a repeated--j fix that cannot fire for a caller "
-        "passing -j once, which is ours). See docs/handshake/inbound/"
-        "round-17-lap-03.md"
+        "the build round 22 approved, GO on both sides, and published by the fork "
+        f"to BOTH channels (cyanrip {FORK_EXPECTED_VERSION}, release_seq 23 — read "
+        "from their live release-manifest.json, and the version cross-checked "
+        "against meson.build at the pin itself rather than taken from the lap). "
+        "Round 22's evidence is a PARSE measurement rather than a disc: their "
+        "proposed per-track log rename, applied to the real 3952c03 log, takes our "
+        "track count from 14 to 0 while the report still says 14 tracks and 'No "
+        "errors occurred'. Both sides recorded that the rename is still untested on "
+        "real output, because no build emits it yet. See docs/handshake/inbound/"
+        "round-22-lap-03.md"
     ),
 )
 
