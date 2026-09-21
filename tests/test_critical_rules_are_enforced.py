@@ -1269,7 +1269,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # those edits had landed** -- the file's own *is the population I measured
     # closed?* rule, arriving in the commit that raises its ratchet. The gate
     # refused it, which is what a ratchet is for.
-    "deps/fork_source.py": 2124,
+    # **2124 -> 2133 (round 22 close, 2026-09-21).** The post-close pin roll:
+    # `FORK_PIN` to `2cce60d`, `FORK_EXPECTED_VERSION` to `0.9.4-rc2+platterpus.13`,
+    # and `PRODUCTION_TARGET.why` rewritten to describe round 22's evidence rather
+    # than round 17's. Every line is prose recording WHY the constant holds what it
+    # holds -- which is the same reason this file is oversized and the same reason
+    # the queued refactor keeps not happening in a round-close commit: the roll is
+    # when the file is being read. Re-measured AFTER the last edit landed, which is
+    # the correction the entry above records having got wrong once.
+    "deps/fork_source.py": 2133,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1401,7 +1409,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # place to record that the GO nearly rested on a session about a different
     # binary. The queued refactor still stands and this is still not the commit for
     # it: a round close is when the file is being read, not when it should move.
-    "handshake_approval.py": 610,
+    # **610 -> 619 (round 22 close, 2026-09-21).** `APPROVED_BY_ROUND` 21 -> 22 and
+    # `APPROVED_FOR_PLATTERPUS_VERSION` 0.6.50 -> 0.6.51, with the paragraph saying
+    # where each came from: the app version is read from the PEER's closing lap,
+    # and round 22 is the first approval in four rounds to move the pin rather than
+    # re-approve it. Same judgement as the entry above -- a round close is when this
+    # file is read, not when it should be split.
+    "handshake_approval.py": 619,
     "help_content.py": 561,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because

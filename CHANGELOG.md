@@ -11,7 +11,46 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+
+- **The approved cyanrip build rolls to `2cce60d` (`0.9.4-rc2+platterpus.13`)**
+  on round 22's close — the post-close step the round authorises. The setup
+  wizard and the in-app ripper check now offer that build, and every rip
+  verifies against it. Both facts were derived from the fork's own tree rather
+  than taken from the handshake lap: `meson.build` at the pin declares the
+  version, and their live `release-manifest.json` resolves both channels to it
+  at `release_seq` 23. The build still configures with **no** `-D` options —
+  `meson_options.txt` is byte-identical to the previous pin's, and
+  `declare_released` remains a provenance claim we are not entitled to make
+  about a binary compiled on the operator's own machine.
+
 ### Fixed
+
+- **The handshake release gate could not close a round Platterpus closes, and
+  would have blocked every future release.** A round's closing file transcribes
+  the peer's verdict as it stood when that file was written — so whichever side
+  speaks *last*, the other side's file necessarily says `OPEN`. The gate treated
+  that `OPEN` as an objection, identical to a `HOLD`, which made it satisfiable
+  only by rounds the fork closes. It went unseen for three rounds because the
+  fork did write last in all three. Round 22 is the first we closed, on their
+  explicit pre-commit that no further lap of theirs would follow — and the gate
+  printed its own contradiction, `we-verified=yes (GO) they-verified=yes (GO) ->
+  OPEN`, refusing the release permanently. `OPEN` (the peer had not yet declared)
+  is now distinguished from `HOLD` (the peer objected); a stale transcription is
+  discharged only when our own verdict is `GO` **and** our closing lap came after
+  theirs, so a genuine disagreement about what we said still blocks.
+
+- **`handshake.py --announce` no longer releases a lap whose body still says it
+  is held.** The command rewrites the `HANDSHAKE-READY-TO-READ` declaration in
+  the header and left the prose alone, so a lap could go out declaring `yes` at
+  column 0 while a section below it read "This lap is HELD" — which is exactly
+  the contradiction the declaration exists to remove, and the peer found it in
+  our round-22 lap 2 rather than a gate of ours. `--announce` now refuses such a
+  file and names the offending line. The scan covers the body only (the
+  declaration line it is there to rewrite is not a body claim) and ignores
+  fenced blocks and quoted spans, because a lap that *quotes* the defect is
+  reporting it, not committing it — the repo's existing rule that a declaration
+  is what a file states, never what it quotes.
 
 - **"Add Platterpus to your applications menu?" comes back after an update.**
   Answering No once silenced it permanently: the decision was remembered against

@@ -1104,6 +1104,19 @@ AFFIRMATIVE: str = "GO"
 #: unrecognised value is not agreement and not an error to skip past.
 VERDICT_VOCABULARY: frozenset[str] = frozenset({"OPEN", "HOLD", "GO"})
 
+#: The verdict token meaning **"the other side had not declared when I wrote this"**.
+#: Distinct from ``HOLD``, which means "they declared, and they objected". The
+#: difference decides whether a transcribed peer verdict blocks a close — see
+#: :func:`close_blockers`.
+NOT_YET_SPOKEN: Final[str] = "OPEN"
+
+#: The blocker :func:`close_blockers` returns for a file transcribing the peer's
+#: verdict as ``OPEN``. Named, not formatted, so the round-level caller can
+#: recognise and discharge exactly this one without pattern-matching on prose.
+PEER_VERDICT_NOT_YET_SPOKEN: Final[str] = (
+    "peer verdict is 'OPEN' — the peer had not declared when this file was written"
+)
+
 #: The fields every file must declare, either side (§3).
 REQUIRED_WIRE_FIELDS: tuple[str, ...] = (
     "HANDSHAKE-PROTOCOL",
@@ -1489,6 +1502,35 @@ def is_released_for_reading(text: str, *, round_hint: int | None = None) -> bool
     return number < READY_TO_READ_REQUIRED_FROM_ROUND
 
 
+#: Prose that asserts a lap is HELD. Matched on the BODY at release time, because
+#: `--announce` rewrites the declaration and cannot rewrite a sentence about it.
+#:
+#: Deliberately narrow: it looks for a claim ABOUT THE FIELD or a bolded "this lap
+#: is HELD", not for the word "held" anywhere — a lap legitimately discusses held
+#: laps (its own `-OBSERVED` cell, the peer's drafts), and a pattern that fired on
+#: those would be refused wholesale rather than obeyed.
+_BODY_CLAIMS_HELD: re.Pattern[str] = re.compile(
+    r"(?:this lap is\s+\**HELD)"
+    r"|(?:HANDSHAKE-READY-TO-READ`?\s+reads\s+`?no)"
+    r"|(?:`?HANDSHAKE-READY-TO-READ`?:\s*no\b(?!\s*—\s*not))",
+    re.IGNORECASE,
+)
+
+
+def _without_quoted_spans(line: str) -> str:
+    """``line`` with quoted material removed, so a REPORT is not read as a CLAIM.
+
+    Backticked code, ``*"…"*`` emphasis-quotes and a leading ``>`` blockquote are
+    how this correspondence cites the other side — and how a lap cites its own
+    earlier wording when reporting a defect in it. Matching inside them makes the
+    lap that explains a problem indistinguishable from the lap that has it.
+    """
+    if line.lstrip().startswith(">"):
+        return ""
+    without_code = re.sub(r"`[^`]*`", " ", line)
+    return re.sub(r'\*"[^"]*"\*|"[^"]*"', " ", without_code)
+
+
 def announce_lap(path: Path, *, on: str | None = None) -> int:
     """Flip one lap to released. **Only ever on the operator's instruction.**
 
@@ -1537,6 +1579,68 @@ def announce_lap(path: Path, *, on: str | None = None) -> int:
         sys.stderr.write(
             f"{path.name} is already released. Re-announcing would restamp the date "
             "and rewrite when we stood behind it.\n"
+        )
+        return 2
+
+    # REFUSE A LAP WHOSE BODY STILL SAYS IT IS HELD, and refuse at the moment of
+    # release, which is the one moment the prose can still be fixed.
+    #
+    # **The fork found this in our round-22 lap 2 (their §H1).** Line 9 declared
+    # `yes`; line 283 — our §F, the section a reader opens *to find out whether they
+    # may read it* — still read *"This lap is HELD: HANDSHAKE-READY-TO-READ reads
+    # `no`"*. The field is authoritative and both gates read the field, so nothing
+    # mis-parsed. **The exposure is the human**, and the half a human reads was the
+    # stale one.
+    #
+    # The cause is this function: it rewrites the DECLARATION and leaves the PROSE,
+    # so an automated release necessarily leaves any lap that restates the field
+    # asserting both states at once. That is not a mistake a careful author avoids —
+    # it is a thing the tool does, so the tool is where it gets caught. Fail closed:
+    # the operator fixes one sentence and re-runs, rather than discovering it in a
+    # peer's lap.
+    # **Scanned from the BODY only, and the first version of this check did not
+    # do that** — it flagged the declaration line `HANDSHAKE-READY-TO-READ: no`,
+    # which is the one line `--announce` exists to rewrite. A guard that refuses
+    # every held lap refuses every announce, which is the check being satisfied by
+    # its own subject rather than by the defect.
+    # **A CLAIM IS WHAT A FILE STATES, NEVER WHAT IT QUOTES** — the rule this
+    # project already holds for wire fields (`_strip_fences`), applied to prose.
+    #
+    # The first version of this check had no such exclusion and **refused the very
+    # lap that reports the defect**: round 22 lap 4 quotes lap 2's offending
+    # sentence three times while explaining the fix, and every quotation looked
+    # like a claim. That is `CLAUDE.md`'s *"a format's own documentation is the
+    # likeliest place to trip its parser"*, arriving inside the parser written that
+    # hour — and it is the false-alarm case the narrowness test was supposed to
+    # cover and did not, because that test only covered discussing OTHER laps.
+    #
+    # So: fences out, then markdown-quoted spans out. A sentence inside `*"…"*`,
+    # inside backticks, or on a `>` blockquote line is being reported, not asserted.
+    body_text = _strip_fences(text)
+    all_lines = body_text.splitlines()
+    body_starts_at = next(
+        (i + 1 for i, line in enumerate(all_lines) if line.rstrip() == "---"),
+        0,  # no separator: treat the whole file as body rather than skipping it
+    )
+    stale = [
+        (number, line.strip())
+        for number, line in enumerate(
+            all_lines[body_starts_at:], start=body_starts_at + 1
+        )
+        if _BODY_CLAIMS_HELD.search(_without_quoted_spans(line))
+    ]
+    if stale:
+        sys.stderr.write(
+            f"{path.name} declares itself HELD in its own body, so releasing it "
+            "would leave the document asserting both states — and the half a human "
+            "reads is the one that would be wrong:\n"
+        )
+        for number, line in stale:
+            sys.stderr.write(f"  line {number}: {line[:100]}\n")
+        sys.stderr.write(
+            "Rewrite those sentences to CITE the HANDSHAKE-READY-TO-READ field "
+            "rather than restate its value, then re-run --announce. Nothing was "
+            "announced.\n"
         )
         return 2
 
@@ -1659,7 +1763,38 @@ def close_blockers(text: str, round_hint: int | None = None) -> list[str]:
     if peer is not None and peer != AMBIGUOUS and peer.split()[:1] != [AFFIRMATIVE]:
         # "They did not object" is never "they agreed" — and the peer verdict is
         # TRANSCRIBED, not judged, so a peer HOLD written down honestly must block.
-        blockers.append(f"peer verdict is {peer!r}, not GO (§5)")
+        #
+        # **BUT `OPEN` IS NOT AN OBJECTION, AND TREATING IT AS ONE MADE A CORRECTLY
+        # CLOSED ROUND IMPOSSIBLE TO CLOSE.** `HANDSHAKE-PEER-VERDICT` is this
+        # file's author transcribing what the OTHER side had declared *at the moment
+        # they wrote*. On the last lap of a round, one side necessarily speaks last
+        # — and the side that speaks first can only ever transcribe `OPEN`, because
+        # the closing verdict does not exist yet. So this check could be satisfied
+        # only by a round in which the PEER writes the final lap.
+        #
+        # Invisible for three rounds because the peer did write last in every one of
+        # them (19, 20, 21 all carry `HANDSHAKE-PEER-VERDICT: GO` in their newest
+        # inbound file). Round 22 is the first where we close: their lap 3 declared
+        # GO with a **pre-commit** — *"if your lap declares GO this round closes at
+        # four"* — so by design there is no lap 5 of theirs to record our GO, and
+        # their honest `OPEN` would have held the round open permanently. The gate
+        # printed its own contradiction: `we-verified=yes (GO) they-verified=yes
+        # (GO)  -> OPEN`.
+        #
+        # The pre-commit is the mechanism this project ADOPTED to make rounds
+        # terminate (CLAUDE.md Critical rule #12, round 7's convergence proposal —
+        # *"the one that actually ends rounds"*). A close gate that no pre-commit
+        # close can satisfy defeats the only mechanism that ends rounds.
+        #
+        # Returned as a DISTINCT, named blocker rather than silently dropped: it is
+        # a real blocker on this file alone, and only the round-level caller holds
+        # the evidence that discharges it (our own first-hand verdict, and the lap
+        # ordering that makes the transcription stale rather than wrong). A
+        # per-file check must not guess at a round-level fact.
+        if peer.split()[:1] == [NOT_YET_SPOKEN]:
+            blockers.append(PEER_VERDICT_NOT_YET_SPOKEN)
+        else:
+            blockers.append(f"peer verdict is {peer!r}, not GO (§5)")
     # A TEST PIN IS NOT A PIN AGREEMENT (§6a, row C18). A test pin may accompany a
     # valid close — that is the normal sequence, since the evidence a close cites
     # was gathered on it — but it must never *substitute* for `HANDSHAKE-PIN`. The
@@ -2341,6 +2476,36 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
                 their_blockers = close_blockers(
                     back[-1].read_text(encoding="utf-8"), round_hint=num
                 )
+        # DISCHARGE A STALE PEER TRANSCRIPTION — the ONE blocker that a correct
+        # round can be unable to clear. See `close_blockers` for why `OPEN` is not
+        # an objection. Two conditions, both required, and each one is the reason
+        # the other is not enough on its own:
+        #
+        #   * **Our own verdict is GO** — read first-hand from our own newest file,
+        #     not from their copy of it. A stale mirror must never outrank the
+        #     original it is a mirror of; that is the whole defect.
+        #   * **Our closing lap came AFTER theirs.** This is what makes their
+        #     `OPEN` *stale* rather than *wrong*. If our GO predated their file and
+        #     they still transcribed `OPEN`, the two sides disagree about what we
+        #     said — a real discrepancy, and it must still block.
+        #
+        # Laps are read from `HANDSHAKE-LAP` via `_lap_of`, header-first, so this
+        # cannot be steered by a filename. An undeterminable lap on either side
+        # leaves the blocker standing: the discharge needs positive evidence of the
+        # ordering, and "I could not tell" is not that. Fail-closed, as everywhere
+        # else in this gate.
+        our_lap = _lap_of(ours[-1]) if ours else None
+        their_lap = _lap_of(back[-1]) if back else None
+        if (
+            PEER_VERDICT_NOT_YET_SPOKEN in their_blockers
+            and verdict == AFFIRMATIVE
+            and our_lap not in (None, AMBIGUOUS_LAP)
+            and their_lap not in (None, AMBIGUOUS_LAP)
+            and our_lap > their_lap  # type: ignore[operator]  # both are ints here
+        ):
+            their_blockers = [
+                b for b in their_blockers if b != PEER_VERDICT_NOT_YET_SPOKEN
+            ]
         both_go = (
             verdict == "GO"
             and theirs == "GO"
