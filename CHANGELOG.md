@@ -13,6 +13,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Changed
 
+<<<<<<< HEAD
 - **Setup, dependencies and both update checks are now one window** —
   **Tools → Setup & Updates…**. It replaces six menu items spread across two
   menus (*Set up Platterpus…*, *Add app shortcut*, *Set up drive…* in Tools;
@@ -23,6 +24,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   a menu path is an exact string to the person following it. Reported by a real
   user: *"we dont need 20 menues when 5 will do."*
 
+=======
+>>>>>>> origin/main
 - **The approved cyanrip build rolls to `2cce60d` (`0.9.4-rc2+platterpus.13`)**
   on round 22's close — the post-close step the round authorises. The setup
   wizard and the in-app ripper check now offer that build, and every rip
@@ -36,6 +39,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Fixed
 
+<<<<<<< HEAD
 - **Two setup wizards could run at once, and the second install failed.** On a
   machine with no cyanrip — every fresh install — the launch-time dependency
   probe runs off-thread while the first-run *"Set up Platterpus?"* question opens
@@ -50,6 +54,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   dialog has the floor **waits** — bounded, and saying so in the log — rather
   than stacking or being dropped.
 
+=======
+>>>>>>> origin/main
 - **The handshake release gate could not close a round Platterpus closes, and
   would have blocked every future release.** A round's closing file transcribes
   the peer's verdict as it stood when that file was written — so whichever side
