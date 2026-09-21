@@ -2868,6 +2868,69 @@ the mirror is theirs to check — we report the **shape** with our citation and 
 not assert a mechanism in their code.
 
 
+### §5.bm — I piped the command whose output was the work list
+
+*2026-09-21, found while cutting v0.6.52 — in the file the release was editing.*
+
+**Two `<<<<<<< HEAD` blocks were committed into `CHANGELOG.md` and shipped to
+`main`**, through nine green CI jobs and a squash merge (#235). They were found
+only because the next release touched the same file.
+
+**Why no gate caught it.** `lint` is `ruff`, which does not read Markdown. The
+`changelog` job checks that `[Unreleased]` is empty and the tag's section exists
+and is non-empty — both **true** of a file with conflict markers in it. Nine
+jobs, and the failure sat in the gap between what two of them looked at.
+
+**Why I did not catch it, which is the part worth keeping.** The merge ran as:
+
+```
+git merge origin/main 2>&1 | tail -6
+```
+
+**The output of that command IS the list of files needing resolution.** Two
+conflicts appeared in the visible tail and I resolved them; `CHANGELOG.md` was
+above the cut. The verification I then ran was:
+
+```
+grep -n "^<<<<<<<" docs/session-log.md tests/test_critical_rules_are_enforced.py
+```
+
+— the two files I already knew about. So the check's population was the answer it
+was checking, and it confirmed exactly the subset it started from. `git status`
+would have said `UU CHANGELOG.md`; I never asked it.
+
+**This is the repo's own rule arriving through the tooling rather than the
+product.** *"A silent truncation reads as completeness"* is written down three
+times here, each about a capture path in the application — the ripper's output,
+the cancel-path read loop, the diagnostic bundle. It had never been written down
+about **the commands I drive the repo with**, and that is where it bit.
+
+Three things to carry:
+
+* **Never pipe a command whose output is a work list.** `tail`, `head` and
+  `| head -N` on `git merge`, `git status`, a test summary or a linter are the
+  shape: the elided part is not noise, it is the rest of the job. The same
+  reasoning `scripts/check.py` exists for — *"a command that never needs a pipe,
+  rather than a rule to remember while typing one"* — applies to git.
+* **Verify over the population, not over the findings.** Grepping the files you
+  already know about cannot discover one you missed. Ask the tool that knows the
+  whole set (`git status`, or a sweep over the tree).
+* **A marker is unambiguous, costs nothing to detect, and needs no judgement** —
+  which makes a person the worst available check for it.
+
+**The gate** is `tests/test_critical_rules_are_enforced.py::
+test_no_file_carries_an_unresolved_conflict_marker`: every text file in the tree,
+anchored at column 0 and requiring the label git writes, so prose *about* markers
+(including that test) does not trip it, with a `>= 300` examined floor so it
+cannot pass by finding nothing. Proved by reintroducing the exact bytes that
+shipped — it reports `CHANGELOG.md:18`, the line the real one was on.
+
+**And the restore was the dangerous half, as §5's own entry on `revert_probe`
+says.** `CHANGELOG.md` held an uncommitted version bump at that moment, so
+`git checkout --` would have restored it to HEAD and destroyed the release. Copied
+aside, restored from the copy, verified by hash.
+
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is
