@@ -189,6 +189,29 @@ def _desktop_contents(appimage: Path, icon: str) -> str:
         f"Exec={_quote_exec_path(appimage)} %U\n"
         f"Icon={icon}\n"
         "Terminal=false\n"
+        # WHAT MAKES THE TASKBAR ICON THE SAME ICON. Without this line a Plasma
+        # panel launcher and the running window are two unrelated things: the
+        # pinned entry never lights up, a second task button appears beside it,
+        # and clicking the pin starts a SECOND copy instead of raising the one
+        # already open. Reported by the maintainer, 2026-09-22, as "should there
+        # be a difference between the desktop icon and the taskbar icon".
+        #
+        # The value is MEASURED, not guessed, and it is not the one the docs
+        # imply. Qt 6.11.2 on xcb reports `WM_CLASS(STRING) = "__main__.py",
+        # "platterpus"` — res_name is argv[0]'s basename (the AppImage runs
+        # `python -m platterpus`, hence `__main__.py`) and res_class is
+        # `QCoreApplication::applicationName()`. So the stable half is APP_NAME,
+        # which is why this interpolates it rather than DESKTOP_ID: the file is
+        # named for the app-id, and the window is not.
+        #
+        # `QGuiApplication::setDesktopFileName()` is the API that is *supposed*
+        # to cover this and DOES NOT here — measured the same way, both values
+        # unchanged with it set. It is still called in `app.py` because it is
+        # what native Wayland and D-Bus activation read, and we force XWayland
+        # today only to dodge a Plasma 6 repaint bug. Do not delete this line on
+        # the strength of that call; they fix different surfaces, and
+        # `tests/test_appimage_integration.py` holds the two to one key.
+        f"StartupWMClass={APP_NAME}\n"
         "Categories=AudioVideo;Audio;\n"
         "Keywords=cd;rip;flac;cyanrip;audio;\n"
     )
