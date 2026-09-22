@@ -40,8 +40,10 @@ from typing import Final
 import pytest
 
 from platterpus.config import Config
+from platterpus.goal_presets import GOAL_CUSTOM, apply_preset
 from platterpus.uiscript import script as uiscript
 from platterpus.uiscript import verbs
+from platterpus.uiscript.runner import _coerce_setting
 
 #: The scripts themselves, INSIDE the package so the running program can open
 #: them (`platterpus.test_session.builtin_acceptance_script`).
@@ -2866,3 +2868,114 @@ def test_the_pin_role_label_and_the_clause_beside_it_never_disagree() -> None:
         # exactly what shipped.
         denies = "no build under review" in clause
         assert denies is not (expected == "under review"), (label, clause)
+
+
+# --- the acceptance run leaves the rig on the shipped defaults -------------
+
+
+#: The two fields section Q deliberately does NOT return to the default, with
+#: the reason. `read_offset` is the drive's true calibration (+667 on the rig,
+#: triple-sourced -- see the script's own section B comment) and resetting it to
+#: the shipped 0 would be the misconfiguration, not the restore. Its override
+#: flag travels with it for the same reason: the number is inert alone.
+_DELIBERATELY_NOT_RESTORED: dict[str, str] = {
+    "read_offset": "the rig's true drive calibration; 0 would be the wrong value",
+    "override_read_offset": "travels with read_offset — the number is inert alone",
+}
+
+
+def _simulate(script_text: str) -> Config:
+    """Replay every `set` in the script against a real Config.
+
+    Uses the REAL `apply_preset`, never a restatement of it, for the same reason
+    `runner._do_set` does: `rip_goal` is not a setting, it is a name for eight of
+    them, and a test that treated it as one field would miss exactly the changes
+    that reach a rip.
+    """
+    config = Config()
+    for raw in script_text.splitlines():
+        parts = raw.strip().split()
+        if len(parts) < 3 or parts[0] != "set":
+            continue
+        field, value = parts[1], " ".join(parts[2:])
+        if not hasattr(config, field):  # pragma: no cover - a typo'd field
+            raise AssertionError(f"script sets unknown field {field!r}")
+        coerced, problem = _coerce_setting(getattr(config, field), value)
+        assert not problem, f"{field}: {problem}"
+        config = dataclasses.replace(config, **{field: coerced})
+        if field == "rip_goal" and coerced != GOAL_CUSTOM:
+            config = apply_preset(config, str(coerced))
+    return config
+
+
+def test_acceptance_run_ends_on_the_shipped_defaults() -> None:
+    """Section Q's promise, derived rather than read.
+
+    The section used to be headed *"restoring what this run changed"* and two
+    fields had fallen out of it — `max_retries` (set to 3 in section B) and
+    `ripper_channel` (switched to beta in section B), both left that way. Nobody
+    reviews a list for what is *not* on it, which is why this is a sweep and not
+    a longer comment.
+
+    The simulation expands `rip_goal` through the real preset because that one
+    verb writes several fields. **That expansion is fidelity, not detection, and
+    this docstring said otherwise until a revert probe refuted it**: removing the
+    expansion leaves this assertion green, because the script's last goal is
+    `fast_verified`, whose values *are* the shipped defaults — so the end state is
+    identical either way. The expansion is pinned by
+    :func:`test_the_simulation_expands_goal_presets` instead. Recorded rather
+    than quietly corrected, because a confident comment on an assertion that
+    cannot fail is the thing this repo keeps finding.
+    """
+    script = (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8")
+    ended = _simulate(script)
+    defaults = Config()
+
+    # Non-triviality floor: a simulation that applied nothing would trivially
+    # equal the defaults and this test would pass having measured nothing.
+    assert ended != defaults or _DELIBERATELY_NOT_RESTORED == {}, (
+        "the simulation changed nothing at all — it is not reading the script"
+    )
+
+    drifted = {
+        f.name: (getattr(defaults, f.name), getattr(ended, f.name))
+        for f in dataclasses.fields(Config)
+        if getattr(defaults, f.name) != getattr(ended, f.name)
+    }
+    unexplained = {
+        k: v for k, v in drifted.items() if k not in _DELIBERATELY_NOT_RESTORED
+    }
+    assert not unexplained, (
+        "the acceptance run leaves these settings off their shipped default and "
+        "section Q does not put them back: "
+        + "; ".join(f"{k}: {d!r} -> {e!r}" for k, (d, e) in sorted(unexplained.items()))
+        + ". Either restore it in section Q or add it to "
+        "_DELIBERATELY_NOT_RESTORED with the reason."
+    )
+    # And the converse, so the allowlist cannot outlive its subject: every
+    # entry must actually still be an exception.
+    stale = sorted(set(_DELIBERATELY_NOT_RESTORED) - set(drifted))
+    assert not stale, (
+        f"_DELIBERATELY_NOT_RESTORED lists settings that no longer drift: {stale}"
+    )
+
+
+def test_the_simulation_expands_goal_presets() -> None:
+    """`_simulate` must treat `rip_goal` as the preset it is, not as one field.
+
+    Split out because the end-state sweep above cannot see this: its final goal
+    is `fast_verified`, which equals the defaults, so a simulation that ignored
+    presets entirely would agree with one that honours them. This asserts on a
+    goal whose preset genuinely moves other fields, which is where a stand-in
+    that is simpler than the product would show up.
+    """
+    expanded = _simulate("set rip_goal archival")
+    assert expanded.rip_goal == "archival"
+    # Two fields the preset writes that a field-only `set` would leave alone.
+    assert expanded.secure_rerip_dynamic is False
+    assert expanded.rerip_offset_variant is True
+    # Floor: prove those are not simply the defaults, or the assertions above
+    # would pass against a simulation that applied nothing at all.
+    fresh = Config()
+    assert fresh.secure_rerip_dynamic is True
+    assert fresh.rerip_offset_variant is False

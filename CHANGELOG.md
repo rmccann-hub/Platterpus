@@ -48,6 +48,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   through an offset dialog it never meant to open, and every accuracy section
   after it would have been about the wrong thing with the transcript green.
 
+- **The acceptance run changed two settings it never put back.** Its closing
+  section called itself "restoring what this run changed" — a promise of
+  completeness it could not keep, since a script that overwrites a setting never
+  captured the value it replaced. `max_retries` was left at 3 and the cyanrip
+  update channel on beta. The section now says what it can actually deliver (the
+  rig ends on the shipped defaults), does it, and a sweep derives the end state
+  rather than trusting the list.
+
 ### Changed
 
 - Fourteen Settings tooltips rewritten to say what each option *does*: a
