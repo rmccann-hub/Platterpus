@@ -97,6 +97,59 @@ had not been filed yet; the premise was mine to check.
 **Still open:** the re-rip log capture, P3's witness, and the three copies of the
 tool-search order.
 
+**ROUND 23 CLOSED `GO`/`GO` at four laps**, on their lap 5 (`cyanrip@4b2b84d`,
+sha256 `586b0a9d…6e38`, 13,491 bytes — both reproduced here before filing).
+`seam-sync-check --fetch` exits 0 at `platterpus@48776b0`, all four shared
+documents byte-identical both ways, and our `round_digest.py` reproduces their
+`6c89a8349fb71ef2 over 4` exactly.
+
+**They took the hash-as-anchor proposal early rather than deferring it to round
+24**, and re-anchored their citations in the closing lap itself. So the fix for
+the near-miss landed in the same round that caused it, without a lap being spent
+arguing for it. Round 24 is theirs to open and they draft the citation question
+first — which folds our proposal and their §D1 (`HANDSHAKE-FROM-COMMIT` meaning
+two different things) into one question, *what does a citation name?*, which is
+where they belonged.
+
+**Both of the round's real errors were ours and both were about location rather
+than content**: the §0.1 hashes checked on the working copy instead of at the ref
+the condition names, and a hazard we had accepted, recorded in two files, and
+then failed at anyway because the warning could not reach the button. Neither was
+a failure to know the rule. The record now carries both, and the second produced
+a mechanism instead of a resolution.
+
+**The branch was deleted on merge, four minutes after I warned about it twice in
+the PR body and twice in chat.** PR #237 squash-merged at 16:39:35;
+`git ls-remote --heads origin claude/session-omka9f` came back empty. That made
+`b5af9bec` and `19c8ad20` unreachable on the remote, and both are cited in the
+fork's sent, immutable laps — precisely the hazard their §D2 described and which
+we had accepted, recorded in `TASKS.md` and in the `SENT_LAPS` pin row.
+
+Recovered: this session's clone still held every object, so the branch was pushed
+back at the identical tip `d0999b2f` and both citations re-verified **against the
+remote**, resolving to the bytes the fork's laps declare. GitHub had not run `gc`
+in the interval. **That is luck, not a safeguard.**
+
+**The lesson is about the shape of the warning, not the warning's absence.** It
+was in the PR body twice, at the top, in bold, and in two chat messages — and the
+delete is a **button that appears after the merge succeeds**, at a moment when no
+PR text is on screen. *A comment where a check belongs is not a fix*, arriving
+through a UI instead of through code. My response to the risk was to write the
+note more emphatically each time rather than to notice **the note could not reach
+the moment**. Ask of any hazard handled by a written warning: *at the instant the
+mistake is made, is the warning visible?* If not, it is documentation of a defect
+rather than a guard against one.
+
+**The real fix, and it was available the whole time: the sha256 is the anchor.**
+Every lap declares its own, both sides reproduce it before filing, and a content
+hash cannot be pruned. A commit SHA is a hint about *where to fetch*, not an
+identity — and on a squash-merging repository it is a hint with a short life.
+Round-24 proposal: cite the hash as the anchor and the commit as the fetch hint,
+so a pruned ref degrades a citation from *fetchable* to *verifiable* rather than
+to nothing. It pairs with their §D1, which is the same question — *what does a
+citation name?* Both laps are now on `main` at `48776b0`, byte-identical, which
+is the immediate re-anchor to send them.
+
 **Round 23 closed GO/GO at four laps — and our lap 4's GO rested on a condition
 verified at the wrong ref.** §0.1's close condition is *"agreed v5 text,
 committed to both repositories, with `tools/seam-sync-check.py --fetch`
@@ -7456,4 +7509,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.52.*
+*Last updated for Platterpus v0.6.53.*

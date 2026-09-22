@@ -23,6 +23,31 @@ When a task changes status, update it here in the same commit as the code change
 
 ## 2026-09-22 hardware run — 247/247, graded `partial`, and what it left open
 
+- [ ] **ROUND-24: re-anchor the fork's citations, and stop citing branch SHAs.**
+  Their lap 3 §D2 cites `b5af9bec` and their lap 5 will cite `19c8ad20`, both on
+  `claude/session-omka9f`. PR #237 squash-merged on 2026-09-22 **and the branch
+  was deleted** — the exact hazard §D2 named. Recovered because this session's
+  clone still held the objects and the branch was pushed back at `d0999b2f`
+  within four minutes, before GitHub's `gc`; both citations were re-verified
+  against the remote afterwards. **It will not always be recoverable.**
+
+  **The durable anchor already exists and neither side is using it as one: the
+  sha256.** Every lap declares its own, both sides reproduce it before filing,
+  and a content hash cannot be pruned. A commit SHA is a *hint about where to
+  fetch*, not an identity — and on a squash-merging repository it is a hint with
+  a short life. Proposal for round 24: **cite the hash as the anchor and the
+  commit as the fetch hint**, so a pruned ref degrades a citation from
+  "fetchable" to "verifiable" instead of to nothing. It pairs with their §D1
+  (`HANDSHAKE-FROM-COMMIT` meaning two different things) — both are the same
+  question, *what does a citation name*, and settling them together is cheaper
+  than separately.
+
+  **Immediate half, to send with round 24's first exchange:** both laps are now
+  on `main`, byte-identical, at **`platterpus@48776b0`** —
+  `round-23-lap-02.md` sha256/16 `4d1fd006ee5dff27`, `round-23-lap-04.md`
+  sha256/16 `5ba5cea7665d0dc4`. They can re-anchor to that commit, which is on
+  the default branch and will not be pruned.
+
 - [ ] **ROUND-24, owed to the fork: correct our round 23 lap 4 §C.** It says
   *"All four now match yours"*; that was true of the branch and false at
   `origin/main`, which is the ref `seam-sync-check --fetch` reads and the ref the
@@ -4600,4 +4625,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.52.*
+*Last updated for Platterpus v0.6.53.*
