@@ -11,6 +11,38 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-22 (late) — protocol v5 implemented before round 24's lap 1
+
+**Asked for by the maintainer after the audit: implement v5 and fix the release
+gate, then merge before the fork's lap 1 arrives.** Done in that order.
+
+**The gate defect first**, because fixing it alone would have made things worse:
+with the version refusal on the close path and the gate still at 4, a round whose
+peer declares 5 could never close on our side. So `refused_round_files` and
+`PROTOCOL_VERSION = 5` land together. Laps declaring 4 keep v4 semantics — every
+round in the record reads exactly as before.
+
+**One reading of §5b had to be derived.** Step 1 says the candidate lap must be one
+the gate *"has enumerated in `HANDSHAKE-INBOUND-HELD`"*, and that field lives inside a
+lap. Read as the closing lap's own field, the side that spoke first can never have
+enumerated the peer's later answer — so row C40 (a candidate newer than the source)
+could never fire and §5b would save nothing, contradicting §13's statement of its
+purpose. So our gate enumerates at decision time, with §5a's lap test — loaded from
+`round_digest.py` rather than restated, because `wire_fields` and §5a already
+disagree about a field repeated with the same value. Raised for round 24.
+
+**The revert probe earned its keep twice.** The C15 gate test was vacuous — its
+one-version-ahead fixture was refused by v5's own C41 rule instead of by its
+version — and a probe of the coverage check was wrong in my probe, not the test
+(two tests share the C40 prefix). Both corrected and re-probed: 9 of 9.
+
+**And the rehearsal on real lap bodies** — a scratch copy of the record with
+round-24 laps built from round 23's — closed a v5 round in three laps with both
+sources printed, where v4 needs four. `docs/testing.md` §5.bo records the two
+lessons: a conformance row tested at the helper rather than the gate, and a coverage
+check that exempted the v3/v4 rows for thirteen rounds because its deferral named a
+heading instead of a version.
+
 ## 2026-09-22 (evening) — v0.6.53 released, the `.14` question answered, and a document audit before round 24
 
 **Released.** v0.6.53 from `main` at `52b44282` (PR #238), tag `v0.6.53`, AppImage +

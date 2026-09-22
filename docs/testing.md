@@ -3035,6 +3035,46 @@ head, and is revert-proven against the prose that fooled its first version); the
 full-green gate now reads `PLANNING.md` too and tolerates the backticked spelling
 that kept that status line out of its pattern.
 
+### §5.bo — The conformance row passed and the gate did not conform; the coverage check exempted what it existed to require
+
+**2026-09-22, found by rehearsing round 24 in a scratch worktree.** Shared-spec row
+C15 is *"`HANDSHAKE-PROTOCOL` higher than implemented → refuse rather than guess"*.
+Its test asserted that `protocol_refusal()` **returns a reason** — and that helper had
+one caller, `--check`. `round_status` and `--release-gate` read the verdict of a lap
+one version ahead and closed the round on it: our v4 `GO` plus a peer v5 `GO` read
+CLOSED and the release gate exited 0 while `--check` refused the same lap. The row was
+green for the whole life of the protocol. *Requested, not happened* (`CLAUDE.md`),
+inside the one table this project says is **run, not read**.
+
+**The first fix's test was vacuous too, and in an instructive way.** Its fixture
+declared protocol 6 and omitted `HANDSHAKE-PEER-VERDICT-SOURCE`, so v5's own C41 rule
+(6 counts as "5 or more") refused it — and the test passed with the version refusal
+deleted. The revert probe said VACUOUS. A fixture meant to isolate one fault must be
+**complete under every other rule the gate enforces**, including rules added in the
+same change.
+
+**Then the coverage check, the same day.** `test_every_conformance_row_has_a_test_here`
+treated every row after the v3 heading as pending, unconditionally — while §8 says the
+split exists *"so bumping `PROTOCOL_VERSION` turns them on with no second edit"*. Both
+gates reached 4 in round 9; the sixteen v3/v4 rows stayed exempt for thirteen rounds
+and not one has a row-named test. Bumping to 5 would have exempted C37–C42 the same way.
+A deferral keyed on a heading and not on the version it names is a permanent exemption
+with a temporary-looking reason.
+
+Three things to carry:
+
+1. **Test a conformance row at the surface the row describes.** A row says what the
+   *gate* does; a helper returning the right value is evidence about the helper.
+2. **One predicate, every caller** — and when a predicate has one caller, ask which
+   other path answers the same question without it.
+3. **A deferral must name the condition that ends it, in code.** "Pending" with no
+   version attached ended nothing.
+
+Gates: `test_C15_the_GATE_refuses_a_higher_protocol_not_only_the_helper`,
+`test_C15_the_gate_and_the_checker_give_ONE_answer`, the version-keyed split in
+`test_every_conformance_row_has_a_test_here` with `_BINDING_ROWS_WITHOUT_A_NAMED_TEST`,
+and `tests/test_every_inbound_lap_passes_check.py`.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is

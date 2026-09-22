@@ -808,6 +808,17 @@ def _closing(
         "HANDSHAKE-RIPPER-VERSION": "cyanrip 0.9.4 (platterpus-fork-gabc1234)",
         "HANDSHAKE-PIN": pin,
         "HANDSHAKE-PEER-VERDICT": "GO",
+        # PROTOCOL v5 (2026-09-22). A file declaring 5 must name where its peer
+        # verdict came from (row C41), and a lap read for its verdict must be
+        # released (§5c, row C38) — the round-8 grandfather covers our own gate's
+        # release rule, not §5b's, which demands an explicit `yes`. These tests are
+        # about naming and ordering, so the stand-in names no specific peer lap and
+        # lets §5b resolve from the newest enumerated one; C39/C40 are exercised
+        # directly in `tests/test_handshake_conformance.py`.
+        "HANDSHAKE-PEER-VERDICT-SOURCE": (
+            "none — this stand-in names no peer lap; §5b resolves the newest one"
+        ),
+        "HANDSHAKE-READY-TO-READ": "yes — released (test stand-in)",
         "HANDSHAKE-OUR-VERSION": "platterpus 0.6.4",
         "HANDSHAKE-OUR-PIN": pin,
         "HANDSHAKE-PEER-VERSION": "cyanrip 0.9.4 (platterpus-fork-gabc1234)",
