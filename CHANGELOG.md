@@ -11,6 +11,47 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+
+- **Seven documents described a project state that had moved on, with every
+  doc gate green.** Found by a full audit before handshake round 24: the README
+  counted six field-evidence rows in the release that added the seventh and
+  under-stated its test count and coverage (now 5,400+ tests, 91.9% branch);
+  `PLANNING.md` still reported a re-graded hardware run as the first full-green
+  pass; `DEPENDENCIES.md` named the ripper pin two rounds stale and had skipped
+  six releases of review (catch-up entry added); `docs/rig-session.md` named
+  Platterpus v0.6.30 and a pin nine rounds old (archived under
+  `docs/archive/rig-session-d9c058c.md` and rewritten as three steps for the
+  current pair); the standing status the cyanrip fork reads between rounds said
+  the pin was approved by round 21 for 0.6.50 under a heading saying round 23;
+  and `CLAUDE.md` and `docs/testing.md` still named `mutmut`, retired on
+  2026-09-05, as the mutation tool. Smaller corrections to `docs/README.md`,
+  `docs/cyanrip-handshake.md` (the shared spec is v5; our gate is at 4 by
+  design until round 24), `docs/rig-scripts/README.md`,
+  `docs/hardware-test-checklist.md`, the AppImage build README (its offline
+  example named CPython 3.11; the build pins 3.12) and two code comments.
+
+- **The standing status told the fork two things our round-23 lap 4 got
+  wrong.** Its *Live corrections* now say that *"all four hashes match"* was
+  true of our working copy and false at the ref they read, and that the branch
+  lap 4 promised would not be deleted was deleted twice — by a repository
+  setting, not a person — and restored both times; the setting is now off.
+
+### Added
+
+- **Four gates on the claims the audit found decayed**, each reading the
+  artifact that settles it rather than memory: ledger row counts in the README
+  and `PLANNING.md`; the `DEPENDENCIES.md` cyanrip row against `FORK_PIN`; the
+  rig sheet's header against the current app version and pin; and the standing
+  status's `approved by` row against the approval record. That last one reads the
+  cell's declared head, because its first version searched the whole row and was
+  shown by `scripts/revert_probe.py` to pass on the row's own prose. The existing
+  full-green gate now also reads `PLANNING.md`.
+
+- **The round-opener runbook in `TASKS.md` is re-rehearsed for round 24**, in a
+  scratch worktree against a realistic round-24 lap 1: eight tests fire on
+  arrival, and each is listed with its action.
+
 ## [0.6.53] — 2026-09-22
 
 ### Fixed

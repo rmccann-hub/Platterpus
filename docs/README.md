@@ -21,7 +21,7 @@ To keep the docs efficient and stop the same rule from sprawling across files (a
 | Manual & release testing (acceptance run + gated cases + tester matrices) | `docs/test-plan.md` |
 | Every hardware test still outstanding, as a fillable run sheet | `docs/hardware-test-checklist.md` |
 | The current rig session — what to WATCH on screen, plus one script | `docs/rig-session.md` |
-| What ships in the next release, and what is gated on the rig package | `TASKS.md` → *Next release — gated on the rig package* |
+| What ships in the next release, and what is gated on hardware | `TASKS.md` → its **newest dated section** (sections are newest-first; *Next release — gated on the rig package* further down is the round-8 plan, kept as history) |
 | How a failure becomes something a person can act on (error reporting) | `docs/architecture.md` §3.7 + §3.7a; the recipe is §4 *Add a failure path* |
 | AppImage build/test procedure, and the release-signing ritual | `docs/architecture.md` §6.1 / §6.2 |
 | The rules governing the cyanrip seam, shared byte-identical with the fork | `docs/seam-rules.md` |

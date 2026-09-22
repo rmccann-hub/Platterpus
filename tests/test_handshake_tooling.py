@@ -1421,10 +1421,12 @@ _BOOTSTRAP_REASON: str = (
     "spec > gate is the expected window here, not drift. Clear this in the commit "
     "that teaches close-resolution §5b/§5c and the C37-C42 rows."
 )
-#: Empty because the bootstrap is over: `docs/handshake-protocol.md` is v4 and our
-#: gate implements and declares 4, which is round 9's close condition 1. It held a
-#: reason for one day, between adopting v3's text and the fork's v4 landing with
-#: both of our amendments in it.
+#: History of this constant, newest first. **2026-09-22 → now: non-empty**, the v5
+#: bootstrap above. **Round 9 → 2026-09-22: empty** — the shared file was v4 and our
+#: gate implemented and declared 4, round 9's close condition 1; before that it held
+#: a reason for one day, between adopting v3's text and the fork's v4 landing with
+#: both of our amendments in it. (Until the 2026-09-22 document audit this note still
+#: read "Empty because the bootstrap is over", directly beneath a non-empty reason.)
 
 
 def test_the_required_field_set_matches_the_published_spec(hs: ModuleType) -> None:

@@ -453,10 +453,10 @@ What lives where:
 |---|---|
 | the specification | [`handshake-protocol.md`](handshake-protocol.md) — shared, verbatim, both repos |
 | our gate | `scripts/handshake.py` (`--status`, `--check`, `--release-gate`) |
-| our conformance tests | `tests/test_handshake_conformance.py` — one test per row of the shared conformance table (C1–C36 plus C13a; the count moves with the protocol, so read the table, not this cell) |
+| our conformance tests | `tests/test_handshake_conformance.py` — one test per row of the shared conformance table that is in force for the version we implement (C1–C36 plus C13a at v4; v5's C37–C42 are not yet in force for a gate implementing 4 — the count moves with the protocol, so read the table, not this cell) |
 | their gate | `tools/release-gate.py`; their tests are `tests/release_gate.py` |
 
-**Current protocol version: 4** — `handshake.PROTOCOL_VERSION` is the authority and the shared spec is titled *Handshake protocol v4*. (This said **2** until 2026-08-27, through the whole of v3 and v4: v3 added §3a addressing, §4a's legal state machine — with `CLOSED → OPEN` removed — §4b `WITHDRAWN`, §5a's digest and §6a-bis; v4 added §5a's one-lap rule. Read the number from the code, never from this sentence.) A gate reading a *higher* number than it
+**The shared spec is v5; our gate implements and declares 4 — a bootstrap window, not drift.** `handshake.PROTOCOL_VERSION` is the authority for what our gate implements, and the shared file's title is the authority for the spec. v5 landed byte-identical in both trees on 2026-09-22 as round 23's close condition, adding §5b (resolve the peer verdict from the newest held, enumerated peer lap), §5c (that lap must declare `HANDSHAKE-READY-TO-READ: yes`), the `HANDSHAKE-PEER-VERDICT-SOURCE` field, and §8 rows C37–C42 — which the spec marks *not yet in force* for a gate implementing 4. The gap is held open deliberately by `tests/test_handshake_tooling.py::_BOOTSTRAP_REASON`, which must be non-empty whenever the two numbers differ, so it cannot become permanent by nobody noticing. **Round 24 is where it bites**: a peer lap declaring 5 is refused by `--check`, and implementing 5 is tracked in `TASKS.md` as a round-24 readiness item. (This sentence said *v4* until the 2026-09-22 document audit, and said **2** until 2026-08-27, through the whole of v3 and v4: v3 added §3a addressing, §4a's legal state machine — with `CLOSED → OPEN` removed — §4b `WITHDRAWN`, §5a's digest and §6a-bis; v4 added §5a's one-lap rule. Read the numbers from the code and the shared file, never from this sentence.) A gate reading a *higher* number than it
 implements must refuse the round rather than guess — it cannot know which of that
 version's rules it is silently not applying. `handshake.PROTOCOL_VERSION` is ours.
 
@@ -593,4 +593,4 @@ a verdict:
 
 ---
 
-*Last updated for Platterpus v0.6.51.*
+*Last updated for Platterpus v0.6.53.*

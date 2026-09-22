@@ -30,6 +30,7 @@ dated originals; each is still the record of what was asked for and why on that 
 | [`rig-session-f5e11ba.md`](rig-session-f5e11ba.md) | `v0.6.4b6` + cyanrip `f5e11ba` (`beta.4`). Where the session became **three human steps and one command** — everything unattended moved into `scripts/rig_session.sh`, on the fork's own argument that *the rig session is the scarce resource*. Deliberately paired the app with the cutting-edge fork build rather than the conservative one, because their A2 denominator change (`1/1` → `1/14`, same disc, same track) cannot be verified anywhere except a real disc with an AccurateRip entry. |
 | [`rig-session-b9.md`](rig-session-b9.md) | `v0.6.4b9`/`b10` + cyanrip `9048082` (`beta.5`). The first sheet whose primary instruction is *look at the screen*, because every defect it verified is one no artifact reports: a healthy secure re-read announced as *"the drive is stuck on a hard-to-read spot"* twice per disc, an ETA that climbed 54m → 5h40m in 70 seconds while the drive read perfectly at 1×, a track list opening on 2 rows of 14. Opens with the maintainer's own debug log beside cyanrip's progress lines in the same seconds — the pairing that turned a vague complaint into a diagnosis. |
 | [`rig-session-b10.md`](rig-session-b10.md) | Same pair, revised mid-session. Kept for one reason worth preserving: it **corrects my own instruction**, not the app. `./platterpus-x86_64.AppImage --install-ripper` fails after the app relocates itself to `~/Applications/` — which it does only after an explicit Yes, and does name in a follow-up dialog. The app behaved correctly; the sheet did not. |
+| [`rig-session-d9c058c.md`](rig-session-d9c058c.md) | Header: `v0.6.30` + cyanrip `d9c058c` (`+platterpus.10`, round 14's pin); body: round 7's `b12` acceptance criteria and a menu layout since consolidated into **Tools → Setup & Updates…**. Archived 2026-09-22 by the pre-round-24 document audit, **twenty-three patch versions and nine rounds after its header last moved** — carrying a v0.6.52 stamp the whole time, because a stamp records when a page was edited and this one was edited around a header nobody rewrote. Kept for what it settled: *read the `[plan]` block before trusting a flag is on*, and *`-Z` in dynamic mode is not `-Z` on every track*, both of which the current sheet carries forward. |
 
 ## External reference material
 
@@ -43,4 +44,4 @@ to mine, not as authority over the living docs.
 
 ---
 
-*Last updated for Platterpus v0.6.4b13.*
+*Last updated for Platterpus v0.6.53.*
