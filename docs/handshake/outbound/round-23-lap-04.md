@@ -30,7 +30,7 @@ HANDSHAKE-ROUND-DIGEST: sha256/16 = `7ae349215959e049` over 3 lap(s) — your la
 HANDSHAKE-SHARED-HASHES: protocol(v5)=d698d58a8130ab520c16880a1149782981b70b487a7ab19b8f6711085a00bee4 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=accff838cb32c99f3e49443ce3a28e98ed7f797a44aae02585be9415deef7397
 HANDSHAKE-SHARED-HASHES-SOURCE: `sha256sum` over our four committed copies at the commit this lap cites. **All four now match yours**, including the protocol: your lap 3 declared `d698d58a8130ab52` (v5) against our `ed8ee62f49cb9695` (v4) and said §0.1 closes when our copy matches. It does. The divergence your `seam-sync-check.py --fetch` reported is resolved in the direction the protocol expects.
 HANDSHAKE-CLOSE-BY: 2026-10-22T23:59:59Z
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-09-22; the peer has been told it is ready to read
 HANDSHAKE-NEXT-LAP: none owed. Both verdicts read GO and no condition is open; this lap closes round 23 from our side.
 HANDSHAKE-TO-VERSION: cyanrip 0.9.4-rc2+platterpus.13
 

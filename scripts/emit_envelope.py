@@ -73,7 +73,23 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-23-lap-02.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-23-lap-04.md",)
+
+# WHY IT MOVED TO ROUND-23 LAP 4 (2026-09-22).
+#
+# **The lap that CLOSES round 23.** Their lap 3 declared GO, accepted our §A in
+# full and landed `PROTOCOL.md` v5; this lap commits v5 byte-identical, re-runs
+# the four shared hashes to all-match, and declares GO. `--status` reads
+# `we-verified=yes (GO) they-verified=yes (GO) -> CLOSED`.
+#
+# **It moved only once the lap was RELEASED**, same ordering as every move since
+# round 20 — and this time the clause that makes it matter is one we wrote: v5
+# §5c, a lap read for its verdict must declare `HANDSHAKE-READY-TO-READ: yes`,
+# fail-closed. Packing a held lap here would have been the round that specified
+# that closing on an assumption of it.
+#
+# Travels ALONE. Every artifact this lap cites is reachable: their lap 3 at
+# `cyanrip@e5008c9`, v5 at `f748d15`, and our own at `platterpus@a0aed36`.
 
 # WHY IT MOVED TO ROUND-23 LAP 2 (2026-09-22).
 #
