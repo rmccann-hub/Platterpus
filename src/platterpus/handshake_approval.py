@@ -115,7 +115,21 @@ from platterpus.deps import fork_source
 #: a disc: their §0.3 per-track rename applied to the real `3952c03` log takes our
 #: track count from 14 to 0. Both sides recorded that the rename is still untested
 #: on real output, because no build emits it yet.
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.51"
+#: **Round 23 moves it to 0.6.52**, read from the peer's closing lap as the rule
+#: above requires: their round-23 lap 3 declares
+#: `HANDSHAKE-PEER-VERSION: platterpus 0.6.52`, filed byte-exact at sha256
+#: `7e8d5a5b78ba9170…`, 19,731 bytes, read at `cyanrip@e5008c9`. **The pin does
+#: NOT move** — round 23 reviewed `2cce60d` a second time for a different
+#: property, its behaviour on a drive, which no filed rig session had covered.
+#: Reviewing one commit twice for two properties is not a stalled pin, and this
+#: is the first time this constant moves while `FORK_PIN` stands still.
+#: The evidence is the 2026-09-22 acceptance session on 0.6.52 + `2cce60d`.
+#: **Our own ledger grades that session `partial`** — three of eight rips had
+#: their post-rip checks dropped and nothing graded them — and that is a
+#: statement about our acceptance script, not about the pin. Round 23's close
+#: condition was never "zero failures"; it was that every non-pass be
+#: dispositioned, and it was.
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.52"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -194,7 +208,12 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.51"
 #: is the first round where that was false. A constant that names *which bilateral
 #: GO the pin rests on* is the right place to record that the GO nearly rested on a
 #: session about a different binary.
-APPROVED_BY_ROUND: Final[int] = 22
+#: **23 on 2026-09-22**, closed `GO`/`GO` at four laps. It approves the SAME pin
+#: round 22 did, for a property round 22 did not examine: round 22 reviewed
+#: `2cce60d`'s contract, round 23 reviewed its behaviour on a drive. So a rip
+#: report now credits 23, and the distinction matters — the hardware claim rests
+#: on this round and not on the earlier one.
+APPROVED_BY_ROUND: Final[int] = 23
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.

@@ -4,6 +4,29 @@ The single home for *"can Platterpus output stand in for an EAC rip?"*. Four inv
 
 **Read Part A first.** It carries the framing the other three assume — that *bit-identical audio* and *tracker-accepted log* are different goals with different answers, and conflating them is how this subject goes wrong.
 
+## Standing direction (KDD-36, 2026-09-21)
+
+**Read this before treating anything below as a target.** The four investigations
+in this file measure our output *against EAC's*, because that is the question they
+were asked. The project's direction is now the other way round.
+
+* **The EAC-layout export is a compatibility artifact.** Track EAC's format as
+  closely as honesty allows and never one step further — it exists for a human
+  diff and for readers who expect that layout, not because it is the better
+  record. The refusals stand permanently: no Rijndael-256 signature, no
+  `Defeat audio cache: Yes` we cannot measure, no field asserted rather than
+  observed (KDD-11, KDD-13, KDD-25).
+* **Our own log is the goal.** Keep it true, full and current, and weigh work on
+  it as work on a candidate reference format.
+* **And we are not there yet.** Today our log carries more *diagnostics* than
+  EAC's and less *proof of provenance*, because we refuse the one mechanism that
+  would supply it. "Better diagnostics" is not "accepted". A gap in it is recorded
+  as a gap, never filled with a plausible value.
+
+This does not reverse Part C or Part D: tracker acceptance is still unreachable
+and still not chased. What changed is that the open-trust path is now the **route**
+to being accepted on merit, rather than the consolation for not being.
+
 ## Where this came from
 
 Consolidated from four separate documents so the subject has one home. Content is unchanged — each part below is the original file, whole, with its headings demoted one level.
@@ -802,4 +825,4 @@ policy limit, not a technical one.
 
 ---
 
-*Last updated for Platterpus v0.6.33.*
+*Last updated for Platterpus v0.6.52.*

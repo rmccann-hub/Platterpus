@@ -11,6 +11,178 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-22 — the acceptance run came back 247/247, and it is `partial`
+
+**The run.** 4h14m on the Pioneer BDR-209D under Bazzite, app `0.6.52` (build
+`a0aed36`) against ripper `2cce60d` / `+platterpus.13`: **247 of 247 steps, zero
+failures**, eight rips, and **zero ERROR, zero CRITICAL and zero tracebacks
+across 132,204 app-log lines**. Nine warnings, every one traced to something
+deliberate — including `cyanrip -N -l 1` exiting 1 with *"Offset is unset!"*,
+which is section P2's C1 detector doing its job and which I nearly filed as a
+defect before reading the section.
+
+**Both objections that held September's rows down were gone.**
+`expect-derived-output` fired on hardware and each derived rip's report carried
+`derived: {ran, ok, complete, checked: 2, expected: 2}` independently; and F and
+N ran genuinely different tests, F summing 23841 per-track against a 23841 disc
+total (no re-read) while N ran 26656 against 76378 with a scope line on 14 of 14.
+
+**It is `partial` anyway — maintainer's ruling, and the same shape one layer
+down.** Three of eight rips had their post-rip CTDB and FLAC-integrity checks
+dropped unfinished, section F among them: it is `ARCHIVAL`, titled *"every
+post-rip check on"*, and what it asserts is that the two SETTINGS round-tripped.
+Its record said `gates.ctdb: "superseded"` beside `ctdb: null` with the words
+*"an absent result is not a passed one"*, and nothing read it. The sections that
+survived did so by accident — `expect-derived-output` waits, so K1–K3 got 8.0s,
+4.4s and 3.6s of grace nothing had promised them, which is K3's own severity row
+(*"only because nothing started after it for six minutes"*) never generalised
+from the files to the gates. The maintainer sharpened the bar in the same breath:
+**full-green means a perfect score on ripping and on our testing; GUI and other
+non-critical failures are fine.**
+
+**Four fixes, each proven with `revert_probe.py`.**
+
+1. `expect-verification` — grades what the post-rip checks left, delegating to
+   the report's own `verification_superseded` / `verification_result_missing`
+   backstop rather than recomputing it. **The probe then reported `unaffected`
+   for deleting the step from the shipped script**, so the verb could be written,
+   tested, wired and absent from the run it was written for; a sweep in
+   `test_rig_scripts.py` now requires every ripping section to carry it, with
+   section I exempt for a written reason.
+2. The heavy-re-read flag. Measured, not reasoned: under `-Z 2` cyanrip counts
+   matches *against* an established checksum, so two agreeing reads cost three,
+   and `-r 3` caps it at three — every track logged `(after 3 rips)` and all 14
+   were flagged as *"unusually heavy"* on a disc where 12 converged. The floor is
+   now taken from the rip. **The probe caught my own first test being vacuous**:
+   it built its fixture from `HEAVY_REREAD_THRESHOLD`, so moving the constant
+   moved the fixture with it — a list checked against itself, inside a test
+   written to catch exactly that.
+3. The Diagnostics dialog's dependency block. `environment_report()` returns four
+   keys and has never carried `dependencies`; the window attaches one for the rip
+   report, and the dialog — which has no window to ask — always printed *"not
+   probed yet this session"*. Derived by running it, not by reading it. The probe
+   then showed the **write-through half was uncovered**, so that got its own test.
+4. The README. Below.
+
+**The README was announcing a full green the record denies.** *"The first
+`full-green` row this project's field-evidence ledger has ever carried"* and
+*"`0.7.100` is gated on a full hardware pass, which this is"* — a week after that
+row was re-graded `partial` in the same commit that wrote *"zero full-green. No
+full-green pass has been achieved."* Also five rounds stale on the pin, inside a
+**⚠ READ THIS BEFORE YOU RUN** box, with a `--version` example printing the stale
+banner **under a comment recording that this had happened before**. Three gates
+existed and none could see it: the stamp gate reads edit dates, §1 compares
+version strings, and the pin gates match an *install* sentence and otherwise ask
+only that the right pin appear *somewhere*. Graduated to `docs/testing.md` §5.bn.
+
+**Two findings from the fork, and one does not survive the artifact.** They
+reported tracks 3 and 5 as superseded by our automatic re-rip with no addendum
+written. `read_speed.retried_tracks` in the report they read says
+`replaced: false` for both: a track is only ever replaced by a *converged*
+re-read (`workers/rip_worker.py:2618`), and `_swapped_track_records` already
+folds a swapped re-read's own record over the first-pass log — added 2026-07-26
+for precisely the bug they described. What survives is ours and real: **the
+second invocation's log is collected nowhere**, 23 minutes of reading recorded
+only in our debug lines. Their second finding lands and costs us a section: every
+audio measurement in their log is taken upstream of the filter graph, so P3's
+`-H -E` / `-H -W` pair cannot differ — and P3 asserts only `expect-exit 0` on
+each, so it could never have detected the round-16 defect it is graded `ARCHIVAL`
+for. Its witness has to be the audio.
+
+**Round 23 is pinned at `2cce60d` and `.14` is explicitly a non-condition** —
+the fork's correction, and it makes this run round 23's hardware evidence rather
+than evidence only for our own gate. I had inferred the opposite from a lap that
+had not been filed yet; the premise was mine to check.
+
+**Still open:** the re-rip log capture, P3's witness, and the three copies of the
+tool-search order.
+
+**Round 23 closed GO/GO at four laps — and our lap 4's GO rested on a condition
+verified at the wrong ref.** §0.1's close condition is *"agreed v5 text,
+committed to both repositories, with `tools/seam-sync-check.py --fetch`
+reporting all four byte-identical"*. That tool reads our **default branch**. I
+committed v5, ran `sha256sum` on my **working copy**, got four matches, and
+wrote *"All four now match yours"* into a lap that — two fields earlier —
+resolves `HANDSHAKE-FROM-COMMIT` against `origin/main` **because that is the ref
+the peer can fetch**. The file states the rule and then reports from somewhere
+else. `origin/main` was still `ed8ee62f` (v4) at `a0aed36`; v5 was only on
+`claude/session-omka9f`. The fork caught it, said plainly that nothing was in
+dispute, and asked for the merge.
+
+Not a subtle failure: the right principle was in hand, in the same document, and
+I checked the **artifact** instead of the **location**. `CLAUDE.md` asks *"am I
+answering from the artifact, or from my memory of it?"* — this is the third
+question beside it, **"and is the artifact where the claim says it is?"**
+
+**The asymmetry it exposed is worth more than the error.** Our `--status` reads
+CLOSED off the two `GO` verdicts; theirs holds OPEN on the unmet condition.
+Ours is behaving exactly as specified — *the verdict closes a round, not the
+file's existence* — but the consequence is that **a premature GO is invisible on
+our side and visible on theirs.** A gate that cannot see a verdict whose own
+condition is unmet is a gate that trusts the thing it exists to check. Carried
+as a round-24 item, together with the correction owed for lap 4, which is sent
+and immutable and will read as true the moment the merge lands — which is
+precisely why it needs recording now rather than then.
+
+
+## 2026-09-21 (release) — v0.6.52 shipped, and it fixed a defect I had shipped
+
+**v0.6.52 is out** — tag on `a0aed36`, pre-release as all `v0.*` are, AppImage
+(243,026,424 B) with its `.sha256` and `.zsync`, and the PyPI publish green on the
+same commit. Verified from the release API rather than from the workflow saying
+so.
+
+**Cut in the window between round 22 closing and round 23 opening**, the same
+deliberate placement as 0.6.51 and for the same reason: the deviation policy
+forbids releasing while a round is open, and the fork opens the next one. It is
+also the release that carries the `FORK_PIN` roll to `2cce60d` — the approval
+constants ship *inside* the AppImage, so until a release existed an operator's
+rips stamped `unapproved` against the build round 22 had approved. Stays on
+`0.6.x`: the next minor is `0.7.100`, gated on a full hardware pass that has not
+happened.
+
+**AND THE RELEASE FOUND TWO `<<<<<<< HEAD` BLOCKS I HAD SHIPPED TO `main`.**
+They were in `CHANGELOG.md`, committed in #235, through nine green CI jobs and a
+squash merge. `lint` is ruff and does not read Markdown; the `changelog` gate
+checks `[Unreleased]` is empty and the tag's section exists — both true of a file
+with conflict markers in it. They surfaced only because the next release edited
+the same file.
+
+**The cause was a pipe.** The merge ran as `git merge origin/main 2>&1 | tail -6`,
+and *the output of that command is the list of files needing resolution.* Two
+conflicts were in the visible tail and I fixed them; `CHANGELOG.md` was above the
+cut. Then I verified by grepping **the two files I already knew about** — so the
+check's population was the answer it was checking. `git status` would have said
+`UU CHANGELOG.md`; I never asked it.
+
+This repo has *"a silent truncation reads as completeness"* written down three
+times, each about a capture path **in the product**. It had never been said about
+the commands I drive the repo with, and that is where it bit. Graduated to
+`docs/testing.md` **§5.bm**, with the general form: never pipe a command whose
+output is a work list, and verify over the population rather than over the
+findings.
+
+Gated now — a sweep over every text file, proved by reintroducing the exact bytes
+that shipped (it reports `CHANGELOG.md:18`, the line the real one was on). The
+restore was the dangerous half again: that file held the uncommitted version bump,
+so `git checkout --` would have destroyed the release. Copied aside, restored from
+the copy.
+
+**The operator assented to the fork's v5 close-rule proposal**, conditional on the
+released-for-reading check becoming normative in the shared spec rather than
+staying one implementation's habit — because the proposal moves the verdict from
+our transcription of their lap to *their lap itself*, and both repos are public,
+so it becomes possible to read a lap before its operator has released it.
+**Recorded in the standing status, not in `TASKS.md`**: round 23 is theirs to open
+under §1a so our lap cannot exist yet, and their lap 5 had just established that a
+position of ours living only in our task file is uncitable by either side. Second
+use of the LIVE CORRECTIONS section, which exists for exactly that.
+
+Their diagnosis was verified in their source before assenting
+(`release-gate.py:727-732` and `:552-556` at `cyanrip@b293f32`) — the standard we
+owe them, and the one we failed on `handshake_round` one round earlier.
+
+
 ## 2026-09-21 (later still) — the uninstaller's phantom menu entry, and a sizing rule 8 of 12 dialogs followed
 
 **The maintainer asked what I was waiting on for the window sizing. Nothing.**

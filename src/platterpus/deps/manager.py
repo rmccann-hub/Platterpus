@@ -166,3 +166,44 @@ class DependencyManager:
             else:
                 report.missing.append(MissingItem(spec=spec, probe=probe))
         return report
+
+
+# --- The most recent probe, so every surface can answer the same question ----
+#
+# Two surfaces report "what tools is this running on": the rip report's
+# `environment.dependencies`, and the Diagnostics dialog a user pastes into a
+# bug report. Only the first one could — `build_info.environment_report()`
+# returns exactly python/platform/pyside6/install_channel and has never carried
+# a `dependencies` key, while the window attaches one from its own
+# `_last_dependency_report`. The dialog called `environment_report()` directly
+# and then asked it for `dependencies`, so it always got None and always printed
+# *"not probed yet this session — the launch-time check had not completed, or it
+# crashed"* — on every machine, in every session, including the 2026-09-22
+# acceptance run whose own rip reports list all seven tools with versions and
+# paths, and whose transcript shows a dependency check completing in section D.
+#
+# The message was right to exist and its branch was unreachable-from-true: it
+# explained an absence with a cause that could not be checked. So the probe
+# result lives HERE, in the subsystem Critical rule #6 says owns it, and both
+# surfaces read it through `build_info.dependency_summary` — one summariser, two
+# callers, which is the shape that stops them describing one machine two ways.
+#
+# Process-global on purpose and stated plainly: it is "the last probe THIS
+# PROCESS ran", it is None until one runs, and it is not persisted. Tests reset
+# it by remembering None.
+_LATEST_REPORT: DependencyReport | None = None
+
+
+def remember_report(report: DependencyReport | None) -> None:
+    """Record the newest probe result for later readers. Never raises."""
+    global _LATEST_REPORT
+    _LATEST_REPORT = report
+
+
+def latest_report() -> DependencyReport | None:
+    """The newest probe this process ran, or None if none has.
+
+    None is a real answer — "no check has completed yet" — and is never to be
+    rendered as "no dependencies".
+    """
+    return _LATEST_REPORT

@@ -1412,7 +1412,15 @@ def test_the_grandfather_sets_are_pinned_and_may_only_shrink(hs: ModuleType) -> 
 #: non-empty reason whenever the two numbers differ — so this cannot become
 #: permanent by nobody noticing. Clear it in the same commit the gate reaches the
 #: spec's version.
-_BOOTSTRAP_REASON: str = ""
+_BOOTSTRAP_REASON: str = (
+    "v5 landed 2026-09-22 as round 23 §0.1's close condition — the shared text is "
+    "byte-identical in both trees and our gate still implements and declares 4. "
+    "v5 says so itself: 'Neither gate implements 5 until this file is "
+    "byte-identical in both trees', and its §8 rows C37-C42 are marked 'Not yet "
+    "in force — a gate implementing 4 must not be failed for missing them'. So "
+    "spec > gate is the expected window here, not drift. Clear this in the commit "
+    "that teaches close-resolution §5b/§5c and the C37-C42 rows."
+)
 #: Empty because the bootstrap is over: `docs/handshake-protocol.md` is v4 and our
 #: gate implements and declares 4, which is round 9's close condition 1. It held a
 #: reason for one day, between adopting v3's text and the fork's v4 landing with
@@ -1782,6 +1790,13 @@ _SHARED_FILE_PATHS: dict[str, str] = {
     # this row the checker refuses the declaration as naming an unknown file —
     # which it did, correctly, on the first run.
     "protocol(v4)": "docs/handshake-protocol.md",
+    # **v5, landed 2026-09-22 (round 23 §0.1).** The alias is version-qualified
+    # by design, so a version bump is exactly when this map goes stale — and it
+    # did, on the first run after v5: the peer declared `protocol(v5)` and the
+    # checker reported "a shared file we know no path for", which reads as THEM
+    # adding a file rather than US being behind. The older keys stay: sent laps
+    # declare them and those declarations are immutable history.
+    "protocol(v5)": "docs/handshake-protocol.md",
     "seam-rules": "docs/seam-rules.md",
     "seam-commands": "docs/seam-commands.md",
     # Adopted round 14 lap 17. Same mechanism as the three above: a file NEITHER

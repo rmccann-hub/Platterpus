@@ -202,6 +202,12 @@ class DependencyMixin(MainWindowShared):
                 self._last_dependency_report = replace(report)
             except TypeError:
                 self._last_dependency_report = report
+            # And into the subsystem's own store, which the Diagnostics dialog
+            # reads — it has no window to ask, and asking `environment_report()`
+            # got it None forever (see deps/manager.remember_report).
+            from platterpus.deps import manager as _dep_manager
+
+            _dep_manager.remember_report(self._last_dependency_report)
         # `show_summary` is True for the user-clicked Tools/Settings check and
         # False for the silent launch check; resolver dialogs surface for
         # genuinely-missing deps regardless.

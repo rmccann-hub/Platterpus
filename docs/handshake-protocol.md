@@ -1,4 +1,4 @@
-# Handshake protocol v4
+# Handshake protocol v5
 
 **This file is the shared language. Both projects implement it; neither owns
 it.** cyanrip and Platterpus each have a gate that reads round files and decides
@@ -369,6 +369,89 @@ absent rather than refusing without a reason.
 Write down what they declared. If they said `HOLD`, record `HOLD` — do not
 translate an encouraging paragraph into a `GO`. If their file is ambiguous, that
 is a lap, not a close.
+
+## 5b. Where the peer verdict may be resolved from (v5)
+
+**§5's required list is unchanged. What v5 changes is where
+`HANDSHAKE-PEER-VERDICT` may be RESOLVED from when a gate decides a close.**
+
+Under v4 that field is a transcription and nothing else, so a round can only
+close in a lap written *after* the peer's verdict existed. **The side that speaks
+first therefore cannot close a round both sides agree is finished**: its newest
+lap was written before the answer it is required to name. This is not a rare
+case — it is guaranteed whenever the two sides alternate, and it costs exactly
+one lap per round. Both projects have paid it, in both directions: Platterpus in
+round 17, cyanrip in round 22, whose lap 3 declared `OPEN` because that was the
+only honest value when it was written and whose lap 5 existed solely to carry a
+transcription.
+
+**`HANDSHAKE-PEER-VERDICT` remains required and remains a declaration.** v5 adds
+one field beside it:
+
+```
+HANDSHAKE-PEER-VERDICT: GO
+HANDSHAKE-PEER-VERDICT-SOURCE: <the peer lap this was transcribed from, and the commit it was read at>
+```
+
+**The field name is Platterpus's.** They introduced `-SOURCE` suffixes
+unilaterally in round 23 lap 2 — on the peer verdict, the peer pin, their own
+verdict and `FROM-COMMIT` — before this clause existed, because a declaration
+whose origin is unstated cannot be checked against anything. It is adopted here
+verbatim rather than renamed.
+
+**The rule.** A gate resolving a close MUST:
+
+1. **Identify the candidate lap**: the newest peer lap that it holds, that it has
+   enumerated in `HANDSHAKE-INBOUND-HELD`, and that declares
+   `HANDSHAKE-READY-TO-READ: yes` (§5c).
+2. **If that lap is the one `HANDSHAKE-PEER-VERDICT-SOURCE` names**, cross-check
+   the declared value against the lap's own `HANDSHAKE-VERDICT` and **refuse on
+   any mismatch**, naming both values and both files. A transcription that
+   disagrees with its source is worse than either alone, because each side can
+   cite one of them and both are in the record.
+3. **If that lap is NEWER than the one the source field names**, the peer lap's
+   own declaration is authoritative and the close MAY proceed on it. The gate
+   MUST print both — the superseded transcription and the lap that superseded it
+   — because a close that silently rests on a value no file in the closing side's
+   own tree states is precisely the failure §5 exists to prevent. **This step is
+   the whole of v5's saving**; steps 1, 2 and 4 are what make it safe.
+4. **If it holds no such lap**, the round does not close, and the gate MUST say
+   which of the three conditions in step 1 failed.
+
+**What this does not do.** It does not let a gate infer a verdict from prose,
+from silence, or from tone. *Transcribed, not judged* is unchanged and now
+governs the peer file exactly as it governed the transcription: one declared
+field, read out of one named file, matched at column 0 under §2.
+
+## 5c. A lap read for its verdict must be released for reading (v5)
+
+**This clause is Platterpus's, adopted whole, and it is what makes §5b safe
+rather than dangerous.**
+
+A lap may be **published** — committed, fetchable, countable by every conforming
+enumerator — long before its operator has released it. Both repositories are
+public. So §5b makes it mechanically possible to read a verdict out of a lap the
+other side has not yet sent, and **acting on one would make the writer's draft
+into the reader's decision.**
+
+**The rule, and it fails closed.** A lap resolved under §5b MUST declare
+`HANDSHAKE-READY-TO-READ: yes`. A lap declaring `no`, or not declaring the field
+at all, is **not a readable verdict**. A gate that cannot establish the value
+treats it as `no`.
+
+**And it must name what it is holding.** A gate refusing under this clause MUST
+print the lap file and the value it read. Refusing silently is indistinguishable
+from finding nothing, and *"their lap 4 is held"* and *"we hold no lap 4"* are
+different facts with different remedies — the `none` versus `unknown (reason)`
+distinction, inside the rule that decides whether a round closes.
+
+**Why it is load-bearing rather than a courtesy.** Before v5,
+`HANDSHAKE-READY-TO-READ` was each gate's own property: the verdict came from a
+transcription, and a transcription can only be written by someone who was told.
+Under §5b it becomes **the only thing standing between "we can see it" and "we
+may act on it."** Platterpus made this point against cyanrip's own proposal,
+which had not noticed that it promotes an existing safety net into the
+load-bearing element.
 
 ## 5a. Both sides must be able to prove they hold the same record (v3)
 
@@ -753,6 +836,22 @@ human to remember it is a deferral that rots.
 That last row matters as much as the others. Assert it, or a gate that refuses
 everything passes every other test in the table.
 
+### Rows added in v5 — required once both gates implement 5
+
+**Not yet in force.** A gate implementing 4 must not be failed for missing them;
+a gate implementing 5 must have every one. Split by heading for the same reason
+as the v3/v4 block: a deferral that needs a human to remember it is one that
+rots.
+
+| ID | case | expected |
+|---|---|---|
+| C37 | a close resolving the peer verdict under §5b from a lap **not enumerated** in `HANDSHAKE-INBOUND-HELD` | refuse; §5b reads a lap the closing side has declared it holds, never any lap it happens to be able to fetch |
+| C38 | the §5b candidate lap's `HANDSHAKE-READY-TO-READ` is not `yes`, is absent, or cannot be established | refuse, **naming that lap and the value read** (§5c) |
+| C39 | the §5b lap is the one `HANDSHAKE-PEER-VERDICT-SOURCE` names, and the two verdicts **disagree** | refuse, naming both values and both files |
+| C40 | the §5b lap is **newer** than the one `HANDSHAKE-PEER-VERDICT-SOURCE` names | **allow**, resolved on the peer lap's own declaration, **and print both** |
+| C41 | a file declaring `HANDSHAKE-PROTOCOL: 5` with `HANDSHAKE-PEER-VERDICT` or `HANDSHAKE-PEER-VERDICT-SOURCE` absent | refuse; §5b changes where the field is resolved from, not whether it is required |
+| C42 | a gate declaring 5 that closes a round **without** printing which lap the peer verdict came from | refuse; under §5b the close rests on a file in the peer's tree, and a close whose source is invisible cannot be audited later |
+
 ## 9. Grandfathering
 
 Rounds recorded before this spec existed have no verdict field. They are
@@ -877,7 +976,46 @@ the number is what makes "we hold the same spec" checkable.
 in round 9 lap 1 §0, so nothing is skipped by going straight to 4: implement 4,
 declare 4, and the round's close condition 1 is met.
 
-### Deferred to v5, not rejected
+## 13. Changes in v5
+
+**v5 is v4 plus the two clauses round 23 §0.1 named, and nothing else.** Nothing
+in v4 is withdrawn.
+
+- **§5b — where the peer verdict may be resolved from.** A gate may resolve it
+  from the newest peer lap it holds and has enumerated, when that lap is newer
+  than the one its own `HANDSHAKE-PEER-VERDICT-SOURCE` names. **cyanrip's
+  clause**, from round 22 lap 5 §H1, which established that §5 as written cannot
+  be satisfied by the side that speaks first.
+- **§5c — such a lap must declare `HANDSHAKE-READY-TO-READ: yes`**, fail-closed,
+  naming what is held. **Platterpus's clause**, adopted whole. It is the
+  condition their operator attached to assenting to §5b, and it is correct: §5b
+  promotes an existing safety net into the only thing separating *visible* from
+  *actionable*.
+- **`HANDSHAKE-PEER-VERDICT-SOURCE`**, required on a file declaring 5. **Their
+  field**, invented in round 23 lap 2 before this clause was drafted.
+- **§8 rows C37–C42.**
+
+**Why v5 rather than an edit to v4.** Same reason v4 was not an edit to v3: v4
+was adopted byte-identical by both projects and its hash is quoted in sent laps.
+The number is what makes *"we hold the same spec"* checkable, and editing a
+version in place is the drift this file exists to prevent — even when both sides
+agree on the edit.
+
+**What v5 does not do.** It does not widen the verdict vocabulary (§4 is
+unchanged; `ACK` stays deferred). It does not let a gate read a lap it has not
+enumerated, nor one whose operator has not released it, nor a verdict out of
+prose. And it does not touch `HANDSHAKE-FROM-COMMIT`, whose two projects
+currently read it two different ways — that is a real divergence, it is recorded
+in round 23 lap 3 §D, and it is **not** in v5 because both sides assented to two
+clauses and a spec that grows past its assent is the round-7 failure mode wearing
+a protocol's clothes.
+
+**Neither gate implements 5 until this file is byte-identical in both trees.**
+That is the condition round 23 §0.1 closes on, and it is deliberately the
+harder-to-fake half: a version number can be declared by one side alone; four
+matching hashes cannot.
+
+### Deferred to v6, not rejected
 
 - **An `ACK` verdict** — receipt only, empty body legal, refused if it carries
   questions or findings. Platterpus's round 9 lap 2 §A1-c. It serves §6a-bis
@@ -885,4 +1023,6 @@ declare 4, and the round's close condition 1 is met.
   `HOLD`, and a `HOLD` with content generates content in reply. **Accepted in
   principle, deferred because it widens the verdict vocabulary** — the one set
   both gates must agree on exactly — and that is worth its own round rather than
-  riding along with two amendments already in flight.
+  riding along with two amendments already in flight. **Still deferred at v5,
+  and for the same reason**: v5 carries exactly the two clauses round 23 §0.1
+  named and both sides assented to, and nothing else.

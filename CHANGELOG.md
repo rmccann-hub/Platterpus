@@ -11,6 +11,112 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+
+- **The README announced a full-green hardware pass the record denies.** Its
+  headline hardware paragraph claimed *"the first `full-green` row this project's
+  field-evidence ledger has ever carried"* and that `0.7.100`'s gate was met, a
+  week after that row was re-graded `partial`; the same page named a ripper pin
+  five handshake rounds stale inside its READ-THIS-FIRST install box, and printed
+  section counts that did not add up. Corrected, and now gated: three sweeps
+  derive the claim from the ledger, the severity table and `FORK_PIN`, so each
+  lifts by itself when the fact changes. The stale `--version` example sat under
+  a comment explaining that this had happened before.
+
+- **The acceptance run's post-rip checks could be dropped without failing it.**
+  Section F switches CTDB and FLAC-integrity verification on, then asserts the
+  two settings round-tripped — which is a setting checked against itself. On the
+  2026-09-22 run both checks were dropped unfinished when the next section began
+  ripping, on three of eight rips, and the run still reported 247 of 247. New
+  `expect-verification` verb grades what the checks actually left, and a sweep
+  requires every ripping section to carry it.
+
+- **Every track of an archival rip was reported as needing "unusually heavy
+  re-reading".** The threshold was three read passes, chosen when a re-read was
+  exceptional — but a uniform secure re-read costs three passes on a flawless
+  track by arithmetic (two agreeing checksums need three reads) and the retry
+  limit caps it there, so the flag fired on all 14 tracks of a clean disc and
+  could not discriminate at all. The floor is now measured from the rip itself.
+
+- **The Diagnostics dialog had never once shown a dependency.** It asked the
+  environment block for a `dependencies` key that block has never carried, so it
+  always printed *"not probed yet this session — the launch-time check had not
+  completed, or it crashed"* — false on every machine in every session, in the
+  text a user pastes into a bug report, while the rip report beside it listed all
+  seven tools with versions and paths. Both surfaces now read the same probe
+  through the same summariser.
+
+- **A rip whose FLAC encode failed could be reported as a clean rip.** The
+  per-track "ripped and encoded successfully!" line is being split by the ripper
+  into a per-track *read* line and a disc-level `Encoder errors:` footer, because
+  the old line printed before any encoder had been joined — it asserted a fact
+  that did not exist yet. Platterpus now reads **both** per-track wordings, so no
+  build can meet a parser that cannot read it, and folds the new footer into the
+  rip's health verdict: an encode failure is no longer rendered as
+  "No errors occurred".
+
+- **A missing `flac` was recorded as a failed integrity check on your masters.**
+  The guard that exists to tell "couldn't check" from "corrupt" keyed on the
+  binary failing to *launch* — but `flac` is reached through a host-exported
+  container wrapper, which launches fine and then exits 127 from inside the
+  container. So a broken install wrote `✗` against files nothing had tested. Both
+  shapes now abort the pass with a reason instead of blaming the audio.
+  (Reported by the cyanrip fork from our own evidence bundle.)
+
+- **An evidence bundle claimed it had flushed the report before it had.** The
+  stamp was composed five lines above the flush and asserted it, so a failed
+  flush produced an archive saying the report both was and was not written. The
+  outcome is now reported after the act.
+
+- **A taskbar pin and the desktop icon were two unrelated things.** Nothing in
+  the desktop entry tied the launcher to the running window, so on KDE Plasma a
+  pinned panel icon stayed dark while a second task button appeared beside it,
+  and clicking the pin started a second copy instead of raising the one already
+  open. The entry now declares `StartupWMClass`, measured from the window Qt
+  actually produces rather than assumed from the file's name.
+
+- **The acceptance run never asserted that the read offset was switched on.**
+  It set the value, which is inert on its own — the number reaches cyanrip only
+  while the override flag is set. With the flag off the first rip detoured
+  through an offset dialog it never meant to open, and every accuracy section
+  after it would have been about the wrong thing with the transcript green.
+
+- **The acceptance run changed two settings it never put back.** Its closing
+  section called itself "restoring what this run changed" — a promise of
+  completeness it could not keep, since a script that overwrites a setting never
+  captured the value it replaced. `max_retries` was left at 3 and the cyanrip
+  update channel on beta. The section now says what it can actually deliver (the
+  rig ends on the shipped defaults), does it, and a sweep derives the end state
+  rather than trusting the list.
+
+- **The in-app User Guide named five options that are not on the screen.**
+  "Output folder" (the row says *Output directory*), "Read offset override" (two
+  separate controls described as one), "Eject after a successful rip", "Verify
+  FLACs after a rip" and "Max reads to confirm a shaky track". A label is an
+  exact string to the person following it. Four predated this release and the
+  fifth was created by the tooltip pass below; every existing test stayed green
+  throughout, because the guide was only ever checked against a phrase list kept
+  in the test file — never against the dialog. It is now checked against the
+  dialog.
+
+- **The Naming scheme dropdown had no tooltip at all** — the one control in
+  Settings that rewrites two other fields, and the only interactive control in
+  the dialog with nothing explaining it. Every tooltip test here started from
+  the set of tooltips, and a sweep seeded by what exists can never report
+  something missing; the sweep now starts from the set of controls.
+
+- **A tooltip pointed at a control that no longer exists.** The Test & Copy
+  tooltip said *Needs "Max reads" at 2 or more* after that label was renamed.
+  Cross-references written in typographic quotes are now checked against the
+  labels the dialog renders.
+
+### Changed
+
+- Fourteen Settings tooltips rewritten to say what each option *does*: a
+  tick-box now names both outcomes and a value names what the values mean, so
+  "what happens if I leave this off?" is answerable without leaving the dialog.
+  The secure-re-read tooltip also stopped calling an agreement count a ceiling.
+
 ## [0.6.52] — 2026-09-21
 
 ### Changed

@@ -73,7 +73,41 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-22-lap-04.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-23-lap-04.md",)
+
+# WHY IT MOVED TO ROUND-23 LAP 4 (2026-09-22).
+#
+# **The lap that CLOSES round 23.** Their lap 3 declared GO, accepted our §A in
+# full and landed `PROTOCOL.md` v5; this lap commits v5 byte-identical, re-runs
+# the four shared hashes to all-match, and declares GO. `--status` reads
+# `we-verified=yes (GO) they-verified=yes (GO) -> CLOSED`.
+#
+# **It moved only once the lap was RELEASED**, same ordering as every move since
+# round 20 — and this time the clause that makes it matter is one we wrote: v5
+# §5c, a lap read for its verdict must declare `HANDSHAKE-READY-TO-READ: yes`,
+# fail-closed. Packing a held lap here would have been the round that specified
+# that closing on an assumption of it.
+#
+# Travels ALONE. Every artifact this lap cites is reachable: their lap 3 at
+# `cyanrip@e5008c9`, v5 at `f748d15`, and our own at `platterpus@a0aed36`.
+
+# WHY IT MOVED TO ROUND-23 LAP 2 (2026-09-22).
+#
+# Round 22 is CLOSED -- GO/GO at five laps. Round 23 opened on their lap 1, and
+# this lap answers all three of its close conditions: assent to v5's two clauses
+# with the drafting left to them, a MEASURED assent on the held-lap banner
+# qualifier, and a disposition of the 2026-09-22 acceptance run that agrees with
+# four of their five rows and corrects the fifth.
+#
+# **It moved only once the lap was RELEASED**, the ordering round 20 established.
+# The lap sat at `HANDSHAKE-READY-TO-READ: no` through four commits while the
+# gate was still red, and packing it then would have built a hand-over artifact
+# for a draft.
+#
+# Travels ALONE. This lap quotes no file that has to travel with it -- every
+# artifact it cites is either in their tree (their lap 1, their PROVIDER-CONTRACT)
+# or reachable in ours at `platterpus@a0aed36`, which is the whole point of
+# resolving the from-commit against `origin/main`.
 
 # WHY IT MOVED TO ROUND-20 LAP 2 (2026-09-16).
 #

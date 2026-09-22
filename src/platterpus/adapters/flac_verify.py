@@ -127,12 +127,23 @@ def verify_flac_files(
         # explains a failure, and the whole point of this pass is to be able to
         # quote it. `flac --test` is quiet on success anyway, so the cost is nil.
         run = run_cmd([binary, "--test", str(path)])
-        if not run.started:
+        if run.binary_missing:
             # The binary is not there. Abort the whole pass rather than blame the
-            # file — `run.started`, not `run.ran`, because a *timeout* means the tool
-            # works and wedged on this input, which is the file's problem and is
-            # handled below. Collapsing the two is how a missing binary came to be
+            # file — NOT `run.ran`, because a *timeout* means the tool works and
+            # wedged on this input, which is the file's problem and is handled
+            # below. Collapsing the two is how a missing binary came to be
             # reported as a corrupt FLAC.
+            #
+            # **`binary_missing`, not `started`** (2026-09-21). `started` is False
+            # only on `FileNotFoundError` — a direct exec of an absent binary — and
+            # `flac` here is a host-exported Distrobox wrapper: it exists, so the
+            # exec succeeds and `started` is True, and the wrapper exits **127**
+            # from inside the container. So this guard, written for exactly this
+            # failure, could not fire on the only shape our architecture produces.
+            # Found by the fork in our own evidence bundle: every failure in it was
+            # `exit 127: /usr/bin/flac not found`, recorded as `ok: false` — an
+            # archival record saying the user's masters failed a check that never
+            # ran.
             log.error(
                 "flac --test could not run (%s) — aborting the verify pass after "
                 "%d file(s)",

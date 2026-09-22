@@ -21,6 +21,77 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
+## 2026-09-22 hardware run — 247/247, graded `partial`, and what it left open
+
+- [ ] **ROUND-24, owed to the fork: correct our round 23 lap 4 §C.** It says
+  *"All four now match yours"*; that was true of the branch and false at
+  `origin/main`, which is the ref `seam-sync-check --fetch` reads and the ref the
+  same lap calls *"the ref you can fetch"*. The merge makes it true — record the
+  correction anyway, because a claim that becomes true later was still wrong when
+  sent.
+
+- [ ] **ROUND-24: our `--status` cannot see a premature GO.** It closes a round
+  on two `GO` verdicts, which is the spec (*the verdict closes a round, not the
+  file's existence*) — so when our own GO rested on an unmet condition, our gate
+  read CLOSED while theirs correctly held OPEN. Ours trusts the thing it exists
+  to check. Candidate: have `--status` print the closing lap's stated conditions
+  rather than grade them, so the gap is visible without coupling the gate to a
+  verdict.
+
+
+- [ ] **DO NOT DELETE the branch `claude/session-omka9f`.** The cyanrip fork's
+  round 23 lap 3 §D2 cites commit `b5af9bec` on it, with the lap file's sha256,
+  and that lap is sent and immutable. Our work reaches `main` by **squash merge**,
+  so `b5af9bec` never becomes an ancestor of anything on `main`; deleting the
+  branch afterwards — the normal tidy — makes it unreachable and a routine
+  `git gc` **destroys** it, at which point their citation stops resolving. This
+  is written here rather than left as an intention because the thing that deletes
+  a merged branch is a future session tidying up, and a future session reads this
+  file. If it ever must go: re-anchor the citation to a commit on `main` and say
+  so in a lap **first**. Their own form of the rule is *"never prune a ref that a
+  released or beta artifact can reference"*.
+
+
+The run itself is in `docs/session-log.md` and its row is in `docs/testing.md`
+§5B. Four fixes landed in the same change (the post-rip-check assertion, the
+re-read threshold, the Diagnostics dependency block, the README claim gates).
+What it left:
+
+- [ ] **The automatic re-rip's own log is collected nowhere.** A non-converging
+  re-rip runs 23 minutes in a `tempfile` root and that root is removed in a
+  `finally`, taking cyanrip's log for that read with it — so the read we
+  DISCARDED, which is the one worth diagnosing, survives only as our debug
+  lines. Reported by the cyanrip fork (their larger claim, that tracks 3 and 5
+  were superseded with no addendum, does NOT hold: `read_speed.retried_tracks`
+  records `replaced: false` for both, and a track is only ever replaced by a
+  converged re-read — `workers/rip_worker.py:2618`). Capture it into the report
+  rather than the album folder, which stays EAC-clean with one log; that is a
+  `REPORT_SCHEMA_VERSION` bump.
+
+- [ ] **Section P3 cannot detect the defect it is graded ARCHIVAL for.** It runs
+  `-H -E` and `-H -W` and asserts `expect-exit 0` on each — it compares nothing.
+  And per the fork (2026-09-22), every audio measurement in their log is taken
+  **upstream of the filter graph**, so the obvious repair — diff the log figures
+  — cannot work either. The witness has to be the audio: decode both outputs and
+  compare a hash, which stays a text artifact and never leaves the rig. Until
+  then P3's grade is a claim about a check that cannot fail.
+
+- [ ] **Three copies of one tool-search order**, in `tool_paths.resolve_tool`,
+  `ctdb/decode._which` and `drive_control` — in a module whose docstring says it
+  exists so there would be one — and `MetaflacAdapter` has no `~/.local/bin`
+  fallback at all. Not breaking today because the dependency probe uses bare
+  PATH too, so a failure shows as "missing" rather than degrading silently.
+
+- [ ] **`handshake.py --status` prints close-by countdowns for CLOSED rounds** —
+  six "N days remaining" and four "has PASSED" lines, every one on a finished
+  round. Fix at the PRINT SITE: `close_by_lines()` is deliberately decoupled from
+  `round_status` so a CLOSE-BY can never reach a verdict, and wiring them
+  together to silence the noise would undo the thing the decoupling protects.
+
+- [ ] **The rig is left on `max_retries = 3` and `ripper_channel = "beta"`** after
+  a run (defaults 5 and `stable`). Fixed in the script for the NEXT run; the
+  current rig still carries them.
+
 ## 2026-09-21 UX audit — the post-update prompt chain, and the menu (real-user report)
 
 *Maintainer, after updating: "when i went to check for updates it kept asking me,

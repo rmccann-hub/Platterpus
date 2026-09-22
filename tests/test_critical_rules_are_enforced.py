@@ -1146,8 +1146,20 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # It DELEGATES to `test_session.rig_parent` rather than building the path
     # again -- two call sites each spelling "where our stuff goes" is exactly how
     # $HOME came to hold two different kinds of litter.
-    "app.py": 1356,
-    "appimage_integration.py": 326,
+    # **1356 -> 1373 (2026-09-22)** (+17): the desktop-entry association. Two
+    # lines of code -- `setApplicationName(APP_NAME)` in place of a literal, and
+    # the static `QGuiApplication.setDesktopFileName` -- and the rest is the
+    # MEASUREMENT, which is the load-bearing part: `setDesktopFileName` is the
+    # API that reads like the fix and changes neither half of WM_CLASS on
+    # xcb/6.11.2, so a reader who trusts its name deletes the line that is
+    # actually holding the pairing up.
+    "app.py": 1373,
+    # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
+    # entry, and the comment recording the measured WM_CLASS it has to match
+    # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
+    # app-id the file is named for. A guessed string here fails silently -- the
+    # pin simply stays dark -- so the derivation is worth more than the line.
+    "appimage_integration.py": 349,
     # **753 -> 784 on 2026-09-18**: the paired `integration_declined_version` field and the note recording why the path-only key reproduced the bug it replaced.
     "config.py": 784,
     "cue_validate.py": 1257,
@@ -1421,13 +1433,18 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # and round 22 is the first approval in four rounds to move the pin rather than
     # re-approve it. Same judgement as the entry above -- a round close is when this
     # file is read, not when it should be split.
-    "handshake_approval.py": 619,
+    "handshake_approval.py": 638,  # +19: round 23's approval, and WHY the pin stands still while the round and app version move
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect
     # `test_help_documents_the_menu.py` exists to catch — so this growth is the
     # other half of a gate, not incidental.
-    "help_content.py": 582,
+    # **582 -> 586 (2026-09-22)** (+4): the read-offset bullet became two, because
+    # the guide described `read_offset` and `override_read_offset` as one control
+    # called "Read offset override" — a name neither of them carries on screen —
+    # and the number is inert without the tick-box, which the one-bullet version
+    # had no room to say. Found by the new guide-vs-screen sweep, not by reading.
+    "help_content.py": 586,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1452,13 +1469,22 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # build ships. The eleven lines of reasoning are the load-bearing part: a
     # later reader tidying this to a single label breaks every acceptance log
     # already filed under `docs/`.
-    "parsers/cyanrip_log.py": 2831,
+    # **2831 -> 2937 (2026-09-21).** The both-wordings parser: `_TRACK_START`
+    # accepts the fork's §0.3 rename alongside the wording every log written so
+    # far carries, and the new `Encoder errors:` footer is parsed rather than
+    # ignored. Nearly all of it is the reasoning — why the delimiter is
+    # structural (the rename alone takes a real 14-track log to 0 tracks under a
+    # report still claiming 14), why taking half of a split claim is worse than
+    # taking neither, and why `not applicable` is not a failure. That reasoning is
+    # the seam contract in prose, and it is what stops the next reader
+    # "simplifying" the old wording away once .14 ships.
+    "parsers/cyanrip_log.py": 2937,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
     # pure function would be the new-file-as-last-resort rule broken to satisfy
     # a line count.
-    "parsers/rip_log.py": 831,
+    "parsers/rip_log.py": 883,  # +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     "preflight.py": 903,
     "read_speed_ladder.py": 367,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
@@ -1483,7 +1509,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # is why: five of eight rips said `"ran"` over a null result. The added lines
     # are mostly the account of how the existing guard could not fire — which is
     # the part a future reader has to have before they "simplify" it back.
-    "rip_report.py": 2402,
+    "rip_report.py": 2416,  # +14: the two verification-issue codes promoted to named constants so the acceptance verb can grade on them instead of copying the vocabulary,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -1559,7 +1585,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # of the growth is the comment explaining the launch-time race, which is the
     # part a reader needs and the part a reviewer would otherwise have to
     # reconstruct from two other files.
-    "ui/main_window_deps.py": 686,
+    "ui/main_window_deps.py": 692,  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     "ui/main_window_drive.py": 555,
     "ui/main_window_helpers.py": 508,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
@@ -1622,7 +1648,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # now asks for is narrower and more tractable than before — move the post-rip
     # CHAIN (the five-step daemon and the six launchers) out beside the record it
     # already populates.
-    "ui/main_window_rip.py": 4678,
+    # **4678 -> 4696 (2026-09-21).** The bundle stamp no longer predicts the flush
+    # it is about to perform; the outcome is appended from the `else:` branch so a
+    # failed flush can never be reported as a successful one. Found by the fork in
+    # our own evidence bundle — the stamp read twelve seconds before the
+    # `generated_at` of the report it bundles.
+    "ui/main_window_rip.py": 4696,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -1651,7 +1682,24 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ui/main_window_update.py": 1019,
     "ui/rip_progress.py": 1658,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
-    "ui/settings_dialog.py": 1304,
+    # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
+    # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,
+    # which read as automatic when the only path to Picard is a dialog the user
+    # opens. The growth is the comment recording where the wrong gloss came from
+    # (our own dependency contract) so the next reader does not "correct" it back.
+    # **1319 -> 1361 (2026-09-22).** Fourteen tooltips rewritten to the
+    # maintainer's stated standard: a true/false setting names BOTH outcomes
+    # ("on: X. off: Y."), a value setting names what the values mean and what
+    # each produces. The old tooltips described the CONTROL ("verify the FLAC
+    # files after ripping") rather than the CONSEQUENCE, so the answer to "what
+    # happens if I leave this off?" was nowhere on screen. Growth is text, not
+    # branching. Measured after `ruff format`, per this table's own correction.
+    # **1361 -> 1372 (2026-09-22)** (+11): a tooltip for the Naming scheme
+    # dropdown, which had none. It is the only control here that rewrites two
+    # other fields, so it was the worst one to leave unexplained — and every
+    # tooltip test in this repo started from the set of tooltips, which cannot
+    # report an absence. The sweep now starts from the set of controls.
+    "ui/settings_dialog.py": 1372,
     "ui/track_table.py": 802,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
@@ -1750,7 +1798,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # of the round's breaking changes, with this verb among the steps that passed.
     # The next reader to find "accept either" tempting needs the number, not the
     # rule.
-    "uiscript/runner.py": 3929,
+    "uiscript/runner.py": 4045,  # +116: _do_expect_verification, the assertion section F never had,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
@@ -1764,7 +1812,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # cannot live anywhere else, and the growth is the comment explaining why
     # `expect-rip-complete` could not state this claim (cyanrip is always invoked
     # `-o flac`, so its log is identical whether our transcode ran or not).
-    "uiscript/verbs.py": 713,
+    "uiscript/verbs.py": 759,  # +46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,
     "update_install.py": 304,
     "verdict.py": 521,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
