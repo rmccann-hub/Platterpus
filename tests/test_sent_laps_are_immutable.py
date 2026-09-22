@@ -56,6 +56,22 @@ REPO_ROOT: Path = Path(__file__).resolve().parent.parent
 #: sent and what the fork holds; the file in this repository drifted from it and
 #: has been restored. It is first in the map for that reason.
 SENT_LAPS: dict[str, str] = {
+    # Round 23 lap 2. **Peer-confirmed in their lap 3's `HANDSHAKE-INBOUND-HELD`**,
+    # which names it at sha256 `4d1fd006...f38b8`, 18,686 bytes, read at
+    # `platterpus@b5af9bec` — and their §D2 says they fetched the branch and
+    # reproduced both figures rather than taking the declaration. So this file is
+    # cited by two immutable records now: their lap 3 and, indirectly, ours.
+    #
+    # Frozen at the bytes that were SENT. As with round 20 lap 2 above, the file
+    # was edited between being written and being released — the announce moved
+    # HANDSHAKE-READY-TO-READ — and that is legal exactly because an unannounced
+    # lap has not been sent. This row is what makes the immutability true rather
+    # than stated.
+    #
+    # **This is also why `claude/session-omka9f` must not be deleted** (their §D2,
+    # recorded in TASKS.md): we squash-merge, so the commit they cite never becomes
+    # an ancestor of `main`, and a branch delete plus routine `gc` destroys it.
+    "outbound/round-23-lap-02.md": "4d1fd006ee5dff274c32b9f715e4d2e8e95020d3699b08e81740356a66ef38b8",
     # Round 20 lap 2. **The closing lap of round 20, peer-confirmed with a git
     # blob as well as a digest.** Their lap 3 names it at sha256/16
     # `84fb47ab6b160ed0`, 17,483 bytes, and additionally quotes the blob
