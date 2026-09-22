@@ -1484,7 +1484,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # It belongs beside the dataclass it interrogates; a third module for one
     # pure function would be the new-file-as-last-resort rule broken to satisfy
     # a line count.
-    "parsers/rip_log.py": 831,
+    "parsers/rip_log.py": 883,  # +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     "preflight.py": 903,
     "read_speed_ladder.py": 367,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
@@ -1509,7 +1509,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # is why: five of eight rips said `"ran"` over a null result. The added lines
     # are mostly the account of how the existing guard could not fire — which is
     # the part a future reader has to have before they "simplify" it back.
-    "rip_report.py": 2402,
+    "rip_report.py": 2416,  # +14: the two verification-issue codes promoted to named constants so the acceptance verb can grade on them instead of copying the vocabulary,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -1585,7 +1585,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # of the growth is the comment explaining the launch-time race, which is the
     # part a reader needs and the part a reviewer would otherwise have to
     # reconstruct from two other files.
-    "ui/main_window_deps.py": 686,
+    "ui/main_window_deps.py": 692,  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     "ui/main_window_drive.py": 555,
     "ui/main_window_helpers.py": 508,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
@@ -1798,7 +1798,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # of the round's breaking changes, with this verb among the steps that passed.
     # The next reader to find "accept either" tempting needs the number, not the
     # rule.
-    "uiscript/runner.py": 3929,
+    "uiscript/runner.py": 4045,  # +116: _do_expect_verification, the assertion section F never had,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
@@ -1812,7 +1812,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # cannot live anywhere else, and the growth is the comment explaining why
     # `expect-rip-complete` could not state this claim (cyanrip is always invoked
     # `-o flac`, so its log is identical whether our transcode ran or not).
-    "uiscript/verbs.py": 713,
+    "uiscript/verbs.py": 759,  # +46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,
     "update_install.py": 304,
     "verdict.py": 521,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,

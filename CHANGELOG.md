@@ -13,6 +13,39 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Fixed
 
+- **The README announced a full-green hardware pass the record denies.** Its
+  headline hardware paragraph claimed *"the first `full-green` row this project's
+  field-evidence ledger has ever carried"* and that `0.7.100`'s gate was met, a
+  week after that row was re-graded `partial`; the same page named a ripper pin
+  five handshake rounds stale inside its READ-THIS-FIRST install box, and printed
+  section counts that did not add up. Corrected, and now gated: three sweeps
+  derive the claim from the ledger, the severity table and `FORK_PIN`, so each
+  lifts by itself when the fact changes. The stale `--version` example sat under
+  a comment explaining that this had happened before.
+
+- **The acceptance run's post-rip checks could be dropped without failing it.**
+  Section F switches CTDB and FLAC-integrity verification on, then asserts the
+  two settings round-tripped — which is a setting checked against itself. On the
+  2026-09-22 run both checks were dropped unfinished when the next section began
+  ripping, on three of eight rips, and the run still reported 247 of 247. New
+  `expect-verification` verb grades what the checks actually left, and a sweep
+  requires every ripping section to carry it.
+
+- **Every track of an archival rip was reported as needing "unusually heavy
+  re-reading".** The threshold was three read passes, chosen when a re-read was
+  exceptional — but a uniform secure re-read costs three passes on a flawless
+  track by arithmetic (two agreeing checksums need three reads) and the retry
+  limit caps it there, so the flag fired on all 14 tracks of a clean disc and
+  could not discriminate at all. The floor is now measured from the rip itself.
+
+- **The Diagnostics dialog had never once shown a dependency.** It asked the
+  environment block for a `dependencies` key that block has never carried, so it
+  always printed *"not probed yet this session — the launch-time check had not
+  completed, or it crashed"* — false on every machine in every session, in the
+  text a user pastes into a bug report, while the rip report beside it listed all
+  seven tools with versions and paths. Both surfaces now read the same probe
+  through the same summariser.
+
 - **A rip whose FLAC encode failed could be reported as a clean rip.** The
   per-track "ripped and encoded successfully!" line is being split by the ripper
   into a per-track *read* line and a disc-level `Encoder errors:` footer, because

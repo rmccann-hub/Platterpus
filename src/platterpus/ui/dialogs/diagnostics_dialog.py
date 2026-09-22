@@ -49,6 +49,7 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus import __version__, build_info, diagnostics, handshake_approval
+from platterpus.deps import manager as dep_manager
 from platterpus.paths import LOG_PATH
 from platterpus.ui.dialogs.centering import CenteredDialog
 
@@ -88,6 +89,17 @@ def build_diagnostics_text() -> str:
         # generic iteration is the correct shape — and a hand-listed set of keys
         # would be one more completeness promise that decays by omission.
         env_items: dict[str, object] = dict(env)
+        # `environment_report()` carries python/platform/pyside6/install_channel
+        # and NOTHING ELSE — the rip report's `dependencies` key is attached by
+        # the window from its own probe, which this renderer has no window to
+        # ask. Reading it out of the dependency subsystem is what makes the
+        # "not probed yet" branch below reachable-from-true instead of constant;
+        # both surfaces go through `dependency_summary`, so they cannot describe
+        # one machine two ways. (Found 2026-09-22: this dialog had never once
+        # printed a dependency row, while the rip report beside it listed seven.)
+        dep_report = dep_manager.latest_report()
+        if dep_report is not None:
+            env_items["dependencies"] = build_info.dependency_summary(dep_report)
         lines += ["", "--- Environment ---"]
         for key in sorted(env_items):
             if key == "dependencies":

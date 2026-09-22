@@ -10445,3 +10445,48 @@ def test_a_failed_flush_is_never_reported_as_a_successful_one(
         "the stamp claims the flush succeeded AND failed — which is what "
         "predicting it above the call produced"
     )
+
+
+def test_a_finished_dependency_probe_reaches_the_subsystem_store(
+    qapp: QApplication,
+) -> None:
+    """The write half of the contract the Diagnostics dialog reads.
+
+    `test_ui_diagnostics_dialog` proves the RENDERER reads
+    `deps.manager.latest_report()`; deleting the write-through here left that
+    test green, which is one half of a two-half contract — the shape this
+    project has now paid for several times. So this drives the real handler on
+    a real window and asserts the store ends up holding the probe.
+
+    Scope, stated: it asserts the stash, not what `_apply_dependency_report`
+    then does with it. The report carries no missing items so no resolver
+    dialog can open.
+    """
+    from types import SimpleNamespace as _NS
+
+    from platterpus.deps import manager as dep_manager
+    from platterpus.deps.manager import DependencyReport
+
+    dep_manager.remember_report(None)
+    assert dep_manager.latest_report() is None, "the store must start empty"
+
+    window = _make_window(qapp)
+    try:
+        report = DependencyReport(
+            ok=[_NS(dep_id="cyanrip")],
+            ok_versions={"cyanrip": (0, 9, 4)},
+            ok_probes={"cyanrip": _NS(location="/home/u/.local/bin/cyanrip")},
+        )
+        window._dep_check_manager = window._dependency_manager
+        window._dep_check_show_summary = False
+        window._on_dependency_check_done(report)
+
+        stored = dep_manager.latest_report()
+        assert stored is not None, (
+            "a completed probe left the subsystem store empty, so the "
+            "Diagnostics dialog will still say nothing was probed"
+        )
+        assert [s.dep_id for s in stored.ok] == ["cyanrip"]
+    finally:
+        window.close()
+        dep_manager.remember_report(None)
