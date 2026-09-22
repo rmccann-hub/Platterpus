@@ -1286,3 +1286,60 @@ maintainer's sole control: other people running it. That is the point. A 1.0 tha
 only its author has ever run is a claim the evidence cannot carry, and shipping it
 would make the number meaningless for the users it is aimed at.
 
+
+### KDD-36 — Our log is the long-term goal; the EAC log is a faithful, unforged compatibility artifact (decided 2026-09-21)
+
+**Maintainer directive**, in full because the framing is the decision: *"keep the
+eac log as true as you can to eac format without forging anything. keep our log as
+true, full, and up to date as you can. your goal is to make our log format the
+accepted and true log, with better diagnostics, reporting, etc. but we are not
+there yet, we are only just started."*
+
+**Decision.** Two logs, two different jobs, and now an explicit ordering between
+them.
+
+- **The EAC-layout export is a COMPATIBILITY ARTIFACT.** Track EAC's format as
+  closely as honesty allows, and never one step further. It exists so a human can
+  diff our output against an EAC rip and so people who expect that layout can read
+  ours — not because it is the better record. `CLAUDE.md`'s consolidation rule
+  already carves it out (*"an EAC-compatible log must stay as close to the EAC
+  original as possible without forging it"*); this KDD is the reason why.
+- **Our own log is the ASPIRATION.** Keep it true, full and current — and weigh
+  work on it as work on a candidate reference format, not on a debug file.
+
+**What "without forging anything" forecloses, permanently.** The Rijndael-256
+checksum that proves EAC produced a log; a `Defeat audio cache: Yes` we cannot
+measure (KDD-25); any field asserted rather than observed. Signing a log as if EAC
+made it misrepresents **provenance**, not audio, and is a bannable faked log on the
+trackers that check it (KDD-11, KDD-13, KDD-24). None of that changes here. The
+export's header and footer say plainly it is not a genuine EAC log, and they stay.
+
+**How this relates to KDD-24, which it does not reverse.** KDD-24 found tracker
+acceptance unreachable and chose not to pursue it: the gazelle logcheckers score by
+*which program produced the log*, so cyanrip scores zero before the audio is
+evaluated. That remains true and we still do not chase their allow-list. What
+changes is the *direction of the ambition*: KDD-24 framed the open-trust path
+(AccurateRip + CTDB + an honest unsigned export) as the **alternative** to
+acceptance. This reframes it as the **route to it** — the aim is for our format to
+become a record others accept on its merits, rather than for us to be admitted to
+a list built around somebody else's tool.
+
+**And the last clause is load-bearing: *"we are not there yet, we are only just
+started."*** A format with that ambition invites two failures this project already
+knows by name:
+
+1. **Claiming the standard before earning it.** The honest position today is that
+   our log carries *more diagnostics* than EAC's — exit codes, exact argv, the
+   ripper build tag, per-track paranoia counters, CTDB whole-disc verification —
+   and carries *less proof of provenance*, because we refuse the one mechanism that
+   would supply it. "Better diagnostics" is not "accepted", and saying so early
+   would be the version-number error (KDD-35) applied to a file format.
+2. **Churn.** A candidate reference format cannot be reshaped every release.
+   Additive change with a recorded reason; a breaking change to our log is a
+   handshake-grade event, because the fork's log is its input.
+
+**Consequence accepted.** Work on our log's completeness now counts as work toward
+a goal, not polish — which raises, not lowers, the bar for what may go in it. Every
+field must be something we *observed*, the tri-state rule applies to all of it, and
+a gap is recorded as a gap rather than filled with a plausible value. That is the
+only way a format earns the standing this KDD aims at.
