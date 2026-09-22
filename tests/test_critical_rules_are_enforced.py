@@ -1433,7 +1433,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # and round 22 is the first approval in four rounds to move the pin rather than
     # re-approve it. Same judgement as the entry above -- a round close is when this
     # file is read, not when it should be split.
-    "handshake_approval.py": 619,
+    "handshake_approval.py": 638,  # +19: round 23's approval, and WHY the pin stands still while the round and app version move
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect
