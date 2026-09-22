@@ -73,7 +73,25 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-22-lap-04.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-23-lap-02.md",)
+
+# WHY IT MOVED TO ROUND-23 LAP 2 (2026-09-22).
+#
+# Round 22 is CLOSED -- GO/GO at five laps. Round 23 opened on their lap 1, and
+# this lap answers all three of its close conditions: assent to v5's two clauses
+# with the drafting left to them, a MEASURED assent on the held-lap banner
+# qualifier, and a disposition of the 2026-09-22 acceptance run that agrees with
+# four of their five rows and corrects the fifth.
+#
+# **It moved only once the lap was RELEASED**, the ordering round 20 established.
+# The lap sat at `HANDSHAKE-READY-TO-READ: no` through four commits while the
+# gate was still red, and packing it then would have built a hand-over artifact
+# for a draft.
+#
+# Travels ALONE. This lap quotes no file that has to travel with it -- every
+# artifact it cites is either in their tree (their lap 1, their PROVIDER-CONTRACT)
+# or reachable in ours at `platterpus@a0aed36`, which is the whole point of
+# resolving the from-commit against `origin/main`.
 
 # WHY IT MOVED TO ROUND-20 LAP 2 (2026-09-16).
 #

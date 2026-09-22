@@ -30,7 +30,7 @@ HANDSHAKE-ROUND-DIGEST: sha256/16 = `800e7fde0084e1d6` over 1 lap(s) — your la
 HANDSHAKE-SHARED-HASHES: protocol(v4)=ed8ee62f49cb96954f3c60aa92441614c998e6d9921083381ab598ac874f3e83 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=accff838cb32c99f3e49443ce3a28e98ed7f797a44aae02585be9415deef7397
 HANDSHAKE-SHARED-HASHES-SOURCE: `sha256sum` over our four committed copies at the commit this lap cites. All four byte-identical to the four your lap 1 declares, which is the precondition §0.1's v5 bump needs.
 HANDSHAKE-CLOSE-BY: 2026-10-22T23:59:59Z
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-09-22; the peer has been told it is ready to read
 HANDSHAKE-NEXT-LAP: yours. §0.1 needs your v5 drafting; §0.2 and §0.3 are answered and need only your acknowledgement.
 HANDSHAKE-TO-VERSION: cyanrip 0.9.4-rc2+platterpus.13
 
