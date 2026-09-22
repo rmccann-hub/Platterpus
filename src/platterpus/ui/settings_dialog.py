@@ -144,6 +144,17 @@ class SettingsDialog(CenteredDialog):
         for preset in naming.PRESETS:
             self._naming_combo.addItem(preset.label, preset.key)
         self._naming_combo.addItem(naming.CUSTOM_LABEL, None)
+        self._naming_combo.setToolTip(
+            "A shortcut that fills the two template boxes below — it stores "
+            "nothing of its own, so whatever it writes there is what a rip "
+            "uses. Each choice names the folder layout it produces: the "
+            "recommended one gives Artist/Album/01 - Title, the year presets "
+            "put the year in the FOLDER (Album (1995)) rather than in every "
+            "filename, and the compilation preset adds the per-track artist "
+            "for discs where it differs from the album artist. Watch the "
+            "Example line below — it renders the real filename. Hand-editing "
+            "either template switches this to Custom and changes nothing else."
+        )
         form.addRow("Naming scheme:", self._naming_combo)
 
         self._track_template_edit: QLineEdit = QLineEdit(config.track_template, self)
@@ -672,7 +683,7 @@ class SettingsDialog(CenteredDialog):
             "track that didn't match AccurateRip. When on, EVERY track is read at "
             "least twice and kept only once the reads agree — EAC's Test & Copy "
             "guarantee for the whole disc, shown as a matching Test/Copy CRC pair "
-            "in the EAC-compatible log. Needs “Max reads” at 2 or more (a second "
+            "in the EAC-compatible log. Needs “Reads that must agree” at 2 or more (a second "
             "read is what there is to compare). Slower — it double-reads clean "
             "tracks too; leave off for the fast path."
         )

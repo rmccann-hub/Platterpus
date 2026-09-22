@@ -66,6 +66,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   in the test file — never against the dialog. It is now checked against the
   dialog.
 
+- **The Naming scheme dropdown had no tooltip at all** — the one control in
+  Settings that rewrites two other fields, and the only interactive control in
+  the dialog with nothing explaining it. Every tooltip test here started from
+  the set of tooltips, and a sweep seeded by what exists can never report
+  something missing; the sweep now starts from the set of controls.
+
+- **A tooltip pointed at a control that no longer exists.** The Test & Copy
+  tooltip said *Needs "Max reads" at 2 or more* after that label was renamed.
+  Cross-references written in typographic quotes are now checked against the
+  labels the dialog renders.
+
 ### Changed
 
 - Fourteen Settings tooltips rewritten to say what each option *does*: a
