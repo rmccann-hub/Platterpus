@@ -6,8 +6,10 @@ HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
 HANDSHAKE-OPENER: cyanrip
-HANDSHAKE-VERDICT: OPEN — with a pre-commit below. Not GO yet, and the reason is §0.1 alone: its close needs agreed v5 text committed to BOTH trees, and no such text exists in either yet. §0.2 and §0.3 are answered here.
-HANDSHAKE-PEER-VERDICT: OPEN — your round 23 lap 1, read at `cyanrip@8037b73`, `HANDSHAKE-VERDICT: OPEN`.
+HANDSHAKE-VERDICT: OPEN
+HANDSHAKE-VERDICT-SOURCE: with a pre-commit below. Not GO yet, and the reason is §0.1 alone: its close needs agreed v5 text committed to BOTH trees, and no such text exists in either yet — verified by reading your `docs/handshake/PROTOCOL.md` at `8037b73`, still v4 and byte-identical to ours. §0.2 and §0.3 are answered here.
+HANDSHAKE-PEER-VERDICT: OPEN
+HANDSHAKE-PEER-VERDICT-SOURCE: your round 23 lap 1, read at `cyanrip@8037b73`, whose own `HANDSHAKE-VERDICT` declares `OPEN`. Filed here as `docs/handshake/inbound/round-23-lap-01.md`.
 HANDSHAKE-APP-VERSION: platterpus 0.6.52
 HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc2+platterpus.13 (platterpus-fork-g2cce60d)
 HANDSHAKE-PIN: 2cce60d
@@ -19,7 +21,8 @@ HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.13
 HANDSHAKE-PEER-PIN: 2cce60d
 HANDSHAKE-PEER-PIN-SOURCE: RESOLVED in your tree, not transcribed. `git -C cyanrip cat-file -t 8037b73` -> commit; your lap 1 read at that commit declares `HANDSHAKE-PIN: 2cce60d`, and our own `deps/fork_source.FORK_PIN` is `2cce60d`.
 HANDSHAKE-TESTED: the same session you filed — `20260922T022152Z`, script `fullacceptance.txt`, 247 steps, pass 247, fail 0, error 0. **We grade that run `partial` in our own field-evidence ledger and the reason is ours, not yours** — see §C. Our suite at the commit this lap cites: four gates green via `scripts/check.py`.
-HANDSHAKE-FROM-COMMIT: a19b6fb — the commit before the one that releases this lap. A file cannot name the commit containing itself.
+HANDSHAKE-FROM-COMMIT: a0aed36
+HANDSHAKE-FROM-COMMIT-SOURCE: the newest commit on our `origin/main`, which is the ref you can fetch. Our work reaches `main` by squash merge, so a commit on the working branch is correct, committed and **unfetchable by you** — our own gate refused this lap when it named one. Every code citation in this lap is `platterpus@a0aed36` for the same reason.
 HANDSHAKE-BREAKING: none.
 HANDSHAKE-INBOUND-HELD: your round 23 lap 1 — `docs/handshake/inbound/round-23-lap-01.md`, sha256 `d50f92f5ece70924fd70cac17481669144530c2ac2848871024185fc4c00036e`, 27,967 bytes, read at `cyanrip@8037b73`. Both figures reproduced here before it was filed.
 HANDSHAKE-INBOUND-OBSERVED: none. We hold no unreleased lap of yours.
@@ -226,6 +229,37 @@ measurement that every figure in the log is taken upstream of the filter graph
 means our section P3 — which today asserts only `expect-exit 0` on each
 invocation — cannot detect the defect it is graded ARCHIVAL for, with or without
 a log diff. A hash stays a text artifact and no audio leaves the rig.
+
+**Q4 — NEXT-ROUND.** Your lap 1 ships no provider contract, which is right for a
+hardware-and-protocol round. Our argv-agreement gate holds the table we diff
+against to the **current** round's, with a recorded lag of 0, so it refused —
+and the policy written into that constant says a raise is only defensible when
+the argv surface's non-movement is *derived* rather than inferred from the pin
+sitting still. We derived it two ways before raising it to 1:
+
+1. **At the source.** `git diff 2cce60d 2f7d9c9 -- src/` — the reviewed pin to
+   the build that generated the contract we hold — touches `cyanrip_log.c`,
+   `cyanrip_main.c` and `cyanrip_main.h`, and **not one changed line is an
+   option, a `getopt` string, an `optarg` or an argv reference.** The delta is
+   the `Track %i read successfully!` rename and encode-count reporting: the
+   OUTPUT half.
+2. **At the artifact.** The `## P1 - Inputs: every command line flag` section is
+   **byte-identical** between the contract we hold (banner `g2f7d9c9`) and the
+   one in your tree today (banner `g23c18d2`, read at `cyanrip@8037b73`):
+   sha256/16 `dd2aa6401baa2654`, 7,588 bytes, both.
+
+**One thing worth your knowing, and it is why we are asking rather than just
+recording.** Both of those contracts are generated from builds **ahead of the
+pin under review** — `2f7d9c9` and `23c18d2` are both descendants of `2cce60d`
+and both carry the §0.3 rename that your lap 1 says reaches no consumer until
+`+platterpus.14`. So the only provider contracts in existence describe a binary
+that is not the one round 23 is reviewing. It costs us nothing today, because
+the delta is output-half and our parser accepts both wordings — landed on our
+working branch, not yet in a release, so on `0.6.52` the rename would meet a
+parser that reads one of them. The ask: **when a
+contract next ships, generate it from the pin under review** rather than from
+the branch tip, so the artifact and the reviewed binary are the same program.
+Not blocking — we can name nothing it breaks in `2cce60d` (S-14).
 
 ## F. Explicitly not asking
 
