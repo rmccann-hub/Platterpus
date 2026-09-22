@@ -872,6 +872,60 @@ def test_the_readme_section_counts_match_the_severity_table() -> None:
             )
 
 
+def test_the_readme_names_the_ROUND_and_APP_VERSION_the_approval_record_holds() -> None:
+    """The §5.bn class, fourth instance — found hours after §5.bn was written.
+
+    Round 23 closed `GO`/`GO` and moved `APPROVED_BY_ROUND` 22 -> 23 and
+    `APPROVED_FOR_PLATTERPUS_VERSION` "0.6.51" -> "0.6.52". The README went on
+    saying *"rounds 1 through 22 are all closed"*, *"Platterpus `0.6.51`"* and
+    *"approved by handshake round 22"* — three live claims about the approval
+    record, in the document a stranger reads first, and **every gate in this file
+    passed**. The sweeps added with §5.bn cover the ledger, the severity counts
+    and the build tag; none of them reads the round or the app version.
+
+    A gate whose subject is "a claim that decays" has to enumerate the claims, and
+    each one that is missed is invisible in exactly the same way. Derived from
+    `handshake_approval`, which is itself derived from the closed-round record by
+    `test_fork_source.py::test_the_approval_round_and_app_version_match_the_record`
+    — so this is two links in one chain rather than a second opinion.
+    """
+    from platterpus import handshake_approval as ha
+
+    checked = 0
+    for doc, text in _user_facing_text().items():
+        for match in re.finditer(
+            r"rounds?\s+\*\*1 through (?P<through>\d+)\*\*"
+            r"|approved by handshake round (?P<by>\d+)",
+            text,
+        ):
+            checked += 1
+            claimed = int(match.group("through") or match.group("by"))
+            line = text.count("\n", 0, match.start()) + 1
+            assert claimed == ha.APPROVED_BY_ROUND, (
+                f"{doc}:{line} names handshake round {claimed}; the approval "
+                f"record holds {ha.APPROVED_BY_ROUND}. The round number is a live "
+                f"claim about what approved the pin a user is about to install."
+            )
+        for match in re.finditer(
+            r"approved pair is.{0,200}?Platterpus \*\*`(?P<ver>\d+\.\d+\.\d+)`\*\*",
+            text,
+        ):
+            checked += 1
+            claimed = match.group("ver")
+            line = text.count("\n", 0, match.start()) + 1
+            assert claimed == ha.APPROVED_FOR_PLATTERPUS_VERSION, (
+                f"{doc}:{line} says the approved pair names Platterpus {claimed}; "
+                f"the record holds {ha.APPROVED_FOR_PLATTERPUS_VERSION}"
+            )
+
+    # NON-TRIVIALITY: a reworded banner would otherwise silently stop being checked.
+    assert checked >= 3, (
+        f"only {checked} round/app-version claim(s) matched in the user-facing "
+        "docs. The status banner and the install box both carry one; if this "
+        "pattern has stopped matching, the sweep is checking nothing."
+    )
+
+
 def test_no_user_facing_doc_ASSERTS_an_open_round_when_none_is_open() -> None:
     """The README said *"round 14 is open"* after round 14 closed GO/GO.
 

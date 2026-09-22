@@ -2979,6 +2979,28 @@ Gates: `test_every_ripper_build_tag_in_a_user_facing_doc_is_the_CURRENT_one`,
 `test_the_readme_section_counts_match_the_severity_table` — each derived from the
 committed table it is about, so each lifts by itself when the fact changes.
 
+**Fourth instance, the same day, and it is the one that matters most.** Round 23
+closed hours after §5.bn was written. Closing it moved `APPROVED_BY_ROUND` 22 →
+23 and `APPROVED_FOR_PLATTERPUS_VERSION` "0.6.51" → "0.6.52" — a gate in
+`test_fork_source.py` forced both, correctly, off the closed-round record. The
+README then went on saying *"rounds 1 through 22 are all closed"*, *"Platterpus
+`0.6.51`"* and *"approved by handshake round 22"*: three live claims about which
+round approved the build a user is about to install, and **every sweep added with
+§5.bn passed**, because they cover the ledger, the severity counts and the build
+tag and none of them reads the round or the app version.
+
+So the lesson sharpens: **a gate whose subject is "a claim that decays" has to
+enumerate the claims, and each one it misses is invisible in exactly the way the
+others were.** Adding three sweeps does not make the class handled; it makes
+three members of it handled. The new sweep derives from `handshake_approval`,
+which is itself derived from the record, so it is two links of one chain rather
+than a second opinion.
+
+And its own floor earned its keep immediately: the first version of the
+approved-pair pattern used `[^.]*?`, which cannot cross the dots in
+`0.9.4-rc2`, so it matched nothing — and the `checked >= 3` clause failed rather
+than letting a sweep that had stopped matching report success.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is
