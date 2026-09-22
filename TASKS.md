@@ -27,7 +27,8 @@ The audit's doc corrections landed in one change (see `CHANGELOG.md`). These fou
 did not, because they are code or need a judgement, and the first two are the
 most important thing on this page before round 24's lap 1 arrives.
 
-- [ ] **ROUND-24 READINESS: implement protocol v5 in our gate.** The shared file is
+- [x] **DONE 2026-09-22 — protocol v5 implemented; `PROTOCOL_VERSION = 5`, `_BOOTSTRAP_REASON` cleared.** `resolve_peer_verdict` (§5b), the §5c release check on the candidate, C41 at `--check` and the gate, source lines printed on `--status` and on an allowed release (C42), and tests for C37–C42, each revert-proven. A rehearsal on real lap content closed a v5 round 24 in three laps where v4 needs four. Original:
+- [x] ~~**ROUND-24 READINESS: implement protocol v5 in our gate.**~~ The shared file is
   v5 and byte-identical in both trees since 2026-09-22, which is v5's own condition
   for *either* gate to implement it (§13), and our round 23 lap 4 said
   *"implementation follows"*. Nothing tracked it until now. **Measured in the
@@ -40,7 +41,8 @@ most important thing on this page before round 24's lap 1 arrives.
   `PROTOCOL_VERSION = 5` and **clear `_BOOTSTRAP_REASON` in the same commit**
   (`tests/test_handshake_tooling.py` requires it).
 
-- [ ] **ROUND-24 READINESS, gate defect [MEASURED]: the release gate trusts a file
+- [x] **FIXED 2026-09-22 — `refused_round_files` runs `protocol_refusal` over every file of a round on the gate path; C15 now has a gate-level test and a relation test, both revert-proven (the first version of the fixture was VACUOUS — it was refused by C41 instead of by its version).** Original:
+- [x] ~~**ROUND-24 READINESS, gate defect [MEASURED]: the release gate trusts a file~~
   `--check` refuses.** `protocol_refusal()` is called only by `check_wire_header`;
   `round_status` and `--release-gate` read verdicts regardless of the declared
   protocol. Rehearsal: our lap 2 (v4, `GO`) plus their lap 3 (v5, `GO`) →
@@ -55,11 +57,31 @@ most important thing on this page before round 24's lap 1 arrives.
   whose peer declares 5 can never close on our side, so land it with, or after,
   the item above. Test the relation, not each surface.
 
-- [ ] **No test fires when an inbound lap fails `--check`.** The rehearsal filed a
+- [x] **DONE 2026-09-22 — `tests/test_every_inbound_lap_passes_check.py`**: 89 of 100 inbound files pass; the 11 that do not are all from rounds 1–8 and are pinned by name in a set that may only shrink. Original:
+- [x] ~~**No test fires when an inbound lap fails `--check`.**~~ The rehearsal filed a
   realistic round-24 opener: eight tests fire on arrival (below), and with a v5
   header **the same eight fire and no ninth** — so once the bookkeeping is done the
   suite goes green over a lap our own checker refuses. Candidate: a sweep running
   `check` over every inbound lap, with the existing pre-format grandfather sets.
+
+- [ ] **Sixteen binding conformance rows have never had a named test: C21–C36.**
+  Found while bumping to v5. `test_every_conformance_row_has_a_test_here`
+  exempted every row after the v3 heading **unconditionally**, against §8's own
+  instruction that *"bumping `PROTOCOL_VERSION` turns them on with no second
+  edit"* — so when both gates reached 4 in round 9, the v3/v4 rows stayed exempt
+  for thirteen rounds. The split now follows `PROTOCOL_VERSION`, C37–C42 have
+  tests, and C21–C36 are counted in `_BINDING_ROWS_WITHOUT_A_NAMED_TEST` (may
+  only shrink). Some behaviours are covered under other names (the digest,
+  overrides, the lap limit); the work is one `test_C<nn>_…` per row, and any row
+  whose test fails is a divergence to report, not to fix quietly.
+
+- [ ] **Ask the fork, in round 24: does their gate read §5b's "enumerated" the way
+  ours does?** We derived it rather than chose it: C40 allows a candidate *newer*
+  than the transcription's source, and the source is the newest peer lap the
+  writer held, so that candidate cannot be in the writer's own `INBOUND-HELD`.
+  Our gate therefore enumerates at decision time (`resolve_peer_verdict`). If
+  theirs reads it as the closing lap's field, the two gates would disagree about
+  exactly the close v5 exists to allow.
 
 - [ ] **Say it in our first round-24 lap: a Platterpus pre-release counts for the
   round-22 ordering.** Answered to the fork by hand on 2026-09-22; it belongs in the
@@ -1423,15 +1445,19 @@ ships from the reviewed pin"*.
   diff; the P1 table byte-identical) and write the reason into the constant. By
   round 26, stop raising and say so in the lap.
 
-### What fires on a v5 opener — and what does not
+### What fires on a v5 opener — FIXED the same day the rehearsal found it
 
-**The same eight, and no ninth.** `--check` refuses the lap — *"file declares
-protocol v5; this gate implements v4"* — and nothing in the suite notices. Worse,
-the simulated close reads round 24 **CLOSED** with `--release-gate` exiting **0**,
-because the release gate never asks the protocol question `--check` asks. Both are
-the first two items in *2026-09-22 pre-round-24 document audit* at the top of this
-file. **If their lap 1 declares 5, implementing v5 is ours to do before we can
-answer it** — our own gate cannot validate their lap until then.
+**Measured before the fix:** the same eight tests and no ninth; `--check` refused
+the lap (*"file declares protocol v5; this gate implements v4"*); and a simulated
+close — our v4 `GO`, their v5 `GO` — read **CLOSED** with `--release-gate` exiting
+**0**, because the release gate never asked the protocol question.
+
+**Re-rehearsed after the fix** (scratch copy of the real record, real lap bodies):
+a v5 opener passes `--check`; our v5 `GO` lap 2 reads OPEN, naming the lap its peer
+verdict resolved from; their v5 `GO` lap 3 closes the round in **three** laps,
+printing the superseded transcription (C40) and both sources (C42) on `--status` and
+on the allowed release. `tests/test_every_inbound_lap_passes_check.py` is the ninth
+test the rehearsal said was missing.
 
 ### Every time, whatever the lap contains
 

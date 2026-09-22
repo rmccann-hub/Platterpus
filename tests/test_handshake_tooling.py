@@ -1412,17 +1412,13 @@ def test_the_grandfather_sets_are_pinned_and_may_only_shrink(hs: ModuleType) -> 
 #: non-empty reason whenever the two numbers differ — so this cannot become
 #: permanent by nobody noticing. Clear it in the same commit the gate reaches the
 #: spec's version.
-_BOOTSTRAP_REASON: str = (
-    "v5 landed 2026-09-22 as round 23 §0.1's close condition — the shared text is "
-    "byte-identical in both trees and our gate still implements and declares 4. "
-    "v5 says so itself: 'Neither gate implements 5 until this file is "
-    "byte-identical in both trees', and its §8 rows C37-C42 are marked 'Not yet "
-    "in force — a gate implementing 4 must not be failed for missing them'. So "
-    "spec > gate is the expected window here, not drift. Clear this in the commit "
-    "that teaches close-resolution §5b/§5c and the C37-C42 rows."
-)
-#: History of this constant, newest first. **2026-09-22 → now: non-empty**, the v5
-#: bootstrap above. **Round 9 → 2026-09-22: empty** — the shared file was v4 and our
+_BOOTSTRAP_REASON: str = ""
+#: History of this constant, newest first. **Empty again from 2026-09-22 (later the
+#: same day)**: the gate implements and declares 5, the shared file is v5, and the
+#: C37-C42 rows have tests — cleared in that commit, as the reason itself required.
+#: **2026-09-22, for one day: non-empty**, the v5 bootstrap — *"v5 landed as round 23
+#: §0.1's close condition … our gate still implements and declares 4 … Clear this in
+#: the commit that teaches close-resolution §5b/§5c and the C37-C42 rows."* **Round 9 → 2026-09-22: empty** — the shared file was v4 and our
 #: gate implemented and declared 4, round 9's close condition 1; before that it held
 #: a reason for one day, between adopting v3's text and the fork's v4 landing with
 #: both of our amendments in it. (Until the 2026-09-22 document audit this note still

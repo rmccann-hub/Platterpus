@@ -36,12 +36,14 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import re
 import subprocess
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 from typing import Final
 
 _REPO_ROOT: Path = Path(__file__).resolve().parents[1]
@@ -876,6 +878,13 @@ def emit_outbound(round_number: int) -> str:
             # earlier lap was hand-carried and delivery WAS the announcement.
             f"HANDSHAKE-READY-TO-READ: {READY_TO_READ_NO}",
             "HANDSHAKE-VERDICT: OPEN",
+            # Row C41: a file declaring 5 carries both, on any verdict. `OPEN` is the
+            # honest default — the peer's answer does not exist when a lap is born —
+            # and the source names where it will be transcribed from once it does.
+            "HANDSHAKE-PEER-VERDICT: OPEN",
+            f"{PEER_VERDICT_SOURCE_FIELD}: <the peer lap this was transcribed from, "
+            "e.g. round-NN-lap-LL.md, and the commit it was read at — or `none` "
+            "if no lap of theirs exists for this round>",
             f"HANDSHAKE-APP-VERSION: platterpus {_app_version}",
             f"HANDSHAKE-RIPPER-VERSION: {_fork_banner()}",
             f"HANDSHAKE-PIN: {_fork_pin()}",
@@ -1090,7 +1099,14 @@ _FENCE_BLOCK = re.compile(
 #: The protocol version this gate implements (`PROTOCOL.md`). A file declaring a
 #: **higher** number is refused rather than guessed at: we cannot know which of
 #: that version's rules we are silently not applying.
-PROTOCOL_VERSION: int = 4
+#:
+#: **5 since 2026-09-22** (§5b, §5c, `HANDSHAKE-PEER-VERDICT-SOURCE`, rows C37–C42),
+#: the day the shared text became byte-identical in both trees — v5's own condition
+#: for either gate to implement it (§13). Raised before round 24's lap 1 arrived
+#: because the round-24 rehearsal measured what staying at 4 would do: a peer lap
+#: declaring 5 was refused by ``--check``, and — worse — closed a round anyway on the
+#: gate path, which never asked the version question. See :func:`round_status`.
+PROTOCOL_VERSION: int = 5
 
 #: Sentinel for a field declared more than once with conflicting values. A real
 #: value can never equal it, and every consumer treats it as "not closed".
@@ -1840,6 +1856,316 @@ def protocol_refusal(text: str) -> str | None:
     return None
 
 
+def refused_round_files(paths: Iterable[Path]) -> list[str]:
+    """Every file in a round this gate must refuse on version grounds (row C15).
+
+    **THE SAME PREDICATE ``--check`` USES, ON THE PATH THAT DECIDES A CLOSE.** Until
+    2026-09-22 :func:`protocol_refusal` had exactly one caller, :func:`check_wire_header`,
+    so the validation path refused a file one version ahead while :func:`round_status`
+    and ``--release-gate`` read its verdict anyway. Measured in the round-24 rehearsal:
+    our v4 ``GO`` plus a peer v5 ``GO`` read **CLOSED** and ``--release-gate`` exited
+    **0**, while ``--check`` refused the peer lap. One gate, two answers to *may I
+    trust this file* — and the conformance row that should have caught it asserted
+    the helper's return value, never the gate's behaviour.
+
+    **Any file in the round, not only the newest.** A round containing a lap written
+    under rules we do not implement is a round we cannot grade, whichever lap governs
+    its verdict: the newer lap may lean on a clause of the older one's version.
+    """
+    refused: list[str] = []
+    for path in paths:
+        reason = protocol_refusal(_safe_read(path))
+        if reason is not None:
+            refused.append(f"{path.parent.name}/{path.name}: {reason}")
+    return refused
+
+
+# --- Protocol v5: where a transcribed peer verdict may be resolved from --------
+#
+# §5 requires every closing file to TRANSCRIBE the peer's verdict. Under v4 that
+# made one lap per round unavoidable: the side that speaks first writes before the
+# answer it must transcribe exists, so somebody always owed a lap whose only content
+# was a copy. v5 §5b lets a gate resolve the peer verdict from the peer's own newest
+# lap instead, and §5c makes that safe by refusing any lap its operator has not
+# released. The field `HANDSHAKE-PEER-VERDICT-SOURCE` is ours — introduced in round
+# 23 lap 2 before the clause existed, adopted verbatim by the spec.
+
+#: The field naming where ``HANDSHAKE-PEER-VERDICT`` was transcribed from (§5b).
+PEER_VERDICT_SOURCE_FIELD: Final[str] = "HANDSHAKE-PEER-VERDICT-SOURCE"
+
+#: The first protocol version whose files must declare both peer-verdict fields
+#: (row C41), and whose closes are resolved under §5b. **Files declaring less are
+#: graded by the rules they declare** — the reasoning row C29 gives for refusing an
+#: under-declared file: a file's version is a request to be read by that version's
+#: rules. So v4 rounds keep their v4 close semantics, byte for byte, under this gate.
+PEER_VERDICT_SOURCE_FROM_PROTOCOL: Final[int] = 5
+
+#: Prefix of every status line about a §5b resolution. Printed on every path that
+#: reports a round's state, including a release the gate ALLOWS — row C42: a close
+#: resting on a file in the peer's tree must say which file, or it cannot be
+#: audited later. Deliberately never ends a line with ``OPEN``: the release gate
+#: counts lines ending in ``OPEN`` as open rounds.
+SOURCE_LINE_PREFIX: Final[str] = "  §5b "
+
+_ROUND_DIGEST_SCRIPT: Final[Path] = (
+    Path(__file__).resolve().with_name("round_digest.py")
+)
+_round_digest_module: ModuleType | None = None
+
+
+def _round_digest() -> ModuleType:
+    """``scripts/round_digest.py``, loaded by path — it is a CLI, not a package.
+
+    Loaded rather than re-implemented because §5b reads only an **enumerated** lap
+    (row C37), and "what counts as one lap" already has one implementation here,
+    the one the digest uses (§5a). Two predicates for one rule is how the two
+    halves of one gate come to disagree; they already would have — ``wire_fields``
+    tolerates a field repeated with the same value, and §5a's lap test does not.
+    """
+    global _round_digest_module
+    if _round_digest_module is None:
+        name = "_handshake_round_digest"
+        spec = importlib.util.spec_from_file_location(name, _ROUND_DIGEST_SCRIPT)
+        if spec is None or spec.loader is None:
+            raise RuntimeError(f"cannot load {_ROUND_DIGEST_SCRIPT}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module  # @dataclass resolves its module by name
+        spec.loader.exec_module(module)
+        _round_digest_module = module
+    return _round_digest_module
+
+
+def counts_as_one_lap(text: str) -> bool:
+    """§5a's lap test — the digest's own function, not a copy of it."""
+    result: bool = _round_digest().counts_as_one_lap(text)
+    return result
+
+
+def declared_protocol(text: str) -> int | None:
+    """The protocol version a file declares, or None if it declares no usable one."""
+    value = wire_fields(text).get("HANDSHAKE-PROTOCOL")
+    if value is None or value == AMBIGUOUS:
+        return None
+    try:
+        return int(value.split()[0])
+    except (ValueError, IndexError):
+        return None
+
+
+def is_v5_file(text: str) -> bool:
+    """Whether this file asks to be graded under §5b (it declares 5 or more)."""
+    version = declared_protocol(text)
+    return version is not None and version >= PEER_VERDICT_SOURCE_FROM_PROTOCOL
+
+
+def v5_field_problems(text: str) -> list[str]:
+    """Row C41: a file declaring 5 must carry both peer-verdict fields.
+
+    Any verdict, not only ``GO``: §5b changes *where* the field is resolved from,
+    never *whether* it is required, and a lap that omits it is a lap whose later
+    close would rest on nothing written down.
+    """
+    if not is_v5_file(text):
+        return []
+    fields = wire_fields(text)
+    version = declared_protocol(text)
+    problems: list[str] = []
+    for key in ("HANDSHAKE-PEER-VERDICT", PEER_VERDICT_SOURCE_FIELD):
+        value = fields.get(key)
+        if value is None:
+            problems.append(
+                f"a file declaring HANDSHAKE-PROTOCOL: {version} must declare {key} "
+                "(§5b, row C41 — §5b changes where the peer verdict is resolved "
+                "from, not whether it is required)"
+            )
+        elif value == AMBIGUOUS:
+            problems.append(f"{key} declared more than once (§2 rule 3)")
+    return problems
+
+
+_SOURCE_NAMED_LAP: Final[re.Pattern[str]] = re.compile(r"round-0*\d+-lap-0*(\d+)")
+_SOURCE_BARE_LAP: Final[re.Pattern[str]] = re.compile(r"\blap[\s-]*0*(\d+)", re.I)
+
+
+@dataclass(frozen=True)
+class SourceRef:
+    """What a ``HANDSHAKE-PEER-VERDICT-SOURCE`` value names.
+
+    ``none_declared`` — the writer says no peer lap existed to transcribe (the
+    opener's honest value). ``lap`` — the peer lap it names, read as a committed
+    filename (``round-24-lap-03.md``) first and ``lap N`` second; the first match
+    wins, so the convention is that the value names its source before any prose.
+    Neither — the value names nothing a gate can place, and a close cannot rest on it.
+    """
+
+    lap: int | None
+    none_declared: bool
+    raw: str
+
+
+def parse_source(value: str) -> SourceRef:
+    """Read a ``HANDSHAKE-PEER-VERDICT-SOURCE`` value. Never raises."""
+    head = value.strip().lstrip("*`_ ").split()[:1]
+    if head and head[0].strip("*`_:.,;—-").lower() == "none":
+        return SourceRef(lap=None, none_declared=True, raw=value)
+    for pattern in (_SOURCE_NAMED_LAP, _SOURCE_BARE_LAP):
+        match = pattern.search(value)
+        if match:
+            return SourceRef(lap=int(match.group(1)), none_declared=False, raw=value)
+    return SourceRef(lap=None, none_declared=False, raw=value)
+
+
+@dataclass(frozen=True)
+class PeerVerdictResolution:
+    """The outcome of resolving one closing file's peer verdict under §5b.
+
+    ``verdict`` is the resolved token, or None when §5b could not resolve one.
+    ``notes`` are status lines naming the file it came from (row C42) and any
+    transcription it superseded (row C40). ``blockers`` say why it does not close.
+    """
+
+    verdict: str | None
+    source: Path | None
+    notes: tuple[str, ...]
+    blockers: tuple[str, ...]
+
+
+def resolve_peer_verdict(
+    closing: Path,
+    peer_files: Sequence[Path],
+    *,
+    peer_from: str,
+    round_num: int,
+) -> PeerVerdictResolution:
+    """§5b's four steps, for one closing file against the peer's files for its round.
+
+    **"Enumerated" means enumerated by THIS gate when it decides**, and that reading is
+    derived from the spec rather than chosen. Step 3 / row C40 allows a close on a peer
+    lap *newer than the one the source field names*. The source is, by construction,
+    the newest peer lap the writer held when writing — so a lap newer than it cannot
+    appear in the writer's own ``HANDSHAKE-INBOUND-HELD``, which was written at the
+    same moment. Read as "listed in the closing lap's INBOUND-HELD", C40 is
+    unreachable and §5b saves nothing, which contradicts §13's statement of its
+    purpose. So the enumeration is this gate's: the peer's files for the round that
+    §5a's lap test counts (:func:`counts_as_one_lap`), that declare the peer as
+    ``HANDSHAKE-FROM`` and this round as ``HANDSHAKE-ROUND``. Row C37's point
+    survives intact — a file that is not a lap, or not the peer's, is never read for
+    a verdict. Raised with the fork as a round-24 question so both gates are
+    confirmed to read it the same way.
+
+    **The candidate is the newest enumerated lap, and §5c is checked on IT** — never
+    by falling back to an older released lap. A held draft that is newer than every
+    released lap may say ``HOLD``; resolving from the older one would close on a
+    verdict the peer has already moved past. Fail closed and name the held lap.
+    """
+    text = _safe_read(closing)
+    fields = wire_fields(text)
+    declared_raw = fields.get("HANDSHAKE-PEER-VERDICT") or ""
+    declared = (
+        declared_raw.split()[0]
+        if declared_raw and declared_raw != AMBIGUOUS and declared_raw.split()
+        else declared_raw
+    )
+    where = f"{closing.parent.name}/{closing.name}"
+
+    def refuse(reason: str) -> PeerVerdictResolution:
+        return PeerVerdictResolution(
+            verdict=None, source=None, notes=(), blockers=(reason,)
+        )
+
+    enumerated: list[Path] = []
+    for path in peer_files:
+        peer_text = _safe_read(path)
+        peer_fields = wire_fields(peer_text)
+        if not counts_as_one_lap(peer_text):
+            continue
+        if peer_fields.get("HANDSHAKE-FROM") != peer_from:
+            continue
+        if declared_round(peer_text) != round_num:
+            continue
+        if _lap_of(path) == AMBIGUOUS_LAP:
+            continue
+        enumerated.append(path)
+    if not enumerated:
+        if peer_files:
+            return refuse(
+                f"peer verdict for {where} cannot be resolved: this gate holds "
+                f"{len(peer_files)} file(s) of {peer_from}'s for round {round_num} "
+                "and none is an enumerated lap (§5b step 4, row C37)"
+            )
+        return refuse(
+            f"peer verdict for {where} cannot be resolved: this gate holds no lap of "
+            f"{peer_from}'s for round {round_num} (§5b step 4)"
+        )
+    candidate = max(enumerated, key=_lap_of)
+    cand_where = f"{candidate.parent.name}/{candidate.name}"
+    cand_text = _safe_read(candidate)
+    if ready_to_read(cand_text) is not True:
+        read = wire_fields(cand_text).get("HANDSHAKE-READY-TO-READ")
+        shown = "absent" if read is None else repr(read)
+        return refuse(
+            f"peer verdict for {where} cannot be resolved: the newest enumerated "
+            f"peer lap {cand_where} is not released for reading "
+            f"(HANDSHAKE-READY-TO-READ {shown}; §5c, row C38)"
+        )
+    cand_verdict = wire_verdict(cand_text)
+    cand_lap = _lap_of(candidate)
+    source_value = fields.get(PEER_VERDICT_SOURCE_FIELD)
+    if source_value is None or source_value == AMBIGUOUS:
+        return refuse(
+            f"{where} declares no usable {PEER_VERDICT_SOURCE_FIELD} (§5b, row C41)"
+        )
+    source = parse_source(source_value)
+    notes: list[str] = []
+    if source.none_declared or (source.lap is not None and cand_lap > source.lap):
+        # Step 3 / row C40: the peer spoke after the transcription was written. Their
+        # own declaration is authoritative — and BOTH are printed, because a close
+        # resting on a value no file on the closing side states is exactly what §5
+        # exists to prevent unless it is visible.
+        resolved = cand_verdict
+        named = "none" if source.none_declared else f"lap {source.lap}"
+        notes.append(
+            f"{SOURCE_LINE_PREFIX}{where} transcribed HANDSHAKE-PEER-VERDICT: "
+            f"{declared or '(none)'} from {named}, superseded by the newer {cand_where} "
+            f"declaring {cand_verdict} (row C40)"
+        )
+    elif source.lap is None:
+        return refuse(
+            f"{where}'s {PEER_VERDICT_SOURCE_FIELD} names no lap this gate can place "
+            f"({source.raw[:80]!r}) — a close resting on an unplaceable source "
+            "cannot be audited (§5b)"
+        )
+    elif cand_lap == source.lap:
+        # Step 2 / row C39: the transcription and its source must agree. Either value
+        # alone is citable; two that disagree let each side cite one.
+        if declared != cand_verdict:
+            return refuse(
+                f"the transcription disagrees with its source: {where} declares "
+                f"HANDSHAKE-PEER-VERDICT: {declared or '(none)'} while {cand_where} "
+                f"declares HANDSHAKE-VERDICT: {cand_verdict} (§5b step 2, row C39)"
+            )
+        resolved = cand_verdict
+    else:
+        return refuse(
+            f"{where}'s {PEER_VERDICT_SOURCE_FIELD} names lap {source.lap}, but the "
+            f"newest enumerated peer lap this gate holds is {cand_where} (lap "
+            f"{cand_lap}) — the transcription's source is not in this record "
+            "(§5b step 1)"
+        )
+    notes.append(
+        f"{SOURCE_LINE_PREFIX}peer verdict for {where} resolved from {cand_where} "
+        f"({resolved}) (row C42)"
+    )
+    blockers: tuple[str, ...] = ()
+    if resolved != AFFIRMATIVE:
+        blockers = (
+            f"peer verdict resolved from {cand_where} is {resolved}, not GO (§5)",
+        )
+    return PeerVerdictResolution(
+        verdict=resolved, source=candidate, notes=tuple(notes), blockers=blockers
+    )
+
+
 def check_wire_header(path: Path, *, expect_from: str | None = None) -> list[str]:
     """Validate a handshake file's header against §2/§3. Returns problems.
 
@@ -1891,6 +2217,9 @@ def check_wire_header(path: Path, *, expect_from: str | None = None) -> list[str
             problems.append(
                 f"{path.name}: HANDSHAKE-ROUND: {declared!r} is not an integer"
             )
+
+    # Row C41, on any verdict: a file declaring 5 carries both peer-verdict fields.
+    problems.extend(f"{path.name}: {p}" for p in v5_field_problems(text))
 
     if expect_from and fields.get("HANDSHAKE-FROM") not in (None, expect_from):
         problems.append(
@@ -2494,6 +2823,55 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
         # leaves the blocker standing: the discharge needs positive evidence of the
         # ordering, and "I could not tell" is not that. Fail-closed, as everywhere
         # else in this gate.
+        # PROTOCOL v5 — a closing file that declares 5 has its peer verdict RESOLVED
+        # under §5b instead of taken from its transcription alone. Only a file whose
+        # own verdict is GO is attempting a close; resolving a peer verdict for an
+        # OPEN or HOLD lap answers a question nobody asked, and printing "cannot be
+        # resolved" under an opener reads as a fault (it did, in the rehearsal). The v4
+        # transcription blocker is replaced, not added to: §5b is the rule that
+        # decides it for such a file. Files declaring 4 or less keep v4 semantics,
+        # including the stale-transcription discharge just below.
+        v5_notes: list[str] = []
+        if not pre_header:
+            # A file refused on version grounds is refused first and alone — the
+            # same rule `check_wire_header` applies: grading it under v5 would report
+            # problems against rules we may be applying wrongly, and would let the
+            # version refusal hide behind a v5 blocker (it did, in the first version
+            # of the C15 gate test — the revert probe caught it).
+            if (
+                ours
+                and protocol_refusal(_safe_read(ours[-1])) is None
+                and is_v5_file(_safe_read(ours[-1]))
+                and wire_verdict(_safe_read(ours[-1])) == AFFIRMATIVE
+            ):
+                resolution = resolve_peer_verdict(
+                    ours[-1], back, peer_from="cyanrip-fork", round_num=num
+                )
+                our_blockers = [
+                    b for b in our_blockers if not _is_peer_verdict_blocker(b)
+                ]
+                our_blockers += v5_field_problems(_safe_read(ours[-1]))
+                our_blockers += list(resolution.blockers)
+                v5_notes += list(resolution.notes)
+                v5_notes += [f"{SOURCE_LINE_PREFIX}{b}" for b in resolution.blockers]
+            if (
+                back
+                and protocol_refusal(_safe_read(back[-1])) is None
+                and is_v5_file(_safe_read(back[-1]))
+                and wire_verdict(_safe_read(back[-1])) == AFFIRMATIVE
+            ):
+                resolution = resolve_peer_verdict(
+                    back[-1], [*sent, *done], peer_from="platterpus", round_num=num
+                )
+                their_blockers = [
+                    b for b in their_blockers if not _is_peer_verdict_blocker(b)
+                ]
+                their_blockers += v5_field_problems(_safe_read(back[-1]))
+                their_blockers += list(resolution.blockers)
+                v5_notes += list(resolution.notes)
+                v5_notes += [f"{SOURCE_LINE_PREFIX}{b}" for b in resolution.blockers]
+        # ROW C15 ON THE GATE PATH — see `refused_round_files`.
+        refused = refused_round_files([*sent, *back, *done])
         our_lap = _lap_of(ours[-1]) if ours else None
         their_lap = _lap_of(back[-1]) if back else None
         if (
@@ -2512,6 +2890,7 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
             and not our_blockers
             and not their_blockers
             and not unorderable
+            and not refused
         )
         # OUR CONTRIBUTION IS A LAP OF OURS, WHEREVER IT LIVES — not an outbound file.
         #
@@ -2558,6 +2937,10 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
         # Named, not merely counted: a gate that refuses without saying which file
         # and which rule is a gate people route around.
         lines.extend(f"  cannot order {problem}" for problem in unorderable)
+        # Ends in ")" by construction — `protocol_refusal` ends "(§3)" — so a
+        # refusal line is never itself counted as an open round by the gate.
+        lines.extend(f"  refused {problem}" for problem in refused)
+        lines.extend(v5_notes)
     if any(line.endswith("OPEN") for line in lines):
         lines.append("")
         lines.append("A round is OPEN: do not release, and do not switch the pin.")
@@ -2825,6 +3208,12 @@ def main(argv: list[str] | None = None) -> int:
         lines = round_status(record_root)
         open_rounds = [ln for ln in lines if ln.endswith("OPEN")]
         if not open_rounds:
+            # ROW C42: a close resolved under §5b rests on a file in the peer's tree,
+            # so the release it permits must say which file — every time, not only
+            # when something is wrong.
+            for line in lines:
+                if line.startswith(SOURCE_LINE_PREFIX):
+                    sys.stdout.write(f"{line}\n")
             sys.stdout.write("handshake: every round is closed — release allowed\n")
             return 0
         sys.stderr.write(
