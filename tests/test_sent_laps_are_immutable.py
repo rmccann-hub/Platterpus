@@ -56,6 +56,20 @@ REPO_ROOT: Path = Path(__file__).resolve().parent.parent
 #: sent and what the fork holds; the file in this repository drifted from it and
 #: has been restored. It is first in the map for that reason.
 SENT_LAPS: dict[str, str] = {
+    # Round 23 lap 4 — **the lap that closed round 23**, peer-confirmed in their
+    # lap 5. Their closing lap declares `HANDSHAKE-PEER-VERDICT: GO` off this
+    # file and reproduces the round digest over it.
+    #
+    # **Its citation is the first one anchored on the HASH rather than a commit.**
+    # Their lap 5 adopts the round-24 proposal early: the sha256 is the anchor and
+    # the commit is a fetch hint. That is what this row has always been — the
+    # difference is that both sides now say so, so a pruned ref degrades a
+    # citation from *fetchable* to *verifiable* rather than to nothing.
+    #
+    # The proposal exists because the hazard fired: PR #237 squash-merged, the
+    # branch was deleted, and `b5af9bec`/`19c8ad20` were briefly unreachable on
+    # the remote. Recovered from this session's clone before GitHub ran `gc`.
+    "outbound/round-23-lap-04.md": "5ba5cea7665d0dc49409bae6732d73d3448aab3b47ac1521347c7ce8368936fe",
     # Round 23 lap 2. **Peer-confirmed in their lap 3's `HANDSHAKE-INBOUND-HELD`**,
     # which names it at sha256 `4d1fd006...f38b8`, 18,686 bytes, read at
     # `platterpus@b5af9bec` — and their §D2 says they fetched the branch and

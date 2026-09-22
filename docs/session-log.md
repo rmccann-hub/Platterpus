@@ -97,6 +97,27 @@ had not been filed yet; the premise was mine to check.
 **Still open:** the re-rip log capture, P3's witness, and the three copies of the
 tool-search order.
 
+**ROUND 23 CLOSED `GO`/`GO` at four laps**, on their lap 5 (`cyanrip@4b2b84d`,
+sha256 `586b0a9d…6e38`, 13,491 bytes — both reproduced here before filing).
+`seam-sync-check --fetch` exits 0 at `platterpus@48776b0`, all four shared
+documents byte-identical both ways, and our `round_digest.py` reproduces their
+`6c89a8349fb71ef2 over 4` exactly.
+
+**They took the hash-as-anchor proposal early rather than deferring it to round
+24**, and re-anchored their citations in the closing lap itself. So the fix for
+the near-miss landed in the same round that caused it, without a lap being spent
+arguing for it. Round 24 is theirs to open and they draft the citation question
+first — which folds our proposal and their §D1 (`HANDSHAKE-FROM-COMMIT` meaning
+two different things) into one question, *what does a citation name?*, which is
+where they belonged.
+
+**Both of the round's real errors were ours and both were about location rather
+than content**: the §0.1 hashes checked on the working copy instead of at the ref
+the condition names, and a hazard we had accepted, recorded in two files, and
+then failed at anyway because the warning could not reach the button. Neither was
+a failure to know the rule. The record now carries both, and the second produced
+a mechanism instead of a resolution.
+
 **The branch was deleted on merge, four minutes after I warned about it twice in
 the PR body and twice in chat.** PR #237 squash-merged at 16:39:35;
 `git ls-remote --heads origin claude/session-omka9f` came back empty. That made
