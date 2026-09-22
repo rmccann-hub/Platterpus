@@ -386,6 +386,77 @@ def test_the_heavy_reread_list_needs_a_flag_AND_a_usable_track_number() -> None:
     assert all(isinstance(n, int) for n in flagged)
 
 
+def test_a_uniform_secure_reread_does_not_flag_every_track_it_was_told_to_reread() -> (
+    None
+):
+    """The 2026-09-22 acceptance run, reproduced: `-Z 2` costs 3 reads a track.
+
+    cyanrip counts matches AGAINST an established checksum, so two matches take
+    three reads and `-r 3` caps it there — every track on that run logged
+    `(after 3 rips)`, and the absolute floor of 3 flagged all 14 as needing
+    "unusually heavy re-reading" in the archival record. The flag has to measure
+    the DISC, and in that mode a fixed 3 measures the SETTING.
+
+    The non-triviality clause is track 4: it went past the rip's own floor and
+    must still be flagged, or this test would pass against a detector that
+    simply stopped reporting.
+    """
+    from platterpus.parsers.rip_log import (
+        tracks_needing_heavy_reread,
+        uniform_reread_baseline,
+    )
+
+    log = RipLog(
+        tracks=(
+            # Three that paid exactly the toll `-Z 2` charges, and converged.
+            TrackResult(number=1, rip_count=3, secure_rerip_converged=True),
+            TrackResult(number=2, rip_count=3, secure_rerip_converged=True),
+            TrackResult(number=3, rip_count=3, secure_rerip_converged=True),
+            # Past the floor — a genuinely stubborn region, still flagged.
+            TrackResult(number=4, rip_count=4, secure_rerip_converged=True),
+            # Never converged — flagged on the reliable signal, not the count.
+            TrackResult(number=5, rip_count=3, secure_rerip_converged=False),
+        )
+    )
+    assert uniform_reread_baseline(log) == 3
+    flagged = tracks_needing_heavy_reread(log)
+    assert flagged == [4, 5], (
+        f"expected the stubborn and the unconverged, got {flagged!r}"
+    )
+
+
+def test_a_dynamic_rip_keeps_the_absolute_floor() -> None:
+    """No track converged under `-Z`, so the rip establishes no toll.
+
+    `fast_verified` reads once and re-reads only what looks shaky, which is the
+    mode `HEAVY_REREAD_THRESHOLD` was written for — measured on the same run,
+    where section F's log carried `Secure re-read: not attempted` on all 14
+    tracks and raised no heavy-re-read issue at all.
+
+    The pass counts below are LITERALS on purpose. Writing the fixture in terms
+    of `HEAVY_REREAD_THRESHOLD` pins the constant against itself — move it to 99
+    and the fixture moves with it and the test still passes. `revert_probe.py`
+    reported exactly that as VACUOUS when this test was first written that way,
+    which is the "a list checked against itself is consistent, not verified"
+    shape arriving inside a test written to catch it.
+    """
+    from platterpus.parsers.rip_log import (
+        HEAVY_REREAD_THRESHOLD,
+        tracks_needing_heavy_reread,
+        uniform_reread_baseline,
+    )
+
+    assert HEAVY_REREAD_THRESHOLD == 3, "the dynamic-mode floor is a measured value"
+    log = RipLog(
+        tracks=(
+            TrackResult(number=1, rip_count=2),  # one re-read: common and benign
+            TrackResult(number=2, rip_count=3),  # at the floor: flagged
+        )
+    )
+    assert uniform_reread_baseline(log) is None
+    assert tracks_needing_heavy_reread(log) == [2]
+
+
 def test_the_scoped_secure_rerip_count_counts_TRACKS_not_discs() -> None:
     """`sum(1 for ...)` — the `1` → `2` mutant doubles every count.
 

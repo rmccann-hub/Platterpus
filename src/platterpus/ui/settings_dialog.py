@@ -90,9 +90,15 @@ class SettingsDialog(CenteredDialog):
         # used to sit far enough apart to drift unnoticed.
         self._goal_combo.addItem(option_labels.CUSTOM_LABEL, goal_presets.GOAL_CUSTOM)
         self._goal_combo.setToolTip(
-            "Pick what you want this rip to be and the format, verification, and "
-            "quality options below snap to good values for it. You can still "
-            "tweak any of them — that switches this to Custom."
+            "Pick what you want this rip to be and the format, verification and "
+            "effort options below snap to good values for it. 'Fast Verified' "
+            "(recommended): FLAC, AccurateRip + CTDB, and a track is re-read only "
+            "when it fails to verify — one fast pass on a clean disc. 'Archival': "
+            "the same, plus EAC-style Test and Copy (EVERY track read until two "
+            "reads agree) and a re-read of offset-variant matches too — slower, "
+            "and the most reproducible result. 'Portable': MP3 derived from a "
+            "fully verified FLAC master, which is still kept. Changing any option "
+            "below switches this to Custom; nothing is lost when it does."
         )
         form.addRow("Goal:", self._goal_combo)
 
@@ -138,6 +144,17 @@ class SettingsDialog(CenteredDialog):
         for preset in naming.PRESETS:
             self._naming_combo.addItem(preset.label, preset.key)
         self._naming_combo.addItem(naming.CUSTOM_LABEL, None)
+        self._naming_combo.setToolTip(
+            "A shortcut that fills the two template boxes below — it stores "
+            "nothing of its own, so whatever it writes there is what a rip "
+            "uses. Each choice names the folder layout it produces: the "
+            "recommended one gives Artist/Album/01 - Title, the year presets "
+            "put the year in the FOLDER (Album (1995)) rather than in every "
+            "filename, and the compilation preset adds the per-track artist "
+            "for discs where it differs from the album artist. Watch the "
+            "Example line below — it renders the real filename. Hand-editing "
+            "either template switches this to Custom and changes nothing else."
+        )
         form.addRow("Naming scheme:", self._naming_combo)
 
         self._track_template_edit: QLineEdit = QLineEdit(config.track_template, self)
@@ -212,8 +229,14 @@ class SettingsDialog(CenteredDialog):
         )
         self._read_offset_spin.setValue(config.read_offset)
         self._read_offset_spin.setToolTip(
-            "Read offset in samples (signed). Tick Apply to use this value for "
-            "rips (cyanrip's -s). Set it once per drive via Re-detect…."
+            "Your drive's read offset, in samples, signed (cyanrip's -s). Every "
+            "drive reads a fixed distance early or late; correcting for it is what "
+            "makes a rip bit-perfect and lets AccurateRip match. The value is a "
+            "property of the DRIVE, not of the disc — set it once. Typical values "
+            "are within a few hundred of zero (a Pioneer BDR-209D is +667); 0 means "
+            "no correction, which is right only for the rare drive that needs none. "
+            "Press Re-detect… to look it up for your drive, and tick Apply below or "
+            "it is not used at all."
         )
         self._detect_offset_button: QPushButton = QPushButton("Re-&detect…", self)
         self._detect_offset_button.setToolTip(
@@ -231,9 +254,11 @@ class SettingsDialog(CenteredDialog):
         )
         self._override_offset_check.setChecked(config.override_read_offset)
         self._override_offset_check.setToolTip(
-            "When on, each rip uses the offset above (cyanrip's -s). Leave it on "
-            "once you've set your drive's offset — cyanrip needs it every rip to "
-            "stay bit-perfect."
+            "ON: every rip is corrected by the offset above (cyanrip's -s). OFF: "
+            "no -s is passed at all and the drive's raw alignment is used, which "
+            "for most drives is NOT bit-perfect — AccurateRip will then fail to "
+            "match even a clean disc. Leave this on once your drive's offset is "
+            "set."
         )
         form.addRow("", self._override_offset_check)
 
@@ -324,12 +349,20 @@ class SettingsDialog(CenteredDialog):
 
         # --- Toggles ---
         self._auto_picard_check: QCheckBox = QCheckBox(
-            "Launch MusicBrainz Picard on unknown discs", self
+            # It does NOT launch anything on its own: the only path to Picard is
+            # the Unknown Album dialog, which you open deliberately. This setting
+            # is that dialog's checkbox default. The old wording read as automatic
+            # and cost a reviewer a check of whether it could fire mid-run.
+            "Tick \u201claunch Picard\u201d by default on unknown discs",
+            self,
         )
         self._auto_picard_check.setChecked(config.auto_launch_picard)
         self._auto_picard_check.setToolTip(
-            "When a disc can't be identified on MusicBrainz, offer to open it in "
-            "MusicBrainz Picard so you can tag it there. Off by default."
+            "This launches nothing on its own. It sets the default state of the "
+            "'open in Picard' checkbox inside the Rip as Unknown Album dialog, "
+            "which you open deliberately. ON: that box starts ticked, so accepting "
+            "the dialog opens Picard after the rip. OFF (default): it starts "
+            "unticked and Picard is never opened unless you tick it there."
         )
         form.addRow("Picard integration:", self._auto_picard_check)
 
@@ -341,8 +374,10 @@ class SettingsDialog(CenteredDialog):
         )
         self._auto_eject_check.setChecked(config.auto_eject_after_rip)
         self._auto_eject_check.setToolTip(
-            "When a rip completes successfully, eject the disc automatically. "
-            "Leave off if you rip several discs from the same tray."
+            "ON: the tray opens as soon as a rip finishes successfully. OFF "
+            "(default): the disc stays in, which is what you want when ripping "
+            "several discs in a row or re-reading one. A failed or cancelled rip "
+            "never ejects either way."
         )
         form.addRow("After rip:", self._auto_eject_check)
 
@@ -353,9 +388,10 @@ class SettingsDialog(CenteredDialog):
         )
         self._notify_check.setChecked(config.notify_on_completion)
         self._notify_check.setToolTip(
-            "Pop a desktop notification when a rip completes (or fails), so you "
-            "don't have to watch the window. A rip you cancel yourself is not "
-            "announced."
+            "ON: a desktop notification appears when a rip finishes or fails, so "
+            "you need not watch the window. OFF: no notification — the window is "
+            "the only place the result appears. A rip you cancel yourself is "
+            "never announced either way."
         )
         form.addRow("", self._notify_check)
 
@@ -415,9 +451,11 @@ class SettingsDialog(CenteredDialog):
         # tell a user which file to attach to a bug report — naming a path they do
         # not have is worse than naming none, because they conclude it is missing.
         self._debug_logging_check.setToolTip(
-            f"Record verbose detail to the log file at\n{LOG_PATH} — every probe, "
-            "command, and parse step. Turn this on, reproduce the problem, then "
-            "attach that file to a bug report. Off keeps the log lighter."
+            f"ON: every probe, command and parse step is recorded to the log file "
+            f"at\n{LOG_PATH} — turn this on, reproduce the problem, then attach "
+            "that file to a bug report. OFF (default): only notable events are "
+            "logged, which keeps the file small but usually will not contain "
+            "enough to diagnose a failure after the fact."
         )
         form.addRow("Logging:", self._debug_logging_check)
 
@@ -514,9 +552,14 @@ class SettingsDialog(CenteredDialog):
         cover_index = self._cover_art_combo.findData(config.cover_art)
         self._cover_art_combo.setCurrentIndex(cover_index if cover_index >= 0 else 0)
         self._cover_art_combo.setToolTip(
-            "Fetch album cover art and embed it in the FLACs and/or save it "
-            "as a file. The app fetches the front cover from the Cover Art "
-            "Archive once the rip finishes. EAC embeds by default."
+            "What to do with the front cover, fetched from the Cover Art Archive "
+            "once the rip finishes. 'Embed in FLAC': the image is written inside "
+            "each track, so it travels with the file and most players show it — "
+            "this is what EAC does by default. 'Save as File': cover.jpg is "
+            "written beside the tracks and the audio files carry no image, which "
+            "suits players that read a folder image. 'Embed and Save File' "
+            "(recommended): both, so neither kind of player misses it. Nothing is "
+            "fetched if the release has no art in the archive."
         )
         form.addRow("Cover art:", self._cover_art_combo)
 
@@ -529,9 +572,11 @@ class SettingsDialog(CenteredDialog):
         )
         self._additional_art_check.setChecked(config.save_additional_art)
         self._additional_art_check.setToolTip(
-            "When fetching cover art, also save any back cover and booklet scans "
-            "the Cover Art Archive has (as back.jpg / booklet-NN.jpg beside the "
-            "audio). These can't be embedded in FLAC, so they're saved as files."
+            "ON: any back cover and booklet scans the Cover Art Archive holds are "
+            "saved beside the audio (back.jpg, booklet-NN.jpg) as well as the "
+            "front cover. OFF: only the front cover is fetched. These extra images "
+            "cannot be embedded in FLAC so they are always files on disk, and this "
+            "setting does nothing when cover art is off above."
         )
         form.addRow("", self._additional_art_check)
 
@@ -541,8 +586,12 @@ class SettingsDialog(CenteredDialog):
         )
         self._max_retries_spin.setValue(config.max_retries)
         self._max_retries_spin.setToolTip(
-            "How many times the ripper retries a troublesome track before "
-            "giving up (cyanrip's -r). 5 is the default."
+            "How many times the ripper re-attempts a track it cannot read cleanly "
+            "before giving up on it (cyanrip's -r). This is the CEILING on "
+            "attempts — not the same as 'Reads that must agree' below, which is "
+            "how many must match. 0: no retries, a bad sector fails the track at "
+            "once. 5 (default): a good balance. Higher can recover a scratched "
+            "disc, but a badly damaged track then takes much longer to give up."
         )
         form.addRow("Max retries:", self._max_retries_spin)
 
@@ -565,26 +614,40 @@ class SettingsDialog(CenteredDialog):
         form.addRow("Overread:", self._force_overread_check)
 
         # --- Marginal-disc convergence (cyanrip -Z N, EAC-parity item 1) ---
-        # Secure re-rip effort: the MAX number of reads to spend confirming a
-        # track that doesn't match AccurateRip. Ripping is always "dynamic" now —
-        # a track that matches the database on its first read is kept as-is; only
-        # an unproven track is re-read (up to this many agreeing reads). So this is
-        # a ceiling, not a per-track tax, and there's no separate on/off toggle.
+        # Secure re-rip effort: **how many reads must AGREE** before a track that
+        # did not match AccurateRip is trusted. Ripping is always "dynamic" — a
+        # track that matches the database on its first read is kept as-is; only an
+        # unproven track is re-read, until this many reads match.
+        #
+        # **This comment said "the MAX number of reads" and "a ceiling", and both
+        # were wrong** (corrected 2026-09-21). The fork's provider contract defines
+        # the flag as `--repeat-rips`, *"rip tracks until checksums match N
+        # times"*; the ceiling is `-r`. Four places, one fact, corrected together.
         self._secure_rerip_spin: QSpinBox = QSpinBox(self)
         self._secure_rerip_spin.setRange(
             settings_validation.SECURE_REREP_MIN, settings_validation.SECURE_REREP_MAX
         )
         self._secure_rerip_spin.setValue(config.secure_rerip_matches)
         self._secure_rerip_spin.setSpecialValueText("Off")  # shown when value is 0
+        # **This is an AGREEMENT COUNT, not a ceiling, and the label said ceiling.**
+        # The fork's own provider contract defines the flag as `-Z` /
+        # `--repeat-rips`: *"Rip tracks until checksums match N times."* The ceiling
+        # is `-r` (Max retries) — which is why cyanrip prints "no matches found, but
+        # hit repeat limit of 5" when it gives up. Saying "Max reads" here put two
+        # rows on one screen that read as contradicting each other ("Max retries: 5"
+        # directly above "Max reads…: 2"), and the tooltip made it worse by asserting
+        # "the number you pick is the ceiling". Our own `docs/dependency-contracts.md`
+        # was the origin of the wrong gloss and is corrected in the same change.
         self._secure_rerip_spin.setToolTip(
-            "The MOST reads to spend confirming a track that doesn't match the "
-            "AccurateRip database (cyanrip's -Z). Platterpus rips the disc once at "
-            "full speed and only re-reads a track that didn't verify, until this "
-            "many reads agree — the number you pick is the ceiling. 2 is a good "
-            "value; 0 (Off) accepts the fast read even when it can't be verified. "
-            "Clean, in-database discs finish in one fast pass either way."
+            "How many reads of a track must AGREE before Platterpus trusts it "
+            "(cyanrip's -Z). It rips the disc once at full speed and re-reads only "
+            "a track that didn't verify against AccurateRip, until this many reads "
+            "match. This is NOT a limit on how many reads it may take — that is "
+            "'Max retries' above. 2 is a good value; 0 (Off) accepts the fast read "
+            "even when it can't be verified. Clean, in-database discs finish in one "
+            "fast pass either way."
         )
-        form.addRow("Max reads to confirm a shaky track:", self._secure_rerip_spin)
+        form.addRow("Reads that must agree to trust a track:", self._secure_rerip_spin)
 
         # Re-read offset-variant tracks too (opt-in, off by default). An
         # offset-variant ("partially accurate") match is normally accepted on the
@@ -620,7 +683,7 @@ class SettingsDialog(CenteredDialog):
             "track that didn't match AccurateRip. When on, EVERY track is read at "
             "least twice and kept only once the reads agree — EAC's Test & Copy "
             "guarantee for the whole disc, shown as a matching Test/Copy CRC pair "
-            "in the EAC-compatible log. Needs “Max reads” at 2 or more (a second "
+            "in the EAC-compatible log. Needs “Reads that must agree” at 2 or more (a second "
             "read is what there is to compare). Slower — it double-reads clean "
             "tracks too; leave off for the fast path."
         )
@@ -687,9 +750,10 @@ class SettingsDialog(CenteredDialog):
             "is a network lookup and decodes the FLACs locally (needs `flac`). "
             "The CRC algorithm is confirmed on real hardware, so a match reads "
             "as verified — it can only ever under-claim, never fabricate a "
-            "'verified'. On by default (every rip runs the full verification "
-            "suite). This is a network lookup that sends the disc's table of "
-            "contents to CTDB — turn it off if you would rather not."
+            "'verified'. ON (default): every rip is checked against CTDB, which "
+            "sends the disc's table of contents over the network. OFF: no CTDB "
+            "lookup and nothing leaves your machine; AccurateRip still runs, so "
+            "the rip is still verified, by one path instead of two."
         )
         form.addRow("CTDB:", self._ctdb_verify_check)
 
@@ -701,10 +765,12 @@ class SettingsDialog(CenteredDialog):
         )
         self._verify_flac_check.setChecked(config.verify_flac_after_rip)
         self._verify_flac_check.setToolTip(
-            "After a successful rip, run `flac --test` on each FLAC to confirm "
-            "it decodes back to its stored checksum (catches encode or disk "
-            "corruption). Needs `flac`; runs in the background and only speaks "
-            "up if a file fails. On by default."
+            "ON (default): after a successful rip every FLAC is decoded with "
+            "`flac --test` to confirm it matches its stored checksum, catching "
+            "encode or disk corruption. Runs in the background and only speaks up "
+            "if a file fails. OFF: the files are written and never read back, so "
+            "a corrupt master would not be noticed here. Needs `flac`; if it is "
+            "missing the check reports as not run, never as a failure."
         )
         form.addRow("Verify FLACs:", self._verify_flac_check)
 
@@ -734,10 +800,12 @@ class SettingsDialog(CenteredDialog):
         )
         self._eac_log_check.setChecked(config.write_eac_log_after_rip)
         self._eac_log_check.setToolTip(
-            "After a successful rip, save an EAC-layout text log next to the "
-            "audio (as '… (EAC-compatible).log') so you can diff it against a "
-            "real EAC log or keep a familiar-looking record. It is clearly marked "
-            "as generated by Platterpus and is never a signed EAC log."
+            "ON: a second, EAC-layout text log is written beside the audio (as "
+            "'… (EAC-compatible).log') in addition to Platterpus's own log, so "
+            "you can diff it against a real EAC log or keep a familiar-looking "
+            "record. OFF (default): only Platterpus's own log is written. The "
+            "EAC-layout file is clearly marked as generated by Platterpus and is "
+            "never a signed EAC log — we do not forge that signature."
         )
         form.addRow("EAC-style log:", self._eac_log_check)
 

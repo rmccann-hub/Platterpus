@@ -515,22 +515,73 @@ def track_accuraterip_verified(track: object) -> bool:
 # follow-up now that the data is actually available.
 
 # A track needing this many passes (or more) is called out as "unusually heavy
-# re-reading". 2 passes (one re-read) is common and benign on real hardware, so
-# the floor is 3 to flag genuinely stubborn regions, not ordinary paranoia.
+# re-reading" WHEN NOTHING ELSE ESTABLISHES WHAT A NORMAL PASS COUNT IS. 2
+# passes (one re-read) is common and benign on real hardware, so the floor is 3
+# to flag genuinely stubborn regions, not ordinary paranoia.
+#
+# **That reasoning only holds where a re-read is EXCEPTIONAL** — dynamic mode,
+# where cyanrip reads once and re-reads only what looks shaky. Under a UNIFORM
+# secure re-read (``-Z N``, our ``archival`` goal) re-reading is what was
+# ORDERED, and the arithmetic makes this constant useless: ``-Z 2`` counts
+# matches AGAINST an established checksum, so the cheapest possible track costs
+# **three** reads —
+#
+#     Repeating ripping (0 out of 2 matches for current checksum 4F2EDD18)
+#     Repeating ripping (1 out of 2 matches for current checksum 4F2EDD18)
+#     Done; (2 out of 2 matches for current checksum 4F2EDD18)
+#
+# — and ``-r 3`` caps it at three, so *every* track reads exactly three times no
+# matter how clean the disc is. Measured on the 2026-09-22 acceptance run: all
+# 14 tracks logged ``(after 3 rips)`` and 12 of them converged, and all 14 were
+# reported as needing "unusually heavy re-reading" in the archival record. The
+# flag was not mis-tuned; in that mode it could not discriminate at all, and
+# the 14-of-14 was decided before the disc went in.
+#
+# So the floor is taken FROM THE RIP where the rip establishes one. "Unusually"
+# is a comparative word and this used to implement it as an absolute.
 HEAVY_REREAD_THRESHOLD: int = 3
 
 
-def track_read_effort_flag(track: object) -> bool:
+def uniform_reread_baseline(rip_log: object) -> int | None:
+    """How many reads this rip cost on a track that gave no trouble at all.
+
+    Under a uniform ``-Z N`` re-read every track pays a fixed toll, so the
+    cheapest CONVERGED track measures that toll — read off the artifact rather
+    than re-derived from our config, which is the same reason
+    ``rip.invoked_as`` is taken from the log. None when no track converged
+    (nothing to measure), which puts ``track_read_effort_flag`` back on the
+    absolute floor. Pure; never raises.
+    """
+    counts = [
+        count
+        for track in getattr(rip_log, "tracks", ()) or ()
+        if getattr(track, "secure_rerip_converged", None) is True
+        and isinstance(count := getattr(track, "rip_count", None), int)
+    ]
+    return min(counts) if counts else None
+
+
+def track_read_effort_flag(track: object, *, baseline_reads: int | None = None) -> bool:
     """True when a track shows a read-effort warning sign.
 
     Either its secure re-read never converged (``secure_rerip_converged`` is
-    False) or it needed ``HEAVY_REREAD_THRESHOLD`` passes or more. Reads via
+    False) — the reliable signal, and the only one that means anything under a
+    uniform re-read — or it needed more passes than this rip's own floor.
+
+    ``baseline_reads`` is what a trouble-free track cost in the same rip (see
+    :func:`uniform_reread_baseline`); a track only counts as heavy when it went
+    PAST that. Left None, the absolute ``HEAVY_REREAD_THRESHOLD`` applies, which
+    is right for a dynamic rip where the floor is one read. Reads via
     ``getattr`` so it accepts any track shape and never raises.
     """
     if getattr(track, "secure_rerip_converged", None) is False:
         return True
     rip_count = getattr(track, "rip_count", None)
-    return isinstance(rip_count, int) and rip_count >= HEAVY_REREAD_THRESHOLD
+    if not isinstance(rip_count, int):
+        return False
+    if baseline_reads is None:
+        return rip_count >= HEAVY_REREAD_THRESHOLD
+    return rip_count > baseline_reads
 
 
 def tracks_needing_heavy_reread(rip_log: object) -> list[int]:
@@ -538,9 +589,10 @@ def tracks_needing_heavy_reread(rip_log: object) -> list[int]:
 
     The results-pane footnote and the report's ``read_effort`` issue both read
     this, so they can never disagree. Pure; never raises."""
+    baseline = uniform_reread_baseline(rip_log)
     flagged: list[int] = []
     for track in getattr(rip_log, "tracks", ()) or ():
-        if track_read_effort_flag(track):
+        if track_read_effort_flag(track, baseline_reads=baseline):
             number = getattr(track, "number", None)
             if isinstance(number, int):
                 flagged.append(number)

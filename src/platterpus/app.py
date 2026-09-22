@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from platterpus import __version__, hard_exit
+from platterpus.paths import APP_ID, APP_NAME
 
 if TYPE_CHECKING:
     # Type-only. Qt is imported lazily inside the functions that need it, so
@@ -1127,15 +1128,31 @@ def main(argv: list[str] | None = None) -> int:
 
     # QApplication MUST exist before any QWidget. Build it as early as
     # possible so the dep-check dialogs can run.
+    from PySide6.QtGui import QGuiApplication
     from PySide6.QtWidgets import QApplication
 
     # Prefer XWayland on Wayland (fixes the Plasma 6 black-window repaint bug).
     # Must happen before QApplication reads the platform.
     _prefer_xwayland_on_wayland()
     app = QApplication.instance() or QApplication(sys.argv)
-    app.setApplicationName("platterpus")
+    # APP_NAME, not a literal: this string is also the window's X11 WM_CLASS
+    # res_class (measured, Qt 6.11.2/xcb), which is what the desktop entry's
+    # `StartupWMClass` has to match for a Plasma panel launcher to recognise the
+    # running window. Two copies of that fact would drift on the first rename.
+    app.setApplicationName(APP_NAME)
     app.setApplicationVersion(__version__)
-    app.setOrganizationName("platterpus")  # affects QSettings paths
+    app.setOrganizationName(APP_NAME)  # affects QSettings paths
+    # Names the desktop entry that represents us, for native Wayland's app_id
+    # and D-Bus activation. It does NOT set WM_CLASS on xcb — measured, both
+    # halves unchanged with and without it — and we force XWayland below to
+    # dodge a Plasma 6 repaint bug, so today the taskbar association rests on
+    # `StartupWMClass` in `appimage_integration._desktop_contents`. Called
+    # anyway because the XWayland preference is a workaround, not a decision,
+    # and this is the correct surface the moment it is dropped.
+    # Static on QGuiApplication, and called there rather than through `app`:
+    # `QApplication.instance()` is typed as the base QCoreApplication, which has
+    # no desktop-file concept. A cast would work and would say less.
+    QGuiApplication.setDesktopFileName(APP_ID)
     # The app/window icon (the Platterpus logo). Best-effort: app_icon()
     # returns None if the bundled SVG or the Qt SVG plugin is unavailable, in
     # which case we simply leave the default icon rather than fail startup.

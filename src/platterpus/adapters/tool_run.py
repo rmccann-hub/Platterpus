@@ -36,7 +36,7 @@ from __future__ import annotations
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Final
+from typing import Any, ClassVar, Final
 
 from platterpus import diagnostics
 
@@ -93,6 +93,39 @@ class ToolRun:
     def ran(self) -> bool:
         """The child launched **and** we reaped a real exit status from it."""
         return self.started and self.error == ""
+
+    #: The exit status a shell — and a Distrobox export wrapper — uses for
+    #: "command not found". No tool we invoke returns it for any other reason.
+    NOT_FOUND_EXIT: ClassVar[int] = 127
+
+    @property
+    def binary_missing(self) -> bool:
+        """The tool could not be executed, however that failure presented.
+
+        **`started` alone is not this question, and in this project it is almost
+        never the right one.** The runner sets ``started=False`` on
+        ``FileNotFoundError``, which is what a *direct* exec of an absent binary
+        raises — but every dependency here is reached through a **host-exported
+        Distrobox wrapper** in ``~/.local/bin``. That wrapper exists, so the exec
+        succeeds and ``started`` is True; it then enters the container, fails to
+        find the real binary, and exits **127**. The guard was written against a
+        failure mode our architecture cannot produce and was blind to the one it
+        does.
+
+        Found by the cyanrip fork in our own evidence bundle (round 23 lap 1 §H2,
+        derived from the three files inside it with no code of ours read): every
+        `flac_integrity` failure in that archive was ``exit 127: /usr/bin/flac not
+        found``, recorded as ``ok: false`` — an archival record stating the user's
+        masters failed an integrity check that never ran. They reported shipping
+        the same defect in their own `rig-check.py` the same week, which is what
+        makes this a shape rather than an incident.
+
+        **"Could not check" is not "corrupt", and the difference is the whole
+        point of the tri-state this class exists for.** A caller that blames the
+        file for a missing tool manufactures a failure verdict out of a broken
+        install.
+        """
+        return not self.started or self.exit_code == self.NOT_FOUND_EXIT
 
     @property
     def summary(self) -> str:

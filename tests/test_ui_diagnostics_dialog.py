@@ -16,6 +16,7 @@ import pytest
 from PySide6.QtWidgets import QApplication
 
 from platterpus import __version__, diagnostics
+from platterpus.deps import manager as dep_manager
 from platterpus.paths import LOG_PATH
 from platterpus.ui.dialogs.diagnostics_dialog import (
     DiagnosticsDialog,
@@ -26,8 +27,34 @@ from platterpus.ui.dialogs.diagnostics_dialog import (
 @pytest.fixture(autouse=True)
 def _clean_collector() -> None:
     diagnostics.clear()
+    dep_manager.remember_report(None)
     yield
     diagnostics.clear()
+    dep_manager.remember_report(None)
+
+
+def _one_tool_probed() -> object:
+    """A DependencyReport with a single present tool, built from the real spec.
+
+    Deliberately not a stand-in shape: `dependency_summary` reads `dep_id` off
+    the spec and the location off the probe, so a hand-rolled double could agree
+    with a summariser that had stopped matching the registry.
+    """
+    from dataclasses import dataclass
+
+    from platterpus.deps.manager import DependencyReport
+    from platterpus.deps.registry import SPECS
+
+    @dataclass
+    class _Probe:
+        location: str = "/somewhere/on/PATH"
+
+    spec = SPECS[0]
+    report = DependencyReport()
+    report.ok.append(spec)
+    report.ok_versions[spec.dep_id] = (9, 9, 9)
+    report.ok_probes[spec.dep_id] = _Probe()
+    return report
 
 
 def test_the_report_names_both_versions_and_the_log_path() -> None:
@@ -96,10 +123,33 @@ def test_an_empty_collector_does_not_read_as_a_clean_bill_of_health() -> None:
 
 def test_the_report_says_when_dependencies_were_never_probed() -> None:
     """A missing dependency section is "the launch check has not run", which is a
-    real answer and reads nothing like "no dependencies"."""
+    real answer and reads nothing like "no dependencies".
+
+    The autouse fixture clears the subsystem's store, so this now asserts a state
+    the program can actually be in. Until 2026-09-22 it was the ONLY state:
+    `environment_report()` never carried a `dependencies` key, so this sentence
+    printed on every machine in every session and this assertion could not fail.
+    Its partner below is what makes the pair a check.
+    """
     text = build_diagnostics_text()
     assert "--- Dependencies ---" in text
     assert "not probed yet this session" in text
+
+
+def test_a_completed_probe_actually_reaches_the_diagnostics_a_user_pastes() -> None:
+    """The half that could not pass before: rows, and no "never probed" excuse.
+
+    The rip report and this dialog answer the same question — "what tools is this
+    running on" — and they now read the same probe through the same summariser.
+    A dialog that explains its own emptiness with a cause that cannot be true is
+    worse than one that says nothing, because the reader stops looking.
+    """
+    dep_manager.remember_report(_one_tool_probed())
+    text = build_diagnostics_text()
+    assert "--- Dependencies ---" in text
+    assert "not probed yet this session" not in text
+    assert "present=True" in text
+    assert "9.9.9" in text
 
 
 def test_rendering_never_raises_on_a_hostile_diagnostic() -> None:

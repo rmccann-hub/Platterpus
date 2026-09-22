@@ -227,7 +227,31 @@ _TABLE_ROUND_FLOOR: int = 6
 #: re-derive the span as above, and if it is still empty say so in the lap and
 #: leave the number where it is until a contract arrives. A derivation that has to
 #: be redone every round is a sign the artifact should be shipped.
-_MAX_TABLE_LAG: int = 0
+_MAX_TABLE_LAG: int = 1
+#: **0 -> 1 on 2026-09-22, for round 23, and the instruction above was followed
+#: rather than skipped: the ask is in round 23 lap 2 §E Q4.** Their lap 1 ships no
+#: provider contract -- it is a hardware + protocol round -- so the table we diff
+#: against is round 22's.
+#:
+#: What makes this a defensible raise and not the drift the note warns about is
+#: that the argv surface's non-movement is **derived two independent ways**, not
+#: inferred from the pin sitting still:
+#:
+#: 1. **At the source.** `git diff 2cce60d 2f7d9c9 -- src/` (the reviewed pin to
+#:    the build that generated round 22's contract) touches `cyanrip_log.c`,
+#:    `cyanrip_main.c` and `cyanrip_main.h`, and **not one changed line is an
+#:    option, `getopt` string, `optarg` or argv reference** -- the delta is the
+#:    `Track %i read successfully!` rename and encode-count reporting, which is
+#:    the OUTPUT half of the seam.
+#: 2. **At the artifact.** The `## P1 - Inputs: every command line flag` section
+#:    is **byte-identical** between round 22's filed contract (banner `g2f7d9c9`)
+#:    and the one in their tree today (banner `g23c18d2`, read at
+#:    `cyanrip@8037b73`): sha256/16 `dd2aa6401baa2654`, 7,588 bytes, both.
+#:
+#: So the flag table we hold describes the reviewed pin's argv surface, and the
+#: lag is a labelling fact rather than a stale-table risk. **Do not raise this
+#: again without redoing both derivations**, and if a contract still has not
+#: arrived by round 26, say so in the lap and leave the number where it is.
 #: **Back to 0 on 2026-09-16, for round 21** — the cycle the note below predicted,
 #: arriving one round later. Their lap 1 ships `PROVIDER-CONTRACT.md` regenerated at
 #: `3952c03` (banner `gb2c9527`, sha256/16 `fb8b4b62d9d0f1c9`), filed here as

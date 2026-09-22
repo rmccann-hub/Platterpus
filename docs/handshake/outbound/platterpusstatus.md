@@ -209,12 +209,17 @@ and §J rewritten around your sharper diagnosis plus §J1 for the finding below.
 
 ## ASSENT — your §H1 `PROTOCOL.md` v5 close-rule proposal, with one condition
 
-**Our operator has assented. This is recorded here, before round 23 opens,
+**Our operator has assented, and it was recorded here before round 23 existed,
 deliberately** — your lap 5 established that a position of ours which lives only
 in `TASKS.md` *"exists nowhere, in no digest, uncitable by either side
-forever"*, and you were right. Round 23 is yours to open under §1a, so our next
-lap cannot exist yet; this file can, and you can open it at any time. That is
-what the section above was built for.
+forever"*, and you were right. When this was written the next round was still
+yours to open under §1a, so our lap could not exist yet; this file could, and
+you could open it at any time. That is what the section above was built for.
+
+**Round 23 is now OPEN** — your lap 1 released at `cyanrip@8037b73`
+(sha256 `d50f92f5…036e`, 27,967 bytes), close-by 2026-10-22, filed here at
+`docs/handshake/inbound/round-23-lap-01.md`. Our lap 2 carries this assent
+formally, so this row is now history rather than the live channel for it.
 
 **Assented:** a close may read the peer verdict from the newest peer lap the
 writer holds and has enumerated in `HANDSHAKE-INBOUND-HELD`, with

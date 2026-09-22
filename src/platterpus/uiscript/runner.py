@@ -2297,6 +2297,122 @@ class ScriptRunner(QObject):
             f"`-o flac` and the transcode happens afterwards, in us."
         )
 
+    def _do_expect_verification(self, step: Step) -> None:
+        """Assert this rip's post-rip checks LEFT A RESULT, not just a setting.
+
+        **The assertion section F did not have, in the section the whole run is
+        named for.** F is ARCHIVAL, titled *"every post-rip check on"*, and
+        switches on `ctdb_verify_after_rip` and `verify_flac_after_rip`. What it
+        then asserts is that those two settings round-tripped — which is a
+        setting checked against itself, the exact vacuity K4 was demoted to UX
+        for — and nothing asks whether the checks produced anything.
+
+        On the 2026-09-22 run they did not. Section G is one 0.7s `rig-check`
+        and a snapshot, then H starts a rip; CTDB over 14 tracks and a FLAC
+        integrity pass over 14 files had about a second before the generation
+        guard dropped them. F's own record says so plainly —
+        ``gates.ctdb: "superseded — a newer rip started before this finished"``
+        beside ``ctdb: null``, with the issue text *"an absent result is not a
+        passed one"* — and the run reported 247 of 247 because no step reads it.
+        Three of eight rips were in that state.
+
+        **Delegates to the report's own backstop.** `rip_report` already compares
+        what each gate CLAIMS against what its block CONTAINS and files
+        `verification_superseded` / `verification_result_missing`; this reads
+        those codes rather than recomputing the comparison. That backstop was
+        written to need no cooperation from whatever dropped the work, and a
+        second copy of its logic here would be a second thing to drift.
+
+        **It waits**, because the post-rip chain runs after `wait-for-rip`
+        returns — the same deferral `expect-derived-output` documents, and the
+        reason K1-K3 survived the 2026-09-22 run at all: that verb's wait gave
+        them 8.0s, 4.4s and 3.6s of grace nothing had promised them.
+
+        Floor, so it cannot pass by finding nothing: **at least one gate must
+        read "ran"**. A rip with every check turned off carries no gate that
+        could be superseded, and would otherwise satisfy "nothing was dropped"
+        by having had nothing to drop.
+        """
+        import json
+
+        from platterpus.rip_report import VERIFICATION_DROPPED_CODES
+
+        try:
+            seconds = float(step.args[0]) if step.args else 600.0
+        except ValueError:
+            self._record(
+                step, Outcome.ERROR, f"{step.args[0]!r} is not a number of seconds"
+            )
+            return
+        if seconds <= 0:
+            self._record(step, Outcome.ERROR, "the timeout must be positive")
+            return
+        seconds = min(seconds, MAX_WAIT_S)
+
+        folder = self._rip_album_dir(step)
+        if folder is None:
+            return  # the shared reader recorded the FAIL and named the reason
+
+        def _report() -> dict[str, object] | None:
+            """This rip's report, or None while it is absent/unreadable/partial.
+
+            Re-read on every poll rather than cached: the report is rewritten as
+            each check lands, so a cached copy would answer about the moment the
+            rip finished — which is the state this verb exists to refuse.
+            """
+            try:
+                candidates = sorted(folder.glob("*.platterpus.json"))
+            except OSError:
+                return None
+            for path in candidates:
+                try:
+                    loaded = json.loads(path.read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    continue  # a half-written report is "not yet", not a failure
+                if isinstance(loaded, dict):
+                    return loaded
+            return None
+
+        def _every_gate_left_a_result() -> bool:
+            report = _report()
+            if report is None:
+                return False
+            # Narrowed rather than trusted: this is a JSON document written by
+            # another process and possibly mid-write, so a shape that is not what
+            # we expect is "not yet", never a pass.
+            verification = report.get("verification")
+            gates = (
+                verification.get("gates") if isinstance(verification, dict) else None
+            )
+            if not isinstance(gates, dict):
+                return False
+            if not any(state == "ran" for state in gates.values()):
+                return False  # the floor: nothing ran, so nothing is being claimed
+            issues = report.get("issues")
+            codes = {
+                issue.get("code")
+                for issue in (issues if isinstance(issues, list) else [])
+                if isinstance(issue, dict)
+            }
+            return not (codes & VERIFICATION_DROPPED_CODES)
+
+        self._arm_deadline(step, seconds, _every_gate_left_a_result)
+        self._deadline_outcome = Outcome.PASS
+        self._deadline_detail = (
+            f"every post-rip check this rip started left a result in "
+            f"{folder.name} — no gate claims to have run over a missing block, "
+            f"and none was dropped by a later rip"
+        )
+        self._deadline_timeout_detail = (
+            f"the post-rip checks for {folder.name} did not all leave a result "
+            f"within {seconds:.0f}s. Either they are still running, or a later "
+            f"rip superseded them — read the report's `issues` for "
+            f"`verification_superseded` / `verification_result_missing`, which "
+            f"name which check and why. An absent result is not a passed one, "
+            f"and a section that turns a check ON has not tested it by reading "
+            f"the setting back."
+        )
+
     def _do_expect_log_well_formed(self, step: Step) -> None:
         """Assert the ripper's log is an INTACT, ATTESTED record — either verdict.
 

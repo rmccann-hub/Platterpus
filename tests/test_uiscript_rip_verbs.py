@@ -2914,3 +2914,147 @@ def test_expect_derived_output_will_not_grade_a_previous_sections_album(
 
     assert step.outcome is Outcome.FAIL, step.detail
     assert "no rip has finished since this section asked for one" in step.detail
+
+
+# --- expect-verification ----------------------------------------------------
+#
+# The verb written because section F could not fail over its own title. F is
+# graded ARCHIVAL, is called "every post-rip check on", switches CTDB and FLAC
+# integrity ON and then asserts the SETTINGS round-tripped. On the 2026-09-22
+# acceptance run both checks were dropped unfinished — section G is a 0.7s
+# rig-check and then H starts a rip — and the report said so in the words
+# "an absent result is not a passed one" while the run reported 247 of 247.
+
+
+def _album_with_report(tmp_path: Path, report: dict, name: str = "verif test") -> Path:
+    """An album folder holding one rip report, returning its log path.
+
+    The report is written as the product writes it — `<album>.platterpus.json`
+    beside the log — because the verb globs for it rather than being handed a
+    path, and a fixture that handed it one would not exercise the glob.
+    """
+    album = tmp_path / "The Police" / name
+    album.mkdir(parents=True)
+    (album / f"{name}.platterpus.json").write_text(json.dumps(report), encoding="utf-8")
+    log_file = album / f"{name}.log"
+    log_file.write_text("log", encoding="utf-8")
+    return log_file
+
+
+def _report(gates: dict, issues: list[dict]) -> dict:
+    return {"verification": {"gates": gates}, "issues": issues}
+
+
+def test_expect_verification_passes_when_every_started_check_left_a_result(
+    qapp, process_until, tmp_path
+) -> None:
+    """Section N's shape on 2026-09-22: gates ran, results present, no issues."""
+    win = _window_after_a_rip_into(
+        _album_with_report(
+            tmp_path,
+            _report({"ctdb": "ran", "flac_integrity": "ran"}, issues=[]),
+        )
+    )
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-verification 5"
+    )
+    assert step.outcome is Outcome.PASS, step.detail
+    assert "left a result" in step.detail
+
+
+def test_expect_verification_fails_when_a_later_rip_superseded_the_checks(
+    qapp, process_until, tmp_path
+) -> None:
+    """Section F's shape on 2026-09-22 — the state the run graded as a pass.
+
+    This is the regression: the report carries the diagnosis, and until this
+    verb existed nothing in the script read it.
+    """
+    win = _window_after_a_rip_into(
+        _album_with_report(
+            tmp_path,
+            _report(
+                {"ctdb": "superseded — a newer rip started before this finished"},
+                issues=[
+                    {
+                        "severity": "warning",
+                        "code": "verification_superseded",
+                        "message": "the CTDB check was started for this rip and "
+                        "dropped unfinished because a newer rip began",
+                    }
+                ],
+            ),
+        )
+    )
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-verification 1"
+    )
+    assert step.outcome is Outcome.FAIL, step.detail
+    assert "verification_superseded" in step.detail
+
+
+def test_expect_verification_fails_on_a_gate_claiming_to_have_run_over_nothing(
+    qapp, process_until, tmp_path
+) -> None:
+    """The cancelled rip's shape on 2026-09-22: gates "ran", results null.
+
+    A different defect from supersession — the gate is computed from the
+    settings and the work never landed — and the report files it under its own
+    code, so the verb must reject both rather than only the one it was named for.
+    """
+    win = _window_after_a_rip_into(
+        _album_with_report(
+            tmp_path,
+            _report(
+                {"ctdb": "ran", "flac_integrity": "ran"},
+                issues=[
+                    {
+                        "severity": "warning",
+                        "code": "verification_result_missing",
+                        "message": "the CTDB check is recorded as having run but "
+                        "this report carries no result for it",
+                    }
+                ],
+            ),
+        )
+    )
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-verification 1"
+    )
+    assert step.outcome is Outcome.FAIL, step.detail
+
+
+def test_expect_verification_cannot_pass_over_a_rip_that_checked_nothing(
+    qapp, process_until, tmp_path
+) -> None:
+    """The floor. No gate ran, so "nothing was dropped" is a claim about nothing.
+
+    Without this, a section that turned every post-rip check OFF would satisfy
+    the verb — which is the "can this check be satisfied by finding nothing?"
+    question asked of a check that was itself written to answer it.
+    """
+    win = _window_after_a_rip_into(
+        _album_with_report(
+            tmp_path,
+            _report({"ctdb": "disabled", "derived": "flac-only"}, issues=[]),
+        )
+    )
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-verification 1"
+    )
+    assert step.outcome is Outcome.FAIL, step.detail
+
+
+def test_expect_verification_fails_rather_than_passing_when_no_report_exists(
+    qapp, process_until, tmp_path
+) -> None:
+    """An unreadable record is NOT DETERMINED, which is never a pass."""
+    album = tmp_path / "The Police" / "no report"
+    album.mkdir(parents=True)
+    log_file = album / "no report.log"
+    log_file.write_text("log", encoding="utf-8")
+    win = _window_after_a_rip_into(log_file)
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-verification 1"
+    )
+    assert step.outcome is Outcome.FAIL, step.detail

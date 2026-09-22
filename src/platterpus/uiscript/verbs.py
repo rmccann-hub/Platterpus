@@ -397,6 +397,52 @@ _VERB_LIST: tuple[Verb, ...] = (
         "Settings, so the step cannot check a setting against itself",
     ),
     Verb(
+        # `expect-verification` — assert the post-rip checks the section switched
+        # on actually PRODUCED A RESULT.
+        #
+        # **Written 2026-09-22, because section F could not fail over its own
+        # subject.** F is graded ARCHIVAL, is titled *"the main event: full-disc
+        # rip, all tracks, every post-rip check on"*, and switches on
+        # `ctdb_verify_after_rip` and `verify_flac_after_rip`. It then asserts
+        # that those settings round-tripped — a setting checked against itself,
+        # which is the vacuity K4 was demoted for — and never asks whether the
+        # checks ran. On the 2026-09-22 run they did not: section G takes 0.7s
+        # and section H starts a rip, so CTDB over 14 tracks had about one
+        # second, and F's record reads `ctdb: null` with
+        # `gates.ctdb: "superseded"`. Three of the eight rips were like that and
+        # the run still reported 247 of 247.
+        #
+        # The sections that survived did so BY ACCIDENT: `expect-derived-output`
+        # waits, so K1-K3 got 8.0s, 4.4s and 3.6s of grace that nothing promised
+        # them. `docs/testing.md` half-spotted this in K3's own severity row —
+        # *"only because nothing started after it for six minutes"* — and never
+        # generalised it to the gates.
+        #
+        # **It delegates rather than restating.** The product already computes
+        # the two ways a gate can fail to produce a result and files them as
+        # `verification_superseded` / `verification_result_missing` in the
+        # report's `issues`; this reads those codes. A second copy of that
+        # predicate here is a second thing to drift, and the backstop's whole
+        # design point is that it needs no cooperation from whatever dropped the
+        # work.
+        #
+        # **It WAITS**, for the same reason `expect-derived-output` does: the
+        # post-rip chain runs after `wait-for-rip` returns, so looking once would
+        # assert the work was *requested*.
+        #
+        # Floor, so it cannot pass by finding nothing: at least one gate must
+        # read `"ran"`. A rip with every check disabled would otherwise satisfy
+        # "no gate failed to produce a result" by having no gates.
+        "expect-verification",
+        0,
+        1,
+        "expect-verification [seconds] — assert this rip's post-rip checks (CTDB, "
+        "FLAC integrity, derived-format, re-compress) finished and left a result, "
+        "rather than being dropped when the next rip started. Waits (default 600s) "
+        "because the checks run after `wait-for-rip` returns; at least one gate "
+        "must have run, so the step cannot pass over a rip that checked nothing",
+    ),
+    Verb(
         # `expect-secure-rerip` — grade what section N only ever REPORTED.
         #
         # §N is ARCHIVAL and its stated pass criterion is `rig-check`'s paranoia
