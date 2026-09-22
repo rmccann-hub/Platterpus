@@ -2931,6 +2931,54 @@ says.** `CHANGELOG.md` held an uncommitted version bump at that moment, so
 aside, restored from the copy, verified by hash.
 
 
+### §5.bn — A gate that is right about one sentence and blind to the next one
+
+**2026-09-22.** The README announced, in bold, *"the first `full-green` row this
+project's field-evidence ledger has ever carried"* and *"`0.7.100` is gated on a
+full hardware pass, **which this is**"* — a week after that row had been
+re-graded `partial` on the maintainer's ruling, in the same commit that wrote
+*"Six rows, six `partial`, zero `full-green`. No full-green pass has been
+achieved."* Two documents in one repository, one asserting what the other denies,
+and the false one is the page a stranger opens first.
+
+**Three gates existed and none could see it.** The doc-stamp gate records *when*
+a page was edited and the README had been edited for 0.6.52. §1 of
+`test_no_stale_version_claims.py` compares **version strings**. The pin gates
+match `_INSTALL_CLAIM` — a present-tense *install* sentence — and separately ask
+only that the current pin appear **somewhere** in the corpus. So a wrong pin in
+any other present-tense sentence satisfies both halves, which is what happened:
+*"Platterpus pins a fork — currently `fe4d2c4` … approved by handshake round
+18"* sat inside a **⚠ READ THIS BEFORE YOU RUN** box, five rounds stale, forty
+lines from a correct mention of `2cce60d` that kept the positive half green.
+
+**The most instructive part is the `--version` example.** It printed the stale
+banner under a comment saying the line *"must match the banner named earlier on
+this page"* and recording that it had been **four pins** stale until 2026-09-13.
+By 2026-09-22 it was two pins stale again — the same line, the same failure,
+under a note describing the failure. *A comment where a check belongs is not a
+fix* (`CLAUDE.md`), arriving inside the sentence that had already learned it.
+
+Three things to carry:
+
+1. **A claim and a number are different subjects.** Every gate here compared a
+   version string or a stamp; the expired claims were about the **ledger**, the
+   **severity table** and the **pin**, and no gate read those tables. Ask of a
+   promise in a document: *which committed artifact settles this, and does
+   anything compare them?*
+2. **A positive check answered by "somewhere in the corpus" is not a sweep.** It
+   licenses any number of wrong mentions provided one right one exists. Sweep the
+   **statements of identity** — `platterpus-fork-g<sha>`, `+platterpus.<n>` —
+   and require each.
+3. **A count that does not add up is a free signal and nobody was reading it.**
+   The page said *"17 sections are archival, 3 are UX"* in a paragraph implying
+   21 sections. 17 + 3 = 20. The arithmetic was visible on the page for eight
+   days.
+
+Gates: `test_every_ripper_build_tag_in_a_user_facing_doc_is_the_CURRENT_one`,
+`test_the_readme_may_not_CLAIM_a_full_green_the_ledger_does_not_carry`,
+`test_the_readme_section_counts_match_the_severity_table` — each derived from the
+committed table it is about, so each lifts by itself when the fact changes.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is
@@ -3134,6 +3182,7 @@ cannot fail for any archival reason. Queued in `TASKS.md`; the tier table says
 | 2026-09-12 | 0.6.47 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-15 | 0.6.48 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-15 | 0.6.49 | maintainer | bdr209d | bazzite | partial |
+| 2026-09-22 | 0.6.52 | maintainer | bdr209d | bazzite | partial |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
@@ -3182,7 +3231,44 @@ the run did not exercise the fast whole-disc path at all, and a pass over a
 suite that silently ran one of its two accuracy tests twice is not the full pass
 this bar means. Fixed by pinning F's goal; the row stays `partial`.
 
-Six rows, six `partial`, zero `full-green`. **No full-green pass has been
+**The 2026-09-22 0.6.52 row is the most complete run this project has produced
+and is `partial` for a reason that is neither of the previous two.** It reached
+the last step at **247 of 247**, in 4h14m over eight rips, with **zero ERROR and
+zero CRITICAL lines and zero tracebacks across 132,204 app-log lines**. Both
+objections that held the two September rows down were gone: `expect-derived-
+output` fired on hardware and each derived rip's report independently carried
+`derived: {ran, ok, complete, checked: 2, expected: 2}` with a per-format proof;
+and F and N ran genuinely different tests, F's per-track paranoia counters
+summing to 23841 against a disc total of 23841 (no re-read) while N's ran 26656
+against 76378 with a scope line on 14 of 14 tracks.
+
+What it showed instead is the same shape one layer down. **Three of the eight
+rips had their post-rip CTDB and FLAC-integrity checks dropped unfinished**, and
+one of them is section F — the whole-disc archival rip, graded `ARCHIVAL`, whose
+title is *"every post-rip check on"* and which switches both checks on itself.
+Section G is a 0.7s `rig-check` and a snapshot, then H starts ripping, so CTDB
+over 14 tracks had about one second. F's own record says so exactly:
+`gates.ctdb: "superseded — a newer rip started before this finished"` beside
+`ctdb: null`, with the issue text *"an absent result is not a passed one"*. **No
+step read it**, because F asserts that the two SETTINGS round-tripped — a setting
+checked against itself, which is the vacuity `K4` was demoted to `UX` for.
+
+And the sections that survived did so **by accident**: `expect-derived-output`
+waits, so K1–K3 got 8.0s, 4.4s and 3.6s of grace that nothing had promised them.
+That is K3's own severity row — *"only because nothing started after it for six
+minutes"* — which spotted the mechanism in September and never generalised it
+from the derived files to the gates.
+
+Fixed by `expect-verification`, which delegates to the report's own
+`verification_superseded` / `verification_result_missing` backstop rather than
+recomputing it, and by
+`tests/test_rig_scripts.py::test_every_section_that_rips_asserts_its_post_rip_checks_left_a_result`
+— because the probe that proved the verb worked reported `unaffected` for
+deleting it from the shipped script, which is the *"a verb can be written,
+tested and wired and still be absent from the run it was written for"* gap. The
+row stays `partial`.
+
+Seven rows, seven `partial`, zero `full-green`. **No full-green pass has been
 achieved**, so 0.9.1 is not reachable and the count toward it is zero. Recording
 the partials anyway matters — a ledger that held only successes would make the
 denominator invisible. The first row that earns `full-green` will be one where K1
