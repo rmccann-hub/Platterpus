@@ -453,10 +453,10 @@ What lives where:
 |---|---|
 | the specification | [`handshake-protocol.md`](handshake-protocol.md) — shared, verbatim, both repos |
 | our gate | `scripts/handshake.py` (`--status`, `--check`, `--release-gate`) |
-| our conformance tests | `tests/test_handshake_conformance.py` — one test per row of the shared conformance table (C1–C36 plus C13a; the count moves with the protocol, so read the table, not this cell) |
+| our conformance tests | `tests/test_handshake_conformance.py` — one test per row of the shared conformance table that is in force for the version we implement (C1–C42 plus C13a at v5), **except the sixteen v3/v4 rows C21–C36**, which have been binding since round 9 and have never had row-named tests — counted in `_BINDING_ROWS_WITHOUT_A_NAMED_TEST`, a ratchet that may only shrink (the count moves with the protocol, so read the table, not this cell) |
 | their gate | `tools/release-gate.py`; their tests are `tests/release_gate.py` |
 
-**Current protocol version: 4** — `handshake.PROTOCOL_VERSION` is the authority and the shared spec is titled *Handshake protocol v4*. (This said **2** until 2026-08-27, through the whole of v3 and v4: v3 added §3a addressing, §4a's legal state machine — with `CLOSED → OPEN` removed — §4b `WITHDRAWN`, §5a's digest and §6a-bis; v4 added §5a's one-lap rule. Read the number from the code, never from this sentence.) A gate reading a *higher* number than it
+**Current protocol version: 5** — `handshake.PROTOCOL_VERSION` is the authority for what our gate implements, and the shared file's title is the authority for the spec; both read 5 since 2026-09-22. v5 added §5b (a close may resolve the peer verdict from the newest peer lap the gate holds, has enumerated and may read, when that lap is newer than the transcription's source), §5c (such a lap must declare `HANDSHAKE-READY-TO-READ: yes`, fail-closed), the `HANDSHAKE-PEER-VERDICT-SOURCE` field (ours, from round 23 lap 2) and rows C37–C42. **Implemented the same day the text became byte-identical, before round 24's lap 1**, because a rehearsal showed what staying at 4 would do: `--check` refused a v5 peer lap while `--status` and `--release-gate` closed a round on it. Both halves are fixed — the version refusal now runs on the path that decides a close (`refused_round_files`), and §5b is `resolve_peer_verdict`. **One reading of the spec is ours and was derived, not chosen**: "enumerated" means enumerated by the gate when it decides, because row C40 (a candidate *newer* than the source) is unreachable if it means "listed in the closing lap's own `INBOUND-HELD`". Raised with the fork for round 24. **Files declaring 4 or less keep v4 close semantics**, for the reason row C29 gives: a declared version is a request to be graded by that version's rules. (This sentence said *v4* until 2026-09-22, and said **2** until 2026-08-27, through the whole of v3 and v4: v3 added §3a addressing, §4a's legal state machine — with `CLOSED → OPEN` removed — §4b `WITHDRAWN`, §5a's digest and §6a-bis; v4 added §5a's one-lap rule. Read the numbers from the code and the shared file, never from this sentence.) A gate reading a *higher* number than it
 implements must refuse the round rather than guess — it cannot know which of that
 version's rules it is silently not applying. `handshake.PROTOCOL_VERSION` is ours.
 
@@ -593,4 +593,4 @@ a verdict:
 
 ---
 
-*Last updated for Platterpus v0.6.51.*
+*Last updated for Platterpus v0.6.53.*

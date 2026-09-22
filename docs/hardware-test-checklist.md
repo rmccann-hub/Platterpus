@@ -1,5 +1,16 @@
 # Hardware test checklist
 
+> **Read this first (2026-09-22, v0.6.53).** The intro block below was written for the
+> **v0.6.0** sheet and is kept as its record — its "this release" means v0.6.0, and its
+> list of recent releases stops at v0.5.21. What is current: the pair is Platterpus
+> **v0.6.53** + cyanrip **`2cce60d`** (`+platterpus.13`), and the primary hardware
+> route is now **Tools → Run acceptance test…** inside the app, which packs one
+> `.tar.gz` into `~/Downloads` (`docs/rig-scripts/README.md`, `docs/rig-session.md`).
+> The individual §A–§D cases below are still the record of what the acceptance script
+> does not cover. **This sheet is due a rewrite rather than another patch** — tracked in
+> `TASKS.md` — because deciding which of its cases the acceptance run has since
+> absorbed is a per-case judgement against hardware results, not an edit.
+
 > **Everything that still needs testing, in one place.** Anything that has already passed
 > is gone from this sheet — the record of what passed and when lives in
 > `docs/session-log.md`. Test IDs are stable across releases, so the gaps are deliberate.
@@ -67,7 +78,7 @@
 | Drive | `PIONEER  BD-RW   BDR-209D 1.51` on `/dev/sr0` |
 | Read offset | **+667** — confirmed, two independent sources agree |
 | Cache defeat | **Yes** — measured (`cd-paranoia -A`: 140-sector cache, backseek flushes) |
-| Tools | cyanrip `0.9.4-rc2+platterpus.10`, build tag `platterpus-fork-gd9c058c` — the handshake-pinned fork, not stock 0.9.3; the tag identifies it, the version cannot (KDD-33) · flac/metaflac 1.5.0 · ffmpeg 8.1.2 · cd-paranoia 10.2 · Picard 2.13.3 |
+| Tools | cyanrip `0.9.4-rc2+platterpus.13`, build tag `platterpus-fork-g2cce60d` — the handshake-pinned fork (round 22 moved the pin here; round 23 re-reviewed it on this drive), not stock 0.9.3; the tag identifies it, the version cannot (KDD-33) · flac/metaflac 1.5.0 · ffmpeg 8.1.2 · cd-paranoia 10.2 · Picard 2.13.3 |
 | Settings | Overread **off** · offset-variant re-read **on** · verify-every-track **off** · max reads 2 · max retries 5 · adaptive ladder · EAC log **on** · debug log **on** |
 
 **Test disc:** *The Police — Every Breath You Take: The Classics* — 14 tracks,
@@ -1214,4 +1225,4 @@ with `rip stream error:`** — that is the v0.5.20 fix's signature and I want th
 
 ---
 
-*Last updated for Platterpus v0.6.52.*
+*Last updated for Platterpus v0.6.53.*

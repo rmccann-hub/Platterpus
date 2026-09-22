@@ -722,8 +722,8 @@ PIN_UNDER_REVIEW_IS_PUBLISHED: Final[bool] = True
 #: the evidence §0.1's hardware session is for — and every logfile it writes says
 #: `NOT a released build`.
 #:
-#: The release pin has not moved and is not being asked to: `FORK_PIN` stays
-#: `fe4d2c4` (`release_seq` 22, stable).
+#: At round 21 `FORK_PIN` stayed `fe4d2c4`; round 22 moved it to `2cce60d`. Rounds
+#: 22-23 named no test pin, so this is still round 21's — read FORK_TEST_PIN_ROUND.
 FORK_TEST_PIN: Final[str] = "3952c03"
 FORK_TEST_VERSION: Final[str] = "0.9.4-rc2+platterpus.12"
 #: Which round nominated it. Stated rather than derived from the approved round + 1:

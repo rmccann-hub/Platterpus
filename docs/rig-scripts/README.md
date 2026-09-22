@@ -16,7 +16,8 @@ product's gap invisible.
 > this note got backwards until v0.6.35.
 >
 > * **No round open.** Take the offer only if it is a plain one-click install.
-> * **A round IS open** (today: round 15, on `978f9b0`). Section A asserts the
+> * **A round IS open** (none is today: rounds 1–23 are closed, and round 24 is the
+>   fork's to open — when it does, its lap 1 names any test pin). Section A asserts the
 >   installed build is the **pin under review**, and a build under review is by
 >   definition one no closed round has approved — so its offer is the *warned*
 >   one, **"Install it anyway"**, with the consequence stated and *Not now* as
@@ -377,4 +378,4 @@ disappointment is still true. What we still do not know, said out loud so nobody
 the silence as a pass: whether 32 sectors is this drive's real cache, and which of the
 `Cache probe:` states a different drive would report.
 
-*Last updated for Platterpus v0.6.52.*
+*Last updated for Platterpus v0.6.53.*

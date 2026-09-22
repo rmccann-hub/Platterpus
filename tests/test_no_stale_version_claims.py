@@ -723,6 +723,62 @@ def test_the_install_claim_names_the_CURRENT_pin() -> None:
     )
 
 
+def test_the_dependency_table_names_the_CURRENT_ripper_pin() -> None:
+    """`DEPENDENCIES.md`'s cyanrip row is the second place a reader learns which
+    ripper build ships, and it went stale TWICE for the same reason.
+
+    The 2026-09-13 review found it naming the COPR as the package source three
+    KDDs after the fork became the backend; the 2026-09-22 audit found it naming
+    `fe4d2c4` / `+platterpus.12` / round 18 two pin-bearing rounds later. Both
+    times a careful review read the row against memory. This reads it against
+    `fork_source`, which is where the fact actually lives.
+    """
+    from platterpus.deps import fork_source
+
+    text = (_REPO_ROOT / "DEPENDENCIES.md").read_text(encoding="utf-8")
+    rows = [line for line in text.splitlines() if line.startswith("| cyanrip (")]
+    assert len(rows) == 1, (
+        f"expected exactly one cyanrip row in DEPENDENCIES.md, found {len(rows)} — "
+        "the row was renamed or duplicated; update this selector"
+    )
+    row = rows[0]
+    for fact, label in (
+        (fork_source.FORK_PIN, "FORK_PIN"),
+        (fork_source.FORK_EXPECTED_VERSION, "FORK_EXPECTED_VERSION"),
+    ):
+        assert fact in row, (
+            f"DEPENDENCIES.md's cyanrip row does not name {label} ({fact}); it "
+            "describes a ripper build that is not the one the app installs"
+        )
+
+
+def test_the_rig_sheet_header_names_the_CURRENT_pair() -> None:
+    """`docs/rig-session.md` promises, in its own first paragraph, to be
+    *"rewritten in place when the pairing moves"* and to name that pair in its
+    header. On 2026-09-22 the header named `v0.6.30` + `d9c058c` — twenty-three
+    patch versions and nine rounds stale — under a v0.6.52 footer, because a
+    stamp records when a page was edited, not whether its header was.
+
+    The pair is the app version and the production pin. Both are read from code.
+    """
+    from platterpus.deps import fork_source
+
+    text = (_REPO_ROOT / "docs" / "rig-session.md").read_text(encoding="utf-8")
+    fence = re.search(r"^```\n(?P<body>.*?)^```", text, re.S | re.M)
+    assert fence, "docs/rig-session.md has no fenced header block to read the pair from"
+    header = fence.group("body")
+    assert f"v{__version__}" in header, (
+        f"docs/rig-session.md's header does not name Platterpus v{__version__}. "
+        "The app moved and the sheet did not: rewrite it in place for the new pair "
+        "(archive the old one under docs/archive/ with a graduation-map row)."
+    )
+    assert fork_source.FORK_PIN in header, (
+        f"docs/rig-session.md's header does not name the production pin "
+        f"{fork_source.FORK_PIN}; a run against it would produce evidence about a "
+        "different build."
+    )
+
+
 #: Ripper build tags a user-facing doc may name although they are not current,
 #: each with the reason it is historical rather than a claim. Empty today, and a
 #: ratchet: an entry is an admission that a page names a build nobody runs.
@@ -825,11 +881,19 @@ def test_the_readme_may_not_CLAIM_a_full_green_the_ledger_does_not_carry() -> No
     if full_green:
         return  # the claim is available to make; this gate has nothing to say
 
-    corpus = _user_facing_text()
+    # PLANNING.md joined the corpus 2026-09-22: its KDD-35 status line said
+    # *"the ledger's first `full-green` row exists"* for nine days after that row
+    # was re-graded, and the backticks alone kept it out of the pattern. A status
+    # line in the design log is read as current by whoever picks up the next
+    # version-bump question, which is exactly the reader this gate protects.
+    corpus = {**_user_facing_text(), **_ledger_status_text()}
     offenders: list[str] = []
     for doc, text in corpus.items():
         for match in re.finditer(
-            r"(?:the )?first full[ -]green|full[ -]green row this project", text, re.I
+            r"(?:the )?first `?full[ -]green`?|`?full[ -]green`? row this project"
+            r"|first `?full[ -]green`? row exists",
+            text,
+            re.I,
         ):
             line = text.count("\n", 0, match.start()) + 1
             offenders.append(f"{doc}:{line}: {match.group(0)!r}")
@@ -837,6 +901,65 @@ def test_the_readme_may_not_CLAIM_a_full_green_the_ledger_does_not_carry() -> No
         "a user-facing doc claims a full-green hardware pass, but the "
         f"field-evidence ledger carries {len(rows)} row(s) and none of them is "
         "`full-green`:\n  " + "\n  ".join(offenders)
+    )
+
+
+#: Documents outside README/SECURITY that state the ledger's CURRENT contents.
+#: PLANNING.md's KDD-35 carries a dated status line about the ledger; the gates
+#: below read it because a stale one there is read as current by the next person
+#: asking whether a version bump is supported.
+_LEDGER_STATUS_DOCS: tuple[str, ...] = ("PLANNING.md",)
+
+_NUMBER_WORDS: dict[str, int] = {
+    word: n
+    for n, word in enumerate(
+        "zero one two three four five six seven eight nine ten eleven twelve "
+        "thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split()
+    )
+}
+
+
+def _ledger_status_text() -> dict[str, str]:
+    return {
+        doc: (_REPO_ROOT / doc).read_text(encoding="utf-8")
+        for doc in _LEDGER_STATUS_DOCS
+    }
+
+
+def test_a_doc_that_COUNTS_the_ledger_rows_counts_them_correctly() -> None:
+    """The README said *"the field-evidence ledger carries six rows"* in the same
+    release that added the seventh — v0.6.53, found by the 2026-09-22 document
+    audit. The full-green gate above could not see it: it asks whether a pass is
+    CLAIMED, not whether the table is DESCRIBED correctly, and a row count is the
+    number a reader uses to judge how much evidence exists.
+
+    Floor: at least one count claim must be found, so a rewording that escapes the
+    pattern turns this red instead of leaving it passing over nothing.
+    """
+    rows = _read_ledger()
+    assert rows, "the ledger is empty — the gate below would pass over nothing"
+    corpus = {**_user_facing_text(), **_ledger_status_text()}
+    claims = 0
+    wrong: list[str] = []
+    for doc, text in corpus.items():
+        for match in re.finditer(
+            r"ledger (?:carries|holds|has) \**(?P<n>\d+|[a-z]+)\** rows", text, re.I
+        ):
+            token = match.group("n").lower()
+            claimed = int(token) if token.isdigit() else _NUMBER_WORDS.get(token)
+            if claimed is None:
+                continue
+            claims += 1
+            if claimed != len(rows):
+                line = text.count("\n", 0, match.start()) + 1
+                wrong.append(f"{doc}:{line} says {claimed}, the ledger has {len(rows)}")
+    assert claims >= 1, (
+        "no ledger row-count claim found in README/SECURITY/PLANNING — if the "
+        "sentence was reworded, update the pattern rather than let this pass "
+        "over nothing"
+    )
+    assert not wrong, "a doc miscounts the field-evidence ledger:\n  " + "\n  ".join(
+        wrong
     )
 
 

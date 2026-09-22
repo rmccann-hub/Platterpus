@@ -21,12 +21,94 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
+## 2026-09-22 pre-round-24 document audit — what it found that a doc edit cannot fix
+
+The audit's doc corrections landed in one change (see `CHANGELOG.md`). These four
+did not, because they are code or need a judgement, and the first two are the
+most important thing on this page before round 24's lap 1 arrives.
+
+- [x] **DONE 2026-09-22 — protocol v5 implemented; `PROTOCOL_VERSION = 5`, `_BOOTSTRAP_REASON` cleared.** `resolve_peer_verdict` (§5b), the §5c release check on the candidate, C41 at `--check` and the gate, source lines printed on `--status` and on an allowed release (C42), and tests for C37–C42, each revert-proven. A rehearsal on real lap content closed a v5 round 24 in three laps where v4 needs four. Original:
+- [x] ~~**ROUND-24 READINESS: implement protocol v5 in our gate.**~~ The shared file is
+  v5 and byte-identical in both trees since 2026-09-22, which is v5's own condition
+  for *either* gate to implement it (§13), and our round 23 lap 4 said
+  *"implementation follows"*. Nothing tracked it until now. **Measured in the
+  round-24 rehearsal:** a peer lap 1 declaring `HANDSHAKE-PROTOCOL: 5` is refused by
+  `handshake.py --check` — *"file declares protocol v5; this gate implements v4"* —
+  and the fork has called round 24 *"v5's first test"*. Scope: §5b (resolve the
+  peer verdict from the newest held, enumerated peer lap), §5c (that lap must
+  declare `HANDSHAKE-READY-TO-READ: yes`, fail-closed), emit and read
+  `HANDSHAKE-PEER-VERDICT-SOURCE`, conformance tests for C37–C42, then
+  `PROTOCOL_VERSION = 5` and **clear `_BOOTSTRAP_REASON` in the same commit**
+  (`tests/test_handshake_tooling.py` requires it).
+
+- [x] **FIXED 2026-09-22 — `refused_round_files` runs `protocol_refusal` over every file of a round on the gate path; C15 now has a gate-level test and a relation test, both revert-proven (the first version of the fixture was VACUOUS — it was refused by C41 instead of by its version).** Original:
+- [x] ~~**ROUND-24 READINESS, gate defect [MEASURED]: the release gate trusts a file~~
+  `--check` refuses.** `protocol_refusal()` is called only by `check_wire_header`;
+  `round_status` and `--release-gate` read verdicts regardless of the declared
+  protocol. Rehearsal: our lap 2 (v4, `GO`) plus their lap 3 (v5, `GO`) →
+  `--status` reads round 24 **CLOSED** and `--release-gate` **exits 0**, while
+  `--check` refuses the same lap 3. Two surfaces of one gate, two answers to *"may
+  I trust this file"* — `CLAUDE.md`'s *one predicate, N callers* case. **And the
+  conformance row that should have caught it passes**: C15 is *"`HANDSHAKE-PROTOCOL`
+  higher than implemented → refuse rather than guess"*, and
+  `tests/test_handshake_conformance.py::test_C15_…` asserts that the *helper*
+  returns a reason, never that the *gate* refuses — a requested thing tested in
+  place of a happened one. **Ordering matters**: fixing this alone means a round
+  whose peer declares 5 can never close on our side, so land it with, or after,
+  the item above. Test the relation, not each surface.
+
+- [x] **DONE 2026-09-22 — `tests/test_every_inbound_lap_passes_check.py`**: 89 of 100 inbound files pass; the 11 that do not are all from rounds 1–8 and are pinned by name in a set that may only shrink. Original:
+- [x] ~~**No test fires when an inbound lap fails `--check`.**~~ The rehearsal filed a
+  realistic round-24 opener: eight tests fire on arrival (below), and with a v5
+  header **the same eight fire and no ninth** — so once the bookkeeping is done the
+  suite goes green over a lap our own checker refuses. Candidate: a sweep running
+  `check` over every inbound lap, with the existing pre-format grandfather sets.
+
+- [ ] **Sixteen binding conformance rows have never had a named test: C21–C36.**
+  Found while bumping to v5. `test_every_conformance_row_has_a_test_here`
+  exempted every row after the v3 heading **unconditionally**, against §8's own
+  instruction that *"bumping `PROTOCOL_VERSION` turns them on with no second
+  edit"* — so when both gates reached 4 in round 9, the v3/v4 rows stayed exempt
+  for thirteen rounds. The split now follows `PROTOCOL_VERSION`, C37–C42 have
+  tests, and C21–C36 are counted in `_BINDING_ROWS_WITHOUT_A_NAMED_TEST` (may
+  only shrink). Some behaviours are covered under other names (the digest,
+  overrides, the lap limit); the work is one `test_C<nn>_…` per row, and any row
+  whose test fails is a divergence to report, not to fix quietly.
+
+- [ ] **Ask the fork, in round 24: does their gate read §5b's "enumerated" the way
+  ours does?** We derived it rather than chose it: C40 allows a candidate *newer*
+  than the transcription's source, and the source is the newest peer lap the
+  writer held, so that candidate cannot be in the writer's own `INBOUND-HELD`.
+  Our gate therefore enumerates at decision time (`resolve_peer_verdict`). If
+  theirs reads it as the closing lap's field, the two gates would disagree about
+  exactly the close v5 exists to allow.
+
+- [ ] **Say it in our first round-24 lap: a Platterpus pre-release counts for the
+  round-22 ordering.** Answered to the fork by hand on 2026-09-22; it belongs in the
+  record as a stated term. Every `v0.*` tag carries GitHub's pre-release flag
+  (`release.yml:343`), our updater deliberately ignores that flag and offers
+  0.6.53 on the stable channel (`update_check.py:99-117`), round 20 already set the
+  precedent (the `Retry limit:` arm first shipped in v0.6.50, also flagged), and the
+  both-wordings parser first ships in **v0.6.53** — no earlier tag carries the
+  `read successfully!` arm. So our half of the ordering is met and `+platterpus.14`
+  is theirs to ship; our `FORK_PIN` stays `2cce60d` until a round reviews `.14`.
+
+- [ ] **Rewrite `docs/hardware-test-checklist.md` rather than patch it again.** Its
+  intro is the v0.6.0 sheet's ("v0.6.0 (this sheet)", releases listed to v0.5.21);
+  the audit added a dated banner and corrected the tools row, but deciding which
+  §A–§D cases the acceptance run has absorbed is a per-case call against hardware
+  results.
+
 ## 2026-09-22 hardware run — 247/247, graded `partial`, and what it left open
 
 - [ ] **ROUND-24: re-anchor the fork's citations, and stop citing branch SHAs.**
   Their lap 3 §D2 cites `b5af9bec` and their lap 5 will cite `19c8ad20`, both on
   `claude/session-omka9f`. PR #237 squash-merged on 2026-09-22 **and the branch
-  was deleted** — the exact hazard §D2 named. Recovered because this session's
+  was deleted** — the exact hazard §D2 named. **The deleter was the repository's
+  "Automatically delete head branches" setting, not a person** — proven when the
+  #238 merge, done over the API with nobody at a screen, deleted it again. The
+  maintainer turned the setting off the same day; that, not a louder warning, is
+  the durable fix. Recovered because this session's
   clone still held the objects and the branch was pushed back at `d0999b2f`
   within four minutes, before GitHub's `gc`; both citations were re-verified
   against the remote afterwards. **It will not always be recoverable.**
@@ -89,7 +171,9 @@ What it left:
   lines. Reported by the cyanrip fork (their larger claim, that tracks 3 and 5
   were superseded with no addendum, does NOT hold: `read_speed.retried_tracks`
   records `replaced: false` for both, and a track is only ever replaced by a
-  converged re-read — `workers/rip_worker.py:2618`). Capture it into the report
+  converged re-read — the guard is `workers/rip_worker.py:2705-2708`, re-derived
+  2026-09-22; this cited `:2618`, which is the docstring describing it, until our
+  round 23 lap 2 re-cited it). Capture it into the report
   rather than the album folder, which stays EAC-clean with one log; that is a
   `REPORT_SCHEMA_VERSION` bump.
 
@@ -702,7 +786,9 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       HAPPENS"* rule — make the guards a named function that reports **which** one
       refused, and call it at every point that can interrupt.
 
-## ROUND 16 IS OPEN — their lap 1 filed, runbook run, everything verified (2026-09-07)
+## Round 16 — CLOSED `GO`/`GO` 2026-09-12 (written 2026-09-07 as *"ROUND 16 IS OPEN — their lap 1 filed, runbook run, everything verified"*)
+
+> **Header corrected by the 2026-09-22 document audit**, which found it still announcing an open round ten days and seven rounds after the close. Items below that are still `[ ]` carry forward as ordinary backlog; the three plainly overtaken by later rounds are now marked.
 
 **Their lap 1 arrived and the rehearsed runbook was run end to end.** Filed at
 `docs/handshake/inbound/round-16-lap-01.md`, byte-identical to their committed
@@ -786,7 +872,8 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       comparison. Our P3 said "the two track-1 checksums must differ", meaning
       cyanrip's own audio checksum — true, but one careless reading away from a
       false pass. Reworded, and P3 now names the decoded samples as the claim.
-- [ ] **The rig's installed `0.6.40` cannot run our acceptance script against the
+- [x] **OVERTAKEN (2026-09-22 audit): round 16 closed 2026-09-12 and the rig has since run 0.6.47–0.6.52.** Original:
+- [x] ~~**The rig's installed `0.6.40` cannot run our acceptance script against the~~
       round-16 test pin, and a newer script does not fix it.** Verified rather than
       assumed: `v0.6.40` compiles in `PIN_UNDER_REVIEW = 978f9b0` and
       `FORK_TEST_PIN = cb440bd`, so section A refuses `ddc1e8c` — the build both
@@ -996,7 +1083,8 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       ships frozen inside a release. The row stays open: a terminal paragraph in a
       zero-terminal program is a workaround.
 
-- [ ] **ASK THEM TO PUBLISH `a9aedf0`, or tell us the reviewed pin is not meant to
+- [x] **OVERTAKEN (2026-09-22 audit): the pin moved `a9aedf0` → `fe4d2c4` (round 17) → `2cce60d` (round 22), both published, and the suite is green.** Original:
+- [x] ~~**ASK THEM TO PUBLISH `a9aedf0`, or tell us the reviewed pin is not meant to~~
       be installable through the offer. FIVE TESTS ARE RED ON THIS ONE FACT and no
       sequence has been invented to quiet them.** Their ledger and
       `release-manifest.json` both still top out at `978f9b0` / `release_seq` 21,
@@ -1107,7 +1195,8 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       **Nothing changed in our gate**, matching their restraint: a close rule
       relaxed on one side is how two gates disagree about whether a round closed.
 
-- [ ] **ROUND 23 — the original proposal row, kept for the drafting detail.**
+- [x] **DONE (2026-09-22 audit): this proposal became v5 §5b, landed byte-identical in both trees as round 23's close condition.** Implementing it in our gate is the first item at the top of this file. Original:
+- [x] ~~**ROUND 23 — the original proposal row, kept for the drafting detail.**~~
       Their round-22 lap 5 §H1 answers our close-gate question from their source
       and finds the root is **shared and not fixable on one side**. Their gate does
       NOT have our exact defect — `tools/release-gate.py:727-732` builds
@@ -1177,7 +1266,9 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       and cancels rips, which is when signals are delivered. They explicitly do not
       claim it explains anything we have seen.
 
-## Round 22 — the queue, and WHY none of it may be built before lap 4 is released (2026-09-18)
+## Round 22 (CLOSED `GO`/`GO` 2026-09-21) — the queue, and why none of it was built before lap 4 was released (2026-09-18)
+
+> **Round 22 is closed**, so the release-ordering constraint in this header no longer binds; the open items below are ordinary backlog now. (Header tense corrected by the 2026-09-22 document audit.)
 
 **Read this heading before touching any row below it.** Round 21 lap 4 states, in
 a file we are about to send, that two of these are *"not fixed, and reported
@@ -1284,7 +1375,7 @@ get right twice.
       buildable. Move it into round 22 rather than leaving it filed under a round
       that has closed.
 
-## Round 21 — ours to build, and one deliberately NOT built yet (2026-09-16)
+## Round 21 (CLOSED `GO`/`GO` 2026-09-18) — ours to build, and one deliberately NOT built yet (2026-09-16)
 
 - [ ] **A summary field and the error lines above it are two claims about one
       rip, and nothing on our side checks that they agree.** Our half of round
@@ -1314,119 +1405,97 @@ get right twice.
       that would. Not proposing one yet; naming it so it is not mistaken for
       handled.
 
-## RUNBOOK — when a round opener arrives (re-rehearsed 2026-09-16 for round 21)
+## RUNBOOK — when a round opener arrives (re-rehearsed 2026-09-22 for round 24)
 
-**Rewritten in place, not joined by a sibling.** The round-16 version's steps
-named round 16 and its boxes were the rehearsal's own checklist, so a procedure
-that had been run five times read as eight outstanding jobs. This is the same
-topic at a new value.
+**Rewritten in place, not joined by a sibling** — the round-21 version named round
+21's test pin and its contract, and was re-rehearsed rather than edited, because a
+runbook is only as current as its last run.
 
-**Re-rehearsed against the real tree on 2026-09-16**, the way the original was
-built: a realistic round-21 opener was filed into `docs/handshake/inbound/`, the
-round-keyed suites run, every failure recorded, and the file removed in a
-`finally`. **Six tests fire on arrival, all deliberately, and each names its
-action.** The gate state is correct the moment the lap lands — `--status` reports
-`round-21 … -> OPEN` and `--release-gate` exits 1 — so *nothing* has to be
+**How it was rehearsed.** In a detached worktree in the session scratchpad, never
+the live tree: a realistic round-24 lap 1 built from their round-23 lap 1 with the
+round, versions and pin fields moved, filed into `docs/handshake/inbound/`; the 17
+round-keyed test files run; then the same lap with a **v5** header; then a
+simulated close (our v4 `GO` lap 2, their v5 `GO` lap 3). The worktree was removed
+afterwards. **The gate state is right the moment a v4 opener lands** — `--status`
+reads `round-24 … -> OPEN` and `--release-gate` exits 1 — so nothing has to be
 remembered to stop a release.
 
-### What fires, and what each one wants
+### What fires on arrival — eight tests, up from six at round 21
 
 | test | action |
 |---|---|
-| `test_fork_source::test_the_floor_tracks_the_newest_round_on_disk` | `CURRENT_ROUND` → 21 in `scripts/handshake.py` |
-| `test_handshake_tooling::test_the_handshake_readme_covers_every_round_on_disc` | a round-21 row in `docs/handshake/README.md` |
-| `test_argv_surface_agreement` (**3 tests**) | the flag table is now 2 rounds behind — see below |
-| `test_provider_contract_agreement::test_the_contract_we_read_is_the_current_rounds_own` | same cause |
+| `test_fork_source::test_the_floor_tracks_the_newest_round_on_disk` | `CURRENT_ROUND` → 24 in `scripts/handshake.py` |
+| `test_handshake_tooling::test_the_handshake_readme_covers_every_round_on_disc` | a round-24 row in `docs/handshake/README.md` |
+| `test_standing_status_is_current` (**2 tests**, new since round 21) | rewrite `docs/handshake/outbound/platterpusstatus.md` in place so it names round 24 |
+| `test_argv_surface_agreement` (**3 tests**) + `test_provider_contract_agreement` (**1**) | the contract lag becomes 2 against `_MAX_TABLE_LAG = 1` — see below |
 
-### The provider-contract fork in the road — **RESOLVED to YES, pre-derived 2026-09-16**
+### Ask the provider-contract question first
 
-The last four tests all key on one question: **did their lap ship a
-`PROVIDER-CONTRACT.md`?** It did. Read from their tree while the lap was still
-held, so the filing is mechanical rather than exploratory when it is released:
+The last four tests turn on one question: **did their lap 1 ship a
+`PROVIDER-CONTRACT.md`?** Their round 23 lap 5 undertook that *"the next contract
+ships from the reviewed pin"*.
 
-* `PROVIDER-CONTRACT.md` regenerated in their `3952c03` *"Regenerate the
-  artifacts at schema /6"*. Banner build `platterpus-fork-gb2c9527` — the commit
-  *before* the one containing it, which their own header explains and their
-  `--check` normalises. sha256/16 `fb8b4b62d9d0f1c9`, 74,071 bytes, against the
-  `g7b2fda6` we hold at `bc7285f65e37a909` / 73,486.
-* **File as** `round-21-lap-01-provider-contract-gb2c9527.md`, run
-  `python3 scripts/emit_ripper_inventory.py` (**not** part of the version-bump
-  ordering — it is keyed to *their* releases), and set `_MAX_TABLE_LAG` back to
-  **0** in `tests/test_argv_surface_agreement.py` (1 today, for round 20's
-  procedure round).
-* **If it had been NO**: `_MAX_TABLE_LAG` → **2**, reason written into the
-  constant. Never raise it silently: the number records how far behind we have
-  *agreed* to be, and it does not excuse a round that DID ship one we failed to
-  file — those look identical from here.
+* **Yes** — file it as `round-24-lap-01-provider-contract-g<banner>.md` under
+  `inbound/artifacts/`, run `python3 scripts/emit_ripper_inventory.py` (keyed to
+  *their* releases, not our version bump), and set `_MAX_TABLE_LAG` back to **0**.
+  **Check the banner names the reviewed pin**: that is their undertaking, and a
+  build tag names a commit, not the tree that was built (Critical rule #12).
+* **No** — do **not** raise the lag to 2 silently. The constant's own note says
+  what a raise needs: redo both derivations (no argv-bearing line in the source
+  diff; the P1 table byte-identical) and write the reason into the constant. By
+  round 26, stop raising and say so in the lap.
 
-**What the regeneration actually changes, derived rather than expected** — 184
-diff lines, and almost all of it is line numbers moving:
+### What fires on a v5 opener — FIXED the same day the rehearsal found it
 
-| population | changed |
-|---|---|
-| two-column format-string rows (303) | **1** — `Frame retries:  %i` → `Retry limit:    %i (per frame, and per whole-track re-read)` |
-| P5 fatal message **texts** (120) | **0** |
-| P5a unclassified **texts** (7) | **0** |
-| P5 `(site, text)` pairs | **1 moved** — `diagnostics.c:572` → `:618` |
+**Measured before the fix:** the same eight tests and no ninth; `--check` refused
+the lap (*"file declares protocol v5; this gate implements v4"*); and a simulated
+close — our v4 `GO`, their v5 `GO` — read **CLOSED** with `--release-gate` exiting
+**0**, because the release gate never asked the protocol question.
 
-So the inventory regen is **citation-only**: no new fatal string needs
-surfacing, and `tests/test_ripper_error_surfacing.py` should stay green. The one
-changed format string is their declared `HANDSHAKE-BREAKING` (1), and our parser
-has accepted both labels permanently since round 20.
+**Re-rehearsed after the fix** (scratch copy of the real record, real lap bodies):
+a v5 opener passes `--check`; our v5 `GO` lap 2 reads OPEN, naming the lap its peer
+verdict resolved from; their v5 `GO` lap 3 closes the round in **three** laps,
+printing the superseded transcription (C40) and both sources (C42) on `--status` and
+on the allowed release. `tests/test_every_inbound_lap_passes_check.py` is the ninth
+test the rehearsal said was missing.
 
-**Two cautions this derivation earned.**
+### Every time, whatever the lap contains
 
-1. **The first pass measured the wrong population.** A two-column row regex was
-   used against a P5 table that has *four* columns, so the "303 strings, one
-   changed" figure did not contain a single fatal message — a clean-looking
-   result over a set its own subject was not in. Re-derived with the emitter's
-   own `_ROW` pattern, the counts land on **120 P5 + 7 P5a**, which is exactly
-   what the fork independently reported in round 19. *Reproduce by their
-   published method*, and check the population is closed before quoting it.
-2. **Their `HANDSHAKE-BREAKING` (2) is invisible to this diff, by nature.**
-   Moving `cyanrip_log_finish_report()` below the encoder-status loop so
-   `Ripping errors:` counts encoder failures changes **no format string** — it
-   changes what the number *means*. A contract diff cannot see it and a green
-   argv-surface suite says nothing about it. That is the change our §F item is
-   about, and the reason the reconciler was deliberately not built earlier.
-
-### Already checked, so it cannot surprise us at filing time
-
-* **`handshake.py --check` accepts their lap 1** — run against a scratchpad copy
-  (never filed; filing an unreleased lap would open the round on a document
-  their operator has not sent). Exit 0, *"satisfies the protocol"*. Worth doing
-  because their sections are lettered `## 0`–`## 8`, and our checker once failed
-  nine of thirteen inbound openers on a section table that encoded the wrong
-  role.
-* **The test pin is `3952c03`, not `2c3deff`** — moved while the lap was held,
-  and they commit to it not moving again after our lap 2. Any instruction naming
-  `2c3deff` for the rig is superseded.
+* **Only a released lap is filed.** `HANDSHAKE-READY-TO-READ: yes` must be
+  declared; reading their tree before release is to verify, never to act on
+  (Critical rule #12, *laps travel by git*).
+* **`handshake.py --check` the lap before filing it.**
+* **Reproduce a digest or anchor by their published method** before reporting a
+  mismatch — a number that does not reproduce is a statement about our method
+  first.
+* **A contract diff cannot see a change of meaning.** Round 21's `Ripping errors:`
+  move changed no format string, only what the number counts. Read their
+  `HANDSHAKE-BREAKING` for semantic changes separately from the diff.
 
 ### Only if the pin moves
 
 `PIN_UNDER_REVIEW` and `UNDER_REVIEW_TARGET.pin`/`.version` together (one fact,
-two fields), plus `FORK_RELEASE_SEQ_BY_PIN` if it is a numbered release. Today
-`PIN_UNDER_REVIEW == FORK_PIN == fe4d2c4`, so `a_round_is_reviewing_a_build()`
-is False and the install menu offers the approved build with no warning.
+two fields), plus `FORK_RELEASE_SEQ_BY_PIN` if it is a numbered release. **Today
+`PIN_UNDER_REVIEW == FORK_PIN == 2cce60d`** (re-read 2026-09-22), so
+`a_round_is_reviewing_a_build()` is False and the install menu offers the approved
+build with no warning. If `+platterpus.14` becomes the pin under review,
+`docs/rig-session.md` moves with it — its header is gated on the current pair.
 
-### What round 21 is expected to contain
+### What round 24 is expected to contain
 
-**Theirs, both already declared:** the `Retry limit:` rename as
-`HANDSHAKE-BREAKING` (our parser already accepts both labels permanently, so it
-cannot break us on arrival — verified 2026-09-16, and we pass `-j` but read
-neither `frame_retries` nor `retry_limit`, so the key rename costs us nothing);
-and the `Ripping errors: 0` placement fix at `cyanrip_main.c:2690`, which they
-own and have queued.
+**Theirs, from their round 23 laps:** the report on a `.14` session paired with
+our both-wordings release — *"we would report it in round 24's lap 1"* — which is
+the first time anyone parses the `read successfully!` wording from a real log; the
+citation question (`HANDSHAKE-FROM-COMMIT` meaning two things, their §D1/§D2); the
+provider contract generated from the reviewed pin; and the loudness measurement
+taken upstream of the filter graph, which changes five P2 lines and so needs a
+round. And their own falsifiable test: *"if it also takes five laps, v5 did not do
+its job."*
 
-**Ours to raise:** the second half of that one — *a summary field and the error
-lines above it are two claims about one rip, and nothing on our side checks that
-they agree*. `_take_rip_errors` turns `0` into the `"No errors occurred"` string
-our EAC-compatible export writes, so their demonstrated trailer-write failure
-reaches an archival artifact through us. Also the `READY_TO_READ` ratchet if they
-want it (we withdrew the proposal; *print first, ratchet on evidence* is right),
-and the open problem with no sweep behind it: **a check whose output agrees with
-a correct implementation for the wrong reason is invisible from the side that
-wrote it.**
+**Ours to raise:** the `ROUND-24` items in the top two sections — the citation
+re-anchor (hash as anchor, commit as fetch hint), the lap-4 §C correction, the
+premature-GO blind spot in `--status`, and the pre-release term. Each is
+`NEXT-ROUND` under S-14 unless it breaks the artifact under review, and none does.
 
 ## Round 15 CLOSED — what their lap 14 leaves for round 16 (2026-09-06)
 
@@ -2871,6 +2940,8 @@ around, which is a different question from whether today's build is good.
   rather than the one example we volunteered.
 
 ## Next release — gated on the rig package
+
+> **History, not the current plan** (noted by the 2026-09-22 document audit). This is the round-8-era release plan (August 2026). `docs/README.md` pointed readers here as *"what ships in the next release"* until that audit; the current queue is the newest dated section at the top of this file.
 
 *(Absorbed the former `release-plan-next.md` on 2026-08-06. It was a separate
 file for one day. A release plan **is** a task queue with an ordering constraint,
