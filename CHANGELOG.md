@@ -56,6 +56,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   rig ends on the shipped defaults), does it, and a sweep derives the end state
   rather than trusting the list.
 
+- **The in-app User Guide named five options that are not on the screen.**
+  "Output folder" (the row says *Output directory*), "Read offset override" (two
+  separate controls described as one), "Eject after a successful rip", "Verify
+  FLACs after a rip" and "Max reads to confirm a shaky track". A label is an
+  exact string to the person following it. Four predated this release and the
+  fifth was created by the tooltip pass below; every existing test stayed green
+  throughout, because the guide was only ever checked against a phrase list kept
+  in the test file — never against the dialog. It is now checked against the
+  dialog.
+
 ### Changed
 
 - Fourteen Settings tooltips rewritten to say what each option *does*: a

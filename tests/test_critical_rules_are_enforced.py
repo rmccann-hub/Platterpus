@@ -1439,7 +1439,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # a user cannot find described in the app is the defect
     # `test_help_documents_the_menu.py` exists to catch — so this growth is the
     # other half of a gate, not incidental.
-    "help_content.py": 582,
+    # **582 -> 586 (2026-09-22)** (+4): the read-offset bullet became two, because
+    # the guide described `read_offset` and `override_read_offset` as one control
+    # called "Read offset override" — a name neither of them carries on screen —
+    # and the number is inert without the tick-box, which the one-bullet version
+    # had no room to say. Found by the new guide-vs-screen sweep, not by reading.
+    "help_content.py": 586,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a

@@ -189,7 +189,7 @@ named from the album artist/title you type.
 - **MP3 VBR quality** — only when the output format is MP3: 0 is best quality
   (~245 kbps, the recommended default) and 9 is the smallest files. It has no
   effect on the FLAC master, which is always lossless.
-- **Output folder** and **file-name templates** (separate templates for known
+- **Output directory** and **file-name templates** (separate templates for known
   and unknown discs).
 - **Move finished rips to** — optional library folder. When set, a successful
   rip's album folder is moved there automatically — but only once every
@@ -218,7 +218,7 @@ named from the album artist/title you type.
   EAC parity baseline was ripped, and only some drives can overread; an
   unsupported drive may freeze on it, so turn it on only if you know your
   drive supports overreading.
-- **Max reads to confirm a shaky track** — Platterpus rips the disc once at full
+- **Reads that must agree to trust a track** — Platterpus rips the disc once at full
   speed, then re-reads *only* the tracks that didn't match AccurateRip until this
   many reads agree, so a shaky track converges on a stable, repeatable read
   (which then has a better chance of matching AccurateRip) while a clean disc
@@ -240,7 +240,8 @@ named from the album artist/title you type.
   it only once the two reads agree — the same guarantee Exact Audio Copy's "Test
   & Copy" gives (two independent reads produce the identical audio), for the
   whole disc. When a track is confirmed this way, the EAC-compatible log shows a
-  matching **Test CRC** and **Copy CRC** pair for it. It needs *Max reads* set to
+  matching **Test CRC** and **Copy CRC** pair for it. It needs *Reads that must
+  agree* set to
   2 or more (a second read is what there is to compare), and it's slower because
   it double-reads clean tracks too — so it's off by default; turn it on for a
   maximum-assurance archival rip.
@@ -250,7 +251,7 @@ named from the album artist/title you type.
   off if you would rather not. Its checksum is confirmed on real hardware, so a
   match reads as *verified*; a non-match can only ever under-claim, never falsely
   say "verified".
-- **Verify FLACs after a rip** — decode each FLAC back and check it against its
+- **Verify FLAC files after a rip** — decode each FLAC back and check it against its
   stored checksum (on by default). (**Re-compress FLACs** is shown but disabled:
   cyanrip already encodes FLAC at maximum compression, so there's nothing to
   gain.)
@@ -263,9 +264,12 @@ named from the album artist/title you type.
   log checksum but openly verifiable — you can confirm the log hasn't been altered
   with any SHA-256 tool, no special software needed (`head -n -1` on the file,
   piped to `sha256sum`, reproduces the value).
-- **Read offset override** — set the drive read-offset by hand (the drive-setup
-  wizard is the recommended way to set it).
-- **Eject after a successful rip** — automatically eject the disc when a rip
+- **Read offset (samples)** and **Apply this read offset to rips** — set the
+  drive read-offset by hand, and the tick-box that actually sends it to the
+  ripper. The number is inert on its own: cyanrip reads no config file, so the
+  value reaches it only as `-s` and only while the tick-box is on. The
+  drive-setup wizard is the recommended way to set both.
+- **Eject the disc after a successful rip** — automatically eject the disc when a rip
   finishes (off by default). You can always eject by hand with the **Eject**
   button next to the drive picker.
 - **Show a desktop notification when a rip finishes** — pop a system
