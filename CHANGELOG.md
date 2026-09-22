@@ -11,6 +11,73 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+
+- **The handshake release gate could close a round on a lap it refused to
+  read.** `handshake.py --check` refused a lap declaring a protocol newer than the
+  gate implements, but `--status` and `--release-gate` read its verdict anyway: a
+  rehearsal of round 24 closed a round and allowed a release on exactly such a lap.
+  The version refusal now runs on the path that decides a close, for every file of
+  the round, and the conformance row for it (C15) is tested at the gate rather than
+  only at the helper — its old test passed throughout.
+
+- **Seven documents described a project state that had moved on, with every
+  doc gate green.** Found by a full audit before handshake round 24: the README
+  counted six field-evidence rows in the release that added the seventh and
+  under-stated its test count and coverage (now 5,400+ tests, 91.9% branch);
+  `PLANNING.md` still reported a re-graded hardware run as the first full-green
+  pass; `DEPENDENCIES.md` named the ripper pin two rounds stale and had skipped
+  six releases of review (catch-up entry added); `docs/rig-session.md` named
+  Platterpus v0.6.30 and a pin nine rounds old (archived under
+  `docs/archive/rig-session-d9c058c.md` and rewritten as three steps for the
+  current pair); the standing status the cyanrip fork reads between rounds said
+  the pin was approved by round 21 for 0.6.50 under a heading saying round 23;
+  and `CLAUDE.md` and `docs/testing.md` still named `mutmut`, retired on
+  2026-09-05, as the mutation tool. Smaller corrections to `docs/README.md`,
+  `docs/cyanrip-handshake.md` (the shared spec is v5; our gate is at 4 by
+  design until round 24), `docs/rig-scripts/README.md`,
+  `docs/hardware-test-checklist.md`, the AppImage build README (its offline
+  example named CPython 3.11; the build pins 3.12) and two code comments.
+
+- **The standing status told the fork two things our round-23 lap 4 got
+  wrong.** Its *Live corrections* now say that *"all four hashes match"* was
+  true of our working copy and false at the ref they read, and that the branch
+  lap 4 promised would not be deleted was deleted twice — by a repository
+  setting, not a person — and restored both times; the setting is now off.
+
+### Added
+
+- **Handshake protocol v5**, implemented the day its shared text became
+  identical in both repositories and before the cyanrip fork's round-24 lap 1. A
+  round can now close on the peer's own newer lap (§5b) instead of needing one more
+  lap whose only content is a copy of the other side's verdict — measured on real
+  lap content, round 24 closes in three laps where v4 needs four. That lap must be
+  one the peer's operator has released (§5c), and every close says which lap each
+  side's verdict came from, including on an allowed release. Laps declaring v4 keep
+  v4 rules.
+
+- **Every inbound handshake lap must pass our own `--check`.** A rehearsal showed a
+  lap our checker refused could sit in the record with the suite green. The eleven
+  laps from rounds 1–8 that predate today's format are pinned by name.
+
+- **Conformance rows now turn on by protocol version, as the shared spec says.**
+  The coverage check had exempted every row after the v3 heading unconditionally,
+  so sixteen rows binding since round 9 (C21–C36) never had a named test. They are
+  now counted in a ratchet that can only shrink, and v5's rows C37–C42 have tests.
+
+- **Four gates on the claims the audit found decayed**, each reading the
+  artifact that settles it rather than memory: ledger row counts in the README
+  and `PLANNING.md`; the `DEPENDENCIES.md` cyanrip row against `FORK_PIN`; the
+  rig sheet's header against the current app version and pin; and the standing
+  status's `approved by` row against the approval record. That last one reads the
+  cell's declared head, because its first version searched the whole row and was
+  shown by `scripts/revert_probe.py` to pass on the row's own prose. The existing
+  full-green gate now also reads `PLANNING.md`.
+
+- **The round-opener runbook in `TASKS.md` is re-rehearsed for round 24**, in a
+  scratch worktree against a realistic round-24 lap 1: eight tests fire on
+  arrival, and each is listed with its action.
+
 ## [0.6.53] — 2026-09-22
 
 ### Fixed

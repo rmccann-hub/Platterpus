@@ -326,6 +326,329 @@ def test_C15_a_higher_protocol_version_refuses_rather_than_guessing(
     assert hs.protocol_refusal(_header(**{"HANDSHAKE-PROTOCOL": "two"})) is not None
 
 
+def _record_with_a_complete_close_one_version_ahead(root: Path, hs: ModuleType) -> Path:
+    """A round that CLOSES on every rule this gate implements — v5's included — one
+    of whose laps declares a protocol one version above what the gate implements.
+
+    **Complete under v5 on purpose.** The first version omitted
+    ``HANDSHAKE-PEER-VERDICT-SOURCE``, so a file declaring 6 was refused by row C41
+    (6 is "5 or more") and the C15 tests passed with the version refusal deleted —
+    the revert probe reported them VACUOUS. The version must be the ONLY fault here.
+    """
+    for sub in ("outbound", "inbound", "verified"):
+        (root / sub).mkdir(parents=True, exist_ok=True)
+    (root / "verified" / "round-99-lap-02.md").write_text(
+        _header(
+            **{
+                "HANDSHAKE-ROUND": "99",
+                "HANDSHAKE-LAP": "2",
+                "HANDSHAKE-FROM": "platterpus",
+            }
+        )
+        + "\n**GO on 5bc654d**\n",
+        encoding="utf-8",
+    )
+    (root / "inbound" / "round-99-lap-03.md").write_text(
+        _header(
+            **{
+                "HANDSHAKE-ROUND": "99",
+                "HANDSHAKE-LAP": "3",
+                "HANDSHAKE-FROM": "cyanrip-fork",
+                "HANDSHAKE-PROTOCOL": str(hs.PROTOCOL_VERSION + 1),
+                hs.PEER_VERDICT_SOURCE_FIELD: "round-99-lap-02.md at platterpus@abc1234",
+            }
+        )
+        + "\n**GO on 5bc654d**\n",
+        encoding="utf-8",
+    )
+    return root
+
+
+def test_C15_the_GATE_refuses_a_higher_protocol_not_only_the_helper(
+    hs: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """C15 is a statement about the GATE — *"refuse rather than guess"* — and the
+    test above only proves the helper returns a reason.
+
+    That gap was real. Until 2026-09-22 ``protocol_refusal`` had one caller,
+    ``--check``; ``round_status`` and ``--release-gate`` read a verdict out of a
+    file one version ahead and closed the round on it. Measured in the round-24
+    rehearsal: our v4 GO plus a peer v5 GO read CLOSED and the release gate exited
+    0, while ``--check`` refused the same lap. The row passed throughout, because
+    its test asserted the helper — a *requested* thing standing in for a
+    *happened* one (``CLAUDE.md``).
+    """
+    root = _record_with_a_complete_close_one_version_ahead(tmp_path / "hs", hs)
+    lines = hs.round_status(root)
+    assert any(ln.startswith("round-99:") and ln.endswith("OPEN") for ln in lines), (
+        lines
+    )
+    assert any(ln.startswith("  refused inbound/round-99-lap-03.md") for ln in lines), (
+        lines
+    )
+    assert hs.main(["--release-gate", "--handshake-dir", str(root)]) == 1
+    capsys.readouterr()
+
+
+def test_C15_the_gate_and_the_checker_give_ONE_answer(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The relation, not either surface: no round containing a file ``--check``
+    refuses on version grounds may read CLOSED. Tested at both a higher version
+    and our own, so the property cannot pass by refusing everything."""
+    ahead = _record_with_a_complete_close_one_version_ahead(tmp_path / "a", hs)
+    ahead_file = ahead / "inbound" / "round-99-lap-03.md"
+    assert hs.protocol_refusal(ahead_file.read_text(encoding="utf-8")) is not None
+    assert not any(ln.endswith("CLOSED") for ln in hs.round_status(ahead))
+
+    level = _record_with_one_closed_round(tmp_path / "b")
+    for path in (level / "inbound").glob("*.md"):
+        assert hs.protocol_refusal(path.read_text(encoding="utf-8")) is None
+    assert any(ln.endswith("CLOSED") for ln in hs.round_status(level)), (
+        "the positive control failed — a gate that refuses at every version passes "
+        "the half above for the wrong reason"
+    )
+
+
+# --- C37-C42: protocol v5 (§5b / §5c) ------------------------------------------
+
+
+def _v5_lap(hs: ModuleType, sender: str, lap: int, **overrides: str | None) -> str:
+    """A complete closing header declaring v5, for round 99."""
+    fields: dict[str, str | None] = {
+        "HANDSHAKE-PROTOCOL": str(hs.PEER_VERDICT_SOURCE_FROM_PROTOCOL),
+        "HANDSHAKE-ROUND": "99",
+        "HANDSHAKE-LAP": str(lap),
+        "HANDSHAKE-FROM": sender,
+        hs.PEER_VERDICT_SOURCE_FIELD: "none — no lap of the peer's exists yet",
+    }
+    fields.update(overrides)
+    return _header(**fields) + f"\nlap {lap} body\n"
+
+
+def _v5_world(
+    hs: ModuleType, root: Path, laps: list[tuple[str, int, dict[str, str | None]]]
+) -> Path:
+    """Write ``(direction, lap, overrides)`` laps as ``round-99-lap-LL.md``."""
+    for sub in ("outbound", "inbound", "verified"):
+        (root / sub).mkdir(parents=True, exist_ok=True)
+    for direction, lap, overrides in laps:
+        sender = "cyanrip-fork" if direction == "inbound" else "platterpus"
+        (root / direction / f"round-99-lap-{lap:02d}.md").write_text(
+            _v5_lap(hs, sender, lap, **overrides), encoding="utf-8"
+        )
+    return root
+
+
+def _we_spoke_first_and_they_closed(
+    hs: ModuleType, root: Path, **their_close: str | None
+) -> Path:
+    """The case §5b exists for: their lap 1 OPEN, our lap 2 GO (transcribing their
+    OPEN, because their answer did not exist yet), their lap 3 GO."""
+    return _v5_world(
+        hs,
+        root,
+        [
+            (
+                "inbound",
+                1,
+                {"HANDSHAKE-VERDICT": "OPEN", "HANDSHAKE-PEER-VERDICT": "OPEN"},
+            ),
+            (
+                "outbound",
+                2,
+                {
+                    "HANDSHAKE-PEER-VERDICT": "OPEN",
+                    hs.PEER_VERDICT_SOURCE_FIELD: "round-99-lap-01.md at cyanrip@abc1234",
+                },
+            ),
+            (
+                "inbound",
+                3,
+                {
+                    hs.PEER_VERDICT_SOURCE_FIELD: "round-99-lap-02.md at platterpus@def5678",
+                    **their_close,
+                },
+            ),
+        ],
+    )
+
+
+def _state(lines: list[str]) -> str:
+    rows = [ln for ln in lines if ln.startswith("round-99:")]
+    assert len(rows) == 1, lines
+    return "CLOSED" if rows[0].endswith("CLOSED") else "OPEN"
+
+
+def test_C40_a_newer_peer_lap_closes_the_round_and_both_are_printed(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """C40 — *"the §5b lap is newer than the one the source names → allow, resolved
+    on the peer lap's own declaration, and print both."* This is the whole of v5's
+    saving: under v4 this round needs one more lap of ours whose only content is a
+    copy of their GO."""
+    root = _we_spoke_first_and_they_closed(hs, tmp_path / "hs")
+    lines = hs.round_status(root)
+    assert _state(lines) == "CLOSED", lines
+    superseded = [ln for ln in lines if "superseded by the newer" in ln]
+    assert superseded and "round-99-lap-03.md" in superseded[0], lines
+    assert "OPEN from lap 1" in superseded[0], superseded
+
+
+def test_C40_the_same_files_declaring_4_do_NOT_close(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The contrast that makes C40 mean something: v4 semantics are unchanged for a
+    file that declares 4. If this closed, v5 would have been applied to files that
+    did not ask for it — the C29 reasoning, from the other side."""
+    root = _we_spoke_first_and_they_closed(hs, tmp_path / "hs")
+    for path in [*root.glob("*/round-99-lap-*.md")]:
+        text = path.read_text(encoding="utf-8").replace(
+            f"HANDSHAKE-PROTOCOL: {hs.PEER_VERDICT_SOURCE_FROM_PROTOCOL}\n",
+            "HANDSHAKE-PROTOCOL: 4\n",
+        )
+        path.write_text(text, encoding="utf-8")
+    assert _state(hs.round_status(root)) == "OPEN"
+
+
+def test_C42_a_v5_close_prints_which_lap_each_peer_verdict_came_from(
+    hs: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """C42 — a close resting on a file in the peer's tree must name it, on
+    ``--status`` AND on an allowed release, or it cannot be audited later."""
+    root = _we_spoke_first_and_they_closed(hs, tmp_path / "hs")
+    lines = hs.round_status(root)
+    sources = [ln for ln in lines if ln.startswith(hs.SOURCE_LINE_PREFIX)]
+    assert any(
+        "resolved from inbound/round-99-lap-03.md (GO)" in ln for ln in sources
+    ), lines
+    assert any(
+        "resolved from outbound/round-99-lap-02.md (GO)" in ln for ln in sources
+    ), lines
+    capsys.readouterr()
+    assert hs.main(["--release-gate", "--handshake-dir", str(root)]) == 0
+    out = capsys.readouterr().out
+    assert "resolved from inbound/round-99-lap-03.md" in out, out
+    assert "release allowed" in out, out
+    # And no source line may be counted as an open round by the gate.
+    assert not any(ln.endswith("OPEN") for ln in sources), sources
+
+
+def test_C39_a_transcription_that_disagrees_with_its_source_refuses_naming_both(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """C39 — the named source and the transcription must agree; refuse naming both
+    values and both files."""
+    root = _v5_world(
+        hs,
+        tmp_path / "hs",
+        [
+            ("inbound", 1, {"HANDSHAKE-VERDICT": "HOLD"}),
+            ("outbound", 2, {hs.PEER_VERDICT_SOURCE_FIELD: "round-99-lap-01.md"}),
+        ],
+    )
+    lines = hs.round_status(root)
+    assert _state(lines) == "OPEN"
+    c39 = [ln for ln in lines if "row C39" in ln]
+    assert c39, lines
+    assert (
+        "HANDSHAKE-PEER-VERDICT: GO" in c39[0] and "HANDSHAKE-VERDICT: HOLD" in c39[0]
+    )
+    assert (
+        "outbound/round-99-lap-02.md" in c39[0]
+        and "inbound/round-99-lap-01.md" in c39[0]
+    )
+
+
+@pytest.mark.parametrize("ready", ["no — held by the operator", None])
+def test_C38_an_unreleased_candidate_refuses_NAMING_the_lap_and_the_value(
+    hs: ModuleType, tmp_path: Path, ready: str | None
+) -> None:
+    """C38 — the §5b candidate must declare READY-TO-READ: yes; refuse naming the lap
+    and the value read, and treat an absent field as no (§5c)."""
+    root = _we_spoke_first_and_they_closed(
+        hs, tmp_path / "hs", **{"HANDSHAKE-READY-TO-READ": ready}
+    )
+    lines = hs.round_status(root)
+    assert _state(lines) == "OPEN"
+    c38 = [ln for ln in lines if "row C38" in ln]
+    assert c38 and "round-99-lap-03.md" in c38[0], lines
+    shown = "absent" if ready is None else repr(ready)
+    assert shown in c38[0], c38[0]
+
+
+def test_C37_a_peer_file_that_is_not_an_enumerated_lap_is_never_read(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """C37 — §5b reads a lap this gate enumerates, never any file it happens to
+    hold. A file declaring ``HANDSHAKE-FROM`` twice is not a lap (§5a), so it must
+    not supply a verdict even when it is the newest file and says GO."""
+    root = _we_spoke_first_and_they_closed(hs, tmp_path / "hs")
+    lap3 = root / "inbound" / "round-99-lap-03.md"
+    lap3.write_text(
+        lap3.read_text(encoding="utf-8") + "HANDSHAKE-FROM: cyanrip-fork\n",
+        encoding="utf-8",
+    )
+    assert not hs.counts_as_one_lap(lap3.read_text(encoding="utf-8"))
+    lines = hs.round_status(root)
+    assert _state(lines) == "OPEN", lines
+    assert not any("resolved from inbound/round-99-lap-03.md" in ln for ln in lines), (
+        lines
+    )
+
+
+def test_C37_with_no_enumerated_peer_lap_the_refusal_says_so(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """Step 4: holding no enumerated lap refuses AND names which condition failed."""
+    root = _v5_world(hs, tmp_path / "hs", [("outbound", 2, {})])
+    (root / "inbound" / "round-99-lap-01.md").write_text(
+        _v5_lap(hs, "cyanrip-fork", 1) + "HANDSHAKE-LAP: 1\n", encoding="utf-8"
+    )
+    lines = hs.round_status(root)
+    assert _state(lines) == "OPEN"
+    assert any("none is an enumerated lap" in ln and "C37" in ln for ln in lines), lines
+
+
+@pytest.mark.parametrize(
+    "missing", ["HANDSHAKE-PEER-VERDICT", "HANDSHAKE-PEER-VERDICT-SOURCE"]
+)
+def test_C41_a_v5_file_missing_either_peer_verdict_field_is_refused(
+    hs: ModuleType, tmp_path: Path, missing: str
+) -> None:
+    """C41 — at ``--check`` (any verdict) and at the gate."""
+    root = _we_spoke_first_and_they_closed(hs, tmp_path / "hs")
+    ours = root / "outbound" / "round-99-lap-02.md"
+    kept = [
+        ln
+        for ln in ours.read_text(encoding="utf-8").splitlines()
+        if not ln.startswith(f"{missing}:")
+    ]
+    ours.write_text("\n".join(kept) + "\n", encoding="utf-8")
+    problems = hs.check_wire_header(ours)
+    assert any("row C41" in p and missing in p for p in problems), problems
+    assert _state(hs.round_status(root)) == "OPEN"
+    # And a v4 file without the source field is NOT refused for it: C41 binds a
+    # file that declares 5, and v4 never had the field.
+    v4 = tmp_path / "v4.md"
+    v4.write_text(_header(**{"HANDSHAKE-PROTOCOL": "4"}), encoding="utf-8")
+    assert not any("C41" in p for p in hs.check_wire_header(v4))
+
+
+def test_the_source_parser_never_raises_and_reads_the_committed_spellings(
+    hs: ModuleType,
+) -> None:
+    """``HANDSHAKE-PEER-VERDICT-SOURCE`` is free text written by two projects."""
+    assert hs.parse_source("round-24-lap-03.md at cyanrip@e5008c9").lap == 3
+    assert hs.parse_source("their lap 3, read at cyanrip@e5008c9").lap == 3
+    assert hs.parse_source("none — no lap of yours exists").none_declared
+    assert hs.parse_source("**none**").none_declared
+    unplaceable = hs.parse_source("their closing file")
+    assert unplaceable.lap is None and not unplaceable.none_declared
+    for junk in ("", "   ", "lap", "round-x-lap-y", "\x00", "lap -1"):
+        hs.parse_source(junk)
+
+
 # --- C9 / C10: the rows the fork added in lap 4, which we did not have ---------
 # Their lap 6: *"your table has 14 rows, ours has 16 — and the two you are missing
 # are the two that found a real gap in our gate."* They were right, and we had the
@@ -653,7 +976,7 @@ def _rows_after_heading(heading_fragment: str) -> list[str]:
     return re.findall(r"^\|\s*\*{0,2}(C\d+[a-z]?)\*{0,2}\s*\|", text[at:], re.MULTILINE)
 
 
-def test_every_conformance_row_has_a_test_here() -> None:
+def test_every_conformance_row_has_a_test_here(hs: ModuleType) -> None:
     """A floor on the suite, not on the gate.
 
     A skipped conformance row is a divergence nobody can see. If the shared table
@@ -670,39 +993,82 @@ def test_every_conformance_row_has_a_test_here() -> None:
     assert len(ids) == len(set(ids)), f"duplicate row IDs in the table: {ids}"
     source = Path(__file__).read_text(encoding="utf-8")
 
-    # The v3 rows are not yet binding, and the spec says so itself — the heading
-    # "Rows added in v3 — required once both gates implement 3". So the split is
-    # DERIVED from the document rather than hard-coded here: a row the fork moves
-    # out of that section becomes binding on us the moment they send the file, with
-    # no edit on our side. A hand-kept list would go stale in exactly the direction
-    # that hides work.
-    pending = _rows_after_heading("Rows added in v3")
-    assert pending, (
-        "the v3 section heading no longer parses — if the rows became binding, "
-        "delete this branch rather than letting it silently exempt everything"
+    # WHICH ROWS BIND IS DERIVED FROM THE SPEC'S HEADINGS AND OUR VERSION — the
+    # spec's own instruction: *"The split is by heading rather than by a list a test
+    # hardcodes, so bumping PROTOCOL_VERSION turns them on with no second edit."*
+    #
+    # **This test broke that instruction for thirteen rounds.** It exempted every row
+    # after the v3 heading as "pending" unconditionally, so when both gates reached 4
+    # in round 9, the sixteen v3/v4 rows (C21-C36) stayed exempt — and none of them
+    # has a row-named test here to this day. Found 2026-09-22 while bumping to 5, when
+    # the same unconditional exemption would have swallowed C37-C42 as well. Now:
+    # rows under "required once both gates implement N" bind when PROTOCOL_VERSION
+    # reaches N, and the v3/v4 rows that bind without a named test are COUNTED in a
+    # ratchet below instead of being invisible.
+    after_v3 = _rows_after_heading("Rows added in v3")
+    after_v5 = _rows_after_heading("Rows added in v5")
+    assert after_v3 and after_v5, (
+        "a versioned §8 heading no longer parses — if its rows became unconditional, "
+        "delete this branch rather than letting it silently exempt them"
     )
+    v34_rows = [i for i in after_v3 if i not in after_v5]
+    tiers: list[tuple[int, list[str]]] = [(4, v34_rows), (5, after_v5)]
+    pending = [
+        i for version, rows in tiers if hs.PROTOCOL_VERSION < version for i in rows
+    ]
     binding = [i for i in ids if i not in pending]
     # Floor on the split itself: if it ever swallowed the v2 rows the check above
     # would pass by exempting everything, which is the shape this file exists for.
     assert len(binding) >= 20, (
-        f"only {len(binding)} binding row(s) after removing the v3 section — the "
-        "split is reading the table wrong"
+        f"only {len(binding)} binding row(s) after the version split — the split is "
+        "reading the table wrong"
     )
 
     missing = [
         i
         for i in binding
-        if f"def test_{i}_" not in source and i not in _KNOWN_DIVERGENCES
+        if f"def test_{i}_" not in source
+        and i not in _KNOWN_DIVERGENCES
+        and i not in _BINDING_ROWS_WITHOUT_A_NAMED_TEST
     ]
     assert not missing, (
         f"shared protocol §8 rows {', '.join(missing)} have no test in this file — "
         "a conformance row without a test is a divergence nobody can see"
     )
 
-    # And the pending ones are reported, not forgotten. Round 9's close condition 1
-    # is "both gates implement 3"; these are what that means for this file.
-    unwritten = [i for i in pending if f"def test_{i}_" not in source]
-    assert unwritten == sorted(unwritten, key=lambda s: int(s[1:])), unwritten
+
+#: Binding rows with **no row-named test in this file** — a ratchet that may shrink
+#: and never grow, and deliberately separate from ``_KNOWN_DIVERGENCES`` below, which
+#: records rows our gate does NOT implement. These are rows it is supposed to
+#: implement and this file has never *run*.
+#:
+#: **Why sixteen, all at once.** Rows C21-C36 are v3/v4 rows, binding since both gates
+#: reached protocol 4 in round 9. The coverage check above treated them as pending
+#: unconditionally — against the spec's own instruction that bumping the version turns
+#: them on — so no named test was ever demanded. Some behaviours are exercised under
+#: other names (the digest in ``tests/test_round_digest.py``, overrides and the lap
+#: limit in ``tests/test_handshake_tooling.py``), but *"one test per row, in the
+#: table's order"* is what makes a divergence report citable, and that was never true
+#: for any of them. Recorded 2026-09-22 so the gap is a number, not a silence.
+#: Retire an entry by writing ``test_C<nn>_…`` — the check below refuses a stale entry.
+_BINDING_ROWS_WITHOUT_A_NAMED_TEST: frozenset[str] = frozenset(
+    {f"C{n}" for n in range(21, 37)}
+)
+
+
+def test_the_untested_binding_rows_ratchet_is_exact() -> None:
+    """Every entry must still lack its test and still be a row in the table."""
+    source = Path(__file__).read_text(encoding="utf-8")
+    ids = set(_conformance_row_ids())
+    stale = sorted(
+        i for i in _BINDING_ROWS_WITHOUT_A_NAMED_TEST if f"def test_{i}_" in source
+    )
+    assert not stale, (
+        f"{stale} now have tests — remove them from _BINDING_ROWS_WITHOUT_A_NAMED_TEST"
+    )
+    unknown = sorted(_BINDING_ROWS_WITHOUT_A_NAMED_TEST - ids)
+    assert not unknown, f"{unknown} are not rows in the shared §8 table"
+    assert len(_BINDING_ROWS_WITHOUT_A_NAMED_TEST) <= 16, "this ratchet may only shrink"
 
 
 #: Binding conformance rows our gate does NOT implement — **recorded, not hidden.**

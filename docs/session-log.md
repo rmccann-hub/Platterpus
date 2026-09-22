@@ -11,6 +11,94 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-22 (late) — protocol v5 implemented before round 24's lap 1
+
+**Asked for by the maintainer after the audit: implement v5 and fix the release
+gate, then merge before the fork's lap 1 arrives.** Done in that order.
+
+**The gate defect first**, because fixing it alone would have made things worse:
+with the version refusal on the close path and the gate still at 4, a round whose
+peer declares 5 could never close on our side. So `refused_round_files` and
+`PROTOCOL_VERSION = 5` land together. Laps declaring 4 keep v4 semantics — every
+round in the record reads exactly as before.
+
+**One reading of §5b had to be derived.** Step 1 says the candidate lap must be one
+the gate *"has enumerated in `HANDSHAKE-INBOUND-HELD`"*, and that field lives inside a
+lap. Read as the closing lap's own field, the side that spoke first can never have
+enumerated the peer's later answer — so row C40 (a candidate newer than the source)
+could never fire and §5b would save nothing, contradicting §13's statement of its
+purpose. So our gate enumerates at decision time, with §5a's lap test — loaded from
+`round_digest.py` rather than restated, because `wire_fields` and §5a already
+disagree about a field repeated with the same value. Raised for round 24.
+
+**The revert probe earned its keep twice.** The C15 gate test was vacuous — its
+one-version-ahead fixture was refused by v5's own C41 rule instead of by its
+version — and a probe of the coverage check was wrong in my probe, not the test
+(two tests share the C40 prefix). Both corrected and re-probed: 9 of 9.
+
+**And the rehearsal on real lap bodies** — a scratch copy of the record with
+round-24 laps built from round 23's — closed a v5 round in three laps with both
+sources printed, where v4 needs four. `docs/testing.md` §5.bo records the two
+lessons: a conformance row tested at the helper rather than the gate, and a coverage
+check that exempted the v3/v4 rows for thirteen rounds because its deferral named a
+heading instead of a version.
+
+## 2026-09-22 (evening) — v0.6.53 released, the `.14` question answered, and a document audit before round 24
+
+**Released.** v0.6.53 from `main` at `52b44282` (PR #238), tag `v0.6.53`, AppImage +
+`.sha256` + `.zsync`, PyPI published; `main`'s own CI was green on that SHA before
+the dispatch. The branch was then merged forward from `main` with no content change
+(`f652d5f`) so `main`'s squash commit is an ancestor — which also cleared
+`test_our_pin_names_a_commit_that_survives_the_squash_merge`, red on the branch
+since the `-s ours` reconcile.
+
+**Correction to the entry below: the branch was not deleted by a button.** It was
+the repository's *Automatically delete head branches* setting. Proven when #238,
+merged over the API with nobody at a screen, deleted the branch a second time. The
+maintainer turned the setting off. So the entry's lesson — *"the note could not
+reach the moment"* — diagnosed the wrong failure: there was no person at the
+moment for any note to reach. **Before asking how a warning failed to reach the
+actor, establish who the actor was** — `CLAUDE.md`'s *establish the origin before
+attributing*, arriving from a direction it had not been written for. The fork was
+told the same thing through the standing status's *Live corrections*.
+
+**The fork's `.14` question, answered from the record.** Every `v0.*` tag of ours
+carries GitHub's pre-release flag, so if "a release" in round 22's ordering meant a
+non-pre-release, `+platterpus.14` would be gated on something unreachable. It does
+not: our own updater already ruled that the flag carries no information across the
+0.x line and offers 0.6.53 on the stable channel (`update_check.py:99-117`), and
+round 20 set the precedent with v0.6.50. The detail worth keeping is that *"met
+today"* was literally true: the `read successfully!` arm is in v0.6.53 and in **no
+earlier tag**, measured per tag.
+
+**The audit.** Every doc gate was green before it started, so it read for what
+they cannot see: ~21 findings. The ones that change a decision: `PLANNING.md`
+still reported the re-graded 2026-09-12 row as full-green; the README counted six
+ledger rows in the release that added the seventh; the standing status the fork
+reads said *"approved by round 21, for 0.6.50"* under a *"round 23 CLOSED"*
+heading; `docs/rig-session.md` named `v0.6.30`/`d9c058c` (archived and rewritten);
+`DEPENDENCIES.md` named `fe4d2c4` and had skipped six releases of review;
+`CLAUDE.md` and `docs/testing.md` still named `mutmut`, seventeen days retired. All
+fixed, and every fix that corrects a shipped claim has a revert-proven gate. The
+lesson graduated to `docs/testing.md` §5.bn as its fifth instance: *a scoped check
+is satisfied by whatever else its region says* — and my own first gate for the
+standing status did exactly that, caught by `scripts/revert_probe.py` before
+commit.
+
+**The round-24 rehearsal found something that is not a doc.** Re-running the
+`TASKS.md` runbook with a realistic round-24 opener in a scratch worktree: eight
+tests fire on a v4 lap, as the rewritten runbook now lists. With a **v5** header
+the same eight fire, `--check` refuses the lap — and nothing in the suite notices.
+Then a simulated close, our v4 `GO` plus their v5 `GO`: `--status` reads CLOSED and
+`--release-gate` **exits 0** on a lap `--check` refuses, because
+`protocol_refusal()` is called only on the validation path. And conformance row
+C15 passes throughout, because its test asserts the helper *returns a reason*,
+never that the gate *refuses* — *requested, not happened*, from `CLAUDE.md`,
+inside the conformance table that exists to be run rather than read. Both are
+`TASKS.md`'s first two items; implementing v5 has to land with or before the fix,
+or a round whose peer declares 5 can never close on our side. Nothing declares 5
+yet, so nothing is exposed today.
+
 ## 2026-09-22 — the acceptance run came back 247/247, and it is `partial`
 
 **The run.** 4h14m on the Pioneer BDR-209D under Bazzite, app `0.6.52` (build
@@ -139,6 +227,11 @@ note more emphatically each time rather than to notice **the note could not reac
 the moment**. Ask of any hazard handled by a written warning: *at the instant the
 mistake is made, is the warning visible?* If not, it is documentation of a defect
 rather than a guard against one.
+
+> **Corrected later the same day** (entry above): no button was pressed — the
+> repository's auto-delete setting removed the branch, and did so again on the next
+> merge. The question in this paragraph is still a good one; it was asked of the
+> wrong actor.
 
 **The real fix, and it was available the whole time: the sha256 is the anchor.**
 Every lap declares its own, both sides reproduce it before filing, and a content
