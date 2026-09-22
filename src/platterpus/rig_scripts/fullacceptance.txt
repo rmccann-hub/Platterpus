@@ -1101,7 +1101,26 @@ snapshot afterdeemphoff
 # The read offset is NOT restored, because 667 is this drive's true offset (see
 # section B) and putting it back to 0 would be the mis-configuration.
 
-log --- Q. restoring what this run changed ---
+# WHAT THIS SECTION CAN AND CANNOT PROMISE. It used to be headed "restoring
+# what this run changed", which is a promise of completeness and was not one it
+# could keep: a script that writes a setting never captured the value it
+# overwrote, so there is nothing to put back. What it can do is end on the
+# SHIPPED DEFAULTS, which is a state it can name.
+#
+# Said out loud because the heading read as the stronger claim and two fields
+# quietly fell out of it -- `max_retries` (set to 3 in section B, left there)
+# and `ripper_channel` (switched to beta in section B, left there). Neither is
+# dangerous and both are exactly the kind of thing nobody reviews a file for,
+# because a map is only ever wrong by omission. `tests/test_rig_scripts.py`
+# now derives the end state rather than trusting this list, with `read_offset`
+# and its override the two documented exceptions -- 667 is this drive's true
+# calibration and resetting it to 0 would be the misconfiguration.
+#
+# If you hand-tuned anything before the run, expect it back at the default
+# afterwards. `rip_goal fast_verified` also rewrites `secure_rerip_dynamic` and
+# `rerip_offset_variant`, so an EAC-style whole-disc Test & Copy tick does not
+# survive the night.
+log --- Q. leaving the rig on the shipped defaults ---
 set rip_goal fast_verified
 expect rip_goal fast_verified
 expect secure_rerip_dynamic on
@@ -1109,6 +1128,11 @@ set output_format flac
 expect output_format flac
 set mp3_vbr_quality 0
 set write_eac_log_after_rip off
+# The two section B changed and this section used to walk past.
+set max_retries 5
+expect max_retries 5
+set ripper_channel stable
+expect ripper_channel stable
 set debug_logging off
 expect debug_logging off
 expect force_overread off
