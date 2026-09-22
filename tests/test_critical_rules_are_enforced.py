@@ -1694,7 +1694,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # files after ripping") rather than the CONSEQUENCE, so the answer to "what
     # happens if I leave this off?" was nowhere on screen. Growth is text, not
     # branching. Measured after `ruff format`, per this table's own correction.
-    "ui/settings_dialog.py": 1361,
+    # **1361 -> 1372 (2026-09-22)** (+11): a tooltip for the Naming scheme
+    # dropdown, which had none. It is the only control here that rewrites two
+    # other fields, so it was the worst one to leave unexplained — and every
+    # tooltip test in this repo started from the set of tooltips, which cannot
+    # report an absence. The sweep now starts from the set of controls.
+    "ui/settings_dialog.py": 1372,
     "ui/track_table.py": 802,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
