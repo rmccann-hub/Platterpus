@@ -23,6 +23,22 @@ When a task changes status, update it here in the same commit as the code change
 
 ## 2026-09-22 hardware run — 247/247, graded `partial`, and what it left open
 
+- [ ] **ROUND-24, owed to the fork: correct our round 23 lap 4 §C.** It says
+  *"All four now match yours"*; that was true of the branch and false at
+  `origin/main`, which is the ref `seam-sync-check --fetch` reads and the ref the
+  same lap calls *"the ref you can fetch"*. The merge makes it true — record the
+  correction anyway, because a claim that becomes true later was still wrong when
+  sent.
+
+- [ ] **ROUND-24: our `--status` cannot see a premature GO.** It closes a round
+  on two `GO` verdicts, which is the spec (*the verdict closes a round, not the
+  file's existence*) — so when our own GO rested on an unmet condition, our gate
+  read CLOSED while theirs correctly held OPEN. Ours trusts the thing it exists
+  to check. Candidate: have `--status` print the closing lap's stated conditions
+  rather than grade them, so the gap is visible without coupling the gate to a
+  verdict.
+
+
 - [ ] **DO NOT DELETE the branch `claude/session-omka9f`.** The cyanrip fork's
   round 23 lap 3 §D2 cites commit `b5af9bec` on it, with the lap file's sha256,
   and that lap is sent and immutable. Our work reaches `main` by **squash merge**,

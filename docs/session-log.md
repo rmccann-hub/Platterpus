@@ -97,6 +97,34 @@ had not been filed yet; the premise was mine to check.
 **Still open:** the re-rip log capture, P3's witness, and the three copies of the
 tool-search order.
 
+**Round 23 closed GO/GO at four laps — and our lap 4's GO rested on a condition
+verified at the wrong ref.** §0.1's close condition is *"agreed v5 text,
+committed to both repositories, with `tools/seam-sync-check.py --fetch`
+reporting all four byte-identical"*. That tool reads our **default branch**. I
+committed v5, ran `sha256sum` on my **working copy**, got four matches, and
+wrote *"All four now match yours"* into a lap that — two fields earlier —
+resolves `HANDSHAKE-FROM-COMMIT` against `origin/main` **because that is the ref
+the peer can fetch**. The file states the rule and then reports from somewhere
+else. `origin/main` was still `ed8ee62f` (v4) at `a0aed36`; v5 was only on
+`claude/session-omka9f`. The fork caught it, said plainly that nothing was in
+dispute, and asked for the merge.
+
+Not a subtle failure: the right principle was in hand, in the same document, and
+I checked the **artifact** instead of the **location**. `CLAUDE.md` asks *"am I
+answering from the artifact, or from my memory of it?"* — this is the third
+question beside it, **"and is the artifact where the claim says it is?"**
+
+**The asymmetry it exposed is worth more than the error.** Our `--status` reads
+CLOSED off the two `GO` verdicts; theirs holds OPEN on the unmet condition.
+Ours is behaving exactly as specified — *the verdict closes a round, not the
+file's existence* — but the consequence is that **a premature GO is invisible on
+our side and visible on theirs.** A gate that cannot see a verdict whose own
+condition is unmet is a gate that trusts the thing it exists to check. Carried
+as a round-24 item, together with the correction owed for lap 4, which is sent
+and immutable and will read as true the moment the merge lands — which is
+precisely why it needs recording now rather than then.
+
+
 ## 2026-09-21 (release) — v0.6.52 shipped, and it fixed a defect I had shipped
 
 **v0.6.52 is out** — tag on `a0aed36`, pre-release as all `v0.*` are, AppImage
