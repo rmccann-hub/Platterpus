@@ -23,6 +23,19 @@ When a task changes status, update it here in the same commit as the code change
 
 ## 2026-09-22 hardware run — 247/247, graded `partial`, and what it left open
 
+- [ ] **DO NOT DELETE the branch `claude/session-omka9f`.** The cyanrip fork's
+  round 23 lap 3 §D2 cites commit `b5af9bec` on it, with the lap file's sha256,
+  and that lap is sent and immutable. Our work reaches `main` by **squash merge**,
+  so `b5af9bec` never becomes an ancestor of anything on `main`; deleting the
+  branch afterwards — the normal tidy — makes it unreachable and a routine
+  `git gc` **destroys** it, at which point their citation stops resolving. This
+  is written here rather than left as an intention because the thing that deletes
+  a merged branch is a future session tidying up, and a future session reads this
+  file. If it ever must go: re-anchor the citation to a commit on `main` and say
+  so in a lap **first**. Their own form of the rule is *"never prune a ref that a
+  released or beta artifact can reference"*.
+
+
 The run itself is in `docs/session-log.md` and its row is in `docs/testing.md`
 §5B. Four fixes landed in the same change (the post-rip-check assertion, the
 re-read threshold, the Diagnostics dependency block, the README claim gates).
