@@ -261,7 +261,26 @@ abort-if-failed the installed ripper is not the build the handshake record names
 #
 # ON ANY OTHER DRIVE, change this to that drive's offset before running.
 
+# AND THE VALUE ALONE IS NOT THE SETTING. `read_offset` is inert until
+# `override_read_offset` is on: `is_offset_configured()` reads ONLY that flag,
+# because cyanrip reads no config file and the number reaches it solely as `-s`,
+# emitted solely when the override is set. So `set read_offset 667` on its own
+# both passes and changes nothing about the rip — the classic shape this file
+# already carries three scars from (§5.bj: *a section's distinguishing property
+# is asserted at the section, never inherited*), arriving on the one value that
+# is pure drive calibration.
+#
+# What it costs to leave unasserted is not a wrong number, it is a DETOUR: with
+# the override off, `_on_rip_requested` calls `_auto_apply_known_offset()`, which
+# applies +667 from the AccurateRip table and opens an information modal saying
+# so. This runner's timer fires inside a modal's nested event loop — that is the
+# property that lets a script dismiss dialogs at all — so the batch does not
+# deadlock, it keeps walking past a rip that has not started yet. Every accuracy
+# section after it would then be about the wrong thing, with the transcript
+# green. Two lines are cheaper than that.
 log --- B. settings: validated round-trips ---
+set override_read_offset on
+expect override_read_offset on
 set read_offset 667
 expect read_offset 667
 set max_retries 3
@@ -1094,6 +1113,10 @@ set debug_logging off
 expect debug_logging off
 expect force_overread off
 expect read_offset 667
+# Both halves, for the reason section B gives: the number is inert without the
+# flag, so a run that ended with the override off would leave this rig set up to
+# rip the NEXT disc at offset 0 while this line reported the offset intact.
+expect override_read_offset on
 expect-dialog none
 snapshot atend
 

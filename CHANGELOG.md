@@ -35,6 +35,26 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   flush produced an archive saying the report both was and was not written. The
   outcome is now reported after the act.
 
+- **A taskbar pin and the desktop icon were two unrelated things.** Nothing in
+  the desktop entry tied the launcher to the running window, so on KDE Plasma a
+  pinned panel icon stayed dark while a second task button appeared beside it,
+  and clicking the pin started a second copy instead of raising the one already
+  open. The entry now declares `StartupWMClass`, measured from the window Qt
+  actually produces rather than assumed from the file's name.
+
+- **The acceptance run never asserted that the read offset was switched on.**
+  It set the value, which is inert on its own — the number reaches cyanrip only
+  while the override flag is set. With the flag off the first rip detoured
+  through an offset dialog it never meant to open, and every accuracy section
+  after it would have been about the wrong thing with the transcript green.
+
+### Changed
+
+- Fourteen Settings tooltips rewritten to say what each option *does*: a
+  tick-box now names both outcomes and a value names what the values mean, so
+  "what happens if I leave this off?" is answerable without leaving the dialog.
+  The secure-re-read tooltip also stopped calling an agreement count a ceiling.
+
 ## [0.6.52] — 2026-09-21
 
 ### Changed

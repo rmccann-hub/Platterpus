@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import ast
+import inspect
 import os
 import stat
 from pathlib import Path
 
 import pytest
 
+from platterpus import app as app_module
 from platterpus import appimage_integration as ai
+from platterpus.paths import APP_NAME
 
 
 @pytest.fixture(autouse=True)
@@ -354,3 +358,63 @@ def test_quote_exec_path_neutralises_control_chars() -> None:
     # A normal path is unaffected (still just double-quoted).
     normal = ai._quote_exec_path(Path("/home/u/platterpus-x86_64.AppImage"))
     assert normal == '"/home/u/platterpus-x86_64.AppImage"'
+
+
+# --- taskbar association (StartupWMClass) ---------------------------------
+#
+# The maintainer, 2026-09-22: *"should there be a difference between launching
+# from a desktop icon and a taskbar icon on the bottom of the screen?"* There
+# should not, and there was: nothing tied the running window to the launcher, so
+# a Plasma panel pin stayed dark while a second task button appeared beside it,
+# and clicking the pin started a second copy.
+
+
+def test_desktop_entry_declares_the_window_class() -> None:
+    """Both the menu entry and the Desktop shortcut carry `StartupWMClass`.
+
+    One `_desktop_contents` feeds both files, so this is a single assertion
+    about both — which is also why the desktop icon and the taskbar icon cannot
+    behave differently once the line is there.
+    """
+    contents = ai._desktop_contents(Path("/tmp/x.AppImage"), "icon")
+    assert f"StartupWMClass={APP_NAME}\n" in contents
+
+
+def test_startup_wm_class_matches_the_name_the_app_actually_sets() -> None:
+    """The RELATION, which is the only thing worth pinning here.
+
+    `StartupWMClass` is not free-form: it has to equal the window's X11
+    WM_CLASS res_class, and Qt takes that from
+    `QCoreApplication::applicationName()`. Measured on Qt 6.11.2/xcb ---
+    `WM_CLASS(STRING) = "__main__.py", "platterpus"`, res_name from argv[0]'s
+    basename and res_class from the application name --- and measured again with
+    `setDesktopFileName()` set, which changed **neither**. So the API that reads
+    like the fix is not the one holding this up, and a test asserting the
+    literal string `"platterpus"` in the desktop file would pass just as happily
+    the day somebody renames the app and breaks the pairing.
+
+    Asserting the two surfaces agree is what cannot pass for the wrong reason.
+    The call is read out of the source rather than by starting a QApplication:
+    the value must be right at the point it is *written*, and a running app
+    would only tell us what some earlier line had already set.
+    """
+    tree = ast.parse(Path(inspect.getfile(app_module)).read_text(encoding="utf-8"))
+    set_name_args = [
+        node.args[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "setApplicationName"
+        and node.args
+    ]
+    # Non-triviality floor: an empty sweep would satisfy every `all(...)` below.
+    assert set_name_args, "app.py no longer calls setApplicationName at all"
+    for arg in set_name_args:
+        assert isinstance(arg, ast.Name) and arg.id == "APP_NAME", (
+            "setApplicationName must be passed APP_NAME, not a literal: it is "
+            "the same fact as the desktop entry's StartupWMClass, and two "
+            "copies drift on the first rename"
+        )
+    assert f"StartupWMClass={APP_NAME}\n" in ai._desktop_contents(
+        Path("/tmp/x.AppImage"), "icon"
+    )

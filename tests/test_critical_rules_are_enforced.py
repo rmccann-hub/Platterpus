@@ -1146,8 +1146,20 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # It DELEGATES to `test_session.rig_parent` rather than building the path
     # again -- two call sites each spelling "where our stuff goes" is exactly how
     # $HOME came to hold two different kinds of litter.
-    "app.py": 1356,
-    "appimage_integration.py": 326,
+    # **1356 -> 1373 (2026-09-22)** (+17): the desktop-entry association. Two
+    # lines of code -- `setApplicationName(APP_NAME)` in place of a literal, and
+    # the static `QGuiApplication.setDesktopFileName` -- and the rest is the
+    # MEASUREMENT, which is the load-bearing part: `setDesktopFileName` is the
+    # API that reads like the fix and changes neither half of WM_CLASS on
+    # xcb/6.11.2, so a reader who trusts its name deletes the line that is
+    # actually holding the pairing up.
+    "app.py": 1373,
+    # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
+    # entry, and the comment recording the measured WM_CLASS it has to match
+    # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
+    # app-id the file is named for. A guessed string here fails silently -- the
+    # pin simply stays dark -- so the derivation is worth more than the line.
+    "appimage_integration.py": 349,
     # **753 -> 784 on 2026-09-18**: the paired `integration_declined_version` field and the note recording why the path-only key reproduced the bug it replaced.
     "config.py": 784,
     "cue_validate.py": 1257,
@@ -1665,7 +1677,19 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ui/main_window_update.py": 1019,
     "ui/rip_progress.py": 1658,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
-    "ui/settings_dialog.py": 1304,
+    # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
+    # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,
+    # which read as automatic when the only path to Picard is a dialog the user
+    # opens. The growth is the comment recording where the wrong gloss came from
+    # (our own dependency contract) so the next reader does not "correct" it back.
+    # **1319 -> 1361 (2026-09-22).** Fourteen tooltips rewritten to the
+    # maintainer's stated standard: a true/false setting names BOTH outcomes
+    # ("on: X. off: Y."), a value setting names what the values mean and what
+    # each produces. The old tooltips described the CONTROL ("verify the FLAC
+    # files after ripping") rather than the CONSEQUENCE, so the answer to "what
+    # happens if I leave this off?" was nowhere on screen. Growth is text, not
+    # branching. Measured after `ruff format`, per this table's own correction.
+    "ui/settings_dialog.py": 1361,
     "ui/track_table.py": 802,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and

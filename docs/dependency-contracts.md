@@ -52,7 +52,7 @@ rule #3). Argv is built in `adapters/cyanrip_backend.py::_build_rip_argv`.
 | `-s <int>` | read offset (samples, signed) | when `override_read_offset` is on (cyanrip has no config file — it needs the offset every run) |
 | `-o flac` | output codec | always (FLAC is the archival master, Critical rule #4) |
 | `-r <int>` | max retries per track | when `max_retries > 0` |
-| `-Z <int>` | re-rip a track until N reads' checksums agree | only when `secure_rerip_matches > 0`; the user's number is the ceiling (dynamic mode applies it only to AccurateRip-failing tracks) |
+| `-Z <int>` | re-rip a track until N reads' checksums agree | only when `secure_rerip_matches > 0`. **N is the required AGREEMENT count, not a ceiling** — the fork's provider contract defines it as `--repeat-rips`, *"rip tracks until checksums match N times"*, and the ceiling is `-r` (hence cyanrip's "no matches found, but hit repeat limit of 5"). The wrong gloss here was the origin of a Settings label reading "Max reads…", corrected 2026-09-21. Dynamic mode applies it only to AccurateRip-failing tracks |
 | `-O` | overread into the lead-in/lead-out (upstream help: "may freeze if unsupported by drive") | only when the Settings "Overread" toggle (`force_overread`) is on — off by default, matching EAC's baseline "overread: No". **Flag verified against 0.9.3.1 + master (2026-07-21); `-x` did not exist in cyanrip at that date — it does now, in the fork, as the *cache probe* and not overread (see the `-x` block quote below).** **⚠ CONFIRMED to hang the Pioneer BDR-209D (real-hardware finding, 2026-07-22): 13 of 14 tracks ripped perfectly, then the drive hung ~23 min reading the last track's lead-out with the progress bar frozen near 100 %, exactly the upstream-warned failure. Overread should stay OFF on this drive; the GUI default is off.** |
 | `-S <int>` | cap read speed (× multiplier) | only when a positive fixed speed is requested. **⚠ ABORTS the rip (`EINVAL`) on a drive that reports speed as "unchangeable"** (the Pioneer BDR-209D does) — so the ladder parses `speed_changeable` and never sends `-S` to a speed-locked drive (real-hardware finding, 2026-07-01) |
 | `-l <n,n,…>` | rip only these 1-based track numbers | **two producers:** the user's per-track "Rip?" checkboxes (a deliberate partial rip, since v0.5.7) and the per-track auto-fix re-rip (a cheap targeted re-read). Empty = whole disc, which is also what "every track ticked" sends. |
@@ -641,4 +641,4 @@ outlive the window — see `ui/main_window_rip.py::_stop_rip_on_shutdown`.
 
 ---
 
-*Last updated for Platterpus v0.6.35.*
+*Last updated for Platterpus v0.6.52.*
