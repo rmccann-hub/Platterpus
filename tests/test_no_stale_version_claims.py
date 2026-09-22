@@ -723,6 +723,155 @@ def test_the_install_claim_names_the_CURRENT_pin() -> None:
     )
 
 
+#: Ripper build tags a user-facing doc may name although they are not current,
+#: each with the reason it is historical rather than a claim. Empty today, and a
+#: ratchet: an entry is an admission that a page names a build nobody runs.
+_HISTORICAL_BUILD_TAGS: dict[str, str] = {}
+
+
+def test_every_ripper_build_tag_in_a_user_facing_doc_is_the_CURRENT_one() -> None:
+    """The gap the two pin tests above leave open, measured on 2026-09-22.
+
+    `test_no_user_facing_doc_claims_a_RETIRED_ripper_pin_is_installed` matches
+    `_INSTALL_CLAIM` — a present-tense *install* sentence. `test_the_install_
+    claim_names_the_CURRENT_pin` asks only that the right pin appear SOMEWHERE in
+    the corpus. Between them, a wrong pin in any other present-tense sentence
+    passes both: the README carried *"Platterpus pins a fork — currently
+    `fe4d2c4`, `cyanrip 0.9.4-rc2+platterpus.12`, approved by handshake round
+    18"* inside a ⚠ READ THIS BEFORE YOU RUN box, five rounds after that stopped
+    being true, while `2cce60d` appeared correctly forty lines away and satisfied
+    the positive half.
+
+    The same page also carried a `--version` example printing the stale banner,
+    under a comment explaining that this had happened before and that the line
+    *"must match the banner named earlier on this page"*. It had gone from four
+    pins stale to two pins stale in the same line. **A comment where a check
+    belongs is not a fix**, which is this repo's own rule arriving in the
+    document a stranger reads first.
+
+    So this sweeps the BANNER FORMS — `platterpus-fork-g<sha>` and
+    `+platterpus.<n>` — which are statements of identity rather than references,
+    and requires each to be the build the code actually pins. Both expected
+    values are derived (`fork_source.FORK_PIN`, `FORK_EXPECTED_VERSION`), so they
+    cannot drift when the pin next moves.
+    """
+    from platterpus.deps import fork_source
+
+    expected_tag = fork_source.FORK_EXPECTED_VERSION.split("+", 1)[1]
+    offenders: list[str] = []
+    examined = 0
+    for doc, text in _user_facing_text().items():
+        for match in re.finditer(
+            r"platterpus-fork-g(?P<sha>[0-9a-f]{6,40})|\+(?P<tag>platterpus\.\d+)",
+            text,
+        ):
+            examined += 1
+            found = match.group("sha") or match.group("tag")
+            if found in _HISTORICAL_BUILD_TAGS:
+                continue
+            ok = (
+                fork_source.same_commit(found, fork_source.FORK_PIN)
+                if match.group("sha")
+                else found == expected_tag
+            )
+            if not ok:
+                line = text.count("\n", 0, match.start()) + 1
+                offenders.append(
+                    f"{doc}:{line} names build `{found}`; the code pins "
+                    f"{fork_source.FORK_PIN} / +{expected_tag}"
+                )
+
+    # NON-TRIVIALITY: a regex that stopped matching would otherwise pass here
+    # while the page said anything at all.
+    assert examined >= 3, (
+        f"only {examined} ripper build tag(s) found in the user-facing docs. The "
+        "front page states which ripper build a user gets, in more than one "
+        "place; if this pattern has stopped matching, the sweep is checking "
+        "nothing."
+    )
+
+    # THE CONVERSE: an exemption may not outlive the tag it excuses.
+    stale = sorted(
+        tag
+        for tag in _HISTORICAL_BUILD_TAGS
+        if tag not in "\n".join(_user_facing_text().values())
+    )
+    assert not stale, f"{stale} are excused but no longer appear anywhere"
+
+    assert not offenders, "\n  ".join(offenders)
+
+
+def test_the_readme_may_not_CLAIM_a_full_green_the_ledger_does_not_carry() -> None:
+    """The false-claims class, in the document a stranger reads first.
+
+    The README's hardware paragraph announced *"the first full green … the first
+    `full-green` row this project's field-evidence ledger has ever carried"* and
+    *"`0.7.100` is gated on a full hardware pass, which this is"* — for a run
+    whose ledger row had been re-graded `partial` on the maintainer's ruling a
+    week before, in the same commit that wrote *"Six rows, six partial, zero
+    full-green. No full-green pass has been achieved."*
+
+    Nothing could see it: the doc-stamp gate records WHEN a page was edited, and
+    the README was edited for 0.6.52 while its hardware paragraph expired
+    independently. §1 of this file compares VERSION strings. Neither reads the
+    ledger the claim is about.
+
+    Derived from the same table `_read_ledger` already parses, so the gate lifts
+    the moment a run actually earns a full-green row.
+    """
+    rows = _read_ledger()
+    assert rows, "the ledger is empty — the gate below would pass over nothing"
+    full_green = [r for r in rows if r["result"] == "full-green"]
+    if full_green:
+        return  # the claim is available to make; this gate has nothing to say
+
+    corpus = _user_facing_text()
+    offenders: list[str] = []
+    for doc, text in corpus.items():
+        for match in re.finditer(
+            r"(?:the )?first full[ -]green|full[ -]green row this project", text, re.I
+        ):
+            line = text.count("\n", 0, match.start()) + 1
+            offenders.append(f"{doc}:{line}: {match.group(0)!r}")
+    assert not offenders, (
+        "a user-facing doc claims a full-green hardware pass, but the "
+        f"field-evidence ledger carries {len(rows)} row(s) and none of them is "
+        "`full-green`:\n  " + "\n  ".join(offenders)
+    )
+
+
+def test_the_readme_section_counts_match_the_severity_table() -> None:
+    """The README printed *"17 sections are archival, 3 are UX"* — which is wrong
+    twice: the table says 4 UX, and 17 + 3 does not reach the 21 sections the same
+    paragraph implies.
+
+    Both numbers move when a section is added or re-graded (K3 and K4 both moved
+    in September), and nothing compared the prose to the table.
+    """
+    severity = (_REPO_ROOT / "docs" / "testing.md").read_text(encoding="utf-8")
+    block = severity.split("<!-- ACCEPTANCE-SEVERITY-TABLE:", 1)[1].split(
+        "<!-- END-ACCEPTANCE-SEVERITY-TABLE -->", 1
+    )[0]
+    rows = re.findall(r"^\|\s*([A-Z0-9]+)\s*\|\s*(ARCHIVAL|UX)\s*\|", block, re.M)
+    assert len(rows) >= 15, f"only {len(rows)} severity rows parsed"
+    archival = sum(1 for _, sev in rows if sev == "ARCHIVAL")
+    ux = sum(1 for _, sev in rows if sev == "UX")
+
+    for doc, text in _user_facing_text().items():
+        for match in re.finditer(
+            r"(?P<a>\d+)\s+are archival and\s+(?P<u>\d+)\s+are UX"
+            r"|(?P<a2>\d+)\s+sections are archival,\s*(?P<u2>\d+)\s+are UX",
+            text,
+        ):
+            claimed_a = int(match.group("a") or match.group("a2"))
+            claimed_u = int(match.group("u") or match.group("u2"))
+            line = text.count("\n", 0, match.start()) + 1
+            assert (claimed_a, claimed_u) == (archival, ux), (
+                f"{doc}:{line} says {claimed_a} archival / {claimed_u} UX; the "
+                f"severity table in docs/testing.md has {archival} / {ux}"
+            )
+
+
 def test_no_user_facing_doc_ASSERTS_an_open_round_when_none_is_open() -> None:
     """The README said *"round 14 is open"* after round 14 closed GO/GO.
 

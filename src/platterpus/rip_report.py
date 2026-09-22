@@ -756,6 +756,20 @@ def build_settings(config: object, *, read_offset_effective: int | None = None) 
 #: and every one of those reports said `"ran"`.
 SUPERSEDED_GATE: Final[str] = "superseded — a newer rip started before this finished"
 
+#: The two ways a gate can end up claiming work whose result the report does not
+#: hold: the caller told us a newer rip took over, or nobody told us anything and
+#: the backstop below found the gate and its block disagreeing. Named constants
+#: because the acceptance script's `expect-verification` grades on exactly these
+#: codes — one predicate, two callers, rather than a copy of the vocabulary in
+#: the runner that drifts the first time a word here changes.
+ISSUE_VERIFICATION_SUPERSEDED: Final[str] = "verification_superseded"
+ISSUE_VERIFICATION_RESULT_MISSING: Final[str] = "verification_result_missing"
+#: Both of the above, for a caller that treats them the same — an absent result,
+#: however it came to be absent, is not a passed one.
+VERIFICATION_DROPPED_CODES: Final[frozenset[str]] = frozenset(
+    {ISSUE_VERIFICATION_SUPERSEDED, ISSUE_VERIFICATION_RESULT_MISSING}
+)
+
 #: Report companions whose ABSENCE is the healthy answer, so a reader is not told
 #: about it. Today: the auto-fix swap addendum, written only when a track was
 #: actually replaced by a re-rip (`rip_addendum.write_addendum` returns early on
@@ -2071,7 +2085,7 @@ def _issues(
         if state == SUPERSEDED_GATE:
             add(
                 "warning",
-                "verification_superseded",
+                ISSUE_VERIFICATION_SUPERSEDED,
                 f"{label} was started for this rip and dropped unfinished because "
                 f"a newer rip began — this record carries no {label} result, and "
                 f"an absent result is not a passed one",
@@ -2079,7 +2093,7 @@ def _issues(
         elif state == "ran":
             add(
                 "warning",
-                "verification_result_missing",
+                ISSUE_VERIFICATION_RESULT_MISSING,
                 f"{label} is recorded as having run but this report carries no "
                 f"result for it — the two disagree, and the gate is the weaker "
                 f"evidence because it is derived from the settings, not the work",

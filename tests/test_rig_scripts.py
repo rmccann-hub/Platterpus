@@ -1052,6 +1052,83 @@ def test_every_section_that_rips_in_a_derived_format_asserts_the_files_exist() -
     )
 
 
+#: Ripping sections that deliberately cannot assert a completed post-rip check,
+#: each with the reason. A ratchet: it may shrink, never grow, and every entry
+#: must name a section that actually rips (the converse below enforces that, so
+#: an excuse cannot outlive its subject — a lesson from an allowlist whose two
+#: entries named widgets the rule could never have reached).
+_NO_COMPLETED_VERIFICATION: dict[str, str] = {
+    "I": (
+        "the rip is cancelled on purpose mid-track, so no post-rip check ever "
+        "starts, let alone finishes. Its claim is about the LOG surviving the "
+        "cancel, which `expect-log-well-formed` states."
+    ),
+}
+
+
+def test_every_section_that_rips_asserts_its_post_rip_checks_left_a_result() -> None:
+    """A section that switches a post-rip check on must be able to FAIL over it.
+
+    **The sibling of the sweep above, and it exists for the same reason: the
+    probe that proved the fix found nothing.** `expect-verification` was added to
+    section F on 2026-09-22, and `scripts/revert_probe.py` then reported
+    `unaffected` for deleting it from the shipped script — correctly, because
+    nothing required it. A verb can be written, tested and wired and still be
+    absent from the run it was written for.
+
+    The original: F is graded ARCHIVAL and titled *"the main event: full-disc
+    rip, all tracks, every post-rip check on"*. It switches
+    `ctdb_verify_after_rip` and `verify_flac_after_rip` ON and then asserts that
+    those SETTINGS round-tripped — a setting checked against itself, which is the
+    vacuity K4 was demoted to UX for. On the 2026-09-22 run both checks were
+    dropped unfinished, because section G is a 0.7s `rig-check` and a snapshot
+    and then H starts a rip. F's own record said so — `gates.ctdb: "superseded"`
+    beside `ctdb: null`, with the issue text *"an absent result is not a passed
+    one"* — and the run reported 247 of 247, because no step read it. Three of
+    the eight rips were in that state.
+
+    The population is derived: any section containing a bare `rip`.
+    """
+    bodies = _section_bodies()
+    assert len(bodies) >= 15, (
+        f"only {len(bodies)} sections parsed — if the `log --- X.` shape changed "
+        "this sweep is checking almost nothing"
+    )
+
+    ripping = {letter for letter, lines in bodies.items() if "rip" in lines}
+
+    # NON-TRIVIALITY. Without a floor this passes on a script that never rips.
+    assert len(ripping) >= 6, (
+        f"only {len(ripping)} section(s) found ripping ({sorted(ripping)}). The "
+        "acceptance run drives the drive repeatedly on purpose; if this set has "
+        "shrunk, the gate below has almost nothing left to hold."
+    )
+
+    # THE CONVERSE, so an excuse cannot outlive its subject: every allowlisted
+    # section must still be one that rips.
+    stale = sorted(set(_NO_COMPLETED_VERIFICATION) - ripping)
+    assert not stale, (
+        f"{stale} are excused from asserting a post-rip result but no longer rip, "
+        "so the exemption is excusing nothing and should be deleted"
+    )
+
+    missing = sorted(
+        letter
+        for letter in ripping
+        if letter not in _NO_COMPLETED_VERIFICATION
+        and "expect-verification" not in bodies[letter]
+    )
+    assert not missing, (
+        f"acceptance section(s) that rip without asserting their post-rip checks "
+        f"left a result: {missing}. `expect-rip-complete` cannot state this claim "
+        "— it reads the ripper's log, which knows nothing about CTDB or our FLAC "
+        "integrity pass — and reading the setting back states it about the "
+        "REQUEST rather than the work. Without `expect-verification` the section "
+        "passes whether or not the checks it switched on ever produced anything, "
+        "which is what the 2026-09-22 run did on three rips out of eight."
+    )
+
+
 # -----------------------------------------------------------------------------
 # The morning collector's version probe — tested by RUNNING it
 # -----------------------------------------------------------------------------

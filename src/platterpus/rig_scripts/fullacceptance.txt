@@ -512,6 +512,16 @@ screenshot afterfullrip
 # counted and reported by that verb and deliberately not graded -- it is a fact
 # about the disc, which `rig-check` and the EAC-compatible log both carry.
 expect-rip-complete
+# F switches ctdb_verify_after_rip and verify_flac_after_rip ON above and then
+# asserts that those SETTINGS round-tripped, which is a setting checked against
+# itself -- the vacuity K4 was demoted to UX for. On 2026-09-22 both checks were
+# dropped unfinished: section G below is one 0.7s rig-check and a snapshot, then
+# H starts a rip, so CTDB over 14 tracks had about one second. F's own record
+# said so (gates.ctdb superseded, ctdb null, and the issue text 'an absent
+# result is not a passed one') and the run still reported 247 of 247, because
+# nothing read it. This step waits for the checks and grades what they left, so
+# the section can fail over its own title.
+expect-verification
 
 # --- G. POST-RIP VERIFICATION ----------------------------------------------
 # `rig-check` is the seam check the cyanrip fork asked for, reachable both as a
@@ -569,6 +579,10 @@ wait-for-rip 3600
 snapshot afteroverwrite
 screenshot afteroverwrite
 expect-rip-complete
+# Same shape as F: section I starts a rip, so H's post-rip checks are dropped
+# unless something waits for them. H's rip was one of the three the 2026-09-22
+# run lost.
+expect-verification
 
 # --- I. THE CANCEL PATH, AND THE ONLY HONEST PROOF OF IT — §T4 -------------
 # Cancel mid-track, not at a boundary — 90 seconds of reading gets us inside one.
@@ -636,6 +650,9 @@ wait-for-rip 3600
 snapshot afterrecovery
 screenshot afterrecovery
 expect-rip-complete
+# Same shape as F: K1 starts a rip. J's rip was the third of the three whose
+# CTDB and FLAC-integrity results the 2026-09-22 run dropped.
+expect-verification
 rig-check
 
 # --- K. THE DERIVED FORMATS — the whole of Critical rule #4 ----------------
@@ -699,6 +716,10 @@ snapshot aftermp3
 screenshot aftermp3
 expect-rip-complete
 expect-derived-output mp3
+# The derived gate is graded by the line above; CTDB and FLAC integrity ran
+# on this rip too and are graded here, so every ripping section states the
+# same claim in the same words.
+expect-verification
 rig-check
 
 log --- K2. WavPack: the second lossless format ---
@@ -711,6 +732,10 @@ wait-for-rip 3600
 snapshot afterwavpack
 expect-rip-complete
 expect-derived-output wavpack
+# The derived gate is graded by the line above; CTDB and FLAC integrity ran
+# on this rip too and are graded here, so every ripping section states the
+# same claim in the same words.
+expect-verification
 rig-check
 
 log --- K3. WAV: raw PCM, no tags, no art - the UI must say so ---
@@ -724,6 +749,10 @@ snapshot afterwav
 screenshot afterwav
 expect-rip-complete
 expect-derived-output wav
+# The derived gate is graded by the line above; CTDB and FLAC integrity ran
+# on this rip too and are graded here, so every ripping section states the
+# same claim in the same words.
+expect-verification
 rig-check
 
 # --- K4. RESTORE THE FORMAT K1-K3 CHANGED ----------------------------------
@@ -865,6 +894,11 @@ expect-rip-complete
 # on an ordinary scratched CD, which is the mistake this section already paid
 # for once with `expect-status Done`.
 expect-secure-rerip
+# N is the accuracy claim itself, and its post-rip checks survived the
+# 2026-09-22 run only because nothing ripped after it. That is the same luck
+# K3 had on 2026-09-15, written down in its severity row and never turned into
+# an assertion. Graded here so it stops being luck.
+expect-verification
 rig-check
 
 # --- P. §T3: THE CACHE PROBE, PROBE-ONLY ------------------------------------
