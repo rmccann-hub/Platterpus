@@ -253,8 +253,10 @@ PIN
 # where api.github.com is unreachable or rate-limited (HTTP 403), pre-download
 # the matching base image (from github.com/niess/python-appimage releases) and
 # point PLATTERPUS_BASE_IMAGE at it to skip the API entirely. The filename
-# must keep its upstream form, e.g.
-#   python3.11.14-cp311-cp311-manylinux2014_x86_64.AppImage
+# must keep its upstream form, and its CPython minor should match
+# PLATTERPUS_PYTHON_VERSION above — the override REPLACES --python-version, it
+# is not checked against it — e.g.
+#   python3.12.<patch>-cp312-cp312-manylinux2014_x86_64.AppImage
 if [ -n "${PLATTERPUS_BASE_IMAGE:-}" ]; then
     if [ ! -f "$PLATTERPUS_BASE_IMAGE" ]; then
         echo "PLATTERPUS_BASE_IMAGE is set but not a file: $PLATTERPUS_BASE_IMAGE"

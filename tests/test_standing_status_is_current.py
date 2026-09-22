@@ -105,6 +105,51 @@ def test_the_standing_status_names_the_round_that_approved_the_pin() -> None:
     )
 
 
+def test_the_APPROVED_BY_row_itself_names_the_approval_record() -> None:
+    """The test above asks whether *"round N"* appears ANYWHERE, and on
+    2026-09-22 it passed over a table whose `approved by` row still said
+    **round 21, for Platterpus 0.6.50** — two rounds and two app versions stale —
+    because the section heading directly above it said *"round 23 CLOSED"*. A
+    heading that is current lent its round number to a row that was not.
+
+    So this reads the ROW, and requires both halves of the approval there: the
+    round and the app version it approved the pin for.
+    """
+    from platterpus import handshake_approval as ha
+
+    text = _status_text()
+    rows = [line for line in text.splitlines() if line.startswith("| approved by |")]
+    assert len(rows) == 1, (
+        f"expected exactly one '| approved by |' row in the standing status, found "
+        f"{len(rows)} — if the table was restructured, move this gate with it"
+    )
+    row = rows[0]
+    # Read the cell's DECLARED HEAD, not the whole cell. The first version of
+    # this gate searched the row and was proved vacuous by the revert probe the
+    # same day: the row's own prose says "round 23 reviewed `2cce60d`" and
+    # "not a repeat of 0.6.52's", so a head reverted to round 21 / 0.6.50 still
+    # passed — the flaw one level down from the heading that hid it before.
+    head = re.match(
+        r"^\| approved by \| \*\*round (?P<round>\d+)\*\*, for Platterpus "
+        r"\*\*(?P<version>[0-9][0-9a-z.]*)\*\*",
+        row,
+    )
+    assert head, (
+        "the 'approved by' row no longer opens with '**round N**, for Platterpus "
+        f"**X.Y.Z**', so this gate cannot read its claim: {row[:160]}"
+    )
+    assert int(head.group("round")) == ha.APPROVED_BY_ROUND, (
+        f"the standing status says the pin was approved by round "
+        f"{head.group('round')}; handshake_approval.APPROVED_BY_ROUND is "
+        f"{ha.APPROVED_BY_ROUND}"
+    )
+    assert head.group("version") == ha.APPROVED_FOR_PLATTERPUS_VERSION, (
+        f"the standing status says the approval was for Platterpus "
+        f"{head.group('version')}; handshake_approval.APPROVED_FOR_PLATTERPUS_VERSION "
+        f"is {ha.APPROVED_FOR_PLATTERPUS_VERSION}"
+    )
+
+
 def _newest_round_on_disk() -> int:
     """Highest round number with a file in verified/ or inbound/.
 

@@ -217,14 +217,17 @@ tiers. "I added a happy-path test" is not done.
   GUI thread, `processEvents()` would block inside it and the timer would stall.
   Identity is the zero-flake primary; heartbeat catches blockers identity can't
   see (a slow pure-Python loop, a C-extension call).
-- **Mutation testing** (weekly in CI, never a gate). `mutmut` measures whether
-  tests actually *catch* bugs rather than just execute lines — coverage says a
-  line ran, mutation says a test fails when that line is wrong. It runs
-  automatically as a weekly, non-blocking workflow
-  (`.github/workflows/mutation.yml`) over the parsers, the AccurateRip verdict
-  (`verdict.py`), and the CTDB CRC (`ctdb/crc.py`) — read the run summary for
-  survivors; it never gates a PR. The §7 `pipx` command runs it locally on any
-  module.
+- **Mutation testing** (weekly in CI, never a gate). `scripts/mutation_sweep.py`
+  — ours, since 2026-09-05, replacing `mutmut` under Critical rule #11 — measures
+  whether tests actually *catch* bugs rather than just execute lines: coverage
+  says a line ran, mutation says a test fails when that line is wrong. It runs as
+  a weekly, non-blocking workflow (`.github/workflows/mutation.yml`), one matrix
+  leg per trust-bearing module — the AccurateRip verdict (`verdict.py`), the CTDB
+  CRC (`ctdb/crc.py`), the cyanrip, rip and EAC log parsers, and the
+  EAC-compatible log export — each with its own measured `--min-checked` floor,
+  so a sweep that checked nothing reports `NO RESULT` rather than a pass. Read
+  the run summary for survivors; it never gates a PR. The §7 command runs one leg
+  locally.
 
 ## 5. Institutional rules (the non-negotiables)
 
@@ -3001,6 +3004,37 @@ approved-pair pattern used `[^.]*?`, which cannot cross the dots in
 `0.9.4-rc2`, so it matched nothing — and the `checked >= 3` clause failed rather
 than letting a sweep that had stopped matching report success.
 
+**Fifth, found by the pre-round-24 document audit the same evening — six more
+members, and the scope keeps shrinking without the flaw going away.** With every
+gate green: the README counted the ledger at *six* rows in the release that added
+the seventh; `PLANNING.md`'s KDD-35 status still reported the re-graded 2026-09-12
+row as the first full-green one; `DEPENDENCIES.md`'s cyanrip row named
+`fe4d2c4`/round 18 for the second review running; `docs/rig-session.md`'s header
+named `v0.6.30`/`d9c058c`, twenty-three patch versions stale under a v0.6.52
+footer; and the standing status the fork reads between rounds said *"approved by
+round 21, for 0.6.50"* in its table while its heading said *"round 23 CLOSED"* —
+and passed, because its gate asks whether *"round 23"* appears **anywhere** in the
+file, and the heading supplied it.
+
+**Then my own replacement gate did it one level down.** Scoped to the `approved
+by` row, it passed with the row's head reverted to round 21 / 0.6.50, because the
+row's own explanatory prose says *"round 23 reviewed `2cce60d`"* and *"not a
+repeat of 0.6.52's"*. The revert probe caught it before commit. So point 2 above
+generalises past the corpus: **the file lent its number to the section, the
+heading to the table, the row's prose to the row's claim.** Narrowing the region
+does not fix a check that asks *does this text appear in here?* — only reading the
+claim's **declared position** does (the cell head, the fenced header, the one table
+row that makes the assertion). Ask of any scoped check: *what else in this region
+says a number, and would it satisfy me?*
+
+Gates: `test_a_doc_that_COUNTS_the_ledger_rows_counts_them_correctly`,
+`test_the_dependency_table_names_the_CURRENT_ripper_pin`,
+`test_the_rig_sheet_header_names_the_CURRENT_pair`, and
+`test_the_APPROVED_BY_row_itself_names_the_approval_record` (which reads the cell
+head, and is revert-proven against the prose that fooled its first version); the
+full-green gate now reads `PLANNING.md` too and tolerates the backticked spelling
+that kept that status line out of its pattern.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is
@@ -3466,9 +3500,10 @@ pytest --cov=platterpus --cov-report=term-missing --cov-fail-under=91
 pytest tests/test_parsers_property.py --hypothesis-seed=random
 
 # Test-quality audit (slow; runs weekly in CI via mutation.yml, never a gate).
-# Run locally on the same scope, or any module:
-pipx run mutmut run --paths-to-mutate "src/platterpus/parsers/,src/platterpus/verdict.py,src/platterpus/ctdb/crc.py"
-pipx run mutmut results
+# One leg, exactly as CI runs it — the workflow's matrix lists every target,
+# its tests and its floor:
+python3 scripts/mutation_sweep.py --target src/platterpus/verdict.py \
+    --tests tests/test_verdict.py --limit 40 --min-checked 30
 ```
 
 Install the test tooling with the dev extra: `pip install -e ".[dev]"`
@@ -3480,7 +3515,7 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 - [Hypothesis — property-based testing](https://hypothesis.readthedocs.io/)
 - [pytest-qt — Qt GUI testing](https://pytest-qt.readthedocs.io/)
 - [Golden/snapshot testing options](https://pypi.org/project/pytest-golden/)
-- [Mutation testing with mutmut](https://johal.in/mutation-testing-with-mutmut-python-for-code-reliability-2026/)
+- [Mutation testing with mutmut](https://johal.in/mutation-testing-with-mutmut-python-for-code-reliability-2026/) — background on the technique; `mutmut` itself was retired 2026-09-05 (see §4)
 
 ---
 

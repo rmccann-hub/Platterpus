@@ -44,11 +44,16 @@ limit is exhausted. To build anyway, pre-download the matching base
 image from the
 [`niess/python-appimage`](https://github.com/niess/python-appimage/releases)
 releases (keep its upstream filename, e.g.
-`python3.11.14-cp311-cp311-manylinux2014_x86_64.AppImage`) and point the
-build at it:
+`python3.12.<patch>-cp312-cp312-manylinux2014_x86_64.AppImage`) and point the
+build at it. **Pick the CPython minor the release build uses** —
+`PLATTERPUS_PYTHON_VERSION` in `build/build_appimage.sh`, **3.12** today —
+because an override image *replaces* `--python-version` rather than being
+checked against it, so a mismatched image silently builds a different
+interpreter from the one that ships. (This example named 3.11 until the
+2026-09-22 document audit; the build has pinned 3.12 since v0.5.7.)
 
 ```bash
-PLATTERPUS_BASE_IMAGE=/path/to/python3.11.x-cp311-cp311-manylinux2014_x86_64.AppImage \
+PLATTERPUS_BASE_IMAGE=/path/to/python3.12.x-cp312-cp312-manylinux2014_x86_64.AppImage \
   bash build/build_appimage.sh
 ```
 
@@ -112,4 +117,4 @@ is in place. That can't be done in a sandbox that can't run the AppImage build.
 
 ---
 
-*Last updated for Platterpus v0.5.5.*
+*Last updated for Platterpus v0.6.53.*

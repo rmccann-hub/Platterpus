@@ -1257,9 +1257,18 @@ is the decision log failing at the one thing it is for. All three were live in
   should not allow a 0.9.1."* Two passes on one rig answer *was it luck* and say
   nothing about *is it green only because of this machine*.
 
-**Status, 2026-09-13:** the ledger's first `full-green` row exists — 2026-09-12,
-238/238 across all 21 sections, BDR-209D on Bazzite, app 0.6.47 against ripper
-`fe4d2c4`. That is **one** pass on **one** machine and **one** distro.
+**Status, 2026-09-22:** the ledger carries seven rows, every one `partial`, and
+no `full-green` row. The 2026-09-12 run (238/238, app 0.6.47 against ripper
+`fe4d2c4`) was recorded `full-green` on 2026-09-13 and re-graded `partial` on
+2026-09-15 on the maintainer's ruling — two archival sections could not fail over
+the derived-format files they exist to prove (`docs/testing.md` §5.bi). The most
+complete run since, 2026-09-22 on app 0.6.52 against `2cce60d` (247/247), is
+`partial` for the same class of reason: three of eight rips had their post-rip
+checks dropped and no step could see it (§5.bn). All seven rows are **one**
+machine and **one** distro, the BDR-209D on Bazzite, so even a full-green row
+would leave 0.9.1's diversity floor untouched. *(Until the 2026-09-22 document
+audit this line still reported the 2026-09-12 row as full-green — nine days past
+the re-grade that made it false.)*
 
 **Why.** The implicit gate was "the tests pass", and the maintainer corrected it:
 *"we have only tested on my rig, my hardware. we need more people, more hardware,
