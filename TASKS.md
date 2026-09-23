@@ -76,11 +76,15 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
 - [x] **Rig sheet rewritten for the real test**, and its header test now requires the build
   under review while a round reviews one — it passed a sheet naming only `.14` before. The
   user-facing build-tag sweep accepts the build under review, derived, only while one is.
-- [ ] **Maintainer: which release carries the move, and a §6b override for it.** Our N4 gate
+- [x] **Maintainer, 2026-09-23: 0.6.54 carries the move, under a §6b override.** Our N4 gate
   refuses a stable-offered tag while a round is open, and round 26 stays open until the test
   runs ON that release — so the release that makes the test possible needs a recorded
   `HANDSHAKE-OVERRIDE` in our lap 2, or the test cannot happen.
-- [ ] **Our lap 2** — `PIN_UNDER_REVIEW` moved, the carrying release named, verdict `OPEN`.
+- [x] **Our lap 2** — `PIN_UNDER_REVIEW` moved, 0.6.54 named, the override recorded, verdict `OPEN`.
+  **RELEASED 2026-09-23 on the maintainer's word** (sha256 `8485afc7…`, 11,151 bytes, pinned in
+  `SENT_LAPS`), after fetching their branch and confirming no round-26 lap after their lap 1.
+- [ ] **0.6.54** — the release steps in the round-24 section, dispatched after `main`'s own CI;
+  `--release-gate --prerelease --tag v0.6.54` prints the override and passes.
 - [ ] **The real test** (operator), then each side's reading, then the closing laps; at the
   close, roll `FORK_PIN` to `df91ae7` in our release and move the approval record to round 26.
 - [ ] **Correct `fullacceptance.txt`'s `-r 3` comment** (*"not dangerous"*) with the next change
