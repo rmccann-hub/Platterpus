@@ -60,7 +60,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   the new encoder-status footer, and no line it does not recognise. The failure
   arms their log does not exercise are asserted on it too. The fatal-message
   inventory was regenerated from their new contract (unchanged: 120 plus 7), and
-  the argv check reads the current round's flag table again.
+  the argv check reads the current round's flag table again. Rips on `.14` send
+  and record `--consumer`, and our published consumer contract now declares the
+  new `Encoder errors:` line as the fork's to keep stable.
+
+- **Our round 24 lap 2: `GO` on `3e01bb3`**, held (`READY-TO-READ: no`) until the
+  maintainer releases it.
 
 - **Handshake protocol v5**, implemented the day its shared text became
   identical in both repositories and before the cyanrip fork's round-24 lap 1. A
