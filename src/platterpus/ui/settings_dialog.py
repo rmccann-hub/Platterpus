@@ -6,16 +6,22 @@ and the caller reads back via `to_config()` and persists through
 `platterpus.config.save()`. This keeps the dialog testable without
 touching `~/.config`.
 
-A "Check dependencies" button emits the `check_dependencies_requested`
-signal; the caller wires it to the DependencyManager.
+It opens nothing else. It used to carry two doors to other windows — a
+"Check dependencies" button and a "Re-detect…" button beside the read offset —
+and both were removed on 2026-09-23 (maintainer: *"this probably doesnt need
+multiple access points"*). Each duplicated a button in **Tools → Setup &
+Updates…**, and the second one was worse than a duplicate: the drive wizard it
+opened saved a new offset while this dialog still showed the old one, so
+pressing OK wrote the old one back. See :func:`apply_user_edits`.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 from collections.abc import Sequence
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -55,15 +61,49 @@ from platterpus.update_check import CHANNEL_BETA, CHANNEL_STABLE
 log: logging.Logger = logging.getLogger(__name__)
 
 
+def apply_user_edits(current: Config, opened: Config, edited: Config) -> Config:
+    """``current`` with only the fields the user changed in the dialog applied.
+
+    **Why not just ``edited``.** Settings is modal, but the application keeps
+    running underneath it, and the window's config is a live object that other
+    code writes to. The dialog's widgets are loaded once, when it opens. So
+    ``edited`` — the whole config read back off the widgets — carries every value
+    the dialog merely DISPLAYED, stale or not, and writing it back reverts
+    whatever changed in the meantime.
+
+    Reproduced 2026-09-23, not reasoned about: with Settings open on a read offset
+    of 667, the drive wizard (then reachable from a Re-detect… button in this very
+    dialog) saved the detected value 6, and pressing OK saved 667 over it — the
+    save sequence was ``[6, 667]``. The next disc would have ripped at the wrong
+    offset with a clean-looking log, which `CLAUDE.md` names as the reason a
+    gesture must never change a calibration value.
+
+    So a field is written only when the widget's value differs from what the
+    widget was loaded with. What the user touched wins; everything else stays as
+    the application currently has it. Pure, so it is tested without a display.
+    """
+    changes = {
+        field.name: getattr(edited, field.name)
+        for field in dataclasses.fields(Config)
+        if getattr(edited, field.name) != getattr(opened, field.name)
+    }
+    if changes:
+        log.info("settings: applying user edits to %s", sorted(changes))
+    return dataclasses.replace(current, **changes)
+
+
 class SettingsDialog(CenteredDialog):
     """Modal Settings dialog. Wraps an incoming Config; produces a new one."""
-
-    check_dependencies_requested = Signal()
-    detect_offset_requested = Signal()
 
     def __init__(self, config: Config, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._config: Config = config
+        # What the widgets were loaded from, as an independent copy. `config` is
+        # usually the window's LIVE object, which other code may change while
+        # this modal is open; the widgets are not refreshed when it does. So the
+        # only honest record of "what the user saw" is a snapshot taken here, and
+        # `user_edits()` compares against it.
+        self._opened_with: Config = dataclasses.replace(config)
 
         self.setWindowTitle("Settings")
         self.setModal(True)
@@ -212,14 +252,16 @@ class SettingsDialog(CenteredDialog):
 
         # --- Read offset ---
         # Two ways to set the read offset:
-        #   1. The drive-setup wizard ("Re-detect…") detects it and the GUI
-        #      saves it here — the recommended path.
+        #   1. The drive-setup wizard (Tools → Setup & Updates… → Set up drive…)
+        #      detects it and saves it — the recommended path.
         #   2. Type it here and tick "Apply" so each rip uses it (cyanrip's
         #      `-s`). cyanrip needs the offset every run; it has no config file
         #      of its own, so this value is the single source.
         self._read_offset_spin: QSpinBox = QSpinBox(self)
-        # In a composite row (spin + Re-detect button), so no auto-buddy — name
-        # it explicitly for screen readers (same reasoning as the path rows).
+        # Named explicitly for screen readers. It was needed while this row also
+        # held a "Re-detect…" button (a composite row gets no auto-buddy), and it
+        # is kept because a spoken name that says "in samples" is better than the
+        # visible label alone.
         self._read_offset_spin.setAccessibleName("Read offset in samples")
         # Range comes from settings_validation (the single source of truth) so the
         # widget bound and the validator can never drift. AccurateRip offsets are
@@ -235,19 +277,10 @@ class SettingsDialog(CenteredDialog):
             "property of the DRIVE, not of the disc — set it once. Typical values "
             "are within a few hundred of zero (a Pioneer BDR-209D is +667); 0 means "
             "no correction, which is right only for the rare drive that needs none. "
-            "Press Re-detect… to look it up for your drive, and tick Apply below or "
-            "it is not used at all."
+            "To detect it for your drive, close Settings and use Tools → Setup & "
+            "Updates… → Set up drive…. Tick Apply below or it is not used at all."
         )
-        self._detect_offset_button: QPushButton = QPushButton("Re-&detect…", self)
-        self._detect_offset_button.setToolTip(
-            "Run the drive setup wizard to auto-detect the read offset and "
-            "save it to Platterpus's settings."
-        )
-        self._detect_offset_button.clicked.connect(self.detect_offset_requested)
-        offset_row = QHBoxLayout()
-        offset_row.addWidget(self._read_offset_spin, stretch=1)
-        offset_row.addWidget(self._detect_offset_button)
-        form.addRow("Read offset (samples):", offset_row)
+        form.addRow("Read offset (samples):", self._read_offset_spin)
 
         self._override_offset_check: QCheckBox = QCheckBox(
             "Apply this read offset to rips", self
@@ -825,7 +858,7 @@ class SettingsDialog(CenteredDialog):
         # rows, so it fits any screen and the content scrolls instead.
         #
         # **What is deliberately OUTSIDE the scroll area, and why:** the validation
-        # banner, "Check dependencies", and OK/Cancel. A validation error that
+        # banner and OK/Cancel. A validation error that
         # scrolled out of view would defeat the rule it exists to serve
         # (CLAUDE.md — a visible, specific error), and an OK button that can scroll
         # away is the bug this whole change is fixing, one level down.
@@ -898,14 +931,6 @@ class SettingsDialog(CenteredDialog):
 
         # --- Goal preset wiring (after all dependent widgets exist) ---
         self._wire_goal_presets()
-
-        # --- Check dependencies action ---
-        # This sits between the form and the OK/Cancel row so it's
-        # visually associated with the settings (which is where the
-        # paths live that the dep check verifies).
-        self._check_deps_button: QPushButton = QPushButton("Chec&k dependencies", self)
-        self._check_deps_button.clicked.connect(self.check_dependencies_requested)
-        root.addWidget(self._check_deps_button)
 
         # --- OK / Cancel ---
         button_box = QDialogButtonBox(
@@ -1004,6 +1029,15 @@ class SettingsDialog(CenteredDialog):
             )
 
     # --- Public surface -----------------------------------------------------
+
+    def user_edits_applied_to(self, current: Config) -> Config:
+        """The config to save: ``current`` plus only what the user changed here.
+
+        The caller passes its live config rather than the one this dialog was
+        opened with, because that object may have moved on while the dialog was
+        up — see :func:`apply_user_edits`.
+        """
+        return apply_user_edits(current, self._opened_with, self.to_config())
 
     def to_config(self) -> Config:
         """Build a new Config reflecting the current widget state.

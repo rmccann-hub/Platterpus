@@ -59,6 +59,7 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.ui.dialogs.centering import CenteredDialog
+from platterpus.ui.dialogs.fit_scroll_area import FitScrollArea
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -140,7 +141,20 @@ class SetupCenterDialog(CenteredDialog):
         self._actions: dict[str, Callable[[], object]] = actions
         self._dependency_label: QLabel | None = None
 
-        layout = QVBoxLayout(self)
+        root = QVBoxLayout(self)
+
+        # The sections scroll; Close does not. Four sections of buttons plus their
+        # status lines need ~710 px, which a 1080p panel at 200% scaling (540
+        # logical px) cannot give — measured, and it is the screen shape that cut
+        # the cyanrip build picker off mid-sentence on 2026-09-23. `FitScrollArea`
+        # is invisible whenever the content fits.
+        body = QWidget(self)
+        layout = QVBoxLayout(body)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self._body_scroll: FitScrollArea = FitScrollArea(self)
+        self._body_scroll.setWidget(body)
+        self._body_scroll.setAccessibleName("Setup and update actions")
+        root.addWidget(self._body_scroll, stretch=1)
 
         intro = QLabel(
             "Everything about keeping Platterpus and its ripper healthy, in one "
@@ -210,7 +224,7 @@ class SetupCenterDialog(CenteredDialog):
 
         box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         box.rejected.connect(self.reject)
-        layout.addWidget(box)
+        root.addWidget(box)
 
     def _add_section(
         self,

@@ -11,6 +11,53 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+
+- **Pressing OK in Settings could undo a read offset the drive wizard had just
+  saved.** Settings showed the offset it opened with; the wizard, opened from
+  Settings' own Re-detect… button, saved a new one; OK then wrote the old value
+  back. The next disc would have ripped at the wrong offset with a clean-looking
+  log. Reproduced before it was fixed: the saves went 6, then 667. Settings now
+  applies only the fields you changed, so nothing that changed while it was open
+  is reverted.
+
+- **Dialogs cut their own text off on a short screen.** On a 1080p display at
+  200% scaling, the cyanrip build picker opened 360 px tall with every paragraph
+  cut off mid-sentence and nothing to scroll. Every dialog now opens tall enough
+  for its text and no taller than the screen. The two whose content can
+  outgrow a screen (the build picker and Setup & Updates) scroll their body and
+  keep their buttons in view. A new check opens all 15 dialogs on a small and a
+  large virtual screen and fails if any text is clipped or any window
+  overflows.
+
+- **The cyanrip build picker still offered round 21's test pin.** A test pin
+  belongs to the round that named it, and round 26 names none. The same mistake
+  had been fixed in how the app chooses which build the rig installs, but not
+  in the list the picker shows.
+
+- **The acceptance run no longer leaves your settings on its test values.** It
+  used to end by resetting everything to the shipped defaults, so a user on
+  Archival Exact with the beta cyanrip channel, debug logging and the EAC-style
+  log lost all four. A run that stopped partway was worse: it could leave you
+  ripping WAV. The app now saves your settings when the run starts and puts
+  them back however it ends. It leaves the app's own record alone (for example,
+  that it has already offered first-run setup), so it doesn't ask again.
+
+- **Several menu paths in the app and its guide led nowhere.** They said *Tools →
+  Check dependencies*, *Tools → Settings → Check dependencies*, *Settings →
+  Re-detect…*, *Help → About* and *Tools → Diagnose entry*, none of which
+  exist. The User Guide's heading also showed "Setup && Updates" with a doubled
+  ampersand. All now name the real place, and a new check fails if any
+  user-facing text names a menu item or Setup & Updates button that does not
+  exist.
+
+### Changed
+
+- **Settings no longer has Check dependencies or Re-detect… buttons.** Both were
+  second doors to buttons in **Tools → Setup & Updates…**, and each action now
+  has one home: **Check dependencies**, and **Set up drive…** for the read
+  offset.
+
 ## [0.6.54] — 2026-09-23
 
 ### Changed

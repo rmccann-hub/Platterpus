@@ -57,6 +57,29 @@ Their verdict is `GO` and they pre-commit that their next lap after ours is `GO`
   re-rooted and our pin is orphaned". A fresh full clone showed neither; their own
   `c449a92` fixed the same trap in their tool. The clone is now unshallowed.
 
+## 2026-09-23 real-user report on 0.6.54 — clipped dialogs, a stale test pin, two doors per action
+
+Found by the maintainer in the build picker and Settings just before the round-26 test.
+None of it blocks that test: the run never clicks Re-detect, and the offset on the rig
+(667) is right. Queued for the next release, which needs its own §6b override while
+round 26 is open.
+
+- [x] **Dialogs clip wrapped text on a short logical screen** — reproduced at 960 × 540
+  (picker 360 px, 5 labels cut), fixed on `CenteredDialog` (fit to content, capped at the
+  screen) + `FitScrollArea` bodies for the picker and Setup & Updates; gated by
+  `tests/test_dialogs_fit_their_content.py` over all 15 dialogs on two screen shapes.
+- [x] **The picker offered round 21's test pin** — `ripper_choices` now follows
+  `rig_installs_the_test_pin`; the picker tests no longer lean on the stale row for a
+  two-row floor.
+- [x] **Settings OK reverted an offset saved while it was open** — reproduced (`[6, 667]`),
+  fixed by applying only user edits (`apply_user_edits`); window-level regression test.
+- [x] **Two doors to one action** — Settings' Check dependencies and Re-detect… removed;
+  five dead menu paths fixed; converse sweep in `tests/test_help_documents_the_menu.py`.
+- [x] **The acceptance run left the user on its test values** — the app snapshots and
+  restores the user's settings on every exit, leaving `APP_STATE_FIELDS` alone.
+- [ ] **Maintainer's question: acceptance tiers (quick / standard / full) and a fixed
+  starting baseline.** Recommendation given in chat; waiting on the answer before building.
+
 ## Round 26 — OPEN 2026-09-23 on `df91ae7` (`+platterpus.15`): the real test, installed through our app
 
 Their lap 1 (`cyanrip@db72862`, sha256 `95a03f49…`, 8,433 bytes, released) names `.15` and

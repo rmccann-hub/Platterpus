@@ -1161,7 +1161,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # pin simply stays dark -- so the derivation is worth more than the line.
     "appimage_integration.py": 349,
     # **753 -> 784 on 2026-09-18**: the paired `integration_declined_version` field and the note recording why the path-only key reproduced the bug it replaced.
-    "config.py": 784,
+    # **784 -> 806 (2026-09-23)**: `APP_STATE_FIELDS`, the one list of fields the app
+    # writes for itself, which Settings carries over and the acceptance restore
+    # leaves alone. Named here because two surfaces must agree on it.
+    "config.py": 806,
     "cue_validate.py": 1257,
     "cyanrip_cli.py": 327,
     "deps/checks.py": 437,
@@ -1316,7 +1319,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # real-test mechanism and why `FORK_PIN` does not move with it; its release
     # sequence, its build tag in the `--consumer` accept-set with the contract that
     # licenses it, the re-derived same-program flag, and the round-26 pairing line.
-    "deps/fork_source.py": 2226,
+    # **2226 -> 2239 (2026-09-23)**: the menu stops offering a test pin the open
+    # round did not nominate, with why it is the same predicate the rig uses.
+    "deps/fork_source.py": 2239,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1477,7 +1482,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # called "Read offset override" — a name neither of them carries on screen —
     # and the number is inert without the tick-box, which the one-bullet version
     # had no room to say. Found by the new guide-vs-screen sweep, not by reading.
-    "help_content.py": 586,
+    # **586 -> 587 (2026-09-23)**: a menu path that named no real item now names the
+    # real one, wrapped onto a second line.
+    "help_content.py": 587,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1518,7 +1525,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # pure function would be the new-file-as-last-resort rule broken to satisfy
     # a line count.
     "parsers/rip_log.py": 883,  # +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
-    "preflight.py": 903,
+    # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
+    "preflight.py": 904,
     "read_speed_ladder.py": 367,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
@@ -1611,14 +1619,16 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1578 -> 1562 (2026-09-21): it SHRANK.** Six menu items became one, so the
     # ratchet comes down with it — a recorded count above the real length is
     # silent room to grow, which the sibling test refuses for exactly that reason.
-    "ui/main_window.py": 1562,
+    # **1562 -> 1566 (2026-09-23)**: the dependency-check comment corrected (it
+    # named a Settings button as the only door), and Settings' OK applies edits.
+    "ui/main_window.py": 1566,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
     # of the growth is the comment explaining the launch-time race, which is the
     # part a reader needs and the part a reviewer would otherwise have to
     # reconstruct from two other files.
-    "ui/main_window_deps.py": 692,  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
+    "ui/main_window_deps.py": 693,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     "ui/main_window_drive.py": 555,
     "ui/main_window_helpers.py": 508,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
@@ -1636,7 +1646,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # opens the window that replaced six menu items. The queued split of this
     # file still stands and this is still not the commit for it: both additions
     # are about the dialogs this mixin already owns.
-    "ui/main_window_provision.py": 1423,
+    # **1423 -> 1493 (2026-09-23)**: the user's settings are snapshotted when an
+    # acceptance session is armed and restored on every exit, excluding the app's
+    # own state. It lives here because every exit path it hooks is here.
+    "ui/main_window_provision.py": 1493,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -1732,7 +1745,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # other fields, so it was the worst one to leave unexplained — and every
     # tooltip test in this repo started from the set of tooltips, which cannot
     # report an absence. The sweep now starts from the set of controls.
-    "ui/settings_dialog.py": 1372,
+    # **1372 -> 1406 (2026-09-23)**: `apply_user_edits` — OK writes only what the
+    # user changed, so a value saved while the dialog was open is not reverted.
+    # Net of removing the two duplicate-door buttons.
+    "ui/settings_dialog.py": 1406,
     "ui/track_table.py": 802,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and

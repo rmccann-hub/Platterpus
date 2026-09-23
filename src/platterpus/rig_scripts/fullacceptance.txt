@@ -1150,10 +1150,15 @@ snapshot afterdeemphoff
 # and its override the two documented exceptions -- 667 is this drive's true
 # calibration and resetting it to 0 would be the misconfiguration.
 #
-# If you hand-tuned anything before the run, expect it back at the default
-# afterwards. `rip_goal fast_verified` also rewrites `secure_rerip_dynamic` and
-# `rerip_offset_variant`, so an EAC-style whole-disc Test & Copy tick does not
-# survive the night.
+# YOUR OWN SETTINGS COME BACK AFTER THIS SECTION, and the script is not what
+# does it. From 0.6.55 the APP snapshots your settings when the session is armed
+# and restores them on every way it ends — finished, aborted, or the window
+# closed (`ProvisioningMixin._restore_settings_after_acceptance`). That is the
+# half this script could never do, for the reason above, and the half an aborted
+# run never reached at all: a run stopped in section K would have left you
+# ripping WAV. This section still ends on the shipped defaults, because its
+# `expect` lines are what prove each preset applies all of itself; the restore
+# runs after it. (0.6.54 and earlier left you on the defaults.)
 log --- Q. leaving the rig on the shipped defaults ---
 set rip_goal fast_verified
 expect rip_goal fast_verified

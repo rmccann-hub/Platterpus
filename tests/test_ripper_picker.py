@@ -38,10 +38,20 @@ def test_the_picker_offers_exactly_what_the_cli_lists(
     assert offered == listed, (
         f"the GUI picker and --install-ripper list disagree: {offered} vs {listed}"
     )
-    assert len(offered) >= 2, (
-        f"only {len(offered)} build(s) offered — a picker with one row cannot "
-        "exercise the pre-selection below, so this file would assert nothing"
-    )
+    # **The floor follows the round, and it used to be propped up.** Until
+    # 2026-09-23 the menu listed round 21's test pin on every round, so it always
+    # had at least two rows and a flat `>= 2` always held. That row was stale —
+    # the maintainer found it in the picker at round 26 — and removing it means
+    # the menu is ONE row whenever no round is reviewing a build. Two is still
+    # the floor while one is, because that is when the pre-selection below has a
+    # real choice to make.
+    assert offered, "the picker offers nothing"
+    if fork_source.a_round_is_reviewing_a_build():
+        assert len(offered) >= 2, (
+            f"only {len(offered)} build(s) offered while a round reviews "
+            f"{fork_source.PIN_UNDER_REVIEW} — the approved build and the one "
+            "under review should both be there"
+        )
 
 
 def test_the_preselected_build_is_the_one_the_rig_needs(
@@ -97,7 +107,10 @@ def test_cancelling_installs_nothing(qapp: QApplication) -> None:
 def test_choosing_a_row_returns_that_row(picker: RipperPickerDialog) -> None:
     """Non-triviality floor for the two tests above: the dialog must actually
     read the buttons, not return its default whatever is checked."""
-    other = next(pin for button, pin in picker._buttons if not button.isChecked())
+    others = [pin for button, pin in picker._buttons if not button.isChecked()]
+    if not others:
+        pytest.skip("one build offered, so there is no other row to choose")
+    other = others[0]
     for button, pin in picker._buttons:
         button.setChecked(pin == other)
     picker._accept_choice()
@@ -132,3 +145,24 @@ def test_the_unapproved_expectation_is_stated_once(
     text = " ".join(label.text() for label in picker.findChildren(QLabel))
     assert "unapproved" in text
     assert "not a fault" in text
+
+
+def test_the_menu_offers_no_test_pin_the_open_round_did_not_nominate() -> None:
+    """A test pin is a round's nomination, not a standing menu item.
+
+    Real-user report, 2026-09-23: the picker still listed `3952c03`, *"the
+    round-21 test pin"*, during round 26, which names no test pin at all. The
+    same defect had been fixed at round 24 in `rig_installs_the_test_pin` and
+    left standing in `ripper_choices` — one predicate, two surfaces, fixed in
+    one. Asserted against the predicate rather than against round 26's state, so
+    it holds on every round: a test-pin row appears exactly when the rig is told
+    to install it.
+    """
+    kinds = [choice.kind for choice in fork_source.ripper_choices()]
+    assert ("test-pin" in kinds) == fork_source.rig_installs_the_test_pin(), (
+        f"the menu lists {kinds}, but rig_installs_the_test_pin() is "
+        f"{fork_source.rig_installs_the_test_pin()} (test pin "
+        f"{fork_source.FORK_TEST_PIN} belongs to round "
+        f"{fork_source.FORK_TEST_PIN_ROUND}; round {fork_source.PIN_UNDER_REVIEW_ROUND} "
+        "is under review)"
+    )
