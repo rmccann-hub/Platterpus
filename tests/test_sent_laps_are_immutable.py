@@ -78,6 +78,10 @@ SENT_LAPS: dict[str, str] = {
     # Round 25 lap 2: GO, landing PROTOCOL v6 / OWNERSHIP v3 / seam-rules v6;
     # released on the maintainer's word 2026-09-23.
     "outbound/round-25-lap-02.md": "3ae11ad1d4e3f7f2a18d83f329409c05c81a38a8cdec428b8ce117d8c64f852c",
+    # Round 25 lap 4: GO, landing the merged v6 (05abdfde…) and naming 0.6.54 as
+    # our candidate; released on the maintainer's word 2026-09-23, after checking
+    # their branch held no newer round-25 lap (the K1 lesson of our lap 2).
+    "outbound/round-25-lap-04.md": "f6d18230a52f47cebb6ff5b0c1722fa6586b49468bb3f3e451f6c8849464b3df",
     # Round 23 lap 2. **Peer-confirmed in their lap 3's `HANDSHAKE-INBOUND-HELD`**,
     # which names it at sha256 `4d1fd006...f38b8`, 18,686 bytes, read at
     # `platterpus@b5af9bec` — and their §D2 says they fetched the branch and

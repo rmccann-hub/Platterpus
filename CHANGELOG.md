@@ -117,6 +117,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Added
 
+- **Our round 25 lap 4 is released**: it lands the one PROTOCOL v6 text both
+  projects will hold, confirms our parser reads the `+platterpus.15` candidate's
+  log, and names 0.6.54, pinned to `3e01bb3`, as the release that ends round 25.
+
 - **The cyanrip fork's round 25 lap 2 is filed, with the `+platterpus.15`
   candidate's reference log.** Our parser reads that log completely, including
   the two new line shapes the candidate can produce. Their lap carries the
