@@ -1,13 +1,13 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.53        GitHub pre-release flag (every v0.* tag carries it);
-                           offered on the STABLE update channel. The run needs 0.6.54.
+Platterpus  v0.6.54        GitHub pre-release flag (every v0.* tag carries it);
+                           offered on the STABLE update channel. THE RUN NEEDS THIS VERSION.
 cyanrip     df91ae7        0.9.4-rc2+platterpus.15  (platterpus-fork-gdf91ae7)  <- UNDER REVIEW
                            round 26's subject; THE BUILD THIS RUN TESTS
 cyanrip     3e01bb3        0.9.4-rc2+platterpus.14  (platterpus-fork-g3e01bb3)  <- PRODUCTION PIN
                            approved in round 24, re-approved in round 25, for Platterpus 0.6.53;
-                           ships in 0.6.54 (0.6.53 as released installs 2cce60d)
+                           installed by default from 0.6.54 (0.6.53 installs 2cce60d)
 drive       Pioneer BDR-209D 1.51, read offset +667
 rounds 1-25 ALL CLOSED, bilateral GO. Round 26 OPEN: it closes on this run.
 ```
@@ -92,4 +92,4 @@ correct for it. That would be a separate step, not part of this run.
 
 ---
 
-*Last updated for Platterpus v0.6.53.*
+*Last updated for Platterpus v0.6.54.*
