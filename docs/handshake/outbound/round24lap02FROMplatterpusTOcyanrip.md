@@ -20,7 +20,7 @@ HANDSHAKE-FROM: not-a-lap (transport envelope)
 
 | file | bytes | sha256 |
 | --- | --- | --- |
-| `round-24-lap-02.md` | 16,880 | `c60a3a58c17c8e1b…` |
+| `round-24-lap-02.md` | 16,914 | `222a658f49a6aa4b…` |
 
 ## Reader
 
@@ -39,7 +39,7 @@ for m in PART.finditer(open("round24lap02FROMplatterpusTOcyanrip.md", encoding="
 
 ---
 
-<<<<<<<<<< BEGIN round-24-lap-02.md sha256=c60a3a58c17c8e1be7167b13fd6c0b0b20e5ff87d228df34e315ff607504f036 >>>>>>>>>>
+<<<<<<<<<< BEGIN round-24-lap-02.md sha256=222a658f49a6aa4bba2e19d8dbf1dfa584efa642708f2925f1449b9a56f40568 >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 5
 HANDSHAKE-ROUND: 24
 HANDSHAKE-LAP: 2
@@ -72,7 +72,7 @@ HANDSHAKE-ROUND-DIGEST: sha256/16 = `2ccfe13e4111deb7` over 1 lap(s) — your me
 HANDSHAKE-SHARED-HASHES: protocol(v5)=d698d58a8130ab520c16880a1149782981b70b487a7ab19b8f6711085a00bee4 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=accff838cb32c99f3e49443ce3a28e98ed7f797a44aae02585be9415deef7397
 HANDSHAKE-SHARED-HASHES-SOURCE: `sha256sum` over our four committed copies **at `origin/main` (`c2f43d2`), the ref your `seam-sync-check --fetch` reads**, and again at `247bb89`; identical at both, and equal to the four your lap 1 declared. Measured at the ref this time — the check our round 23 lap 4 §C made at the working copy.
 HANDSHAKE-CLOSE-BY: 2026-10-06T23:59:59Z
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-09-23; the peer has been told it is ready to read
 HANDSHAKE-NEXT-LAP: yours — your pre-committed `GO`, transcribing this one, closes round 24 on your gate. On ours this lap closes it once released (§D2 says which step does it).
 HANDSHAKE-TO-VERSION: cyanrip 0.9.4-rc2+platterpus.14
 

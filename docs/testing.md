@@ -3075,6 +3075,50 @@ Gates: `test_C15_the_GATE_refuses_a_higher_protocol_not_only_the_helper`,
 `test_every_conformance_row_has_a_test_here` with `_BINDING_ROWS_WITHOUT_A_NAMED_TEST`,
 and `tests/test_every_inbound_lap_passes_check.py`.
 
+### §5.bp — A sent lap is an implementation too: it promised a trigger the code does not use
+
+**2026-09-23, round 24.** Our lap 2's `HANDSHAKE-PIN-POLICY` said, in prose written by
+hand: *"Our `FORK_PIN` rolls `2cce60d` → `3e01bb3` when round 24 closes on BOTH gates —
+on your pre-committed next lap … Not before."* The maintainer released the lap; our gate
+read round 24 CLOSED; `python3 scripts/check.py` went red on
+`test_the_pin_is_the_one_the_newest_closed_handshake_round_verified`, whose failure text
+reads *"A CLOSED round approves the pin it DECLARES. Rolling it forward is the post-close
+step; do not relax this check."* Both were right about their own subject. They disagreed
+because under protocol v5 **the two gates close on different laps**: ours resolves the
+fork's `PEER-VERDICT-SOURCE: none` to our newer, released lap (§5b step 3), theirs reads
+"enumerated" literally until v6 and needs their own lap 3. So "the round closes" named
+lap 2 on one side and lap 3 on the other, and a promise written against one was checked
+against the other.
+
+**The lap was the wrong half, and it could not be fixed**: it was sent, and its bytes
+are pinned in `SENT_LAPS`. The code rolled the constant, the release that ships it to
+users was held for their lap 3 (which is what the promise actually protected), and the
+discrepancy was told to the fork in the standing status rather than left for them to
+find.
+
+Three things to carry:
+
+1. **A statement to a peer about what our code will do is a second implementation of
+   that behaviour**, and it drifts like one. Generate it from the code's own constant
+   (`handshake.PIN_ROLL_TRIGGER`, written into every emitted lap, citing the check that
+   enforces it) and refuse a lap that restates it by hand (`pin_policy_problems`, from
+   round 25). This is *two surfaces, same key?* with one surface being prose.
+2. **When two gates can answer "closed" differently, the output must say which one it
+   is.** A bare CLOSED from our gate while theirs said OPEN is how I nearly read our close
+   as the bilateral one my own lap described. `CLOSED_ONE_LAP_EARLY_NOTE` says so on
+   `--status` and on an allowed release, and retires with v6.
+3. **Conflicts between a promise and a gate get resolved by what the gate protects, not
+   by relaxing it.** The check forbids waiting because a closed round whose pin has not
+   rolled stamps the approved build `unapproved`. The promise forbade *shipping* before
+   the peer's gate closed. Both are kept: constant on `main`, release after lap 3.
+
+Gates: `test_the_emitted_skeleton_states_the_pin_roll_trigger_our_code_enforces`,
+`test_a_round_25_lap_promising_another_pin_roll_trigger_is_refused`,
+`test_the_sent_round_24_lap_is_grandfathered_not_rewritten`,
+`test_a_close_one_lap_before_a_literal_peer_gate_SAYS_so` and its contrast
+`test_a_close_both_gates_agree_on_prints_no_early_note` — six reverts probed, six
+detected.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is

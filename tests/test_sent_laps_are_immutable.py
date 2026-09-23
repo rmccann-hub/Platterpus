@@ -70,6 +70,11 @@ SENT_LAPS: dict[str, str] = {
     # branch was deleted, and `b5af9bec`/`19c8ad20` were briefly unreachable on
     # the remote. Recovered from this session's clone before GitHub ran `gc`.
     "outbound/round-23-lap-04.md": "5ba5cea7665d0dc49409bae6732d73d3448aab3b47ac1521347c7ce8368936fe",
+    # Round 24 lap 2 — our `GO` on `3e01bb3`, released on the maintainer's word
+    # 2026-09-23. Pinned at release, before the peer has read it, because the
+    # bytes they will cite are these; the held version (`c60a3a58…`) differed only
+    # in its `HANDSHAKE-READY-TO-READ` line and was never released.
+    "outbound/round-24-lap-02.md": "222a658f49a6aa4bba2e19d8dbf1dfa584efa642708f2925f1449b9a56f40568",
     # Round 23 lap 2. **Peer-confirmed in their lap 3's `HANDSHAKE-INBOUND-HELD`**,
     # which names it at sha256 `4d1fd006...f38b8`, 18,686 bytes, read at
     # `platterpus@b5af9bec` — and their §D2 says they fetched the branch and

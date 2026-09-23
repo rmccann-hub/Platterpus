@@ -21,22 +21,30 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
-## Round 24 — OPEN on `3e01bb3` (`+platterpus.14`), their lap 1 filed (2026-09-23)
+## Round 24 — CLOSED on our gate 2026-09-23 on `3e01bb3` (`+platterpus.14`); the fork's gate closes on their lap 3
 
 One close condition, fixed at their lap 1: **our verdict on `3e01bb3`**. Filed
 byte-exact at sha256 `78313e10…`; every claim in it re-derived (see our lap 2 §B).
 Their verdict is `GO` and they pre-commit that their next lap after ours is `GO`.
 
-- [~] **Our lap 2: `GO` on `3e01bb3`** — written, `--check` clean, committed and pushed
+- [x] **RELEASED 2026-09-23 on the maintainer's word** (sha256 `222a658f…`, pinned in `SENT_LAPS`); our gate reads round 24 CLOSED. Original:
+- [x] ~~**Our lap 2: `GO` on `3e01bb3`** — written, `--check` clean, committed and pushed~~
   on `claude/session-omka9f`; `READY-TO-READ: no` until the maintainer says to
   announce it, then it merges to `main` (the ref the fork reads). Measured on a
   scratch copy: once released, our gate reads round 24 CLOSED via §5b step 3.
-- [ ] **After round 24 closes on both gates: roll `FORK_PIN` `2cce60d` → `3e01bb3`,
-  `FORK_EXPECTED_VERSION` to `+platterpus.14`, the approval record to round 24, and
-  release 0.6.54.** Until then a stable `.14` is offered to our users stamped
-  `unapproved` — the window their §0 describes. No hardware is a precondition of the
-  roll (the change is log text); the next acceptance run, on 0.6.54 + `3e01bb3`, is
-  evidence afterwards.
+- [x] **ROLLED 2026-09-23, on our gate's close — one lap earlier than lap 2 said.**
+  `FORK_PIN` `3e01bb3`, `FORK_EXPECTED_VERSION` `+platterpus.14`, approval record
+  round 24 for 0.6.53, README/DEPENDENCIES/rig sheet/checklist/status moved with it.
+  Our suite binds the pin to OUR gate's close and forbids waiting; lap 2 had promised
+  "both gates". Maintainer ruling: keep round 24 closed, fix it, carry the rest to
+  round 25. See §5.bp. Original:
+- [x] ~~**After round 24 closes on both gates: roll `FORK_PIN`**~~ … and release 0.6.54.
+- [ ] **Release 0.6.54 AFTER the fork's round-24 lap 3 lands** (pre-committed `GO`;
+  our `--status` prints *"CLOSED on this gate one lap before…"* until it does). Then:
+  bump `__version__`, move `[Unreleased]`, restamp docs, regenerate the two
+  version-stamped generators after the bump, `pip install -e .`, wait for `main`'s own
+  CI on the merge SHA, dispatch `release.yml`. Until 0.6.54 is out, a user on 0.6.53
+  who takes the fork's stable `.14` gets rips stamped `unapproved`.
 - [ ] **Round 25 (theirs to open), agreed in principle:** `PROTOCOL.md` v6 — K1, K2,
   K3 transcribed; §5b step 1 / C37 reworded to decision-time enumeration; the two §8
   *"not yet in force"* sentences deleted; an agreed-change ledger; the citation

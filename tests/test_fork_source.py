@@ -1428,9 +1428,17 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # because it was re-checked against `rmccann-hub/cyanrip`, which is public and
     # cheap for us to read, not because the diff was assumed to be empty.
     #
+    # **FIFTH TIME, ON THE ROLL TO `3e01bb3` (round 24 close, 2026-09-23), AND THE
+    # ANSWER AGAIN DID NOT CHANGE.** Re-derived, not carried: in an unshallowed
+    # clone of their tree, `meson_options.txt` at `3e01bb3` and at `2cce60d` hash
+    # identically (sha256 `0a32b1f7ac8efbde…`), 973 bytes, the one option still
+    # `declare_released`, `value: false`. Their round 24 lap 1 built its tarball
+    # WITH `-Ddeclare_released=true` — which is exactly the release path the
+    # option is for, and exactly why a build we compile must not set it.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
-    assert fork_source.PRODUCTION_TARGET.pin == "2cce60d", (
+    assert fork_source.PRODUCTION_TARGET.pin == "3e01bb3", (
         "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
         "whether we are entitled to any option it declares. Presence is not "
         "permission: `declare_released` is a claim about provenance, and a build "

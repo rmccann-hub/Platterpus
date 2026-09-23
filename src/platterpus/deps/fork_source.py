@@ -180,7 +180,20 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: optional once the round closes: the comment above describes the window it would
 #: otherwise open, where the approved build is stamped `unapproved` in every report,
 #: log and EAC export we write.
-FORK_PIN: Final[str] = "2cce60d"
+#: **Rolled to `3e01bb3` on round 24's close on OUR gate (2026-09-23)** — our lap 2
+#: `GO`, released that day, against their lap 1 `GO`. **This is earlier than our lap
+#: 2's `HANDSHAKE-PIN-POLICY` said**, and the difference is recorded rather than
+#: smoothed over: that lap promised the roll *"when round 24 closes on BOTH gates — on
+#: your pre-committed next lap"*, while this file's own check
+#: (`test_the_pin_is_the_one_the_newest_closed_handshake_round_verified`) binds the
+#: constant to OUR gate's close and forbids waiting, for the reason the paragraph
+#: above gives. The two disagree because the two gates close on different laps under
+#: v5 — ours resolves their `none` peer source to our newer lap (§5b step 3), theirs
+#: keeps the literal reading of "enumerated" until v6 — so "the round closed" named
+#: two different laps. What our lap promised is kept where it matters to a user: the
+#: RELEASE that ships this constant (0.6.54) waits for their lap 3. The wording fix
+#: and the one-lap close are round-25 items (`TASKS.md`).
+FORK_PIN: Final[str] = "3e01bb3"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -403,7 +416,11 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: and named `round-17-lap-03.md` as the lap that declares the pairing. Read off
 #: their closing lap's `HANDSHAKE-RIPPER-VERSION`, not typed from the version we
 #: expected to see.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.13"
+#: **Rolled to `0.9.4-rc2+platterpus.14` on 2026-09-23, with `FORK_PIN`**, read off
+#: round 24 lap 1's `HANDSHAKE-RIPPER-VERSION` — `cyanrip 0.9.4-rc2+platterpus.14
+#: (platterpus-fork-g3e01bb3)` — and cross-checked against `meson.build` at
+#: `3e01bb3` in their tree, which declares the same string.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.14"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -545,7 +562,9 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: round opened — read off their live `release-manifest.json` (`channels.stable` and
 #: `channels.beta` both name `3e01bb3`), not transcribed from the lap. Round 24's one
 #: close condition is our verdict on it. **`FORK_PIN` stays `2cce60d` until round 24
-#: closes**, for the same reason as above.
+#: closes**, for the same reason as above. **It closed on our gate the same day and
+#: `FORK_PIN` rolled with it** — so this is now also the release pin, and it stays
+#: here until the next round opens on a new subject.
 PIN_UNDER_REVIEW: Final[str] = "3e01bb3"
 
 #: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
@@ -1366,16 +1385,18 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 22 approved, GO on both sides, and published by the fork "
-        f"to BOTH channels (cyanrip {FORK_EXPECTED_VERSION}, release_seq 23 — read "
+        "the build round 24 approved, GO on both sides, and published by the fork "
+        f"to BOTH channels (cyanrip {FORK_EXPECTED_VERSION}, release_seq 24 — read "
         "from their live release-manifest.json, and the version cross-checked "
         "against meson.build at the pin itself rather than taken from the lap). "
-        "Round 22's evidence is a PARSE measurement rather than a disc: their "
-        "proposed per-track log rename, applied to the real 3952c03 log, takes our "
-        "track count from 14 to 0 while the report still says 14 tracks and 'No "
-        "errors occurred'. Both sides recorded that the rename is still untested on "
-        "real output, because no build emits it yet. See docs/handshake/inbound/"
-        "round-22-lap-03.md"
+        "It carries round 22's agreed log change and nothing else: per-track "
+        "'Track N read successfully!' replacing 'ripped and encoded successfully!', "
+        "plus the new 'Encoder errors:' line. Round 24's evidence is the fork's "
+        "golden reference (built at 2e6d97d, whose src/ and meson.build are "
+        "identical to this pin), parsed completely by our parser with no "
+        "unrecognised line, and their suite and tarball install at the pin; no "
+        "hardware is a precondition, and the next acceptance run on 0.6.54 is "
+        "evidence afterwards. See docs/handshake/inbound/round-24-lap-01.md"
     ),
 )
 
