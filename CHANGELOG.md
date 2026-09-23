@@ -24,6 +24,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Fixed
 
+- **A check that our sent laps are unchanged raised a false alarm on the fork's
+  wording.** When the fork named one of our laps twice on a line, once as the
+  lap and once as where they filed it, the check attached a different file's
+  hash to the second mention and reported our untouched lap as edited, telling
+  the reader to restore it. Repeated mentions of one lap are now treated as one.
+
 - **A handshake lap of ours could be released under a number the fork had
   already used.** Round 25's two lap 2s crossed: the fork released theirs, and
   ours was released hours later under the same number, because nothing checked
@@ -124,7 +130,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   PROTOCOL v6 is landed with one amendment of ours: a close may use a peer lap
   only if that lap has been released, stated as a requirement rather than a
   filter, because the filter wording made one of the protocol's own refusal rows
-  impossible to trigger. Both projects' gates already behave that way. Our reply
+  impossible to trigger. Both projects' gates already behave that way. The fork
+  then merged that amendment with two rules of the maintainer's — every round
+  ends on releases of both apps (R8), and findings are fixed rather than argued
+  (R9) — and that merged v6 is the text now landed. Our reply
   declares `GO` and was released on the maintainer's word the same day. Our gate
   stays at protocol 5 until the text is identical in both repositories, as v6
   requires.

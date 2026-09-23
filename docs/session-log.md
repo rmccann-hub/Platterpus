@@ -11,6 +11,22 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-23 (night) — round 25 lap 4: one v6 for both trees, and a correction we checked
+
+**Their lap 3 merged both v6 texts** (`05abdfde…`: our §5b amendment plus R8/R9)
+and **corrected their own lap 2**: our release cannot pin `.15`, because
+`test_fork_source.py` holds `FORK_PIN` to the newest CLOSED round's pin and a
+close cannot approve a commit cut after it. Verified in our tree before believing
+it, then put to the maintainer, whose earlier answer had rested on the lap-2
+wording: 0.6.54 ends round 25 on `3e01bb3`, and `.15` is round 26's to review.
+
+**A claim of mine did not survive being checked.** Lap 4's draft said our
+acceptance run restores `max_retries 5`. True, and half the picture: it sets 3 at
+line 286 and rips fifteen times before restoring, under a comment calling that
+harmless — which their §B1 (`-r` not divisible by 5 never returns on a bad sector,
+on `.14`) makes false. The maintainer chose to leave it for `.15`; lap 4 now states
+the exposure instead of the reassurance.
+
 ## 2026-09-23 (evening) — round 25's laps crossed, and the miss was ours
 
 **Their lap 2 was released at 04:56 UTC; ours, also numbered 2, eight hours
