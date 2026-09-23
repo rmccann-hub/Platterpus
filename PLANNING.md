@@ -303,6 +303,7 @@ Platterpus/
         │   ├── rip_progress.py          # live progress + AccurateRip results + log viewer
         │   ├── post_rip_record.py      # one finished album's report inputs, owned by the album
         │   ├── settings_dialog.py       # settings page
+        │   ├── status_colours.py        # theme-aware status colours, checked for contrast
         │   ├── unknown_album.py         # unknown-album helper flow
         │   ├── drive_setup_dialog.py    # drive-setup wizard (AccurateRip-list + manual offset; KDD-15)
         │   ├── host_setup_dialog.py     # host-setup wizard (no-terminal setup-host.sh; KDD-17c)
@@ -508,6 +509,7 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`uninstall_dialog.py`** — `UninstallDialog`, the in-app Uninstaller (Tools → Uninstall Platterpus…, also launched directly by `platterpus --uninstall` from the menu entry). Confirmation gate + per-piece checkboxes (container, whipper.conf; the AppImage step appears only when running as one); drives `deps/host_teardown.py` via the shared worker; on success the main window offers to close itself (its settings no longer exist on disk).
 - **`help_dialogs.py`** — `AboutDialog` (version + Python/Qt/PySide6 versions + config/log/whipper paths) and `HelpDialog` (renders `help_content.USER_GUIDE`).
 - **`dialogs/centering.py`** — `CenteredDialog`, a `QDialog` base that centres itself over the parent window on first show (fixes a multi-monitor "modal on another screen looks frozen" report; best-effort, a no-op under native Wayland), and fits itself to its content and the screen: height grows to what its wrapped text needs at its real width, capped at the screen (2026-09-23 — a picker opened 360 px tall with every paragraph clipped on a 540 px logical screen).
+- **`status_colours.py`** — the one place a status colour is chosen: a light-theme and a dark-theme variant per level (ok / warn / neutral / error), picked from the widget's own window colour and each checked at ≥4.5:1 against its side's backgrounds (WCAG 2.2 AA). `SECONDARY_STYLE` de-emphasises with italics rather than dimming. Gated by `tests/test_readable_colours.py`, which also refuses a raw hex colour or `palette(mid)` in any other UI string.
 - **`dialogs/fit_scroll_area.py`** — `FitScrollArea`, the scroll area for a dialog BODY whose length is not ours to fix: its size hint carries the whole content, so the dialog sizes to the text and the body scrolls only once the screen runs out, with the buttons kept outside it. Used by the cyanrip build picker and Setup & Updates; gated by `tests/test_dialogs_fit_their_content.py`.
 - **`dialogs/auto_center.py`** — an application-wide event filter that centres *every* first-shown dialog — including the plain `QMessageBox`/`QFileDialog` static calls that can't subclass `CenteredDialog` — over the main window.
 - **`dialogs/pending_installs.py`** — `PendingInstallsDialog(QDialog)`. Tier (b) UI: per-item checkboxes, "Install selected" button, per-item progress feedback. Backed by `QueuedInstaller`.

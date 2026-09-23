@@ -13,6 +13,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Fixed
 
+- **Status colours were hard to read on a dark theme.** The rip verdict's green,
+  the amber warnings and the red validation errors used fixed colours that
+  measured 2.5–3.2:1 against Breeze Dark, Bazzite's default. Accessible text
+  needs 4.5:1. Three secondary lines, including the naming "Example:" in
+  Settings, used a shading colour that measured about 1.1:1 and was close to
+  invisible. Each status now has a light-theme and a dark-theme colour, chosen
+  from the window's own background and each checked above 4.5:1. The secondary
+  lines use normal text in italics. A check refuses any colour picked anywhere
+  else in the interface.
+
+- **The main window did not fit on small screens.** Its panes refuse to shrink
+  below a usable size, and together that floor is about 605 px. On a Steam Deck
+  at 150% scaling, a 1080p laptop at 200% and a 1024×600 netbook, the bottom of
+  the window, with Start rip and the verdict, was off the screen. The page now
+  scrolls when the screen is shorter than that, and looks unchanged on any
+  screen tall enough. The window-fit check now measures the main window and all
+  15 dialogs on 14 standard screen sizes, from 853×533 to 4K.
+
 - **Pressing OK in Settings could undo a read offset the drive wizard had just
   saved.** Settings showed the offset it opened with; the wizard, opened from
   Settings' own Re-detect… button, saved a new one; OK then wrote the old value

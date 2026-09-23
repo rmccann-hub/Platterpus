@@ -21,8 +21,10 @@ from PySide6.QtCore import Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
     QDialog,
+    QFrame,
     QMainWindow,
     QMessageBox,
+    QScrollArea,
     QSplitter,
     QSystemTrayIcon,
     QVBoxLayout,
@@ -619,16 +621,31 @@ class MainWindow(
         self._drive_access_nudged: bool = False
 
         # --- Widgets -------------------------------------------------------
-        central = QWidget(self)
+        # BUILT TOP-DOWN: every widget is created under the parent it ends up in.
+        # The first version of the page scroll (below) created `central` under the
+        # window and let `setWidget` move it into the scroll area — and a window
+        # that had been SHOWN then segfaulted when Python's garbage collector
+        # destroyed it, in `QWidget::~QWidget` walking up a parent chain
+        # (reproduced standalone and under gdb, 2026-09-23). A normal quit ends
+        # exactly that way, so it would have crashed on every exit. What crashed
+        # was a POPULATED widget moved into a container created after it; even a
+        # plain extra `QWidget` layer did it. Revert probes found the trigger
+        # order-sensitive (the same parts in another creation order did not
+        # crash), so the rule is the construction, not a mechanism we can name:
+        # create the container first, and every child inside its final parent.
+        # Pinned by
+        # `tests/test_ui_main_window.py::test_a_shown_window_survives_being_garbage_collected`.
+        self._page_scroll: QScrollArea = QScrollArea(self)
+        central = QWidget(self._page_scroll.viewport())
         root = QVBoxLayout(central)
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(8)
 
-        self._drive_picker: DrivePicker = DrivePicker(backend, self)
-        self._disc_info_panel: DiscInfoPanel = DiscInfoPanel(self)
-        self._track_table: TrackTable = TrackTable(self)
-        self._rip_controls: RipControls = RipControls(config, self)
-        self._rip_progress: RipProgress = RipProgress(self)
+        self._drive_picker: DrivePicker = DrivePicker(backend, central)
+        self._disc_info_panel: DiscInfoPanel = DiscInfoPanel(central)
+        self._track_table: TrackTable = TrackTable(central)
+        self._rip_controls: RipControls = RipControls(config, central)
+        self._rip_progress: RipProgress = RipProgress(central)
 
         # The drive selector stays a fixed top bar; everything below it lives in
         # a vertical splitter so the user can drag the boundaries to give more
@@ -699,7 +716,22 @@ class MainWindow(
         # Eject outcome — only speaks when the eject FAILED (see _on_eject_finished).
         self.eject_finished.connect(self._on_eject_finished)
 
-        self.setCentralWidget(central)
+        # THE PAGE SCROLLS WHEN THE SCREEN IS SHORTER THAN THE WINDOW'S FLOOR.
+        # The panes above refuse to shrink below a usable size — collapsing them
+        # once left a 14-track disc showing 2 rows — and together that floor is
+        # about 605 px. Measured 2026-09-23 on the standard-resolution matrix in
+        # `tests/test_dialogs_fit_their_content.py`: on a Steam Deck at 150%
+        # (533 px), a 1080p laptop at 200% (540 px) and a 1024x600 netbook, the
+        # window was forced taller than the screen and its bottom — Start rip and
+        # the verdict — was off it. Wrapping the page in a scroll area lowers the
+        # window's own floor to what the screen can give; on any screen tall
+        # enough the scroll area is invisible, because the page is resized to fit.
+        # The frame is off so it never reads as a nested panel.
+        self._page_scroll.setWidget(central)
+        self._page_scroll.setWidgetResizable(True)
+        self._page_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._page_scroll.setAccessibleName("Platterpus main window")
+        self.setCentralWidget(self._page_scroll)
 
         # --- MusicBrainz worker --------------------------------------------
         # One worker for the lifetime of the window. Lives on its own

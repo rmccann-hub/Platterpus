@@ -47,10 +47,30 @@ import pytest
 REPO_ROOT: Path = Path(__file__).resolve().parents[1]
 SRC: Path = REPO_ROOT / "src"
 
-#: The screen shapes measured. 960 × 540 is the one that reproduced the report and
-#: the one most likely to find the next overflow; 1920 × 1080 is the common
-#: unscaled desktop, where a dialog must also not be SMALLER than its text.
-SCREENS: tuple[tuple[int, int], ...] = ((960, 540), (1920, 1080))
+#: Every standard screen shape, as the LOGICAL size the desktop reports — scaling
+#: is what makes a big panel a small screen, so a 1080p panel at 200% is 960 × 540
+#: here. The maintainer's instruction, 2026-09-23: *"make sure rules for the
+#: windows work across all standard window resolutions, I only gave you what I am
+#: using."* The first version of this file measured two shapes; this is the set a
+#: Linux desktop, a laptop and a handheld (Bazzite's other target) actually report.
+#: All of them run in ONE interpreter — the offscreen plugin takes several screens
+#: side by side — so the matrix costs one subprocess, not fourteen.
+SCREENS: tuple[tuple[str, int, int], ...] = (
+    ("steamdeck-150pct", 853, 533),  # 1280x800 at 150%
+    ("1080p-200pct", 960, 540),  # the shape that reproduced the report
+    ("netbook", 1024, 600),
+    ("xga", 1024, 768),
+    ("720p", 1280, 720),  # also 1080p at 150%, 1440p at 200%
+    ("steamdeck", 1280, 800),  # also 2560x1600 at 200% (Legion Go)
+    ("laptop-hd", 1366, 768),  # the most common laptop panel
+    ("wxga-plus", 1440, 900),
+    ("1080p-125pct", 1536, 864),
+    ("hd-plus", 1600, 900),
+    ("1080p", 1920, 1080),
+    ("wuxga", 1920, 1200),
+    ("1440p", 2560, 1440),
+    ("4k", 3840, 2160),
+)
 
 #: A dialog class name must appear here to be measured — and every
 #: `CenteredDialog` subclass in the source must appear here, or the completeness
@@ -197,16 +217,55 @@ def _measure_one(dialog: object) -> dict[str, object]:
     return report
 
 
-def _measure_all() -> dict[str, object]:
-    """Subprocess entry: every dialog, plus the picker with a long list."""
-    from unittest import mock
+def _main_window() -> object:
+    """The main window, built with the same stand-ins its own tests use."""
+    from test_ui_main_window import _FakeBackend, _FakeMb
 
+    from platterpus.adapters.metaflac import MetaflacAdapter
+    from platterpus.config import Config
+    from platterpus.deps.manager import DependencyManager
+    from platterpus.ui.main_window import MainWindow
+
+    # Built as an install that has ALREADY answered its first-run questions. The
+    # first version built a fresh `Config()`, so showing the window fired the
+    # one-time "Set up Platterpus?" question — a static `QMessageBox.question`,
+    # which waits forever for a click on an offscreen screen, and hung the whole
+    # measurement past its 240 s budget. The layout under test is the everyday
+    # window, not the first-run prompt.
+    answered = Config(
+        host_setup_prompted=True,
+        drive_setup_prompted=True,
+        appimage_integration_prompted=True,
+    )
+    return MainWindow(
+        config=answered,
+        backend=_FakeBackend(),
+        mb_client=_FakeMb(),
+        metaflac=MetaflacAdapter(),
+        dependency_manager=DependencyManager(specs=[]),
+        save_config=lambda _cfg: None,
+    )
+
+
+def _measure_all() -> dict[str, object]:
+    """Subprocess entry: every window on this process's one screen."""
+    from conftest import stop_window_threads
     from PySide6.QtWidgets import QApplication
 
     _app = QApplication([])
     results: dict[str, object] = {}
     for name, make in _factories().items():
         results[name] = _measure_one(make())  # type: ignore[operator]  # factories are callables
+    window = _main_window()
+    results["MainWindow"] = _measure_one(window)
+    stop_window_threads(window)
+    results.update(_measure_long_picker())
+    return results
+
+
+def _measure_long_picker() -> dict[str, object]:
+    """The picker with more rows than any round has offered."""
+    from unittest import mock
 
     # FUTURE-PROOFING, measured rather than promised. The picker lists whatever
     # builds the handshake record names; the maintainer asked that it keep
@@ -222,56 +281,76 @@ def _measure_all() -> dict[str, object]:
         report = _measure_one(picker)
         bar = picker._body_scroll.verticalScrollBar()
         report["scroll_range"] = bar.maximum() - bar.minimum()
-        results["RipperPickerDialog[8 rows]"] = report
-    return results
+    return {"RipperPickerDialog[8 rows]": report}
 
 
-def _run_on_screen(width: int, height: int) -> dict[str, dict[str, object]]:
-    config = Path(tempfile.mkdtemp()) / "screen.json"
-    config.write_text(
-        json.dumps(
-            {
-                "screens": [
-                    {
-                        "name": f"{width}x{height}",
-                        "x": 0,
-                        "y": 0,
-                        "width": width,
-                        "height": height,
-                        "logicalDpi": 96,
-                        "dpr": 1,
-                    }
-                ]
-            }
-        ),
-        encoding="utf-8",
-    )
+def _run_on_all_screens() -> dict[str, dict[str, dict[str, object]]]:
+    """Measure every window on every screen shape — one process per shape.
+
+    **Why one process each, run side by side.** The screen is fixed when Qt
+    starts, and the offscreen plugin will not move a window between screens: a
+    `setScreen` on its second screen object found it already deleted. So each
+    shape gets its own interpreter, and they all run at once, which costs about
+    as much wall-clock as one.
+    """
+    tmp = Path(tempfile.mkdtemp())
     env = dict(os.environ)
-    env["QT_QPA_PLATFORM"] = f"offscreen:configfile={config}"
     env["PYTHONPATH"] = os.pathsep.join([str(SRC), str(REPO_ROOT / "tests")])
-    proc = subprocess.run(
-        [sys.executable, __file__, "--measure"],
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=240,
-        check=False,
-    )
-    assert proc.returncode == 0, (
-        f"the measuring subprocess failed (exit {proc.returncode}):\n"
-        f"{proc.stdout[-3000:]}\n{proc.stderr[-3000:]}"
-    )
+    procs: dict[str, subprocess.Popen[str]] = {}
+    for name, width, height in SCREENS:
+        config = tmp / f"{name}.json"
+        screen = {
+            "name": name,
+            "x": 0,
+            "y": 0,
+            "width": width,
+            "height": height,
+            "logicalDpi": 96,
+            "dpr": 1,
+        }
+        config.write_text(json.dumps({"screens": [screen]}), encoding="utf-8")
+        procs[name] = subprocess.Popen(
+            [sys.executable, __file__, "--measure"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env={**env, "QT_QPA_PLATFORM": f"offscreen:configfile={config}"},
+        )
+    measured: dict[str, dict[str, dict[str, object]]] = {}
     marker = "MEASUREMENTS:"
-    line = next((ln for ln in proc.stdout.splitlines() if ln.startswith(marker)), None)
-    assert line is not None, f"no measurements printed:\n{proc.stdout[-3000:]}"
-    parsed: dict[str, dict[str, object]] = json.loads(line[len(marker) :])
-    return parsed
+    for name, proc in procs.items():
+        try:
+            out, err = proc.communicate(timeout=240)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            out, err = proc.communicate()
+            raise AssertionError(
+                f"{name}: the measurement hung\n{err[-3000:]}"
+            ) from None
+        assert proc.returncode == 0, (
+            f"{name}: the measuring subprocess failed (exit {proc.returncode}):\n"
+            f"{out[-3000:]}\n{err[-3000:]}"
+        )
+        line = next((ln for ln in out.splitlines() if ln.startswith(marker)), None)
+        assert line is not None, f"{name}: no measurements printed:\n{out[-3000:]}"
+        measured[name] = json.loads(line[len(marker) :])
+    return measured
 
 
-@pytest.fixture(scope="module", params=SCREENS, ids=lambda s: f"{s[0]}x{s[1]}")
-def measured(request: pytest.FixtureRequest) -> dict[str, dict[str, object]]:
-    width, height = request.param
-    return _run_on_screen(width, height)
+@pytest.fixture(scope="module")
+def all_screens() -> dict[str, dict[str, dict[str, object]]]:
+    return _run_on_all_screens()
+
+
+@pytest.fixture(params=[name for name, _w, _h in SCREENS])
+def measured(
+    request: pytest.FixtureRequest,
+    all_screens: dict[str, dict[str, dict[str, object]]],
+) -> dict[str, dict[str, object]]:
+    assert request.param in all_screens, (
+        f"screen {request.param!r} was not measured: {sorted(all_screens)}"
+    )
+    return all_screens[request.param]
 
 
 def test_no_dialog_clips_its_own_text(measured: dict[str, dict[str, object]]) -> None:
