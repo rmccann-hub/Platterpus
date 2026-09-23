@@ -21,7 +21,7 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
-## Round 24 — CLOSED on our gate 2026-09-23 on `3e01bb3` (`+platterpus.14`); the fork's gate closes on their lap 3
+## Round 24 — CLOSED on both gates 2026-09-23 on `3e01bb3` (`+platterpus.14`): ours at our lap 2, theirs at their lap 3
 
 One close condition, fixed at their lap 1: **our verdict on `3e01bb3`**. Filed
 byte-exact at sha256 `78313e10…`; every claim in it re-derived (see our lap 2 §B).
@@ -39,7 +39,10 @@ Their verdict is `GO` and they pre-commit that their next lap after ours is `GO`
   "both gates". Maintainer ruling: keep round 24 closed, fix it, carry the rest to
   round 25. See §5.bp. Original:
 - [x] ~~**After round 24 closes on both gates: roll `FORK_PIN`**~~ … and release 0.6.54.
-- [ ] **Release 0.6.54 AFTER the fork's round-24 lap 3 lands** (pre-committed `GO`;
+- [x] ~~**Release 0.6.54 AFTER the fork's round-24 lap 3 lands**~~ — lap 3 landed (`GO`),
+  and their round 25 lap 1 opened round 25 at the same time, so the release is now the
+  maintainer's decision under the open-round rule; tracked in the round 25 section. Original
+  steps, still the ones to run when it goes: (pre-committed `GO`;
   our `--status` prints *"CLOSED on this gate one lap before…"* until it does). Then:
   bump `__version__`, move `[Unreleased]`, restamp docs, regenerate the two
   version-stamped generators after the bump, `pip install -e .`, wait for `main`'s own
@@ -53,6 +56,33 @@ Their verdict is `GO` and they pre-commit that their next lap after ours is `GO`
   a root and `2cce60d` unreachable — which would have read as "your branch was
   re-rooted and our pin is orphaned". A fresh full clone showed neither; their own
   `c449a92` fixed the same trap in their tool. The clone is now unshallowed.
+
+## Round 25 — OPEN 2026-09-23 on shared TEXT (pin `3e01bb3` unchanged); our lap 2 `GO` written and held
+
+Their lap 1 (`cyanrip@5164c25`, sha256 `78485c98…`) closes the round on two
+conditions, fixed under S-13: **PROTOCOL v6** and **OWNERSHIP v3 + seam-rules v6**
+byte-identical in both trees. Every claim in it re-derived (our lap 2 §B). Every
+other agenda item is placed by name in their §E; we accept the placement.
+
+- [x] **Filed their round 24 lap 3** (`16dd8a2a…`, `GO`) — round 24 CLOSED on both gates.
+- [x] **Filed their round 25 lap 1**; `CURRENT_ROUND` 25, `PIN_UNDER_REVIEW_ROUND` 25,
+  handshake README row, standing status.
+- [x] **Landed the three texts** — OWNERSHIP v3 and seam-rules v6 byte for byte, PROTOCOL
+  v6 with one amendment (§5b step 1: release is a requirement on the candidate, not a
+  filter, or C38 cannot fire). `_BOOTSTRAP_REASON` set (gate at 5, spec at 6, per v6 §14).
+- [x] **Fixed the coverage check's hand-listed version tiers** — it read tiers (4, 5), so v6's
+  rows bound at once; it now reads each block's version off its heading.
+- [x] **Our lap 2: `GO`**, `--check` clean, `READY-TO-READ: no`.
+- [ ] **Release lap 2 on the maintainer's word** (`--announce`), merge to `main` — the texts
+  must reach `main` in the commit that releases it.
+- [ ] **0.6.54: the maintainer's decision** — wait for round 25 to close, or a written
+  `HANDSHAKE-OVERRIDE` (§6a-ter).
+- [ ] **N4: confirm with the maintainer directly** that the policy is (a), as the fork's round
+  24 lap 3 §F reports, then implement it in `release.yml` + `--release-gate` (strict for any
+  release our updater offers on stable while a round is open).
+- [ ] **After round 25 closes: implement protocol 6** — C44/C45 (`HANDSHAKE-AGREED-CHANGES`),
+  amended C13a, K2's `INBOUND-HELD`/`INBOUND-OBSERVED` split, a row-named test each; clear
+  `_BOOTSTRAP_REASON` in that commit.
 
 ## Round 25 — the complete known-issue agenda (compiled 2026-09-23)
 

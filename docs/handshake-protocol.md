@@ -1,4 +1,4 @@
-# Handshake protocol v5
+# Handshake protocol v6
 
 **This file is the shared language. Both projects implement it; neither owns
 it.** cyanrip and Platterpus each have a gate that reads round files and decides
@@ -163,7 +163,7 @@ HANDSHAKE-PIN: <sha>
 
 | field | value | notes |
 |---|---|---|
-| `HANDSHAKE-PROTOCOL` | integer | this spec's version. A gate that reads a **higher** number than it implements must refuse the round rather than guess. |
+| `HANDSHAKE-PROTOCOL` | integer | this spec's version. A gate that reads a **higher** number than it implements must refuse the round rather than guess — **in any file of the round, its own or the peer's, not only the newest** (v6, C43). |
 | `HANDSHAKE-ROUND` | integer | must match the round the file belongs to. A file declaring a different round than it is filed under is a bookkeeping error and refused. |
 | `HANDSHAKE-LAP` | integer ≥ 1 | absent means lap 1. **A round's state is its latest lap's verdict** — by declared number, never by filename or mtime. |
 | `HANDSHAKE-FROM` | `cyanrip-fork` \| `platterpus` | who wrote it. Makes a crossed pair unambiguous without relying on filename conventions. |
@@ -218,7 +218,7 @@ HANDSHAKE-TO-VERSION:   platterpus 0.6.12b6
 | field | value | notes |
 |---|---|---|
 | `HANDSHAKE-FROM-REPO` | canonical URL | **required from round 9.** The repository the file was authored in. A URL, not a nickname: `HANDSHAKE-FROM` stays as the human-readable party name and is not an address. |
-| `HANDSHAKE-FROM-COMMIT` | short SHA | **required from round 9.** The commit of the sending tree **at the moment the lap was written** — *not* `HANDSHAKE-PIN`, which is the commit under review. They are equal only by coincidence. Every `file:line` and every measurement in the lap resolves against this commit. |
+| `HANDSHAKE-FROM-COMMIT` | short SHA | **required from round 9. Amended in v6 (§3b).** A commit **reachable from the branch on which the sender publishes its laps**, at which every `file:line` and every measurement in the lap resolves — *not* `HANDSHAKE-PIN`, which is the commit under review. They are equal only by coincidence. |
 | `HANDSHAKE-FROM-VERSION` | version string | the sending project's own version at that commit. |
 | `HANDSHAKE-TO-REPO` | one or more canonical URLs, comma-separated | **required from round 9.** Who the file is addressed to. A repository that does not find itself here **must not act on the file** — it may read it, but it is not a party. |
 | `HANDSHAKE-TO-VERSION` | version string, one per `TO-REPO` in the same order | **what the sender believes the recipient currently is.** This is the field that makes confirmation real rather than assumed. |
@@ -247,6 +247,33 @@ against what that build actually did.
 own lap and its own confirmation line. **A round has exactly one opener and one
 lap sequence**; additional recipients participate in that sequence and do not
 start parallel ones.
+
+## 3b. What a citation names (v6)
+
+**A citation is an anchor and a hint, and they do different jobs.** v3 made every
+lap name `HANDSHAKE-FROM-COMMIT` and defined it as *"the commit of the sending
+tree at the moment the lap was written"*. The two projects then read that two
+ways: cyanrip as the parent of the commit that releases the lap, Platterpus as
+the newest commit on the branch it publishes. Both are defensible, and every test
+on both sides passed. Meanwhile one lap's evidence sat on a session branch at a
+third commit.
+
+- **The anchor is content.** A file the other side is asked to rely on — a lap, a
+  standing status, a rig artifact, a shared document — is cited by the **sha256
+  of its exact bytes**, with its byte count. A content hash cannot be pruned.
+- **The hint is a commit.** Name a commit at which the file can be fetched,
+  beside the hash. A commit is a location. On a repository that squash-merges
+  and deletes merged branches, a commit that is not an ancestor of the published
+  branch is destroyed by routine `git gc`, and every citation of it stops
+  resolving. cyanrip's round 23 lap 3 cites Platterpus's `b5af9bec`, which is the
+  worked example: that branch is kept only because the citation needs it.
+- **Only a sent lap has a hash worth quoting** (§5a).
+- **`HANDSHAKE-FROM-COMMIT` is defined by what it must do**: a commit reachable
+  from the branch on which the sender publishes its laps, at which the lap's
+  `file:line` citations and measurements resolve. Either project's current choice
+  satisfies it whenever the cited evidence is on that branch. Evidence that is
+  only on an unpublished branch satisfies neither, and is cited by content hash
+  instead. `HANDSHAKE-FROM-COMMIT-SOURCE`, optional, says how the sender chose it.
 
 ## 4. Verdict vocabulary — closed set
 
@@ -314,6 +341,18 @@ sent lap is never edited; a correction is a **new lap** that says what it
 corrects. A lap that was drafted and never sent may be edited or deleted freely
 and leaves no trace — but the moment it is handed over it is evidence.
 
+**A lap is sent when it is released, and its number is claimed then (v6, K1).**
+A lap is `SENT` when its operator releases it for reading —
+`HANDSHAKE-READY-TO-READ: yes` (§5c) — not when it is committed. Committed and
+pushed but not released is still `DRAFT`: it may be revised, so a mistake found
+after `git push` has somewhere to go. **The lap number is claimed at the same
+moment.** Each side allocates the next number from its own tree and neither gate
+can see the other's held laps, so two laps drafted at once can carry the same
+number; round 21 produced two lap 4s, one per project. The number belongs to
+whichever is released first, and a held lap whose number has been taken is
+renumbered before it is released. Two *released* laps declaring the same number
+are still ambiguous (§2 rule 3), and ambiguity is not a close.
+
 **`RECEIVED` is only claimable by the recipient**, in its own next lap, via
 `HANDSHAKE-INBOUND-HELD` (§5a). The sender may never mark its own lap received;
 that is the assumption that hid thirteen undelivered laps.
@@ -370,7 +409,7 @@ Write down what they declared. If they said `HOLD`, record `HOLD` — do not
 translate an encouraging paragraph into a `GO`. If their file is ambiguous, that
 is a lap, not a close.
 
-## 5b. Where the peer verdict may be resolved from (v5)
+## 5b. Where the peer verdict may be resolved from (v5; step 1 amended in v6)
 
 **§5's required list is unchanged. What v5 changes is where
 `HANDSHAKE-PEER-VERDICT` may be RESOLVED from when a gate decides a close.**
@@ -401,9 +440,17 @@ verbatim rather than renamed.
 
 **The rule.** A gate resolving a close MUST:
 
-1. **Identify the candidate lap**: the newest peer lap that it holds, that it has
-   enumerated in `HANDSHAKE-INBOUND-HELD`, and that declares
-   `HANDSHAKE-READY-TO-READ: yes` (§5c).
+1. **Identify the candidate lap**: the newest peer lap **filed in the gate's own
+   record when it decides** — held, not merely fetchable. **It must declare
+   `HANDSHAKE-READY-TO-READ: yes` (§5c); if it does not, the round does not close
+   (C38).** An older released lap is never used in place of a newer one that is
+   not released. **Amended in v6.** v5 also required the
+   lap to be enumerated in the closing file's own `HANDSHAKE-INBOUND-HELD`. The
+   lap that makes step 3 useful is always written *after* the closing file, so
+   under that reading step 3 could not fire on any real record, and cyanrip's one
+   test showing it close used a fixture in which a lap declared that it held a lap
+   not yet written. The closing file's `HANDSHAKE-INBOUND-HELD` still says what its
+   writer held; the source the gate prints (C42) says what the close rested on.
 2. **If that lap is the one `HANDSHAKE-PEER-VERDICT-SOURCE` names**, cross-check
    the declared value against the lap's own `HANDSHAKE-VERDICT` and **refuse on
    any mismatch**, naming both values and both files. A transcription that
@@ -416,7 +463,7 @@ verbatim rather than renamed.
    own tree states is precisely the failure §5 exists to prevent. **This step is
    the whole of v5's saving**; steps 1, 2 and 4 are what make it safe.
 4. **If it holds no such lap**, the round does not close, and the gate MUST say
-   which of the three conditions in step 1 failed.
+   which condition in step 1 failed.
 
 **What this does not do.** It does not let a gate infer a verdict from prose,
 from silence, or from tone. *Transcribed, not judged* is unchanged and now
@@ -453,6 +500,54 @@ may act on it."** Platterpus made this point against cyanrip's own proposal,
 which had not noticed that it promotes an existing safety net into the
 load-bearing element.
 
+## 5d. A warning about a held lap goes where its reader can open it (v6, K3)
+
+**Before writing down any correction or warning, ask: can the person it is for
+open the thing it is in?**
+
+A published lap that is not yet released (§5c) cannot be read by the other side,
+so anything written into it for them does not reach them. Round 21 lap 4 carried
+*"the SHA you recorded is stale"* inside the one document its reader was blocked
+from opening, and it arrived only because its writer noticed and told the
+operator. **A warning that lives only inside an artifact its reader cannot open
+is not a warning.**
+
+When the answer is no, the warning goes in the writer's **standing status**: a
+document each side keeps between laps, rewritten in place, which declares no
+`HANDSHAKE-*` field and so is counted by no enumerator (§5a). It is the one
+message about a lap that legitimately travels outside one, and it is narrow by
+construction: it concerns a lap its reader cannot yet open.
+
+*The rule is the question, not the destination, on purpose.* A rule phrased as a
+destination gets followed when someone remembers the destination; a rule phrased
+as a question gets asked at the moment the correction is written. (Platterpus's
+drafting, round 22 lap 2 §0.1, adopted in cyanrip's lap 3.)
+
+## 5e. The agreed-change ledger (v6)
+
+**A round closes on agreement, and agreement is not delivery.** K1 and K3 were
+agreed in round 22 and K2 in round 21, and round 23 agreed a qualifier on
+cyanrip's `Handshake:` log line. Each round closed correctly, and none of the four
+was built by the time the next round opened, because the building was left to
+memory and memory does not survive a round boundary. So a closing lap carries a
+ledger:
+
+```
+HANDSHAKE-AGREED-CHANGES: K1 landed at 1a2b3c4 (PROTOCOL.md v6); the Handshake: qualifier not landed, cyanrip's
+HANDSHAKE-AGREED-CHANGES: none
+```
+
+- **Required on a file declaring protocol 6 or later and verdict `GO`** (C44).
+  `none` is legal and is written out.
+- It lists every change **this round agreed, and every change an earlier round's
+  ledger carried as `not landed`**, each with **the commit that landed it, or
+  `not landed` and whose it is**. An entry leaves the ledger when it lands or when
+  both sides withdraw it in a lap.
+- **It does not gate the close** (C45). A round may close with changes not landed;
+  the ledger makes that visible and carries them forward.
+- Each side writes its own. A difference between the two sides' ledgers is worth
+  one line in the next lap, not a lap of its own.
+
 ## 5a. Both sides must be able to prove they hold the same record (v3)
 
 **This is the checksum, and it exists because both gates reported healthy
@@ -479,6 +574,23 @@ different claims.
 exist, say so: *"there is no lap 4"* and *"we never received your lap 4"* are the
 two answers a broken channel makes indistinguishable, and only the sender can
 tell them apart.
+
+**Sent laps here, held ones beside it (v6, K2).** `HANDSHAKE-INBOUND-HELD` lists
+peer laps that are **released** (§5c), each with its declared verdict and the
+sha256 and byte count of the copy held: a hash of a sent lap is a fact about that
+lap. A peer lap the writer can see but that is **not yet released** goes in
+`HANDSHAKE-INBOUND-OBSERVED` instead, naming the commit it was read at and **no
+hash**:
+
+```
+HANDSHAKE-INBOUND-OBSERVED: round-21-lap-04.md (READY-TO-READ: no), read at platterpus@27a174dc
+HANDSHAKE-INBOUND-OBSERVED: none
+```
+
+A held lap declares itself mutable, so its size and digest at one commit identify
+that commit, not the lap: round 21's held lap 4 was quoted at 31,732 bytes and
+was half again as large at the next tip. `none` is legal and is written out, as
+for `-HELD`.
 
 ### `HANDSHAKE-ROUND-DIGEST` — the checksum
 
@@ -797,7 +909,7 @@ this table rather than asserted alongside it.
 | C11 | unrecognised verdict | refuse |
 | C12 | declared round ≠ the round it is filed under | refuse |
 | C13 | a later lap declaring `HOLD` after an earlier lap's `GO`, where that `GO` did **not** close the round (no peer verdict, missing fields) | refuse — the round was never closed, and the latest lap governs |
-| C13a | a later lap of any verdict after the round reached a **terminal** state (§4a) | refuse the *file* as an illegal transition; the round stays closed. **v3 changed this**: under v2 it reopened the round |
+| C13a | a later lap after the round reached a **terminal** state (§4a), declaring a verdict **other than the one that made it terminal** | refuse the *file* as an illegal transition; the round stays in its terminal state. **A later lap declaring the same verdict is not a transition**: under §5b the second side's closing lap follows the close on the first side's gate. **v3 changed this**: under v2 it reopened the round. **Amended in v6**: v3–v5 said *of any verdict*, which refuses that closing lap |
 | C14 | no round files at all | refuse; an empty record is not agreement |
 | C15 | `HANDSHAKE-PROTOCOL` higher than implemented | refuse rather than guess |
 | C16 | complete two-sided tested round | **allow** — a gate that can never say yes is a wall, not a gate |
@@ -808,7 +920,7 @@ this table rather than asserted alongside it.
 
 ### Rows added in v3/v4 — required once both gates implement 4
 
-**These are not yet in force.** A gate implementing protocol 2 must not be
+A gate implementing protocol 2 must not be
 failed for missing them, and a gate implementing 4 must have every one. The
 split is by heading rather than by a list a test hardcodes, so bumping
 `PROTOCOL_VERSION` turns them on with no second edit — a deferral that needs a
@@ -838,19 +950,30 @@ everything passes every other test in the table.
 
 ### Rows added in v5 — required once both gates implement 5
 
-**Not yet in force.** A gate implementing 4 must not be failed for missing them;
+A gate implementing 4 must not be failed for missing them;
 a gate implementing 5 must have every one. Split by heading for the same reason
 as the v3/v4 block: a deferral that needs a human to remember it is one that
 rots.
 
 | ID | case | expected |
 |---|---|---|
-| C37 | a close resolving the peer verdict under §5b from a lap **not enumerated** in `HANDSHAKE-INBOUND-HELD` | refuse; §5b reads a lap the closing side has declared it holds, never any lap it happens to be able to fetch |
+| C37 | a close resolving the peer verdict under §5b from a lap the gate does **not hold in its own record** when it decides | refuse; §5b reads a lap the deciding side has filed, never one it can merely fetch. **Amended in v6**: v5 required the lap to be named in the closing file's `HANDSHAKE-INBOUND-HELD` (§5b step 1) |
 | C38 | the §5b candidate lap's `HANDSHAKE-READY-TO-READ` is not `yes`, is absent, or cannot be established | refuse, **naming that lap and the value read** (§5c) |
 | C39 | the §5b lap is the one `HANDSHAKE-PEER-VERDICT-SOURCE` names, and the two verdicts **disagree** | refuse, naming both values and both files |
 | C40 | the §5b lap is **newer** than the one `HANDSHAKE-PEER-VERDICT-SOURCE` names | **allow**, resolved on the peer lap's own declaration, **and print both** |
 | C41 | a file declaring `HANDSHAKE-PROTOCOL: 5` with `HANDSHAKE-PEER-VERDICT` or `HANDSHAKE-PEER-VERDICT-SOURCE` absent | refuse; §5b changes where the field is resolved from, not whether it is required |
 | C42 | a gate declaring 5 that closes a round **without** printing which lap the peer verdict came from | refuse; under §5b the close rests on a file in the peer's tree, and a close whose source is invisible cannot be audited later |
+
+### Rows added in v6 — required once both gates implement 6
+
+A gate implementing 5 must not be failed for missing them; a gate implementing 6
+must have every one.
+
+| ID | case | expected |
+|---|---|---|
+| C43 | **any** file of the round — the gate's own or the peer's, not only the one its verdict is read from — declares a `HANDSHAKE-PROTOCOL` higher than the gate implements | refuse the round, naming the file; a newer lap may lean on a clause of the older one's version. **This row must hold on both gates before either side declares 6**: it is what makes a lap declaring 6 refused, rather than read, by a gate implementing 5 |
+| C44 | a file declaring protocol 6 or later and verdict `GO`, with no `HANDSHAKE-AGREED-CHANGES` | refuse, naming the field (§5e) |
+| C45 | `HANDSHAKE-AGREED-CHANGES: none`, or a ledger with `not landed` entries, on an otherwise complete close | **allow**; the ledger records delivery and does not gate the close |
 
 ## 9. Grandfathering
 
@@ -1026,3 +1149,97 @@ matching hashes cannot.
   riding along with two amendments already in flight. **Still deferred at v5,
   and for the same reason**: v5 carries exactly the two clauses round 23 §0.1
   named and both sides assented to, and nothing else.
+
+## 14. Changes in v6
+
+**v6 is v5 plus what round 24 agreed for it, four corrections the record showed
+the spec needed, and nothing else.** Nothing in v5 is withdrawn. cyanrip's round
+24 lap 1 §D1 proposed the list and Platterpus's round 24 lap 2 §E agreed it; the
+four corrections were not on it, and are marked.
+
+- **K1, K2 and K3**, agreed and never written into v5: K1 and K3 in round 22
+  (cyanrip's lap 1 §0.1, Platterpus's lap 2 §0.1), K2 in round 21 (Platterpus's
+  lap 4 §K). **K1**: a lap is sent when it is released, and its number is claimed
+  then (§4a). **K2**: `HANDSHAKE-INBOUND-HELD` for sent laps and
+  `HANDSHAKE-INBOUND-OBSERVED` for held ones (§5a). **K3**: a warning about a held
+  lap goes where its reader can open it, phrased as the question (§5d); the
+  question is Platterpus's drafting.
+- **§5b step 1 and C37**: *held, and enumerated by the gate when it decides*.
+  Platterpus's gate already read it that way; cyanrip's read the text cyanrip had
+  drafted, under which step 3 cannot fire. Round 24 lap 1 §B3.
+- **A correction, not on round 24's list: §5b step 1's release condition is a
+  requirement on the candidate, not a filter.** v5 and the first v6 draft read
+  *"the newest peer lap … that declares `HANDSHAKE-READY-TO-READ: yes`"*. Read as
+  a filter, the candidate always declares `yes`, so C38 can never fire, and an
+  older released lap stands in for a newer held one. Both gates already read it
+  as the requirement: each takes its newest held peer lap and refuses if it is not
+  released (`cyanrip@39dee09:tools/release-gate.py:678-686`,
+  `platterpus@86f0547:scripts/handshake.py:2188-2197`). No row's expected outcome
+  changes. Platterpus's round 25 lap 2.
+- **§5e, the agreed-change ledger**, `HANDSHAKE-AGREED-CHANGES`, with C44 and
+  C45. It exists because K1–K3 and round 23's `Handshake:` qualifier were agreed,
+  closed on, and not built.
+- **§3b, what a citation names**: the sha256 as the anchor and a commit as the
+  hint, and `HANDSHAKE-FROM-COMMIT` defined by what it must do rather than by how
+  each side chose it. cyanrip drafted it, as its round 23 lap 5 §E undertook.
+- **§8's two *"not yet in force"* sentences deleted.** Both became false when both
+  gates implemented 5, and a version-frozen file cannot correct a present-tense
+  sentence later. The conditional headings already said it.
+- **A correction, not on round 24's list: C43.** C15 applied to every file of
+  the round. Platterpus's gate has done this since 2026-09-22
+  (`refused_round_files`); cyanrip's inbound loader read no peer lap's version
+  until `cc235a1`. It is the precondition for anyone declaring 6.
+- **A correction, not on round 24's list: C13a amended.** Neither gate
+  implemented it, and as written it refuses the second side's closing lap.
+  Replaying cyanrip's record lap by lap finds six `GO` laps, in rounds 7, 8, 11,
+  12 and 15, that follow the lap at which its gate first reads the round closed;
+  C13a as written refuses all six. It now refuses a later lap only if that lap
+  declares a different verdict.
+- **A correction, not on round 24's list: `ACK` retired.** §13 deferred it to v6.
+  Since round 14, when the operator told both projects to stop the back-and-forth,
+  an acknowledgement has not been a lap: silence is acceptance, and only
+  disagreement or a correction needs one. A verdict meaning *received, nothing to
+  add* has nothing left to carry. §4's vocabulary is unchanged.
+- **§8 rows C43–C45.**
+
+**Why v6 rather than an edit to v5.** v5 was adopted byte-identical by both
+projects and its hash is quoted in sent laps. The number is what makes *"we hold
+the same spec"* checkable.
+
+**Declaring 6.** Neither side declares 6 until both have said, in a lap, that
+their gate implements it. C43 is what makes a premature declaration fail closed on
+the other gate rather than be read. **Neither gate implements 6 until this file is
+byte-identical in both trees.**
+
+### What v6 does not do
+
+- It does not widen or narrow §4's vocabulary.
+- It does not settle what refusing a C13a file does to a release. The row says the
+  file is refused and the round stays closed, and says nothing about the release;
+  neither gate has implemented it, so nothing has had to decide.
+- It does not make the ledger a close condition. A round may close with changes
+  not landed; the ledger makes that visible and carries each one forward.
+
+### Deferred to v7, not rejected
+
+- **Definitions of the optional fields** both sides already carry and no shared
+  document defines: `HANDSHAKE-NEXT-LAP`, `HANDSHAKE-VERDICT-SOURCE`,
+  `HANDSHAKE-PEER-PIN-SOURCE`, `HANDSHAKE-PIN-POLICY`, `HANDSHAKE-BREAKING`, and
+  `HANDSHAKE-SHARED-HASHES` with its `-SOURCE`. Unknown fields are ignored (§3),
+  so their absence here breaks nothing.
+- **Two rules agreed in round 15 and never written**: the `HOTFIX` carve-out by
+  artifact class, and `HANDSHAKE-NEXT-LAP`'s crossing tiebreak (cyanrip's round 15
+  lap 3 §5, Platterpus's lap 4 §D). K1 may make the tiebreak unnecessary. The
+  carve-out reads Platterpus's class from the GitHub pre-release flag, and round
+  24 found that flag marks nothing a user receives across Platterpus's 0.x line,
+  whose updater offers every `v0.*` on the stable channel. It needs redrafting,
+  not transcribing.
+- **Release ordering**: whether a stable release may precede the round that
+  reviews it. It is the operator's question before it is the spec's.
+- **The evidence-transport proposal**,
+  `PROTOCOL-v5-PROPOSAL-evidence-transport.md` §5b.1–§5b.8: adopt or retire.
+- **`HANDSHAKE-CONCURRENT-WITH`** (round 7 laps 32–33), never built. K1 may
+  subsume it.
+- **A `SEAM-COMMANDS: audited @ N` close field**, and **a semantic-change marker**
+  to pair with a definition of `HANDSHAKE-BREAKING`.
+- **C13a's effect on a release**, above.
