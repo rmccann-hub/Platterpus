@@ -138,6 +138,10 @@ from platterpus.deps import fork_source
 #: to our newer held lap, so there is no peer "closing lap" after ours to read. A
 #: new pin (`2cce60d` -> `3e01bb3`, `+platterpus.14`), approved on the fork's golden
 #: reference rather than on hardware — the change is log text, as their §0.1 says.
+#: **Round 25 leaves it at 0.6.53**, read from their closing lap as the rule
+#: requires: round 25 lap 5 declares `HANDSHAKE-APP-VERSION: platterpus 0.6.53`
+#: (sha256 `bca120c0…`, 9,137 bytes, `cyanrip@714f0a5`). A round that reviewed
+#: shared TEXT and declared the pin unchanged approves the same pair again.
 APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.53"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
@@ -226,7 +230,13 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.53"
 #: `GO` — the first round closed under protocol v5, and the first in which our gate
 #: and theirs close on DIFFERENT laps (theirs needs their lap 3; see
 #: `fork_source.FORK_PIN`). It approves a NEW pin, `3e01bb3`.
-APPROVED_BY_ROUND: Final[int] = 24
+#: **25 on 2026-09-23**, closed `GO`/`GO` at five laps — the first round under
+#: protocol v6's text in both trees. It declared `HANDSHAKE-PIN: 3e01bb3` in every
+#: lap and reviewed shared documents, not a build, so it re-approves the pin round
+#: 24 approved, the way round 23 re-approved `2cce60d`. The hardware claim for
+#: `3e01bb3` still rests on nothing: round 24 approved it on the fork's golden
+#: reference, and no rig session has run it.
+APPROVED_BY_ROUND: Final[int] = 25
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.

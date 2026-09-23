@@ -777,6 +777,18 @@ def test_the_rig_sheet_header_names_the_CURRENT_pair() -> None:
         f"{fork_source.FORK_PIN}; a run against it would produce evidence about a "
         "different build."
     )
+    # **AND THE BUILD UNDER REVIEW, while a round is reviewing one** (2026-09-23).
+    # The two asserts above are the production pair, and during round 26 that is
+    # the WRONG subject for the next run: its close condition is the real test on
+    # `.15`, so a sheet naming only `3e01bb3` passed here while telling the operator
+    # to test `.14`. The sheet exists to name what the next run is FOR.
+    if fork_source.a_round_is_reviewing_a_build():
+        assert fork_source.PIN_UNDER_REVIEW in header, (
+            f"a round is reviewing {fork_source.PIN_UNDER_REVIEW} and "
+            "docs/rig-session.md's header does not name it; the next run is the "
+            "test of that build, and a sheet naming only the production pin sends "
+            "the operator to evidence about a different one."
+        )
 
 
 #: Ripper build tags a user-facing doc may name although they are not current,
@@ -814,6 +826,18 @@ def test_every_ripper_build_tag_in_a_user_facing_doc_is_the_CURRENT_one() -> Non
     from platterpus.deps import fork_source
 
     expected_tag = fork_source.FORK_EXPECTED_VERSION.split("+", 1)[1]
+    # **The build a round is REVIEWING is current too**, and only while one is.
+    # Round 26 reviews `+platterpus.15` on a drive, and the front page has to say
+    # which build the real test installs — a page forbidden from naming it would
+    # send the operator to the production pin, which is evidence about a different
+    # build. Derived from the same two constants the ripper offer and the
+    # acceptance run read, so it closes again by itself when the round ends and
+    # `PIN_UNDER_REVIEW` settles back onto `FORK_PIN`.
+    current_shas = [fork_source.FORK_PIN]
+    current_tags = {expected_tag}
+    if fork_source.a_round_is_reviewing_a_build():
+        current_shas.append(fork_source.PIN_UNDER_REVIEW)
+        current_tags.add(fork_source.UNDER_REVIEW_TARGET.version.split("+", 1)[1])
     offenders: list[str] = []
     examined = 0
     for doc, text in _user_facing_text().items():
@@ -826,15 +850,20 @@ def test_every_ripper_build_tag_in_a_user_facing_doc_is_the_CURRENT_one() -> Non
             if found in _HISTORICAL_BUILD_TAGS:
                 continue
             ok = (
-                fork_source.same_commit(found, fork_source.FORK_PIN)
+                any(fork_source.same_commit(found, sha) for sha in current_shas)
                 if match.group("sha")
-                else found == expected_tag
+                else found in current_tags
             )
             if not ok:
                 line = text.count("\n", 0, match.start()) + 1
                 offenders.append(
                     f"{doc}:{line} names build `{found}`; the code pins "
                     f"{fork_source.FORK_PIN} / +{expected_tag}"
+                    + (
+                        f" and reviews {fork_source.PIN_UNDER_REVIEW}"
+                        if len(current_shas) > 1
+                        else ""
+                    )
                 )
 
     # NON-TRIVIALITY: a regex that stopped matching would otherwise pass here

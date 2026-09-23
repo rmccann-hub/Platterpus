@@ -1972,18 +1972,11 @@ def _latest_inbound_with_shared_hashes() -> tuple[Path, dict[str, str]] | None:
 #: next lap is filed, that lap is the one compared, and its hashes must match ours.
 #: And it may not outlive its need — :func:`test_the_landing_window_is_not_stale`.
 _PEER_HASHES_SUPERSEDED_BY_OUR_LANDING: dict[str, str] = {
-    # Re-keyed lap by lap in round 25, and the reason changed once, which is worth
-    # saying. Lap 1 and lap 2 (their lap 2 crossed ours) predate our landing. Their
-    # lap 3 does NOT — it answers our lap 2 — and still declares `protocol(v5)`,
-    # because v6 §14 has each side implement 6 only once the text is byte-identical
-    # in both trees, so they land in their closing lap (their lap 3 §D). Their
-    # seam-rules, seam-commands and ownership hashes already equal ours; only the
-    # protocol differs, and only until that lap.
-    "round-25-lap-03.md": (
-        "round 25 closes on PROTOCOL v6 byte-identical in both trees; we land the "
-        "merged text (their 05abdfde…) in our lap 4 and they land it in their "
-        "closing lap, so their lap 3 still declares their v5 protocol"
-    ),
+    # EMPTY since round 25 closed (2026-09-23): their lap 5 declares
+    # `protocol(v6)=05abdfde…` and the three others, byte-identical to ours, so
+    # the one-lap window this exemption covered has ended. It held keys for their
+    # laps 1, 2 and 3 in turn — re-keyed each lap because each still predated or
+    # awaited the landing — and a peer lap that matches needs no entry.
 }
 
 

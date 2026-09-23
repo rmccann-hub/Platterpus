@@ -236,7 +236,10 @@ _TABLE_ROUND_FLOOR: int = 6
 #: `FROM-COMMIT`), and round 24's contract was built at `2e6d97d`, whose `src/` and
 #: `meson.build` equal `3e01bb3`'s. So the argv surface cannot have moved: the lag is
 #: one round of filing, not one of drift. Back to 0 when a round ships a contract.
-_MAX_TABLE_LAG: int = 1
+#: **1 -> 0 on 2026-09-23, round 26**: the pin moved to `.15`, and `.15`'s own
+#: `PROVIDER-CONTRACT.md` (built at `g37f946b`, committed at `df91ae7`) is filed as
+#: round 26's, so the table checked against is the current round's again.
+_MAX_TABLE_LAG: int = 0
 #: **1 -> 0 on 2026-09-23, for round 24**: their lap 1 ships `PROVIDER-CONTRACT.md`
 #: generated from the build of the pin under review — `g2e6d97d`, whose `src/` and
 #: `meson.build` are identical to the pin `3e01bb3`'s (`git diff --stat 2e6d97d

@@ -1311,7 +1311,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # against a sent lap's word with no account of it. Measured after `ruff format`.
     # **2195 -> 2198 (round 25 open, 2026-09-23)**: `PIN_UNDER_REVIEW_ROUND` 24 -> 25,
     # with the three lines saying why a round that reviews TEXT still names the pin.
-    "deps/fork_source.py": 2198,
+    # **2198 -> 2226 (round 26 open, 2026-09-23)**: `PIN_UNDER_REVIEW` moves to
+    # `df91ae7` (`+platterpus.15`) with the nine lines saying why moving it IS the
+    # real-test mechanism and why `FORK_PIN` does not move with it; its release
+    # sequence, its build tag in the `--consumer` accept-set with the contract that
+    # licenses it, the re-derived same-program flag, and the round-26 pairing line.
+    "deps/fork_source.py": 2226,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1458,7 +1463,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # +13 (round 24, 2026-09-23): the approval record moves to round 24 / 0.6.53,
     # and says why the peer lap of record is their lap 1 — under v5 our gate closes
     # on OUR lap, so there is no later peer lap for the app version to be read from.
-    "handshake_approval.py": 651,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # **651 -> 661 (round 25 closed, 2026-09-23)**: `APPROVED_BY_ROUND` 24 -> 25 with
+    # why a round that reviewed TEXT re-approves the same pin, and the app version
+    # read off their closing lap as the rule requires.
+    "handshake_approval.py": 661,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect
