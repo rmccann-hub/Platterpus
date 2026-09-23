@@ -1,12 +1,15 @@
 # OWNERSHIP — who owns what, where, when
 
-**OWNERSHIP-VERSION: 2**
+**OWNERSHIP-VERSION: 3**
 
 **CUSTODY IS cyanrip's. AUTHORSHIP IS JOINT.** This file and the other shared
 seam documents — `docs/handshake/PROTOCOL.md`, `docs/seam-rules.md`,
 `docs/seam-commands.md` — have their **canonical copy in `cyanrip`**, at these
-paths, on the `platterpus-fork` branch. Every consumer holds a copy at the same
-path, and **the canonical one is what a hash is checked against.**
+paths, on the `platterpus-fork` branch. Every consumer holds a copy — **not
+necessarily at the same path**: Platterpus holds the protocol at
+`docs/handshake-protocol.md` and the other three at these paths, so copies are
+paired by document, never by path — and **the canonical one is what a hash is
+checked against.**
 
 **That is custody, not authority.** cyanrip is the provider, it is forkable, and
 a fork needs exactly one address to fetch the rules from and one hash to check
@@ -79,10 +82,12 @@ reported by libcdio" is not "the disc has none".
 **§3's last row is new, decided 2026-08-26, and it is the reason this file
 exists.** The systematic-gate duty is Platterpus's because **they can execute
 both sides and cyanrip can execute one**: they run our binary, parse our log and
-hold the drive; we cannot run their program, read their source, or reproduce
-their environment. A gate over a system you cannot execute produces confident
-wrong findings — round 12's `BLOCKING` claim about a constant in their source we
-had never seen is the measured proof.
+hold the drive; we do not run their program and hold no drive. **We can read
+their source** — both repositories are public — and a claim about it must cite
+what was read (§5). But reading is not executing, and a gate over a system you
+cannot execute produces confident wrong findings. Round 12's `BLOCKING` claim
+about a constant in their source is the measured proof: nobody had read the
+constant, and it could have been read.
 
 ## 4. Neither owns — both must agree, or it does not ship
 
@@ -96,8 +101,10 @@ had never seen is the measured proof.
 ## 5. Neither may — and these are absolute
 
 - **Neither states a mechanism in the other's code without citing the artifact it
-  was read from**, or marking it unverified. We can measure our own behaviour and
-  read each other's laps; we cannot read each other's source.
+  was read from**, or marking it unverified. Both repositories are public, so each
+  can read the other's source: cite it as `<repo>@<sha>:<path>:<line>`, pinned to
+  a commit. Reading verifies a claim; it does not license authoring one on the
+  other's behalf.
 - **Neither gates the other's internals.** Each gates the other's *emissions* —
   files actually sent — and its own everything.
 - **Neither closes a round on the other's silence.** "They did not object" is not
@@ -185,3 +192,14 @@ surface.
 **And it is not a licence to defer.** An owner who cannot get to something says
 so; ownership is about authority over the answer, never about a right to sit on
 the question.
+
+## 8. Changes in v3
+
+**v3 corrects three statements v2 made, and changes no rule.**
+
+- The opening said every consumer holds its copy at the same path. Platterpus
+  holds the protocol at `docs/handshake-protocol.md`.
+- §3 and §5 said neither side can read the other's source. Both repositories are
+  public, and that has been false since 2026-09-13. §3's allocation of the gate
+  duty is unchanged: it rests on what remains true, that Platterpus executes both
+  sides and cyanrip executes one.

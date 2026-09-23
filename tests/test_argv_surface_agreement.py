@@ -227,7 +227,16 @@ _TABLE_ROUND_FLOOR: int = 6
 #: re-derive the span as above, and if it is still empty say so in the lap and
 #: leave the number where it is until a contract arrives. A derivation that has to
 #: be redone every round is a sign the artifact should be shipped.
-_MAX_TABLE_LAG: int = 0
+#:
+#: **0 -> 1 on 2026-09-23, round 25.** Round 25 is a TEXT round — PROTOCOL v6,
+#: OWNERSHIP v3, seam-rules v6 — and its lap 1 ships no provider contract, so the
+#: newest table is round 24's (`round-24-lap-01-provider-contract-g2e6d97d.md`).
+#: Derived, not inferred, in a full clone of their tree: `git diff 3e01bb3 39dee09
+#: -- src/ meson.build` is **empty** (39dee09 is the commit their lap 1 names as
+#: `FROM-COMMIT`), and round 24's contract was built at `2e6d97d`, whose `src/` and
+#: `meson.build` equal `3e01bb3`'s. So the argv surface cannot have moved: the lag is
+#: one round of filing, not one of drift. Back to 0 when a round ships a contract.
+_MAX_TABLE_LAG: int = 1
 #: **1 -> 0 on 2026-09-23, for round 24**: their lap 1 ships `PROVIDER-CONTRACT.md`
 #: generated from the build of the pin under review — `g2e6d97d`, whose `src/` and
 #: `meson.build` are identical to the pin `3e01bb3`'s (`git diff --stat 2e6d97d

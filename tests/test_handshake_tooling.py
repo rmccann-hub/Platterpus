@@ -1412,8 +1412,16 @@ def test_the_grandfather_sets_are_pinned_and_may_only_shrink(hs: ModuleType) -> 
 #: non-empty reason whenever the two numbers differ — so this cannot become
 #: permanent by nobody noticing. Clear it in the same commit the gate reaches the
 #: spec's version.
-_BOOTSTRAP_REASON: str = ""
-#: History of this constant, newest first. **Empty again from 2026-09-22 (later the
+_BOOTSTRAP_REASON: str = (
+    "v6 landed 2026-09-23 as round 25 §0.1's close condition, ahead of the fork. "
+    "v6 §14: 'Neither gate implements 6 until this file is byte-identical in both "
+    "trees' — true only once their next lap lands our copy — and 'neither side "
+    "declares 6 until both have said, in a lap, that their gate implements it'. "
+    "Clear this in the commit that teaches the gate C43-C45, the amended C13a and "
+    "the K2 field split, with a row-named test for each."
+)
+#: History of this constant, newest first. **2026-09-23: non-empty again**, the v6
+#: bootstrap above. **Empty again from 2026-09-22 (later the
 #: same day)**: the gate implements and declares 5, the shared file is v5, and the
 #: C37-C42 rows have tests — cleared in that commit, as the reason itself required.
 #: **2026-09-22, for one day: non-empty**, the v5 bootstrap — *"v5 landed as round 23
@@ -1795,6 +1803,9 @@ _SHARED_FILE_PATHS: dict[str, str] = {
     # adding a file rather than US being behind. The older keys stay: sent laps
     # declare them and those declarations are immutable history.
     "protocol(v5)": "docs/handshake-protocol.md",
+    # **v6, landed on our side 2026-09-23 (round 25 §0.1)**, first this time: our
+    # lap 2 lands the texts and the fork's next lap lands ours byte for byte.
+    "protocol(v6)": "docs/handshake-protocol.md",
     "seam-rules": "docs/seam-rules.md",
     "seam-commands": "docs/seam-commands.md",
     # Adopted round 14 lap 17. Same mechanism as the three above: a file NEITHER
@@ -1938,6 +1949,40 @@ def _latest_inbound_with_shared_hashes() -> tuple[Path, dict[str, str]] | None:
     return None
 
 
+#: Peer laps whose shared-hash declaration our tree is CORRECTLY ahead of, because a
+#: round's close condition is landing new shared texts and we landed first.
+#:
+#: **Why the window exists at all (round 25, 2026-09-23).** Round 23 landed v5 with the
+#: fork going first, so their newest lap already declared the new hashes when ours
+#: landed and this check never saw a gap. Round 25 runs the other way: their lap 1
+#: proposes PROTOCOL v6 / OWNERSHIP v3 / seam-rules v6, our lap 2 lands them (one
+#: amended), and their lap 3 lands ours byte for byte. For one lap their newest
+#: declaration names the OLD bytes and ours the new — a divergence by construction,
+#: not by drift.
+#:
+#: **Keyed on the superseded peer lap, so it expires by itself**: the moment their
+#: next lap is filed, that lap is the one compared, and its hashes must match ours.
+#: And it may not outlive its need — :func:`test_the_landing_window_is_not_stale`.
+_PEER_HASHES_SUPERSEDED_BY_OUR_LANDING: dict[str, str] = {
+    "round-25-lap-01.md": (
+        "round 25 closes on landing PROTOCOL v6, OWNERSHIP v3 and seam-rules v6 in "
+        "both trees (§0.1/§0.2); our lap 2 lands them first, their next lap second"
+    ),
+}
+
+
+def test_the_landing_window_is_not_stale() -> None:
+    """An exemption names the peer lap it covers; a newer peer lap retires it."""
+    found = _latest_inbound_with_shared_hashes()
+    assert found is not None
+    lap, _ = found
+    stale = sorted(k for k in _PEER_HASHES_SUPERSEDED_BY_OUR_LANDING if k != lap.name)
+    assert not stale, (
+        f"{stale} no longer name the peer's newest declaring lap ({lap.name}); their "
+        "newer lap is compared normally now, so remove the entry"
+    )
+
+
 def test_the_PEERS_declared_shared_hashes_match_our_copies() -> None:
     """The other half of a two-half check, which said so in its own docstring.
 
@@ -1981,6 +2026,7 @@ def test_the_PEERS_declared_shared_hashes_match_our_copies() -> None:
         "four, so the parser has stopped matching"
     )
     mismatches: list[str] = []
+    ahead: dict[str, str] = {}  # shared name -> our CURRENT hash, where it differs
     for name, claimed in declared.items():
         rel = _SHARED_FILE_PATHS.get(name)
         if rel is None:
@@ -1992,10 +2038,34 @@ def test_the_PEERS_declared_shared_hashes_match_our_copies() -> None:
             continue
         actual = hashlib.sha256((_REPO_ROOT / rel).read_bytes()).hexdigest()
         if actual != claimed:
+            ahead[name] = actual
             mismatches.append(
                 f"{name}: they declare {claimed[:16]}… and our {rel} hashes to "
                 f"{actual[:16]}…"
             )
+    if lap.name in _PEER_HASHES_SUPERSEDED_BY_OUR_LANDING:
+        # The window must be REAL — a landing that no longer differs does not need
+        # the exemption — and our side of it must be declared: every file we are
+        # ahead on is one our own newest lap states the new hash for.
+        assert mismatches, (
+            f"{lap.name} is exempted as superseded by our landing, but nothing "
+            "differs any more; remove it from _PEER_HASHES_SUPERSEDED_BY_OUR_LANDING"
+        )
+        # Compared against what our lap DECLARES, never against the disk again: a
+        # first draft of this block hashed the files on both sides of the
+        # comparison, so it could not fail — caught by reading it back.
+        ours = _latest_lap_with_shared_hashes()
+        assert ours is not None
+        our_lap, our_declared = ours
+        undeclared = sorted(
+            name for name, now in ahead.items() if now not in our_declared.values()
+        )
+        assert not undeclared, (
+            f"we are ahead of {lap.name} on {undeclared}, and our newest lap "
+            f"{our_lap.name} does not declare the new hash — landing a text without "
+            "saying so is the divergence this check exists for"
+        )
+        return
     assert not mismatches, (
         f"the shared files have DIVERGED between the two repositories, per "
         f"{lap.name}:\n  " + "\n  ".join(mismatches) + "\n"
