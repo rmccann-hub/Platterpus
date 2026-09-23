@@ -11,6 +11,39 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-23 (night) — round 25 lap 4: one v6 for both trees, and a correction we checked
+
+**Their lap 3 merged both v6 texts** (`05abdfde…`: our §5b amendment plus R8/R9)
+and **corrected their own lap 2**: our release cannot pin `.15`, because
+`test_fork_source.py` holds `FORK_PIN` to the newest CLOSED round's pin and a
+close cannot approve a commit cut after it. Verified in our tree before believing
+it, then put to the maintainer, whose earlier answer had rested on the lap-2
+wording: 0.6.54 ends round 25 on `3e01bb3`, and `.15` is round 26's to review.
+
+**A claim of mine did not survive being checked.** Lap 4's draft said our
+acceptance run restores `max_retries 5`. True, and half the picture: it sets 3 at
+line 286 and rips fifteen times before restoring, under a comment calling that
+harmless — which their §B1 (`-r` not divisible by 5 never returns on a bad sector,
+on `.14`) makes false. The maintainer chose to leave it for `.15`; lap 4 now states
+the exposure instead of the reassurance.
+
+## 2026-09-23 (evening) — round 25's laps crossed, and the miss was ours
+
+**Their lap 2 was released at 04:56 UTC; ours, also numbered 2, eight hours
+later.** I had fetched their tree when their lap 1 arrived and never again before
+the announce. K1 — agreed in round 22, in the v6 text we had just landed — says a
+number is claimed on release, so the number was theirs. Fixed where it can be:
+`--announce` now refuses a number a released peer lap in our record holds, and
+names the one to use. It can only see what we have filed, so the real fix is the
+order of operations — fetch and file the peer's branch, then announce — and the
+guard is the backstop for when the file is there and the renumbering is forgotten.
+
+**Their lap 2 carries the operator's instructions** (few rounds, fix it, a round
+ends on releases of both apps), adds a close condition by a recorded override, and
+supersedes lap 1's v6 text with R8/R9. Every checkable claim reproduced. Their
+`.15` candidate's golden reference parses completely under our parser, including
+both new shapes. **Their lap 3 is still held**, so nothing in it is answered yet.
+
 ## 2026-09-23 (later) — round 24 closed on both gates; round 25 opened on v6, and we landed first
 
 **Their round 24 lap 3 (`GO`) and round 25 lap 1 arrived together.** Round 24 is

@@ -76,7 +76,39 @@ other agenda item is placed by name in their §E; we accept the placement.
 - [x] **RELEASED 2026-09-23 on the maintainer's word** (sha256 `3ae11ad1…`, 15,042 bytes,
   pinned in `SENT_LAPS`); merges to `main` with the three texts. Their next lap lands our
   bytes and declares `GO` (their §D pre-commit), which closes round 25 on both gates.
-- [ ] **0.6.54: WAITS for round 25 to close** (maintainer, 2026-09-23). The gate now enforces
+- [x] **Filed their lap 2** (`932f86e1…`, released 04:56 UTC, `OPEN`) — it CROSSED ours: we
+  released our own lap 2 about eight hours later without re-reading their tree. Our miss.
+  `--announce` now refuses a lap number a released peer lap in our record already holds
+  (K1), revert-proved; the runbook step it backs is *fetch and file the peer's branch before
+  any announce*. Their lap 2 carries the operator's instructions (few rounds, fix it, every
+  round ends on releases of BOTH apps), adds close condition §0.3 by a recorded override of
+  R1, and supersedes lap 1's v6 text with R8/R9 (`c47ce7a4…`). Every claim re-derived.
+- [x] **Parsed their `.15` candidate's golden reference** (`gbceb35d`, `src/` = `61711f1`):
+  complete, three tracks, no unrecognised line; the second `Retry limit:` form and the draft
+  `Handshake:` qualifier parse too. Committed with tests.
+- [x] **Their lap 3 filed** (`c21cd9fd…`, released at `7f8b3cf`). It merges both v6 texts
+  (`05abdfde…`: our amendment + R8/R9) and corrects their lap 2: our release pins the build a
+  CLOSED round approved, so 0.6.54 ends round 25 on `3e01bb3` and `.15` is reviewed in round
+  26 — confirmed against `tests/test_fork_source.py`, and by the maintainer (2026-09-23).
+- [x] **Landed `05abdfde…`**; **our lap 4 written, `GO`, held** — candidate 0.6.54 = `main` at the
+  commit that releases lap 4 + the release commit only (`FORK_PIN` stays `3e01bb3`).
+- [x] **Lap 4 RELEASED 2026-09-23 on the maintainer's word** (sha256 `f6d18230…`, 11,717 bytes,
+  pinned in `SENT_LAPS`), after fetching their branch and confirming no newer round-25 lap.
+- [ ] **Their lap 5** (pre-committed `GO`) lands `05abdfde…` and closes round 25. Then: file it,
+  retire the shared-hash exemption, move the approval record to round 25 for `3e01bb3`; they
+  release `.15`; we release 0.6.54 after `main`'s own CI. Then implement protocol 6.
+- [ ] **`-r` not divisible by 5 hangs on a bad sector on `.14`** (their round 25 lap 2 §B1). Our
+  default 5 is safe; Settings accept 0-100, and `fullacceptance.txt` rips at 3 from line 286 to
+  1166 under a comment calling it *"not dangerous"*. **Maintainer: leave it for `.15`**, which
+  makes any value safe. Revisit only if `.15` is not approved in round 26; correct the comment
+  with the next change to that script.
+- [x] **CONFIRMED by the maintainer directly, 2026-09-23: 0.6.54 ENDS round 25.** It waits for
+  the close and ships with `FORK_PIN` rolled to their `+platterpus.15` RELEASE commit (not
+  `3e01bb3`) and the round-25 approval, right after their `.15`. One release, no override.
+- [ ] **0.6.54 — after round 25 closes AND their `.15` is released:** roll `FORK_PIN` to the `.15`
+  release commit (`FORK_EXPECTED_VERSION` `+platterpus.15`, `release_seq`, approval record
+  round 25), then the release steps in the round-24 section. Our answering lap declares this
+  candidate: `main` at the commit that carries the lap, plus exactly that roll. The gate now enforces
   it: `--release-gate --prerelease --tag v0.6.54` exits 1 while the round is open.
 - [x] **N4: DONE 2026-09-23 — the maintainer confirmed (a) directly.** `--release-gate --tag`
   asks `update_check.offered_on_stable_channel` (the updater's own stable filter now calls it
