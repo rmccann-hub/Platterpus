@@ -122,6 +122,13 @@ _FORK_ONLY_RULES: frozenset[str] = frozenset(
         # they own both. An uncertainty resolved in favour of MORE fork obligation
         # is the one worth noticing, because the default drift is the other way.
         "consumer",
+        # `Encoder errors:` — the fork's round-22 §0.3 footer, first shipped in
+        # `+platterpus.14` (`3e01bb3`). Fork-only by source, not by sample:
+        # upstream's `src/` (`cyanrip@f8ebf48`, their mirror of `cyanreg/cyanrip`)
+        # has no such string, and the fork emits it at
+        # `cyanrip@3e01bb3:src/cyanrip_log.c:289` and `:295`. Declared 2026-09-23,
+        # the day the first committed fork log carrying it was filed.
+        "encoder_errors",
         "handshake_note",
         "invoked_as",
         "read_stalls",

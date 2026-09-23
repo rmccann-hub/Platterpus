@@ -800,7 +800,12 @@ FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 #: a program that could not answer the question. Here the two ARE one program, which
 #: is the premise round 16 asserted, round 21 falsified, and this round re-establishes
 #: by measurement rather than by inheritance.
-TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED: Final[bool] = True
+#: **`False` again from 2026-09-23, derived when round 24 moved the reviewed pin
+#: to `3e01bb3`:** `git diff --stat 3e01bb3 3952c03 -- src/ meson.build` is 4
+#: files, +8 −147 — `3952c03` lacks round 22's rename and the `Encoder errors:`
+#: footer. Round 24 names no test pin, so no acceptance run should be on `3952c03`
+#: at all; the flag says so rather than carrying round 22's `True` forward.
+TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED: Final[bool] = False
 
 #: Test pins this round has already retired. Listed **only** so a rig that built one
 #: before the pin moved still receives ``--consumer`` (they all carry the flag — it
@@ -940,6 +945,12 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         # (their declaration, re-derived here), and `3952c03` is already in this set.
         # Two routes, one answer, same as the row above.
         "platterpus-fork-g2cce60d",
+        # **Round 24's subject, backed by two routes.** The contract their lap 1
+        # shipped — `round-24-lap-01-provider-contract-g2e6d97d.md`, from a build
+        # with `src/` identical to `3e01bb3` — lists `-u`/`--consumer` in P1, and
+        # its P1 is row-identical to `2cce60d`'s, which is in this set. And their
+        # golden reference at the pin was invoked with `-u` and logged `Consumer:`.
+        "platterpus-fork-g3e01bb3",
         # **SUPERSEDED PRODUCTION PINS STAY, and this one nearly did not.**
         # `ddf7ac3` was in this set only by way of `FORK_EXPECTED_BUILD_TAG`, so
         # rolling the pin forward at round 14's close removed it — silently, and

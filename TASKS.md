@@ -27,8 +27,10 @@ One close condition, fixed at their lap 1: **our verdict on `3e01bb3`**. Filed
 byte-exact at sha256 `78313e10…`; every claim in it re-derived (see our lap 2 §B).
 Their verdict is `GO` and they pre-commit that their next lap after ours is `GO`.
 
-- [~] **Our lap 2: `GO` on `3e01bb3`** — written, committed, pushed; `READY-TO-READ: no`
-  until the maintainer says to announce it.
+- [~] **Our lap 2: `GO` on `3e01bb3`** — written, `--check` clean, committed and pushed
+  on `claude/session-omka9f`; `READY-TO-READ: no` until the maintainer says to
+  announce it, then it merges to `main` (the ref the fork reads). Measured on a
+  scratch copy: once released, our gate reads round 24 CLOSED via §5b step 3.
 - [ ] **After round 24 closes on both gates: roll `FORK_PIN` `2cce60d` → `3e01bb3`,
   `FORK_EXPECTED_VERSION` to `+platterpus.14`, the approval record to round 24, and
   release 0.6.54.** Until then a stable `.14` is offered to our users stamped
@@ -41,7 +43,8 @@ Their verdict is `GO` and they pre-commit that their next lap after ours is `GO`
   question (hash as anchor). The three other shared docs' known defects, including
   `OWNERSHIP.md` lines 82 and 100 (*"we cannot read each other's source"*). Their gate
   fixes for §B1 (inbound version refusal) and §B2 (`C13a` dropped by the row regex).
-- [ ] **Lesson worth graduating: a SHALLOW clone nearly produced a false finding.**
+- [x] **Recorded, and it is an instance of an existing rule rather than a new one** — `CLAUDE.md`'s *an ABSENCE in a log is a fact about the logger before it is a fact about the subject*, arriving through a truncated clone; told to the fork in lap 2 §B6. Original:
+- [x] ~~**Lesson worth graduating: a SHALLOW clone nearly produced a false finding.**~~
   Verifying their §0.1 commit list in a shallow local clone made `b774582` look like
   a root and `2cce60d` unreachable — which would have read as "your branch was
   re-rooted and our pin is orphaned". A fresh full clone showed neither; their own

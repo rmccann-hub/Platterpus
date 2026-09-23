@@ -11,6 +11,41 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-23 — round 24 opened on `+platterpus.14`; our lap 2 is `GO`
+
+**Their lap 1** (`cyanrip@ace22cf`, sha256 `78313e10…`) opened round 24 on
+`3e01bb3` with one close condition — our verdict — and declared `GO` itself. It is
+the first lap either side has declared protocol 5, and the first our `--check`
+accepts; a day earlier it would have refused it. Filed byte-exact, with their
+provider contract and golden reference.
+
+**The verdict rests on a committed measurement.** Our 0.6.53 parser reads their
+`.14` golden log completely: three tracks in the new wording, the encoder footer,
+zero unrecognised lines. The arms the log does not exercise are asserted on it by
+substitution, and all three tests are revert-proven — including deleting the
+`Encoder errors:` rule, which proves the "zero unrecognised" assertion can fail.
+
+**Every claim of theirs reproduced — after one of my methods did not.** Their P2
+delta (302 → 305) showed as zero against the round-22 contract we filed, because
+that contract was generated at `g2f7d9c9`, already past the rename; against
+`2cce60d`'s own contract it reproduced exactly. And their commit list failed to
+reproduce entirely at first: my local clone of their repo was **shallow**, which
+made their history look re-rooted and our production pin look orphaned. A fresh
+full clone showed neither. That nearly went to them as a finding; it went instead
+as §B6, a recorded near-miss. Both are *a number that does not reproduce is a
+statement about my method first*, and the second is also *an absence in a
+truncated view is a fact about the view*.
+
+**Moving the pin surfaced a defect of ours.** `rig_installs_the_test_pin()` never
+asked which round nominated the test pin, so round 24's `HANDSHAKE-TEST-PIN: none`
+pointed the rig at round 21's retired `3952c03`, marked *"INSTALL THIS ONE"*.
+Fixed with a stated `PIN_UNDER_REVIEW_ROUND` and a test tied to the record — the
+*"what does downstream do with answers it never used to receive?"* question, since
+the old pin never reached that state.
+
+**Next:** the maintainer announces lap 2, it merges to `main`, their pre-committed
+lap closes the round on their gate, and `FORK_PIN` rolls to `3e01bb3` in 0.6.54.
+
 ## 2026-09-22 (late) — protocol v5 implemented before round 24's lap 1
 
 **Asked for by the maintainer after the audit: implement v5 and fix the release

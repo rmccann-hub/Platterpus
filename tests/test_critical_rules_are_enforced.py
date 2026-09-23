@@ -1297,7 +1297,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `HANDSHAKE-TEST-PIN: none` pointed the rig at round 21's retired `3952c03`.
     # The fix needs a stated `PIN_UNDER_REVIEW_ROUND` (8 lines with its reason) and
     # a round clause in the predicate (6). Measured after `ruff format`.
-    "deps/fork_source.py": 2163,
+    # **Then 2174**, in the same change: two more round-open obligations the gate
+    # suite named once the pin had moved — `TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED`
+    # re-derived against `3e01bb3` (now False, with the diff that decided it), and
+    # `g3e01bb3` added to the `--consumer` accept-set with the contract row that
+    # backs it. Re-measured after the last edit.
+    "deps/fork_source.py": 2174,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
