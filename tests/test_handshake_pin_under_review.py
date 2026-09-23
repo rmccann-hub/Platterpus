@@ -132,6 +132,57 @@ def test_the_pin_under_review_matches_the_newest_inbound_round() -> None:
     )
 
 
+def _newest_pin_declaring_lap() -> Path:
+    newest = next(
+        (
+            path
+            for path in reversed(_inbound_rounds())
+            if _PIN_LINE.search(path.read_text(encoding="utf-8"))
+        ),
+        None,
+    )
+    assert newest is not None, "no inbound round declares a HANDSHAKE-PIN"
+    return newest
+
+
+def test_the_pin_under_review_ROUND_matches_the_newest_inbound_round() -> None:
+    """``PIN_UNDER_REVIEW_ROUND`` is stated; this holds it to the record, so the
+    predicate below cannot be steered by a round number nobody updated."""
+    newest = _newest_pin_declaring_lap()
+    assert fork_source.PIN_UNDER_REVIEW_ROUND == _round_of(newest), (
+        f"PIN_UNDER_REVIEW_ROUND is {fork_source.PIN_UNDER_REVIEW_ROUND} but the "
+        f"newest inbound round declaring a pin is {newest.name}"
+    )
+
+
+def test_the_rig_installs_a_test_pin_ONLY_when_the_open_round_declares_one() -> None:
+    """The relation between the predicate and the record, not the predicate alone.
+
+    Found 2026-09-23 when round 24 opened on `3e01bb3` with `HANDSHAKE-TEST-PIN:
+    none`: `rig_installs_the_test_pin()` compared the two pins and nothing else,
+    `FORK_TEST_PIN` still held round 21's `3952c03`, and so it returned True —
+    `--install-ripper list` would have marked a build two rounds retired
+    "INSTALL THIS ONE" for a `.14` rig session. Moving `PIN_UNDER_REVIEW` is what
+    unblocked it: a state the old pin never reached.
+
+    So: when a round is open, the predicate must equal "the newest lap of that
+    round declares a real test pin", read off the lap itself.
+    """
+    if not fork_source.a_round_is_reviewing_a_build():
+        assert not fork_source.rig_installs_the_test_pin()
+        return
+    newest = _newest_pin_declaring_lap()
+    text = newest.read_text(encoding="utf-8")
+    match = re.search(r"^HANDSHAKE-TEST-PIN:[ \t]*(\S+)", text, re.M)
+    declares_one = bool(match) and match.group(1).strip("*`.,;").lower() != "none"
+    assert fork_source.rig_installs_the_test_pin() is declares_one, (
+        f"{newest.name} {'declares' if declares_one else 'declares NO'} test pin "
+        f"({match.group(0) if match else 'field absent'}), but "
+        f"rig_installs_the_test_pin() is {fork_source.rig_installs_the_test_pin()} — "
+        "the rig would be pointed at the wrong build"
+    )
+
+
 def test_a_capability_claim_for_the_build_under_review_is_backed_by_a_table() -> None:
     """A capability row needs a PUBLISHED FLAG TABLE behind it — checked, not assumed.
 

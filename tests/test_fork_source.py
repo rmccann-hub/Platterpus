@@ -1343,6 +1343,7 @@ class TestTheRipperBuildMenu:
         """
         assert fork_source.rig_installs_the_test_pin() is (
             fork_source.a_round_is_reviewing_a_build()
+            and fork_source.FORK_TEST_PIN_ROUND == fork_source.PIN_UNDER_REVIEW_ROUND
             and not fork_source.same_commit(
                 fork_source.FORK_TEST_PIN, fork_source.PIN_UNDER_REVIEW
             )

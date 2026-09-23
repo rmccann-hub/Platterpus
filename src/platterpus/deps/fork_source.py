@@ -207,6 +207,11 @@ FORK_PIN: Final[str] = "2cce60d"
 #: pin that was never a numbered release is deliberately absent: it has no sequence,
 #: and inventing one would order it against releases it was never part of.
 FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
+    # Round 24's subject, and the fork's CURRENT published release on both channels:
+    # `release_seq` 24, `handshake_round` 22, `round_closed: true`, version
+    # `0.9.4-rc2+platterpus.14`. Read off their live `release-manifest.json` at
+    # `c884c4e`, 2026-09-23, not from the lap that announced it.
+    "3e01bb3": 24,
     # Round 22's subject and the fork's CURRENT published release on both channels:
     # `release_seq` 23, `round_closed: true`, version `0.9.4-rc2+platterpus.13`. Read
     # off their live `release-manifest.json`, not from the lap that announced it.
@@ -535,7 +540,22 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: Switching the installed pin while a round is open is the one thing the deviation
 #: policy still requires asking about; a round's OPENING is exactly the moment the
 #: subject moves and the approval does not.
-PIN_UNDER_REVIEW: Final[str] = "2cce60d"
+#: **Moved `2cce60d` -> `3e01bb3` on 2026-09-23, when round 24 opened.** `+platterpus.14`,
+#: `release_seq` 24, published to BOTH channels on round 22's authority before this
+#: round opened — read off their live `release-manifest.json` (`channels.stable` and
+#: `channels.beta` both name `3e01bb3`), not transcribed from the lap. Round 24's one
+#: close condition is our verdict on it. **`FORK_PIN` stays `2cce60d` until round 24
+#: closes**, for the same reason as above.
+PIN_UNDER_REVIEW: Final[str] = "3e01bb3"
+
+#: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
+#: :data:`FORK_TEST_PIN_ROUND`, and held to the record by
+#: `tests/test_handshake_pin_under_review.py`.** It exists so a test pin can be
+#: matched to the round that nominated it: before 2026-09-23 the rig's install
+#: target compared the two pins and nothing else, so opening round 24 — which
+#: declares `HANDSHAKE-TEST-PIN: none` — would have sent an operator to round 21's
+#: retired test pin `3952c03` and marked it "INSTALL THIS ONE".
+PIN_UNDER_REVIEW_ROUND: Final[int] = 24
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
 #:
@@ -1318,8 +1338,15 @@ def rig_installs_the_test_pin() -> bool:
     session ran `gddc1e8c`, which is the mis-pairing class this module exists to
     prevent rather than a wasted night.
     """
-    return a_round_is_reviewing_a_build() and not same_commit(
-        FORK_TEST_PIN, PIN_UNDER_REVIEW
+    # THE TEST PIN MUST BELONG TO THE ROUND BEING REVIEWED. Comparing only the two
+    # pins answered "is there a test pin?" with "is there a stale one?": round 24
+    # declares no test pin, `FORK_TEST_PIN` still held round 21's, and the pins
+    # differ — so this returned True and the rig was pointed at a build two rounds
+    # retired. A test pin is a round's nomination, not a standing setting.
+    return (
+        a_round_is_reviewing_a_build()
+        and FORK_TEST_PIN_ROUND == PIN_UNDER_REVIEW_ROUND
+        and not same_commit(FORK_TEST_PIN, PIN_UNDER_REVIEW)
     )
 
 
@@ -1396,7 +1423,10 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     # this round, and both are read off that ONE line of that ONE lap -- which is the
     # whole point of the pairing test, since reading them from two places is how they
     # came apart before.
-    version="0.9.4-rc2+platterpus.13",
+    # **Round 24's pairing, from their lap-1 wire header line 14:**
+    # `cyanrip 0.9.4-rc2+platterpus.14 (platterpus-fork-g3e01bb3)`. One line of one
+    # lap, as the pairing test requires.
+    version="0.9.4-rc2+platterpus.14",
     # **DERIVED, NOT ASSERTED.** This sentence used to read "round 14 is the round
     # that would [approve it], and it is open" — a hard-coded claim about round
     # state, which went false the moment round 14 closed and `PIN_UNDER_REVIEW`
