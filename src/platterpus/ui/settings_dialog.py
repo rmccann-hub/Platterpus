@@ -56,6 +56,7 @@ from platterpus.test_session import builtin_acceptance_script
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.ui.scroll_guards import WheelGuard, protect_value_widgets
+from platterpus.ui.status_colours import SECONDARY_STYLE, status_colour, status_style
 from platterpus.update_check import CHANNEL_BETA, CHANNEL_STABLE
 
 log: logging.Logger = logging.getLogger(__name__)
@@ -219,7 +220,10 @@ class SettingsDialog(CenteredDialog):
         self._naming_preview: QLabel = QLabel("", self)
         self._naming_preview.setWordWrap(True)
         self._naming_preview.setAccessibleName("Filename preview")
-        self._naming_preview.setStyleSheet("color: palette(mid);")
+        # Quieter than the fields, but in the TEXT colour. `palette(mid)` is a
+        # bevel-shading colour and measured ~1.1:1 on Breeze Dark — the dim line
+        # the maintainer reported (2026-09-23).
+        self._naming_preview.setStyleSheet(SECONDARY_STYLE)
         form.addRow("Example:", self._naming_preview)
 
         # Wire up: preset → fill fields; manual edit → flip to Custom; either →
@@ -1185,7 +1189,9 @@ class SettingsDialog(CenteredDialog):
         for issue in issues:
             field_widget = self._validated_widgets.get(issue.field)
             if field_widget is not None:
-                colour = "#c0392b" if issue.is_error() else "#b9770e"
+                colour = status_colour(
+                    "error" if issue.is_error() else "warn", field_widget.palette()
+                )
                 field_widget.setStyleSheet(f"border: 1px solid {colour};")
         lines = [f"✖ {i.message}" for i in errors] + [
             f"⚠ {i.message}" for i in warnings
@@ -1193,7 +1199,7 @@ class SettingsDialog(CenteredDialog):
         banner_text = "\n".join(lines)
         self._validation_label.setText(banner_text)
         self._validation_label.setStyleSheet(
-            "color: #c0392b;" if errors else "color: #b9770e;"
+            status_style("error" if errors else "warn", self._validation_label)
         )
         self._validation_label.setVisible(True)
         # "Visible, specific error at the point of entry" must include hearing

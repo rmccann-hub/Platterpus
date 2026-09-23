@@ -10522,3 +10522,53 @@ def test_settings_ok_does_not_revert_an_offset_saved_while_it_was_open(
     window._on_open_settings()
     assert window._config.read_offset == 6, f"save sequence was {saved}"
     assert saved and saved[-1] == 6, f"save sequence was {saved}"
+
+
+def test_a_shown_window_survives_being_garbage_collected() -> None:
+    """A normal quit tears the window down this way; it must not segfault.
+
+    Adding a scroll area around the page (so the window fits a 533 px screen)
+    first built it by moving an existing widget into the scroll area, and a window
+    that had been SHOWN then crashed inside `QWidget::~QWidget` when Python's
+    garbage collector destroyed it — exit 139, reproduced standalone and under
+    gdb (2026-09-23). A segfault kills the whole test run, so this runs the exact
+    sequence in its own interpreter and reads the exit code.
+    """
+    import os
+    import subprocess
+    import sys
+
+    root = Path(__file__).resolve().parents[1]
+    script = """
+import gc, sys
+from PySide6.QtWidgets import QApplication
+app = QApplication([])
+from platterpus.config import Config
+from test_ui_main_window import _make_window
+gc.disable()
+window = _make_window(app, config=Config(
+    host_setup_prompted=True, drive_setup_prompted=True,
+    appimage_integration_prompted=True))
+window.show(); app.processEvents(); window.hide(); window.show()
+app.processEvents(); window.close()
+del window
+gc.collect()
+print("collected")
+"""
+    env = {
+        **os.environ,
+        "QT_QPA_PLATFORM": "offscreen",
+        "PYTHONPATH": os.pathsep.join([str(root / "src"), str(root / "tests")]),
+    }
+    proc = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=120,
+        check=False,
+    )
+    assert proc.returncode == 0 and "collected" in proc.stdout, (
+        f"exit {proc.returncode} — a shown window crashed when collected:\n"
+        f"{proc.stderr[-2000:]}"
+    )
