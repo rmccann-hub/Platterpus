@@ -73,8 +73,9 @@ other agenda item is placed by name in their §E; we accept the placement.
 - [x] **Fixed the coverage check's hand-listed version tiers** — it read tiers (4, 5), so v6's
   rows bound at once; it now reads each block's version off its heading.
 - [x] **Our lap 2: `GO`**, `--check` clean, `READY-TO-READ: no`.
-- [ ] **Release lap 2 on the maintainer's word** (`--announce`), merge to `main` — the texts
-  must reach `main` in the commit that releases it.
+- [x] **RELEASED 2026-09-23 on the maintainer's word** (sha256 `3ae11ad1…`, 15,042 bytes,
+  pinned in `SENT_LAPS`); merges to `main` with the three texts. Their next lap lands our
+  bytes and declares `GO` (their §D pre-commit), which closes round 25 on both gates.
 - [ ] **0.6.54: WAITS for round 25 to close** (maintainer, 2026-09-23). The gate now enforces
   it: `--release-gate --prerelease --tag v0.6.54` exits 1 while the round is open.
 - [x] **N4: DONE 2026-09-23 — the maintainer confirmed (a) directly.** `--release-gate --tag`

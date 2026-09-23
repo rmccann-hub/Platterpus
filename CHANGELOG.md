@@ -113,8 +113,9 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   only if that lap has been released, stated as a requirement rather than a
   filter, because the filter wording made one of the protocol's own refusal rows
   impossible to trigger. Both projects' gates already behave that way. Our reply
-  declares `GO` and is held until the maintainer releases it. Our gate stays at
-  protocol 5 until the text is identical in both repositories, as v6 requires.
+  declares `GO` and was released on the maintainer's word the same day. Our gate
+  stays at protocol 5 until the text is identical in both repositories, as v6
+  requires.
 
 - **Round 24 is filed and our verdict's evidence is committed.** The fork's lap 1,
   its provider contract and the `+platterpus.14` golden log are filed byte-exact.

@@ -75,6 +75,9 @@ SENT_LAPS: dict[str, str] = {
     # bytes they will cite are these; the held version (`c60a3a58…`) differed only
     # in its `HANDSHAKE-READY-TO-READ` line and was never released.
     "outbound/round-24-lap-02.md": "222a658f49a6aa4bba2e19d8dbf1dfa584efa642708f2925f1449b9a56f40568",
+    # Round 25 lap 2: GO, landing PROTOCOL v6 / OWNERSHIP v3 / seam-rules v6;
+    # released on the maintainer's word 2026-09-23.
+    "outbound/round-25-lap-02.md": "3ae11ad1d4e3f7f2a18d83f329409c05c81a38a8cdec428b8ce117d8c64f852c",
     # Round 23 lap 2. **Peer-confirmed in their lap 3's `HANDSHAKE-INBOUND-HELD`**,
     # which names it at sha256 `4d1fd006...f38b8`, 18,686 bytes, read at
     # `platterpus@b5af9bec` — and their §D2 says they fetched the branch and

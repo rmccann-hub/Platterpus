@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-09-23; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: GO
 HANDSHAKE-VERDICT-SOURCE: our review of the three texts at `cyanrip@39dee09`, every changed line diffed against our v5 / v2 / v5 copies (§B), and the decision to land them — OWNERSHIP v3 and seam-rules v6 byte for byte as yours, PROTOCOL v6 with one amendment that changes no conformance row's expected outcome and refuses no clause (§A1). A verdict on a decision, not on an act: the round's condition is met when your next lap lands these bytes, which your §D pre-commits.
 HANDSHAKE-PEER-VERDICT: OPEN
