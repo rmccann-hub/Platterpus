@@ -11,7 +11,50 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+
+- **The ripper pin moves to cyanrip `0.9.4-rc2+platterpus.14` (`3e01bb3`),
+  approved by handshake round 24.** Rips made with `.14` stop being stamped
+  `unapproved` in their report, log and EAC export — until this release a user who
+  took the fork's stable `.14` got exactly that, because the fork published it
+  before a round had reviewed it. `.14` changes log text only: each track now
+  reads "read successfully" rather than "ripped and encoded successfully", and a
+  new `Encoder errors:` line reports the encoder on its own. No hardware run was a
+  precondition; the next acceptance run is evidence afterwards.
+
 ### Fixed
+
+- **A handshake lap of ours promised a pin-roll moment our code does not use.**
+  Round 24's lap 2 told the fork the pin would roll "when round 24 closes on BOTH
+  gates", but our own check rolls it the moment OUR gate reads the round closed,
+  and forbids waiting. Under protocol v5 the two gates close one lap apart, so the
+  promise and the code disagreed by one lap. From round 25 the lap skeleton writes
+  the trigger our code enforces, naming the check that enforces it, and
+  `handshake.py --check` refuses one of our laps that states another. The sent
+  lap cannot be edited; it is corrected in the standing status and in our next lap.
+
+- **The release gate path every 0.x release takes did not say which peer lap a
+  close rested on.** `release.yml` runs the handshake gate with `--prerelease`
+  for every `v0.*` tag, and that path printed only open rounds, so an allowed
+  release never named the fork lap its close depended on. It now prints the same
+  source lines as the strict path. Found while checking whether anything
+  mechanically holds a release for the fork's next lap: nothing does in the 0.x
+  line, because that path permits a release with a round open. That is recorded
+  as a decision for the maintainer rather than changed here.
+
+- **The handshake gate said a bare CLOSED when the fork's gate still said
+  OPEN.** A round now prints, on `--status` and on an allowed release, when it
+  closed on our gate one lap before a gate that reads the protocol's
+  "enumerated" literally, which the fork's does until v6. The verdict is
+  unchanged, because both sides have declared `GO`; the line says which close it
+  is, and to hold a release for the other side's lap.
+
+- **Opening a handshake round with no test pin pointed the rig at a retired
+  build.** When round 24 opened on the cyanrip fork's `+platterpus.14` with no test
+  pin, the ripper menu would have marked round 21's retired test build "INSTALL
+  THIS ONE" for an acceptance run, because the check compared the two pins and never
+  asked which round nominated the test pin. It now does, and a test ties the answer
+  to what the open round's newest lap actually declares.
 
 - **The handshake release gate could close a round on a lap it refused to
   read.** `handshake.py --check` refused a lap declaring a protocol newer than the
@@ -46,6 +89,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   setting, not a person — and restored both times; the setting is now off.
 
 ### Added
+
+- **Round 24 is filed and our verdict's evidence is committed.** The fork's lap 1,
+  its provider contract and the `+platterpus.14` golden log are filed byte-exact.
+  Our 0.6.53 parser reads that log completely: all three tracks in the new wording,
+  the new encoder-status footer, and no line it does not recognise. The failure
+  arms their log does not exercise are asserted on it too. The fatal-message
+  inventory was regenerated from their new contract (unchanged: 120 plus 7), and
+  the argv check reads the current round's flag table again. Rips on `.14` send
+  and record `--consumer`, and our published consumer contract now declares the
+  new `Encoder errors:` line as the fork's to keep stable.
+
+- **Our round 24 lap 2: `GO` on `3e01bb3`**, released on the maintainer's word
+  2026-09-23. Round 24 now reads closed on our gate, and the ripper pin rolled with
+  it (see *Changed*); the fork's pre-committed next lap closes it on theirs, and
+  this release is dispatched only after that lap lands.
 
 - **Handshake protocol v5**, implemented the day its shared text became
   identical in both repositories and before the cyanrip fork's round-24 lap 1. A

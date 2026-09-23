@@ -129,7 +129,16 @@ from platterpus.deps import fork_source
 #: statement about our acceptance script, not about the pin. Round 23's close
 #: condition was never "zero failures"; it was that every non-pass be
 #: dispositioned, and it was.
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.52"
+#: **Round 24 moves it to 0.6.53**, read from the peer's round-24 lap as the rule
+#: above requires: their lap 1 declares `HANDSHAKE-APP-VERSION: platterpus 0.6.53`
+#: (and `HANDSHAKE-PEER-VERSION` the same), filed byte-exact at sha256
+#: `78313e10…`, 18,746 bytes, read at `cyanrip@ace22cf`. **Their lap 1 is the
+#: peer's lap of record for this close, not a later one**: under protocol v5 our
+#: gate closes round 24 on OUR lap 2, because §5b resolves their `none` peer source
+#: to our newer held lap, so there is no peer "closing lap" after ours to read. A
+#: new pin (`2cce60d` -> `3e01bb3`, `+platterpus.14`), approved on the fork's golden
+#: reference rather than on hardware — the change is log text, as their §0.1 says.
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.53"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -213,7 +222,11 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.52"
 #: `2cce60d`'s contract, round 23 reviewed its behaviour on a drive. So a rip
 #: report now credits 23, and the distinction matters — the hardware claim rests
 #: on this round and not on the earlier one.
-APPROVED_BY_ROUND: Final[int] = 23
+#: **24 on 2026-09-23**, closed on our gate at two laps — their lap 1 `GO`, our lap 2
+#: `GO` — the first round closed under protocol v5, and the first in which our gate
+#: and theirs close on DIFFERENT laps (theirs needs their lap 3; see
+#: `fork_source.FORK_PIN`). It approves a NEW pin, `3e01bb3`.
+APPROVED_BY_ROUND: Final[int] = 24
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.

@@ -227,7 +227,14 @@ _TABLE_ROUND_FLOOR: int = 6
 #: re-derive the span as above, and if it is still empty say so in the lap and
 #: leave the number where it is until a contract arrives. A derivation that has to
 #: be redone every round is a sign the artifact should be shipped.
-_MAX_TABLE_LAG: int = 1
+_MAX_TABLE_LAG: int = 0
+#: **1 -> 0 on 2026-09-23, for round 24**: their lap 1 ships `PROVIDER-CONTRACT.md`
+#: generated from the build of the pin under review — `g2e6d97d`, whose `src/` and
+#: `meson.build` are identical to the pin `3e01bb3`'s (`git diff --stat 2e6d97d
+#: 3e01bb3 -- src/ meson.build` is empty) — which discharges their round 23 lap 5
+#: §E item 3. Filed as `round-24-lap-01-provider-contract-g2e6d97d.md`. Its P1 flag
+#: table is row-identical to the `2cce60d` contract's, so the raise below was, as
+#: its two derivations said, a labelling fact rather than a stale-table risk.
 #: **0 -> 1 on 2026-09-22, for round 23, and the instruction above was followed
 #: rather than skipped: the ask is in round 23 lap 2 §E Q4.** Their lap 1 ships no
 #: provider contract -- it is a hardware + protocol round -- so the table we diff

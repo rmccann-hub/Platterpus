@@ -511,6 +511,58 @@ def test_C40_the_same_files_declaring_4_do_NOT_close(
     assert _state(hs.round_status(root)) == "OPEN"
 
 
+def _they_opened_and_we_closed(hs: ModuleType, root: Path) -> Path:
+    """Round 24's exact shape: their lap 1 GO transcribing ``none`` (nothing of ours
+    existed), our lap 2 GO transcribing their lap 1. Closes on OUR gate at lap 2."""
+    return _v5_world(
+        hs,
+        root,
+        [
+            ("inbound", 1, {"HANDSHAKE-PEER-VERDICT": "none"}),
+            (
+                "outbound",
+                2,
+                {hs.PEER_VERDICT_SOURCE_FIELD: "round-99-lap-01.md at cyanrip@abc1234"},
+            ),
+        ],
+    )
+
+
+def test_a_close_one_lap_before_a_literal_peer_gate_SAYS_so(
+    hs: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Round 24 closed on our gate at lap 2 and on the fork's at lap 3, and our
+    output said a bare CLOSED — so a lap of ours promised one close and our code
+    acted on the other. The round still closes (both declared GO); the line says
+    which close it is, on `--status` and on an allowed release."""
+    root = _they_opened_and_we_closed(hs, tmp_path / "hs")
+    lines = hs.round_status(root)
+    assert _state(lines) == "CLOSED", lines
+    early = [ln for ln in lines if "one lap before" in ln]
+    assert len(early) == 1, lines
+    assert (
+        "inbound/round-99-lap-01.md does not list outbound/round-99-lap-02.md"
+        in (early[0])
+    )
+    assert early[0].startswith(hs.SOURCE_LINE_PREFIX)
+    assert not early[0].endswith("OPEN")
+    capsys.readouterr()
+    assert hs.main(["--release-gate", "--handshake-dir", str(root)]) == 0
+    assert "one lap before" in capsys.readouterr().out
+
+
+def test_a_close_both_gates_agree_on_prints_no_early_note(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The contrast: when the peer's closing lap LISTS ours (their lap 3 naming our
+    lap 2), a literal gate sees what ours sees and there is nothing to say. Without
+    this the note could fire on every v5 close and would mean nothing."""
+    root = _we_spoke_first_and_they_closed(hs, tmp_path / "hs")
+    lines = hs.round_status(root)
+    assert _state(lines) == "CLOSED", lines
+    assert not [ln for ln in lines if "one lap before" in ln], lines
+
+
 def test_C42_a_v5_close_prints_which_lap_each_peer_verdict_came_from(
     hs: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -532,6 +584,29 @@ def test_C42_a_v5_close_prints_which_lap_each_peer_verdict_came_from(
     assert "release allowed" in out, out
     # And no source line may be counted as an open round by the gate.
     assert not any(ln.endswith("OPEN") for ln in sources), sources
+
+
+def test_C42_holds_on_the_PRERELEASE_path_too_because_every_v0_release_takes_it(
+    hs: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`release.yml` runs `--release-gate --prerelease` for every `v0.*` tag, so the
+    strict path the C42 test above drives is one no release of ours has taken. The
+    source lines — and the one-lap-early note — must print on this path as well."""
+    root = _we_spoke_first_and_they_closed(hs, tmp_path / "hs")
+    capsys.readouterr()
+    assert (
+        hs.main(["--release-gate", "--prerelease", "--handshake-dir", str(root)]) == 0
+    )
+    out = capsys.readouterr().out
+    assert "resolved from inbound/round-99-lap-03.md" in out, out
+    assert "pre-release allowed" in out, out
+
+    early = _they_opened_and_we_closed(hs, tmp_path / "early")
+    capsys.readouterr()
+    assert (
+        hs.main(["--release-gate", "--prerelease", "--handshake-dir", str(early)]) == 0
+    )
+    assert "one lap before" in capsys.readouterr().out
 
 
 def test_C39_a_transcription_that_disagrees_with_its_source_refuses_naming_both(
