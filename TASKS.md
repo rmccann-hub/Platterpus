@@ -76,6 +76,21 @@ other agenda item is placed by name in their §E; we accept the placement.
 - [x] **RELEASED 2026-09-23 on the maintainer's word** (sha256 `3ae11ad1…`, 15,042 bytes,
   pinned in `SENT_LAPS`); merges to `main` with the three texts. Their next lap lands our
   bytes and declares `GO` (their §D pre-commit), which closes round 25 on both gates.
+- [x] **Filed their lap 2** (`932f86e1…`, released 04:56 UTC, `OPEN`) — it CROSSED ours: we
+  released our own lap 2 about eight hours later without re-reading their tree. Our miss.
+  `--announce` now refuses a lap number a released peer lap in our record already holds
+  (K1), revert-proved; the runbook step it backs is *fetch and file the peer's branch before
+  any announce*. Their lap 2 carries the operator's instructions (few rounds, fix it, every
+  round ends on releases of BOTH apps), adds close condition §0.3 by a recorded override of
+  R1, and supersedes lap 1's v6 text with R8/R9 (`c47ce7a4…`). Every claim re-derived.
+- [x] **Parsed their `.15` candidate's golden reference** (`gbceb35d`, `src/` = `61711f1`):
+  complete, three tracks, no unrecognised line; the second `Retry limit:` form and the draft
+  `Handshake:` qualifier parse too. Committed with tests.
+- [ ] **Their lap 3 is HELD** at their tip (`READY-TO-READ: no`). Answer it and their lap 2
+  together, once it is released — not before.
+- [ ] **Confirm with the maintainer directly**: the operator instructions in their lap 2 (a
+  round ends on releases of both apps; our release carries `FORK_PIN` rolled to their `.15`
+  release commit), before our answering lap declares a release candidate.
 - [ ] **0.6.54: WAITS for round 25 to close** (maintainer, 2026-09-23). The gate now enforces
   it: `--release-gate --prerelease --tag v0.6.54` exits 1 while the round is open.
 - [x] **N4: DONE 2026-09-23 — the maintainer confirmed (a) directly.** `--release-gate --tag`

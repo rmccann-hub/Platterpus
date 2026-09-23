@@ -1721,6 +1721,42 @@ def announce_lap(path: Path, *, on: str | None = None) -> int:
         )
         return 2
 
+    # REFUSE A NUMBER THE PEER HAS ALREADY CLAIMED — K1, agreed in round 22 and
+    # written into v6 §4a: *"a lap is SENT when it is released, and its number is
+    # claimed then … a held lap whose number has been taken is renumbered before it
+    # is released."*
+    #
+    # **Round 25 is why this is here.** The fork released their lap 2 at 04:56 UTC;
+    # we released a lap 2 of our own about eight hours later, because nothing looked
+    # at their record before the flip. Two released laps with one number are
+    # ambiguous (§2 rule 3). This check reads only what we have FILED, so it cannot
+    # see a lap we have not fetched — fetching and filing the peer's branch before an
+    # announce is the runbook's step, and this is the backstop for when the file is
+    # here and the renumbering was forgotten.
+    ours_round = round_number(path)
+    ours_lap = _lap_of(path)
+    inbound = path.parent.parent / "inbound"
+    if ours_round is not None and ours_lap not in (None, AMBIGUOUS_LAP):
+        claimed = sorted(
+            (_lap_of(peer), peer.name)
+            for peer in inbound.glob("round-*-lap-*.md")
+            if round_number(peer) == ours_round
+            and _lap_of(peer) not in (None, AMBIGUOUS_LAP)
+            and _lap_of(peer) >= ours_lap  # type: ignore[operator]  # ints here
+            and ready_to_read(_safe_read(peer)) is True
+        )
+        if claimed:
+            highest = max(number for number, _ in claimed)
+            sys.stderr.write(
+                f"{path.name} is lap {ours_lap}, but the peer has already RELEASED "
+                f"{', '.join(name for _, name in claimed)} in round {ours_round}. "
+                "Under K1 a lap number is claimed when it is released, so this one "
+                f"is taken: renumber this lap to {highest + 1} (and its "
+                "HANDSHAKE-LAP line), answer what their lap said, then re-run "
+                "--announce. Nothing was announced.\n"
+            )
+            return 2
+
     when = on or datetime.date.today().isoformat()
     line_new = (
         f"HANDSHAKE-READY-TO-READ: yes — released by the operator on {when}; "
