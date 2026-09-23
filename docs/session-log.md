@@ -11,6 +11,31 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-23 (late night) — round 25 closed; round 26 opened on `.15`, and the sheet checked the wrong subject
+
+**Round 25 closed at five laps**, on their lap 5 `GO` against our lap 4. The approval
+record moves to round 25 for the same pin and app version, read off their closing
+lap. **Round 26 opened on their released `.15` (`df91ae7`)** before the real test,
+by an operator override of R8 point 3. The reason is mechanical and theirs to see
+from our tree: our acceptance run demands `PIN_UNDER_REVIEW`, and that constant
+moves only when a lap of theirs names a new pin. Every citation in their lap
+resolved at the commit it named.
+
+**The rig sheet's own test checked the wrong subject.** It required the header to
+name the approved pin. During a round that reviews a new build the next run tests
+*that* build, so the sheet as it stood, naming only `.14`, passed while pointing
+the operator at `.14`. Moving `PIN_UNDER_REVIEW` turned up the mirror: the
+front-page sweep had no way to let a page name the build under review at all. Both
+now read `a_round_is_reviewing_a_build()`, so they widen and narrow with the round.
+Three reverts probed, three detected. Graduated as the rig-sheet test's own
+docstring note, since the lesson is about that one check.
+
+**The maintainer decided the release question.** 0.6.54 carries the move, which
+differs from what lap 4 declared, and lap 2 says so first. It goes out under a §6b
+override recorded in our lap 2, because round 26 can close only on a test run on
+that release. The N4 gate refused `v0.6.54` exactly as designed before the override
+existed. Lap 2 is written, checked and held.
+
 ## 2026-09-23 (night) — round 25 lap 4: one v6 for both trees, and a correction we checked
 
 **Their lap 3 merged both v6 texts** (`05abdfde…`: our §5b amendment plus R8/R9)
