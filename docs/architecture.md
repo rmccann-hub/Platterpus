@@ -211,6 +211,36 @@ Worker mechanics, all demonstrated in `workers/`:
   dialog.py::test_install_runs_off_the_gui_thread`), and drive the loop with a
   bounded `processEvents()` pump (see `docs/testing.md`), never `QThread.wait()`
   on the GUI thread (it deadlocks the queued `finished` signal).
+- **A dialog that edits a live object writes back only what the user changed.**
+  A modal dialog does not stop the application underneath it: other code keeps
+  writing the window's config while Settings is open, and the widgets are not
+  refreshed when it does. Reading the whole form back on OK therefore reverts
+  every change made in the meantime. It happened (2026-09-23, reproduced as the
+  save sequence `[6, 667]`): the drive wizard, opened from inside Settings, saved
+  a new read offset and OK wrote the old one back. The rule is
+  `settings_dialog.apply_user_edits`: snapshot what the widgets were loaded from,
+  and on OK apply only the fields whose widgets now differ. The same shape
+  applies to any restore: `_restore_settings_after_acceptance` puts back the
+  user's settings but not `config.APP_STATE_FIELDS`, because the first version
+  restored everything and would have re-asked the first-run setup question after
+  every acceptance run.
+- **Dialogs size to their text through the base class, never one at a time.**
+  `CenteredDialog._fit_content_to_screen` gives every dialog the height its
+  wrapped text needs at its real width, capped at the screen. A body whose length
+  is not ours to fix goes in a `FitScrollArea` (`ui/dialogs/fit_scroll_area.py`),
+  with the buttons outside it. Two dialogs had solved this separately (Settings
+  clamps to the screen; Drive Setup refuses to be shorter than its prose) and
+  thirteen had not, until a 540 px logical screen cut the build picker off
+  mid-sentence. `tests/test_dialogs_fit_their_content.py` measures all of them on
+  a small and a large virtual screen: no clipped label, no window larger than the
+  screen, and no body that scrolls while the window still had room to grow.
+- **One door per action.** An action reachable from two places has two places
+  to go stale, and the second door is rarely maintained. Settings' "Check
+  dependencies" and "Re-detect…" duplicated Setup & Updates buttons and were
+  removed. The inverse check keeps it honest:
+  `tests/test_help_documents_the_menu.py` resolves every menu path the product
+  names against the real menus, and five named paths led nowhere when it was
+  written.
 - Use thread-safe primitives for cancellation flags — a plain `bool` set from
   the GUI thread and read by the worker is fine under the GIL; anything richer
   needs care.

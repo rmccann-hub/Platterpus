@@ -11,6 +11,34 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-24 (small hours) — 0.6.54 out; a real-user report found five UI defects, one of them archival
+
+**0.6.54 released** under the §6b override in our round 26 lap 2. The release gate
+printed the override and let the tag through, and every other tag is still refused.
+
+**The maintainer reported clipped text in the build picker, a stale test pin, and a
+duplicate button, and asked whether the acceptance run should use their settings.**
+Every item was reproduced before it was fixed. Two were worse than reported:
+
+- **The clipping was global.** It reproduced on a 960 × 540 virtual screen (a 1080p
+  panel at 200%). Qt caps a window's first size at two-thirds of the screen, and
+  wrapped labels get squeezed rather than growing the window. The rule had been
+  written in two dialogs separately and applied in none of the rest.
+- **The duplicate button hid a data-integrity bug.** Settings' Re-detect… opened
+  the drive wizard; the wizard saved a new offset; OK in Settings wrote the old one
+  back. The save sequence was `[6, 667]`.
+- **The acceptance run reset the user to the shipped defaults.** Its own comment
+  said it could not do better. The app can, and now restores their settings on
+  every exit.
+
+**Two of my own first versions were wrong, and the checks caught both.** A
+revert probe came back VACUOUS on the scroll area's size hint: a small hint made
+the dialog open small and scroll, nothing clipped, and the gate passed. It now
+also fails a body that scrolls while the window could still grow. And the first
+settings restore put `host_setup_prompted` back to False, which the new test
+caught. Graduated to `docs/architecture.md` §3 as three rules: write back only
+what the user changed; size dialogs through the base class; one door per action.
+
 ## 2026-09-23 (late night) — round 25 closed; round 26 opened on `.15`, and the sheet checked the wrong subject
 
 **Round 25 closed at five laps**, on their lap 5 `GO` against our lap 4. The approval
