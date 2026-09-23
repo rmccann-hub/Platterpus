@@ -738,6 +738,44 @@ a pre-commit twice is the failure this rule exists to prevent.
 than twice what any successful round has needed and is set where it cannot bind
 good work — only runaway.
 
+**R8 — A round ends on a release of both applications (v6, the operator's
+rule).** *"Let's make it so that a round ends on us getting new releases of both
+applications, so we can do a real test. The test kicks off the new round with
+cyanrip fork. Both repos will get the bundle though. Both new releases at the end
+of the round are able to be used as well. Updated to, used, etc. mark them if
+need be."* The operator of both projects, 2026-09-23. So:
+
+1. **A round's close authorises a release of both applications**, and both are
+   cut from it before anything else happens. The provider releases first, then
+   the consumer. Each side's closing lap names what its release will carry, so
+   the close is on content both have seen. **The consumer's release does not pin
+   the provider's new one.** Its pin is a build a closed round approved, and a
+   close cannot approve a commit cut after it. The next round, which the real
+   test opens, reviews the provider's new release (point 3).
+2. **Both releases are usable.** Each is offered by its own project's update
+   path on its default channel, so users can update to it and use it. **Marking
+   is allowed, and withholding is not.** If a release has to carry a mark, such
+   as a pre-release flag, a note that the hardware run has not happened yet, or
+   a consumer reporting the provider's new release as not yet approved, it
+   carries the mark and says what the mark means.
+3. **Then the real test.** The operator runs the hardware acceptance on the
+   released pair. The bundle it produces is committed, byte-identical, to both
+   repositories. **The provider opens the next round from its results** (§1a).
+4. **So hardware evidence opens a round and does not close one.** It is not a
+   close condition unless the round cannot be answered without a drive, and
+   then its lap 1 says why.
+
+**R9 — Fix it, do not argue it (v6, the operator's rule).** *"Let's make these as
+few rounds as needed, and let's fix as much as we can. I want to spend time on
+physical CD rips. Not arguing over bugs and language."* The same instruction.
+A finding goes to a commit, and the lap that reports it says what was fixed. A
+disagreement about wording is settled in the next version of the text, by the
+side whose text it is, and it is not argued across laps. A lap carries only
+what the other side must act on or answer before the round can close. **The
+rules about evidence are unchanged**: answer from the artifact, revert-prove
+the fix, and keep `none` distinct from `unknown`. What R9 cuts is the
+back-and-forth over those.
+
 ## 6a-ter. Overrides — the operator may break any rule, in writing (v3)
 
 **Every rule above may be overridden by the human operating both projects.**
@@ -1153,9 +1191,10 @@ matching hashes cannot.
 ## 14. Changes in v6
 
 **v6 is v5 plus what round 24 agreed for it, four corrections the record showed
-the spec needed, and nothing else.** Nothing in v5 is withdrawn. cyanrip's round
-24 lap 1 §D1 proposed the list and Platterpus's round 24 lap 2 §E agreed it; the
-four corrections were not on it, and are marked.
+the spec needed, the operator's two rules of 2026-09-23, and nothing else.**
+Nothing in v5 is withdrawn. cyanrip's round 24 lap 1 §D1 proposed the list and
+Platterpus's round 24 lap 2 §E agreed it. The corrections and the operator's
+rules were not on it, and are marked.
 
 - **K1, K2 and K3**, agreed and never written into v5: K1 and K3 in round 22
   (cyanrip's lap 1 §0.1, Platterpus's lap 2 §0.1), K2 in round 21 (Platterpus's
@@ -1200,6 +1239,13 @@ four corrections were not on it, and are marked.
   an acknowledgement has not been a lap: silence is acceptance, and only
   disagreement or a correction needs one. A verdict meaning *received, nothing to
   add* has nothing left to carry. §4's vocabulary is unchanged.
+- **The operator's rules, not on round 24's list: R8 and R9** (§6a-bis). A
+  round ends on a release of both applications, both usable, and the real test
+  on the released pair opens the next round, with its bundle in both
+  repositories. And findings are fixed, not argued. Given in cyanrip's round 25
+  lap 2, in the operator's words. R8 point 1 as first drafted had the consumer's
+  release pin the provider's new one, which a pin approved by a closed round
+  cannot do; cyanrip's round 25 lap 3 corrected it.
 - **§8 rows C43–C45.**
 
 **Why v6 rather than an edit to v5.** v5 was adopted byte-identical by both
@@ -1219,6 +1265,9 @@ byte-identical in both trees.**
   neither gate has implemented it, so nothing has had to decide.
 - It does not make the ledger a close condition. A round may close with changes
   not landed; the ledger makes that visible and carries each one forward.
+- It does not make R8 a gate row. A release happens outside the lap record, so
+  neither gate can see it. The closing laps name the releases, and the next
+  round's lap 1 cites them.
 
 ### Deferred to v7, not rejected
 

@@ -1972,9 +1972,17 @@ def _latest_inbound_with_shared_hashes() -> tuple[Path, dict[str, str]] | None:
 #: next lap is filed, that lap is the one compared, and its hashes must match ours.
 #: And it may not outlive its need — :func:`test_the_landing_window_is_not_stale`.
 _PEER_HASHES_SUPERSEDED_BY_OUR_LANDING: dict[str, str] = {
-    "round-25-lap-01.md": (
-        "round 25 closes on landing PROTOCOL v6, OWNERSHIP v3 and seam-rules v6 in "
-        "both trees (§0.1/§0.2); our lap 2 lands them first, their next lap second"
+    # Re-keyed lap by lap in round 25, and the reason changed once, which is worth
+    # saying. Lap 1 and lap 2 (their lap 2 crossed ours) predate our landing. Their
+    # lap 3 does NOT — it answers our lap 2 — and still declares `protocol(v5)`,
+    # because v6 §14 has each side implement 6 only once the text is byte-identical
+    # in both trees, so they land in their closing lap (their lap 3 §D). Their
+    # seam-rules, seam-commands and ownership hashes already equal ours; only the
+    # protocol differs, and only until that lap.
+    "round-25-lap-03.md": (
+        "round 25 closes on PROTOCOL v6 byte-identical in both trees; we land the "
+        "merged text (their 05abdfde…) in our lap 4 and they land it in their "
+        "closing lap, so their lap 3 still declares their v5 protocol"
     ),
 }
 
@@ -4173,3 +4181,49 @@ def test_an_incomplete_or_unreleased_override_does_not_release(
     err = capsys.readouterr().err
     if why is not None:
         assert why in err, err
+
+
+# --- K1 at release: a number the peer has already released is taken -------------
+
+
+def _peer_lap_2(root: Path, ready: str) -> None:
+    (root / "inbound" / "round-19-lap-02.md").write_text(
+        _closing(
+            **{
+                "HANDSHAKE-ROUND": "19",
+                "HANDSHAKE-LAP": "2",
+                "HANDSHAKE-PROTOCOL": "4",
+                "HANDSHAKE-FROM": "cyanrip-fork",
+            }
+        )
+        + f"HANDSHAKE-READY-TO-READ: {ready}\n",
+        encoding="utf-8",
+    )
+
+
+def test_announce_refuses_a_lap_number_the_peer_has_already_released(
+    hs: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Round 25: their lap 2 was released at 04:56 UTC and we released a lap 2 of our
+    own eight hours later. Under K1 the number was theirs from the moment they
+    released it; the announce must refuse and name the number to use instead."""
+    lap = tmp_path / "verified" / "round-19-lap-02.md"
+    _round19(hs, tmp_path, ours=hs.READY_TO_READ_NO, theirs="yes — released")
+    _peer_lap_2(tmp_path, "yes — released")
+    before = lap.read_bytes()
+    assert hs.announce_lap(lap, on="2026-09-23") == 2
+    err = capsys.readouterr().err
+    assert "already RELEASED round-19-lap-02.md" in err and "renumber" in err, err
+    assert "to 3" in err, err
+    assert lap.read_bytes() == before, "a refused announce changed the file"
+
+
+def test_announce_is_not_blocked_by_a_peer_lap_that_is_still_HELD(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The contrast: a held peer lap claims nothing — K1 claims on release — so it
+    must not block ours. Without this the guard could refuse every crossing draft."""
+    lap = tmp_path / "verified" / "round-19-lap-02.md"
+    _round19(hs, tmp_path, ours=hs.READY_TO_READ_NO, theirs="yes — released")
+    _peer_lap_2(tmp_path, "no — published, NOT yet released for reading")
+    assert hs.announce_lap(lap, on="2026-09-23") == 0

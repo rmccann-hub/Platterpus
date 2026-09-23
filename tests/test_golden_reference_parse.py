@@ -693,3 +693,80 @@ def test_the_round_24_footer_arms_and_error_wording_on_the_real_log(
     parsed = parse_cyanrip_log(text.replace(find, replace, 1))
     assert parsed.health_status == expect_health
     assert parsed.tracks[1].status == expect_status_2
+
+
+# Round 25: the `.15` candidate. Their round 25 lap 2 §D asks our answering lap to
+# run our parser over their golden reference "as the lap-2 commit's build writes
+# it". This is that file: committed in their tree at `2516a4c`, its banner names
+# `gbceb35d` (the commit that released their lap 2), and `git diff --stat 61711f1
+# 2516a4c -- src/ meson.build` is empty, so its `src/` is the candidate's.
+
+GOLDEN_R25 = _ARTIFACTS / "round-25-lap-02-golden-reference-gbceb35d.log"
+GOLDEN_R25_SHA256 = "443e2d1c54be6a492133efb760d87538443303e93446b72fd5d11c8268bcfef5"
+
+
+def test_the_round_25_reference_is_the_file_they_committed() -> None:
+    import hashlib
+
+    assert GOLDEN_R25.is_file(), f"missing {GOLDEN_R25}"
+    assert hashlib.sha256(GOLDEN_R25.read_bytes()).hexdigest() == GOLDEN_R25_SHA256
+    assert _text(GOLDEN_R25).startswith(
+        "cyanrip 0.9.4-rc2+platterpus.14 (platterpus-fork-gbceb35d)\n"
+    )
+
+
+def test_the_round_25_candidate_reference_parses_COMPLETELY(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Measured, not assumed: no top-level line the parser does not recognise."""
+    import logging
+
+    text = _text(GOLDEN_R25)
+    with caplog.at_level(logging.DEBUG, logger="platterpus.parsers.cyanrip_log"):
+        parsed = parse_cyanrip_log(text)
+    assert [tr.status for tr in parsed.tracks] == ["ripped successfully"] * 3
+    assert parsed.health_status == "No errors occurred"
+    assert (
+        parsed.handshake_note is not None and "round 25 lap 2" in parsed.handshake_note
+    )
+    unrecognised = [
+        r.getMessage() for r in caplog.records if "unrecognised" in r.getMessage()
+    ]
+    assert not unrecognised, unrecognised
+
+
+@pytest.mark.parametrize(
+    ("find", "replace"),
+    [
+        (
+            # Their lap 2 §B1: `-r` not a multiple of 5 gains a second form.
+            "Retry limit:    10 (per frame, and per whole-track re-read)",
+            "Retry limit:    3 (per whole-track re-read; 5 per frame, rounded up to "
+            "a multiple of 5, the only values libcdio-paranoia checks)",
+        ),
+        (
+            # Round 23's agreed qualifier, built in `20a5aca`: a HELD lap.
+            "round 25 lap 2 OPEN, verdict OPEN -- NOT a released build",
+            "round 25 lap 3 OPEN, verdict GO (draft — lap not released for reading)"
+            " -- NOT a released build",
+        ),
+    ],
+    ids=["retry-limit-second-form", "handshake-draft-qualifier"],
+)
+def test_the_round_25_candidate_only_shapes_parse_on_the_real_log(
+    find: str, replace: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The two shapes the candidate can emit that this reference does not, applied
+    to it — their `HANDSHAKE-BREAKING` says neither needs anything from our parser,
+    and this is where that is checked rather than taken."""
+    import logging
+
+    text = _text(GOLDEN_R25)
+    assert find in text, f"the reference no longer carries {find!r}"
+    with caplog.at_level(logging.DEBUG, logger="platterpus.parsers.cyanrip_log"):
+        parsed = parse_cyanrip_log(text.replace(find, replace, 1))
+    assert len(parsed.tracks) == 3
+    unrecognised = [
+        r.getMessage() for r in caplog.records if "unrecognised" in r.getMessage()
+    ]
+    assert not unrecognised, unrecognised

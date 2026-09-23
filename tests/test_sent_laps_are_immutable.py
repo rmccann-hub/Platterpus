@@ -78,6 +78,10 @@ SENT_LAPS: dict[str, str] = {
     # Round 25 lap 2: GO, landing PROTOCOL v6 / OWNERSHIP v3 / seam-rules v6;
     # released on the maintainer's word 2026-09-23.
     "outbound/round-25-lap-02.md": "3ae11ad1d4e3f7f2a18d83f329409c05c81a38a8cdec428b8ce117d8c64f852c",
+    # Round 25 lap 4: GO, landing the merged v6 (05abdfde…) and naming 0.6.54 as
+    # our candidate; released on the maintainer's word 2026-09-23, after checking
+    # their branch held no newer round-25 lap (the K1 lesson of our lap 2).
+    "outbound/round-25-lap-04.md": "f6d18230a52f47cebb6ff5b0c1722fa6586b49468bb3f3e451f6c8849464b3df",
     # Round 23 lap 2. **Peer-confirmed in their lap 3's `HANDSHAKE-INBOUND-HELD`**,
     # which names it at sha256 `4d1fd006...f38b8`, 18,686 bytes, read at
     # `platterpus@b5af9bec` — and their §D2 says they fetched the branch and
@@ -628,25 +632,71 @@ def _peer_references() -> list[tuple[str, str, list[str]]]:
         for line in path.read_text(encoding="utf-8").splitlines():
             if line.split(":", 1)[0] not in _PEER_FIELDS:
                 continue
-            # (start offset, our-lap filename) for every reference, in line order.
-            spans: list[tuple[int, str]] = [
-                (m.start(), f"round-{int(m.group(1)):02d}-lap-{int(m.group(2)):02d}.md")
-                for m in _LAP_REF.finditer(line)
-            ]
-            for m in _LAP_BRACE.finditer(line):
-                rnd, stem, group = m.group(1), m.group(2), m.group(3)
-                spans += [
-                    (m.start(), f"round-{int(rnd):02d}-lap-{int(stem + d):02d}.md")
-                    for d in group.split(",")
-                ]
-            spans.sort()
-            hits = [(m.start(), m.group(1)) for m in _HEX.finditer(line)]
-            for index, (start, name) in enumerate(spans):
-                end = spans[index + 1][0] if index + 1 < len(spans) else len(line)
-                out.append(
-                    (path.name, name, [h for at, h in hits if start <= at < end])
-                )
+            out += [(path.name, name, hashes) for name, hashes in _on_line(line)]
     return out
+
+
+def _on_line(line: str) -> list[tuple[str, list[str]]]:
+    """``(our lap filename, hashes declared for it)`` for one field line.
+
+    **A repeated mention of the SAME lap is one subject, not two** (round 25,
+    2026-09-23). The fork's round 25 lap 3 wrote `round-25-lap-02.md` — `GO`,
+    sha256 `3ae11ad1…`, …, *filed byte-exact as*
+    `docs/handshake/inbound/round-25-lap-02.md`. *We also hold your standing
+    status … (sha256 `f7510382…`)*. The second mention is where they filed their
+    copy. Positional scoping read it as a new subject and gave it the standing
+    status's hash, and the immutability gate then reported our untouched lap 2 as
+    edited after sending, and told the reader to restore it. That is the false
+    alarm the docstring above describes, through a new door. The fork fixed the
+    same shape in their own audit in the same lap (their lap 3 §F): a dash read as
+    the end of a clause. So hashes stay scoped to the nearest reference before
+    them, and every mention of one lap POOLS its hashes. An unrelated hash in the
+    pool cannot make a wrong declaration pass: the check needs one declared hash
+    to equal our bytes, and only our lap's own digest can.
+    """
+    # (start offset, our-lap filename) for every reference, in line order.
+    spans: list[tuple[int, str]] = [
+        (m.start(), f"round-{int(m.group(1)):02d}-lap-{int(m.group(2)):02d}.md")
+        for m in _LAP_REF.finditer(line)
+    ]
+    for m in _LAP_BRACE.finditer(line):
+        rnd, stem, group = m.group(1), m.group(2), m.group(3)
+        spans += [
+            (m.start(), f"round-{int(rnd):02d}-lap-{int(stem + d):02d}.md")
+            for d in group.split(",")
+        ]
+    spans.sort()
+    hits = [(m.start(), m.group(1)) for m in _HEX.finditer(line)]
+    pooled: dict[str, list[str]] = {}
+    for index, (start, name) in enumerate(spans):
+        end = spans[index + 1][0] if index + 1 < len(spans) else len(line)
+        pooled.setdefault(name, []).extend(h for at, h in hits if start <= at < end)
+    return list(pooled.items())
+
+
+def test_a_repeated_mention_of_one_lap_is_one_subject() -> None:
+    """Round 25 lap 3's shape: our lap named, then named again as their filing
+    path, then a different artifact's hash. The lap's own hash must be among the
+    ones attributed to it, and the line must yield ONE entry for it."""
+    ours = "3ae11ad1d4e3f7f2a18d83f329409c05c81a38a8cdec428b8ce117d8c64f852c"
+    line = (
+        "HANDSHAKE-INBOUND-HELD: `round-25-lap-02.md` — `GO`, sha256 "
+        f"`{ours}`, 15,042 bytes, filed byte-exact as "
+        "`docs/handshake/inbound/round-25-lap-02.md`. We also hold your standing "
+        "status (sha256 `f7510382dab187f0…`, 43,724 bytes)."
+    )
+    entries = _on_line(line)
+    assert [name for name, _ in entries] == ["round-25-lap-02.md"], entries
+    assert ours in entries[0][1], entries
+    # And different laps on one line still keep their own hashes apart.
+    two = (
+        "HANDSHAKE-PEER-VERDICT-SOURCE: `round-21-lap-04.md`, and the superseded "
+        "`round-21-lap-02.md` at sha256 `aaaaaaaaaaaaaaaa`"
+    )
+    by_name = dict(_on_line(two))
+    assert by_name["round-21-lap-04.md"] == [] and by_name["round-21-lap-02.md"] == [
+        "aaaaaaaaaaaaaaaa"
+    ]
 
 
 #: Laps the peer says it holds whose sent bytes were never independently attested.

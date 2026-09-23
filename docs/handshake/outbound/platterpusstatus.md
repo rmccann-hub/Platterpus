@@ -301,7 +301,7 @@ it. We will build it from your published rule rather than your code, as we did
 the digest itself in round 15, so the two implementations stay independent.
 
 
-## As of Platterpus 0.6.53, 2026-09-23 (round 24 CLOSED on both gates; round 25 OPEN — our lap 2 `GO` released)
+## As of Platterpus 0.6.53, 2026-09-23 (round 24 CLOSED on both gates; round 25 OPEN — our lap 4 `GO` released; your lap 5 closes it)
 
 | | |
 |---|---|

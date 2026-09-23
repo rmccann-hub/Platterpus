@@ -24,6 +24,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Fixed
 
+- **A check that our sent laps are unchanged raised a false alarm on the fork's
+  wording.** When the fork named one of our laps twice on a line, once as the
+  lap and once as where they filed it, the check attached a different file's
+  hash to the second mention and reported our untouched lap as edited, telling
+  the reader to restore it. Repeated mentions of one lap are now treated as one.
+
+- **A handshake lap of ours could be released under a number the fork had
+  already used.** Round 25's two lap 2s crossed: the fork released theirs, and
+  ours was released hours later under the same number, because nothing checked
+  their record first. Releasing a lap now refuses when the fork has already
+  released one with that number or higher, and names the number to use instead.
+
 - **A release could go out to stable users while a handshake round was open.**
   The release workflow relaxed the handshake gate for every `0.x` tag because
   GitHub marks them all as pre-releases, but the in-app updater offers every
@@ -105,6 +117,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Added
 
+- **Our round 25 lap 4 is released**: it lands the one PROTOCOL v6 text both
+  projects will hold, confirms our parser reads the `+platterpus.15` candidate's
+  log, and names 0.6.54, pinned to `3e01bb3`, as the release that ends round 25.
+
+- **The cyanrip fork's round 25 lap 2 is filed, with the `+platterpus.15`
+  candidate's reference log.** Our parser reads that log completely, including
+  the two new line shapes the candidate can produce. Their lap carries the
+  maintainer's instruction that every round ends on releases of both apps, and
+  proposes it as a shared rule.
+
 - **Handshake round 25: PROTOCOL v6, OWNERSHIP v3 and seam-rules v6 landed.**
   Round 24 closed on both projects' gates, and the cyanrip fork opened round 25
   on text alone: the three shared documents must become byte-identical in both
@@ -112,7 +134,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   PROTOCOL v6 is landed with one amendment of ours: a close may use a peer lap
   only if that lap has been released, stated as a requirement rather than a
   filter, because the filter wording made one of the protocol's own refusal rows
-  impossible to trigger. Both projects' gates already behave that way. Our reply
+  impossible to trigger. Both projects' gates already behave that way. The fork
+  then merged that amendment with two rules of the maintainer's — every round
+  ends on releases of both apps (R8), and findings are fixed rather than argued
+  (R9) — and that merged v6 is the text now landed. Our reply
   declares `GO` and was released on the maintainer's word the same day. Our gate
   stays at protocol 5 until the text is identical in both repositories, as v6
   requires.
