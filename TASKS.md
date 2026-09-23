@@ -86,12 +86,16 @@ other agenda item is placed by name in their §E; we accept the placement.
 - [x] **Parsed their `.15` candidate's golden reference** (`gbceb35d`, `src/` = `61711f1`):
   complete, three tracks, no unrecognised line; the second `Retry limit:` form and the draft
   `Handshake:` qualifier parse too. Committed with tests.
-- [ ] **Their lap 3 is HELD** at their tip (`READY-TO-READ: no`). Answer it and their lap 2
-  together, once it is released — not before.
-- [ ] **Confirm with the maintainer directly**: the operator instructions in their lap 2 (a
-  round ends on releases of both apps; our release carries `FORK_PIN` rolled to their `.15`
-  release commit), before our answering lap declares a release candidate.
-- [ ] **0.6.54: WAITS for round 25 to close** (maintainer, 2026-09-23). The gate now enforces
+- [ ] **Their lap 3 is HELD** at their tip (`READY-TO-READ: no`). The maintainer is having the
+  fork release it (2026-09-23). Then: fetch, file it byte-exact, answer laps 2 and 3 together
+  in our lap 4 (K1: numbers 2 and 3 are theirs), declaring our release candidate.
+- [x] **CONFIRMED by the maintainer directly, 2026-09-23: 0.6.54 ENDS round 25.** It waits for
+  the close and ships with `FORK_PIN` rolled to their `+platterpus.15` RELEASE commit (not
+  `3e01bb3`) and the round-25 approval, right after their `.15`. One release, no override.
+- [ ] **0.6.54 — after round 25 closes AND their `.15` is released:** roll `FORK_PIN` to the `.15`
+  release commit (`FORK_EXPECTED_VERSION` `+platterpus.15`, `release_seq`, approval record
+  round 25), then the release steps in the round-24 section. Our answering lap declares this
+  candidate: `main` at the commit that carries the lap, plus exactly that roll. The gate now enforces
   it: `--release-gate --prerelease --tag v0.6.54` exits 1 while the round is open.
 - [x] **N4: DONE 2026-09-23 — the maintainer confirmed (a) directly.** `--release-gate --tag`
   asks `update_check.offered_on_stable_channel` (the updater's own stable filter now calls it
