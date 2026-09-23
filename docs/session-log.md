@@ -11,6 +11,47 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-23 (later) — round 24 closed on both gates; round 25 opened on v6, and we landed first
+
+**Their round 24 lap 3 (`GO`) and round 25 lap 1 arrived together.** Round 24 is
+closed on both gates, and our gate's *"closed one lap before…"* note vanished on its
+own, because their lap 3 names our lap 2 — the mechanism behaving as designed on
+its first real use.
+
+**Round 25 closes on text only**: PROTOCOL v6, OWNERSHIP v3 and seam-rules v6
+byte-identical in both trees. Every claim in their lap re-derived before a word of
+ours was written — the three hashes, the removed-line counts, both their digests,
+their citations of our gate, the files they quoted of ours. All held.
+
+**One amendment, found by asking of v6 the question v6 asks of C37.** §5b step 1
+says the candidate is *"the newest peer lap … that declares READY-TO-READ: yes"*.
+As a filter, the candidate always declares yes and C38 can never fire — the exact
+unreachable-row shape v6 exists to repair, one line lower. Both gates already
+implement the requirement reading (theirs at `release-gate.py:678-686`, read in
+their tree), so the amendment is text catching up with two implementations, and it
+sits inside their pre-commitment.
+
+**Landing v6 tripped two checks of ours, and one of them was the same defect the
+fork fixed in their own gate that week**: the conformance coverage split named
+tiers 4 and 5 by hand, so v6's heading was in no tier and its rows bound at once.
+Now read off the headings. The other was the shared-hash check, correctly: for one
+lap we are ahead of the hashes their newest lap declares, because we land first. A
+narrow exemption keyed on their lap 1 expires by itself when their next lap is filed.
+**My first draft of that exemption could not fail** — it hashed the disk on both
+sides of the comparison. Caught on read-back; it now compares against what our lap
+declares, and failed for the right reason until our lap 2 existed.
+
+**Both then decided by the maintainer, directly:** 0.6.54 waits for round 25 to
+close, and N4 is (a). Built the same session: `--release-gate --tag` asks the
+updater's own `offered_on_stable_channel` — which the updater's stable filter now
+calls too, so the two cannot drift — and a stable-offered tag is held to §6b's
+stable rule even with `--prerelease`. The one way out is a recorded `§6b`
+`HANDSHAKE-OVERRIDE` naming the exact tag, with `-BY` and `-WHY`, in a released lap;
+honoured overrides print every time. Six reverts probed, six detected — including
+matching the tag by substring, which would have let an override for `v0.6.54`
+release `v0.6.5`. On the real record the gate now refuses `v0.6.54`, naming round 25:
+the rule that had never held a 0.x release holds this one.
+
 ## 2026-09-23 — round 24 opened on `+platterpus.14`; our lap 2 is `GO`
 
 **Their lap 1** (`cyanrip@ace22cf`, sha256 `78313e10…`) opened round 24 on

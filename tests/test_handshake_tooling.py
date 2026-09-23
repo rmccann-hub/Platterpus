@@ -711,7 +711,14 @@ def test_the_release_workflow_actually_calls_the_gate() -> None:
     # 2026-08-18 by an enforcement audit asking that of every gate. The label
     # answers "did they name it"; only the pair is a check.
     assert "--release-gate --prerelease" in workflow, "the relaxed branch is gone"
-    assert re.search(r"--release-gate\s*;;", workflow), (
+    # N4 (2026-09-23): BOTH branches pass the tag, or the gate cannot ask the
+    # updater whether a stable user is offered this release, and the relaxed branch
+    # waves through every v0.* again.
+    assert '--release-gate --prerelease --tag "$TAG"' in workflow, (
+        "the relaxed branch no longer passes --tag, so a stable-offered v0.* release "
+        "is relaxed again during an open round"
+    )
+    assert re.search(r'--release-gate --tag "\$TAG"\s*;;', workflow), (
         "the STRICT branch (--release-gate with no --prerelease) is not in "
         "release.yml at all — nothing can block a release, and the substring "
         "assertion above cannot tell you that"
@@ -807,6 +814,7 @@ def test_the_tag_routing_is_run_not_read(tag: str, relaxed: bool) -> None:
     assert chosen.startswith("CALLED --release-gate"), (
         f"tag {tag} selected no branch at all: {chosen!r}"
     )
+    assert f"--tag {tag}" in chosen, f"tag {tag} reached the gate without --tag"
     got_relaxed = "--prerelease" in chosen
     assert got_relaxed is relaxed, (
         f"tag {tag} routed to {chosen!r}; expected the "
@@ -1412,8 +1420,16 @@ def test_the_grandfather_sets_are_pinned_and_may_only_shrink(hs: ModuleType) -> 
 #: non-empty reason whenever the two numbers differ — so this cannot become
 #: permanent by nobody noticing. Clear it in the same commit the gate reaches the
 #: spec's version.
-_BOOTSTRAP_REASON: str = ""
-#: History of this constant, newest first. **Empty again from 2026-09-22 (later the
+_BOOTSTRAP_REASON: str = (
+    "v6 landed 2026-09-23 as round 25 §0.1's close condition, ahead of the fork. "
+    "v6 §14: 'Neither gate implements 6 until this file is byte-identical in both "
+    "trees' — true only once their next lap lands our copy — and 'neither side "
+    "declares 6 until both have said, in a lap, that their gate implements it'. "
+    "Clear this in the commit that teaches the gate C43-C45, the amended C13a and "
+    "the K2 field split, with a row-named test for each."
+)
+#: History of this constant, newest first. **2026-09-23: non-empty again**, the v6
+#: bootstrap above. **Empty again from 2026-09-22 (later the
 #: same day)**: the gate implements and declares 5, the shared file is v5, and the
 #: C37-C42 rows have tests — cleared in that commit, as the reason itself required.
 #: **2026-09-22, for one day: non-empty**, the v5 bootstrap — *"v5 landed as round 23
@@ -1795,6 +1811,9 @@ _SHARED_FILE_PATHS: dict[str, str] = {
     # adding a file rather than US being behind. The older keys stay: sent laps
     # declare them and those declarations are immutable history.
     "protocol(v5)": "docs/handshake-protocol.md",
+    # **v6, landed on our side 2026-09-23 (round 25 §0.1)**, first this time: our
+    # lap 2 lands the texts and the fork's next lap lands ours byte for byte.
+    "protocol(v6)": "docs/handshake-protocol.md",
     "seam-rules": "docs/seam-rules.md",
     "seam-commands": "docs/seam-commands.md",
     # Adopted round 14 lap 17. Same mechanism as the three above: a file NEITHER
@@ -1938,6 +1957,40 @@ def _latest_inbound_with_shared_hashes() -> tuple[Path, dict[str, str]] | None:
     return None
 
 
+#: Peer laps whose shared-hash declaration our tree is CORRECTLY ahead of, because a
+#: round's close condition is landing new shared texts and we landed first.
+#:
+#: **Why the window exists at all (round 25, 2026-09-23).** Round 23 landed v5 with the
+#: fork going first, so their newest lap already declared the new hashes when ours
+#: landed and this check never saw a gap. Round 25 runs the other way: their lap 1
+#: proposes PROTOCOL v6 / OWNERSHIP v3 / seam-rules v6, our lap 2 lands them (one
+#: amended), and their lap 3 lands ours byte for byte. For one lap their newest
+#: declaration names the OLD bytes and ours the new — a divergence by construction,
+#: not by drift.
+#:
+#: **Keyed on the superseded peer lap, so it expires by itself**: the moment their
+#: next lap is filed, that lap is the one compared, and its hashes must match ours.
+#: And it may not outlive its need — :func:`test_the_landing_window_is_not_stale`.
+_PEER_HASHES_SUPERSEDED_BY_OUR_LANDING: dict[str, str] = {
+    "round-25-lap-01.md": (
+        "round 25 closes on landing PROTOCOL v6, OWNERSHIP v3 and seam-rules v6 in "
+        "both trees (§0.1/§0.2); our lap 2 lands them first, their next lap second"
+    ),
+}
+
+
+def test_the_landing_window_is_not_stale() -> None:
+    """An exemption names the peer lap it covers; a newer peer lap retires it."""
+    found = _latest_inbound_with_shared_hashes()
+    assert found is not None
+    lap, _ = found
+    stale = sorted(k for k in _PEER_HASHES_SUPERSEDED_BY_OUR_LANDING if k != lap.name)
+    assert not stale, (
+        f"{stale} no longer name the peer's newest declaring lap ({lap.name}); their "
+        "newer lap is compared normally now, so remove the entry"
+    )
+
+
 def test_the_PEERS_declared_shared_hashes_match_our_copies() -> None:
     """The other half of a two-half check, which said so in its own docstring.
 
@@ -1981,6 +2034,7 @@ def test_the_PEERS_declared_shared_hashes_match_our_copies() -> None:
         "four, so the parser has stopped matching"
     )
     mismatches: list[str] = []
+    ahead: dict[str, str] = {}  # shared name -> our CURRENT hash, where it differs
     for name, claimed in declared.items():
         rel = _SHARED_FILE_PATHS.get(name)
         if rel is None:
@@ -1992,10 +2046,34 @@ def test_the_PEERS_declared_shared_hashes_match_our_copies() -> None:
             continue
         actual = hashlib.sha256((_REPO_ROOT / rel).read_bytes()).hexdigest()
         if actual != claimed:
+            ahead[name] = actual
             mismatches.append(
                 f"{name}: they declare {claimed[:16]}… and our {rel} hashes to "
                 f"{actual[:16]}…"
             )
+    if lap.name in _PEER_HASHES_SUPERSEDED_BY_OUR_LANDING:
+        # The window must be REAL — a landing that no longer differs does not need
+        # the exemption — and our side of it must be declared: every file we are
+        # ahead on is one our own newest lap states the new hash for.
+        assert mismatches, (
+            f"{lap.name} is exempted as superseded by our landing, but nothing "
+            "differs any more; remove it from _PEER_HASHES_SUPERSEDED_BY_OUR_LANDING"
+        )
+        # Compared against what our lap DECLARES, never against the disk again: a
+        # first draft of this block hashed the files on both sides of the
+        # comparison, so it could not fail — caught by reading it back.
+        ours = _latest_lap_with_shared_hashes()
+        assert ours is not None
+        our_lap, our_declared = ours
+        undeclared = sorted(
+            name for name, now in ahead.items() if now not in our_declared.values()
+        )
+        assert not undeclared, (
+            f"we are ahead of {lap.name} on {undeclared}, and our newest lap "
+            f"{our_lap.name} does not declare the new hash — landing a text without "
+            "saying so is the divergence this check exists for"
+        )
+        return
     assert not mismatches, (
         f"the shared files have DIVERGED between the two repositories, per "
         f"{lap.name}:\n  " + "\n  ".join(mismatches) + "\n"
@@ -3993,3 +4071,105 @@ def test_the_sent_round_24_lap_is_grandfathered_not_rewritten() -> None:
     assert "closes on BOTH gates" in lap.read_text(encoding="utf-8")
     assert hs.PIN_ROLL_TRIGGER_FROM_ROUND == 25
     assert _pin_policy_problems(hs.check_outbound_paths(lap)) == []
+
+
+# --- N4: a release our updater offers on stable is held to the stable rule --------
+
+
+def _open_round_world(
+    hs: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Path:
+    """Round 9 OPEN — sent, nothing back — as the gate's own tests build it."""
+    for sub in ("outbound", "inbound", "verified"):
+        (tmp_path / sub).mkdir()
+    (tmp_path / "outbound" / "round-9.md").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(hs, "HANDSHAKE_DIR", tmp_path)
+    monkeypatch.setattr(hs, "CURRENT_ROUND", 9)
+    return tmp_path
+
+
+def _override_lap(root: Path, **fields: str | None) -> Path:
+    """A lap of ours in round 9 recording an override. ``None`` omits a field."""
+    header: dict[str, str | None] = {
+        "HANDSHAKE-PROTOCOL": "2",
+        "HANDSHAKE-ROUND": "9",
+        "HANDSHAKE-LAP": "2",
+        "HANDSHAKE-FROM": "platterpus",
+        "HANDSHAKE-VERDICT": "OPEN",
+        "HANDSHAKE-READY-TO-READ": "yes — released by the operator on 2026-09-23",
+        "HANDSHAKE-OVERRIDE": "§6b — release v0.6.54 while round 9 is open",
+        "HANDSHAKE-OVERRIDE-BY": "operator (rmccann), 2026-09-23",
+        "HANDSHAKE-OVERRIDE-WHY": "a data-loss fix that cannot wait for the round",
+    }
+    header.update(fields)
+    body = "\n".join(f"{k}: {v}" for k, v in header.items() if v is not None)
+    path = root / "outbound" / "round-09-lap-02.md"
+    path.write_text(body + "\n\nlap body\n", encoding="utf-8")
+    return path
+
+
+def test_a_stable_offered_tag_is_not_relaxed_by_prerelease(
+    hs: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The N4 case: `release.yml` passes `--prerelease` for every `v0.*`, and our
+    updater offers every final `v0.*` on stable — so without the tag the gate
+    relaxed exactly what §6b's stable row forbids."""
+    _open_round_world(hs, tmp_path, monkeypatch)
+    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.54"]) == 1
+    assert "offered on the STABLE channel" in capsys.readouterr().err
+    # A genuine beta — one the stable channel does NOT offer — keeps §6b's
+    # relaxation, which exists so a round needing a published build can close.
+    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.7.0b1"]) == 0
+    # And the gate asks the UPDATER, not a list of its own.
+    monkeypatch.setattr(hs, "offered_on_stable_channel", lambda _tag: False)
+    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.54"]) == 0
+
+
+def test_a_recorded_section_6b_override_releases_that_tag_and_is_printed(
+    hs: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """§6a-ter: rule, who and why, in a released lap — honoured and printed (C32)."""
+    root = _open_round_world(hs, tmp_path, monkeypatch)
+    _override_lap(root)
+    capsys.readouterr()
+    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.54"]) == 0
+    out = capsys.readouterr().out
+    assert "OVERRIDE round 9" in out and "a data-loss fix" in out, out
+    assert "under a recorded operator override" in out
+    # It names ONE tag. Another release is still held.
+    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.55"]) == 1
+    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.5"]) == 1
+
+
+@pytest.mark.parametrize(
+    ("fields", "why"),
+    [
+        ({"HANDSHAKE-OVERRIDE-WHY": None}, "C31"),
+        ({"HANDSHAKE-OVERRIDE-BY": None}, "C31"),
+        ({"HANDSHAKE-READY-TO-READ": "no — not announced"}, "not released"),
+        ({"HANDSHAKE-OVERRIDE": "R4 — release v0.6.54 while round 9 is open"}, None),
+    ],
+)
+def test_an_incomplete_or_unreleased_override_does_not_release(
+    hs: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    fields: dict[str, str | None],
+    why: str | None,
+) -> None:
+    """An unrecorded override did not happen: missing `-BY`/`-WHY`, a held lap, or an
+    override of a different rule all leave the release blocked — and say why."""
+    root = _open_round_world(hs, tmp_path, monkeypatch)
+    _override_lap(root, **fields)
+    capsys.readouterr()
+    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.54"]) == 1
+    err = capsys.readouterr().err
+    if why is not None:
+        assert why in err, err

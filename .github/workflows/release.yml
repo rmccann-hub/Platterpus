@@ -73,12 +73,21 @@ jobs:
         # round is open. Refusing the beta does not protect a user — it guarantees
         # the round can never close. The gate still prints every open round, so a
         # pre-release never looks like a clean record.
+        #
+        # **`--tag` on BOTH branches, and it overrides the shape (N4, maintainer
+        # decision 2026-09-23).** Every `v0.*` tag matches the relaxed shape, but our
+        # updater offers every `v0.*` on the STABLE channel, so the relaxation let a
+        # stable user receive a build released during an open round — not one release
+        # of the 0.x line was ever held here. The gate now asks the updater's own
+        # predicate whether this tag is offered on stable, and if it is, applies the
+        # stable rule. A release that cannot wait goes out under a recorded
+        # `HANDSHAKE-OVERRIDE` naming rule §6b and this tag, in a released lap.
         run: |
           case "$TAG" in
             v0.*|*-*|*a[0-9]*|*b[0-9]*|*rc[0-9]*)
-              python scripts/handshake.py --release-gate --prerelease ;;
+              python scripts/handshake.py --release-gate --prerelease --tag "$TAG" ;;
             *)
-              python scripts/handshake.py --release-gate ;;
+              python scripts/handshake.py --release-gate --tag "$TAG" ;;
           esac
 
       # THE CI GATE. Nothing required CI to have passed before a release — found by

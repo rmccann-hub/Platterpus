@@ -1051,6 +1051,53 @@ def _rows_after_heading(heading_fragment: str) -> list[str]:
     return re.findall(r"^\|\s*\*{0,2}(C\d+[a-z]?)\*{0,2}\s*\|", text[at:], re.MULTILINE)
 
 
+#: A §8 heading that defers its rows to a protocol version: *"Rows added in v6 —
+#: required once both gates implement 6"*. The version is read off the heading, so a
+#: block binds from the version IT names and a new block needs no edit here.
+_TIER_HEADING: re.Pattern[str] = re.compile(
+    r"^###\s+Rows added in [^\n]{1,40}?required once both gates implement (\d+)\s*$",
+    re.MULTILINE,
+)
+
+
+def _version_tiers() -> list[tuple[int, list[str]]]:
+    """``(version, rows)`` for every versioned §8 block, in file order.
+
+    **Derived, not listed — round 25, 2026-09-23.** The coverage check below used to
+    carry ``[(4, v3/v4 rows), (5, v5 rows)]`` by hand, so the day PROTOCOL v6 landed
+    its heading was in no tier and C43-C45 bound at once against a gate that
+    implements 5. The fork found and fixed the same shape in their gate the same week
+    (``cyanrip@12a85fd``, "a block is in force from the version its heading names").
+    It is `docs/testing.md` §5.bo's third lesson arriving one version later: a
+    deferral that does not name, in code, the condition that ends it.
+    """
+    text = (_REPO_ROOT / "docs" / "handshake-protocol.md").read_text(encoding="utf-8")
+    heads = list(_TIER_HEADING.finditer(text))
+    tiers: list[tuple[int, list[str]]] = []
+    for index, head in enumerate(heads):
+        end = heads[index + 1].start() if index + 1 < len(heads) else len(text)
+        block = text[head.end() : end]
+        next_section = re.search(r"^## ", block, re.MULTILINE)
+        if next_section is not None:
+            block = block[: next_section.start()]
+        rows = re.findall(r"^\|\s*\*{0,2}(C\d+[a-z]?)\*{0,2}\s*\|", block, re.MULTILINE)
+        tiers.append((int(head.group(1)), rows))
+    return tiers
+
+
+def test_the_version_tiers_are_read_off_the_headings() -> None:
+    """The split has to find every versioned block, and each must hold rows."""
+    tiers = _version_tiers()
+    versions = [version for version, _ in tiers]
+    assert versions == sorted(versions) and len(set(versions)) == len(versions), tiers
+    assert {4, 5, 6} <= set(versions), (
+        f"versioned §8 blocks found for {versions}; the spec carries v3/v4, v5 and "
+        "v6 blocks, so the heading pattern has stopped matching one"
+    )
+    assert all(rows for _, rows in tiers), f"a versioned block parsed empty: {tiers}"
+    assert ("C43" in dict(tiers)[6]) and ("C37" in dict(tiers)[5])
+
+
 def test_every_conformance_row_has_a_test_here(hs: ModuleType) -> None:
     """A floor on the suite, not on the gate.
 
@@ -1080,14 +1127,11 @@ def test_every_conformance_row_has_a_test_here(hs: ModuleType) -> None:
     # rows under "required once both gates implement N" bind when PROTOCOL_VERSION
     # reaches N, and the v3/v4 rows that bind without a named test are COUNTED in a
     # ratchet below instead of being invisible.
-    after_v3 = _rows_after_heading("Rows added in v3")
-    after_v5 = _rows_after_heading("Rows added in v5")
-    assert after_v3 and after_v5, (
+    tiers = _version_tiers()
+    assert len(tiers) >= 3, (
         "a versioned §8 heading no longer parses — if its rows became unconditional, "
-        "delete this branch rather than letting it silently exempt them"
+        "fix the pattern rather than letting it silently bind or exempt them"
     )
-    v34_rows = [i for i in after_v3 if i not in after_v5]
-    tiers: list[tuple[int, list[str]]] = [(4, v34_rows), (5, after_v5)]
     pending = [
         i for version, rows in tiers if hs.PROTOCOL_VERSION < version for i in rows
     ]
@@ -1154,9 +1198,11 @@ def test_the_untested_binding_rows_ratchet_is_exact() -> None:
 #: invisible for as long as the row-id pattern was ``C\d+`` — not exempted, not
 #: deferred, simply unable to appear in any denominator.
 #:
-#: ``C13a`` — *"a later lap of any verdict after the round reached a terminal state
-#: → refuse the FILE as an illegal transition; the round stays closed. v3 changed
-#: this: under v2 it reopened the round."* Our ``round_status`` reads the newest
+#: ``C13a`` — *"a later lap after the round reached a terminal state, declaring a
+#: verdict other than the one that made it terminal → refuse the FILE as an illegal
+#: transition"* (amended in v6, round 25: v3-v5 said *of any verdict*, which refused
+#: the second side's own closing lap). Under the amended row a later lap declaring
+#: the SAME verdict is fine, and ours already treats it so. Our ``round_status`` reads the newest
 #: file on each side, so a later lap still reopens a closed round — the v2
 #: behaviour. **It fails CLOSED**: every later-lap shape (``HOLD``, or no verdict
 #: at all) turns the round ``OPEN`` and ``--release-gate`` refuses, so the

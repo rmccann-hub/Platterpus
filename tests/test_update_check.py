@@ -298,3 +298,34 @@ def test_is_newer_basic_ordering() -> None:
 def test_is_newer_unparseable_is_never_newer() -> None:
     assert is_newer("garbage", "0.2.0") is False
     assert is_newer("0.3.0", "garbage") is False
+
+
+# --- N4 (maintainer decision, 2026-09-23): one "offered on stable?" predicate -------
+
+
+@pytest.mark.parametrize(
+    "tag",
+    ["v0.6.54", "v0.6.54b1", "v0.7.0rc2", "v1.0.0", "v1.0.1a3", "0.6.53", "vnonsense"],
+)
+def test_the_release_gate_and_the_update_offer_agree_on_stable(tag: str) -> None:
+    """The handshake release gate holds a stable-offered release to the stable rule,
+    and it asks ``offered_on_stable_channel`` rather than restating the channel rule.
+
+    So the relation is the test: the predicate says *offered* exactly when the
+    stable channel's own release list contains the tag. A test of either side alone
+    would pass with the two keyed differently, which is the §5.al shape.
+    """
+    payload = [{"tag_name": tag, "html_url": "https://example.invalid/r"}]
+    offered = {
+        info.version
+        for info in uc._parse_releases(payload, uc.CHANNEL_STABLE) or []  # noqa: SLF001
+    }
+    bare = tag[1:] if tag.startswith("v") else tag
+    assert uc.offered_on_stable_channel(tag) is (bare in offered)
+
+
+def test_every_v0_final_tag_is_offered_on_stable() -> None:
+    """The fact N4 rests on: the 0.x line's GitHub pre-release flag marks nothing,
+    because the stable channel offers a final ``v0.*`` tag regardless of it."""
+    assert uc.offered_on_stable_channel("v0.6.54")
+    assert not uc.offered_on_stable_channel("v0.6.54b1")
