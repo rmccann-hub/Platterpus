@@ -720,7 +720,7 @@ class MainWindow(
         # The panes above refuse to shrink below a usable size — collapsing them
         # once left a 14-track disc showing 2 rows — and together that floor is
         # about 605 px. Measured 2026-09-23 on the standard-resolution matrix in
-        # `tests/test_dialogs_fit_their_content.py`: on a Steam Deck at 150%
+        # `tests/test_ui_conformance.py`: on a Steam Deck at 150%
         # (533 px), a 1080p laptop at 200% (540 px) and a 1024x600 netbook, the
         # window was forced taller than the screen and its bottom — Start rip and
         # the verdict — was off it. Wrapping the page in a scroll area lowers the
@@ -1035,7 +1035,8 @@ class MainWindow(
         cover_from_file_action = tools_menu.addAction("Set &cover art from file…")
         cover_from_file_action.triggered.connect(self._on_set_cover_art_from_file)
 
-        diagnose_action = tools_menu.addAction("Diagnose drive &access…")
+        # Alt+D, not Alt+A: "Run &acceptance test" below has A.
+        diagnose_action = tools_menu.addAction("&Diagnose drive access…")
         diagnose_action.triggered.connect(self._show_drive_access_diagnosis)
 
         # The unattended-test console. The scripting subsystem it opens has
@@ -1064,7 +1065,9 @@ class MainWindow(
         # The in-app Uninstaller — separated at the bottom so it can't be
         # mis-clicked among the everyday actions.
         tools_menu.addSeparator()
-        uninstall_action = tools_menu.addAction("&Uninstall Platterpus…")
+        # Alt+N: Alt+U is Setup & Updates, which is used far more often — the
+        # destructive item should be the one that needs the less obvious key.
+        uninstall_action = tools_menu.addAction("U&ninstall Platterpus…")
         uninstall_action.triggered.connect(self.open_uninstall_dialog)
 
         help_menu = menubar.addMenu("&Help")

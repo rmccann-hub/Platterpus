@@ -22,6 +22,8 @@ from PySide6.QtCore import QRect, QSize
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
+from platterpus.ui.dialogs.fit_scroll_area import FitScrollArea
+
 log = logging.getLogger(__name__)
 
 
@@ -237,7 +239,11 @@ class CenteredDialog(QDialog):
 
         **What it does**, on first show only:
 
-        * width is kept, unless it is wider than the screen;
+        * width is kept, unless it is wider than the screen — or NARROWER than
+          the content can be: a checkbox or a button cannot wrap, and a dialog
+          that sets its own minimum size switches off the layout's minimum, so
+          Qt no longer stops it being squeezed (the uninstall dialog's checkbox,
+          at 150% text; found by the conformance matrix);
         * height grows to what the content needs AT THAT WIDTH (height-for-width,
           which is the number a wrapped label actually needs — `sizeHint` is
           computed at a different width and is the wrong number), and is capped
@@ -247,9 +253,11 @@ class CenteredDialog(QDialog):
 
         Content taller than the screen cannot be fitted by resizing; it has to
         scroll. That is what
-        :class:`~platterpus.ui.dialogs.fit_scroll_area.FitScrollArea` is for, and
-        `tests/test_dialogs_fit_their_content.py` is the gate that finds a dialog
-        which needed one and has none.
+        :class:`~platterpus.ui.dialogs.fit_scroll_area.FitScrollArea` is for; once
+        the width is settled, the window also grows by whatever such an area
+        still cannot show, because its size hint was measured at a different
+        width. `tests/test_ui_conformance.py` is the gate: every rule, every
+        window, every screen shape, theme and text size.
         """
         avail = self.available_screen_size()
         # The margin is VERTICAL only: it is for the taskbar and the title bar,
@@ -263,6 +271,11 @@ class CenteredDialog(QDialog):
             self.setMinimumWidth(max_w)
         if self.minimumHeight() > max_h:
             self.setMinimumHeight(max_h)
+        layout = self.layout()
+        content_min_w = layout.totalMinimumSize().width() if layout is not None else 0
+        if self.minimumWidth() < min(content_min_w, max_w):
+            # So the user cannot drag it narrower than its content, either.
+            self.setMinimumWidth(min(content_min_w, max_w))
         width = min(max(self.width(), self.minimumWidth()), max_w)
         if self.hasHeightForWidth():
             need = self.heightForWidth(width)
@@ -271,6 +284,16 @@ class CenteredDialog(QDialog):
         height = min(max(self.height(), need), max_h)
         if (width, height) != (self.width(), self.height()):
             self.resize(width, height)
+        if layout is None or height >= max_h:
+            return
+        # Second pass, at the real width: a scrolling body whose size hint was
+        # measured at another width may still be short of its content.
+        layout.activate()
+        unmet = max(
+            (a.unmet_height() for a in self.findChildren(FitScrollArea)), default=0
+        )
+        if unmet:
+            self.resize(width, min(height + unmet, max_h))
 
     def done(self, result: int) -> None:
         """Log how the dialog closed, then close it.

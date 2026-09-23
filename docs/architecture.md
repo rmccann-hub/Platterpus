@@ -231,9 +231,24 @@ Worker mechanics, all demonstrated in `workers/`:
   with the buttons outside it. Two dialogs had solved this separately (Settings
   clamps to the screen; Drive Setup refuses to be shorter than its prose) and
   thirteen had not, until a 540 px logical screen cut the build picker off
-  mid-sentence. `tests/test_dialogs_fit_their_content.py` measures all of them on
-  a small and a large virtual screen: no clipped label, no window larger than the
-  screen, and no body that scrolls while the window still had room to grow.
+  mid-sentence. The base class also refuses to be narrower than its content (a
+  checkbox or button cannot wrap), and grows once more by whatever a
+  `FitScrollArea` still cannot show at the real width.
+- **A UI rule is written ONCE and applied to every window, in every condition.**
+  Every defect in the 2026-09-23 report had the same root: a rule solved in one
+  window and never applied to the rest. `tests/test_ui_conformance.py` is the
+  matrix — every `CenteredDialog` (derived from the source), the main window, and
+  the states that show coloured status lines, under 22 conditions (14 standard
+  screen shapes, Breeze Dark, 150% text), against every rule: no clipped wrapped
+  text, fits the screen, scrolls only when capped, text contrast ≥ 4.5:1 measured
+  from the colours actually applied, no button smaller than we set or the style
+  asked for, no cut-off one-line text, no two controls sharing an Alt-key (per
+  window and per menu), and no nameless input. A new window is measured the day
+  it lands; a new rule reaches every window the day it is added; each rule has a
+  floor on what it examined and was revert-probed. Its first run found four real
+  defects the per-dialog gates had missed — and found that the contrast rule
+  examined no status line at all until windows were measured in a state that
+  shows one, which is why `STATES` exists.
 - **One door per action.** An action reachable from two places has two places
   to go stale, and the second door is rarely maintained. Settings' "Check
   dependencies" and "Re-detect…" duplicated Setup & Updates buttons and were

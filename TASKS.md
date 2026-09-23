@@ -67,7 +67,7 @@ round 26 is open.
 - [x] **Dialogs clip wrapped text on a short logical screen** — reproduced at 960 × 540
   (picker 360 px, 5 labels cut), fixed on `CenteredDialog` (fit to content, capped at the
   screen) + `FitScrollArea` bodies for the picker and Setup & Updates; gated by
-  `tests/test_dialogs_fit_their_content.py` over all 15 dialogs on two screen shapes.
+  `tests/test_ui_conformance.py` (see below).
 - [x] **The picker offered round 21's test pin** — `ripper_choices` now follows
   `rig_installs_the_test_pin`; the picker tests no longer lean on the stale row for a
   two-row floor.
@@ -77,6 +77,11 @@ round 26 is open.
   five dead menu paths fixed; converse sweep in `tests/test_help_documents_the_menu.py`.
 - [x] **The acceptance run left the user on its test values** — the app snapshots and
   restores the user's settings on every exit, leaving `APP_STATE_FIELDS` alone.
+- [x] **"Anything you can do to fix this globally?"** — one conformance matrix,
+  `tests/test_ui_conformance.py`: every window × 22 conditions × 8 rules. First run
+  found and fixed: duplicate Alt-keys in the script console, Setup & Updates and the
+  Tools menu; a nameless search field; a checkbox cut off at 150% text; a picker
+  that scrolled with screen to spare.
 - [ ] **Maintainer's question: acceptance tiers (quick / standard / full) and a fixed
   starting baseline.** Recommendation given in chat; waiting on the answer before building.
 
