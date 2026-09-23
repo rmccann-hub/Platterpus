@@ -80,6 +80,25 @@ class FitScrollArea(QScrollArea):
         width = inner.sizeHint().width() + self._bar_width() + 2 * self.frameWidth()
         return QSize(width, self._content_height_for(width))
 
+    def unmet_height(self) -> int:
+        """How many pixels taller this area would have to be to stop scrolling.
+
+        Read from the area's ACTUAL width, which is the whole point: the size hint
+        above measures the content at its natural width, and a dialog that opened
+        narrower than that wraps its text onto more lines than the hint counted.
+        Found by `tests/test_ui_conformance.py` at 150% text on a 1024×768 screen:
+        the build picker scrolled 63 px in a window with 99 px of screen left.
+        `CenteredDialog._fit_content_to_screen` reads this after it has chosen a
+        width, and grows the window by it (still capped at the screen).
+        """
+        inner = self.widget()
+        if inner is None:
+            return 0
+        width = inner.width()
+        need = inner.heightForWidth(width) if inner.hasHeightForWidth() else -1
+        need = max(need, inner.minimumSizeHint().height())
+        return max(0, need - self.viewport().height())
+
     def minimumSizeHint(self) -> QSize:  # noqa: N802 — Qt override
         # Small on purpose: this is the widget that yields when there is not
         # enough screen, and a large minimum here would push the buttons off it.

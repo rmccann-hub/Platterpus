@@ -193,7 +193,8 @@ class SetupCenterDialog(CenteredDialog):
                 f"from handshake round {approved_by_round}"
             ),
             buttons=[
-                ("Check for cyanrip &updates", "ripper_update"),
+                # Alt+C: Alt+U is the app's own update check, one section up.
+                ("Check for &cyanrip updates", "ripper_update"),
                 ("Choose a &build…", "ripper_pick"),
             ],
         )
@@ -217,7 +218,8 @@ class SetupCenterDialog(CenteredDialog):
             ),
             buttons=[
                 ("Run &setup…", "host_setup"),
-                ("Add app &shortcut", "shortcut"),
+                # Alt+T: Alt+S is "Run setup" beside it.
+                ("Add app shor&tcut", "shortcut"),
                 ("Set up d&rive…", "drive_setup"),
             ],
         )

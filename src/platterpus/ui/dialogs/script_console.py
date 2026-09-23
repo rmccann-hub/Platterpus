@@ -197,7 +197,9 @@ class ScriptConsoleDialog(CenteredDialog):
         save_button.clicked.connect(self._on_save_transcript)
         buttons.addWidget(save_button)
 
-        help_button = QPushButton("&Commands", self)
+        # Alt+M, not Alt+C: "&Close" below has C, and two buttons claiming one
+        # Alt-key means the shortcut picks whichever Qt finds first.
+        help_button = QPushButton("Co&mmands", self)
         help_button.clicked.connect(self._on_show_reference)
         buttons.addWidget(help_button)
 

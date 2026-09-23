@@ -13,6 +13,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Fixed
 
+- **Keyboard shortcuts, labels and window sizes are now checked in every window,
+  not one at a time.** A single check now applies every interface rule to every
+  window, on 14 standard screen sizes, in the dark theme and at 150% text. Its
+  first run found and fixed: two buttons sharing an Alt-key in the script
+  console, two pairs in Setup & Updates and two pairs in the Tools menu (each key
+  opened whichever item Qt found first); the copyable search string in the
+  manual-install window had no name for a screen reader; the uninstall
+  checkbox was cut off at 150% text, because a dialog that sets its own minimum
+  size can be squeezed narrower than its content; and the build picker scrolled
+  when the window still had room to grow. Only the Alt-key letters moved; every
+  menu item and button keeps its name.
+
 - **Status colours were hard to read on a dark theme.** The rip verdict's green,
   the amber warnings and the red validation errors used fixed colours that
   measured 2.5–3.2:1 against Breeze Dark, Bazzite's default. Accessible text
