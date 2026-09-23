@@ -43,8 +43,26 @@ Fixed with a stated `PIN_UNDER_REVIEW_ROUND` and a test tied to the record — t
 *"what does downstream do with answers it never used to receive?"* question, since
 the old pin never reached that state.
 
-**Next:** the maintainer announces lap 2, it merges to `main`, their pre-committed
-lap closes the round on their gate, and `FORK_PIN` rolls to `3e01bb3` in 0.6.54.
+**Then lap 2 was released, and my own lap and my own suite disagreed.** Lap 2 told
+the fork the pin would roll *"when round 24 closes on BOTH gates — on your
+pre-committed next lap"*. Released, it made our gate read round 24 CLOSED, and
+`check.py` went red: `test_the_pin_is_the_one_the_newest_closed_handshake_round_verified`
+binds `FORK_PIN` to OUR gate's close and says *"do not relax this check."* Both were
+right about their own subject; under v5 the two gates close one lap apart, and the
+lap had promised against one while the code checks the other. The maintainer's
+ruling: round 24 stays closed, fix it, and put everything known on round 25.
+
+So: **the pin rolled** (`3e01bb3`, `+platterpus.14`, approval record round 24 for
+0.6.53 read off their lap 1), **the release that ships it waits for their lap 3**,
+which is what the promise was protecting; **our gate now says when a close is one
+lap ahead of the fork's** (`CLOSED_ONE_LAP_EARLY_NOTE`); and **our lap skeleton
+writes the roll trigger from a constant**, with `--check` refusing one of our laps
+from round 25 that restates it by hand. Six reverts probed, six detected. The sent
+lap cannot be edited; the discrepancy is in the standing status now and is a
+correction item for our first round-25 lap. Graduated as `docs/testing.md` §5.bp.
+The complete round-25 agenda is in `TASKS.md`.
+
+**Next:** their lap 3 closes round 24 on their gate; then 0.6.54 ships the pin.
 
 ## 2026-09-22 (late) — protocol v5 implemented before round 24's lap 1
 

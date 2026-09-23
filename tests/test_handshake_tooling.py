@@ -3918,3 +3918,78 @@ def test_close_blockers_reports_the_not_yet_spoken_case_as_its_own_blocker(
     )
     assert hs.PEER_VERDICT_NOT_YET_SPOKEN not in hold, hold
     assert hold, "a transcribed HOLD must still block"
+
+
+# --- The pin-roll trigger: a lap may not promise what the code does not do --------
+#
+# Round 24 lap 2 wrote, by hand, that our `FORK_PIN` would roll "when round 24
+# closes on BOTH gates". Our suite rolls it on OUR gate's close and forbids waiting.
+# The sent lap is immutable; these pin the mechanism that stops the next one.
+
+
+def _round_25_outbound(hs: ModuleType, tmp_path: Path, text: str) -> Path:
+    outbound = tmp_path / "outbound"
+    outbound.mkdir(parents=True, exist_ok=True)
+    path = outbound / "round-25-lap-02.md"
+    path.write_text(text.replace("HANDSHAKE-LAP: 1", "HANDSHAKE-LAP: 2"), "utf-8")
+    return path
+
+
+def _pin_policy_problems(problems: list[str]) -> list[str]:
+    return [p for p in problems if "HANDSHAKE-PIN-POLICY" in p]
+
+
+def test_the_emitted_skeleton_states_the_pin_roll_trigger_our_code_enforces(
+    hs: ModuleType,
+) -> None:
+    """The skeleton writes the trigger, and the check it cites really exists — a
+    citation to a test that has been renamed away is the stale-promise shape again."""
+    skeleton = hs.emit_outbound(hs.PIN_ROLL_TRIGGER_FROM_ROUND)
+    policy = hs.wire_fields(skeleton).get("HANDSHAKE-PIN-POLICY")
+    assert policy is not None and hs.PIN_ROLL_TRIGGER in policy, policy
+    test_file, test_name = hs.PIN_ROLL_ENFORCED_BY.split("::")
+    source = (_REPO_ROOT / test_file).read_text(encoding="utf-8")
+    assert f"def {test_name}(" in source, (
+        f"{hs.PIN_ROLL_ENFORCED_BY} no longer exists, so every lap we emit cites a "
+        "check that is not there"
+    )
+    # And the check's own failure text still says what the trigger says: it rolls on
+    # a CLOSED round and forbids waiting. If that test is ever relaxed to wait for the
+    # peer's gate, this constant is the thing that must change with it.
+    assert "A CLOSED round approves the pin it DECLARES" in source
+
+
+def test_a_round_25_lap_promising_another_pin_roll_trigger_is_refused(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """Round 24 lap 2's own wording, in a round-25 lap, fails `--check`."""
+    skeleton = hs.emit_outbound(25)
+    ok = _round_25_outbound(hs, tmp_path, skeleton)
+    assert _pin_policy_problems(hs.check_outbound_paths(ok)) == []
+
+    promised = re.sub(
+        r"^HANDSHAKE-PIN-POLICY: .*$",
+        "HANDSHAKE-PIN-POLICY: **Our `FORK_PIN` rolls `2cce60d` → `3e01bb3` when "
+        "round 24 closes on BOTH gates** — on your pre-committed next lap",
+        skeleton,
+        flags=re.M,
+    )
+    assert promised != skeleton
+    bad = _round_25_outbound(hs, tmp_path / "bad", promised)
+    problems = _pin_policy_problems(hs.check_outbound_paths(bad))
+    assert problems and "does not state the roll trigger" in problems[0], problems
+
+    absent = re.sub(r"^HANDSHAKE-PIN-POLICY: .*\n", "", skeleton, flags=re.M)
+    gone = _round_25_outbound(hs, tmp_path / "gone", absent)
+    problems = _pin_policy_problems(hs.check_outbound_paths(gone))
+    assert problems and "declares no HANDSHAKE-PIN-POLICY" in problems[0], problems
+
+
+def test_the_sent_round_24_lap_is_grandfathered_not_rewritten() -> None:
+    """Round 24 lap 2 is SENT and immutable; the rule starts at round 25, and the
+    correction travels as prose in our next lap. Checking it must not fail."""
+    hs = _load()
+    lap = _REPO_ROOT / "docs" / "handshake" / "outbound" / "round-24-lap-02.md"
+    assert "closes on BOTH gates" in lap.read_text(encoding="utf-8")
+    assert hs.PIN_ROLL_TRIGGER_FROM_ROUND == 25
+    assert _pin_policy_problems(hs.check_outbound_paths(lap)) == []

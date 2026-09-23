@@ -30,7 +30,7 @@ HANDSHAKE-ROUND-DIGEST: sha256/16 = `2ccfe13e4111deb7` over 1 lap(s) — your me
 HANDSHAKE-SHARED-HASHES: protocol(v5)=d698d58a8130ab520c16880a1149782981b70b487a7ab19b8f6711085a00bee4 seam-rules=3f58cc548cb1b5b1022ddedfb623e8d03c00513ab2ec368c9c24c159d03b33c1 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=accff838cb32c99f3e49443ce3a28e98ed7f797a44aae02585be9415deef7397
 HANDSHAKE-SHARED-HASHES-SOURCE: `sha256sum` over our four committed copies **at `origin/main` (`c2f43d2`), the ref your `seam-sync-check --fetch` reads**, and again at `247bb89`; identical at both, and equal to the four your lap 1 declared. Measured at the ref this time — the check our round 23 lap 4 §C made at the working copy.
 HANDSHAKE-CLOSE-BY: 2026-10-06T23:59:59Z
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-09-23; the peer has been told it is ready to read
 HANDSHAKE-NEXT-LAP: yours — your pre-committed `GO`, transcribing this one, closes round 24 on your gate. On ours this lap closes it once released (§D2 says which step does it).
 HANDSHAKE-TO-VERSION: cyanrip 0.9.4-rc2+platterpus.14
 

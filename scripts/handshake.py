@@ -650,6 +650,8 @@ def check_outbound_paths(*paths: Path) -> list[str]:
             problems.append(f"{path} is empty")
             continue
         problems.extend(check_outbound(text))
+        if num is not None and num >= PIN_ROLL_TRIGGER_FROM_ROUND:
+            problems.extend(pin_policy_problems(text, path.name))
     return problems
 
 
@@ -821,6 +823,61 @@ def our_pin() -> str:
     )
 
 
+#: **What our code does with a round's approval, said ONCE, so no lap of ours can
+#: promise something else.** Round 24 lap 2 wrote, by hand, that our `FORK_PIN` would
+#: roll *"when round 24 closes on BOTH gates — on your pre-committed next lap"*. Our
+#: suite does something different and says so in its own failure text:
+#: :data:`PIN_ROLL_ENFORCED_BY` binds the constant to OUR gate's CLOSED and forbids
+#: waiting, because a closed round whose pin has not rolled stamps the approved build
+#: `unapproved`. Under v5 the two gates close on different laps (see
+#: :data:`CLOSED_ONE_LAP_EARLY_NOTE`), so the promise and the code parted by one lap
+#: and the lap — already sent, and immutable — was the half that was wrong.
+#:
+#: So the trigger is a constant the emitter writes into every lap, and
+#: :func:`pin_policy_problems` refuses an outbound lap from
+#: :data:`PIN_ROLL_TRIGGER_FROM_ROUND` on that does not carry it. The rest of the field
+#: stays prose — WHEN the release that ships the pin goes out is a judgement per round,
+#: and the placeholder asks for it — but the trigger is not ours to restate by hand.
+PIN_ROLL_TRIGGER: Final[str] = (
+    "Our `FORK_PIN` rolls to the pin a round approves when OUR gate reads that "
+    "round CLOSED"
+)
+#: The check that implements :data:`PIN_ROLL_TRIGGER`, named so the sentence carries
+#: its own citation; a test asserts the named function exists.
+PIN_ROLL_ENFORCED_BY: Final[str] = (
+    "tests/test_fork_source.py::"
+    "test_the_pin_is_the_one_the_newest_closed_handshake_round_verified"
+)
+#: The first round whose outbound laps must carry :data:`PIN_ROLL_TRIGGER`. Round 24's
+#: lap 2 is sent and immutable, and is corrected in prose in our next lap instead.
+PIN_ROLL_TRIGGER_FROM_ROUND: Final[int] = 25
+
+
+def pin_policy_problems(text: str, where: str) -> list[str]:
+    """Why an outbound lap's ``HANDSHAKE-PIN-POLICY`` does not state our real trigger.
+
+    Empty when the field carries :data:`PIN_ROLL_TRIGGER` verbatim. Reports rather than
+    raises, like every other check here.
+    """
+    value = wire_fields(text).get("HANDSHAKE-PIN-POLICY")
+    if value is None:
+        return [
+            f"{where}: declares no HANDSHAKE-PIN-POLICY — from round "
+            f"{PIN_ROLL_TRIGGER_FROM_ROUND} our laps state the roll trigger our code "
+            f"enforces ({PIN_ROLL_ENFORCED_BY})"
+        ]
+    if value == AMBIGUOUS:
+        return [f"{where}: HANDSHAKE-PIN-POLICY is declared more than once"]
+    if PIN_ROLL_TRIGGER not in value:
+        return [
+            f"{where}: HANDSHAKE-PIN-POLICY does not state the roll trigger our code "
+            f"enforces — it must carry {PIN_ROLL_TRIGGER!r} verbatim "
+            f"({PIN_ROLL_ENFORCED_BY}). Round 24 lap 2 promised a different trigger "
+            "by hand, and the code did what the code does."
+        ]
+    return []
+
+
 def emit_outbound(round_number: int) -> str:
     """Build a skeleton outbound handshake file for ``round_number``."""
     sections = "\n\n".join(
@@ -888,6 +945,10 @@ def emit_outbound(round_number: int) -> str:
             f"HANDSHAKE-APP-VERSION: platterpus {_app_version}",
             f"HANDSHAKE-RIPPER-VERSION: {_fork_banner()}",
             f"HANDSHAKE-PIN: {_fork_pin()}",
+            f"HANDSHAKE-PIN-POLICY: {PIN_ROLL_TRIGGER} (`{PIN_ROLL_ENFORCED_BY}` "
+            "binds it there and forbids waiting). The RELEASE that ships it to "
+            "users is a separate act: <when we will dispatch it, and what it waits "
+            "for>",
             # Not a §3 wire field — emitted anyway, because the *close* fields are
             # the ones that get filled by copying the previous lap, which is how
             # `OUR-PIN` carried the fork's commit for nine of them. A value already
@@ -1907,6 +1968,26 @@ PEER_VERDICT_SOURCE_FROM_PROTOCOL: Final[int] = 5
 #: counts lines ending in ``OPEN`` as open rounds.
 SOURCE_LINE_PREFIX: Final[str] = "  §5b "
 
+#: Printed under a round this gate reads CLOSED only because §5b step 3 resolved the
+#: PEER's closing file from a newer lap of OURS that the peer's file does not list.
+#:
+#: **Why it exists (round 24, 2026-09-23).** Round 24 closed on our gate the moment our
+#: lap 2 was released, while the fork's gate — which reads "enumerated" literally
+#: until v6 — needed their lap 3. So "the round is closed" named two different laps on
+#: the two sides, and this output was silent about it. The cost was concrete: our lap 2
+#: promised the pin would roll "when round 24 closes on BOTH gates", our suite rolled it
+#: on ours, and nothing on screen said the two differed. Not a blocker — both sides HAVE
+#: declared GO, which is the protocol's close — but a gate that prints a bare CLOSED
+#: while the peer's gate prints OPEN is two surfaces answering one question
+#: differently. Retired by v6, which makes both gates close on the same lap (TASKS.md,
+#: round 25). Ends in ")" so the release gate never counts it as an OPEN round.
+CLOSED_ONE_LAP_EARLY_NOTE: Final[str] = (
+    "{name} is CLOSED on this gate one lap before a gate that reads 'enumerated' "
+    "literally: {peer_file} does not list {our_file}, so the fork's gate (literal "
+    "until v6) closes this round on their next lap — hold a release for that lap "
+    "(round-25 item: one close lap for both gates)"
+)
+
 _ROUND_DIGEST_SCRIPT: Final[Path] = (
     Path(__file__).resolve().with_name("round_digest.py")
 )
@@ -2028,6 +2109,13 @@ class PeerVerdictResolution:
     source: Path | None
     notes: tuple[str, ...]
     blockers: tuple[str, ...]
+    #: True when step 3 / row C40 decided it: the closing file transcribed ``none``
+    #: or an older lap, and this gate resolved a NEWER peer lap the file does not
+    #: list. Under the reading of "enumerated" this gate uses, that is a close; under
+    #: the literal reading (the fork's gate until v6) it is not yet one. Carried as a
+    #: field so `round_status` can say which close it is — see
+    #: :data:`CLOSED_ONE_LAP_EARLY_NOTE`.
+    superseded: bool = False
 
 
 def resolve_peer_verdict(
@@ -2117,12 +2205,14 @@ def resolve_peer_verdict(
         )
     source = parse_source(source_value)
     notes: list[str] = []
+    superseded = False
     if source.none_declared or (source.lap is not None and cand_lap > source.lap):
         # Step 3 / row C40: the peer spoke after the transcription was written. Their
         # own declaration is authoritative — and BOTH are printed, because a close
         # resting on a value no file on the closing side states is exactly what §5
         # exists to prevent unless it is visible.
         resolved = cand_verdict
+        superseded = True
         named = "none" if source.none_declared else f"lap {source.lap}"
         notes.append(
             f"{SOURCE_LINE_PREFIX}{where} transcribed HANDSHAKE-PEER-VERDICT: "
@@ -2162,7 +2252,11 @@ def resolve_peer_verdict(
             f"peer verdict resolved from {cand_where} is {resolved}, not GO (§5)",
         )
     return PeerVerdictResolution(
-        verdict=resolved, source=candidate, notes=tuple(notes), blockers=blockers
+        verdict=resolved,
+        source=candidate,
+        notes=tuple(notes),
+        blockers=blockers,
+        superseded=superseded,
     )
 
 
@@ -2832,6 +2926,9 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
         # decides it for such a file. Files declaring 4 or less keep v4 semantics,
         # including the stale-transcription discharge just below.
         v5_notes: list[str] = []
+        # (peer's closing file, our newer lap it does not list) — set only when the
+        # peer's close was decided by §5b step 3. See CLOSED_ONE_LAP_EARLY_NOTE.
+        closes_early_on: tuple[Path, Path] | None = None
         if not pre_header:
             # A file refused on version grounds is refused first and alone — the
             # same rule `check_wire_header` applies: grading it under v5 would report
@@ -2870,6 +2967,8 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
                 their_blockers += list(resolution.blockers)
                 v5_notes += list(resolution.notes)
                 v5_notes += [f"{SOURCE_LINE_PREFIX}{b}" for b in resolution.blockers]
+                if resolution.superseded and resolution.source is not None:
+                    closes_early_on = (back[-1], resolution.source)
         # ROW C15 ON THE GATE PATH — see `refused_round_files`.
         refused = refused_round_files([*sent, *back, *done])
         our_lap = _lap_of(ours[-1]) if ours else None
@@ -2941,6 +3040,16 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
         # refusal line is never itself counted as an open round by the gate.
         lines.extend(f"  refused {problem}" for problem in refused)
         lines.extend(v5_notes)
+        if state == "CLOSED" and closes_early_on is not None:
+            peer_file, our_file = closes_early_on
+            lines.append(
+                SOURCE_LINE_PREFIX
+                + CLOSED_ONE_LAP_EARLY_NOTE.format(
+                    name=name,
+                    peer_file=f"{peer_file.parent.name}/{peer_file.name}",
+                    our_file=f"{our_file.parent.name}/{our_file.name}",
+                )
+            )
     if any(line.endswith("OPEN") for line in lines):
         lines.append("")
         lines.append("A round is OPEN: do not release, and do not switch the pin.")
