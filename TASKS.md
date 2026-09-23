@@ -57,7 +57,40 @@ Their verdict is `GO` and they pre-commit that their next lap after ours is `GO`
   re-rooted and our pin is orphaned". A fresh full clone showed neither; their own
   `c449a92` fixed the same trap in their tool. The clone is now unshallowed.
 
-## Round 25 — OPEN 2026-09-23 on shared TEXT (pin `3e01bb3` unchanged); our lap 2 `GO` written and held
+## Round 26 — OPEN 2026-09-23 on `df91ae7` (`+platterpus.15`): the real test, installed through our app
+
+Their lap 1 (`cyanrip@db72862`, sha256 `95a03f49…`, 8,433 bytes, released) names `.15` and
+fixes three close conditions under R1: **§0.1** our full acceptance run with `.15` installed
+through our app, from a release whose `PIN_UNDER_REVIEW` is `df91ae7`, the bundle committed
+to both repos; **§0.2** each side's reading of it; **§0.3** both releases named in the closing
+laps (ours rolls `FORK_PIN` to `df91ae7`, theirs is `+platterpus.16`). Opened BEFORE the test
+by a recorded operator override of R8 point 3, because our acceptance run can only demand
+`.15` once a lap of theirs names it. Every mechanism claim in it checked against our tree.
+
+- [x] **Filed their round 25 lap 5** (`bca120c0…`, `GO`) — round 25 CLOSED on both gates;
+  approval record → round 25 (`3e01bb3`, 0.6.53), shared-hash exemption retired.
+- [x] **Filed their round 26 lap 1** and its provider contract (`8eda7661…`, at `df91ae7`);
+  inventory and consumer contract regenerated (P5 120 / P5a 7, unchanged).
+- [x] **Moved `PIN_UNDER_REVIEW` to `df91ae7`** (round 26, `release_seq` 25, `UNDER_REVIEW_TARGET`
+  `+platterpus.15`, build tag in the `--consumer` accept-set). `FORK_PIN` stays `3e01bb3`.
+- [x] **Rig sheet rewritten for the real test**, and its header test now requires the build
+  under review while a round reviews one — it passed a sheet naming only `.14` before. The
+  user-facing build-tag sweep accepts the build under review, derived, only while one is.
+- [x] **Maintainer, 2026-09-23: 0.6.54 carries the move, under a §6b override.** Our N4 gate
+  refuses a stable-offered tag while a round is open, and round 26 stays open until the test
+  runs ON that release — so the release that makes the test possible needs a recorded
+  `HANDSHAKE-OVERRIDE` in our lap 2, or the test cannot happen.
+- [x] **Our lap 2** — `PIN_UNDER_REVIEW` moved, 0.6.54 named, the override recorded, verdict `OPEN`.
+  **RELEASED 2026-09-23 on the maintainer's word** (sha256 `8485afc7…`, 11,151 bytes, pinned in
+  `SENT_LAPS`), after fetching their branch and confirming no round-26 lap after their lap 1.
+- [ ] **0.6.54** — the release steps in the round-24 section, dispatched after `main`'s own CI;
+  `--release-gate --prerelease --tag v0.6.54` prints the override and passes.
+- [ ] **The real test** (operator), then each side's reading, then the closing laps; at the
+  close, roll `FORK_PIN` to `df91ae7` in our release and move the approval record to round 26.
+- [ ] **Correct `fullacceptance.txt`'s `-r 3` comment** (*"not dangerous"*) with the next change
+  to that script — on `.15` it is true, on `.14` it was not.
+
+## Round 25 — CLOSED `GO`/`GO` 2026-09-23 at five laps on shared TEXT (pin `3e01bb3` unchanged)
 
 Their lap 1 (`cyanrip@5164c25`, sha256 `78485c98…`) closes the round on two
 conditions, fixed under S-13: **PROTOCOL v6** and **OWNERSHIP v3 + seam-rules v6**
@@ -94,7 +127,7 @@ other agenda item is placed by name in their §E; we accept the placement.
   commit that releases lap 4 + the release commit only (`FORK_PIN` stays `3e01bb3`).
 - [x] **Lap 4 RELEASED 2026-09-23 on the maintainer's word** (sha256 `f6d18230…`, 11,717 bytes,
   pinned in `SENT_LAPS`), after fetching their branch and confirming no newer round-25 lap.
-- [ ] **Their lap 5** (pre-committed `GO`) lands `05abdfde…` and closes round 25. Then: file it,
+- [x] **Their lap 5** (pre-committed `GO`) lands `05abdfde…` and closes round 25. Then: file it,
   retire the shared-hash exemption, move the approval record to round 25 for `3e01bb3`; they
   release `.15`; we release 0.6.54 after `main`'s own CI. Then implement protocol 6.
 - [ ] **`-r` not divisible by 5 hangs on a bad sector on `.14`** (their round 25 lap 2 §B1). Our
@@ -102,12 +135,13 @@ other agenda item is placed by name in their §E; we accept the placement.
   1166 under a comment calling it *"not dangerous"*. **Maintainer: leave it for `.15`**, which
   makes any value safe. Revisit only if `.15` is not approved in round 26; correct the comment
   with the next change to that script.
-- [x] **CONFIRMED by the maintainer directly, 2026-09-23: 0.6.54 ENDS round 25.** It waits for
-  the close and ships with `FORK_PIN` rolled to their `+platterpus.15` RELEASE commit (not
-  `3e01bb3`) and the round-25 approval, right after their `.15`. One release, no override.
-- [ ] **0.6.54 — after round 25 closes AND their `.15` is released:** roll `FORK_PIN` to the `.15`
-  release commit (`FORK_EXPECTED_VERSION` `+platterpus.15`, `release_seq`, approval record
-  round 25), then the release steps in the round-24 section. Our answering lap declares this
+- [x] **CONFIRMED by the maintainer directly, 2026-09-23: 0.6.54 ENDS round 25** — on `3e01bb3`,
+  after the fork's lap 3 correction (the first reading of this item said `.15`, which R8 as
+  merged does not allow: a consumer release pins what a CLOSED round approved).
+- [~] **0.6.54 — round 25 closed and `.15` released, so it is unblocked except by round 26:**
+  `FORK_PIN` stays `3e01bb3` (superseded reading: *roll to `.15`*), the approval record is
+  round 25, and the release steps are in the round-24 section. See round 26 above for the
+  override it now needs. Our answering lap declares this
   candidate: `main` at the commit that carries the lap, plus exactly that roll. The gate now enforces
   it: `--release-gate --prerelease --tag v0.6.54` exits 1 while the round is open.
 - [x] **N4: DONE 2026-09-23 — the maintainer confirmed (a) directly.** `--release-gate --tag`
