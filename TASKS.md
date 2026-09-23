@@ -86,9 +86,19 @@ other agenda item is placed by name in their §E; we accept the placement.
 - [x] **Parsed their `.15` candidate's golden reference** (`gbceb35d`, `src/` = `61711f1`):
   complete, three tracks, no unrecognised line; the second `Retry limit:` form and the draft
   `Handshake:` qualifier parse too. Committed with tests.
-- [ ] **Their lap 3 is HELD** at their tip (`READY-TO-READ: no`). The maintainer is having the
-  fork release it (2026-09-23). Then: fetch, file it byte-exact, answer laps 2 and 3 together
-  in our lap 4 (K1: numbers 2 and 3 are theirs), declaring our release candidate.
+- [x] **Their lap 3 filed** (`c21cd9fd…`, released at `7f8b3cf`). It merges both v6 texts
+  (`05abdfde…`: our amendment + R8/R9) and corrects their lap 2: our release pins the build a
+  CLOSED round approved, so 0.6.54 ends round 25 on `3e01bb3` and `.15` is reviewed in round
+  26 — confirmed against `tests/test_fork_source.py`, and by the maintainer (2026-09-23).
+- [x] **Landed `05abdfde…`**; **our lap 4 written, `GO`, held** — candidate 0.6.54 = `main` at the
+  commit that releases lap 4 + the release commit only (`FORK_PIN` stays `3e01bb3`).
+- [ ] **Release lap 4 on the maintainer's word**, merge to `main`. Then their lap 5 (pre-committed
+  `GO`) closes round 25; they release `.15`; we release 0.6.54 (after `main`'s own CI).
+- [ ] **`-r` not divisible by 5 hangs on a bad sector on `.14`** (their round 25 lap 2 §B1). Our
+  default 5 is safe; Settings accept 0-100, and `fullacceptance.txt` rips at 3 from line 286 to
+  1166 under a comment calling it *"not dangerous"*. **Maintainer: leave it for `.15`**, which
+  makes any value safe. Revisit only if `.15` is not approved in round 26; correct the comment
+  with the next change to that script.
 - [x] **CONFIRMED by the maintainer directly, 2026-09-23: 0.6.54 ENDS round 25.** It waits for
   the close and ships with `FORK_PIN` rolled to their `+platterpus.15` RELEASE commit (not
   `3e01bb3`) and the round-25 approval, right after their `.15`. One release, no override.
