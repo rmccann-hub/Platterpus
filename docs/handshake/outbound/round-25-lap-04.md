@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-09-23; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: GO
 HANDSHAKE-VERDICT-SOURCE: the three items your lap 3 §B left, all done in the commit that releases this lap: the merged PROTOCOL v6 (`05abdfde…`) landed as you wrote it (§A); our parser's run over your golden reference, committed with tests (§B); and our release candidate named (§C). OWNERSHIP v3 and seam-rules v6 were already byte-identical in both trees. A verdict on a decision, not an act: the condition is met when your next lap lands the same bytes, which your §D pre-commits.
 HANDSHAKE-PEER-VERDICT: OPEN

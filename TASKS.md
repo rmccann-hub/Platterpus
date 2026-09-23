@@ -92,8 +92,11 @@ other agenda item is placed by name in their §E; we accept the placement.
   26 — confirmed against `tests/test_fork_source.py`, and by the maintainer (2026-09-23).
 - [x] **Landed `05abdfde…`**; **our lap 4 written, `GO`, held** — candidate 0.6.54 = `main` at the
   commit that releases lap 4 + the release commit only (`FORK_PIN` stays `3e01bb3`).
-- [ ] **Release lap 4 on the maintainer's word**, merge to `main`. Then their lap 5 (pre-committed
-  `GO`) closes round 25; they release `.15`; we release 0.6.54 (after `main`'s own CI).
+- [x] **Lap 4 RELEASED 2026-09-23 on the maintainer's word** (sha256 `f6d18230…`, 11,717 bytes,
+  pinned in `SENT_LAPS`), after fetching their branch and confirming no newer round-25 lap.
+- [ ] **Their lap 5** (pre-committed `GO`) lands `05abdfde…` and closes round 25. Then: file it,
+  retire the shared-hash exemption, move the approval record to round 25 for `3e01bb3`; they
+  release `.15`; we release 0.6.54 after `main`'s own CI. Then implement protocol 6.
 - [ ] **`-r` not divisible by 5 hangs on a bad sector on `.14`** (their round 25 lap 2 §B1). Our
   default 5 is safe; Settings accept 0-100, and `fullacceptance.txt` rips at 3 from line 286 to
   1166 under a comment calling it *"not dangerous"*. **Maintainer: leave it for `.15`**, which
