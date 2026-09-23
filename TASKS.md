@@ -45,18 +45,325 @@ Their verdict is `GO` and they pre-commit that their next lap after ours is `GO`
   version-stamped generators after the bump, `pip install -e .`, wait for `main`'s own
   CI on the merge SHA, dispatch `release.yml`. Until 0.6.54 is out, a user on 0.6.53
   who takes the fork's stable `.14` gets rips stamped `unapproved`.
-- [ ] **Round 25 (theirs to open), agreed in principle:** `PROTOCOL.md` v6 — K1, K2,
-  K3 transcribed; §5b step 1 / C37 reworded to decision-time enumeration; the two §8
-  *"not yet in force"* sentences deleted; an agreed-change ledger; the citation
-  question (hash as anchor). The three other shared docs' known defects, including
-  `OWNERSHIP.md` lines 82 and 100 (*"we cannot read each other's source"*). Their gate
-  fixes for §B1 (inbound version refusal) and §B2 (`C13a` dropped by the row regex).
+- [x] ~~**Round 25 (theirs to open), agreed in principle:**~~ superseded by the complete
+  agenda in the next section, which carries every item this bullet named.
 - [x] **Recorded, and it is an instance of an existing rule rather than a new one** — `CLAUDE.md`'s *an ABSENCE in a log is a fact about the logger before it is a fact about the subject*, arriving through a truncated clone; told to the fork in lap 2 §B6. Original:
 - [x] ~~**Lesson worth graduating: a SHALLOW clone nearly produced a false finding.**~~
   Verifying their §0.1 commit list in a shallow local clone made `b774582` look like
   a root and `2cce60d` unreachable — which would have read as "your branch was
   re-rooted and our pin is orphaned". A fresh full clone showed neither; their own
   `c449a92` fixed the same trap in their tool. The clone is now unshallowed.
+
+## Round 25 — the complete known-issue agenda (compiled 2026-09-23)
+
+**Maintainer ruling, 2026-09-23:** *"if round 24 is closed … fix the problem, and if
+[it] needs to keep closed how we fix this for the next round … include everything,
+the next round needs to fix everything known."* So this is not a wish list. It is the
+round's scope, and its close conditions should be chosen from it in lap 1 (S-13).
+**Round 25 cannot close on all of it** — 80-odd items would reproduce round 7 — so lap
+1 should name the subset that closes the round and move the rest to NEXT-ROUND by name
+(S-14). What this section guarantees is that **nothing known is missing** from the
+table the fork and we choose from.
+
+**How it was compiled.** Every open `[ ]`/`[~]` row in this file; every NEXT-ROUND
+item, question and correction in rounds 22–24 from both sides; `platterpusstatus.md`;
+the challenge ledger; the fork's `KNOWN-ISSUES.md` (`KI:`), `handshake/STATUS.md` and round plans
+(all under their `docs/`, at `origin/platterpus-fork@c884c4e`); and a field-by-field grep of the
+four shared documents. Rows marked *derived* were found by that compilation and were
+never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line numbers
+`@b8f89a2` are this file at that commit. **Owner**: ours / theirs / both / shared.
+**v6**: whether it needs a protocol bump.
+
+### N — found 2026-09-23 (round 24's close)
+
+- [ ] **N1. The two gates close round 24 on different laps.** Ours reads CLOSED on
+  our lap 2 (§5b step 3 resolves their `PEER-VERDICT-SOURCE: none` to our newer
+  released lap); theirs reads "enumerated" literally until v6 and needs their lap 3.
+  One question, two gates, two answers. *Both · v6 (A2).* Ours now **says so** on
+  `--status` and every release (`CLOSED_ONE_LAP_EARLY_NOTE`, §5.bp); v6 makes both
+  close on one lap. Cite: their r24 lap 1 §B3; our r24 lap 2 §D2; KI:1020.
+- [x] **N2. Our lap promised a pin-roll trigger our code does not use — FIXED on our
+  side.** Lap 2: *"rolls … when round 24 closes on BOTH gates"*; our suite rolls on
+  OUR gate's close and forbids waiting. The skeleton now writes the trigger from
+  `handshake.PIN_ROLL_TRIGGER` and `--check` refuses a round-25+ lap of ours that
+  restates it. **Still owed: the prose correction in our first round-25 lap** (lap 2
+  is sent and immutable; the standing status already carries it). §5.bp.
+- [ ] **N3. The unapproved window.** The fork published `+platterpus.14` to BOTH
+  channels on round 22's authority before any round reviewed it, so our offer showed
+  it to stable users stamped `unapproved` until our roll ships. Their own plan
+  recommended beta-until-reviewed (option B); their operator chose stable. Because our
+  approval record ships inside the AppImage, **any** stable publish ahead of our roll
+  opens this window. Settle the ordering: stable only after a round reviews it, or an
+  explicitly bounded window. *Both · v6 candidate (A8).* Cite: their r24 lap 1 §0; fork
+  `RELEASE-PLAN-platterpus.14.md` §3 and `ROUND-23-PLAN.md` item 11 note (their `docs/`).
+- [ ] **N4. OUR HANDSHAKE RELEASE GATE NEVER BLOCKS IN THE v0 LINE — a decision for the
+  maintainer.** `release.yml` runs `--release-gate --prerelease` for every `v0.*` tag,
+  and that path permits a release with a round OPEN (the round-7 lap 6 deadlock fix:
+  "a pre-release is a test artifact"). But our updater offers every `v0.*` on the
+  **stable** channel (`update_check.py:99-117`), so every release we have ever shipped
+  took the permissive path, and *"no release while a round is open"* has rested on the
+  deviation policy alone. `HANDSHAKE-TEST-PIN` now solves the round-7 deadlock a
+  different way, so the relaxation may no longer be needed. Options: (a) strict gate
+  for `v0.*` too; (b) keep it and say plainly, in `CLAUDE.md` and the workflow, that
+  the gate is advisory until 1.0. *Ours · no v6.* This is also why nothing mechanical
+  holds 0.6.54 for their lap 3 (agent's F4).
+- [x] **N5. C42 did not hold on the path every v0 release takes — FIXED.** The
+  `--prerelease` branch printed no §5b source lines, so an allowed release never named
+  the peer file its close rested on, and the one-lap-early note could not reach a
+  release log. Tested on that path now, revert-proven.
+- [x] **N6. Our standing status had a stale tail — FIXED.** *"Round 21 is mid-flight"*,
+  round 21 lap 4 shown held, *"our tokens move"* (done in round 18), *"§7.5b, which we
+  have never sent you"* (sent in `verified/round-18-lap-04.md`). Round 23 lap 1 §H5's
+  shape again. Rewritten 2026-09-23 with a pointer to this section.
+
+### A — Protocol v6 (shared docs; needs the bump)
+
+- [ ] **A1. Transcribe K1, K2, K3** — K1 a lap number is claimed on release; K2
+  `INBOUND-HELD` for sent / `INBOUND-OBSERVED` for held; K3 a warning about a held lap
+  travels outside it. Agreed in round 22, never written; `INBOUND-OBSERVED` has 0
+  occurrences in the spec. Cite: r22 lap 1 §0.1, our r22 lap 2 §0.1, KI:854, r24 lap 1 §C2/§D1.
+- [ ] **A2. §5b step 1 / C37 → "held, and enumerated by the gate when it decides"**
+  (fixes N1), and replace their C40 fixture that cannot occur (D3). Cite: r24 lap 1 §B3.
+- [ ] **A3. Delete §8's two "not yet in force" sentences** (`handshake-protocol.md:811`,
+  `:841`) — false since both gates implement 5. KI:898 rows 2–3.
+- [ ] **A4. An agreed-change ledger** — a closing lap lists every change the round agreed
+  with the commit that landed it or `not landed`; apply it retroactively to A1, A7,
+  A10, E1. Cite: r24 lap 1 §C3/§D1; our lap 2 §E.
+- [ ] **A5. What a citation names** — the sha256 as anchor, the commit as a fetch hint;
+  settle `HANDSHAKE-FROM-COMMIT` (ours `origin/main`, theirs the parent of the releasing
+  commit; §3 says every `file:line` resolves against it, and our lap 2 names `c2f43d2`
+  while its evidence sits at `247bb89`). Perhaps two fields. *They draft first.* Cite:
+  r23 lap 3 §D1/§D2, our r23 lap 4 §D1, r23 lap 5 §C/§E1, KI:934.
+- [ ] **A6. Eight wire fields every current lap carries and no shared doc defines** —
+  `INBOUND-OBSERVED`, `NEXT-LAP`, `VERDICT-SOURCE`, `PEER-PIN-SOURCE`,
+  `FROM-COMMIT-SOURCE`, `PIN-POLICY`, `BREAKING`, `SHARED-HASHES`/`-SOURCE`: 0
+  occurrences each in `handshake-protocol.md`, `seam-rules.md`, `seam-commands.md`
+  (re-counted 2026-09-23). *Derived.*
+- [ ] **A7. Agreed rules that never reached the spec** — the `HOTFIX` carve-out by
+  artifact class and `HANDSHAKE-NEXT-LAP` with its crossing tiebreak (both r15 lap 3 §5;
+  the tiebreak depends on A5); and "a Platterpus pre-release counts as your release"
+  (our lap 2 §E), which collides with §6b's meaning of "pre-release". *Derived.*
+- [ ] **A8. Release ordering in the spec?** (N3) — stable only after review, or a
+  bounded accepted window.
+- [ ] **A9. The `ACK` verdict** — still "deferred to v6" in §13.
+- [ ] **A10. The evidence-transport proposal** — adopt or formally retire 5b.1–5b.8
+  (ours: 5b.2/4/5/6 as written, 5b.1 as an end-state obligation, 5b.3 gating both
+  sides); pull transport with `main` as ref of record, practised but unwritten; the
+  filename convention as a §5c; the envelope (§4b "exactly once", and whether it is
+  needed now that laps travel by git — we still emit one). Cite: fork
+  `PROTOCOL-v5-PROPOSAL-evidence-transport.md`; TASKS@b8f89a2:581, 1705–1729.
+- [ ] **A11. `HANDSHAKE-CONCURRENT-WITH`** — proposed round 7 laps 32–33, never built;
+  adopt or retire (K1 may subsume it). TASKS@b8f89a2:2928.
+- [ ] **A12. A `SEAM-COMMANDS: audited @ N` close field** — prototyped, reverted for
+  want of the shared file; the round-8 bump never happened. TASKS@b8f89a2:3734.
+- [ ] **A13. A semantic-change marker** — a derived contract diff cannot see a change
+  of meaning (round 21's `Ripping errors:` recount changed no format string); pairs with
+  defining `BREAKING`. KI:1364.
+- [ ] **A14. Row C13a — neither gate implements it.** Ours lists it in
+  `_KNOWN_DIVERGENCES` (a later lap after a terminal state reopens); theirs asserts the
+  v2 reopen in `test_latest_lap_can_reopen`. Both implement, or v6 revisits the row.
+- [ ] **A15. Bump sequencing** — their §B1 fix (D1) must land before either side
+  declares 6; ship v6 byte-identical before declaring it, as §13 did for v5.
+
+### B — Shared-doc defects that bump only that doc's own version
+
+- [ ] **B1. `OWNERSHIP.md` §3:82 and §5:100 — "we cannot read each other's source"**,
+  false since 2026-09-13 and load-bearing in §3's argument. → OWNERSHIP-VERSION 3.
+- [ ] **B2. `seam-rules.md` S-13 still says round 7 is "37 and open, 0 releases"** — it
+  closed at lap 39 with one release. KI:898 row 7.
+- [ ] **B3. `seam-commands.md` — five known-wrong statements**: §7's summary (48 of 68
+  "accepted" rows never observed to take effect); line 504 `-p '99=drop'` published as
+  accepted, refused by the binary; line 97 `-D` is `folder_scheme`, not an output dir;
+  §1's provenance warning (0 of 17 rows are `?`); §4 NEED 4 vs §1's `-a` row (our
+  `_COLON_SUBSTITUTE` is safety-net only). Plus stale §6. Needs their D5 first. KI:763.
+- [ ] **B4. (Optional) name one shape as a seam rule** — *"a key whose lifetime does not
+  change when the thing it suppresses does"*, four instances in round 22; offered as a
+  round-23 item, never raised. Our r22 lap 4 §H.
+
+### C — Our gate and tooling
+
+- [ ] **C1. `scripts/round_digest.py --check`** — every digest agreement so far was
+  compared by eye. TASKS@b8f89a2:1254.
+- [ ] **C2. Conformance holes** — C21–C36 have no row-named tests (shrink-only
+  ratchet); **C31/C32 are unimplemented** (`HANDSHAKE-OVERRIDE` has 0 hits in
+  `handshake.py`, so we cannot honour an override, including C30's lap-22+ limit);
+  C13a diverges (A14).
+- [ ] **C3. `--status` cannot see a premature `GO`** — print the closing lap's stated
+  conditions. TASKS@b8f89a2:170.
+- [ ] **C4. `--status` prints close-by countdowns for CLOSED rounds** (rounds 9–14,
+  19–23 today). Fix at the print site.
+- [ ] **C5. No R6 gate** — nothing refuses a pre-commit that names a lap number instead
+  of an event.
+- [ ] **C6. `_strip_fences` misses unterminated and indented fences**
+  (`handshake.py`, the fence regex needs a closing column-0 fence), so a field inside
+  one counts as a declaration. Portable shape — tell the fork. TASKS@b8f89a2:2014.
+- [ ] **C7. The receiving half of the omission gate** — nothing checks that every
+  artifact a lap names was filed; answering 5b.3 honestly needs it.
+- [ ] **C8. `PEER_CONFIRMED_UNPINNED` holds 19 laps** — ask the fork for sha256 values of
+  their filed copies so the rows graduate. `tests/test_sent_laps_are_immutable.py`.
+- [ ] **C10. The challenge ledger stops at round 21 lap 4** — unrecorded: r22 C1 (our
+  circular `GO`, they were right), r22 lap 5 (our withdrawn `handshake_round` claim),
+  r22 lap 3 §H1, r23 §A (tracks 3 and 5, we were right), r23 lap 1 §H6, r24 §B3 (the
+  §5b reading, we were right). `docs/cyanrip-handshake.md` §9. *Derived.*
+- [ ] **C11. Handshake-gate test quality** — the vacuity and rule rows at
+  TASKS@b8f89a2:1882, 1883, 1895, 1913, 1923, 1951; and the weekly mutation sweep omits
+  `handshake_approval.py`, `deps/fork_source.py`, `ripper_identity.py`,
+  `adapters/cyanrip_backend.py`, `rig_check.py` (:1970–1980).
+- [ ] **C12. Two meta-sweeps never run** — "a check that agrees for the wrong reason",
+  and status questions #5 (a bound reached every run) and #8 (right direction, wrong
+  magnitude). TASKS@b8f89a2:1429.
+
+### D — Their gate and tooling (theirs; listed so nothing is lost)
+
+- [ ] **D1. §B1 — their inbound loader ignores the peer lap's protocol version**; a v6
+  `GO` would close a round on their gate. Must precede v6 (A15). `cyanrip@ace22cf:tools/release-gate.py:468,768`.
+- [ ] **D2. §B2 — their row regex `^\| (C\d+) \|` drops C13a**, and
+  `test_latest_lap_can_reopen` asserts its opposite.
+- [ ] **D3. §B3 — literal reading until v6, and a C40 fixture that cannot occur**
+  (`_v5_ours(held="round-30-lap-04.md")`). KI:1020.
+- [ ] **D4. `Track %i read with errors.` is asserted by no test of theirs** (their own
+  §F). Ours covers it (lap 2 §A).
+- [ ] **D5. `probe-argv-surface.py` asserts more than it measures** — needs an
+  `unobservable` outcome, generated-block delimiters and a regeneration; feeds B3.
+- [ ] **D6. Stale lines in their `STATUS.md`** — :209 "Both channels resolve to
+  `978f9b0`", :222 "No release is coming while round 16 is open" (both re-read
+  2026-09-23); :82 names our `FORK_PIN = "2cce60d"`, stale once 0.6.54 ships. *Derived.*
+- [ ] **D7. Their "Open, theirs" table lists our round-8 defects as blocking** — at least
+  one is fixed (a literal `"` is expressible in the script language). Ours to confirm
+  each, theirs to retire. KI:1400.
+- [ ] **D8. A record correction we never sent** — their r16 lap 8 §3 credits `bc2ef8e`
+  for work in `a0830e0`. Low. TASKS@b8f89a2:985.
+- [ ] **D9. Their tools hygiene (low)** — `tools/mutate.py` `EXCLUDED_TESTS` premise
+  (KI:97); "lap commit list names its range" timeout (KI:244); flaky "interrupted sample
+  freshness" (KI:153).
+
+### E — Contract, argv and log surface
+
+- [ ] **E1. Round 23's `Handshake:` qualifier** — `(draft — lap not released for
+  reading)`, agreed, due in `+platterpus.15`, not built. Theirs; ours to re-run our four
+  banner shapes when it ships. KI:1127.
+- [ ] **E2. `File(s):` lists what was requested, not what was written.** Theirs. KI:1213.
+- [ ] **E3. The loudness block is measured before the filter graph** — wrong under `-H`
+  or de-emphasis; moving it changes five P2 values. Theirs (deferred item 4); ours: the
+  `(R128)` migration and re-parsing `Encoder:`/`CD-TEXT:`. KI:429; TASKS@b8f89a2:4469, 4487.
+- [ ] **E4. A marker for a superseded or abandoned read** — theirs to propose; ours:
+  capture the discarded re-rip's log (schema bump), record re-read attempts not only
+  swaps, tighten "kept the best read". KI:1171; TASKS@b8f89a2:197, 4327.
+- [ ] **E5. The `-j` diagnostics record goes nowhere** — lands in the rips root, nothing
+  reads it, the auto-bundle does not collect it; and **`Encoder errors:` has no `-j`
+  field in P8 at `3e01bb3`** (*derived*), leaving half of TASKS@b8f89a2:805 open. Both.
+- [ ] **E6. Exit codes do not discriminate** — P4 at `3e01bb3` has 0–5 and `1` is
+  generic across 28 sites; the round-8 three classes and the sixth `--verify-log` code
+  were never delivered. Ours: stop treating every non-zero exit as one thing.
+- [ ] **E7. Two of our consumers ignore the error count** — `rip_audit._audit_completion`
+  grades OK from the boolean; the summary-vs-error-lines reconciler is unbuilt and
+  should now include `Encoder errors:`. Ours. TASKS@b8f89a2:1320, 1397, 1410.
+- [ ] **E8. `defeat_audio_cache` provenance is in the EAC export but not the JSON** —
+  schema bump; the fork says it is now available. TASKS@b8f89a2:1364.
+- [ ] **E9. The `--consumer` accept-set is a table shipped inside our release** — remedy
+  (a) or (b) still undecided. Our r21 lap 4 §H2.
+- [ ] **E10. The post-cancel rescue sends a second signal ~2 s before the footer is
+  written** — never raised with the fork; the ask is a measurement. TASKS@b8f89a2:669.
+- [ ] **E11. The inbound half of the seam is unguarded** — no return-path sanitiser; 13
+  `QLabel(<non-literal>)` sites outside the PlainText sweep; no test that what reaches
+  the user is what cyanrip said. TASKS@b8f89a2:3818–3821.
+- [ ] **E12. Outbound argv property gaps** — `_metadata_args` rejects control characters
+  on 4 of 11 fields; `sanitise_cyanrip_args` misses line terminators; plus the rest of
+  the 2026-08-28 list (TASKS@b8f89a2:1993–2028, not re-derived one by one).
+- [ ] **E13. `seam-commands` structural work** — rows for all 41 flags, generated types
+  and ranges, string/path probes, reasons for the `-I`/`-J` and `-F` exclusions,
+  NEED 1–3 / WANT 1–3. TASKS@b8f89a2:3704–3709, 3766.
+- [ ] **E14. Fork lines we do not consume** — the progress line's `, errors - %i`;
+  `Cache model:`; per-track paranoia counts in the read-effort flag; `Duration:` vs
+  `Samples:` (T14(c)). TASKS@b8f89a2:4483, 4479, 4461, 4502, 4371.
+- [ ] **E15. A cancelled-rip log addendum (J2) and the tag-casing ruling (J7).**
+- [ ] **E16. AccurateRip skip discrimination** (round 8 J13) — ours to answer; the
+  track-3 CRC puzzle is related. KI:1388.
+- [ ] **E17. Does cyanrip emit `Accurip` lines under `-l`?** — gates the AR-carryover
+  finding; derive from their source. TASKS@b8f89a2:4523.
+- [ ] **E18. Long-standing optional asks** — a severity column on the message inventory
+  (:1842); the C2-pointers row (:4674); their H3 sanitiser question (:2966); `-f` in the
+  wizard (:3545); upstream PR asks (:3918–3921); their eight unfiled upstream defect
+  reports; the cache-probe calibration (KI:516).
+
+### F — Pin, approval and release ordering
+
+- [ ] **F3. `a_round_is_reviewing_a_build()` answers from pin coincidence, not from the
+  round record** — after our roll it returns False while round 24 is still OPEN on their
+  gate (round 21 showed the same fault). One predicate derived from the record.
+- [ ] **F5. The approval's app half is never the build that carries the roll** (0.6.53
+  approves; 0.6.54 ships). By design, but the stale-claim guard re-arms on every bump;
+  make the provenance chain a structure. TASKS@b8f89a2:2055.
+- [ ] **F6. The ripper install surface** — the wizard silently rebuilds the production pin
+  over a test pin (:2669); verify the binary before installing (:2795);
+  `--install-ripper` prints its shell scripts (:2810); `latest`/`latest-beta` (:2857);
+  `target_for_commit` version lookup (:917); the launch-time notice gap (:812).
+- [ ] **F7. `observed_version_pair_line` has no caller.** TASKS@b8f89a2:1832, 4294.
+- [ ] **F8. Their two channel questions** — "should a beta expire?" (asked of us, never
+  answered) and `release/*` markers (planned, relates to A5). Fork `CLAUDE.md:2076-2104`.
+- [ ] **F9. Keep `claude/session-omka9f`** — it also holds round 24 lap 2's evidence
+  (`247bb89`). Until A5 settles what a citation names.
+
+### G — Evidence, rig and acceptance the seam depends on
+
+- [ ] **G1. First run on 0.6.54 + `3e01bb3`** — the first hardware parse of the new
+  wording; the encoder-failure arm has never run on hardware.
+- [ ] **G2. P3 has no audio witness** — a decoded-PCM hash comparison via a digest verb
+  (text only; no audio leaves the rig). TASKS@b8f89a2:210, 686, 793.
+- [ ] **G3. `rig-check` has no subject identity** — called bare, grades the newest rip on
+  the machine. TASKS@b8f89a2:1765.
+- [ ] **G4. §J's drive-open proof can pass for the wrong reason**; a completed second rip
+  after a cancel is unproven. TASKS@b8f89a2:1043, 2352.
+- [ ] **G5. The acceptance run asserts the ripper build, never the app version.** :1820.
+- [ ] **G6. Acceptance-review leftovers** — TASKS@b8f89a2:1798, 1801 (§B reads `Config`,
+  not argv), 1803, 1806, 1809.
+- [ ] **G7. Two verification-leg gaps** — the dependency dialog is screenshotted, never
+  asserted; an absent checker graded `ran` is untested (r23 lap 1 §H2/§H3).
+- [ ] **G8. Evidence transport** — raw invocations only in the transcript, raw-verb
+  outputs do not travel, app-log timestamps carry no UTC offset (:781); the auto-bundle
+  has no rip folders; sleep inhibit, `~/Downloads`, rig scripts in the AppImage, retire
+  the shell collectors (:2155–2195); both projects hold the 2026-09-22 bundle identically.
+- [ ] **G9. Rig hygiene** — an unattended run blocks on its first fatal dialog (:2397);
+  the rig is left on `max_retries 3` and beta (:230); exact-match script paths (:2681);
+  rewrite `docs/hardware-test-checklist.md` (:126, 2358); the colon safety net on
+  hardware (:2325).
+- [ ] **G10. Our never-exercised list is stale** — the fork retired the diagnosed abort and
+  a non-zero `Read stalls:` (KI:829-848); still open: `-x` correctness (wrong in all ten
+  sessions), C2 (unreachable here), `-f` at another offset, damaged media, physical
+  CD-TEXT, the forced-error corpus, H9, H10.
+- [ ] **G11. Version-gate evidence** — zero full-green rows; a second drive, machine and
+  distro missing. `docs/testing.md` §5B.
+- [ ] **G12. The leaving-beta objective has dropped out of our laps** — the rule says it
+  *"must appear in every lap we write"*; round 20–24 outbound laps mention it once
+  (round 23 lap 4). *Derived; rule text re-read 2026-09-23.* Carry it in our round-25 lap.
+- [ ] **G13. The audit we owe ourselves** — *"a file you declined to file is a file you
+  will reason about without opening"*; we said we had not audited our side. r23 lap 4 §A.
+
+### H — Appear resolved; confirm each before striking its original row
+
+TASKS@b8f89a2 rows the compilation found overtaken, with the evidence: :116 (pre-release
+term stated in lap 2 §E; spec gap is A7) · :163 (lap 2 Corrections 1) · :134 (moot; the
+proposal is A5) · :486 (r23 lap 1 §H6) · :533 (token collision, `uiscript/report.py:34-48`)
+· :450 (guarded; re-arms by design, F5) · :581 (J2/J3 superseded; remainder in B3/A10) ·
+:874 (r16 lap 4 §C1–C4) · :1278 (superseded by `READY-TO-READ`) · :1289 (fixed in their
+tree) · :1391 (`-x` ran 2026-09-22) · :1561 (sent r15 lap 15 §A2) · :1565 (`CURLOPT_TIMEOUT`
+fixed; `-j` wall clock present) · :1579 · :1736 (`-j` passed, `cyanrip_backend.py:390`) ·
+:2067 (`CLOSE-BY` built both sides; residual C4) · :2114 (settled r22 lap 5) · :2137/:2141
+(OWNERSHIP v2 both sides; residual A7, E6) · :2943 (both at 5) · :2949 (exists,
+`test_handshake_tooling.py`) · :4352 (`--consumer` on every rip) · :4321 (P4 replays into
+the logfile) · :4365/:4375 (lag 0) · :4511 (`-dirty` in their `meson.build`) · r22 lap 3
+§H1 · r23 lap 1 §H1, §H4 · our r23 lap 2 Q1/Q4, r23 lap 4 Q2 · :2005 (`_tag_matches`
+linear) · KI:1321 · :805 (residual E5) · :2254 (footer and FUN512 present; "Trying to quit"
+not re-checked) · their `rig-check.py` false "no `-j` record" (verify) · obsolete
+round-7/8 rows :2585, :2591, :2258, :2225, :3636, :3830–3838, :3995–4090, :3074–3114,
+:4315, :2562.
+
+**Counts:** N 6 (3 fixed today) · A 15 · B 4 · C 11 open (C9 is N6) · D 9 · E 18 · F 6 ·
+G 13 · H 34 to confirm. **Excluded as app-internal with no fork dependency:** the UX
+prompt chain (TASKS@b8f89a2:263–304), refactor/CI rows (218, 932, 1605, 1632, 1637, 1856,
+2317, 2344, 2906–2920, 2958), feature/parity rows (3522–3548, 3574–3602, 3776–3800,
+3848–3913, 4237), and non-fork archival/cancellation rows (4403, 4436, 4451, 4535–4688,
+4702–4709). They stay open where they are; this section does not replace them.
 
 ## 2026-09-22 pre-round-24 document audit — what it found that a doc edit cannot fix
 

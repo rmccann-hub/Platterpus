@@ -33,6 +33,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `handshake.py --check` refuses one of our laps that states another. The sent
   lap cannot be edited; it is corrected in the standing status and in our next lap.
 
+- **The release gate path every 0.x release takes did not say which peer lap a
+  close rested on.** `release.yml` runs the handshake gate with `--prerelease`
+  for every `v0.*` tag, and that path printed only open rounds, so an allowed
+  release never named the fork lap its close depended on. It now prints the same
+  source lines as the strict path. Found while checking whether anything
+  mechanically holds a release for the fork's next lap: nothing does in the 0.x
+  line, because that path permits a release with a round open. That is recorded
+  as a decision for the maintainer rather than changed here.
+
 - **The handshake gate said a bare CLOSED when the fork's gate still said
   OPEN.** A round now prints, on `--status` and on an allowed release, when it
   closed on our gate one lap before a gate that reads the protocol's

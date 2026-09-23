@@ -3290,6 +3290,18 @@ def main(argv: list[str] | None = None) -> int:
         if args.prerelease:
             lines = round_status(record_root)
             open_rounds = [ln for ln in lines if ln.endswith("OPEN")]
+            # ROW C42 ON THE PATH THAT ACTUALLY RUNS. `release.yml` passes
+            # `--prerelease` for every `v0.*` tag, so this branch — not the strict one
+            # below — is what every release this project has shipped went through. It
+            # printed only open rounds and a one-line verdict, so a close resolved
+            # under §5b permitted a release without naming the peer file it rested
+            # on, and the round-24 note saying our gate closed one lap before the
+            # fork's (CLOSED_ONE_LAP_EARLY_NOTE) never reached the release log. The
+            # C42 test drove the strict path, which no v0 release takes: §5.bo's
+            # "test a row at the surface it describes", found one surface over.
+            for line in lines:
+                if line.startswith(SOURCE_LINE_PREFIX):
+                    sys.stdout.write(f"{line}\n")
             if open_rounds:
                 sys.stderr.write(
                     "handshake: PRE-RELEASE permitted with a round OPEN — this build "

@@ -586,6 +586,29 @@ def test_C42_a_v5_close_prints_which_lap_each_peer_verdict_came_from(
     assert not any(ln.endswith("OPEN") for ln in sources), sources
 
 
+def test_C42_holds_on_the_PRERELEASE_path_too_because_every_v0_release_takes_it(
+    hs: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`release.yml` runs `--release-gate --prerelease` for every `v0.*` tag, so the
+    strict path the C42 test above drives is one no release of ours has taken. The
+    source lines — and the one-lap-early note — must print on this path as well."""
+    root = _we_spoke_first_and_they_closed(hs, tmp_path / "hs")
+    capsys.readouterr()
+    assert (
+        hs.main(["--release-gate", "--prerelease", "--handshake-dir", str(root)]) == 0
+    )
+    out = capsys.readouterr().out
+    assert "resolved from inbound/round-99-lap-03.md" in out, out
+    assert "pre-release allowed" in out, out
+
+    early = _they_opened_and_we_closed(hs, tmp_path / "early")
+    capsys.readouterr()
+    assert (
+        hs.main(["--release-gate", "--prerelease", "--handshake-dir", str(early)]) == 0
+    )
+    assert "one lap before" in capsys.readouterr().out
+
+
 def test_C39_a_transcription_that_disagrees_with_its_source_refuses_naming_both(
     hs: ModuleType, tmp_path: Path
 ) -> None:
