@@ -505,9 +505,11 @@ protocol v6, and where it was raised. The ones that were bullets here:
   code does not use (fixed on our side; the prose correction goes in our next lap);
   **N3** the window in which a build you publish to stable is stamped `unapproved` by
   us, because our approval record ships inside our release (both — release ordering);
-  **N4** our own release gate permits every `v0.*` release with a round open, so *"no
-  release while a round is open"* has rested on our deviation policy alone (ours, for
-  our maintainer to decide).
+  **N4** our own release gate permitted every `v0.*` release with a round open, so *"no
+  release while a round is open"* rested on our deviation policy alone — **decided (a)
+  by our maintainer and implemented 2026-09-23**: a release our updater offers on
+  stable is held to §6b's stable rule, with a recorded `§6b` override as the only way
+  out.
 * **C21–C36 without row-named tests**, and **`C13a`, which neither gate implements**
   (ours reopens after a terminal state; your `test_latest_lap_can_reopen` asserts the
   v2 behaviour) — both sides, and v6 should settle whether the row stays.

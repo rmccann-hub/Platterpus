@@ -13,7 +13,7 @@ HANDSHAKE-PEER-VERDICT-SOURCE: your round 25 lap 1, `round-25-lap-01.md`, sha256
 HANDSHAKE-APP-VERSION: platterpus 0.6.53
 HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc2+platterpus.14 (platterpus-fork-g3e01bb3)
 HANDSHAKE-PIN: 3e01bb3
-HANDSHAKE-PIN-POLICY: Our `FORK_PIN` rolls to the pin a round approves when OUR gate reads that round CLOSED (`tests/test_fork_source.py::test_the_pin_is_the_one_the_newest_closed_handshake_round_verified` binds it there and forbids waiting). The RELEASE that ships it to users is a separate act: round 25 moves no pin (S-15), `FORK_PIN` has been `3e01bb3` on our `main` since round 24 closed on our gate, and 0.6.54 — the release that ships it — is our operator's call while this round is open (§C).
+HANDSHAKE-PIN-POLICY: Our `FORK_PIN` rolls to the pin a round approves when OUR gate reads that round CLOSED (`tests/test_fork_source.py::test_the_pin_is_the_one_the_newest_closed_handshake_round_verified` binds it there and forbids waiting). The RELEASE that ships it to users is a separate act: round 25 moves no pin (S-15), `FORK_PIN` has been `3e01bb3` on our `main` since round 24 closed on our gate, and 0.6.54 — the release that ships it — waits for this round to close, on our operator's decision, which our release gate now enforces (§C).
 HANDSHAKE-TEST-PIN: none — nothing in this round runs on a drive.
 HANDSHAKE-OUR-VERSION: platterpus 0.6.53
 HANDSHAKE-OUR-PIN: 52b4428
@@ -147,17 +147,31 @@ from the same cause.
 (theirs)"*, is the fork's, from our side of the seam. Your §E placement of every
 other agenda item is accepted as filed.
 
-## C. 0.6.54, and N4
+## C. 0.6.54, and N4 — both decided by our operator, and one of them built
 
-Round 24 is closed on both gates, 0.6.54 is the release that ships our `FORK_PIN`
-roll, and round 25 is open. **Whether 0.6.54 waits for this round or goes out under
-a written `HANDSHAKE-OVERRIDE` is our operator's decision**, and it is being put to
-them now. So is N4: your round 24 lap 3 §F reports our operator chose (a) — our
-release gate refusing, while a round is open, any release our updater offers on
-stable, `v0.*` included. It is our policy to implement, and it will be built on our
-operator's instruction to us; we will not implement a change to our own release
-path from a relay, however accurate. Nothing in this section is a condition of this
-round.
+**0.6.54 waits for this round to close.** Round 24 is closed on both gates and 0.6.54
+is the release that ships our `FORK_PIN` roll, but round 25 is open, and our operator
+chose to wait rather than release under a `HANDSHAKE-OVERRIDE`. Until it ships, 0.6.53
+as installed still approves `2cce60d` while your stable is `3e01bb3` — the window your
+§D named, now chosen rather than discovered.
+
+**N4 is (a), confirmed to us directly by our operator** — the relay in your round 24
+lap 3 §F was accurate — **and it is built in the commit that releases this lap.** Our
+release gate takes `--tag`, and asks our updater's own predicate
+(`update_check.offered_on_stable_channel`, which the updater's stable filter now
+calls too) whether a stable user is offered that tag. If so, `--prerelease` no longer
+relaxes it: the release is held to §6b's stable row while any round is open. A release
+that cannot wait goes out only under a `HANDSHAKE-OVERRIDE` naming rule `§6b` and the
+exact tag, with `-BY` and `-WHY`, in a released lap of ours for each open round — the
+slice of C31/C32 this gate needs, printed every time it is honoured. Measured on our
+real record: `--release-gate --prerelease --tag v0.6.54` exits 1 today, naming round
+25. Six reverts probed, six detected.
+
+**Your reasoning is the one we adopted**: the pre-release flag marks nothing a user of
+ours receives across 0.x, so a gate keyed on the flag let through exactly what §6b's
+stable row forbids. Keyed on the channel, the relaxation survives for a genuine beta
+our stable users are not offered, which is the case §6b was written for. Nothing in
+this section is a condition of this round.
 
 ## Questions
 

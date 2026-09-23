@@ -711,7 +711,14 @@ def test_the_release_workflow_actually_calls_the_gate() -> None:
     # 2026-08-18 by an enforcement audit asking that of every gate. The label
     # answers "did they name it"; only the pair is a check.
     assert "--release-gate --prerelease" in workflow, "the relaxed branch is gone"
-    assert re.search(r"--release-gate\s*;;", workflow), (
+    # N4 (2026-09-23): BOTH branches pass the tag, or the gate cannot ask the
+    # updater whether a stable user is offered this release, and the relaxed branch
+    # waves through every v0.* again.
+    assert '--release-gate --prerelease --tag "$TAG"' in workflow, (
+        "the relaxed branch no longer passes --tag, so a stable-offered v0.* release "
+        "is relaxed again during an open round"
+    )
+    assert re.search(r'--release-gate --tag "\$TAG"\s*;;', workflow), (
         "the STRICT branch (--release-gate with no --prerelease) is not in "
         "release.yml at all — nothing can block a release, and the substring "
         "assertion above cannot tell you that"
@@ -807,6 +814,7 @@ def test_the_tag_routing_is_run_not_read(tag: str, relaxed: bool) -> None:
     assert chosen.startswith("CALLED --release-gate"), (
         f"tag {tag} selected no branch at all: {chosen!r}"
     )
+    assert f"--tag {tag}" in chosen, f"tag {tag} reached the gate without --tag"
     got_relaxed = "--prerelease" in chosen
     assert got_relaxed is relaxed, (
         f"tag {tag} routed to {chosen!r}; expected the "
@@ -4063,3 +4071,105 @@ def test_the_sent_round_24_lap_is_grandfathered_not_rewritten() -> None:
     assert "closes on BOTH gates" in lap.read_text(encoding="utf-8")
     assert hs.PIN_ROLL_TRIGGER_FROM_ROUND == 25
     assert _pin_policy_problems(hs.check_outbound_paths(lap)) == []
+
+
+# --- N4: a release our updater offers on stable is held to the stable rule --------
+
+
+def _open_round_world(
+    hs: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Path:
+    """Round 9 OPEN — sent, nothing back — as the gate's own tests build it."""
+    for sub in ("outbound", "inbound", "verified"):
+        (tmp_path / sub).mkdir()
+    (tmp_path / "outbound" / "round-9.md").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(hs, "HANDSHAKE_DIR", tmp_path)
+    monkeypatch.setattr(hs, "CURRENT_ROUND", 9)
+    return tmp_path
+
+
+def _override_lap(root: Path, **fields: str | None) -> Path:
+    """A lap of ours in round 9 recording an override. ``None`` omits a field."""
+    header: dict[str, str | None] = {
+        "HANDSHAKE-PROTOCOL": "2",
+        "HANDSHAKE-ROUND": "9",
+        "HANDSHAKE-LAP": "2",
+        "HANDSHAKE-FROM": "platterpus",
+        "HANDSHAKE-VERDICT": "OPEN",
+        "HANDSHAKE-READY-TO-READ": "yes — released by the operator on 2026-09-23",
+        "HANDSHAKE-OVERRIDE": "§6b — release v0.6.54 while round 9 is open",
+        "HANDSHAKE-OVERRIDE-BY": "operator (rmccann), 2026-09-23",
+        "HANDSHAKE-OVERRIDE-WHY": "a data-loss fix that cannot wait for the round",
+    }
+    header.update(fields)
+    body = "\n".join(f"{k}: {v}" for k, v in header.items() if v is not None)
+    path = root / "outbound" / "round-09-lap-02.md"
+    path.write_text(body + "\n\nlap body\n", encoding="utf-8")
+    return path
+
+
+def test_a_stable_offered_tag_is_not_relaxed_by_prerelease(
+    hs: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The N4 case: `release.yml` passes `--prerelease` for every `v0.*`, and our
+    updater offers every final `v0.*` on stable — so without the tag the gate
+    relaxed exactly what §6b's stable row forbids."""
+    _open_round_world(hs, tmp_path, monkeypatch)
+    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.54"]) == 1
+    assert "offered on the STABLE channel" in capsys.readouterr().err
+    # A genuine beta — one the stable channel does NOT offer — keeps §6b's
+    # relaxation, which exists so a round needing a published build can close.
+    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.7.0b1"]) == 0
+    # And the gate asks the UPDATER, not a list of its own.
+    monkeypatch.setattr(hs, "offered_on_stable_channel", lambda _tag: False)
+    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.54"]) == 0
+
+
+def test_a_recorded_section_6b_override_releases_that_tag_and_is_printed(
+    hs: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """§6a-ter: rule, who and why, in a released lap — honoured and printed (C32)."""
+    root = _open_round_world(hs, tmp_path, monkeypatch)
+    _override_lap(root)
+    capsys.readouterr()
+    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.54"]) == 0
+    out = capsys.readouterr().out
+    assert "OVERRIDE round 9" in out and "a data-loss fix" in out, out
+    assert "under a recorded operator override" in out
+    # It names ONE tag. Another release is still held.
+    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.55"]) == 1
+    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.5"]) == 1
+
+
+@pytest.mark.parametrize(
+    ("fields", "why"),
+    [
+        ({"HANDSHAKE-OVERRIDE-WHY": None}, "C31"),
+        ({"HANDSHAKE-OVERRIDE-BY": None}, "C31"),
+        ({"HANDSHAKE-READY-TO-READ": "no — not announced"}, "not released"),
+        ({"HANDSHAKE-OVERRIDE": "R4 — release v0.6.54 while round 9 is open"}, None),
+    ],
+)
+def test_an_incomplete_or_unreleased_override_does_not_release(
+    hs: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    fields: dict[str, str | None],
+    why: str | None,
+) -> None:
+    """An unrecorded override did not happen: missing `-BY`/`-WHY`, a held lap, or an
+    override of a different rule all leave the release blocked — and say why."""
+    root = _open_round_world(hs, tmp_path, monkeypatch)
+    _override_lap(root, **fields)
+    capsys.readouterr()
+    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.54"]) == 1
+    err = capsys.readouterr().err
+    if why is not None:
+        assert why in err, err

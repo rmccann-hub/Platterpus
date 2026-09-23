@@ -41,9 +41,16 @@ narrow exemption keyed on their lap 1 expires by itself when their next lap is f
 sides of the comparison. Caught on read-back; it now compares against what our lap
 declares, and failed for the right reason until our lap 2 existed.
 
-**Two things are the maintainer's, not mine:** 0.6.54 (wait for round 25, or a
-written override), and N4 — the fork's lap reports the maintainer chose the strict
-gate for `v0.*`; I will implement it on the maintainer's word to us, not on a relay.
+**Both then decided by the maintainer, directly:** 0.6.54 waits for round 25 to
+close, and N4 is (a). Built the same session: `--release-gate --tag` asks the
+updater's own `offered_on_stable_channel` — which the updater's stable filter now
+calls too, so the two cannot drift — and a stable-offered tag is held to §6b's
+stable rule even with `--prerelease`. The one way out is a recorded `§6b`
+`HANDSHAKE-OVERRIDE` naming the exact tag, with `-BY` and `-WHY`, in a released lap;
+honoured overrides print every time. Six reverts probed, six detected — including
+matching the tag by substring, which would have let an override for `v0.6.54`
+release `v0.6.5`. On the real record the gate now refuses `v0.6.54`, naming round 25:
+the rule that had never held a 0.x release holds this one.
 
 ## 2026-09-23 — round 24 opened on `+platterpus.14`; our lap 2 is `GO`
 
