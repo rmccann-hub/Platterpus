@@ -75,11 +75,14 @@ other agenda item is placed by name in their §E; we accept the placement.
 - [x] **Our lap 2: `GO`**, `--check` clean, `READY-TO-READ: no`.
 - [ ] **Release lap 2 on the maintainer's word** (`--announce`), merge to `main` — the texts
   must reach `main` in the commit that releases it.
-- [ ] **0.6.54: the maintainer's decision** — wait for round 25 to close, or a written
-  `HANDSHAKE-OVERRIDE` (§6a-ter).
-- [ ] **N4: confirm with the maintainer directly** that the policy is (a), as the fork's round
-  24 lap 3 §F reports, then implement it in `release.yml` + `--release-gate` (strict for any
-  release our updater offers on stable while a round is open).
+- [ ] **0.6.54: WAITS for round 25 to close** (maintainer, 2026-09-23). The gate now enforces
+  it: `--release-gate --prerelease --tag v0.6.54` exits 1 while the round is open.
+- [x] **N4: DONE 2026-09-23 — the maintainer confirmed (a) directly.** `--release-gate --tag`
+  asks `update_check.offered_on_stable_channel` (the updater's own stable filter now calls it
+  too); a stable-offered tag is held to §6b's stable rule even with `--prerelease`; a
+  complete, released `HANDSHAKE-OVERRIDE` naming `§6b` and the tag releases it and is
+  printed (a C31/C32 slice); `release.yml` passes `--tag` on both branches. Six reverts
+  probed, six detected.
 - [ ] **After round 25 closes: implement protocol 6** — C44/C45 (`HANDSHAKE-AGREED-CHANGES`),
   amended C13a, K2's `INBOUND-HELD`/`INBOUND-OBSERVED` split, a row-named test each; clear
   `_BOOTSTRAP_REASON` in that commit.

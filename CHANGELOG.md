@@ -24,6 +24,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Fixed
 
+- **A release could go out to stable users while a handshake round was open.**
+  The release workflow relaxed the handshake gate for every `0.x` tag because
+  GitHub marks them all as pre-releases, but the in-app updater offers every
+  final `0.x` release on the stable channel. So the rule against releasing
+  during an open round had never held a single release. The gate now asks the
+  updater's own rule whether stable users are offered the tag, and if so holds it
+  to the stable rule. A release that cannot wait needs a written override in a
+  released handshake lap, naming the rule and the tag, and the gate prints it.
+  Decided by the maintainer on 2026-09-23.
+
 - **The handshake conformance check listed protocol versions by hand.** It knew
   the version 4 and 5 blocks of the shared table and nothing else, so the day
   protocol v6 landed, v6's new rows became mandatory at once against a gate that

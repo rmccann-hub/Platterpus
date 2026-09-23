@@ -3190,6 +3190,104 @@ def _close_by_verdict(value: str) -> str:
     return f"{value}, {remaining} day(s) remaining"
 
 
+#: The rule an operator names to release while a round is open: `handshake-protocol.md`
+#: §6b's *"stable release — permitted with a round open? no"*, overridden in writing
+#: under §6a-ter. The override must also name the tag it releases, so one recorded
+#: reason can never excuse a release it was not written for.
+RELEASE_OVERRIDE_RULE: Final[str] = "§6b"
+
+
+def offered_on_stable_channel(tag: str) -> bool:
+    """Whether OUR UPDATER offers ``tag`` on the stable channel — asked of the updater.
+
+    **N4, the maintainer's decision, 2026-09-23 (option (a)).** `--prerelease` relaxes
+    the gate for a build that claims no joint verification (§6b), and `release.yml`
+    passes it for every `v0.*` tag because every such tag carries GitHub's pre-release
+    flag. But our updater ignores that flag and offers every `v0.*` on the STABLE
+    channel, so the relaxation let through exactly what §6b's stable row forbids: not
+    one release this project shipped was ever held by this gate. So the gate asks the
+    updater's own predicate, `update_check.offered_on_stable_channel`, rather than
+    restating it — two surfaces answering *"does a stable user get this?"* with two
+    keys is the defect `CLAUDE.md` names.
+
+    ``src/`` is put on the path because `release.yml` runs this gate before the
+    package is installed. **Fails closed**: if the updater cannot be imported the tag
+    is treated as offered on stable, so a broken import holds a release rather than
+    waving one through.
+    """
+    src = Path(__file__).resolve().parents[1] / "src"
+    if str(src) not in sys.path:
+        sys.path.insert(0, str(src))
+    try:
+        from platterpus.update_check import (  # noqa: PLC0415
+            offered_on_stable_channel as ask,
+        )
+    except ImportError:
+        return True
+    return bool(ask(tag))
+
+
+def _names_tag(text: str, tag: str) -> bool:
+    """Whether ``text`` names ``tag`` exactly — ``v0.6.54`` never matches ``v0.6.5``."""
+    bare = tag[1:] if tag.startswith("v") else tag
+    return re.search(rf"(?<![\w.])v?{re.escape(bare)}(?![\w.])", text) is not None
+
+
+def release_overrides(
+    root: Path | None, round_numbers: Iterable[int], tag: str
+) -> tuple[list[str], list[str]]:
+    """``(honoured, problems)``: recorded §6b overrides for releasing ``tag``.
+
+    An override counts only if it is **recorded in a released lap of ours for that
+    round** (§6a-ter: *"an unrecorded override did not happen"*) and carries all
+    three lines — rule, `-BY`, `-WHY` (row C31). A held lap does not count: the
+    point of an override is that it leaves a mark the peer can read. Each honoured
+    one is returned as the lines to print, every time (row C32).
+    """
+    root = root if root is not None else HANDSHAKE_DIR  # same default as round_status
+    honoured: list[str] = []
+    problems: list[str] = []
+    wanted = set(round_numbers)
+    for directory in ("outbound", "verified"):
+        for path in sorted((root / directory).glob("round-*.md"), key=sort_key):
+            if round_number(path) not in wanted:
+                continue
+            text = _safe_read(path)
+            fields = wire_fields(text)
+            rule = fields.get("HANDSHAKE-OVERRIDE")
+            if rule is None or rule == AMBIGUOUS:
+                continue
+            if RELEASE_OVERRIDE_RULE not in rule or not _names_tag(rule, tag):
+                continue
+            where = f"{directory}/{path.name}"
+            by = fields.get("HANDSHAKE-OVERRIDE-BY")
+            why = fields.get("HANDSHAKE-OVERRIDE-WHY")
+            missing = [
+                name
+                for name, value in (("-BY", by), ("-WHY", why))
+                if value is None or value == AMBIGUOUS or not value.strip()
+            ]
+            if missing:
+                problems.append(
+                    f"{where} records a §6b override for {tag} without "
+                    f"HANDSHAKE-OVERRIDE{' / '.join(missing)} — an override without a "
+                    "weighable reason is not recorded (row C31)"
+                )
+                continue
+            if ready_to_read(text) is not True:
+                problems.append(
+                    f"{where} records a §6b override for {tag} in a lap that is not "
+                    "released for reading — an override the peer cannot read has "
+                    "left no mark (§6a-ter)"
+                )
+                continue
+            honoured.append(
+                f"  OVERRIDE round {round_number(path)} ({where}): {rule} | by {by} "
+                f"| why {why}"
+            )
+    return honoured, problems
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
@@ -3224,6 +3322,14 @@ def main(argv: list[str] | None = None) -> int:
         "pre-release is a test artifact, not a claim that the pair was verified "
         "(handshake round 7 lap 6 §1 — the close-needs-hardware deadlock). A "
         "stable release is still refused.",
+    )
+    parser.add_argument(
+        "--tag",
+        default=None,
+        help="with --release-gate: the tag being released. A tag our updater offers "
+        "on the STABLE channel is held to the stable rule even with --prerelease "
+        "(maintainer decision N4, 2026-09-23), unless a released lap of ours for "
+        "each open round records a complete §6b HANDSHAKE-OVERRIDE naming this tag.",
     )
     group.add_argument(
         "--release-gate",
@@ -3287,7 +3393,15 @@ def main(argv: list[str] | None = None) -> int:
         #
         # Loud, not silent: the open rounds are printed either way, so a pre-release
         # never looks like a clean record.
-        if args.prerelease:
+        stable_offered = args.tag is not None and offered_on_stable_channel(args.tag)
+        if args.prerelease and stable_offered:
+            sys.stderr.write(
+                f"handshake: {args.tag} is offered on the STABLE channel by our "
+                "updater (update_check.offered_on_stable_channel), so --prerelease "
+                "does not relax this gate — a release a stable user is offered is "
+                "held to §6b's stable rule (maintainer decision N4, 2026-09-23)\n"
+            )
+        if args.prerelease and not stable_offered:
             lines = round_status(record_root)
             open_rounds = [ln for ln in lines if ln.endswith("OPEN")]
             # ROW C42 ON THE PATH THAT ACTUALLY RUNS. `release.yml` passes
@@ -3337,6 +3451,33 @@ def main(argv: list[str] | None = None) -> int:
                     sys.stdout.write(f"{line}\n")
             sys.stdout.write("handshake: every round is closed — release allowed\n")
             return 0
+        override_problems: list[str] = []
+        if args.tag is not None:
+            numbers = [
+                int(m.group(1))
+                for ln in open_rounds
+                if (m := re.match(r"round-(\d+):", ln)) is not None
+            ]
+            honoured, override_problems = release_overrides(
+                record_root, numbers, args.tag
+            )
+            covered = {
+                int(m.group(1))
+                for ln in honoured
+                if (m := re.search(r"OVERRIDE round (\d+) ", ln)) is not None
+            }
+            if numbers and not override_problems and covered >= set(numbers):
+                # ROW C32: printed every time, never once. Loud, on stdout, beside
+                # every round it overrides.
+                for line in open_rounds:
+                    sys.stdout.write(f"  - {line}\n")
+                for line in honoured:
+                    sys.stdout.write(f"{line}\n")
+                sys.stdout.write(
+                    f"handshake: release {args.tag} permitted with a round OPEN under "
+                    "a recorded operator override (§6a-ter, rule §6b)\n"
+                )
+                return 0
         sys.stderr.write(
             "handshake: a round is OPEN, so this release is blocked "
             "(docs/cyanrip-handshake.md §7 — both directions must be verified "
@@ -3344,6 +3485,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         for line in open_rounds:
             sys.stderr.write(f"  - {line}\n")
+        for problem in override_problems:
+            sys.stderr.write(f"  refused override: {problem}\n")
         return 1
 
     label = " + ".join(str(p) for p in args.check)
