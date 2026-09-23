@@ -27,8 +27,8 @@ name the approved pin. During a round that reviews a new build the next run test
 the operator at `.14`. Moving `PIN_UNDER_REVIEW` turned up the mirror: the
 front-page sweep had no way to let a page name the build under review at all. Both
 now read `a_round_is_reviewing_a_build()`, so they widen and narrow with the round.
-Three reverts probed, three detected. Graduated as the rig-sheet test's own
-docstring note, since the lesson is about that one check.
+Three reverts probed, three detected. Graduated as a comment on the rig-sheet
+test itself, since the lesson is about that one check.
 
 **The maintainer decided the release question.** 0.6.54 carries the move, which
 differs from what lap 4 declared, and lap 2 says so first. It goes out under a §6b
