@@ -24,6 +24,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Fixed
 
+- **A release could go out to stable users while a handshake round was open.**
+  The release workflow relaxed the handshake gate for every `0.x` tag because
+  GitHub marks them all as pre-releases, but the in-app updater offers every
+  final `0.x` release on the stable channel. So the rule against releasing
+  during an open round had never held a single release. The gate now asks the
+  updater's own rule whether stable users are offered the tag, and if so holds it
+  to the stable rule. A release that cannot wait needs a written override in a
+  released handshake lap, naming the rule and the tag, and the gate prints it.
+  Decided by the maintainer on 2026-09-23.
+
+- **The handshake conformance check listed protocol versions by hand.** It knew
+  the version 4 and 5 blocks of the shared table and nothing else, so the day
+  protocol v6 landed, v6's new rows became mandatory at once against a gate that
+  implements 5. It now reads each block's version from the block's own heading.
+
 - **A handshake lap of ours promised a pin-roll moment our code does not use.**
   Round 24's lap 2 told the fork the pin would roll "when round 24 closes on BOTH
   gates", but our own check rolls it the moment OUR gate reads the round closed,
@@ -89,6 +104,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   setting, not a person — and restored both times; the setting is now off.
 
 ### Added
+
+- **Handshake round 25: PROTOCOL v6, OWNERSHIP v3 and seam-rules v6 landed.**
+  Round 24 closed on both projects' gates, and the cyanrip fork opened round 25
+  on text alone: the three shared documents must become byte-identical in both
+  repositories. OWNERSHIP v3 and seam-rules v6 are landed exactly as proposed.
+  PROTOCOL v6 is landed with one amendment of ours: a close may use a peer lap
+  only if that lap has been released, stated as a requirement rather than a
+  filter, because the filter wording made one of the protocol's own refusal rows
+  impossible to trigger. Both projects' gates already behave that way. Our reply
+  declares `GO` and was released on the maintainer's word the same day. Our gate
+  stays at protocol 5 until the text is identical in both repositories, as v6
+  requires.
 
 - **Round 24 is filed and our verdict's evidence is committed.** The fork's lap 1,
   its provider contract and the `+platterpus.14` golden log are filed byte-exact.

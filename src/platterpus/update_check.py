@@ -116,6 +116,26 @@ def is_prerelease_version(version: str) -> bool:
     return key is not None and key[3] != _FINAL_RANK
 
 
+def offered_on_stable_channel(tag: str) -> bool:
+    """Whether this updater's STABLE channel would offer the release tagged ``tag``.
+
+    **One predicate, two callers — deliberately.** :func:`_parse_releases` uses it
+    to decide what a stable user is offered, and the handshake release gate
+    (``scripts/handshake.py --release-gate --tag``) asks it whether a release is one
+    a stable user will receive. Maintainer decision N4, 2026-09-23: while a
+    handshake round is open, a release our updater offers on stable is held to the
+    stable rule even though every ``v0.*`` tag carries GitHub's pre-release flag,
+    because that flag marks nothing a user of ours receives (see
+    :func:`is_prerelease_version`). Two surfaces answering *"does a stable user get
+    this?"* with two different keys is the defect this function exists to prevent.
+
+    An unparseable tag is never offered, the same rule :func:`_parse_releases` has
+    always applied.
+    """
+    version = tag[1:] if tag.startswith("v") else tag
+    return release_sort_key(version) is not None and not is_prerelease_version(version)
+
+
 @dataclass(frozen=True)
 class ReleaseInfo:
     """The newest published release, as the GUI needs it."""
@@ -215,7 +235,7 @@ def _parse_releases(releases: object, channel: str) -> list[ReleaseInfo] | None:
             # The VERSION decides, not the API's `prerelease` flag — see
             # `is_prerelease_version` for why that flag is uninformative here.
             pre = is_prerelease_version(version)
-            if pre and channel != CHANNEL_BETA:
+            if channel != CHANNEL_BETA and not offered_on_stable_channel(tag):
                 continue
             url = str(entry.get("html_url") or RELEASES_PAGE_URL)
             candidates.append(

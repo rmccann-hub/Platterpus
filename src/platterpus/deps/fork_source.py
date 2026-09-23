@@ -574,7 +574,10 @@ PIN_UNDER_REVIEW: Final[str] = "3e01bb3"
 #: target compared the two pins and nothing else, so opening round 24 — which
 #: declares `HANDSHAKE-TEST-PIN: none` — would have sent an operator to round 21's
 #: retired test pin `3952c03` and marked it "INSTALL THIS ONE".
-PIN_UNDER_REVIEW_ROUND: Final[int] = 24
+#: **25 from 2026-09-23**: round 25 declares `HANDSHAKE-PIN: 3e01bb3` unchanged and
+#: reviews shared TEXT, not a build — so the pin is the production pin, and
+#: `a_round_is_reviewing_a_build()` answers False, correctly.
+PIN_UNDER_REVIEW_ROUND: Final[int] = 25
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
 #:

@@ -18,7 +18,7 @@ it is free.
 | **`[PLATTERPUS]`** | the GUI only | cyanrip, so they know what we promise |
 | **`[CYANRIP]`** | the ripper only | Platterpus, so we know what to expect |
 
-Format version: **5** (`SEAM-RULES-VERSION: 5`). Cite it when you claim
+Format version: **6** (`SEAM-RULES-VERSION: 6`). Cite it when you claim
 conformance.
 
 ---
@@ -205,10 +205,10 @@ not a preference:
 
 | | round 5 | round 6 | round 7 |
 |---|---|---|---|
-| laps to close | 1 | 1 | **37 and open** |
+| laps to close | 1 | 1 | **39** |
 | test pins declared | 1 | 1 | **10** |
 | pre-releases shipped inside it | 0 | 0 | **8** |
-| releases produced | 1 | 1 | **0** |
+| releases produced | 1 | 1 | **1**, `+platterpus.5`, after the round closed |
 
 **Nothing in round 7 was bad work.** It found a memory disclosure into an
 archival record, four segfaults, a gate that graded a crash as a clean refusal,
@@ -362,7 +362,7 @@ last read it. Every row names a direction, a type, and what must be checked.
 State the version and which tags you implement:
 
 ```
-SEAM-RULES-VERSION: 5
+SEAM-RULES-VERSION: 6
 IMPLEMENTS: BOTH(S-1..S-18) PLATTERPUS(P-1..P-3)
 ```
 
@@ -376,5 +376,10 @@ number through rounds 8, 9, 10, 11, 12 and 13 — against a shared spec that
 defined S-1..S-12 and a conformance block that said claiming `BOTH` claimed
 twelve. Five rounds of correspondence rested on numbers this file did not
 assign, and the rule forbidding exactly that is in this section.
+
+**v6 changes one table and nothing else.** S-13's round-7 column was measured
+while the round was open, at lap 37. Round 7 closed `GO` at lap 39 and produced
+one release, `+platterpus.5`. A version-frozen file keeps a present-tense figure
+until the next bump, and this is that bump.
 
 ---

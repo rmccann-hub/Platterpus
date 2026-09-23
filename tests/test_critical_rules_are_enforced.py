@@ -1309,7 +1309,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # one lap EARLIER than our own lap 2 promised, and why — the two gates close on
     # different laps under v5. Left out, the next reader sees a pin that moved
     # against a sent lap's word with no account of it. Measured after `ruff format`.
-    "deps/fork_source.py": 2195,
+    # **2195 -> 2198 (round 25 open, 2026-09-23)**: `PIN_UNDER_REVIEW_ROUND` 24 -> 25,
+    # with the three lines saying why a round that reviews TEXT still names the pin.
+    "deps/fork_source.py": 2198,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
