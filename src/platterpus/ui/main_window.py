@@ -1021,9 +1021,13 @@ class MainWindow(
         #
         acceptance_action = tools_menu.addAction("Run &acceptance test…")
         acceptance_action.triggered.connect(self.run_acceptance_session)
-        # The dependency check lives only on the Settings dialog's
-        # "Check dependencies" button (it also runs automatically at
-        # launch) — no duplicate Tools-menu entry.
+        # The dependency check lives in ONE place: Setup & Updates → Check
+        # dependencies (it also runs automatically at launch). This comment used
+        # to say it lived only on a Settings button, and that stopped being true
+        # when Setup & Updates gained its own — two doors to one action, found by
+        # the maintainer on 2026-09-23 and closed by removing the Settings one.
+        # `tests/test_help_documents_the_menu.py` now holds every menu path the
+        # product names to one that exists.
 
         # The in-app Uninstaller — separated at the bottom so it can't be
         # mis-clicked among the everyday actions.
@@ -1543,11 +1547,11 @@ class MainWindow(
 
     def _on_open_settings(self) -> None:
         dialog = SettingsDialog(self._config, self)
-        dialog.check_dependencies_requested.connect(self._on_check_dependencies)
-        # "Re-detect…" next to the read-offset field opens the same wizard.
-        dialog.detect_offset_requested.connect(self._on_drive_setup)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            self._config = dialog.to_config()
+            # Only what the user changed — never the whole form read back. The
+            # config may have been written while the dialog was open, and the
+            # form still shows the values it opened with (`apply_user_edits`).
+            self._config = dialog.user_edits_applied_to(self._config)
             # Push the new config into the rip controls so the next rip
             # reflects the edits (output dir, templates, cover art, …).
             self._rip_controls.set_config(self._config)

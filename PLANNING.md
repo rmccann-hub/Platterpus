@@ -312,6 +312,7 @@ Platterpus/
         │   └── dialogs/
         │       ├── __init__.py
         │       ├── centering.py         # QDialog base that centres itself on the parent window
+        │       ├── fit_scroll_area.py   # dialog-body scroll area that asks for all its content
         │       ├── auto_center.py       # app-wide event filter centring QMessageBox/QFileDialog too
         │       ├── pending_installs.py  # tier (b) queued installs dialog
         │       ├── manual_install.py    # tier (c) copyable search string dialog
@@ -506,7 +507,8 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`host_setup_dialog.py`** — `HostSetupDialog`, the no-terminal host-setup wizard (KDD-17c). Drives `deps/host_setup.py` off-thread via `HostSetupWorker` with live per-step progress; offered on first launch when the ripper is absent and on Tools → Set up Platterpus…. Installs the cyanrip backend into the container.
 - **`uninstall_dialog.py`** — `UninstallDialog`, the in-app Uninstaller (Tools → Uninstall Platterpus…, also launched directly by `platterpus --uninstall` from the menu entry). Confirmation gate + per-piece checkboxes (container, whipper.conf; the AppImage step appears only when running as one); drives `deps/host_teardown.py` via the shared worker; on success the main window offers to close itself (its settings no longer exist on disk).
 - **`help_dialogs.py`** — `AboutDialog` (version + Python/Qt/PySide6 versions + config/log/whipper paths) and `HelpDialog` (renders `help_content.USER_GUIDE`).
-- **`dialogs/centering.py`** — `CenteredDialog`, a `QDialog` base that centres itself over the parent window on first show (fixes a multi-monitor "modal on another screen looks frozen" report); best-effort, a no-op under native Wayland.
+- **`dialogs/centering.py`** — `CenteredDialog`, a `QDialog` base that centres itself over the parent window on first show (fixes a multi-monitor "modal on another screen looks frozen" report; best-effort, a no-op under native Wayland), and fits itself to its content and the screen: height grows to what its wrapped text needs at its real width, capped at the screen (2026-09-23 — a picker opened 360 px tall with every paragraph clipped on a 540 px logical screen).
+- **`dialogs/fit_scroll_area.py`** — `FitScrollArea`, the scroll area for a dialog BODY whose length is not ours to fix: its size hint carries the whole content, so the dialog sizes to the text and the body scrolls only once the screen runs out, with the buttons kept outside it. Used by the cyanrip build picker and Setup & Updates; gated by `tests/test_dialogs_fit_their_content.py`.
 - **`dialogs/auto_center.py`** — an application-wide event filter that centres *every* first-shown dialog — including the plain `QMessageBox`/`QFileDialog` static calls that can't subclass `CenteredDialog` — over the main window.
 - **`dialogs/pending_installs.py`** — `PendingInstallsDialog(QDialog)`. Tier (b) UI: per-item checkboxes, "Install selected" button, per-item progress feedback. Backed by `QueuedInstaller`.
 - **`dialogs/manual_install.py`** — `ManualInstallDialog(QDialog)`. Tier (c) UI: shows missing item, minimum version, why it can't auto-install, copyable search string in a read-only `QLineEdit`. Primary action: Copy. Secondary: Close.

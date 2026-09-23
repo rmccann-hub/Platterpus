@@ -22,7 +22,7 @@ import os
 import tomllib
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 import tomli_w
 
@@ -95,6 +95,28 @@ _V3_TO_V4_TEMPLATES: dict[str, str] = {
 }
 
 log = logging.getLogger(__name__)
+
+
+#: Fields the APP writes for itself — the "have we already asked you?" flags and
+#: the schema version — which no Settings row edits and the user never sets.
+#:
+#: Named once because two things must leave them alone, and each got it wrong or
+#: nearly did on 2026-09-23. `SettingsDialog.to_config` carries exactly these
+#: over from the live config rather than from a widget. And restoring a user's
+#: settings after an acceptance run must NOT restore these: the first version
+#: did, and put `host_setup_prompted` back to False, so the first-run setup offer
+#: would have reappeared after every run. `tests/test_ui_settings_dialog.py`
+#: holds the dialog's carry-over list to this set.
+APP_STATE_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "drive_setup_prompted",
+        "host_setup_prompted",
+        "appimage_integration_prompted",
+        "integration_declined_path",
+        "integration_declined_version",
+        "schema_version",
+    }
+)
 
 
 @dataclass

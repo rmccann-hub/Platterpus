@@ -146,7 +146,7 @@ one CRC over the whole disc, so one differing track changes it. Either outcome i
 
 ## 0 — [ ] Update to the release under test
 
-*Tools → Setup & Updates… → Check for updates* → download → verify → restart. *Help → About* names the version —
+*Tools → Setup & Updates… → Check for updates* → download → verify → restart. *Help → About Platterpus…* names the version —
 write it into the **App version tested** blank at the top of this sheet, because every result
 below is about that build.
 Nothing else to set up — your settings are already right (see above).
@@ -839,7 +839,7 @@ A GUI started from a desktop icon does not inherit a login shell's `PATH`, and
 `~/.local/bin` — where the container's tools are exported — is exactly what goes missing.
 
 1. Launch from the **application menu / desktop icon**, not a terminal.
-2. *Tools → Check dependencies*. Expected: cyanrip, metaflac, flac, ffmpeg and cd-paranoia
+2. *Tools → Setup & Updates… → Check dependencies*. Expected: cyanrip, metaflac, flac, ffmpeg and cd-paranoia
    all **found**.
 3. Rip a disc and confirm CTDB verification runs (it decodes with the host `flac`).
 
@@ -986,7 +986,7 @@ cache-defeat **Yes** measurement.
       CTDB verification is **on by default**
 - [ ] Every Settings control shows a tooltip on hover; the CTDB tooltip also says "on by
       default"
-- [ ] *Help → About* shows the version you recorded in §0, and correct Qt/Python info
+- [ ] *Help → About Platterpus…* shows the version you recorded in §0, and correct Qt/Python info
 - [ ] Disc-panel values can be selected and copied with the mouse. Selecting a MusicBrainz
       ID and pasting must still give the whole ID.
 - [ ] Force-stop a disc scan: the message says *"click Rescan disc to try again"* and does

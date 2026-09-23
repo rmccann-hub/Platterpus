@@ -464,25 +464,59 @@ def test_to_config_uses_current_default_for_fresh_config(
     assert dialog.to_config().schema_version == SCHEMA_VERSION
 
 
-# --- Check dependencies button ------------------------------------------
+# --- One door per action (2026-09-23) ------------------------------------
 
 
-def test_check_dependencies_signal_fires(qapp: QApplication) -> None:
+def test_settings_opens_no_other_window(qapp: QApplication) -> None:
+    """Settings edits settings; it is not a second door to other windows.
+
+    It used to carry "Check dependencies" and "Re-detect…", each a duplicate of
+    a button in Tools → Setup & Updates…. The maintainer: *"this probably doesnt
+    need multiple access points"*. The Re-detect door was also the route by which
+    a freshly detected read offset got overwritten on OK — see
+    `test_ok_keeps_an_offset_saved_while_settings_was_open`. Asserted on the
+    buttons themselves, because the signals going away proves nothing about a
+    button still on screen.
+    """
+    from PySide6.QtWidgets import QPushButton
+
     dialog = SettingsDialog(Config())
-    fired: list[bool] = []
-    dialog.check_dependencies_requested.connect(lambda: fired.append(True))
-
-    dialog._check_deps_button.click()
-
-    assert fired == [True]
+    texts = {b.text().replace("&", "") for b in dialog.findChildren(QPushButton)}
+    assert texts, "no buttons found — this would pass by finding nothing"
+    for gone in ("Check dependencies", "Re-detect…"):
+        assert gone not in texts, f"Settings still carries a {gone!r} door: {texts}"
 
 
-def test_check_dependencies_does_not_close_dialog(
+def test_apply_user_edits_writes_only_what_the_user_changed() -> None:
+    """The pure rule, in both directions."""
+    from platterpus.ui.settings_dialog import apply_user_edits
+
+    opened = Config(read_offset=667, max_retries=5)
+    # Something else changed the offset while the dialog was open...
+    current = Config(read_offset=6, max_retries=5)
+    # ...and the user changed only the retry count; the form still shows 667.
+    edited = Config(read_offset=667, max_retries=3)
+    result = apply_user_edits(current, opened, edited)
+    assert result.read_offset == 6, "a value the user never touched was reverted"
+    assert result.max_retries == 3, "the user's own edit was lost"
+
+
+def test_ok_keeps_an_offset_saved_while_settings_was_open(
     qapp: QApplication,
 ) -> None:
-    dialog = SettingsDialog(Config())
-    dialog._check_deps_button.click()
-    assert dialog.result() == 0  # neither accepted nor rejected
+    """The reproduction, through the real dialog: save sequence was [6, 667].
+
+    With Settings open on 667, the drive wizard saved a detected 6 into the live
+    config; pressing OK then read 667 back off the untouched spin box and saved
+    it over the new value. The next disc would have ripped at the old offset with
+    a clean-looking log.
+    """
+    live = Config(read_offset=667, override_read_offset=True)
+    dialog = SettingsDialog(live)
+    live.read_offset = 6  # what `_set_read_offset_override` does to the live object
+    assert dialog.user_edits_applied_to(live).read_offset == 6
+    dialog._read_offset_spin.setValue(12)  # a real edit still wins
+    assert dialog.user_edits_applied_to(live).read_offset == 12
 
 
 # --- Accept / Cancel -----------------------------------------------------
@@ -508,18 +542,6 @@ def test_cancel_rejects_dialog(qapp: QApplication) -> None:
     box = _button_box(dialog)
     box.button(QDialogButtonBox.StandardButton.Cancel).click()
     assert dialog.result() == int(dialog.DialogCode.Rejected)
-
-
-def test_redetect_button_emits_signal(qapp: QApplication) -> None:
-    """The Re-detect… button next to the read-offset field asks MainWindow
-    to open the drive-setup wizard."""
-    dialog = SettingsDialog(Config())
-    fired: list[bool] = []
-    dialog.detect_offset_requested.connect(lambda: fired.append(True))
-
-    dialog._detect_offset_button.click()
-
-    assert fired == [True]
 
 
 def test_read_offset_editable_with_override(qapp: QApplication) -> None:
@@ -660,7 +682,7 @@ def test_accept_logs_validation_errors(qapp: QApplication, caplog) -> None:
 
 
 def test_composite_row_fields_have_accessible_names(qapp: QApplication) -> None:
-    """Fields inside composite rows (edit + Browse / spin + Re-detect) get no
+    """Fields inside composite rows (edit + Browse) get no
     QFormLayout auto-buddy, so they'd read as anonymous text boxes — and the
     three identical Browse… buttons as indistinguishable — without explicit
     accessible names. Regression for the gap-#4 sweep fix."""
@@ -876,7 +898,6 @@ def test_ok_and_cancel_stay_on_screen_when_the_dialog_is_constrained(
             f"the OK/Cancel row ends at y={box.geometry().bottom()} in a "
             f"{dialog.height()} px dialog — it is off the bottom"
         )
-        assert dialog._check_deps_button.geometry().bottom() <= dialog.height()
         # And the form really did scroll rather than being clipped away.
         assert dialog._form_scroll.verticalScrollBar().maximum() > 0, (
             "nothing scrolls, so the rows below the fold are simply unreachable"
@@ -896,7 +917,6 @@ def test_the_actions_are_outside_the_scroll_area(qapp: QApplication) -> None:
     box = dialog.findChild(QDialogButtonBox)
     assert box is not None
     assert not scroll.isAncestorOf(box)
-    assert not scroll.isAncestorOf(dialog._check_deps_button)
     assert not scroll.isAncestorOf(dialog._validation_label)
     # ...while the form itself IS inside it (otherwise nothing was achieved).
     assert scroll.isAncestorOf(dialog._goal_combo)
@@ -1048,3 +1068,27 @@ def test_the_missing_branch_message_box_is_PlainText(
     SettingsDialog(Config())._use_builtin_acceptance_script()
 
     assert formats == [Qt.TextFormat.PlainText]
+
+
+def test_settings_carries_over_exactly_the_apps_own_state() -> None:
+    """The relation behind `APP_STATE_FIELDS`, read from the dialog's source.
+
+    `to_config` carries some fields over from the live config instead of reading
+    a widget. Those are the app's bookkeeping, and the acceptance-run restore
+    leaves the same set alone. If the two lists drift, one surface starts
+    treating a user setting as app state or the reverse.
+    """
+    import re
+    from pathlib import Path
+
+    from platterpus.config import APP_STATE_FIELDS
+
+    source = (
+        Path(__file__).resolve().parents[1] / "src/platterpus/ui/settings_dialog.py"
+    ).read_text(encoding="utf-8")
+    carried = set(re.findall(r"(\w+)=self\._config\.\1\b", source))
+    assert carried, "the carry-over pattern stopped matching"
+    assert carried == APP_STATE_FIELDS, (
+        f"Settings carries {sorted(carried)}; APP_STATE_FIELDS is "
+        f"{sorted(APP_STATE_FIELDS)}"
+    )

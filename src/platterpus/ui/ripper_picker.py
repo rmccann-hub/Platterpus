@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
 
 from platterpus.deps import fork_source
 from platterpus.ui.dialogs.centering import CenteredDialog
+from platterpus.ui.dialogs.fit_scroll_area import FitScrollArea
 
 #: Minimum height for anything that commits an action, per the accessibility
 #: convention in `CLAUDE.md` (44 px for a control that commits, 24 px floor
@@ -67,7 +68,23 @@ class RipperPickerDialog(CenteredDialog):
         self._chosen: str = ""
         self._buttons: list[tuple[QRadioButton, str]] = []
 
-        layout = QVBoxLayout(self)
+        root = QVBoxLayout(self)
+
+        # **THE BODY SCROLLS; THE BUTTONS DO NOT.** The rows below are whatever
+        # builds the handshake record currently names, so their number and their
+        # length are not ours to fix, and each reason is a paragraph. On a short
+        # logical screen (a 1080p panel at 200% is 540 px tall) this dialog opened
+        # 360 px tall with every paragraph cut off mid-sentence and nothing to
+        # scroll — real-user report, 2026-09-23. `FitScrollArea` asks for the whole
+        # body, so on a big screen it is invisible, and scrolls only when the
+        # screen cannot give it that much; Install and Cancel stay reachable.
+        body = QWidget(self)
+        layout = QVBoxLayout(body)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self._body_scroll: FitScrollArea = FitScrollArea(self)
+        self._body_scroll.setWidget(body)
+        self._body_scroll.setAccessibleName("Available cyanrip builds")
+        root.addWidget(self._body_scroll, stretch=1)
 
         intro = QLabel(
             "Platterpus builds cyanrip from source inside its container. Pick the "
@@ -127,7 +144,7 @@ class RipperPickerDialog(CenteredDialog):
         install.setAccessibleName("Install the selected cyanrip build")
         box.accepted.connect(self._accept_choice)
         box.rejected.connect(self.reject)
-        layout.addWidget(box)
+        root.addWidget(box)
 
     def _accept_choice(self) -> None:
         """Record the checked pin, then accept.

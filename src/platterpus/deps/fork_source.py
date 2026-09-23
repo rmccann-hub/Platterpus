@@ -1423,9 +1423,9 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
         "plus the new 'Encoder errors:' line. Round 24's evidence is the fork's "
         "golden reference (built at 2e6d97d, whose src/ and meson.build are "
         "identical to this pin), parsed completely by our parser with no "
-        "unrecognised line, and their suite and tarball install at the pin; no "
-        "hardware is a precondition, and the next acceptance run on 0.6.54 is "
-        "evidence afterwards. See docs/handshake/inbound/round-24-lap-01.md"
+        "unrecognised line, and their suite and tarball install at the pin. "
+        "Round 25 reviewed shared text and re-approved it unchanged. See "
+        "docs/handshake/inbound/round-24-lap-01.md"
     ),
 )
 
@@ -2212,6 +2212,19 @@ def ripper_choices() -> list[RipperChoice]:
             # The two constants coincide whenever a round has just closed and the
             # test pin has been promoted. Showing one build twice under two names
             # would read as two options.
+            continue
+        if kind == "test-pin" and not rig_installs_the_test_pin():
+            # **A TEST PIN IS A ROUND'S NOMINATION, NOT A STANDING MENU ITEM.**
+            # `rig_installs_the_test_pin` learned this at round 24 — `FORK_TEST_PIN`
+            # still held round 21's `3952c03`, so comparing pins alone pointed the
+            # rig at a build two rounds retired — and was fixed THERE, while this
+            # menu kept listing that build on every round since. The maintainer
+            # saw it in the picker at round 26, which names no test pin at all:
+            # *"this is still showing an older test pin, should that be there?"*
+            # It should not. Same predicate, so the menu and the rig cannot
+            # disagree about whether a test pin exists (`docs/testing.md` §5.o).
+            # A retired build is still installable by commit, through
+            # `target_for_commit`; it just is not offered as a choice.
             continue
         seen.add(target.pin)
         out.append(

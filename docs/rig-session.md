@@ -64,8 +64,11 @@ on a disc image, not on a drive, so this run is the first on hardware.
    report is `platterpus-fork-gdf91ae7`. (0.6.53 cannot run this: its acceptance test
    demands round 23's `2cce60d` and would stop in its first seconds on `.15`.) Then **Tools → Run
    acceptance test…** and leave it — it holds sleep off, runs every section (4–6 hours;
-   2026-09-22 took 4h14m), stops in its first seconds if the ripper is not `.15`, and
-   restores `max_retries 5` and `ripper_channel stable` at the end.
+   2026-09-22 took 4h14m), and stops in its first seconds if the ripper is not `.15`.
+   **On 0.6.54 it ends by resetting your settings to the shipped defaults**, so
+   afterwards re-tick anything you had changed — on this rig that is the Archival
+   Exact goal, the beta cyanrip channel, debug logging and the EAC-style log. From
+   0.6.55 the app puts your own settings back itself.
 3. **Upload the one `platterpusbundle….tar.gz` it leaves in `~/Downloads`** — here,
    and point the cyanrip session at it too; they file it under
    `docs/rig-<date>-df91ae7/` in their repository, as they did for 2026-09-22.

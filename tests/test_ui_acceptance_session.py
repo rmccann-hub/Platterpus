@@ -27,6 +27,7 @@ returns.
 
 from __future__ import annotations
 
+import dataclasses
 import threading
 from pathlib import Path
 from types import SimpleNamespace
@@ -1333,3 +1334,81 @@ def test_an_UNREADABLE_payload_still_packs_an_archive(
     win._on_acceptance_run_finished("not a RunReport at all")
 
     assert launched, "an unreadable report skipped the archive"
+
+
+# --- The user's settings survive the run (2026-09-23) --------------------
+
+
+def test_the_users_own_settings_come_back_when_the_run_finishes(
+    window, session, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The run writes test values; the person gets THEIR settings back.
+
+    It used to end on the shipped defaults, so a user on Archival Exact with the
+    beta ripper channel, debug logging and the EAC log on lost all four. The
+    script's own comment said it could not do better; the app can.
+    """
+    monkeypatch.setattr(
+        "platterpus.test_session.finish_session",
+        lambda layout, **kwargs: BundleResult(path=Path("/dev/null")),
+    )
+    win = _start(window, session, process_until)
+    original = dataclasses.replace(win._config)
+    # What the script does to the live config while it runs.
+    win._config = dataclasses.replace(
+        win._config, output_format="wav", max_retries=3, write_eac_log_after_rip=False
+    )
+
+    _finish(win, process_until)
+
+    assert _settings_only(win._config) == _settings_only(original), (
+        "the run's test values were left in place"
+    )
+
+
+def _settings_only(config: Config) -> dict[str, object]:
+    """The user's settings — everything but the app's own bookkeeping."""
+    from platterpus.config import APP_STATE_FIELDS
+
+    return {
+        k: v for k, v in dataclasses.asdict(config).items() if k not in APP_STATE_FIELDS
+    }
+
+
+def test_restoring_settings_leaves_the_apps_own_state_alone(
+    window, session, process_until
+) -> None:
+    """The first version restored EVERYTHING, and this is what it broke.
+
+    During a run the app answers its own first-run questions (here, the host
+    setup offer); putting `host_setup_prompted` back to False would re-ask it
+    after every acceptance run.
+    """
+    win = _start(window, session, process_until)
+    win._config = dataclasses.replace(
+        win._config, host_setup_prompted=True, output_format="wav"
+    )
+
+    win.close()
+
+    assert win._config.host_setup_prompted is True, "an answered prompt was re-armed"
+    assert win._config.output_format != "wav", "the run's test value survived"
+
+
+def test_the_users_settings_come_back_when_the_run_is_cut_short(
+    window, session, process_until
+) -> None:
+    """The case the script's own reset can never reach: it stopped partway.
+
+    Closing the window mid-run is one of those exits; a run that died in the
+    format sections would otherwise leave the user ripping WAV.
+    """
+    win = _start(window, session, process_until)
+    original = dataclasses.replace(win._config)
+    win._config = dataclasses.replace(win._config, output_format="wav")
+
+    win.close()
+
+    assert _settings_only(win._config) == _settings_only(original), (
+        "an aborted run left its test values behind"
+    )

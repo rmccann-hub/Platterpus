@@ -1,4 +1,5 @@
-"""A QDialog base that centres itself on the parent window when first shown.
+"""A QDialog base that centres itself on its parent window, and fits its content
+and the screen, when first shown.
 
 Real-user report (2026-06-30): on a multi-monitor desktop a first-run modal
 popped up on a *different* screen from the main window, so the (application-
@@ -17,7 +18,7 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import QRect
+from PySide6.QtCore import QRect, QSize
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
@@ -166,6 +167,13 @@ class CenteredDialog(QDialog):
     #: default deliberately, they had simply never been sized.
     DEFAULT_MINIMUM_WIDTH: int = 560
 
+    #: Kept clear of the panel/taskbar and the window frame. The value Settings
+    #: measured for the same job (`SettingsDialog._SCREEN_MARGIN_PX`):
+    #: `availableGeometry` excludes reserved struts on most desktops but not the
+    #: frame Qt adds around the dialog, and an OK button sitting exactly on the
+    #: screen edge is the same defect in a milder form.
+    SCREEN_MARGIN_PX: int = 64
+
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 — Qt override
         # Applied HERE rather than in `__init__` because a subclass populates its
         # layout after calling `super().__init__()`, so at construction time there
@@ -179,6 +187,8 @@ class CenteredDialog(QDialog):
                 and not self.isMaximized()
             ):
                 self.setMinimumWidth(self.DEFAULT_MINIMUM_WIDTH)
+            if not self.isMaximized():
+                self._fit_content_to_screen()
         super().showEvent(event)
         if self._centered_once:
             return
@@ -191,6 +201,76 @@ class CenteredDialog(QDialog):
             self.windowTitle(),
         )
         center_on_anchor(self)
+
+    def available_screen_size(self) -> QSize:
+        """Usable area of the screen this dialog is on, or a small fallback.
+
+        A method so a test can constrain it, and the same shape as
+        `SettingsDialog.available_screen_size`, which this generalises. The
+        fallback is deliberately SMALL: guessing big on a headless or odd-screen
+        host would reproduce the very bug the fit exists to prevent, while a dialog
+        that opens smaller than it needed to is merely scrollable.
+        """
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is None:
+            return QSize(1024, 720)
+        return screen.availableGeometry().size()
+
+    def _fit_content_to_screen(self) -> None:
+        """Give wrapped text the height it needs, and never outgrow the screen.
+
+        **Why every dialog, and why here.** Qt sizes a new window from its size
+        hint and then caps it at two-thirds of the screen (`adjustedSize`), and a
+        word-wrapped `QLabel` will be squeezed below the height its own text needs
+        rather than push the window taller — its minimum is one line. So on a
+        short *logical* screen (a 1080p panel at 200% scaling is 540 px tall) the
+        cyanrip build picker opened 360 px tall with every one of its five
+        paragraphs cut off mid-sentence. Real-user report, 2026-09-23. Measured,
+        not assumed: the picker came up at exactly two-thirds of a 540, 720 and
+        800 px virtual screen, clipping 5, 1 and 1 labels.
+
+        The two halves of the rule already existed, each in ONE dialog:
+        `SettingsDialog` clamps itself to the screen, and `DriveSetupDialog`
+        refuses to be shorter than its prose. The other thirteen had neither,
+        which is `docs/testing.md` §5.o — a rule enforced at the place it was
+        learned. So it lives on the base class now.
+
+        **What it does**, on first show only:
+
+        * width is kept, unless it is wider than the screen;
+        * height grows to what the content needs AT THAT WIDTH (height-for-width,
+          which is the number a wrapped label actually needs — `sizeHint` is
+          computed at a different width and is the wrong number), and is capped
+          at the screen;
+        * an explicit minimum larger than the screen is lowered to fit, because a
+          window the user cannot fully see has buttons they cannot reach.
+
+        Content taller than the screen cannot be fitted by resizing; it has to
+        scroll. That is what
+        :class:`~platterpus.ui.dialogs.fit_scroll_area.FitScrollArea` is for, and
+        `tests/test_dialogs_fit_their_content.py` is the gate that finds a dialog
+        which needed one and has none.
+        """
+        avail = self.available_screen_size()
+        # The margin is VERTICAL only: it is for the taskbar and the title bar,
+        # which is where a dialog loses its buttons. Sideways a chosen width is
+        # kept unless it is wider than the screen itself — a dialog that asked
+        # for 800 px on an 800 px screen fits, and shrinking it to make room for
+        # a margin nobody needs would override a size it chose deliberately.
+        max_w = max(avail.width(), 320)
+        max_h = max(avail.height() - self.SCREEN_MARGIN_PX, 240)
+        if self.minimumWidth() > max_w:
+            self.setMinimumWidth(max_w)
+        if self.minimumHeight() > max_h:
+            self.setMinimumHeight(max_h)
+        width = min(max(self.width(), self.minimumWidth()), max_w)
+        if self.hasHeightForWidth():
+            need = self.heightForWidth(width)
+        else:
+            need = self.sizeHint().height()
+        height = min(max(self.height(), need), max_h)
+        if (width, height) != (self.width(), self.height()):
+            self.resize(width, height)
 
     def done(self, result: int) -> None:
         """Log how the dialog closed, then close it.
