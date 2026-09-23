@@ -14,7 +14,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ### Changed
 
 - **The ripper pin moves to cyanrip `0.9.4-rc2+platterpus.14` (`3e01bb3`),
-  approved by handshake round 24.** Rips made with `.14` stop being stamped
+  approved by handshake round 24 and re-approved by round 25.** Rips made with `.14` stop being stamped
   `unapproved` in their report, log and EAC export — until this release a user who
   took the fork's stable `.14` got exactly that, because the fork published it
   before a round had reviewed it. `.14` changes log text only: each track now
@@ -22,7 +22,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   new `Encoder errors:` line reports the encoder on its own. No hardware run was a
   precondition; the next acceptance run is evidence afterwards.
 
+- **The acceptance test now runs on the fork's `.15` (`df91ae7`), which handshake
+  round 26 reviews on a drive.** Its first step demands that build, and **Tools →
+  Setup & Updates… → Check for cyanrip updates** offers it as *"the build the
+  acceptance test needs"* with an install button behind a consent warning. Rips
+  on `.15` are stamped `unapproved` until round 26 closes on that test — that is
+  the record being accurate, not a fault. The approved pin is still `.14`.
+
 ### Fixed
+
+- **The rig sheet's check could pass a sheet that sent the operator to the wrong
+  build.** It required the sheet's header to name the approved pin, and nothing
+  else. During a round that reviews a new build, the next run is the test of
+  that build, so a sheet naming only `.14` passed while telling the operator to
+  test `.14`. While a round is reviewing a build, the header must now name that
+  build too. The front-page check that every build a page names is current now
+  also accepts the build under review, and only while one is.
 
 - **A check that our sent laps are unchanged raised a false alarm on the fork's
   wording.** When the fork named one of our laps twice on a line, once as the
@@ -66,8 +81,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   release never named the fork lap its close depended on. It now prints the same
   source lines as the strict path. Found while checking whether anything
   mechanically holds a release for the fork's next lap: nothing does in the 0.x
-  line, because that path permits a release with a round open. That is recorded
-  as a decision for the maintainer rather than changed here.
+  line, because that path permitted a release with a round open. The maintainer
+  has since decided it, and the stable-channel bullet above is that change.
 
 - **The handshake gate said a bare CLOSED when the fork's gate still said
   OPEN.** A round now prints, on `--status` and on an allowed release, when it

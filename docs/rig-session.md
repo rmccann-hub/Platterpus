@@ -2,23 +2,25 @@
 
 ```
 Platterpus  v0.6.53        GitHub pre-release flag (every v0.* tag carries it);
-                           offered on the STABLE update channel
+                           offered on the STABLE update channel. The run needs 0.6.54.
+cyanrip     df91ae7        0.9.4-rc2+platterpus.15  (platterpus-fork-gdf91ae7)  <- UNDER REVIEW
+                           round 26's subject; THE BUILD THIS RUN TESTS
 cyanrip     3e01bb3        0.9.4-rc2+platterpus.14  (platterpus-fork-g3e01bb3)  <- PRODUCTION PIN
-                           pin moved and approved in round 24, for Platterpus 0.6.53;
+                           approved in round 24, re-approved in round 25, for Platterpus 0.6.53;
                            ships in 0.6.54 (0.6.53 as released installs 2cce60d)
 drive       Pioneer BDR-209D 1.51, read offset +667
-rounds 1-24 ALL CLOSED, bilateral GO (24 on our gate; theirs closes on their lap 3).
-Round 25 is not open and is the fork's to open.
+rounds 1-25 ALL CLOSED, bilateral GO. Round 26 OPEN: it closes on this run.
 ```
 
-> **Header last moved 2026-09-23**, when round 24 closed on our gate and `FORK_PIN`
-> rolled to `3e01bb3`. The move before that was 2026-09-22, by the pre-round-24 document audit. Before that it
-> named `v0.6.30` + cyanrip `d9c058c` and *"round 15 is not open"* — twenty-three patch
-> versions and nine rounds behind — and its body was round 7's `b12` acceptance
-> criteria, with steps for a menu layout that no longer exists. That sheet is
-> [`archive/rig-session-d9c058c.md`](archive/rig-session-d9c058c.md). A sheet that names
-> the wrong pair is worse than no sheet, because a run against it produces evidence
-> about a different subject.
+> **Header last moved 2026-09-23**, when round 26 opened on `.15`; the move before
+> that was the same day, when round 24 closed on our gate and `FORK_PIN` rolled to
+> `3e01bb3`. Before that it was 2026-09-22, by the pre-round-24 document audit, and
+> before that it named `v0.6.30` + cyanrip `d9c058c` and *"round 15 is not open"* —
+> twenty-three patch versions and nine rounds behind — and its body was round 7's
+> `b12` acceptance criteria, with steps for a menu layout that no longer exists. That
+> sheet is [`archive/rig-session-d9c058c.md`](archive/rig-session-d9c058c.md). A sheet
+> that names the wrong pair is worse than no sheet, because a run against it produces
+> evidence about a different subject.
 
 **This is the one rig sheet.** It is rewritten in place when the pairing moves, never
 joined by a sibling — the header above names the pair it is written for. Superseded
@@ -28,46 +30,52 @@ originals are in [`docs/archive/`](archive/) with their audit trail intact.
 
 ## What the next run is for
 
-**A full-green pass, which the project has never had.** The field-evidence ledger
-(`docs/testing.md` §5B) carries seven rows, every one `partial`. `0.7.100` is gated on
-a run with **zero failures in the ARCHIVAL sections**; `0.9.1` needs two such runs on
-at least two machines and two distros.
+**Round 26's close condition, and it cannot be met any other way.** The fork's round
+26 lap 1 names `+platterpus.15` (`df91ae7`) and closes on the real test: our full
+acceptance run with `.15` installed **through this app**, from a release whose
+`PIN_UNDER_REVIEW` is `df91ae7`, with the bundle committed to both repositories. Round
+26 then closes on each side's reading of it, our 0.6.x release rolls `FORK_PIN` to
+`df91ae7`, and theirs is `+platterpus.16`.
 
-**What makes this run different from 2026-09-22's**: v0.6.53 is the first build whose
-script can *fail* over the thing that made that run `partial`. Sections F, H, J,
-K1–K3 and N now carry `expect-verification`, which grades what the CTDB and
-FLAC-integrity checks actually left behind — on 2026-09-22 three of eight rips had
-those checks dropped unfinished and every step still passed. So a green result here
-means more than the last one could, and a red one is the script doing its job.
+**It is also a candidate full-green pass, which the project has never had.** The
+field-evidence ledger (`docs/testing.md` §5B) carries seven rows, every one
+`partial`. `0.7.100` is gated on a run with **zero failures in the ARCHIVAL
+sections**; `0.9.1` needs two such runs on at least two machines and two distros.
+This run's ripper is stamped `unapproved` in every report, correctly — round 26 has
+not closed — and that stamp is not an archival failure: it is the record saying
+truthfully that the approval is still pending.
 
-**It is new evidence, not a repeat.** Round 23's approval names Platterpus **0.6.52**.
-Two runs of one ripper under different app versions are not interchangeable
-(`CLAUDE.md` Critical rule #12, obligation 3), so this run is a first on 0.6.53, not a
-second on 0.6.52.
-
-**Not for `+platterpus.14`.** When the fork ships `.14` (the per-track `read
-successfully!` rename), pairing it with 0.6.53 is the first real test of our
-both-wordings parser — but installing it needs a round to move the pin, and any
-build no closed round approved is stamped `unapproved`. Do not install it for this run.
+**Why `.15` and not `.14`.** Section B sets `max_retries 3` (`-r 3`), and the
+fork measured that on `.14` a read of an unreadable sector at `-r 3` can hang; on
+`.15` it returns at the paranoia level we run. Both were measured by fault injection
+on a disc image, not on a drive, so this run is the first on hardware.
 
 ## Three steps
 
 1. **Put any ordinary audio CD in the drive** — the Police disc is the reference, but
-   the script needs no album name, track count or path — and open Platterpus from the
-   applications menu. (It moved itself to `~/Applications/` when you accepted the
-   first-run offer, so a `./platterpus-x86_64.AppImage` typed in `~/Downloads` is
-   *No such file or directory*, correctly.)
+   the script needs no album name, track count or path — and open Platterpus from the applications menu. (It moved itself to
+   `~/Applications/` when you accepted the first-run offer, so a
+   `./platterpus-x86_64.AppImage` typed in `~/Downloads` is *No such file or
+   directory*, correctly.)
 2. **Update Platterpus to 0.6.54 first**, then **Tools → Setup & Updates… → Check for
-   cyanrip updates.** No round is open, so take the offer only if it is a plain
-   one-click install; the build it should report is `platterpus-fork-g3e01bb3`. (On
-   0.6.53 the same build is offered stamped `unapproved`, because 0.6.53 predates the
-   round that approved it — so a run on 0.6.53 would be evidence about the wrong pair.) Then **Tools → Run acceptance test…** and leave it —
-   it holds sleep off, runs every section (4–6 hours; 2026-09-22 took 4h14m), stops
-   in its first seconds if the ripper is not the expected build, and restores
-   `max_retries 5` and `ripper_channel stable` at the end.
+   cyanrip updates.** It offers `0.9.4-rc2+platterpus.15` (`df91ae7`) with a ⚠ saying
+   rips on it will read `unapproved`, and a line saying *"This is the build the
+   acceptance test needs"*. Choose **Install it anyway**; the build it should then
+   report is `platterpus-fork-gdf91ae7`. (0.6.53 cannot run this: its acceptance test
+   demands round 23's `2cce60d` and would stop in its first seconds on `.15`.) Then **Tools → Run
+   acceptance test…** and leave it — it holds sleep off, runs every section (4–6 hours;
+   2026-09-22 took 4h14m), stops in its first seconds if the ripper is not `.15`, and
+   restores `max_retries 5` and `ripper_channel stable` at the end.
 3. **Upload the one `platterpusbundle….tar.gz` it leaves in `~/Downloads`** — here,
    and point the cyanrip session at it too; they file it under
-   `docs/rig-<date>-3e01bb3/` in their repository, as they did for 2026-09-22.
+   `docs/rig-<date>-df91ae7/` in their repository, as they did for 2026-09-22.
+
+**Optional, and the fork asked for it:** a disc with a known bad area would retire the
+rest of *"damaged media"* — how the drive fails, and how slowly. The BDR-209D reports
+C2 unsupported, so C2 stays `UNREACHABLE` whatever the disc. Cyanrip's `-f` is also
+still untested on hardware, and **the acceptance run does not exercise it**; the fork
+notes the reference disc could, since it is in AccurateRip and `+667` is known to be
+correct for it. That would be a separate step, not part of this run.
 
 ## Before you start
 
