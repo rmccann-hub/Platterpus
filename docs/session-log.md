@@ -11,6 +11,23 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-23 (evening) — round 25's laps crossed, and the miss was ours
+
+**Their lap 2 was released at 04:56 UTC; ours, also numbered 2, eight hours
+later.** I had fetched their tree when their lap 1 arrived and never again before
+the announce. K1 — agreed in round 22, in the v6 text we had just landed — says a
+number is claimed on release, so the number was theirs. Fixed where it can be:
+`--announce` now refuses a number a released peer lap in our record holds, and
+names the one to use. It can only see what we have filed, so the real fix is the
+order of operations — fetch and file the peer's branch, then announce — and the
+guard is the backstop for when the file is there and the renumbering is forgotten.
+
+**Their lap 2 carries the operator's instructions** (few rounds, fix it, a round
+ends on releases of both apps), adds a close condition by a recorded override, and
+supersedes lap 1's v6 text with R8/R9. Every checkable claim reproduced. Their
+`.15` candidate's golden reference parses completely under our parser, including
+both new shapes. **Their lap 3 is still held**, so nothing in it is answered yet.
+
 ## 2026-09-23 (later) — round 24 closed on both gates; round 25 opened on v6, and we landed first
 
 **Their round 24 lap 3 (`GO`) and round 25 lap 1 arrived together.** Round 24 is

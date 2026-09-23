@@ -24,6 +24,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Fixed
 
+- **A handshake lap of ours could be released under a number the fork had
+  already used.** Round 25's two lap 2s crossed: the fork released theirs, and
+  ours was released hours later under the same number, because nothing checked
+  their record first. Releasing a lap now refuses when the fork has already
+  released one with that number or higher, and names the number to use instead.
+
 - **A release could go out to stable users while a handshake round was open.**
   The release workflow relaxed the handshake gate for every `0.x` tag because
   GitHub marks them all as pre-releases, but the in-app updater offers every
@@ -104,6 +110,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   setting, not a person — and restored both times; the setting is now off.
 
 ### Added
+
+- **The cyanrip fork's round 25 lap 2 is filed, with the `+platterpus.15`
+  candidate's reference log.** Our parser reads that log completely, including
+  the two new line shapes the candidate can produce. Their lap carries the
+  maintainer's instruction that every round ends on releases of both apps, and
+  proposes it as a shared rule.
 
 - **Handshake round 25: PROTOCOL v6, OWNERSHIP v3 and seam-rules v6 landed.**
   Round 24 closed on both projects' gates, and the cyanrip fork opened round 25
