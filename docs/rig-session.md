@@ -3,13 +3,16 @@
 ```
 Platterpus  v0.6.53        GitHub pre-release flag (every v0.* tag carries it);
                            offered on the STABLE update channel
-cyanrip     2cce60d        0.9.4-rc2+platterpus.13  (platterpus-fork-g2cce60d)  <- PRODUCTION PIN
-                           pin moved in round 22; approved by round 23, for Platterpus 0.6.52
+cyanrip     3e01bb3        0.9.4-rc2+platterpus.14  (platterpus-fork-g3e01bb3)  <- PRODUCTION PIN
+                           pin moved and approved in round 24, for Platterpus 0.6.53;
+                           ships in 0.6.54 (0.6.53 as released installs 2cce60d)
 drive       Pioneer BDR-209D 1.51, read offset +667
-rounds 1-23 ALL CLOSED, bilateral GO. Round 24 is not open and is the fork's to open.
+rounds 1-24 ALL CLOSED, bilateral GO (24 on our gate; theirs closes on their lap 3).
+Round 25 is not open and is the fork's to open.
 ```
 
-> **Header last moved 2026-09-22**, by the pre-round-24 document audit. Before that it
+> **Header last moved 2026-09-23**, when round 24 closed on our gate and `FORK_PIN`
+> rolled to `3e01bb3`. The move before that was 2026-09-22, by the pre-round-24 document audit. Before that it
 > named `v0.6.30` + cyanrip `d9c058c` and *"round 15 is not open"* — twenty-three patch
 > versions and nine rounds behind — and its body was round 7's `b12` acceptance
 > criteria, with steps for a menu layout that no longer exists. That sheet is
@@ -54,15 +57,17 @@ build no closed round approved is stamped `unapproved`. Do not install it for th
    applications menu. (It moved itself to `~/Applications/` when you accepted the
    first-run offer, so a `./platterpus-x86_64.AppImage` typed in `~/Downloads` is
    *No such file or directory*, correctly.)
-2. **Tools → Setup & Updates… → Check for cyanrip updates.** No round is open, so take
-   the offer only if it is a plain one-click install; the build it should report is
-   `platterpus-fork-g2cce60d`. Then **Tools → Run acceptance test…** and leave it —
+2. **Update Platterpus to 0.6.54 first**, then **Tools → Setup & Updates… → Check for
+   cyanrip updates.** No round is open, so take the offer only if it is a plain
+   one-click install; the build it should report is `platterpus-fork-g3e01bb3`. (On
+   0.6.53 the same build is offered stamped `unapproved`, because 0.6.53 predates the
+   round that approved it — so a run on 0.6.53 would be evidence about the wrong pair.) Then **Tools → Run acceptance test…** and leave it —
    it holds sleep off, runs every section (4–6 hours; 2026-09-22 took 4h14m), stops
    in its first seconds if the ripper is not the expected build, and restores
    `max_retries 5` and `ripper_channel stable` at the end.
 3. **Upload the one `platterpusbundle….tar.gz` it leaves in `~/Downloads`** — here,
    and point the cyanrip session at it too; they file it under
-   `docs/rig-<date>-2cce60d/` in their repository, as they did for 2026-09-22.
+   `docs/rig-<date>-3e01bb3/` in their repository, as they did for 2026-09-22.
 
 ## Before you start
 

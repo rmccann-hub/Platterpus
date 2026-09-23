@@ -27,9 +27,9 @@ sends. It is not a claim about any other version of either side.
 - **Platterpus:** `0.6.53` — the build that
   generated this file. A row can only have changed with our code, so this
   version *is* the range on our half.
-- **Verified against ripper build:** `cyanrip 0.9.4-rc2+platterpus.13 (platterpus-fork-g2cce60d)` — the build a
-  closed handshake round approved (round 23, for Platterpus
-  `0.6.52`). Rows in §1 were checked against that build's output;
+- **Verified against ripper build:** `cyanrip 0.9.4-rc2+platterpus.14 (platterpus-fork-g3e01bb3)` — the build a
+  closed handshake round approved (round 24, for Platterpus
+  `0.6.53`). Rows in §1 were checked against that build's output;
   a newer ripper may emit lines this document does not list, which is a
   handshake event rather than a defect.
 - **Ripper build under review:** see `HANDSHAKE-PIN` /
@@ -77,7 +77,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `accuraterip_total` | disc | `^Tracks ripped accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `accuraterip_partial_total` | disc | `^Tracks ripped partially accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `ripping_errors` | disc | `^Ripping errors:\\s+(?P<count>\\d+)` |
-| `encoder_errors` | disc | `^Encoder errors:\\s+(?P<value>\\S.*?)\\s*$` |
+| `encoder_errors` **(fork-only)** | disc | `^Encoder errors:\\s+(?P<value>\\S.*?)\\s*$` |
 | `interrupted_at` **(fork-only)** | disc | `^Interrupted at:\\s+(?P<where>\\S.*?)\\s*$` |
 | `rip_completed` **(fork-only)** | disc | `^Rip completed:\\s+(?P<verdict>yes\|no)(?:\\s+\\((?:(?P<reason>[^,)]{1,64}),\\s*)?(?P<done>\\d{1,4})\\s+of\\s+(?P<total>\\d{1,4})\\s+tracks?\\))?` |
 | `read_stalls` **(fork-only)** | disc | `^Read stalls:\\s+(?P<value>\\S.*?)\\s*$` |
@@ -114,7 +114,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_secure_verdict` **(fork-only)** | indented | `^\\s+Secure re-?read(?:s)?:\\s+(?P<text>\\S.*?)\\s*$` |
 | `track_accurip_status` **(fork-only)** | indented | `^\\s+Accurip:\\s+(?P<status>\\S.*?)\\s*$` |
 
-Of these, **20 exist only in the fork** and match nothing in
+Of these, **21 exist only in the fork** and match nothing in
 stock cyanrip 0.9.3. They are the fork's specific obligation:
 
 - `invoked_as`
@@ -124,6 +124,7 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `album_loudness_range`
 - `album_sample_peak_level`
 - `album_true_peak_level`
+- `encoder_errors`
 - `interrupted_at`
 - `rip_completed`
 - `read_stalls`

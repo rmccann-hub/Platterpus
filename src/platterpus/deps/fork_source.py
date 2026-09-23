@@ -180,7 +180,20 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: optional once the round closes: the comment above describes the window it would
 #: otherwise open, where the approved build is stamped `unapproved` in every report,
 #: log and EAC export we write.
-FORK_PIN: Final[str] = "2cce60d"
+#: **Rolled to `3e01bb3` on round 24's close on OUR gate (2026-09-23)** — our lap 2
+#: `GO`, released that day, against their lap 1 `GO`. **This is earlier than our lap
+#: 2's `HANDSHAKE-PIN-POLICY` said**, and the difference is recorded rather than
+#: smoothed over: that lap promised the roll *"when round 24 closes on BOTH gates — on
+#: your pre-committed next lap"*, while this file's own check
+#: (`test_the_pin_is_the_one_the_newest_closed_handshake_round_verified`) binds the
+#: constant to OUR gate's close and forbids waiting, for the reason the paragraph
+#: above gives. The two disagree because the two gates close on different laps under
+#: v5 — ours resolves their `none` peer source to our newer lap (§5b step 3), theirs
+#: keeps the literal reading of "enumerated" until v6 — so "the round closed" named
+#: two different laps. What our lap promised is kept where it matters to a user: the
+#: RELEASE that ships this constant (0.6.54) waits for their lap 3. The wording fix
+#: and the one-lap close are round-25 items (`TASKS.md`).
+FORK_PIN: Final[str] = "3e01bb3"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -207,6 +220,11 @@ FORK_PIN: Final[str] = "2cce60d"
 #: pin that was never a numbered release is deliberately absent: it has no sequence,
 #: and inventing one would order it against releases it was never part of.
 FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
+    # Round 24's subject, and the fork's CURRENT published release on both channels:
+    # `release_seq` 24, `handshake_round` 22, `round_closed: true`, version
+    # `0.9.4-rc2+platterpus.14`. Read off their live `release-manifest.json` at
+    # `c884c4e`, 2026-09-23, not from the lap that announced it.
+    "3e01bb3": 24,
     # Round 22's subject and the fork's CURRENT published release on both channels:
     # `release_seq` 23, `round_closed: true`, version `0.9.4-rc2+platterpus.13`. Read
     # off their live `release-manifest.json`, not from the lap that announced it.
@@ -398,7 +416,11 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: and named `round-17-lap-03.md` as the lap that declares the pairing. Read off
 #: their closing lap's `HANDSHAKE-RIPPER-VERSION`, not typed from the version we
 #: expected to see.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.13"
+#: **Rolled to `0.9.4-rc2+platterpus.14` on 2026-09-23, with `FORK_PIN`**, read off
+#: round 24 lap 1's `HANDSHAKE-RIPPER-VERSION` — `cyanrip 0.9.4-rc2+platterpus.14
+#: (platterpus-fork-g3e01bb3)` — and cross-checked against `meson.build` at
+#: `3e01bb3` in their tree, which declares the same string.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.14"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -535,7 +557,24 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: Switching the installed pin while a round is open is the one thing the deviation
 #: policy still requires asking about; a round's OPENING is exactly the moment the
 #: subject moves and the approval does not.
-PIN_UNDER_REVIEW: Final[str] = "2cce60d"
+#: **Moved `2cce60d` -> `3e01bb3` on 2026-09-23, when round 24 opened.** `+platterpus.14`,
+#: `release_seq` 24, published to BOTH channels on round 22's authority before this
+#: round opened — read off their live `release-manifest.json` (`channels.stable` and
+#: `channels.beta` both name `3e01bb3`), not transcribed from the lap. Round 24's one
+#: close condition is our verdict on it. **`FORK_PIN` stays `2cce60d` until round 24
+#: closes**, for the same reason as above. **It closed on our gate the same day and
+#: `FORK_PIN` rolled with it** — so this is now also the release pin, and it stays
+#: here until the next round opens on a new subject.
+PIN_UNDER_REVIEW: Final[str] = "3e01bb3"
+
+#: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
+#: :data:`FORK_TEST_PIN_ROUND`, and held to the record by
+#: `tests/test_handshake_pin_under_review.py`.** It exists so a test pin can be
+#: matched to the round that nominated it: before 2026-09-23 the rig's install
+#: target compared the two pins and nothing else, so opening round 24 — which
+#: declares `HANDSHAKE-TEST-PIN: none` — would have sent an operator to round 21's
+#: retired test pin `3952c03` and marked it "INSTALL THIS ONE".
+PIN_UNDER_REVIEW_ROUND: Final[int] = 24
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
 #:
@@ -780,7 +819,12 @@ FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 #: a program that could not answer the question. Here the two ARE one program, which
 #: is the premise round 16 asserted, round 21 falsified, and this round re-establishes
 #: by measurement rather than by inheritance.
-TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED: Final[bool] = True
+#: **`False` again from 2026-09-23, derived when round 24 moved the reviewed pin
+#: to `3e01bb3`:** `git diff --stat 3e01bb3 3952c03 -- src/ meson.build` is 4
+#: files, +8 −147 — `3952c03` lacks round 22's rename and the `Encoder errors:`
+#: footer. Round 24 names no test pin, so no acceptance run should be on `3952c03`
+#: at all; the flag says so rather than carrying round 22's `True` forward.
+TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED: Final[bool] = False
 
 #: Test pins this round has already retired. Listed **only** so a rig that built one
 #: before the pin moved still receives ``--consumer`` (they all carry the flag — it
@@ -920,6 +964,12 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         # (their declaration, re-derived here), and `3952c03` is already in this set.
         # Two routes, one answer, same as the row above.
         "platterpus-fork-g2cce60d",
+        # **Round 24's subject, backed by two routes.** The contract their lap 1
+        # shipped — `round-24-lap-01-provider-contract-g2e6d97d.md`, from a build
+        # with `src/` identical to `3e01bb3` — lists `-u`/`--consumer` in P1, and
+        # its P1 is row-identical to `2cce60d`'s, which is in this set. And their
+        # golden reference at the pin was invoked with `-u` and logged `Consumer:`.
+        "platterpus-fork-g3e01bb3",
         # **SUPERSEDED PRODUCTION PINS STAY, and this one nearly did not.**
         # `ddf7ac3` was in this set only by way of `FORK_EXPECTED_BUILD_TAG`, so
         # rolling the pin forward at round 14's close removed it — silently, and
@@ -1318,8 +1368,15 @@ def rig_installs_the_test_pin() -> bool:
     session ran `gddc1e8c`, which is the mis-pairing class this module exists to
     prevent rather than a wasted night.
     """
-    return a_round_is_reviewing_a_build() and not same_commit(
-        FORK_TEST_PIN, PIN_UNDER_REVIEW
+    # THE TEST PIN MUST BELONG TO THE ROUND BEING REVIEWED. Comparing only the two
+    # pins answered "is there a test pin?" with "is there a stale one?": round 24
+    # declares no test pin, `FORK_TEST_PIN` still held round 21's, and the pins
+    # differ — so this returned True and the rig was pointed at a build two rounds
+    # retired. A test pin is a round's nomination, not a standing setting.
+    return (
+        a_round_is_reviewing_a_build()
+        and FORK_TEST_PIN_ROUND == PIN_UNDER_REVIEW_ROUND
+        and not same_commit(FORK_TEST_PIN, PIN_UNDER_REVIEW)
     )
 
 
@@ -1328,16 +1385,18 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 22 approved, GO on both sides, and published by the fork "
-        f"to BOTH channels (cyanrip {FORK_EXPECTED_VERSION}, release_seq 23 — read "
+        "the build round 24 approved, GO on both sides, and published by the fork "
+        f"to BOTH channels (cyanrip {FORK_EXPECTED_VERSION}, release_seq 24 — read "
         "from their live release-manifest.json, and the version cross-checked "
         "against meson.build at the pin itself rather than taken from the lap). "
-        "Round 22's evidence is a PARSE measurement rather than a disc: their "
-        "proposed per-track log rename, applied to the real 3952c03 log, takes our "
-        "track count from 14 to 0 while the report still says 14 tracks and 'No "
-        "errors occurred'. Both sides recorded that the rename is still untested on "
-        "real output, because no build emits it yet. See docs/handshake/inbound/"
-        "round-22-lap-03.md"
+        "It carries round 22's agreed log change and nothing else: per-track "
+        "'Track N read successfully!' replacing 'ripped and encoded successfully!', "
+        "plus the new 'Encoder errors:' line. Round 24's evidence is the fork's "
+        "golden reference (built at 2e6d97d, whose src/ and meson.build are "
+        "identical to this pin), parsed completely by our parser with no "
+        "unrecognised line, and their suite and tarball install at the pin; no "
+        "hardware is a precondition, and the next acceptance run on 0.6.54 is "
+        "evidence afterwards. See docs/handshake/inbound/round-24-lap-01.md"
     ),
 )
 
@@ -1396,7 +1455,10 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     # this round, and both are read off that ONE line of that ONE lap -- which is the
     # whole point of the pairing test, since reading them from two places is how they
     # came apart before.
-    version="0.9.4-rc2+platterpus.13",
+    # **Round 24's pairing, from their lap-1 wire header line 14:**
+    # `cyanrip 0.9.4-rc2+platterpus.14 (platterpus-fork-g3e01bb3)`. One line of one
+    # lap, as the pairing test requires.
+    version="0.9.4-rc2+platterpus.14",
     # **DERIVED, NOT ASSERTED.** This sentence used to read "round 14 is the round
     # that would [approve it], and it is open" — a hard-coded claim about round
     # state, which went false the moment round 14 closed and `PIN_UNDER_REVIEW`

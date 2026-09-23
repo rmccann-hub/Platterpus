@@ -1289,7 +1289,27 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the queued refactor keeps not happening in a round-close commit: the roll is
     # when the file is being read. Re-measured AFTER the last edit landed, which is
     # the correction the entry above records having got wrong once.
-    "deps/fork_source.py": 2133,
+    # **2133 -> 2163 (round 24 open, 2026-09-23).** Two parts, one of them a fix.
+    # The round-open move: `PIN_UNDER_REVIEW` to `3e01bb3`, its version pairing,
+    # and the `release_seq` 24 row read off their live manifest. And a DEFECT the
+    # move surfaced: `rig_installs_the_test_pin()` compared the two pins and never
+    # asked which round nominated the test pin, so opening a round with
+    # `HANDSHAKE-TEST-PIN: none` pointed the rig at round 21's retired `3952c03`.
+    # The fix needs a stated `PIN_UNDER_REVIEW_ROUND` (8 lines with its reason) and
+    # a round clause in the predicate (6). Measured after `ruff format`.
+    # **Then 2174**, in the same change: two more round-open obligations the gate
+    # suite named once the pin had moved — `TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED`
+    # re-derived against `3e01bb3` (now False, with the diff that decided it), and
+    # `g3e01bb3` added to the `--consumer` accept-set with the contract row that
+    # backs it. Re-measured after the last edit.
+    # **2174 -> 2195 (round 24 close on our gate, 2026-09-23).** The roll itself:
+    # `FORK_PIN` to `3e01bb3`, `FORK_EXPECTED_VERSION` to `+platterpus.14`, and
+    # `PRODUCTION_TARGET.why` rewritten for round 24's evidence. Most of the +21 is
+    # the FORK_PIN comment recording that the constant rolled on OUR gate's close,
+    # one lap EARLIER than our own lap 2 promised, and why — the two gates close on
+    # different laps under v5. Left out, the next reader sees a pin that moved
+    # against a sent lap's word with no account of it. Measured after `ruff format`.
+    "deps/fork_source.py": 2195,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1433,7 +1453,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # and round 22 is the first approval in four rounds to move the pin rather than
     # re-approve it. Same judgement as the entry above -- a round close is when this
     # file is read, not when it should be split.
-    "handshake_approval.py": 638,  # +19: round 23's approval, and WHY the pin stands still while the round and app version move
+    # +13 (round 24, 2026-09-23): the approval record moves to round 24 / 0.6.53,
+    # and says why the peer lap of record is their lap 1 — under v5 our gate closes
+    # on OUR lap, so there is no later peer lap for the app version to be read from.
+    "handshake_approval.py": 651,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect

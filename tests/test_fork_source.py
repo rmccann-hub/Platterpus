@@ -1343,6 +1343,7 @@ class TestTheRipperBuildMenu:
         """
         assert fork_source.rig_installs_the_test_pin() is (
             fork_source.a_round_is_reviewing_a_build()
+            and fork_source.FORK_TEST_PIN_ROUND == fork_source.PIN_UNDER_REVIEW_ROUND
             and not fork_source.same_commit(
                 fork_source.FORK_TEST_PIN, fork_source.PIN_UNDER_REVIEW
             )
@@ -1427,9 +1428,17 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # because it was re-checked against `rmccann-hub/cyanrip`, which is public and
     # cheap for us to read, not because the diff was assumed to be empty.
     #
+    # **FIFTH TIME, ON THE ROLL TO `3e01bb3` (round 24 close, 2026-09-23), AND THE
+    # ANSWER AGAIN DID NOT CHANGE.** Re-derived, not carried: in an unshallowed
+    # clone of their tree, `meson_options.txt` at `3e01bb3` and at `2cce60d` hash
+    # identically (sha256 `0a32b1f7ac8efbde…`), 973 bytes, the one option still
+    # `declare_released`, `value: false`. Their round 24 lap 1 built its tarball
+    # WITH `-Ddeclare_released=true` — which is exactly the release path the
+    # option is for, and exactly why a build we compile must not set it.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
-    assert fork_source.PRODUCTION_TARGET.pin == "2cce60d", (
+    assert fork_source.PRODUCTION_TARGET.pin == "3e01bb3", (
         "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
         "whether we are entitled to any option it declares. Presence is not "
         "permission: `declare_released` is a claim about provenance, and a build "
@@ -1814,7 +1823,7 @@ def test_the_same_program_flag_is_redeclared_whenever_either_pin_moves() -> None
 
     #: The triple this flag was last derived for. Update ALL THREE together, and
     #: only after running the diff named in the failure message.
-    DECLARED_FOR: tuple[str, str, bool] = ("2cce60d", "3952c03", True)
+    DECLARED_FOR: tuple[str, str, bool] = ("3e01bb3", "3952c03", False)
 
     reviewed, test_pin, flag = DECLARED_FOR
     assert (fork_source.PIN_UNDER_REVIEW, fork_source.FORK_TEST_PIN) == (
