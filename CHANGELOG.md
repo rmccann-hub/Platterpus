@@ -13,6 +13,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Fixed
 
+- **Opening a handshake round with no test pin pointed the rig at a retired
+  build.** When round 24 opened on the cyanrip fork's `+platterpus.14` with no test
+  pin, the ripper menu would have marked round 21's retired test build "INSTALL
+  THIS ONE" for an acceptance run, because the check compared the two pins and never
+  asked which round nominated the test pin. It now does, and a test ties the answer
+  to what the open round's newest lap actually declares.
+
 - **The handshake release gate could close a round on a lap it refused to
   read.** `handshake.py --check` refused a lap declaring a protocol newer than the
   gate implements, but `--status` and `--release-gate` read its verdict anyway: a
@@ -46,6 +53,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   setting, not a person — and restored both times; the setting is now off.
 
 ### Added
+
+- **Round 24 is filed and our verdict's evidence is committed.** The fork's lap 1,
+  its provider contract and the `+platterpus.14` golden log are filed byte-exact.
+  Our 0.6.53 parser reads that log completely: all three tracks in the new wording,
+  the new encoder-status footer, and no line it does not recognise. The failure
+  arms their log does not exercise are asserted on it too. The fatal-message
+  inventory was regenerated from their new contract (unchanged: 120 plus 7), and
+  the argv check reads the current round's flag table again.
 
 - **Handshake protocol v5**, implemented the day its shared text became
   identical in both repositories and before the cyanrip fork's round-24 lap 1. A

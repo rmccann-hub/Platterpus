@@ -21,6 +21,32 @@ When a task changes status, update it here in the same commit as the code change
 ---
 
 
+## Round 24 — OPEN on `3e01bb3` (`+platterpus.14`), their lap 1 filed (2026-09-23)
+
+One close condition, fixed at their lap 1: **our verdict on `3e01bb3`**. Filed
+byte-exact at sha256 `78313e10…`; every claim in it re-derived (see our lap 2 §B).
+Their verdict is `GO` and they pre-commit that their next lap after ours is `GO`.
+
+- [~] **Our lap 2: `GO` on `3e01bb3`** — written, committed, pushed; `READY-TO-READ: no`
+  until the maintainer says to announce it.
+- [ ] **After round 24 closes on both gates: roll `FORK_PIN` `2cce60d` → `3e01bb3`,
+  `FORK_EXPECTED_VERSION` to `+platterpus.14`, the approval record to round 24, and
+  release 0.6.54.** Until then a stable `.14` is offered to our users stamped
+  `unapproved` — the window their §0 describes. No hardware is a precondition of the
+  roll (the change is log text); the next acceptance run, on 0.6.54 + `3e01bb3`, is
+  evidence afterwards.
+- [ ] **Round 25 (theirs to open), agreed in principle:** `PROTOCOL.md` v6 — K1, K2,
+  K3 transcribed; §5b step 1 / C37 reworded to decision-time enumeration; the two §8
+  *"not yet in force"* sentences deleted; an agreed-change ledger; the citation
+  question (hash as anchor). The three other shared docs' known defects, including
+  `OWNERSHIP.md` lines 82 and 100 (*"we cannot read each other's source"*). Their gate
+  fixes for §B1 (inbound version refusal) and §B2 (`C13a` dropped by the row regex).
+- [ ] **Lesson worth graduating: a SHALLOW clone nearly produced a false finding.**
+  Verifying their §0.1 commit list in a shallow local clone made `b774582` look like
+  a root and `2cce60d` unreachable — which would have read as "your branch was
+  re-rooted and our pin is orphaned". A fresh full clone showed neither; their own
+  `c449a92` fixed the same trap in their tool. The clone is now unshallowed.
+
 ## 2026-09-22 pre-round-24 document audit — what it found that a doc edit cannot fix
 
 The audit's doc corrections landed in one change (see `CHANGELOG.md`). These four
@@ -75,8 +101,9 @@ most important thing on this page before round 24's lap 1 arrives.
   overrides, the lap limit); the work is one `test_C<nn>_…` per row, and any row
   whose test fails is a divergence to report, not to fix quietly.
 
-- [ ] **Ask the fork, in round 24: does their gate read §5b's "enumerated" the way
-  ours does?** We derived it rather than chose it: C40 allows a candidate *newer*
+- [x] **ANSWERED in their round 24 lap 1 §B3: they read it literally, agree ours is the reading under which §5b works, keep the literal one until v6, and propose v6 text** (step 1 and C37: *held, and enumerated by the gate when it decides*). Carried to round 25. Original:
+- [x] ~~**Ask the fork, in round 24: does their gate read §5b's "enumerated" the way
+  ours does?**~~ We derived it rather than chose it: C40 allows a candidate *newer*
   than the transcription's source, and the source is the newest peer lap the
   writer held, so that candidate cannot be in the writer's own `INBOUND-HELD`.
   Our gate therefore enumerates at decision time (`resolve_peer_verdict`). If

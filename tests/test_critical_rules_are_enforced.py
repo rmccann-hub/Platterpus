@@ -1289,7 +1289,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the queued refactor keeps not happening in a round-close commit: the roll is
     # when the file is being read. Re-measured AFTER the last edit landed, which is
     # the correction the entry above records having got wrong once.
-    "deps/fork_source.py": 2133,
+    # **2133 -> 2163 (round 24 open, 2026-09-23).** Two parts, one of them a fix.
+    # The round-open move: `PIN_UNDER_REVIEW` to `3e01bb3`, its version pairing,
+    # and the `release_seq` 24 row read off their live manifest. And a DEFECT the
+    # move surfaced: `rig_installs_the_test_pin()` compared the two pins and never
+    # asked which round nominated the test pin, so opening a round with
+    # `HANDSHAKE-TEST-PIN: none` pointed the rig at round 21's retired `3952c03`.
+    # The fix needs a stated `PIN_UNDER_REVIEW_ROUND` (8 lines with its reason) and
+    # a round clause in the predicate (6). Measured after `ruff format`.
+    "deps/fork_source.py": 2163,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
