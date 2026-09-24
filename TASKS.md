@@ -285,6 +285,22 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
      `Interrupted at:` lines. If they add a qualifier, please add a NEW line rather than change
      the four: our patterns anchor on the labels, and a renamed row falls back silently to
      FFmpeg's block, losing the stable source though not the figure.
+  6. **Portable shapes found in our own code, `NEXT-ROUND`** (the bilateral rule: report the
+     shape with our citation, and let them check their side):
+     - a test named for a path it does not drive (`test_a_script_set_reaches_an_open_setup_and_updates`);
+     - a removed dependency's name kept in live text for three months, and the gate we built for
+       it (`tests/test_no_previous_ripper_in_live_text.py`): history exempt by path, necessary
+       literals counted down-only;
+     - a renamed persisted enum member has to keep its stored string (`OffsetSource.LEGACY_CONFIG`
+       still stores the old member's value, or every saved profile using it would read back
+       as unknown).
+  7. **The container belongs to whichever app or terminal started it, `NEXT-ROUND`.** This is
+     the 2026-09-23 section F kill (row above). podman leaves conmon in the caller's cgroup when
+     `INVOCATION_ID` is set (`containers/podman@5866b09:libpod/oci_conmon_linux.go:183-186`),
+     and KDE sets it for every app and terminal. Portable to their rig: a container one of their
+     scripts starts from a terminal dies when that terminal closes. Also a question for them: on
+     that kill their log shows `Trying to quit` about 87 ms before the SIGKILL, so which signal
+     does their handler print that for?
 - [ ] **Re-run F (or the whole script)** on the next release. F's fast whole-disc path is
   untested by the 2026-09-24 run, and that path is F's whole purpose.
 - [ ] **Each side's reading, then the closing laps**; at the close, roll `FORK_PIN` to
