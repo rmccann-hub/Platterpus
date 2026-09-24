@@ -285,7 +285,7 @@ points there — so cleaning out Downloads never removes it.
 Declined it, or moved the file since? **Tools → Setup & Updates… → Add app shortcut** does the same
 thing on demand, and is safe to use twice.
 
-## Setup && Updates (Tools → Setup && Updates…)
+## Setup & Updates (Tools → Setup & Updates…)
 
 **One window for everything about keeping Platterpus healthy.** It used to be
 six menu items spread across two menus — three in Help, three in Tools — plus a
@@ -525,7 +525,8 @@ the exact cyanrip binary. It is always present — when the build cannot be
 identified it says so, rather than staying silent, because an absent row would
 read as "nothing unusual" in a log that carries a checksum.
 
-**Tools → Check dependencies** reports the same thing *before* you rip. It names
+**Tools → Setup & Updates… → Check dependencies** reports the same thing
+*before* you rip. It names
 the build next to the version — which matters because the version alone cannot
 tell you: the Platterpus fork deliberately keeps upstream's version string, so
 `cyanrip 0.9.3` and `cyanrip 0.9.4-rc1 (platterpus-fork-…)` look equally normal.
@@ -556,7 +557,7 @@ an older commit is rebuilt rather than accepted.
 
 ## More
 
-- Project & issues: see **Help → About** for links.
+- Project & issues: see **Help → About Platterpus…** for links.
 - Dependencies (cyanrip, MusicBrainz Picard, etc.) are checked automatically at
   launch and from the Settings dialog.
 """

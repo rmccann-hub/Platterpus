@@ -1095,3 +1095,22 @@ def test_the_manifest_source_never_invents_a_sequence() -> None:
     offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="deadbee")
     assert offer.verdict == OFFER_MISMATCHED
     assert offer.release is None
+
+
+def test_a_rig_still_on_an_earlier_rounds_test_pin_is_told_it_is_retired(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Round 26's shape: no test pin of its own; `FORK_TEST_PIN` still held 21's.
+
+    Read off the constant directly, the check told a rig on `3952c03` it was the
+    session build and should not be replaced, while round 26 reviewed `df91ae7`
+    (2026-09-24). It is retired, and says so; nothing installs over it on its own.
+    """
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", "df91ae7")
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW_ROUND", 26)
+    monkeypatch.setattr(fork_source, "FORK_TEST_PIN", "3952c03")
+    monkeypatch.setattr(fork_source, "FORK_TEST_PIN_ROUND", 21)
+    offer = evaluate_offer(_manifest(), CHANNEL_STABLE, installed_commit="3952c03")
+    assert "earlier round" in offer.detail and "retired" in offer.detail, offer.detail
+    assert "expected" not in offer.detail.lower(), offer.detail
+    assert offer.auto_installable is False

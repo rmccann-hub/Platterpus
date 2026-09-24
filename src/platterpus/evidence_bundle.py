@@ -582,20 +582,17 @@ def _expected_ripper_build() -> str:
     try:
         from platterpus.deps import fork_source
 
-        test_tag = fork_source.FORK_TEST_BUILD_TAG
-        reviewed_tag = f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}"
-        if test_tag == reviewed_tag:
-            return f"{reviewed_tag} (reviewed pin and test pin are the same commit)"
-        if fork_source.TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED:
-            return (
-                f"{test_tag} or {reviewed_tag} — same program, so either is "
-                f"interchangeable evidence"
-            )
+        # Asked of the one function section A asserts against, so the manifest
+        # cannot describe a different build from the one the run accepted
+        # (2026-09-24: both used to read the raw test-pin constants, and both
+        # named round 21's pin while round 26 was reviewing another).
+        accepted = fork_source.accepted_rig_builds()
+        if len(accepted) == 1:
+            ((tag, role),) = accepted.items()
+            return f"{tag} ONLY — {role}"
         return (
-            f"{test_tag} ONLY — round {fork_source.FORK_TEST_PIN_ROUND}'s test pin "
-            f"is a DIFFERENT PROGRAM from the reviewed pin ({reviewed_tag}), so a "
-            f"session on the reviewed pin cannot answer this round's close "
-            f"condition no matter how many steps pass"
+            f"{fork_source.expected_rig_build_text()} — same program, so either is "
+            f"interchangeable evidence"
         )
     except Exception:  # noqa: BLE001 - a manifest must still be written
         log.warning("could not determine the expected ripper build", exc_info=True)

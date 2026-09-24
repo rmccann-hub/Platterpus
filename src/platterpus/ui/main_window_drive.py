@@ -460,7 +460,7 @@ class DriveMixin(MainWindowShared):
 
         Only auto-interrupts when the diagnosis is *actionable* (a
         permission fix). "No device connected" stays quiet (there's no
-        command to run); the Tools → Diagnose entry is there for that.
+        command to run); Tools → Diagnose drive access… is there for that.
         """
         if self._drive_access_nudged:
             return

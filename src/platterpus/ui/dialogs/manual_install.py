@@ -89,7 +89,11 @@ class ManualInstallDialog(CenteredDialog):
             if self._on_setup_wizard is not None
             else "Copyable search string:"
         )
-        root.addWidget(QLabel(field_label))
+        # The label is the field's BUDDY so a screen reader announces the field
+        # by it; without that the field was a nameless text box.
+        field_caption = QLabel(field_label)
+        field_caption.setBuddy(self._search_field)
+        root.addWidget(field_caption)
         root.addWidget(self._search_field)
 
         # Button box. For wizard-provided deps, the primary action is

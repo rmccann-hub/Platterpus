@@ -6,16 +6,22 @@ and the caller reads back via `to_config()` and persists through
 `platterpus.config.save()`. This keeps the dialog testable without
 touching `~/.config`.
 
-A "Check dependencies" button emits the `check_dependencies_requested`
-signal; the caller wires it to the DependencyManager.
+It opens nothing else. It used to carry two doors to other windows — a
+"Check dependencies" button and a "Re-detect…" button beside the read offset —
+and both were removed on 2026-09-23 (maintainer: *"this probably doesnt need
+multiple access points"*). Each duplicated a button in **Tools → Setup &
+Updates…**, and the second one was worse than a duplicate: the drive wizard it
+opened saved a new offset while this dialog still showed the old one, so
+pressing OK wrote the old one back. See :func:`apply_user_edits`.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 from collections.abc import Sequence
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -50,7 +56,9 @@ from platterpus.test_session import builtin_acceptance_script
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.ui.scroll_guards import WheelGuard, protect_value_widgets
+from platterpus.ui.status_colours import SECONDARY_STYLE, status_colour, status_style
 from platterpus.update_check import CHANNEL_BETA, CHANNEL_STABLE
+from platterpus.user_settings import apply_user_edits
 
 log: logging.Logger = logging.getLogger(__name__)
 
@@ -58,12 +66,15 @@ log: logging.Logger = logging.getLogger(__name__)
 class SettingsDialog(CenteredDialog):
     """Modal Settings dialog. Wraps an incoming Config; produces a new one."""
 
-    check_dependencies_requested = Signal()
-    detect_offset_requested = Signal()
-
     def __init__(self, config: Config, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._config: Config = config
+        # What the widgets were loaded from, as an independent copy. `config` is
+        # usually the window's LIVE object, which other code may change while
+        # this modal is open; the widgets are not refreshed when it does. So the
+        # only honest record of "what the user saw" is a snapshot taken here, and
+        # `user_edits()` compares against it.
+        self._opened_with: Config = dataclasses.replace(config)
 
         self.setWindowTitle("Settings")
         self.setModal(True)
@@ -179,7 +190,10 @@ class SettingsDialog(CenteredDialog):
         self._naming_preview: QLabel = QLabel("", self)
         self._naming_preview.setWordWrap(True)
         self._naming_preview.setAccessibleName("Filename preview")
-        self._naming_preview.setStyleSheet("color: palette(mid);")
+        # Quieter than the fields, but in the TEXT colour. `palette(mid)` is a
+        # bevel-shading colour and measured ~1.1:1 on Breeze Dark — the dim line
+        # the maintainer reported (2026-09-23).
+        self._naming_preview.setStyleSheet(SECONDARY_STYLE)
         form.addRow("Example:", self._naming_preview)
 
         # Wire up: preset → fill fields; manual edit → flip to Custom; either →
@@ -212,14 +226,16 @@ class SettingsDialog(CenteredDialog):
 
         # --- Read offset ---
         # Two ways to set the read offset:
-        #   1. The drive-setup wizard ("Re-detect…") detects it and the GUI
-        #      saves it here — the recommended path.
+        #   1. The drive-setup wizard (Tools → Setup & Updates… → Set up drive…)
+        #      detects it and saves it — the recommended path.
         #   2. Type it here and tick "Apply" so each rip uses it (cyanrip's
         #      `-s`). cyanrip needs the offset every run; it has no config file
         #      of its own, so this value is the single source.
         self._read_offset_spin: QSpinBox = QSpinBox(self)
-        # In a composite row (spin + Re-detect button), so no auto-buddy — name
-        # it explicitly for screen readers (same reasoning as the path rows).
+        # Named explicitly for screen readers. It was needed while this row also
+        # held a "Re-detect…" button (a composite row gets no auto-buddy), and it
+        # is kept because a spoken name that says "in samples" is better than the
+        # visible label alone.
         self._read_offset_spin.setAccessibleName("Read offset in samples")
         # Range comes from settings_validation (the single source of truth) so the
         # widget bound and the validator can never drift. AccurateRip offsets are
@@ -235,19 +251,10 @@ class SettingsDialog(CenteredDialog):
             "property of the DRIVE, not of the disc — set it once. Typical values "
             "are within a few hundred of zero (a Pioneer BDR-209D is +667); 0 means "
             "no correction, which is right only for the rare drive that needs none. "
-            "Press Re-detect… to look it up for your drive, and tick Apply below or "
-            "it is not used at all."
+            "To detect it for your drive, close Settings and use Tools → Setup & "
+            "Updates… → Set up drive…. Tick Apply below or it is not used at all."
         )
-        self._detect_offset_button: QPushButton = QPushButton("Re-&detect…", self)
-        self._detect_offset_button.setToolTip(
-            "Run the drive setup wizard to auto-detect the read offset and "
-            "save it to Platterpus's settings."
-        )
-        self._detect_offset_button.clicked.connect(self.detect_offset_requested)
-        offset_row = QHBoxLayout()
-        offset_row.addWidget(self._read_offset_spin, stretch=1)
-        offset_row.addWidget(self._detect_offset_button)
-        form.addRow("Read offset (samples):", offset_row)
+        form.addRow("Read offset (samples):", self._read_offset_spin)
 
         self._override_offset_check: QCheckBox = QCheckBox(
             "Apply this read offset to rips", self
@@ -825,7 +832,7 @@ class SettingsDialog(CenteredDialog):
         # rows, so it fits any screen and the content scrolls instead.
         #
         # **What is deliberately OUTSIDE the scroll area, and why:** the validation
-        # banner, "Check dependencies", and OK/Cancel. A validation error that
+        # banner and OK/Cancel. A validation error that
         # scrolled out of view would defeat the rule it exists to serve
         # (CLAUDE.md — a visible, specific error), and an OK button that can scroll
         # away is the bug this whole change is fixing, one level down.
@@ -898,14 +905,6 @@ class SettingsDialog(CenteredDialog):
 
         # --- Goal preset wiring (after all dependent widgets exist) ---
         self._wire_goal_presets()
-
-        # --- Check dependencies action ---
-        # This sits between the form and the OK/Cancel row so it's
-        # visually associated with the settings (which is where the
-        # paths live that the dep check verifies).
-        self._check_deps_button: QPushButton = QPushButton("Chec&k dependencies", self)
-        self._check_deps_button.clicked.connect(self.check_dependencies_requested)
-        root.addWidget(self._check_deps_button)
 
         # --- OK / Cancel ---
         button_box = QDialogButtonBox(
@@ -1004,6 +1003,15 @@ class SettingsDialog(CenteredDialog):
             )
 
     # --- Public surface -----------------------------------------------------
+
+    def user_edits_applied_to(self, current: Config) -> Config:
+        """The config to save: ``current`` plus only what the user changed here.
+
+        The caller passes its live config rather than the one this dialog was
+        opened with, because that object may have moved on while the dialog was
+        up — see :func:`apply_user_edits`.
+        """
+        return apply_user_edits(current, self._opened_with, self.to_config())
 
     def to_config(self) -> Config:
         """Build a new Config reflecting the current widget state.
@@ -1151,7 +1159,9 @@ class SettingsDialog(CenteredDialog):
         for issue in issues:
             field_widget = self._validated_widgets.get(issue.field)
             if field_widget is not None:
-                colour = "#c0392b" if issue.is_error() else "#b9770e"
+                colour = status_colour(
+                    "error" if issue.is_error() else "warn", field_widget.palette()
+                )
                 field_widget.setStyleSheet(f"border: 1px solid {colour};")
         lines = [f"✖ {i.message}" for i in errors] + [
             f"⚠ {i.message}" for i in warnings
@@ -1159,7 +1169,7 @@ class SettingsDialog(CenteredDialog):
         banner_text = "\n".join(lines)
         self._validation_label.setText(banner_text)
         self._validation_label.setStyleSheet(
-            "color: #c0392b;" if errors else "color: #b9770e;"
+            status_style("error" if errors else "warn", self._validation_label)
         )
         self._validation_label.setVisible(True)
         # "Visible, specific error at the point of entry" must include hearing

@@ -11,6 +11,108 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.55] — 2026-09-24
+
+### Added
+
+- **Every rip report now records every setting it ran under.** The report used
+  to name only the dozen settings that shape a rip, so settings like the library
+  folder or completion notifications were never recorded. It now also carries
+  the complete list, read straight from the settings definition, so a setting
+  added in future is recorded without anyone having to remember to add it
+  (report schema 25). An acceptance run's archive also gains `SETTINGS.json`:
+  your settings before the run, the settings the run ended with, and which ones
+  it changed. The archive's copy of your config file is taken after your
+  settings are restored, so it could never show what the run itself used.
+
+### Fixed
+
+- **The acceptance test refused the right ripper and stopped at its first
+  check.** With the build round 26 reviews installed (`df91ae7`), section A said
+  it was "NOT" that build and told you to install it. The check accepted only
+  round 21's test build, `3952c03`, five rounds out of date. It was still reading
+  the test build the last round to name one had nominated, though round 26 names
+  none. The build picker had been fixed for the same cause the day before; this
+  check, the evidence archive's "expected build" line, the dependency report and
+  the ripper update check had not been. All four now ask the one function that
+  knows which round a test build belongs to. A test now checks that the build the
+  app tells you to install is always one the acceptance run accepts.
+
+- **Keyboard shortcuts, labels and window sizes are now checked in every window,
+  not one at a time.** A single check now applies every interface rule to every
+  window, on 14 standard screen sizes, in the dark theme and at 150% text. Its
+  first run found and fixed: two buttons sharing an Alt-key in the script
+  console, two pairs in Setup & Updates and two pairs in the Tools menu (each key
+  opened whichever item Qt found first); the copyable search string in the
+  manual-install window had no name for a screen reader; the uninstall
+  checkbox was cut off at 150% text, because a dialog that sets its own minimum
+  size can be squeezed narrower than its content; and the build picker scrolled
+  when the window still had room to grow. Only the Alt-key letters moved; every
+  menu item and button keeps its name.
+
+- **Status colours were hard to read on a dark theme.** The rip verdict's green,
+  the amber warnings and the red validation errors used fixed colours that
+  measured 2.5–3.2:1 against Breeze Dark, Bazzite's default. Accessible text
+  needs 4.5:1. Three secondary lines, including the naming "Example:" in
+  Settings, used a shading colour that measured about 1.1:1 and was close to
+  invisible. Each status now has a light-theme and a dark-theme colour, chosen
+  from the window's own background and each checked above 4.5:1. The secondary
+  lines use normal text in italics. A check refuses any colour picked anywhere
+  else in the interface.
+
+- **The main window did not fit on small screens.** Its panes refuse to shrink
+  below a usable size, and together that floor is about 605 px. On a Steam Deck
+  at 150% scaling, a 1080p laptop at 200% and a 1024×600 netbook, the bottom of
+  the window, with Start rip and the verdict, was off the screen. The page now
+  scrolls when the screen is shorter than that, and looks unchanged on any
+  screen tall enough. The window-fit check now measures the main window and all
+  15 dialogs on 14 standard screen sizes, from 853×533 to 4K.
+
+- **Pressing OK in Settings could undo a read offset the drive wizard had just
+  saved.** Settings showed the offset it opened with; the wizard, opened from
+  Settings' own Re-detect… button, saved a new one; OK then wrote the old value
+  back. The next disc would have ripped at the wrong offset with a clean-looking
+  log. Reproduced before it was fixed: the saves went 6, then 667. Settings now
+  applies only the fields you changed, so nothing that changed while it was open
+  is reverted.
+
+- **Dialogs cut their own text off on a short screen.** On a 1080p display at
+  200% scaling, the cyanrip build picker opened 360 px tall with every paragraph
+  cut off mid-sentence and nothing to scroll. Every dialog now opens tall enough
+  for its text and no taller than the screen. The two whose content can
+  outgrow a screen (the build picker and Setup & Updates) scroll their body and
+  keep their buttons in view. A new check opens all 15 dialogs on a small and a
+  large virtual screen and fails if any text is clipped or any window
+  overflows.
+
+- **The cyanrip build picker still offered round 21's test pin.** A test pin
+  belongs to the round that named it, and round 26 names none. The same mistake
+  had been fixed in how the app chooses which build the rig installs, but not
+  in the list the picker shows.
+
+- **The acceptance run no longer leaves your settings on its test values.** It
+  used to end by resetting everything to the shipped defaults, so a user on
+  Archival Exact with the beta cyanrip channel, debug logging and the EAC-style
+  log lost all four. A run that stopped partway was worse: it could leave you
+  ripping WAV. The app now saves your settings when the run starts and puts
+  them back however it ends. It leaves the app's own record alone (for example,
+  that it has already offered first-run setup), so it doesn't ask again.
+
+- **Several menu paths in the app and its guide led nowhere.** They said *Tools →
+  Check dependencies*, *Tools → Settings → Check dependencies*, *Settings →
+  Re-detect…*, *Help → About* and *Tools → Diagnose entry*, none of which
+  exist. The User Guide's heading also showed "Setup && Updates" with a doubled
+  ampersand. All now name the real place, and a new check fails if any
+  user-facing text names a menu item or Setup & Updates button that does not
+  exist.
+
+### Changed
+
+- **Settings no longer has Check dependencies or Re-detect… buttons.** Both were
+  second doors to buttons in **Tools → Setup & Updates…**, and each action now
+  has one home: **Check dependencies**, and **Set up drive…** for the read
+  offset.
+
 ## [0.6.54] — 2026-09-23
 
 ### Changed
@@ -15194,7 +15296,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.54...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.55...HEAD
+[0.6.55]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.54...v0.6.55
 [0.6.54]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.53...v0.6.54
 [0.6.53]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.52...v0.6.53
 [0.6.52]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.51...v0.6.52
@@ -15336,4 +15439,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.54.*
+*Last updated for Platterpus v0.6.55.*

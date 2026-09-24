@@ -48,7 +48,7 @@ Desktop          : (KDE Plasma 6 / GNOME 46 / …)
 CPU arch         : x86_64   (the only supported arch today)
 Drive            : (vendor + model, e.g. PIONEER BD-RW BDR-209D)
 Install method   : AppImage  (or pipx / source)
-App version      : (Help → About, or `platterpus --version`)
+App version      : (Help → About Platterpus…, or `platterpus --version`)
 Container backend: podman ___  / docker ___  (distrobox list)
 ```
 
@@ -885,7 +885,7 @@ Failures    : (step/case ID + what happened, verbatim)
 Logs        : ~/.local/share/platterpus/log.txt  +  the rip .log
 ```
 
-File issues at the repo's Issues page (Help → About has the link). Keep one
+File issues at the repo's Issues page (Help → About Platterpus… has the link). Keep one
 issue per distinct failure.
 
 ## After a test passes
@@ -897,4 +897,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.6.52.*
+*Last updated for Platterpus v0.6.55.*

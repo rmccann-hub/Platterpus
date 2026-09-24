@@ -3229,7 +3229,9 @@ def test_tools_menu_has_uninstall_action(teardown_threads) -> None:
     actions: list[str] = []
     for menu in menubar.findChildren(type(menubar.addMenu("tmp"))):
         actions += [a.text() for a in menu.actions()]
-    assert any("Uninstall Platterpus" in text for text in actions)
+    # `&` removed: where the Alt-key letter sits is not what this test is about
+    # (it moved on 2026-09-24 when two Tools items shared Alt+U).
+    assert any("Uninstall Platterpus" in t.replace("&", "") for t in actions)
 
 
 def test_uninstall_finished_offers_quit_on_success(
@@ -10490,3 +10492,85 @@ def test_a_finished_dependency_probe_reaches_the_subsystem_store(
     finally:
         window.close()
         dep_manager.remember_report(None)
+
+
+def test_settings_ok_does_not_revert_an_offset_saved_while_it_was_open(
+    teardown_threads: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The window-level reproduction of the 2026-09-23 offset race.
+
+    With Settings open on 667, the drive wizard saved a detected 6 through
+    `_set_read_offset_override`; pressing OK then saved the 667 the form was
+    still showing. Measured save sequence before the fix: ``[6, 667]``. The
+    dialog-level test pins `user_edits_applied_to`; this one pins that the
+    window actually USES it, because a correct method nobody calls is the
+    `cancel()`-called-from-nowhere shape in `CLAUDE.md`.
+    """
+    from platterpus.ui import settings_dialog
+
+    saved: list[int] = []
+    window = teardown_threads(
+        config=Config(read_offset=667, override_read_offset=True),
+        save_cfg=lambda cfg: saved.append(cfg.read_offset),
+    )
+
+    def exec_while_the_wizard_saves(self: settings_dialog.SettingsDialog) -> int:
+        window._set_read_offset_override(6)
+        return int(QDialog.DialogCode.Accepted)
+
+    monkeypatch.setattr(
+        settings_dialog.SettingsDialog, "exec", exec_while_the_wizard_saves
+    )
+    window._on_open_settings()
+    assert window._config.read_offset == 6, f"save sequence was {saved}"
+    assert saved and saved[-1] == 6, f"save sequence was {saved}"
+
+
+def test_a_shown_window_survives_being_garbage_collected() -> None:
+    """A normal quit tears the window down this way; it must not segfault.
+
+    Adding a scroll area around the page (so the window fits a 533 px screen)
+    first built it by moving an existing widget into the scroll area, and a window
+    that had been SHOWN then crashed inside `QWidget::~QWidget` when Python's
+    garbage collector destroyed it — exit 139, reproduced standalone and under
+    gdb (2026-09-23). A segfault kills the whole test run, so this runs the exact
+    sequence in its own interpreter and reads the exit code.
+    """
+    import os
+    import subprocess
+    import sys
+
+    root = Path(__file__).resolve().parents[1]
+    script = """
+import gc, sys
+from PySide6.QtWidgets import QApplication
+app = QApplication([])
+from platterpus.config import Config
+from test_ui_main_window import _make_window
+gc.disable()
+window = _make_window(app, config=Config(
+    host_setup_prompted=True, drive_setup_prompted=True,
+    appimage_integration_prompted=True))
+window.show(); app.processEvents(); window.hide(); window.show()
+app.processEvents(); window.close()
+del window
+gc.collect()
+print("collected")
+"""
+    env = {
+        **os.environ,
+        "QT_QPA_PLATFORM": "offscreen",
+        "PYTHONPATH": os.pathsep.join([str(root / "src"), str(root / "tests")]),
+    }
+    proc = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=120,
+        check=False,
+    )
+    assert proc.returncode == 0 and "collected" in proc.stdout, (
+        f"exit {proc.returncode} — a shown window crashed when collected:\n"
+        f"{proc.stderr[-2000:]}"
+    )

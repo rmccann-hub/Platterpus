@@ -2529,114 +2529,148 @@ def test_no_script_asserts_completion_from_the_status_LABEL() -> None:
     )
 
 
-def test_expect_ripper_under_review_accepts_the_AGREED_TEST_PIN() -> None:
-    """A session runs on the test pin, and section A must not call that wrong.
+def _section_a(banner: str) -> tuple[object, str]:
+    """Drive the REAL `expect-ripper-under-review` against one banner."""
+    from platterpus.uiscript.runner import ScriptRunner
 
-    **This would have killed the round-16 hardware run at its first assertion.**
-    Protocol §6a's sequence is *agree a test pin → both install it → run the
-    session*, and round 16 did exactly that: reviewed pin `a9aedf0`, agreed test
-    pin `ddc1e8c`, rig installs the latter. The verb matched only
-    `PIN_UNDER_REVIEW`, so an operator who followed both projects' written
-    instructions would have been told by our own section A that they had the wrong
-    build — hours from anyone noticing, with a disc in the drive.
+    runner = ScriptRunner.__new__(ScriptRunner)
+    recorded: list[tuple[object, str]] = []
+    runner._record = (  # type: ignore[method-assign]
+        lambda step, outcome, detail="": recorded.append((outcome, detail))
+    )
+    runner._last_cyanrip_argv = ["cyanrip", "--version"]
+    runner._last_cyanrip_output = banner
+    runner._do_expect_ripper_under_review(
+        uiscript.parse("expect-ripper-under-review")[0]
+    )
+    assert recorded, "the verb recorded nothing at all"
+    return recorded[-1]
 
-    It is the defect the verb's own docstring describes, arriving for a new reason:
-    that one was a *production* pin moving under us, and a test pin is a second
-    legitimate answer to "which build should be installed" that the check did not
-    know existed.
 
-    Driven through the real verb against real banner text, because the bug was in
-    the comparison and not in the values.
+#: (scenario, reviewed pin, its round, test pin, its round, same program?) and
+#: which of the two builds section A must accept. Each row is a round this
+#: protocol has actually had, named for it.
+_ROUND_SHAPES: list[tuple[str, str, int, str, int, bool, set[str]]] = [
+    # Round 26 (2026-09-24): no test pin of its own; FORK_TEST_PIN still held
+    # round 21's. Section A accepted ONLY that stale pin and refused the build
+    # the round reviews — the maintainer's run stopped at its first assertion.
+    ("round-26: stale test pin", "df91ae7", 26, "3952c03", 21, False, {"reviewed"}),
+    # Round 21 (2026-09-17): this round's test pin, a different program.
+    (
+        "round-21: own test pin, different program",
+        "a1b2c3d",
+        21,
+        "3952c03",
+        21,
+        False,
+        {"test"},
+    ),
+    # Round 16 (2026-09-08): this round's test pin, byte-identical in src/.
+    (
+        "round-16: own test pin, same program",
+        "a9aedf0",
+        16,
+        "ddc1e8c",
+        16,
+        True,
+        {"reviewed", "test"},
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    (
+        "scenario",
+        "reviewed_pin",
+        "reviewed_round",
+        "test_pin",
+        "test_round",
+        "same",
+        "passes",
+    ),
+    _ROUND_SHAPES,
+    ids=[row[0] for row in _ROUND_SHAPES],
+)
+def test_section_a_accepts_exactly_the_builds_the_round_allows(
+    monkeypatch: pytest.MonkeyPatch,
+    scenario: str,
+    reviewed_pin: str,
+    reviewed_round: int,
+    test_pin: str,
+    test_round: int,
+    same: bool,
+    passes: set[str],
+) -> None:
+    """Every round shape, through the real verb and real banner text.
+
+    **This replaces a test that pinned the bug.** Its predecessor read the live
+    constants and asserted, for round 21's shape, that the reviewed pin must be
+    REFUSED. When round 26 opened with no test pin of its own, that assertion went
+    on passing — and it was now asserting the defect: the build under review
+    refused, a build five rounds retired accepted. A test that reads the current
+    constants can only ever check the current round's shape. These rows are fixed,
+    so every shape the protocol has had stays checked whatever round is open.
     """
     from platterpus.deps import fork_source
     from platterpus.uiscript.report import Outcome
-    from platterpus.uiscript.runner import ScriptRunner
 
-    reviewed = f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}"
-    test_pin = fork_source.FORK_TEST_BUILD_TAG
-
-    # Non-vacuity: while a round is open with a test pin declared, the two tags are
-    # genuinely different — otherwise this test proves nothing about the fix.
-    assert reviewed != test_pin, (
-        "the reviewed pin and the test pin are the same build, so this check "
-        "cannot see the defect. That is a legitimate state between rounds; if it "
-        "is the state now, the round-16 case has been lost and needs a fixture."
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", reviewed_pin)
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW_ROUND", reviewed_round)
+    monkeypatch.setattr(fork_source, "FORK_TEST_PIN", test_pin)
+    monkeypatch.setattr(fork_source, "FORK_TEST_PIN_ROUND", test_round)
+    monkeypatch.setattr(
+        fork_source, "FORK_TEST_BUILD_TAG", f"{fork_source.FORK_BRANCH}-g{test_pin}"
     )
-
-    def _run(banner: str) -> tuple[Outcome, str]:
-        runner = ScriptRunner.__new__(ScriptRunner)
-        recorded: list[tuple[Outcome, str]] = []
-        runner._record = (  # type: ignore[method-assign]
-            lambda step, outcome, detail="": recorded.append((outcome, detail))
-        )
-        runner._last_cyanrip_argv = ["cyanrip", "--version"]
-        runner._last_cyanrip_output = banner
-        step = uiscript.parse("expect-ripper-under-review")[0]
-        runner._do_expect_ripper_under_review(step)
-        assert recorded, "the verb recorded nothing at all"
-        return recorded[-1]
-
-    # The reviewed pin's label is DERIVED — it is "the build under review" while a
-    # round is open and "the approved production pin" when none is. This used to
-    # read `(reviewed, "the build under review")`, pinning the hardcoded literal
-    # that section A printed on 2026-09-15 immediately before the derived clause
-    # denying there was any build under review. The requirement in the comment
-    # below is that the message says WHICH build ran, and that is what is checked.
-    # **AND "EITHER" IS CONDITIONAL NOW, which is the 2026-09-17 amendment.**
-    # This loop asserted both tags PASS unconditionally. That was right while the
-    # two pins were the same program — round 16's were, byte-identical in `src/`
-    # — and it silently became wrong in round 21, where the test pin carries two
-    # breaking log changes the reviewed pin does not. The old assertion is kept
-    # for the same-program case and is the reason this is a branch rather than a
-    # replacement: round 16's session must still not be killed at section A.
-    same_program = fork_source.TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED
-    expected_to_pass = (
-        (
-            (reviewed, fork_source.pin_under_review_label()),
-            (test_pin, "the agreed test pin"),
-        )
-        if same_program
-        else ((test_pin, "the agreed test pin"),)
+    monkeypatch.setattr(fork_source, "TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED", same)
+    assert fork_source.a_round_is_reviewing_a_build(), "fixture: a round must be open"
+    tags = {
+        "reviewed": f"{fork_source.FORK_BRANCH}-g{reviewed_pin}",
+        "test": f"{fork_source.FORK_BRANCH}-g{test_pin}",
+    }
+    for which, tag in tags.items():
+        outcome, detail = _section_a(f"cyanrip 0.9.4-rc2+platterpus.15 ({tag})")
+        if which in passes:
+            assert outcome is Outcome.PASS, (
+                f"{scenario}: {which} ({tag}) refused: {detail}"
+            )
+        else:
+            assert outcome is not Outcome.PASS, (
+                f"{scenario}: {which} ({tag}) passed section A: {detail}"
+            )
+            accepted_tag = tags[next(iter(passes))]
+            assert accepted_tag in detail, (
+                f"{scenario}: refused without naming the right build: {detail!r}"
+            )
+    # The build the app TELLS the operator to install must be one it accepts.
+    wanted = f"{fork_source.FORK_BRANCH}-g{fork_source.pin_the_rig_should_install()}"
+    assert _section_a(f"cyanrip ({wanted})")[0] is Outcome.PASS, (
+        f"{scenario}: the install instruction names {wanted}, and section A refuses it"
     )
-    for tag, why in expected_to_pass:
-        outcome, detail = _run(f"cyanrip 0.9.4-rc2 ({tag})")
-        assert outcome is Outcome.PASS, (
-            f"{why} ({tag}) was refused by section A: {detail}"
-        )
-        # And the message must say WHICH build ran: a test-pin log carries
-        # `NOT a released build` and a different `Handshake:` line, and a reader has
-        # to tell them apart without re-deriving it.
-        assert why in detail, (
-            f"section A passed but does not say which build it accepted: {detail!r}"
-        )
-
-    # **THE REVIEWED PIN MUST BE REFUSED when the two are different programs, and
-    # this is the assertion the 2026-09-17 session needed and did not have.**
-    # That run installed the REVIEWED pin, passed this very verb, and went on to
-    # pass 247 of 247 steps while establishing nothing about either of round 21's
-    # breaking changes — the build predates both. Nothing in six hours of green
-    # could fail over "this is the wrong build for the condition being answered",
-    # because the only check that could have was keyed on a value that accepted
-    # both. A green run is evidence only about what its checks could have failed
-    # over.
-    if not same_program:
-        outcome, detail = _run(f"cyanrip 0.9.4-rc2 ({reviewed})")
-        assert outcome is not Outcome.PASS, (
-            f"the REVIEWED pin ({reviewed}) passed section A while the round's "
-            f"subject is the test pin ({test_pin}) and the two are different "
-            f"programs. This is the 2026-09-17 defect: {detail}"
-        )
-        assert test_pin in detail, (
-            f"section A refused the wrong build without naming the right one, so "
-            f"an operator cannot act on it: {detail!r}"
-        )
-
-    # A build that is NEITHER must still be refused, or the fix removed the check
-    # rather than widening it.
-    outcome, detail = _run("cyanrip 0.9.3 (platterpus-fork-gdeadbee)")
+    # A build that is neither is still refused, or the check was widened to nothing.
+    outcome, detail = _section_a("cyanrip 0.9.3 (platterpus-fork-gdeadbee)")
     assert outcome is not Outcome.PASS, (
-        f"an unrelated build passed section A — the check was widened into nothing: {detail}"
+        f"{scenario}: an unrelated build passed: {detail}"
     )
+
+
+def test_the_build_the_app_installs_is_the_build_section_a_accepts_TODAY() -> None:
+    """The relation, on the live constants — what failed on the maintainer's rig.
+
+    Three surfaces answer "which build must the rig have?": the install
+    instruction (`pin_the_rig_should_install`), section A
+    (`accepted_rig_builds`), and the evidence manifest. Each module's own tests
+    passed while section A and the instruction disagreed. So the property is
+    asserted between them, not of either.
+    """
+    from platterpus.deps import fork_source
+    from platterpus.evidence_bundle import _expected_ripper_build
+    from platterpus.uiscript.report import Outcome
+
+    wanted = f"{fork_source.FORK_BRANCH}-g{fork_source.pin_the_rig_should_install()}"
+    assert wanted in fork_source.accepted_rig_builds()
+    outcome, detail = _section_a(f"cyanrip 0.9.4-rc2+platterpus.15 ({wanted})")
+    assert outcome is Outcome.PASS, detail
+    assert wanted in _expected_ripper_build(), _expected_ripper_build()
 
 
 # ---------------------------------------------------------------------------

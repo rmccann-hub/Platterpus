@@ -144,8 +144,9 @@ def diagnose_drive_access(
                 f"Found {', '.join(nodes)} and your user can read it, so this "
                 "isn't a host permission problem. If cyanrip still lists no "
                 "drive, the cause is likely the Distrobox 'ripping' container "
-                "not seeing the device, or cyanrip itself — run Tools → Check "
-                "dependencies, and confirm the container can reach the drive."
+                "not seeing the device, or cyanrip itself — run Tools → Setup & "
+                "Updates… → Check dependencies, and confirm the container can "
+                "reach the drive."
             ),
             devices=tuple(nodes),
         )

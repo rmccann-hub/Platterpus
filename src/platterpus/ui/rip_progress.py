@@ -66,6 +66,7 @@ from platterpus.parsers.rip_log import (
 )
 from platterpus.ui.accessibility import announce
 from platterpus.ui.external_open import open_path_externally
+from platterpus.ui.status_colours import SECONDARY_STYLE, status_style
 
 # Re-exported so existing imports (and tests) can keep doing
 # `from platterpus.ui.rip_progress import accuraterip_verdict`; the canonical
@@ -381,7 +382,7 @@ class RipProgress(QWidget):
         self._stall_label: QLabel = QLabel("", self)
         self._stall_label.setWordWrap(True)
         self._stall_label.setVisible(False)
-        self._stall_label.setStyleSheet(_banner_style("warn"))
+        self._stall_label.setStyleSheet(status_style("warn", self._stall_label))
         root.addWidget(self._stall_label)
 
         self._progress_bar: QProgressBar = QProgressBar(self)
@@ -410,7 +411,9 @@ class RipProgress(QWidget):
         self._read_effort_label: QLabel = QLabel("", self)
         self._read_effort_label.setWordWrap(True)
         self._read_effort_label.setVisible(False)
-        self._read_effort_label.setStyleSheet(_banner_style("warn"))
+        self._read_effort_label.setStyleSheet(
+            status_style("warn", self._read_effort_label)
+        )
         root.addWidget(self._read_effort_label)
 
         # --- Re-rip comparison banner ("you've ripped this disc before") ---
@@ -509,7 +512,9 @@ class RipProgress(QWidget):
         self._ctdb_reconcile_label: QLabel = QLabel("", self)
         self._ctdb_reconcile_label.setWordWrap(True)
         self._ctdb_reconcile_label.setVisible(False)
-        self._ctdb_reconcile_label.setStyleSheet("QLabel { color: palette(mid); }")
+        # Quieter than the main lines, but in the TEXT colour: `palette(mid)`
+        # measured ~1.1:1 on Breeze Dark (`ui/status_colours.py`).
+        self._ctdb_reconcile_label.setStyleSheet(SECONDARY_STYLE)
         details.addWidget(self._ctdb_reconcile_label)
 
         # --- Album loudness + partial-accurate footnote ---
@@ -522,7 +527,7 @@ class RipProgress(QWidget):
         self._loudness_label: QLabel = QLabel("", self)
         self._loudness_label.setWordWrap(True)
         self._loudness_label.setVisible(False)
-        self._loudness_label.setStyleSheet("QLabel { color: palette(mid); }")
+        self._loudness_label.setStyleSheet(SECONDARY_STYLE)
         details.addWidget(self._loudness_label)
         # Soak up the leftover height so the paragraphs sit at the top of the tab
         # instead of being spread down it.
@@ -939,7 +944,7 @@ class RipProgress(QWidget):
         else:
             text = base
         self._verdict_banner.setText(text)
-        self._verdict_banner.setStyleSheet(_banner_style(level))
+        self._verdict_banner.setStyleSheet(status_style(level, self._verdict_banner))
         self._verdict_banner.setVisible(True)
         announce(self._verdict_banner, text)
 
@@ -1049,7 +1054,9 @@ class RipProgress(QWidget):
             self._comparison_label.setVisible(False)
             return
         self._comparison_label.setText(text)
-        self._comparison_label.setStyleSheet(_banner_style(level))
+        self._comparison_label.setStyleSheet(
+            status_style(level, self._comparison_label)
+        )
         self._comparison_label.setVisible(True)
         # A silently-changed track is exactly what a screen-reader user would
         # otherwise never learn about — announce the comparison (gap #4).
@@ -1072,7 +1079,9 @@ class RipProgress(QWidget):
         """
         verdict_text = ctdb_verdict_line(result)
         self._ctdb_label.setText(verdict_text)
-        self._ctdb_label.setStyleSheet(_banner_style(ctdb_verdict_level(result)))
+        self._ctdb_label.setStyleSheet(
+            status_style(ctdb_verdict_level(result), self._ctdb_label)
+        )
         self._ctdb_label.setVisible(True)
         self._announce_ctdb(verdict_text)
 
@@ -1427,19 +1436,10 @@ def read_effort_summary_line(rip_log: object) -> str:
     )
 
 
-# Banner colours by level. Muted, theme-neutral hues that read on both light
-# and dark Qt palettes; the bold weight does the "look here" work.
-_BANNER_COLORS: dict[str, str] = {
-    "ok": "#1a7f37",  # green — trustworthy
-    "warn": "#9a6700",  # amber — needs a look
-    "neutral": "#57606a",  # grey — nothing to assert
-}
-
-
-def _banner_style(level: str) -> str:
-    """Qt stylesheet for a verdict label at the given level."""
-    color = _BANNER_COLORS.get(level, _BANNER_COLORS["neutral"])
-    return f"QLabel {{ color: {color}; font-weight: bold; padding: 2px; }}"
+# Banner colours live in `ui/status_colours.py`: one variant per level for light
+# themes and one for dark, chosen from the label's own palette. The fixed hex
+# values that used to sit here were described as reading on both and measured
+# 2.5-3.2:1 on Breeze Dark (WCAG AA is 4.5:1).
 
 
 def _basename(path: str) -> str:

@@ -3119,6 +3119,49 @@ Gates: `test_the_emitted_skeleton_states_the_pin_roll_trigger_our_code_enforces`
 `test_a_close_both_gates_agree_on_prints_no_early_note` — six reverts probed, six
 detected.
 
+### §5.bq — A test that reads the live constants can only check the round that is open
+
+**2026-09-24, round 26.** The maintainer started the acceptance run on 0.6.54 with the
+build round 26 reviews installed, `df91ae7`. Section A stopped it at the first
+assertion: *"the installed cyanrip is NOT platterpus-fork-g3952c03 (and NOT
+platterpus-fork-gdf91ae7…)"*, followed by the banner, which read
+`platterpus-fork-gdf91ae7`. The check accepted only `3952c03`, round 21's test pin.
+`FORK_TEST_PIN` is a standing constant that keeps the last test pin any round
+nominated. Round 26 names none, and `rig_installs_the_test_pin()` already knew that
+a test pin belongs to one round. It had learned that at round 24, and the build
+picker had been moved onto it the day before. Four surfaces had not: section A, the
+evidence manifest's "expected build" line, the dependency report's explanation of an
+installed build, and the ripper update check. Each read the raw constant.
+
+**The test for section A was green throughout, and it was pinning the defect.** It
+read the live constants and asserted round 21's shape: when the test pin and the
+reviewed pin are different programs, the reviewed pin must be *refused*. When round
+26 opened, that assertion went on passing, because the defect it now asserted was
+exactly "refuse the build under review". A test that reads the current constants can
+only ever check the current round's shape. It cannot tell a rule from the state the
+rule was written in.
+
+Three things to carry:
+
+1. **Fix a stale-key defect at every consumer of the key, not at the one that was
+   reported.** The picker fix of 2026-09-23 was right, and it was one of five. A grep
+   for the constant would have found the other four in a minute. This is §5.o again,
+   and this time the cost was the maintainer's run.
+2. **Pin round SHAPES, not the current round.** The replacement tests fix the
+   constants to named shapes that have really happened: round 16 (test pin, same
+   program), round 21 (test pin, different program), round 26 (no test pin, stale
+   constant). Each shape stays checked whatever round is open.
+3. **Assert the relation between surfaces, on the live constants, as well.** "The
+   build the app tells the operator to install is one section A accepts" fails on the
+   day the two disagree, which no test of either side alone can do.
+
+Gates: `test_section_a_accepts_exactly_the_builds_the_round_allows` (three shapes),
+`test_the_build_the_app_installs_is_the_build_section_a_accepts_TODAY`,
+`test_a_test_pin_from_an_earlier_round_is_retired_not_current`,
+`test_a_rig_still_on_an_earlier_rounds_test_pin_is_told_it_is_retired`. Two reverts
+probed, both detected, and the round-26 row fails on the old code with the
+maintainer's exact symptom.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is
@@ -3603,4 +3646,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.54.*
+*Last updated for Platterpus v0.6.55.*

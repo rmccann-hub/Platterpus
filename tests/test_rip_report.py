@@ -678,6 +678,24 @@ def test_settings_block_records_effective_read_offset() -> None:
     assert "mp3_vbr_quality" not in s
 
 
+def test_settings_block_records_every_user_setting() -> None:
+    """v25: the whole configuration, derived from the dataclass, app state excluded."""
+    import dataclasses
+
+    from platterpus.config import Config
+    from platterpus.user_settings import user_setting_names
+
+    config = dataclasses.replace(
+        Config(), library_dir="/music/library", notify_on_completion=False
+    )
+    every = build_settings(config)["every_setting"]
+    assert set(every) == set(user_setting_names())
+    # Two of the settings the hand-kept block above never recorded.
+    assert every["library_dir"] == "/music/library"
+    assert every["notify_on_completion"] is False
+    assert "host_setup_prompted" not in every
+
+
 def test_settings_offset_effective_zero_when_not_applied() -> None:
     class Cfg(_FakeConfig):
         override_read_offset = False
@@ -1031,7 +1049,12 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_24() -> None:
+def test_schema_version_is_25() -> None:
+    # v25 added `settings.every_setting`: every user setting, derived from the
+    # `Config` dataclass rather than listed by hand, so a setting added tomorrow is
+    # recorded tomorrow. The maintainer's ask (2026-09-23): the acceptance run should
+    # "report all to you moving forward", as a double check on the named fields.
+    #
     # v23 made `settings.rip_goal` DERIVED from the six preset fields instead of read
     # back from `config.rip_goal`, and added `settings.rip_goal_stored`, present only
     # when the stored label disagreed. `rip_goal` is a label for a bundle of fields and
@@ -1101,7 +1124,7 @@ def test_schema_version_is_24() -> None:
     # rather than folded into `checksums`, because a SHA256 mismatch after a
     # retag is expected while an audio-MD5 mismatch never is, and a reader must
     # not be able to confuse the two.
-    assert REPORT_SCHEMA_VERSION == 24
+    assert REPORT_SCHEMA_VERSION == 25
 
 
 def _issue_codes(report: dict) -> set[str]:

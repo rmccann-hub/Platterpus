@@ -355,7 +355,10 @@ def _why_this_build_is_here(tag: str) -> str:
     Returns ``""`` for a build we have no story for — silence beats a guess.
     """
     lowered = tag.casefold()
-    test_pin = fork_source.FORK_TEST_PIN
+    # Asked, not read off `FORK_TEST_PIN`: that constant keeps the last test pin
+    # ANY round nominated, and read directly it described round 21's pin as "the
+    # test pin, expected during a session" while round 26 named none (2026-09-24).
+    test_pin = fork_source.current_test_pin()
     if test_pin and test_pin.casefold() in lowered:
         return (
             f" That build is the round-{fork_source.FORK_TEST_PIN_ROUND} **test pin**"
@@ -364,7 +367,7 @@ def _why_this_build_is_here(tag: str) -> str:
             " close. Seeing it here during a test session is expected; a test pin"
             " is not a release and no round has approved it."
         )
-    for retired in fork_source.SUPERSEDED_TEST_PINS:
+    for retired in fork_source.retired_test_pins():
         if retired.casefold() in lowered:
             # Deliberately does NOT name a round for the retired build. It used to
             # say "a round-{FORK_TEST_PIN_ROUND} test pin", which reads as true and
@@ -373,11 +376,21 @@ def _why_this_build_is_here(tag: str) -> str:
             # into the new one. The retired pins on that list span rounds 6 and 7;
             # we do not track which, so the honest sentence omits it rather than
             # asserting the only number to hand.
+            current = (
+                f"the current one is {test_pin} (cyanrip"
+                f" {fork_source.FORK_TEST_VERSION}, round"
+                f" {fork_source.FORK_TEST_PIN_ROUND})"
+                if test_pin
+                else "no test pin is in use now"
+                + (
+                    f"; the build under review is {fork_source.PIN_UNDER_REVIEW}"
+                    if fork_source.a_round_is_reviewing_a_build()
+                    else ""
+                )
+            )
             return (
                 f" That build was a test pin from an EARLIER round and has since"
-                f" been RETIRED; the current one is {test_pin} (cyanrip"
-                f" {fork_source.FORK_TEST_VERSION}, round"
-                f" {fork_source.FORK_TEST_PIN_ROUND}). Evidence gathered with a"
+                f" been RETIRED; {current}. Evidence gathered with a"
                 " retired pin is not what the round is waiting for."
             )
     under_review = fork_source.PIN_UNDER_REVIEW
