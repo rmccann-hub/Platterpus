@@ -151,7 +151,9 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
 - [x] **Their lap 6 filed** (sha256 `a5338b20…`, `GO`/`GO`): round 26 CLOSED on both gates; their
   digest `9ea99f837b29209e` reproduces. They published `.16` at `221a1df` (`release_seq` 26, both
   channels). Their §B adds that the same wrong track-1 read (`0E91CD1A`) happened on 2026-09-11 too.
-- [~] **0.6.56**: released with no round open, before their round 27 lap 1.
+- [x] **0.6.56 released 2026-09-24** (release run 154 on `56de3cf`; handshake, CI and changelog gates
+  green; AppImage, `.sha256`, `.zsync` published; PyPI published). No round open, no override.
+  It is the first release that installs `df91ae7` by default.
 - [ ] **Round 27** (theirs to open, on `.16`): the real test on `.16` + 0.6.56; our answers first on
   the `Accurip 450` wording and the album-loudness rows.
 - [ ] **`Accurip 450` is one frame** (NEXT-ROUND, both sides): section J's track 1 had wrong
