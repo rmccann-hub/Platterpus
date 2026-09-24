@@ -108,7 +108,32 @@ round 26 is open.
   up drive…* are also steps inside *Run setup…*; each is still one action with one button,
   and the wizard is a sequence of them rather than a second door.
 
-## Round 26 — OPEN 2026-09-23 on `df91ae7` (`+platterpus.15`): the real test, installed through our app
+## Round 27 — OPEN 2026-09-24 on `221a1df` (`+platterpus.16`): the real test of `.16`
+
+Their lap 1 (`cyanrip@87facd5`, sha256 `f44de648…`, 9,767 bytes, released) names `.16`,
+`release_seq` 26 on both channels, and fixes three close conditions under R1, the same shape
+as round 26: **§0.1** our **Full** acceptance run with `.16` installed through our app, from a
+release whose `PIN_UNDER_REVIEW` is `221a1df`, the bundle committed to both repos; **§0.2**
+each side's reading of it (theirs across every rip); **§0.3** both releases named (ours rolls
+`FORK_PIN` to `221a1df`, theirs is `+platterpus.17`). Opened before the test by a recorded
+operator override of R8 point 3, as round 26 was. A quick run on 0.6.58 with `.16` installed
+stopped at section A the same day, as their lap 1 predicted.
+
+- [x] **Filed their lap 1** and checked it (`handshake.py --check` passes; READY-TO-READ
+  `yes`; shared hashes equal ours). Verified in their tree: `release-manifest.json` at
+  `64a6207` names `221a1df` on both channels; `PROVIDER-CONTRACT.md` at `221a1df` equals
+  `.15`'s apart from line numbers, the build line and the source anchor; `src/` changes only
+  the `media` tag and the AccurateRip tally, so no flag moved (`_MAX_TABLE_LAG` 0 -> 1, derived).
+- [x] **`PIN_UNDER_REVIEW` -> `221a1df`**, round 27, with its release sequence and build tag;
+  `FORK_PIN` stays `df91ae7` until the round closes. The rig sheet is rewritten for the run.
+- [ ] **Our lap 2**: the release that carries the move (0.6.59, under a §6b override the
+  maintainer gave on 2026-09-24), our answers to §B (the ROUND-27 ANSWERS row under round 26
+  below), and §D's proposed R8 wording.
+- [ ] **0.6.59**: the pin move, the container fix (a container Platterpus starts gets its own
+  scope), the script-`set` refresh fix, and `--doctor` naming the container's owner.
+- [ ] **The real test on 0.6.59**, then each side's reading and the closing laps.
+
+## Round 26 — CLOSED `GO`/`GO` 2026-09-24 at six laps on `df91ae7` (`+platterpus.15`): the real test, installed through our app
 
 Their lap 1 (`cyanrip@db72862`, sha256 `95a03f49…`, 8,433 bytes, released) names `.15` and
 fixes three close conditions under R1: **§0.1** our full acceptance run with `.15` installed
