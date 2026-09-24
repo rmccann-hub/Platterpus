@@ -37,6 +37,7 @@ you can only notice it because both exist.
 from __future__ import annotations
 
 from platterpus.adapters.cyanrip_backend import DIAGNOSTICS_RECORD_PREFIX
+from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
 
 # The prefix every plan line carries. Grep-able in the app log and visually
 # distinct in the on-screen live log, where these sit above the ripper's own
@@ -68,7 +69,7 @@ def describe_rip_plan(
     *,
     secure_rerip_matches: int,
     secure_rerip_dynamic: bool,
-    rerip_offset_variant: bool = False,
+    rerip_offset_variant: bool = DEFAULT_RERIP_OFFSET_VARIANT,
     max_retries: int = 5,
     read_speed_mode: str = "fixed",
     read_speed: int = 0,

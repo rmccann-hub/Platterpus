@@ -3229,6 +3229,10 @@ any failure.** Both came from reading the artifacts rather than the verdicts:
    turned offset-variant re-reads off, which is also our default, and our report
    called it *"an offset-variant pressing"*, a cause nothing measured. It is a check
    whose name claims more than it covers. Queued for the next round, on both sides.
+   **The default half is done**: offset-variant re-reads are on by default in the release
+   after 0.6.56 (KDD-27 amended, gate
+   `test_a_one_frame_offset_variant_match_is_re_read_by_default`, fed this log). The
+   wording half is still round 27's.
 
 The general rule, and the reason it is here rather than only in the log: **when a
 failure's cause is outside us, what we owe the user is an accurate account of what

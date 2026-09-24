@@ -1164,7 +1164,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **784 -> 806 (2026-09-23)**: `APP_STATE_FIELDS`, the one list of fields the app
     # writes for itself, which Settings carries over and the acceptance restore
     # leaves alone. Named here because two surfaces must agree on it.
-    "config.py": 806,
+    # **806 -> 847 (2026-09-24)**: offset-variant re-reads became the default.
+    # `DEFAULT_RERIP_OFFSET_VARIANT`, the one default three places read, with the
+    # evidence that turned it (a one-frame match passed wrong audio twice), and the
+    # v8->v9 step that flips a saved False once. Migrations live here by design.
+    "config.py": 847,
     "cue_validate.py": 1257,
     "cyanrip_cli.py": 327,
     "deps/checks.py": 437,

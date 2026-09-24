@@ -429,6 +429,153 @@ def test_v7_zero_is_left_alone_the_bump_is_one_time(
     assert cfg.secure_rerip_matches == 0  # already-v7 → deliberate 0 respected
 
 
+def test_a_fresh_config_re_reads_offset_variant_tracks() -> None:
+    """Offset-variant re-reads are ON by default (maintainer decision, 2026-09-24).
+
+    An offset-variant match rests on a one-frame checksum and passed wrong audio
+    twice (2026-09-11, and section J's track 1 on 2026-09-24) while this was off.
+    """
+    assert config_module.Config().rerip_offset_variant is True
+    assert config_module.DEFAULT_RERIP_OFFSET_VARIANT is True
+
+
+def test_the_offset_variant_default_is_one_value_in_every_place_that_has_one() -> None:
+    """The worker's and the rip plan's defaults are the product's default.
+
+    A `RipParameters` built without the field is how most worker tests build one,
+    so if its default disagreed with `Config` those tests would exercise a rip no
+    user makes — the stand-in differing from the real thing.
+    """
+    import inspect
+
+    from platterpus.rip_plan import describe_rip_plan
+    from platterpus.workers.rip_worker import RipParameters
+
+    expected = config_module.Config().rerip_offset_variant
+    worker_default = RipParameters.__dataclass_fields__["rerip_offset_variant"].default
+    plan_default = (
+        inspect.signature(describe_rip_plan).parameters["rerip_offset_variant"].default
+    )
+    assert worker_default is expected
+    assert plan_default is expected
+
+
+def _v8_config_on_disk(config_file: Path, **overrides: object) -> None:
+    """Write the config a 0.6.56 user actually has: every field, at schema 8.
+
+    `save()` writes every field, so a real v8 file carries an explicit
+    `rerip_offset_variant` — which is the case the migration exists for, and the
+    one a two-line hand-written fixture would not exercise.
+    """
+    import dataclasses
+
+    import tomli_w
+
+    values = dataclasses.asdict(config_module.Config())
+    values.update(
+        schema_version=8, rerip_offset_variant=False, rip_goal="fast_verified"
+    )
+    values.update(overrides)
+    config_file.write_bytes(tomli_w.dumps(values).encode("utf-8"))
+
+
+def test_a_v8_config_is_moved_onto_offset_variant_re_reads_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """v8→v9 turns a saved False on, and says so in the log.
+
+    A saved False cannot say whether the user chose it or inherited 0.6.56's
+    default, and the setting protects the archive, so it is flipped — the same
+    one-time correction v6→v7 made for an inherited `-Z 0`.
+    """
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    _v8_config_on_disk(config_file)
+
+    with caplog.at_level("INFO", logger="platterpus.config"):
+        cfg = config_module.load()
+
+    assert cfg.schema_version == SCHEMA_VERSION == 9
+    assert cfg.rerip_offset_variant is True
+    assert any("v8→v9" in r.getMessage() for r in caplog.records)
+
+
+def test_a_v8_fast_verified_config_is_still_fast_verified_after_the_upgrade(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The state this change would otherwise create: an untouched preset read as Custom.
+
+    Fast Verified now carries `rerip_offset_variant=True`, and `detect_goal`
+    compares every preset field. Without the migration, a 0.6.56 user who never
+    touched Settings would open it and find their goal shown as "Custom".
+    """
+    from platterpus import goal_presets
+
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    _v8_config_on_disk(config_file)
+    # Floor: the file on disk really is the old preset, which no longer matches.
+    import tomllib
+
+    old = config_module.Config(
+        **{
+            k: v
+            for k, v in tomllib.loads(config_file.read_text()).items()
+            if k in config_module.Config.__dataclass_fields__
+        }
+    )
+    assert goal_presets.detect_goal(old) == goal_presets.GOAL_CUSTOM
+
+    assert goal_presets.detect_goal(config_module.load()) == goal_presets.GOAL_FAST
+
+
+def test_a_v8_config_that_already_re_reads_is_left_as_it_is(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A user who had ticked it (the maintainer's own rig did) sees no change and no log."""
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    _v8_config_on_disk(config_file, rerip_offset_variant=True, rip_goal="custom")
+
+    with caplog.at_level("INFO", logger="platterpus.config"):
+        cfg = config_module.load()
+
+    assert cfg.rerip_offset_variant is True
+    assert not any("v8→v9" in r.getMessage() for r in caplog.records)
+
+
+def test_a_v9_false_is_left_alone_the_flip_is_one_time(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Once a config is at v9, a saved False is a choice made after the flip ran.
+
+    Otherwise the setting could never be turned off — the same property the v7
+    test above pins for `secure_rerip_matches`.
+    """
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    _v8_config_on_disk(config_file, schema_version=9)
+
+    assert config_module.load().rerip_offset_variant is False
+
+
+def test_unticking_it_after_the_upgrade_sticks_across_a_restart(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The whole round trip a user makes: upgrade, untick, save, relaunch.
+
+    This is what makes the flip one-time in practice rather than in a test: the
+    save must write schema 9, or the next launch would flip it back on.
+    """
+    import dataclasses
+
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    _v8_config_on_disk(config_file)
+
+    upgraded = config_module.load()
+    config_module.save(dataclasses.replace(upgraded, rerip_offset_variant=False))
+
+    relaunched = config_module.load()
+    assert relaunched.schema_version == 9
+    assert relaunched.rerip_offset_variant is False
+
+
 def test_load_never_raises_on_corrupt_toml(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
