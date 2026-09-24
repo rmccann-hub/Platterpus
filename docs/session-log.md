@@ -11,6 +11,34 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-24 (night, later) — 0.6.58 released; one gap planned for the next release
+
+**Released:** 0.6.58, through release run 156 on `22c595f`, after `main`'s CI run 900
+went green on that SHA. The AppImage, `.sha256`, `.zsync` and install scripts are on the
+GitHub Release. PyPI publish run 133 succeeded. No handshake round was open (the fork's
+head is still `64a6207`), so no override was needed. The maintainer will run round 27's
+real test on this build.
+
+**Kept on purpose:** the three upstream source citations the sweep's helpers had
+stripped. The maintainer agreed with the recommendation.
+
+**A gap, planned and not fixed:** when a script runs `set`, an open console's options
+box does not follow the change. Checking this showed that **Setup & Updates does not
+follow it either.** My earlier account said it did, on the strength of a test named
+`test_a_script_set_reaches_an_open_setup_and_updates`. That test drives the window's own
+save path, not the `set` verb. It is the shape the release checklist warns about: a test
+named for a path it does not drive. The fix is planned in TASKS for the next release:
+- `_do_set` calls `_refresh_setting_views`.
+- That refresh also updates the console's box, with its signals blocked.
+- The misnamed test is renamed, and a real `set`-verb test is added and revert-probed.
+
+**For round 27:** the portable shapes found today go to the fork as NEXT-ROUND items,
+under the bilateral rule:
+1. a test named for a path it does not drive;
+2. a removed dependency's name lingering in live text, and a gate that exempts history
+   by path and only lets literal counts go down;
+3. a renamed persisted enum member has to keep its stored string.
+
 ## 2026-09-24 (night) — the old ripper's name, retired from live text
 
 **The ask:** *"we dont use whipper any more, so a sweep for any whipper references,
