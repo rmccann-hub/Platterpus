@@ -21,14 +21,14 @@ strings verified against cyanreg/cyanrip master ``src/cyanrip_log.c``:
     Ripping errors: 0
     Ripping finished at 2026-06-09 12:34:56
 
-We reuse the whipper parser's dataclasses (`RipLog`, `TrackResult`,
+We reuse the shared dataclasses in `parsers/rip_log.py` (`RipLog`, `TrackResult`,
 `AccurateRipResult`) so the GUI's results table, disc panel, and fidelity
 summary work identically on both backends. Mapping notes:
 
-* cyanrip computes ONE EAC CRC32 per track (no whipper-style test+copy
+* cyanrip computes ONE EAC CRC32 per track (no legacy-format test+copy
   dual read) — it lands in ``copy_crc`` and ``test_crc`` stays empty, so
   the fidelity summary can tell the two verification models apart.
-* `health_status` is normalized to whipper's "No errors occurred"
+* `health_status` is normalized to the legacy format's "No errors occurred"
   phrasing when cyanrip reports 0 ripping errors, so downstream string
   checks behave the same.
 
@@ -106,22 +106,24 @@ _HEADER = re.compile(r"^cyanrip\s+(?P<version>\S+)(?:\s+\((?P<build>[^)]*)\))?")
 #: because the complaint about the argument is emitted first. Today every cyanrip
 #: log opens with its banner, so a one-line predicate is correct at the pin — and
 #: the moment that item lands, a perfectly valid cyanrip log gets routed to the
-#: **whipper** parser and yields **zero tracks from a fourteen-track disc**, with no
+#: **legacy-format** parser and yields **zero tracks from a fourteen-track disc**, with no
 #: error anywhere. That exact zero-track parse happened here on 2026-09-05 from a
 #: different cause, so this is not a hypothetical failure mode.
 #:
 #: Bounded rather than unbounded: an unbounded scan would call any document
-#: containing a `cyanrip …` line a cyanrip log, and the whipper guard below is a
+#: containing a `cyanrip …` line a cyanrip log, and the legacy guard below is a
 #: positive check on the other format rather than a bet that ours appears first.
 _BANNER_SEARCH_LINES: Final[int] = 5
 
-#: "Log created by: whipper 0.7.4 (...)" — the other format's own first line, per
-#: `parsers/rip_log.py`. Checked explicitly so widening the window above can never
-#: reclassify a whipper log, whatever it happens to mention further down.
-_WHIPPER_HEADER: Final[re.Pattern[str]] = re.compile(
+#: The legacy log format's own first line ("Log created by: <ripper> X.Y.Z …", see
+#: `parsers/rip_log.py`). Checked explicitly so widening the window above can never
+#: reclassify a legacy-format log, whatever it happens to mention further down.
+#: The ripper's name below is the literal text that format writes, so it is the
+#: one place in the parsers that has to spell it.
+_LEGACY_HEADER: Final[re.Pattern[str]] = re.compile(
     r"^Log created by:\s*whipper\b", re.IGNORECASE
 )
-# cyanrip 0.9.3 prints "Device model:   PIONEER …"; older/whipper-style logs use
+# cyanrip 0.9.3 prints "Device model:   PIONEER …"; older and legacy-format logs use
 # "Drive used:". Accept both so the archival "which drive" field is never lost
 # (real-log bug: 0.9.3's "Device model:" didn't match, so `drive` came out null).
 _DRIVE = re.compile(r"^(?:Drive used|Device model):\s+(?P<drive>.+?)\s*$")
@@ -748,7 +750,7 @@ _PREPROCESS_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 #: compiled pattern in this module to sit in a named, enumerable group, and this one
 #: belongs in none of the others: it is not a cyanrip line we recognise, it is the
 #: *other* format's header, matched so `looks_like_cyanrip_log` can refuse rather
-#: than guess. Filing it under "things we parse" would put a whipper line into the
+#: than guess. Filing it under "things we parse" would put a legacy-format line into the
 #: generated consumer contract's list of cyanrip output we read, which is a claim
 #: about the seam that is not true.
 #:
@@ -757,7 +759,7 @@ _PREPROCESS_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 #: module: a hand-maintained exemption living in the checker is the shape that hid
 #: 16 of the fork's fatal strings behind a prefix filter.
 _DISCRIMINATOR_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("whipper_header", _WHIPPER_HEADER),
+    ("legacy_header", _LEGACY_HEADER),
 )
 
 
@@ -1297,7 +1299,7 @@ class _TrackAcc:
     every field a checked name and lists them in one place.
 
     The field names match `TrackResult`'s so `flush()` is a plain copy; the two
-    stay separate because `TrackResult` is frozen and shared with the whipper
+    stay separate because `TrackResult` is frozen and shared with the legacy-format
     parser, and only completed tracks belong in it.
     """
 
@@ -1712,8 +1714,8 @@ def _take_interrupted_at(disc: _Disc, match: re.Match[str]) -> bool:
 
 def _take_rip_errors(disc: _Disc, match: re.Match[str]) -> bool:
     count = int_or_none(match.group("count"), field="cyanrip ripping-error count") or 0
-    # Same phrasing as whipper's healthy verdict so downstream string checks
-    # treat both backends alike.
+    # Same phrasing as the legacy format's healthy verdict so downstream string
+    # checks treat both formats alike.
     disc.health_status = (
         "No errors occurred" if count == 0 else f"{count} ripping errors"
     )
@@ -2222,10 +2224,10 @@ def _is_ignored_disc_line(line: str) -> bool:
 
 
 def looks_like_cyanrip_log(text: str) -> bool:
-    """True if `text` is cyanrip output (vs whipper's YAML-ish log).
+    """True if `text` is cyanrip output (vs the legacy YAML-ish log format).
 
-    A cyanrip log carries its version banner at or near the top; whipper logs start
-    with "Log created by: whipper ...".
+    A cyanrip log carries its version banner at or near the top; a legacy-format log
+    starts with its "Log created by: …" header (`_LEGACY_HEADER`).
 
     **Near, not at.** This used to read exactly the first non-blank line and return
     its match — so a banner one line down was "not cyanrip". The parser itself never
@@ -2240,7 +2242,7 @@ def looks_like_cyanrip_log(text: str) -> bool:
     for line in text.splitlines():
         if not line.strip():
             continue
-        if _WHIPPER_HEADER.match(line):
+        if _LEGACY_HEADER.match(line):
             return False
         if _HEADER.match(line):
             return True

@@ -519,7 +519,7 @@ class RipProgress(QWidget):
         # that we were only writing to the JSON: the album loudness (integrated
         # LUFS / range / true peak) and on how many tracks only one frame
         # matched AccurateRip ("partially accurate"). Populated from the parsed log by
-        # set_rip_log; hidden when there's nothing to show (e.g. a whipper log
+        # set_rip_log; hidden when there's nothing to show (e.g. a legacy-format log
         # carries no loudness and the disc had no partial matches).
         self._loudness_label: QLabel = QLabel("", self)
         self._loudness_label.setWordWrap(True)
@@ -1336,9 +1336,9 @@ def loudness_summary_line(rip_log: object) -> str:
     best-effort parse): it defends against a missing/oddly-typed
     ``album_loudness`` dict or ``partially_accurate_summary`` and just omits any
     part it can't render. cyanrip logs carry integrated loudness (LUFS), loudness
-    range (LU) and true peak (dBFS); whipper logs don't, so this returns "" for
-    them (the label then stays hidden). The two facts are joined with " · " so a
-    disc that has one but not the other still reads cleanly.
+    range (LU) and true peak (dBFS); legacy-format logs don't, so this returns
+    "" for them (the label then stays hidden). The two facts are joined with
+    " · " so a disc that has one but not the other still reads cleanly.
     """
     parts: list[str] = []
     try:
@@ -1546,8 +1546,9 @@ def _ar_cell(
     """
     state = _ar_state(result, offset_result, lookup)
     if state == _AR_STATE_VERIFIED:
-        # A genuine database match, format-agnostic across whipper's "Found,
-        # exact match" and cyanrip's "accurately ripped, confidence N".
+        # A genuine database match, format-agnostic across the legacy log
+        # format's "Found, exact match" and cyanrip's "accurately ripped,
+        # confidence N".
         #
         # "N of M", where M is the database's best confidence for this track.
         # The bare N was close to meaningless on its own: confidence 3 is

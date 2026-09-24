@@ -247,7 +247,7 @@ def test_rows_asserted_from_cyanrip_behaviour_are_not_asserted_for_others() -> N
     """A log some other ripper wrote must not inherit cyanrip's properties."""
     from platterpus.parsers.rip_log import RipLog as _RipLog
 
-    text = render_eac_style_log(_RipLog(log_creator="whipper 0.7.4"))
+    text = render_eac_style_log(_RipLog(log_creator="otherripper 0.7.4"))
     for row in (
         "Delete leading and trailing silent blocks   : ",
         "Null samples used in CRC calculations       : ",
@@ -290,12 +290,12 @@ def test_the_output_format_block_is_gated_on_the_backend_too() -> None:
     """Every row in it asserts something about cyanrip's encoder.
 
     The three archival-header rows were gated first; this block sat one lower
-    and still told a whipper rip that "cyanrip encodes in-process via
+    and still told a non-cyanrip rip that "cyanrip encodes in-process via
     libavcodec" (review finding, 2026-07-28).
     """
     from platterpus.parsers.rip_log import RipLog as _RipLog
 
-    text = render_eac_style_log(_RipLog(log_creator="whipper 0.7.4"))
+    text = render_eac_style_log(_RipLog(log_creator="otherripper 0.7.4"))
     for row in (
         "Used output format              : ",
         "Add ID3 tag                     : ",
@@ -310,7 +310,7 @@ def test_the_backend_gate_is_not_a_substring_match() -> None:
     """ "not-cyanrip 1.0" must not inherit cyanrip's asserted behaviour."""
     from platterpus.parsers.rip_log import RipLog as _RipLog
 
-    for impostor in ("not-cyanrip 1.0", "whipper (cyanrip-compatible)"):
+    for impostor in ("not-cyanrip 1.0", "otherripper (cyanrip-compatible)"):
         text = render_eac_style_log(_RipLog(log_creator=impostor))
         line = next(
             x for x in text.splitlines() if x.startswith("Used interface        ")

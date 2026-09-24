@@ -85,7 +85,7 @@ class _FakeBackend(RipBackend):
     def version(self) -> str:
         return "fake 0.0.0"
 
-    # Behave like whipper (self-verifying) by default so the generic rip tests
+    # Claim to self-verify by default so the generic rip tests
     # don't trip the post-rip FLAC-verify path; the verify path has its own test
     # that flips this to False.
     self_verifies = True
@@ -93,8 +93,8 @@ class _FakeBackend(RipBackend):
     def self_verifies_encode(self) -> bool:
         return self.self_verifies
 
-    # Behave like whipper (encodes FLAC at the default `-5`, not maxed) by
-    # default, so a re-compress runs when the user opts in; the cyanrip-skip
+    # Encode FLAC at the default `-5`, not maxed (as the previous backend did)
+    # by default, so a re-compress runs when the user opts in; the cyanrip-skip
     # test flips this to True. Re-compress defaults OFF, so this doesn't affect
     # the generic rip tests.
     produces_max_compression = False
@@ -349,7 +349,7 @@ def test_disc_info_ready_no_mb_id_shows_blank_track_rows(
 ) -> None:
     """An unknown disc (no MB ID) still shows numbered blank rows.
 
-    whipper reports the track count even for a disc MusicBrainz can't
+    The ripper reports the track count even for a disc MusicBrainz can't
     identify; we render that many rows so the user sees the disc. (Drives the
     cascade handler directly — the threaded probe is covered above.)"""
     window = teardown_threads(backend=_FakeBackend())
@@ -413,7 +413,7 @@ def test_mb_lookup_error_falls_back_to_placeholder_rows(
     assert "error" in window._disc_info_panel._mb_match_value.text().lower()
 
 
-def test_drive_change_handles_whipper_error(teardown_threads) -> None:
+def test_drive_change_handles_rip_error(teardown_threads) -> None:
     window = teardown_threads(backend=_FakeBackend())
 
     # The worker turns a raised RipError into the `failed` signal; here we
@@ -891,8 +891,9 @@ def test_record_drive_fact_does_not_mutate_config(
 ) -> None:
     """The load-bearing guarantee: the ledger is NOT a second offset authority.
 
-    Recording a fact must never touch Config.read_offset / override (whipper.conf
-    and the --offset override stay the only authorities — KDD-23).
+    Recording a fact must never touch Config.read_offset / override (the
+    configured offset and the --offset override stay the only authorities —
+    KDD-23).
     """
     saved: list[Config] = []
     window = teardown_threads(save_cfg=saved.append)
@@ -912,7 +913,7 @@ def test_drive_change_populates_offset_provenance(
 ) -> None:
     window = teardown_threads()
     _pin_pioneer(window, monkeypatch)
-    # No whipper.conf offset in the sandbox, but a prior AccurateRip record:
+    # No offset configured in the sandbox, but a prior AccurateRip record:
     window._record_drive_fact(
         _PIONEER, offset_value=667, source=OffsetSource.ACCURATERIP_LIST
     )
@@ -922,6 +923,27 @@ def test_drive_change_populates_offset_provenance(
     shown = window._disc_info_panel._offset_value.text()
     assert "+667" in shown
     assert "AccurateRip" in shown
+
+
+def test_refreshing_the_drive_display_records_no_offset_of_its_own(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression for the removal of the leftover-config seed (2026-09-24).
+
+    The refresh used to copy a per-drive offset out of the old ripper's config
+    file into the ledger. Nothing reads that file now (pinned by
+    `tests/test_offset_config.py`), so refreshing a drive with nothing recorded
+    records its identity and no offset.
+    """
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+
+    window._refresh_drive_profile_display()
+
+    fingerprint = window._fingerprint_for(_PIONEER)[0]
+    profile = window._drive_profiles.get(fingerprint)
+    assert profile is not None, "the drive's identity was not recorded"
+    assert profile.offset is None, f"an offset appeared from nowhere: {profile.offset}"
 
 
 def test_auto_apply_returns_false_for_unknown_or_no_drive(
@@ -1328,7 +1350,7 @@ def test_dep_summary_stamps_installed_versions(
             search_string="x",
         )
 
-    whipper = _spec("whipper", "whipper")
+    cyanrip = _spec("cyanrip", "cyanrip")
     flac = _spec("flac", "FLAC")
 
     window = teardown_threads()
@@ -1339,14 +1361,14 @@ def test_dep_summary_stamps_installed_versions(
     )
 
     report = DependencyReport(
-        ok=[whipper, flac],
-        ok_versions={"whipper": (0, 10, 0)},  # flac omitted → "unknown"
+        ok=[cyanrip, flac],
+        ok_versions={"cyanrip": (0, 9, 3)},  # flac omitted → "unknown"
     )
     window._show_dep_summary(report)
 
     text = captured[0][1]
     assert "Installed:" in text
-    assert "whipper 0.10.0" in text
+    assert "cyanrip 0.9.3" in text
     assert "FLAC unknown" in text
 
 
@@ -1675,7 +1697,7 @@ def test_unknown_rip_finish_runs_tag_post_processing(
     monkeypatch.setattr(window, "run_unknown_post_processing", _record)
     window._pending_picard_launch = True
     window._active_rip_params = _params(tmp_path, unknown=True)
-    # whipper writes the .log next to the FLACs; that folder (not the
+    # The ripper writes the .log next to the FLACs; that folder (not the
     # configured output root) is what should be tagged.
     album_dir = tmp_path / "Unknown Artist" / "Unknown Album"
     album_dir.mkdir(parents=True)
@@ -1917,7 +1939,7 @@ def test_known_rip_finish_skips_tag_post_processing(
 
     report_writer.writer().flush()  # the report write is off-thread now
 
-    assert calls == []  # identified discs are tagged by whipper itself
+    assert calls == []  # identified discs are tagged by the ripper itself
 
 
 def test_failed_unknown_rip_skips_tag_post_processing(
@@ -2207,7 +2229,7 @@ def test_safe_path_segment() -> None:
 
     assert _safe_path_segment("  jimmy2 ") == "jimmy2"
     assert _safe_path_segment("AC/DC") == "AC-DC"  # no stray subdir
-    assert _safe_path_segment("50%off") == "50off"  # no whipper code
+    assert _safe_path_segment("50%off") == "50off"  # no template token
     assert _safe_path_segment("") == ""  # blank → fallback
 
 
@@ -3652,7 +3674,7 @@ def test_scan_timeout_auto_frees_drive(teardown_threads, monkeypatch) -> None:
     free_calls = _patch_free_drive(monkeypatch)
     window = teardown_threads()
     device = window._drive_picker.current_device() or ""
-    window._on_disc_info_failed(device, "whipper timed out after 120s")
+    window._on_disc_info_failed(device, "cyanrip timed out after 120s")
     _join_force_stop(window)
     assert len(free_calls) == 1
 
@@ -3663,7 +3685,7 @@ def test_scan_non_timeout_failure_does_not_free(teardown_threads, monkeypatch) -
     free_calls = _patch_free_drive(monkeypatch)
     window = teardown_threads()
     device = window._drive_picker.current_device() or ""
-    window._on_disc_info_failed(device, "whipper failed: not in MusicBrainz")
+    window._on_disc_info_failed(device, "cyanrip failed: not in MusicBrainz")
     assert free_calls == []
 
 
@@ -3674,7 +3696,7 @@ def test_scan_force_stopped_shows_clean_message(teardown_threads, monkeypatch) -
     window = teardown_threads()
     window._scan_force_stopped = True
     device = window._drive_picker.current_device() or ""
-    window._on_disc_info_failed(device, "whipper timed out after 120s")
+    window._on_disc_info_failed(device, "cyanrip timed out after 120s")
     assert window._scan_force_stopped is False
     assert free_calls == []  # the flag short-circuits before the auto-free
     assert "freed" in window._disc_info_panel._mb_match_value.text().lower()
@@ -4231,6 +4253,8 @@ def test_friendly_disc_scan_error_for_cdrdao_toc_flake() -> None:
     becomes plain language pointing at the Rescan disc button."""
     from platterpus.ui.main_window import _friendly_disc_scan_error
 
+    # Verbatim from the real-user report this branch was written for (2026-06-10),
+    # which named the previous backend and its cdrdao temp file.
     raw = (
         "whipper failed: FileNotFoundError: [Errno 2] No such file or "
         "directory: '/tmp/tmp55rw20ax.cdrdao.read-toc.whipper.task'"
@@ -4241,18 +4265,18 @@ def test_friendly_disc_scan_error_for_cdrdao_toc_flake() -> None:
     assert "FileNotFoundError" not in friendly  # no raw traceback text
 
     # Unrecognized errors pass through untouched — never hide information.
-    assert _friendly_disc_scan_error("whipper failed: exit 1") == (
-        "whipper failed: exit 1"
+    assert _friendly_disc_scan_error("cyanrip failed: exit 1") == (
+        "cyanrip failed: exit 1"
     )
 
 
 def test_friendly_disc_scan_error_for_cold_container_timeout() -> None:
-    """A whipper info timeout (cold-container start on the first scan of a
+    """A disc-info timeout (cold-container start on the first scan of a
     session) becomes plain language pointing at the Rescan disc button rather
     than the raw "timed out after 120s" line (real-user report, 2026-06-27)."""
     from platterpus.ui.main_window import _friendly_disc_scan_error
 
-    friendly = _friendly_disc_scan_error("whipper timed out after 120s")
+    friendly = _friendly_disc_scan_error("cyanrip timed out after 120s")
     assert "Rescan disc" in friendly
     assert "container" in friendly
     assert "timed out" not in friendly  # raw wording replaced with plain language
@@ -4386,7 +4410,7 @@ def test_cyanrip_rip_finish_fetches_and_applies_cover_art(
 def test_unknown_heal_rip_fetches_cover_art_when_release_is_known(
     teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """The no-network heal re-rips as --unknown (whipper can't fetch art),
+    """The no-network heal re-rips as --unknown (which fetches no art),
     but the GUI still knows the release — so it supplies the art too."""
     window = teardown_threads(config=Config(cover_art="embed"))
     monkeypatch.setattr(
@@ -4586,7 +4610,7 @@ def test_flac_verify_skipped_when_disabled(teardown_threads, tmp_path: Path) -> 
 def test_flac_verify_skipped_for_self_verifying_backend(
     teardown_threads, tmp_path: Path
 ) -> None:
-    # The default fake backend self-verifies (like whipper) → no redundant check
+    # The default fake backend claims to self-verify → no redundant check
     # even with the toggle on.
     window = teardown_threads(config=Config(verify_flac_after_rip=True))
     window._active_rip_params = _params(tmp_path, unknown=False)
@@ -4943,7 +4967,8 @@ def _stub_recompress(monkeypatch: pytest.MonkeyPatch, sink: list[list[Path]]):
 def test_recompress_skipped_when_disabled(
     teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    # Toggle off (the default) → re-compress never runs even for whipper.
+    # Toggle off (the default) → re-compress never runs, even for a backend that
+    # does not max compression.
     calls: list[list[Path]] = []
     _stub_recompress(monkeypatch, calls)
     window = teardown_threads(config=Config(recompress_flac_after_rip=False))
@@ -4977,10 +5002,10 @@ def test_recompress_skipped_for_max_compression_backend(
     assert calls == []
 
 
-def test_recompress_runs_for_whipper_with_toggle_on(
+def test_recompress_runs_for_a_non_max_backend_with_toggle_on(
     teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """whipper (not max compression) + toggle on → re-compress runs on the
+    """A backend that does not max compression + toggle on → re-compress runs on the
     post-rip daemon thread, over the FLACs the rip wrote (re-compress is stubbed
     so no real flac runs)."""
     calls: list[list[Path]] = []

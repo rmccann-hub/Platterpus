@@ -56,7 +56,8 @@ def test_dry_run_prints_all_steps_without_executing() -> None:
     out = result.stdout
     assert "DRY RUN" in out
     # Every mutating command must be a DRY-RUN line, never executed. cyanrip is
-    # the sole backend (KDD-18, whipper removed 2026-06-30); the container gets
+    # the sole backend (KDD-18, the previous backend removed 2026-06-30); the
+    # container gets
     # flac + cyanrip installed and exported.
     assert "DRY-RUN: distrobox create" in out
     assert "DRY-RUN: distrobox enter ripping -- sudo dnf install -y flac" in out

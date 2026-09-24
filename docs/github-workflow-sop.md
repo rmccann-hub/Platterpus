@@ -2,7 +2,7 @@
 
 > **How this applies to Platterpus.** This is a general, contributor-facing SOP
 > for the GitHub ecosystem — most useful here as the **playbook for contributing
-> *upstream*** (forking + opening PRs to `cyanrip`, `whipper`, `libcdio-paranoia`,
+> *upstream*** (forking + opening PRs to `cyanrip`, `libcdio-paranoia`,
 > etc. — see `docs/cyanrip-fork.md` Part A §10 and the upstream-PR roadmap).
 >
 > For work **on the Platterpus repo itself**, the authoritative rules live in
@@ -203,4 +203,4 @@ what order.*
 
 ---
 
-*Last updated for Platterpus v0.6.47.*
+*Last updated for Platterpus v0.6.57.*

@@ -83,7 +83,7 @@ class DependencySpec:
     # So when it's missing, the right fix is "run the wizard" (one click, no
     # terminal), NOT the tier-(c) "copy this search string" dialog. The manual
     # dialog offers the wizard for these (the search string stays as a last
-    # resort). whipper/metaflac/flac set this; host packages do not.
+    # resort). cyanrip/metaflac/flac/cd-paranoia set this; host packages do not.
     from_setup_wizard: bool = False
     # Optional: a pure function that reads the probe's captured output and says
     # WHICH BUILD of the tool is installed. A version number cannot answer that

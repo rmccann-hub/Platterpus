@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Optional post-rip FLAC re-compression to the maximum level.
 
-This is only relevant historically: the old whipper backend encoded FLAC at the
+This is only relevant historically: the previous backend encoded FLAC at the
 tool default (`-5`), and this re-encodes each output FLAC at `-8 -e -p` (flac's
 `--best` plus exhaustive model + coefficient search) to shrink the files as far as
 flac can. It is **lossless and `--verify`'d**, so the audio is provably
@@ -42,7 +42,7 @@ _FLAC_BINARY: str = resolve_tool("flac")
 # WHY THIS IS OPT-IN / OFF BY DEFAULT (the real reason, not just "modest gain"):
 # higher compression raises the LPC prediction order — the `-l` setting, which
 # the decoder must apply per sample. The classic encoder default is `-5` (`-l 8`)
-# — what the historical whipper backend produced; `-8` is `-l 12`. A higher
+# — what the previous backend produced; `-8` is `-l 12`. A higher
 # order = more multiply-accumulates per sample to DECODE, so a `-8` file costs a
 # little more CPU/battery to play back. Historically (the ~2015 logic) this
 # mattered on low-power portable players; on modern phones/desktops it's largely

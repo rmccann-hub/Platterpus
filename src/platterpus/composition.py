@@ -3,8 +3,8 @@
 
 Two entry points need the *same* concrete adapters wired from ``Config``: the
 running GUI (``app.py``) and the ``--doctor`` diagnostic (``preflight.py``).
-Both build the cyanrip ripping backend (the sole engine since the whipper
-removal, KDD-18) and the MusicBrainz client with the project's user-agent. Doing
+Both build the cyanrip ripping backend (the sole engine since the previous
+backend's removal, KDD-18) and the MusicBrainz client with the project's user-agent. Doing
 that in ONE place keeps the two from drifting — before this existed, the
 backend-construction block (including the host-exported-path fallback) was
 copied in both, and a fix to one could silently miss the other. It also gives

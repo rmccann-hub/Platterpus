@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Render a cyanrip/whipper rip log into an EAC-*layout* comparison log.
+"""Render a cyanrip or legacy-format rip log into an EAC-*layout* comparison log.
 
 This produces an honest, conspicuously-attributed log that mirrors EAC's
 section/per-track layout so you can ``diff``/``meld`` it against a real EAC log
@@ -32,7 +32,7 @@ from platterpus.parsers.rip_log import RipLog, parse_rip_log
 
 
 def _parse_to_rip_log(text: str) -> RipLog:
-    """Parse a cyanrip or whipper log into a RipLog (auto-detected)."""
+    """Parse a cyanrip or legacy-format log into a RipLog (auto-detected)."""
     if looks_like_cyanrip_log(text):
         return parse_cyanrip_log(text)
     return parse_rip_log(text)
@@ -40,10 +40,10 @@ def _parse_to_rip_log(text: str) -> RipLog:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Render a cyanrip/whipper rip log into an EAC-layout "
+        description="Render a cyanrip or legacy-format rip log into an EAC-layout "
         "comparison log (unsigned, clearly attributed — NOT a real EAC log)."
     )
-    parser.add_argument("rip_log", type=Path, help="a cyanrip or whipper rip log")
+    parser.add_argument("rip_log", type=Path, help="a cyanrip or legacy-format rip log")
     parser.add_argument(
         "-o",
         "--output",

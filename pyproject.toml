@@ -11,9 +11,10 @@ description = "A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3)
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Platterpus contributors" }]
-# "whipper"/"cyanrip" are kept as keywords: they're the rip backends Platterpus
-# drives, which is what someone searching for a GUI for them would look up.
-keywords = ["audio", "cd", "rip", "flac", "wavpack", "mp3", "musicbrainz", "accuraterip", "whipper", "cyanrip", "qt"]
+# "cyanrip" is kept as a keyword: it's the rip backend Platterpus drives (the
+# Platterpus fork of cyanrip), which is what someone searching for a GUI for it
+# would look up.
+keywords = ["audio", "cd", "rip", "flac", "wavpack", "mp3", "musicbrainz", "accuraterip", "cyanrip", "qt"]
 # License: GPL-3.0-only (KDD-10, decided 2026-05-30). Declared as a PEP 639
 # SPDX expression (`license` string + `license-files`); this is the standard as
 # of setuptools 77+, and the deprecated `License ::` classifier was dropped

@@ -993,8 +993,8 @@ the upstream maintainer's call, and we never fake provenance.*
 > of scope** — it is forgery of another tool's provenance and we do not fake
 > anything (Critical rule spirit; `docs/eac-parity.md`).
 >
-> Sourced from a 4-agent research sweep (2026-07-07) of cyanrip, whipper,
-> OPSnet/Logchecker, libcdio-paranoia and cdrdao. Findings are point-in-time
+> Sourced from a 4-agent research sweep (2026-07-07) of cyanrip, the previous
+> backend, OPSnet/Logchecker, libcdio-paranoia and cdrdao. Findings are point-in-time
 > (read off public GitHub pages — the GitHub API here is scoped to this repo);
 > **re-check live state before investing build/test time.** Uncertainties are
 > flagged inline.
@@ -1043,7 +1043,7 @@ Rare exceptions (none block the work actually recommended below):
 | 2 | stable machine-parseable cyanrip log | cyanrip (new PR) | Do only if committing to #3 | Moderate-hard | Low value |
 | 3 | tracker recognizes cyanrip | OPSnet/Logchecker (new PR) | **Skip for now** | Hard (2-repo) | Low |
 | 4 | C2 error pointers (+ cache-defeat line) | libcdio-paranoia → cyanrip | **Skip** (keep deferred) | Hard (2-repo) | Very low |
-| — | tracker recognition via a recognized ripper | **Re-add whipper (Platterpus-side)** | Fallback, hardware-gated | Moderate | N/A — no PR |
+| — | tracker recognition via a recognized ripper | **Re-add the previous backend (Platterpus-side)** | Fallback, hardware-gated | Moderate | N/A — no PR |
 
 The single highest-value *action* (revised 2026-07-07 — see the update box
 below) is **supporting cyanrip PR #115** (Order 1). The un-numbered top row —
@@ -1097,7 +1097,7 @@ the first move.
 this.** Keep this only as the fallback if #115 stalls. It is not a contribution —
 it lands entirely in Platterpus. cdrdao is GPL-2-only, but we invoke every tool
 as a **subprocess** (never link it — KDD-10's aggregation model, routed like every backend subprocess per Critical rule #3), so GPL-2-only is fully
-compatible with our GPL-3.0 GUI. This is *exactly how whipper obtained gaps.*
+compatible with our GPL-3.0 GUI. This is *exactly how the previous backend obtained gaps.*
 
 - **What it does:** run `cdrdao read-toc` to scan the Q sub-channel for pre-gap
   lengths + index marks → a `.toc` file (`toc2cue` converts to `.cue`); parse it
@@ -1212,14 +1212,14 @@ compatible with our GPL-3.0 GUI. This is *exactly how whipper obtained gaps.*
 - **Recommendation:** **skip for now.** Two-repo effort against a maintainer who
   ignored the equivalent request for 5 years, cyanrip can't score competitively
   anyway, and it serves only two trackers. If ever pursued, PR-first per policy,
-  expect a stall, and treat **re-adding whipper** (below) as the honest fallback.
+  expect a stall, and treat **re-adding the previous backend** (below) as the honest fallback.
 - **Steps (if pursued):** *first* comment on issue #13 (or open a fresh issue)
   proposing cyanrip support and gauge the response — the responsiveness signal is
   the whole risk. Only if the maintainer engages: fork, branch, edit
   `Ripper.php` + `Logchecker.php`, run `composer test` / `composer lint` /
   `composer static-analysis` (phpunit/phpcs/phpstan, PHP 8.1+), verify with the
   `analyze` command on a real cyanrip log, open the PR from your fork, be patient
-  (or walk away to the whipper fallback).
+  (or walk away to the re-add fallback below).
 
 ---
 
@@ -1260,33 +1260,36 @@ compatible with our GPL-3.0 GUI. This is *exactly how whipper obtained gaps.*
 
 ---
 
-### The honest tracker fallback — re-add whipper (Platterpus-side, no PR)
+### The honest tracker fallback — re-add the previous backend (Platterpus-side, no PR)
 
 **If tracker acceptance ever becomes a real goal, this — not Orders 2+3 — is the
 honest path,** and it needs **no upstream PR at all**:
 
-- whipper's **native YAML rip log is already a first-class recognized + scored
-  format** in `orpheusnet/logchecker`: `Ripper.php` matches `"Log created by:
-  whipper"` and `Logchecker.php` has a full `whipperParse()`. So tracker
-  recognition via whipper is **purely a Platterpus-side second `RipBackend`
-  adapter** that runs whipper and keeps its native `.log`. The
+- The previous backend's **native YAML rip log** (the format Platterpus still
+  reads as the *legacy log format*) **is already a first-class recognized +
+  scored format** in `orpheusnet/logchecker`: `Ripper.php` matches `"Log created
+  by: whipper"` and `Logchecker.php` has a full `whipperParse()` (their
+  identifiers, quoted verbatim). So tracker recognition via that backend is
+  **purely a Platterpus-side second `RipBackend` adapter** that runs it and keeps
+  its native `.log`. The
   `RipBackend` ABC seam (`adapters/rip_backend.py`) anticipates this — a
   `Config.ripper_backend` selector existed while both backends shipped, was
-  removed with whipper (2026-06-30), and would return with a second engine
+  removed with the previous backend (2026-06-30), and would return with a second engine
   (strategy-doc §0).
-- **Hard blocker for your own hardware:** whipper orchestrates cd-paranoia, which
-  carries the **>587-sample read-offset bug** that *failed* tracks on the
-  BDR-209D (+667 offset) — the exact bug that drove the whipper→cyanrip switch
-  (KDD-18). So re-adding whipper is gated on a cd-paranoia offset fix or a
+- **Hard blocker for your own hardware:** the previous backend orchestrates
+  cd-paranoia, which carries the **>587-sample read-offset bug** that *failed*
+  tracks on the BDR-209D (+667 offset) — the exact bug that drove the switch to
+  cyanrip (KDD-18). So re-adding it is gated on a cd-paranoia offset fix or a
   different drive, independent of tracker recognition.
 - **Verify before relying on it:** run `orpheusnet/logchecker`'s `analyze` on an
-  actual whipper ≥0.7.3 native `.log` to confirm the recognition claim (it's from
+  actual native `.log` from the previous backend at ≥0.7.3 to confirm the recognition claim (it's from
   reading their source, not an empirical run this session).
 
-**Do NOT** pursue `whipper-plugin-eaclogger` issue #7 — it asks to implement
+**Do NOT** pursue issue #7 on the previous backend's EAC-logger plugin (linked
+in [`cyanrip-fork.md`](cyanrip-fork.md) Part A §9) — it asks to implement
 EAC's real proprietary log signing so the log passes EAC's checksum validator.
 That *is* the signed-EAC-checksum forgery we permanently rule out, and it's
-unnecessary because the whipper native-YAML path already yields a recognized log.
+unnecessary because the previous backend's native-YAML path already yields a recognized log.
 Neither consume nor contribute to it.
 
 ---
@@ -1313,9 +1316,10 @@ Everything above is point-in-time. Before spending build/test hours:
 - [ ] **Order 2 appetite** — whether cyanreg would freeze a stable log schema is
       unknown; gauge on IRC/an issue before building. *(Human/maintainer-contact
       step — can't be verified from a session.)*
-- [ ] **whipper native-YAML → Logchecker recognition** — re-verify empirically
-      with the `analyze` command before relying on it as the fallback. *(Needs a
-      local whipper + Logchecker run — hardware/tooling-gated.)*
+- [ ] **Previous backend's native-YAML log → Logchecker recognition** — re-verify
+      empirically with the `analyze` command before relying on it as the
+      fallback. *(Needs a local run of the previous backend + Logchecker —
+      hardware/tooling-gated.)*
 - [x] **cyanrip release cadence** — **decided and executed (KDD-32,
       2026-07-24).** Upstream's last tag is still 0.9.3.1 (Jun 2024) and it no
       longer gates us: the `ripping` container builds the fork from a **pinned
@@ -1333,4 +1337,4 @@ never fake provenance — the signed EAC checksum stays permanently out of scope
 
 ---
 
-*Last updated for Platterpus v0.6.33.*
+*Last updated for Platterpus v0.6.57.*

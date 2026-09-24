@@ -12,13 +12,13 @@ from platterpus.deps.version import format_version, meets_minimum, parse_version
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("whipper 0.10.0", (0, 10, 0)),
+        ("cyanrip 0.9.3", (0, 9, 3)),
         ("flac version 1.4", (1, 4)),
         ("Version: 2.11.5", (2, 11, 5)),
         ("header\nv 0.7.1 of musicbrainzngs\n", (0, 7, 1)),
         ("no version here", None),
         # The "0.10.0" trap — naive `\d` patterns parse as (0, 1, 0).
-        ("whipper 0.10.0", (0, 10, 0)),
+        ("exampletool 0.10.0", (0, 10, 0)),
     ],
     ids=[
         "basic_semver",

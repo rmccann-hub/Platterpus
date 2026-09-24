@@ -1111,8 +1111,8 @@ not.
 **Two corrections, 2026-08-19. Read both before doing anything with this item.**
 
 **(1) The flag is `-O`, not `-x`.** This heading said `-x` for months. `-x` is the *fork's*
-`--cache-probe`, a different flag doing a different thing; `-x/--force-overread` was
-**whipper's**, retired with whipper in KDD-18. The hazard table is
+`--cache-probe`, a different flag doing a different thing; `-x/--force-overread` belonged
+to **the ripper Platterpus used before cyanrip**, retired with it in KDD-18. The hazard table is
 `docs/dependency-contracts.md`.
 
 **(2) It is not "expected to be fine" — it is measured to hang, on this exact drive.**

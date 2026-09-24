@@ -1,11 +1,11 @@
 """Property-based tests for the six external-output parsers.
 
-(The docstring said "the three whipper-output parsers" until 2026-07-31. It was
-written when there were three and whipper was the backend; the imports below now
-cover six — `cd_info`, `cyanrip_info`, `cyanrip_log`, `drive_list`, `eac_log` and
-`rip_log` — and cyanrip has been the sole backend since KDD-18. **The import list
-is the roster**, the way it is in `test_surface_consistency.py`: a parser absent
-from it is not fuzzed here.)
+(Until 2026-07-31 the docstring said "the three" parsers, meaning the ones for
+the previous backend's output. It was written when there were three and that
+backend was in use; the imports below now cover six — `cd_info`, `cyanrip_info`,
+`cyanrip_log`, `drive_list`, `eac_log` and `rip_log` — and cyanrip has been the
+sole backend since KDD-18. **The import list is the roster**, the way it is in
+`test_surface_consistency.py`: a parser absent from it is not fuzzed here.)
 
 These complement the example-based `test_parsers_*` files. Example tests
 prove the parsers handle the *known* shapes; these prove they uphold a
@@ -58,12 +58,12 @@ from platterpus.parsers.rip_log import RipLog, parse_rip_log
 _SETTINGS = settings(max_examples=300, deadline=None)
 
 
-# --- A vocabulary of plausible-but-mangled whipper lines ------------------
+# --- A vocabulary of plausible-but-mangled parser-input lines -------------
 #
 # Pure st.text() is great for "never crash", but most random strings miss
-# the parser's interesting branches. This strategy mixes real whipper line
-# shapes (with random fills) and garbage, so the state machines actually
-# get exercised on near-miss input — the "unexpected" tier of cases.
+# the parser's interesting branches. This strategy mixes real line shapes
+# from the formats these parsers read (with random fills) and garbage, so the
+# state machines actually get exercised on near-miss input — the "unexpected" tier of cases.
 
 _FRAGMENTS = st.sampled_from(
     [
@@ -110,7 +110,7 @@ _FRAGMENTS = st.sampled_from(
         "    AccurateRip v1:",
         "      Confidence: 5",
         "      Confidence: lots",  # bad int
-        "Log created by: whipper 0.10.0",
+        "Log created by: whipper 0.10.0",  # the legacy log format's real header
         "SHA-256 hash: deadbeef",
         # cyanrip -I report shapes (exercise the cyanrip_info parser).
         "Disc tracks:    16",
@@ -163,7 +163,7 @@ _FRAGMENTS = st.sampled_from(
 
 _noisy_text = st.lists(_FRAGMENTS, max_size=40).map("\n".join)
 
-# The full input strategy: either fully-random text or noisy whipper-ish text.
+# The full input strategy: either fully-random text or noisy near-miss text.
 _any_text = st.one_of(st.text(max_size=2000), _noisy_text)
 
 
@@ -335,8 +335,8 @@ def test_drive_block_round_trips(
 # --- Invariant 3: a metamorphic property ----------------------------------
 #
 # Concatenating N independent single-drive blocks yields exactly N drives.
-# (Whipper prints one block per call, but multi-drive output is on the
-# roadmap; this pins the accumulator's flush logic.)
+# (The legacy drive-list output carried one block per call, but multi-drive
+# output is on the roadmap; this pins the accumulator's flush logic.)
 
 
 @_SETTINGS

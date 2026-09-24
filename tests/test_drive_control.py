@@ -1,16 +1,14 @@
 """Tests for platterpus.drive_control.
 
 The runner is injected so we never touch a real drive or container. We assert
-the right commands are issued, the kill ordering (whipper before reader), and —
-crucially — the regex-safety properties that earlier attempts got wrong:
-the whipper pattern must match the whipper CLI but NEVER "platterpus", and the
-reader kill must not use `-f`.
+the right commands are issued and — crucially — the safety property earlier
+attempts got wrong: no kill pattern may use `-f`, because a full-command-line
+match can hit the GUI's own command line ("platterpus") or the pkill's own.
 """
 
 from __future__ import annotations
 
 import os
-import re
 from types import SimpleNamespace
 
 from platterpus import drive_control
@@ -37,22 +35,18 @@ def _base(argv: list[str]) -> list[str]:
 # --- regex safety (the bugs that bit us in real use) ---------------------
 
 
-def test_whipper_pattern_matches_the_cli() -> None:
-    pat = drive_control._WHIPPER_CLI
-    assert re.search(pat, "/usr/bin/python3 /usr/bin/whipper cd rip --cdr")
-    assert re.search(pat, "whipper drive analyze")
-    assert re.search(pat, "whipper offset find")
+def test_no_kill_pattern_matches_the_full_command_line() -> None:
+    """Every pkill here matches a process NAME; none uses `-f`.
 
-
-def test_whipper_pattern_never_matches_the_gui() -> None:
-    pat = drive_control._WHIPPER_CLI
-    # The GUI must survive a force-stop.
-    assert not re.search(pat, "/usr/bin/platterpus")
-    assert not re.search(pat, "python3 -m platterpus")
-    assert not re.search(pat, "/opt/platterpus-x86_64.AppImage")
-    # ...and the pkill command line that *carries* the pattern must not match
-    # itself (the "whipper (" self-match bug).
-    assert not re.search(pat, "pkill -KILL -f whipper (cd|drive|offset)")
+    The old ripper's orchestrator pattern was the one `-f` match, anchored
+    carefully so it could not hit the GUI or itself. It was removed on
+    2026-09-24 with nothing left for it to kill; this pins that no `-f` pattern
+    comes back without someone reading why it was dangerous.
+    """
+    patterns = drive_control._pkill_arglists()
+    assert patterns, "no kill patterns at all"
+    assert all("-f" not in args for args in patterns), patterns
+    assert any("cyanrip" in arg for args in patterns for arg in args)
 
 
 # --- eject_drive ---------------------------------------------------------
@@ -122,17 +116,15 @@ def test_fuser_noop_without_device() -> None:
 # --- host kill -----------------------------------------------------------
 
 
-def test_host_kill_targets_whipper_first_then_reader() -> None:
+def test_host_kill_targets_the_readers_by_name() -> None:
     rec = _Recorder(returncode=0)
     assert drive_control.kill_reader_on_host(runner=rec) is True
-    first, second = _base(rec.calls[0]), _base(rec.calls[1])
-    # whipper CLI first (anchored, with -f)...
-    assert first == ["pkill", "-KILL", "-f", drive_control._WHIPPER_CLI]
-    # ...then the reader/ripper by name (NO -f). Includes cyanrip, which is its
-    # own reader (so cancelling a cyanrip rip actually stops it).
-    assert second == ["pkill", "-KILL", "cdparanoia|cd-paranoia|cdrdao|cyanrip"]
-    assert "-f" not in rec.calls[1]
-    assert "cyanrip" in second[-1]
+    assert len(rec.calls) == 1
+    only = _base(rec.calls[0])
+    # The reader/ripper by name (NO -f). Includes cyanrip, which is its own
+    # reader (so cancelling a cyanrip rip actually stops it).
+    assert only == ["pkill", "-KILL", "cdparanoia|cd-paranoia|cdrdao|cyanrip"]
+    assert "-f" not in rec.calls[0]
 
 
 # --- in-container fallback ----------------------------------------------
@@ -148,8 +140,7 @@ def test_in_container_uses_distrobox_enter() -> None:
         "--",
         "pkill",
         "-KILL",
-        "-f",
-        drive_control._WHIPPER_CLI,
+        "cdparanoia|cd-paranoia|cdrdao|cyanrip",
     ]
 
 
@@ -182,11 +173,11 @@ def test_force_stop_does_not_broadly_pkill_when_device_scoped_kill_works() -> No
 def test_force_stop_falls_back_to_broad_pkill_then_container_when_fuser_misses() -> (
     None
 ):
-    # rc 1 everywhere → fuser catches nothing → broad host pkills → distrobox.
+    # rc 1 everywhere → fuser catches nothing → broad host pkill → distrobox.
     rec = _Recorder(returncode=1)
     drive_control.force_stop_drive("/dev/sr0", runner=rec)
     cmds = [os.path.basename(c[0]) for c in rec.calls]
-    assert cmds == ["fuser", "pkill", "pkill", "distrobox", "distrobox", "eject"]
+    assert cmds == ["fuser", "pkill", "distrobox", "eject"]
 
 
 def test_force_stop_kills_before_ejecting() -> None:
@@ -211,12 +202,12 @@ def test_free_drive_kills_but_never_ejects() -> None:
 
 
 def test_free_drive_falls_back_to_container_when_host_misses() -> None:
-    # rc 1 everywhere → fuser catches nothing → broad host pkills → distrobox
+    # rc 1 everywhere → fuser catches nothing → broad host pkill → distrobox
     # fallback, still without any eject.
     rec = _Recorder(returncode=1)
     drive_control.free_drive("/dev/sr0", runner=rec)
     cmds = [os.path.basename(c[0]) for c in rec.calls]
-    assert cmds == ["fuser", "pkill", "pkill", "distrobox", "distrobox"]
+    assert cmds == ["fuser", "pkill", "distrobox"]
     assert "eject" not in cmds
 
 

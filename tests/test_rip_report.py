@@ -420,7 +420,7 @@ def test_report_surfaces_v6_drive_and_track_diagnostics() -> None:
 
 
 def test_v6_diagnostics_absent_are_none() -> None:
-    """A log without the diagnostics (e.g. whipper) leaves the fields None,
+    """A log without the diagnostics (e.g. a legacy-format log) leaves the fields None,
     never crashes."""
     report = build_report(_sample_log())
     assert report["rip"]["speed_changeable"] is None
@@ -1033,7 +1033,7 @@ def test_cli_missing_file_returns_2(tmp_path: Path) -> None:
 
 
 def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
-    # An EAC log fed here would otherwise parse to an empty whipper RipLog and
+    # An EAC log fed here would otherwise parse to an empty legacy-format RipLog and
     # silently emit a 0-track report with exit 0 — refuse with a clear message.
     cli = _load_cli()
     eac = tmp_path / "eac.log"
@@ -1535,9 +1535,9 @@ def test_the_ripper_resolved_release_id_is_recorded() -> None:
 
 
 def test_an_absent_ripper_release_id_is_null_not_a_finding() -> None:
-    """An unknown-disc rip sends no release id, a whipper log has no such line, and
-    neither does a build older than this row. All three are "no claim" — the report
-    must not manufacture a disagreement out of a field nobody filled."""
+    """An unknown-disc rip sends no release id, a legacy-format log has no such
+    line, and neither does a build older than this row. All three are "no claim" —
+    the report must not manufacture a disagreement out of a field nobody filled."""
     report = build_report(
         _sample_log(), disc={"unknown": True, "musicbrainz_release_id": None}
     )

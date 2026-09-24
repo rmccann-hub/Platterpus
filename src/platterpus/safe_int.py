@@ -15,8 +15,9 @@ raises" that does. It is also not hypothetical — it was found and fixed once, 
 demonstrated raising (review finding, 2026-07-28). The fix was applied *only
 there*, and the pinned regression test in ``tests/test_parsers_property.py``
 covered *only* that parser, so six identical holes in five other modules
-survived — the EAC-log, cd-info, cyanrip-info and whipper-log parsers, the
-``whipper.conf`` offset scanner and the CTDB ``.cue`` reader.
+survived — the EAC-log, cd-info, cyanrip-info and legacy-format log parsers,
+the offset scanner for the previous backend's config file (since removed) and
+the CTDB ``.cue`` reader.
 
 That is the failure ``docs/testing.md`` §5.o names: **enforce a rule across the
 codebase, not at the place it was learned.** So the guard now lives in one shared

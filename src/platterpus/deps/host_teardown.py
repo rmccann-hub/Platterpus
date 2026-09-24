@@ -2,8 +2,8 @@
 
 The user's requirement (2026-06-08): remove everything *this app* put on the
 machine — menu/desktop shortcuts, host-exported binaries, the `ripping`
-container (with cyanrip inside it), optionally the legacy `whipper.conf` and the
-AppImage file itself, and finally the GUI's own config + logs — while
+container (with cyanrip inside it), optionally the leftover config of the ripper
+older versions used, and the AppImage file itself, and finally the GUI's own config + logs — while
 **keeping Distrobox/podman and all music untouched**. Distrobox/podman are
 general-purpose tools the user may rely on for other containers, and music is
 sacred; neither is ever listed here.
@@ -50,9 +50,9 @@ from platterpus.paths import (
     CONFIG_DIR,
     CYANRIP_BINARY_DEFAULT,
     FLAC_BINARY_DEFAULT,
+    LEGACY_RIPPER_CONFIG_DIR,
+    LEGACY_RIPPER_WRAPPER_PATH,
     LOG_DIR,
-    WHIPPER_BINARY_DEFAULT,
-    WHIPPER_CONFIG_PATH,
 )
 
 log = logging.getLogger(__name__)
@@ -75,7 +75,7 @@ class HostTeardown:
     # What the optional checkboxes control. All default ON — "remove all our
     # stuff" is the user's stated goal; the dialog lets them keep pieces.
     remove_container: bool = True
-    remove_whipper_config: bool = True
+    remove_legacy_config: bool = True
     # The running AppImage file ($APPIMAGE), or None when running from
     # source/pipx — then there's no AppImage step at all.
     appimage: Path | None = None
@@ -83,8 +83,8 @@ class HostTeardown:
     # Filesystem locations, injectable for tests (defaults = the real ones).
     gui_config_dir: Path = CONFIG_DIR
     gui_data_dir: Path = LOG_DIR
-    whipper_config_dir: Path = field(default_factory=lambda: WHIPPER_CONFIG_PATH.parent)
-    bin_dir: Path = field(default_factory=lambda: WHIPPER_BINARY_DEFAULT.parent)
+    legacy_config_dir: Path = field(default_factory=lambda: LEGACY_RIPPER_CONFIG_DIR)
+    bin_dir: Path = field(default_factory=lambda: CYANRIP_BINARY_DEFAULT.parent)
     desktop_dir: Path = field(default_factory=lambda: appimage_integration.DESKTOP_DIR)
     icon_dir: Path = field(default_factory=lambda: appimage_integration.ICON_DIR)
     desktop_folder: Path = field(
@@ -103,8 +103,8 @@ class HostTeardown:
         steps = ["shortcuts", "exports"]
         if self.remove_container:
             steps.append("container")
-        if self.remove_whipper_config:
-            steps.append("whipper_config")
+        if self.remove_legacy_config:
+            steps.append("legacy_config")
         # The AppImage step covers the running file ($APPIMAGE) AND the
         # settled copy integration moves into ~/Applications — so an
         # uninstall finds the app even when started from a different copy
@@ -156,13 +156,14 @@ class HostTeardown:
         uninstall — `flac` was omitted once and `~/.local/bin/flac` was orphaned
         (#34), then `cd-paranoia` was added to setup and not to this list,
         repeating the exact bug this docstring memorialises (audit finding,
-        2026-07-28). `whipper` stays for the legacy path (a pre-KDD-18 install
-        may still have it exported).
+        2026-07-28). The first entry is a leftover: the wrapper of the ripper
+        Platterpus used before cyanrip (KDD-18), which an older install may
+        still have exported.
 
         If you add an export to `host_setup`, add it here in the same commit.
         """
         return [
-            self.bin_dir / WHIPPER_BINARY_DEFAULT.name,
+            self.bin_dir / LEGACY_RIPPER_WRAPPER_PATH.name,
             self.bin_dir / "metaflac",
             self.bin_dir / CYANRIP_BINARY_DEFAULT.name,
             self.bin_dir / FLAC_BINARY_DEFAULT.name,
@@ -170,8 +171,8 @@ class HostTeardown:
         ]
 
     def _tree_targets(self, step_id: str) -> list[Path]:
-        if step_id == "whipper_config":
-            return [self.whipper_config_dir]
+        if step_id == "legacy_config":
+            return [self.legacy_config_dir]
         if step_id == "app_data":
             return [self.gui_config_dir, self.gui_data_dir]
         raise ValueError(step_id)  # pragma: no cover
@@ -197,7 +198,7 @@ class HostTeardown:
             return not any(self.runner.exists(p) for p in self._appimage_targets())
         return not any(
             self.runner.exists(p) for p in self._tree_targets(step_id)
-        )  # whipper_config / app_data
+        )  # legacy_config / app_data
 
     def is_complete(self) -> bool:
         """True when nothing this engine targets remains."""
@@ -208,10 +209,10 @@ class HostTeardown:
             "shortcuts": "Menu + desktop shortcuts",
             "exports": (
                 "cyanrip/metaflac/flac/cd-paranoia "
-                "(+ any legacy whipper) in ~/.local/bin"
+                "(+ any older-version leftover) in ~/.local/bin"
             ),
             "container": f"'{DEFAULT_CONTAINER}' container (ripping tools inside it)",
-            "whipper_config": "legacy whipper.conf (drive calibration)",
+            "legacy_config": "Leftover ripper config from older versions",
             "appimage": "The AppImage file itself",
             "app_data": "Platterpus settings + logs",
         },

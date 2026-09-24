@@ -161,8 +161,8 @@ class ProvisioningMixin(MainWindowShared):
     def _maybe_offer_first_run_setup(self) -> None:
         """First-run offers, in dependency order.
 
-        The host stack (whipper in its container) must exist before anything
-        else works, so offer that first; only once whipper is present does the
+        The host stack (cyanrip in its container) must exist before anything
+        else works, so offer that first; only once cyanrip is present does the
         drive-calibration offer make sense. Deferred to the event loop, so in
         tests (no exec loop) neither fires — both are unit-tested directly.
 
@@ -1585,7 +1585,7 @@ class ProvisioningMixin(MainWindowShared):
             self.close()
 
     def _on_host_setup_finished(self, ready: bool) -> None:
-        """After the wizard runs, re-probe the world if whipper now exists.
+        """After the wizard runs, re-probe the world if the ripper stack is ready.
 
         Refresh the drive list ONLY when no drive is selected yet — i.e. the
         FIRST time setup makes the stack usable. A later wizard run (e.g.

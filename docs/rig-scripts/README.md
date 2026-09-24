@@ -357,7 +357,7 @@ purpose is being trustworthy evidence.
 |---|---|---|
 | `-x` / `--cache-probe` | measures the drive's readback cache **and then rips the whole disc** — measured 2026-08-19, ETA 1h 3m, unreapable when killed | fork-only, from round 7 lap 1 |
 | `-O` | overread into lead-in/lead-out | **confirmed to hang the BDR-209D for ~23 minutes** |
-| `-x` / `--force-overread` | overread | **whipper only** — never cyanrip |
+| `-x` / `--force-overread` | overread | **the ripper used before cyanrip only** — never cyanrip |
 
 Older revisions of `docs/dependency-contracts.md` said `-x` did not exist in
 cyanrip. That was true when measured (2026-07-21, against 0.9.3.1 and upstream
@@ -378,4 +378,4 @@ disappointment is still true. What we still do not know, said out loud so nobody
 the silence as a pass: whether 32 sectors is this drive's real cache, and which of the
 `Cache probe:` states a different drive would report.
 
-*Last updated for Platterpus v0.6.54.*
+*Last updated for Platterpus v0.6.57.*

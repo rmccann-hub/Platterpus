@@ -45,7 +45,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from platterpus import offset_config
 from platterpus.adapters.rip_backend import RipBackend
 from platterpus.settings_validation import OFFSET_MAX, OFFSET_MIN
 from platterpus.ui.accessibility import announce
@@ -325,27 +324,6 @@ class DriveSetupDialog(CenteredDialog):
         )
         self._apply_offset_check.toggled.connect(self._on_apply_offset_toggled)
         root.addWidget(self._apply_offset_check)
-
-        # A read offset found in an old whipper.conf, as a trust check against the
-        # value above. cyanrip never reads that file; showing it lets an upgrading
-        # user spot a mismatch. Reading a tiny text file on the GUI thread is fine
-        # (bytes, no subprocess). SHOWN ONLY WHEN THERE IS ONE: Settings used to
-        # print "none set" to every user, which is a line of noise for the great
-        # majority, and on a Steam Deck at 150% text it was the line that pushed
-        # this dialog's own explanation of a read offset off the screen
-        # (`tests/test_ui_conformance.py`, 2026-09-24).
-        self._legacy_offset_label: QLabel = QLabel(
-            f"Legacy whipper.conf read offset: {offset_config.describe_conf_offsets()}",
-            self,
-        )
-        self._legacy_offset_label.setTextFormat(Qt.TextFormat.PlainText)
-        self._legacy_offset_label.setWordWrap(True)
-        self._legacy_offset_label.setToolTip(
-            "A read offset found in an old whipper.conf, shown for reference. "
-            "cyanrip uses the value above, not this file. 'none set' is normal."
-        )
-        self._legacy_offset_label.setVisible(bool(offset_config.read_drive_offsets()))
-        root.addWidget(self._legacy_offset_label)
 
         # Close only — there's no "apply" step because the offset is saved to
         # Platterpus's own config the moment detection (or a manual save)

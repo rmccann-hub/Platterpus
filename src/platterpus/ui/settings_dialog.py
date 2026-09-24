@@ -229,8 +229,9 @@ class SettingsDialog(CenteredDialog):
         self._sync_naming_combo_to_templates()
         self._refresh_naming_preview()
 
-        # Unknown-disc templates: used for the --unknown rip so the
-        # disc-ID hash whipper puts in %d never reaches the path.
+        # Unknown-disc templates: used for the --unknown rip, where there is no
+        # real album title for %d (the ripper older versions used filled it with
+        # the raw disc-ID hash), so a literal path keeps the folder tidy.
         self._track_template_unknown_edit: QLineEdit = QLineEdit(
             config.track_template_unknown, self
         )

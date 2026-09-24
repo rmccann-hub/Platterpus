@@ -8,7 +8,7 @@ Order:
   1. configure_logging() — captures any startup failure
   2. config.load()       — falls back to defaults on first run
   3. QApplication        — required before any QWidget
-  4. construct adapters  — WhipperHostExportedImpl, MusicBrainzNgsImpl,
+  4. construct adapters  — CyanripImpl, MusicBrainzNgsImpl,
                            MetaflacAdapter, DependencyManager
   5. construct MainWindow
   6. run_dependency_check(show_summary=False) — silent unless missing
@@ -1204,7 +1204,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         # Adapter layer. Per CLAUDE.md Critical Rule #1, every external tool is
         # reached through an adapter constructed exactly once here. The cyanrip
-        # backend (the sole engine since the whipper removal, KDD-18) and the
+        # backend (the sole engine since KDD-18) and the
         # MusicBrainz client are built via the shared composition root so the
         # GUI and `--doctor` can never wire the adapters differently.
         from platterpus import composition
@@ -1233,8 +1233,8 @@ def main(argv: list[str] | None = None) -> int:
         )
 
         window.show()
-        # The launch dependency check shells out to whipper (which enters the
-        # Distrobox container — slow on a cold start), so run it OFF the GUI
+        # The launch dependency check shells out to cyanrip (whose wrapper enters
+        # the Distrobox container — slow on a cold start), so run it OFF the GUI
         # thread: the window is responsive immediately and the probe can't
         # freeze it. Resolver dialogs for anything missing surface on the GUI
         # thread when the probe finishes. Guarded so a failure still leaves a
@@ -1243,8 +1243,9 @@ def main(argv: list[str] | None = None) -> int:
             window.run_dependency_check_async()
         except Exception:  # noqa: BLE001 — last-resort guard
             log.exception("initial dependency check failed; continuing anyway")
-        # Drive listing also shells to whipper; kept after show() so the window
-        # appears immediately. (Off-threading this probe too is tracked in TASKS.)
+        # Drive listing is kept after show() so the window appears immediately.
+        # (The previous backend shelled out for it; cyanrip's is a local /dev +
+        # sysfs scan. Off-threading this probe too is tracked in TASKS.)
         try:
             window.refresh_drives()
         except Exception:  # noqa: BLE001 — last-resort guard

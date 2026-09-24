@@ -165,12 +165,13 @@ def test_cyanrip_log_survives_plausible_but_hostile_logs(text: str) -> None:
 
 @settings(max_examples=350, suppress_health_check=[HealthCheck.too_slow], deadline=None)
 @given(_plausible_log())
-def test_the_whipper_parser_survives_them_too(text: str) -> None:
+def test_the_legacy_format_parser_survives_them_too(text: str) -> None:
     """The OTHER parser, fed shapes it was never written for.
 
     **Named wrongly when this file was written, and the correction is worth
     keeping.** It called `parse_rip_log` "the dispatcher". It is not — it is the
-    **whipper** parser, and whipper was removed in KDD-18. Dispatch happens at the
+    **legacy-format** parser, for the log format of the backend removed in
+    KDD-18. Dispatch happens at the
     four call sites, each sniffing with `looks_like_cyanrip_log` first
     (`workers/rip_worker.py:2818`, `rip_files.py:220`,
     `ui/main_window_rip.py:1602`, `parity.py:68`).

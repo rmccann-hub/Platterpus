@@ -51,6 +51,7 @@ def test_looks_like_eac_log_true_for_the_baseline() -> None:
 
 
 def test_looks_like_eac_log_false_for_other_formats() -> None:
+    # The legacy log format's real header line, then a cyanrip banner.
     assert looks_like_eac_log("Log created by: whipper 0.10.0\n") is False
     assert looks_like_eac_log("cyanrip 0.9.3.1 (abc)\n") is False
     assert looks_like_eac_log("") is False

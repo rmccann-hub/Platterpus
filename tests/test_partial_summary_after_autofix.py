@@ -156,7 +156,7 @@ def test_no_reported_fraction_falls_back_rather_than_going_silent() -> None:
     **The fix's own regression, caught by the existing UI tests.** The first
     version returned ``None`` here, which did not merely decline to correct the
     sentence — it *deleted* the footnote for every log shape that never carried a
-    ``Tracks ripped partially accurately:`` line (whipper-era logs, and any
+    ``Tracks ripped partially accurately:`` line (legacy-format logs, and any
     partial parse). Suppressing a right answer is not an improvement over
     correcting a wrong one.
     """

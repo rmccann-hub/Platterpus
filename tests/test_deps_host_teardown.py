@@ -11,6 +11,7 @@ from pathlib import Path
 
 from platterpus.deps.host_teardown import HostTeardown
 from platterpus.deps.step_engine import StepStatus
+from platterpus.paths import LEGACY_RIPPER_CONFIG_DIR, LEGACY_RIPPER_WRAPPER_PATH
 
 
 class _FakeRunner:
@@ -31,13 +32,19 @@ class _FakeRunner:
         return self.results.get(tuple(argv), self.default)
 
 
+#: Leftovers of the ripper older versions drove, by their real names on disk,
+#: read from `paths` so the tests and the engine cannot name different folders.
+_LEGACY_DIR: str = LEGACY_RIPPER_CONFIG_DIR.name
+_LEGACY_WRAPPER: str = LEGACY_RIPPER_WRAPPER_PATH.name
+
+
 def _teardown(tmp_path: Path, runner: _FakeRunner, **kwargs) -> HostTeardown:
     """A HostTeardown rooted entirely in tmp_path."""
     defaults = dict(
         runner=runner,
         gui_config_dir=tmp_path / "config" / "platterpus",
         gui_data_dir=tmp_path / "share" / "platterpus",
-        whipper_config_dir=tmp_path / "config" / "whipper",
+        legacy_config_dir=tmp_path / "config" / _LEGACY_DIR,
         bin_dir=tmp_path / "bin",
         desktop_dir=tmp_path / "applications",
         icon_dir=tmp_path / "icons",
@@ -57,11 +64,11 @@ def _populate_everything(tmp_path: Path) -> None:
         tmp_path / "icons" / "io.github.rmccann_hub.Platterpus.png",
         tmp_path / "Applications" / "platterpus-uninstall.sh",
         tmp_path / "bin" / "platterpus",
-        tmp_path / "bin" / "whipper",
+        tmp_path / "bin" / _LEGACY_WRAPPER,
         tmp_path / "bin" / "metaflac",
         tmp_path / "bin" / "cyanrip",
         tmp_path / "bin" / "flac",
-        tmp_path / "config" / "whipper" / "whipper.conf",
+        tmp_path / "config" / _LEGACY_DIR / "settings.conf",
         tmp_path / "config" / "platterpus" / "config.toml",
         tmp_path / "share" / "platterpus" / "log.txt",
     ]
@@ -91,12 +98,12 @@ def test_full_uninstall_removes_everything(tmp_path: Path) -> None:
     assert not (
         tmp_path / "applications" / "io.github.rmccann_hub.Platterpus.desktop"
     ).exists()
-    assert not (tmp_path / "bin" / "whipper").exists()
+    assert not (tmp_path / "bin" / _LEGACY_WRAPPER).exists()
     assert not (tmp_path / "bin" / "cyanrip").exists()
     # Regression (#34): setup exports flac too, so uninstall must remove its
     # wrapper — it was previously omitted and orphaned in ~/.local/bin.
     assert not (tmp_path / "bin" / "flac").exists()
-    assert not (tmp_path / "config" / "whipper").exists()
+    assert not (tmp_path / "config" / _LEGACY_DIR).exists()
     assert not (tmp_path / "config" / "platterpus").exists()
     assert not (tmp_path / "share" / "platterpus").exists()
     # …and the container was removed by force.
@@ -131,17 +138,15 @@ def test_optional_steps_can_be_kept(tmp_path: Path) -> None:
     runner.present = {"distrobox"}
     runner.results[("distrobox", "list")] = (0, "ripping\n")
 
-    td = _teardown(
-        tmp_path, runner, remove_container=False, remove_whipper_config=False
-    )
+    td = _teardown(tmp_path, runner, remove_container=False, remove_legacy_config=False)
     assert "container" not in td.STEP_IDS
-    assert "whipper_config" not in td.STEP_IDS
+    assert "legacy_config" not in td.STEP_IDS
     td.run()
 
-    # Kept: the container and whipper.conf. Removed: the rest.
+    # Kept: the container and the leftover config. Removed: the rest.
     assert all(c[:2] != ["distrobox", "rm"] for c in runner.calls)
-    assert (tmp_path / "config" / "whipper" / "whipper.conf").exists()
-    assert not (tmp_path / "bin" / "whipper").exists()
+    assert (tmp_path / "config" / _LEGACY_DIR / "settings.conf").exists()
+    assert not (tmp_path / "bin" / _LEGACY_WRAPPER).exists()
 
 
 def test_appimage_step_only_when_running_as_appimage(tmp_path: Path) -> None:
@@ -194,9 +199,9 @@ def test_container_failure_does_not_skip_other_removals(tmp_path: Path) -> None:
 
     status = _ids(results)
     assert status["container"] == "failed"
-    # The step AFTER the failure still ran (the fix) — whipper.conf is gone.
-    assert status["whipper_config"] == "ran"
-    assert not (tmp_path / "config" / "whipper").exists()
+    # The step AFTER the failure still ran (the fix) — the leftover config is gone.
+    assert status["legacy_config"] == "ran"
+    assert not (tmp_path / "config" / _LEGACY_DIR).exists()
     # Settings/logs are deliberately KEPT (not cancelled) so the log survives.
     assert status["app_data"] == "done"
     assert (tmp_path / "share" / "platterpus" / "log.txt").exists()
@@ -230,7 +235,7 @@ def test_dry_run_removes_nothing_and_reports_targets(tmp_path: Path) -> None:
     results = _teardown(tmp_path, runner).run(dry_run=True)
 
     assert all(r.status is StepStatus.WOULD_RUN for r in results)
-    assert (tmp_path / "bin" / "whipper").exists()  # nothing touched
+    assert (tmp_path / "bin" / _LEGACY_WRAPPER).exists()  # nothing touched
     assert all(c[:2] != ["distrobox", "rm"] for c in runner.calls)
     shortcuts = next(r for r in results if r.step_id == "shortcuts")
     assert "io.github.rmccann_hub.Platterpus.desktop" in shortcuts.detail
@@ -243,7 +248,7 @@ def test_cancel_before_first_step(tmp_path: Path) -> None:
     _populate_everything(tmp_path)
     results = _teardown(tmp_path, _FakeRunner()).run(cancelled=lambda: True)
     assert all(r.status is StepStatus.CANCELLED for r in results)
-    assert (tmp_path / "bin" / "whipper").exists()
+    assert (tmp_path / "bin" / _LEGACY_WRAPPER).exists()
 
 
 def test_canonical_applications_copy_removed_without_appimage_env(

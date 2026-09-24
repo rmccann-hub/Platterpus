@@ -60,14 +60,14 @@ def test_worker_emits_the_drive_list(qapp: QApplication) -> None:
     assert got == [drives]
 
 
-def test_worker_routes_whipper_error_to_failed(qapp: QApplication) -> None:
-    worker = DriveListWorker(_Backend(exc=RipError("no whipper")))
+def test_worker_routes_rip_error_to_failed(qapp: QApplication) -> None:
+    worker = DriveListWorker(_Backend(exc=RipError("no cyanrip")))
     failed: list[str] = []
     worker.failed.connect(failed.append)
 
     worker.run()
 
-    assert failed == ["no whipper"]
+    assert failed == ["no cyanrip"]
 
 
 def test_worker_wraps_unexpected_error(qapp: QApplication) -> None:

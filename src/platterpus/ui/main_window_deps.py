@@ -466,7 +466,7 @@ class DependencyMixin(MainWindowShared):
         This replaces the old per-tier fan-out — a consent box for auto deps,
         a separate queued dialog, and *one manual dialog per item* — which is
         what produced the "two popups" the maintainer hit on a fresh install
-        (whipper + metaflac each opened their own dialog). Now every installable
+        (the ripper + metaflac each opened their own dialog). Now every installable
         missing dep is a single checkbox row (ticked by default) in one
         `PendingInstallsDialog`; the dialog installs the ticked rows inline with
         per-row progress, and its dismiss button stays greyed out until the
@@ -614,10 +614,11 @@ class DependencyMixin(MainWindowShared):
         return install_one
 
     def _gui_manual_dialog(self, item: MissingItem) -> None:
-        # For tools the setup wizard provides (whipper/metaflac/flac), hand the
-        # dialog a callback so it can offer the one-click wizard instead of only
-        # a copyable search string — the user shouldn't have to paste a query to
-        # install something the app installs itself (Tools → Setup & Updates… → Run setup…).
+        # For tools the setup wizard provides (cyanrip, metaflac, flac and
+        # cd-paranoia), hand the dialog a callback so it can offer the one-click
+        # wizard instead of only a copyable search string — the user shouldn't
+        # have to paste a query to install something the app installs itself
+        # (Tools → Setup & Updates… → Run setup…).
         on_setup_wizard = (
             self.open_host_setup_dialog
             if getattr(item.spec, "from_setup_wizard", False)

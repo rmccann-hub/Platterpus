@@ -1,7 +1,7 @@
 """HostSetupWorker — runs the host-stack bootstrap off the GUI thread.
 
 The bootstrap (`deps.host_setup.HostSetup`) installs Distrobox + a container
-backend, creates the `ripping` container, installs whipper into it, and
+backend, creates the `ripping` container, installs cyanrip into it, and
 exports it — operations that can take minutes (image pulls, dnf installs), so
 they must not run on the GUI thread.
 

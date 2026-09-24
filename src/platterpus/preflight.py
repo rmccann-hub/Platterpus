@@ -54,7 +54,6 @@ from platterpus.ctdb.toc import DiscToc
 from platterpus.deps.manager import DependencyManager
 from platterpus.deps.version import parse_version
 from platterpus.drive_access import SEVERITY_OK, diagnose_drive_access
-from platterpus.offset_config import WhipperConfOffset, read_drive_offsets
 from platterpus.paths import LOG_PATH
 from platterpus.ripper_identity import identify_from_banner
 
@@ -566,19 +565,14 @@ def check_drives(backend: RipBackend) -> CheckResult:
     )
 
 
-def check_read_offset(
-    cfg: Config,
-    *,
-    backend_name: str = "cyanrip",
-    read_offsets: Callable[[], list[WhipperConfOffset]] = read_drive_offsets,
-) -> CheckResult:
+def check_read_offset(cfg: Config, *, backend_name: str = "cyanrip") -> CheckResult:
     """Surface the read offset cyanrip will apply.
 
     The offset is the one setting that silently corrupts a rip if it's wrong.
     cyanrip needs it every run (``-s``); it reads no config file of its own, so
-    the GUI's stored value (with "Apply" on) is the authority. When no offset
-    is configured we warn and point at the drive-setup wizard. A legacy
-    whipper.conf offset, if present, is surfaced as a reference. Never raises.
+    the GUI's stored value (with "Apply" on) is the authority, and the only
+    source consulted. When no offset is configured we warn and point at the
+    drive-setup wizard, its one home. Never raises.
     """
     del backend_name  # cyanrip is the sole backend; kept for signature parity
     if cfg.override_read_offset:
@@ -588,26 +582,15 @@ def check_read_offset(
             f"{cfg.read_offset:+d} samples (applied as cyanrip's -s)",
         )
     # No offset configured — cyanrip would rip at offset 0 (not bit-perfect).
-    # Surface any legacy whipper.conf value as a hint of what to enter.
-    try:
-        offsets = read_offsets()
-    except Exception:  # noqa: BLE001 — never crash the diagnostic
-        offsets = []
-    legacy = (
-        f" A legacy whipper.conf has: "
-        f"{'; '.join(f'{o.drive} → {o.offset:+d}' for o in offsets)}."
-        if offsets
-        else ""
-    )
     return CheckResult(
         "Read offset",
         Status.WARN,
         "no read offset configured",
         hint=(
-            "cyanrip needs a read offset to rip bit-perfectly — run the "
-            "drive-setup wizard (Tools → Setup & Updates… → Set up drive…), or "
-            "enter a known value in Settings "
-            "and tick Apply." + legacy
+            "cyanrip needs a read offset to rip bit-perfectly — set it in the "
+            "drive-setup wizard (Tools → Setup & Updates… → Set up drive…), which "
+            "looks it up from the AccurateRip drive list or takes it by hand, and "
+            "keep “Apply this read offset to every rip” ticked."
         ),
     )
 

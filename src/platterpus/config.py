@@ -62,7 +62,7 @@ DEFAULT_RERIP_OFFSET_VARIANT: Final[bool] = True
 # the GUI needs a restart — same as every other XDG-aware application.
 _DEFAULT_OUTPUT_DIR: Path = Path.home() / "Music" / "rips"
 
-# Path templates — whipper-style %-tokens (the syntax the GUI exposes),
+# Path templates — Platterpus's %-token templates (the syntax the GUI exposes),
 # translated to cyanrip's own naming scheme at rip time (see cyanrip_backend).
 # Format codes:
 #   %A = release artist   %d = release title (album)   %a = track artist
@@ -79,9 +79,10 @@ _DEFAULT_OUTPUT_DIR: Path = Path.home() / "Music" / "rips"
 #     and a live preview — see `naming.py`. Multi-disc folders aren't expressible
 #     (cyanrip's scheme has no disc-number token).
 #   * Unknown disc → literal "Unknown Artist/Unknown Album/## - Track NN".
-#     We deliberately do NOT use %d here: for a disc MusicBrainz can't
-#     identify, whipper fills %d with the raw disc-ID hash, so a literal
-#     path keeps unknown rips tidy (and matches the placeholder tags).
+#     We deliberately do NOT use %d here: a disc MusicBrainz can't identify
+#     has no real album title for it (the ripper older versions used filled
+#     %d with the raw disc-ID hash), so a literal path keeps unknown rips
+#     tidy (and matches the placeholder tags).
 _DEFAULT_TRACK_TEMPLATE: str = "%A/%d/%t - %n"
 _DEFAULT_DISC_TEMPLATE: str = "%A/%d/%d"
 _DEFAULT_TRACK_TEMPLATE_UNKNOWN: str = "Unknown Artist/Unknown Album/%t - Track %t"
@@ -142,13 +143,13 @@ class Config:
 
     # --- Output locations ---
     output_dir: str = field(default_factory=lambda: str(_DEFAULT_OUTPUT_DIR))
-    # `working_dir` lived here until 2026-08-24. It was a whipper-era scratch
-    # directory (whipper took one; cyanrip has no working-directory flag and the
-    # rip runs with `cwd=output_dir`), carried into the cyanrip backend by KDD-18
-    # and stored on an attribute nothing ever read — while its Settings tooltip
-    # and the User Guide told users to change it if their disk was short on
-    # space. An old config carrying the key still loads: unknown keys warn, they
-    # do not fail.
+    # `working_dir` lived here until 2026-08-24. It was a pre-cyanrip scratch
+    # directory (the previous backend took one; cyanrip has no working-directory
+    # flag and the rip runs with `cwd=output_dir`), carried into the cyanrip
+    # backend by KDD-18 and stored on an attribute nothing ever read — while its
+    # Settings tooltip and the User Guide told users to change it if their disk
+    # was short on space. An old config carrying the key still loads: unknown
+    # keys warn, they do not fail.
 
     # --- Rip path templates ---
     # Used for discs MusicBrainz identifies (rich, tag-driven names).
@@ -169,8 +170,8 @@ class Config:
     read_offset: int = 0
     # When True, the GUI applies `read_offset` to each rip (cyanrip's `-s`).
     # The drive-setup wizard turns this on when it detects or you enter an
-    # offset; legacy whipper.conf values are still read for the trust display
-    # (offset_config.py) but cyanrip is driven from this value.
+    # offset. This value is the only source a rip reads (offset_config.py) —
+    # no other program's config file is consulted.
     override_read_offset: bool = False
 
     # --- UI toggles ---
@@ -297,7 +298,7 @@ class Config:
     # and then secures ONLY the AccurateRip-failing tracks up to 2 agreeing reads,
     # so "verification is paramount" holds out of the box (the dynamic path is
     # inert at 0). An existing config keeps whatever value it saved. **cyanrip
-    # ONLY** — whipper had no equivalent.
+    # ONLY** — the previous backend had no equivalent.
     secure_rerip_matches: int = 2
 
     # Dynamic secure re-rip (default True — the behaviour, not a toggle): rip the
@@ -352,17 +353,17 @@ class Config:
     # --- FLAC encode-verify ---
     # After a successful rip, run `flac --test` on each output FLAC to confirm it
     # decodes back to its stored MD5 (catches encode/disk corruption). On by
-    # default. whipper already does this during the rip (`flac --verify`), so
-    # this only actually runs for a backend that doesn't self-verify (cyanrip);
-    # the Settings widget greys it out for whipper. Best-effort, off the GUI
-    # thread, surfaces only a one-line outcome (loud on failure).
+    # default. It only runs for a backend that doesn't self-verify during the
+    # rip; cyanrip (the sole backend) doesn't, so this is a real check.
+    # Best-effort, off the GUI thread, surfaces only a one-line outcome (loud
+    # on failure).
     verify_flac_after_rip: bool = True
 
     # --- FLAC re-compression ---
     # After a successful rip, re-encode each output FLAC at the maximum level
     # (`flac -8`, with `--verify`) to shrink the files. Opt-in, OFF by default:
     # it's lossless and provably bit-identical, but it costs CPU/time and the
-    # space saved over whipper's default `-5` is modest. Only meaningful for a
+    # space saved over flac's default `-5` is modest. Only meaningful for a
     # backend that *doesn't* already max compression — cyanrip encodes at the
     # ceiling already, so the GUI skips it there (and Settings greys it out).
     # Best-effort, off the GUI thread; each file is swapped in atomically so a
@@ -495,7 +496,7 @@ def load() -> Config:
         # Measured on the 2026-08-25 rig bundle: `unknown config keys ignored:
         # ['working_dir']` appears **11 times in one session's log** — once per
         # process, forever, for every user who upgraded past 0.6.24. `working_dir`
-        # was a whipper-era field this project deliberately removed; the config on
+        # was a pre-cyanrip field this project deliberately removed; the config on
         # disk still carries it because nothing rewrites the file until a setting
         # changes. So the warning is about our own decision, aimed at a user who
         # can do nothing with it, in the log we ask them to send us.
@@ -701,8 +702,8 @@ def _forward_compat_extra() -> dict[str, Any]:
 #: exactly as an unknown one is; the difference is only what the log calls it.
 RETIRED_CONFIG_KEYS: frozenset[str] = frozenset(
     {
-        # Removed in 0.6.24. A whipper-era scratch directory: whipper took one,
-        # cyanrip has no working-directory flag, and the rip runs with
+        # Removed in 0.6.24. A pre-cyanrip scratch directory: the previous backend
+        # took one, cyanrip has no working-directory flag, and the rip runs with
         # `cwd=output_dir`. It was stored on an attribute nothing ever read while
         # the Settings tooltip told users it was "a scratch folder used while a
         # rip is in progress".

@@ -25,7 +25,7 @@ def _dialog(qapp: QApplication, build=None) -> UninstallDialog:
 def test_checkboxes_default_to_remove_everything(qapp: QApplication) -> None:
     dialog = _dialog(qapp)
     assert dialog._container_check.isChecked() is True
-    assert dialog._whipper_conf_check.isChecked() is True
+    assert dialog._legacy_config_check.isChecked() is True
 
 
 def test_confirm_cancel_runs_nothing(qapp: QApplication, monkeypatch) -> None:
@@ -53,12 +53,12 @@ def test_confirm_yes_builds_teardown_from_checkboxes(
 
     built: list = []
 
-    def build(remove_container: bool, remove_whipper_config: bool):
-        built.append((remove_container, remove_whipper_config))
+    def build(remove_container: bool, remove_legacy_config: bool):
+        built.append((remove_container, remove_legacy_config))
         return _InstantEngine(built[-1])
 
     dialog = _dialog(qapp, build=build)
-    dialog._whipper_conf_check.setChecked(False)
+    dialog._legacy_config_check.setChecked(False)
     monkeypatch.setattr(
         QMessageBox, "warning", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
@@ -118,8 +118,8 @@ def test_on_finished_failure_reenables_and_reports(qapp: QApplication) -> None:
 
 def test_on_step_appends_result_lines(qapp: QApplication) -> None:
     dialog = _dialog(qapp)
-    dialog._on_step(StepResult("exports", "Exports", StepStatus.RAN, "removed whipper"))
-    assert "removed whipper" in dialog._results.toPlainText()
+    dialog._on_step(StepResult("exports", "Exports", StepStatus.RAN, "removed cyanrip"))
+    assert "removed cyanrip" in dialog._results.toPlainText()
     # RUNNING goes to the status line, not the log.
     dialog._on_step(StepResult("container", "Container", StepStatus.RUNNING))
     assert "Container" in dialog._status_label.text()

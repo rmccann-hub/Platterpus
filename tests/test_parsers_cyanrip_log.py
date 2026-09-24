@@ -356,7 +356,7 @@ def test_unstable_tracks_picks_only_the_non_converged_track() -> None:
     assert unstable_tracks(log) == [2]
 
 
-# --- Medium: negative offset, zero errors normalize like whipper ------------
+# --- Medium: negative offset, zero errors normalize like the legacy format ---
 
 
 def test_speed_changeable_parsed_from_banner() -> None:
@@ -374,7 +374,7 @@ def test_speed_changeable_parsed_from_banner() -> None:
     a_set_speed = parse_cyanrip_log("cyanrip 0.9.3 (release)\nSpeed:          8x\n")
     assert a_set_speed.ripping_info.speed_changeable is True
 
-    # Absent Speed line (or a whipper log) → unknown, not a false negative.
+    # Absent Speed line (or a legacy-format log) → unknown, not a false negative.
     absent = parse_cyanrip_log("cyanrip 0.9.3 (release)\nOffset:  +667 samples\n")
     assert absent.ripping_info.speed_changeable is None
 
@@ -384,7 +384,7 @@ def test_negative_offset_and_clean_finish() -> None:
         "cyanrip 0.9.3.1 (master)\nOffset:         -12 samples\nRipping errors: 0\n"
     )
     assert log.ripping_info.read_offset_correction == -12
-    # Normalized to whipper's phrasing so downstream checks are shared.
+    # Normalized to the legacy format's phrasing so downstream checks are shared.
     assert log.health_status == "No errors occurred"
 
 
@@ -414,9 +414,10 @@ def test_empty_and_garbage_inputs_degrade_to_empty() -> None:
     assert garbage.tracks == ()
 
 
-def test_whipper_log_is_not_detected_as_cyanrip() -> None:
-    whipper_text = "Log created by: whipper 0.10.0\nRipping phase information:\n"
-    assert looks_like_cyanrip_log(whipper_text) is False
+def test_legacy_format_log_is_not_detected_as_cyanrip() -> None:
+    # The legacy log format's real header line, which the discriminator keys on.
+    legacy_text = "Log created by: whipper 0.10.0\nRipping phase information:\n"
+    assert looks_like_cyanrip_log(legacy_text) is False
     assert looks_like_cyanrip_log(_FULL_LOG) is True
     assert looks_like_cyanrip_log("") is False
     assert looks_like_cyanrip_log("\n\n  \n") is False
@@ -430,8 +431,9 @@ def test_whipper_log_is_not_detected_as_cyanrip() -> None:
 # argument print ahead of the banner. They named it as a problem for their own
 # `-Y` and `PROJECT_FORK_ID`. **The consumer half is ours and they did not name
 # it:** `looks_like_cyanrip_log` read exactly the first non-blank line, so a
-# valid cyanrip log with one line of preamble was dispatched to the *whipper*
-# parser and returned **zero tracks from a fourteen-track disc**, silently.
+# valid cyanrip log with one line of preamble was dispatched to the
+# *legacy-format* parser and returned **zero tracks from a fourteen-track
+# disc**, silently.
 #
 # Latent at the pin and reachable the moment their item lands. Measured, not
 # reasoned: before the fix the parser extracted `log_creator` from the shifted
@@ -466,23 +468,23 @@ def test_dispatch_agrees_with_the_parser_about_what_it_can_read() -> None:
         if parsed.log_creator:
             assert looks_like_cyanrip_log(text) is True, (
                 "the parser read a banner out of this document and the dispatcher "
-                "would have sent it to the whipper parser instead"
+                "would have sent it to the legacy-format parser instead"
             )
     # FLOOR: the loop's assertion is inside a condition, so a parser that stopped
     # populating `log_creator` would make this pass by checking nothing.
     assert sum(bool(parse_cyanrip_log(d).log_creator) for d in documents) >= 4
 
 
-def test_widening_the_window_did_not_reclassify_a_whipper_log() -> None:
+def test_widening_the_window_did_not_reclassify_a_legacy_format_log() -> None:
     """The cost of looking past line one, paid for explicitly.
 
     A wider window could call any document mentioning cyanrip a cyanrip log, so
-    the whipper header is a positive check rather than a bet on ordering. Asserted
-    with the cyanrip banner placed *inside* the whipper log, which is the adverse
-    case an ordering bet would get wrong.
+    the legacy-format header is a positive check rather than a bet on ordering.
+    Asserted with the cyanrip banner placed *inside* the legacy-format log, which
+    is the adverse case an ordering bet would get wrong.
     """
     hostile = (
-        "Log created by: whipper 0.10.0\n"
+        "Log created by: whipper 0.10.0\n"  # the legacy format's real header
         "Ripping phase information:\n"
         "cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-g978f9b0)\n"
     )
@@ -1971,8 +1973,8 @@ def test_the_per_track_paranoia_counts_are_read_from_the_forks_own_reference() -
 
 
 def test_a_log_with_no_per_track_paranoia_block_yields_empty_counts() -> None:
-    """Every whipper log, and every cyanrip log before the fork added these, has
-    none. The field must be empty rather than absent, so a consumer can tell "this
+    """Every legacy-format log, and every cyanrip log before the fork added these,
+    has none. The field must be empty rather than absent, so a consumer can tell "this
     log carried no counts" from "this track had none"."""
     from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 

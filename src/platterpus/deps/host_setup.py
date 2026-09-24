@@ -646,8 +646,8 @@ class HostSetup:
 def cyanrip_on_host(cyanrip_path: Path = CYANRIP_BINARY_DEFAULT) -> bool:
     """True if cyanrip is reachable from the host.
 
-    Either host-exported by the wizard (the canonical route, mirroring
-    whipper) or installed natively and on PATH. Lives here — not in the UI —
+    Either host-exported by the wizard (the canonical route, Critical
+    Rule #3) or installed natively and on PATH. Lives here — not in the UI —
     so dependency-presence logic stays inside the self-management subsystem
     (Critical Rule #6).
     """
