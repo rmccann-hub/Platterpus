@@ -1621,7 +1621,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # silent room to grow, which the sibling test refuses for exactly that reason.
     # **1562 -> 1566 (2026-09-23)**: the dependency-check comment corrected (it
     # named a Settings button as the only door), and Settings' OK applies edits.
-    "ui/main_window.py": 1566,
+    # **1566 -> 1601 (2026-09-24)**: the page scroll area. The window's own
+    # central widget, so it belongs in the constructor that builds the widget
+    # tree — and it must be built top-down there, every child created in its
+    # final parent, because the other order segfaults under PySide6's garbage
+    # collector (the comment saying so is most of the growth). Plus three lines
+    # of Alt-key notes on the menu items whose letters moved, beside those items.
+    # This number was exceeded by commit 641a884 and pushed without a green
+    # suite; the check that would have caught it had been stopped.
+    "ui/main_window.py": 1601,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -1748,7 +1756,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1372 -> 1406 (2026-09-23)**: `apply_user_edits` — OK writes only what the
     # user changed, so a value saved while the dialog was open is not reverted.
     # Net of removing the two duplicate-door buttons.
-    "ui/settings_dialog.py": 1406,
+    # **1406 -> 1382 (2026-09-24): it SHRANK.** `apply_user_edits` moved to
+    # `user_settings.py`, the pure module the acceptance run and the rip report
+    # now share, which paid for the theme-aware colour lines that had taken the
+    # file to 1412.
+    "ui/settings_dialog.py": 1382,
     "ui/track_table.py": 802,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and

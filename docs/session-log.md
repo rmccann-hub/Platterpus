@@ -11,6 +11,68 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-24 (early morning) — one conformance matrix for every window, and what its first run found
+
+**The maintainer asked for a global fix rather than more per-window ones.** Every
+defect in the report had one root: a UI rule was written into one window and never
+applied to the others. `tests/test_ui_conformance.py` replaces the per-dialog
+fit gate with one matrix:
+
+- **Windows:** every `CenteredDialog`, taken from the source; the main window; and
+  five states that show coloured status lines.
+- **Conditions:** 22 of them. That is 14 standard screen shapes, Breeze Dark, and
+  150% text on the six shortest screens.
+- **Rules:** 8 of them.
+
+Each condition runs in its own process, all at once. The whole matrix takes about
+ten seconds.
+
+**Its first run found four real defects that the older gates missed:**
+
+- **Duplicate Alt-keys.** They were in the script console, in Setup & Updates
+  (two pairs) and in the Tools menu (two pairs).
+- **A search field with no name.** Screen readers announced the manual-install
+  search field as nothing.
+- **An uninstall checkbox cut off at 150% text.** A dialog that calls
+  `setMinimumSize` switches off the layout's own minimum. Qt then lets the dialog
+  squeeze content that cannot wrap.
+- **A build picker that scrolled with 99 px of screen to spare.** The body's size
+  hint measures the content at its natural width, and the dialog was narrower.
+
+The last two are fixed on the base class, not in the two dialogs where they
+showed.
+
+**Two of the rules were wrong as I first wrote them, and measuring showed it:**
+
+- **Button height** flagged Qt's own 22 px style default. WCAG 2.5.8 exempts
+  that. The rule now fails only on a size we set, or on a layout that squeezed a
+  button below its style's size.
+- **The contrast rule passed a revert probe that forced light-theme colours onto
+  a dark window.** It was VACUOUS: a newly opened window shows none of its
+  coloured status lines. `STATES` exists because of that probe. The rule now
+  sees the verdict, comparison, stall and validation lines, and the probe is
+  detected.
+
+Every fix was reverted with `scripts/revert_probe.py`, and the matrix caught
+each reversion: seven probes, all detected. Graduated to `docs/architecture.md`
+§3: *"A UI rule is written ONCE and applied to every window, in every
+condition."*
+
+**And a red push of my own, caught by the first full run after it.** Commit
+`641a884` took `main_window.py` and `settings_dialog.py` past their size ratchets.
+It was pushed while the full check that would have caught it was still running,
+and I then stopped that check because a test file changed under it. The next
+full run failed on both. Neither ratchet was raised to paper over it:
+
+- `settings_dialog.py` shrank. `apply_user_edits` moved to `user_settings.py`, a
+  pure module the acceptance work needs anyway.
+- `centering.py` gave its sizing job to `fit_scroll_area.py`.
+- `main_window.py` was raised, with the reason written down: the page scroll is
+  the window's own widget tree, which belongs in its constructor.
+
+The lesson is the one `CLAUDE.md` already states: a push is test-green or it is
+not a unit.
+
 ## 2026-09-24 (small hours) — 0.6.54 out; a real-user report found five UI defects, one of them archival
 
 **0.6.54 released** under the §6b override in our round 26 lap 2. The release gate

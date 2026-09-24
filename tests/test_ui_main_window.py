@@ -3229,7 +3229,9 @@ def test_tools_menu_has_uninstall_action(teardown_threads) -> None:
     actions: list[str] = []
     for menu in menubar.findChildren(type(menubar.addMenu("tmp"))):
         actions += [a.text() for a in menu.actions()]
-    assert any("Uninstall Platterpus" in text for text in actions)
+    # `&` removed: where the Alt-key letter sits is not what this test is about
+    # (it moved on 2026-09-24 when two Tools items shared Alt+U).
+    assert any("Uninstall Platterpus" in t.replace("&", "") for t in actions)
 
 
 def test_uninstall_finished_offers_quit_on_success(
