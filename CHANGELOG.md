@@ -11,6 +11,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+
+- **Round 27 is open, reviewing the fork's `+platterpus.16` (`221a1df`).** The acceptance
+  test now accepts `.16` as the build under review, so round 27's real test can run on this
+  release. 0.6.58 refused it at the first step, which is what stopped a quick run on
+  2026-09-24. The approved pin stays `df91ae7` until the round closes.
+
 ## [0.6.58] — 2026-09-24
 
 ### Added

@@ -239,7 +239,15 @@ _TABLE_ROUND_FLOOR: int = 6
 #: **1 -> 0 on 2026-09-23, round 26**: the pin moved to `.15`, and `.15`'s own
 #: `PROVIDER-CONTRACT.md` (built at `g37f946b`, committed at `df91ae7`) is filed as
 #: round 26's, so the table checked against is the current round's again.
-_MAX_TABLE_LAG: int = 0
+#: **0 -> 1 on 2026-09-24, round 27**: their lap 1 opens on `.16` (`221a1df`) and
+#: ships no provider contract, so the newest filed table is round 26's. Derived, in
+#: a full clone of their tree: `PROVIDER-CONTRACT.md` at `221a1df` (built at
+#: `gf56c16c`) differs from `df91ae7`'s ONLY in source line numbers, the `Build:`
+#: line and the source anchor (a diff with every `file.c:NNN` normalised is empty),
+#: and `git diff df91ae7 221a1df -- src/` touches no option parsing: the `media`
+#: tag in `cyanrip_main.c` and the AccurateRip tally in `cyanrip_log.c`. So the
+#: argv surface is round 26's exactly. Back to 0 when a round files a contract.
+_MAX_TABLE_LAG: int = 1
 #: **1 -> 0 on 2026-09-23, for round 24**: their lap 1 ships `PROVIDER-CONTRACT.md`
 #: generated from the build of the pin under review — `g2e6d97d`, whose `src/` and
 #: `meson.build` are identical to the pin `3e01bb3`'s (`git diff --stat 2e6d97d
