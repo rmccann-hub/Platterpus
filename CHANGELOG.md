@@ -23,6 +23,42 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   switched off for the run, so no test album is moved into your music, and both
   folder settings are put back when the run ends. The rips never enter the
   bundle's screenshot route, so album artwork can't get in.
+- **Each rip's own evidence bundle also stays in the session folder**, under
+  `ripbundles/`, while an acceptance run is going. On the 2026-09-24 run, eight
+  of them still went to the app's data directory.
+- **A test-run screenshot is taken only of a window that is actually on
+  screen, and the main window's picture comes first.** Each step used to write
+  21–23 images, a dozen of them tiny blanks of windows Qt never showed. The
+  step's main picture was a hidden release-picker dialog, the same image at every
+  step. Windows that aren't on screen are still listed in the transcript, each
+  marked "no picture: not on screen".
+
+### Fixed
+
+- **A rip killed by something outside Platterpus now says so instead of "no
+  diagnosis was captured".** On the 2026-09-24 acceptance run the ripper's
+  container was stopped 95 seconds into a whole-disc rip. The ripper exited 137
+  (killed), and the status line claimed there was no diagnosis. The exit status
+  was the diagnosis. The ripper's own error codes are 0–5, and a signal comes
+  from software, not from the disc or the drive. So the message now names the
+  signal, says the disc and drive are not the cause, lists the usual reasons
+  (the container stopped or restarted, a system update, low memory) and says
+  to start the rip again. A stop Platterpus caused itself, such as your Cancel,
+  is never described this way.
+- **The report no longer claims post-rip checks "ran" on a rip that didn't
+  finish.** CTDB, FLAC integrity and derived-format checks only start after a
+  successful rip. A failed or cancelled rip's report now says "not run — the rip
+  did not finish" instead of "ran", which had also set off a false "result
+  missing" warning.
+- **The acceptance script's `expect-verification` fails straight away over a
+  rip that didn't finish.** It used to wait its full 600 seconds for checks that
+  could never start, and then suggest they were still running.
+- **`rig-check` names a failed rip's cause instead of calling the empty log
+  "unexplained".** It still fails, because the parser had nothing to check, but
+  it now points at the rip's failure rather than at the parser.
+- **The Settings dialog and the release picker are freed after they close.**
+  Each opening used to leave one more hidden copy alive for as long as the
+  window stayed open.
 
 ## [0.6.55] — 2026-09-24
 

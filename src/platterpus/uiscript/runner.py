@@ -995,6 +995,20 @@ class ScriptRunner(QObject):
         ``QScreen.grabWindow()`` is unsupported on Wayland, which is the default
         on the Bazzite/Plasma 6 target, so per-widget rendering is the only thing
         that works there. The upside is that the same script runs headless in CI.
+
+        **A picture is taken only of a window that is ON SCREEN** — and every
+        window is still named in the manifest, with why it has no picture. Until
+        2026-09-24 every top level was rendered, so each step of that day's run
+        wrote 21-23 PNGs of which a dozen were 100-byte renders of 2x2 frames Qt
+        never showed, and — worse — the step's headline ``<name>.png`` was a
+        render of a HIDDEN release-picker dialog (the same 47,191 bytes at every
+        step), because the list was in Qt's order and nothing was active while
+        the operator was away. A render of a window nobody could see is not a
+        picture of what happened; it is the "the dialog was on screen" answer
+        this docstring opens by refusing, arriving through the file name.
+
+        The headline is the main window when it is on screen (the one picture an
+        operator opens), otherwise the first on-screen window.
         """
         directory = self._ensure_artifact_dir()
         if directory is None:
@@ -1003,23 +1017,50 @@ class ScriptRunner(QObject):
         name = _safe_name(step.args[0])
         written: list[str] = []
         manifest: list[str] = []
-        for index, widget in enumerate(_all_top_levels()):
+        windows = _all_top_levels()
+        shown = _photograph_order([w for w in windows if _is_on_screen(w)])
+        for index, widget in enumerate(shown):
             path = directory / (
                 f"{name}.png" if index == 0 else f"{name}-{index}-{_slug(widget)}.png"
             )
-            manifest.append(_window_manifest_line(widget))
+            manifest.append(_window_manifest_line(widget) + f" -> {path.name}")
             try:
                 if widget.grab().save(str(path), "PNG"):
                     written.append(path.name)
             except Exception as exc:  # noqa: BLE001 — evidence is best-effort
                 log.warning("screenshot of %r failed: %r", widget, exc)
                 manifest.append(f"    (grab failed: {exc!r})")
+        unshown = [w for w in windows if w not in shown]
+        for widget in unshown:
+            manifest.append(
+                _window_manifest_line(widget) + " -> no picture: not on screen"
+            )
         # "examined 0 windows" is a distinct, recordable outcome — not a pass.
         if not manifest:
             self._record(step, Outcome.FAIL, "no top-level window existed to examine")
             return
+        # The floor for the picture itself: a step that photographs nothing has
+        # produced no screenshot, whatever it examined. The main window is on
+        # screen for every step of a real run, so this is a finding, not noise.
+        if not shown:
+            self._record(
+                step,
+                Outcome.FAIL,
+                "\n".join(
+                    [
+                        f"examined {len(manifest)} window(s) and none was on "
+                        f"screen, so there was nothing to photograph"
+                    ]
+                    + manifest
+                ),
+            )
+            return
         detail = "\n".join(
-            [f"examined {len(manifest)} window(s); wrote {len(written)} PNG(s)"]
+            [
+                f"examined {len(windows)} window(s); {len(shown)} on screen, "
+                f"wrote {len(written)} PNG(s); {len(unshown)} not on screen, "
+                f"named below without a picture"
+            ]
             + manifest
         )
         self._record(
@@ -2336,10 +2377,22 @@ class ScriptRunner(QObject):
         read "ran"**. A rip with every check turned off carries no gate that
         could be superseded, and would otherwise satisfy "nothing was dropped"
         by having had nothing to drop.
+
+        **A rip that did not finish ends the wait at once, as a FAIL.** The
+        post-rip chain starts only after a successful rip, so on a failed or
+        cancelled one there is nothing to wait for — and waiting is what the
+        2026-09-24 run did: section F's rip was killed 95 s in and this step spent
+        its full 600 s polling for results that could never arrive, then blamed
+        "still running, or superseded", neither of which was true. It FAILs rather
+        than passing or skipping: the section turned the checks on, and a run in
+        which they never ran has not tested them.
         """
         import json
 
-        from platterpus.rip_report import VERIFICATION_DROPPED_CODES
+        from platterpus.rip_report import (
+            UNFINISHED_RIP_STATUSES,
+            VERIFICATION_DROPPED_CODES,
+        )
 
         try:
             seconds = float(step.args[0]) if step.args else 600.0
@@ -2381,6 +2434,23 @@ class ScriptRunner(QObject):
             report = _report()
             if report is None:
                 return False
+            outcome = report.get("outcome")
+            status = outcome.get("status") if isinstance(outcome, dict) else None
+            if status in UNFINISHED_RIP_STATUSES:
+                exit_code = (
+                    outcome.get("ripper_exit_code")
+                    if isinstance(outcome, dict)
+                    else None
+                )
+                self._deadline_outcome = Outcome.FAIL
+                self._deadline_detail = (
+                    f"the rip for {folder.name} did not finish (outcome "
+                    f"{status!r}, ripper exit {exit_code}), so no post-rip check "
+                    f"ran — there was nothing to wait for. This section's checks "
+                    f"are UNTESTED by this run; the rip's own failure is the "
+                    f"finding, and the report's `outcome.failure_hint` says why."
+                )
+                return True
             # Narrowed rather than trusted: this is a JSON document written by
             # another process and possibly mid-write, so a shape that is not what
             # we expect is "not yet", never a pass.
@@ -3726,6 +3796,28 @@ def _all_top_levels() -> list[QWidget]:
         widgets.remove(active)
         widgets.insert(0, active)
     return widgets
+
+
+def _is_on_screen(widget: QWidget) -> bool:
+    """Whether a top level is actually showing: visible, with a platform window
+    that the windowing system reports as exposed.
+
+    The same three facts the manifest line prints, combined — so "on screen"
+    here and in the transcript cannot mean two things.
+    """
+    handle = widget.windowHandle()
+    return widget.isVisible() and handle is not None and handle.isExposed()
+
+
+def _photograph_order(shown: list[QWidget]) -> list[QWidget]:
+    """On-screen windows, the main window first.
+
+    The first entry becomes the step's headline ``<name>.png``, the picture an
+    operator actually opens, so it must be the main window whenever that is up.
+    Matched by class name, as `_release_picker` does, to avoid a circular import.
+    """
+    main = [w for w in shown if type(w).__name__ == "MainWindow"]
+    return main + [w for w in shown if w not in main]
 
 
 def _window_manifest_line(widget: QWidget) -> str:

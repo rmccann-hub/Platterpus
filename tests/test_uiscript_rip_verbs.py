@@ -3055,6 +3055,35 @@ def test_expect_verification_fails_on_a_gate_claiming_to_have_run_over_nothing(
     assert step.outcome is Outcome.FAIL, step.detail
 
 
+def test_expect_verification_fails_at_once_over_a_rip_that_did_not_finish(
+    qapp, process_until, tmp_path
+) -> None:
+    """Section F's shape on 2026-09-24: the rip was killed, so nothing could land.
+
+    The post-rip chain only starts after a successful rip. The step polled for
+    its full 600 s anyway and then blamed "still running, or superseded" —
+    neither was true. It must FAIL (the checks are untested by this run), and it
+    must do so on the first poll: the timeout here is 30 s and the assertion is
+    that the step ended in a small fraction of it.
+    """
+    report = _report(
+        {"ctdb": "ran", "flac_integrity": "ran"},
+        issues=[{"severity": "error", "code": "rip_failed", "message": "x"}],
+    )
+    report["outcome"] = {"status": "failed", "ripper_exit_code": 137}
+    win = _window_after_a_rip_into(_album_with_report(tmp_path, report))
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-verification 30"
+    )
+    assert step.outcome is Outcome.FAIL, step.detail
+    assert "did not finish" in step.detail and "137" in step.detail, step.detail
+    assert "UNTESTED" in step.detail, step.detail
+    assert step.elapsed_s < 10, (
+        f"the step waited {step.elapsed_s:.1f}s for checks that cannot run on a "
+        "failed rip"
+    )
+
+
 def test_expect_verification_cannot_pass_over_a_rip_that_checked_nothing(
     qapp, process_until, tmp_path
 ) -> None:
@@ -3089,3 +3118,58 @@ def test_expect_verification_fails_rather_than_passing_when_no_report_exists(
         ScriptRunner(win), qapp, process_until, "expect-verification 1"
     )
     assert step.outcome is Outcome.FAIL, step.detail
+
+
+# --- screenshot: a picture only of what was on screen -----------------------
+
+
+def test_screenshot_photographs_only_windows_on_screen_main_window_first(
+    qapp, process_until, tmp_path
+) -> None:
+    """The 2026-09-24 run's screenshots were mostly of nothing.
+
+    Each step wrote 21-23 PNGs: a dozen 100-byte renders of 2x2 frames Qt never
+    showed, hidden dialogs rendered as if open, and — the part that misleads —
+    the headline ``<name>.png`` was a HIDDEN release picker (the same 47,191
+    bytes at every step), because the list was in Qt's order. A render of a
+    window nobody could see is not a picture of what happened.
+    """
+    from PySide6.QtWidgets import QDialog, QWidget
+
+    class MainWindow(QWidget):  # matched by class name, as the product's is
+        pass
+
+    main = MainWindow()
+    main.setWindowTitle("the main window")
+    main.resize(320, 200)
+    main.show()
+    never_shown = QDialog()
+    never_shown.setWindowTitle("never shown")
+    was_shown = QDialog()
+    was_shown.setWindowTitle("shown then hidden")
+    was_shown.show()
+    assert process_until(lambda: main.windowHandle() is not None)
+    assert process_until(lambda: main.windowHandle().isExposed())
+    was_shown.hide()
+    try:
+        runner = ScriptRunner(_window())
+        runner.contain_in(tmp_path)
+        step = _step_outcome(runner, qapp, process_until, "screenshot shot")
+        assert step.outcome is Outcome.PASS, step.detail
+        pngs = sorted(p.name for p in tmp_path.glob("shot*.png"))
+        assert "shot.png" in pngs, pngs
+        # The headline is the main window, by its own size — not whatever came
+        # first in Qt's list.
+        from PySide6.QtGui import QImage
+
+        headline = QImage(str(tmp_path / "shot.png"))
+        assert (headline.width(), headline.height()) == (
+            main.grab().width(),
+            main.grab().height(),
+        )
+        assert "'never shown'" in step.detail and "'shown then hidden'" in step.detail
+        assert step.detail.count("no picture: not on screen") >= 2, step.detail
+        assert not any("never" in name or "hidden" in name for name in pngs), pngs
+    finally:
+        for widget in (main, never_shown, was_shown):
+            widget.deleteLater()

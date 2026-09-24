@@ -2959,10 +2959,15 @@ class RipMixin(MainWindowShared):
         app_version = pending.app_version
         outcome = pending.outcome
         diagnostics = pending.diagnostics
+        # Inside the acceptance session's folder while one runs — everything a
+        # session makes lives there (`test_session.SessionLayout`). Read on the GUI
+        # thread, before the daemon starts, because the session can end meanwhile.
+        session = getattr(self, "_acceptance_layout", None)
+        dest_dir = getattr(session, "rip_bundles", None) or LOG_DIR / "bundles"
 
         def work() -> None:
             result = evidence_bundle.build_bundle(
-                dest_dir=LOG_DIR / "bundles",
+                dest_dir=dest_dir,
                 stamp=stamp,
                 app_version=app_version,
                 outcome=outcome,
@@ -3804,7 +3809,16 @@ class RipMixin(MainWindowShared):
             "backend_maxes_compression": self._backend.produces_max_compression_flac(),
             "transcode_requested": self._config.output_format in TRANSCODE_FORMATS,
         }
-        return rip_report.build_gates(**inputs, superseded=sorted(record.superseded))
+        # The rip's own outcome decides whether any check was begun at all: on a
+        # failed or cancelled rip the post-rip chain never starts, so a gate that
+        # reads "ran" there is the settings talking (2026-09-24 section F).
+        outcome = record.outcome if isinstance(record.outcome, dict) else {}
+        status = outcome.get("status")
+        return rip_report.build_gates(
+            **inputs,
+            superseded=sorted(record.superseded),
+            rip_status=status if isinstance(status, str) else None,
+        )
 
     def _record_post_rip_result(
         self, generation: int, attribute: str, value: object

@@ -205,6 +205,14 @@ class SessionLayout:
     #: **The one file the user sends.** Full path, name included — inside
     #: :attr:`root`, beside `evidence` and `rips`.
     bundle: Path
+    #: Where each rip's OWN evidence bundle goes while this session runs. Every
+    #: finished rip builds one (the rip log view's "send this" button), and they
+    #: went to the app's data directory — outside the session: eight of them on
+    #: the 2026-09-24 run, one day after the one-folder rule was written. A
+    #: sibling of `evidence` rather than inside it: the session bundle already
+    #: carries each rip's folder, log and report, so archiving a bundle inside
+    #: the bundle would be the same facts twice.
+    rip_bundles: Path
 
 
 #: Session-folder prefix. Lowercase and separator-free for the same reason the
@@ -227,8 +235,9 @@ SESSION_DIR_PREFIX: Final[str] = "platterpustestsession"
 #: the same instruction. The operator holds both rigs on one machine; two projects
 #: each inventing a shape would be this defect at a larger scale.
 #:
-#: Deliberately NOT under `~/Music` — that is the operator's library. Rips still go
-#: there and the deliverable still goes to `~/Downloads`.
+#: Deliberately NOT under `~/Music` — that is the operator's library. Since the
+#: 2026-09-24 one-folder change a session's rips and its deliverable are inside the
+#: session folder too (see :func:`plan_session`).
 RIG_PARENT_NAME: Final[str] = "platterpus-rig"
 
 
@@ -291,6 +300,7 @@ def plan_session(*, home: Path, stamp: str) -> SessionLayout:
         run_dir=evidence / "run",
         rips=root / "rips",
         bundle=root / bundle_filename(stamp),
+        rip_bundles=root / "ripbundles",
     )
 
 

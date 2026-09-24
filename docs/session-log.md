@@ -11,6 +11,32 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-24 (afternoon) — 0.6.55 released and tested: 258 of 261, one external stop, four defects of ours
+
+**0.6.55 went out under the §6b override, and the maintainer ran the full test on it**
+with the round-26 test pin `df91ae7` installed. Section A passed, so the morning's fix
+held on hardware. During the run the maintainer asked for everything a run makes to be in
+one folder, and that change is on the branch as `b720b2b`, for the next release.
+`/dev/null`, deleted by my stray `rm -f` that morning, was restored with the
+maintainer's explicit permission (`c 1 3`, mode 666).
+
+**The run reached its last step at 258 of 261, and all three failures are one event.**
+95 s into section F's whole-disc rip, the ripper printed `Trying to quit` and exited
+137. The next call through the Distrobox wrapper failed because podman could not start
+the container. Something outside the app had stopped the container, and nothing we
+capture says what. The maintainer has the command to find out. F and G are `ARCHIVAL`,
+so the ledger row is `partial`. The 2026-09-24 grades were fixed before the run, and
+"it was external" is not a reason to change them afterwards.
+
+**Four defects of ours, each a fact we held and did not use.** The user read *"no
+diagnosis was captured"* over an exit status that was the diagnosis. The report said the
+post-rip checks "ran" on a rip that never reached them. `expect-verification` waited
+600 s for them. The screenshots were mostly pictures of nothing, and the headline picture
+was a hidden dialog. On top of those, dialogs leaked and each rip's own bundle landed
+outside the session folder, one day after the one-folder rule. All are fixed, each with a
+test, and each test was proven by a revert (eight probes, eight detected). Graduated as
+`docs/testing.md` §5.br, with `ripper_exit.py` in `PLANNING.md` §2.
+
 ## 2026-09-24 (morning) — the round-26 test stopped at section A on our defect; 0.6.55 prepared
 
 **The maintainer's first acceptance run on 0.6.54 stopped at its first assertion.**
