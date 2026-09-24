@@ -200,8 +200,10 @@ def test_the_verdict_and_the_footnote_now_agree() -> None:
     message, _level = accuraterip_verdict(rip_log, disc_track_total=14)
     footnote = _final_partial_summary(rip_log) or ""
 
-    banner_partial = re.search(r"the other (\d+) matched an offset-variant", message)
-    footnote_partial = re.search(r"(\d+) of \d+ tracks matched only", footnote)
+    banner_partial = re.search(r"on the other (\d+), only one frame matched", message)
+    footnote_partial = re.search(
+        r"(\d+) of \d+ tracks matched AccurateRip on one frame only", footnote
+    )
     assert banner_partial, f"banner did not state a partial count: {message!r}"
     assert footnote_partial, f"footnote did not state a partial count: {footnote!r}"
     assert banner_partial.group(1) == footnote_partial.group(1), (
@@ -244,4 +246,4 @@ def test_the_REPORT_carries_the_final_count_not_the_parse_time_string() -> None:
 
     # The property that was violated: the two statements in one report agree.
     message = (report.get("verdict") or {}).get("message") or ""
-    assert "the other 1 matched an offset-variant" in message, message
+    assert "on the other 1, only one frame matched" in message, message

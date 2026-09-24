@@ -58,7 +58,7 @@ def test_reconcile_explains_no_match_with_partials() -> None:
     log = RipLog(tracks=(_verified(1), _verified(2), _offset(3), _offset(4)))
     line = reconcile_ar_ctdb(log, _ctdb(Verdict.NO_MATCH))
     assert line is not None
-    assert "offset-variant" in line
+    assert "only one frame matched" in line
     assert "SAME finding" in line
 
 
@@ -108,7 +108,7 @@ def test_reconcile_all_offset_variant_is_explained() -> None:
     log = RipLog(tracks=(_offset(1), _offset(2)))
     line = reconcile_ar_ctdb(log, _ctdb(Verdict.NO_MATCH))
     assert line is not None
-    assert "offset-variant" in line
+    assert "only one frame matched" in line
 
 
 # --- Found by mutation sweep, 2026-09-05 ------------------------------------
@@ -265,8 +265,8 @@ def test_every_track_accounted_for_but_some_offset_variant_stays_AMBER() -> None
 
     log = RipLog(tracks=(_verified(1), _verified(2), _offset(3)))
     text, tone = accuraterip_verdict(log, disc_track_total=3)
-    assert tone == "warn", "offset-variant is not proven bit-perfect"
-    assert "offset-variant" in text
+    assert tone == "warn", "one frame matching is not proven bit-perfect"
+    assert "only one frame matched" in text
     assert "aren't in the database" not in text, (
         "tracks that matched an offset-variant were described as unmatched"
     )
@@ -287,7 +287,7 @@ def test_no_exact_matches_but_offset_variants_is_not_the_same_as_nothing() -> No
 
     only_offset = RipLog(tracks=(_offset(1), _offset(2)))
     text, tone = accuraterip_verdict(only_offset, disc_track_total=2)
-    assert tone == "warn" and "offset-variant" in text
+    assert tone == "warn" and "only one frame matched" in text
     assert "verified against AccurateRip" not in text.split("—")[0], (
         "a disc with no exact matches claimed verified tracks"
     )

@@ -11,7 +11,32 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.57] — 2026-09-24
+
 ### Changed
+
+- **A "partially accurate" track is now described as what it is: one frame
+  matched AccurateRip, and the rest of the track is unverified.** cyanrip's
+  `Accurip 450` check covers one frame (1/75 of a second, six seconds in), and it
+  is only reported after the whole track matched nothing. Platterpus called this
+  "an offset-variant pressing" and "usually fine", which was wrong: a pressing
+  shifted by an offset would not match that frame either, and on the 2026-09-24
+  test one such track held wrong audio. The verdict, the results table and its
+  tooltips, the status line, the report's summary sentence, the help, the rip plan
+  and the Settings option now say only one frame matched and name no cause. The
+  Settings option is now *Also re-read tracks where only one frame matched
+  AccurateRip*. The EAC-compatible log keeps its old wording for now: both
+  projects agreed not to reword it one-sidedly, and new wording is being settled
+  with the cyanrip fork.
+- **On a rip that read only part of the disc, the loudness line no longer says
+  "Album loudness".** cyanrip's album figures cover whatever was read, so an
+  interrupted rip, or one of selected tracks, now reads *Loudness of what was read
+  (2 of 14 tracks finished), not the whole album*. The rip report records the same
+  thing in a new `album_loudness_covers` field (report schema 26).
+- **The test run's re-read check now counts `READ` only.** It used to add all four
+  paranoia counters together, which gave 2.87× on a log whose re-read count is
+  3.02×. The other counters don't scale with re-reads, but each is still checked
+  against its own limit.
 
 - **Offset-variant ("partially accurate") tracks are now re-read by default.**
   Such a match rests on a checksum over one frame of the track, and it has let
@@ -23,8 +48,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   costs extra read time on discs with offset-variant tracks (common on
   compilations and remasters) and none on others. **If you are upgrading, it is
   turned on for you once**, because a saved "off" cannot say whether you chose it
-  or inherited the old default. Untick *Settings → Also re-read offset-variant
-  (partially accurate) tracks* to turn it off, and it stays off. All three goals
+  or inherited the old default. Untick *Settings → Also re-read tracks where only
+  one frame matched AccurateRip* to turn it off, and it stays off. All three goals
   (Fast Verified, Archival Exact, Portable) now include it, so a config that was
   on Fast Verified still shows Fast Verified after the upgrade.
 
@@ -15383,7 +15408,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.56...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.57...HEAD
+[0.6.57]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.56...v0.6.57
 [0.6.56]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.55...v0.6.56
 [0.6.55]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.54...v0.6.55
 [0.6.54]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.53...v0.6.54
@@ -15527,4 +15553,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.56.*
+*Last updated for Platterpus v0.6.57.*

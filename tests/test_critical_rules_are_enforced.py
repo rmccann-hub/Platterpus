@@ -1510,7 +1510,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **587 -> 589 (2026-09-24)**: everything an acceptance run makes in ONE
     # session folder (maintainer: *"stop polluting my home folder, keep this all
     # contained to 1 folder"*). The guide says where that folder is.
-    "help_content.py": 589,
+    # **589 -> 591** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The glossary and the Settings bullet say what matched and name no cause.
+    "help_content.py": 591,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1553,13 +1554,16 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # It belongs beside the dataclass it interrogates; a third module for one
     # pure function would be the new-file-as-last-resort rule broken to satisfy
     # a line count.
-    "parsers/rip_log.py": 883,  # +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **883 -> 884** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The `accuraterip_offset` comment corrected.
+    "parsers/rip_log.py": 884,  # +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     "preflight.py": 904,
-    "read_speed_ladder.py": 367,
+    # **367 -> 370** (2026-09-24): Accurip 450 is ONE frame, not a pressing. Two docstrings stated the old mechanism as fact.
+    "read_speed_ladder.py": 370,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
-    "report_types.py": 673,
+    # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
+    "report_types.py": 690,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1571,10 +1575,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **899 -> 940 (2026-09-24, the 0.6.55 acceptance bundle)**: a FAILED rip's empty parse
     # names the failure (`_rip_failure`) instead of calling it unexplained; it reads
     # the same report as `_rip_was_cancelled`, so it belongs beside it.
-    "rig_check.py": 940,
-    "rip_addendum.py": 493,
+    # **940 -> 976** (2026-09-24): the paranoia row reads `READ` (the fork's 3.02x, not our 2.87x) and grades the bound per counter, which a sum could hide.
+    "rig_check.py": 976,
+    # **493 -> 496** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The label is kept (a real sidecar holds it); the comment says so.
+    "rip_addendum.py": 496,
     "rip_audit.py": 1216,
-    "rip_compare.py": 1404,
+    # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
+    "rip_compare.py": 1405,
     "rip_files.py": 422,
     # **2302 -> 2402 on 2026-09-15**: `SUPERSEDED_GATE`, `OPTIONAL_ARTIFACTS`, and
     # the gate-vs-result check in `_issues`. It is the block that decides whether
@@ -1594,7 +1601,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # says "ran"; the vocabulary lives beside `SUPERSEDED_GATE`, its sibling.
     # **2462 -> 2479 (2026-09-24, round 26 lap 4)**: the offset-variant sentence uses the
     # parser's denominator rule, and a rip that never finished is not called read-unstable.
-    "rip_report.py": 2479,
+    # **2479 -> 2490** (2026-09-24): schema v26 `album_loudness_covers` plus its history note.
+    "rip_report.py": 2490,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -1694,7 +1702,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # reconstruct from two other files.
     "ui/main_window_deps.py": 693,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     "ui/main_window_drive.py": 555,
-    "ui/main_window_helpers.py": 508,
+    # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
+    "ui/main_window_helpers.py": 512,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix
@@ -1829,7 +1838,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `user_settings.py`, the pure module the acceptance run and the rip report
     # now share, which paid for the theme-aware colour lines that had taken the
     # file to 1412.
-    "ui/settings_dialog.py": 1382,
+    # **1382 -> 1381** (2026-09-24): shrank by one; recorded at its real length.
+    "ui/settings_dialog.py": 1381,
     "ui/track_table.py": 802,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
@@ -1956,7 +1966,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `-o flac`, so its log is identical whether our transcode ran or not).
     "uiscript/verbs.py": 759,  # +46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,
     "update_install.py": 304,
-    "verdict.py": 521,
+    # **521 -> 530** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The banner and the CTDB reconciliation say what matched.
+    "verdict.py": 530,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
     # plus the comment recording the bundle measurement that produced it. The
     # line-classification loop is one cohesive read of the ripper's output.

@@ -831,9 +831,9 @@ def _migrate(raw: dict[str, Any]) -> dict[str, Any]:
         if raw.get("rerip_offset_variant") is False:
             raw["rerip_offset_variant"] = True
             log.info(
-                "config v8→v9: offset-variant re-reads turned on (the new "
-                "default); untick 'Also re-read offset-variant (partially "
-                "accurate) tracks' in Settings to turn them off"
+                "config v8→v9: re-reads of 'partially accurate' tracks turned on "
+                "(the new default); untick 'Also re-read tracks where only one "
+                "frame matched AccurateRip' in Settings to turn them off"
             )
         raw["schema_version"] = 9
         version = 9

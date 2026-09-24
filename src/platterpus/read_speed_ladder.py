@@ -213,8 +213,9 @@ def unstable_tracks(rip_log: object) -> list[int]:
     scratch/dirt region) and may not be bit-perfect. This is the reliable
     per-track read-quality signal — distinct from cyanrip's whole-disc
     ripping-error count (which stays 0 even then; see :func:`read_errors_present`)
-    and from an offset-variant AccurateRip match (a stable read of a different
-    pressing — NOT instability). Per the maintainer's "flag it, don't auto
+    and from a one-frame AccurateRip match (``Accurip 450``: one frame agreed and
+    the rest of the track matched nothing; it says nothing about stability either
+    way — see :mod:`platterpus.one_frame_match`). Per the maintainer's "flag it, don't auto
     re-rip" policy (2026-07-01) these are surfaced honestly but do NOT trigger a
     re-rip. Pure, sorted, deduped, and — like every helper here — never raises.
     """
@@ -261,9 +262,11 @@ def tracks_failing_accuraterip(
 ) -> list[int]:
     """Track numbers NOT proven by AccurateRip after a pass.
 
-    A track is "proven" if AccurateRip v1/v2 matched. By default an offset-variant
-    match (a differently-offset pressing) also counts as proven and is skipped —
-    the fast first read is kept. In *dynamic* secure-rerip mode these are the
+    A track is "proven" if AccurateRip v1/v2 matched. With the function's default
+    a one-frame match (``Accurip 450``, called "offset-variant" in this code) also
+    counts as proven and is skipped — the fast first read is kept. The rip worker
+    passes the user's setting, which is on by default since the release after
+    0.6.56, because one frame matching verifies one frame. In *dynamic* secure-rerip mode these are the
     tracks worth a targeted `-Z` re-rip: a track that matched the database on the
     fast first read is treated as proven, so re-reading it is normally wasted time.
 

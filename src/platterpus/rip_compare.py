@@ -482,7 +482,8 @@ def _decide_better(
 def _describe_status(status: str) -> str:
     return {
         STATUS_VERIFIED: "an exact AccurateRip match",
-        STATUS_OFFSET_VARIANT: "an offset-variant match",
+        # The key is historical; only frame 450 matched (see `one_frame_match`).
+        STATUS_OFFSET_VARIANT: "a match on one frame only",
         STATUS_NOT_IN_DB: "not in the AccurateRip database",
         STATUS_ABSENT: "absent",
     }.get(status, status)

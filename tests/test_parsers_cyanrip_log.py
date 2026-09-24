@@ -1773,7 +1773,7 @@ def test_offset_variant_sentence_is_the_same_on_both_fork_denominators() -> None
     # actually says something, and specifically that it names the DISC as the
     # population — the whole point of the change.
     assert "1 of 14 tracks" in old_shape, old_shape
-    assert "offset-variant" in old_shape, old_shape
+    assert "on one frame only" in old_shape, old_shape
     # And the old prose must be gone: it asserted a meaning that is now wrong.
     assert "not fully verified" not in old_shape, (
         "the sentence still claims the denominator counts unverified tracks, which "
@@ -1795,7 +1795,7 @@ def test_the_real_rig_log_renders_the_disc_as_the_population() -> None:
     # flag a disagreement, because there is none — their 1 is our 1.
     assert log.partially_accurate_reported == "1/1"
     assert log.partially_accurate_summary == (
-        "1 of 14 tracks matched only an offset-variant pressing (partially accurate)"
+        "1 of 14 tracks matched AccurateRip on one frame only (the rest unverified)"
     ), log.partially_accurate_summary
     assert "does not agree" not in log.partially_accurate_summary
 

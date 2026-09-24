@@ -460,7 +460,7 @@ def _state_from_table_cell(cell: str) -> str | None:
     """Classify one results-table AR cell. ``None`` = this column said nothing."""
     if cell.startswith("OK ("):
         return _STATE_VERIFIED
-    if cell.startswith("offset-variant match"):
+    if cell.startswith("one frame only"):
         return _STATE_OFFSET
     if cell == "not checked":
         return _STATE_NOT_CHECKED

@@ -1049,7 +1049,12 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_25() -> None:
+def test_schema_version_is_26() -> None:
+    # v26 added `album_loudness_covers`: what the album loudness figures were
+    # measured over. cyanrip's "Album" rows cover whatever audio was read, and an
+    # interrupted rip printed an album loudness for 40% of one track (the fork, round
+    # 26 lap 4). The figures are unchanged; the key says what they describe.
+    #
     # v25 added `settings.every_setting`: every user setting, derived from the
     # `Config` dataclass rather than listed by hand, so a setting added tomorrow is
     # recorded tomorrow. The maintainer's ask (2026-09-23): the acceptance run should
@@ -1124,7 +1129,7 @@ def test_schema_version_is_25() -> None:
     # rather than folded into `checksums`, because a SHA256 mismatch after a
     # retag is expected while an audio-MD5 mismatch never is, and a reader must
     # not be able to confuse the two.
-    assert REPORT_SCHEMA_VERSION == 25
+    assert REPORT_SCHEMA_VERSION == 26
 
 
 def _issue_codes(report: dict) -> set[str]:
