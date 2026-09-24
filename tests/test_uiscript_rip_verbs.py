@@ -3134,12 +3134,9 @@ def test_screenshot_photographs_only_windows_on_screen_main_window_first(
     bytes at every step), because the list was in Qt's order. A render of a
     window nobody could see is not a picture of what happened.
     """
-    from PySide6.QtWidgets import QDialog, QWidget
+    from PySide6.QtWidgets import QApplication, QDialog
 
-    class MainWindow(QWidget):  # matched by class name, as the product's is
-        pass
-
-    main = MainWindow()
+    main = _window()  # the runner's own window: the headline is chosen by identity
     main.setWindowTitle("the main window")
     main.resize(320, 200)
     main.show()
@@ -3148,11 +3145,22 @@ def test_screenshot_photographs_only_windows_on_screen_main_window_first(
     was_shown = QDialog()
     was_shown.setWindowTitle("shown then hidden")
     was_shown.show()
+    # A second window that IS on screen and is the ACTIVE one: without the fix the
+    # active window leads Qt's list and takes the headline.
+    other = QDialog()
+    other.setWindowTitle("another window")
+    other.resize(500, 120)
+    other.show()
     assert process_until(lambda: main.windowHandle() is not None)
     assert process_until(lambda: main.windowHandle().isExposed())
+    assert process_until(lambda: other.windowHandle() is not None)
+    other.activateWindow()
+    assert process_until(lambda: QApplication.activeWindow() is other), (
+        "the premise: the other window is active, so it leads Qt's list"
+    )
     was_shown.hide()
     try:
-        runner = ScriptRunner(_window())
+        runner = ScriptRunner(main)
         runner.contain_in(tmp_path)
         step = _step_outcome(runner, qapp, process_until, "screenshot shot")
         assert step.outcome is Outcome.PASS, step.detail
@@ -3171,5 +3179,5 @@ def test_screenshot_photographs_only_windows_on_screen_main_window_first(
         assert step.detail.count("no picture: not on screen") >= 2, step.detail
         assert not any("never" in name or "hidden" in name for name in pngs), pngs
     finally:
-        for widget in (main, never_shown, was_shown):
+        for widget in (main, never_shown, was_shown, other):
             widget.deleteLater()
