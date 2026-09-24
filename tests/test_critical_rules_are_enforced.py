@@ -1157,7 +1157,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # xcb/6.11.2, so a reader who trusts its name deletes the line that is
     # actually holding the pairing up.
     # **1373 -> 1374** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "app.py": 1374,
+    # **1374 -> 1380 (2026-09-24)**: the startup call that removes INVOCATION_ID
+    # before anything spawns, so a container we start is not owned by this
+    # window's unit (`container_scope.py`). It has to be here: it must run first.
+    "app.py": 1380,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
@@ -1576,7 +1579,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "parsers/rip_log.py": 889,  # +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
-    "preflight.py": 887,
+    # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
+    # app or terminal the container belongs to. The lookup is in
+    # `container_scope.py`; only the CheckResult mapping lives here, beside the
+    # other checks, because a check that lived elsewhere would need to import
+    # this module back.
+    "preflight.py": 928,
     # **367 -> 370** (2026-09-24): Accurip 450 is ONE frame, not a pressing. Two docstrings stated the old mechanism as fact.
     "read_speed_ladder.py": 370,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
