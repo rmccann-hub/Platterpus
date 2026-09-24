@@ -195,6 +195,10 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
 - [x] **0.6.56 released 2026-09-24** (release run 154 on `56de3cf`; handshake, CI and changelog gates
   green; AppImage, `.sha256`, `.zsync` published; PyPI published). No round open, no override.
   It is the first release that installs `df91ae7` by default.
+- [x] **0.6.58 released 2026-09-24** (release run 156 on `22c595f`, after `main`'s CI run 900
+  was green; AppImage, `.sha256`, `.zsync` and install scripts published). No round open (the
+  fork's head still `64a6207`), so no override. Acceptance run sizes, a fixed baseline, the
+  drive's own offset, component versions, one home per setting, and the old ripper's name retired.
 - [x] **0.6.57 released 2026-09-24** (release run 155 on `8278b19`, after `main`'s CI run 898
   was green; AppImage, `.sha256`, `.zsync` and install scripts published; PyPI published). No
   round open, so no override. It re-reads one-frame matches by default.
