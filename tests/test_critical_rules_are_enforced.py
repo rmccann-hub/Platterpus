@@ -1929,7 +1929,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # fails at once over a rip that did not finish (it waited 600 s), and
     # `screenshot` photographs only on-screen windows, main window first (the
     # headline picture was a hidden dialog at every step).
-    "uiscript/runner.py": 4121,  # +116: _do_expect_verification, the assertion section F never had,
+    # **4121 -> 4125**: the headline screenshot is chosen by the runner's own window
+    # (identity), after the full suite showed a class-name match picking a leftover.
+    "uiscript/runner.py": 4125,  # +116: _do_expect_verification, the assertion section F never had,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
