@@ -1,0 +1,203 @@
+=== Platterpus diagnostics ===
+
+Approved pair: Platterpus 0.6.55 + cyanrip 0.9.4-rc2+platterpus.14 (platterpus-fork-g3e01bb3) — verified by handshake round 25 (approved for Platterpus 0.6.53). This names what the record APPROVES, not what is installed — the build that produced a given rip is named in that rip's own log and report.
+
+--- Environment ---
+install_channel: appimage
+platform: Linux-7.2.4-ogc3.1.fc44.x86_64-x86_64-with-glibc2.43
+pyside6: 6.11.2
+python: 3.12.14
+
+--- Dependencies ---
+cdparanoia: present=True version=10.2 min_version_met=True
+cyanrip: present=True version=0.9.4 min_version_met=True
+ffmpeg: present=True version=8.1.2 min_version_met=True
+flac: present=True version=1.5.0 min_version_met=True
+metaflac: present=True version=1.5.0 min_version_met=True
+musicbrainzngs: present=True version=0.7.1 min_version_met=True
+picard: present=True version=2.13.3 min_version_met=True
+
+--- Diagnostics ---
+errors: 2  warnings: 2  info: 15
+worst: error
+scope: process session (not only this rip)
+
+[error] ripper.nonzero_exit @ 2026-09-24T01:16:15+00:00
+  the ripper exited 137
+  tool: cyanrip
+  exit code: 137
+  argv: /home/rmccann/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 3 -N --consumer platterpus/0.6.55 -c 1/1 -a album=full acceptance\: angle<bracket 20260924t011421 platterpus-fork-gdf91ae7:album_artist=Platterpus Acceptance:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=Platterpus Acceptance:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=Platterpus Acceptance:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=Platterpus Acceptance:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=Platterpus Acceptance:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=Platterpus Acceptance:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=Platterpus Acceptance:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=Platterpus Acceptance:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=Platterpus Acceptance:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=Platterpus Acceptance:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=Platterpus Acceptance:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=Platterpus Acceptance:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=Platterpus Acceptance:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=Platterpus Acceptance:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=Platterpus Acceptance:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -j cyanrip-diagnostics-20260924T011442Z.json
+  where: workers.rip_worker.RipWorker._run_rip
+  detail:
+    Checking /dev/sr0 for cdrom...
+    		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+    
+    
+    Opening drive...
+    No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!
+    cyanrip 0.9.4-rc2+platterpus.15 (platterpus-fork-gdf91ae7)
+    Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 3 -N --consumer platterpus/0.6.55 -c 1/1 -a "album=full acceptance\: angle<bracket 20260924t011421 platterpus-fork-gdf91ae7:album_artist=Platterpus Acceptance:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=Platterpus Acceptance:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=Platterpus Acceptance:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=Platterpus Acceptance:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=Platterpus Acceptance:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=Platterpus Acceptance:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=Platterpus Acceptance:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=Platterpus Acceptance:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=Platterpus Acceptance:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=Platterpus Acceptance:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=Platterpus Acceptance:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=Platterpus Acceptance:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=Platterpus Acceptance:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=Platterpus Acceptance:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=Platterpus Acceptance:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -j cyanrip-diagnostics-20260924T011442Z.json
+    Handshake:      round 25 lap 5 closed, verdict GO -- released build
+                    (declared at build time, not verified by cyanrip)
+    Consumer:       platterpus/0.6.55
+                    (reported by the caller, not verified by cyanrip)
+    Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+    System device:  /dev/sr0
+    Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+    Offset:         +667 samples
+    Overread:       +2 frames
+    Overread mode:  fill with silence in lead-in/lead-out
+    Speed:          default (unchangeable)
+    C2 errors:      unsupported by drive
+    CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+    Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+    Paranoia level: max
+    Retry limit:    3 (per whole-track re-read; 5 per frame, rounded up to a multiple of 5, the only values libcdio-paranoia checks)
+    Cache model:    1200 sectors (drive cache size not probed)
+    HDCD decoding:  disabled
+    Album Art:      none
+    Outputs:        flac
+    Disc number:    1
+    Total discs:    1
+    Disc tracks:    14
+    Tracks to rip:  all
+    DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+    Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+    CDDB ID:        E20DFE0E
+    Album:          full acceptance: angle<bracket 20260924t011421 platterpus-fork-gdf91ae7
+    Album artist:   Platterpus Acceptance
+    AccurateRip:    found
+    Total time:     59:42.57
+    
+    Gaps:
+        160 frame pregap in track 2, merging into track 1
+        158 frame pregap in track 4, merging into track 3
+        115 frame pregap in track 5, merging into track 4
+        105 frame pregap in track 7, merging into track 6
+        85 frame pregap in track 8, merging into track 7
+        94 frame pregap in track 9, merging into track 8
+        147 frame pregap in track 10, merging into track 9
+        90 frame pregap in track 13, merging into track 12
+        117 frame pregap in track 14, merging into track 13
+    
+    Tracks:
+    Trying to quit
+
+[warning] deps.command_failed @ 2026-09-24T01:16:15+00:00
+  cyanrip exited 125
+  tool: cyanrip
+  exit code: 125
+  argv: /home/rmccann/.local/bin/cyanrip -V
+  where: adapters.rip_backend.run_capture
+  detail:
+    Error: unable to start container "2abb8858c807d9d4dd36ee927645c67a0cc982a4d18d378f33dccbd2874db979": creating temporary passwd file for container 2abb8858c807d9d4dd36ee927645c67a0cc982a4d18d378f33dccbd2874db979: container 2abb8858c807d9d4dd36ee927645c67a0cc982a4d18d378f33dccbd2874db979: open /var/home/rmccann/.local/share/containers/storage/overlay/e4cb26579af3546e45ac1a845b11775a542c585248f1b43d093d751ee00a17bc/merged/etc/passwd: no such file or directory
+
+[error] ripper.log_verify_failed @ 2026-09-24T01:16:16+00:00
+  cyanrip exit 3: No FUN512 checksum found in "/home/rmccann/Music/rips/Platterpus Acceptance/full acceptance∶ angle‹bracket 20260924t011421 platterpus-fork-gdf91ae7/full acceptance∶ angle‹bracket 20260924t011421 platterpus-fork-gdf91ae7.log"!
+  tool: cyanrip
+  exit code: 3
+  argv: /home/rmccann/.local/bin/cyanrip --verify-log /home/rmccann/Music/rips/Platterpus Acceptance/full acceptance∶ angle‹bracket 20260924t011421 platterpus-fork-gdf91ae7/full acceptance∶ angle‹bracket 20260924t011421 platterpus-fork-gdf91ae7.log
+  where: verifying the ripper's own log against its FUN512 checksum
+  detail:
+    No FUN512 checksum found in "/home/rmccann/Music/rips/Platterpus Acceptance/full acceptance∶ angle‹bracket 20260924t011421 platterpus-fork-gdf91ae7/full acceptance∶ angle‹bracket 20260924t011421 platterpus-fork-gdf91ae7.log"!
+
+[info] ripper.secure_rerip_verdict @ 2026-09-24T02:14:26+00:00
+  Done; (2 out of 2 matches for current checksum 4F2EDD18)
+  tool: cyanrip
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-09-24T02:24:03+00:00
+  Done; (2 out of 2 matches for current checksum 67A551CD)
+  tool: cyanrip
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-09-24T02:39:16+00:00
+  Done; (2 out of 2 matches for current checksum A62CAD22)
+  tool: cyanrip
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-09-24T02:54:28+00:00
+  Done; (2 out of 2 matches for current checksum 9F286951)
+  tool: cyanrip
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-09-24T03:06:35+00:00
+  Done; (no matches found, but hit repeat limit of 3)
+  tool: cyanrip
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-09-24T03:18:42+00:00
+  Done; (2 out of 2 matches for current checksum 4CD89629)
+  tool: cyanrip
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-09-24T03:31:23+00:00
+  Done; (2 out of 2 matches for current checksum 33400996)
+  tool: cyanrip
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-09-24T03:42:16+00:00
+  Done; (2 out of 2 matches for current checksum 28DC3E4F)
+  tool: cyanrip
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-09-24T03:50:55+00:00
+  Done; (2 out of 2 matches for current checksum 9091B5A0)
+  tool: cyanrip
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-09-24T04:02:55+00:00
+  Done; (2 out of 2 matches for current checksum C5CCAE60)
+  tool: cyanrip
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-09-24T04:17:02+00:00
+  Done; (2 out of 2 matches for current checksum A94039C2)
+  tool: cyanrip
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-09-24T04:31:43+00:00
+  Done; (2 out of 2 matches for current checksum 28731510)
+  tool: cyanrip
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-09-24T04:45:21+00:00
+  Done; (2 out of 2 matches for current checksum 2595B250)
+  tool: cyanrip
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-09-24T04:58:58+00:00
+  Done; (2 out of 2 matches for current checksum 87845D29)
+  tool: cyanrip
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-09-24T05:11:14+00:00
+  Done; (2 out of 2 matches for current checksum 1FFC9968)
+  tool: cyanrip
+  where: workers.rip_worker.RipWorker._run_rip
+
+[warning] deps.command_failed @ 2026-09-24T05:12:00+00:00
+  cyanrip exited 1
+  tool: cyanrip
+  exit code: 1
+  argv: /home/rmccann/.local/bin/cyanrip -N -l 1
+  where: adapters.rip_backend.run_capture
+  detail:
+    Checking /dev/cdrom for cdrom...
+    		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+    
+    
+    Opening drive...
+    Offset is unset! To continue with an offset of 0, run with -s 0!
+    Paranoia status counts:
+      none
+    
+    Ripping errors: 0
+    Encoder errors: not applicable; no track was encoded
+    Read stalls:    none (no read exceeded 10s)
+    Rip completed:  no (aborted, 0 of 14 tracks)
+    Ripping finished at 2026-09-24T01:12:00-04:00
+
+--- Where the rest lives ---
+app log: /home/rmccann/.local/share/platterpus/log.txt
+per-rip report: a `.platterpus.json` beside each album's audio — it embeds the ripper's own output and that session's debug log.

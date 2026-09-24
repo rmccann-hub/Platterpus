@@ -11,6 +11,72 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-24 (night) — lap 5 released; round 26 closed on our gate; the pin is `df91ae7`
+
+The maintainer said "release the next lap". Before announcing, I re-read their branch
+(`cd56d2c`, still lap 4 newest, so no crossing). `--announce` flipped the lap, and our
+gate read round 26 CLOSED. The suite then named every binding that had to move with it.
+`FORK_PIN` became `df91ae7` and the expected version `+platterpus.15`, both cross-checked
+against their `meson.build`. `meson_options.txt` is unchanged. The approval record moved
+to round 26 for 0.6.55, read off their lap 4. README, DEPENDENCIES, the rig sheet, the
+hardware checklist, the standing status and the regenerated contract followed.
+
+Two tests had been reading live round state and assumed a round was open: the ripper
+menu's "an unapproved build is marked" floor, and the round-26 section-A shape. Each now
+builds the state it asserts about, which is §5.bq's rule applied to two tests it had not
+reached.
+
+## 2026-09-24 (evening) — the fork's lap 4 `GO`; our lap 5 `GO` written and held; the bundle filed
+
+**The fork's round 26 lap 4 arrived `GO` on `df91ae7`, and every claim in it that we
+could check held.** That covers its 40 filed bundle files (byte-identical to the
+tarball), the six report hashes, its citations of our log and code, and its source
+citations. It also held for its one finding about us: our cancelled rip's report said
+"0 of 0 tracks". Their paranoia ratio, 3.02, differed from our rig-check's 2.87 on the
+same log; both reproduce, theirs counts `READ` only, and theirs is the better witness.
+
+**A second reading of the bundle found two more things in us, neither of them in any
+failure.** The track rows stayed "⟳ Ripping" after a clean rip, because the rip worker's
+own copy of the track-done pattern predated `.14`'s wording. That also stopped the
+partial report that survives a kill. And one track held wrong audio (section J's track
+1, CRC different from five exact AccurateRip reads) that passed on a one-frame
+`Accurip 450` match. The first and the nit are fixed and revert-proved. The second is
+queued as NEXT-ROUND for both sides. Whether offset-variant re-reads should default on
+is the maintainer's call.
+
+**The bundle went in under our own convention** (`docs/handshake/artifactsround26/`)
+after I first created a directory beside it. The *Artifacts* section of the handshake
+README was one screen from where I was writing, which is Critical rule #7's fourth
+obligation, caught before commit. Our lap 5 is `GO`, `--check` clean, and HELD. Its
+announce commit must also roll `FORK_PIN`, since our gate reads the round closed from
+there.
+
+## 2026-09-24 (afternoon) — 0.6.55 released and tested: 258 of 261, one external stop, four defects of ours
+
+**0.6.55 went out under the §6b override, and the maintainer ran the full test on it**
+with the round-26 test pin `df91ae7` installed. Section A passed, so the morning's fix
+held on hardware. During the run the maintainer asked for everything a run makes to be in
+one folder, and that change is on the branch as `b720b2b`, for the next release.
+`/dev/null`, deleted by my stray `rm -f` that morning, was restored with the
+maintainer's explicit permission (`c 1 3`, mode 666).
+
+**The run reached its last step at 258 of 261, and all three failures are one event.**
+95 s into section F's whole-disc rip, the ripper printed `Trying to quit` and exited
+137. The next call through the Distrobox wrapper failed because podman could not start
+the container. Something outside the app had stopped the container, and nothing we
+capture says what. The maintainer has the command to find out. F and G are `ARCHIVAL`,
+so the ledger row is `partial`. The 2026-09-24 grades were fixed before the run, and
+"it was external" is not a reason to change them afterwards.
+
+**Four defects of ours, each a fact we held and did not use.** The user read *"no
+diagnosis was captured"* over an exit status that was the diagnosis. The report said the
+post-rip checks "ran" on a rip that never reached them. `expect-verification` waited
+600 s for them. The screenshots were mostly pictures of nothing, and the headline picture
+was a hidden dialog. On top of those, dialogs leaked and each rip's own bundle landed
+outside the session folder, one day after the one-folder rule. All are fixed, each with a
+test, and each test was proven by a revert (eight probes, eight detected). Graduated as
+`docs/testing.md` §5.br, with `ripper_exit.py` in `PLANNING.md` §2.
+
 ## 2026-09-24 (morning) — the round-26 test stopped at section A on our defect; 0.6.55 prepared
 
 **The maintainer's first acceptance run on 0.6.54 stopped at its first assertion.**

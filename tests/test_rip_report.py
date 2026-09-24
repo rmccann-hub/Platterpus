@@ -1770,6 +1770,53 @@ def test_a_superseded_gate_replaces_only_a_gate_that_claimed_to_run() -> None:
     assert gates["flac_integrity"] == "ran"
 
 
+def test_a_rip_that_did_not_finish_claims_no_check_ran() -> None:
+    """Every post-rip check starts only after a SUCCESSFUL rip.
+
+    The 2026-09-24 section F rip was killed 95 s in and its report said
+    `ctdb: "ran"` and `flac_integrity: "ran"` over two null blocks — the settings
+    describing work that was never begun. The backstop then filed two
+    `verification_result_missing` warnings about work that was never dropped.
+    """
+    for status in ("failed", "cancelled"):
+        gates = build_gates(
+            ctdb_enabled=True,
+            flac_verify_enabled=True,
+            backend_self_verifies=False,
+            recompress_enabled=False,
+            backend_maxes_compression=False,
+            transcode_requested=True,
+            rip_status=status,
+        )
+        assert gates["ctdb"] == rip_report.RIP_DID_NOT_FINISH_GATE, status
+        assert gates["flac_integrity"] == rip_report.RIP_DID_NOT_FINISH_GATE
+        assert gates["derived"] == rip_report.RIP_DID_NOT_FINISH_GATE
+        # Never requested stays exactly that.
+        assert gates["recompress"] == "disabled"
+        # And the backstop no longer files "recorded as having run" about work
+        # that was never begun: the gate now tells the truth, so there is no
+        # disagreement left for it to find.
+        report = build_report(
+            _clean_log(),
+            outcome=build_outcome(status=status, ripper_exit_code=137),
+            gates=gates,
+        )
+        codes = [i["code"] for i in report["issues"]]
+        assert "verification_result_missing" not in codes, (status, codes)
+    # A finished rip, or one whose outcome is not known yet, is unchanged.
+    for status in ("success", None, "in_progress"):
+        gates = build_gates(
+            ctdb_enabled=True,
+            flac_verify_enabled=False,
+            backend_self_verifies=False,
+            recompress_enabled=False,
+            backend_maxes_compression=False,
+            transcode_requested=False,
+            rip_status=status,
+        )
+        assert gates["ctdb"] == "ran", status
+
+
 def test_a_gate_claiming_it_ran_beside_a_null_result_is_an_issue() -> None:
     """The backstop: no cooperation needed from whoever dropped the work."""
     gates = build_gates(
@@ -1909,3 +1956,50 @@ def test_the_embedder_records_absence_as_a_field_not_as_errno_text(tmp_path) -> 
     entry = build_artifact(tmp_path / "nope.log")
     assert entry["missing"] is True
     assert entry["exists"] is False
+
+
+def test_the_offset_variant_sentence_counts_the_disc_not_the_cancelled_list() -> None:
+    """Round 26 lap 4's nit, read off the committed real-test artifact.
+
+    The fork read our cancelled rip's report and found *"0 of 0 tracks matched
+    only an offset-variant pressing"* — on a 14-track disc. The parser already
+    took the disc's count from the footer (`Rip completed: … 0 of 14 tracks`);
+    the report recomputed the same sentence with `len(tracks)`, which a cancel
+    empties. One rule now, and this pins that the two surfaces agree on it.
+    """
+    from pathlib import Path
+
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    log_file = (
+        Path(__file__).resolve().parents[1]
+        / "docs/handshake/artifactsround26/round26cancelme.log"
+    )
+    rip_log = parse_cyanrip_log(log_file.read_text(encoding="utf-8"))
+    assert not rip_log.tracks, "the premise: a cancel before any track block"
+    summary = rip_report._final_partial_summary(rip_log)
+    assert summary is not None and summary.startswith("0 of 14 tracks"), summary
+    assert summary == rip_log.partially_accurate_summary, (
+        "the report and the parser describe one tally in two different sentences"
+    )
+
+
+def test_a_rip_that_never_finished_is_not_called_read_unstable() -> None:
+    """The 2026-09-24 section F rip, killed 95 s in, was reported as having
+    *"read instability remained after the automatic re-rip"* — no re-rip ran and
+    no read was measured unstable. The ladder's `unresolved` is right; the
+    sentence it produced was not. A measured unstable track still reports."""
+    attempts = {"unresolved": True, "unstable_tracks": []}
+    for status, unstable, expected in (
+        ("failed", [], False),
+        ("cancelled", [], False),
+        ("success", [], True),
+        ("failed", [3], True),
+    ):
+        report = build_report(
+            _clean_log(),
+            outcome=build_outcome(status=status, ripper_exit_code=137),
+            read_speed={**attempts, "unstable_tracks": unstable},
+        )
+        codes = [i["code"] for i in report["issues"]]
+        assert ("read_unstable" in codes) is expected, (status, unstable, codes)

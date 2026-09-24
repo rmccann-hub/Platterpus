@@ -1352,8 +1352,12 @@ def test_the_users_own_settings_come_back_when_the_run_finishes(
         "platterpus.test_session.finish_session",
         lambda layout, **kwargs: BundleResult(path=Path("/dev/null")),
     )
-    win = _start(window, session, process_until)
+    # The user's settings are what the window held BEFORE the session: arming it
+    # also points the rips into the session folder, which is a run value too.
+    win = window()
     original = dataclasses.replace(win._config)
+    assert win.run_acceptance_session() is True
+    assert process_until(lambda: session.runs)
     # What the script does to the live config while it runs.
     win._config = dataclasses.replace(
         win._config, output_format="wav", max_retries=3, write_eac_log_after_rip=False
@@ -1403,8 +1407,10 @@ def test_the_users_settings_come_back_when_the_run_is_cut_short(
     Closing the window mid-run is one of those exits; a run that died in the
     format sections would otherwise leave the user ripping WAV.
     """
-    win = _start(window, session, process_until)
+    win = window()
     original = dataclasses.replace(win._config)
+    assert win.run_acceptance_session() is True
+    assert process_until(lambda: session.runs)
     win._config = dataclasses.replace(win._config, output_format="wav")
 
     win.close()
@@ -1449,3 +1455,72 @@ def test_the_session_bundle_records_every_setting_before_and_during_the_run(
     assert {"output_format", "max_retries"} <= set(record["changed_by_run"])
     # And the restore still happened: the record did not replace it.
     assert win._config.output_format != "wav"
+
+
+# --- Everything in ONE folder (maintainer, 2026-09-24) ------------------------
+
+
+def test_the_run_rips_into_the_session_folder_and_gives_the_folders_back(
+    window, session, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """*"keep this all contained to 1 folder"* — the rips too, and not the library.
+
+    Arming points `output_dir` at the session's `rips` and empties `library_dir`,
+    so a test album never lands in, or is moved into, the user's music. Both come
+    back when the run ends.
+    """
+    monkeypatch.setattr(
+        "platterpus.test_session.finish_session",
+        lambda layout, **kwargs: BundleResult(path=Path("/dev/null")),
+    )
+    win = window()
+    win._config = dataclasses.replace(win._config, library_dir="/music/library")
+    before = dataclasses.replace(win._config)
+    assert win.run_acceptance_session() is True
+    layout = win._acceptance_layout
+    assert layout is not None
+    assert win._config.output_dir == str(layout.rips)
+    assert win._config.library_dir == ""
+    assert layout.rips.is_dir() and layout.rips.parent == layout.root
+    assert process_until(lambda: session.runs)
+
+    _finish(win, process_until)
+
+    assert win._config.output_dir == before.output_dir
+    assert win._config.library_dir == "/music/library"
+
+
+def test_the_bundle_and_the_run_folder_are_inside_the_session_folder(
+    window, session, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ONE bundle, in the session folder; the runner writes there and packs none.
+
+    A run used to write its transcript, report and screenshots under the app's
+    data directory and pack a SECOND bundle beside them, while the session's
+    bundle went to `~/Downloads` — two files each logged as *"SEND THIS ONE
+    FILE"*.
+    """
+    captured: dict[str, object] = {}
+
+    def fake_finish(layout: object, **kwargs: object) -> BundleResult:
+        captured["layout"] = layout
+        captured.update(kwargs)
+        return BundleResult(path=Path("/dev/null"))
+
+    monkeypatch.setattr("platterpus.test_session.finish_session", fake_finish)
+    win = _start(window, session, process_until)
+    layout = win._acceptance_layout
+    assert layout is not None
+    # The console hands the folder to the runner it creates (the stubbed
+    # `run_now` here creates none; `test_uiscript_rip_verbs` covers the runner).
+    assert session.runs[-1]._contain_next_run_in == layout.run_dir, (
+        "the run was not pointed at the session folder"
+    )
+    assert layout.bundle.parent == layout.root
+    assert layout.run_dir.parent == layout.evidence
+
+    _finish(win, process_until)
+
+    assert captured.get("layout") is layout
+    album_dirs_roots = win._acceptance_album_roots(layout)
+    assert layout.rips in album_dirs_roots

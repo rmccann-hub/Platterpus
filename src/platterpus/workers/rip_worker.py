@@ -32,7 +32,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from platterpus import diagnostics, drive_control
+from platterpus import diagnostics, drive_control, ripper_exit
 from platterpus.adapters.rip_backend import (
     RipBackend,
     RipError,
@@ -176,9 +176,9 @@ _CYANRIP_TRACK_PROGRESS = re.compile(
 )
 # Per-track completion ("Track 5 ripped and encoded successfully!" / "with
 # errors.") — pegs that track's slice of the overall bar.
-_CYANRIP_TRACK_DONE = re.compile(
-    r"^Track (?P<track>\d{1,4}) ripped and encoded (?P<how>successfully|with errors)"
-)
+# A finished track is recognised by the PARSER's pattern, `cyanrip_log.finished_track`:
+# this module's own copy knew only the `<= .13` wording and silently stopped matching
+# on `.14`, the build we pin.
 # The start report carries the track total ("Disc tracks:    16") — cyanrip's
 # progress lines don't repeat it, so we capture it here for the overall bar.
 _CYANRIP_DISC_TRACKS = re.compile(r"^Disc tracks:\s+(?P<total>\d{1,4})\s*$")
@@ -836,6 +836,12 @@ class RipWorker(QObject):
         # does not engage the never-block-the-GUI rule.
         self._sigterm_sent_for: RipHandle | None = None
         self._sigterm_lock: threading.Lock = threading.Lock()
+        #: WHICH handle `_reap_ripper` had to escalate against (SIGTERM, then
+        #: SIGKILL on the group) — the one stop this worker sends that does not go
+        #: through `_signal_stop`. Kept for the same identity reason as the field
+        #: above, and read by `_we_stopped_ripper` so a death we caused is never
+        #: described to the user as one that came from outside.
+        self._escalated_for: RipHandle | None = None
         #: Set by `abandon_log_wait` to interrupt the bounded wait for the
         #: ripper's log footer. Its own event rather than a reuse of the cancel
         #: flag: a cancel is what STARTS that wait, so keying the interrupt on the
@@ -2313,9 +2319,9 @@ class RipWorker(QObject):
                 # still leaves the tracks completed so far on disk. A clean
                 # cancel/finish is still written by the GUI afterward, superseding
                 # these partials.
-                done_match = _CYANRIP_TRACK_DONE.search(line)
-                if done_match:
-                    self.track_completed.emit(int(done_match.group("track")))
+                finished = cyanrip_log.finished_track(line)
+                if finished is not None:
+                    self.track_completed.emit(finished[0])
                     if incremental:
                         self._write_incremental_report(out_dir)
         except Exception as exc:  # noqa: BLE001
@@ -2343,6 +2349,23 @@ class RipWorker(QObject):
         self._ripper_exit_code = exit_code
         success = (exit_code == 0) and not self._cancelled
         if exit_code not in (0, None) and not self._cancelled:
+            # SAY WHO ENDED IT when the exit status can tell us. A ripper that is
+            # killed prints no diagnosis of its own, so `_failure_hint` was empty
+            # and the user read "no diagnosis was captured" over an exit 137 that
+            # WAS the diagnosis (2026-09-24 acceptance run: the ripping container
+            # was stopped under a whole-disc rip 95 s in). Appended rather than
+            # replacing, so a fatal line the ripper did print still leads.
+            explained = ripper_exit.describe_unrequested_exit(
+                exit_code,
+                we_stopped_it=self._we_stopped_ripper(),
+                said_quit_notice=self._said_quit_notice(),
+            )
+            if explained:
+                self._failure_hint = (
+                    f"{self._failure_hint} — {explained}"
+                    if self._failure_hint
+                    else explained
+                )
             # The ripper's OWN verdict on the rip, with its argv and everything it
             # said. Recorded here rather than left to the GUI: this is the one place
             # that holds all three at once, and the report used to carry the exit code
@@ -2394,6 +2417,32 @@ class RipWorker(QObject):
                 return
             self._retain_stdout_line(nxt)
             line = nxt
+
+    def _we_stopped_ripper(self) -> bool:
+        """Whether THIS rip's ripper was ended by Platterpus — a cancel, or a signal
+        this worker sent to the current handle.
+
+        Identity, not a flag, for the reason given at `_sigterm_sent_for`: a rip can
+        run the ripper more than once, and a stop sent to an earlier pass says
+        nothing about how the current one ended.
+        """
+        handle = self._handle
+        if self._cancelled:
+            return True
+        return handle is not None and (
+            self._sigterm_sent_for is handle or self._escalated_for is handle
+        )
+
+    def _said_quit_notice(self) -> bool:
+        """Whether the ripper's retained output carries its stop notice.
+
+        Read from the head AND the tail: the notice is the last thing a signalled
+        ripper prints, so on a long rip it is in the tail, past the head's cap.
+        """
+        return any(
+            line.strip() == ripper_exit.QUIT_NOTICE
+            for line in (*self._stdout_lines, *self._stdout_tail)
+        )
 
     def _retain_stdout_line(self, line: str) -> None:
         """Keep one line of the ripper's output in the diagnostic record.
@@ -2457,6 +2506,7 @@ class RipWorker(QObject):
         try:
             return handle.wait(timeout=_RIPPER_EXIT_GRACE_S)
         except subprocess.TimeoutExpired:
+            self._escalated_for = handle
             log.warning(
                 "ripper still running %.1fs after we stopped reading its output — "
                 "escalating to SIGTERM/SIGKILL on the process group. Its stdout "
@@ -3125,11 +3175,9 @@ class RipWorker(QObject):
             self._note_task_progress(self._current_track, task)
             return self._overall_for_pass(self._current_track, task), task
 
-        match = _CYANRIP_TRACK_DONE.search(line)
-        if match:
-            done = int_or_none(match.group("track"), field="completed track number")
-            if done is None:
-                return None
+        finished = cyanrip_log.finished_track(line)
+        if finished is not None:
+            done = finished[0]
             # task=100 → the end of this track's slice (its full length consumed).
             return self._overall_for_pass(done, 100.0), 100.0
 
@@ -3400,12 +3448,13 @@ def _describe_activity(
         of_total = f" of {total_tracks}" if total_tracks > 0 else ""
         return f"Ripping track {match.group('track')}{of_total}… {pct:.0f}%"
 
-    match = _CYANRIP_TRACK_DONE.search(line)
-    if match:
-        outcome = "✓" if match.group("how") == "successfully" else "with errors"
+    finished = cyanrip_log.finished_track(line)
+    if finished is not None:
+        number, clean = finished
+        outcome = "✓" if clean else "with errors"
         if securing:
-            return f"Track {match.group('track')} re-ripped {outcome}"
-        return f"Track {match.group('track')} done {outcome}"
+            return f"Track {number} re-ripped {outcome}"
+        return f"Track {number} done {outcome}"
 
     for phrase, friendly in _NAMED_PHASES.items():
         if phrase in line:
