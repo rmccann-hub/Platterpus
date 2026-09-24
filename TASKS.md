@@ -157,9 +157,10 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
 - [ ] **Round 27** (theirs to open, on `.16`): the real test on `.16` + 0.6.56; our answers first on
   the `Accurip 450` wording and the album-loudness rows.
 - [ ] **`Accurip 450` is one frame** (NEXT-ROUND, both sides): section J's track 1 had wrong
-  audio and passed as "partially accurate". Say what matched, stop calling it a pressing, and
-  decide whether offset-variant re-reads should default ON (maintainer's call: `rerip_offset_variant`
-  is `False` today).
+  audio and passed as "partially accurate". Say what matched, and stop calling it a pressing.
+- [x] **Offset-variant re-reads default ON** (maintainer's call, 2026-09-24; for the release after
+  0.6.56): `config.DEFAULT_RERIP_OFFSET_VARIANT`, all three goals, and a one-time v8→v9 migration
+  (KDD-27 amended). Regression test fed the real section J log.
 - [ ] **Our `rig-check` paranoia ratio sums all four counters**; `READ` alone is the re-read
   witness (fork's 3.02 against our 2.87 on the same log). NEXT-ROUND.
 - [ ] **Answer the fork's loudness finding** (`cancel-me.log:75`: "Album" loudness over a

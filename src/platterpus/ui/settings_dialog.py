@@ -656,22 +656,22 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("Reads that must agree to trust a track:", self._secure_rerip_spin)
 
-        # Re-read offset-variant tracks too (opt-in, off by default). An
-        # offset-variant ("partially accurate") match is normally accepted on the
-        # fast read; this makes such tracks get the same secure re-read so an
-        # unstable one converges on a reproducible read.
+        # Re-read offset-variant tracks too (on by default since the release after
+        # 0.6.56). An offset-variant ("partially accurate") match is not accepted
+        # on the fast read; such tracks get the same secure re-read as an
+        # AccurateRip miss. Unticked restores the old fast path.
         self._rerip_offset_variant_check: QCheckBox = QCheckBox(
             "Also re-read offset-variant (partially accurate) tracks", self
         )
         self._rerip_offset_variant_check.setChecked(config.rerip_offset_variant)
         self._rerip_offset_variant_check.setToolTip(
-            "Off by default. An offset-variant (“partially accurate”) match "
-            "confirms a pressing but does NOT prove the read is reproducible — the "
-            "same track can offset-variant-match two rips with different audio. "
-            "When on, those tracks get the same secure re-read (cyanrip's -Z) as an "
-            "AccurateRip miss, until reads agree, so the result is stable and "
-            "repeatable. Costs extra time on discs with offset-variant tracks "
-            "(compilations, remasters); leave off for the fast path."
+            "On by default. An offset-variant (“partially accurate”) match checks "
+            "only one frame of the track, so it does NOT prove the read is right — "
+            "a wrong read has passed it. When on, those tracks get the same secure "
+            "re-read (cyanrip's -Z) as an AccurateRip miss, until reads agree, so "
+            "the result is stable and repeatable. Costs extra time on discs with "
+            "offset-variant tracks (compilations, remasters); untick it to accept "
+            "the match on the first read."
         )
         form.addRow("", self._rerip_offset_variant_check)
 

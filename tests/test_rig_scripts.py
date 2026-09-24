@@ -3087,10 +3087,12 @@ def test_the_simulation_expands_goal_presets() -> None:
     expanded = _simulate("set rip_goal archival")
     assert expanded.rip_goal == "archival"
     # Two fields the preset writes that a field-only `set` would leave alone.
+    # (`rerip_offset_variant` was the second until 2026-09-24, when it became the
+    # default in every goal and so stopped being able to tell the two apart.)
     assert expanded.secure_rerip_dynamic is False
-    assert expanded.rerip_offset_variant is True
+    assert expanded.recompress_flac_after_rip is True
     # Floor: prove those are not simply the defaults, or the assertions above
     # would pass against a simulation that applied nothing at all.
     fresh = Config()
     assert fresh.secure_rerip_dynamic is True
-    assert fresh.rerip_offset_variant is False
+    assert fresh.recompress_flac_after_rip is False

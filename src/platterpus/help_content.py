@@ -225,15 +225,15 @@ named from the album artist/title you type.
   stays a single fast pass. It's **on by default** (2) — raise it for a badly
   scratched disc, or set it to *Off* to accept the first read even when a track
   can't be verified.
-- **Also re-read offset-variant (partially accurate) tracks** — **off by
-  default.** An "offset-variant" match (the `~` in the results) confirms the
-  audio matches a *shifted* pressing in AccurateRip, but it does **not** prove
-  the read is repeatable — the same track can offset-variant-match two rips with
-  slightly different audio. When this is on, those tracks get the same secure
-  re-read as an AccurateRip miss (above), so an unstable one settles on a
-  stable, repeatable result. It costs extra time on discs with offset-variant
-  tracks (many compilations and remasters), which is why it's off by default;
-  turn it on when you want maximum reproducibility.
+- **Also re-read offset-variant (partially accurate) tracks** — **on by
+  default.** An "offset-variant" match (the `~` in the results) checks only
+  **one frame** of the track against AccurateRip, so it does **not** prove the
+  read is right — the same track can offset-variant-match two rips with
+  different audio, and a wrong read has passed it. With this on, those tracks get
+  the same secure re-read as an AccurateRip miss (above), so an unstable one
+  settles on a stable, repeatable result. It costs extra time on discs with
+  offset-variant tracks (many compilations and remasters); untick it to accept
+  the match on the first read instead.
 - **Verify every track with a second read (EAC-style Test & Copy)** — **off by
   default.** Normally Platterpus rips fast and only re-reads tracks that didn't
   match AccurateRip. Turn this on to read *every* track at least twice and keep

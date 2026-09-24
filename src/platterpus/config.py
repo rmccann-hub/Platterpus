@@ -39,7 +39,24 @@ if TYPE_CHECKING:
 
 # Bump this when the schema grows new keys or changes defaults that we
 # want to migrate. Migration logic lives in _migrate() below.
-SCHEMA_VERSION: int = 8
+SCHEMA_VERSION: int = 9
+
+# Whether an offset-variant ("partially accurate") AccurateRip match is re-read
+# until reads agree, rather than accepted on the fast first read. Named once here
+# because three places carry a default for it — `Config`, the rip worker's
+# `RipParameters` and the rip plan — and a stand-in whose default differs from the
+# product's tests a configuration no user has.
+#
+# **ON, and it was OFF until the release after 0.6.56** (maintainer decision,
+# 2026-09-24). KDD-27 made it opt-in in 2026-07-23 to keep compilations fast. The
+# evidence that turned it: an offset-variant match rests on cyanrip's `Accurip
+# 450` checksum, which covers ONE frame (`cyanrip@df91ae7:src/checksums.h:74-78`),
+# so it can pass wrong audio. It did, twice: on 2026-09-24 section J's track 1
+# read `0E91CD1A` while the five other reads of that track gave `B0D122E7`, an
+# exact AccurateRip match, and the same wrong read happened on 2026-09-11. Both
+# were kept as "partially accurate" because this setting was off. The cost is
+# re-read time on offset-variant tracks only; the setting protects the archive.
+DEFAULT_RERIP_OFFSET_VARIANT: Final[bool] = True
 
 # Computed once at import time. If the user's HOME changes mid-process,
 # the GUI needs a restart — same as every other XDG-aware application.
@@ -291,16 +308,14 @@ class Config:
     # a power user can force `-Z` on *every* track by hand-editing this to false.
     secure_rerip_dynamic: bool = True
 
-    # Re-read offset-variant tracks too (opt-in, default off). Normally an
-    # offset-variant ("partially accurate") AccurateRip match is accepted on the
-    # fast first read. When True, such tracks are ALSO secure-re-ripped (`-Z`)
-    # until reads agree — an offset-variant match confirms a pressing but does not
-    # prove the read is reproducible (real hardware showed a track
-    # offset-variant-matching two rips with different audio each time,
-    # 2026-07-23). Costs extra read time on offset-variant discs (compilations,
-    # remasters), which is why it's off by default; turn it on for maximum
-    # reproducibility. No effect unless a disc actually has offset-variant tracks.
-    rerip_offset_variant: bool = False
+    # Re-read offset-variant tracks too (default ON since the release after
+    # 0.6.56 — see DEFAULT_RERIP_OFFSET_VARIANT for why). An offset-variant
+    # ("partially accurate") AccurateRip match is not accepted on the fast first
+    # read: such a track is secure-re-ripped (`-Z`) until reads agree, exactly as
+    # an AccurateRip miss is. False restores the old fast path, which accepts the
+    # match on one read. Dynamic mode only, and no effect unless a disc actually
+    # has offset-variant tracks.
+    rerip_offset_variant: bool = DEFAULT_RERIP_OFFSET_VARIANT
 
     # --- Adaptive read-speed ladder (headline, 0.4.6) ---
     # How the read speed is chosen for a rip:
@@ -796,6 +811,32 @@ def _migrate(raw: dict[str, Any]) -> dict[str, Any]:
         # needed — bump the version so the record stays explicit and honest.
         raw["schema_version"] = 8
         version = 8
+
+    if version < 9:
+        # v8→v9: offset-variant re-reads became the default (see
+        # DEFAULT_RERIP_OFFSET_VARIANT). `save()` writes every field, so every v8
+        # config on disk carries an explicit `rerip_offset_variant`, and a saved
+        # False cannot say whether the user chose it or inherited 0.6.56's
+        # default. Flip it ONCE, the same one-time correction v6→v7 made for an
+        # inherited `-Z 0`. Two reasons it is the right direction. First, the
+        # setting protects the archive: leaving it off keeps wrong audio that
+        # passed a one-frame check, and turning it on costs re-read time on
+        # offset-variant tracks only. Second, without it, a config still on the
+        # Fast Verified or Portable preset would stop matching that preset and
+        # Settings would show it as "Custom". The version then becomes 9, so a
+        # user who wants it off can untick it and it stays off.
+        # Logged, not shown in a dialog: "Some settings were reset" is the
+        # dialog for INVALID values put back to a default, and this value was
+        # valid. The CHANGELOG entry is where an upgrader reads about it.
+        if raw.get("rerip_offset_variant") is False:
+            raw["rerip_offset_variant"] = True
+            log.info(
+                "config v8→v9: offset-variant re-reads turned on (the new "
+                "default); untick 'Also re-read offset-variant (partially "
+                "accurate) tracks' in Settings to turn them off"
+            )
+        raw["schema_version"] = 9
+        version = 9
 
     if version == SCHEMA_VERSION:
         return raw
