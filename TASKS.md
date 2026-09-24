@@ -157,6 +157,9 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
 - [x] **0.6.56 released 2026-09-24** (release run 154 on `56de3cf`; handshake, CI and changelog gates
   green; AppImage, `.sha256`, `.zsync` published; PyPI published). No round open, no override.
   It is the first release that installs `df91ae7` by default.
+- [x] **0.6.57 released 2026-09-24** (release run 155 on `8278b19`, after `main`'s CI run 898
+  was green; AppImage, `.sha256`, `.zsync` and install scripts published; PyPI published). No
+  round open, so no override. It re-reads one-frame matches by default.
 - [ ] **Round 27** (theirs to open, on `.16`): the real test on `.16` + **0.6.57** (released
   before the round opened, so the test runs the new one-frame default); our answers first on
   the `Accurip 450` wording and the album-loudness rows, ready below.
