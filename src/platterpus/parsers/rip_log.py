@@ -155,11 +155,12 @@ class TrackResult:
     status: str = ""
     accuraterip_v1: AccurateRipResult | None = None
     accuraterip_v2: AccurateRipResult | None = None
-    # cyanrip's offset-variant AccurateRip match ("Accurip 450:"). A pressing
-    # whose start is shifted by the common +450-frame offset still matches the
-    # database here — cyanrip reports the track "partially accurately ripped".
-    # It's surfaced as data (not folded into the verified rule) so the verdict
-    # never over-claims a plain match; see docs/architecture.md.
+    # cyanrip's "Accurip 450:" result: the checksum of ONE frame (frame 450),
+    # printed after both whole-track checksums missed; cyanrip calls a match
+    # "partially accurately ripped". The field name says "offset" for historical
+    # reasons and it is not a pressing (see `platterpus.one_frame_match`). It's
+    # surfaced as data (not folded into the verified rule) so the verdict never
+    # over-claims a plain match; see docs/architecture.md.
     accuraterip_offset: AccurateRipResult | None = None
     # The verbatim text of cyanrip's per-track "Accurip:" status row — e.g.
     # "disc found in database (max confidence: 200)", "disabled", "error". The ONLY

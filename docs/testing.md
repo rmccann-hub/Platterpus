@@ -3247,6 +3247,41 @@ false. Gates: `tests/test_ripper_exit.py`,
 `test_the_settings_dialog_and_release_picker_are_freed_after_use`,
 `test_a_rips_own_bundle_lands_in_the_acceptance_session_folder`.
 
+### §5.bs — A number in a name is not a unit: `Accurip 450` was read as an offset for two months
+
+**What happened.** cyanrip prints `Accurip 450: <crc> (… track is partially accurately
+ripped)`. This project read the `450` as an **offset** and built a whole vocabulary on
+it: *"the +450-frame offset-variant pressing"*, a field called `accuraterip_offset`, a
+setting called "re-read offset-variant tracks", a tooltip saying such a track is
+*"usually just a different pressing and perfectly fine"*, and a status note saying the
+audio is *"almost certainly correct"*. The fork's source says otherwise in five lines:
+`acu_sum_1_450` adds the samples of **frame 450 and no other**
+(`cyanrip@df91ae7:src/checksums.h:74-78`), and the line is only printed after both
+whole-track checksums missed (`src/cyanrip_log.c:594`). The `450` is a **frame index**.
+And the "pressing" story cannot be true of that check at all: a pressing shifted by an
+offset moves frame 450 too, and a submitted pressing would have matched its own
+whole-track entry (`src/accurip.c:304-317`). Section J's track 1 on 2026-09-24 held
+wrong audio and passed it.
+
+**The same misreading produced a false proof, and we sent it to the fork.** Round 24
+lap 4 cited track 5's identical `4CCBCF89` on two runs as evidence of *"an offset-variant
+pressing, not a bad read"*. That is the frame-450 checksum, so two runs agreeing on it
+say only that frame 450 read the same. Across six filed rips track 5's whole-track CRC
+is `E0036697` four times and `6902BCF0` twice. The check looked like corroboration
+because the number sat in a field whose name had already decided what it meant.
+
+**Three things to carry.** **(1) Read a number in a name as a label until the source
+says what it counts** — `450` could have been an offset, a version, a sector or a frame,
+and only one line of C decides. **(2) Every sentence built on a wrong name inherits it**,
+including the ones written to be careful: the "never call it verified" rule was right
+and still said *pressing* in every surface it protected. **(3) When a name turns out
+wrong, the evidence you gathered under it needs re-reading, not only the wording** —
+the wording fix alone would have left the round-24 claim standing. The words now live
+in one module, `one_frame_match.py`, and `tests/test_one_frame_match.py` sweeps every
+surface against the real section J log with a floor and a ban. The EAC-compatible log
+is deliberately left alone: in round 7 (lap 11, H4) both sides agreed not to reword it
+one-sidedly, and its new wording goes through round 27.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is

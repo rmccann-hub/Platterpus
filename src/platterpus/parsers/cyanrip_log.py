@@ -70,6 +70,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from typing import Final
 
+from platterpus.one_frame_match import count_sentence
 from platterpus.parsers.rip_log import (
     AccurateRipResult,
     RipLog,
@@ -431,7 +432,7 @@ _ACCURIP_TRACK = re.compile(
     r"(?:\s+\((?P<result>[^)]*)\))?"
 )
 # "    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, track is
-# partially accurately ripped)" — the +450-frame offset-pressing variant.
+# partially accurately ripped)" — ONE frame's checksum (see `one_frame_match`).
 _ACCURIP_OFFSET = re.compile(
     r"^\s+Accurip 450:\s+(?P<crc>[0-9A-Fa-f]{8})"
     r"(?:\s+\((?P<result>[^)]*)\))?"
@@ -1685,20 +1686,19 @@ def render_partially_accurate_summary(
     # guard reads as sufficient and is not. Caught by
     # `tests/test_never_raises_contract.py`, which is why that sweep exists.
     theirs = int_or_none(numerator, field="cyanrip partially-accurate numerator")
-    # "1 of 14 tracks" — the noun agrees with the POPULATION, not the count. The
-    # mismatch clause below counts a different set, so it needs its own noun.
-    population_noun = "track" if disc_tracks == 1 else "tracks"
+    # The words are `one_frame_match`'s, the one wording every surface reads, and
+    # its noun agrees with the POPULATION ("1 of 14 tracks"). This sentence said
+    # "matched only an offset-variant pressing" until 2026-09-24, which named a
+    # cause the `Accurip 450` check cannot establish. The mismatch clause below
+    # counts a different set, so it keeps its own noun.
     found_noun = "track" if offset_variant_tracks == 1 else "tracks"
-    summary = (
-        f"{offset_variant_tracks} of {disc_tracks} {population_noun} matched only an "
-        "offset-variant pressing (partially accurate)"
-    )
+    summary = count_sentence(offset_variant_tracks, disc_tracks)
     if theirs is None or theirs != offset_variant_tracks:
         # The ripper's own fraction, and the fact that it does not agree with the
         # per-track detail in the same log.
         summary += (
             f" — NOTE: the ripper's own tally reads {reported}, which does not "
-            f"agree with the {offset_variant_tracks} offset-variant "
+            f"agree with the {offset_variant_tracks} one-frame-only "
             f"{found_noun} listed per track in this log"
         )
     return summary
@@ -2864,9 +2864,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
             if match:
                 result_text = match.group("result") or ""
                 conf_match = _ACCURIP_CONFIDENCE.search(result_text)
-                # version=450 is a sentinel for "the +450-frame offset variant"
-                # — it isn't a real AccurateRip protocol version, just how
-                # cyanrip labels this pressing-offset match.
+                # version=450 is a sentinel for "the frame-450 checksum" — it
+                # isn't a real AccurateRip protocol version, just how cyanrip
+                # labels this one-frame match (see `one_frame_match`).
                 current.accuraterip_offset = AccurateRipResult(
                     version=450,
                     result=result_text,

@@ -56,6 +56,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from platterpus import album_loudness, one_frame_match
 from platterpus.build_info import self_invocation
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
 from platterpus.parsers.rip_log import (
@@ -95,17 +96,13 @@ __all__ = [
     "status_phase_key",
 ]
 
-# Shared explanation of the offset-variant ("partially accurate") status, used
-# both as an AR-cell tooltip and echoed in the User Guide glossary — one wording
-# so the table and the help can't drift (docs/ux-design-principles.md #1).
-OFFSET_VARIANT_TOOLTIP: str = (
-    "Offset-variant (partially accurate): the audio matches a known pressing in "
-    "AccurateRip, but one shifted by a fixed offset from the common pressing — "
-    "so it's not the exact canonical checksum. Usually just a different pressing "
-    "and perfectly fine. BUT if a re-rip of the same disc gives a different "
-    "result here, that points to a read-stability problem on this track, not a "
-    "pressing difference — re-rip to confirm."
-)
+# Shared explanation of the "only one frame matched" state (cyanrip's
+# "partially accurately ripped"), used as the AR-cell tooltip and echoed in the
+# User Guide glossary. It lives in `one_frame_match` so the table, the help and
+# the banner read one wording. Until 2026-09-24 it said the audio "matches a
+# known pressing … shifted by a fixed offset" and was "usually perfectly fine",
+# which was wrong on the mechanism: see that module.
+ONE_FRAME_TOOLTIP: str = one_frame_match.TOOLTIP
 
 # The "we compared it and nothing matched" state. This is NOT "not in the
 # database" — the disc IS there, our read just doesn't match any stored copy of
@@ -520,8 +517,8 @@ class RipProgress(QWidget):
         # --- Album loudness + partial-accurate footnote ---
         # A neutral one-liner surfacing two facts cyanrip already computed and
         # that we were only writing to the JSON: the album loudness (integrated
-        # LUFS / range / true peak) and how many tracks were offset-variant
-        # ("partially accurate") matches. Populated from the parsed log by
+        # LUFS / range / true peak) and on how many tracks only one frame
+        # matched AccurateRip ("partially accurate"). Populated from the parsed log by
         # set_rip_log; hidden when there's nothing to show (e.g. a whipper log
         # carries no loudness and the disc had no partial matches).
         self._loudness_label: QLabel = QLabel("", self)
@@ -992,9 +989,9 @@ class RipProgress(QWidget):
             number_item = QTableWidgetItem(str(track.number))
             title_item = QTableWidgetItem(_basename(track.filename))
             status_item = QTableWidgetItem(track.status or "")
-            # Pass the +450 offset-variant result so a track that matched only
-            # that (v1/v2 "not found") reads as a partially-accurate match, not
-            # an alarming "…or bad rip" (trust-first, mirrors the CTDB fix).
+            # Pass the frame-450 result so a track where only that frame matched
+            # (v1/v2 "not found") says so, rather than cyanrip's "…or bad rip",
+            # which names a cause just as the old "pressing" wording did.
             offset = track.accuraterip_offset
             # cyanrip's per-track "Accurip:" status — the only thing that says
             # whether a lookup happened at all. Without it, a disc nobody looked
@@ -1006,7 +1003,7 @@ class RipProgress(QWidget):
             v2_item = QTableWidgetItem(
                 _ar_cell(track.accuraterip_v2, offset_result=offset, lookup=lookup)
             )
-            # Footnote the cells that need one — the offset-variant explanation
+            # Footnote the cells that need one — the one-frame explanation
             # (#4 of the 2026-07-09 trust improvements) and the "in the database
             # but nothing matched" explanation. `_ar_tooltip` reads the SAME
             # `_ar_state` as the cell text above, so the words and their
@@ -1358,7 +1355,11 @@ def loudness_summary_line(rip_log: object) -> str:
             if peak:
                 bits.append(f"true peak {peak} dBFS")
             if bits:
-                parts.append("Album loudness: " + ", ".join(bits))
+                # "Album loudness" only when the rip read the album. cyanrip's
+                # rows cover whatever was read, so an interrupted or `-l` rip gets
+                # a label saying what it measured (see `album_loudness`).
+                name = album_loudness.label(album_loudness.coverage(rip_log))
+                parts.append(f"{name}: " + ", ".join(bits))
         # Recomputed from the final per-track results, NOT read off the parse.
         #
         # This footnote sits directly under the verdict banner, and the banner
@@ -1467,8 +1468,8 @@ def _eac_cell(track: object) -> tuple[str, str]:
     * ``✓`` — the track is AccurateRip-verified *and* its copy is OK. The rip as
       a whole is read-offset-corrected with no read errors, so a verified track
       meets the archival bar we can actually check.
-    * ``~`` — partially accurate: matched only an offset-variant pressing, not
-      the exact AccurateRip checksum (never a false ✓).
+    * ``~`` — only one frame (frame 450) matched AccurateRip; the rest of the
+      track is unverified (never a false ✓).
     * (no glyph) — a real CRC we recorded but can't externally verify (not in
       the AccurateRip database).
 
@@ -1489,8 +1490,8 @@ def _eac_cell(track: object) -> tuple[str, str]:
     if accuraterip_is_match(getattr(track, "accuraterip_offset", None)):
         return (
             f"{crc}  {_EAC_PARTIAL}",
-            "EAC-format CRC32. ~ = partially accurate: matched an offset-variant "
-            "pressing, not the exact AccurateRip checksum.",
+            "EAC-format CRC32. ~ = only one frame (frame 450) of this track "
+            "matched AccurateRip; the rest of the track is unverified.",
         )
     return (
         crc,
@@ -1532,13 +1533,12 @@ def _ar_cell(
 ) -> str:
     """Render one AccurateRip cell (v1 or v2) for a track.
 
-    ``offset_result`` is the track's +450 offset-variant result (cyanrip's
-    "Accurip 450:"). When the standard checksum (``result``) did NOT match but
-    the offset-variant DID, the track is a **partially-accurate** match — a
-    pressing shifted by the common offset — so we say "offset-variant match (N)"
-    rather than leave cyanrip's alarming "not found, either a new pressing, or
-    bad rip" on screen for a track that's actually fine. This mirrors the CTDB
-    honesty fix: a benign result must never read as a failure.
+    ``offset_result`` is the track's frame-450 result (cyanrip's "Accurip 450:").
+    When the whole-track checksum (``result``) did NOT match but frame 450 DID,
+    we say "one frame only (N)": what matched, and nothing about why. The cell
+    used to say "offset-variant match" and call the track "actually fine", which
+    was a cause nothing measured (see :mod:`platterpus.one_frame_match`); the
+    tooltip carries the rest.
 
     The cell text is short because the column is narrow; where short text cannot
     carry the nuance (``in DB, no match``), :func:`_ar_tooltip` supplies it.
@@ -1563,9 +1563,9 @@ def _ar_cell(
     if state == _AR_STATE_OFFSET_VARIANT:
         conf = getattr(offset_result, "confidence", None)
         return (
-            f"offset-variant match ({conf})"
+            f"{one_frame_match.CELL} ({conf})"
             if conf is not None
-            else "offset-variant match"
+            else one_frame_match.CELL
         )
     if state == _AR_STATE_NOT_CHECKED:
         # NOT "not in DB" — nobody looked, so the database has no opinion. Saying
@@ -1604,7 +1604,7 @@ def _ar_tooltip(
     """
     state = _ar_state(result, offset_result, lookup)
     if state == _AR_STATE_OFFSET_VARIANT:
-        return OFFSET_VARIANT_TOOLTIP
+        return ONE_FRAME_TOOLTIP
     if state == _AR_STATE_NOT_CHECKED:
         return NOT_CHECKED_TOOLTIP
     if state == _AR_STATE_NO_MATCH:

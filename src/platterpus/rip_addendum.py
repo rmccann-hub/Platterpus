@@ -218,6 +218,9 @@ def render_addendum(trigger: str, swapped: list[SupersededTrack]) -> str:
         )
         lines.append(_row("AccurateRip v1:", entry.accuraterip_v1))
         lines.append(_row("AccurateRip v2:", entry.accuraterip_v2))
+        # cyanrip's `Accurip 450`: ONE frame's checksum (see `one_frame_match`).
+        # The label is kept: this sidecar is an artifact the real rig has already
+        # written, and `test_rip_addendum` holds a rebuilt block to that artifact.
         lines.append(_row("AccurateRip +450:", entry.accuraterip_offset))
         lines.append(_row("Secure re-read:", entry.secure_reread))
         lines.append("")

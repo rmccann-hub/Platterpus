@@ -46,6 +46,7 @@ _EXPECTED_TOP_LEVEL_KEYS: frozenset[str] = frozenset(
         "read_speed",
         "eta_trace",
         "album_loudness",
+        "album_loudness_covers",
         "health_status",
         "sha256_hash",
         "log_checksum",

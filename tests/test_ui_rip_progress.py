@@ -85,7 +85,7 @@ def test_eac_cell_offset_variant_is_partial_not_a_check() -> None:
     )
     text, tip = _eac_cell(track)
     assert text == "E0036697  ~"
-    assert "partially accurate" in tip.lower()
+    assert "only one frame (frame 450)" in tip.lower()
 
 
 def test_eac_cell_not_in_db_shows_value_without_check() -> None:
@@ -234,7 +234,7 @@ def test_verdict_surfaces_offset_variant_partial_matches() -> None:
     message, level = accuraterip_verdict(log)
     assert level == "warn"
     assert "2 of 3" in message
-    assert "offset-variant" in message and "partially accurate" in message
+    assert "only one frame matched" in message and "unverified" in message
     # Never claims the partial track is bit-perfect / exactly verified.
     assert "3 of 3" not in message
 
@@ -697,7 +697,7 @@ def test_ar_cell_offset_variant_match_reads_as_partial_not_bad() -> None:
     )
     offset = AccurateRipResult(version=450, result="partial", confidence=28)
     cell = _ar_cell(not_found, offset_result=offset)
-    assert cell == "offset-variant match (28)"
+    assert cell == "one frame only (28)"
     assert "bad rip" not in cell
 
 
@@ -727,8 +727,8 @@ def test_set_rip_log_offset_variant_track_not_shown_as_bad(
         )
     )
     widget.set_rip_log(log)
-    assert widget._ar_table.item(0, 3).text() == "offset-variant match (28)"
-    assert widget._ar_table.item(0, 4).text() == "offset-variant match (28)"
+    assert widget._ar_table.item(0, 3).text() == "one frame only (28)"
+    assert widget._ar_table.item(0, 4).text() == "one frame only (28)"
     assert "bad rip" not in widget._ar_table.item(0, 3).text()
 
 
@@ -967,7 +967,7 @@ def test_ctdb_no_match_shows_reconciliation(qapp: QApplication) -> None:
         CtdbVerifyResult(verdict=Verdict.NO_MATCH, confidence=100, crc_validated=True)
     )
     assert widget._ctdb_reconcile_label.isHidden() is False
-    assert "offset-variant" in widget._ctdb_reconcile_label.text()
+    assert "only one frame matched" in widget._ctdb_reconcile_label.text()
 
 
 def test_ctdb_match_hides_reconciliation(qapp: QApplication) -> None:
@@ -988,7 +988,7 @@ def test_ctdb_match_hides_reconciliation(qapp: QApplication) -> None:
 
 
 def test_offset_variant_cells_get_a_tooltip(qapp: QApplication) -> None:
-    from platterpus.ui.rip_progress import _AR_COL_V1, OFFSET_VARIANT_TOOLTIP
+    from platterpus.ui.rip_progress import _AR_COL_V1, ONE_FRAME_TOOLTIP
 
     widget = RipProgress()
     log = RipLog(
@@ -1002,7 +1002,7 @@ def test_offset_variant_cells_get_a_tooltip(qapp: QApplication) -> None:
     )
     widget.set_rip_log(log)
     item = widget._ar_table.item(0, _AR_COL_V1)
-    assert item.toolTip() == OFFSET_VARIANT_TOOLTIP
+    assert item.toolTip() == ONE_FRAME_TOOLTIP
 
 
 # --- Re-rip comparison banner (0.4.24) --------------------------------------

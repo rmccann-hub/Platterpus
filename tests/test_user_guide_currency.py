@@ -59,7 +59,7 @@ _GUIDE_KEYWORDS: dict[str, str] = {
     "force_overread": "Overread",
     "secure_rerip_matches": "Reads that must agree to trust a track",
     "secure_rerip_dynamic": "Verify every track with a second read",
-    "rerip_offset_variant": "re-read offset-variant",
+    "rerip_offset_variant": "re-read tracks where only one frame matched",
     "read_speed_mode": "Read speed",
     "read_speed": "Read speed",
     "ctdb_verify_after_rip": "Verify with CTDB",
