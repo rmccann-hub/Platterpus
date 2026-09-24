@@ -20,6 +20,7 @@ Qt-free, so all of it is tested without a display.
 from __future__ import annotations
 
 import dataclasses
+import json
 import logging
 
 from platterpus.config import APP_STATE_FIELDS, Config
@@ -76,3 +77,28 @@ def apply_user_edits(current: Config, opened: Config, edited: Config) -> Config:
     if changes:
         log.info("settings: applying user edits to %s", sorted(changes))
     return dataclasses.replace(current, **changes)
+
+
+def changed_settings(before: object, after: object) -> list[str]:
+    """The user settings whose value differs between two configs, in field order."""
+    old, new = user_settings(before), user_settings(after)
+    return [name for name in old if name in new and old[name] != new[name]]
+
+
+def settings_record_text(before: object | None, run_ended_with: object) -> str:
+    """The acceptance bundle's ``SETTINGS.json``: what the run ran under. Pure.
+
+    Two snapshots, because the bundle's copy of ``config.toml`` cannot answer the
+    question: it is read after the user's own settings are restored, so it
+    describes the user, not the run. ``before_run`` is ``null`` when no snapshot
+    was taken — stated, never filled in with the run's values.
+    """
+    record: dict[str, object] = {
+        "record": "platterpus acceptance settings",
+        "before_run": user_settings(before) if before is not None else None,
+        "run_ended_with": user_settings(run_ended_with),
+        "changed_by_run": (
+            changed_settings(before, run_ended_with) if before is not None else None
+        ),
+    }
+    return json.dumps(record, indent=2, sort_keys=False, default=str) + "\n"

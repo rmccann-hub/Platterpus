@@ -11,6 +11,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+
+- **Every rip report now records every setting it ran under.** The report used
+  to name only the dozen settings that shape a rip, so settings like the library
+  folder or completion notifications were never recorded. It now also carries
+  the complete list, read straight from the settings definition, so a setting
+  added in future is recorded without anyone having to remember to add it
+  (report schema 25). An acceptance run's archive also gains `SETTINGS.json`:
+  your settings before the run, the settings the run ended with, and which ones
+  it changed. The archive's copy of your config file is taken after your
+  settings are restored, so it could never show what the run itself used.
+
 ### Fixed
 
 - **Keyboard shortcuts, labels and window sizes are now checked in every window,

@@ -1412,3 +1412,40 @@ def test_the_users_settings_come_back_when_the_run_is_cut_short(
     assert _settings_only(win._config) == _settings_only(original), (
         "an aborted run left its test values behind"
     )
+
+
+def test_the_session_bundle_records_every_setting_before_and_during_the_run(
+    window, session, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`SETTINGS.json`: what the run RAN under, which config.toml cannot say.
+
+    The bundle's copy of config.toml is read after the user's settings are
+    restored, so it describes the user, not the run. The maintainer's ask
+    (2026-09-23): the run should "report all" its settings as a double check.
+    """
+    import json
+
+    captured: dict[str, object] = {}
+
+    def fake_finish(layout: object, **kwargs: object) -> BundleResult:
+        captured.update(kwargs)
+        return BundleResult(path=Path("/dev/null"))
+
+    monkeypatch.setattr("platterpus.test_session.finish_session", fake_finish)
+    win = _start(window, session, process_until)
+    win._config = dataclasses.replace(win._config, output_format="wav", max_retries=3)
+    _finish(win, process_until)
+
+    embedded = captured.get("embedded_text")
+    assert isinstance(embedded, dict) and "SETTINGS.json" in embedded, sorted(
+        embedded or {}
+    )
+    record = json.loads(str(embedded["SETTINGS.json"]))
+    from platterpus.user_settings import user_setting_names
+
+    assert set(record["run_ended_with"]) == set(user_setting_names())
+    assert record["run_ended_with"]["output_format"] == "wav"
+    assert record["before_run"]["output_format"] != "wav"
+    assert {"output_format", "max_retries"} <= set(record["changed_by_run"])
+    # And the restore still happened: the record did not replace it.
+    assert win._config.output_format != "wav"

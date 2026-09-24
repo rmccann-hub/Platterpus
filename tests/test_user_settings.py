@@ -35,3 +35,24 @@ def test_the_snapshot_carries_every_user_setting_and_no_app_state() -> None:
 
 def test_a_stand_in_yields_what_it_has_and_invents_nothing() -> None:
     assert user_settings(SimpleNamespace(read_offset=6)) == {"read_offset": 6}
+
+
+def test_the_settings_record_names_what_the_run_changed() -> None:
+    import json
+
+    from platterpus.user_settings import settings_record_text
+
+    before = Config()
+    during = dataclasses.replace(before, output_format="mp3", host_setup_prompted=True)
+    record = json.loads(settings_record_text(before, during))
+    assert record["changed_by_run"] == ["output_format"]
+    assert record["run_ended_with"]["output_format"] == "mp3"
+
+
+def test_no_snapshot_is_stated_not_filled_in() -> None:
+    import json
+
+    from platterpus.user_settings import settings_record_text
+
+    record = json.loads(settings_record_text(None, Config()))
+    assert record["before_run"] is None and record["changed_by_run"] is None

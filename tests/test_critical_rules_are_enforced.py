@@ -1550,7 +1550,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # is why: five of eight rips said `"ran"` over a null result. The added lines
     # are mostly the account of how the existing guard could not fire — which is
     # the part a future reader has to have before they "simplify" it back.
-    "rip_report.py": 2416,  # +14: the two verification-issue codes promoted to named constants so the acceptance verb can grade on them instead of copying the vocabulary,
+    # +14: the two verification-issue codes promoted to named constants so the
+    # acceptance verb can grade on them instead of copying the vocabulary,
+    # **2416 -> 2430 (2026-09-24)**: schema v25, `settings.every_setting`. The key
+    # sits in the settings builder it extends and the history paragraph sits above
+    # `REPORT_SCHEMA_VERSION` with every other version's — the file's own rule is
+    # that a schema change is explained where the number lives. The derivation is
+    # in `user_settings.py`, so this is one call, not a list.
+    "rip_report.py": 2430,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -1657,7 +1664,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1423 -> 1493 (2026-09-23)**: the user's settings are snapshotted when an
     # acceptance session is armed and restored on every exit, excluding the app's
     # own state. It lives here because every exit path it hooks is here.
-    "ui/main_window_provision.py": 1493,
+    # **1493 -> 1509 (2026-09-24)**: the acceptance bundle's `SETTINGS.json`. It
+    # is captured in the finish handler because that is the one point where both
+    # snapshots exist — the user's, taken when the run was armed, and the run's,
+    # which the restore overwrites a line later. The logic is in the pure
+    # `user_settings.py`; what is here is the capture and the hand-off, and the
+    # restore got shorter by delegating to the same module.
+    "ui/main_window_provision.py": 1509,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
