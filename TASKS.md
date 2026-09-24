@@ -129,8 +129,21 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
 - [x] **One folder per acceptance run** (maintainer, 2026-09-24, during that test): rips,
   transcript, report, screenshots and ONE bundle, all under the run's session folder in
   `~/platterpus-rig/`; the runner no longer packs a second bundle. Ships in the next release.
-- [ ] **The real test** (operator), then each side's reading, then the closing laps; at the
-  close, roll `FORK_PIN` to `df91ae7` in our release and move the approval record to round 26.
+- [x] **The real test ran, 2026-09-24, on 0.6.55 + `df91ae7`: 258 of 261, ledger `partial`.** All three
+  failures are ONE event: 95 s into section F's whole-disc rip, the `ripping` container was
+  stopped from outside the app (exit 137 after `Trying to quit`; podman then could not start
+  the container). F and G are `ARCHIVAL`, so the run does not count as a pass. N's three-hour
+  secure re-read passed (14/14 converged, 13/14 AccurateRip, CTDB match). Four defects of
+  ours fixed on the branch, in `docs/testing.md` §5.br: "no diagnosis was captured" over an exit that
+  was one; gates "ran" on an unfinished rip; `expect-verification` waiting 600 s on
+  it; screenshots of hidden windows (the headline was one), leaked dialogs, and per-rip
+  bundles outside the session folder.
+- [ ] **What stopped the container** (operator): `podman events` / `journalctl` for
+  2026-09-23 21:15:30–21:16:30 local; nothing we capture can say.
+- [ ] **Re-run F (or the whole script)** on the next release. F's fast whole-disc path is
+  untested by the 2026-09-24 run, and that path is F's whole purpose.
+- [ ] **Each side's reading, then the closing laps**; at the close, roll `FORK_PIN` to
+  `df91ae7` in our release and move the approval record to round 26.
 - [ ] **Correct `fullacceptance.txt`'s `-r 3` comment** (*"not dangerous"*) with the next change
   to that script — on `.15` it is true, on `.14` it was not.
 

@@ -174,6 +174,33 @@ def _rip_was_cancelled(album_dir: Path) -> bool:
     return False
 
 
+def _rip_failure(album_dir: Path) -> str:
+    """How this rip's own report says it FAILED, as a phrase — or ``""``. Never raises.
+
+    The sibling of :func:`_rip_was_cancelled`, and deliberately NOT an excuse: a
+    failed rip's empty parse stays a FAIL, because the check never got a subject
+    and a section graded on it has not been tested. What this changes is the
+    sentence. "An empty parse is unexplained" was written for the case where no
+    witness explains it; on the 2026-09-24 run the report said ``status: failed``
+    with ripper exit 137 — killed from outside — and the FAIL still called it
+    unexplained, which pointed the reader at the parser.
+    """
+    import json
+
+    for report in sorted(album_dir.glob("*.platterpus.json")):
+        try:
+            data = json.loads(report.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, ValueError):
+            continue
+        outcome = data.get("outcome") if isinstance(data, dict) else None
+        if isinstance(outcome, dict) and outcome.get("status") == "failed":
+            code = outcome.get("ripper_exit_code")
+            hint = outcome.get("failure_hint")
+            phrase = f"FAILED (ripper exit {code})"
+            return f"{phrase}: {hint}" if isinstance(hint, str) and hint else phrase
+    return ""
+
+
 def _compose_reference_argv(binary: str, device: str, build_tag: str) -> list[str]:
     """The argv a real rip would send, built by the REAL builder.
 
@@ -631,14 +658,28 @@ def check_parsers_against_the_log(manifest: Manifest, album_dir: Path | None) ->
                 )
             )
             return
+        failure = _rip_failure(album_dir)
+        if failure:
+            manifest.add(
+                Result(
+                    FAIL,
+                    "parser/log",
+                    f"parsed {logs[-1].name} to ZERO tracks, and this rip's own "
+                    f"report says it {failure} — the ripper stopped before any "
+                    f"track record was written, so the parser had nothing to read "
+                    f"and this check is UNTESTED by this rip. The finding is the "
+                    f"rip's failure, not the parser.",
+                )
+            )
+            return
         manifest.add(
             Result(
                 FAIL,
                 "parser/log",
                 f"parsed {logs[-1].name} to ZERO tracks — a parse that finds "
                 f"nothing is not a parse that found nothing wrong. This rip's "
-                f"report does not say it was cancelled, so an empty parse is "
-                f"unexplained.",
+                f"report does not say it was cancelled or failed, so an empty "
+                f"parse is unexplained.",
             )
         )
         return

@@ -1556,7 +1556,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # +3 (2026-09-05): now DELEGATES the "was the re-read exercised?" count
     # instead of computing it inline, so the manifest row and the graded verb
     # cannot answer one question with two keys.
-    "rig_check.py": 899,
+    # **899 -> 940 (2026-09-24, the 0.6.55 acceptance bundle)**: a FAILED rip's empty parse
+    # names the failure (`_rip_failure`) instead of calling it unexplained; it reads
+    # the same report as `_rip_was_cancelled`, so it belongs beside it.
+    "rig_check.py": 940,
     "rip_addendum.py": 493,
     "rip_audit.py": 1216,
     "rip_compare.py": 1404,
@@ -1574,7 +1577,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `REPORT_SCHEMA_VERSION` with every other version's — the file's own rule is
     # that a schema change is explained where the number lives. The derivation is
     # in `user_settings.py`, so this is one call, not a list.
-    "rip_report.py": 2430,
+    # **2430 -> 2462 (2026-09-24, the 0.6.55 acceptance bundle)**: `RIP_DID_NOT_FINISH_GATE` and
+    # `UNFINISHED_RIP_STATUSES` — a gate on a rip that never finished no longer
+    # says "ran"; the vocabulary lives beside `SUPERSEDED_GATE`, its sibling.
+    "rip_report.py": 2462,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -1618,7 +1624,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # session folder (maintainer: *"stop polluting my home folder, keep this all
     # contained to 1 folder"*). The layout gains `evidence`, `run_dir` and `rips`, and
     # the stager refuses a rip folder by name — the rule that keeps album artwork out.
-    "test_session.py": 851,
+    # **851 -> 861 (2026-09-24, the 0.6.55 acceptance bundle)**: `SessionLayout.rip_bundles`,
+    # so each rip's own bundle lands in the one session folder too.
+    "test_session.py": 861,
     "ui/dialogs/pending_installs.py": 419,
     # **454 -> 479 on 2026-09-12** (+25): `_transcript_save_default()`. The "Save
     # the transcript" dialog proposed `~/platterpus-transcript.txt`, i.e. a file
@@ -1661,7 +1669,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # of Alt-key notes on the menu items whose letters moved, beside those items.
     # This number was exceeded by commit 641a884 and pushed without a green
     # suite; the check that would have caught it had been stopped.
-    "ui/main_window.py": 1601,
+    # **1601 -> 1609 (2026-09-24, the 0.6.55 acceptance bundle)**: the release picker and
+    # Settings dialog are freed after use (four and two were left alive, hidden).
+    "ui/main_window.py": 1609,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -1750,7 +1760,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # failed flush can never be reported as a successful one. Found by the fork in
     # our own evidence bundle — the stamp read twelve seconds before the
     # `generated_at` of the report it bundles.
-    "ui/main_window_rip.py": 4696,
+    # **4696 -> 4710 (2026-09-24, the 0.6.55 acceptance bundle)**: the gates read the rip's
+    # own outcome, and a rip's own bundle goes to the session folder while one runs.
+    "ui/main_window_rip.py": 4710,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -1908,7 +1920,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # session folder (maintainer: *"stop polluting my home folder, keep this all
     # contained to 1 folder"*). `contain_in`: the run writes into the session
     # folder and builds no second bundle.
-    "uiscript/runner.py": 4029,  # +116: _do_expect_verification, the assertion section F never had,
+    # **4029 -> 4121 (2026-09-24, the 0.6.55 acceptance bundle)**: `expect-verification`
+    # fails at once over a rip that did not finish (it waited 600 s), and
+    # `screenshot` photographs only on-screen windows, main window first (the
+    # headline picture was a hidden dialog at every step).
+    "uiscript/runner.py": 4121,  # +116: _do_expect_verification, the assertion section F never had,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
@@ -1935,7 +1951,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # run off the GUI thread. The pure bounded wait itself is its own module
     # (`ripper_log_settle.py`); what is here is the budget, the announcement
     # and the interrupt.
-    "workers/rip_worker.py": 3413,
+    # **3413 -> 3463 (2026-09-24, the 0.6.55 acceptance bundle)**: a ripper killed by a signal
+    # Platterpus did not send is explained (`ripper_exit`); the worker is the only
+    # place that knows whether it sent one, so `_we_stopped_ripper` lives here.
+    "workers/rip_worker.py": 3463,
 }
 
 

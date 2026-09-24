@@ -194,10 +194,20 @@ def test_every_path_is_inside_the_one_session_folder(tmp_path: Path) -> None:
     (tmp_path / "Downloads").mkdir()  # present, and still not used
     layout = plan_session(home=tmp_path, stamp=STAMP)
     assert layout.root.parent == rig_parent(tmp_path)
-    for name in ("evidence", "transcript", "artifacts", "run_dir", "rips", "bundle"):
-        path = getattr(layout, name)
+    # SWEPT, not listed: this named six fields, so the seventh — the per-rip
+    # bundle folder, added 2026-09-24 — would have been outside its population.
+    import dataclasses
+
+    paths = {
+        f.name: getattr(layout, f.name)
+        for f in dataclasses.fields(layout)
+        if isinstance(getattr(layout, f.name), Path) and f.name != "root"
+    }
+    assert len(paths) >= 7, f"the sweep found too few paths to mean anything: {paths}"
+    for name, path in paths.items():
         assert path.is_relative_to(layout.root), f"{name} is outside: {path}"
     assert layout.bundle == layout.root / bundle_filename(STAMP)
+    assert not layout.rip_bundles.is_relative_to(layout.evidence)
 
 
 def test_the_rips_are_never_inside_the_image_admitting_evidence_folder(

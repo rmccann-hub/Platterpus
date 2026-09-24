@@ -32,7 +32,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from platterpus import diagnostics, drive_control
+from platterpus import diagnostics, drive_control, ripper_exit
 from platterpus.adapters.rip_backend import (
     RipBackend,
     RipError,
@@ -836,6 +836,12 @@ class RipWorker(QObject):
         # does not engage the never-block-the-GUI rule.
         self._sigterm_sent_for: RipHandle | None = None
         self._sigterm_lock: threading.Lock = threading.Lock()
+        #: WHICH handle `_reap_ripper` had to escalate against (SIGTERM, then
+        #: SIGKILL on the group) — the one stop this worker sends that does not go
+        #: through `_signal_stop`. Kept for the same identity reason as the field
+        #: above, and read by `_we_stopped_ripper` so a death we caused is never
+        #: described to the user as one that came from outside.
+        self._escalated_for: RipHandle | None = None
         #: Set by `abandon_log_wait` to interrupt the bounded wait for the
         #: ripper's log footer. Its own event rather than a reuse of the cancel
         #: flag: a cancel is what STARTS that wait, so keying the interrupt on the
@@ -2343,6 +2349,23 @@ class RipWorker(QObject):
         self._ripper_exit_code = exit_code
         success = (exit_code == 0) and not self._cancelled
         if exit_code not in (0, None) and not self._cancelled:
+            # SAY WHO ENDED IT when the exit status can tell us. A ripper that is
+            # killed prints no diagnosis of its own, so `_failure_hint` was empty
+            # and the user read "no diagnosis was captured" over an exit 137 that
+            # WAS the diagnosis (2026-09-24 acceptance run: the ripping container
+            # was stopped under a whole-disc rip 95 s in). Appended rather than
+            # replacing, so a fatal line the ripper did print still leads.
+            explained = ripper_exit.describe_unrequested_exit(
+                exit_code,
+                we_stopped_it=self._we_stopped_ripper(),
+                said_quit_notice=self._said_quit_notice(),
+            )
+            if explained:
+                self._failure_hint = (
+                    f"{self._failure_hint} — {explained}"
+                    if self._failure_hint
+                    else explained
+                )
             # The ripper's OWN verdict on the rip, with its argv and everything it
             # said. Recorded here rather than left to the GUI: this is the one place
             # that holds all three at once, and the report used to carry the exit code
@@ -2394,6 +2417,32 @@ class RipWorker(QObject):
                 return
             self._retain_stdout_line(nxt)
             line = nxt
+
+    def _we_stopped_ripper(self) -> bool:
+        """Whether THIS rip's ripper was ended by Platterpus — a cancel, or a signal
+        this worker sent to the current handle.
+
+        Identity, not a flag, for the reason given at `_sigterm_sent_for`: a rip can
+        run the ripper more than once, and a stop sent to an earlier pass says
+        nothing about how the current one ended.
+        """
+        handle = self._handle
+        if self._cancelled:
+            return True
+        return handle is not None and (
+            self._sigterm_sent_for is handle or self._escalated_for is handle
+        )
+
+    def _said_quit_notice(self) -> bool:
+        """Whether the ripper's retained output carries its stop notice.
+
+        Read from the head AND the tail: the notice is the last thing a signalled
+        ripper prints, so on a long rip it is in the tail, past the head's cap.
+        """
+        return any(
+            line.strip() == ripper_exit.QUIT_NOTICE
+            for line in (*self._stdout_lines, *self._stdout_tail)
+        )
 
     def _retain_stdout_line(self, line: str) -> None:
         """Keep one line of the ripper's output in the diagnostic record.
@@ -2457,6 +2506,7 @@ class RipWorker(QObject):
         try:
             return handle.wait(timeout=_RIPPER_EXIT_GRACE_S)
         except subprocess.TimeoutExpired:
+            self._escalated_for = handle
             log.warning(
                 "ripper still running %.1fs after we stopped reading its output — "
                 "escalating to SIGTERM/SIGKILL on the process group. Its stdout "

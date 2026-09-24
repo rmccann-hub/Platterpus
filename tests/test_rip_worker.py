@@ -3568,3 +3568,77 @@ def test_the_verification_is_told_whether_the_writer_finished(tmp_path: Path) ->
     worker._verify_ripper_log(str(_log_with_footer(tmp_path)), writer_finished=False)
     worker._verify_ripper_log(str(_log_with_footer(tmp_path)), writer_finished=True)
     assert seen == [False, True], seen
+
+
+# --- Who ended the rip: a signal Platterpus did not send ------------------
+
+
+def test_a_ripper_killed_from_outside_is_explained_not_called_undiagnosed(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Exit 137 with no cancel must reach the user as what it is.
+
+    The 2026-09-24 acceptance run's whole-disc rip printed ``Trying to quit``,
+    exited 137 (SIGKILL through the Distrobox wrapper) 87 ms later, and the next
+    call through the wrapper found the container stopped. Nobody had cancelled.
+    The status line read *"Rip failed — no diagnosis was captured"*, because the
+    only feed into ``failure_hint`` was a matched line of the ripper's output — and
+    a killed process prints no diagnosis of its own. The exit status WAS the
+    diagnosis, and it was on the worker the whole time.
+    """
+    handle = _FakeHandle(
+        lines=[
+            "Tracks:",
+            "Ripping and encoding track 1, progress - 40.68%",
+            "Trying to quit",
+        ],
+        exit_code=137,
+    )
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+    worker.start_rip()
+
+    assert sigs.finished and sigs.finished[0][0] is False
+    hint = worker.failure_hint
+    assert "stopped from outside Platterpus" in hint, hint
+    assert "SIGKILL" in hint and "exit 137" in hint, hint
+    assert "Trying to quit" in hint, (
+        "the ripper's own stop notice is evidence it was asked to stop before it "
+        f"was killed, and the sentence dropped it: {hint!r}"
+    )
+    assert handle.terminate_calls == 0, "the test's premise: WE sent no signal"
+
+
+def test_a_rip_we_stopped_is_never_described_as_stopped_from_outside(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The mirror, and the direction that would be a false accusation.
+
+    Two ways Platterpus ends the ripper itself: the user's Cancel, and the reaper's
+    escalation when the ripper outlives its output (SIGTERM then SIGKILL on the
+    group). Either ends in a signal death, and telling the user "something on this
+    computer" did it would send them looking for a culprit that is us.
+    """
+    cancelled = _FakeHandle(lines=["x"], exit_code=143)
+    worker = RipWorker(_FakeBackend(handle=cancelled), _params(tmp_path))
+    worker.cancel()
+    worker.start_rip()
+    assert "outside" not in worker.failure_hint, worker.failure_hint
+
+    escalated = _FakeHandle(lines=["x"], never_exits=True, cancel_returns=-9)
+    worker2 = RipWorker(_FakeBackend(handle=escalated), _params(tmp_path))
+    worker2.start_rip()
+    assert escalated.cancel_calls == 1, "the premise: the reaper escalated"
+    assert "outside" not in worker2.failure_hint, worker2.failure_hint
+
+
+def test_an_ordinary_failure_exit_gets_no_signal_story(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Exit 1 is cyanrip's own "I refused / I failed", whose reason is in its
+    output. Explaining it as a signal would be inventing a cause."""
+    handle = _FakeHandle(lines=["x"], exit_code=1)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.start_rip()
+    assert worker.failure_hint == "", worker.failure_hint
