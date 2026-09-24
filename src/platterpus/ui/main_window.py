@@ -1053,7 +1053,9 @@ class MainWindow(
         # `ProvisioningMixin.run_acceptance_session`.
         #
         acceptance_action = tools_menu.addAction("Run &acceptance test…")
-        acceptance_action.triggered.connect(self.run_acceptance_session)
+        # A no-argument slot, not `run_acceptance_session` itself: `triggered`
+        # hands its slot a `checked` bool, which would land in `size`.
+        acceptance_action.triggered.connect(self._on_run_acceptance_action)
         # The dependency check lives in ONE place: Setup & Updates → Check
         # dependencies (it also runs automatically at launch). This comment used
         # to say it lived only on a Settings button, and that stopped being true

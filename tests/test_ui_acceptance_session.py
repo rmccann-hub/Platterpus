@@ -258,6 +258,19 @@ def session(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
         return True
 
     monkeypatch.setattr(ScriptConsoleDialog, "run_now", fake_run_now)
+
+    # THE SIZE QUESTION IS ANSWERED HERE, as a person would answer it: `Full`,
+    # the size every test in this file was written against. Without it the chooser
+    # meets `shown_boxes`' fake `exec`, which clicks nothing, so every session in
+    # this file would read as cancelled. The chooser's own behaviour is tested
+    # below with this stand-in removed.
+    state.sizes_asked = []
+
+    def answer_size(self: MainWindow) -> str:
+        state.sizes_asked.append(True)
+        return "full"
+
+    monkeypatch.setattr(MainWindow, "_ask_acceptance_run_size", answer_size)
     return state
 
 
@@ -1524,3 +1537,70 @@ def test_the_bundle_and_the_run_folder_are_inside_the_session_folder(
     assert captured.get("layout") is layout
     album_dirs_roots = win._acceptance_album_roots(layout)
     assert layout.rips in album_dirs_roots
+
+
+# --- Run sizes --------------------------------------------------------------
+
+
+def test_the_session_hands_its_run_size_to_the_console(
+    window, session, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The size chosen at the start reaches the runner, through the console."""
+    sized: list[str] = []
+    real = ScriptConsoleDialog.size_next_run
+
+    def record(self: ScriptConsoleDialog, size: str) -> None:
+        sized.append(size)
+        real(self, size)
+
+    monkeypatch.setattr(ScriptConsoleDialog, "size_next_run", record)
+    win = window()
+    assert win.run_acceptance_session(size="quick") is True
+    assert process_until(lambda: bool(session.runs))
+    assert sized == ["quick"]
+    # Asked for explicitly, so the chooser was not shown.
+    assert session.sizes_asked == []
+
+
+def test_the_menu_item_asks_for_the_size(window, session, process_until) -> None:
+    """`triggered` passes a `checked` bool, which must not land in `size`."""
+    win = window()
+    action = next(
+        a
+        for a in win.menuBar().findChildren(QAction)
+        if "acceptance" in a.text().lower()
+    )
+    action.trigger()
+    assert process_until(lambda: bool(session.runs))
+    assert session.sizes_asked == [True]
+
+
+def test_cancelling_the_size_choice_starts_nothing(
+    window, session, shown_boxes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The real chooser, with nothing clicked: nothing is created, held or run."""
+    from platterpus.ui.main_window_provision import ProvisioningMixin
+
+    monkeypatch.setattr(
+        MainWindow,
+        "_ask_acceptance_run_size",
+        ProvisioningMixin._ask_acceptance_run_size,
+    )
+    win = window()
+    assert win.run_acceptance_session() is False
+    # The chooser WAS shown, and says which size is evidence.
+    assert shown_boxes, "no size chooser was shown"
+    text = shown_boxes[-1].text()
+    assert "Quick" in text and "Standard" in text and "Full" in text
+    assert "evidence" in text
+    # And nothing followed it.
+    assert win._acceptance_layout is None
+    assert session.inhibitors == []
+    assert session.runs == []
+
+
+def test_an_unknown_size_is_refused_before_anything_is_created(window, session) -> None:
+    win = window()
+    with pytest.raises(ValueError, match="unknown run size"):
+        win.run_acceptance_session(size="medium")
+    assert win._acceptance_layout is None

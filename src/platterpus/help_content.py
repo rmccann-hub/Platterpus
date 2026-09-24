@@ -439,15 +439,29 @@ settings come back afterwards), the transcript, the screenshots and the bundle.
 When it finishes it names the file and offers to open the folder. There is
 nothing to download and nothing to run afterwards; send that one file.
 
-It takes four to six hours, because it rips the disc twice — once fast, once
-reading every track at least twice — plus six shorter partial rips. Leave it
-overnight.
+**It asks one question first: which size of run.** All three come from the same
+script.
 
-**Before you start, check the ripper.** **Tools → Setup & Updates… → Check for cyanrip updates**,
-and take the offer only if it is a plain one-click install. An offer that warns
-you first is a newer build no closed handshake round has reviewed; the acceptance
-run refuses to start on one, in the first few seconds, before any drive time is
-spent. Newest is not always the one you want.
+- **Quick**, about 15 minutes, answers "does it still work?": it checks the
+  ripper and the settings, identifies the disc, and rips two tracks with a
+  transcode.
+- **Standard**, about an hour, answers "is a normal rip right?": it adds the
+  whole-disc rip, the overwrite prompt, and a cancel and recovery.
+- **Full**, four to six hours, is everything. It rips the disc twice (once fast,
+  once reading every track at least twice) plus six shorter partial rips. Leave
+  it overnight.
+
+**Only Full counts as evidence** toward a version or a handshake close. A smaller
+run says so at the top of its transcript and marks every section it left out.
+Every size starts from the same baseline: each setting is set to its shipped
+default, or kept on purpose, and your own settings come back when the run ends.
+The read offset is your drive's own, not one typed into the script.
+
+**Before you start, check the ripper.** **Tools → Setup & Updates… → Check for
+cyanrip updates**, and take whatever offer it makes, including one that warns you
+first. The run's first section checks that the ripper is the build the handshake
+record expects, and fails in the first few seconds, before any drive time is
+spent, if it is not. Newest is not always the one it expects.
 
 If the sleep lock cannot be taken — no session bus, or no permission for it —
 the run still goes ahead and says so rather than stopping. A run that happens and

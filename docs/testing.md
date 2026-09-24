@@ -3358,6 +3358,17 @@ was sharpened to mean something precise:
 So the bar is **zero failures in `ARCHIVAL` sections.** `UX` failures are
 recorded, triaged and non-blocking.
 
+**And only a FULL run is evidence** (2026-09-24). The acceptance run comes in three
+sizes cut from the one script (`uiscript/run_sizes.py`): **Quick** (about 15
+minutes), **Standard** (about an hour) and **Full** (4 to 6 hours). A smaller run
+declines whole sections on purpose, so its green result cannot stand in for a Full
+one in the evidence ledger, whatever its sections scored. It says so in its own
+record: the transcript opens with *"A QUICK RUN … NOT evidence"*, and its report
+carries `run_size` and `counts_as_evidence: false`. Each section declares the
+smallest size that runs it, as its first line, so the sizes nest by construction
+and no section inherits its size (§5.bj); `tests/test_uiscript_run_sizes.py` holds
+the script to that.
+
 **The one property that makes this safe: severity is a property of the SECTION,
 fixed here in advance — never a judgement made about a failure after seeing it.**
 *"The five failures were each understood"* is the exact sentence 2026-08-19

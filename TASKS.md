@@ -82,8 +82,11 @@ round 26 is open.
   found and fixed: duplicate Alt-keys in the script console, Setup & Updates and the
   Tools menu; a nameless search field; a checkbox cut off at 150% text; a picker
   that scrolled with screen to spare.
-- [ ] **Maintainer's question: acceptance tiers (quick / standard / full) and a fixed
-  starting baseline.** Recommendation given in chat; waiting on the answer before building.
+- [x] **Acceptance run sizes (Quick / Standard / Full) and a fixed starting baseline**
+  (maintainer: "do all this", 2026-09-24). One script, a `run-size` line at the top of every
+  section, nested by construction, and only Full counts as evidence. The preamble sets every
+  user setting to its default or `keep`s it with a reason, swept against `user_setting_names`.
+  The hard-coded 667 is gone: `set-drive-offset` / `expect-drive-offset` / `(offset)`.
 
 ## Round 26 — OPEN 2026-09-23 on `df91ae7` (`+platterpus.15`): the real test, installed through our app
 

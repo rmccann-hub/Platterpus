@@ -11,6 +11,41 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-24 (evening) — 0.6.57 released; the acceptance run gets sizes, a baseline and the drive's own offset
+
+**0.6.57 went out before the fork opened round 27**, as the maintainer chose, so the
+round's real test runs the new one-frame default. I checked their branch three times,
+the last just before dispatch, and there was no lap. `main`'s CI on `8278b19` was green
+before the release workflow started.
+
+**Then step 2 of the plan: shorter hardware runs.** The acceptance script is now cut
+into three **run sizes**, all from the one file.
+- Quick is about 15 minutes, Standard about an hour, and Full 4 to 6 hours.
+- The app asks which size before anything is created or held.
+- Each section's first line declares the smallest size that runs it, so the sizes
+  nest by construction and nothing inherits a size.
+- A step the size leaves out is recorded as declined. It is the one skip `ok` forgives.
+- Only Full is evidence, and the transcript and report of any other size say so.
+
+**The hard-coded 667 is gone.** It was the BDR-209D's offset, written into a script
+that ships to every machine. `set-drive-offset` keeps the machine's own offset, or
+takes the AccurateRip list's, and fails naming the fix. `(offset)` carries the same
+value into the two `cyanrip -s` probes.
+
+**Two lessons came from the work itself.** First, a second copy of the sanitiser sweep, in
+`test_rig_check.py`, did not learn about the placeholder until it failed. That is
+§5.br's rule again, item 5: a second copy of a pattern does not learn. Second, the menu wiring had
+connected `triggered` straight to the method, so its `checked` bool would have landed
+in the new `size` parameter. A revert probe on the no-argument slot now catches that.
+
+**The run now starts from a baseline.** Each of the 34 user settings is set to its
+shipped default or `keep`s its current value. Every `keep` carries a written reason,
+and a sweep derived from `user_setting_names` enforces the rule.
+
+**The User Guide contradicted its own script.** It said to take the ripper offer only
+if it installs in one click, which is the advice the script's header records as wrong
+while a round is open. Fixed in passing.
+
 ## 2026-09-24 (small hours) — round-27 answers ready: one frame, not a pressing; loudness by coverage; READ
 
 The maintainer asked for our round-27 answers first, then 0.6.57. **Reading the fork's

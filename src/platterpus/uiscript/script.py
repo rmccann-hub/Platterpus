@@ -243,6 +243,27 @@ def uses_unsafe(steps: list[Step]) -> bool:
     return any(step.unsafe for step in steps)
 
 
+#: In a ``cyanrip`` step, the drive's read offset — the one ``set-drive-offset``
+#: set — expanded when the step runs. A typed number is right for one drive only.
+OFFSET_PLACEHOLDER: str = "(offset)"
+
+
+def expand_offset(args: list[str], offset: int) -> list[str]:
+    """``args`` with :data:`OFFSET_PLACEHOLDER` replaced by ``offset``."""
+    return [arg.replace(OFFSET_PLACEHOLDER, str(offset)) for arg in args]
+
+
+def args_as_preflight_sees_them(args: list[str]) -> list[str]:
+    """The argv the sanitiser judges BEFORE the run, when no offset is known yet.
+
+    The placeholder stands in as ``0``, a valid offset, so the rest of the line is
+    still checked; the real value is range-checked when the step runs, by the same
+    sanitiser, on the expanded argv. One function, so the runner's preflight and
+    the committed-script sweep cannot judge a line two different ways.
+    """
+    return expand_offset(args, 0)
+
+
 def sanitise_cyanrip_args(args: list[str]) -> str | None:
     """Refuse a scripted cyanrip argv that would be unsafe or unattended-hostile.
 

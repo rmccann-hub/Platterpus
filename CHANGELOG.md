@@ -11,6 +11,40 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+
+- **The acceptance test now comes in three sizes: Quick, Standard and Full.**
+  *Tools → Run acceptance test…* asks which one before anything starts.
+  - **Quick** (about 15 minutes) checks the ripper and the settings, identifies
+    the disc, and rips two tracks with a transcode.
+  - **Standard** (about an hour) adds the whole-disc rip, the overwrite prompt,
+    and a cancel and recovery.
+  - **Full** (4 to 6 hours) is everything, as before, and it is the only size
+    that counts toward a version or a handshake close.
+
+  All three come from the one script. A smaller run records every section it
+  leaves out, and its transcript says at the top that it is not evidence.
+- **The acceptance run now starts from a fixed baseline.** Each setting is set
+  to its shipped default, or kept on purpose with the reason written beside it.
+  Before, a run borrowed whatever you had set, including settings that change
+  what a rip does. Your own settings still come back when the run ends.
+
+### Changed
+
+- **The acceptance run uses your drive's read offset, not one typed into the
+  script.** It used to set +667, which is right only for the Pioneer BDR-209D, so
+  a run on any other drive would have ripped at the wrong offset. It now keeps
+  the offset your machine is set to, or takes the AccurateRip drive list's. If
+  neither is known it stops and tells you to set the drive up.
+
+### Fixed
+
+- **The User Guide gave the wrong advice about updating the ripper before a
+  test.** It said to take the update offer only if it installs in one click. The
+  test expects the build the handshake record names, which is the warned offer
+  while a round is open. The guide now says to take whichever offer appears, as
+  the script itself does.
+
 ## [0.6.57] — 2026-09-24
 
 ### Changed
