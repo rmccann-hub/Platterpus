@@ -154,8 +154,9 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
 - [x] **0.6.56 released 2026-09-24** (release run 154 on `56de3cf`; handshake, CI and changelog gates
   green; AppImage, `.sha256`, `.zsync` published; PyPI published). No round open, no override.
   It is the first release that installs `df91ae7` by default.
-- [ ] **Round 27** (theirs to open, on `.16`): the real test on `.16` + 0.6.56; our answers first on
-  the `Accurip 450` wording and the album-loudness rows.
+- [ ] **Round 27** (theirs to open, on `.16`): the real test on `.16` + **0.6.57** (released
+  before the round opened, so the test runs the new one-frame default); our answers first on
+  the `Accurip 450` wording and the album-loudness rows, ready below.
 - [x] **`Accurip 450` is one frame: OUR half done**, for the release after 0.6.56. Every screen,
   the help, the status line and the report sentence now say only one frame (frame 450) matched
   and the rest is unverified (`one_frame_match.py`, swept by `tests/test_one_frame_match.py`).
@@ -5258,4 +5259,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.56.*
+*Last updated for Platterpus v0.6.57.*
