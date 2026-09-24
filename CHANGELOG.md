@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.56] — 2026-09-24
+
 ### Changed
 
 - **The ripper Platterpus installs by default moves to cyanrip
@@ -15364,7 +15366,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.55...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.56...HEAD
+[0.6.56]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.55...v0.6.56
 [0.6.55]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.54...v0.6.55
 [0.6.54]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.53...v0.6.54
 [0.6.53]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.52...v0.6.53
@@ -15507,4 +15510,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.55.*
+*Last updated for Platterpus v0.6.56.*

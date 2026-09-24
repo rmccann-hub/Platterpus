@@ -148,9 +148,12 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
   pinned in `SENT_LAPS`, envelope `round26lap05FROMplatterpusTOcyanrip.md`). Our gate reads
   round 26 CLOSED; `FORK_PIN` → `df91ae7`, `+platterpus.15`, approval record → round 26 for
   0.6.55, all in the same commit.
-- [ ] **Their lap 6** transcribes our `GO` and closes round 26 on their gate.
-- [ ] **0.6.56**: after their lap 6 and their `.16`, and before their round 27 lap 1 is
-  released, or it needs a §6b.
+- [x] **Their lap 6 filed** (sha256 `a5338b20…`, `GO`/`GO`): round 26 CLOSED on both gates; their
+  digest `9ea99f837b29209e` reproduces. They published `.16` at `221a1df` (`release_seq` 26, both
+  channels). Their §B adds that the same wrong track-1 read (`0E91CD1A`) happened on 2026-09-11 too.
+- [~] **0.6.56**: released with no round open, before their round 27 lap 1.
+- [ ] **Round 27** (theirs to open, on `.16`): the real test on `.16` + 0.6.56; our answers first on
+  the `Accurip 450` wording and the album-loudness rows.
 - [ ] **`Accurip 450` is one frame** (NEXT-ROUND, both sides): section J's track 1 had wrong
   audio and passed as "partially accurate". Say what matched, stop calling it a pressing, and
   decide whether offset-variant re-reads should default ON (maintainer's call: `rerip_offset_variant`
@@ -5217,4 +5220,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.55.*
+*Last updated for Platterpus v0.6.56.*
