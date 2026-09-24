@@ -104,10 +104,10 @@ class SettingsDialog(CenteredDialog):
             "Pick what you want this rip to be and the format, verification and "
             "effort options below snap to good values for it. 'Fast Verified' "
             "(recommended): FLAC, AccurateRip + CTDB, and a track is re-read only "
-            "when it fails to verify — one fast pass on a clean disc. 'Archival': "
-            "the same, plus EAC-style Test and Copy (EVERY track read until two "
-            "reads agree) and a re-read of offset-variant matches too — slower, "
-            "and the most reproducible result. 'Portable': MP3 derived from a "
+            "when it fails to verify (one frame matching is not verifying) — one "
+            "fast pass on a clean disc. 'Archival': the same, plus EAC-style Test "
+            "and Copy (EVERY track read until two reads agree) — slower, and the "
+            "most reproducible result. 'Portable': MP3 derived from a "
             "fully verified FLAC master, which is still kept. Changing any option "
             "below switches this to Custom; nothing is lost when it does."
         )
@@ -656,22 +656,21 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("Reads that must agree to trust a track:", self._secure_rerip_spin)
 
-        # Re-read offset-variant tracks too (on by default since the release after
-        # 0.6.56). An offset-variant ("partially accurate") match is not accepted
-        # on the fast read; such tracks get the same secure re-read as an
+        # Re-read "partially accurate" tracks too (on by default since the release
+        # after 0.6.56): only one frame of them matched, so the match is not
+        # accepted on the fast read and they get the same secure re-read as an
         # AccurateRip miss. Unticked restores the old fast path.
         self._rerip_offset_variant_check: QCheckBox = QCheckBox(
-            "Also re-read offset-variant (partially accurate) tracks", self
+            "Also re-read tracks where only one frame matched AccurateRip", self
         )
         self._rerip_offset_variant_check.setChecked(config.rerip_offset_variant)
         self._rerip_offset_variant_check.setToolTip(
-            "On by default. An offset-variant (“partially accurate”) match checks "
-            "only one frame of the track, so it does NOT prove the read is right — "
-            "a wrong read has passed it. When on, those tracks get the same secure "
+            "On by default. A 'partially accurate' match checks only one frame "
+            "of the track (frame 450), so it does NOT prove the read is right — a "
+            "wrong read has passed it. When on, those tracks get the same secure "
             "re-read (cyanrip's -Z) as an AccurateRip miss, until reads agree, so "
-            "the result is stable and repeatable. Costs extra time on discs with "
-            "offset-variant tracks (compilations, remasters); untick it to accept "
-            "the match on the first read."
+            "the result is stable and repeatable. Costs extra time on discs where "
+            "it happens. When off, the match is accepted on the first read."
         )
         form.addRow("", self._rerip_offset_variant_check)
 

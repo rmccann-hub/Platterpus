@@ -1,9 +1,9 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.56        GitHub pre-release flag (every v0.* tag carries it);
-                           offered on the STABLE update channel. The first release that
-                           installs df91ae7 by default.
+Platterpus  v0.6.57        GitHub pre-release flag (every v0.* tag carries it);
+                           offered on the STABLE update channel. Installs df91ae7 by
+                           default (since 0.6.56); re-reads one-frame matches by default.
 cyanrip     df91ae7        0.9.4-rc2+platterpus.15  (platterpus-fork-gdf91ae7)  <- PRODUCTION PIN
                            approved by round 26, for Platterpus 0.6.55, on its real test;
                            installed by default from 0.6.56 (0.6.55 installs 3e01bb3)
@@ -12,8 +12,9 @@ rounds 1-26 ALL CLOSED on our gate, bilateral GO. No round is reviewing a build;
             round 27 opens on the fork's .16.
 ```
 
-> **Header last moved 2026-09-24, to 0.6.56**, the release that ships `df91ae7`. Before
-> that, the same evening, when round 26 closed on our gate and `FORK_PIN` rolled to
+> **Header last moved 2026-09-24, to 0.6.57**, which re-reads one-frame AccurateRip
+> matches by default. Before that, the same day, to 0.6.56, the release that ships
+> `df91ae7`; before that, the same evening, when round 26 closed on our gate and `FORK_PIN` rolled to
 > `df91ae7`. The move before that was the same day, to 0.6.55: the first attempt on 0.6.54 stopped at
 > section A, which refused `.15` on a defect of ours (`docs/testing.md` §5.bq). Before
 > that, 2026-09-23, when round 26 opened on `.15`; the move before that was the same day, when round 24 closed on our gate and `FORK_PIN` rolled to
@@ -98,4 +99,4 @@ correct for it. That would be a separate step, not part of this run.
 
 ---
 
-*Last updated for Platterpus v0.6.56.*
+*Last updated for Platterpus v0.6.57.*

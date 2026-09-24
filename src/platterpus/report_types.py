@@ -510,6 +510,20 @@ class RipperLogVerificationBlock(TypedDict):
     output: str | None
 
 
+class AlbumLoudnessCoverage(TypedDict):
+    """What the ripper's album loudness rows were measured over (v26).
+
+    ``state`` is ``whole_disc``, ``part_of_disc`` or ``not_determined``; the
+    counts come off cyanrip's ``Rip completed:`` footer and ``interrupted_at`` off
+    its ``Interrupted at:`` line. See :mod:`platterpus.album_loudness`.
+    """
+
+    state: str
+    tracks_finished: int | None
+    disc_tracks: int | None
+    interrupted_at: str | None
+
+
 class RipReport(TypedDict):
     """A complete `.platterpus.json`, schema v18.
 
@@ -542,6 +556,9 @@ class RipReport(TypedDict):
     read_speed: ReportReadSpeedBlock | None
     eta_trace: EtaTraceBlock | None
     album_loudness: dict[str, str] | None
+    #: v26: what `album_loudness` was measured over. cyanrip's "Album" rows cover
+    #: whatever audio was read, which is the album only on a whole-disc rip.
+    album_loudness_covers: AlbumLoudnessCoverage | None
     health_status: str | None
     sha256_hash: str | None
     log_checksum: str | None

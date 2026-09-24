@@ -154,17 +154,53 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
 - [x] **0.6.56 released 2026-09-24** (release run 154 on `56de3cf`; handshake, CI and changelog gates
   green; AppImage, `.sha256`, `.zsync` published; PyPI published). No round open, no override.
   It is the first release that installs `df91ae7` by default.
-- [ ] **Round 27** (theirs to open, on `.16`): the real test on `.16` + 0.6.56; our answers first on
-  the `Accurip 450` wording and the album-loudness rows.
-- [ ] **`Accurip 450` is one frame** (NEXT-ROUND, both sides): section J's track 1 had wrong
-  audio and passed as "partially accurate". Say what matched, and stop calling it a pressing.
+- [ ] **Round 27** (theirs to open, on `.16`): the real test on `.16` + **0.6.57** (released
+  before the round opened, so the test runs the new one-frame default); our answers first on
+  the `Accurip 450` wording and the album-loudness rows, ready below.
+- [x] **`Accurip 450` is one frame: OUR half done**, for the release after 0.6.56. Every screen,
+  the help, the status line and the report sentence now say only one frame (frame 450) matched
+  and the rest is unverified (`one_frame_match.py`, swept by `tests/test_one_frame_match.py`).
+  The EAC-compatible log is deliberately unchanged: round 7 lap 11 H4 agreed neither side
+  rewords it unilaterally. Its new wording is in the round-27 answers below.
 - [x] **Offset-variant re-reads default ON** (maintainer's call, 2026-09-24; for the release after
   0.6.56): `config.DEFAULT_RERIP_OFFSET_VARIANT`, all three goals, and a one-time v8→v9 migration
   (KDD-27 amended). Regression test fed the real section J log.
-- [ ] **Our `rig-check` paranoia ratio sums all four counters**; `READ` alone is the re-read
-  witness (fork's 3.02 against our 2.87 on the same log). NEXT-ROUND.
-- [ ] **Answer the fork's loudness finding** (`cancel-me.log:75`: "Album" loudness over a
-  partial read) with the rows we parse listed, in round 27.
+- [x] **Our `rig-check` re-read multiple now counts `READ` only**: 3.02x on the round-26
+  `-Z 2` log, the fork's figure (it summed all four counters, 2.87x). The `<=` bound is now
+  graded per counter, which a sum could hide.
+- [x] **Our half of the loudness finding** (`cancel-me.log:75`): the results pane and the
+  report now label the album rows by what they covered (`album_loudness.py`, report key
+  `album_loudness_covers`, schema v26), read off the same log's footer.
+- [ ] **ROUND-27 ANSWERS, ready for our lap 2** (they asked us to go first on both):
+  1. **Their `Accurip 450` line, what we parse.** `^\s+Accurip 450:\s+<8 hex>` plus an optional
+     parenthetical, and inside it only `confidence\s+(\d+)`. A match is confidence >= 1 and a
+     non-zero CRC. We read neither "matches Accurip DB" nor "partially accurately ripped". So
+     the parenthetical can be reworded freely **on one condition: `confidence N` appears only on
+     a match.** `Tracks ripped partially accurately: N/M` we match by its exact label, keep
+     verbatim in `partially_accurate_reported`, and use only to cross-check our own per-track
+     count. A renamed label blanks that field until we add it: name the new label in the lap
+     that ships it and we accept both.
+  2. **Our EAC-compatible log, proposed wording** (theirs to accept, under H4): per track
+     `Only one frame matched AccurateRip — rest of track unverified (confidence 200)  [57722DDE]  (AR frame 450)`;
+     summary `1 track(s) matched AccurateRip on one frame only`. Why the old one was wrong on
+     the mechanism, not only the scope: a shifted pressing moves frame 450 too, and a submitted
+     pressing matches its own whole-track entry (`cyanrip@df91ae7:src/accurip.c:304-317`).
+  3. **A correction of ours.** Round 24 lap 4 cited track 5's identical `4CCBCF89` on two runs
+     as proof of a pressing, not a bad read. That is the frame-450 checksum. Across six filed
+     rips track 5's whole-track CRC is `E0036697` four times and `6902BCF0` twice.
+  4. **Upstream's, reported as a portable shape.** `crip_find_ar` with `is_450` set falls
+     through on a miss and compares the WHOLE-TRACK checksum against the frame checksum
+     (`cyanrip@df91ae7:src/accurip.c:311-314`; unchanged on upstream `master`, since
+     `b8e5e79`, 2020). Harmless in practice, one in 2^32 per entry. The shape: a branch that
+     picks which comparison to make, falling through to the other one.
+  5. **Album loudness, the rows we parse**: the four `Album integrated loudness (R128):` /
+     `Album loudness range (R128):` / `Album sample peak level:` / `Album true peak level:`
+     rows, and FFmpeg's `Album Loudness Summary:` block as a fallback. They reach only the
+     report's `album_loudness` and one results-pane line; no tags, no EAC log. **We need no
+     wording change from them**: coverage comes off their own `Rip completed:` and
+     `Interrupted at:` lines. If they add a qualifier, please add a NEW line rather than change
+     the four: our patterns anchor on the labels, and a renamed row falls back silently to
+     FFmpeg's block, losing the stable source though not the figure.
 - [ ] **Re-run F (or the whole script)** on the next release. F's fast whole-disc path is
   untested by the 2026-09-24 run, and that path is F's whole purpose.
 - [ ] **Each side's reading, then the closing laps**; at the close, roll `FORK_PIN` to
@@ -5223,4 +5259,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.56.*
+*Last updated for Platterpus v0.6.57.*

@@ -114,13 +114,16 @@ report**.
 
 ## What the trickier results mean
 
-- **"Offset-variant" / "partially accurate"** (a `~` in the table, and an amber
-  verdict): the track's audio matches a *known* pressing in AccurateRip, but one
-  shifted by a fixed offset from the most common pressing — so it isn't the exact
-  canonical checksum. Most of the time this just means you have a slightly
-  different pressing, and it's fine. **But** if you re-rip the same disc and a
-  track's result *changes*, that's not a pressing difference — it's a
-  read-stability problem on that track (see re-rip comparison below).
+- **"One frame only" / "partially accurate"** (a `~` in the table, and an amber
+  verdict): the track as a whole matched no AccurateRip submission, but **one
+  frame** of it did — frame 450, 1/75 of a second, six seconds in. cyanrip calls
+  this "partially accurately ripped". It verifies that one frame and nothing
+  else: the rest of the track may hold a read error, or audio that differs from
+  every submission, and the check cannot tell which. (Older versions of this
+  guide said such a track was usually fine. That was wrong: on one test disc it
+  held wrong audio.) Platterpus re-reads these tracks until two reads
+  agree, and if a re-rip gives a different checksum, the track has a read
+  problem (see re-rip comparison below).
 - **"Track(s) N needed heavy re-reading"** (an amber footnote): the drive had to
   re-read those tracks a lot (or a secure re-read never settled on one answer).
   Even if they matched AccurateRip, that's the earliest sign a track might not be
@@ -129,8 +132,8 @@ report**.
   pass won't trip it — that's what the re-rip comparison is for.)*
 - **AccurateRip says "mostly accurate" but CTDB says "no match"** — this is *not*
   a contradiction. CTDB folds the whole disc into one checksum, so if even a
-  couple of tracks differ from the common pressing the whole-disc CRC can't
-  match. The app spells this out in a line under the CTDB result. AccurateRip is
+  couple of tracks match no AccurateRip submission as a whole (including tracks
+  where only one frame matched) the whole-disc CRC can't match either. The app spells this out in a line under the CTDB result. AccurateRip is
   the per-track authority.
 
 ## Comparing a re-rip against the last one
@@ -144,7 +147,7 @@ Platterpus:
 
 It prints a track-by-track table: which tracks are byte-for-byte identical, which
 differ, and — for the ones that differ — **which rip is the better master** (an
-exact AccurateRip match beats an offset-variant one). This is how you catch a
+exact AccurateRip match beats one where only one frame matched). This is how you catch a
 track that quietly regressed on a re-rip even though nothing looked wrong.
 
 If a re-rip wins on some tracks and loses on others, assemble the best of both
@@ -225,15 +228,14 @@ named from the album artist/title you type.
   stays a single fast pass. It's **on by default** (2) — raise it for a badly
   scratched disc, or set it to *Off* to accept the first read even when a track
   can't be verified.
-- **Also re-read offset-variant (partially accurate) tracks** — **on by
-  default.** An "offset-variant" match (the `~` in the results) checks only
-  **one frame** of the track against AccurateRip, so it does **not** prove the
-  read is right — the same track can offset-variant-match two rips with
-  different audio, and a wrong read has passed it. With this on, those tracks get
-  the same secure re-read as an AccurateRip miss (above), so an unstable one
-  settles on a stable, repeatable result. It costs extra time on discs with
-  offset-variant tracks (many compilations and remasters); untick it to accept
-  the match on the first read instead.
+- **Also re-read tracks where only one frame matched AccurateRip** — **on by
+  default.** That match (the `~` in the results, "partially accurate") checks
+  only **one frame** of the track, so it does **not** prove the read is right:
+  the same track has matched that way on two rips with different audio, and a
+  wrong read has passed it. With this on, those tracks get the same secure
+  re-read as an AccurateRip miss (above), so an unstable one settles on a
+  stable, repeatable result. It costs extra time on discs where it happens;
+  untick it to accept the match on the first read instead.
 - **Verify every track with a second read (EAC-style Test & Copy)** — **off by
   default.** Normally Platterpus rips fast and only re-reads tracks that didn't
   match AccurateRip. Turn this on to read *every* track at least twice and keep

@@ -22,7 +22,7 @@ from collections.abc import Collection
 from pathlib import Path
 from typing import Final
 
-from platterpus import __version__, build_info, diagnostics
+from platterpus import __version__, album_loudness, build_info, diagnostics
 from platterpus.atomic_write import atomic_write_text
 from platterpus.handshake_approval import (
     RipperApproval,
@@ -231,7 +231,13 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     added tomorrow appears here tomorrow, instead of whenever somebody remembers to
 #     add it to a list — the hand-kept list is exactly what let `library_dir`,
 #     `notify_on_completion` and eleven others go unrecorded.
-REPORT_SCHEMA_VERSION: int = 25
+# v26: `album_loudness_covers` — what the album loudness figures were measured
+#     over (`whole_disc` / `part_of_disc` / `not_determined`), off the log's own
+#     `Rip completed:` footer and `Interrupted at:` line. cyanrip's "Album" rows
+#     cover whatever audio was read, and an interrupted rip printed an "Album
+#     integrated loudness" for 40% of one track (the fork, round 26 lap 4). The
+#     figures are unchanged; the key says what they describe.
+REPORT_SCHEMA_VERSION: int = 26
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -1232,6 +1238,10 @@ def _build(
         # "Album Loudness Summary"; per-track loudness lives in each track's
         # `replaygain`. None when absent (e.g. whipper logs).
         "album_loudness": dict(getattr(rip_log, "album_loudness", {}) or {}) or None,
+        # v26: what those figures were measured over. cyanrip's "Album" rows cover
+        # whatever audio was read, so on a `-l` or interrupted rip they are not the
+        # album's (the fork, round 26 lap 4). Derived from the log's own footer.
+        "album_loudness_covers": album_loudness.coverage(rip_log),
         "health_status": getattr(rip_log, "health_status", "") or None,
         "sha256_hash": getattr(rip_log, "sha256_hash", "") or None,
         # cyanrip's own log signature ("Log FUN512:") — its analogue to EAC's
@@ -1511,8 +1521,9 @@ def _track(track: object) -> dict:
         "accuraterip": {
             "v1": _ar(getattr(track, "accuraterip_v1", None)),
             "v2": _ar(getattr(track, "accuraterip_v2", None)),
-            # The +450-frame offset-pressing variant ("partially accurately
-            # ripped"). Surfaced as data; NOT counted as a plain verified match.
+            # cyanrip's "Accurip 450": one frame's checksum ("partially
+            # accurately ripped"; the key name is historical, see
+            # `one_frame_match`). Surfaced as data; NOT counted as verified.
             "offset_450": _ar(getattr(track, "accuraterip_offset", None)),
         },
     }

@@ -346,7 +346,7 @@ def _merge_shipped_track(
                 shipped.accuraterip_offset,
                 track.accuraterip_offset,
                 track=track.number,
-                field="AccurateRip offset-variant result",
+                field="AccurateRip frame-450 result",
             ),
             # `test_crc` is the other proof-shaped field: it is half of a
             # two-reads-agree pair, and pairing the first pass's Test CRC with the
