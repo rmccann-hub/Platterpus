@@ -1328,7 +1328,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # it themselves from the raw test-pin constant, and on 2026-09-24 section A
     # refused the build round 26 reviews (docs/testing.md §5.bq). Four copies became
     # one function here, so this file grew and those shrank.
-    "deps/fork_source.py": 2328,
+    # **2328 -> 2340 (2026-09-24, round 26 close)**: the roll of `FORK_PIN` and
+    # `FORK_EXPECTED_VERSION` to `df91ae7`, each with the history the constant's own
+    # comment keeps, as every roll since round 7 has.
+    "deps/fork_source.py": 2340,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1485,7 +1488,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **661 -> 674 (2026-09-24)**: the retired-pin sentence can now say "no test pin
     # is in use now" and name the build under review, instead of naming round 21's
     # pin as the current one (§5.bq).
-    "handshake_approval.py": 674,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # **674 -> 683 (2026-09-24, round 26 close)**: the approval record moved to round
+    # 26 for 0.6.55, with the provenance the record's own rule requires beside it.
+    "handshake_approval.py": 683,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect
