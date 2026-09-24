@@ -11,6 +11,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+
+- **A rip can no longer be killed by closing a different Platterpus window.** When a
+  Platterpus window started the ripping container, the container belonged to that
+  window, and stayed tied to it even after the window was closed. When that window's
+  process group ended, the container stopped and killed any rip running in it. That is
+  what killed a whole-disc rip in the 2026-09-23 acceptance run. A container Platterpus
+  starts now runs on its own, so closing any window leaves it running.
+  `platterpus --doctor` now says which app or terminal owns the container, since one
+  started from a terminal still stops when that terminal closes.
+
 ### Changed
 
 - **Round 27 is open, reviewing the fork's `+platterpus.16` (`221a1df`).** The acceptance

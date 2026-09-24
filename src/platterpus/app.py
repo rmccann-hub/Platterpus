@@ -816,6 +816,12 @@ def main(argv: list[str] | None = None) -> int:
         build_fingerprint(),
         " ".join(_invoked) if _invoked else "(none — GUI launch)",
     )
+    # BEFORE anything below can spawn a child: a container one of our tools
+    # starts must not belong to this window's systemd unit, or closing the
+    # window can kill a rip running in another (2026-09-23; see the module).
+    from platterpus.container_scope import release_launcher_unit_hold
+
+    release_launcher_unit_hold(os.environ)
 
     # Config first; both the logging path and the adapter constructors
     # depend on what the user has configured.
