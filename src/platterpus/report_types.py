@@ -200,6 +200,28 @@ class EnvironmentBlock(TypedDict):
     # report. Typing it non-optional would silently change the wire format that
     # `rip_compare` and any external consumer already read.
     dependencies: NotRequired[dict[str, DependencyEntry] | None]
+    # v27: when those versions were measured (ISO-8601 UTC). The dependency probe
+    # runs at launch and on request, so a long session's versions can be hours
+    # old, and a tool updated in between would otherwise read as current.
+    dependencies_measured_at: NotRequired[str | None]
+
+
+class ComponentInventory(TypedDict):
+    """Every component a rip depends on, with its version and when it was measured.
+
+    One shape for Help → About, Diagnostics, the rip report and the acceptance
+    bundle (`build_info.component_inventory`), so they cannot describe one
+    machine four ways.
+    """
+
+    app: str
+    build: str
+    python: str | None
+    qt: str | None
+    pyside6: str | None
+    platform: str | None
+    dependencies: dict[str, DependencyEntry] | None
+    dependencies_measured_at: str | None
 
 
 class GatesBlock(TypedDict):

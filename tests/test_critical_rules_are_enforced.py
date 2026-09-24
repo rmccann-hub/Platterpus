@@ -1565,7 +1565,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
-    "report_types.py": 690,
+    # **690 -> 712** (2026-09-24, #36): `ComponentInventory`, the one inventory type, and v27's `dependencies_measured_at`.
+    "report_types.py": 712,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1604,7 +1605,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2462 -> 2479 (2026-09-24, round 26 lap 4)**: the offset-variant sentence uses the
     # parser's denominator rule, and a rip that never finished is not called read-unstable.
     # **2479 -> 2490** (2026-09-24): schema v26 `album_loudness_covers` plus its history note.
-    "rip_report.py": 2490,
+    # **2490 -> 2494** (2026-09-24, #36): schema v27's history note.
+    "rip_report.py": 2494,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -1697,14 +1699,16 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1601 -> 1609 (2026-09-24, the 0.6.55 acceptance bundle)**: the release picker and
     # Settings dialog are freed after use (four and two were left alive, hidden).
     # **1609 -> 1611** (2026-09-24): the acceptance menu item gets a no-argument slot, so `triggered`'s bool never lands in `size`.
-    "ui/main_window.py": 1611,
+    # **1611 -> 1616** (2026-09-24, #36): the per-instance dependency-check listener list, and About gets its recheck hook.
+    "ui/main_window.py": 1616,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
     # of the growth is the comment explaining the launch-time race, which is the
     # part a reader needs and the part a reviewer would otherwise have to
     # reconstruct from two other files.
-    "ui/main_window_deps.py": 693,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
+    # **693 -> 722** (2026-09-24, #36): `_recheck_dependencies_for` and telling its listeners when the check lands.
+    "ui/main_window_deps.py": 722,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     "ui/main_window_drive.py": 555,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     "ui/main_window_helpers.py": 512,
@@ -1738,7 +1742,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # for the run, handing the runner its folder, and reading the album roots
     # before the restore.
     # **1526 -> 1589** (2026-09-24): the run-size chooser, asked before anything starts, and its plumbing into the session.
-    "ui/main_window_provision.py": 1589,
+    # **1589 -> 1602** (2026-09-24, #36): the bundle's `COMPONENTS.json` and the run size in its facts.
+    "ui/main_window_provision.py": 1602,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -1790,7 +1795,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `generated_at` of the report it bundles.
     # **4696 -> 4710 (2026-09-24, the 0.6.55 acceptance bundle)**: the gates read the rip's
     # own outcome, and a rip's own bundle goes to the session folder while one runs.
-    "ui/main_window_rip.py": 4710,
+    # **4710 -> 4717** (2026-09-24, #36): the rip report records when its dependency versions were measured.
+    "ui/main_window_rip.py": 4717,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -1803,7 +1809,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # methods the consolidated window calls on `self`, plus the two blocker
     # predicates. This file growing is the type seam doing its job: an undeclared
     # cross-mixin call is a mypy error, which is how the wiring gets checked.
-    "ui/main_window_shared.py": 427,
+    # **427 -> 428** (2026-09-24, #36): the listener list's declaration.
+    "ui/main_window_shared.py": 428,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is

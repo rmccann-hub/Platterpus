@@ -24,6 +24,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
   All three come from the one script. A smaller run records every section it
   leaves out, and its transcript says at the top that it is not evidence.
+- **Help → About lists every component's version, and when it was measured.**
+  It shows the app, Python, Qt, PySide6, the platform, and every dependency with
+  its version, where it was found, and a ✓ or ⚠. The dependency versions come
+  from the app's own check, which runs at launch, so About says how long ago
+  that was. **Check again** runs the check now, in the background, and updates
+  the list. Diagnostics shows the same age, each rip report records the time
+  (`environment.dependencies_measured_at`, report schema 27), and the acceptance
+  bundle carries the whole list as `COMPONENTS.json`.
 - **The acceptance run now starts from a fixed baseline.** Each setting is set
   to its shipped default, or kept on purpose with the reason written beside it.
   Before, a run borrowed whatever you had set, including settings that change

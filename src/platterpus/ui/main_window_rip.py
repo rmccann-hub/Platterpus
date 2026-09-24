@@ -3958,6 +3958,13 @@ class RipMixin(MainWindowShared):
             if dep_report is not None
             else None
         )
+        # And WHEN those versions were measured: the probe runs at launch and on
+        # request, so a long session's versions can be hours old (schema v27).
+        environment["dependencies_measured_at"] = (
+            getattr(dep_report, "measured_at", "") or None
+            if dep_report is not None
+            else None
+        )
 
         # HAND THE WRITE TO THE WRITER THREAD, do not perform it here.
         #
