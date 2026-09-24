@@ -1018,7 +1018,9 @@ class ScriptRunner(QObject):
         written: list[str] = []
         manifest: list[str] = []
         windows = _all_top_levels()
-        shown = _photograph_order([w for w in windows if _is_on_screen(w)])
+        shown = _photograph_order(
+            [w for w in windows if _is_on_screen(w)], self._window
+        )
         for index, widget in enumerate(shown):
             path = directory / (
                 f"{name}.png" if index == 0 else f"{name}-{index}-{_slug(widget)}.png"
@@ -3809,15 +3811,17 @@ def _is_on_screen(widget: QWidget) -> bool:
     return widget.isVisible() and handle is not None and handle.isExposed()
 
 
-def _photograph_order(shown: list[QWidget]) -> list[QWidget]:
-    """On-screen windows, the main window first.
+def _photograph_order(shown: list[QWidget], main: QWidget) -> list[QWidget]:
+    """On-screen windows, the runner's own window first.
 
     The first entry becomes the step's headline ``<name>.png``, the picture an
     operator actually opens, so it must be the main window whenever that is up.
-    Matched by class name, as `_release_picker` does, to avoid a circular import.
+    The runner is handed that window, so it is compared by identity: an earlier
+    version matched the class name, and in the full suite a leftover window of the
+    same class from another test took the headline.
     """
-    main = [w for w in shown if type(w).__name__ == "MainWindow"]
-    return main + [w for w in shown if w not in main]
+    first = [w for w in shown if w is main]
+    return first + [w for w in shown if w is not main]
 
 
 def _window_manifest_line(widget: QWidget) -> str:
