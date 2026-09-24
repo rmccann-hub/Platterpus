@@ -223,6 +223,10 @@ class ScriptConsoleDialog(CenteredDialog):
         #: The runner for the current/last run. Recreated per run so a report
         #: from a previous run can never be appended to.
         self._runner: ScriptRunner | None = None
+        #: One-shot: the folder the NEXT run writes into, set by an acceptance
+        #: session so everything it makes stays in its one folder. Cleared when
+        #: that run starts, so a later hand-started run is not redirected.
+        self._contain_next_run_in: Path | None = None
 
         if script_path:
             # A saved path is a statement of intent: load it, but say so in the
@@ -253,6 +257,14 @@ class ScriptConsoleDialog(CenteredDialog):
         answer is read off the runner rather than assumed from having asked.
         """
         return self._on_run()
+
+    def contain_next_run_in(self, folder: Path) -> None:
+        """Make the next run write into ``folder`` and build no bundle of its own.
+
+        See :meth:`ScriptRunner.contain_in`. One-shot on purpose: the session that
+        asked owns the one bundle, and only for its own run.
+        """
+        self._contain_next_run_in = folder
 
     def load_file(self, path: Path) -> bool:
         """Load a script file into the editor. Returns whether it loaded.
@@ -339,6 +351,9 @@ class ScriptConsoleDialog(CenteredDialog):
         self._transcript.clear()
         self._append(f"{len(steps)} step(s) parsed; {len(bad)} will report an error.")
         runner = ScriptRunner(self._target, parent=self)
+        if self._contain_next_run_in is not None:
+            runner.contain_in(self._contain_next_run_in)
+            self._contain_next_run_in = None
         runner.step_recorded.connect(self._on_step)
         runner.finished.connect(self._on_finished)
         self._runner = runner

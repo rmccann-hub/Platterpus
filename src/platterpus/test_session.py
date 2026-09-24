@@ -12,8 +12,18 @@ files: **every manual step in a procedure is a thing the software was supposed
 to do.** Three shell scripts — `docs/rig-scripts/platterpusovernight.sh`,
 `docs/rig-scripts/platterpusmorning.sh` and the harness in `rig_session.sh` —
 between them make a session folder, run the acceptance script, collect the
-artifacts, and pack **one** `.tar.gz` into `~/Downloads`. This module is the
-Qt-free core of the same job, so the app can do it from a button.
+artifacts, and pack **one** `.tar.gz`. This module is the Qt-free core of the
+same job, so the app can do it from a button.
+
+**Everything a session makes lives in ONE folder** (maintainer, 2026-09-24:
+*"stop polluting my home folder, keep this all contained to 1 folder, build a
+bundle and screenshots from there. i want to track down this stuff"*). Until then
+one run wrote to five places — its session folder, the script runner's own run
+folder under the app's data directory, a SECOND bundle beside that, the real
+bundle in `~/Downloads`, and the rips in the music library — and two of them each
+logged *"SEND THIS ONE FILE"*. Now: :attr:`SessionLayout.root` holds the evidence
+(transcript, report, screenshots), the rips, and the one bundle, and nothing else
+is written anywhere.
 
 **What this module is NOT.** It is not a second bundler. Deciding what may enter
 an archive, refusing audio by allowlist, naming every omission and never raising
@@ -25,17 +35,14 @@ the one file lands*, and hands the rest over.
 **The shape of the module, and why it is split this way.**
 
 * :func:`plan_session` is **pure**. It decides every path and touches no disk,
-  which is what makes the interesting decisions — the `~/Downloads` fallback
-  above all — assertable in a unit test with no filesystem at all. This project's
+  which is what makes the interesting decisions — that everything lands inside
+  one folder above all — assertable in a unit test with no filesystem at all. This project's
   rule is that decision logic lives in a pure, testable function rather than
   scattered through the code that acts on it.
 * The clock is **never read inside** the pure function. A function that reads the
   clock cannot be asserted against, so the timestamp arrives as a parameter and
   :func:`session_stamp` (which formats a moment the *caller* supplies) is the
   only thing that knows the format.
-* The one question that genuinely needs the disk — *does `~/Downloads` exist?* —
-  is its own named function, :func:`downloads_dir`, so the impure part is one
-  line and the decision that uses its answer stays pure.
 * :func:`finish_session` **never raises**. Packaging is a convenience wrapped
   around a test run that has already finished; a bug here must not surface as a
   crash on top of a completed overnight session. Failures come back in
@@ -175,13 +182,28 @@ class SessionLayout:
     #: The stamp every path below descends from. Carried so callers (and the
     #: bundler) never have to re-derive it and get a different answer.
     stamp: str
-    #: The session folder. Staging happens here, under `RIG_PARENT_NAME`.
+    #: The session folder — **everything this session makes is inside it**, and
+    #: nothing is written outside it. Under `RIG_PARENT_NAME`.
     root: Path
+    #: What goes into the bundle through the route that admits screenshots. The
+    #: rips are deliberately NOT in here — see :attr:`rips`.
+    evidence: Path
     #: Where the script run's transcript is written.
     transcript: Path
     #: Collected copies of individual files live here.
     artifacts: Path
-    #: **The one file the user sends.** Full path, name included.
+    #: The script runner's own folder: its transcript, `report.json` and every
+    #: screenshot. It used to be under the app's data directory, separate from
+    #: the session, with a second bundle of its own beside it.
+    run_dir: Path
+    #: Where this session's rips go (`output_dir` for the run; restored after).
+    #: **A sibling of `evidence`, never inside it**: `evidence` is bundled under
+    #: the widened allowlist that admits `.png`, and an album folder's `.png` is
+    #: record-label artwork (Critical rule #8). Album TEXT reaches the bundle
+    #: through `build_bundle`'s strict album channel instead.
+    rips: Path
+    #: **The one file the user sends.** Full path, name included — inside
+    #: :attr:`root`, beside `evidence` and `rips`.
     bundle: Path
 
 
@@ -224,16 +246,13 @@ def rig_parent(home: Path) -> Path:
 def downloads_dir(home: Path) -> Path | None:
     """``home/Downloads`` **if it really exists**, otherwise ``None``.
 
-    The only disk-touching decision in the whole path story, pulled out into its
-    own function so :func:`plan_session` can stay pure and still be given the
-    real answer.
+    No longer where a session's bundle goes — that is inside the session folder
+    (see :func:`plan_session`). Kept for the one caller that still proposes a
+    location to the operator: the script console's *Save transcript* dialog,
+    where a proposal is all it is.
 
-    **It never creates the directory**, and that is deliberate rather than lazy —
-    the bash it replaces says so at length. `~/Downloads` is chosen because it is
-    the folder a browser's upload dialog opens in, so the deliverable is already
-    in front of the operator. Inventing that folder on a machine that does not
-    have one puts the file somewhere the operator has *no habit of looking*,
-    which is the original problem with an extra step in front of it.
+    **It never creates the directory**: inventing `~/Downloads` on a machine that
+    has none would put a file somewhere the operator has no habit of looking.
     """
     try:
         candidate = home / "Downloads"
@@ -243,47 +262,35 @@ def downloads_dir(home: Path) -> Path | None:
         return None
 
 
-def plan_session(
-    *, home: Path, stamp: str, downloads: Path | None = None
-) -> SessionLayout:
+def plan_session(*, home: Path, stamp: str) -> SessionLayout:
     """Decide every path for one session. **PURE** — touches no disk at all.
 
     No ``mkdir``, no ``exists()``, nothing whose answer depends on the machine.
     Call it twice with the same arguments and you get equal results, which is
-    what lets the interesting decision below be tested without a filesystem.
+    what lets the one-folder rule be tested without a filesystem.
 
-    ``downloads`` is the **already-resolved** answer to "is there a Downloads
-    folder?" — pass :func:`downloads_dir(home) <downloads_dir>`, or ``None``.
-
-    ``None`` means *there is no Downloads folder*, so the archive lands in
-    ``$HOME``. It does **not** mean "work it out for me": if this function
-    decided that itself it would have to touch the disk, and the fallback — the
-    one behaviour most likely to put the deliverable where the operator cannot
-    find it — would stop being assertable.
+    **Every path is inside** ``root``, including the bundle. It used to go to
+    `~/Downloads` when that folder existed, because a browser's upload dialog
+    opens there; the maintainer's instruction of 2026-09-24 put everything in one
+    folder instead, so the operator can find all of a run in one place. The
+    session's closing dialog names the bundle's absolute path and opens its
+    folder, so nothing depends on guessing where it went.
     """
     slug = _stamp_slug(stamp)
     # Inside the one parent, never straight into $HOME — see `RIG_PARENT_NAME`.
     root = rig_parent(home) / f"{SESSION_DIR_PREFIX}{slug}"
+    evidence = root / "evidence"
     # The archive's *name* comes from the bundler, so this module and the module
     # that writes the file cannot disagree about what the deliverable is called.
-    # Two surfaces answering one question with two spellings is how a "send me
-    # this file" instruction stops naming a file that exists.
-    # FALLBACK GOES UNDER THE ONE PARENT, not loose in $HOME. `~/Downloads` is
-    # still preferred and still the reason this decision exists -- it is the
-    # folder a browser's upload dialog opens in, so the deliverable is already in
-    # front of the operator. But on a machine with no Downloads folder this used
-    # to drop a tarball straight into the home directory, once per run, which is
-    # the litter the maintainer asked us to stop making. Containing it costs no
-    # discoverability: the session's own summary prints the deliverable's
-    # absolute path (see `_render_summary`), so nothing depends on the operator
-    # guessing where it went.
-    destination = downloads if downloads is not None else rig_parent(home)
     return SessionLayout(
         stamp=stamp,
         root=root,
-        transcript=root / "transcript.txt",
-        artifacts=root / "artifacts",
-        bundle=destination / bundle_filename(stamp),
+        evidence=evidence,
+        transcript=evidence / "transcript.txt",
+        artifacts=evidence / "artifacts",
+        run_dir=evidence / "run",
+        rips=root / "rips",
+        bundle=root / bundle_filename(stamp),
     )
 
 
@@ -296,12 +303,10 @@ def prepare_session(layout: SessionLayout) -> None:
     its own workspace must stop before the disc spins rather than discover it
     six hours later.
 
-    Note what it does *not* create: the archive's destination directory. That is
-    `~/Downloads` only when :func:`downloads_dir` found a real one, so there is
-    no path on which this module conjures a Downloads folder into existence.
+    Everything it creates is inside ``layout.root``.
     """
-    layout.root.mkdir(parents=True, exist_ok=True)
-    layout.artifacts.mkdir(parents=True, exist_ok=True)
+    for folder in (layout.root, layout.artifacts, layout.run_dir, layout.rips):
+        folder.mkdir(parents=True, exist_ok=True)
     log.info("acceptance session workspace ready: %s", layout.root)
 
 
@@ -491,14 +496,17 @@ def _stage(layout: SessionLayout, sources: Sequence[Path]) -> _Staged:
       was silently refused from the archive. A collision fix that drops the file
       is worse than the collision. The folder is named for the source's own
       parent directory so a member can be traced back to where it came from.
-    * **Anything inside the session folder** is skipped, because the session
-      folder is already an ``extra_dirs`` entry — staging it into itself would
-      both duplicate it and, for `artifacts`, recurse.
+    * **Anything inside the evidence folder** is skipped, because that folder
+      is already an ``extra_dirs`` entry — staging it into itself would both
+      duplicate it and, for `artifacts`, recurse.
+    * **Anything else inside the session folder** — its `rips` — is REFUSED and
+      named, for the album-folder reason above: those are rips, and their text
+      reaches the archive through the strict album channel.
 
     Absences and staging failures are counted and named. Never raises: a source
     that cannot be staged is a line in the record, not the end of the session.
     """
-    extra_dirs: dict[str, Path] = {"session": layout.root}
+    extra_dirs: dict[str, Path] = {"session": layout.evidence}
     lines: list[str] = []
     present = absent = failed = 0
 
@@ -519,12 +527,22 @@ def _stage(layout: SessionLayout, sources: Sequence[Path]) -> _Staged:
             lines.append(f"  {source}\n      ABSENT — it was not there to collect")
             continue
 
-        if _is_within(source, layout.root):
+        if _is_within(source, layout.evidence):
             present += 1
-            relative = source.relative_to(layout.root)
+            relative = source.relative_to(layout.evidence)
             lines.append(
                 f"  {source}\n      in the session folder — archived as "
                 f"session/{relative.as_posix()}"
+            )
+            continue
+
+        if _is_within(source, layout.root):
+            # The session's RIPS (or anything else outside `evidence`). Never
+            # through this route: it admits `.png`, and a rip folder's `.png` is
+            # record-label artwork. Named, so the omission is visible.
+            lines.append(
+                f"  {source}\n      REFUSED — inside the session's rips; album "
+                "text is archived through the strict album channel instead"
             )
             continue
 
@@ -555,7 +573,7 @@ def _stage(layout: SessionLayout, sources: Sequence[Path]) -> _Staged:
         # `_ROTATION_STAGE_DIR` sorts after `transcript.txt` lexicographically,
         # which is the whole mechanism — no new cap, no reserved share.
         parent = (
-            layout.root / _ROTATION_STAGE_DIR
+            layout.evidence / _ROTATION_STAGE_DIR
             if _is_log_rotation(source)
             else layout.artifacts
         )
@@ -571,7 +589,7 @@ def _stage(layout: SessionLayout, sources: Sequence[Path]) -> _Staged:
         present += 1
         lines.append(
             f"  {source}\n      archived as session/"
-            f"{destination.relative_to(layout.root).as_posix()}"
+            f"{destination.relative_to(layout.evidence).as_posix()}"
         )
 
     return _Staged(extra_dirs, lines, present, absent, failed)

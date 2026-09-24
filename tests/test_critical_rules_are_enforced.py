@@ -1498,7 +1498,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # had no room to say. Found by the new guide-vs-screen sweep, not by reading.
     # **586 -> 587 (2026-09-23)**: a menu path that named no real item now names the
     # real one, wrapped onto a second line.
-    "help_content.py": 587,
+    # **587 -> 589 (2026-09-24)**: everything an acceptance run makes in ONE
+    # session folder (maintainer: *"stop polluting my home folder, keep this all
+    # contained to 1 folder"*). The guide says where that folder is.
+    "help_content.py": 589,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1611,7 +1614,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the home folder once per run on any machine without a Downloads folder --
     # the other half of the same instruction, found by sweeping for every
     # HOME-derived write rather than fixing the two loudest.
-    "test_session.py": 833,
+    # **833 -> 851 (2026-09-24)**: everything an acceptance run makes in ONE
+    # session folder (maintainer: *"stop polluting my home folder, keep this all
+    # contained to 1 folder"*). The layout gains `evidence`, `run_dir` and `rips`, and
+    # the stager refuses a rip folder by name — the rule that keeps album artwork out.
+    "test_session.py": 851,
     "ui/dialogs/pending_installs.py": 419,
     # **454 -> 479 on 2026-09-12** (+25): `_transcript_save_default()`. The "Save
     # the transcript" dialog proposed `~/platterpus-transcript.txt`, i.e. a file
@@ -1620,7 +1627,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # suggested it" is how a default becomes the thing everybody has. It asks the
     # same `downloads_dir`/`rig_parent` pair the evidence bundle asks, so the two
     # cannot disagree about where a deliverable belongs.
-    "ui/dialogs/script_console.py": 479,
+    # **479 -> 494 (2026-09-24)**: everything an acceptance run makes in ONE
+    # session folder (maintainer: *"stop polluting my home folder, keep this all
+    # contained to 1 folder"*). The one-shot hand-off of that folder to the next
+    # run, and why it is one-shot.
+    "ui/dialogs/script_console.py": 494,
     "ui/disc_info_panel.py": 319,
     "ui/drive_setup_dialog.py": 500,
     "ui/host_setup_dialog.py": 341,
@@ -1684,7 +1695,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # which the restore overwrites a line later. The logic is in the pure
     # `user_settings.py`; what is here is the capture and the hand-off, and the
     # restore got shorter by delegating to the same module.
-    "ui/main_window_provision.py": 1509,
+    # **1509 -> 1526 (2026-09-24)**: everything an acceptance run makes in ONE
+    # session folder (maintainer: *"stop polluting my home folder, keep this all
+    # contained to 1 folder"*). Pointing the rips at the session folder
+    # for the run, handing the runner its folder, and reading the album roots
+    # before the restore.
+    "ui/main_window_provision.py": 1526,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -1888,7 +1904,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # rule.
     # **4045 -> 4011 (2026-09-24): it SHRANK.** Section A's accepted set is asked of
     # `fork_source.accepted_rig_builds`; the derivation and its history moved there.
-    "uiscript/runner.py": 4011,  # +116: _do_expect_verification, the assertion section F never had,
+    # **4011 -> 4029 (2026-09-24)**: everything an acceptance run makes in ONE
+    # session folder (maintainer: *"stop polluting my home folder, keep this all
+    # contained to 1 folder"*). `contain_in`: the run writes into the session
+    # folder and builds no second bundle.
+    "uiscript/runner.py": 4029,  # +116: _do_expect_verification, the assertion section F never had,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,

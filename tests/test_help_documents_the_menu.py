@@ -148,7 +148,11 @@ def test_the_guide_does_not_send_a_user_to_the_terminal_for_the_session() -> Non
     # Its own section must reach the deliverable without a command line: the
     # operator's whole question is "what do I send?".
     section = guide[heading : heading + 2_000]
-    assert "Downloads" in section, (
+    # The one folder the run keeps EVERYTHING in (2026-09-24), named from the
+    # constant the code uses, so the guide cannot name a folder the app does not.
+    from platterpus.test_session import RIG_PARENT_NAME
+
+    assert f"~/{RIG_PARENT_NAME}/" in section, (
         "the acceptance section never says where the one file lands"
     )
 
