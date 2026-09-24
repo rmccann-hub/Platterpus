@@ -11,6 +11,65 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-24 (late) — one home per setting, and Settings gets Apply
+
+**Step 3's second half (#37).** The maintainer asked on 2026-09-23 for duplicate settings
+and actions to be flagged, *"mostly they should be in one place"*, and whether OK / Apply
+/ Cancel made sense. An offscreen inventory of every window's controls found seven
+settings with two editors, plus *Diagnose drive access…* sitting in the Tools menu apart
+from the rest of the drive. Each now has one home, recorded in `ui/setting_homes.py` under
+one rule: **a setting lives beside what it steers.**
+- The read offset and its Apply tick-box went to *Set up drive…*. Settings shows the
+  offset read-only and names that path.
+- Both beta channels went to Setup & Updates, above their checks.
+- The startup script, autorun and unsafe verbs went to the script console. Its second,
+  per-run unsafe box is gone, and the settings group is its own widget
+  (`dialogs/script_settings_box.py`), so the console stays about running a batch.
+- *Diagnose drive access…* went to a new Drive section of Setup & Updates.
+
+**Two write paths, one file.** `main_window_settings.py` holds Settings' OK and Apply,
+which write only what the user changed, and `_save_user_setting` for the controls that
+save as they change. The latter is validated by `settings_validation.field_error`, now
+shared with the `set` script verb rather than restated in the runner. It returns a
+`SettingWrite`, so a refused click puts the box back and shows the validator's sentence.
+Settings builds its config on the snapshot it opened with, so a field it does not edit can
+never look like an edit made there. For the same reason it no longer shows or blocks on
+validation for fields it cannot fix. A deleted startup script used to be able to lock
+Settings' OK.
+
+**The gate** (`tests/test_setting_homes.py`) builds all four windows and checks both
+directions. Every user setting has a home whose control exists. Every value control Qt
+reports in every window is either a home control or on an allowlist with a reason; one
+entry, the naming-scheme combo, which stores nothing of its own. Four revert probes all
+detected: the second offset editor coming back, the validation filter removed, Restore
+Defaults skipping a field, and the rip lock below.
+
+**Found by moving things.**
+- **Rip lock.** Moving *Diagnose drive access…* into Setup & Updates showed that the rip
+  lock greys the menu item that opens that window, not the window itself. One left open
+  kept *Set up drive… → Analyse cache* live during a rip. Fixed with `set_locked` and a
+  regression test.
+- **Channel tooltips.** The wording rule that follows the home table found both channel
+  tooltips never said what OFF does. The old Settings sweep missed them because their
+  mapping spanned two lines of source, which its regex could not read.
+
+**The screen-size gate caught my own layout.** The first full check failed five tests,
+two of them in `tests/test_ui_conformance.py`. On a Steam Deck at 150% with 150% text
+(853 × 533), the console's new settings group raised its minimum from 331 to 473 px
+against 469 available. That squeezed Choose… / Use built-in / Clear to 12 px. The drive
+wizard's two new rows clipped its own intro by 33 px.
+- **Console:** its intro and settings now sit in a `FitScrollArea`, with the editor and
+  transcript outside it.
+- **Drive wizard:** the legacy whipper.conf line shows only when there is one. The manual
+  paragraph lost a sentence that repeated the intro.
+
+I measured each change against the last commit before choosing it, rather than tuning
+until green.
+
+**Deliberately not moved:** *Add app shortcut* and *Set up drive…* are also steps inside
+*Run setup…*. Each is still one action with one button; the wizard is a sequence of them,
+not a second door. Not released; this goes to the next release with steps 2 and #36.
+
 ## 2026-09-24 (evening) — 0.6.57 released; the acceptance run gets sizes, a baseline and the drive's own offset
 
 **0.6.57 went out before the fork opened round 27**, as the maintainer chose, so the

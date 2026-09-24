@@ -377,6 +377,32 @@ def errors_only(issues: list[ValidationIssue]) -> list[ValidationIssue]:
     return [i for i in issues if i.is_error()]
 
 
+def field_error(candidate: Config, field: str) -> str:
+    """The validator's own complaint about ``field`` in ``candidate``, or ``""``.
+
+    The one question every single-setting writer asks: the script verb ``set``,
+    and each control that lives outside Settings and saves as it is changed
+    (the drive wizard's Apply tick-box, the update channels in Setup & Updates,
+    the script console's startup options). One predicate, so a script cannot
+    write a value its control would refuse, or the reverse.
+
+    Only a hard error counts: a warning is advice the Settings dialog shows and
+    still lets a person accept. ``is_error`` is a METHOD and is called — read as
+    an attribute it is a bound method, always truthy, and every warning would be
+    reported as a refusal (pinned by ``tests/test_uiscript_settings.py``).
+    Never raises: a validator fault is reported as a refusal, never as a pass.
+    """
+    try:
+        issues = validate_config(candidate)
+    except Exception:  # noqa: BLE001 — a validator fault must not become a silent set
+        log.exception("settings validation raised while checking %s", field)
+        return "the settings validator could not evaluate this value"
+    for issue in issues:
+        if issue.field == field and issue.is_error():
+            return issue.message
+    return ""
+
+
 # --- Values that become a path SEGMENT inside a dependency -------------------
 #
 # A tag value (album title, album artist, track title) is substituted by cyanrip

@@ -505,7 +505,10 @@ class ProvisioningMixin(MainWindowShared):
                 "host_setup": self.open_host_setup_dialog,
                 "shortcut": self._on_add_app_shortcut,
                 "drive_setup": self._on_drive_setup,
+                "drive_diagnose": self._show_drive_access_diagnosis,
             },
+            config=self._config,
+            save_setting=self._save_user_setting,
         )
         self._setup_center = dialog
         dialog.show()
@@ -552,6 +555,8 @@ class ProvisioningMixin(MainWindowShared):
             self,
             script_path=cfg.test_script_path,
             allow_unsafe=cfg.test_script_allow_unsafe,
+            autorun=cfg.test_script_autorun,
+            save_setting=self._save_user_setting,
         )
         self._script_console = console
         console.show()

@@ -96,8 +96,12 @@ class DriveMixin(MainWindowShared):
             current_offset=self._config.read_offset,
             known_offset=known_offset,
             drive_label=drive_label,
+            offset_applied=self._config.override_read_offset,
         )
         dialog.manual_offset_saved.connect(self._on_manual_offset_saved)
+        # The Apply tick-box moved here from Settings (2026-09-24): the offset
+        # and the switch that makes it count are edited in one window.
+        dialog.offset_applied_changed.connect(self._on_offset_applied_changed)
         # Record a successful auto-detect's provenance (measured on this drive →
         # high confidence). Provenance only — the offset itself is saved to
         # Platterpus config by the manual-save path, not to whipper.conf.
@@ -210,6 +214,8 @@ class DriveMixin(MainWindowShared):
         self._config.override_read_offset = True
         self._rip_controls.set_config(self._config)
         self._save_config(self._config)
+        # Setup & Updates shows the offset beside Set up drive…; keep it true.
+        self._refresh_setting_views()
         return True
 
     def _show_offset_rejected(self, value: int) -> None:

@@ -94,6 +94,19 @@ round 26 is open.
   section, nested by construction, and only Full counts as evidence. The preamble sets every
   user setting to its default or `keep`s it with a reason, swept against `user_setting_names`.
   The hard-coded 667 is gone: `set-drive-offset` / `expect-drive-offset` / `(offset)`.
+- [x] **One home per setting and action** (#37, maintainer: *"mostly they should be in one
+  place"*). `ui/setting_homes.py` names each setting's one window; a setting lives beside
+  what it steers. Moved: the read offset and its Apply tick-box to *Set up drive…* (Settings
+  shows it read-only), both update channels above their checks in Setup & Updates, the
+  startup script / autorun / unsafe verbs to the script console (its second unsafe box is
+  gone), and *Diagnose drive access…* from the Tools menu to Setup & Updates → Drive. Gate:
+  `tests/test_setting_homes.py` (every setting has a home; every value control in every
+  window is a home control or on an allowlist with a reason). Settings has **OK / Apply /
+  Cancel / Restore Defaults**. Found on the way and fixed: a Setup & Updates window left
+  open when a rip started kept every button live (`set_locked`), and the two channel
+  tooltips never said what OFF does. **Not moved, on purpose:** *Add app shortcut* and *Set
+  up drive…* are also steps inside *Run setup…*; each is still one action with one button,
+  and the wizard is a sequence of them rather than a second door.
 
 ## Round 26 — OPEN 2026-09-23 on `df91ae7` (`+platterpus.15`): the real test, installed through our app
 

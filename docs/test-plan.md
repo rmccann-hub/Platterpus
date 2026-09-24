@@ -303,7 +303,7 @@ recovers, never hangs or silently fails). One row = one test.
 
 | # | Force this | Expected behaviour | Recovery |
 |---|---|---|---|
-| D1 | **No drive / no disc** | Drive picker shows "(no drives found)"; *Tools → Diagnose drive access* explains why | insert disc / fix below |
+| D1 | **No drive / no disc** | Drive picker shows "(no drives found)"; *Tools → Setup & Updates… → Diagnose drive access…* explains why | insert disc / fix below |
 | D2 | **Drive not readable** (user not in the drive's group) | Diagnosis names the exact `sudo usermod -aG … $USER` fix | run it, log out/in |
 | D3 | **No FUSE** (minimal host) | AppImage won't mount | run `APPIMAGE_EXTRACT_AND_RUN=1 ./…AppImage` |
 | D4 | **podman/distrobox absent** | Wizard offers to install them (one polkit prompt) | accept |
@@ -897,4 +897,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.6.55.*
+*Last updated for Platterpus v0.6.57.*

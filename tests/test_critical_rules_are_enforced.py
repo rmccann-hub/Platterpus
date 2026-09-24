@@ -1513,7 +1513,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # contained to 1 folder"*). The guide says where that folder is.
     # **589 -> 591** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The glossary and the Settings bullet say what matched and name no cause.
     # **591 -> 605** (2026-09-24): the User Guide's acceptance section describes the three run sizes and the baseline, and corrects its old ripper advice.
-    "help_content.py": 605,
+    # **605 -> 630** (2026-09-24, #37 one home per setting): the User Guide says where each moved setting now lives (Set up drive…, Setup & Updates, the console) and what OK/Apply/Cancel/Restore Defaults do.
+    "help_content.py": 630,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1630,7 +1631,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **886 -> 896 on 2026-09-18**: the new field validated on its own
     # rather than folded in with its sibling — a path and a version are two
     # shapes, and one check loose enough for both checks neither properly.
-    "settings_validation.py": 896,
+    # **896 -> 922** (2026-09-24, #37 one home per setting): `field_error`, the ONE single-setting predicate the `set` verb and every save-as-you-change control share; it moved here from the runner so neither can restate it.
+    "settings_validation.py": 922,
     "sleep_inhibit.py": 599,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
     # the single deletable directory every rig artifact of ours now lives under,
@@ -1654,6 +1656,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # so each rip's own bundle lands in the one session folder too.
     "test_session.py": 861,
     "ui/dialogs/pending_installs.py": 419,
+    # **new at 448** (2026-09-24, #37 one home per setting): still one window's layout. It gained the two update
+    # channels (they live above the checks they steer), a Drive section holding
+    # the read offset's status, Set up drive… and Diagnose drive access…, and
+    # `set_locked`, the rip lock that reaches a window already open. Every action
+    # still delegates to the window; nothing here decides anything.
+    "ui/dialogs/setup_center.py": 448,
     # **454 -> 479 on 2026-09-12** (+25): `_transcript_save_default()`. The "Save
     # the transcript" dialog proposed `~/platterpus-transcript.txt`, i.e. a file
     # in the home directory. A save dialog only PROPOSES, which is why this was
@@ -1666,9 +1674,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # contained to 1 folder"*). The one-shot hand-off of that folder to the next
     # run, and why it is one-shot.
     # **494 -> 509** (2026-09-24): `size_next_run`, the one-shot run-size hand-off beside `contain_next_run_in`.
-    "ui/dialogs/script_console.py": 509,
+    # **509 -> 548** (2026-09-24, #37 one home per setting): the console hosts its three test-script settings (in `script_settings_box.py`, split out so the console stays about running) and never replaces a typed batch when the startup script changes.
+    # **548 -> 565** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the intro and script settings scroll in a `FitScrollArea` so Run and the transcript keep their room on a Steam Deck at 150% text, where the new settings group squeezed three buttons to 12 px.
+    "ui/dialogs/script_console.py": 565,
     "ui/disc_info_panel.py": 319,
-    "ui/drive_setup_dialog.py": 500,
+    # **500 -> 577** (2026-09-24, #37 one home per setting): the read offset's ONE home now holds its Apply tick-box and the legacy whipper.conf line, both moved from Settings, with the tooltip the offset's control had there.
+    # **577 -> 583** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the legacy whipper.conf line shows only when a legacy offset exists; its "none set" was noise to most users and the line that clipped the intro on a short screen.
+    "ui/drive_setup_dialog.py": 583,
     "ui/host_setup_dialog.py": 341,
     # **1558 -> 1572 on 2026-09-08**: the `Help → Install a cyanrip build…`
     # action, plus the paragraph saying why a SECOND ripper entry exists — the
@@ -1700,7 +1712,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # Settings dialog are freed after use (four and two were left alive, hidden).
     # **1609 -> 1611** (2026-09-24): the acceptance menu item gets a no-argument slot, so `triggered`'s bool never lands in `size`.
     # **1611 -> 1616** (2026-09-24, #36): the per-instance dependency-check listener list, and About gets its recheck hook.
-    "ui/main_window.py": 1616,
+    # **1616 -> 1599** (2026-09-24, #37 one home per setting): down: Settings' opener moved to `main_window_settings.py`, and Diagnose drive access… left the Tools menu.
+    "ui/main_window.py": 1599,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -1709,7 +1722,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # reconstruct from two other files.
     # **693 -> 722** (2026-09-24, #36): `_recheck_dependencies_for` and telling its listeners when the check lands.
     "ui/main_window_deps.py": 722,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
-    "ui/main_window_drive.py": 555,
+    # **555 -> 561** (2026-09-24, #37 one home per setting): the wizard's Apply tick-box is wired, and a saved offset refreshes an open Setup & Updates.
+    "ui/main_window_drive.py": 561,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     "ui/main_window_helpers.py": 512,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
@@ -1743,7 +1757,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # before the restore.
     # **1526 -> 1589** (2026-09-24): the run-size chooser, asked before anything starts, and its plumbing into the session.
     # **1589 -> 1602** (2026-09-24, #36): the bundle's `COMPONENTS.json` and the run size in its facts.
-    "ui/main_window_provision.py": 1602,
+    # **1602 -> 1607** (2026-09-24, #37 one home per setting): Setup & Updates and the console are handed the window's single-setting writer and Diagnose drive access….
+    "ui/main_window_provision.py": 1607,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -1810,7 +1825,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # predicates. This file growing is the type seam doing its job: an undeclared
     # cross-mixin call is a mypy error, which is how the wiring gets checked.
     # **427 -> 428** (2026-09-24, #36): the listener list's declaration.
-    "ui/main_window_shared.py": 428,
+    # **428 -> 441** (2026-09-24, #37 one home per setting): the seam declares SettingsMixin's methods and the open Setup & Updates window it refreshes.
+    "ui/main_window_shared.py": 441,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -1851,7 +1867,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # now share, which paid for the theme-aware colour lines that had taken the
     # file to 1412.
     # **1382 -> 1381** (2026-09-24): shrank by one; recorded at its real length.
-    "ui/settings_dialog.py": 1381,
+    # **1381 -> 1335** (2026-09-24, #37 one home per setting): down: seven controls moved to their homes, net of OK/Apply/Cancel/Restore Defaults.
+    "ui/settings_dialog.py": 1335,
     "ui/track_table.py": 802,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
@@ -1963,7 +1980,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4121 -> 4125**: the headline screenshot is chosen by the runner's own window
     # (identity), after the full suite showed a class-name match picking a leftover.
     # **4125 -> 4314** (2026-09-24): `run-size` (the dispatch check and its handler), `keep`, `set-drive-offset`, `expect-drive-offset` and the `(offset)` placeholder. Verb handlers live beside the other verb handlers; the pure halves are in `run_sizes.py` and `script.py`.
-    "uiscript/runner.py": 4314,  # +116: _do_expect_verification, the assertion section F never had,
+    # **4314 -> 4297** (2026-09-24, #37 one home per setting): down: the setting validator moved to `settings_validation.field_error`.
+    "uiscript/runner.py": 4297,  # +116: _do_expect_verification, the assertion section F never had,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     "uiscript/script.py": 339,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the

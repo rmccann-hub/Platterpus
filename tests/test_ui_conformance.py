@@ -208,6 +208,7 @@ def _factories() -> dict[str, object]:
     from platterpus.ui.settings_dialog import SettingsDialog
     from platterpus.ui.uninstall_dialog import UninstallDialog
     from platterpus.ui.unknown_album import UnknownAlbumDialog
+    from platterpus.user_settings import SettingWrite
 
     text_file = Path(tempfile.mkdtemp()) / "viewed.txt"
     text_file.write_text("a line\n", encoding="utf-8")
@@ -239,6 +240,8 @@ def _factories() -> dict[str, object]:
             approved_by_round=0,
             dependency_report=None,
             actions={},
+            config=Config(),
+            save_setting=lambda _f, _v: SettingWrite(True),
         ),
         "UninstallDialog": lambda: UninstallDialog(build_teardown=lambda *a: None),
         "UnknownAlbumDialog": lambda: UnknownAlbumDialog(),

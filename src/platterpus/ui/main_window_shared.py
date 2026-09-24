@@ -109,6 +109,7 @@ if TYPE_CHECKING:
     from platterpus.drive_profiles import OffsetSource
     from platterpus.parsers.rip_log import RipLog
     from platterpus.report_types import TimingBlock
+    from platterpus.ui.dialogs.setup_center import SetupCenterDialog
     from platterpus.ui.disc_info_panel import DiscInfoPanel
     from platterpus.ui.drive_picker import DrivePicker
     from platterpus.ui.host_setup_dialog import HostSetupDialog
@@ -122,6 +123,7 @@ if TYPE_CHECKING:
     from platterpus.ui.rip_controls import RipControls
     from platterpus.ui.rip_progress import RipProgress
     from platterpus.ui.track_table import TrackTable
+    from platterpus.user_settings import SettingWrite
     from platterpus.workers.dependency_worker import DependencyCheckWorker
     from platterpus.workers.disc_info_worker import DiscInfoWorker
     from platterpus.workers.drive_list_worker import DriveListWorker
@@ -342,6 +344,10 @@ class MainWindowShared(_SeamBase):
     #: Start be written into the album it actually describes.
     _post_rip_records: dict[int, PostRipRecord]
     _drive_access_nudged: bool
+    #: Tools → Setup & Updates…, while it is open. Owned (created, raised,
+    #: retained) by ProvisioningMixin; declared here because SettingsMixin
+    #: refreshes what it shows when a setting it displays changes.
+    _setup_center: SetupCenterDialog | None
 
     # --- Child widgets -----------------------------------------------------
     _drive_picker: DrivePicker
@@ -411,6 +417,12 @@ class MainWindowShared(_SeamBase):
         # Defined in DependencyMixin (main_window_deps.py):
         def _on_check_dependencies(self) -> None: ...
 
+        # Defined in SettingsMixin (main_window_settings.py) — each setting
+        # saved from its one home (`ui/setting_homes.py`):
+        def _save_user_setting(self, field: str, value: object) -> SettingWrite: ...
+        def _refresh_setting_views(self) -> None: ...
+        def _on_offset_applied_changed(self, applied: bool) -> None: ...
+
         # Defined in DriveMixin (main_window_drive.py):
         def _set_read_offset_override(self, value: int) -> bool: ...
         def _refresh_drive_profile_display(self) -> None: ...
@@ -423,6 +435,7 @@ class MainWindowShared(_SeamBase):
             cache_defeat: bool | None = ...,
         ) -> None: ...
         def _on_drive_setup(self) -> None: ...
+        def _show_drive_access_diagnosis(self) -> None: ...
         def _maybe_offer_drive_setup(self) -> None: ...
         def _fingerprint_for(self, drive: object) -> tuple[str, str, str]: ...
         def _auto_apply_known_offset(self) -> bool: ...
