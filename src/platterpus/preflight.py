@@ -50,6 +50,7 @@ from platterpus.adapters.rip_backend import (
     RipError,
 )
 from platterpus.config import Config
+from platterpus.container_scope import ContainerOwner, Ownership, container_owner
 from platterpus.ctdb.toc import DiscToc
 from platterpus.deps.manager import DependencyManager
 from platterpus.deps.version import parse_version
@@ -662,6 +663,43 @@ def check_ripper_wrapper_exits(
     )
 
 
+def check_container_owner(owner: ContainerOwner | None = None) -> CheckResult:
+    """Name the app or terminal the ``ripping`` container belongs to.
+
+    A container whose monitor lives inside an app's or terminal's systemd unit
+    dies when that unit ends, taking any rip in it (2026-09-23, section F). From
+    0.6.59 a container Platterpus starts gets its own scope; one started from a
+    terminal, or by an older Platterpus, still belongs to that starter.
+    """
+    found = owner if owner is not None else container_owner()
+    name = "Container owner"
+    if found.ownership is Ownership.OWN_SCOPE:
+        return CheckResult(
+            name,
+            Status.OK,
+            "its own scope: closing a window or terminal will not stop it",
+        )
+    if found.ownership is Ownership.NOT_RUNNING:
+        return CheckResult(
+            name,
+            Status.OK,
+            "not running; Platterpus starts it in its own scope when needed",
+        )
+    if found.ownership is Ownership.UNKNOWN:
+        return CheckResult(
+            name, Status.WARN, "could not tell which app owns the container"
+        )
+    who = found.app or found.unit
+    return CheckResult(
+        name,
+        Status.WARN,
+        f"belongs to {who}: if that ends, the container stops and a rip in it is killed",
+        detail=f"monitor pid {found.pid}, unit {found.unit}",
+        hint="Close Platterpus and that app or terminal, run `distrobox stop -Y ripping`, "
+        "then open Platterpus again: the container it starts gets its own scope.",
+    )
+
+
 def check_drive_access(
     *, diagnose: Callable[[], object] = diagnose_drive_access
 ) -> CheckResult:
@@ -809,6 +847,9 @@ def run_preflight(
     # know the wrapper can be reached at all, and its own bounded deadlines are
     # the reason a hang here costs seconds rather than the whole doctor run.
     emit(check_ripper_wrapper_exits())
+    # After the probes above, which may have started the container: by now it is
+    # running if it can run, so its owner is the one a rip would depend on.
+    emit(check_container_owner())
     emit(check_drive_access())
     if network:
         emit(check_musicbrainz(ctx.mb_client))

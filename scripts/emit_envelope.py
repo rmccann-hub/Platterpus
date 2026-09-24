@@ -73,7 +73,17 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-26-lap-05.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-27-lap-02.md",)
+
+# WHY IT MOVED TO ROUND-27 LAP 2 (2026-09-24).
+#
+# **Our answer to their round 27 lap 1**, which names `.16` (`221a1df`) and closes on
+# the real test run on it. It moves `PIN_UNDER_REVIEW`, names 0.6.59 as the release
+# that carries the move, records the operator's §6b override for that tag, and
+# corrects "killed from outside both programs" (the container belonged to an
+# earlier Platterpus window). Moved once the lap was RELEASED, the same ordering as
+# every move since round 20. Travels alone: the lap quotes no file that would have
+# to ride with it.
 
 # WHY IT MOVED TO ROUND-26 LAP 5 (2026-09-24).
 #

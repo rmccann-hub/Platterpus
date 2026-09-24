@@ -19,9 +19,10 @@ the CLI wrapper.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
-from platterpus import __version__, preflight, settings_validation
+from platterpus import __version__, container_scope, preflight, settings_validation
 from platterpus import config as config_module
 from platterpus.build_info import build_fingerprint
 
@@ -46,6 +47,9 @@ def main(argv: list[str] | None = None) -> int:
     # backend) set a Config attribute that no longer exists and was never
     # read; it was removed.
     cfg = config_module.load()
+    # Before any probe spawns the ripper wrapper, as `platterpus` itself does: a
+    # container a probe starts must not belong to this terminal's unit.
+    container_scope.release_launcher_unit_hold(os.environ)
     ctx = preflight.default_context(cfg)
     color = sys.stdout.isatty() and not args.no_color
 

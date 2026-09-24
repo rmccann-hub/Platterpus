@@ -3282,6 +3282,38 @@ surface against the real section J log with a floor and a ban. The EAC-compatibl
 is deliberately left alone: in round 7 (lap 11, H4) both sides agreed not to reword it
 one-sidedly, and its new wording goes through round 27.
 
+### §5.bt — A child inherits its starter's unit: a closed window still owned the container
+
+**What happened.** On 2026-09-23 section F's whole-disc rip was killed 95 seconds in,
+because the `ripping` container died underneath it. Round 26 lap 5 told the fork it was
+killed *"from outside both programs"*. The host journal, read on the rig on 2026-09-24,
+says the container belonged to **an earlier Platterpus window**. That window started the
+container, updated and relaunched itself inside the same systemd unit, and was closed
+three minutes before the rip. Its unit stayed alive, because the container's monitor
+(`conmon`) was still inside it. When that unit ended, the container went with it.
+
+**Why the monitor was there.** podman leaves `conmon` in the caller's cgroup whenever
+`INVOCATION_ID` is set (`containers/podman@5866b09:libpod/oci_conmon_linux.go:183-186`).
+systemd sets it for every service, and KDE runs every app as one, so every child we
+spawned inherited it: the ripper wrapper and every other Distrobox export, each of which
+can start the container. A stand-in app on the rig reproduced it: with the variable, the
+container died when the app's unit ended; without it, `conmon` got its own
+`libpod-conmon-…scope` and the container survived. **What ended the unit at 21:16:15 is
+still not identified** (no podman stop or kill, no systemd stop job, no OOM, no logout).
+The fix removes the vulnerability, which was ours, and names no trigger.
+
+**Three things to carry.** **(1) A child inherits more than its arguments.** It inherits
+the environment and the cgroup, and so the lifetime, of whatever started it, and a
+service's children stay in that service. `container_scope.release_launcher_unit_hold`
+now removes the variable at the top of `app.main`, before anything spawns. **(2) "From
+outside" is a claim of absence, and it needs the same check as any other.** Nothing
+Platterpus logged could see who owned the container, so "not us" was never measured;
+the journal answered it in one command. **(3) Test the child, not yourself.** The
+regression test spawns a real child and reads *its* environment, and a second test runs
+`app.main(["--doctor"])` and records the variable at the first step that can spawn.
+`--doctor` now names the container's owner, because a container started from a terminal
+still belongs to that terminal. `tests/test_container_scope.py`.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is
@@ -3788,4 +3820,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.58.*
+*Last updated for Platterpus v0.6.59.*
