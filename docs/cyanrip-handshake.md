@@ -594,4 +594,4 @@ a verdict:
 
 ---
 
-*Last updated for Platterpus v0.6.55.*
+*Last updated for Platterpus v0.6.56.*
