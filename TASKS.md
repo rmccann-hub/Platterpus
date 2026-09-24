@@ -132,6 +132,41 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
   never look like a click; (3) the misnamed test is renamed and a real one added that runs the
   `set` verb against an open console and an open Setup & Updates, revert-probed. Small; no
   behaviour change beyond the display.
+- [ ] **PLANNED FOR THE NEXT RELEASE, pending the maintainer's OK: the `ripping` container dies
+  with whichever app or terminal started it.** Found 2026-09-24 in the maintainer's journal for
+  the 2026-09-23 section F kill (exit 137, 95 s into the rip). **Measured:**
+  - podman logged no `stop` or `kill` event, only `died`, so no podman or distrobox command
+    stopped the container;
+  - there are no kernel, OOM or logout lines;
+  - `app-io.github.rmccann_hub.Platterpus@41dca….service` ended in the same second as the
+    container's scope. It had run 55 min 50 s, and the container 55 min 46 s, so that launch
+    (about 20:20:25) is the one that started the container (about 20:20:29);
+  - the app running the acceptance script (PID 19945) is a different process: it ran the next
+    step, wrote its bundle, and never logged receiving a termination signal.
+
+  **Mechanism, cited:**
+  - podman leaves conmon in the caller's cgroup, instead of giving it its own
+    `libpod-conmon-…scope`, whenever `INVOCATION_ID` is set
+    (`containers/podman@5866b09:libpod/oci_conmon_linux.go:183-186`);
+  - systemd sets `INVOCATION_ID` for a service, and KDE runs every app it launches as one;
+  - conmon forwards SIGTERM to the container's main process
+    (`containers/conmon@3f89b60:src/ctr_exit.c:23-27`);
+  - no `libpod-conmon` scope ended alongside the container.
+
+  **Not yet settled:** whether the older window was closed at 21:16:15 (the cause) or merely
+  emptied when the container died (an effect); the maintainer's second check decides it. Also
+  unexplained: cyanrip printed `Trying to quit`, so a catchable signal reached it before the
+  kill.
+
+  **Planned fix:**
+  1. Drop `INVOCATION_ID` from the environment every host-wrapper spawn uses
+     (`killable.py`, `adapters/cyanrip_backend.py`, `deps/ripper_wrapper_probe.py`, through
+     one helper), so a container Platterpus starts gets its own scope.
+  2. A `--doctor` and diagnostics line naming the unit that owns the container, because one
+     started from a terminal still dies when that terminal closes.
+
+  Test: the spawn environment lacks the variable, revert-probed. Routing is unchanged: we
+  still call only `~/.local/bin/cyanrip`. The 2026-09-23 run stays `partial` in the ledger.
 - [x] **Source citations that name the old ripper's repository stay** (maintainer, 2026-09-24:
   "do your recommendation"): three docstrings cite the upstream files the legacy parsers and a
   capability audit were checked against. A citation without its repository cannot be followed;
