@@ -124,8 +124,45 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
   in `SENT_LAPS`), after fetching their branch (`583d6f3`) and confirming no round-26 lap after
   their lap 1 (K1).
 - [ ] **0.6.55** — the release steps, after lap 3 is announced and `main`'s own CI is green.
-- [ ] **The real test** (operator), then each side's reading, then the closing laps; at the
-  close, roll `FORK_PIN` to `df91ae7` in our release and move the approval record to round 26.
+- [x] **0.6.55 released 2026-09-24** (run 01:05–01:08 UTC, all three gates green, the §6b override
+  printed); the operator started the real test on it.
+- [x] **One folder per acceptance run** (maintainer, 2026-09-24, during that test): rips,
+  transcript, report, screenshots and ONE bundle, all under the run's session folder in
+  `~/platterpus-rig/`; the runner no longer packs a second bundle. Ships in the next release.
+- [x] **The real test ran, 2026-09-24, on 0.6.55 + `df91ae7`: 258 of 261, ledger `partial`.** All three
+  failures are ONE event: 95 s into section F's whole-disc rip, the `ripping` container was
+  stopped from outside the app (exit 137 after `Trying to quit`; podman then could not start
+  the container). F and G are `ARCHIVAL`, so the run does not count as a pass. N's three-hour
+  secure re-read passed (14/14 converged, 13/14 AccurateRip, CTDB match). Four defects of
+  ours fixed on the branch, in `docs/testing.md` §5.br: "no diagnosis was captured" over an exit that
+  was one; gates "ran" on an unfinished rip; `expect-verification` waiting 600 s on
+  it; screenshots of hidden windows (the headline was one), leaked dialogs, and per-rip
+  bundles outside the session folder.
+- [ ] **What stopped the container** (operator): `podman events` / `journalctl` for
+  2026-09-23 21:15:30–21:16:30 local; nothing we capture can say.
+- [x] **Round 26 lap 4 filed** (their `GO`, sha256 `7a56b1d2…`); every checkable claim
+  re-derived. The bundle is filed as `docs/handshake/artifactsround26/`, 40 of 46 blob-identical
+  to theirs. Their nit is fixed ("0 of 0" → "0 of 14"), plus two more of ours from the second
+  reading: the live track-done matcher that missed `.14`, and "read-unstable" on a killed rip.
+- [x] **Our round 26 lap 5 released 2026-09-24 on the maintainer's word** (sha256 `8c7df540…`,
+  pinned in `SENT_LAPS`, envelope `round26lap05FROMplatterpusTOcyanrip.md`). Our gate reads
+  round 26 CLOSED; `FORK_PIN` → `df91ae7`, `+platterpus.15`, approval record → round 26 for
+  0.6.55, all in the same commit.
+- [ ] **Their lap 6** transcribes our `GO` and closes round 26 on their gate.
+- [ ] **0.6.56**: after their lap 6 and their `.16`, and before their round 27 lap 1 is
+  released, or it needs a §6b.
+- [ ] **`Accurip 450` is one frame** (NEXT-ROUND, both sides): section J's track 1 had wrong
+  audio and passed as "partially accurate". Say what matched, stop calling it a pressing, and
+  decide whether offset-variant re-reads should default ON (maintainer's call: `rerip_offset_variant`
+  is `False` today).
+- [ ] **Our `rig-check` paranoia ratio sums all four counters**; `READ` alone is the re-read
+  witness (fork's 3.02 against our 2.87 on the same log). NEXT-ROUND.
+- [ ] **Answer the fork's loudness finding** (`cancel-me.log:75`: "Album" loudness over a
+  partial read) with the rows we parse listed, in round 27.
+- [ ] **Re-run F (or the whole script)** on the next release. F's fast whole-disc path is
+  untested by the 2026-09-24 run, and that path is F's whole purpose.
+- [ ] **Each side's reading, then the closing laps**; at the close, roll `FORK_PIN` to
+  `df91ae7` in our release and move the approval record to round 26.
 - [ ] **Correct `fullacceptance.txt`'s `-r 3` comment** (*"not dangerous"*) with the next change
   to that script — on `.15` it is true, on `.14` it was not.
 

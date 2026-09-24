@@ -851,6 +851,37 @@ def test_zero_track_parse_without_cancellation_evidence_still_fails(
     assert manifest.failed
 
 
+def test_zero_track_parse_of_a_failed_rip_fails_and_says_why(tmp_path: Path) -> None:
+    """A FAILED rip's empty parse stays a FAIL — and names the failure.
+
+    Not an excuse like a cancel: the parser got no subject, so a section graded
+    on it is untested. But on the 2026-09-24 run the report said `failed`, ripper
+    exit 137, and this FAIL still called the empty parse "unexplained", which
+    sent the reader to the parser for a rip that was killed from outside.
+    """
+    import json
+
+    album = _album_with_empty_log(tmp_path, cancelled=False)
+    report = {
+        "outcome": {
+            "status": "failed",
+            "ripper_exit_code": 137,
+            "failure_hint": "The rip was stopped from outside Platterpus",
+        },
+        "issues": [],
+    }
+    (album / "rip.platterpus.json").write_text(json.dumps(report), encoding="utf-8")
+    manifest = rig_check.Manifest(tmp_path / "m", sink=lambda _line: None)
+    rig_check.check_parsers_against_the_log(manifest, album)
+
+    parser = [r for r in manifest.results if r.name == "parser/log"]
+    assert len(parser) == 1, parser
+    assert parser[0].status == rig_check.FAIL, parser[0].detail
+    assert "FAILED (ripper exit 137)" in parser[0].detail, parser[0].detail
+    assert "stopped from outside" in parser[0].detail, parser[0].detail
+    assert "unexplained" not in parser[0].detail, parser[0].detail
+
+
 def test_cancellation_evidence_survives_a_missing_or_broken_report(
     tmp_path: Path,
 ) -> None:

@@ -3162,6 +3162,87 @@ Gates: `test_section_a_accepts_exactly_the_builds_the_round_allows` (three shape
 probed, both detected, and the round-26 row fails on the old code with the
 maintainer's exact symptom.
 
+### §5.br — A killed process prints no diagnosis, so the exit status has to be read as one
+
+**2026-09-24, 0.6.55 on the round-26 test pin.** The acceptance run reached its last
+step at **258 of 261**. All three failures were one event: 95 s into section F's
+whole-disc rip, with nobody at the keyboard, the ripper printed `Trying to quit` and
+exited **137** 87 ms later. 130 ms after that, the next call through the Distrobox
+wrapper failed with podman's own *"unable to start container … /etc/passwd: no such
+file or directory"*. The container had been stopped underneath the rip, and
+Platterpus had sent no signal. F's `expect-rip-complete` failed, then its
+`expect-verification`, then section G's `rig-check`, which grades F's log. Every
+other section passed, including N's three-hour whole-disc secure re-read (14 of 14
+converged, 13 of 14 AccurateRip-verified).
+
+What sent the signal is not in anything we capture: our logs see only the result.
+The four defects below are ours. Each is a fact we held and did not use.
+
+1. **The user read "Rip failed — no diagnosis was captured".** The worker's only
+   feed into `failure_hint` was a matched line of the ripper's *output*, and a
+   process that is killed does not get to print why. The exit status was the
+   diagnosis. cyanrip's own codes are 0–5, so 137 is SIGKILL, and a signal comes
+   from software, never from a disc or a drive. `ripper_exit.py` now says so, and
+   the worker passes in whether *it* sent the signal, since a stop we caused must
+   never be described as coming from outside.
+2. **The report said `gates.ctdb: "ran"` over a rip that never reached the checks.**
+   Every post-rip check starts only after a successful rip. On a failed one, "ran"
+   was the settings describing the work, which is the §5.bi field-from-the-request
+   defect a third time. The backstop then filed `verification_result_missing` about
+   work that was never dropped, because it was never begun. A gate on an unfinished
+   rip now reads `RIP_DID_NOT_FINISH_GATE`.
+3. **`expect-verification` waited its full 600 s for results that could not arrive,**
+   then blamed "still running, or superseded". Neither was true. Ask of any wait
+   *can the thing I am waiting for still happen?* When the answer is written in the
+   same file the wait is polling, the wait must read it. It now FAILs on the first
+   poll, saying the section's checks are **untested** by this run, never passed.
+4. **The evidence could not be tracked down, which is what the maintainer asked
+   for that same day.** Each screenshot step wrote 21–23 PNGs. About a dozen were
+   100-byte renders of 2×2 frames Qt never showed. The step's headline
+   `<name>.png` was a render of a **hidden** release picker, the same 47,191 bytes
+   at every step, because the list was in Qt's order and nothing was active. Four
+   hidden pickers and two hidden Settings dialogs were still alive because the
+   window parented them and nothing freed them. And each rip's own bundle still
+   went to the app's data directory, outside the one session folder. Now only
+   on-screen windows are photographed, the main window first, and every other
+   window is named with *"no picture: not on screen"*. The dialogs are freed after
+   use, and per-rip bundles go to the session's `ripbundles/`.
+
+**The second reading, with the fork's lap 4, found two more, and neither was in
+any failure.** Both came from reading the artifacts rather than the verdicts:
+
+5. **Every track row said "⟳ Ripping" after "Done — all 14 tracks ripped
+   cleanly".** The rip worker matched a finished track with its own copy of the
+   pattern, and that copy knew only the `<= .13` wording. The parser had learned
+   `Track N read successfully!` in the same change that introduced it (`.14`); the
+   second copy had not. So on our pinned build the "Done" mark never arrived, the
+   overall bar lagged, and **the per-track partial report, the one record that
+   survives a SIGKILL, was never written.** Nothing failed, because no assertion
+   read the row status and no test fed the worker the new line. The worker now
+   reads the parser's pattern. The lesson is §5.o at the scale of one regex:
+   **a second copy of a pattern does not learn a new wording.**
+6. **One track held wrong audio and passed as "partially accurate".** Section J's
+   track 1, ripped straight after the cancel, is `0E91CD1A`. The five other rips of
+   that track all read `B0D122E7`, an exact AccurateRip match. Only `Accurip 450`
+   matched, and that checksum covers **one frame**
+   (`cyanrip@df91ae7:src/checksums.h:74-78`). We accepted it because the run had
+   turned offset-variant re-reads off, which is also our default, and our report
+   called it *"an offset-variant pressing"*, a cause nothing measured. It is a check
+   whose name claims more than it covers. Queued for the next round, on both sides.
+
+The general rule, and the reason it is here rather than only in the log: **when a
+failure's cause is outside us, what we owe the user is an accurate account of what
+we saw, and we had all of it.** "No diagnosis was captured" was not modest; it was
+false. Gates: `tests/test_ripper_exit.py`,
+`test_a_ripper_killed_from_outside_is_explained_not_called_undiagnosed`,
+`test_a_rip_we_stopped_is_never_described_as_stopped_from_outside`,
+`test_a_rip_that_did_not_finish_claims_no_check_ran`,
+`test_expect_verification_fails_at_once_over_a_rip_that_did_not_finish`,
+`test_zero_track_parse_of_a_failed_rip_fails_and_says_why`,
+`test_screenshot_photographs_only_windows_on_screen_main_window_first`,
+`test_the_settings_dialog_and_release_picker_are_freed_after_use`,
+`test_a_rips_own_bundle_lands_in_the_acceptance_session_folder`.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is
@@ -3366,6 +3447,7 @@ cannot fail for any archival reason. Queued in `TASKS.md`; the tier table says
 | 2026-09-15 | 0.6.48 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-15 | 0.6.49 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-22 | 0.6.52 | maintainer | bdr209d | bazzite | partial |
+| 2026-09-24 | 0.6.55 | maintainer | bdr209d | bazzite | partial |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
@@ -3451,7 +3533,17 @@ deleting it from the shipped script, which is the *"a verb can be written,
 tested and wired and still be absent from the run it was written for"* gap. The
 row stays `partial`.
 
-Seven rows, seven `partial`, zero `full-green`. **No full-green pass has been
+**The 2026-09-24 0.6.55 row reached the last step at 258 of 261 and is `partial`,
+because two of the three failures are in `ARCHIVAL` sections.** Section F's
+whole-disc rip was killed 95 s in when its container was stopped from outside
+Platterpus. F and G's grades are fixed in advance, so this is not reclassified as
+"external", which is exactly the after-the-fact reading the severity rules forbid.
+It does count for something real: the run was the first on the round-26 test pin
+`df91ae7`, and N's three-hour secure re-read, the accuracy claim itself, passed
+(14 of 14 converged, 13 of 14 AccurateRip-verified, CTDB match). What it could not
+test is F's fast whole-disc path, which is precisely what F exists to test (§5.br).
+
+Every row so far is `partial`, zero `full-green`. **No full-green pass has been
 achieved**, so 0.9.1 is not reachable and the count toward it is zero. Recording
 the partials anyway matters — a ledger that held only successes would make the
 denominator invisible. The first row that earns `full-green` will be one where K1

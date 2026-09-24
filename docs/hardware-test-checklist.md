@@ -1,13 +1,16 @@
 # Hardware test checklist
 
-> **Read this first (2026-09-22, v0.6.53).** The intro block below was written for the
+> **Read this first (2026-09-24, v0.6.55).** The intro block below was written for the
 > **v0.6.0** sheet and is kept as its record — its "this release" means v0.6.0, and its
 > list of recent releases stops at v0.5.21. What is current: the pair is Platterpus
-> **v0.6.53** + cyanrip **`3e01bb3`** (`+platterpus.14`, approved by round 24 on
-> 2026-09-23 and shipping in 0.6.54 — 0.6.53 as released still installs `2cce60d`),
+> **v0.6.55** + cyanrip **`df91ae7`** (`+platterpus.15`, approved by round 26 on
+> 2026-09-24 on its real test, and shipping in 0.6.56 — 0.6.55 as released still
+> installs `3e01bb3`),
 > and the primary hardware
-> route is now **Tools → Run acceptance test…** inside the app, which packs one
-> `.tar.gz` into `~/Downloads` (`docs/rig-scripts/README.md`, `docs/rig-session.md`).
+> route is now **Tools → Run acceptance test…** inside the app, which keeps
+> everything a run makes — rips, screenshots, transcript and one `.tar.gz` — in one
+> session folder under `~/platterpus-rig/` (`docs/rig-scripts/README.md`,
+> `docs/rig-session.md`).
 > The individual §A–§D cases below are still the record of what the acceptance script
 > does not cover. **This sheet is due a rewrite rather than another patch** — tracked in
 > `TASKS.md` — because deciding which of its cases the acceptance run has since
@@ -80,7 +83,7 @@
 | Drive | `PIONEER  BD-RW   BDR-209D 1.51` on `/dev/sr0` |
 | Read offset | **+667** — confirmed, two independent sources agree |
 | Cache defeat | **Yes** — measured (`cd-paranoia -A`: 140-sector cache, backseek flushes) |
-| Tools | cyanrip `0.9.4-rc2+platterpus.14`, build tag `platterpus-fork-g3e01bb3` — the handshake-pinned fork (round 24 moved the pin here and approved it on the fork's golden reference; **not yet run on this drive** — the next acceptance run, on 0.6.54, is the first), not stock 0.9.3; the tag identifies it, the version cannot (KDD-33) · flac/metaflac 1.5.0 · ffmpeg 8.1.2 · cd-paranoia 10.2 · Picard 2.13.3 |
+| Tools | cyanrip `0.9.4-rc2+platterpus.15`, build tag `platterpus-fork-gdf91ae7` — the handshake-pinned fork (round 26 moved the pin here and approved it on the 2026-09-24 acceptance run on this drive, 258 of 261, `docs/testing.md` §5.br), not stock 0.9.3; the tag identifies it, the version cannot (KDD-33) · flac/metaflac 1.5.0 · ffmpeg 8.1.2 · cd-paranoia 10.2 · Picard 2.13.3 |
 | Settings | Overread **off** · offset-variant re-read **on** · verify-every-track **off** · max reads 2 · max retries 5 · adaptive ladder · EAC log **on** · debug log **on** |
 
 **Test disc:** *The Police — Every Breath You Take: The Classics* — 14 tracks,

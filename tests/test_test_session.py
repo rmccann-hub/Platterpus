@@ -6,9 +6,10 @@ it. Each test below pins a decision that was made in that bash and would be
 silently easy to lose in a rewrite:
 
 * the path decisions are **pure**, so they can be asserted at all;
-* the archive lands in `~/Downloads` **only when one exists** — the bash refuses
-  to invent that folder, because a file in a directory the operator has no habit
-  of opening is the original problem with an extra step in front of it;
+* **everything a session makes is inside ONE folder**, the bundle included
+  (maintainer, 2026-09-24: *"keep this all contained to 1 folder"*) — and the
+  rips sit beside the evidence, never inside the part bundled under the
+  image-admitting allowlist;
 * a source that was **not there** is still named, because an absence nobody can
   see reads as a complete bundle;
 * **no audio can get in**, and the archive says so itself.
@@ -134,19 +135,19 @@ def test_a_missing_packaged_script_is_reported_not_raised(
 def test_plan_session_is_pure(tmp_path: Path) -> None:
     """Same arguments, equal result — and nothing appears on disk.
 
-    Purity is not a style preference here: it is what lets the `~/Downloads`
-    decision below be asserted without a filesystem, and what stops a "decide
-    where it goes" function from quietly creating the place it decided on.
+    Purity is not a style preference here: it is what lets the one-folder rule
+    below be asserted without a filesystem, and what stops a "decide where it
+    goes" function from quietly creating the place it decided on.
     """
-    first = plan_session(home=tmp_path, stamp=STAMP, downloads=None)
-    second = plan_session(home=tmp_path, stamp=STAMP, downloads=None)
+    first = plan_session(home=tmp_path, stamp=STAMP)
+    second = plan_session(home=tmp_path, stamp=STAMP)
     assert first == second
 
     # Floor: the call really did produce paths under `tmp_path`, so "nothing was
     # created" is a statement about a call that did something.
     assert first.root.parent == rig_parent(tmp_path)
-    assert first.transcript.parent == first.root
-    assert first.artifacts.parent == first.root
+    assert first.transcript.parent == first.evidence
+    assert first.artifacts.parent == first.evidence
 
     # And the disk is untouched.
     assert list(tmp_path.iterdir()) == []
@@ -163,7 +164,7 @@ def test_plan_session_names_the_folder_in_the_cross_machine_alphabet(
     one stamp and a "send me this file" instruction has to name a file that
     exists.
     """
-    layout = plan_session(home=tmp_path, stamp=STAMP, downloads=None)
+    layout = plan_session(home=tmp_path, stamp=STAMP)
     slug = layout.root.name[len(SESSION_DIR_PREFIX) :]
     assert slug == STAMP.lower().replace(":", "")
     assert slug.isalnum() and slug.islower()
@@ -179,53 +180,52 @@ def test_session_stamp_formats_the_moment_it_is_given() -> None:
 
 
 # ---------------------------------------------------------------------------
-# The ~/Downloads fallback — both branches
+# ONE folder — every path, the bundle included
 # ---------------------------------------------------------------------------
 
 
-def test_bundle_lands_in_downloads_when_one_exists(tmp_path: Path) -> None:
-    """A browser's upload dialog opens in `~/Downloads`, so the file goes there."""
-    downloads = tmp_path / "Downloads"
-    downloads.mkdir()
+def test_every_path_is_inside_the_one_session_folder(tmp_path: Path) -> None:
+    """*"stop polluting my home folder, keep this all contained to 1 folder"*.
 
-    resolved = downloads_dir(tmp_path)
-    assert resolved == downloads
-
-    layout = plan_session(home=tmp_path, stamp=STAMP, downloads=resolved)
-    assert layout.bundle.parent == downloads
-    assert layout.bundle == downloads / bundle_filename(STAMP)
-    # The staging folder stays on the rig; only the ONE file moves to Downloads.
-    # It lives UNDER the single deletable parent, never loose in $HOME.
+    The bundle used to go to `~/Downloads`, the run's transcript and screenshots
+    to the app's data directory, and the rips to the music library. Every path a
+    session plans is now under `root`, and `root` is under the one rig parent.
+    """
+    (tmp_path / "Downloads").mkdir()  # present, and still not used
+    layout = plan_session(home=tmp_path, stamp=STAMP)
     assert layout.root.parent == rig_parent(tmp_path)
-    assert layout.root.parent.parent == tmp_path
+    # SWEPT, not listed: this named six fields, so the seventh — the per-rip
+    # bundle folder, added 2026-09-24 — would have been outside its population.
+    import dataclasses
+
+    paths = {
+        f.name: getattr(layout, f.name)
+        for f in dataclasses.fields(layout)
+        if isinstance(getattr(layout, f.name), Path) and f.name != "root"
+    }
+    assert len(paths) >= 7, f"the sweep found too few paths to mean anything: {paths}"
+    for name, path in paths.items():
+        assert path.is_relative_to(layout.root), f"{name} is outside: {path}"
+    assert layout.bundle == layout.root / bundle_filename(STAMP)
+    assert not layout.rip_bundles.is_relative_to(layout.evidence)
 
 
-def test_bundle_falls_back_INSIDE_the_rig_dir_and_downloads_is_never_invented(
+def test_the_rips_are_never_inside_the_image_admitting_evidence_folder(
     tmp_path: Path,
 ) -> None:
-    """No `~/Downloads` → the archive goes under the ONE rig directory, not `$HOME`.
-
-    **Two separate properties, and both have been wrong at some point.**
-
-    *Downloads is never invented* — still true, still asserted, and still the
-    right call: creating the folder would put the deliverable somewhere the
-    operator has no habit of looking, which is the problem the fallback exists to
-    avoid in the first place.
-
-    *The fallback is contained* — this is the part that changed. It used to drop
-    the tarball straight into `$HOME`, once per run, on any machine without a
-    Downloads folder. That is the litter the maintainer asked us to stop making
-    (2026-09-11), and containment costs nothing here because the session summary
-    prints the deliverable's absolute path either way.
-    """
-    assert downloads_dir(tmp_path) is None
-    assert not (tmp_path / "Downloads").exists(), "asking must not create it"
-
-    layout = plan_session(home=tmp_path, stamp=STAMP, downloads=downloads_dir(tmp_path))
-    assert layout.bundle.parent == rig_parent(tmp_path)
-    assert layout.bundle == rig_parent(tmp_path) / bundle_filename(STAMP)
-    assert layout.bundle.parent.parent == tmp_path, "still reachable from $HOME"
-    assert not (tmp_path / "Downloads").exists(), "planning must not create it either"
+    """`evidence` is bundled under the allowlist that admits `.png`; an album
+    folder's `.png` is record-label artwork (Critical rule #8). So the rips are a
+    SIBLING of `evidence`, and a source inside them is refused by the stager."""
+    home, layout = _prepared(tmp_path)
+    assert not layout.rips.is_relative_to(layout.evidence)
+    assert not layout.bundle.is_relative_to(layout.evidence), "it would archive itself"
+    album = layout.rips / "Artist" / "Album"
+    album.mkdir(parents=True)
+    (album / "cover.png").write_bytes(b"\x89PNG artwork")
+    staged = _stage(layout, [album])
+    assert album not in staged.extra_dirs.values()
+    assert any("REFUSED" in line for line in staged.lines), staged.lines
+    assert staged.extra_dirs == {"session": layout.evidence}
 
 
 def test_a_downloads_file_rather_than_a_directory_is_not_downloads(
@@ -242,11 +242,12 @@ def test_a_downloads_file_rather_than_a_directory_is_not_downloads(
 
 
 def test_prepare_session_is_idempotent(tmp_path: Path) -> None:
-    layout = plan_session(home=tmp_path, stamp=STAMP, downloads=None)
+    layout = plan_session(home=tmp_path, stamp=STAMP)
     prepare_session(layout)
     prepare_session(layout)  # again: must not raise
     assert layout.root.is_dir()
     assert layout.artifacts.is_dir()
+    assert layout.run_dir.is_dir() and layout.rips.is_dir()
     assert not (tmp_path / "Downloads").exists()
 
 
@@ -261,7 +262,7 @@ def test_session_sources_keeps_a_path_that_does_not_exist(tmp_path: Path) -> Non
     Filtering by existence here is what makes "the EAC log was never written" and
     "we failed to collect the EAC log" look identical in the finished bundle.
     """
-    layout = plan_session(home=tmp_path, stamp=STAMP, downloads=None)
+    layout = plan_session(home=tmp_path, stamp=STAMP)
     missing = tmp_path / "nowhere" / "eaclog.log"
     assert not missing.exists()
 
@@ -280,7 +281,7 @@ def test_session_sources_keeps_a_path_that_does_not_exist(tmp_path: Path) -> Non
 
 def test_session_sources_deduplicates_and_keeps_order(tmp_path: Path) -> None:
     """A path named twice is collected once — and the first position wins."""
-    layout = plan_session(home=tmp_path, stamp=STAMP, downloads=None)
+    layout = plan_session(home=tmp_path, stamp=STAMP)
     log_path = tmp_path / "logs" / "log.txt"
     duplicate = tmp_path / "extra.txt"
 
@@ -303,7 +304,7 @@ def test_session_sources_deduplicates_and_keeps_order(tmp_path: Path) -> None:
 
 def test_session_sources_finds_log_rotations(tmp_path: Path) -> None:
     """`log.txt.1` and friends are collected; `log.txt.old` is not a rotation."""
-    layout = plan_session(home=tmp_path, stamp=STAMP, downloads=None)
+    layout = plan_session(home=tmp_path, stamp=STAMP)
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
     log_path = log_dir / "log.txt"
@@ -324,13 +325,11 @@ def test_session_sources_finds_log_rotations(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _prepared(
-    tmp_path: Path, *, downloads: Path | None = None
-) -> tuple[Path, SessionLayout]:
+def _prepared(tmp_path: Path) -> tuple[Path, SessionLayout]:
     """A home with a prepared session in it. Returns (home, layout)."""
     home = tmp_path / "home"
     home.mkdir()
-    layout = plan_session(home=home, stamp=STAMP, downloads=downloads)
+    layout = plan_session(home=home, stamp=STAMP)
     prepare_session(layout)
     return home, layout
 
@@ -362,7 +361,7 @@ def test_round_trip_produces_one_archive_with_the_text_artifacts(
     # "send me this file" instruction that names a path nobody wrote is the
     # failure this relation prevents.
     assert result.path == layout.bundle
-    assert layout.bundle.parent == rig_parent(home)
+    assert layout.bundle.parent == layout.root, "the bundle left the one folder"
     assert layout.bundle.stat().st_size > 0
 
     members = _members(layout.bundle)
@@ -545,7 +544,13 @@ def test_finish_session_returns_an_error_instead_of_raising(tmp_path: Path) -> N
     blocked = tmp_path / "blocked"
     blocked.write_text("i am a file, not a folder", encoding="utf-8")
 
-    layout = plan_session(home=home, stamp=STAMP, downloads=blocked)
+    import dataclasses
+
+    # The bundle's folder is always the session root now, so the failure is
+    # forced by pointing the plan's bundle into the blocked path.
+    layout = dataclasses.replace(
+        plan_session(home=home, stamp=STAMP), bundle=blocked / bundle_filename(STAMP)
+    )
     prepare_session(layout)
     layout.transcript.write_text("ran\n", encoding="utf-8")
 
@@ -847,7 +852,7 @@ def test_many_sessions_add_exactly_ONE_entry_to_home(tmp_path: Path) -> None:
     """
     stamps = ("20260101T000000Z", "20260102T000000Z", "20260103T000000Z")
     for stamp in stamps:
-        prepare_session(plan_session(home=tmp_path, stamp=stamp, downloads=None))
+        prepare_session(plan_session(home=tmp_path, stamp=stamp))
 
     entries = sorted(p.name for p in tmp_path.iterdir())
     assert entries == [RIG_PARENT_NAME], (

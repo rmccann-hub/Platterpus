@@ -492,7 +492,10 @@ def _final_partial_summary(rip_log: object) -> str | None:
     """
     parsed = getattr(rip_log, "partially_accurate_summary", "") or None
     try:
-        from platterpus.parsers.cyanrip_log import render_partially_accurate_summary
+        from platterpus.parsers.cyanrip_log import (
+            partial_summary_denominator,
+            render_partially_accurate_summary,
+        )
         from platterpus.verdict import accuraterip_counts
 
         reported = str(getattr(rip_log, "partially_accurate_reported", "") or "")
@@ -507,7 +510,13 @@ def _final_partial_summary(rip_log: object) -> str | None:
             # the footnote for those logs; `tests/test_ui_rip_progress.py` caught it.)
             return parsed
         _total, _verified, partial = accuraterip_counts(rip_log)
-        disc_tracks = len(getattr(rip_log, "tracks", ()) or ())
+        # The parser's own rule for the disc's track count — a cancel shrinks the
+        # track list, so `len(tracks)` alone gave "0 of 0" on a 14-track disc.
+        total = getattr(rip_log, "rip_completed_total", None)
+        disc_tracks = partial_summary_denominator(
+            total if isinstance(total, int) else None,
+            len(getattr(rip_log, "tracks", ()) or ()),
+        )
         recomputed = render_partially_accurate_summary(reported, partial, disc_tracks)
         # An empty render means the renderer declined (a malformed fraction). Keep
         # the parser's sentence rather than dropping the line.
@@ -770,6 +779,26 @@ def build_settings(config: object, *, read_offset_effective: int | None = None) 
 #: and every one of those reports said `"ran"`.
 SUPERSEDED_GATE: Final[str] = "superseded — a newer rip started before this finished"
 
+#: The state of a requested check on a rip that did not finish. Every post-rip
+#: check starts only after a SUCCESSFUL rip (`_on_rip_finished` gates the whole
+#: chain on `success`), so on a failed or cancelled rip none of them was begun —
+#: and `"ran"` there is a statement about the settings describing the work.
+#:
+#: Measured, not reasoned: the 2026-09-24 acceptance run's section F rip was
+#: killed 95 s in, and its report carried `gates.ctdb: "ran"` and
+#: `gates.flac_integrity: "ran"` over two null blocks. The backstop then filed
+#: two `verification_result_missing` warnings — true, and about the wrong thing:
+#: nothing was dropped, nothing was ever started — and the acceptance step that
+#: grades those codes waited its full 600 s for results that could not arrive.
+RIP_DID_NOT_FINISH_GATE: Final[str] = (
+    "not run — the rip did not finish, and post-rip checks only run on a finished rip"
+)
+
+#: The `outcome.status` values that mean the post-rip chain was never started.
+#: One set, shared with the acceptance runner's `expect-verification`, so the two
+#: cannot disagree about which rips owe a result.
+UNFINISHED_RIP_STATUSES: Final[frozenset[str]] = frozenset({"failed", "cancelled"})
+
 #: The two ways a gate can end up claiming work whose result the report does not
 #: hold: the caller told us a newer rip took over, or nobody told us anything and
 #: the backstop below found the gate and its block disagreeing. Named constants
@@ -804,6 +833,7 @@ def build_gates(
     backend_maxes_compression: bool,
     transcode_requested: bool,
     superseded: Collection[str] = (),
+    rip_status: str | None = None,
 ) -> dict:
     """Build ``verification.gates``: WHY each verification sub-block is or isn't
     populated.
@@ -818,6 +848,13 @@ def build_gates(
     started. Those win over every config-derived state below, because they are a
     fact about what HAPPENED and the rest are facts about what was REQUESTED —
     and when those two disagree the second one is the one that lies.
+
+    ``rip_status`` is the rip's ``outcome.status``. On a rip that did not finish
+    (:data:`UNFINISHED_RIP_STATUSES`) every gate that would claim ``"ran"`` reads
+    :data:`RIP_DID_NOT_FINISH_GATE` instead — the same move as ``superseded``, one
+    step earlier: there the work was begun and dropped, here it was never begun.
+    ``None`` (unknown) changes nothing, so a caller that has no outcome yet gets
+    the request-derived states it always got.
     """
     if not flac_verify_enabled:
         flac_gate = "disabled"
@@ -840,6 +877,10 @@ def build_gates(
     # Only over a gate that claims the work RAN. A `disabled`/`flac-only` gate is
     # already an accurate account of a null block, and overwriting it would say a
     # check was interrupted when it was never scheduled.
+    if rip_status in UNFINISHED_RIP_STATUSES:
+        for key, state in gates.items():
+            if state == "ran":
+                gates[key] = RIP_DID_NOT_FINISH_GATE
     for key in superseded:
         if gates.get(key) == "ran":
             gates[key] = SUPERSEDED_GATE
@@ -1945,14 +1986,22 @@ def _issues(
                 ctdb.get("message") or "the CTDB check could not be completed",
             )
 
+    # NOT on a rip that never finished with no track measured unstable. The ladder
+    # marks a failed pass `unresolved` on purpose (a hard failure is not a clean
+    # read), but "instability remained after the automatic re-rip" is then a claim
+    # about a re-rip that never ran over reads nobody measured: the 2026-09-24
+    # section F rip was killed 95 s in and its report said exactly that. The
+    # failure is already `rip_failed`; this line would only mislead.
+    unfinished = (outcome or {}).get("status") in UNFINISHED_RIP_STATUSES
     if read_speed and read_speed.get("unresolved"):
         unstable = read_speed.get("unstable_tracks") or []
         tail = f" (track(s) {', '.join(str(t) for t in unstable)})" if unstable else ""
-        add(
-            "warning",
-            "read_unstable",
-            f"read instability remained after the automatic re-rip{tail}",
-        )
+        if unstable or not unfinished:
+            add(
+                "warning",
+                "read_unstable",
+                f"read instability remained after the automatic re-rip{tail}",
+            )
 
     # Read-effort early warning: tracks that needed unusually heavy re-reading
     # (or a -Z secure re-read that never converged) even if they ultimately

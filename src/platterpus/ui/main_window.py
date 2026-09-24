@@ -1458,6 +1458,10 @@ class MainWindow(
                     "unidentified",
                     waited,
                 )
+            # Parented to the window, so dropping the name frees nothing: each
+            # lookup left one more hidden picker alive (four by the end of the
+            # 2026-09-24 run). Its answer has been read, so hand it back to Qt.
+            dialog.deleteLater()
         else:
             # 0 matches: the disc had a MusicBrainz disc ID but no release
             # is registered for it. Same outcome as a disc with no ID —
@@ -1582,11 +1586,15 @@ class MainWindow(
 
     def _on_open_settings(self) -> None:
         dialog = SettingsDialog(self._config, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
+        accepted = dialog.exec() == QDialog.DialogCode.Accepted
+        # Read, then freed — see the release picker's `deleteLater` for why.
+        edited = dialog.user_edits_applied_to(self._config) if accepted else None
+        dialog.deleteLater()
+        if edited is not None:
             # Only what the user changed — never the whole form read back. The
             # config may have been written while the dialog was open, and the
             # form still shows the values it opened with (`apply_user_edits`).
-            self._config = dialog.user_edits_applied_to(self._config)
+            self._config = edited
             # Push the new config into the rip controls so the next rip
             # reflects the edits (output dir, templates, cover art, …).
             self._rip_controls.set_config(self._config)

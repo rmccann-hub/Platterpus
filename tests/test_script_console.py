@@ -374,3 +374,37 @@ class TestSeparatorStyleCannotCostARun:
 
         assert seen["ran"] is True, "the mis-separated name was not resolved"
         assert "resolved by normalising the name" in str(seen["transcript"])
+
+
+def test_the_console_contains_only_the_next_run(qapp, tmp_path: Path) -> None:
+    """The acceptance session's folder reaches exactly ONE run, then clears.
+
+    One-shot on purpose: a run the operator starts by hand afterwards must not be
+    written into a finished session's folder, or skip its own bundle.
+    """
+    from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
+
+    window = _bare_window()
+    console = ScriptConsoleDialog(window)
+    try:
+        folder = tmp_path / "evidence" / "run"
+        console.contain_next_run_in(folder)
+        console._editor.setPlainText("log contained\n")
+        assert console.run_now()
+        first = console._runner
+        assert first is not None and first._contained_dir == folder
+        assert console._contain_next_run_in is None, "the folder was not one-shot"
+        first.stop("test")
+        qapp.processEvents()
+        console._editor.setPlainText("log by hand\n")
+        assert console.run_now()
+        second = console._runner
+        assert second is not None and second is not first
+        assert second._contained_dir is None, "a later run was redirected too"
+        second.stop("test")
+        qapp.processEvents()
+    finally:
+        console.close()
+        console.deleteLater()
+        window.close()
+        window.deleteLater()

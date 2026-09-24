@@ -10574,3 +10574,88 @@ print("collected")
         f"exit {proc.returncode} — a shown window crashed when collected:\n"
         f"{proc.stderr[-2000:]}"
     )
+
+
+def test_the_settings_dialog_and_release_picker_are_freed_after_use(
+    teardown_threads, monkeypatch, qapp
+) -> None:
+    """Both are parented to the window, so dropping the Python name freed nothing.
+
+    By the end of the 2026-09-24 acceptance run four hidden release pickers and
+    two hidden Settings dialogs were still alive, and every screenshot step
+    rendered all of them. Answer read, then handed back to Qt.
+    """
+    from PySide6.QtCore import QCoreApplication, QEvent
+
+    from platterpus.ui import settings_dialog
+
+    window = teardown_threads()
+    window._current_disc_id = "disc-A"
+    monkeypatch.setattr(
+        ReleasePickerDialog, "exec", lambda self: QDialog.DialogCode.Rejected
+    )
+    monkeypatch.setattr(
+        settings_dialog.SettingsDialog,
+        "exec",
+        lambda self: int(QDialog.DialogCode.Rejected),
+    )
+
+    def alive(kind: type) -> int:
+        return sum(isinstance(w, kind) for w in window.findChildren(QDialog))
+
+    before = (alive(ReleasePickerDialog), alive(settings_dialog.SettingsDialog))
+    window._on_mb_releases("disc-A", _releases(3))
+    window._on_open_settings()
+    # `deleteLater` lands when control reaches the event loop; this is that.
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    after = (alive(ReleasePickerDialog), alive(settings_dialog.SettingsDialog))
+    assert after == before, f"dialogs left alive after use: {before} -> {after}"
+
+
+def test_a_rips_own_bundle_lands_in_the_acceptance_session_folder(
+    teardown_threads, monkeypatch, tmp_path: Path, process_until
+) -> None:
+    """Everything a session makes lives in its one folder — this one did not.
+
+    On the 2026-09-24 run each rip's own evidence bundle went to the app's data
+    directory (`~/.local/share/platterpus/bundles/`), one day after the
+    maintainer's *"keep this all contained to 1 folder"*. Outside a session it
+    still goes there; inside one it goes to the session's `ripbundles/`.
+    """
+    from platterpus import evidence_bundle
+    from platterpus.paths import LOG_DIR
+    from platterpus.test_session import plan_session
+    from platterpus.ui.main_window_rip import _PendingBundle
+
+    destinations: list[Path] = []
+
+    def record(**kwargs: object) -> object:
+        destinations.append(kwargs["dest_dir"])  # type: ignore[arg-type]
+        return type("R", (), {"path": None, "error": "stub"})()
+
+    monkeypatch.setattr(evidence_bundle, "build_bundle", record)
+    window = teardown_threads()
+    pending = _PendingBundle(
+        stamp="20260924T011616Z",
+        app_version="0.6.55",
+        outcome="rip failed",
+        album_dir=None,
+        diagnostics="",
+        generation=1,
+        deadline=0.0,
+        facts={},
+    )
+    window._launch_evidence_bundle(pending, {})
+    assert process_until(lambda: len(destinations) == 1)
+    assert destinations[0] == LOG_DIR / "bundles", "outside a session: unchanged"
+
+    layout = plan_session(home=tmp_path, stamp="20260924T011421Z")
+    window._acceptance_layout = layout
+    window._launch_evidence_bundle(pending, {})
+    assert process_until(lambda: len(destinations) == 2)
+    assert destinations[1] == layout.rip_bundles
+    assert layout.root in destinations[1].parents
+    assert layout.evidence not in destinations[1].parents, (
+        "inside evidence/ it would be archived into the session bundle — the same "
+        "facts twice, and a .tar.gz the allowlist then has to refuse"
+    )
