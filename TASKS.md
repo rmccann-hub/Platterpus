@@ -118,6 +118,24 @@ laps (ours rolls `FORK_PIN` to `df91ae7`, theirs is `+platterpus.16`). Opened BE
 by a recorded operator override of R8 point 3, because our acceptance run can only demand
 `.15` once a lap of theirs names it. Every mechanism claim in it checked against our tree.
 
+- [ ] **PLANNED FOR THE RELEASE AFTER 0.6.58 (maintainer, 2026-09-24): an open window follows a
+  setting changed elsewhere.** The gap as found: with the script console or Setup & Updates open,
+  a script's `set` changes the setting and saves it, but neither window's tick-boxes move, so
+  they show a value no longer in force until reopened. **Correction to what was said on
+  2026-09-24:** Setup & Updates does NOT follow a script `set` either — `ScriptRunner._do_set`
+  writes `_config` and saves without calling the window's `_refresh_setting_views`, and the test
+  named `test_a_script_set_reaches_an_open_setup_and_updates` drives `_save_user_setting`, not
+  the verb, so it pins the wrong path. The fix: (1) `_do_set` calls the window's
+  `_refresh_setting_views` after a successful save (one write path's side effect, not a copy
+  of it); (2) `_refresh_setting_views` also refreshes the console's `ScriptSettingsBox`, with a
+  `refresh_settings(config)` that blocks signals like Setup & Updates' does, so re-rendering can
+  never look like a click; (3) the misnamed test is renamed and a real one added that runs the
+  `set` verb against an open console and an open Setup & Updates, revert-probed. Small; no
+  behaviour change beyond the display.
+- [x] **Source citations that name the old ripper's repository stay** (maintainer, 2026-09-24:
+  "do your recommendation"): three docstrings cite the upstream files the legacy parsers and a
+  capability audit were checked against. A citation without its repository cannot be followed;
+  they are counted literals in `tests/test_no_previous_ripper_in_live_text.py`.
 - [x] **Filed their round 25 lap 5** (`bca120c0…`, `GO`) — round 25 CLOSED on both gates;
   approval record → round 25 (`3e01bb3`, 0.6.53), shared-hash exemption retired.
 - [x] **Filed their round 26 lap 1** and its provider contract (`8eda7661…`, at `df91ae7`);
@@ -180,9 +198,10 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
 - [x] **0.6.57 released 2026-09-24** (release run 155 on `8278b19`, after `main`'s CI run 898
   was green; AppImage, `.sha256`, `.zsync` and install scripts published; PyPI published). No
   round open, so no override. It re-reads one-frame matches by default.
-- [ ] **Round 27** (theirs to open, on `.16`): the real test on `.16` + **0.6.57** (released
-  before the round opened, so the test runs the new one-frame default); our answers first on
-  the `Accurip 450` wording and the album-loudness rows, ready below.
+- [ ] **Round 27** (theirs to open, on `.16`): the real test on `.16` + **0.6.58** (released
+  before the round opened, on the maintainer's word, so the test runs the new one-frame default
+  AND the run sizes: the maintainer runs it on 0.6.58); our answers first on the `Accurip 450`
+  wording and the album-loudness rows, ready below.
 - [x] **`Accurip 450` is one frame: OUR half done**, for the release after 0.6.56. Every screen,
   the help, the status line and the report sentence now say only one frame (frame 450) matched
   and the rest is unverified (`one_frame_match.py`, swept by `tests/test_one_frame_match.py`).
@@ -5285,4 +5304,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.57.*
+*Last updated for Platterpus v0.6.58.*
