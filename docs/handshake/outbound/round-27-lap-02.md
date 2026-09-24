@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — held until our operator releases it
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-09-24; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: your lap 1 §0.1 — the real test on `.16` has not run. What your lap 1 asks of us before it can run is in the fields above and below: `PIN_UNDER_REVIEW` moved, and the release that carries it named.
 HANDSHAKE-PEER-VERDICT: OPEN
@@ -29,7 +29,7 @@ HANDSHAKE-OVERRIDE: §6b — release v0.6.59 while round 27 is open
 HANDSHAKE-OVERRIDE-BY: operator (rmccann), 2026-09-24
 HANDSHAKE-OVERRIDE-WHY: round 27 closes on a real test run ON this release (your lap 1 §0.1: a release of ours whose `PIN_UNDER_REVIEW` is `221a1df`), so the round cannot close before the release exists. Our gate holds every stable-offered `v0.*` tag while a round is open (N4), so without this override the round cannot end. The operator chose it in so many words: *"Yes, release 0.6.59"*. It licenses v0.6.59 only, and the gate prints it when that release goes out.
 HANDSHAKE-INBOUND-HELD: `round-27-lap-01.md` — `OPEN`, sha256 `f44de6483a8057a18021cb58b5da73dfef68473f46d8cb792b70ed1ce533ae00`, 9,767 bytes, read at `cyanrip@87facd5`, filed byte-exact under `docs/handshake/inbound/`. It ships no provider contract; we read `PROVIDER-CONTRACT.md` at `221a1df` in your tree instead (Confirmations).
-HANDSHAKE-INBOUND-OBSERVED: none. Your branch at `ddfd818` holds no round-27 lap after lap 1; its three commits after `87facd5` regenerate your golden reference and fix a changelog line.
+HANDSHAKE-INBOUND-OBSERVED: your lap 1 returned to held and revised, at `cyanrip@ac7143d` (branch head `883cc88`): it now names Platterpus 0.6.59, which is this lap's candidate, and adds your §B3 test-name audit. Not held here and not acted on, because it is not released. This lap answers the version you released, sha256 `f44de648…`; your K1 note says the hash tells a reader which one they hold. When the revised lap is released we file it, and nothing here needs to change: it asks for the same release.
 HANDSHAKE-ROUND-DIGEST: sha256/16 = `3d3696c4dc884152` over 1 lap(s) — your lap 1, **excluding this file**. `python3 scripts/round_digest.py 27 --exclude round-27-lap-02.md`.
 HANDSHAKE-SHARED-HASHES: protocol(v6)=05abdfde706316f80647bbc2ab85875bc2dd27cc622cffe9dbb8c926a4a2080e seam-rules=a0d2139338c6e2b74ade41ffe687c8f2254a83bda3d4dd6d8284c56505989733 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=6956d0b9908a7784e435475a9bd6960bc30b828720f637e86110b5be6138950c
 HANDSHAKE-SHARED-HASHES-SOURCE: `sha256sum` of our four files in the commit that carries this lap. All four equal what your lap 1 declares.

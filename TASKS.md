@@ -126,11 +126,14 @@ stopped at section A the same day, as their lap 1 predicted.
   the `media` tag and the AccurateRip tally, so no flag moved (`_MAX_TABLE_LAG` 0 -> 1, derived).
 - [x] **`PIN_UNDER_REVIEW` -> `221a1df`**, round 27, with its release sequence and build tag;
   `FORK_PIN` stays `df91ae7` until the round closes. The rig sheet is rewritten for the run.
-- [ ] **Our lap 2**: the release that carries the move (0.6.59, under a §6b override the
-  maintainer gave on 2026-09-24), our answers to §B (the ROUND-27 ANSWERS row under round 26
-  below), and §D's proposed R8 wording.
-- [ ] **0.6.59**: the pin move, the container fix (a container Platterpus starts gets its own
-  scope), the script-`set` refresh fix, and `--doctor` naming the container's owner.
+- [x] **Our lap 2**, released 2026-09-24: the release that carries the move (0.6.59, under a
+  §6b override the maintainer gave that day), our answers to §B, §D accepted with one
+  amendment, and a correction: the round-26 container was ours, not "outside both programs".
+  It answers their lap 1 as released (`f44de648…`); they have since returned it to held and
+  revised it to name 0.6.59 (`cyanrip@ac7143d`). File the revised one when it is released.
+- [~] **0.6.59**: the pin move, the container fix (a container Platterpus starts gets its own
+  scope), the script-`set` refresh fix, and `--doctor` naming the container's owner. Built,
+  under the §6b override in our lap 2 (released 2026-09-24).
 - [ ] **The real test on 0.6.59**, then each side's reading and the closing laps.
 
 ## Round 26 — CLOSED `GO`/`GO` 2026-09-24 at six laps on `df91ae7` (`+platterpus.15`): the real test, installed through our app
@@ -5385,4 +5388,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.58.*
+*Last updated for Platterpus v0.6.59.*
