@@ -13,6 +13,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Changed
 
+- **The ripper Platterpus installs by default moves to cyanrip
+  `0.9.4-rc2+platterpus.15` (`df91ae7`).** Handshake round 26 approved it on a
+  full acceptance run on real hardware (the first pin approved that way), so
+  rips made with it are no longer stamped `unapproved`. Compared with `.14`,
+  any retry limit is now safe: a per-frame limit is rounded up to a multiple
+  of 5, the only values the underlying read library checks, and the log's
+  `Retry limit:` line says so.
 - **An acceptance run now keeps everything it makes in one folder.** Before, one
   run wrote to five places: its session folder, the script's own folder in the
   app's data directory, a second bundle beside that, the real bundle in

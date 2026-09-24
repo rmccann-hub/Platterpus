@@ -11,6 +11,21 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-24 (night) — lap 5 released; round 26 closed on our gate; the pin is `df91ae7`
+
+The maintainer said "release the next lap". Before announcing, I re-read their branch
+(`cd56d2c`, still lap 4 newest, so no crossing). `--announce` flipped the lap, and our
+gate read round 26 CLOSED. The suite then named every binding that had to move with it.
+`FORK_PIN` became `df91ae7` and the expected version `+platterpus.15`, both cross-checked
+against their `meson.build`. `meson_options.txt` is unchanged. The approval record moved
+to round 26 for 0.6.55, read off their lap 4. README, DEPENDENCIES, the rig sheet, the
+hardware checklist, the standing status and the regenerated contract followed.
+
+Two tests had been reading live round state and assumed a round was open: the ripper
+menu's "an unapproved build is marked" floor, and the round-26 section-A shape. Each now
+builds the state it asserts about, which is §5.bq's rule applied to two tests it had not
+reached.
+
 ## 2026-09-24 (evening) — the fork's lap 4 `GO`; our lap 5 `GO` written and held; the bundle filed
 
 **The fork's round 26 lap 4 arrived `GO` on `df91ae7`, and every claim in it that we

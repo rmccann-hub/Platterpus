@@ -2,17 +2,18 @@
 
 ```
 Platterpus  v0.6.55        GitHub pre-release flag (every v0.* tag carries it);
-                           offered on the STABLE update channel. THE RUN NEEDS THIS VERSION.
-cyanrip     df91ae7        0.9.4-rc2+platterpus.15  (platterpus-fork-gdf91ae7)  <- UNDER REVIEW
-                           round 26's subject; THE BUILD THIS RUN TESTS
-cyanrip     3e01bb3        0.9.4-rc2+platterpus.14  (platterpus-fork-g3e01bb3)  <- PRODUCTION PIN
-                           approved in round 24, re-approved in round 25, for Platterpus 0.6.53;
-                           installed by default from 0.6.54 (0.6.53 installs 2cce60d)
+                           offered on the STABLE update channel. 0.6.56, not yet released,
+                           is the first that installs df91ae7 by default.
+cyanrip     df91ae7        0.9.4-rc2+platterpus.15  (platterpus-fork-gdf91ae7)  <- PRODUCTION PIN
+                           approved by round 26, for Platterpus 0.6.55, on its real test;
+                           installed by default from 0.6.56 (0.6.55 installs 3e01bb3)
 drive       Pioneer BDR-209D 1.51, read offset +667
-rounds 1-25 ALL CLOSED, bilateral GO. Round 26 OPEN: it closes on this run.
+rounds 1-26 ALL CLOSED on our gate, bilateral GO. No round is reviewing a build;
+            round 27 opens on the fork's .16.
 ```
 
-> **Header last moved 2026-09-24**, to 0.6.55: the first attempt on 0.6.54 stopped at
+> **Header last moved 2026-09-24 (evening)**, when round 26 closed on our gate and
+> `FORK_PIN` rolled to `df91ae7`. The move before that was the same day, to 0.6.55: the first attempt on 0.6.54 stopped at
 > section A, which refused `.15` on a defect of ours (`docs/testing.md` §5.bq). Before
 > that, 2026-09-23, when round 26 opened on `.15`; the move before that was the same day, when round 24 closed on our gate and `FORK_PIN` rolled to
 > `3e01bb3`. Before that it was 2026-09-22, by the pre-round-24 document audit, and

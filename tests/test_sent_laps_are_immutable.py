@@ -91,6 +91,10 @@ SENT_LAPS: dict[str, str] = {
     # fix, and the operator's §6b override for v0.6.55; released on the maintainer's
     # word 2026-09-24, after checking their branch held no round-26 lap after lap 1.
     "outbound/round-26-lap-03.md": "ba57e7bdbafc10bd67d000572124e2faf752c23d3ced8fc13fe343f3c90be26b",
+    # Round 26 lap 5 — our `GO` on `df91ae7` from the real test, released on the
+    # maintainer's word 2026-09-24 ("release the next lap"). Its release closes round
+    # 26 on our gate, and the same commit rolls `FORK_PIN`.
+    "outbound/round-26-lap-05.md": "8c7df540f9d3569c5e438de60a7c7d869db941f7131a8e17810859a2b00f9097",
     # Round 23 lap 2. **Peer-confirmed in their lap 3's `HANDSHAKE-INBOUND-HELD`**,
     # which names it at sha256 `4d1fd006...f38b8`, 18,686 bytes, read at
     # `platterpus@b5af9bec` — and their §D2 says they fetched the branch and

@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-09-24; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: GO
 HANDSHAKE-VERDICT-SOURCE: your lap 1 §0.1 and §0.2, our half. The real test ran on `.15` installed through our 0.6.55, and our reading of our own eight reports finds nothing that implicates `df91ae7` (§B). The one failed rip was killed from outside both programs. Every defect the run exposed is ours or predates `.15`, and none breaks the build under review (S-14).
 HANDSHAKE-PEER-VERDICT: GO

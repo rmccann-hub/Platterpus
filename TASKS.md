@@ -144,10 +144,13 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
   re-derived. The bundle is filed as `docs/handshake/artifactsround26/`, 40 of 46 blob-identical
   to theirs. Their nit is fixed ("0 of 0" → "0 of 14"), plus two more of ours from the second
   reading: the live track-done matcher that missed `.14`, and "read-unstable" on a killed rip.
-- [~] **Our round 26 lap 5: `GO` on `df91ae7`, written and HELD.** On the maintainer's word:
-  `--announce`, and in the SAME commit roll `FORK_PIN` → `df91ae7` and move the approval
-  record to round 26, because our gate reads the round CLOSED from that commit. Then PR,
-  merge, and 0.6.56 after their `.16`, before their round 27 lap 1, or it needs a §6b.
+- [x] **Our round 26 lap 5 released 2026-09-24 on the maintainer's word** (sha256 `8c7df540…`,
+  pinned in `SENT_LAPS`, envelope `round26lap05FROMplatterpusTOcyanrip.md`). Our gate reads
+  round 26 CLOSED; `FORK_PIN` → `df91ae7`, `+platterpus.15`, approval record → round 26 for
+  0.6.55, all in the same commit.
+- [ ] **Their lap 6** transcribes our `GO` and closes round 26 on their gate.
+- [ ] **0.6.56**: after their lap 6 and their `.16`, and before their round 27 lap 1 is
+  released, or it needs a §6b.
 - [ ] **`Accurip 450` is one frame** (NEXT-ROUND, both sides): section J's track 1 had wrong
   audio and passed as "partially accurate". Say what matched, stop calling it a pressing, and
   decide whether offset-variant re-reads should default ON (maintainer's call: `rerip_offset_variant`
