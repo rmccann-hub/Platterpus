@@ -25,6 +25,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Fixed
 
+- **The acceptance test refused the right ripper and stopped at its first
+  check.** With the build round 26 reviews installed (`df91ae7`), section A said
+  it was "NOT" that build and told you to install it. The check accepted only
+  round 21's test build, `3952c03`, five rounds out of date. It was still reading
+  the test build the last round to name one had nominated, though round 26 names
+  none. The build picker had been fixed for the same cause the day before; this
+  check, the evidence archive's "expected build" line, the dependency report and
+  the ripper update check had not been. All four now ask the one function that
+  knows which round a test build belongs to. A test now checks that the build the
+  app tells you to install is always one the acceptance run accepts.
+
 - **Keyboard shortcuts, labels and window sizes are now checked in every window,
   not one at a time.** A single check now applies every interface rule to every
   window, on 14 standard screen sizes, in the dark theme and at 150% text. Its

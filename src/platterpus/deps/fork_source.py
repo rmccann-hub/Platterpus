@@ -1409,6 +1409,95 @@ def rig_installs_the_test_pin() -> bool:
     )
 
 
+def current_test_pin() -> str | None:
+    """This round's test pin, or ``None`` when the round names none. **One place.**
+
+    :data:`FORK_TEST_PIN` is a standing constant and keeps the last test pin any
+    round nominated. So "is this build the test pin?" asked of it directly answers
+    for the wrong round as soon as a later round opens without one. That is how
+    round 21's `3952c03` was still being described as *"the test pin — seeing it
+    here during a test session is expected"* while round 26 was reviewing a
+    different build. Every consumer asks here instead.
+    """
+    return FORK_TEST_PIN if rig_installs_the_test_pin() else None
+
+
+def retired_test_pins() -> tuple[str, ...]:
+    """Every test pin no open round is using: the superseded list, plus
+    :data:`FORK_TEST_PIN` itself when it is not this round's.
+
+    Excluded when it names the reviewed or the production commit, because then it
+    is not retired: it is the build under review or the approved one, and calling
+    it retired would be the same mistake in the opposite direction.
+    """
+    stale = (
+        FORK_TEST_PIN
+        and current_test_pin() is None
+        and not same_commit(FORK_TEST_PIN, PIN_UNDER_REVIEW)
+        and not same_commit(FORK_TEST_PIN, FORK_PIN)
+    )
+    return (FORK_TEST_PIN, *SUPERSEDED_TEST_PINS) if stale else SUPERSEDED_TEST_PINS
+
+
+#: The role a build plays in section A, when the test pin is the only answer.
+_TEST_PIN_ONLY_ROLE: Final[str] = (
+    "the agreed test pin, and the ONLY build this round's close condition can be "
+    "answered on"
+)
+
+
+def accepted_rig_builds() -> dict[str, str]:
+    """``{build tag: role}`` — every build an acceptance run may be on. **One place.**
+
+    `expect-ripper-under-review` asserts against this, and the evidence bundle's
+    manifest describes it. Both used to derive the answer themselves from the raw
+    test-pin constants, and on 2026-09-24 that stopped the maintainer's round-26
+    acceptance run at its first assertion: the rig had exactly the build the round
+    reviews (`df91ae7`), and section A refused it because it accepted only round
+    21's test pin (`3952c03`). That pin was five rounds stale.
+    :func:`rig_installs_the_test_pin` had already learned that a test pin belongs
+    to one round. The build picker had been moved onto it the day before. Section
+    A and the manifest never were — `docs/testing.md` §5.o, one fix applied at one
+    of three surfaces.
+
+    So the question is answered here, from the same predicate
+    :func:`pin_the_rig_should_install` uses. The relation tests hold them
+    together: the build the app tells the operator to install is always one this
+    function accepts.
+
+    * **No test pin for this round**, or one that is the reviewed commit: the
+      reviewed pin, and nothing else.
+    * **This round's test pin, and the same program as the reviewed pin**: either
+      one (round 16 — the two were byte-identical in `src/`).
+    * **This round's test pin, and a different program**: the test pin only. A
+      session on the reviewed pin cannot answer the round's close condition
+      (round 21, 2026-09-17).
+    """
+    reviewed = f"{FORK_BRANCH}-g{PIN_UNDER_REVIEW}"
+    if not rig_installs_the_test_pin():
+        return {reviewed: pin_under_review_label()}
+    if TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED:
+        return {
+            reviewed: pin_under_review_label(),
+            FORK_TEST_BUILD_TAG: "the agreed test pin",
+        }
+    return {FORK_TEST_BUILD_TAG: _TEST_PIN_ONLY_ROLE}
+
+
+def expected_rig_build_text() -> str:
+    """:func:`accepted_rig_builds` as one sentence for a failure or a manifest."""
+    reviewed = f"{FORK_BRANCH}-g{PIN_UNDER_REVIEW}"
+    accepted = accepted_rig_builds()
+    if list(accepted) == [reviewed]:
+        return reviewed
+    if reviewed in accepted:
+        return " or ".join(accepted)
+    return (
+        f"{FORK_TEST_BUILD_TAG} (and NOT {reviewed}: round "
+        f"{FORK_TEST_PIN_ROUND}'s test pin is a different program this round)"
+    )
+
+
 #: The pin a **closed** round approved. Moves only when a round closes.
 PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,

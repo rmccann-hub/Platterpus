@@ -11,6 +11,34 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-24 (morning) — the round-26 test stopped at section A on our defect; 0.6.55 prepared
+
+**The maintainer's first acceptance run on 0.6.54 stopped at its first assertion.**
+Section A said the installed cyanrip was *"NOT platterpus-fork-g3952c03 (and NOT
+platterpus-fork-gdf91ae7…)"*, printed a banner reading `platterpus-fork-gdf91ae7`, and
+aborted. Section A accepted only round 21's test pin. `FORK_TEST_PIN` keeps the last
+test pin any round nominated, and round 26 names none. `rig_installs_the_test_pin()`
+already knew a test pin belongs to one round, and the picker had been moved onto it the
+day before. Four other readers of the raw constant had not been, and I did not look for
+them: section A, the evidence manifest, the dependency report and the ripper check. All
+four now ask `accepted_rig_builds` / `current_test_pin`.
+
+**The section-A test was green throughout, and it was asserting the defect.** It read
+the live constants and pinned round 21's rule, "refuse the reviewed build". The
+replacement pins three fixed round shapes (16, 21, 26) plus the relation "what we tell
+the operator to install is what section A accepts". The round-26 row fails on the old
+code with the maintainer's exact message. Graduated as `docs/testing.md` §5.bq.
+
+**The maintainer allowed 0.6.55 under §6b and asked for a lap saying what happened.**
+Lap 3 is written and `--check` clean. Two actions were refused by this session's
+permission check, and neither was worked around:
+
+- **Recreating `/dev/null`.** I deleted it by mistake with a stray `rm -f` in a
+  worktree setup command (a mistake of mine, recorded in the previous entry's session).
+  It is a regular file now, which can skew any local run that reads it.
+- **`--announce` of lap 3.** The release gate honours the override only from a
+  released lap, so 0.6.55 waits for the maintainer to run that step or allow it.
+
 ## 2026-09-24 (early morning) — one conformance matrix for every window, and what its first run found
 
 **The maintainer asked for a global fix rather than more per-window ones.** Every

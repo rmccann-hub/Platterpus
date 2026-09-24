@@ -90,15 +90,41 @@ def test_a_different_recognisable_build_is_unapproved() -> None:
     )
 
 
-def test_the_current_test_pin_is_unapproved_but_explains_itself() -> None:
-    """The round-7 test pin is what the hardware session installs on purpose.
+def _round_shape(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    reviewed: str,
+    reviewed_round: int,
+    test_pin: str,
+    test_round: int,
+) -> None:
+    """Put the fork-source pins into one round's shape, whatever round is open."""
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", reviewed)
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW_ROUND", reviewed_round)
+    monkeypatch.setattr(fork_source, "FORK_TEST_PIN", test_pin)
+    monkeypatch.setattr(fork_source, "FORK_TEST_PIN_ROUND", test_round)
+    monkeypatch.setattr(
+        fork_source, "FORK_TEST_BUILD_TAG", f"{fork_source.FORK_BRANCH}-g{test_pin}"
+    )
+
+
+def test_this_rounds_test_pin_is_unapproved_but_explains_itself(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A test pin the OPEN round nominated is installed on purpose during a session.
 
     It is still `unapproved` — no round has approved a test pin, and softening that
-    would discard the check. What it must not do is read as a fault.
+    would discard the check. What it must not do is read as a fault. (Round 21's
+    shape, fixed here so the case stays checked whatever round is open.)
     """
-    banner = (
-        f"cyanrip {fork_source.FORK_TEST_VERSION} ({fork_source.FORK_TEST_BUILD_TAG})"
+    _round_shape(
+        monkeypatch,
+        reviewed="a1b2c3d",
+        reviewed_round=21,
+        test_pin="3952c03",
+        test_round=21,
     )
+    banner = f"cyanrip 0.9.4-rc2 ({fork_source.FORK_BRANCH}-g3952c03)"
     approval = ha.approve_ripper(banner)
 
     assert approval.verdict == ha.UNAPPROVED, "a test pin is not a release"
@@ -108,23 +134,60 @@ def test_the_current_test_pin_is_unapproved_but_explains_itself() -> None:
         "the message must say the build is a nominated test pin, or an expected "
         "state during a hardware session reads as a broken install"
     )
-    assert fork_source.FORK_TEST_PIN in detail
-    assert str(fork_source.FORK_TEST_PIN_ROUND) in detail
+    assert "retired" not in detail.lower(), detail
+    assert "3952c03" in detail and "21" in detail
 
 
-def test_a_retired_test_pin_says_it_is_retired_and_names_the_current_one() -> None:
+def test_a_test_pin_from_an_earlier_round_is_retired_not_current(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Round 26's shape: the round names no test pin; the constant still holds 21's.
+
+    Read off `FORK_TEST_PIN` directly, the report called `3952c03` *"the test pin
+    — seeing it here during a test session is expected"* while round 26 was
+    reviewing `df91ae7` — reassurance for exactly the wrong build (2026-09-24).
+    """
+    _round_shape(
+        monkeypatch,
+        reviewed="df91ae7",
+        reviewed_round=26,
+        test_pin="3952c03",
+        test_round=21,
+    )
+    approval = ha.approve_ripper(
+        f"cyanrip 0.9.4-rc2 ({fork_source.FORK_BRANCH}-g3952c03)"
+    )
+    assert approval.verdict == ha.UNAPPROVED
+    assert "retired" in approval.detail.lower(), approval.detail
+    assert "expected" not in approval.detail.lower(), approval.detail
+    assert "df91ae7" in approval.detail, (
+        "a retired pin must name the build the open round IS reviewing"
+    )
+
+
+def test_a_retired_test_pin_says_it_is_retired_and_names_the_current_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Evidence from a withdrawn pin is not the evidence the round is waiting for.
 
     Both retired pins were withdrawn for cause — `f750890`'s `-x` could hang with no
     diagnostic at all — so a rig log that quietly accepted it would send back a
-    session's worth of unusable evidence.
+    session's worth of unusable evidence. With a current test pin, the message
+    names it; the round-26 shape, with none, is the test above.
     """
+    _round_shape(
+        monkeypatch,
+        reviewed="a1b2c3d",
+        reviewed_round=21,
+        test_pin="3952c03",
+        test_round=21,
+    )
     assert fork_source.SUPERSEDED_TEST_PINS, "the retired list must not be empty"
     for retired in fork_source.SUPERSEDED_TEST_PINS:
         approval = ha.approve_ripper(f"cyanrip 0.9.4-rc1 (platterpus-fork-g{retired})")
         assert approval.verdict == ha.UNAPPROVED
         assert "retired" in approval.detail.lower(), retired
-        assert fork_source.FORK_TEST_PIN in approval.detail, (
+        assert "3952c03" in approval.detail, (
             f"{retired} is retired but the message does not name the current pin"
         )
 

@@ -111,8 +111,19 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
 - [x] **Our lap 2** — `PIN_UNDER_REVIEW` moved, 0.6.54 named, the override recorded, verdict `OPEN`.
   **RELEASED 2026-09-23 on the maintainer's word** (sha256 `8485afc7…`, 11,151 bytes, pinned in
   `SENT_LAPS`), after fetching their branch and confirming no round-26 lap after their lap 1.
-- [ ] **0.6.54** — the release steps in the round-24 section, dispatched after `main`'s own CI;
+- [x] **0.6.54** — the release steps in the round-24 section, dispatched after `main`'s own CI;
   `--release-gate --prerelease --tag v0.6.54` prints the override and passes.
+- [x] **0.6.54 released** — and the operator's first acceptance run on it stopped at section A
+  (2026-09-24): it refused `df91ae7`, the build under review, and accepted only round 21's
+  retired test pin `3952c03`. Our defect: section A, the manifest line, the dependency report
+  and the ripper check read the raw test-pin constant; only the picker had been moved onto
+  `rig_installs_the_test_pin`. Fixed at all four through `accepted_rig_builds` /
+  `current_test_pin`; `docs/testing.md` §5.bq.
+- [~] **Our lap 3** — what happened, the fix, and the operator's §6b allowance for **v0.6.55**.
+  Written and `--check` clean (digest `33c48427…`). **Held (`READY-TO-READ: no`)**: announcing it
+  needs the operator's own step in this session, and the release gate honours the override
+  only from a released lap.
+- [ ] **0.6.55** — the release steps, after lap 3 is announced and `main`'s own CI is green.
 - [ ] **The real test** (operator), then each side's reading, then the closing laps; at the
   close, roll `FORK_PIN` to `df91ae7` in our release and move the approval record to round 26.
 - [ ] **Correct `fullacceptance.txt`'s `-r 3` comment** (*"not dangerous"*) with the next change
