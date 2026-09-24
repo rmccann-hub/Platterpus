@@ -489,7 +489,7 @@ def test_settings_opens_no_other_window(qapp: QApplication) -> None:
 
 def test_apply_user_edits_writes_only_what_the_user_changed() -> None:
     """The pure rule, in both directions."""
-    from platterpus.ui.settings_dialog import apply_user_edits
+    from platterpus.user_settings import apply_user_edits
 
     opened = Config(read_offset=667, max_retries=5)
     # Something else changed the offset while the dialog was open...

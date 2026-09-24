@@ -1,17 +1,18 @@
-"""A scroll area for a dialog BODY that asks for all of its content.
+"""Fitting a dialog to its content and to the screen: the fit, and the scroll area.
 
-Split out of `centering.py` on 2026-09-23 when that module passed the ~300-line
-cohesion heuristic: `CenteredDialog` places and sizes a window, and this is a
-widget a dialog puts inside itself. They cooperate — the base class's fit reads
-this widget's size hint — but they are two jobs, and a reader looking for "why
-does the picker scroll?" should not have to read about multi-monitor placement
-first.
+Split out of `centering.py` on 2026-09-23, and the fit itself followed on
+2026-09-24, both times when that module passed the ~300-line cohesion heuristic.
+The split is by job: `centering.py` PLACES a window (which screen, where on it)
+and logs its lifecycle; this module SIZES one. The two halves here belong
+together — :func:`fit_dialog_to_screen` reads :class:`FitScrollArea`'s size hint
+and its :meth:`~FitScrollArea.unmet_height` — so a reader asking "why is this
+dialog this tall?" finds the whole answer in one file.
 """
 
 from __future__ import annotations
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtWidgets import QFrame, QScrollArea, QWidget
+from PySide6.QtWidgets import QDialog, QFrame, QScrollArea, QWidget
 
 
 class FitScrollArea(QScrollArea):
@@ -103,3 +104,80 @@ class FitScrollArea(QScrollArea):
         # Small on purpose: this is the widget that yields when there is not
         # enough screen, and a large minimum here would push the buttons off it.
         return QSize(super().minimumSizeHint().width(), 80)
+
+
+def fit_dialog_to_screen(dialog: QDialog, avail: QSize, margin: int) -> None:
+    """Give wrapped text the height it needs, and never outgrow the screen.
+
+    **Why every dialog, and why here.** Qt sizes a new window from its size
+    hint and then caps it at two-thirds of the screen (`adjustedSize`), and a
+    word-wrapped `QLabel` will be squeezed below the height its own text needs
+    rather than push the window taller — its minimum is one line. So on a
+    short *logical* screen (a 1080p panel at 200% scaling is 540 px tall) the
+    cyanrip build picker opened 360 px tall with every one of its five
+    paragraphs cut off mid-sentence. Real-user report, 2026-09-23. Measured,
+    not assumed: the picker came up at exactly two-thirds of a 540, 720 and
+    800 px virtual screen, clipping 5, 1 and 1 labels.
+
+    The two halves of the rule already existed, each in ONE dialog:
+    `SettingsDialog` clamps itself to the screen, and `DriveSetupDialog`
+    refuses to be shorter than its prose. The other thirteen had neither,
+    which is `docs/testing.md` §5.o — a rule enforced at the place it was
+    learned. So it lives on the base class now.
+
+    **What it does**, on first show only:
+
+    * width is kept, unless it is wider than the screen — or NARROWER than
+      the content can be: a checkbox or a button cannot wrap, and a dialog
+      that sets its own minimum size switches off the layout's minimum, so
+      Qt no longer stops it being squeezed (the uninstall dialog's checkbox,
+      at 150% text; found by the conformance matrix);
+    * height grows to what the content needs AT THAT WIDTH (height-for-width,
+      which is the number a wrapped label actually needs — `sizeHint` is
+      computed at a different width and is the wrong number), and is capped
+      at the screen;
+    * an explicit minimum larger than the screen is lowered to fit, because a
+      window the user cannot fully see has buttons they cannot reach.
+
+    Content taller than the screen cannot be fitted by resizing; it has to
+    scroll. That is what
+    :class:`~platterpus.ui.dialogs.fit_scroll_area.FitScrollArea` is for; once
+    the width is settled, the window also grows by whatever such an area
+    still cannot show, because its size hint was measured at a different
+    width. `tests/test_ui_conformance.py` is the gate: every rule, every
+    window, every screen shape, theme and text size.
+    """
+    # The margin is VERTICAL only: it is for the taskbar and the title bar,
+    # which is where a dialog loses its buttons. Sideways a chosen width is
+    # kept unless it is wider than the screen itself — a dialog that asked
+    # for 800 px on an 800 px screen fits, and shrinking it to make room for
+    # a margin nobody needs would override a size it chose deliberately.
+    max_w = max(avail.width(), 320)
+    max_h = max(avail.height() - margin, 240)
+    if dialog.minimumWidth() > max_w:
+        dialog.setMinimumWidth(max_w)
+    if dialog.minimumHeight() > max_h:
+        dialog.setMinimumHeight(max_h)
+    layout = dialog.layout()
+    content_min_w = layout.totalMinimumSize().width() if layout is not None else 0
+    if dialog.minimumWidth() < min(content_min_w, max_w):
+        # So the user cannot drag it narrower than its content, either.
+        dialog.setMinimumWidth(min(content_min_w, max_w))
+    width = min(max(dialog.width(), dialog.minimumWidth()), max_w)
+    if dialog.hasHeightForWidth():
+        need = dialog.heightForWidth(width)
+    else:
+        need = dialog.sizeHint().height()
+    height = min(max(dialog.height(), need), max_h)
+    if (width, height) != (dialog.width(), dialog.height()):
+        dialog.resize(width, height)
+    if layout is None or height >= max_h:
+        return
+    # Second pass, at the real width: a scrolling body whose size hint was
+    # measured at another width may still be short of its content.
+    layout.activate()
+    unmet = max(
+        (a.unmet_height() for a in dialog.findChildren(FitScrollArea)), default=0
+    )
+    if unmet:
+        dialog.resize(width, min(height + unmet, max_h))

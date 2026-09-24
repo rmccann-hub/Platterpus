@@ -58,39 +58,9 @@ from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.ui.scroll_guards import WheelGuard, protect_value_widgets
 from platterpus.ui.status_colours import SECONDARY_STYLE, status_colour, status_style
 from platterpus.update_check import CHANNEL_BETA, CHANNEL_STABLE
+from platterpus.user_settings import apply_user_edits
 
 log: logging.Logger = logging.getLogger(__name__)
-
-
-def apply_user_edits(current: Config, opened: Config, edited: Config) -> Config:
-    """``current`` with only the fields the user changed in the dialog applied.
-
-    **Why not just ``edited``.** Settings is modal, but the application keeps
-    running underneath it, and the window's config is a live object that other
-    code writes to. The dialog's widgets are loaded once, when it opens. So
-    ``edited`` — the whole config read back off the widgets — carries every value
-    the dialog merely DISPLAYED, stale or not, and writing it back reverts
-    whatever changed in the meantime.
-
-    Reproduced 2026-09-23, not reasoned about: with Settings open on a read offset
-    of 667, the drive wizard (then reachable from a Re-detect… button in this very
-    dialog) saved the detected value 6, and pressing OK saved 667 over it — the
-    save sequence was ``[6, 667]``. The next disc would have ripped at the wrong
-    offset with a clean-looking log, which `CLAUDE.md` names as the reason a
-    gesture must never change a calibration value.
-
-    So a field is written only when the widget's value differs from what the
-    widget was loaded with. What the user touched wins; everything else stays as
-    the application currently has it. Pure, so it is tested without a display.
-    """
-    changes = {
-        field.name: getattr(edited, field.name)
-        for field in dataclasses.fields(Config)
-        if getattr(edited, field.name) != getattr(opened, field.name)
-    }
-    if changes:
-        log.info("settings: applying user edits to %s", sorted(changes))
-    return dataclasses.replace(current, **changes)
 
 
 class SettingsDialog(CenteredDialog):
