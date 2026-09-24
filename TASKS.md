@@ -124,6 +124,11 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
   in `SENT_LAPS`), after fetching their branch (`583d6f3`) and confirming no round-26 lap after
   their lap 1 (K1).
 - [ ] **0.6.55** — the release steps, after lap 3 is announced and `main`'s own CI is green.
+- [x] **0.6.55 released 2026-09-24** (run 01:05–01:08 UTC, all three gates green, the §6b override
+  printed); the operator started the real test on it.
+- [x] **One folder per acceptance run** (maintainer, 2026-09-24, during that test): rips,
+  transcript, report, screenshots and ONE bundle, all under the run's session folder in
+  `~/platterpus-rig/`; the runner no longer packs a second bundle. Ships in the next release.
 - [ ] **The real test** (operator), then each side's reading, then the closing laps; at the
   close, roll `FORK_PIN` to `df91ae7` in our release and move the approval record to round 26.
 - [ ] **Correct `fullacceptance.txt`'s `-r 3` comment** (*"not dangerous"*) with the next change

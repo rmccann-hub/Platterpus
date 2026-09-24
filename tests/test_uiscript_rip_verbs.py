@@ -2097,6 +2097,37 @@ def test_the_quit_helpers_predicate_has_a_real_subject(
     )
 
 
+def test_a_contained_run_writes_into_its_folder_and_packs_no_bundle(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The acceptance session's one-folder rule, at the runner (2026-09-24).
+
+    A contained run writes its transcript and report into the folder it was
+    given, and starts no bundle of its own: the session builds the ONE bundle.
+    Before this, every acceptance run also packed a second archive under the
+    app's data directory, and both were logged as "SEND THIS ONE FILE".
+    """
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    folder = tmp_path / "session" / "evidence" / "run"
+    runner = ScriptRunner(_window())
+    runner.contain_in(folder)
+    _run_to_end(runner, "log hello", process_until)
+
+    assert (folder / "transcript.txt").is_file()
+    assert (folder / "report.json").is_file()
+    assert runner._bundle_thread is None, "a contained run packed its own bundle"
+    assert not (tmp_path / "share" / "uiscript").exists(), "it wrote elsewhere too"
+    # Non-triviality: an UNcontained run on the same machine still does both,
+    # or the assertions above describe a runner that never writes anything.
+    other = ScriptRunner(_window())
+    _run_to_end(other, "log hello", process_until)
+    assert other._bundle_thread is not None
+    assert (tmp_path / "share" / "uiscript").is_dir()
+    other._bundle_thread.join(timeout=30)
+
+
 # --- (run): an acceptance script must be re-runnable ------------------------
 
 

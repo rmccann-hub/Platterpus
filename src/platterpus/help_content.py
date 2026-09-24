@@ -431,9 +431,11 @@ without it, ripping is unaffected — only this verdict stays unmeasured.)
 ordinary audio CD in the drive, choose it, and walk away — Platterpus makes a
 session folder, holds off sleep, idle and lid-suspend for the duration, runs the
 built-in acceptance batch, drops the sleep lock again, and packs everything into
-**one** `.tar.gz` in your `Downloads` folder. When it finishes it names that file
-and offers to open its folder. There is nothing to download and nothing to run
-afterwards; send that one file.
+**one** `.tar.gz`. **Everything the run makes stays in that one session folder**
+under `~/platterpus-rig/`: the test rips (not your music library, and your folder
+settings come back afterwards), the transcript, the screenshots and the bundle.
+When it finishes it names the file and offers to open the folder. There is
+nothing to download and nothing to run afterwards; send that one file.
 
 It takes four to six hours, because it rips the disc twice — once fast, once
 reading every track at least twice — plus six shorter partial rips. Leave it

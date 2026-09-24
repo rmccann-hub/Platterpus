@@ -11,6 +11,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+
+- **An acceptance run now keeps everything it makes in one folder.** Before, one
+  run wrote to five places: its session folder, the script's own folder in the
+  app's data directory, a second bundle beside that, the real bundle in
+  `~/Downloads`, and the test rips in your music library. Two of those were each
+  labelled "send this one file". Now all of it is in the run's session folder
+  under `~/platterpus-rig/`: the rips, the transcript, the report, the
+  screenshots and one bundle, built from that folder. Your library folder is
+  switched off for the run, so no test album is moved into your music, and both
+  folder settings are put back when the run ends. The rips never enter the
+  bundle's screenshot route, so album artwork can't get in.
+
 ## [0.6.55] — 2026-09-24
 
 ### Added

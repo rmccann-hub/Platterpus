@@ -68,7 +68,9 @@ on a disc image, not on a drive, so this run is the first on hardware.
    2026-09-22 took 4h14m), and stops in its first seconds if the ripper is not `.15`.
    When it ends, the app puts your own settings back itself (new in 0.6.55), and
    the bundle's `SETTINGS.json` records the settings the run used.
-3. **Upload the one `platterpusbundle….tar.gz` it leaves in `~/Downloads`** — here,
+3. **Upload the one `platterpusbundle….tar.gz`** — on 0.6.55 it is in `~/Downloads`
+   (the next release keeps it, the rips and the screenshots in the run's one session
+   folder under `~/platterpus-rig/` instead) — here,
    and point the cyanrip session at it too; they file it under
    `docs/rig-<date>-df91ae7/` in their repository, as they did for 2026-09-22.
 

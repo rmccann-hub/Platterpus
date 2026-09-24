@@ -906,6 +906,35 @@ reference that promised the command would work.
    text is identical. A second copy of a safety check is a second thing to drift
    (Critical rule #12, the outbound half).
 
+**Everything a run makes lives in ONE folder, and nothing is written outside it.**
+Maintainer, 2026-09-11: *"stop polluting my home directory"*. That gave the rig
+one parent, `~/platterpus-rig/`. Then, 2026-09-24: *"keep this all contained to 1
+folder, build a bundle and screenshots from there. i want to track down this
+stuff"*. At that point one acceptance run still wrote to five places: its
+session folder, the runner's own folder in the app's data directory, a second
+bundle beside that, the real bundle in `~/Downloads`, and the rips in the user's
+library. Two of those files were each logged as "SEND THIS ONE FILE".
+
+`test_session.SessionLayout` now puts everything under `root`:
+
+- `evidence/` — the transcript, the runner's `run/` folder (report and
+  screenshots) and the staged logs;
+- `rips/` — the run's `output_dir`, with `library_dir` emptied for the run and
+  both restored afterwards;
+- the one bundle, built from there.
+
+The runner is contained with `ScriptRunner.contain_in`, which makes it write
+into that folder and build no bundle of its own.
+
+**The rips are a sibling of `evidence`, never inside it**, and the stager
+refuses them by name. `evidence` is archived under the allowlist that admits
+`.png` for our own screenshots, and an album folder's `.png` is record-label
+artwork (Critical rule #8). Album text reaches the bundle only through
+`build_bundle`'s strict album channel.
+
+A new artifact a session produces goes into this layout. It never gets a
+location of its own.
+
 ### 3.11 Say what you are about to do, not only what you did
 
 `rip_plan.describe_rip_plan` emits a `[plan]` block before a rip spawns anything.

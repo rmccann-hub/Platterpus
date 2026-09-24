@@ -633,7 +633,6 @@ class ProvisioningMixin(MainWindowShared):
 
         from platterpus.test_session import (
             builtin_acceptance_script,
-            downloads_dir,
             plan_session,
             prepare_session,
             session_stamp,
@@ -664,15 +663,9 @@ class ProvisioningMixin(MainWindowShared):
             )
             return False
 
-        # 2. The paths. `plan_session` is pure and `downloads_dir` is the one
-        #    disk-touching decision, kept separate so the ~/Downloads fallback is
-        #    assertable — see test_session's module docstring.
-        home = Path.home()
-        layout = plan_session(
-            home=home,
-            stamp=session_stamp(datetime.now(UTC)),
-            downloads=downloads_dir(home),
-        )
+        # 2. The paths — every one of them inside ONE session folder, bundle
+        #    included (maintainer, 2026-09-24). `plan_session` is pure.
+        layout = plan_session(home=Path.home(), stamp=session_stamp(datetime.now(UTC)))
         try:
             prepare_session(layout)
         except OSError as exc:
@@ -690,6 +683,14 @@ class ProvisioningMixin(MainWindowShared):
         self._acceptance_started_at = time.time()
         self._acceptance_script = script
         self._acceptance_user_config = dataclasses.replace(self._config)
+        # THE RIPS STAY IN THE SESSION FOLDER TOO, and out of the user's library.
+        # After the snapshot above, so the restore puts both settings back on
+        # every exit. Not saved to disk here: the user's own values are what
+        # config.toml should hold if the app stops before the restore runs.
+        self._config = dataclasses.replace(
+            self._config, output_dir=str(layout.rips), library_dir=""
+        )
+        self._rip_controls.set_config(self._config)
         self._acceptance_inhibit_note = ""
         # Cleared per session: a verdict left over from the PREVIOUS run would be
         # stamped on this one's closing dialog, which is the same "every field
@@ -842,6 +843,9 @@ class ProvisioningMixin(MainWindowShared):
             console.run_finished.connect(self._on_acceptance_run_finished)
             self._acceptance_console = console
         log.info("acceptance session: starting the batch (%s)", script)
+        # The run's transcript, report and screenshots go into the session folder,
+        # and the runner builds no bundle of its own: the session builds the one.
+        console.contain_next_run_in(layout.run_dir)
         # **The start is CHECKED, not assumed.** `run_now()` declines when a run
         # is already in flight — the operator triggered Tools → Run acceptance
         # test twice, or left a console running from earlier — and until it
@@ -929,6 +933,7 @@ class ProvisioningMixin(MainWindowShared):
         transcript = ""
         artifact_dir: Path | None = None
         settings_record = ""
+        album_roots: list[Path] = []
         try:
             facts["sleep lock"] = self._acceptance_inhibit_note or "not determined"
             script = self._acceptance_script
@@ -956,6 +961,7 @@ class ProvisioningMixin(MainWindowShared):
             settings_record = settings_record_text(
                 self._acceptance_user_config, self._config
             )
+            album_roots = self._acceptance_album_roots(layout)
         finally:
             self._release_acceptance_inhibitor()
             # After the facts are read (they describe the run's own settings) and
@@ -1004,6 +1010,7 @@ class ProvisioningMixin(MainWindowShared):
             facts=facts,
             artifact_dir=artifact_dir,
             settings_record=settings_record,
+            album_roots=album_roots,
         )
 
     def _announce_run_with_nothing_to_send(
@@ -1170,6 +1177,22 @@ class ProvisioningMixin(MainWindowShared):
             return None
         return Path(raw)
 
+    def _acceptance_album_roots(self, layout: object) -> list[Path]:
+        """Where this run's albums are: the session's rips, plus any folder the
+        run's own settings pointed rips at instead. Read BEFORE the restore.
+        """
+        from pathlib import Path
+
+        # `getattr`: the finish handler must never raise on a layout it did not
+        # expect (a test stand-in, or a future shape) — an archive with fewer
+        # albums beats no archive.
+        rips = getattr(layout, "rips", None)
+        roots: list[Path] = [rips] if isinstance(rips, Path) else []
+        for value in (self._config.output_dir, self._config.library_dir):
+            if value and Path(value) not in roots:
+                roots.append(Path(value))
+        return roots
+
     def _launch_acceptance_bundle(
         self,
         layout: SessionLayout,
@@ -1178,6 +1201,7 @@ class ProvisioningMixin(MainWindowShared):
         facts: dict[str, str],
         artifact_dir: Path | None,
         settings_record: str = "",
+        album_roots: list[Path] | None = None,
     ) -> None:
         """Pack the session into ONE file, on a daemon thread.
 
@@ -1193,7 +1217,6 @@ class ProvisioningMixin(MainWindowShared):
         failure still arrives as a `BundleResult.error` the user is shown rather
         than as a traceback nobody sees.
         """
-        from pathlib import Path
 
         from platterpus.evidence_bundle import BundleResult
         from platterpus.paths import CONFIG_PATH, LOG_PATH
@@ -1229,19 +1252,11 @@ class ProvisioningMixin(MainWindowShared):
             log.exception("could not render diagnostics for the session bundle")
             diagnostics = f"(diagnostics could not be rendered: {exc!r})"
 
-        # WHERE THE RIPS LANDED. Read on the GUI thread (config access), used on
-        # the worker. `output_dir` is where a rip is written and `library_dir` is
-        # where a finished one is moved to, so a session's albums can be under
-        # either — and a bundle that searched only the first would be missing
-        # exactly the rips that completed successfully.
-        cfg = getattr(self, "_config", None)
-        roots: list[Path] = []
-        for value in (
-            getattr(cfg, "output_dir", "") or "",
-            getattr(cfg, "library_dir", "") or "",
-        ):
-            if value:
-                roots.append(Path(value))
+        # WHERE THE RIPS LANDED: handed in, read before the user's settings were
+        # restored. Reading the config here, after the restore, searched the
+        # USER's folders — and with the rips now in the session folder, would
+        # have found none of this run's albums.
+        roots: list[Path] = list(album_roots or [])
         since = self._acceptance_started_at
 
         def work() -> None:
@@ -1346,6 +1361,8 @@ class ProvisioningMixin(MainWindowShared):
             f"{verdict}\n\n"
             "Send this one file:\n\n"
             f"{path}\n\n"
+            "Everything the run made — its rips, transcript, report and "
+            f"screenshots — is in that one folder:\n{self._acceptance_root}\n\n"
             f"{included} file(s) included, {excluded} excluded; no audio.\n\n"
             f"{note}",
             open_path=path.parent,

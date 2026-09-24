@@ -398,6 +398,10 @@ class ScriptRunner(QObject):
         #: Which labelled blocks have failed, so dependents can be pruned.
         self._prune: PruneLedger = PruneLedger()
         self._artifact_dir: Path | None = None
+        #: Set by :meth:`contain_in`: the folder this run writes into instead of
+        #: its own stamped one, and whether it still builds a bundle of its own.
+        self._contained_dir: Path | None = None
+        self._builds_own_bundle: bool = True
         #: The daemon thread building this run's single-file evidence bundle, kept
         #: so the unattended-quit helper can WAIT for it. Retained rather than
         #: fire-and-forget: `_write_run_bundle` archives the app log (megabytes,
@@ -3575,7 +3579,8 @@ class ScriptRunner(QObject):
             except OSError as exc:
                 log.error("could not write %s: %r", directory / name, exc)
         log.info("ui script run saved to %s", directory)
-        self._write_run_bundle(directory)
+        if self._builds_own_bundle:
+            self._write_run_bundle(directory)
 
     def bundle_in_progress(self) -> bool:
         """Whether this run's evidence bundle is still being written.
@@ -3660,13 +3665,26 @@ class ScriptRunner(QObject):
         self._bundle_thread = thread
         thread.start()
 
+    def contain_in(self, directory: Path) -> None:
+        """Write this runner's transcript, report and screenshots into ``directory``,
+        and build NO bundle of its own — the caller owns the one bundle.
+
+        For the acceptance session, which keeps everything a run makes in one
+        folder (maintainer, 2026-09-24: *"keep this all contained to 1 folder,
+        build a bundle and screenshots from there"*). Without it the run wrote to
+        the app's data directory and packed a second bundle there, and both it
+        and the session logged *"SEND THIS ONE FILE"* about different files.
+        """
+        self._contained_dir = directory
+        self._builds_own_bundle = False
+
     def _ensure_artifact_dir(self) -> Path | None:
         if self._artifact_dir is not None:
             return self._artifact_dir
         from platterpus.paths import LOG_PATH
 
         stamp = self._report.started_at.replace(":", "").replace("-", "")
-        directory = LOG_PATH.parent / "uiscript" / stamp
+        directory = self._contained_dir or LOG_PATH.parent / "uiscript" / stamp
         try:
             directory.mkdir(parents=True, exist_ok=True)
         except OSError as exc:

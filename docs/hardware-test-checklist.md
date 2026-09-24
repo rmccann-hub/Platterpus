@@ -6,8 +6,10 @@
 > **v0.6.53** + cyanrip **`3e01bb3`** (`+platterpus.14`, approved by round 24 on
 > 2026-09-23 and shipping in 0.6.54 — 0.6.53 as released still installs `2cce60d`),
 > and the primary hardware
-> route is now **Tools → Run acceptance test…** inside the app, which packs one
-> `.tar.gz` into `~/Downloads` (`docs/rig-scripts/README.md`, `docs/rig-session.md`).
+> route is now **Tools → Run acceptance test…** inside the app, which keeps
+> everything a run makes — rips, screenshots, transcript and one `.tar.gz` — in one
+> session folder under `~/platterpus-rig/` (`docs/rig-scripts/README.md`,
+> `docs/rig-session.md`).
 > The individual §A–§D cases below are still the record of what the acceptance script
 > does not cover. **This sheet is due a rewrite rather than another patch** — tracked in
 > `TASKS.md` — because deciding which of its cases the acceptance run has since
