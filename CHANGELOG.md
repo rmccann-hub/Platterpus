@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.55] — 2026-09-24
+
 ### Added
 
 - **Every rip report now records every setting it ran under.** The report used
@@ -15294,7 +15296,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.54...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.55...HEAD
+[0.6.55]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.54...v0.6.55
 [0.6.54]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.53...v0.6.54
 [0.6.53]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.52...v0.6.53
 [0.6.52]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.51...v0.6.52
@@ -15436,4 +15439,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.54.*
+*Last updated for Platterpus v0.6.55.*

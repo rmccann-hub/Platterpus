@@ -34,7 +34,7 @@ Lap 3 is written and `--check` clean. Two actions were refused by this session's
 permission check, and neither was worked around:
 
 - **Recreating `/dev/null`.** I deleted it by mistake with a stray `rm -f` in a
-  worktree setup command (a mistake of mine, recorded in the previous entry's session).
+  worktree setup command.
   It is a regular file now, which can skew any local run that reads it.
 - **`--announce` of lap 3.** The release gate honours the override only from a
   released lap, so 0.6.55 waits for the maintainer to run that step or allow it.
@@ -7872,4 +7872,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.54.*
+*Last updated for Platterpus v0.6.55.*

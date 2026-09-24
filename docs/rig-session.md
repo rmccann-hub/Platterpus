@@ -1,7 +1,7 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.54        GitHub pre-release flag (every v0.* tag carries it);
+Platterpus  v0.6.55        GitHub pre-release flag (every v0.* tag carries it);
                            offered on the STABLE update channel. THE RUN NEEDS THIS VERSION.
 cyanrip     df91ae7        0.9.4-rc2+platterpus.15  (platterpus-fork-gdf91ae7)  <- UNDER REVIEW
                            round 26's subject; THE BUILD THIS RUN TESTS
@@ -12,8 +12,9 @@ drive       Pioneer BDR-209D 1.51, read offset +667
 rounds 1-25 ALL CLOSED, bilateral GO. Round 26 OPEN: it closes on this run.
 ```
 
-> **Header last moved 2026-09-23**, when round 26 opened on `.15`; the move before
-> that was the same day, when round 24 closed on our gate and `FORK_PIN` rolled to
+> **Header last moved 2026-09-24**, to 0.6.55: the first attempt on 0.6.54 stopped at
+> section A, which refused `.15` on a defect of ours (`docs/testing.md` §5.bq). Before
+> that, 2026-09-23, when round 26 opened on `.15`; the move before that was the same day, when round 24 closed on our gate and `FORK_PIN` rolled to
 > `3e01bb3`. Before that it was 2026-09-22, by the pre-round-24 document audit, and
 > before that it named `v0.6.30` + cyanrip `d9c058c` and *"round 15 is not open"* —
 > twenty-three patch versions and nine rounds behind — and its body was round 7's
@@ -57,18 +58,16 @@ on a disc image, not on a drive, so this run is the first on hardware.
    `~/Applications/` when you accepted the first-run offer, so a
    `./platterpus-x86_64.AppImage` typed in `~/Downloads` is *No such file or
    directory*, correctly.)
-2. **Update Platterpus to 0.6.54 first**, then **Tools → Setup & Updates… → Check for
+2. **Update Platterpus to 0.6.55 first**, then **Tools → Setup & Updates… → Check for
    cyanrip updates.** It offers `0.9.4-rc2+platterpus.15` (`df91ae7`) with a ⚠ saying
    rips on it will read `unapproved`, and a line saying *"This is the build the
    acceptance test needs"*. Choose **Install it anyway**; the build it should then
-   report is `platterpus-fork-gdf91ae7`. (0.6.53 cannot run this: its acceptance test
-   demands round 23's `2cce60d` and would stop in its first seconds on `.15`.) Then **Tools → Run
+   report is `platterpus-fork-gdf91ae7`. (0.6.54 cannot run this: its section A refuses
+   `.15` and stops in its first seconds. 0.6.53 demands round 23's `2cce60d`.) Then **Tools → Run
    acceptance test…** and leave it — it holds sleep off, runs every section (4–6 hours;
    2026-09-22 took 4h14m), and stops in its first seconds if the ripper is not `.15`.
-   **On 0.6.54 it ends by resetting your settings to the shipped defaults**, so
-   afterwards re-tick anything you had changed — on this rig that is the Archival
-   Exact goal, the beta cyanrip channel, debug logging and the EAC-style log. From
-   0.6.55 the app puts your own settings back itself.
+   When it ends, the app puts your own settings back itself (new in 0.6.55), and
+   the bundle's `SETTINGS.json` records the settings the run used.
 3. **Upload the one `platterpusbundle….tar.gz` it leaves in `~/Downloads`** — here,
    and point the cyanrip session at it too; they file it under
    `docs/rig-<date>-df91ae7/` in their repository, as they did for 2026-09-22.
@@ -95,4 +94,4 @@ correct for it. That would be a separate step, not part of this run.
 
 ---
 
-*Last updated for Platterpus v0.6.54.*
+*Last updated for Platterpus v0.6.55.*
