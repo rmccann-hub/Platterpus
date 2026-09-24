@@ -180,6 +180,16 @@ named from the album artist/title you type.
 
 ## Settings (Tools → Settings)
 
+Settings has **OK**, **Apply**, **Cancel** and **Restore Defaults**. *Apply* saves
+what you changed and keeps the window open; *Cancel* then throws away only what
+you changed after the last Apply; *Restore Defaults* puts every control in the
+window back to its shipped value and saves nothing until you press OK or Apply.
+
+Settings holds the options that shape a rip. The few that steer something else
+live beside that thing instead, so each has exactly one place to change it: the
+read offset in *Set up drive…*, the two update channels in *Setup & Updates…*,
+and the startup test script in the script console.
+
 - **Goal** — pick what you want the rip to be and the format/verification/quality
   options snap to good values for it: *Fast Verified* (lossless, fully verified
   — the recommended default), *Archival Exact* (the same checks, plus the
@@ -266,11 +276,10 @@ named from the album artist/title you type.
   log checksum but openly verifiable — you can confirm the log hasn't been altered
   with any SHA-256 tool, no special software needed (`head -n -1` on the file,
   piped to `sha256sum`, reproduces the value).
-- **Read offset (samples)** and **Apply this read offset to rips** — set the
-  drive read-offset by hand, and the tick-box that actually sends it to the
-  ripper. The number is inert on its own: cyanrip reads no config file, so the
-  value reaches it only as `-s` and only while the tick-box is on. The
-  drive-setup wizard is the recommended way to set both.
+- **Read offset** — shown here, not changed here: what the next rip does with
+  your drive's read offset, for example *+667 samples, applied to every rip*. It
+  is a property of the drive rather than of the rip, so it is set in **Tools →
+  Setup & Updates… → Set up drive…** (see *Drive setup* below).
 - **Eject the disc after a successful rip** — automatically eject the disc when a rip
   finishes (off by default). You can always eject by hand with the **Eject**
   button next to the drive picker.
@@ -295,18 +304,24 @@ dependency check that lived only as a button inside Settings, so working out
 whether your install was in good shape meant knowing which menu held which half
 of the answer.
 
-Now it is one window with four sections:
+Now it is one window with five sections:
 
-* **Platterpus** — which version you are on, and *Check for updates*.
-* **Ripper (cyanrip)** — which build this Platterpus is verified against, plus
-  *Check for cyanrip updates* and *Choose a build…* (that second one reaches
-  builds the fork has not published as a release, which the check cannot see).
+* **Platterpus** — which version you are on, the **Offer beta (pre-release)
+  updates** tick-box, and *Check for updates*.
+* **Ripper (cyanrip)** — which build this Platterpus is verified against, the
+  **Offer beta (pre-release) cyanrip builds** tick-box, *Check for cyanrip
+  updates* and *Choose a build…* (that last one reaches builds the fork has not
+  published as a release, which the check cannot see).
 * **Dependencies** — what the last check found, and a button to re-run it.
-* **Setup** — *Run setup…* to install the ripping tools, *Add app shortcut*, and
-  *Set up drive…*.
+* **Drive** — what the next rip does with your read offset, *Set up drive…*, and
+  *Diagnose drive access…*.
+* **Setup** — *Run setup…* to install the ripping tools, and *Add app shortcut*.
 
 The window stays open while you work, and each check runs in the background, so
-none of it freezes the app. Nothing here changes anything without asking first.
+none of it freezes the app. The two tick-boxes are saved the moment you click
+them, and the line at the bottom says so; nothing else here changes anything
+without asking first. While a rip runs, every button is greyed out, because each
+one either uses the drive, installs something or replaces the app.
 
 ## Updates (Tools → Setup & Updates… → Check for updates)
 
@@ -317,8 +332,8 @@ checksum, and installs to `~/Applications` — then the app offers to
 restart into the new version. Nothing changes if the download fails or
 you cancel.
 
-**Update channel** — Settings has an **Offer beta (pre-release) updates**
-checkbox, off by default. Left off, you are only ever offered finished
+**Update channel** — Setup & Updates has an **Offer beta (pre-release) updates**
+tick-box just above *Check for updates*, off by default. Left off, you are only ever offered finished
 releases (`0.6.4`); "you're up to date" then means up to date *on the
 stable channel*, and a newer beta may exist that simply isn't offered.
 
@@ -350,8 +365,9 @@ jointly verified. That is your call to make, not the app's, so the offer
 spells out the consequence and stops there. If you want the build it names,
 it gives you the exact command to install it.
 
-**cyanrip update channel** — Settings has a **stable** / **beta** choice,
-stable by default. Stable builds come from a closed handshake round; beta
+**cyanrip update channel** — Setup & Updates has an **Offer beta (pre-release)
+cyanrip builds** tick-box just above *Check for cyanrip updates*: off means
+stable, the default. Stable builds come from a closed handshake round; beta
 builds are published by the fork for testing and are expected to change
 again. Ordering is by the fork's own release counter rather than by version
 number, because the fork's version string deliberately tracks upstream's
@@ -376,9 +392,16 @@ depends on (without the right offset, even a clean disc won't match AccurateRip)
 For most drives the wizard already knows the right value (from
 the bundled AccurateRip drive list) and pre-fills it, so it's a single
 **Save offset** click — no disc needed. If your drive isn't in the list,
-insert a popular commercial CD and click **Detect**, or type the offset by
-hand. The value is saved to the app's own settings and applied to every rip
-(cyanrip's read-offset option). Do this once per drive.
+insert a popular commercial CD and click **Detect**, or type the offset into
+**Read offset (samples)** by hand. The value is saved to the app's own settings
+and applied to every rip (cyanrip's read-offset option). Do this once per drive.
+
+This window is the one place the offset is changed; Settings only shows it. Below
+the number is **Apply this read offset to every rip**, which saving an offset
+turns on. Unticking it takes effect at once and means no read offset reaches the
+ripper at all, which for most drives is *not* bit-perfect. Beneath that, any read
+offset left in an old `whipper.conf` is shown for reference; cyanrip never reads
+that file.
 
 The disc panel shows a **Read offset** line for the selected drive telling you
 *where* the offset came from and how confident we are — looked up from the
@@ -403,7 +426,7 @@ without it, ripping is unaffected — only this verdict stays unmeasured.)
 - **Disc not detected, or the first scan failed** → click **Rescan disc**
   (next to Refresh). The first read sometimes happens while the disc is
   still spinning up; a rescan almost always works.
-- **No drive found** → *Tools → Diagnose drive access*. If it's a permissions
+- **No drive found** → *Tools → Setup & Updates… → Diagnose drive access…*. If it's a permissions
   problem it will tell you the exact `usermod` command to run (then log out and
   back in).
 - **Drive keeps spinning after Cancel (or during a stuck scan)** → click
@@ -481,13 +504,15 @@ on screen, take a screenshot, run the ripper and assert its exit code — and ea
 step runs against the real window, one at a time, the way a person would. Press
 **Commands** in that console for the full list of steps.
 
-Two things make it usable when you are not at the machine:
+Two settings, both in the console under *Script settings* and both saved the
+moment you change them, make it usable when you are not at the machine:
 
-- **Test script** (Settings) — the batch the console loads by default. Point it
-  at a file you keep in your own editor; it is re-read every time it runs, so
-  editing it needs no restart.
-- **Run it automatically when Platterpus starts** (Settings) — with this on *and*
-  a script set, launching Platterpus **is** the test run. Both have to be set on
+- **Startup script** — the batch the console loads when it opens. Pick one with
+  **Choose…**, or **Use built-in** for the acceptance test that ships inside
+  Platterpus. A file you keep in your own editor is re-read every time it runs,
+  so editing it needs no restart.
+- **Run it automatically when Platterpus starts** — with this on *and* a startup
+  script set, launching Platterpus **is** the test run. Both have to be set on
   purpose; neither does anything alone.
 
 A failing step does **not** stop the batch. Every step records pass, fail or
@@ -502,7 +527,7 @@ ripper's own `-x` and `-j` probes (a rip never sends those), pre-gap screening,
 a library audit and the handshake status — writing one artifact per step into
 FOLDER. Neither needs a source checkout; they work from the AppImage.
 
-**Allow the unsafe script verbs** (Settings) is off by default and should stay
+**Allow the unsafe script verbs** (in the console, beside the two above) is off by default and should stay
 that way — and as of v0.6.23 there is nothing for it to allow: `eval` and `call`
 are reserved in the script vocabulary but not implemented, so a script using
 either is refused whether the box is ticked or not. Everything else in the

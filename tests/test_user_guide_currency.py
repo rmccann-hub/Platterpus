@@ -45,7 +45,7 @@ _GUIDE_KEYWORDS: dict[str, str] = {
     "track_template_unknown": "file-name templates",
     "disc_template_unknown": "file-name templates",
     "read_offset": "Read offset (samples)",
-    "override_read_offset": "Apply this read offset to rips",
+    "override_read_offset": "Apply this read offset to every rip",
     "auto_launch_picard": "Picard",
     "auto_eject_after_rip": "Eject the disc after a successful rip",
     "notify_on_completion": "desktop notification",
@@ -69,10 +69,10 @@ _GUIDE_KEYWORDS: dict[str, str] = {
     "output_format": "Output format",
     "mp3_vbr_quality": "MP3 VBR quality",
     "rip_goal": "Goal",
-    # Unattended testing. Documented, not exempted: it is a visible Settings row
-    # with a Browse button, and a setting a user can see and cannot look up is
-    # exactly the noise this classification exists to prevent.
-    "test_script_path": "Test script",
+    # Unattended testing. Documented, not exempted: it is a visible control in the
+    # script console, and a setting a user can see and cannot look up is exactly
+    # the noise this classification exists to prevent.
+    "test_script_path": "Startup script",
     "test_script_autorun": "Run it automatically when Platterpus starts",
     "test_script_allow_unsafe": "unsafe script verbs",
 }

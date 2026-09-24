@@ -192,33 +192,16 @@ def _coerce_setting(current: object, raw: str) -> tuple[object, str]:
 def _validation_error_for(candidate: object, field: str) -> str:
     """The validator's own complaint about ``field``, or ``""`` if it has none.
 
-    Delegates to `settings_validation` rather than re-checking anything: a second
-    copy of a safety check is a second thing to drift, and this one already exists,
-    is pure, and is what the Settings dialog is held to.
+    Delegates to :func:`settings_validation.field_error` rather than re-checking
+    anything: a second copy of a safety check is a second thing to drift, and the
+    same function answers for every control that saves one setting at a time.
     """
-    try:
-        from platterpus.settings_validation import validate_config
+    from platterpus.config import Config
+    from platterpus.settings_validation import field_error
 
-        issues = validate_config(candidate)  # type: ignore[arg-type]  # a Config
-    except Exception:  # noqa: BLE001 — a validator fault must not become a silent set
-        log.exception("settings validation raised while checking %s", field)
-        return "the settings validator could not evaluate this value"
-    for issue in issues:
-        if getattr(issue, "field", "") != field:
-            continue
-        # Only a hard error blocks. A warning is advice — the Settings dialog shows
-        # it and still lets a person proceed, so a script must not be stricter than
-        # the UI it is standing in for.
-        #
-        # `is_error` is a METHOD, not a property, and it has to be CALLED. Reading it
-        # as an attribute yields a bound method, which is always truthy — so every
-        # warning would have been reported as a rejection and the verb would refuse
-        # values the dialog accepts. Exactly the shape of the "check that can be
-        # satisfied by the wrong thing" this project keeps finding, and
-        # `test_uiscript_settings.py` pins it with a warning-level field.
-        if issue.is_error():
-            return str(getattr(issue, "message", "rejected"))
-    return ""
+    if not isinstance(candidate, Config):
+        return "not a settings object"
+    return field_error(candidate, field)
 
 
 def _parse_track_spec(spec: str) -> tuple[list[int], str]:

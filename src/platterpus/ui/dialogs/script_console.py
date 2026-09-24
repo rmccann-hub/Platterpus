@@ -23,6 +23,15 @@ markup. A cyanrip line containing ``<`` would be swallowed as an unknown tag and
 the reader would never learn text went missing — ``CLAUDE.md``'s inbound-seam
 rule, applied at the one widget that displays dependency output here.
 
+**It is the home of the three test-script settings** (2026-09-24): which script
+loads at start-up, whether it runs by itself, and whether the unsafe verbs are
+allowed. They used to be edited in Settings too, with a second unsafe-verbs box
+here — two editors of one setting, where the one a user last touched was not
+necessarily the one in force. Now they are edited only here, where scripts are
+loaded and run, and each saves as it is changed through the window's one
+single-setting writer, validated by the same predicate as the ``set`` verb
+(`ui/setting_homes.py`, `tests/test_setting_homes.py`).
+
 **Why nothing here blocks.** The one verb that runs a subprocess does it on a
 helper thread (:class:`platterpus.uiscript.runner._CyanripJob`); this dialog only
 ever appends text in response to a signal. Every button slot is a few
@@ -34,6 +43,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
@@ -42,6 +52,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
@@ -50,11 +61,18 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.ui.dialogs.centering import CenteredDialog
+from platterpus.ui.dialogs.fit_scroll_area import FitScrollArea
+from platterpus.ui.dialogs.script_settings_box import ScriptSettingsBox
 from platterpus.ui.scroll_guards import append_keeping_position
 from platterpus.uiscript.report import Outcome, RunReport, StepRecord, render
 from platterpus.uiscript.runner import ScriptRunner
 from platterpus.uiscript.script import parse
 from platterpus.uiscript.verbs import verb_reference
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from platterpus.user_settings import SettingWrite
 
 log = logging.getLogger(__name__)
 
@@ -127,6 +145,8 @@ class ScriptConsoleDialog(CenteredDialog):
         *,
         script_path: str = "",
         allow_unsafe: bool = False,
+        autorun: bool = False,
+        save_setting: Callable[[str, object], SettingWrite] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent or window)
@@ -137,7 +157,7 @@ class ScriptConsoleDialog(CenteredDialog):
         #: The window the script drives. Held so `Run` can build a runner against
         #: the real main window rather than against this dialog.
         self._target: QWidget = window
-        #: Where `Load` and `Save` start, and what the Settings field named.
+        #: Where `Load` and `Save` start.
         self._script_path: str = script_path
 
         layout = QVBoxLayout(self)
@@ -153,7 +173,22 @@ class ScriptConsoleDialog(CenteredDialog):
         )
         intro.setWordWrap(True)
         intro.setTextFormat(Qt.TextFormat.PlainText)
-        layout.addWidget(intro)
+        # The intro and the script settings scroll; the editor, Run and the
+        # transcript do not. Measured 2026-09-24 on a Steam Deck at 150% text
+        # (853 × 533): with the settings group in the plain layout the console's
+        # minimum was 473 px against 469 available, and Choose… / Use built-in /
+        # Clear were squeezed to 12 px high. `FitScrollArea` is invisible whenever
+        # the content fits, and it holds no scroll surface of its own — the
+        # editor and transcript stay outside it, so nothing is nested.
+        top = QWidget(self)
+        top_layout = QVBoxLayout(top)
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.addWidget(intro)
+        self._top_scroll: FitScrollArea = FitScrollArea(self)
+        self._top_scroll.setAccessibleName(
+            "About this console, and its script settings"
+        )
+        layout.addWidget(self._top_scroll)
 
         self._editor: QPlainTextEdit = QPlainTextEdit(self)
         self._editor.setPlainText(STARTER_SCRIPT)
@@ -161,22 +196,24 @@ class ScriptConsoleDialog(CenteredDialog):
         self._editor.setAccessibleName("Test script")
         layout.addWidget(self._editor, stretch=3)
 
-        # "not built yet" for the reason spelled out at the Settings twin: both
-        # verbs are reserved with `implemented=False` and no handler, so this box
-        # currently gates nothing. Same class as the `expect-status` gap — a
-        # control that advertises a capability it cannot deliver.
-        self._unsafe_check: QCheckBox = QCheckBox(
-            "Allow the unsafe verbs (eval, call — not built yet) in this run", self
+        # The three test-script settings, in their one home.
+        self._script_settings: ScriptSettingsBox = ScriptSettingsBox(
+            self,
+            script_path=script_path,
+            autorun=autorun,
+            allow_unsafe=allow_unsafe,
+            save_setting=save_setting,
         )
-        self._unsafe_check.setChecked(allow_unsafe)
-        self._unsafe_check.setToolTip(
-            "Off by default, and nothing to allow yet: eval and call are reserved "
-            "but not implemented, so a script using either is refused either way. "
-            "The vocabulary is otherwise a closed list of named actions with "
-            "nothing that can run arbitrary code. A run that used the hatch would "
-            "say so at the top of its own transcript."
+        self._script_settings.startup_script_saved.connect(
+            self._on_startup_script_saved
         )
-        layout.addWidget(self._unsafe_check)
+        #: The controls the home table names (`ui/setting_homes.py`), reachable
+        #: as the console's own so the run and the tests read one object.
+        self._startup_script_edit: QLineEdit = self._script_settings.startup_script_edit
+        self._autorun_check: QCheckBox = self._script_settings.autorun_check
+        self._unsafe_check: QCheckBox = self._script_settings.unsafe_check
+        top_layout.addWidget(self._script_settings)
+        self._top_scroll.setWidget(top)
 
         buttons = QHBoxLayout()
         self._run_button: QPushButton = QPushButton("&Run", self)
@@ -235,6 +272,25 @@ class ScriptConsoleDialog(CenteredDialog):
             # A saved path is a statement of intent: load it, but say so in the
             # transcript rather than silently replacing what the user sees.
             self._load_path(Path(script_path).expanduser(), announce=True)
+
+    def _on_startup_script_saved(self, path: str) -> None:
+        """A new startup script was saved: load it only if that discards nothing.
+
+        A batch typed into the editor is the user's work, and replacing it
+        because they changed a setting would lose it with no way back.
+        """
+        box = self._script_settings
+        if not path:
+            box.say("✓ Saved: no startup script.")
+            return
+        untouched = self._editor.toPlainText() in ("", STARTER_SCRIPT)
+        if untouched and self._load_path(Path(path).expanduser(), announce=True):
+            box.say(f"✓ Saved and loaded: {path}")
+        else:
+            box.say(
+                f"✓ Saved: {path} loads when this console next opens. The editor "
+                "was left as it is; press Load… to open it now."
+            )
 
     # --- Public surface, used by the autorun path ----------------------------
 

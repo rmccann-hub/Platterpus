@@ -256,6 +256,28 @@ Worker mechanics, all demonstrated in `workers/`:
   `tests/test_help_documents_the_menu.py` resolves every menu path the product
   names against the real menus, and five named paths led nowhere when it was
   written.
+- **One home per setting** (2026-09-24). The same rule for values: a setting
+  edited in two windows lets one of them write back what it merely displayed,
+  which is how Settings once wrote a stale read offset over the one the drive
+  wizard had just saved. `ui/setting_homes.py` names each setting's one window
+  and control, and a setting lives **beside what it steers**: the read offset
+  and its Apply tick-box in *Set up drive…*, the update channels above their
+  checks in Setup & Updates, the startup script in the script console,
+  everything that shapes the rip itself in Settings. A window that only needs
+  to SHOW a setting homed elsewhere shows it read-only and names the home.
+  Two write paths, both in `ui/main_window_settings.py`: Settings' OK/Apply
+  (only what the user changed, `apply_user_edits`), and
+  `_save_user_setting(field, value)` for a control that saves as it changes,
+  validated by the same `settings_validation.field_error` as the `set` script
+  verb and returning a `SettingWrite` so a refusal puts the control back and
+  shows the validator's sentence. `tests/test_setting_homes.py` builds every
+  such window and holds it both ways: every setting has a home whose control
+  exists, and every value control in every window is either a home control or
+  on an allowlist with a reason — so a second editor fails by name.
+  **A modeless window needs its own rip lock.** Greying the menu item stops a
+  window being *opened*; one already open when a rip starts kept every button
+  live until `SetupCenterDialog.set_locked` (found while moving *Diagnose drive
+  access…* into it).
 - Use thread-safe primitives for cancellation flags — a plain `bool` set from
   the GUI thread and read by the worker is fine under the GIL; anything richer
   needs care.
@@ -355,11 +377,13 @@ canonical ownership map** — KDD-19 records the *decision* and links here.
 | Host setup / AppImage integration / uninstall | `main_window_provision.py` (`ProvisioningMixin`) |
 | Drive setup / offset / access diagnosis | `main_window_drive.py` (`DriveMixin`) |
 | Dependency check / resolve routing / summary | `main_window_deps.py` (`DependencyMixin`) |
-| Construction, menus, signal wiring, MusicBrainz slots, settings | `main_window.py` (the assembler) |
+| Settings' OK/Apply, and saving one setting from its home control | `main_window_settings.py` (`SettingsMixin`) |
+| Construction, menus, signal wiring, MusicBrainz slots | `main_window.py` (the assembler) |
 
-`MainWindow(QMainWindow, RipMixin, UpdateMixin, ProvisioningMixin, DriveMixin, DependencyMixin)`
-— a 1707-line god-object reduced to an assembler plus six focused
-modules. (The split first landed it at ~460 lines; it has since grown as
+`MainWindow(QMainWindow, RipMixin, UpdateMixin, ProvisioningMixin, DriveMixin, DependencyMixin, SettingsMixin)`
+— a 1707-line god-object reduced to an assembler plus seven focused
+modules: six mixins and the pure helpers (`SettingsMixin` was the sixth mixin,
+2026-09-24). (The split first landed it at ~460 lines; it has since grown as
 new-feature wiring accreted — split again if a *concern*, not just a line
 count, starts sharing the file.)
 
@@ -1694,4 +1718,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.6.56.*
+*Last updated for Platterpus v0.6.57.*

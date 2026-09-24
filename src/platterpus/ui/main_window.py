@@ -23,7 +23,9 @@ from PySide6.QtWidgets import (
     QDialog,
     QFrame,
     QMainWindow,
-    QMessageBox,
+    # Kept importable here: tests patch `platterpus.ui.main_window.QMessageBox`
+    # by path, and the class is shared, so the patch reaches every mixin.
+    QMessageBox,  # noqa: F401
     QScrollArea,
     QSplitter,
     QSystemTrayIcon,
@@ -68,12 +70,12 @@ from platterpus.ui.main_window_helpers import (  # noqa: F401
 )
 from platterpus.ui.main_window_provision import ProvisioningMixin
 from platterpus.ui.main_window_rip import RipMixin, _PendingBundle
+from platterpus.ui.main_window_settings import SettingsMixin
 from platterpus.ui.main_window_update import UpdateMixin
 from platterpus.ui.post_rip_record import PostRipRecord
 from platterpus.ui.release_picker import ReleasePickerDialog
 from platterpus.ui.rip_controls import RipControls
 from platterpus.ui.rip_progress import RipProgress
-from platterpus.ui.settings_dialog import SettingsDialog
 from platterpus.ui.track_table import TrackTable
 from platterpus.workers.mb_worker import MusicBrainzWorker
 from platterpus.workers.rip_worker import RipParameters, RipWorker
@@ -213,6 +215,7 @@ class MainWindow(
     ProvisioningMixin,
     DriveMixin,
     DependencyMixin,
+    SettingsMixin,
 ):
     """The main window. Built by app.py with all dependencies injected.
 
@@ -1038,9 +1041,8 @@ class MainWindow(
         cover_from_file_action = tools_menu.addAction("Set &cover art from file…")
         cover_from_file_action.triggered.connect(self._on_set_cover_art_from_file)
 
-        # Alt+D, not Alt+A: "Run &acceptance test" below has A.
-        diagnose_action = tools_menu.addAction("&Diagnose drive access…")
-        diagnose_action.triggered.connect(self._show_drive_access_diagnosis)
+        # Diagnose drive access… lives in Setup & Updates → Drive, beside Set up
+        # drive… (2026-09-24): one place for the drive, not one item per menu.
 
         # The unattended-test console. The scripting subsystem it opens has
         # existed, fully tested, since v0.6.4b12 — with nothing in the
@@ -1096,7 +1098,6 @@ class MainWindow(
             # locked the five it happened to name, and the dependency check (a
             # button in Settings, itself locked) was never in it.
             setup_center_action,
-            diagnose_action,
             uninstall_action,
             # Locked during a rip like the rest: an acceptance session rips
             # discs itself, so starting one on top of a live rip would have two
@@ -1137,6 +1138,12 @@ class MainWindow(
         self._track_table.set_locked(active)
         for action in self._rip_locked_actions:
             action.setEnabled(not active)
+        # Greying the menu item only stops the window being OPENED. Setup &
+        # Updates is modeless, so one already open when the rip starts kept every
+        # button live — Set up drive… → Analyse cache would spin the drive under
+        # the rip, and an update could swap the AppImage out from under it.
+        if self._setup_center is not None:
+            self._setup_center.set_locked(active)
 
     # --- Signal wiring ------------------------------------------------------
 
@@ -1590,27 +1597,3 @@ class MainWindow(
         except OSError as exc:
             log.warning("could not create log dir %s: %s", LOG_DIR, exc)
         open_path_externally(LOG_DIR, parent=self, what="logs folder")
-
-    def _on_open_settings(self) -> None:
-        dialog = SettingsDialog(self._config, self)
-        accepted = dialog.exec() == QDialog.DialogCode.Accepted
-        # Read, then freed — see the release picker's `deleteLater` for why.
-        edited = dialog.user_edits_applied_to(self._config) if accepted else None
-        dialog.deleteLater()
-        if edited is not None:
-            # Only what the user changed — never the whole form read back. The
-            # config may have been written while the dialog was open, and the
-            # form still shows the values it opened with (`apply_user_edits`).
-            self._config = edited
-            # Push the new config into the rip controls so the next rip
-            # reflects the edits (output dir, templates, cover art, …).
-            self._rip_controls.set_config(self._config)
-            # Apply the debug-logging toggle immediately so the change takes
-            # effect for this session (not just the next launch).
-            from platterpus.logging_setup import set_debug_logging
-
-            set_debug_logging(self._config.debug_logging)
-            try:
-                self._save_config(self._config)
-            except OSError as exc:
-                QMessageBox.warning(self, "Couldn't save settings", f"{exc}")

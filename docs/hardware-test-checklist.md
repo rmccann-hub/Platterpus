@@ -971,7 +971,8 @@ grep -E "output_dir|read_offset|library_dir" ~/.config/platterpus/config.toml
 
 Expected, unchanged across v0.5.12 → v0.5.18: `output_dir = "/home/rmccann/Music/rips"`,
 working dir `~/.cache/platterpus`, `read_offset = 667` with "Apply this read offset to
-rips" ticked, the drive's *"confirmed — two independent sources agree"* trust line, and the
+every rip" ticked (in *Set up drive…* since 2026-09-24; it was a Settings tick-box
+called "…to rips" before), the drive's *"confirmed — two independent sources agree"* trust line, and the
 cache-defeat **Yes** measurement.
 
 > One deliberate change to watch for: an output or library folder that is **not mounted**
@@ -1230,4 +1231,4 @@ with `rip stream error:`** — that is the v0.5.20 fix's signature and I want th
 
 ---
 
-*Last updated for Platterpus v0.6.56.*
+*Last updated for Platterpus v0.6.57.*

@@ -32,6 +32,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   the list. Diagnostics shows the same age, each rip report records the time
   (`environment.dependencies_measured_at`, report schema 27), and the acceptance
   bundle carries the whole list as `COMPONENTS.json`.
+- **Settings has Apply and Restore Defaults beside OK and Cancel**, KDE's
+  convention. Apply saves what you changed and keeps the window open; Cancel
+  then discards only what changed after the last Apply; Restore Defaults puts
+  Settings' own controls back to the shipped values and saves nothing until OK
+  or Apply. It never touches the read offset, which it does not own.
 - **The acceptance run now starts from a fixed baseline.** Each setting is set
   to its shipped default, or kept on purpose with the reason written beside it.
   Before, a run borrowed whatever you had set, including settings that change
@@ -39,6 +44,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Changed
 
+- **Every setting now has one place to change it.** Seven had two:
+  - The **read offset** and its **Apply this read offset to every rip**
+    tick-box are changed only in *Tools → Setup & Updates… → Set up drive…*.
+    Settings still shows what the next rip will use, read-only. Two editors of
+    one calibration value is how Settings once wrote a stale offset over one
+    the wizard had just saved.
+  - The **beta update** tick-boxes for Platterpus and for cyanrip are in
+    *Setup & Updates*, just above the checks they decide.
+  - The **startup test script**, **Run it automatically when Platterpus
+    starts** and **Allow the unsafe script verbs** are in the script console,
+    which had its own second copy of the unsafe-verbs box.
+
+  The tick-boxes outside Settings save as soon as you click them and say so. A
+  new check fails if any setting gains a second editor. The drive wizard shows a
+  read offset left in an old `whipper.conf` only when there is one, instead of
+  "none set" to everyone.
+- **Diagnose drive access… moved from the Tools menu to Setup & Updates →
+  Drive**, beside Set up drive…, so everything about the drive is in one place.
 - **The acceptance run uses your drive's read offset, not one typed into the
   script.** It used to set +667, which is right only for the Pioneer BDR-209D, so
   a run on any other drive would have ripped at the wrong offset. It now keeps
@@ -47,6 +70,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ### Fixed
 
+- **A Setup & Updates window that was already open stayed usable during a
+  rip.** Starting a rip greyed out the menu item that opens it, but not the
+  window itself, so *Set up drive… → Analyse cache* could spin the drive under
+  the rip. Its buttons are now greyed out for the rip and come back when it
+  ends.
+- **The beta update tick-boxes didn't say what leaving them off does.** They
+  now say both: off offers only finished releases (or stable cyanrip builds).
 - **The User Guide gave the wrong advice about updating the ripper before a
   test.** It said to take the update offer only if it installs in one click. The
   test expects the build the handshake record names, which is the warned offer

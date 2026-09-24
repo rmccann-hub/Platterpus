@@ -389,6 +389,9 @@ def test_an_absurd_read_offset_is_refused_at_the_single_write_path() -> None:
         _rip_controls=SimpleNamespace(set_config=lambda _cfg: None),
         _save_config=saved.append,
         _show_offset_rejected=lambda _v: None,
+        # An accepted offset refreshes whatever window SHOWS it (Setup & Updates,
+        # since 2026-09-24); the real window has this, so the stand-in must too.
+        _refresh_setting_views=lambda: None,
     )
     assert DriveMixin._set_read_offset_override(window, 667) is True
     assert window._config.read_offset == 667

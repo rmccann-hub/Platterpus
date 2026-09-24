@@ -13,15 +13,31 @@ multiple access points"*). Each duplicated a button in **Tools → Setup &
 Updates…**, and the second one was worse than a duplicate: the drive wizard it
 opened saved a new offset while this dialog still showed the old one, so
 pressing OK wrote the old one back. See :func:`apply_user_edits`.
+
+**It edits the rip, and only the rip** (2026-09-24). Seven settings used to have
+a second editor here as well as their real one, and each now has ONE home,
+recorded in :mod:`platterpus.ui.setting_homes`: the read offset and its Apply
+tick-box live in the drive wizard (this dialog still SHOWS the offset, read-only,
+because a rip depends on it), the two update channels live beside the checks
+they steer in Setup & Updates, and the startup test script lives in the script
+console. A field this dialog does not edit is carried through untouched from the
+config it opened with, so pressing OK can never write it — and its validation is
+not this dialog's to show, because a user cannot fix it here.
+
+**OK, Apply, Cancel, Restore Defaults** — KDE's convention. Apply saves what you
+changed and keeps the window open; Cancel then discards only what changed after
+the last Apply; Restore Defaults resets this dialog's controls to the shipped
+defaults and saves nothing until OK or Apply. It is safe to offer now that OK
+writes only the fields you changed, and it touches none of the settings homed
+elsewhere: resetting the read offset from here would rip the next disc at +0.
 """
 
 from __future__ import annotations
 
 import dataclasses
 import logging
-from collections.abc import Sequence
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -34,7 +50,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -52,19 +67,29 @@ from platterpus import (
 from platterpus.config import Config
 from platterpus.paths import LOG_PATH
 from platterpus.settings_validation import ValidationIssue
-from platterpus.test_session import builtin_acceptance_script
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.ui.scroll_guards import WheelGuard, protect_value_widgets
+from platterpus.ui.setting_homes import (
+    DRIVE_SETUP,
+    SETTING_HOMES,
+    SETTINGS,
+    WINDOW_PATHS,
+    fields_homed_in,
+)
 from platterpus.ui.status_colours import SECONDARY_STYLE, status_colour, status_style
-from platterpus.update_check import CHANNEL_BETA, CHANNEL_STABLE
-from platterpus.user_settings import apply_user_edits
+from platterpus.user_settings import apply_user_edits, with_values
 
 log: logging.Logger = logging.getLogger(__name__)
 
 
 class SettingsDialog(CenteredDialog):
     """Modal Settings dialog. Wraps an incoming Config; produces a new one."""
+
+    #: Apply was pressed with valid inputs. The window saves exactly what OK
+    #: would (``user_edits_applied_to``) and then calls :meth:`mark_applied`, so
+    #: the dialog stays a view and there is one save path, not two.
+    apply_requested = Signal()
 
     def __init__(self, config: Config, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -224,66 +249,27 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("Disc template (unknown):", self._disc_template_unknown_edit)
 
-        # --- Read offset ---
-        # Two ways to set the read offset:
-        #   1. The drive-setup wizard (Tools → Setup & Updates… → Set up drive…)
-        #      detects it and saves it — the recommended path.
-        #   2. Type it here and tick "Apply" so each rip uses it (cyanrip's
-        #      `-s`). cyanrip needs the offset every run; it has no config file
-        #      of its own, so this value is the single source.
-        self._read_offset_spin: QSpinBox = QSpinBox(self)
-        # Named explicitly for screen readers. It was needed while this row also
-        # held a "Re-detect…" button (a composite row gets no auto-buddy), and it
-        # is kept because a spoken name that says "in samples" is better than the
-        # visible label alone.
-        self._read_offset_spin.setAccessibleName("Read offset in samples")
-        # Range comes from settings_validation (the single source of truth) so the
-        # widget bound and the validator can never drift. AccurateRip offsets are
-        # in the low hundreds of samples; ±5000 blocks typos like "60000".
-        self._read_offset_spin.setRange(
-            settings_validation.OFFSET_MIN, settings_validation.OFFSET_MAX
+        # --- Read offset: SHOWN here, edited in the drive wizard ---
+        # A rip depends on it, so Settings says what it is — but it has one home,
+        # the drive wizard, and a second editor here is how an OK once wrote a
+        # stale offset over one the wizard had just saved (`apply_user_edits`).
+        # Read-only text, so there is nothing here a scroll or a click can change.
+        applied = offset_config.describe_applied_offset(
+            config.read_offset, config.override_read_offset
         )
-        self._read_offset_spin.setValue(config.read_offset)
-        self._read_offset_spin.setToolTip(
-            "Your drive's read offset, in samples, signed (cyanrip's -s). Every "
-            "drive reads a fixed distance early or late; correcting for it is what "
-            "makes a rip bit-perfect and lets AccurateRip match. The value is a "
-            "property of the DRIVE, not of the disc — set it once. Typical values "
-            "are within a few hundred of zero (a Pioneer BDR-209D is +667); 0 means "
-            "no correction, which is right only for the rare drive that needs none. "
-            "To detect it for your drive, close Settings and use Tools → Setup & "
-            "Updates… → Set up drive…. Tick Apply below or it is not used at all."
+        self._offset_status_label: QLabel = QLabel(
+            f"{applied}\nSet it in {WINDOW_PATHS[DRIVE_SETUP]}", self
         )
-        form.addRow("Read offset (samples):", self._read_offset_spin)
-
-        self._override_offset_check: QCheckBox = QCheckBox(
-            "Apply this read offset to rips", self
+        self._offset_status_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._offset_status_label.setWordWrap(True)
+        self._offset_status_label.setAccessibleName("Read offset")
+        self._offset_status_label.setToolTip(
+            "Your drive's read offset, in samples (cyanrip's -s). It is a "
+            "property of the DRIVE, not of the disc, so it is set once, in the "
+            "drive wizard, where it can be looked up from the AccurateRip drive "
+            "list. Shown here because every rip depends on it."
         )
-        self._override_offset_check.setChecked(config.override_read_offset)
-        self._override_offset_check.setToolTip(
-            "ON: every rip is corrected by the offset above (cyanrip's -s). OFF: "
-            "no -s is passed at all and the drive's raw alignment is used, which "
-            "for most drives is NOT bit-perfect — AccurateRip will then fail to "
-            "match even a clean disc. Leave this on once your drive's offset is "
-            "set."
-        )
-        form.addRow("", self._override_offset_check)
-
-        # Show any read offset found in a legacy whipper.conf, as a trust check
-        # against the value above. A pre-Platterpus or hand-edited whipper.conf
-        # may still hold a per-drive offset; cyanrip doesn't read it (it uses the
-        # value above), but surfacing it lets the user spot a mismatch. Reading
-        # this tiny file on the GUI thread is fine (bytes, not a subprocess).
-        self._live_offset_label: QLabel = QLabel(
-            f"Legacy whipper.conf read offset: {offset_config.describe_conf_offsets()}",
-            self,
-        )
-        self._live_offset_label.setWordWrap(True)
-        self._live_offset_label.setToolTip(
-            "A read offset found in an old whipper.conf, shown for reference. "
-            "cyanrip uses the value above, not this file. 'none set' is normal."
-        )
-        form.addRow("", self._live_offset_label)
+        form.addRow("Read offset:", self._offset_status_label)
 
         # --- Tool paths ---
         self._metaflac_path_edit, metaflac_row = self._build_file_row(
@@ -402,50 +388,6 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("", self._notify_check)
 
-        # Beta update channel — opt-in, off by default. Stored as a channel STRING
-        # (`update_channel`) rather than a bool so a third channel could be added
-        # without a config migration; the checkbox is the two-value view of it.
-        #
-        # Off by default because being handed a tester build is a different thing
-        # from being handed an update, and before this existed the check offered
-        # whatever was newest with nothing saying which it was.
-        self._beta_channel_check: QCheckBox = QCheckBox(
-            "Offer beta (pre-release) updates", self
-        )
-        self._beta_channel_check.setChecked(config.update_channel == CHANNEL_BETA)
-        self._beta_channel_check.setToolTip(
-            "Include pre-release builds (0.6.4b1, 0.6.5rc1…) when checking for "
-            "updates.\n\nBetas are published for testing — they may contain bugs, "
-            "and a beta's rip reports can name a ripper build no handshake round "
-            "has approved yet. Every beta offer says so before it installs, and "
-            "you can go back to a stable release at any time.\n\nLeave this off "
-            "unless you are testing."
-        )
-        form.addRow("Updates:", self._beta_channel_check)
-
-        # The RIPPER's channel — a separate decision from the app's own, and kept
-        # as a separate control for that reason. A user can reasonably want app
-        # betas and a released ripper, or the reverse during a hardware session.
-        #
-        # Same two-value view of a channel string as above, for the same reason.
-        # Nothing is ever installed from this setting: it only decides which row of
-        # the fork's release manifest a check reads, and taking a newer ripper is a
-        # handshake event a person has to make deliberately.
-        self._ripper_beta_check: QCheckBox = QCheckBox(
-            "Offer beta (pre-release) cyanrip builds", self
-        )
-        self._ripper_beta_check.setChecked(config.ripper_channel == CHANNEL_BETA)
-        self._ripper_beta_check.setToolTip(
-            "Which cyanrip builds 'Check for cyanrip updates' will tell you "
-            "about.\n\nThis never installs anything — it only reports what the "
-            "fork has published, and says what taking a build would cost. A "
-            "ripper no handshake round has verified makes every rip afterwards "
-            "report its ripper as 'unapproved': the audio is unaffected, but the "
-            "record can no longer say the ripper was jointly verified.\n\nLeave "
-            "this off unless you are testing."
-        )
-        form.addRow("cyanrip update channel:", self._ripper_beta_check)
-
         # Debug logging — verbose log file for bug reports. Off by default;
         # testers turn it on, reproduce the issue, then attach the log.
         self._debug_logging_check: QCheckBox = QCheckBox(
@@ -465,85 +407,6 @@ class SettingsDialog(CenteredDialog):
             "enough to diagnose a failure after the fact."
         )
         form.addRow("Logging:", self._debug_logging_check)
-
-        # --- Unattended testing (the maintainer's "testing script field") ---
-        # A path, not a text box full of script: the batch outlives one paste into
-        # one dialog, and the whole point is that it runs when nobody is here.
-        # Tools → Run test script… loads this file; `--run-script` overrides it for
-        # one launch. The validator refuses a path that is not a readable file, so
-        # a typo is a visible error here rather than an empty transcript tomorrow.
-        #
-        # THE ACCEPTANCE TEST IS ONE CLICK, NOT A DOWNLOAD.
-        #
-        # Until 2026-08-28 the acceptance script lived under `docs/` in the git
-        # repository, so an AppImage user had no copy of it at all: "run the
-        # acceptance test" began with finding the right file on GitHub at the
-        # right commit, next to two shell scripts. The maintainer's ruling was
-        # blunt — *"this was supposed to be a no cli program, not give me
-        # commands to use"*, *"i should just be able to run this with an
-        # specific script file i can use with the settings window"* — so the
-        # scripts ship inside the package and this button is the whole
-        # "obtaining" step.
-        #
-        # It FILLS the field rather than running anything. The field stays the
-        # single answer to "which script runs", so there are not two.
-        builtin_button = QPushButton("Use built-in")
-        builtin_button.setAccessibleName("Use the built-in acceptance test script")
-        builtin_button.setToolTip(
-            "Fill the box beside this with the full acceptance test that ships "
-            "inside Platterpus — the unattended batch a hardware session runs."
-            "\n\nIt does not start anything: press OK, then Tools → Run test "
-            "script…"
-        )
-        builtin_button.clicked.connect(self._use_builtin_acceptance_script)
-        self._test_script_edit, test_script_row = self._build_file_row(
-            config.test_script_path, "Test script", extra_buttons=(builtin_button,)
-        )
-        self._test_script_edit.setPlaceholderText("(none — the console starts blank)")
-        self._test_script_edit.setToolTip(
-            "A Platterpus test script — the batch that Tools → Run test script… "
-            "loads by default. Leave empty for none.\n\nEach line is one step "
-            "(open a dialog, check what is on screen, take a screenshot, run the "
-            "ripper and assert its exit code). A failing step is recorded and the "
-            "batch keeps going, so an unattended run always comes back with a "
-            "complete transcript. Press Commands in the console for the full list."
-        )
-        form.addRow("Test script:", test_script_row)
-
-        self._test_autorun_check: QCheckBox = QCheckBox(
-            "Run it automatically when Platterpus starts", self
-        )
-        self._test_autorun_check.setChecked(config.test_script_autorun)
-        self._test_autorun_check.setToolTip(
-            "Off by default, and it does nothing without a script above — BOTH "
-            "have to be set deliberately, because an app that runs a script at "
-            "launch because a file said so is a surprising thing to ship.\n\nWith "
-            "it on, launching Platterpus *is* the test run: the console opens and "
-            "the batch starts, so a session needs nobody in front of it."
-        )
-        form.addRow("", self._test_autorun_check)
-
-        # The label says "not built yet" because they are not built yet, and a
-        # checkbox that promises a capability it cannot deliver is the same defect
-        # as a script verb that does (found 2026-08-24, alongside `expect-status`):
-        # `eval` and `call` carry `implemented=False` and have no handler, so
-        # ticking this changes nothing today. The setting and its plumbing stay —
-        # they are the gate the verbs will need, and the key is already persisted —
-        # but the words a user reads must match what happens.
-        self._test_unsafe_check: QCheckBox = QCheckBox(
-            "Allow the unsafe script verbs (eval, call — not built yet)", self
-        )
-        self._test_unsafe_check.setChecked(config.test_script_allow_unsafe)
-        self._test_unsafe_check.setToolTip(
-            "Off by default, and there is nothing to allow yet: eval and call are "
-            "reserved in the script vocabulary but not implemented, so a script "
-            "using either is refused whether this is on or off. The rest of the "
-            "vocabulary is a closed list of named actions — no 'click anything', "
-            "nothing that runs arbitrary code. If the escape hatch is ever built, "
-            "this is its gate, and a run that used it will say so at the top of "
-            "its own transcript."
-        )
-        form.addRow("", self._test_unsafe_check)
 
         # --- EAC bit-perfect parity gaps (KDD-13) ---
         # Cover art: "" = don't fetch. With cyanrip the GUI fetches the front
@@ -905,14 +768,40 @@ class SettingsDialog(CenteredDialog):
         # --- Goal preset wiring (after all dependent widgets exist) ---
         self._wire_goal_presets()
 
-        # --- OK / Cancel ---
+        # --- OK / Apply / Cancel / Restore Defaults ---
         button_box = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+            QDialogButtonBox.StandardButton.RestoreDefaults
+            | QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Apply
+            | QDialogButtonBox.StandardButton.Cancel,
             self,
         )
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
+        self._apply_button: QPushButton | None = button_box.button(
+            QDialogButtonBox.StandardButton.Apply
+        )
+        if self._apply_button is not None:
+            self._apply_button.clicked.connect(self._on_apply_clicked)
+            self._apply_button.setToolTip(
+                "Save what you changed and keep Settings open."
+            )
+        self._restore_button: QPushButton | None = button_box.button(
+            QDialogButtonBox.StandardButton.RestoreDefaults
+        )
+        if self._restore_button is not None:
+            self._restore_button.clicked.connect(self.restore_defaults)
+            self._restore_button.setToolTip(
+                "Put every control in this window back to the shipped default. "
+                "Nothing is saved until you press OK or Apply, and settings kept "
+                "elsewhere (the read offset, update channels, test script) are "
+                "not touched."
+            )
         root.addWidget(button_box)
+        # Apply is enabled only while there is something to apply, which is how a
+        # user can tell an Apply has taken. Every control this dialog owns reports
+        # a change here, found through the home table rather than listed again.
+        self._wire_change_tracking()
 
         # Validate the incoming config once so a hand-edited/invalid config.toml
         # surfaces its errors the moment Settings opens, not only on save.
@@ -1013,64 +902,125 @@ class SettingsDialog(CenteredDialog):
         return apply_user_edits(current, self._opened_with, self.to_config())
 
     def to_config(self) -> Config:
-        """Build a new Config reflecting the current widget state.
+        """The config the dialog would save: what it opened with, plus its widgets.
 
-        Preserves the schema_version from the source Config (since the
-        dialog doesn't model that field — bumping it is migration
-        plumbing's job, not the user's).
+        Every field this dialog edits is read off its widget
+        (:meth:`widget_values`); every other field — the app's own bookkeeping,
+        and each setting homed in another window — is the value it opened with.
+        Built on the snapshot rather than the live config so a field edited
+        elsewhere while this was open can never look like an edit made here.
         """
-        return Config(
-            output_dir=self._output_dir_edit.text(),
-            library_dir=self._library_dir_edit.text(),
-            track_template=self._track_template_edit.text(),
-            disc_template=self._disc_template_edit.text(),
-            track_template_unknown=self._track_template_unknown_edit.text(),
-            disc_template_unknown=self._disc_template_unknown_edit.text(),
-            metaflac_path=self._metaflac_path_edit.text(),
-            read_offset=self._read_offset_spin.value(),
-            override_read_offset=self._override_offset_check.isChecked(),
-            auto_launch_picard=self._auto_picard_check.isChecked(),
-            auto_eject_after_rip=self._auto_eject_check.isChecked(),
-            notify_on_completion=self._notify_check.isChecked(),
-            update_channel=(
-                CHANNEL_BETA if self._beta_channel_check.isChecked() else CHANNEL_STABLE
-            ),
-            ripper_channel=(
-                CHANNEL_BETA if self._ripper_beta_check.isChecked() else CHANNEL_STABLE
-            ),
-            debug_logging=self._debug_logging_check.isChecked(),
-            cover_art=self._cover_art_combo.currentData(),
-            max_retries=self._max_retries_spin.value(),
-            force_overread=self._force_overread_check.isChecked(),
-            secure_rerip_matches=self._secure_rerip_spin.value(),
+        return with_values(self._opened_with, self.widget_values())
+
+    def widget_values(self) -> dict[str, object]:
+        """``{field: value}`` for exactly the settings this dialog edits.
+
+        ``tests/test_setting_homes.py`` holds the key set to
+        ``fields_homed_in(SETTINGS)``, so this and the home table cannot drift.
+        """
+        return {
+            "output_dir": self._output_dir_edit.text(),
+            "library_dir": self._library_dir_edit.text(),
+            "track_template": self._track_template_edit.text(),
+            "disc_template": self._disc_template_edit.text(),
+            "track_template_unknown": self._track_template_unknown_edit.text(),
+            "disc_template_unknown": self._disc_template_unknown_edit.text(),
+            "metaflac_path": self._metaflac_path_edit.text(),
+            "auto_launch_picard": self._auto_picard_check.isChecked(),
+            "auto_eject_after_rip": self._auto_eject_check.isChecked(),
+            "notify_on_completion": self._notify_check.isChecked(),
+            "debug_logging": self._debug_logging_check.isChecked(),
+            "cover_art": self._cover_art_combo.currentData(),
+            "max_retries": self._max_retries_spin.value(),
+            "force_overread": self._force_overread_check.isChecked(),
+            "secure_rerip_matches": self._secure_rerip_spin.value(),
             # Checked = verify every track (whole-disc Test & Copy) = dynamic OFF.
-            # Dynamic secure re-rip is the behaviour now, not a UI toggle — carry
-            # the stored value through unchanged (a power user can flip it in TOML).
-            secure_rerip_dynamic=not self._verify_every_track_check.isChecked(),
-            rerip_offset_variant=self._rerip_offset_variant_check.isChecked(),
-            read_speed_mode=self._read_speed_mode_combo.currentData(),
-            read_speed=self._read_speed_spin.value(),
-            ctdb_verify_after_rip=self._ctdb_verify_check.isChecked(),
-            verify_flac_after_rip=self._verify_flac_check.isChecked(),
-            recompress_flac_after_rip=self._recompress_flac_check.isChecked(),
-            write_eac_log_after_rip=self._eac_log_check.isChecked(),
-            save_additional_art=self._additional_art_check.isChecked(),
-            output_format=self._format_combo.currentData(),
-            rip_goal=self._goal_combo.currentData(),
-            mp3_vbr_quality=self._mp3_quality_spin.value(),
-            test_script_path=self._test_script_edit.text().strip(),
-            test_script_autorun=self._test_autorun_check.isChecked(),
-            test_script_allow_unsafe=self._test_unsafe_check.isChecked(),
-            # Preserve fields the dialog doesn't model, so saving Settings
-            # never silently resets them (these one-time "already offered"
-            # flags being reset is what re-triggered the first-run prompts).
-            drive_setup_prompted=self._config.drive_setup_prompted,
-            host_setup_prompted=self._config.host_setup_prompted,
-            appimage_integration_prompted=self._config.appimage_integration_prompted,
-            integration_declined_path=self._config.integration_declined_path,
-            integration_declined_version=self._config.integration_declined_version,
-            schema_version=self._config.schema_version,
-        )
+            "secure_rerip_dynamic": not self._verify_every_track_check.isChecked(),
+            "rerip_offset_variant": self._rerip_offset_variant_check.isChecked(),
+            "read_speed_mode": self._read_speed_mode_combo.currentData(),
+            "read_speed": self._read_speed_spin.value(),
+            "ctdb_verify_after_rip": self._ctdb_verify_check.isChecked(),
+            "verify_flac_after_rip": self._verify_flac_check.isChecked(),
+            "recompress_flac_after_rip": self._recompress_flac_check.isChecked(),
+            "write_eac_log_after_rip": self._eac_log_check.isChecked(),
+            "save_additional_art": self._additional_art_check.isChecked(),
+            "output_format": self._format_combo.currentData(),
+            "rip_goal": self._goal_combo.currentData(),
+            "mp3_vbr_quality": self._mp3_quality_spin.value(),
+        }
+
+    def has_unapplied_edits(self) -> bool:
+        """Whether any control differs from what was last opened or applied."""
+        return self.to_config() != self._opened_with
+
+    def mark_applied(self) -> None:
+        """Make the current widget state the new baseline, after a save.
+
+        Called by the window once it has saved an Apply. From here on, OK and a
+        second Apply write only what changes AFTER this point, and Cancel keeps
+        what was applied — the KDE meaning of Cancel after Apply.
+        """
+        self._opened_with = self.to_config()
+        self._update_apply_enabled()
+
+    def restore_defaults(self) -> None:
+        """Reset this dialog's controls to the shipped defaults. Saves nothing.
+
+        Only the settings homed HERE: the read offset, the channels and the test
+        script keep their values, because they are not this window's to reset.
+        """
+        log.info("settings: restore defaults pressed")
+        self._load_widgets(Config())
+        self._revalidate()
+
+    def _load_widgets(self, source: Config) -> None:
+        """Set every control this dialog owns from ``source``.
+
+        Driven by the home table, so a new Settings control is reset along with
+        the rest the day it is added. The goal combo is set LAST and quietly: it
+        describes the values above it rather than imposing its preset on them.
+        """
+        self._applying_preset = True
+        try:
+            for field in sorted(fields_homed_in(SETTINGS) - {"rip_goal"}):
+                widget = getattr(self, SETTING_HOMES[field].control)
+                value = getattr(source, field)
+                if field == "secure_rerip_dynamic":
+                    value = not value  # the box reads "verify every track"
+                _set_widget_value(widget, value)
+        finally:
+            self._applying_preset = False
+        goal_index = self._goal_combo.findData(goal_presets.detect_goal(source))
+        self._goal_combo.blockSignals(True)
+        self._goal_combo.setCurrentIndex(goal_index if goal_index >= 0 else 0)
+        self._goal_combo.blockSignals(False)
+        self._sync_naming_combo_to_templates()
+        self._refresh_naming_preview()
+        self._update_apply_enabled()
+
+    def _wire_change_tracking(self) -> None:
+        """Re-evaluate Apply whenever any control this dialog owns changes."""
+        for field in fields_homed_in(SETTINGS):
+            widget = getattr(self, SETTING_HOMES[field].control)
+            if isinstance(widget, QCheckBox):
+                widget.toggled.connect(self._update_apply_enabled)
+            elif isinstance(widget, QSpinBox):
+                widget.valueChanged.connect(self._update_apply_enabled)
+            elif isinstance(widget, QComboBox):
+                widget.currentIndexChanged.connect(self._update_apply_enabled)
+            elif isinstance(widget, QLineEdit):
+                widget.textChanged.connect(self._update_apply_enabled)
+        self._update_apply_enabled()
+
+    def _update_apply_enabled(self) -> None:
+        if self._apply_button is not None:
+            self._apply_button.setEnabled(self.has_unapplied_edits())
+
+    def _on_apply_clicked(self) -> None:
+        """Apply: the same refusal as OK, then ask the window to save."""
+        if self._blocking_issues():
+            return
+        self.apply_requested.emit()
 
     # --- Internals ---------------------------------------------------------
 
@@ -1125,18 +1075,40 @@ class SettingsDialog(CenteredDialog):
         """OK pressed. Refuse to save while any input is a hard error — show the
         errors, mark the fields, and log them (so a bug report carries them).
         Warnings don't block. A clean/valid dialog accepts exactly as before."""
-        issues = settings_validation.validate_config(self.to_config())
+        if self._blocking_issues():
+            return  # keep the dialog open until the errors are fixed
+        super().accept()
+
+    def _own_issues(self) -> list[ValidationIssue]:
+        """Validation issues for the settings THIS dialog edits.
+
+        A problem with a setting homed elsewhere (a startup script that has
+        since been deleted, say) is not shown here and does not block OK: the
+        user cannot fix it in this window, and a dialog that refused to save
+        over something it does not display would be a trap. Its own window
+        validates it where it is edited.
+        """
+        owned = fields_homed_in(SETTINGS)
+        return [
+            issue
+            for issue in settings_validation.validate_config(self.to_config())
+            if issue.field in owned
+        ]
+
+    def _blocking_issues(self) -> bool:
+        """Show and log any hard error; True when saving must be refused."""
+        issues = self._own_issues()
         if settings_validation.errors_only(issues):
             settings_validation.log_issues(issues)
             self._render_validation(issues)
-            return  # keep the dialog open until the errors are fixed
-        super().accept()
+            return True
+        return False
 
     def _revalidate(self) -> None:
         """Validate the current widget state and show any issues inline. Cheap
         enough to run on every keystroke (a pure function + a couple of stat
         calls), which is what makes the error visible *during* the change."""
-        self._render_validation(settings_validation.validate_config(self.to_config()))
+        self._render_validation(self._own_issues())
 
     def _render_validation(self, issues: list[ValidationIssue]) -> None:
         """Paint the validation state: mark offending fields and fill the banner.
@@ -1309,21 +1281,11 @@ class SettingsDialog(CenteredDialog):
         return edit, row
 
     def _build_file_row(
-        self,
-        initial_path: str,
-        accessible_name: str,
-        extra_buttons: Sequence[QPushButton] = (),
+        self, initial_path: str, accessible_name: str
     ) -> tuple[QLineEdit, QWidget]:
         """Build a row: QLineEdit + 'Browse…' button (for an executable).
 
         Same accessible-name reasoning as `_build_dir_row`.
-
-        ``extra_buttons`` are appended after Browse. They are passed IN rather
-        than added by the caller afterwards because `QWidget.layout()` is typed
-        `QLayout | None` — a caller reaching back through it either writes an
-        assertion it cannot justify or silences the checker, and Critical rule
-        #10 says not to weaken a type to make a checker pass. Here the layout is
-        in scope and known non-None, so the seam is typed honestly.
         """
         row = QWidget(self)
         layout = QHBoxLayout(row)
@@ -1337,9 +1299,6 @@ class SettingsDialog(CenteredDialog):
 
         layout.addWidget(edit, stretch=1)
         layout.addWidget(button)
-        for extra in extra_buttons:
-            extra.setParent(row)
-            layout.addWidget(extra)
         return edit, row
 
     def _pick_directory(self, edit: QLineEdit) -> None:
@@ -1352,30 +1311,25 @@ class SettingsDialog(CenteredDialog):
         if path:
             edit.setText(path)
 
-    def _use_builtin_acceptance_script(self) -> None:
-        """Point the Test script field at the acceptance batch we ship.
 
-        **Says why when it cannot.** `builtin_acceptance_script` returns a
-        *reason* alongside the path precisely so a missing file produces a
-        sentence rather than a field that silently stays empty — a build whose
-        package data did not make it in is a real failure mode (it is one
-        `pyproject.toml` line), and "nothing happened when I clicked" is the
-        least diagnosable way to report it.
+def _set_widget_value(widget: QWidget, value: object) -> None:
+    """Put ``value`` into a value control, whatever kind it is.
 
-        PlainText on the message box, because the reason embeds a filesystem
-        path and Qt's default `AutoText` would try to interpret a path
-        containing `<` as markup and swallow it (Critical rule #12, inbound
-        half).
-        """
-        path, reason = builtin_acceptance_script()
-        if path is None:
-            log.error("the built-in acceptance script is unavailable: %s", reason)
-            box = QMessageBox(self)
-            box.setIcon(QMessageBox.Icon.Warning)
-            box.setWindowTitle("Built-in test script unavailable")
-            box.setTextFormat(Qt.TextFormat.PlainText)
-            box.setText(reason)
-            box.exec()
-            return
-        log.info("test script set to the built-in acceptance batch: %s", path)
-        self._test_script_edit.setText(str(path))
+    A combo is matched on its item DATA (the stored config value), never on its
+    label; a value no item carries leaves the combo where it is and is logged,
+    rather than silently selecting row 0.
+    """
+    if isinstance(widget, QCheckBox):
+        widget.setChecked(bool(value))
+    elif isinstance(widget, QSpinBox):
+        widget.setValue(int(value))  # type: ignore[call-overload]  # an int field, by the home table
+    elif isinstance(widget, QComboBox):
+        index = widget.findData(value)
+        if index >= 0:
+            widget.setCurrentIndex(index)
+        else:
+            log.warning("settings: no option carries %r; left as it was", value)
+    elif isinstance(widget, QLineEdit):
+        widget.setText(str(value))
+    else:
+        log.error("settings: cannot set a %s", type(widget).__name__)

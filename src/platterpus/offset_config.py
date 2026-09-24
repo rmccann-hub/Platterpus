@@ -159,10 +159,26 @@ def read_drive_offsets(
 def describe_conf_offsets(conf_path: Path = WHIPPER_CONFIG_PATH) -> str:
     """A one-line, human summary of whipper.conf's per-drive read offsets.
 
-    Used by the Settings dialog and `--doctor` to show what whipper will apply,
-    rather than the GUI's stored copy. Never raises.
+    Used by the drive-setup wizard and `--doctor` to show what whipper would
+    apply, rather than the GUI's stored copy. Never raises.
     """
     offsets = read_drive_offsets(conf_path)
     if not offsets:
         return "none set"
     return "; ".join(f"{o.drive} → {o.offset:+d}" for o in offsets)
+
+
+def describe_applied_offset(read_offset: int, override_read_offset: bool) -> str:
+    """What the next rip does with the read offset, in one line. Pure.
+
+    Shared by Settings (which shows it read-only) and Setup & Updates (beside
+    *Set up drive…*), so the two can never word the same fact differently. The
+    offset has ONE home, the drive-setup wizard, and these are views of it.
+
+    It states only what the config says. "Not applied" is not "zero": with the
+    tick-box off no ``-s`` reaches cyanrip at all, which for most drives is not
+    bit-perfect, so the sentence says that rather than showing a bare ``+0``.
+    """
+    if override_read_offset:
+        return f"{read_offset:+d} samples, applied to every rip"
+    return "not applied: no read offset is passed to the ripper"

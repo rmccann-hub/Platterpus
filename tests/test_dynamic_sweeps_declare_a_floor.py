@@ -54,6 +54,17 @@ _NO_FLOOR: Final[str] = "NO FLOOR NEEDED:"
 #: genuinely cannot be floored, say why here in place of a test name — but a
 #: population that cannot state a minimum is usually one nobody has counted.
 _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
+    # Added 2026-09-24 with the one-home-per-setting gate. Both parametrize over
+    # `sorted(WINDOW_PATHS)`, the windows that edit settings, so an emptied table
+    # would build no window and report the converse ("no second editor anywhere")
+    # green having looked at nothing. The floor pins the four homes by name.
+    "test_setting_homes.py::test_each_home_control_exists_in_its_window": (
+        "test_the_window_sweep_has_the_four_homes_to_sweep"
+    ),
+    "test_setting_homes.py::"
+    "test_no_window_carries_a_value_control_the_table_cannot_account_for": (
+        "test_the_window_sweep_has_the_four_homes_to_sweep"
+    ),
     # Added 2026-09-14 with round 18's token rename. Parametrizes over
     # `_AGREED.values()` — the seven agreed concepts — so an emptied or shrunken
     # table would generate fewer cases, or none, while still reporting green. The
