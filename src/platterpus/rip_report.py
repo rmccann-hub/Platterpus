@@ -492,7 +492,10 @@ def _final_partial_summary(rip_log: object) -> str | None:
     """
     parsed = getattr(rip_log, "partially_accurate_summary", "") or None
     try:
-        from platterpus.parsers.cyanrip_log import render_partially_accurate_summary
+        from platterpus.parsers.cyanrip_log import (
+            partial_summary_denominator,
+            render_partially_accurate_summary,
+        )
         from platterpus.verdict import accuraterip_counts
 
         reported = str(getattr(rip_log, "partially_accurate_reported", "") or "")
@@ -507,7 +510,13 @@ def _final_partial_summary(rip_log: object) -> str | None:
             # the footnote for those logs; `tests/test_ui_rip_progress.py` caught it.)
             return parsed
         _total, _verified, partial = accuraterip_counts(rip_log)
-        disc_tracks = len(getattr(rip_log, "tracks", ()) or ())
+        # The parser's own rule for the disc's track count — a cancel shrinks the
+        # track list, so `len(tracks)` alone gave "0 of 0" on a 14-track disc.
+        total = getattr(rip_log, "rip_completed_total", None)
+        disc_tracks = partial_summary_denominator(
+            total if isinstance(total, int) else None,
+            len(getattr(rip_log, "tracks", ()) or ()),
+        )
         recomputed = render_partially_accurate_summary(reported, partial, disc_tracks)
         # An empty render means the renderer declined (a malformed fraction). Keep
         # the parser's sentence rather than dropping the line.
@@ -1977,14 +1986,22 @@ def _issues(
                 ctdb.get("message") or "the CTDB check could not be completed",
             )
 
+    # NOT on a rip that never finished with no track measured unstable. The ladder
+    # marks a failed pass `unresolved` on purpose (a hard failure is not a clean
+    # read), but "instability remained after the automatic re-rip" is then a claim
+    # about a re-rip that never ran over reads nobody measured: the 2026-09-24
+    # section F rip was killed 95 s in and its report said exactly that. The
+    # failure is already `rip_failed`; this line would only mislead.
+    unfinished = (outcome or {}).get("status") in UNFINISHED_RIP_STATUSES
     if read_speed and read_speed.get("unresolved"):
         unstable = read_speed.get("unstable_tracks") or []
         tail = f" (track(s) {', '.join(str(t) for t in unstable)})" if unstable else ""
-        add(
-            "warning",
-            "read_unstable",
-            f"read instability remained after the automatic re-rip{tail}",
-        )
+        if unstable or not unfinished:
+            add(
+                "warning",
+                "read_unstable",
+                f"read instability remained after the automatic re-rip{tail}",
+            )
 
     # Read-effort early warning: tracks that needed unusually heavy re-reading
     # (or a -Z secure re-read that never converged) even if they ultimately

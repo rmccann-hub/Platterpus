@@ -3208,6 +3208,28 @@ The four defects below are ours. Each is a fact we held and did not use.
    window is named with *"no picture: not on screen"*. The dialogs are freed after
    use, and per-rip bundles go to the session's `ripbundles/`.
 
+**The second reading, with the fork's lap 4, found two more, and neither was in
+any failure.** Both came from reading the artifacts rather than the verdicts:
+
+5. **Every track row said "⟳ Ripping" after "Done — all 14 tracks ripped
+   cleanly".** The rip worker matched a finished track with its own copy of the
+   pattern, and that copy knew only the `<= .13` wording. The parser had learned
+   `Track N read successfully!` in the same change that introduced it (`.14`); the
+   second copy had not. So on our pinned build the "Done" mark never arrived, the
+   overall bar lagged, and **the per-track partial report, the one record that
+   survives a SIGKILL, was never written.** Nothing failed, because no assertion
+   read the row status and no test fed the worker the new line. The worker now
+   reads the parser's pattern. The lesson is §5.o at the scale of one regex:
+   **a second copy of a pattern does not learn a new wording.**
+6. **One track held wrong audio and passed as "partially accurate".** Section J's
+   track 1, ripped straight after the cancel, is `0E91CD1A`. The five other rips of
+   that track all read `B0D122E7`, an exact AccurateRip match. Only `Accurip 450`
+   matched, and that checksum covers **one frame**
+   (`cyanrip@df91ae7:src/checksums.h:74-78`). We accepted it because the run had
+   turned offset-variant re-reads off, which is also our default, and our report
+   called it *"an offset-variant pressing"*, a cause nothing measured. It is a check
+   whose name claims more than it covers. Queued for the next round, on both sides.
+
 The general rule, and the reason it is here rather than only in the log: **when a
 failure's cause is outside us, what we owe the user is an accurate account of what
 we saw, and we had all of it.** "No diagnosis was captured" was not modest; it was

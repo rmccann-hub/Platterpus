@@ -44,7 +44,11 @@ from hypothesis import strategies as st
 from platterpus.deps.ripper_manifest import parse_manifest
 from platterpus.parsers.cd_info import DiscInfo, parse_cd_info
 from platterpus.parsers.cyanrip_info import parse_cyanrip_info
-from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
+from platterpus.parsers.cyanrip_log import (
+    finished_track,
+    looks_like_cyanrip_log,
+    parse_cyanrip_log,
+)
 from platterpus.parsers.drive_list import DriveDescriptor, parse_drive_list
 from platterpus.parsers.eac_log import looks_like_eac_log, parse_eac_copy_crcs
 from platterpus.parsers.rip_log import RipLog, parse_rip_log
@@ -164,6 +168,27 @@ _any_text = st.one_of(st.text(max_size=2000), _noisy_text)
 
 
 # --- Invariant 1: never raises, always returns the right type -------------
+
+
+@_SETTINGS
+@given(
+    st.one_of(
+        _any_text,
+        st.builds(
+            "Track {} {}".format,
+            st.text(max_size=8000),
+            st.sampled_from(
+                ["read successfully!", "read with errors.", "is data:", "ripped"]
+            ),
+        ),
+    )
+)
+def test_finished_track_never_raises(text: str) -> None:
+    """The live track-done reader over any line, including a 5000-digit number."""
+    result = finished_track(text)
+    assert result is None or (
+        isinstance(result[0], int) and isinstance(result[1], bool)
+    )
 
 
 @_SETTINGS

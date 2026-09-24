@@ -140,6 +140,22 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
   bundles outside the session folder.
 - [ ] **What stopped the container** (operator): `podman events` / `journalctl` for
   2026-09-23 21:15:30–21:16:30 local; nothing we capture can say.
+- [x] **Round 26 lap 4 filed** (their `GO`, sha256 `7a56b1d2…`); every checkable claim
+  re-derived. The bundle is filed as `docs/handshake/artifactsround26/`, 40 of 46 blob-identical
+  to theirs. Their nit is fixed ("0 of 0" → "0 of 14"), plus two more of ours from the second
+  reading: the live track-done matcher that missed `.14`, and "read-unstable" on a killed rip.
+- [~] **Our round 26 lap 5: `GO` on `df91ae7`, written and HELD.** On the maintainer's word:
+  `--announce`, and in the SAME commit roll `FORK_PIN` → `df91ae7` and move the approval
+  record to round 26, because our gate reads the round CLOSED from that commit. Then PR,
+  merge, and 0.6.56 after their `.16`, before their round 27 lap 1, or it needs a §6b.
+- [ ] **`Accurip 450` is one frame** (NEXT-ROUND, both sides): section J's track 1 had wrong
+  audio and passed as "partially accurate". Say what matched, stop calling it a pressing, and
+  decide whether offset-variant re-reads should default ON (maintainer's call: `rerip_offset_variant`
+  is `False` today).
+- [ ] **Our `rig-check` paranoia ratio sums all four counters**; `READ` alone is the re-read
+  witness (fork's 3.02 against our 2.87 on the same log). NEXT-ROUND.
+- [ ] **Answer the fork's loudness finding** (`cancel-me.log:75`: "Album" loudness over a
+  partial read) with the rows we parse listed, in round 27.
 - [ ] **Re-run F (or the whole script)** on the next release. F's fast whole-disc path is
   untested by the 2026-09-24 run, and that path is F's whole purpose.
 - [ ] **Each side's reading, then the closing laps**; at the close, roll `FORK_PIN` to
