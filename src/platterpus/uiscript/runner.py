@@ -3403,6 +3403,14 @@ class ScriptRunner(QObject):
                 saver(candidate)
             except OSError as exc:
                 saved = f" (in effect for this session; not saved to disk: {exc})"
+        # And every open window that SHOWS a setting re-renders from the new
+        # config — Setup & Updates' channels and offset, the console's own script
+        # options. Without this they kept showing the value the script had just
+        # replaced until reopened (found 2026-09-24). The window's one refresh,
+        # called rather than restated, so a new view is added in one place.
+        refresh = getattr(self._window, "_refresh_setting_views", None)
+        if callable(refresh):
+            refresh()
         self._record(step, Outcome.PASS, f"{field} = {coerced!r}{saved}")
 
     def _do_expect_ripper_under_review(self, step: Step) -> None:

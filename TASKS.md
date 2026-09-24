@@ -143,8 +143,8 @@ laps (ours rolls `FORK_PIN` to `df91ae7`, theirs is `+platterpus.16`). Opened BE
 by a recorded operator override of R8 point 3, because our acceptance run can only demand
 `.15` once a lap of theirs names it. Every mechanism claim in it checked against our tree.
 
-- [ ] **PLANNED FOR THE RELEASE AFTER 0.6.58 (maintainer, 2026-09-24): an open window follows a
-  setting changed elsewhere.** The gap as found: with the script console or Setup & Updates open,
+- [x] **DONE for 0.6.59 (planned by the maintainer, 2026-09-24): an open window follows a
+  setting changed elsewhere.** Built as planned below; three reverts probed, three detected. The gap as found: with the script console or Setup & Updates open,
   a script's `set` changes the setting and saves it, but neither window's tick-boxes move, so
   they show a value no longer in force until reopened. **Correction to what was said on
   2026-09-24:** Setup & Updates does NOT follow a script `set` either — `ScriptRunner._do_set`
@@ -157,8 +157,9 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
   never look like a click; (3) the misnamed test is renamed and a real one added that runs the
   `set` verb against an open console and an open Setup & Updates, revert-probed. Small; no
   behaviour change beyond the display.
-- [ ] **PLANNED FOR THE NEXT RELEASE, pending the maintainer's OK: the `ripping` container dies
-  with whichever app or terminal started it.** Found 2026-09-24 in the maintainer's journal for
+- [x] **DONE for 0.6.59 (the maintainer's OK, 2026-09-24): the `ripping` container dies
+  with whichever app or terminal started it.** Fixed in `container_scope.py`: the variable is
+  removed at startup, and `--doctor` names the owner. The rig check confirmed both cases first. Found 2026-09-24 in the maintainer's journal for
   the 2026-09-23 section F kill (exit 137, 95 s into the rip). **Measured:**
   - podman logged no `stop` or `kill` event, only `died`, so no podman or distrobox command
     stopped the container;

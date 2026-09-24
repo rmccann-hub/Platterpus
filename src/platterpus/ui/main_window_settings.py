@@ -106,12 +106,16 @@ class SettingsMixin(MainWindowShared):
         """Re-render the open windows that SHOW a setting another window edits.
 
         Setup & Updates shows the read offset beside Set up drive…, and its
-        channel boxes must follow a change made by a script's ``set``. Cheap:
-        text from values already in memory, no probe.
+        channel boxes must follow a change made by a script's ``set``; so must the
+        console's script options, which are homed in the console. Cheap: text
+        from values already in memory, no probe.
         """
         center = self._setup_center
         if center is not None:
             center.refresh_settings(self._config)
+        console = self._script_console
+        if console is not None:
+            console.refresh_settings(self._config)
 
     def _on_offset_applied_changed(self, applied: bool) -> None:
         """The drive wizard's "Apply this read offset to every rip" tick-box."""

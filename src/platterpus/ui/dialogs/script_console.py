@@ -72,6 +72,7 @@ from platterpus.uiscript.verbs import verb_reference
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from platterpus.config import Config
     from platterpus.user_settings import SettingWrite
 
 log = logging.getLogger(__name__)
@@ -272,6 +273,10 @@ class ScriptConsoleDialog(CenteredDialog):
             # A saved path is a statement of intent: load it, but say so in the
             # transcript rather than silently replacing what the user sees.
             self._load_path(Path(script_path).expanduser(), announce=True)
+
+    def refresh_settings(self, config: Config) -> None:
+        """Show ``config``'s script options; the window calls it when they change."""
+        self._script_settings.refresh_settings(config)
 
     def _on_startup_script_saved(self, path: str) -> None:
         """A new startup script was saved: load it only if that discards nothing.

@@ -48,6 +48,7 @@ from platterpus.ui.accessibility import announce
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from platterpus.config import Config
     from platterpus.user_settings import SettingWrite
 
 log = logging.getLogger(__name__)
@@ -157,6 +158,22 @@ class ScriptSettingsBox(QGroupBox):
         self._status.setWordWrap(True)
         self._status.setAccessibleName("Script settings status")
         box.addWidget(self._status)
+
+    def refresh_settings(self, config: Config) -> None:
+        """Show ``config``'s three script settings. Changes nothing.
+
+        Called by the window when one of them changed elsewhere (a script's
+        ``set``), so the boxes never show a value no longer in force. Signals are
+        blocked: re-rendering must not look like a click and save again.
+        """
+        for box, value in (
+            (self.autorun_check, config.test_script_autorun),
+            (self.unsafe_check, config.test_script_allow_unsafe),
+        ):
+            box.blockSignals(True)
+            box.setChecked(bool(value))
+            box.blockSignals(False)
+        self.startup_script_edit.setText(config.test_script_path)
 
     # --- Saving -------------------------------------------------------------
 

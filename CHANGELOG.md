@@ -21,6 +21,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   starts now runs on its own, so closing any window leaves it running.
   `platterpus --doctor` now says which app or terminal owns the container, since one
   started from a terminal still stops when that terminal closes.
+- **An open window now follows a setting a test script changes.** When a script's `set`
+  changed an update channel or one of the console's own script options, an open Setup &
+  Updates window or console kept showing the old value until it was reopened. Both now
+  update straight away, without saving anything a second time.
 
 ### Changed
 
