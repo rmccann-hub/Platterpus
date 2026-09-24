@@ -41,6 +41,7 @@ from platterpus.report_types import (
     TimingBlock,
 )
 from platterpus.ripper_identity import RipperIdentity, identify_ripper
+from platterpus.user_settings import user_settings
 from platterpus.verdict import accuraterip_verdict
 
 log = logging.getLogger(__name__)
@@ -222,7 +223,15 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     separate claims and only the first was recorded. The comparison is what makes
 #     either number more than a record — it also checks `-N` really suppressed the
 #     ripper's own lookup (Critical rule #5) at the artifact instead of on trust.
-REPORT_SCHEMA_VERSION: int = 24
+# v25: `settings.every_setting` — EVERY user setting the rip ran under, derived from
+#     the `Config` dataclass (all fields but the app's own bookkeeping), not listed
+#     by hand. The block above it names the dozen fields that shape the rip; this one
+#     is the double check the maintainer asked for (2026-09-23: *"the test should
+#     report all to you moving forward… with all setting flag possible"*). A setting
+#     added tomorrow appears here tomorrow, instead of whenever somebody remembers to
+#     add it to a list — the hand-kept list is exactly what let `library_dir`,
+#     `notify_on_completion` and eleven others go unrecorded.
+REPORT_SCHEMA_VERSION: int = 25
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -739,6 +748,11 @@ def build_settings(config: object, *, read_offset_effective: int | None = None) 
             "applied": applied,
             "effective": read_offset_effective,
         },
+        # v25: every user setting, derived rather than listed — see the schema
+        # history above `REPORT_SCHEMA_VERSION`. The fields above are the rip's
+        # shape, interpreted; this is the whole configuration, verbatim, so a
+        # reader never has to ask which settings a rip ran under.
+        "every_setting": user_settings(config),
     }
     # MP3's VBR quality is only meaningful when MP3 is the chosen output.
     if fmt == "mp3":

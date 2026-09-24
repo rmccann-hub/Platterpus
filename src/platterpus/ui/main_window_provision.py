@@ -928,6 +928,7 @@ class ProvisioningMixin(MainWindowShared):
         facts: dict[str, str] = {}
         transcript = ""
         artifact_dir: Path | None = None
+        settings_record = ""
         try:
             facts["sleep lock"] = self._acceptance_inhibit_note or "not determined"
             script = self._acceptance_script
@@ -949,6 +950,12 @@ class ProvisioningMixin(MainWindowShared):
             self._acceptance_run_verdict = self._acceptance_run_headline(report)
             facts["run outcome"] = self._acceptance_run_verdict
             artifact_dir = self._acceptance_artifact_dir(report)
+            from platterpus.user_settings import settings_record_text
+
+            # Before the restore below: afterwards `_config` is the user again.
+            settings_record = settings_record_text(
+                self._acceptance_user_config, self._config
+            )
         finally:
             self._release_acceptance_inhibitor()
             # After the facts are read (they describe the run's own settings) and
@@ -992,7 +999,11 @@ class ProvisioningMixin(MainWindowShared):
             return
 
         self._launch_acceptance_bundle(
-            layout, transcript=transcript, facts=facts, artifact_dir=artifact_dir
+            layout,
+            transcript=transcript,
+            facts=facts,
+            artifact_dir=artifact_dir,
+            settings_record=settings_record,
         )
 
     def _announce_run_with_nothing_to_send(
@@ -1166,6 +1177,7 @@ class ProvisioningMixin(MainWindowShared):
         transcript: str,
         facts: dict[str, str],
         artifact_dir: Path | None,
+        settings_record: str = "",
     ) -> None:
         """Pack the session into ONE file, on a daemon thread.
 
@@ -1253,7 +1265,16 @@ class ProvisioningMixin(MainWindowShared):
                     outcome="acceptance test session",
                     facts=facts,
                     album_dirs=albums,
-                    embedded_text={"DIAGNOSTICS.txt": diagnostics},
+                    embedded_text={
+                        "DIAGNOSTICS.txt": diagnostics,
+                        # Every user setting before and at the end of the run —
+                        # the bundle's config.toml is read after the restore.
+                        **(
+                            {"SETTINGS.json": settings_record}
+                            if settings_record
+                            else {}
+                        ),
+                    },
                 )
             except Exception as exc:  # noqa: BLE001 — must never crash the session
                 log.exception("could not pack the acceptance session")
@@ -1375,18 +1396,13 @@ class ProvisioningMixin(MainWindowShared):
         self._acceptance_user_config = None
         if saved is None:
             return []
-        from platterpus.config import APP_STATE_FIELDS
+        from platterpus.user_settings import changed_settings
 
         # The user's SETTINGS only. The app's own bookkeeping moves on during a
         # run for real reasons (a first-run offer made and answered), and putting
         # the old value back would re-ask a question the user already answered —
         # the first version of this did exactly that with `host_setup_prompted`.
-        changed = [
-            field.name
-            for field in dataclasses.fields(saved)
-            if field.name not in APP_STATE_FIELDS
-            and getattr(saved, field.name) != getattr(self._config, field.name)
-        ]
+        changed = changed_settings(saved, self._config)
         restored = dataclasses.replace(
             self._config, **{name: getattr(saved, name) for name in changed}
         )
