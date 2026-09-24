@@ -10,7 +10,7 @@ GPL-2.0-only `python-cuetoolsdb`.
 What this module owns:
   * `DiscToc` — the track offsets + lead-out that identify a disc to CTDB.
   * Building the `toc=` query string CTDB's `lookup2.php` expects.
-  * Deriving a `DiscToc` from a whipper-written `.cue` plus the FLAC files
+  * Deriving a `DiscToc` from a rip's `.cue` plus the FLAC files
     (track lengths come from `metaflac`, which we already depend on).
 
 ⚠️ HARDWARE-VALIDATION GATE (KDD-16): the exact `toc=` wire format — in
@@ -107,7 +107,8 @@ _INDEX01_RE = re.compile(
 def parse_cue_index01_sectors(cue_text: str) -> list[int]:
     """Return each track's INDEX 01 start as absolute sectors (lead-in added).
 
-    whipper writes one `FILE`/`TRACK`/`INDEX 01` block per track; for a
+    A file-per-track `.cue` (the shape the previous backend wrote) has one
+    `FILE`/`TRACK`/`INDEX 01` block per track; for a
     file-per-track rip the INDEX 01 times are relative to each file (usually
     00:00:00), so callers that need cumulative offsets should prefer
     `disc_toc_from_files` which sums real track lengths. This parser is used

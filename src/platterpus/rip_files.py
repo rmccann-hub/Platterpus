@@ -140,7 +140,7 @@ def declared_names(rip_log: object) -> tuple[str, ...]:
         # on some platforms; drop the entry rather than risk it.
         if not raw.strip() or "\x00" in raw:
             continue
-        # Accept both separators: a whipper log written on another platform (or a
+        # Accept both separators: a legacy-format log written on another platform (or a
         # hand-edited one) can carry backslashes, which POSIX Path treats as part
         # of the name and would leave a directory component embedded in it.
         name = raw.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1].strip()

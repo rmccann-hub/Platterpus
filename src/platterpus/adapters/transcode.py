@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Post-rip transcode of the rip's FLAC output to MP3, WavPack, or WAV.
 
-Both backends always rip to FLAC (whipper is FLAC-only; the cyanrip path is
-invoked with ``-o flac``). When the user picks a different output format, the GUI
-keeps that FLAC as the archival master and **derives** the chosen format from it
-with a post-rip ffmpeg re-encode — this adapter. One uniform path for both
-backends means the MP3 is always best-practice VBR (cyanrip's *native* MP3 is
-only CBR), and there is always a lossless FLAC master (the north star).
+The ripper always rips to FLAC (cyanrip is invoked with ``-o flac``). When the
+user picks a different output format, the GUI keeps that FLAC as the archival
+master and **derives** the chosen format from it with a post-rip ffmpeg
+re-encode — this adapter. One uniform path, independent of the backend, means
+the MP3 is always best-practice VBR (cyanrip's *native* MP3 is only CBR), and
+there is always a lossless FLAC master (the north star).
 Design of record: ``docs/archive/mp3-wav-support-2026-06.md`` (archived once
 multi-format shipped, so the path moved — the content did not).
 

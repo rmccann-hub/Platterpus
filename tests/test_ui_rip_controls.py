@@ -196,7 +196,7 @@ def test_start_in_unknown_mode_sets_unknown_flag(
     controls._start_button.click()
 
     assert captured[0].unknown is True
-    # release_id is "" when not set; whipper's --unknown supersedes it.
+    # release_id is "" when not set; unknown mode supersedes it.
     assert captured[0].release_id == ""
 
 

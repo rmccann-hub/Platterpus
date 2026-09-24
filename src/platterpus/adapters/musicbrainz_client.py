@@ -74,7 +74,7 @@ class MusicBrainzQueryError(Exception):
 
 @dataclass(frozen=True)
 class TocSignature:
-    """Whipper-derived TOC for MusicBrainz lookup.
+    """A disc's table of contents, for a MusicBrainz TOC lookup.
 
     `track_offsets` has length == last_track. Each value is the start
     sector of the corresponding track on the disc. MusicBrainz's TOC

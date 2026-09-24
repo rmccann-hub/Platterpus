@@ -380,8 +380,8 @@ build cannot be ordered against numbered ones.
 ## Uninstalling (Tools → Uninstall Platterpus)
 
 Removes everything the app installed: shortcuts, the cyanrip/metaflac/flac
-commands, the ripping container, optionally a legacy `whipper.conf` and the
-AppImage file, and the app's own settings and logs. **Your music is never
+commands, the ripping container, optionally the leftovers of older versions and
+the AppImage file, and the app's own settings and logs. **Your music is never
 touched**, and Distrobox/podman stay installed (other containers keep working).
 You'll confirm before anything is removed.
 
@@ -399,9 +399,7 @@ and applied to every rip (cyanrip's read-offset option). Do this once per drive.
 This window is the one place the offset is changed; Settings only shows it. Below
 the number is **Apply this read offset to every rip**, which saving an offset
 turns on. Unticking it takes effect at once and means no read offset reaches the
-ripper at all, which for most drives is *not* bit-perfect. Beneath that, any read
-offset left in an old `whipper.conf` is shown for reference; cyanrip never reads
-that file.
+ripper at all, which for most drives is *not* bit-perfect.
 
 The disc panel shows a **Read offset** line for the selected drive telling you
 *where* the offset came from and how confident we are — looked up from the

@@ -59,7 +59,7 @@ def test_worker_emits_finished_with_disc_info(qapp: QApplication) -> None:
     assert got == [("/dev/sr0", info)]
 
 
-def test_worker_routes_whipper_error_to_failed(qapp: QApplication) -> None:
+def test_worker_routes_rip_error_to_failed(qapp: QApplication) -> None:
     worker = DiscInfoWorker(_Backend(exc=RipError("no disc")), "/dev/sr0")
     failed: list[tuple[str, str]] = []
     worker.failed.connect(lambda device, msg: failed.append((device, msg)))

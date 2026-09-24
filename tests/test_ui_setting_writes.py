@@ -99,29 +99,6 @@ def test_saving_an_offset_ticks_the_box_without_a_second_change(
     assert applied == [], "Save emitted a redundant apply change"
 
 
-def test_the_legacy_whipper_line_is_shown_only_when_there_is_one(
-    qapp: QApplication, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """It moved with the offset, and stopped printing "none set" to everyone."""
-    from platterpus import offset_config
-    from platterpus.offset_config import WhipperConfOffset
-
-    monkeypatch.setattr(offset_config, "read_drive_offsets", lambda *a: [])
-    dialog = DriveSetupDialog(_StubBackend(), "/dev/sr0")
-    assert dialog._legacy_offset_label.isHidden() is True
-
-    found = [WhipperConfOffset(drive="PIONEER:BDR-209D:1.10", offset=667)]
-    monkeypatch.setattr(offset_config, "read_drive_offsets", lambda *a: found)
-    monkeypatch.setattr(
-        offset_config, "describe_conf_offsets", lambda *a: "PIONEER:BDR-209D → +667"
-    )
-    shown = DriveSetupDialog(_StubBackend(), "/dev/sr0")
-    assert shown._legacy_offset_label.isHidden() is False
-    assert "whipper.conf" in shown._legacy_offset_label.text()
-    assert "+667" in shown._legacy_offset_label.text()
-    assert shown._legacy_offset_label.textFormat() == Qt.TextFormat.PlainText
-
-
 def test_the_window_writes_the_apply_box_and_saves(make_window: Any) -> None:
     saved: list[bool] = []
     window = make_window(

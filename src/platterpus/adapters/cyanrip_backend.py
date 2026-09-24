@@ -4,7 +4,7 @@ Why (KDD-18, docs/cyanrip-fork.md): cyanrip is the sole backend
 because it's better in essentially every situation. It's actively maintained
 (C/FFmpeg), applies the read offset itself via ``-s`` with its own paranoia (so
 it has *no* >587 cd-paranoia bug — exactly the range the tested Pioneer
-BDR-209D needs at +667, which the old whipper backend failed on hardware), maxes
+BDR-209D needs at +667, which the previous backend failed on hardware), maxes
 FLAC compression, offers ``-Z`` re-rip-until-match, and does AccurateRip v1/v2 +
 EAC CRC. It sits behind the RipBackend ABC and ripping routes through a
 host-exported binary (Critical Rule #3).
@@ -133,8 +133,8 @@ class CyanripImpl(RipBackend):
         `-N` disables cyanrip's own MusicBrainz lookup: the DiscID and CDDB
         ID are computed locally from the TOC (cyanrip's discid.c), so disc
         identification needs no network — the GUI then does its own
-        host-side MusicBrainz lookup with the returned disc ID, exactly as
-        it does for whipper (Critical Rule #5).
+        host-side MusicBrainz lookup with the returned disc ID (Critical
+        Rule #5).
 
         A failed run (no disc, bad device, dead container) now **raises**
         :class:`RipError` rather than degrading to an empty ``DiscInfo``. It used to
@@ -191,7 +191,7 @@ class CyanripImpl(RipBackend):
         """Build the cyanrip rip argv (pure — unit-tested).
 
         Maps the backend-neutral params to cyanrip flags. cyanrip needs the
-        read offset every run (it has no whipper.conf), so we always pass
+        read offset every run (it reads no config file of its own), so we always pass
         ``-s`` when we have one — its own paranoia applies it without the
         >587 cd-paranoia bug.
 
@@ -311,7 +311,7 @@ class CyanripImpl(RipBackend):
             argv += ["--consumer", consumer_tag()]
         argv += _disc_args(metadata)
         argv += _metadata_args(metadata, release_id, disc_track_total)
-        # Naming: translate our whipper-style templates to cyanrip schemes.
+        # Naming: translate Platterpus's %-token templates to cyanrip schemes.
         # The directory part (before the last "/") becomes -D, the filename
         # part -F — cyanrip renders {tokens} from the -a/-t tags above and
         # sanitizes tag values, so a "/" typed IN a template still nests
@@ -972,7 +972,7 @@ def _metadata_args(
     Empty fields are skipped; with no usable metadata at all this returns
     [] and cyanrip just rips untagged (the unknown-disc post-tagging path
     still applies). The release MBID is recorded as a plain tag so the rip
-    is traceable to the release the user picked, like whipper's output.
+    is traceable to the release the user picked.
     """
     args: list[str] = []
     album_pairs: list[str] = []
@@ -1063,9 +1063,9 @@ def _metadata_args(
     return args
 
 
-# --- whipper template → cyanrip scheme ---------------------------------------
+# --- Platterpus %-token template → cyanrip scheme ----------------------------
 
-# whipper's path-template tokens → cyanrip's {metadata_key} scheme tokens.
+# Platterpus's %-tokens → cyanrip's {metadata_key} scheme tokens.
 # (cyanrip zero-pads {track} to the disc's width itself, matching %t.)
 _TOKEN_MAP: dict[str, str] = {
     "%A": "{album_artist}",
@@ -1520,7 +1520,7 @@ def _year_token(raw: str) -> str:
 
 
 def scheme_from_template(template: str, *, year: str = "") -> str:
-    """Translate a whipper path template into a cyanrip -D/-F scheme.
+    """Translate a Platterpus %-token path template into a cyanrip -D/-F scheme.
 
     Known %x tokens map per _TOKEN_MAP; an unrecognized %x is kept
     literally (visible in the filename beats silently vanishing). Literal
@@ -1543,7 +1543,7 @@ def scheme_from_template(template: str, *, year: str = "") -> str:
             if token == "%%":
                 # Escaped literal percent: "%%" → a single "%". This matches the
                 # live preview (naming.render_preview collapses "%%"→"%") and the
-                # whipper template semantics the templates come from. cyanrip
+                # %-token template semantics the templates follow. cyanrip
                 # treats "%" as an ordinary character (its substitution syntax is
                 # "{tag}"), so one "%" here yields exactly one "%" in the
                 # filename. Without this branch "%%" fell through to the
@@ -1563,7 +1563,7 @@ def scheme_from_template(template: str, *, year: str = "") -> str:
                 out.append(mapped)
                 i += 2
                 continue
-            log.warning("no cyanrip mapping for whipper token %r — kept", token)
+            log.warning("no cyanrip mapping for template token %r — kept", token)
             out.append(token)
             i += 2
             continue

@@ -3,7 +3,8 @@
 Cases span the five tiers (easy/medium/hard/edge/unexpected per
 docs/testing.md), plus CSV-overlay behaviour, a never-raises property
 test, and a regression test pinning the user's real drive (Pioneer
-BDR-209D → +667) through the exact double-spaced string whipper emits.
+BDR-209D → +667) through the exact double-spaced model string a real drive
+listing reports.
 """
 
 from __future__ import annotations
@@ -41,8 +42,8 @@ def test_normalize_combines_and_uppercases() -> None:  # easy
     assert normalize_drive_name("PIONEER", "BDR-209D") == "PIONEER BDR-209D"
 
 
-def test_normalize_collapses_double_space() -> None:  # medium — whipper's real output
-    # whipper prints "BD-RW  BDR-209D" (two spaces).
+def test_normalize_collapses_double_space() -> None:  # medium — real drive output
+    # A real drive listing reports "BD-RW  BDR-209D" (two spaces).
     assert (
         normalize_drive_name("PIONEER", "BD-RW  BDR-209D") == "PIONEER BD-RW BDR-209D"
     )
@@ -57,11 +58,11 @@ def test_normalize_strips_atapi_prefix() -> None:  # hard
 
 
 def test_normalize_collapses_vendor_model_separator() -> None:  # hard
-    # AccurateRip stores "PIONEER  - BD-RW   BDR-209D"; whipper reports vendor
-    # "PIONEER" + model "BD-RW  BDR-209D". They must normalize identically.
+    # AccurateRip stores "PIONEER  - BD-RW   BDR-209D"; a drive listing reports
+    # vendor "PIONEER" + model "BD-RW  BDR-209D". They must normalize identically.
     accuraterip = normalize_drive_name("", "PIONEER  - BD-RW   BDR-209D")
-    whipper = normalize_drive_name("PIONEER", "BD-RW  BDR-209D")
-    assert accuraterip == whipper == "PIONEER BD-RW BDR-209D"
+    listed = normalize_drive_name("PIONEER", "BD-RW  BDR-209D")
+    assert accuraterip == listed == "PIONEER BD-RW BDR-209D"
 
 
 def test_normalize_strips_leading_dash() -> None:  # edge — vendorless entries
@@ -161,8 +162,8 @@ def test_load_user_csv_skips_malformed_lines(tmp_path: Path) -> None:
 
 
 def test_default_db_knows_user_pioneer_bdr209d() -> None:
-    """Regression: the exact double-spaced string `whipper drive list`
-    emits for the tested Pioneer must resolve to +667 from the shipped
+    """Regression: the exact double-spaced string a drive listing
+    reports for the tested Pioneer must resolve to +667 from the shipped
     table, with no user CSV."""
     db = OffsetDatabase.load_default(user_path=Path("/nonexistent.csv"))
     assert db.lookup("PIONEER", "BD-RW  BDR-209D") == 667

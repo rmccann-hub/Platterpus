@@ -83,9 +83,9 @@ def test_probe_timeout_budgets_for_cold_container() -> None:
     """The launch probe timeout must tolerate a Distrobox container cold-start.
 
     Regression guard (real-user report, Bazzite + BDR-209D, 2026-06-27): the
-    first `whipper --version` of a session starts the `ripping` container, which
-    can take tens of seconds. The old 10s cap made a cold container look like a
-    MISSING whipper at launch and left it cold for the disc scan. Keep this
+    first ripper `--version` probe of a session starts the `ripping` container,
+    which can take tens of seconds. The old 10s cap made a cold container look
+    like a MISSING ripper at launch and left it cold for the disc scan. Keep this
     high enough that the launch probe waits for the container to come up (which
     also warms it for the scan that follows). Native-binary probes return in ms
     regardless, so the larger ceiling only bites a cold-start or a wedged tool.
@@ -485,7 +485,7 @@ def test_check_libdiscid_absent_when_no_variant_loads(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """No SONAME resolves / loads → present=False (the documented default;
-    whipper computes the disc ID in-container, so this is the common case)."""
+    cyanrip computes the disc ID in-container, so this is the common case)."""
     import ctypes
     import ctypes.util
 

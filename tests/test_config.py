@@ -23,17 +23,18 @@ def _redirect_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return config_file
 
 
-def test_config_has_no_whipper_era_fields() -> None:
-    """Regression guard for the whipper removal (KDD-18): the config dataclass
-    must not carry the retired whipper-only fields. If one creeps back, some
-    dead code is reading it — fail here, loudly."""
+def test_config_has_no_retired_backend_fields() -> None:
+    """Regression guard for the previous backend's removal (KDD-18): the config
+    dataclass must not carry the retired fields that only it used. If one creeps
+    back, some dead code is reading it — fail here, loudly."""
     import dataclasses
 
     field_names = {f.name for f in dataclasses.fields(config_module.Config)}
     # NOTE: "force_overread" left this retired set on 2026-07-21 — the name is
     # legitimately back as a LIVE, cyanrip-native field (the Settings
-    # "Overread" toggle → cyanrip -O), not the dead whipper plumbing this
-    # guard exists to catch.
+    # "Overread" toggle → cyanrip -O), not the dead previous-backend plumbing
+    # this guard exists to catch.
+    # These are the real retired key names, so they stay spelled as they were.
     retired = {
         "ripper_backend",
         "whipper_path",
@@ -41,16 +42,18 @@ def test_config_has_no_whipper_era_fields() -> None:
         "keep_going",
     }
     leaked = field_names & retired
-    assert not leaked, f"retired whipper-era config field(s) reappeared: {leaked}"
+    assert not leaked, f"retired backend config field(s) reappeared: {leaked}"
 
 
 def test_load_ignores_unknown_legacy_keys(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """An upgrading user's config.toml still has the old whipper keys; load()
+    """An upgrading user's config.toml still has the previous backend's keys; load()
     must drop them silently rather than choke (mirrors the real 0.4.0→0.4.1
     upgrade, where the log showed 'unknown config keys ignored: …')."""
     config_file = _redirect_config(tmp_path, monkeypatch)
+    # A real pre-0.4.1 config: the key names and the backend value are the ones
+    # older versions actually wrote.
     config_file.write_text(
         'schema_version = 1\nread_offset = 667\nripper_backend = "whipper"\n'
         'whipper_path = "/x"\nkeep_going = true\n',

@@ -4,7 +4,7 @@ Unit tests build MainWindow with fakes; nothing else exercises the actual entry
 point — the composition root in app.py, the real adapters, and a turn of the
 real event loop. This test does, under offscreen Qt, hermetically (fresh empty
 config; the subprocess probe layer + drive listing stubbed, so no real
-whipper/flatpak/container/network).
+cyanrip/flatpak/container/network).
 
 It guards two things unit tests can't:
 
@@ -14,7 +14,7 @@ It guards two things unit tests can't:
    DirectConnection — so the handler (which builds "install this dependency"
    resolver dialogs) ran on the *worker* thread, creating widgets off the GUI
    thread (Qt logged "QObject::setParent: ... in a different thread"). This test
-   stubs the probes so whipper + metaflac report missing → the resolver-dialog
+   stubs the probes so cyanrip + metaflac report missing → the resolver-dialog
    path runs, records the thread it ran on, and fails on any cross-thread Qt
    warning. (Found originally by a manual smoke-run; codified here.)
 """
@@ -47,7 +47,7 @@ def test_app_main_starts_up_clean_on_the_gui_thread(
         "platterpus.logging_setup.configure_logging", lambda *a, **k: None
     )
     # Stub the subprocess probe layer: every version probe "fails", so the
-    # required deps (whipper, metaflac) report missing → the manual resolver
+    # required deps (cyanrip, metaflac) report missing → the manual resolver
     # dialog path runs — exactly where the cross-thread bug lived — with no real
     # subprocess.
     monkeypatch.setattr(

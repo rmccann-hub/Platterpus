@@ -28,7 +28,7 @@ All dependencies, with last upstream release date and replacement plan. Reviewed
 
 > Most rows here are probed by the dependency subsystem (`deps/`). cyanrip is probed (`check_cyanrip`) and is always provisioned by the host-setup wizard (`deps/host_setup.py`).
 >
-> **whipper was removed entirely on 2026-06-30 (KDD-18 amendment) — cyanrip is the sole backend.** The old whipper row is retained below struck-through as the record; nothing installs, exports, or probes whipper anymore.
+> **The ripper Platterpus used before cyanrip was removed entirely on 2026-06-30 (KDD-18 amendment) — cyanrip (the Platterpus fork of cyanrip) is the sole backend.** Its old row is retained below struck-through as the record; nothing installs, exports, reads, or probes it anymore. The uninstaller only removes leftovers from older versions (`~/.local/bin/whipper`, `~/.config/whipper/`) if they are present.
 
 | Name | Where it comes from | Version constraint | Status | Replacement plan |
 |---|---|---|---|---|
@@ -162,4 +162,4 @@ A retirement review is recorded inline below as a dated bullet so future-you can
 
 ---
 
-*Last updated for Platterpus v0.6.56.*
+*Last updated for Platterpus v0.6.57.*

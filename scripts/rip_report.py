@@ -6,7 +6,7 @@ The structured companion to the human `.log` (docs/ux-design-principles.md #2):
 a versioned summary — drive/rip settings, per-track CRCs + AccurateRip results,
 the overall verification verdict — that QA, re-verification, or repair tooling
 can consume. Platterpus writes this automatically beside each rip's log; this
-CLI lets you (re)generate it from any cyanrip/whipper log.
+CLI lets you (re)generate it from any cyanrip or legacy-format log.
 
     python3 scripts/rip_report.py ~/Music/rips/Album/Album.log
     python3 scripts/rip_report.py Album.log -o Album.platterpus.json
@@ -28,7 +28,7 @@ from platterpus.parsers.rip_log import RipLog, parse_rip_log
 
 
 def _parse_to_rip_log(text: str) -> RipLog:
-    """Parse a cyanrip or whipper log into a RipLog (auto-detected)."""
+    """Parse a cyanrip or legacy-format log into a RipLog (auto-detected)."""
     if looks_like_cyanrip_log(text):
         return parse_cyanrip_log(text)
     return parse_rip_log(text)
@@ -36,9 +36,9 @@ def _parse_to_rip_log(text: str) -> RipLog:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Emit the JSON rip report for a cyanrip/whipper rip log."
+        description="Emit the JSON rip report for a cyanrip or legacy-format rip log."
     )
-    parser.add_argument("rip_log", type=Path, help="a cyanrip or whipper rip log")
+    parser.add_argument("rip_log", type=Path, help="a cyanrip or legacy-format rip log")
     parser.add_argument(
         "-o", "--output", type=Path, default=None, help="write here instead of stdout"
     )
@@ -58,13 +58,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{args.rip_log} is empty or unreadable", file=sys.stderr)
         return 2
 
-    # This report is built from a cyanrip/whipper RipLog. An EAC log only yields
-    # per-track Copy CRCs through our minimal EAC parser (not a full RipLog), so
-    # feeding one here would silently produce an empty report — refuse instead.
+    # This report is built from a cyanrip or legacy-format RipLog. An EAC log
+    # only yields per-track Copy CRCs through our minimal EAC parser (not a full
+    # RipLog), so feeding one here would silently produce an empty report —
+    # refuse instead.
     if looks_like_eac_log(text):
         print(
-            f"{args.rip_log} is an EAC log; this tool reports on cyanrip/whipper "
-            "rips. (EAC logs aren't parsed into a full report.)",
+            f"{args.rip_log} is an EAC log; this tool reports on cyanrip and "
+            "legacy-format rips. (EAC logs aren't parsed into a full report.)",
             file=sys.stderr,
         )
         return 2

@@ -62,6 +62,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   "none set" to everyone.
 - **Diagnose drive access… moved from the Tools menu to Setup & Updates →
   Drive**, beside Set up drive…, so everything about the drive is in one place.
+- **The app no longer mentions whipper**, the ripper it used before cyanrip
+  (removed 2026-06-30). Every screen, message, comment and current document now
+  says cyanrip, or describes the old ripper neutrally as "the ripper older
+  versions used". Old rips in its log format still open in the report and audit
+  tools, now called the legacy log format. A new check fails if the name comes
+  back in live text; the changelog, session log and other records stay as
+  written.
+- **The uninstaller describes old leftovers neutrally.** It still removes
+  `~/.config/whipper/` and an old `~/.local/bin/whipper` wrapper if they are
+  there, now labelled "leftover ripper settings from older versions".
+
+### Removed
+
+- **Platterpus no longer reads the old ripper's `whipper.conf`.** It used to
+  show an offset found there as a reference line in Set up drive… and
+  `--doctor`, warn in the disc panel when it disagreed with your saved offset,
+  and copy it into a drive's offset history. cyanrip never read that file, and
+  your offset has lived in Platterpus's own settings since 2026-06-30, so the
+  number could only ever disagree with the one in use. Saved drive profiles
+  that recorded an offset "from whipper.conf" still load, labelled "from an
+  older version's config file".
+- **The force-stop no longer runs a kill pattern for the old ripper.** It
+  matched a program Platterpus never launches, and was the only `pkill -f`
+  (full command line) pattern left. cyanrip is still stopped by its process
+  name.
 - **The acceptance run uses your drive's read offset, not one typed into the
   script.** It used to set +667, which is right only for the Pioneer BDR-209D, so
   a run on any other drive would have ripped at the wrong offset. It now keeps

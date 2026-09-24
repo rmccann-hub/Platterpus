@@ -177,8 +177,9 @@ def accuraterip_db_max_confidence(lookup: str | None) -> int | None:
     We have been throwing it away. cyanrip has printed it on every per-track
     ``Accurip:`` row all along; we captured the row as free text for the
     lookup-happened predicate and never read the number (found 2026-08-24 by a
-    capability audit against whipper, which structures both and renders
-    ``(confidence 3 of 200)`` — `whipper/result/accurip.py:229-237`).
+    capability audit against the previous backend, which structures both and
+    renders ``(confidence 3 of 200)`` — ``whipper-team/whipper:result/accurip.py:229-237``,
+    cited by repository because a source claim needs one).
 
     Pure, never raises, and deliberately **not** a stored field: the raw status
     text is already in the report, so parsing it into a second place would be one
@@ -230,9 +231,9 @@ def accuraterip_compared(result: object, lookup: str | None = None) -> bool:
     ever looked up rendered as "in DB, no match" — a claim both that the disc is
     in the database and that our read disagreed with it (audit, 2026-07-31).
 
-    The CRC fallback is kept for logs that carry no status row at all — whipper's,
-    where a local CRC really does evidence a comparison — so this change cannot
-    reclassify an existing whipper rip.
+    The CRC fallback is kept for logs that carry no status row at all — the
+    legacy format's, where a local CRC really does evidence a comparison — so
+    this change cannot reclassify an existing legacy-format rip.
 
     Reads via ``getattr`` so it never raises on an unexpected shape.
     """
@@ -366,7 +367,7 @@ def accuraterip_verdict(
     caller that cannot supply them keeps the old behaviour rather than breaking.
 
     Pure and never-raises (reads via ``getattr``) so it accepts both the
-    whipper and cyanrip ``RipLog`` shapes and any partially-parsed log. The
+    cyanrip and legacy-format ``RipLog`` shapes and any partially-parsed log. The
     wording never claims more than AccurateRip returned — this is the trust
     headline, so it must be honest above all.
     """

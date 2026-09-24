@@ -433,7 +433,6 @@ def test_a_corrupt_drive_profile_cache_cannot_lock_the_user_out(tmp_path) -> Non
 @pytest.mark.parametrize(
     "module_name,func_name",
     [
-        ("platterpus.offset_config", "_read_conf_text"),
         ("platterpus.adapters.accuraterip_offsets", "_load_user_csv"),
         ("platterpus.deps.host_setup", "_os_release_ids"),
     ],
@@ -749,8 +748,9 @@ def test_mypy_cannot_silently_lose_its_view_of_pyside6() -> None:
 
 def test_a_successful_rip_leaves_the_overall_bar_at_100(window) -> None:
     """`_overall_from_track` caps at 95% by design — the last 5% was reserved
-    for a whipper-only "length" phase cyanrip never emits. On the only supported
-    backend the bar therefore froze at 95% under a status line reading "Done"."""
+    for a "length" phase only the previous backend emitted; cyanrip never does.
+    On the only supported backend the bar therefore froze at 95% under a status
+    line reading "Done"."""
     window._rip_progress.set_progress(95.0, 100.0)
     window._rip_progress.set_progress(100.0, 100.0)
     assert window._rip_progress._overall_bar.value() == 100
@@ -759,7 +759,7 @@ def test_a_successful_rip_leaves_the_overall_bar_at_100(window) -> None:
 # --- Strings that pointed at something that does not exist -------------------
 
 
-def test_no_user_facing_string_still_offers_the_removed_whipper_backend() -> None:
+def test_no_user_facing_string_still_offers_a_backend_switch() -> None:
     """cyanrip is the only backend (KDD-18); "switch to the cyanrip backend in
     Settings" offered a remedy that has no control behind it."""
     from platterpus.ui import main_window

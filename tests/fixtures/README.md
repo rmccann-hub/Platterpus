@@ -11,9 +11,14 @@ adapter. Files are named `<subject>_<scenario>.{txt,log}`:
 - `cd_info_*.txt` — parsed by `parsers/cd_info.py`
 - `rip_log_*.log` — parsed by `parsers/rip_log.py`
 
-The primary `rip_log_real_whipper_0_7.log` was pulled verbatim from
-whipper-team/whipper master's own test suite (commit referenced inside
-the file's "Log created by" line). The `rip_log_eac_reference.log`
+The primary `rip_log_legacy_format.log` is a real log in the **legacy log
+format** — the one written by the ripper Platterpus drove before cyanrip
+(KDD-18), which Platterpus still reads so rips made before 2026-06-30 stay
+readable. **Attribution, kept because it is owed:** the file was pulled verbatim
+from the test suite of whipper-team/whipper (master), the project that wrote the
+format; the commit is referenced inside the file's "Log created by" line. Its
+content is left exactly as published — a real artifact edited to read neutrally
+would no longer be real. Renamed from its original fixture name on 2026-09-24. The `rip_log_eac_reference.log`
 is hand-authored from public EAC log documentation and exists only
 as a reference for the format comparison in `docs/eac-parity.md`
 — it is NOT consumed by any parser.
@@ -71,4 +76,4 @@ documents (the interrupted sample carries one) at read time.
 
 ---
 
-*Last updated for Platterpus v0.6.47.*
+*Last updated for Platterpus v0.6.57.*

@@ -1,7 +1,7 @@
 """File-naming schemes (presets) + a live-preview renderer.
 
-The rip output's folder/file layout is controlled by a whipper-style path
-*template* made of the tokens below. Hand-writing one is error-prone — the old
+The rip output's folder/file layout is controlled by one of Platterpus's
+%-token path *templates*, made of the tokens below. Hand-writing one is error-prone — the old
 default (``%A/%d/%t - %n - %d - %A - %y``) repeated the album and artist in every
 filename and tacked the full release date on the end, which looked terrible
 (real-user report, 0.4.4). This module gives the Settings dialog a small set of

@@ -5,13 +5,13 @@
 reference for allowable args/syntax/output per dependency"* — carries a block-quoted
 ⚠ warning, dated 2026-08-07, separating three flags that have all been called ``-x``:
 
-============================  ==================================  ==================
+============================  ==================================  =======================================
 flag                          what it does                        who has it
-============================  ==================================  ==================
+============================  ==================================  =======================================
 ``-x`` / ``--cache-probe``    measure the drive's readback cache  the **fork**
 ``-O``                        overread into lead-in/lead-out      upstream + fork
-``-x`` / ``--force-overread`` overread                            **whipper only**
-============================  ==================================  ==================
+``-x`` / ``--force-overread`` overread                            **the ripper used before cyanrip only**
+============================  ==================================  =======================================
 
 Its own words: *"Getting these two confused is a hardware hazard rather than a
 documentation nit… anyone who reads 'the previously-documented `-x`' and reaches for
@@ -102,9 +102,10 @@ _DASH_X: Final[re.Pattern[str]] = re.compile(r"(?<![\w-])-x(?![\w-])")
 
 #: What makes a line that pairs ``-x`` with "overread" a CORRECTION rather than the
 #: defect: it names the right answer. The hazard table, the correction notices and the
-#: whipper-origin explanation all have to write both words together to do their job —
-#: and every one of them also says which flag overread actually is, or which tool the
-#: ``-x`` spelling belongs to. A line that says the wrong thing never does.
+#: explanation of where the ``-x`` spelling came from all have to write both words
+#: together to do their job — and every one of them also says which flag overread
+#: actually is, or which tool the ``-x`` spelling belongs to. A line that says the
+#: wrong thing never does.
 #:
 #: **This replaced a keyword list, and the swap is the point** (`CLAUDE.md`: *where a
 #: check matches on a label, make it also require the subject*). The old version
@@ -112,6 +113,12 @@ _DASH_X: Final[re.Pattern[str]] = re.compile(r"(?<![\w-])-x(?![\w-])")
 #: describe the *shape* of a correction rather than its *content*, so it could be
 #: satisfied by a sentence that apologised for the confusion and then repeated it.
 #: Requiring the correct flag cannot be.
+#:
+#: The third alternative is the real name of the tool the ``-x`` / ``--force-overread``
+#: spelling belongs to (the ripper used before cyanrip). It stays spelled that way
+#: because it matches document prose: on 2026-09-24 a KDD in `PLANNING.md` named that
+#: tool beside the flag in a paragraph with no ``-O`` in it, and only this alternative
+#: exempted it.
 _NAMES_THE_RIGHT_ANSWER: Final[re.Pattern[str]] = re.compile(
     r"(?<![\w-])-O(?![\w-])|cache[- ]probe|whipper", re.IGNORECASE
 )
@@ -285,6 +292,8 @@ def test_the_check_can_actually_fail() -> None:
     )
 
     for allowed in (
+        # Names the tool the `-x` spelling belongs to (its real name, as the
+        # dated record writes it) — the third alternative above.
         "| `-x` / `--force-overread` | overread | **whipper only** — never cyanrip |",
         "## ⚠ `-x` is the cache probe. `-O` is overread. Do not confuse them.",
         "# NOTE: -x here is the cache-probe. It is NOT overread. Overread is -O,",

@@ -2,7 +2,7 @@
 
 EAC is the bit-perfect baseline this project measures against (see
 ``output_reference/`` and ``docs/test-plan.md``). Its log format differs from
-whipper's YAML-ish log and from cyanrip's report, so it needs its own reader.
+the legacy YAML-ish log format and from cyanrip's report, so it needs its own reader.
 Parity only needs each track's **Copy CRC**, so this is intentionally minimal
 rather than a full EAC parser.
 
@@ -33,7 +33,7 @@ _EAC_BANNER = re.compile(r"^Exact Audio Copy\b", re.IGNORECASE)
 # spaces). Distinct from the TOC table rows, which are indented and pipe-delimited.
 _TRACK_HEADER = re.compile(r"^Track\s+(?P<number>\d+)\s*$")
 # "     Copy CRC B0D122E7" — 8 hex digits, space-separated (no colon, unlike
-# whipper's "Copy CRC: ...").
+# the legacy log format's "Copy CRC: ...").
 _COPY_CRC = re.compile(r"^\s*Copy CRC\s+(?P<crc>[0-9A-Fa-f]{8})\b")
 
 

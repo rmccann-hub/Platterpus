@@ -63,7 +63,7 @@ def _manager_with(probes: dict[str, ProbeResult]) -> DependencyManager:
 
 
 class _FakeBackend:
-    def __init__(self, *, version="whipper 0.10.0", drives=None, raises=None):
+    def __init__(self, *, version="cyanrip 0.9.3 (release)", drives=None, raises=None):
         self._version = version
         self._drives = drives if drives is not None else []
         self._raises = raises
@@ -171,20 +171,20 @@ def test_check_output_dir_probe_oserror(tmp_path):
 
 def test_check_dependencies_all_present():
     mgr = _manager_with(
-        {"whipper": ProbeResult(present=True, version=(0, 10), location="/x")}
+        {"cyanrip": ProbeResult(present=True, version=(0, 9), location="/x")}
     )
     res = preflight.check_dependencies(mgr)
     assert res.status is Status.OK
-    assert "whipper" in res.detail
+    assert "cyanrip" in res.detail
 
 
 def test_check_dependencies_required_missing_fails():
     mgr = _manager_with(
-        {"whipper": ProbeResult(present=False, version=None, location=None)}
+        {"cyanrip": ProbeResult(present=False, version=None, location=None)}
     )
     res = preflight.check_dependencies(mgr)
     assert res.status is Status.FAIL
-    assert "whipper" in res.summary
+    assert "cyanrip" in res.summary
 
 
 def test_check_dependencies_optional_missing_warns():
@@ -239,16 +239,16 @@ def test_version_banner_never_raises_on_hostile_input():
 
 def test_check_backend_routing_ok():
     res = preflight.check_backend_routing(
-        _FakeBackend(version="whipper 0.10.0\nextra"), backend_name="whipper"
+        _FakeBackend(version="cyanrip 0.9.3 (release)\nextra"), backend_name="cyanrip"
     )
     assert res.status is Status.OK
-    assert res.summary == "whipper 0.10.0"
+    assert res.summary == "cyanrip 0.9.3 (release)"
 
 
-def test_check_backend_routing_whippererror_fails():
+def test_check_backend_routing_rip_error_fails():
     res = preflight.check_backend_routing(
         _FakeBackend(raises=RipError("container down")),
-        backend_name="whipper",
+        backend_name="cyanrip",
         host=_FakeHost(container_exists=False),
     )
     assert res.status is Status.FAIL
@@ -261,7 +261,7 @@ def test_check_backend_routing_whippererror_fails():
 def test_check_backend_routing_unexpected_error_fails():
     res = preflight.check_backend_routing(
         _FakeBackend(raises=OSError("no binary")),
-        backend_name="whipper",
+        backend_name="cyanrip",
         host=_FakeHost(),  # all present → "installed but version failed"
     )
     assert res.status is Status.FAIL
@@ -364,7 +364,7 @@ def test_check_backend_routing_with_no_host_does_not_crash():
     # the case the doctor exists to diagnose. Exercises the real drilldown (only
     # fast, safe shutil.which probes); no injected host.
     res = preflight.check_backend_routing(
-        _FakeBackend(raises=RipError("backend down")), backend_name="whipper"
+        _FakeBackend(raises=RipError("backend down")), backend_name="cyanrip"
     )
     assert res.status is Status.FAIL
     assert "backend down" in res.detail
@@ -375,19 +375,19 @@ def test_check_backend_routing_with_no_host_does_not_crash():
 
 def test_routing_drilldown_no_distrobox():
     detail, hint = preflight.routing_drilldown(
-        "whipper", _FakeHost(distrobox_present=False)
+        "cyanrip", _FakeHost(distrobox_present=False)
     )
     assert "Distrobox is not installed" in detail and hint
 
 
 def test_routing_drilldown_no_backend():
-    detail, _ = preflight.routing_drilldown("whipper", _FakeHost(backend_present=False))
+    detail, _ = preflight.routing_drilldown("cyanrip", _FakeHost(backend_present=False))
     assert "container backend" in detail
 
 
 def test_routing_drilldown_no_container():
     detail, _ = preflight.routing_drilldown(
-        "whipper", _FakeHost(container_exists=False)
+        "cyanrip", _FakeHost(container_exists=False)
     )
     assert "does not exist" in detail
 
@@ -432,34 +432,12 @@ def test_check_read_offset_applied_when_override_on():
 
 
 def test_check_read_offset_warns_when_no_offset_configured():
-    res = preflight.check_read_offset(
-        Config(override_read_offset=False),
-        read_offsets=lambda: [],
-    )
+    res = preflight.check_read_offset(Config(override_read_offset=False))
     assert res.status is Status.WARN
     assert "no read offset" in res.summary
     assert "drive-setup" in res.hint
-
-
-def test_check_read_offset_surfaces_legacy_whipper_conf_in_hint():
-    from platterpus.offset_config import WhipperConfOffset
-
-    res = preflight.check_read_offset(
-        Config(override_read_offset=False),
-        read_offsets=lambda: [WhipperConfOffset(drive="PIONEER", offset=102)],
-    )
-    assert res.status is Status.WARN
-    assert "whipper.conf" in res.hint and "+102" in res.hint
-
-
-def test_check_read_offset_reader_crash_is_caught():
-    def boom():
-        raise RuntimeError("x")
-
-    res = preflight.check_read_offset(
-        Config(override_read_offset=False), read_offsets=boom
-    )
-    assert res.status is Status.WARN
+    # It names the offset's one home, not Settings (moved there 2026-09-24).
+    assert "Set up drive" in res.hint and "Settings" not in res.hint
 
 
 # --- check_drives ----------------------------------------------------------
@@ -598,13 +576,13 @@ def _ctx(**over) -> preflight.PreflightContext:
     return preflight.PreflightContext(
         cfg=over.get("cfg", Config()),
         backend=over.get("backend", _FakeBackend(drives=[])),
-        backend_name=over.get("backend_name", "whipper"),
+        backend_name=over.get("backend_name", "cyanrip"),
         mb_client=over.get("mb_client", _FakeMB(releases=[])),
         ctdb_client=over.get("ctdb_client", _FakeCtdb()),
         dependency_manager=over.get(
             "dependency_manager",
             _manager_with(
-                {"whipper": ProbeResult(present=True, version=(1,), location="/x")}
+                {"cyanrip": ProbeResult(present=True, version=(1,), location="/x")}
             ),
         ),
     )
@@ -737,7 +715,7 @@ def test_app_doctor_path_runs_and_returns_exit_code(monkeypatch, capsys):
     monkeypatch.setattr(
         preflight,
         "default_context",
-        lambda cfg: SimpleNamespace(backend_name="whipper"),
+        lambda cfg: SimpleNamespace(backend_name="cyanrip"),
     )
     canned = [CheckResult("Backend", Status.FAIL, "down", hint="fix")]
     monkeypatch.setattr(preflight, "run_preflight", lambda ctx, **k: canned)

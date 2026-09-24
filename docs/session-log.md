@@ -11,6 +11,58 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-24 (night) — the old ripper's name, retired from live text
+
+**The ask:** *"we dont use whipper any more, so a sweep for any whipper references,
+file names, etc. we either need to replacement with our cyanrip fork designation, or
+make them neutral."* The inventory found about 2,000 mentions in 150 tracked files,
+three months after the backend was removed (KDD-18, 2026-06-30). Four answers from the
+maintainer shaped it, each the recommended option:
+- **whipper.conf:** stop reading it entirely.
+- **Old logs:** keep reading them, relabelled as the legacy log format.
+- **Uninstaller:** keep cleaning up leftovers, worded neutrally.
+- **History:** leave it as written.
+
+**Behaviour that changed:**
+- **The whipper.conf reader is gone.** That removes the reference line in Set up drive…
+  and `--doctor`, the disc-panel "disagrees" warning, and the step that seeded a drive's
+  offset history from the file. cyanrip never read it, so it could only ever show a
+  second number for one fact. Saved profiles keep loading: the enum member became
+  `LEGACY_CONFIG`, but its stored value stays `"whipper_conf"`, because renaming a
+  persisted string turns every such record into UNKNOWN.
+- **Force-stop's inert `pkill -f` pattern for the old ripper's CLI is removed.** It was
+  the only full-command-line kill left.
+- **The uninstaller's leftovers have neutral names.** Paths moved to
+  `paths.LEGACY_RIPPER_*`, with step id `legacy_config`, and the tests read the names
+  from `paths` rather than spelling them.
+- **The `--doctor` offset hint now names Set up drive….** It still sent people to
+  Settings, which this morning's change made wrong.
+
+**Wording:** comments, docstrings, test names, scripts and current docs now say cyanrip,
+"legacy log format", or "the ripper older versions used". Three helpers did this in
+parallel on disjoint file sets, and I reviewed each diff. Two of their calls were
+reversed:
+- They had stripped the upstream repository from three source citations. I restored
+  it: a citation says where a claim was read, and without the repository it cannot be
+  followed.
+- Three TASKS lines outside their scope were still live and false, e.g. "whipper queries
+  AccurateRip during every rip". I fixed those.
+
+The real legacy log fixture was renamed `rip_log_legacy_format.log`. Its content and
+attribution are unchanged, because an artifact edited to read neutrally is no longer
+real.
+
+**The gate** (`tests/test_no_previous_ripper_in_live_text.py`) scans every tracked text
+file:
+- **History** is exempt by path.
+- **Necessary literals** (on-disk names, the header regex, the persisted token,
+  citations, real artifacts, and the history inside mixed files like PLANNING and
+  TASKS) have exact counts that may only go down.
+- **Everything else** must have none.
+
+Revert-probed both ways: a name added to a comment, and a literal count grown. Both
+were detected.
+
 ## 2026-09-24 (late) — one home per setting, and Settings gets Apply
 
 **Step 3's second half (#37).** The maintainer asked on 2026-09-23 for duplicate settings

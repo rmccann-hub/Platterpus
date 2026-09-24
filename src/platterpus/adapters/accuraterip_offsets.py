@@ -2,16 +2,18 @@
 
 Why this exists
 ---------------
-whipper's own ``offset find`` is documented upstream as "primitive": it
-rips trial offsets and compares them against AccurateRip *for the inserted
-disc*, inside the Distrobox container. In practice it fails often — it
-failed on a Pioneer BDR-209D even with a disc that IS in AccurateRip.
+The ripper older versions used had an ``offset find`` command, documented
+upstream as "primitive": it ripped trial offsets and compared them against
+AccurateRip *for the inserted disc*, inside the Distrobox container. In
+practice it failed often — it failed on a Pioneer BDR-209D even with a disc
+that IS in AccurateRip. (cyanrip has no offset finder at all; its ``-f`` is
+force-overread.)
 
 EAC and dBpoweramp don't probe a disc to learn the read offset at all.
 They look it up by **drive model** in AccurateRip's published drive-offset
-list. We already have the drive's vendor + model from ``whipper drive
-list`` (``DriveDescriptor``), so we can resolve the correct offset with no
-disc, no network round-trip, and no dependence on whipper's flaky probe.
+list. We already have the drive's vendor + model from the backend's drive
+list (``DriveDescriptor``), so we can resolve the correct offset with no
+disc, no network round-trip, and no dependence on a flaky disc probe.
 
 Critical Rule #1 (adapters): AccurateRip's list is an external data source,
 so access goes through this module. The bundled ``_CURATED_OFFSETS`` table
@@ -61,11 +63,13 @@ def normalize_combined(combined: str) -> str:
     """Canonicalize an already-joined ``"<vendor> <model>"`` string.
 
     Drops a leading ``ATAPI`` tag some drives prepend, collapses AccurateRip's
-    ``" - "`` vendor/model separator (whipper reports the two as separate
-    fields with no dash) and a leading ``"- "`` (vendorless entries), then
-    applies :func:`canonical_token`. Split out from :func:`normalize_drive_name`
-    so a *combined* string from another source — e.g. whipper.conf's decoded
-    ``[drive:VENDOR%20MODEL]`` section id — can be canonicalized the same way.
+    ``" - "`` vendor/model separator (our drive list reports the two as
+    separate fields with no dash) and a leading ``"- "`` (vendorless
+    entries), then applies :func:`canonical_token`. Split out from
+    :func:`normalize_drive_name` so a *combined* string from another source
+    can be canonicalized the same way (older versions used this for a drive
+    section id in the previous backend's config file, which is no longer
+    read).
     """
     # Some drives report "ATAPI   iHAS124   B" etc.; the ATAPI tag isn't
     # part of AccurateRip's name.
@@ -81,13 +85,15 @@ def normalize_combined(combined: str) -> str:
 def normalize_drive_name(vendor: str, model: str) -> str:
     """Canonicalize a drive's vendor+model into a single lookup key.
 
-    Both AccurateRip's list and whipper derive the name from the drive's
-    ATA/SCSI IDENTIFY strings, so they agree once whitespace and case are
-    normalized. whipper notably emits double-spaced models (Pioneer's real
-    output is ``BD-RW  BDR-209D``), so collapsing whitespace is essential.
-    AccurateRip stores e.g. ``"PIONEER  - BD-RW   BDR-209D"`` while whipper
-    reports vendor ``"PIONEER"`` + model ``"BD-RW  BDR-209D"`` — after this
-    both become ``"PIONEER BD-RW BDR-209D"``.
+    Both AccurateRip's list and our drive list derive the name from the
+    drive's ATA/SCSI IDENTIFY strings (cyanrip's drive scan reads them from
+    sysfs), so they agree once whitespace and case are normalized. Those
+    strings can carry internal runs of spaces — the previous backend
+    reported Pioneer's model as ``BD-RW  BDR-209D`` — so collapsing
+    whitespace is essential. AccurateRip stores e.g.
+    ``"PIONEER  - BD-RW   BDR-209D"`` while that drive list reported vendor
+    ``"PIONEER"`` + model ``"BD-RW  BDR-209D"`` — after this both become
+    ``"PIONEER BD-RW BDR-209D"``.
     """
     return normalize_combined(f"{vendor} {model}")
 

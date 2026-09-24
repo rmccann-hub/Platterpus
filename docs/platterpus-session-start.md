@@ -2,13 +2,15 @@
 
 > **Historical bootstrap record (note added 2026-07-21).** This document is the
 > instruction set the *original* bootstrap session followed, preserved as the
-> rebuild-from-scratch anchor (`docs/README.md`). It predates the
-> whipper → cyanrip switch: whipper was removed 2026-06-30 (KDD-18) and
-> cyanrip is the sole backend, so a verbatim re-run today would contradict the
-> current CLAUDE.md it is told to read — treat the whipper framing (and
-> Step 0's whipper-centred research questions) as the historical starting
-> point, with `PLANNING.md`'s KDDs as the record of everything that changed
-> since.
+> rebuild-from-scratch anchor (`docs/README.md`). It predates the switch to
+> cyanrip: the ripper it names below was removed 2026-06-30 (KDD-18) and
+> cyanrip (the Platterpus fork of cyanrip) is the sole backend, so a verbatim
+> re-run today would contradict the current CLAUDE.md it is told to read —
+> treat its framing around that earlier ripper (and Step 0's research
+> questions centred on it) as the historical starting point, with
+> `PLANNING.md`'s KDDs as the record of everything that changed since. The
+> body is left as written because it is the record of what that session was
+> actually told.
 
 I am starting a fresh Claude Code session to build a Linux GUI front-end for the `whipper` audio-CD ripping CLI. This file is your instruction document. Follow the numbered steps below in order. Do not skip ahead.
 
@@ -246,4 +248,4 @@ Begin Step 1.
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.6.57.*

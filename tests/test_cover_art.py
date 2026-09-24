@@ -160,7 +160,7 @@ def test_plan_actions_maps_the_cover_art_modes(
 
 
 def test_plan_actions_noop_when_the_ripper_fetches_art_itself() -> None:
-    # whipper with a release ID passes --cover-art and does this itself.
+    # A ripper that fetches its own art for a release ID does this itself.
     assert cover_art.plan_actions("complete", True, "mbid") == (False, False)
 
 

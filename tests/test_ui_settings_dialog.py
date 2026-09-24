@@ -787,8 +787,8 @@ def test_composite_row_fields_have_accessible_names(qapp: QApplication) -> None:
     # asserted rather than a lower bound so a new composite row cannot be added
     # without someone reading this test and confirming its field got a name too.
     # (Four until 2026-09-24, when the test script moved to the script console,
-    # its one home; five until `working_dir`, a whipper-era directory nothing
-    # read, was removed on 2026-08-24.)
+    # its one home; five until `working_dir`, a directory left over from the
+    # previous backend that nothing read, was removed on 2026-08-24.)
     assert len(browse_names) == 3
     # All named, all distinct — a screen reader can tell them apart.
     assert all(browse_names)

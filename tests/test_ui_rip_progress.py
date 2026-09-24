@@ -351,7 +351,7 @@ def test_loudness_summary_line_formats_both_facts() -> None:
 
 
 def test_loudness_summary_line_empty_when_no_data() -> None:
-    # A whipper-style log has no loudness and no partial matches → nothing to
+    # A legacy-format log has no loudness and no partial matches → nothing to
     # show (the label stays hidden).
     assert loudness_summary_line(RipLog(tracks=())) == ""
 
@@ -1651,8 +1651,8 @@ def test_the_ar_cell_shows_the_databases_best_confidence_beside_the_tracks_own()
 
     cyanrip has printed the maximum on every per-track `Accurip:` row all along
     and we read that row only to answer "did a lookup happen" (found 2026-08-24
-    by a capability audit against whipper, which structures both and renders
-    `confidence 3 of 200`).
+    by a capability audit against the previous backend, which structured both
+    and rendered `confidence 3 of 200`).
     """
     from platterpus.ui.rip_progress import _ar_cell
 
@@ -1663,8 +1663,8 @@ def test_the_ar_cell_shows_the_databases_best_confidence_beside_the_tracks_own()
 def test_the_ar_cell_falls_back_to_the_bare_confidence_when_no_maximum_is_stated() -> (
     None
 ):
-    """Every log that carries no `Accurip:` status row — whipper's, a hand-trimmed
-    one, an older cyanrip — must render exactly as before. The pair is an
+    """Every log that carries no `Accurip:` status row — a legacy-format one, a
+    hand-trimmed one, an older cyanrip — must render exactly as before. The pair is an
     addition, never a precondition."""
     from platterpus.ui.rip_progress import _ar_cell
 

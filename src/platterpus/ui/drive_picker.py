@@ -89,8 +89,9 @@ class DrivePicker(QWidget):
         # Re-run the disc scan for the CURRENT drive. Refresh only reloads
         # the drive LIST (and keeps the selection, so it never re-triggers
         # the scan) — real-user feedback: when the first scan hits a
-        # transient error (disc still spinning up → whipper's cdrdao
-        # read-toc flake), there was no way to retry short of restarting.
+        # transient error (disc still spinning up → the previous backend's
+        # cdrdao read-toc flake), there was no way to retry short of
+        # restarting.
         self._rescan_button: QPushButton = QPushButton("R&escan disc", self)
         self._rescan_button.setToolTip(
             "Read the disc in the selected drive again — use this after "
@@ -147,7 +148,7 @@ class DrivePicker(QWidget):
             self.show_error(str(exc))
             return
         except Exception as exc:  # noqa: BLE001 — never let a drive-list
-            # hiccup (e.g. the parser choking on unexpected whipper output)
+            # hiccup (e.g. something unexpected inside the backend's drive scan)
             # take down the whole window; degrade to a placeholder the user
             # can act on, with the full traceback in the log.
             log.exception("list_drives raised an unexpected error")

@@ -511,7 +511,7 @@ def _final_partial_summary(rip_log: object) -> str | None:
         reported = str(getattr(rip_log, "partially_accurate_reported", "") or "")
         if not reported:
             # Nothing to anchor a recomputation to — the ripper never printed its
-            # fraction, which is every whipper-era log and any shape the parser did
+            # fraction, which is every legacy-format log and any shape the parser did
             # not fill in. FALL BACK to what the parser rendered rather than
             # returning nothing: the footnote vanishing is a worse answer than a
             # footnote that predates the addendum, and the whole point of this
@@ -1240,7 +1240,7 @@ def _build(
         "eta_trace": _eta_trace_block(eta_trace, timing),
         # Whole-disc loudness (integrated LUFS / LRA / true peak) from cyanrip's
         # "Album Loudness Summary"; per-track loudness lives in each track's
-        # `replaygain`. None when absent (e.g. whipper logs).
+        # `replaygain`. None when absent (e.g. legacy-format logs).
         "album_loudness": dict(getattr(rip_log, "album_loudness", {}) or {}) or None,
         # v26: what those figures were measured over. cyanrip's "Album" rows cover
         # whatever audio was read, so on a `-l` or interrupted rip they are not the
@@ -1365,7 +1365,7 @@ def _rip_block(rip_log: object, info: object) -> dict:
         # Whether the drive reports it can change read speed. False means
         # cyanrip's `-S` aborts the rip, so the ladder escalates via `-Z`
         # only (the BDR-209D is speed-locked — real-hardware finding). None
-        # when the log didn't say (older cyanrip / whipper).
+        # when the log didn't say (older cyanrip / legacy-format logs).
         "speed_changeable": getattr(info, "speed_changeable", None),
         # v11: three facts that reach the human-readable EAC-layout log and were
         # absent from the machine record, so an automated consumer could not see
@@ -1440,7 +1440,7 @@ def _rip_block(rip_log: object, info: object) -> dict:
         # The truest "same physical disc" key — stable across re-rips and
         # independent of any MusicBrainz release edit — so the re-rip
         # comparison (rip_compare) keys on the MB Disc ID first. None on a
-        # whipper log / when cyanrip didn't print them.
+        # legacy-format log / when cyanrip didn't print them.
         "musicbrainz_disc_id": getattr(rip_log, "disc_id", "") or None,
         "cddb_id": getattr(rip_log, "cddb_id", "") or None,
         # The release id the RIPPER resolved and used, off its own header — the
@@ -1459,14 +1459,14 @@ def _track(track: object) -> dict:
         "copy_crc": getattr(track, "copy_crc", "") or None,
         "status": getattr(track, "status", "") or None,
         # How many read passes cyanrip needed (its "(after N rips)"); None for
-        # whipper logs / a clean single-pass cyanrip track.
+        # legacy-format logs / a clean single-pass cyanrip track.
         "rip_count": getattr(track, "rip_count", None),
         # cyanrip's -Z secure re-read verdict: True = N reads' checksums agreed;
         # False = it hit the repeat limit without any two agreeing (the reliable
         # per-track read-instability flag); None = -Z off / older log. Was parsed
         # but not serialized before v9 — the read-effort signal in machine form.
         "secure_rerip_converged": getattr(track, "secure_rerip_converged", None),
-        # Per-track extraction diagnostics cyanrip logs (all None on whipper):
+        # Per-track extraction diagnostics cyanrip logs (None on legacy-format logs):
         # the drive speed this track read at (×), the extraction quality (%),
         # whether pre-emphasis was flagged, and the sample peak level. Surfaced
         # so a marginal track's read conditions are visible in the report.
@@ -1911,7 +1911,8 @@ def _issues(
     #
     # Tri-state, and each state is a different claim:
     #   * ripper echoed nothing -> no claim (an unknown-disc rip sends no release id,
-    #     and neither does a whipper log or a build older than this row). NOT a finding.
+    #     and neither does a legacy-format log or a build older than this row). NOT a
+    #     finding.
     #   * we sent nothing, ripper reports one -> it ran its OWN lookup, so `-N` did not
     #     take. That is Critical rule #5, checked at the artifact rather than trusted.
     #   * both present and different -> the tags on disk may describe another release.

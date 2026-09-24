@@ -10,11 +10,11 @@ log under ``output_reference/<backend>_<format>/``.
 
     python3 scripts/eac_parity.py \\
         output_reference/EAC_flac/eac_baseline_police_classics.log \\
-        ~/Music/rips/whipper/Album/Album.log [more candidates ...]
+        ~/Music/rips/Album/Album.log [more candidates ...]
 
-The log format (EAC / whipper / cyanrip) is auto-detected per file. Prints a
-per-track PASS/FAIL table for each candidate and exits non-zero if any candidate
-isn't bit-perfect parity (so it's usable in CI / a release gate).
+The log format (EAC / cyanrip / the legacy log format) is auto-detected per file.
+Prints a per-track PASS/FAIL table for each candidate and exits non-zero if any
+candidate isn't bit-perfect parity (so it's usable in CI / a release gate).
 
 Run from a checkout with the package importable (``pip install -e .`` or
 ``PYTHONPATH=src``).
@@ -96,8 +96,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        # Read bytes + sniff the encoding: EAC logs are UTF-16, whipper/cyanrip
-        # are UTF-8. Reading a real EAC log as UTF-8 would yield zero CRCs.
+        # Read bytes + sniff the encoding: EAC logs are UTF-16, cyanrip and
+        # legacy-format logs are UTF-8. Reading a real EAC log as UTF-8 would
+        # yield zero CRCs.
         baseline_text = decode_log_bytes(args.baseline.read_bytes())
     except OSError as exc:
         print(f"cannot read baseline {args.baseline}: {exc}", file=sys.stderr)

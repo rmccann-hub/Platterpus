@@ -334,13 +334,14 @@ def safe_path_segment(value: str) -> str:
 def friendly_disc_scan_error(error_text: str) -> str:
     """Turn known disc-scan failures into plain language with a next step.
 
-    The headline case (real-user report, 2026-06-10): whipper has cdrdao
-    read the disc's table of contents into a temp file; when the drive
-    isn't ready yet (disc still spinning up, or scanned the instant it was
-    inserted) cdrdao produces nothing and whipper trips over the missing
-    file — "FileNotFoundError: ... .cdrdao.read-toc.whipper.task". A retry
-    almost always succeeds, so point at the Rescan disc button instead of
-    showing a raw traceback line.
+    The headline case (real-user report, 2026-06-10, on the ripper older
+    versions used): it had cdrdao read the disc's table of contents into a
+    temp file; when the drive isn't ready yet (disc still spinning up, or
+    scanned the instant it was inserted) cdrdao produces nothing and the
+    ripper tripped over the missing file — a ``FileNotFoundError`` naming
+    its ``….cdrdao.read-toc.….task`` temp file. A retry almost always
+    succeeds, so point at the Rescan disc button instead of showing a raw
+    traceback line.
 
     Future contributors: add new ``if <signature>: return <plain message>``
     branches here as real-user reports surface other recoverable scan
@@ -355,7 +356,7 @@ def friendly_disc_scan_error(error_text: str) -> str:
             "usually means the disc wasn't ready yet (still spinning up). "
             "Click “Rescan disc” to try again."
         )
-    # Cold-container start (real-user report, 2026-06-27): the FIRST whipper
+    # Cold-container start (real-user report, 2026-06-27): the FIRST ripper
     # call of a session has to start the Distrobox container, which can take
     # longer than the timeout. The timeouts were raised to budget for it, but
     # if one is still hit a retry runs against the now-warm container and
@@ -380,16 +381,18 @@ def fidelity_summary(
     every existing caller and test keeps working; supplying it is what stops this
     line disagreeing with the trust banner beside it about how complete the rip is.
 
-    whipper rips each track twice and records a Test CRC and Copy CRC; a
-    match means the two independent reads were bit-identical (a secure,
-    archival-quality rip). This surfaces that confidence directly so the
-    user doesn't have to open the log to confirm fidelity — addressing the
+    A legacy-format log records a Test CRC and a Copy CRC per track (the
+    ripper that wrote it read each track twice); a match means the two
+    independent reads were bit-identical (a secure, archival-quality rip).
+    A cyanrip log is worded around what cyanrip checks instead (below).
+    This surfaces that confidence directly so the user doesn't have to open
+    the log to confirm fidelity — addressing the
     "I can't confirm fidelity" feedback. AccurateRip is reported only when
     it actually matched, since it's "not in database" for any disc nobody
     has submitted (e.g. CD-Rs).
 
     Takes ``object`` and reads fields via ``getattr`` defensively because it
-    must accept both the whipper and cyanrip ``RipLog`` shapes (and never
+    must accept both the cyanrip and legacy-format ``RipLog`` shapes (and never
     raise on a partially-parsed log). Future contributors adding a third
     backend: give its log a ``log_creator`` prefix and branch on it here,
     wording the verdict around what that ripper actually verifies — don't
@@ -406,9 +409,9 @@ def fidelity_summary(
     total = expected_track_total if expected_track_total else len(tracks)
     if not tracks:
         return "Done."
-    # cyanrip's verification model differs from whipper's: one EAC CRC per
-    # track plus a paranoia error count, not a test+copy dual read. Word
-    # the verdict to match what was actually checked.
+    # cyanrip's verification model differs from the legacy format's: one EAC
+    # CRC per track plus a paranoia error count, not a test+copy dual read.
+    # Word the verdict to match what was actually checked.
     if str(getattr(rip_log, "log_creator", "")).startswith("cyanrip"):
         clean = sum(
             1 for t in tracks if getattr(t, "status", "") == "ripped successfully"

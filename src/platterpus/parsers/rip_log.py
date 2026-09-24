@@ -1,14 +1,19 @@
-"""Parse a whipper-FORMAT rip `.log` file into a RipLog dataclass.
+"""The shared rip-log dataclasses, and a parser for the LEGACY log format.
 
-This is the legacy whipper log format, kept for old logs and test
-fixtures; the current cyanrip backend has its own parser that reuses the
-dataclasses defined here. Format verified against a real whipper 0.7.4+
-log from whipper-team's own test fixtures
-(tests/fixtures/rip_log_real_whipper_0_7.log).
+**Two jobs, and the first is the one everything uses.** `RipLog`, `TrackResult`
+and the rest are the one shape every rip log becomes, whichever ripper wrote it;
+the cyanrip parser (`parsers/cyanrip_log.py`) fills them too.
+
+**The legacy log format** is the one written by the ripper Platterpus drove
+before cyanrip (KDD-18, 2026-06-30). Platterpus rips nothing in it any more,
+and still reads it so a library's older rips stay readable by the report,
+parity and audit tools. Verified against a real log in that format
+(`tests/fixtures/rip_log_legacy_format.log`; its source and attribution are in
+`tests/fixtures/README.md`).
 
 Structure (YAML-style indented mapping):
 
-    Log created by: whipper X.Y.Z (...)
+    Log created by: <ripper> X.Y.Z (...)
     Log creation date: YYYY-MM-DDThh:mm:ssZ
 
     Ripping phase information:
@@ -99,7 +104,7 @@ class RippingInfo:
     # line). False = the drive reported speed as "unchangeable", so cyanrip
     # ABORTS the rip if handed `-S` — the read-speed ladder must not send it
     # (real-hardware finding, 2026-07-01: the BDR-209D reports unchangeable).
-    # True = a speed was set or reported "changeable"; None = unknown/whipper log.
+    # True = a speed was set or reported "changeable"; None = unknown/legacy log.
     speed_changeable: bool | None = None
     # --- fields EAC prints in its archival header, which cyanrip also reports
     # under different names. Captured so the EAC-layout export can fill EAC's
@@ -166,7 +171,7 @@ class TrackResult:
     # "disc found in database (max confidence: 200)", "disabled", "error". The ONLY
     # thing in the log that says whether a database lookup happened at all; without
     # it, a disc nobody looked up was reported as "in DB, no match" (audit,
-    # 2026-07-31). None for whipper logs and any log that omits the row.
+    # 2026-07-31). None for legacy-format logs and any log that omits the row.
     accuraterip_lookup: str | None = None
     #: cyanrip's per-track paranoia status counts (READ / VERIFY / OVERLAP /
     #: FIXUP_ATOM), empty when the log carries none. The fork added these at our
@@ -195,13 +200,13 @@ class TrackResult:
     # ReplayGain / loudness tags cyanrip computed and wrote into the FLAC (a
     # dict of the raw "REPLAYGAIN_*"/"R128_TRACK_GAIN" values, as strings). The
     # JSON report is the only machine-readable record of what was tagged without
-    # re-reading every file. Empty for whipper logs / when not present.
+    # re-reading every file. Empty for legacy-format logs / when not present.
     replaygain: dict[str, str] = field(default_factory=dict)
     # --- absolute disc geometry, for EAC's "TOC of the extracted CD" table.
     # cyanrip prints these per track as "Start LSN:" / "End LSN:" / "Pregap LSN:"
     # (LSN == sector). EAC's Start and Length columns are derived from them
     # exactly — verified against a real EAC log of the same disc (2026-07-27).
-    # None when the log didn't report them (whipper, or a partial log).
+    # None when the log didn't report them (a legacy-format or partial log).
     start_sector: int | None = None
     end_sector: int | None = None
     # The pre-gap's LENGTH in sectors, for EAC's "Pre-gap length" row. This is a
@@ -288,7 +293,7 @@ class RipLog:
     accuraterip_summary: str = ""
     health_status: str = ""
     sha256_hash: str = ""
-    # cyanrip-only finish-report extras (empty/absent for whipper logs):
+    # cyanrip-only finish-report extras (empty/absent for legacy-format logs):
     # "Tracks ripped partially accurately: X/Y" — tracks that matched only the
     # offset-variant (see TrackResult.accuraterip_offset). This is OUR sentence,
     # derived from the per-track results rather than paraphrased from the ripper's
@@ -371,7 +376,7 @@ class RipLog:
     album_loudness: dict[str, str] = field(default_factory=dict)
     # cyanrip's own log signature ("Log FUN512: <base64>") — its analogue to
     # EAC's signed log checksum. A different algorithm from `sha256_hash`, so
-    # kept as its own field. Empty for whipper logs.
+    # kept as its own field. Empty for legacy-format logs.
     log_checksum: str = ""
     # The MusicBrainz Disc ID (cyanrip's "DiscID:" line) and the freedb/CDDB
     # Disc ID ("CDDB ID:"). BOTH are computed purely from the disc's Table Of
@@ -379,7 +384,7 @@ class RipLog:
     # stable across re-rips and independent of any MusicBrainz *release* edit
     # (which the release id is not). The re-rip comparison (rip_compare) keys on
     # the MB Disc ID first, so these are surfaced into the JSON report's `rip`
-    # block. Empty for whipper logs / when cyanrip didn't print them.
+    # block. Empty for legacy-format logs / when cyanrip didn't print them.
     disc_id: str = ""
     cddb_id: str = ""
     # The MusicBrainz RELEASE id the ripper resolved and USED, read off its own
@@ -387,7 +392,7 @@ class RipLog:
     # one colon-delimited `-a` blob, so this is the witness that its parse of that
     # blob put our release id where we meant it to go; `Invoked as:` can only show
     # what it received. A disagreement with `disc.musicbrainz_release_id` is a
-    # finding, and the report raises it as one. Empty for whipper logs, and empty
+    # finding, and the report raises it as one. Empty for legacy-format logs, and empty
     # whenever no release id reached the ripper (an unknown-disc rip).
     release_id: str = ""
     # True when the log text itself is evidence that the ripper was killed while
@@ -430,7 +435,7 @@ def accuraterip_is_match(ar: object) -> bool:
     AccurateRip *confidence* is how many submitted rips share this track's CRC,
     so a genuine match is always ``>= 1``; a "not present"/"no match" track has
     confidence ``None`` (or, in some logs, ``0``). Keying on ``confidence >= 1``
-    is therefore **format-agnostic and honest**: it counts whipper's
+    is therefore **format-agnostic and honest**: it counts the legacy format's
     "Found, exact match" and cyanrip's "accurately ripped, confidence N" the
     same way (cyanrip's text has no "exact match" substring — a string check
     would silently miss every cyanrip verification), and it can only ever
@@ -460,7 +465,7 @@ def accuraterip_is_match(ar: object) -> bool:
     local_crc = getattr(ar, "local_crc", None)
     # All zeros (any width, with or without a `0x` prefix). The `strip()` must be
     # guarded by a non-empty check: `"".strip("0Xx")` is also `""`, and an EMPTY
-    # CRC means "not reported" — a whipper log can carry a real match without one,
+    # CRC means "not reported" — a legacy-format log can carry a real match without one,
     # so treating empty as zero would silently discard genuine verifications. This
     # is under-claiming, which is the direction that costs the user trust in a
     # correct rip, so it is as much a bug as the over-claim above.
@@ -632,7 +637,7 @@ _SECTION_NAMES: dict[str, str] = {
 
 
 def parse_rip_log(text: str) -> RipLog:
-    """Parse the full text of a whipper `.log` file.
+    """Parse the full text of a legacy-format `.log` file.
 
     Tolerates absent fields and unexpected lines. Returns a RipLog with
     whatever could be extracted; never raises on malformed input.

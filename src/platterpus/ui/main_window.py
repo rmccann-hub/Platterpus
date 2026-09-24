@@ -577,8 +577,8 @@ class MainWindow(
         self._ctdb_thread: threading.Thread | None = None
         # Post-rip FLAC encode-verify (opt-in, default on). Same daemon-thread +
         # queued-signal pattern as CTDB; only runs for a backend that doesn't
-        # already self-verify (cyanrip does not; whipper does via flac --verify).
-        # Stored so tests can join it.
+        # already self-verify (cyanrip, the sole backend, does not — so it runs
+        # whenever the setting is on). Stored so tests can join it.
         self._flac_verify_thread: threading.Thread | None = None
         # Post-transcode derived-file verify (MP3/WavPack/WAV). Same daemon-thread
         # + queued-signal pattern; only runs when a non-FLAC output was produced.

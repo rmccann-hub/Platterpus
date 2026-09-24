@@ -9,7 +9,6 @@ guard's truth table. All of this is pure/off-hardware — no real drive needed.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 
 from hypothesis import given, settings
@@ -28,7 +27,6 @@ from platterpus.drive_profiles import (
     OffsetRecord,
     OffsetSource,
     compute_fingerprint,
-    conf_offset_for,
     confidence_for,
     confidence_rank,
     describe_source,
@@ -37,14 +35,6 @@ from platterpus.drive_profiles import (
     read_drive_identity,
     reconcile_offset,
 )
-
-
-# A tiny stand-in for offset_config.WhipperConfOffset (the guard is duck-typed).
-@dataclass(frozen=True)
-class _ConfOffset:
-    drive: str
-    offset: int
-
 
 # --- Fingerprint priority + tiers -------------------------------------------
 
@@ -73,8 +63,8 @@ def test_fingerprint_tiers_never_cross_collide() -> None:
     assert len(keys) == 3
 
 
-def test_fingerprint_normalizes_whipper_double_space() -> None:
-    # whipper emits the double-spaced model; the vm: key matches the
+def test_fingerprint_normalizes_a_double_spaced_model() -> None:
+    # Some drive listings emit a double-spaced model; the vm: key matches the
     # single-spaced AccurateRip form (shared canonicalization).
     a = compute_fingerprint("PIONEER", "BD-RW  BDR-209D")
     b = compute_fingerprint("pioneer", "BD-RW BDR-209D")
@@ -145,7 +135,7 @@ def test_read_drive_identity_absent_returns_empty(tmp_path: Path) -> None:
 def test_confidence_for_maps_sources() -> None:
     # No LONE source is HIGH — HIGH is earned only by agreement (CONFIRMED).
     assert confidence_for(OffsetSource.OFFSET_FIND) is Confidence.MEDIUM
-    assert confidence_for(OffsetSource.WHIPPER_CONF) is Confidence.MEDIUM
+    assert confidence_for(OffsetSource.LEGACY_CONFIG) is Confidence.MEDIUM
     assert confidence_for(OffsetSource.ACCURATERIP_LIST) is Confidence.MEDIUM
     assert confidence_for(OffsetSource.MANUAL) is Confidence.MEDIUM
     assert confidence_for(OffsetSource.CONFIRMED) is Confidence.HIGH
@@ -253,22 +243,6 @@ def test_reconcile_same_source_refreshes_but_keeps_confirmed() -> None:
     assert reconcile_offset(confirmed, same) is confirmed
 
 
-def test_conf_offset_for_matches_by_canonical_name() -> None:
-    # whipper.conf's decoded id (double-spaced) matches the descriptor's fields.
-    conf = [_ConfOffset("PIONEER BD-RW  BDR-209D", 667)]
-    assert conf_offset_for("PIONEER", "BD-RW BDR-209D", conf) == 667
-    assert conf_offset_for("LG", "OTHER", conf) is None
-
-
-def test_conf_offset_for_skips_non_int_offset() -> None:
-    # Duck-typed input: a non-int .offset must not raise (never-raises contract).
-    conf = [_ConfOffset("PIONEER BD-RW BDR-209D", "notanint")]  # type: ignore[arg-type]
-    assert conf_offset_for("PIONEER", "BD-RW BDR-209D", conf) is None
-
-
-# --- Store round-trip + never-raises ---------------------------------------
-
-
 def _sample_profile() -> DriveProfile:
     return DriveProfile(
         fingerprint="vm:PIONEER BD-RW BDR-209D",
@@ -282,7 +256,7 @@ def _sample_profile() -> DriveProfile:
             detected_at="2026-06-29T00:00:00Z",
         ),
         cache_defeat=True,
-        cache_defeat_source=OffsetSource.WHIPPER_CONF,
+        cache_defeat_source=OffsetSource.LEGACY_CONFIG,
         last_seen_device="/dev/sr0",
         last_seen_at="2026-06-29T00:00:00Z",
     )
@@ -421,7 +395,6 @@ def test_guard_consistent_state_is_quiet() -> None:
         model="BD-RW BDR-209D",
         release="1.51",
         stored=stored,
-        conf_offsets=[_ConfOffset("PIONEER BD-RW BDR-209D", 667)],
         collisions=set(),
     )
     assert warnings == []
@@ -435,7 +408,6 @@ def test_guard_flags_identical_drive_collision() -> None:
         model="BD-RW BDR-209D",
         release="1.51",
         stored=None,
-        conf_offsets=[],
         collisions={fp},
     )
     kinds = {w.kind for w in warnings}
@@ -454,7 +426,6 @@ def test_guard_collision_only_for_vm_tier() -> None:
         model="BD-RW BDR-209D",
         release="1.51",
         stored=None,
-        conf_offsets=[],
         collisions={fp},
     )
     assert all(w.kind != WARNING_COLLISION for w in warnings)
@@ -470,28 +441,9 @@ def test_guard_flags_firmware_change() -> None:
         model="BD-RW BDR-209D",
         release="1.51",
         stored=stored,
-        conf_offsets=[_ConfOffset("PIONEER BD-RW BDR-209D", 667)],
         collisions=set(),
     )
     assert WARNING_FIRMWARE_CHANGED in {w.kind for w in warnings}
-
-
-def test_guard_flags_offset_disagreement() -> None:
-    stored = _stored(OffsetRecord(12, OffsetSource.MANUAL, Confidence.MEDIUM))
-    warnings = evaluate_drive_state(
-        fingerprint="vm:PIONEER BD-RW BDR-209D",
-        vendor="PIONEER",
-        model="BD-RW BDR-209D",
-        release="1.51",
-        stored=stored,
-        conf_offsets=[_ConfOffset("PIONEER BD-RW BDR-209D", 667)],
-        collisions=set(),
-    )
-    disagreements = [w for w in warnings if w.kind == WARNING_DISAGREEMENT]
-    assert len(disagreements) == 1
-    # The message names both values so the user sees which one whipper uses.
-    assert "+667" in disagreements[0].message
-    assert "+12" in disagreements[0].message
 
 
 def test_guard_flags_accuraterip_list_disagreement() -> None:
@@ -505,7 +457,6 @@ def test_guard_flags_accuraterip_list_disagreement() -> None:
         model="BD-RW BDR-209D",
         release="1.51",
         stored=stored,
-        conf_offsets=[],
         collisions=set(),
         accuraterip_value=667,
     )
@@ -524,29 +475,10 @@ def test_guard_silent_when_applied_offset_matches_accuraterip_list() -> None:
         model="BD-RW BDR-209D",
         release="1.51",
         stored=stored,
-        conf_offsets=[],
         collisions=set(),
         accuraterip_value=667,
     )
     assert [w for w in warnings if w.kind == WARNING_DISAGREEMENT] == []
-
-
-def test_guard_skips_malformed_conf_entries() -> None:
-    # A conf-offset object missing .drive/.offset must be skipped, not crash.
-    class _Bad:
-        pass
-
-    stored = _stored(OffsetRecord(667, OffsetSource.OFFSET_FIND, Confidence.HIGH))
-    warnings = evaluate_drive_state(
-        fingerprint="vm:PIONEER BD-RW BDR-209D",
-        vendor="PIONEER",
-        model="BD-RW BDR-209D",
-        release="1.51",
-        stored=stored,
-        conf_offsets=[_Bad(), _ConfOffset("PIONEER BD-RW BDR-209D", 667)],
-        collisions=set(),
-    )
-    assert warnings == []  # the good entry matches; the bad one is ignored
 
 
 def test_guard_nudges_low_confidence_unmeasured_offset() -> None:
@@ -559,9 +491,21 @@ def test_guard_nudges_low_confidence_unmeasured_offset() -> None:
         model="BD-RW BDR-209D",
         release="1.51",
         stored=stored,
-        conf_offsets=[],  # whipper.conf hasn't confirmed it
         collisions=set(),
     )
     nudges = [w for w in warnings if w.kind == WARNING_LOW_CONFIDENCE]
     assert len(nudges) == 1
     assert nudges[0].severity == SEVERITY_INFO
+
+
+def test_a_profile_saved_with_the_legacy_token_still_loads_by_meaning() -> None:
+    """Older versions wrote ``"whipper_conf"`` for an offset read from a leftover
+    config. The member was renamed on 2026-09-24; the STORED value was not, so a
+    saved profile keeps its provenance instead of degrading to UNKNOWN on load.
+    """
+    loaded = OffsetSource("whipper_conf")  # the real stored token, verbatim
+    assert loaded is OffsetSource.LEGACY_CONFIG
+    assert confidence_for(loaded) is Confidence.MEDIUM
+    # The user-facing text must not name the previous backend by its real name.
+    assert "whipper" not in describe_source(loaded).lower()
+    assert "older version" in describe_source(loaded)

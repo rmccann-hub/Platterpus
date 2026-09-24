@@ -56,9 +56,9 @@ from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.ui.main_window import MainWindow
 from platterpus.workers.rip_worker import RipParameters
 
-# A real whipper rip log so the finish handler parses a genuine fidelity
+# A real legacy-format rip log so the finish handler parses a genuine fidelity
 # verdict (not a hand-faked one).
-_WHIPPER_LOG = Path(__file__).parent / "fixtures" / "rip_log_real_whipper_0_7.log"
+_LEGACY_LOG = Path(__file__).parent / "fixtures" / "rip_log_legacy_format.log"
 _JPEG = b"\xff\xd8\xff\xe0" + b"cover-bytes" * 4  # valid JPEG magic + body
 
 
@@ -66,7 +66,7 @@ _JPEG = b"\xff\xd8\xff\xe0" + b"cover-bytes" * 4  # valid JPEG magic + body
 
 
 class _FakeHandle:
-    """Duck-typed RipHandle: a whipper run that 'just finished' cleanly."""
+    """Duck-typed RipHandle: a ripper run that 'just finished' cleanly."""
 
     def log_lines(self) -> Iterator[str]:
         yield "Ripping track 1 of 2"
@@ -93,10 +93,10 @@ class _ArtifactWritingBackend(RipBackend):
         return DiscInfo(num_tracks=2)
 
     def version(self) -> str:
-        return "fake-whipper 0.0.0"
+        return "fake-ripper 0.0.0"
 
     def self_verifies_encode(self) -> bool:
-        # whipper-like: it self-verifies, so the e2e doesn't run the post-rip
+        # Claims to self-verify, so the e2e doesn't run the post-rip
         # FLAC-verify over these (intentionally fake) FLAC artifacts.
         return True
 
@@ -108,7 +108,7 @@ class _ArtifactWritingBackend(RipBackend):
         album.mkdir(parents=True, exist_ok=True)
         (album / "01 - Track 01.flac").write_bytes(b"\xffflac-1")
         (album / "02 - Track 02.flac").write_bytes(b"\xffflac-2")
-        (album / "rip.log").write_text(_WHIPPER_LOG.read_text(encoding="utf-8"))
+        (album / "rip.log").write_text(_LEGACY_LOG.read_text(encoding="utf-8"))
         return _FakeHandle()
 
 
