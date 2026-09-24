@@ -1956,3 +1956,50 @@ def test_the_embedder_records_absence_as_a_field_not_as_errno_text(tmp_path) -> 
     entry = build_artifact(tmp_path / "nope.log")
     assert entry["missing"] is True
     assert entry["exists"] is False
+
+
+def test_the_offset_variant_sentence_counts_the_disc_not_the_cancelled_list() -> None:
+    """Round 26 lap 4's nit, read off the committed real-test artifact.
+
+    The fork read our cancelled rip's report and found *"0 of 0 tracks matched
+    only an offset-variant pressing"* — on a 14-track disc. The parser already
+    took the disc's count from the footer (`Rip completed: … 0 of 14 tracks`);
+    the report recomputed the same sentence with `len(tracks)`, which a cancel
+    empties. One rule now, and this pins that the two surfaces agree on it.
+    """
+    from pathlib import Path
+
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    log_file = (
+        Path(__file__).resolve().parents[1]
+        / "docs/handshake/artifactsround26/round26cancelme.log"
+    )
+    rip_log = parse_cyanrip_log(log_file.read_text(encoding="utf-8"))
+    assert not rip_log.tracks, "the premise: a cancel before any track block"
+    summary = rip_report._final_partial_summary(rip_log)
+    assert summary is not None and summary.startswith("0 of 14 tracks"), summary
+    assert summary == rip_log.partially_accurate_summary, (
+        "the report and the parser describe one tally in two different sentences"
+    )
+
+
+def test_a_rip_that_never_finished_is_not_called_read_unstable() -> None:
+    """The 2026-09-24 section F rip, killed 95 s in, was reported as having
+    *"read instability remained after the automatic re-rip"* — no re-rip ran and
+    no read was measured unstable. The ladder's `unresolved` is right; the
+    sentence it produced was not. A measured unstable track still reports."""
+    attempts = {"unresolved": True, "unstable_tracks": []}
+    for status, unstable, expected in (
+        ("failed", [], False),
+        ("cancelled", [], False),
+        ("success", [], True),
+        ("failed", [3], True),
+    ):
+        report = build_report(
+            _clean_log(),
+            outcome=build_outcome(status=status, ripper_exit_code=137),
+            read_speed={**attempts, "unstable_tracks": unstable},
+        )
+        codes = [i["code"] for i in report["issues"]]
+        assert ("read_unstable" in codes) is expected, (status, unstable, codes)

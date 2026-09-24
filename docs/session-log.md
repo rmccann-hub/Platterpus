@@ -11,6 +11,31 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-24 (evening) — the fork's lap 4 `GO`; our lap 5 `GO` written and held; the bundle filed
+
+**The fork's round 26 lap 4 arrived `GO` on `df91ae7`, and every claim in it that we
+could check held.** That covers its 40 filed bundle files (byte-identical to the
+tarball), the six report hashes, its citations of our log and code, and its source
+citations. It also held for its one finding about us: our cancelled rip's report said
+"0 of 0 tracks". Their paranoia ratio, 3.02, differed from our rig-check's 2.87 on the
+same log; both reproduce, theirs counts `READ` only, and theirs is the better witness.
+
+**A second reading of the bundle found two more things in us, neither of them in any
+failure.** The track rows stayed "⟳ Ripping" after a clean rip, because the rip worker's
+own copy of the track-done pattern predated `.14`'s wording. That also stopped the
+partial report that survives a kill. And one track held wrong audio (section J's track
+1, CRC different from five exact AccurateRip reads) that passed on a one-frame
+`Accurip 450` match. The first and the nit are fixed and revert-proved. The second is
+queued as NEXT-ROUND for both sides. Whether offset-variant re-reads should default on
+is the maintainer's call.
+
+**The bundle went in under our own convention** (`docs/handshake/artifactsround26/`)
+after I first created a directory beside it. The *Artifacts* section of the handshake
+README was one screen from where I was writing, which is Critical rule #7's fourth
+obligation, caught before commit. Our lap 5 is `GO`, `--check` clean, and HELD. Its
+announce commit must also roll `FORK_PIN`, since our gate reads the round closed from
+there.
+
 ## 2026-09-24 (afternoon) — 0.6.55 released and tested: 258 of 261, one external stop, four defects of ours
 
 **0.6.55 went out under the §6b override, and the maintainer ran the full test on it**

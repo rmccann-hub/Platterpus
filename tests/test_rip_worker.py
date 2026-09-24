@@ -3642,3 +3642,34 @@ def test_an_ordinary_failure_exit_gets_no_signal_story(
     worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
     worker.start_rip()
     assert worker.failure_hint == "", worker.failure_hint
+
+
+@pytest.mark.parametrize(
+    ("line", "outcome"),
+    [
+        ("Track 1 read successfully!", "✓"),  # .14 and later — the pinned build
+        ("Track 1 read with errors.", "with errors"),
+        ("Track 1 ripped and encoded successfully!", "✓"),  # <= .13, archived logs
+    ],
+)
+def test_a_finished_track_is_marked_done_on_every_build_wording(
+    qapp: QApplication, tmp_path: Path, line: str, outcome: str
+) -> None:
+    """The live "track done" signal must fire on the wording the pinned build prints.
+
+    The worker kept its own copy of this pattern, matching only `<= .13`'s
+    "ripped and encoded" — so on `.14` (our pin) and `.15` it never fired. On the
+    2026-09-24 real test every row still read "⟳ Ripping" under "Done — all 14
+    tracks ripped cleanly", and the per-track partial report, the one record that
+    survives a SIGKILL, was never written. The parser had the new wording; the
+    worker now reads the parser's pattern.
+    """
+    handle = _FakeHandle(lines=["Disc tracks:    2", line], exit_code=0)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+    worker.start_rip()
+    assert sigs.completed_tracks == [1], (line, sigs.completed_tracks)
+    assert any(s.startswith(f"Track 1 done {outcome}") for s in sigs.statuses), (
+        sigs.statuses
+    )

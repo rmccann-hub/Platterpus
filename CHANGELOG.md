@@ -59,6 +59,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 - **The Settings dialog and the release picker are freed after they close.**
   Each opening used to leave one more hidden copy alive for as long as the
   window stayed open.
+- **A finished track now turns "✓ Done" in the track list again, and the
+  per-track progress record is written again.** Since the ripper build we pin
+  (`+platterpus.14`) changed its "track finished" line, Platterpus stopped
+  noticing it. Every row stayed "⟳ Ripping" after the rip said "Done", the
+  overall bar lagged, and the partial report written after each track, which
+  keeps a record if the rip is killed, was never written. The rip log parser
+  already knew the new line; the live reader now uses the same pattern.
+- **A cancelled rip's report says "0 of 14 tracks", not "0 of 0".** The
+  offset-variant sentence took the disc's track count from the tracks the log
+  finished instead of from the disc. Reported by the cyanrip fork.
+- **A rip that never finished is no longer called "read-unstable after the
+  automatic re-rip".** No re-rip ran, and no read was measured.
 
 ## [0.6.55] — 2026-09-24
 

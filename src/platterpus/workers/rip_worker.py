@@ -176,9 +176,9 @@ _CYANRIP_TRACK_PROGRESS = re.compile(
 )
 # Per-track completion ("Track 5 ripped and encoded successfully!" / "with
 # errors.") — pegs that track's slice of the overall bar.
-_CYANRIP_TRACK_DONE = re.compile(
-    r"^Track (?P<track>\d{1,4}) ripped and encoded (?P<how>successfully|with errors)"
-)
+# A finished track is recognised by the PARSER's pattern, `cyanrip_log.finished_track`:
+# this module's own copy knew only the `<= .13` wording and silently stopped matching
+# on `.14`, the build we pin.
 # The start report carries the track total ("Disc tracks:    16") — cyanrip's
 # progress lines don't repeat it, so we capture it here for the overall bar.
 _CYANRIP_DISC_TRACKS = re.compile(r"^Disc tracks:\s+(?P<total>\d{1,4})\s*$")
@@ -2319,9 +2319,9 @@ class RipWorker(QObject):
                 # still leaves the tracks completed so far on disk. A clean
                 # cancel/finish is still written by the GUI afterward, superseding
                 # these partials.
-                done_match = _CYANRIP_TRACK_DONE.search(line)
-                if done_match:
-                    self.track_completed.emit(int(done_match.group("track")))
+                finished = cyanrip_log.finished_track(line)
+                if finished is not None:
+                    self.track_completed.emit(finished[0])
                     if incremental:
                         self._write_incremental_report(out_dir)
         except Exception as exc:  # noqa: BLE001
@@ -3175,11 +3175,9 @@ class RipWorker(QObject):
             self._note_task_progress(self._current_track, task)
             return self._overall_for_pass(self._current_track, task), task
 
-        match = _CYANRIP_TRACK_DONE.search(line)
-        if match:
-            done = int_or_none(match.group("track"), field="completed track number")
-            if done is None:
-                return None
+        finished = cyanrip_log.finished_track(line)
+        if finished is not None:
+            done = finished[0]
             # task=100 → the end of this track's slice (its full length consumed).
             return self._overall_for_pass(done, 100.0), 100.0
 
@@ -3450,12 +3448,13 @@ def _describe_activity(
         of_total = f" of {total_tracks}" if total_tracks > 0 else ""
         return f"Ripping track {match.group('track')}{of_total}… {pct:.0f}%"
 
-    match = _CYANRIP_TRACK_DONE.search(line)
-    if match:
-        outcome = "✓" if match.group("how") == "successfully" else "with errors"
+    finished = cyanrip_log.finished_track(line)
+    if finished is not None:
+        number, clean = finished
+        outcome = "✓" if clean else "with errors"
         if securing:
-            return f"Track {match.group('track')} re-ripped {outcome}"
-        return f"Track {match.group('track')} done {outcome}"
+            return f"Track {number} re-ripped {outcome}"
+        return f"Track {number} done {outcome}"
 
     for phrase, friendly in _NAMED_PHASES.items():
         if phrase in line:

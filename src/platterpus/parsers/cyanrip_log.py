@@ -1605,6 +1605,43 @@ def _take_partial_total(disc: _Disc, match: re.Match[str]) -> bool:
     return True
 
 
+def finished_track(line: str) -> tuple[int, bool] | None:
+    """``(track number, read cleanly)`` when ``line`` says a track's read finished.
+
+    **The live reader's view of `_TRACK_START`, so there is one pattern.** The rip
+    worker kept its own copy of this line's pattern, matching only the ``<= .13``
+    wording, so on every ``.14``+ build the row never turned "Done" and the
+    per-track partial report — the one record that survives a SIGKILL — was never
+    written (the 2026-09-24 real test: every row still read "Ripping" under "Done —
+    all 14 tracks ripped cleanly"). This module had been taught the new wording in
+    the change that introduced it; the copy had not. ``is data:`` opens a block but
+    finishes no read, so it answers ``None``. Never raises.
+    """
+    match = _TRACK_START.match(line)
+    if match is None or match.group("what") == "is data:":
+        return None
+    number = int_or_none(match.group("number"), field="finished track number")
+    if number is None:
+        return None
+    return number, match.group("what").endswith("successfully!")
+
+
+def partial_summary_denominator(
+    rip_completed_total: int | None, parsed_tracks: int
+) -> int:
+    """The disc's track count for the offset-variant sentence. ONE rule, two callers.
+
+    ``len(tracks)`` is the log's list, which a cancel shrinks; the footer's
+    ``Rip completed: … N of M tracks`` states the disc total, so it wins when the
+    ripper printed one. This was written inline here and restated in the report
+    as ``len(tracks)`` alone — so the report said *"0 of 0 tracks"* over a
+    cancelled rip of a 14-track disc (the fork read it in round 26 lap 4, on the
+    2026-09-24 bundle), while this module said "0 of 14". The correction had been
+    made to one copy of the rule.
+    """
+    return rip_completed_total or parsed_tracks
+
+
 def render_partially_accurate_summary(
     reported: str, offset_variant_tracks: int, disc_tracks: int
 ) -> str:
@@ -2888,9 +2925,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
     partially_accurate_summary = render_partially_accurate_summary(
         disc.partially_accurate_reported,
         offset_variant_tracks,
-        # The disc's own track count. `len(tracks)` is the log's list, which a cancel
-        # shrinks — prefer the footer's total when the ripper stated one.
-        disc.rip_completed_total or len(tracks),
+        # The disc's own track count, not the log's (possibly cancelled) list.
+        partial_summary_denominator(disc.rip_completed_total, len(tracks)),
     )
     return RipLog(
         log_creator=disc.log_creator,

@@ -132,6 +132,12 @@ documents depend on.
   Each run holds: the cyanrip log, the cue, our JSON report, the ui-script transcript and
   report, the `--rig-check` manifest, the argv probe, and the app log. The 2026-08-13 set
   additionally holds `--doctor`, the rig's config and its drive profile.
+- **`artifactsround26/`** — the 2026-09-24 real test on **`df91ae7`**, round 26's reviewed
+  pin, through our 0.6.55: every text member of the operator's bundle (sha256
+  `f1486417…`), 46 files. The fork filed the same bytes under its own names at
+  `cyanrip@9764970:docs/rig-2026-09-24-df91ae7/`; 40 of our 46 have identical git blob
+  ids to theirs, and the other six are our rip reports, which they left to us. The
+  directory's `README.md` maps each file to its tarball member and to the fork's copy.
 
 **Names are lowercase ASCII letters and digits only from round 8 on** (`CLAUDE.md` →
 *Artifact filenames that cross machines*). These files leave the repo and come back, and two

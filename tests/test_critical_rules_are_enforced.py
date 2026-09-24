@@ -1535,7 +1535,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # taking neither, and why `not applicable` is not a failure. That reasoning is
     # the seam contract in prose, and it is what stops the next reader
     # "simplifying" the old wording away once .14 ships.
-    "parsers/cyanrip_log.py": 2937,
+    # **2937 -> 2973 (2026-09-24, round 26 lap 4)**: `finished_track` and
+    # `partial_summary_denominator` are made public HERE so the rip worker and the
+    # report stop keeping their own copies — the copies are what drifted.
+    "parsers/cyanrip_log.py": 2973,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1580,7 +1583,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2430 -> 2462 (2026-09-24, the 0.6.55 acceptance bundle)**: `RIP_DID_NOT_FINISH_GATE` and
     # `UNFINISHED_RIP_STATUSES` — a gate on a rip that never finished no longer
     # says "ran"; the vocabulary lives beside `SUPERSEDED_GATE`, its sibling.
-    "rip_report.py": 2462,
+    # **2462 -> 2479 (2026-09-24, round 26 lap 4)**: the offset-variant sentence uses the
+    # parser's denominator rule, and a rip that never finished is not called read-unstable.
+    "rip_report.py": 2479,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -1954,7 +1959,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3413 -> 3463 (2026-09-24, the 0.6.55 acceptance bundle)**: a ripper killed by a signal
     # Platterpus did not send is explained (`ripper_exit`); the worker is the only
     # place that knows whether it sent one, so `_we_stopped_ripper` lives here.
-    "workers/rip_worker.py": 3463,
+    # **3463 -> 3462 (2026-09-24, round 26 lap 4)**: finished tracks are read through the parser, so its own copy of the pattern is gone.
+    "workers/rip_worker.py": 3462,
 }
 
 

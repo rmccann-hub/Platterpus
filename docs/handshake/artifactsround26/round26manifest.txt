@@ -1,0 +1,366 @@
+PLATTERPUS EVIDENCE BUNDLE
+==========================
+
+created            20260924T011421Z
+platterpus         0.6.55
+build              629ffa2
+rip outcome        acceptance test session
+ripper build wanted platterpus-fork-gdf91ae7 ONLY — the build under review
+album folders      8, each archived under album/ unless marked otherwise:
+  secure reread 20260924t011421 platterpus-fork-gdf91ae7 /home/rmccann/Music/rips/The Police/secure reread 20260924t011421 platterpus-fork-gdf91ae7
+  derived wav 20260924t011421 platterpus-fork-gdf91ae7 /home/rmccann/Music/rips/The Police/derived wav 20260924t011421 platterpus-fork-gdf91ae7
+  derived wavpack 20260924t011421 platterpus-fork-gdf91ae7 /home/rmccann/Music/rips/The Police/derived wavpack 20260924t011421 platterpus-fork-gdf91ae7
+  derived mp3 20260924t011421 platterpus-fork-gdf91ae7 /home/rmccann/Music/rips/The Police/derived mp3 20260924t011421 platterpus-fork-gdf91ae7
+  after cancel 20260924t011421 platterpus-fork-gdf91ae7 /home/rmccann/Music/rips/The Police/after cancel 20260924t011421 platterpus-fork-gdf91ae7
+  cancel me 20260924t011421 platterpus-fork-gdf91ae7 /home/rmccann/Music/rips/Platterpus Acceptance/cancel me 20260924t011421 platterpus-fork-gdf91ae7
+  full acceptance_ angle_bracket 20260924t01__us-fork-gdf91ae7 _2_ /home/rmccann/Music/rips/Platterpus Acceptance/full acceptance∶ angle‹bracket 20260924t011421 platterpus-fork-gdf91ae7 (2)
+  full acceptance_ angle_bracket 20260924t01__terpus-fork-gdf91ae7 /home/rmccann/Music/rips/Platterpus Acceptance/full acceptance∶ angle‹bracket 20260924t011421 platterpus-fork-gdf91ae7
+
+Raw facts this outcome was derived from (a label can be wrong; these
+are what it was computed from):
+  acceptance script      /tmp/.mount_platteGbbPOe/opt/python3.12/lib/python3.12/site-packages/platterpus/rig_scripts/fullacceptance.txt
+  album folders          8
+  album folders dropped  0
+  album folders examined 8
+  run ended              reached the last step
+  run outcome            ⚠ The run finished with 3 FAILURE(S) — 258 of 261 step(s) passed. Send the file anyway: the failures are the point.
+  run verdict            pass 258, fail 3, error 0, skipped 0, blocked 0, unreachable 0, info 1
+  session folder         /home/rmccann/platterpus-rig/platterpustestsession20260924t011421z
+  sleep lock             ✓ Sleep lock: held (idle:sleep:handle-lid-switch) — Idle, sleep and lid suspend are held off for this run (idle:sleep:handle-lid-switch). The lock is released automatically when the run ends — there is nothing to undo.
+  sources absent         0
+  sources collected      6
+  sources failed         0
+  your settings          restored after the run; it had changed debug_logging, secure_rerip_dynamic, rerip_offset_variant, recompress_flac_after_rip, write_eac_log_after_rip, rip_goal, ripper_channel
+
+INCLUDED (275 file(s))
+----------------------------------------
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/secure reread 20260924t011421 platterpus-fork-gdf91ae7 (EAC-compatible).log      10135 B
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/secure reread 20260924t011421 platterpus-fork-gdf91ae7.cue       2956 B
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/secure reread 20260924t011421 platterpus-fork-gdf91ae7.log      42634 B
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/secure reread 20260924t011421 platterpus-fork-gdf91ae7.platterpus-addendum.txt       1716 B
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/secure reread 20260924t011421 platterpus-fork-gdf91ae7.platterpus.json    6728514 B
+  album/derived wav 20260924t011421 platterpus-fork-gdf91ae7/derived wav 20260924t011421 platterpus-fork-gdf91ae7 (EAC-compatible).log       3380 B
+  album/derived wav 20260924t011421 platterpus-fork-gdf91ae7/derived wav 20260924t011421 platterpus-fork-gdf91ae7.cue        684 B
+  album/derived wav 20260924t011421 platterpus-fork-gdf91ae7/derived wav 20260924t011421 platterpus-fork-gdf91ae7.log       9192 B
+  album/derived wav 20260924t011421 platterpus-fork-gdf91ae7/derived wav 20260924t011421 platterpus-fork-gdf91ae7.platterpus.json     505351 B
+  album/derived wavpack 20260924t011421 platterpus-fork-gdf91ae7/derived wavpack 20260924t011421 platterpus-fork-gdf91ae7 (EAC-compatible).log       3392 B
+  album/derived wavpack 20260924t011421 platterpus-fork-gdf91ae7/derived wavpack 20260924t011421 platterpus-fork-gdf91ae7.cue        688 B
+  album/derived wavpack 20260924t011421 platterpus-fork-gdf91ae7/derived wavpack 20260924t011421 platterpus-fork-gdf91ae7.log       9216 B
+  album/derived wavpack 20260924t011421 platterpus-fork-gdf91ae7/derived wavpack 20260924t011421 platterpus-fork-gdf91ae7.platterpus.json     496488 B
+  album/derived mp3 20260924t011421 platterpus-fork-gdf91ae7/derived mp3 20260924t011421 platterpus-fork-gdf91ae7 (EAC-compatible).log       3380 B
+  album/derived mp3 20260924t011421 platterpus-fork-gdf91ae7/derived mp3 20260924t011421 platterpus-fork-gdf91ae7.cue        684 B
+  album/derived mp3 20260924t011421 platterpus-fork-gdf91ae7/derived mp3 20260924t011421 platterpus-fork-gdf91ae7.log       9192 B
+  album/derived mp3 20260924t011421 platterpus-fork-gdf91ae7/derived mp3 20260924t011421 platterpus-fork-gdf91ae7.platterpus.json     490874 B
+  album/after cancel 20260924t011421 platterpus-fork-gdf91ae7/after cancel 20260924t011421 platterpus-fork-gdf91ae7 (EAC-compatible).log       3428 B
+  album/after cancel 20260924t011421 platterpus-fork-gdf91ae7/after cancel 20260924t011421 platterpus-fork-gdf91ae7.cue        685 B
+  album/after cancel 20260924t011421 platterpus-fork-gdf91ae7/after cancel 20260924t011421 platterpus-fork-gdf91ae7.log       9404 B
+  album/after cancel 20260924t011421 platterpus-fork-gdf91ae7/after cancel 20260924t011421 platterpus-fork-gdf91ae7.platterpus.json     486167 B
+  album/cancel me 20260924t011421 platterpus-fork-gdf91ae7/cancel me 20260924t011421 platterpus-fork-gdf91ae7 (EAC-compatible).log       2358 B
+  album/cancel me 20260924t011421 platterpus-fork-gdf91ae7/cancel me 20260924t011421 platterpus-fork-gdf91ae7.cue        372 B
+  album/cancel me 20260924t011421 platterpus-fork-gdf91ae7/cancel me 20260924t011421 platterpus-fork-gdf91ae7.log       4768 B
+  album/cancel me 20260924t011421 platterpus-fork-gdf91ae7/cancel me 20260924t011421 platterpus-fork-gdf91ae7.platterpus.json     160443 B
+  album/full acceptance_ angle_bracket 20260924t01__us-fork-gdf91ae7 _2_/full acceptance∶ angle‹bracket 20260924t011421 platterpus-fork-gdf91ae7 (EAC-compatible).log       3446 B
+  album/full acceptance_ angle_bracket 20260924t01__us-fork-gdf91ae7 _2_/full acceptance∶ angle‹bracket 20260924t011421 platterpus-fork-gdf91ae7.cue        747 B
+  album/full acceptance_ angle_bracket 20260924t01__us-fork-gdf91ae7 _2_/full acceptance∶ angle‹bracket 20260924t011421 platterpus-fork-gdf91ae7.log       9571 B
+  album/full acceptance_ angle_bracket 20260924t01__us-fork-gdf91ae7 _2_/full acceptance∶ angle‹bracket 20260924t011421 platterpus-fork-gdf91ae7.platterpus.json     481268 B
+  album/full acceptance_ angle_bracket 20260924t01__terpus-fork-gdf91ae7/full acceptance∶ angle‹bracket 20260924t011421 platterpus-fork-gdf91ae7 (EAC-compatible).log       2315 B
+  album/full acceptance_ angle_bracket 20260924t01__terpus-fork-gdf91ae7/full acceptance∶ angle‹bracket 20260924t011421 platterpus-fork-gdf91ae7.cue        393 B
+  album/full acceptance_ angle_bracket 20260924t01__terpus-fork-gdf91ae7/full acceptance∶ angle‹bracket 20260924t011421 platterpus-fork-gdf91ae7.log       3771 B
+  album/full acceptance_ angle_bracket 20260924t01__terpus-fork-gdf91ae7/full acceptance∶ angle‹bracket 20260924t011421 platterpus-fork-gdf91ae7.platterpus.json     162768 B
+  extra0520260924T011421_0000/aftercancel-1-Settings.png     150968 B
+  extra0520260924T011421_0000/aftercancel-10-QFrame.png        100 B
+  extra0520260924T011421_0000/aftercancel-11-Settings.png     150989 B
+  extra0520260924T011421_0000/aftercancel-12-Pick-a-MusicBrainz-release.png      47488 B
+  extra0520260924T011421_0000/aftercancel-13-QMenu.png       3300 B
+  extra0520260924T011421_0000/aftercancel-14-Platterpus-0.6.55.png     141422 B
+  extra0520260924T011421_0000/aftercancel-15-QFrame.png        100 B
+  extra0520260924T011421_0000/aftercancel-16-QMenu.png        726 B
+  extra0520260924T011421_0000/aftercancel-17-QFrame.png        100 B
+  extra0520260924T011421_0000/aftercancel-18-QMenu.png      11190 B
+  extra0520260924T011421_0000/aftercancel-19-QFrame.png        100 B
+  extra0520260924T011421_0000/aftercancel-2-QMenu.png        6386 B
+  extra0520260924T011421_0000/aftercancel-20-QFrame.png        100 B
+  extra0520260924T011421_0000/aftercancel-3-QFrame.png        100 B
+  extra0520260924T011421_0000/aftercancel-4-QFrame.png        100 B
+  extra0520260924T011421_0000/aftercancel-5-QFrame.png        100 B
+  extra0520260924T011421_0000/aftercancel-6-QFrame.png        100 B
+  extra0520260924T011421_0000/aftercancel-7-QFrame.png        100 B
+  extra0520260924T011421_0000/aftercancel-8-QFrame.png        100 B
+  extra0520260924T011421_0000/aftercancel-9-Run-test-script.png     128935 B
+  extra0520260924T011421_0000/aftercancel.png               47191 B
+  extra0520260924T011421_0000/afterfullrip-1-Settings.png     150968 B
+  extra0520260924T011421_0000/afterfullrip-10-QFrame.png        100 B
+  extra0520260924T011421_0000/afterfullrip-11-Settings.png     150989 B
+  extra0520260924T011421_0000/afterfullrip-12-Pick-a-MusicBrainz-release.png      47488 B
+  extra0520260924T011421_0000/afterfullrip-13-QMenu.png       3300 B
+  extra0520260924T011421_0000/afterfullrip-14-Platterpus-0.6.55.png     152783 B
+  extra0520260924T011421_0000/afterfullrip-15-QFrame.png        100 B
+  extra0520260924T011421_0000/afterfullrip-16-QMenu.png        726 B
+  extra0520260924T011421_0000/afterfullrip-17-QFrame.png        100 B
+  extra0520260924T011421_0000/afterfullrip-18-QMenu.png      11190 B
+  extra0520260924T011421_0000/afterfullrip-19-QFrame.png        100 B
+  extra0520260924T011421_0000/afterfullrip-2-QMenu.png       6386 B
+  extra0520260924T011421_0000/afterfullrip-20-QFrame.png        100 B
+  extra0520260924T011421_0000/afterfullrip-3-QFrame.png        100 B
+  extra0520260924T011421_0000/afterfullrip-4-QFrame.png        100 B
+  extra0520260924T011421_0000/afterfullrip-5-QFrame.png        100 B
+  extra0520260924T011421_0000/afterfullrip-6-QFrame.png        100 B
+  extra0520260924T011421_0000/afterfullrip-7-QFrame.png        100 B
+  extra0520260924T011421_0000/afterfullrip-8-QFrame.png        100 B
+  extra0520260924T011421_0000/afterfullrip-9-Run-test-script.png     120814 B
+  extra0520260924T011421_0000/afterfullrip.png              47191 B
+  extra0520260924T011421_0000/aftermp3-1-Settings.png      150968 B
+  extra0520260924T011421_0000/aftermp3-10-Run-test-script.png     130849 B
+  extra0520260924T011421_0000/aftermp3-11-QFrame.png          100 B
+  extra0520260924T011421_0000/aftermp3-12-Settings.png     150989 B
+  extra0520260924T011421_0000/aftermp3-13-Pick-a-MusicBrainz-release.png      47488 B
+  extra0520260924T011421_0000/aftermp3-14-QMenu.png          3300 B
+  extra0520260924T011421_0000/aftermp3-15-Platterpus-0.6.55.png     131422 B
+  extra0520260924T011421_0000/aftermp3-16-QFrame.png          100 B
+  extra0520260924T011421_0000/aftermp3-17-QMenu.png           726 B
+  extra0520260924T011421_0000/aftermp3-18-QFrame.png          100 B
+  extra0520260924T011421_0000/aftermp3-19-QMenu.png         11190 B
+  extra0520260924T011421_0000/aftermp3-2-QMenu.png           6386 B
+  extra0520260924T011421_0000/aftermp3-20-QFrame.png          100 B
+  extra0520260924T011421_0000/aftermp3-21-QFrame.png          100 B
+  extra0520260924T011421_0000/aftermp3-3-QFrame.png           100 B
+  extra0520260924T011421_0000/aftermp3-4-QFrame.png           100 B
+  extra0520260924T011421_0000/aftermp3-5-QFrame.png           100 B
+  extra0520260924T011421_0000/aftermp3-6-QFrame.png           100 B
+  extra0520260924T011421_0000/aftermp3-7-QFrame.png           100 B
+  extra0520260924T011421_0000/aftermp3-8-Pick-a-MusicBrainz-release.png      47488 B
+  extra0520260924T011421_0000/aftermp3-9-QFrame.png           100 B
+  extra0520260924T011421_0000/aftermp3.png                  47191 B
+  extra0520260924T011421_0000/afteroverwrite-1-Settings.png     150968 B
+  extra0520260924T011421_0000/afteroverwrite-10-QFrame.png        100 B
+  extra0520260924T011421_0000/afteroverwrite-11-Settings.png     150989 B
+  extra0520260924T011421_0000/afteroverwrite-12-Pick-a-MusicBrainz-release.png      47488 B
+  extra0520260924T011421_0000/afteroverwrite-13-QMenu.png       3300 B
+  extra0520260924T011421_0000/afteroverwrite-14-Platterpus-0.6.55.png     149478 B
+  extra0520260924T011421_0000/afteroverwrite-15-QFrame.png        100 B
+  extra0520260924T011421_0000/afteroverwrite-16-QMenu.png        726 B
+  extra0520260924T011421_0000/afteroverwrite-17-QFrame.png        100 B
+  extra0520260924T011421_0000/afteroverwrite-18-QMenu.png      11190 B
+  extra0520260924T011421_0000/afteroverwrite-19-QFrame.png        100 B
+  extra0520260924T011421_0000/afteroverwrite-2-QMenu.png       6386 B
+  extra0520260924T011421_0000/afteroverwrite-20-QFrame.png        100 B
+  extra0520260924T011421_0000/afteroverwrite-3-QFrame.png        100 B
+  extra0520260924T011421_0000/afteroverwrite-4-QFrame.png        100 B
+  extra0520260924T011421_0000/afteroverwrite-5-QFrame.png        100 B
+  extra0520260924T011421_0000/afteroverwrite-6-QFrame.png        100 B
+  extra0520260924T011421_0000/afteroverwrite-7-QFrame.png        100 B
+  extra0520260924T011421_0000/afteroverwrite-8-QFrame.png        100 B
+  extra0520260924T011421_0000/afteroverwrite-9-Run-test-script.png     131704 B
+  extra0520260924T011421_0000/afteroverwrite.png            47191 B
+  extra0520260924T011421_0000/afterrecovery-1-Settings.png     150968 B
+  extra0520260924T011421_0000/afterrecovery-10-Run-test-script.png     131827 B
+  extra0520260924T011421_0000/afterrecovery-11-QFrame.png        100 B
+  extra0520260924T011421_0000/afterrecovery-12-Settings.png     150989 B
+  extra0520260924T011421_0000/afterrecovery-13-Pick-a-MusicBrainz-release.png      47488 B
+  extra0520260924T011421_0000/afterrecovery-14-QMenu.png       3300 B
+  extra0520260924T011421_0000/afterrecovery-15-Platterpus-0.6.55.png     149761 B
+  extra0520260924T011421_0000/afterrecovery-16-QFrame.png        100 B
+  extra0520260924T011421_0000/afterrecovery-17-QMenu.png        726 B
+  extra0520260924T011421_0000/afterrecovery-18-QFrame.png        100 B
+  extra0520260924T011421_0000/afterrecovery-19-QMenu.png      11190 B
+  extra0520260924T011421_0000/afterrecovery-2-QMenu.png       6386 B
+  extra0520260924T011421_0000/afterrecovery-20-QFrame.png        100 B
+  extra0520260924T011421_0000/afterrecovery-21-QFrame.png        100 B
+  extra0520260924T011421_0000/afterrecovery-3-QFrame.png        100 B
+  extra0520260924T011421_0000/afterrecovery-4-QFrame.png        100 B
+  extra0520260924T011421_0000/afterrecovery-5-QFrame.png        100 B
+  extra0520260924T011421_0000/afterrecovery-6-QFrame.png        100 B
+  extra0520260924T011421_0000/afterrecovery-7-QFrame.png        100 B
+  extra0520260924T011421_0000/afterrecovery-8-Pick-a-MusicBrainz-release.png      47488 B
+  extra0520260924T011421_0000/afterrecovery-9-QFrame.png        100 B
+  extra0520260924T011421_0000/afterrecovery.png             47191 B
+  extra0520260924T011421_0000/aftersecurereread-1-Pick-a-MusicBrainz-release.png      47191 B
+  extra0520260924T011421_0000/aftersecurereread-10-QFrame.png        100 B
+  extra0520260924T011421_0000/aftersecurereread-11-QFrame.png        100 B
+  extra0520260924T011421_0000/aftersecurereread-12-Settings.png     150968 B
+  extra0520260924T011421_0000/aftersecurereread-13-QFrame.png        100 B
+  extra0520260924T011421_0000/aftersecurereread-14-QFrame.png        100 B
+  extra0520260924T011421_0000/aftersecurereread-15-QFrame.png        100 B
+  extra0520260924T011421_0000/aftersecurereread-16-QFrame.png        100 B
+  extra0520260924T011421_0000/aftersecurereread-17-Settings.png     150989 B
+  extra0520260924T011421_0000/aftersecurereread-18-Pick-a-MusicBrainz-release.png      47488 B
+  extra0520260924T011421_0000/aftersecurereread-19-Platterpus-0.6.55.png     144448 B
+  extra0520260924T011421_0000/aftersecurereread-2-QMenu.png       6386 B
+  extra0520260924T011421_0000/aftersecurereread-20-QFrame.png        100 B
+  extra0520260924T011421_0000/aftersecurereread-21-Pick-a-MusicBrainz-release.png      47488 B
+  extra0520260924T011421_0000/aftersecurereread-22-QMenu.png      11190 B
+  extra0520260924T011421_0000/aftersecurereread-3-QFrame.png        100 B
+  extra0520260924T011421_0000/aftersecurereread-4-QFrame.png        100 B
+  extra0520260924T011421_0000/aftersecurereread-5-Pick-a-MusicBrainz-release.png      47488 B
+  extra0520260924T011421_0000/aftersecurereread-6-QFrame.png        100 B
+  extra0520260924T011421_0000/aftersecurereread-7-QMenu.png       3300 B
+  extra0520260924T011421_0000/aftersecurereread-8-QMenu.png        726 B
+  extra0520260924T011421_0000/aftersecurereread-9-QFrame.png        100 B
+  extra0520260924T011421_0000/aftersecurereread.png        131664 B
+  extra0520260924T011421_0000/afterwav-1-Settings.png      150968 B
+  extra0520260924T011421_0000/afterwav-10-Run-test-script.png     130826 B
+  extra0520260924T011421_0000/afterwav-11-QFrame.png          100 B
+  extra0520260924T011421_0000/afterwav-12-Settings.png     150989 B
+  extra0520260924T011421_0000/afterwav-13-Pick-a-MusicBrainz-release.png      47488 B
+  extra0520260924T011421_0000/afterwav-14-QMenu.png          3300 B
+  extra0520260924T011421_0000/afterwav-15-Platterpus-0.6.55.png     137990 B
+  extra0520260924T011421_0000/afterwav-16-QFrame.png          100 B
+  extra0520260924T011421_0000/afterwav-17-QMenu.png           726 B
+  extra0520260924T011421_0000/afterwav-18-QFrame.png          100 B
+  extra0520260924T011421_0000/afterwav-19-QMenu.png         11190 B
+  extra0520260924T011421_0000/afterwav-2-QMenu.png           6386 B
+  extra0520260924T011421_0000/afterwav-20-QFrame.png          100 B
+  extra0520260924T011421_0000/afterwav-21-QFrame.png          100 B
+  extra0520260924T011421_0000/afterwav-3-QFrame.png           100 B
+  extra0520260924T011421_0000/afterwav-4-QFrame.png           100 B
+  extra0520260924T011421_0000/afterwav-5-QFrame.png           100 B
+  extra0520260924T011421_0000/afterwav-6-QFrame.png           100 B
+  extra0520260924T011421_0000/afterwav-7-QFrame.png           100 B
+  extra0520260924T011421_0000/afterwav-8-Pick-a-MusicBrainz-release.png      47488 B
+  extra0520260924T011421_0000/afterwav-9-QFrame.png           100 B
+  extra0520260924T011421_0000/afterwav.png                  47191 B
+  extra0520260924T011421_0000/dialogdependencies-1-Pick-a-MusicBrainz-release.png      47191 B
+  extra0520260924T011421_0000/dialogdependencies-10-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdependencies-11-Run-test-script.png     119662 B
+  extra0520260924T011421_0000/dialogdependencies-12-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdependencies-13-Settings.png     150989 B
+  extra0520260924T011421_0000/dialogdependencies-14-QMenu.png       3300 B
+  extra0520260924T011421_0000/dialogdependencies-15-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdependencies-16-QMenu.png        726 B
+  extra0520260924T011421_0000/dialogdependencies-17-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdependencies-18-QMenu.png      11190 B
+  extra0520260924T011421_0000/dialogdependencies-19-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdependencies-2-Dependency-check-complete.png      28290 B
+  extra0520260924T011421_0000/dialogdependencies-20-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdependencies-3-Settings.png     150968 B
+  extra0520260924T011421_0000/dialogdependencies-4-QMenu.png       6386 B
+  extra0520260924T011421_0000/dialogdependencies-5-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdependencies-6-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdependencies-7-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdependencies-8-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdependencies-9-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdependencies.png        96070 B
+  extra0520260924T011421_0000/dialogdiagnostics-1-Pick-a-MusicBrainz-release.png      47191 B
+  extra0520260924T011421_0000/dialogdiagnostics-10-Run-test-script.png     108696 B
+  extra0520260924T011421_0000/dialogdiagnostics-11-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdiagnostics-12-Settings.png     150989 B
+  extra0520260924T011421_0000/dialogdiagnostics-13-QMenu.png       3300 B
+  extra0520260924T011421_0000/dialogdiagnostics-14-Platterpus-0.6.55.png      96070 B
+  extra0520260924T011421_0000/dialogdiagnostics-15-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdiagnostics-16-QMenu.png        726 B
+  extra0520260924T011421_0000/dialogdiagnostics-17-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdiagnostics-18-QMenu.png      11190 B
+  extra0520260924T011421_0000/dialogdiagnostics-19-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdiagnostics-2-Settings.png     150968 B
+  extra0520260924T011421_0000/dialogdiagnostics-20-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdiagnostics-3-QMenu.png       6386 B
+  extra0520260924T011421_0000/dialogdiagnostics-4-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdiagnostics-5-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdiagnostics-6-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdiagnostics-7-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdiagnostics-8-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdiagnostics-9-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdiagnostics.png         82120 B
+  extra0520260924T011421_0000/dialogdrive-1-Pick-a-MusicBrainz-release.png      47191 B
+  extra0520260924T011421_0000/dialogdrive-10-QMenu.png        726 B
+  extra0520260924T011421_0000/dialogdrive-11-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdrive-12-QMenu.png      11190 B
+  extra0520260924T011421_0000/dialogdrive-13-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdrive-14-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdrive-2-Settings.png     150968 B
+  extra0520260924T011421_0000/dialogdrive-3-QMenu.png        6386 B
+  extra0520260924T011421_0000/dialogdrive-4-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdrive-5-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdrive-6-Run-test-script.png     120830 B
+  extra0520260924T011421_0000/dialogdrive-7-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogdrive-8-QMenu.png        3300 B
+  extra0520260924T011421_0000/dialogdrive-9-Platterpus-0.6.55.png      96070 B
+  extra0520260924T011421_0000/dialogdrive.png               71059 B
+  extra0520260924T011421_0000/dialogsettings-1-Pick-a-MusicBrainz-release.png      47191 B
+  extra0520260924T011421_0000/dialogsettings-10-Run-test-script.png     119781 B
+  extra0520260924T011421_0000/dialogsettings-11-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogsettings-12-QMenu.png       3300 B
+  extra0520260924T011421_0000/dialogsettings-13-Platterpus-0.6.55.png      96070 B
+  extra0520260924T011421_0000/dialogsettings-14-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogsettings-15-QMenu.png        726 B
+  extra0520260924T011421_0000/dialogsettings-16-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogsettings-17-QMenu.png      11190 B
+  extra0520260924T011421_0000/dialogsettings-18-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogsettings-19-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogsettings-2-Settings.png     150968 B
+  extra0520260924T011421_0000/dialogsettings-3-QMenu.png       6386 B
+  extra0520260924T011421_0000/dialogsettings-4-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogsettings-5-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogsettings-6-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogsettings-7-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogsettings-8-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogsettings-9-QFrame.png        100 B
+  extra0520260924T011421_0000/dialogsettings.png           150989 B
+  extra0520260924T011421_0000/report.json                  178145 B
+  extra0520260924T011421_0000/rig-check/MANIFEST.txt        14454 B
+  extra0520260924T011421_0000/rig-check/argv-probe-output.txt        472 B
+  extra0520260924T011421_0000/rig-check/argv-probe.json       1616 B
+  extra0520260924T011421_0000/rig-check/ripper-version.txt         58 B
+  extra0520260924T011421_0000/transcript.txt               119570 B
+  session/artifacts/02platterpus/log.txt                  2995276 B
+  session/artifacts/04platterpus/config.toml                 1142 B
+  session/transcript.txt                                   119570 B
+  session/zz-applog-rotations/03platterpus/log.txt.1      8388566 B
+  DIAGNOSTICS.txt                                           11953 B
+  SETTINGS.json                                              2652 B
+  SOURCES.txt                                                1436 B
+
+NOT INCLUDED (34 file(s))
+----------------------------------------
+  Listed so an absence is visible. A bundle quietly missing an artifact
+  looks exactly like a complete one.
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/03 - Message in a Bottle.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/04 - Walking on the Moon.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/05 - Don’t Stand So Close to Me.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/06 - De Do Do Do, De Da Da Da.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/07 - Every Little Thing She Does Is Magic.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/08 - Invisible Sun.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/09 - Spirits in the Material World.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/10 - Every Breath You Take.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/11 - King of Pain.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/12 - Wrapped Around Your Finger.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/13 - Don’t Stand So Close to Me ’86.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260924t011421 platterpus-fork-gdf91ae7/14 - Message in a Bottle (new classic rock mix).flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20260924t011421 platterpus-fork-gdf91ae7/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20260924t011421 platterpus-fork-gdf91ae7/01 - Roxanne.wav excluded: '.wav' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20260924t011421 platterpus-fork-gdf91ae7/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20260924t011421 platterpus-fork-gdf91ae7/02 - Can’t Stand Losing You.wav excluded: '.wav' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20260924t011421 platterpus-fork-gdf91ae7/cover.jpg excluded: '.jpg' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20260924t011421 platterpus-fork-gdf91ae7/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20260924t011421 platterpus-fork-gdf91ae7/01 - Roxanne.wv excluded: '.wv' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20260924t011421 platterpus-fork-gdf91ae7/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20260924t011421 platterpus-fork-gdf91ae7/02 - Can’t Stand Losing You.wv excluded: '.wv' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20260924t011421 platterpus-fork-gdf91ae7/cover.jpg excluded: '.jpg' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20260924t011421 platterpus-fork-gdf91ae7/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20260924t011421 platterpus-fork-gdf91ae7/01 - Roxanne.mp3 excluded: '.mp3' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20260924t011421 platterpus-fork-gdf91ae7/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20260924t011421 platterpus-fork-gdf91ae7/02 - Can’t Stand Losing You.mp3 excluded: '.mp3' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20260924t011421 platterpus-fork-gdf91ae7/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20260924t011421 platterpus-fork-gdf91ae7/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/cancel me 20260924t011421 platterpus-fork-gdf91ae7/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260924t01__us-fork-gdf91ae7 _2_/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260924t01__us-fork-gdf91ae7 _2_/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260924t01__terpus-fork-gdf91ae7/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+
+NO AUDIO IS PRESENT — no file of any audio type can enter this archive.
+Everything here passed an allowlist: .cue .json .log .md .md5 .sha256 .toml .txt
+Plus, from this program's own run folder ONLY: .png
+A name is not a guarantee, so two more checks run on every file: its
+first bytes are compared against 14 audio-container
+signatures, and a symbolic link is judged by the name of the file it
+points at as well as by its own.
+(those are screenshots Platterpus took of its own window. An album folder
+is never judged by that wider rule, because its images are record-label
+artwork.) The per-track CRCs in the logs prove bit-perfection without the
+audio.
+
+Caps in force: 16777216 B per file (head+tail kept, elision
+marked inline), 67108864 B across the whole payload, and the
+newest 20 bundles are kept in the bundles folder.
