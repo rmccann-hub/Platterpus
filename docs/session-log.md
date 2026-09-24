@@ -11,6 +11,30 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-24 (night, last) — what stopped the container on 2026-09-23
+
+**The evidence:** the maintainer ran the journal check for the section F kill (exit 137, 95 s
+into the whole-disc rip, 21:16:15).
+- **Ruled out:** a podman or distrobox stop (podman logged no `stop` or `kill` event, only
+  `died`), an OOM kill, and a logout.
+- **What lines up:** a Platterpus launch's systemd unit, alive since about 20:20:25, ended in
+  the same second as the container. The container had been started four seconds after that
+  launch.
+
+**The mechanism, read in the source rather than assumed:**
+- podman does not give conmon its own scope when `INVOCATION_ID` is set
+  (`containers/podman@5866b09:libpod/oci_conmon_linux.go:183-186`).
+- KDE runs every app as a systemd service, which sets that variable.
+- conmon forwards SIGTERM into the container (`containers/conmon@3f89b60:src/ctr_exit.c:23-27`).
+
+So the container belongs to whichever app or terminal starts it. Whether the older window was
+closed at that moment, or its unit only ended because the container died, is for the
+maintainer's second check to settle. The fix is planned in TASKS and not built.
+
+**What did not work:** the `podman events` half of the command I gave printed nothing for the
+window. The journal holds the same event records, so nothing was lost. It still shows that the
+command was not tested before it was handed over.
+
 ## 2026-09-24 (night, later) — 0.6.58 released; one gap planned for the next release
 
 **Released:** 0.6.58, through release run 156 on `22c595f`, after `main`'s CI run 900
