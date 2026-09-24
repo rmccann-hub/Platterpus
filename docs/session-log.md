@@ -11,6 +11,27 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-24 (small hours) — round-27 answers ready: one frame, not a pressing; loudness by coverage; READ
+
+The maintainer asked for our round-27 answers first, then 0.6.57. **Reading the fork's
+source for the wording question turned into a correction of the mechanism.** `Accurip
+450` sums frame 450 alone and is printed only after both whole-track checksums
+missed, so "offset-variant pressing" was a misreading of a frame index (§5.bs). All of
+our own surfaces now say only one frame matched, through one module and a sweep. The
+EAC-compatible log is unchanged under round 7's H4 agreement, with new wording
+proposed for round 27.
+
+**The same check found an error of ours in round 24.** We had cited track 5's
+identical frame-450 checksum as proof of a pressing; its whole-track CRC differs
+across rips. It goes to the fork as a correction. Reading `crip_find_ar` also turned
+up an upstream fall-through (a frame-450 miss compares the whole-track checksum),
+which goes to them as a portable shape. It is harmless in practice.
+
+**The loudness finding was ours to fix without them.** The same log's footer says
+how much was read, so the album rows are now labelled by coverage (`album_loudness.py`,
+report schema v26). `rig-check` now quotes `READ` only (3.02×, the fork's figure)
+and grades the bound per counter. The answers are in TASKS.md for our lap 2.
+
 ## 2026-09-24 (late night) — round 26 closed on both gates; 0.6.56 released; offset-variant re-reads default on
 
 **The fork's lap 6 closed round 26 `GO`/`GO`**, and they published `.16` at `221a1df` on both

@@ -1591,7 +1591,10 @@ def test_fidelity_summary_notes_partial_offset_variant_tracks() -> None:
         health_status="No errors occurred",
     )
     summary = _fidelity_summary(rip_log)
-    assert "1 track partially accurate (offset-variant match)." in summary
+    assert (
+        "On 1 track, only one frame matched AccurateRip (the rest unverified)."
+        in summary
+    )
 
 
 def test_fidelity_summary_prefers_per_track_ar_over_summary_string() -> None:

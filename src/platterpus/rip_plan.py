@@ -130,13 +130,13 @@ def describe_rip_plan(
         )
     if mode == MODE_DYNAMIC:
         lines.append(
-            f"{PLAN_PREFIX}   Offset-variant tracks re-read: "
+            f"{PLAN_PREFIX}   'Partially accurate' tracks re-read: "
             + ("YES" if rerip_offset_variant else "no")
-            + " (dynamic mode only; an offset-variant AccurateRip match is "
+            + " (dynamic mode only; a track where only one frame matched "
             + (
-                "re-read until reads agree)"
+                "AccurateRip is re-read until reads agree)"
                 if rerip_offset_variant
-                else "accepted as-is)"
+                else "AccurateRip is accepted as-is)"
             )
         )
 

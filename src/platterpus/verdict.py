@@ -40,7 +40,10 @@ def _audio_tracks(rip_log: object) -> list[object]:
 
 
 def track_accuraterip_partial(track: object) -> bool:
-    """True when a track matched ONLY the +450-frame offset-variant pressing.
+    """True when only one frame of a track (cyanrip's ``Accurip 450``) matched.
+
+    Named "offset-variant" in code and reports for historical reasons; what it
+    establishes is in :mod:`platterpus.one_frame_match`, and it is not a pressing.
 
     The single definition, because three surfaces used to compute it three ways.
     An ``accuraterip_offset`` *attribute* is set whenever cyanrip printed an
@@ -61,8 +64,8 @@ def accuraterip_counts(rip_log: object) -> tuple[int, int, int]:
 
     ``total_audio`` counts tracks AccurateRip has anything to say about (a Copy
     CRC or any AR result), ``verified`` those that matched exactly (confidence
-    ≥ 1), and ``partial`` those that matched only the offset-variant pressing
-    ("Accurip 450") without an exact match. The single source both
+    ≥ 1), and ``partial`` those where only one frame ("Accurip 450") matched,
+    with no exact match (see :mod:`platterpus.one_frame_match`). The single source both
     :func:`accuraterip_verdict` and :func:`reconcile_ar_ctdb` read, so the
     banner, the JSON, and the reconciliation line can never disagree on the
     tally. Pure; reads via ``getattr`` and never raises.
@@ -98,7 +101,9 @@ def accuraterip_counts(rip_log: object) -> tuple[int, int, int]:
 # Plain strings rather than an Enum: they are only ever compared against these
 # constants, and a string keeps log and debugger output readable.
 AR_STATE_VERIFIED: str = "verified"  # exact checksum match, confidence >= 1
-AR_STATE_OFFSET_VARIANT: str = "offset-variant"  # matched the +450 pressing only
+# The VALUE is historical and stays (reports carry it); the state is "only frame
+# 450 matched", which is not a pressing — see `one_frame_match`.
+AR_STATE_OFFSET_VARIANT: str = "offset-variant"
 AR_STATE_NO_MATCH: str = "no-match"  # in the database, our read matched nothing
 AR_STATE_ABSENT: str = "absent"  # nothing in the database to compare against
 AR_STATE_NO_DATA: str = "no-data"  # this AR version reported nothing at all
@@ -243,7 +248,7 @@ def accuraterip_state(
     """Classify one AR column (v1 or v2) into exactly one of :data:`AR_STATES`.
 
     ``result`` is the track's v1 or v2 result; ``offset_result`` is its +450
-    offset-variant result (cyanrip's "Accurip 450:"), shared by both columns
+    frame-450 result (cyanrip's "Accurip 450:"), shared by both columns
     because it describes the same track. ``lookup`` is the track's ``Accurip:``
     status text — defaulted so a caller without it degrades to the previous
     behaviour rather than failing. Pure and never raises.
@@ -251,7 +256,7 @@ def accuraterip_state(
     # An exact match outranks everything — a real match is never downgraded.
     if accuraterip_is_match(result):
         return AR_STATE_VERIFIED
-    # Partially accurate: the standard checksum missed, the offset variant hit.
+    # Partially accurate: the whole-track checksums missed, frame 450 hit.
     if accuraterip_is_match(offset_result):
         return AR_STATE_OFFSET_VARIANT
     # Nothing matched. Did we have anything to match *against*? Either result
@@ -419,17 +424,18 @@ def accuraterip_verdict(
         )
     if verified > 0:
         if partial and verified + partial == total:
-            # Every track is accounted for in AccurateRip: some exact, the rest
-            # offset-variant. Say so instead of implying the partials "didn't
-            # match" — but stay amber, since partial ≠ proven bit-perfect.
+            # Every track has SOME AccurateRip finding: some exact, the rest
+            # one frame only. Say what matched rather than implying the rest
+            # "didn't match" at all — and stay amber, because one frame verifies
+            # one frame (see `one_frame_match`; it once named a pressing here).
             return (
                 f"⚠ {verified} of {total} tracks verified exactly against "
-                f"AccurateRip; the other {partial} matched an offset-variant "
-                "pressing (partially accurate — see the table)",
+                f"AccurateRip; on the other {partial}, only one frame matched, so "
+                "the rest of each is unverified (see the table)",
                 "warn",
             )
         tail = (
-            f"; {partial} matched an offset-variant pressing (partially accurate)"
+            f"; on {partial}, only one frame matched (the rest unverified)"
             if partial
             else ""
         )
@@ -438,12 +444,13 @@ def accuraterip_verdict(
             f"the rest aren't in the database or didn't match{tail} (see the table)",
             "warn",
         )
-    # None verified exactly, but some matched an offset-variant pressing — still
-    # better news than "nobody submitted this disc," so say it (amber, not grey).
+    # None verified exactly, but on some only one frame matched. That shows the
+    # disc is in AccurateRip, so it is amber rather than grey, and it verifies no
+    # track, so it is never worded as a partial success.
     if partial:
         return (
-            f"⚠ {partial} of {total} tracks matched an offset-variant pressing "
-            "(partially accurate); none verified exactly — see the table",
+            f"⚠ AccurateRip: on {partial} of {total} tracks only one frame "
+            "matched, so none is verified — see the table",
             "warn",
         )
     # The leading "ⓘ" (like ✓/⚠ above) means the status is conveyed by symbol +
@@ -465,9 +472,9 @@ def reconcile_ar_ctdb(rip_log: object, ctdb_result: object) -> str | None:
 
     The two checks read as if they disagree to a non-expert: AccurateRip can say
     "12/14 accurate" while CTDB says "no match". They don't actually disagree —
-    CTDB folds the WHOLE disc into one CRC, so if even a couple of tracks differ
-    from the common pressing (an offset-variant, or a genuinely different read),
-    the whole-disc CRC won't be in CTDB. That's the *same* finding AccurateRip
+    CTDB folds the WHOLE disc into one CRC, so if even a couple of tracks match
+    no AccurateRip submission as a whole (including a track where only one frame
+    matched), the whole-disc CRC won't be in CTDB either. That's the *same* finding AccurateRip
     already reported, seen from a different angle — not a second problem.
 
     Returns a one-line reconciliation to show under the CTDB verdict, or None
@@ -490,16 +497,18 @@ def reconcile_ar_ctdb(rip_log: object, ctdb_result: object) -> str | None:
         total, verified, partial = accuraterip_counts(rip_log)
         if total == 0 or (verified == 0 and partial == 0):
             # No AccurateRip signal at all → the two aren't in apparent conflict;
-            # the standalone CTDB line already stands alone. (An all-offset-
-            # variant disc — verified 0 but partial > 0 — DOES look contradictory
-            # next to a CTDB no-match, so it falls through to the partial branch.)
+            # the standalone CTDB line already stands alone. (A disc where only
+            # one frame matched on every track — verified 0 but partial > 0 — DOES
+            # look contradictory next to a CTDB no-match, so it falls through to
+            # the partial branch.)
             return None
         if partial > 0:
             return (
-                f"Why this and AccurateRip seem to disagree: {partial} track(s) "
-                "matched only an offset-variant pressing, so the whole-disc CTDB "
-                "CRC won't match the database's common-pressing entries — this is "
-                "the SAME finding as AccurateRip above, not a separate problem."
+                f"Why this and AccurateRip seem to disagree: on {partial} track(s) "
+                "only one frame matched AccurateRip and the track as a whole "
+                "matched no submission, so the whole-disc CTDB CRC cannot match "
+                "either — this is the SAME finding as AccurateRip above, not a "
+                "separate problem."
             )
         if verified == total:
             return (
@@ -507,8 +516,8 @@ def reconcile_ar_ctdb(rip_log: object, ctdb_result: object) -> str | None:
                 "whole-disc entry — most likely this exact pressing just hasn't "
                 "been submitted to CTDB. AccurateRip is the authority here."
             )
-        # verified > 0 and the rest are NOT in AccurateRip at all (not
-        # offset-variants). AccurateRip made no finding about those tracks, so
+        # verified > 0 and the rest are NOT in AccurateRip at all (not even one
+        # frame matched). AccurateRip made no finding about those tracks, so
         # this is NOT "the same finding" — a CTDB no-match here is unsurprising
         # and doesn't mean the rip is wrong. Say exactly that, and don't claim a
         # mismatch AccurateRip never reported.

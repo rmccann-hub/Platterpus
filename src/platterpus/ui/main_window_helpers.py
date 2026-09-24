@@ -452,13 +452,15 @@ def fidelity_summary(
 
 
 def _partial_accurate_clause(rip_log: object) -> str:
-    """A short note when some tracks matched ONLY the +450-frame offset variant.
+    """A short note when on some tracks only one frame matched AccurateRip.
 
-    cyanrip reports these "partially accurately ripped": the audio is almost
-    certainly correct (it matches AccurateRip at the common pressing offset),
-    but it's honestly distinct from a plain exact match — so the user
-    understands why, say, "12/14 verified" isn't "14/14" without it reading as a
-    bad rip. Empty when there were none (the common case). Never raises.
+    cyanrip reports these "partially accurately ripped". This docstring used to
+    say the audio was "almost certainly correct (it matches AccurateRip at the
+    common pressing offset)", and on 2026-09-24 one such track held wrong audio:
+    one frame matching verifies one frame (see :mod:`platterpus.one_frame_match`).
+    So the note says what matched and that the rest is unverified, which is also
+    why "12/14 verified" is not "14/14". Empty when there were none (the common
+    case). Never raises.
 
     Uses the shared :func:`~platterpus.verdict.track_accuraterip_partial`, which
     requires an actual *match* at the variant offset. Counting the mere presence
@@ -474,7 +476,9 @@ def _partial_accurate_clause(rip_log: object) -> str:
     if count == 0:
         return ""
     noun = "track" if count == 1 else "tracks"
-    return f" {count} {noun} partially accurate (offset-variant match)."
+    return (
+        f" On {count} {noun}, only one frame matched AccurateRip (the rest unverified)."
+    )
 
 
 def _accuraterip_clause(rip_log: object) -> str | None:

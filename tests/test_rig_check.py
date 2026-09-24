@@ -997,6 +997,54 @@ def test_a_per_track_sum_above_the_disc_total_is_a_failure(tmp_path: Path) -> No
     assert "EXCEEDS the disc total" in rows[0].detail  # type: ignore[attr-defined]
 
 
+_ROUND26_SECURE_REREAD = (
+    Path(__file__).resolve().parents[1]
+    / "docs/handshake/artifactsround26/round26securereread.log"
+)
+
+
+def test_the_re_read_multiple_is_read_off_READ_as_the_fork_counts_it(
+    tmp_path: Path,
+) -> None:
+    """On the real round-26 `-Z 2` rip, the row quotes 3.02x, the fork's figure.
+
+    Before, it summed all four counters: 26,622 against 76,403, which is 2.87x,
+    for the same log they read as 3.02x. `READ` is the counter that scales with
+    the passes; `VERIFY` went 2.15x on this rip. The old row also printed a
+    multiple only when it was an exact integer, which on media is never.
+    """
+    rows = _rows(_album_from(tmp_path, _ROUND26_SECURE_REREAD), "parser/paranoia")
+    assert len(rows) == 1, rows
+    detail = rows[0].detail  # type: ignore[attr-defined]
+    assert "READ (the re-read witness)" in detail, detail
+    assert "sum to 21678" in detail and "totals 65406" in detail, detail
+    assert "3.02x the sum on this rip" in detail, detail
+    assert "Also bound-checked, not summed in: FIXUP_ATOM, OVERLAP, VERIFY" in detail
+    assert "genuinely exercised: YES" in detail, detail
+    assert rows[0].status == rig_check.INFO, detail  # type: ignore[attr-defined]
+
+
+def test_the_bound_is_graded_per_counter_not_on_the_sum(tmp_path: Path) -> None:
+    """One counter over its bound fails, even when the four together are under.
+
+    The real log with only its disc `VERIFY` lowered to 4000, under the per-track
+    4,384. `READ` is untouched and the four-counter sum stays far under its total,
+    so a check that graded the sum would pass this; a per-counter one cannot.
+    """
+    text = _ROUND26_SECURE_REREAD.read_text(encoding="utf-8")
+    disc_row = "\n  VERIFY:        9422\n"
+    assert text.count(disc_row) == 1, "the disc block's VERIFY row moved"
+    album = tmp_path / "album"
+    album.mkdir()
+    (album / "rip.log").write_text(
+        text.replace(disc_row, "\n  VERIFY:        4000\n"), encoding="utf-8"
+    )
+    rows = _rows(album, "parser/paranoia")
+    assert len(rows) == 1, rows
+    assert rows[0].status == rig_check.FAIL, rows[0].detail  # type: ignore[attr-defined]
+    assert "VERIFY 4384 > 4000" in rows[0].detail  # type: ignore[attr-defined]
+
+
 def test_the_interruption_row_survives_a_rip_that_parsed_to_zero_tracks(
     tmp_path: Path,
 ) -> None:
