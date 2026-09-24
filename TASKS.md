@@ -108,7 +108,35 @@ round 26 is open.
   up drive…* are also steps inside *Run setup…*; each is still one action with one button,
   and the wizard is a sequence of them rather than a second door.
 
-## Round 26 — OPEN 2026-09-23 on `df91ae7` (`+platterpus.15`): the real test, installed through our app
+## Round 27 — OPEN 2026-09-24 on `221a1df` (`+platterpus.16`): the real test of `.16`
+
+Their lap 1 (`cyanrip@87facd5`, sha256 `f44de648…`, 9,767 bytes, released) names `.16`,
+`release_seq` 26 on both channels, and fixes three close conditions under R1, the same shape
+as round 26: **§0.1** our **Full** acceptance run with `.16` installed through our app, from a
+release whose `PIN_UNDER_REVIEW` is `221a1df`, the bundle committed to both repos; **§0.2**
+each side's reading of it (theirs across every rip); **§0.3** both releases named (ours rolls
+`FORK_PIN` to `221a1df`, theirs is `+platterpus.17`). Opened before the test by a recorded
+operator override of R8 point 3, as round 26 was. A quick run on 0.6.58 with `.16` installed
+stopped at section A the same day, as their lap 1 predicted.
+
+- [x] **Filed their lap 1** and checked it (`handshake.py --check` passes; READY-TO-READ
+  `yes`; shared hashes equal ours). Verified in their tree: `release-manifest.json` at
+  `64a6207` names `221a1df` on both channels; `PROVIDER-CONTRACT.md` at `221a1df` equals
+  `.15`'s apart from line numbers, the build line and the source anchor; `src/` changes only
+  the `media` tag and the AccurateRip tally, so no flag moved (`_MAX_TABLE_LAG` 0 -> 1, derived).
+- [x] **`PIN_UNDER_REVIEW` -> `221a1df`**, round 27, with its release sequence and build tag;
+  `FORK_PIN` stays `df91ae7` until the round closes. The rig sheet is rewritten for the run.
+- [x] **Our lap 2**, released 2026-09-24: the release that carries the move (0.6.59, under a
+  §6b override the maintainer gave that day), our answers to §B, §D accepted with one
+  amendment, and a correction: the round-26 container was ours, not "outside both programs".
+  It answers their lap 1 as released (`f44de648…`); they have since returned it to held and
+  revised it to name 0.6.59 (`cyanrip@ac7143d`). File the revised one when it is released.
+- [~] **0.6.59**: the pin move, the container fix (a container Platterpus starts gets its own
+  scope), the script-`set` refresh fix, and `--doctor` naming the container's owner. Built,
+  under the §6b override in our lap 2 (released 2026-09-24).
+- [ ] **The real test on 0.6.59**, then each side's reading and the closing laps.
+
+## Round 26 — CLOSED `GO`/`GO` 2026-09-24 at six laps on `df91ae7` (`+platterpus.15`): the real test, installed through our app
 
 Their lap 1 (`cyanrip@db72862`, sha256 `95a03f49…`, 8,433 bytes, released) names `.15` and
 fixes three close conditions under R1: **§0.1** our full acceptance run with `.15` installed
@@ -118,8 +146,8 @@ laps (ours rolls `FORK_PIN` to `df91ae7`, theirs is `+platterpus.16`). Opened BE
 by a recorded operator override of R8 point 3, because our acceptance run can only demand
 `.15` once a lap of theirs names it. Every mechanism claim in it checked against our tree.
 
-- [ ] **PLANNED FOR THE RELEASE AFTER 0.6.58 (maintainer, 2026-09-24): an open window follows a
-  setting changed elsewhere.** The gap as found: with the script console or Setup & Updates open,
+- [x] **DONE for 0.6.59 (planned by the maintainer, 2026-09-24): an open window follows a
+  setting changed elsewhere.** Built as planned below; three reverts probed, three detected. The gap as found: with the script console or Setup & Updates open,
   a script's `set` changes the setting and saves it, but neither window's tick-boxes move, so
   they show a value no longer in force until reopened. **Correction to what was said on
   2026-09-24:** Setup & Updates does NOT follow a script `set` either — `ScriptRunner._do_set`
@@ -132,6 +160,42 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
   never look like a click; (3) the misnamed test is renamed and a real one added that runs the
   `set` verb against an open console and an open Setup & Updates, revert-probed. Small; no
   behaviour change beyond the display.
+- [x] **DONE for 0.6.59 (the maintainer's OK, 2026-09-24): the `ripping` container dies
+  with whichever app or terminal started it.** Fixed in `container_scope.py`: the variable is
+  removed at startup, and `--doctor` names the owner. The rig check confirmed both cases first. Found 2026-09-24 in the maintainer's journal for
+  the 2026-09-23 section F kill (exit 137, 95 s into the rip). **Measured:**
+  - podman logged no `stop` or `kill` event, only `died`, so no podman or distrobox command
+    stopped the container;
+  - there are no kernel, OOM or logout lines;
+  - `app-io.github.rmccann_hub.Platterpus@41dca….service` ended in the same second as the
+    container's scope. It had run 55 min 50 s, and the container 55 min 46 s, so that launch
+    (about 20:20:25) is the one that started the container (about 20:20:29);
+  - the app running the acceptance script (PID 19945) is a different process: it ran the next
+    step, wrote its bundle, and never logged receiving a termination signal.
+
+  **Mechanism, cited:**
+  - podman leaves conmon in the caller's cgroup, instead of giving it its own
+    `libpod-conmon-…scope`, whenever `INVOCATION_ID` is set
+    (`containers/podman@5866b09:libpod/oci_conmon_linux.go:183-186`);
+  - systemd sets `INVOCATION_ID` for a service, and KDE runs every app it launches as one;
+  - conmon forwards SIGTERM to the container's main process
+    (`containers/conmon@3f89b60:src/ctr_exit.c:23-27`);
+  - no `libpod-conmon` scope ended alongside the container.
+
+  **Not yet settled:** whether the older window was closed at 21:16:15 (the cause) or merely
+  emptied when the container died (an effect); the maintainer's second check decides it. Also
+  unexplained: cyanrip printed `Trying to quit`, so a catchable signal reached it before the
+  kill.
+
+  **Planned fix:**
+  1. Drop `INVOCATION_ID` from the environment every host-wrapper spawn uses
+     (`killable.py`, `adapters/cyanrip_backend.py`, `deps/ripper_wrapper_probe.py`, through
+     one helper), so a container Platterpus starts gets its own scope.
+  2. A `--doctor` and diagnostics line naming the unit that owns the container, because one
+     started from a terminal still dies when that terminal closes.
+
+  Test: the spawn environment lacks the variable, revert-probed. Routing is unchanged: we
+  still call only `~/.local/bin/cyanrip`. The 2026-09-23 run stays `partial` in the ledger.
 - [x] **Source citations that name the old ripper's repository stay** (maintainer, 2026-09-24:
   "do your recommendation"): three docstrings cite the upstream files the legacy parsers and a
   capability audit were checked against. A citation without its repository cannot be followed;
@@ -195,6 +259,10 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
 - [x] **0.6.56 released 2026-09-24** (release run 154 on `56de3cf`; handshake, CI and changelog gates
   green; AppImage, `.sha256`, `.zsync` published; PyPI published). No round open, no override.
   It is the first release that installs `df91ae7` by default.
+- [x] **0.6.58 released 2026-09-24** (release run 156 on `22c595f`, after `main`'s CI run 900
+  was green; AppImage, `.sha256`, `.zsync` and install scripts published). No round open (the
+  fork's head still `64a6207`), so no override. Acceptance run sizes, a fixed baseline, the
+  drive's own offset, component versions, one home per setting, and the old ripper's name retired.
 - [x] **0.6.57 released 2026-09-24** (release run 155 on `8278b19`, after `main`'s CI run 898
   was green; AppImage, `.sha256`, `.zsync` and install scripts published; PyPI published). No
   round open, so no override. It re-reads one-frame matches by default.
@@ -246,6 +314,22 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
      `Interrupted at:` lines. If they add a qualifier, please add a NEW line rather than change
      the four: our patterns anchor on the labels, and a renamed row falls back silently to
      FFmpeg's block, losing the stable source though not the figure.
+  6. **Portable shapes found in our own code, `NEXT-ROUND`** (the bilateral rule: report the
+     shape with our citation, and let them check their side):
+     - a test named for a path it does not drive (`test_a_script_set_reaches_an_open_setup_and_updates`);
+     - a removed dependency's name kept in live text for three months, and the gate we built for
+       it (`tests/test_no_previous_ripper_in_live_text.py`): history exempt by path, necessary
+       literals counted down-only;
+     - a renamed persisted enum member has to keep its stored string (`OffsetSource.LEGACY_CONFIG`
+       still stores the old member's value, or every saved profile using it would read back
+       as unknown).
+  7. **The container belongs to whichever app or terminal started it, `NEXT-ROUND`.** This is
+     the 2026-09-23 section F kill (row above). podman leaves conmon in the caller's cgroup when
+     `INVOCATION_ID` is set (`containers/podman@5866b09:libpod/oci_conmon_linux.go:183-186`),
+     and KDE sets it for every app and terminal. Portable to their rig: a container one of their
+     scripts starts from a terminal dies when that terminal closes. Also a question for them: on
+     that kill their log shows `Trying to quit` about 87 ms before the SIGKILL, so which signal
+     does their handler print that for?
 - [ ] **Re-run F (or the whole script)** on the next release. F's fast whole-disc path is
   untested by the 2026-09-24 run, and that path is F's whole purpose.
 - [ ] **Each side's reading, then the closing laps**; at the close, roll `FORK_PIN` to
@@ -5304,4 +5388,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.58.*
+*Last updated for Platterpus v0.6.59.*

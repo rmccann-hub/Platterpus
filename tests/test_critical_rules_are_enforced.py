@@ -1157,7 +1157,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # xcb/6.11.2, so a reader who trusts its name deletes the line that is
     # actually holding the pairing up.
     # **1373 -> 1374** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "app.py": 1374,
+    # **1374 -> 1380 (2026-09-24)**: the startup call that removes INVOCATION_ID
+    # before anything spawns, so a container we start is not owned by this
+    # window's unit (`container_scope.py`). It has to be here: it must run first.
+    "app.py": 1380,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
@@ -1340,7 +1343,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2328 -> 2340 (2026-09-24, round 26 close)**: the roll of `FORK_PIN` and
     # `FORK_EXPECTED_VERSION` to `df91ae7`, each with the history the constant's own
     # comment keeps, as every roll since round 7 has.
-    "deps/fork_source.py": 2340,
+    # **2340 -> 2362 (2026-09-24, round 27 open)**: `PIN_UNDER_REVIEW` moves to
+    # `221a1df` (`+platterpus.16`) with why, its release sequence, its build tag in
+    # the `--consumer` accept-set with the contract that licenses it, the re-derived
+    # same-program flag, and the round-27 pairing line.
+    "deps/fork_source.py": 2362,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1572,7 +1579,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "parsers/rip_log.py": 889,  # +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
-    "preflight.py": 887,
+    # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
+    # app or terminal the container belongs to. The lookup is in
+    # `container_scope.py`; only the CheckResult mapping lives here, beside the
+    # other checks, because a check that lived elsewhere would need to import
+    # this module back.
+    "preflight.py": 928,
     # **367 -> 370** (2026-09-24): Accurip 450 is ONE frame, not a pressing. Two docstrings stated the old mechanism as fact.
     "read_speed_ladder.py": 370,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
@@ -1689,7 +1701,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **494 -> 509** (2026-09-24): `size_next_run`, the one-shot run-size hand-off beside `contain_next_run_in`.
     # **509 -> 548** (2026-09-24, #37 one home per setting): the console hosts its three test-script settings (in `script_settings_box.py`, split out so the console stays about running) and never replaces a typed batch when the startup script changes.
     # **548 -> 565** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the intro and script settings scroll in a `FitScrollArea` so Run and the transcript keep their room on a Steam Deck at 150% text, where the new settings group squeezed three buttons to 12 px.
-    "ui/dialogs/script_console.py": 565,
+    # **565 -> 570 (2026-09-24)**: `refresh_settings`, the pass-through the window
+    # calls so the console's own script options follow a script's `set`.
+    "ui/dialogs/script_console.py": 570,
     # **319 -> 320** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     "ui/disc_info_panel.py": 320,
     # **500 -> 577** (2026-09-24, #37 one home per setting): the read offset's ONE home now holds its Apply tick-box and the legacy ripper-config offset line, both moved from Settings, with the tooltip the offset's control had there.
@@ -1845,7 +1859,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # cross-mixin call is a mypy error, which is how the wiring gets checked.
     # **427 -> 428** (2026-09-24, #36): the listener list's declaration.
     # **428 -> 441** (2026-09-24, #37 one home per setting): the seam declares SettingsMixin's methods and the open Setup & Updates window it refreshes.
-    "ui/main_window_shared.py": 441,
+    # **441 -> 446 (2026-09-24)**: `_script_console` declared beside
+    # `_setup_center`, because SettingsMixin now re-renders the console too.
+    "ui/main_window_shared.py": 446,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -2002,7 +2018,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # (identity), after the full suite showed a class-name match picking a leftover.
     # **4125 -> 4314** (2026-09-24): `run-size` (the dispatch check and its handler), `keep`, `set-drive-offset`, `expect-drive-offset` and the `(offset)` placeholder. Verb handlers live beside the other verb handlers; the pure halves are in `run_sizes.py` and `script.py`.
     # **4314 -> 4297** (2026-09-24, #37 one home per setting): down: the setting validator moved to `settings_validation.field_error`.
-    "uiscript/runner.py": 4297,  # +116: _do_expect_verification, the assertion section F never had,
+    # **4297 -> 4305 (2026-09-24)**: `set` calls the window's one
+    # `_refresh_setting_views` after a change, so open windows follow it.
+    "uiscript/runner.py": 4305,  # +116: _do_expect_verification, the assertion section F never had,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     "uiscript/script.py": 339,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the

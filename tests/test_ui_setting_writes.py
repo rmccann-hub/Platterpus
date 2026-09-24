@@ -265,8 +265,14 @@ def test_a_rip_locks_a_setup_and_updates_window_that_was_already_open(
         center.close()
 
 
-def test_a_script_set_reaches_an_open_setup_and_updates(make_window: Any) -> None:
-    """A change made elsewhere must not leave the box showing the old channel."""
+def test_a_window_save_reaches_an_open_setup_and_updates(make_window: Any) -> None:
+    """A change made through the window's save path moves the open box.
+
+    Named for the path it drives. It used to be called
+    `test_a_script_set_reaches_an_open_setup_and_updates` while calling
+    `_save_user_setting` directly, never the `set` verb, and a script's `set`
+    did NOT reach the box (2026-09-24). The verb's own tests are below.
+    """
     window = make_window()
     center = window.open_setup_center()
     try:
@@ -276,11 +282,79 @@ def test_a_script_set_reaches_an_open_setup_and_updates(make_window: Any) -> Non
         center.close()
 
 
+def _run_script(window: Any, text: str) -> list[Any]:
+    """Run ``text`` through the real script runner on ``window``."""
+    import time
+
+    from platterpus.uiscript import runner as runner_mod
+    from platterpus.uiscript.script import parse
+
+    steps = parse(text)
+    assert all(step.ok for step in steps), [step.error for step in steps]
+    run = runner_mod.ScriptRunner(window)
+    run.start(steps)
+    deadline = time.monotonic() + 5.0
+    while run.running and time.monotonic() < deadline:
+        run._tick()
+        time.sleep(0.005)
+    assert not run.running, "the runner never finished"
+    return list(run._report.steps)
+
+
+def test_a_script_set_reaches_an_open_setup_and_updates(make_window: Any) -> None:
+    """The `set` verb itself, against the real window and an open Setup & Updates."""
+    from platterpus.uiscript.report import Outcome
+
+    window = make_window()
+    center = window.open_setup_center()
+    try:
+        assert center._app_beta_check.isChecked() is False
+        records = _run_script(window, "set update_channel beta")
+        assert [r.outcome for r in records] == [Outcome.PASS], records
+        assert window._config.update_channel == CHANNEL_BETA
+        assert center._app_beta_check.isChecked() is True
+    finally:
+        center.close()
+
+
+def test_a_script_set_reaches_an_open_console(make_window: Any) -> None:
+    """The console's own options follow a `set`, which is the gap as first found."""
+    from platterpus.uiscript.report import Outcome
+
+    window = make_window()
+    console = window.open_script_console()
+    try:
+        assert console._autorun_check.isChecked() is False
+        records = _run_script(window, "set test_script_autorun true")
+        assert [r.outcome for r in records] == [Outcome.PASS], records
+        assert window._config.test_script_autorun is True
+        assert console._autorun_check.isChecked() is True
+    finally:
+        console.close()
+
+
 # --- The script console -----------------------------------------------------
 
 
 def _console(save: Any = None, **kwargs: Any) -> ScriptConsoleDialog:
     return ScriptConsoleDialog(QWidget(), save_setting=save, **kwargs)
+
+
+def test_re_rendering_the_console_never_saves(qapp: QApplication) -> None:
+    """A refresh must not look like a click: nothing is written back."""
+    calls: list[tuple[str, object]] = []
+    console = _console(lambda f, v: calls.append((f, v)) or SettingWrite(True))
+    console.refresh_settings(
+        Config(
+            test_script_autorun=True,
+            test_script_allow_unsafe=True,
+            test_script_path="/x.txt",
+        )
+    )
+    assert console._autorun_check.isChecked() is True
+    assert console._unsafe_check.isChecked() is True
+    assert console._startup_script_edit.text() == "/x.txt"
+    assert calls == [], "re-rendering saved a setting"
 
 
 def test_the_console_carries_one_unsafe_box_and_it_is_the_setting(

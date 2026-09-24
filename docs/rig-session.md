@@ -1,19 +1,21 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.58        GitHub pre-release flag (every v0.* tag carries it);
-                           offered on the STABLE update channel. Installs df91ae7 by
-                           default (since 0.6.56); acceptance run in Quick / Standard /
-                           Full sizes, from a fixed baseline, at the drive's own offset.
-cyanrip     df91ae7        0.9.4-rc2+platterpus.15  (platterpus-fork-gdf91ae7)  <- PRODUCTION PIN
-                           approved by round 26, for Platterpus 0.6.55, on its real test;
-                           installed by default from 0.6.56 (0.6.55 installs 3e01bb3)
+Platterpus  v0.6.59        the release this run needs: v0.6.58's section A refuses .16,
+                           because it predates round 27. GitHub pre-release flag (every
+                           v0.* tag carries it); offered on the STABLE update channel.
+cyanrip     221a1df        0.9.4-rc2+platterpus.16  (platterpus-fork-g221a1df)  <- UNDER REVIEW
+                           round 27's subject, reviewed on a drive; keep it installed
+            df91ae7        0.9.4-rc2+platterpus.15  (platterpus-fork-gdf91ae7)  <- PRODUCTION PIN
+                           approved by round 26, for Platterpus 0.6.55, on its real test
 drive       Pioneer BDR-209D 1.51, read offset +667
-rounds 1-26 ALL CLOSED on our gate, bilateral GO. No round is reviewing a build;
-            round 27 opens on the fork's .16.
+rounds 1-26 ALL CLOSED on our gate, bilateral GO. Round 27 is OPEN, reviewing .16.
 ```
 
-> **Header last moved 2026-09-24, to 0.6.58**, which splits the acceptance run into
+> **Header last moved 2026-09-24, to round 27 and 0.6.59.** The fork opened round 27
+> on `.16` the same evening, and a quick run on 0.6.58 with `.16` installed stopped at
+> section A, as their lap 1 said it would. Before that, the same day, to 0.6.58, which
+> splits the acceptance run into
 > Quick / Standard / Full and takes the read offset from the drive in the machine.
 > Before that, the same day, to 0.6.57, which re-reads one-frame AccurateRip matches
 > by default; before that, to 0.6.56, the release that ships
@@ -37,55 +39,61 @@ originals are in [`docs/archive/`](archive/) with their audit trail intact.
 
 ## What the next run is for
 
-**Round 26's close condition, and it cannot be met any other way.** The fork's round
-26 lap 1 names `+platterpus.15` (`df91ae7`) and closes on the real test: our full
-acceptance run with `.15` installed **through this app**, from a release whose
-`PIN_UNDER_REVIEW` is `df91ae7`, with the bundle committed to both repositories. Round
-26 then closes on each side's reading of it, our 0.6.x release rolls `FORK_PIN` to
-`df91ae7`, and theirs is `+platterpus.16`.
+**Round 27's close condition, and it cannot be met any other way.** The fork's round
+27 lap 1 names `+platterpus.16` (`221a1df`) and closes on the real test: our **Full**
+acceptance run with `.16` installed **through this app**, from a release whose
+`PIN_UNDER_REVIEW` is `221a1df` (0.6.59), with the bundle committed to both
+repositories. Round 27 then closes on each side's reading of it (theirs across every
+rip, not only the whole-disc one), our release rolls `FORK_PIN` to `221a1df`, and
+theirs is `+platterpus.17`.
 
 **It is also a candidate full-green pass, which the project has never had.** The
-field-evidence ledger (`docs/testing.md` §5B) carries seven rows, every one
-`partial`. `0.7.100` is gated on a run with **zero failures in the ARCHIVAL
-sections**; `0.9.1` needs two such runs on at least two machines and two distros.
-This run's ripper is stamped `unapproved` in every report, correctly — round 26 has
-not closed — and that stamp is not an archival failure: it is the record saying
-truthfully that the approval is still pending.
+field-evidence ledger (`docs/testing.md` §5B) has no `full-green` row. `0.7.100` is
+gated on a run with **zero failures in the ARCHIVAL sections**; `0.9.1` needs two
+such runs on at least two machines and two distros. This run's ripper is stamped
+`unapproved` in every report, correctly — round 27 has not closed — and that stamp is
+not an archival failure: it is the record saying truthfully that the approval is still
+pending. **Only a Full run counts as evidence**; Quick and Standard are for checking
+the setup.
 
-**Why `.15` and not `.14`.** Section B sets `max_retries 3` (`-r 3`), and the
-fork measured that on `.14` a read of an unreadable sector at `-r 3` can hang; on
-`.15` it returns at the paranoia level we run. Both were measured by fault injection
-on a disc image, not on a drive, so this run is the first on hardware.
+**Why `.16` and not `.15`.** `.16` carries round 26's two fixes: every file is
+tagged `media: CD` whatever `-H` says (`.15` tagged a non-HDCD disc `HDCD` when
+decoding was requested), and an interrupted track is left out of the AccurateRip
+tally.
+
+**Why section F should hold this time.** In round 26, section F's whole-disc rip was
+killed 95 seconds in when the `ripping` container died underneath it. The container
+belonged to an earlier Platterpus window, which had started it and then been closed
+and replaced after an update (KDE keeps a closed app's unit alive while the container
+is inside it). From 0.6.59, a container Platterpus starts gets its own scope and
+survives any window closing. `platterpus --doctor` reports which app or terminal owns
+a container that is already running.
 
 ## Three steps
 
-1. **Put any ordinary audio CD in the drive** — the Police disc is the reference, but
-   the script needs no album name, track count or path — and open Platterpus from the applications menu. (It moved itself to
-   `~/Applications/` when you accepted the first-run offer, so a
-   `./platterpus-x86_64.AppImage` typed in `~/Downloads` is *No such file or
-   directory*, correctly.)
-2. **Update Platterpus to 0.6.55 first**, then **Tools → Setup & Updates… → Check for
-   cyanrip updates.** It offers `0.9.4-rc2+platterpus.15` (`df91ae7`) with a ⚠ saying
-   rips on it will read `unapproved`, and a line saying *"This is the build the
-   acceptance test needs"*. Choose **Install it anyway**; the build it should then
-   report is `platterpus-fork-gdf91ae7`. (0.6.54 cannot run this: its section A refuses
-   `.15` and stops in its first seconds. 0.6.53 demands round 23's `2cce60d`.) Then **Tools → Run
-   acceptance test…** and leave it — it holds sleep off, runs every section (4–6 hours;
-   2026-09-22 took 4h14m), and stops in its first seconds if the ripper is not `.15`.
-   When it ends, the app puts your own settings back itself (new in 0.6.55), and
-   the bundle's `SETTINGS.json` records the settings the run used.
-3. **Upload the one `platterpusbundle….tar.gz`** — on 0.6.55 it is in `~/Downloads`
-   (the next release keeps it, the rips and the screenshots in the run's one session
-   folder under `~/platterpus-rig/` instead) — here,
-   and point the cyanrip session at it too; they file it under
-   `docs/rig-<date>-df91ae7/` in their repository, as they did for 2026-09-22.
+1. **Put the reference disc in the drive** (any ordinary audio CD works; the script
+   needs no album name, track count or path) and open Platterpus from the applications
+   menu.
+2. **Update Platterpus to 0.6.59 first.** Then check **Tools → Setup & Updates…**: the
+   cyanrip line should read `platterpus-fork-g221a1df`. **Keep `.16`.** Do not choose
+   the build 0.6.58 suggested (`df91ae7`): that would re-test `.15`, which round 26
+   already reviewed. If `.16` is missing, **Check for cyanrip updates** offers it as
+   *"the build the acceptance test needs"*, with a ⚠ that rips on it read
+   `unapproved`; choose **Install it anyway**. Then **Tools → Run acceptance test…**,
+   choose **Full**, and leave it. It holds sleep off, runs every section (4–6 hours),
+   stops in its first seconds if the ripper is not `.16`, and puts your own settings
+   back when it ends. **During the run, don't close any other Platterpus window or any
+   terminal you have used distrobox in.**
+3. **Upload the one `platterpusbundle….tar.gz`** from the run's session folder under
+   `~/platterpus-rig/` here, and point the cyanrip session at it too. They file it
+   under `docs/rig-<date>-221a1df/` in their repository, as they did for round 26.
 
 **Optional, and the fork asked for it:** a disc with a known bad area would retire the
-rest of *"damaged media"* — how the drive fails, and how slowly. The BDR-209D reports
-C2 unsupported, so C2 stays `UNREACHABLE` whatever the disc. Cyanrip's `-f` is also
-still untested on hardware, and **the acceptance run does not exercise it**; the fork
-notes the reference disc could, since it is in AccurateRip and `+667` is known to be
-correct for it. That would be a separate step, not part of this run.
+rest of *"damaged media"*, and reach `.15`'s retry fix on a drive for the first time.
+The BDR-209D reports C2 unsupported, so C2 stays `UNREACHABLE` whatever the disc.
+Cyanrip's `-f` is also still untested on hardware, and **the acceptance run does not
+exercise it**; the reference disc could, since it is in AccurateRip and `+667` is
+known to be correct for it. That would be a separate step, not part of this run.
 
 ## Before you start
 
@@ -102,4 +110,4 @@ correct for it. That would be a separate step, not part of this run.
 
 ---
 
-*Last updated for Platterpus v0.6.58.*
+*Last updated for Platterpus v0.6.59.*

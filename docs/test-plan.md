@@ -901,4 +901,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.6.58.*
+*Last updated for Platterpus v0.6.59.*

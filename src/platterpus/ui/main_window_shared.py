@@ -109,6 +109,7 @@ if TYPE_CHECKING:
     from platterpus.drive_profiles import OffsetSource
     from platterpus.parsers.rip_log import RipLog
     from platterpus.report_types import TimingBlock
+    from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
     from platterpus.ui.dialogs.setup_center import SetupCenterDialog
     from platterpus.ui.disc_info_panel import DiscInfoPanel
     from platterpus.ui.drive_picker import DrivePicker
@@ -348,6 +349,10 @@ class MainWindowShared(_SeamBase):
     #: retained) by ProvisioningMixin; declared here because SettingsMixin
     #: refreshes what it shows when a setting it displays changes.
     _setup_center: SetupCenterDialog | None
+    #: The script console, while it is open. Owned by ProvisioningMixin; declared
+    #: here for the same reason: SettingsMixin re-renders its script options when
+    #: a script's `set` changes one.
+    _script_console: ScriptConsoleDialog | None
 
     # --- Child widgets -----------------------------------------------------
     _drive_picker: DrivePicker
