@@ -119,10 +119,10 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
   and the ripper check read the raw test-pin constant; only the picker had been moved onto
   `rig_installs_the_test_pin`. Fixed at all four through `accepted_rig_builds` /
   `current_test_pin`; `docs/testing.md` §5.bq.
-- [~] **Our lap 3** — what happened, the fix, and the operator's §6b allowance for **v0.6.55**.
-  Written and `--check` clean (digest `33c48427…`). **Held (`READY-TO-READ: no`)**: announcing it
-  needs the operator's own step in this session, and the release gate honours the override
-  only from a released lap.
+- [x] **Our lap 3** — what happened, the fix, and the operator's §6b allowance for **v0.6.55**.
+  **RELEASED 2026-09-24 on the maintainer's explicit word** (sha256 `ba57e7bd…`, 11,550 bytes, pinned
+  in `SENT_LAPS`), after fetching their branch (`583d6f3`) and confirming no round-26 lap after
+  their lap 1 (K1).
 - [ ] **0.6.55** — the release steps, after lap 3 is announced and `main`'s own CI is green.
 - [ ] **The real test** (operator), then each side's reading, then the closing laps; at the
   close, roll `FORK_PIN` to `df91ae7` in our release and move the approval record to round 26.
