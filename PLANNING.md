@@ -162,6 +162,7 @@ Platterpus/
         ├── app.py                       # QApplication construction + startup sequence
         ├── composition.py               # composition root: build adapters from config (shared by app + preflight)
         ├── config.py                    # TOML config load/save + defaults + schema
+        ├── user_settings.py             # which fields are the user's; apply only their edits
         ├── logging_setup.py             # logging configuration (rotating file + console)
         ├── diagnostics.py               # the one collector answering "did anything go wrong?" (log + report JSON)
         ├── paths.py                     # user dirs, config path, log path constants
@@ -303,6 +304,7 @@ Platterpus/
         │   ├── rip_progress.py          # live progress + AccurateRip results + log viewer
         │   ├── post_rip_record.py      # one finished album's report inputs, owned by the album
         │   ├── settings_dialog.py       # settings page
+        │   ├── status_colours.py        # theme-aware status colours, checked for contrast
         │   ├── unknown_album.py         # unknown-album helper flow
         │   ├── drive_setup_dialog.py    # drive-setup wizard (AccurateRip-list + manual offset; KDD-15)
         │   ├── host_setup_dialog.py     # host-setup wizard (no-terminal setup-host.sh; KDD-17c)
@@ -312,6 +314,7 @@ Platterpus/
         │   └── dialogs/
         │       ├── __init__.py
         │       ├── centering.py         # QDialog base that centres itself on the parent window
+        │       ├── fit_scroll_area.py   # dialog-body scroll area that asks for all its content
         │       ├── auto_center.py       # app-wide event filter centring QMessageBox/QFileDialog too
         │       ├── pending_installs.py  # tier (b) queued installs dialog
         │       ├── manual_install.py    # tier (c) copyable search string dialog
@@ -350,6 +353,7 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`app.py`** — builds the `QApplication`, constructs the adapters via `composition` (the shared composition root), instantiates the `DependencyManager` and runs its initial check (which may show install dialogs before the main window appears), then constructs and shows the `MainWindow`. Wires logging early so any failure during startup is captured.
 - **`composition.py`** — the composition root: `build_backend(cfg)` (constructs the cyanrip backend + the host-exported-path fallback) and `build_musicbrainz_client()` plus the shared `CONTACT_URL`. Both `app.py` (the GUI) and `preflight.default_context()` (the `--doctor` diagnostic) build their adapters here, so the two can never wire them differently. Construction does no I/O. (KDD-21.)
 - **`config.py`** — pure-Python TOML config loader/saver. Reads `~/.config/platterpus/config.toml` via `tomllib` (stdlib in 3.11+), writes via `tomli-w`. Defines the default config dict and a schema version. Atomic writes (temp file + rename) so a crash mid-save doesn't corrupt the file.
+- **`user_settings.py`** — which `Config` fields are the USER'S (everything but `APP_STATE_FIELDS`), a snapshot of them, and `apply_user_edits` (Settings' OK writes back only what the user changed, so a value saved while the dialog was open is not reverted). Pure; shared by the Settings dialog, the acceptance run's restore, and the rip report's settings record.
 - **`logging_setup.py`** — configures Python's `logging` module once at startup. Rotating file handler at `~/.local/share/platterpus/log.txt`, plus a console handler at INFO. Project modules use `logging.getLogger(__name__)` everywhere; no module configures handlers itself.
 - **`diagnostics.py`** — the single process-wide collector that answers *"did anything go wrong on this rip, and what?"*. Every subsystem records a `Diagnostic` (severity, namespaced `subsystem.what` code, message, detail, tool, argv, tri-state exit code, where) and **one call writes to two sinks**: the text log *and* the report's `diagnostics` block (schema v16) — so the two artifacts can never describe the same event differently, which is how a fact captured in one and absent from the other used to read as "nothing happened". Four rules are encoded rather than remembered: *recording also logs* (a diagnostic only in the JSON is invisible to a user reading `log.txt`); *never raises* (a collector that can throw turns a diagnosable failure into a crash); *truncation is stated* (bounded head **and** tail with a counted elision, because a silent truncation reads as completeness); and *tri-state* (`None` for an exit code we never collected is a real answer and is never written as `0`). Thread-safe, because workers record from their own threads.
 - **`paths.py`** — module-level constants for the user config dir, log dir, and any other path computed from `XDG_*` env vars or hard-coded fallbacks. Single source of truth so paths aren't recomputed at call sites.
@@ -506,7 +510,9 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`host_setup_dialog.py`** — `HostSetupDialog`, the no-terminal host-setup wizard (KDD-17c). Drives `deps/host_setup.py` off-thread via `HostSetupWorker` with live per-step progress; offered on first launch when the ripper is absent and on Tools → Set up Platterpus…. Installs the cyanrip backend into the container.
 - **`uninstall_dialog.py`** — `UninstallDialog`, the in-app Uninstaller (Tools → Uninstall Platterpus…, also launched directly by `platterpus --uninstall` from the menu entry). Confirmation gate + per-piece checkboxes (container, whipper.conf; the AppImage step appears only when running as one); drives `deps/host_teardown.py` via the shared worker; on success the main window offers to close itself (its settings no longer exist on disk).
 - **`help_dialogs.py`** — `AboutDialog` (version + Python/Qt/PySide6 versions + config/log/whipper paths) and `HelpDialog` (renders `help_content.USER_GUIDE`).
-- **`dialogs/centering.py`** — `CenteredDialog`, a `QDialog` base that centres itself over the parent window on first show (fixes a multi-monitor "modal on another screen looks frozen" report); best-effort, a no-op under native Wayland.
+- **`dialogs/centering.py`** — `CenteredDialog`, a `QDialog` base that centres itself over the parent window on first show (fixes a multi-monitor "modal on another screen looks frozen" report; best-effort, a no-op under native Wayland), and fits itself to its content and the screen: height grows to what its wrapped text needs at its real width, capped at the screen (2026-09-23 — a picker opened 360 px tall with every paragraph clipped on a 540 px logical screen).
+- **`status_colours.py`** — the one place a status colour is chosen: a light-theme and a dark-theme variant per level (ok / warn / neutral / error), picked from the widget's own window colour and each checked at ≥4.5:1 against its side's backgrounds (WCAG 2.2 AA). `SECONDARY_STYLE` de-emphasises with italics rather than dimming. Gated by `tests/test_readable_colours.py`, which also refuses a raw hex colour or `palette(mid)` in any other UI string.
+- **`dialogs/fit_scroll_area.py`** — sizing a dialog: `fit_dialog_to_screen` (what `CenteredDialog` calls on first show — the width its content needs, the height its text needs at that width, capped at the screen) and `FitScrollArea`, the scroll area for a dialog BODY whose length is not ours to fix: its size hint carries the whole content, so the dialog sizes to the text and the body scrolls only once the screen runs out, with the buttons kept outside it. Used by the cyanrip build picker and Setup & Updates; gated by `tests/test_ui_conformance.py`.
 - **`dialogs/auto_center.py`** — an application-wide event filter that centres *every* first-shown dialog — including the plain `QMessageBox`/`QFileDialog` static calls that can't subclass `CenteredDialog` — over the main window.
 - **`dialogs/pending_installs.py`** — `PendingInstallsDialog(QDialog)`. Tier (b) UI: per-item checkboxes, "Install selected" button, per-item progress feedback. Backed by `QueuedInstaller`.
 - **`dialogs/manual_install.py`** — `ManualInstallDialog(QDialog)`. Tier (c) UI: shows missing item, minimum version, why it can't auto-install, copyable search string in a read-only `QLineEdit`. Primary action: Copy. Secondary: Close.
@@ -1222,7 +1228,7 @@ Three consequences, now standing:
 
 ---
 
-*Last updated for Platterpus v0.6.54.*
+*Last updated for Platterpus v0.6.55.*
 ### KDD-35 — A version number is a claim about the field, not about CI (decided 2026-08-19)
 
 **Decision.** Version thresholds are gated on *evidence from hardware in people's

@@ -122,8 +122,8 @@ class DependencyMixin(MainWindowShared):
     def _on_check_dependencies(self) -> None:
         """Run the dependency subsystem with GUI-backed resolvers.
 
-        Runs the probe OFF the GUI thread (Tools → Check dependencies and the
-        Settings button both land here): ``check_all()`` shells out per
+        Runs the probe OFF the GUI thread (Setup & Updates → Check dependencies
+        and the launch-time check both land here): ``check_all()`` shells out per
         dependency and enters the Distrobox container, which is slow on a cold
         start and would otherwise freeze the window. The summary popup shows when
         the probe finishes.
@@ -233,7 +233,7 @@ class DependencyMixin(MainWindowShared):
         missing ones (dialogs), then show the summary.
 
         ``report`` is None only if the off-thread probe crashed. That used to be a
-        silent ``return``: a user who chose **Tools → Check dependencies** got no
+        silent ``return``: a user who chose **Check dependencies** got no
         window, no message and no change — indistinguishable from a dead menu item —
         with the traceback going only to a log file that is INFO-only by default. A
         user-initiated action must never no-op silently, so when the user asked for
@@ -404,7 +404,7 @@ class DependencyMixin(MainWindowShared):
                 "✓ Everything required is installed — you're ready to rip.\n\n"
                 f"Just so you know, {plural} installed. None of it is needed to "
                 f"rip:\n\n{bullets}\n\nInstall it now? (You can always do this "
-                "later from Tools → Settings → Check dependencies.)"
+                "later from Tools → Setup & Updates… → Check dependencies.)"
             )
         else:
             lead = (
@@ -425,7 +425,8 @@ class DependencyMixin(MainWindowShared):
         QMessageBox.information(
             self,
             "Optional components",
-            "Done. Re-run Tools → Check dependencies to confirm what's now "
+            "Done. Re-run Tools → Setup & Updates… → Check dependencies to "
+            "confirm what's now "
             "installed. (Picard and flac take effect immediately; if flac was "
             "set up via the container wizard, it's ready now too.)",
         )

@@ -1,4 +1,5 @@
-"""A QDialog base that centres itself on the parent window when first shown.
+"""A QDialog base that centres itself on its parent window, and fits its content
+and the screen, when first shown.
 
 Real-user report (2026-06-30): on a multi-monitor desktop a first-run modal
 popped up on a *different* screen from the main window, so the (application-
@@ -17,9 +18,11 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import QRect
+from PySide6.QtCore import QRect, QSize
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import QApplication, QDialog, QWidget
+
+from platterpus.ui.dialogs.fit_scroll_area import fit_dialog_to_screen
 
 log = logging.getLogger(__name__)
 
@@ -166,6 +169,13 @@ class CenteredDialog(QDialog):
     #: default deliberately, they had simply never been sized.
     DEFAULT_MINIMUM_WIDTH: int = 560
 
+    #: Kept clear of the panel/taskbar and the window frame. The value Settings
+    #: measured for the same job (`SettingsDialog._SCREEN_MARGIN_PX`):
+    #: `availableGeometry` excludes reserved struts on most desktops but not the
+    #: frame Qt adds around the dialog, and an OK button sitting exactly on the
+    #: screen edge is the same defect in a milder form.
+    SCREEN_MARGIN_PX: int = 64
+
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 — Qt override
         # Applied HERE rather than in `__init__` because a subclass populates its
         # layout after calling `super().__init__()`, so at construction time there
@@ -179,6 +189,8 @@ class CenteredDialog(QDialog):
                 and not self.isMaximized()
             ):
                 self.setMinimumWidth(self.DEFAULT_MINIMUM_WIDTH)
+            if not self.isMaximized():
+                self._fit_content_to_screen()
         super().showEvent(event)
         if self._centered_once:
             return
@@ -191,6 +203,24 @@ class CenteredDialog(QDialog):
             self.windowTitle(),
         )
         center_on_anchor(self)
+
+    def available_screen_size(self) -> QSize:
+        """Usable area of the screen this dialog is on, or a small fallback.
+
+        A method so a test can constrain it, and the same shape as
+        `SettingsDialog.available_screen_size`, which this generalises. The
+        fallback is deliberately SMALL: guessing big on a headless or odd-screen
+        host would reproduce the very bug the fit exists to prevent, while a dialog
+        that opens smaller than it needed to is merely scrollable.
+        """
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is None:
+            return QSize(1024, 720)
+        return screen.availableGeometry().size()
+
+    def _fit_content_to_screen(self) -> None:
+        """Size to the content and the screen — see :func:`fit_dialog_to_screen`."""
+        fit_dialog_to_screen(self, self.available_screen_size(), self.SCREEN_MARGIN_PX)
 
     def done(self, result: int) -> None:
         """Log how the dialog closed, then close it.

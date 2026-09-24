@@ -197,7 +197,7 @@ class ScriptConsoleDialog(CenteredDialog):
         save_button.clicked.connect(self._on_save_transcript)
         buttons.addWidget(save_button)
 
-        help_button = QPushButton("&Commands", self)
+        help_button = QPushButton("Co&mmands", self)  # Alt+M: "&Close" has C
         help_button.clicked.connect(self._on_show_reference)
         buttons.addWidget(help_button)
 

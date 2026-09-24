@@ -605,7 +605,8 @@ def check_read_offset(
         "no read offset configured",
         hint=(
             "cyanrip needs a read offset to rip bit-perfectly — run the "
-            "drive-setup wizard (Settings → Re-detect…), or enter a known value "
+            "drive-setup wizard (Tools → Setup & Updates… → Set up drive…), or "
+            "enter a known value in Settings "
             "and tick Apply." + legacy
         ),
     )

@@ -27,6 +27,7 @@ format) plugs in at ``_maybe_offer_appimage_integration`` /
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import threading
 import time
@@ -43,6 +44,7 @@ if TYPE_CHECKING:  # import only for type hints — runtime import stays lazy
 
     from PySide6.QtCore import Signal
 
+    from platterpus.config import Config
     from platterpus.deps.host_setup import HostSetup
     from platterpus.sleep_inhibit import SleepInhibitor
     from platterpus.test_session import SessionLayout
@@ -110,6 +112,16 @@ class ProvisioningMixin(MainWindowShared):
     _acceptance_inhibit_note: str = ""
     #: The packaged acceptance script this session runs.
     _acceptance_script: Path | None = None
+    #: **The user's own settings, as they were when the session was armed.** The
+    #: script writes settings as it tests them, and it used to end by resetting
+    #: to the SHIPPED DEFAULTS — its own comment admitted it could do no better,
+    #: because "a script that writes a setting never captured the value it
+    #: overwrote". The app can: it snapshots here and puts the snapshot back on
+    #: every way a session ends. Real-user question that found it, 2026-09-23:
+    #: *"should an acceptance run be based on my settings or baked into the
+    #: run"* — asked by someone whose Archival Exact goal, beta ripper channel,
+    #: debug logging and EAC log would all have been switched off by the run.
+    _acceptance_user_config: Config | None = None
     #: The session folder, kept past the end of the session so the "the bundle
     #: could not be written" dialog can still point at the complete workspace.
     _acceptance_root: Path | None = None
@@ -677,6 +689,7 @@ class ProvisioningMixin(MainWindowShared):
         self._acceptance_root = layout.root
         self._acceptance_started_at = time.time()
         self._acceptance_script = script
+        self._acceptance_user_config = dataclasses.replace(self._config)
         self._acceptance_inhibit_note = ""
         # Cleared per session: a verdict left over from the PREVIOUS run would be
         # stamped on this one's closing dialog, which is the same "every field
@@ -915,6 +928,7 @@ class ProvisioningMixin(MainWindowShared):
         facts: dict[str, str] = {}
         transcript = ""
         artifact_dir: Path | None = None
+        settings_record = ""
         try:
             facts["sleep lock"] = self._acceptance_inhibit_note or "not determined"
             script = self._acceptance_script
@@ -936,8 +950,23 @@ class ProvisioningMixin(MainWindowShared):
             self._acceptance_run_verdict = self._acceptance_run_headline(report)
             facts["run outcome"] = self._acceptance_run_verdict
             artifact_dir = self._acceptance_artifact_dir(report)
+            from platterpus.user_settings import settings_record_text
+
+            # Before the restore below: afterwards `_config` is the user again.
+            settings_record = settings_record_text(
+                self._acceptance_user_config, self._config
+            )
         finally:
             self._release_acceptance_inhibitor()
+            # After the facts are read (they describe the run's own settings) and
+            # in the `finally`, so an exception while reading them cannot leave
+            # the user on the run's test values.
+            restored = self._restore_settings_after_acceptance()
+        facts["your settings"] = (
+            "restored after the run; it had changed " + ", ".join(restored)
+            if restored
+            else "unchanged by the run"
+        )
 
         # **A RUN WITH NOTHING IN IT GETS NO ARCHIVE AND NO FOLDER PROMPT.**
         # A precondition abort — the wrong ripper installed, the disc not
@@ -970,7 +999,11 @@ class ProvisioningMixin(MainWindowShared):
             return
 
         self._launch_acceptance_bundle(
-            layout, transcript=transcript, facts=facts, artifact_dir=artifact_dir
+            layout,
+            transcript=transcript,
+            facts=facts,
+            artifact_dir=artifact_dir,
+            settings_record=settings_record,
         )
 
     def _announce_run_with_nothing_to_send(
@@ -1144,6 +1177,7 @@ class ProvisioningMixin(MainWindowShared):
         transcript: str,
         facts: dict[str, str],
         artifact_dir: Path | None,
+        settings_record: str = "",
     ) -> None:
         """Pack the session into ONE file, on a daemon thread.
 
@@ -1231,7 +1265,16 @@ class ProvisioningMixin(MainWindowShared):
                     outcome="acceptance test session",
                     facts=facts,
                     album_dirs=albums,
-                    embedded_text={"DIAGNOSTICS.txt": diagnostics},
+                    embedded_text={
+                        "DIAGNOSTICS.txt": diagnostics,
+                        # Every user setting before and at the end of the run —
+                        # the bundle's config.toml is read after the restore.
+                        **(
+                            {"SETTINGS.json": settings_record}
+                            if settings_record
+                            else {}
+                        ),
+                    },
                 )
             except Exception as exc:  # noqa: BLE001 — must never crash the session
                 log.exception("could not pack the acceptance session")
@@ -1334,6 +1377,49 @@ class ProvisioningMixin(MainWindowShared):
         log.info("acceptance session ending: %s", reason)
         self._acceptance_layout = None
         self._release_acceptance_inhibitor()
+        # An aborted run is exactly the case the script's own final reset never
+        # reaches: stopped during the format sections, it would leave the user
+        # ripping WAV. So the restore belongs to every exit, not to the script.
+        self._restore_settings_after_acceptance()
+
+    def _restore_settings_after_acceptance(self) -> list[str]:
+        """Put the user's settings back; return which fields the run had changed.
+
+        Safe to call more than once — the snapshot is consumed, so the second
+        call is a no-op and cannot restore a stale copy over a later edit.
+        No SETTING is kept from the run: its values are test values, and even
+        the read offset it sets (`667`, the maintainer's drive) belongs to one rig
+        rather than to whoever runs the script. The app's own state
+        (:data:`~platterpus.config.APP_STATE_FIELDS`) is left as it now is.
+        """
+        saved = self._acceptance_user_config
+        self._acceptance_user_config = None
+        if saved is None:
+            return []
+        from platterpus.user_settings import changed_settings
+
+        # The user's SETTINGS only. The app's own bookkeeping moves on during a
+        # run for real reasons (a first-run offer made and answered), and putting
+        # the old value back would re-ask a question the user already answered —
+        # the first version of this did exactly that with `host_setup_prompted`.
+        changed = changed_settings(saved, self._config)
+        restored = dataclasses.replace(
+            self._config, **{name: getattr(saved, name) for name in changed}
+        )
+        self._config = restored
+        self._rip_controls.set_config(restored)
+        from platterpus.logging_setup import set_debug_logging
+
+        set_debug_logging(restored.debug_logging)
+        try:
+            self._save_config(restored)
+        except OSError as exc:
+            log.warning("acceptance session: could not save restored settings: %s", exc)
+        log.info(
+            "acceptance session: restored your settings (the run had changed %s)",
+            ", ".join(changed) or "nothing",
+        )
+        return changed
 
     def _acceptance_message(
         self,

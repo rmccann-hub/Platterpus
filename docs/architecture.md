@@ -211,6 +211,51 @@ Worker mechanics, all demonstrated in `workers/`:
   dialog.py::test_install_runs_off_the_gui_thread`), and drive the loop with a
   bounded `processEvents()` pump (see `docs/testing.md`), never `QThread.wait()`
   on the GUI thread (it deadlocks the queued `finished` signal).
+- **A dialog that edits a live object writes back only what the user changed.**
+  A modal dialog does not stop the application underneath it: other code keeps
+  writing the window's config while Settings is open, and the widgets are not
+  refreshed when it does. Reading the whole form back on OK therefore reverts
+  every change made in the meantime. It happened (2026-09-23, reproduced as the
+  save sequence `[6, 667]`): the drive wizard, opened from inside Settings, saved
+  a new read offset and OK wrote the old one back. The rule is
+  `settings_dialog.apply_user_edits`: snapshot what the widgets were loaded from,
+  and on OK apply only the fields whose widgets now differ. The same shape
+  applies to any restore: `_restore_settings_after_acceptance` puts back the
+  user's settings but not `config.APP_STATE_FIELDS`, because the first version
+  restored everything and would have re-asked the first-run setup question after
+  every acceptance run.
+- **Dialogs size to their text through the base class, never one at a time.**
+  `CenteredDialog._fit_content_to_screen` gives every dialog the height its
+  wrapped text needs at its real width, capped at the screen. A body whose length
+  is not ours to fix goes in a `FitScrollArea` (`ui/dialogs/fit_scroll_area.py`),
+  with the buttons outside it. Two dialogs had solved this separately (Settings
+  clamps to the screen; Drive Setup refuses to be shorter than its prose) and
+  thirteen had not, until a 540 px logical screen cut the build picker off
+  mid-sentence. The base class also refuses to be narrower than its content (a
+  checkbox or button cannot wrap), and grows once more by whatever a
+  `FitScrollArea` still cannot show at the real width.
+- **A UI rule is written ONCE and applied to every window, in every condition.**
+  Every defect in the 2026-09-23 report had the same root: a rule solved in one
+  window and never applied to the rest. `tests/test_ui_conformance.py` is the
+  matrix — every `CenteredDialog` (derived from the source), the main window, and
+  the states that show coloured status lines, under 22 conditions (14 standard
+  screen shapes, Breeze Dark, 150% text), against every rule: no clipped wrapped
+  text, fits the screen, scrolls only when capped, text contrast ≥ 4.5:1 measured
+  from the colours actually applied, no button smaller than we set or the style
+  asked for, no cut-off one-line text, no two controls sharing an Alt-key (per
+  window and per menu), and no nameless input. A new window is measured the day
+  it lands; a new rule reaches every window the day it is added; each rule has a
+  floor on what it examined and was revert-probed. Its first run found four real
+  defects the per-dialog gates had missed — and found that the contrast rule
+  examined no status line at all until windows were measured in a state that
+  shows one, which is why `STATES` exists.
+- **One door per action.** An action reachable from two places has two places
+  to go stale, and the second door is rarely maintained. Settings' "Check
+  dependencies" and "Re-detect…" duplicated Setup & Updates buttons and were
+  removed. The inverse check keeps it honest:
+  `tests/test_help_documents_the_menu.py` resolves every menu path the product
+  names against the real menus, and five named paths led nowhere when it was
+  written.
 - Use thread-safe primitives for cancellation flags — a plain `bool` set from
   the GUI thread and read by the worker is fine under the GIL; anything richer
   needs care.
@@ -1620,4 +1665,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.6.20.*
+*Last updated for Platterpus v0.6.55.*

@@ -556,11 +556,16 @@ def evaluate_offer(
         # pin two projects nominated for a hardware round is the more relevant fact
         # about a binary than where it sits in a sequence, and it is the one case
         # where reinstalling over it would wreck work in progress.
-        if fork_source.same_commit(installed, fork_source.FORK_TEST_PIN):
+        # `current_test_pin`, not `FORK_TEST_PIN`: the constant keeps the last
+        # test pin any round nominated, so read directly it told a rig still on
+        # round 21's `3952c03` not to reinstall over it while round 26 was
+        # reviewing another build (2026-09-24).
+        current = fork_source.current_test_pin()
+        if current and fork_source.same_commit(installed, current):
             return _test_pin_offer(channel, installed, retired=False)
         if any(
             fork_source.same_commit(installed, retired)
-            for retired in fork_source.SUPERSEDED_TEST_PINS
+            for retired in fork_source.retired_test_pins()
         ):
             return _test_pin_offer(channel, installed, retired=True)
         # Then ask THEIR document, which knows about releases published after this

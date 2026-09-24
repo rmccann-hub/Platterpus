@@ -57,6 +57,34 @@ Their verdict is `GO` and they pre-commit that their next lap after ours is `GO`
   re-rooted and our pin is orphaned". A fresh full clone showed neither; their own
   `c449a92` fixed the same trap in their tool. The clone is now unshallowed.
 
+## 2026-09-23 real-user report on 0.6.54 — clipped dialogs, a stale test pin, two doors per action
+
+Found by the maintainer in the build picker and Settings just before the round-26 test.
+None of it blocks that test: the run never clicks Re-detect, and the offset on the rig
+(667) is right. Queued for the next release, which needs its own §6b override while
+round 26 is open.
+
+- [x] **Dialogs clip wrapped text on a short logical screen** — reproduced at 960 × 540
+  (picker 360 px, 5 labels cut), fixed on `CenteredDialog` (fit to content, capped at the
+  screen) + `FitScrollArea` bodies for the picker and Setup & Updates; gated by
+  `tests/test_ui_conformance.py` (see below).
+- [x] **The picker offered round 21's test pin** — `ripper_choices` now follows
+  `rig_installs_the_test_pin`; the picker tests no longer lean on the stale row for a
+  two-row floor.
+- [x] **Settings OK reverted an offset saved while it was open** — reproduced (`[6, 667]`),
+  fixed by applying only user edits (`apply_user_edits`); window-level regression test.
+- [x] **Two doors to one action** — Settings' Check dependencies and Re-detect… removed;
+  five dead menu paths fixed; converse sweep in `tests/test_help_documents_the_menu.py`.
+- [x] **The acceptance run left the user on its test values** — the app snapshots and
+  restores the user's settings on every exit, leaving `APP_STATE_FIELDS` alone.
+- [x] **"Anything you can do to fix this globally?"** — one conformance matrix,
+  `tests/test_ui_conformance.py`: every window × 22 conditions × 8 rules. First run
+  found and fixed: duplicate Alt-keys in the script console, Setup & Updates and the
+  Tools menu; a nameless search field; a checkbox cut off at 150% text; a picker
+  that scrolled with screen to spare.
+- [ ] **Maintainer's question: acceptance tiers (quick / standard / full) and a fixed
+  starting baseline.** Recommendation given in chat; waiting on the answer before building.
+
 ## Round 26 — OPEN 2026-09-23 on `df91ae7` (`+platterpus.15`): the real test, installed through our app
 
 Their lap 1 (`cyanrip@db72862`, sha256 `95a03f49…`, 8,433 bytes, released) names `.15` and
@@ -83,8 +111,19 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
 - [x] **Our lap 2** — `PIN_UNDER_REVIEW` moved, 0.6.54 named, the override recorded, verdict `OPEN`.
   **RELEASED 2026-09-23 on the maintainer's word** (sha256 `8485afc7…`, 11,151 bytes, pinned in
   `SENT_LAPS`), after fetching their branch and confirming no round-26 lap after their lap 1.
-- [ ] **0.6.54** — the release steps in the round-24 section, dispatched after `main`'s own CI;
+- [x] **0.6.54** — the release steps in the round-24 section, dispatched after `main`'s own CI;
   `--release-gate --prerelease --tag v0.6.54` prints the override and passes.
+- [x] **0.6.54 released** — and the operator's first acceptance run on it stopped at section A
+  (2026-09-24): it refused `df91ae7`, the build under review, and accepted only round 21's
+  retired test pin `3952c03`. Our defect: section A, the manifest line, the dependency report
+  and the ripper check read the raw test-pin constant; only the picker had been moved onto
+  `rig_installs_the_test_pin`. Fixed at all four through `accepted_rig_builds` /
+  `current_test_pin`; `docs/testing.md` §5.bq.
+- [x] **Our lap 3** — what happened, the fix, and the operator's §6b allowance for **v0.6.55**.
+  **RELEASED 2026-09-24 on the maintainer's explicit word** (sha256 `ba57e7bd…`, 11,550 bytes, pinned
+  in `SENT_LAPS`), after fetching their branch (`583d6f3`) and confirming no round-26 lap after
+  their lap 1 (K1).
+- [ ] **0.6.55** — the release steps, after lap 3 is announced and `main`'s own CI is green.
 - [ ] **The real test** (operator), then each side's reading, then the closing laps; at the
   close, roll `FORK_PIN` to `df91ae7` in our release and move the approval record to round 26.
 - [ ] **Correct `fullacceptance.txt`'s `-r 3` comment** (*"not dangerous"*) with the next change
@@ -5141,4 +5180,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.54.*
+*Last updated for Platterpus v0.6.55.*

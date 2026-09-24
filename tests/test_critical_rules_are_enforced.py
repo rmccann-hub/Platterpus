@@ -1161,7 +1161,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # pin simply stays dark -- so the derivation is worth more than the line.
     "appimage_integration.py": 349,
     # **753 -> 784 on 2026-09-18**: the paired `integration_declined_version` field and the note recording why the path-only key reproduced the bug it replaced.
-    "config.py": 784,
+    # **784 -> 806 (2026-09-23)**: `APP_STATE_FIELDS`, the one list of fields the app
+    # writes for itself, which Settings carries over and the acceptance restore
+    # leaves alone. Named here because two surfaces must agree on it.
+    "config.py": 806,
     "cue_validate.py": 1257,
     "cyanrip_cli.py": 327,
     "deps/checks.py": 437,
@@ -1316,7 +1319,16 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # real-test mechanism and why `FORK_PIN` does not move with it; its release
     # sequence, its build tag in the `--consumer` accept-set with the contract that
     # licenses it, the re-derived same-program flag, and the round-26 pairing line.
-    "deps/fork_source.py": 2226,
+    # **2226 -> 2239 (2026-09-23)**: the menu stops offering a test pin the open
+    # round did not nominate, with why it is the same predicate the rig uses.
+    # **2239 -> 2328 (2026-09-24)**: `accepted_rig_builds`, `expected_rig_build_text`,
+    # `current_test_pin` and `retired_test_pins` — the one place that answers "which
+    # builds may the rig be on?", beside the predicate they derive from. Section A,
+    # the evidence manifest, the dependency report and the ripper check each derived
+    # it themselves from the raw test-pin constant, and on 2026-09-24 section A
+    # refused the build round 26 reviews (docs/testing.md §5.bq). Four copies became
+    # one function here, so this file grew and those shrank.
+    "deps/fork_source.py": 2328,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1335,7 +1347,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # part that stops somebody "simplifying" it back to a step or to always-on.
     "deps/host_teardown.py": 392,
     "deps/ripper_manifest.py": 608,
-    "deps/ripper_offer.py": 777,
+    # **777 -> 782 (2026-09-24)**: asks `current_test_pin()` / `retired_test_pins()`
+    # instead of the raw constant, and says why in four lines (§5.bq).
+    "deps/ripper_offer.py": 782,
     # +4 on 2026-09-04: one KNOWN_CODES entry (`ripper.secure_rerip_verdict`)
     # and the three comment lines saying why it is not a fatal. The registry is
     # this module's point — a code declared anywhere else would defeat it.
@@ -1396,7 +1410,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # and exactly wrong as an answer to the question a reader was asking. The
     # helper belongs here because the manifest is this module's product; splitting
     # it out would put the sentence and the reason for the sentence in two files.
-    "evidence_bundle.py": 1023,
+    # **1023 -> 1020 (2026-09-24): it SHRANK.** The expected-build line asks
+    # `accepted_rig_builds` instead of re-deriving it.
+    "evidence_bundle.py": 1020,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
     # 2026-09-03 diagnostics header named the approved build for a session that
@@ -1466,7 +1482,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **651 -> 661 (round 25 closed, 2026-09-23)**: `APPROVED_BY_ROUND` 24 -> 25 with
     # why a round that reviewed TEXT re-approves the same pin, and the app version
     # read off their closing lap as the rule requires.
-    "handshake_approval.py": 661,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # **661 -> 674 (2026-09-24)**: the retired-pin sentence can now say "no test pin
+    # is in use now" and name the build under review, instead of naming round 21's
+    # pin as the current one (§5.bq).
+    "handshake_approval.py": 674,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect
@@ -1477,7 +1496,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # called "Read offset override" — a name neither of them carries on screen —
     # and the number is inert without the tick-box, which the one-bullet version
     # had no room to say. Found by the new guide-vs-screen sweep, not by reading.
-    "help_content.py": 586,
+    # **586 -> 587 (2026-09-23)**: a menu path that named no real item now names the
+    # real one, wrapped onto a second line.
+    "help_content.py": 587,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1518,7 +1539,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # pure function would be the new-file-as-last-resort rule broken to satisfy
     # a line count.
     "parsers/rip_log.py": 883,  # +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
-    "preflight.py": 903,
+    # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
+    "preflight.py": 904,
     "read_speed_ladder.py": 367,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
@@ -1542,7 +1564,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # is why: five of eight rips said `"ran"` over a null result. The added lines
     # are mostly the account of how the existing guard could not fire — which is
     # the part a future reader has to have before they "simplify" it back.
-    "rip_report.py": 2416,  # +14: the two verification-issue codes promoted to named constants so the acceptance verb can grade on them instead of copying the vocabulary,
+    # +14: the two verification-issue codes promoted to named constants so the
+    # acceptance verb can grade on them instead of copying the vocabulary,
+    # **2416 -> 2430 (2026-09-24)**: schema v25, `settings.every_setting`. The key
+    # sits in the settings builder it extends and the history paragraph sits above
+    # `REPORT_SCHEMA_VERSION` with every other version's — the file's own rule is
+    # that a schema change is explained where the number lives. The derivation is
+    # in `user_settings.py`, so this is one call, not a list.
+    "rip_report.py": 2430,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -1611,14 +1640,24 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1578 -> 1562 (2026-09-21): it SHRANK.** Six menu items became one, so the
     # ratchet comes down with it — a recorded count above the real length is
     # silent room to grow, which the sibling test refuses for exactly that reason.
-    "ui/main_window.py": 1562,
+    # **1562 -> 1566 (2026-09-23)**: the dependency-check comment corrected (it
+    # named a Settings button as the only door), and Settings' OK applies edits.
+    # **1566 -> 1601 (2026-09-24)**: the page scroll area. The window's own
+    # central widget, so it belongs in the constructor that builds the widget
+    # tree — and it must be built top-down there, every child created in its
+    # final parent, because the other order segfaults under PySide6's garbage
+    # collector (the comment saying so is most of the growth). Plus three lines
+    # of Alt-key notes on the menu items whose letters moved, beside those items.
+    # This number was exceeded by commit 641a884 and pushed without a green
+    # suite; the check that would have caught it had been stopped.
+    "ui/main_window.py": 1601,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
     # of the growth is the comment explaining the launch-time race, which is the
     # part a reader needs and the part a reviewer would otherwise have to
     # reconstruct from two other files.
-    "ui/main_window_deps.py": 692,  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
+    "ui/main_window_deps.py": 693,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     "ui/main_window_drive.py": 555,
     "ui/main_window_helpers.py": 508,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
@@ -1636,7 +1675,16 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # opens the window that replaced six menu items. The queued split of this
     # file still stands and this is still not the commit for it: both additions
     # are about the dialogs this mixin already owns.
-    "ui/main_window_provision.py": 1423,
+    # **1423 -> 1493 (2026-09-23)**: the user's settings are snapshotted when an
+    # acceptance session is armed and restored on every exit, excluding the app's
+    # own state. It lives here because every exit path it hooks is here.
+    # **1493 -> 1509 (2026-09-24)**: the acceptance bundle's `SETTINGS.json`. It
+    # is captured in the finish handler because that is the one point where both
+    # snapshots exist — the user's, taken when the run was armed, and the run's,
+    # which the restore overwrites a line later. The logic is in the pure
+    # `user_settings.py`; what is here is the capture and the hand-off, and the
+    # restore got shorter by delegating to the same module.
+    "ui/main_window_provision.py": 1509,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -1732,7 +1780,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # other fields, so it was the worst one to leave unexplained — and every
     # tooltip test in this repo started from the set of tooltips, which cannot
     # report an absence. The sweep now starts from the set of controls.
-    "ui/settings_dialog.py": 1372,
+    # **1372 -> 1406 (2026-09-23)**: `apply_user_edits` — OK writes only what the
+    # user changed, so a value saved while the dialog was open is not reverted.
+    # Net of removing the two duplicate-door buttons.
+    # **1406 -> 1382 (2026-09-24): it SHRANK.** `apply_user_edits` moved to
+    # `user_settings.py`, the pure module the acceptance run and the rip report
+    # now share, which paid for the theme-aware colour lines that had taken the
+    # file to 1412.
+    "ui/settings_dialog.py": 1382,
     "ui/track_table.py": 802,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
@@ -1831,7 +1886,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # of the round's breaking changes, with this verb among the steps that passed.
     # The next reader to find "accept either" tempting needs the number, not the
     # rule.
-    "uiscript/runner.py": 4045,  # +116: _do_expect_verification, the assertion section F never had,
+    # **4045 -> 4011 (2026-09-24): it SHRANK.** Section A's accepted set is asked of
+    # `fork_source.accepted_rig_builds`; the derivation and its history moved there.
+    "uiscript/runner.py": 4011,  # +116: _do_expect_verification, the assertion section F never had,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,

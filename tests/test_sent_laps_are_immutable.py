@@ -87,6 +87,10 @@ SENT_LAPS: dict[str, str] = {
     # released on the maintainer's word 2026-09-23, after checking their branch held
     # no round-26 lap after their lap 1.
     "outbound/round-26-lap-02.md": "8485afc7f2a7b7e9e7e52733a38234d8d57210c56bf16ca6181ae80620ded0ff",
+    # Round 26 lap 3: OPEN — our 0.6.54's section A refused .15 (our defect), the
+    # fix, and the operator's §6b override for v0.6.55; released on the maintainer's
+    # word 2026-09-24, after checking their branch held no round-26 lap after lap 1.
+    "outbound/round-26-lap-03.md": "ba57e7bdbafc10bd67d000572124e2faf752c23d3ced8fc13fe343f3c90be26b",
     # Round 23 lap 2. **Peer-confirmed in their lap 3's `HANDSHAKE-INBOUND-HELD`**,
     # which names it at sha256 `4d1fd006...f38b8`, 18,686 bytes, read at
     # `platterpus@b5af9bec` — and their §D2 says they fetched the branch and

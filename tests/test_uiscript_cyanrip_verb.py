@@ -365,14 +365,20 @@ class TestTheUnderReviewFailureNamesTheRightBuild:
         self, window: QWidget, fake_capture: _FakeCapture
     ) -> None:
         """Non-triviality floor: a message check is worthless if the step always
-        fails. The test pin must still be accepted."""
+        fails. The build the rig is told to install must still be accepted.
+
+        This used `FORK_TEST_BUILD_TAG` — round 21's test pin, still held by the
+        constant in round 26 — and so asserted that a retired build passes, which
+        is the defect the maintainer's 2026-09-24 run stopped on
+        (`docs/testing.md` §5.bq). The floor is the build the app itself names.
+        """
         from platterpus.deps import fork_source
 
-        detail = self._message(
-            window,
-            fake_capture,
-            f"cyanrip 0.9.4 ({fork_source.FORK_TEST_BUILD_TAG})\n",
+        wanted = (
+            f"{fork_source.FORK_BRANCH}-g{fork_source.pin_the_rig_should_install()}"
         )
+        detail = self._message(window, fake_capture, f"cyanrip 0.9.4 ({wanted})\n")
         assert "--install-ripper" not in detail, (
-            f"the agreed test pin must PASS, not be told to reinstall: {detail!r}"
+            f"the build the rig is told to install must PASS, not be told to "
+            f"reinstall: {detail!r}"
         )
