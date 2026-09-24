@@ -227,6 +227,9 @@ class ScriptConsoleDialog(CenteredDialog):
         #: session so everything it makes stays in its one folder. Cleared when
         #: that run starts, so a later hand-started run is not redirected.
         self._contain_next_run_in: Path | None = None
+        #: The run size for the next run only (`size_next_run`); ``None`` runs the
+        #: whole script, which is every hand-driven run.
+        self._size_next_run: str | None = None
 
         if script_path:
             # A saved path is a statement of intent: load it, but say so in the
@@ -265,6 +268,15 @@ class ScriptConsoleDialog(CenteredDialog):
         asked owns the one bundle, and only for its own run.
         """
         self._contain_next_run_in = folder
+
+    def size_next_run(self, size: str) -> None:
+        """Run the next batch at ``size`` (Quick, Standard or Full). One-shot.
+
+        See :meth:`ScriptRunner.set_run_size`. One-shot for the same reason as
+        :meth:`contain_next_run_in`: a size left over from the acceptance session
+        must not quietly shrink the next hand-driven run.
+        """
+        self._size_next_run = size
 
     def load_file(self, path: Path) -> bool:
         """Load a script file into the editor. Returns whether it loaded.
@@ -354,6 +366,9 @@ class ScriptConsoleDialog(CenteredDialog):
         if self._contain_next_run_in is not None:
             runner.contain_in(self._contain_next_run_in)
             self._contain_next_run_in = None
+        if self._size_next_run is not None:
+            runner.set_run_size(self._size_next_run)
+            self._size_next_run = None
         runner.step_recorded.connect(self._on_step)
         runner.finished.connect(self._on_finished)
         self._runner = runner

@@ -42,6 +42,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 
 from platterpus import __version__, build_info
+from platterpus.uiscript import run_sizes
 from platterpus.uiscript.report import (
     CONCEPT,
     VERDICTS,
@@ -50,7 +51,13 @@ from platterpus.uiscript.report import (
     StepRecord,
     render,
 )
-from platterpus.uiscript.script import Step, sanitise_cyanrip_args
+from platterpus.uiscript.script import (
+    OFFSET_PLACEHOLDER,
+    Step,
+    args_as_preflight_sees_them,
+    expand_offset,
+    sanitise_cyanrip_args,
+)
 from platterpus.uiscript.tiers import PruneLedger, is_sweep, parse_tier
 from platterpus.uiscript.verbs import OPENABLE, VERBS
 
@@ -66,7 +73,7 @@ if TYPE_CHECKING:  # pragma: no cover — types only
 #: is not a step "contained in" the block it opens. One constant rather than two
 #: inline sets: the two rules must agree about what structural means, and two
 #: literals that must agree are two literals that eventually do not.
-_STRUCTURAL_VERBS: frozenset[str] = frozenset({"tier", "needs"})
+_STRUCTURAL_VERBS: frozenset[str] = frozenset({"tier", "needs", "run-size"})
 
 
 log = logging.getLogger(__name__)
@@ -359,7 +366,7 @@ def _preflight(steps: list[Step]) -> list[str]:
             continue
         if step.verb != "cyanrip":
             continue
-        refusal = sanitise_cyanrip_args(list(step.args))
+        refusal = sanitise_cyanrip_args(args_as_preflight_sees_them(list(step.args)))
         if refusal is not None:
             problems.append(f"L{step.line_no}: {step.source} — {refusal}")
     return problems
@@ -397,6 +404,14 @@ class ScriptRunner(QObject):
         self._needs: tuple[str, ...] = ()
         #: Which labelled blocks have failed, so dependents can be pruned.
         self._prune: PruneLedger = PruneLedger()
+        #: The run size chosen for this run (`set_run_size`), and the size the
+        #: current section declared with `run-size`. ``None`` before any
+        #: declaration, which every size runs.
+        self._run_size: str = run_sizes.DEFAULT
+        self._declared_size: str | None = None
+        #: The read offset `set-drive-offset` set in this run, for
+        #: `expect-drive-offset` and the `(offset)` placeholder. ``None`` until set.
+        self._drive_offset: int | None = None
         self._artifact_dir: Path | None = None
         #: Set by :meth:`contain_in`: the folder this run writes into instead of
         #: its own stamped one, and whether it still builds a bundle of its own.
@@ -501,11 +516,17 @@ class ScriptRunner(QObject):
         self._tier_label = ""
         self._needs = ()
         self._prune = PruneLedger()
+        # The CHOSEN size survives into the run (it was set before `start`); the
+        # DECLARED one does not, or a new run would begin inside the last run's
+        # final section.
+        self._declared_size = None
+        self._drive_offset = None
         self._report = RunReport(
             started_at=datetime.now(UTC).isoformat(timespec="seconds"),
             app_version=__version__,
             script_source=source,
             preflight=_preflight(self._steps),
+            run_size=self._run_size,
         )
         log.info(
             "ui script run starting: %d step(s), unsafe verbs %s",
@@ -696,6 +717,7 @@ class ScriptRunner(QObject):
         *,
         elapsed: float = 0.0,
         artifact: str = "",
+        declined_by_size: bool = False,
     ) -> None:
         structural = step.verb in _STRUCTURAL_VERBS
         # TIER 4 ASSERTS NOTHING, AND THE ENGINE GUARANTEES THAT — not the script
@@ -729,6 +751,8 @@ class ScriptRunner(QObject):
         record.structural = structural
         record.tier = self._tier
         record.tier_label = self._tier_label
+        record.run_size = self._declared_size
+        record.declined_by_size = declined_by_size
         # A FAIL or ERROR makes this block a broken prerequisite for anything that
         # `needs` it. Only these two: a BLOCKED block established nothing, and a
         # SKIPPED one was a decision — propagating from either turns one real
@@ -753,6 +777,25 @@ class ScriptRunner(QObject):
     def _execute(self, step: Step) -> None:
         if step.error:
             self._record(step, Outcome.ERROR, step.error)
+            return
+        # RUN SIZE: a step the chosen size does not include is DECLINED, recorded
+        # and never dropped, so a Quick transcript still shows every section it
+        # did not run. Checked before pruning and before the handler: a declined
+        # step must not be reported as prevented, and must not act. Section
+        # headers still run, so the transcript keeps its section boundaries, and
+        # so do the structural verbs, which state the run's shape.
+        if (
+            step.verb not in _STRUCTURAL_VERBS
+            and not _is_section_header(step)
+            and not run_sizes.includes(self._run_size, self._declared_size)
+        ):
+            self._record(
+                step,
+                Outcome.SKIPPED,
+                f"declined: this step is part of the {self._declared_size} run, "
+                f"and this is a {self._run_size} run",
+                declined_by_size=True,
+            )
             return
         # HANDLER FIRST, then the unsafe gate — the order carries the honesty.
         # Reversed, a script using `eval` (unsafe AND unimplemented) was told "this
@@ -862,6 +905,101 @@ class ScriptRunner(QObject):
         """
         self._needs = tuple(a.strip() for a in step.args if a.strip())
         self._record(step, Outcome.PASS, "needs " + ", ".join(self._needs))
+
+    def _do_run_size(self, step: Step) -> None:
+        """Declare the run size of the section this line opens.
+
+        Recorded as PASS: it states the section's size, it tests nothing. An
+        unknown size is an ERROR against its own line rather than a silent
+        default, because defaulting to Full would run a section the author meant
+        to keep out of a Quick run, and defaulting to Quick the opposite.
+        """
+        size = run_sizes.parse_size(step.args[0])
+        if size is None:
+            self._record(
+                step,
+                Outcome.ERROR,
+                f"'{step.args[0]}' is not a run size; use one of "
+                + ", ".join(run_sizes.ORDER),
+            )
+            return
+        self._declared_size = size
+        self._record(step, Outcome.PASS, f"run size: {size} (and every larger run)")
+
+    def _do_set_drive_offset(self, step: Step) -> None:
+        """Set the read offset for the drive in this machine, and say where it came from.
+
+        The order is the machine's own first. **An offset this machine is already
+        set to** (the override on) is kept: the user or the drive wizard put it
+        there, and on a drive the AccurateRip list does not carry it is the only
+        value there is. **Else the AccurateRip drive list's**, the same lookup the
+        app applies on a first rip. **Else FAIL**, naming the fix: a run with no
+        known offset rips every track at the wrong one, and every accuracy check
+        after it would fail for our reason. Written through the app's own offset
+        writer (`_set_read_offset_override`), which validates the range and saves.
+        """
+        window = self._window
+        config = getattr(window, "_config", None)
+        setter = getattr(window, "_set_read_offset_override", None)
+        if config is None or not callable(setter):
+            self._record(step, Outcome.ERROR, "no application window to set it on")
+            return
+        label, listed = _drive_in_offset_list(window)
+        if getattr(config, "override_read_offset", False):
+            value = int(config.read_offset)
+            source = "the offset this machine is already set to"
+            if listed is not None and listed != value:
+                source += f" (the AccurateRip list says {listed:+d} for {label})"
+        elif listed is not None:
+            value, source = listed, f"the AccurateRip drive list, for {label}"
+        else:
+            self._record(
+                step,
+                Outcome.FAIL,
+                f"the read offset for this drive is not known: {label or 'no drive is selected'} "
+                "is not in the AccurateRip drive list, and this machine has no "
+                "offset set. Set the drive up once with Tools → Setup & Updates… → "
+                "Set up drive…, then run again.",
+            )
+            return
+        if not setter(value):
+            self._record(step, Outcome.FAIL, f"the app refused read offset {value:+d}")
+            return
+        self._drive_offset = value
+        self._record(step, Outcome.PASS, f"read offset {value:+d}, from {source}")
+
+    def _do_expect_drive_offset(self, step: Step) -> None:
+        """The read offset is still the one `set-drive-offset` set, override on."""
+        config = getattr(self._window, "_config", None)
+        if self._drive_offset is None:
+            self._record(
+                step, Outcome.FAIL, "no set-drive-offset has run, so nothing to compare"
+            )
+            return
+        actual = getattr(config, "read_offset", None)
+        override = bool(getattr(config, "override_read_offset", False))
+        if actual == self._drive_offset and override:
+            self._record(step, Outcome.PASS, f"read offset {actual:+d}, override on")
+            return
+        self._record(
+            step,
+            Outcome.FAIL,
+            f"read offset is {actual!r} with the override {'on' if override else 'off'}; "
+            f"set-drive-offset set {self._drive_offset:+d}",
+        )
+
+    def set_run_size(self, size: str) -> None:
+        """Choose the run size for the NEXT run. Refuses a size it does not know.
+
+        Called before :meth:`start`, like :meth:`contain_in`. A running batch is
+        not resized: sections already judged would then mean a different size.
+        """
+        chosen = run_sizes.parse_size(size)
+        if chosen is None:
+            raise ValueError(f"unknown run size {size!r}")
+        if self.running:
+            raise RuntimeError("cannot change the run size of a running batch")
+        self._run_size = chosen
 
     def _do_wait(self, step: Step) -> None:
         try:
@@ -1346,6 +1484,18 @@ class ScriptRunner(QObject):
         from platterpus.paths import CYANRIP_BINARY_DEFAULT
 
         args = list(step.args)
+        # `(offset)` is the drive's read offset, the one `set-drive-offset` set:
+        # a script that typed a number here would be right for one drive only.
+        if any(OFFSET_PLACEHOLDER in arg for arg in args):
+            if self._drive_offset is None:
+                self._record(
+                    step,
+                    Outcome.FAIL,
+                    f"{OFFSET_PLACEHOLDER} could not be expanded: no set-drive-offset "
+                    "has run",
+                )
+                return
+            args = expand_offset(args, self._drive_offset)
         # NOT WHILE A RIP IS READING THE DISC.
         #
         # **Measured, 2026-08-24:** `cyanrip -N -x -I` opened /dev/sr0 **1.2
@@ -3533,6 +3683,25 @@ class ScriptRunner(QObject):
             f"through; a widget range is a convenience, not the validation.",
         )
 
+    def _do_keep(self, step: Step) -> None:
+        """``keep <config-field>`` — leave a setting as it is, and record its value.
+
+        A decision, stated where it is made, so a run's baseline covers every
+        setting: each one is either set to a known value or kept on purpose.
+        The value is recorded because a kept setting is still an input to every
+        rip after it, and an input the transcript does not name cannot be
+        reproduced. Only USER settings can be kept; the app's own bookkeeping is
+        not the operator's to decide.
+        """
+        from platterpus.user_settings import user_setting_names
+
+        field = step.args[0]
+        config = getattr(self._window, "_config", None)
+        if field not in user_setting_names() or config is None:
+            self._record(step, Outcome.ERROR, f"no user setting called {field!r}")
+            return
+        self._record(step, Outcome.PASS, f"kept: {field} = {getattr(config, field)!r}")
+
     def _do_expect(self, step: Step) -> None:
         """``expect <config-field> <value>`` — assert a setting equals a value."""
         self._compare_setting(step, contains=False)
@@ -3768,6 +3937,26 @@ class ScriptRunner(QObject):
 
 
 # --- Small helpers, kept module-level so they are testable without a runner ---
+
+
+def _drive_in_offset_list(window: object) -> tuple[str, int | None]:
+    """``(label, offset)`` of the selected drive in the AccurateRip drive list.
+
+    The same lookup the app's first-rip auto-apply uses. ``("", None)`` with no
+    drive selected; ``(label, None)`` for a drive the list does not carry.
+    """
+    picker = getattr(window, "_drive_picker", None)
+    database = getattr(window, "_offset_db", None)
+    drive = picker.current_drive() if picker is not None else None
+    if drive is None or database is None:
+        return "", None
+    label = f"{drive.vendor.strip()} {drive.model.strip()}".strip()
+    return label, database.lookup(drive.vendor, drive.model)
+
+
+def _is_section_header(step: Step) -> bool:
+    """A ``log --- X. title ---`` line: how every committed script marks a section."""
+    return step.verb == "log" and step.joined().startswith("--- ")
 
 
 def _visible_top_levels() -> list[QWidget]:

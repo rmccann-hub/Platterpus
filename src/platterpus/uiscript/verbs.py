@@ -508,6 +508,37 @@ _VERB_LIST: tuple[Verb, ...] = (
         "expect-refused <setting> <value> — assert the validator REFUSES this "
         "value and leaves the setting unchanged (the pass condition is a refusal)",
     ),
+    # The DRIVE's read offset, not a number typed into the script. The acceptance
+    # script said `set read_offset 667` — right for one drive on one rig, and wrong
+    # on every other machine, where it would have ripped the whole run at the
+    # wrong offset with every AccurateRip check failing for our reason, not the
+    # disc's. `(offset)` in a `cyanrip` line expands to the same value.
+    # A setting the run deliberately does NOT set, recorded as a decision. The
+    # acceptance baseline names every user setting as either `set` or `keep`, so a
+    # setting added tomorrow cannot quietly ride along with whatever value the
+    # operator happened to have; `tests/test_rig_scripts.py` enforces it.
+    Verb(
+        "keep",
+        1,
+        1,
+        "keep <config-field> — leave this setting as it is for the run, on purpose, "
+        "and record its value (the baseline sets or keeps every setting)",
+    ),
+    Verb(
+        "set-drive-offset",
+        0,
+        0,
+        "set-drive-offset — set the read offset for the drive in THIS machine: the "
+        "one it is already set to, or else the AccurateRip drive list's (fails if "
+        "neither is known)",
+    ),
+    Verb(
+        "expect-drive-offset",
+        0,
+        0,
+        "expect-drive-offset — assert the read offset is still the one "
+        "set-drive-offset set, with the override on",
+    ),
     Verb(
         # `expect-ripper-under-review` — the acceptance run's own subject, named
         # ONCE, in code, rather than copied into a committed text file.
@@ -594,6 +625,17 @@ _VERB_LIST: tuple[Verb, ...] = (
         None,
         "needs <label…> — the steps after this are PREVENTED (not skipped) if any "
         "named block already failed; the record names the prerequisite",
+    ),
+    # A run SIZE, not a tier (`tier` is round 18's pruning word, shared with the
+    # fork). Declared per section, and the size a section names is the SMALLEST it
+    # runs in, so Quick is inside Standard is inside Full by construction; see
+    # `uiscript/run_sizes.py`.
+    Verb(
+        "run-size",
+        1,
+        1,
+        "run-size <quick|standard|full> — the steps after this run in that size and "
+        "every larger one; a smaller run DECLINES them (recorded, never dropped)",
     ),
     # --- cyanrip, passed through for real ------------------------------------
     Verb(

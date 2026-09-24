@@ -18,6 +18,7 @@ from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import ClassVar
 
+from platterpus.uiscript.run_sizes import counts_as_evidence
 from platterpus.uiscript.tiers import is_sweep
 
 
@@ -154,6 +155,12 @@ class StepRecord:
     structural: bool = False
     tier: int | None = None
     tier_label: str = ""
+    #: The run size this step belongs to (``None`` before any ``run-size`` line),
+    #: and True when the chosen size DECLINED it. Only those declined steps are
+    #: left out of :attr:`RunReport.ok`: the operator chose a smaller run, so the
+    #: step is neither a failure nor a pass. Any other skip still fails ``ok``.
+    run_size: str | None = None
+    declined_by_size: bool = False
 
     def as_dict(self) -> dict[str, object]:
         data = asdict(self)
@@ -181,6 +188,10 @@ class RunReport:
     steps: list[StepRecord] = field(default_factory=list)
     ended_reason: str = ""
     used_unsafe: bool = False
+    #: Which run size was chosen (`uiscript/run_sizes.py`). Anything but ``full``
+    #: DECLINED part of the script on purpose, so its result is not evidence toward
+    #: a version gate or a handshake close, and the transcript says so at the top.
+    run_size: str = "full"
     #: Directory holding this run's screenshots, if any were taken.
     artifact_dir: str = ""
     #: Problems found by reading the whole script BEFORE step 1 ran — today, the
@@ -273,7 +284,12 @@ class RunReport:
         ratio here and there must never be one.
         """
         return (
-            all(step.outcome in GOOD for step in self.steps) and not self.ended_reason
+            all(
+                step.outcome in GOOD
+                or (step.declined_by_size and step.outcome is Outcome.SKIPPED)
+                for step in self.steps
+            )
+            and not self.ended_reason
         )
 
     @property
@@ -318,6 +334,10 @@ class RunReport:
             "script_source": _bounded(self.script_source),
             "ended_reason": self.ended_reason or None,
             "used_unsafe_verbs": self.used_unsafe,
+            # A smaller run declined sections on purpose. Written beside `ok` so a
+            # reader cannot count a green Quick run as the evidence a Full one is.
+            "run_size": self.run_size,
+            "counts_as_evidence": counts_as_evidence(self.run_size),
             "artifact_dir": self.artifact_dir or None,
             "preflight": list(self.preflight),
             "counts": self.counts(),
@@ -360,6 +380,15 @@ def render(report: RunReport) -> str:
         f"Platterpus UI script run — {report.started_at}",
         f"app: {report.app_version}",
     ]
+    head.append(f"run size: {report.run_size}")
+    if not counts_as_evidence(report.run_size):
+        # At the top for the same reason as the unsafe banner below: a smaller run
+        # declined sections on purpose, and a reader who counts its green result
+        # toward a version gate has been misled by the transcript, not by us.
+        head.append(
+            f"*** A {report.run_size.upper()} RUN: it declines part of the script, "
+            "so it is NOT evidence toward a version or a handshake close ***"
+        )
     if report.used_unsafe:
         # Loud, and at the top. A transcript produced with arbitrary code in play
         # is not the same evidence as one produced by the closed vocabulary, and
@@ -419,6 +448,13 @@ def render(report: RunReport) -> str:
         tail.append(
             "RESULT: gathered only — tier 4 asserts nothing, so this run is DATA "
             "for the next round, not evidence about this one"
+        )
+    elif report.ok and not counts_as_evidence(report.run_size):
+        # `ok` is True when nothing failed; a smaller run is ok with sections
+        # declined, and "all checks passed" would claim the ones it never ran.
+        tail.append(
+            f"RESULT: every step this {report.run_size} run ran passed; the "
+            "sections it declined are marked skip above"
         )
     else:
         tail.append(

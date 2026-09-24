@@ -592,13 +592,22 @@ class TestShippedScripts:
         this is the check that would catch a rip invocation missing `-N` (which
         would hang an unattended batch on an interactive prompt forever).
         """
-        from platterpus.uiscript.script import parse, sanitise_cyanrip_args
+        from platterpus.uiscript.script import (
+            args_as_preflight_sees_them,
+            parse,
+            sanitise_cyanrip_args,
+        )
 
         refused = [
             f"line {s.line_no}: {' '.join(s.args)!r} -> {reason}"
             for s in parse(script.read_text(encoding="utf-8"))
             if s.verb == "cyanrip"
-            and (reason := sanitise_cyanrip_args(list(s.args))) is not None
+            and (
+                reason := sanitise_cyanrip_args(
+                    args_as_preflight_sees_them(list(s.args))
+                )
+            )
+            is not None
         ]
         allowed = KNOWN_FOREIGN_REFUSALS.get(script.name, 0)
         assert len(refused) <= allowed, (
@@ -651,12 +660,18 @@ class TestShippedScripts:
         and so the number must shrink as the fork fixes its lines rather than
         quietly outliving them.
         """
-        from platterpus.uiscript.script import parse, sanitise_cyanrip_args
+        from platterpus.uiscript.script import (
+            args_as_preflight_sees_them,
+            parse,
+            sanitise_cyanrip_args,
+        )
 
         refused = sum(
             1
             for s in parse(script.read_text(encoding="utf-8"))
-            if s.verb == "cyanrip" and sanitise_cyanrip_args(list(s.args)) is not None
+            if s.verb == "cyanrip"
+            and sanitise_cyanrip_args(args_as_preflight_sees_them(list(s.args)))
+            is not None
         )
         allowed = KNOWN_FOREIGN_REFUSALS.get(script.name, 0)
         assert allowed == refused, (

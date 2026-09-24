@@ -1079,7 +1079,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # two files that must agree. Roughly two thirds of the +65 is comment, because
     # every one of these encodes a decision the fork and we made jointly and a
     # reader needs the reason, not the mechanics.
-    "uiscript/report.py": 428,
+    # **428 -> 464** (2026-09-24): `run_size` and `counts_as_evidence` in the report, the not-evidence banner, and `ok` forgiving ONLY size-declined steps.
+    "uiscript/report.py": 464,
     "adapters/accuraterip_offsets.py": 308,
     "adapters/accuraterip_offsets_data.py": 388,
     "adapters/cache_probe.py": 372,
@@ -1511,7 +1512,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # session folder (maintainer: *"stop polluting my home folder, keep this all
     # contained to 1 folder"*). The guide says where that folder is.
     # **589 -> 591** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The glossary and the Settings bullet say what matched and name no cause.
-    "help_content.py": 591,
+    # **591 -> 605** (2026-09-24): the User Guide's acceptance section describes the three run sizes and the baseline, and corrects its old ripper advice.
+    "help_content.py": 605,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1661,7 +1663,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # session folder (maintainer: *"stop polluting my home folder, keep this all
     # contained to 1 folder"*). The one-shot hand-off of that folder to the next
     # run, and why it is one-shot.
-    "ui/dialogs/script_console.py": 494,
+    # **494 -> 509** (2026-09-24): `size_next_run`, the one-shot run-size hand-off beside `contain_next_run_in`.
+    "ui/dialogs/script_console.py": 509,
     "ui/disc_info_panel.py": 319,
     "ui/drive_setup_dialog.py": 500,
     "ui/host_setup_dialog.py": 341,
@@ -1693,7 +1696,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # suite; the check that would have caught it had been stopped.
     # **1601 -> 1609 (2026-09-24, the 0.6.55 acceptance bundle)**: the release picker and
     # Settings dialog are freed after use (four and two were left alive, hidden).
-    "ui/main_window.py": 1609,
+    # **1609 -> 1611** (2026-09-24): the acceptance menu item gets a no-argument slot, so `triggered`'s bool never lands in `size`.
+    "ui/main_window.py": 1611,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -1733,7 +1737,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # contained to 1 folder"*). Pointing the rips at the session folder
     # for the run, handing the runner its folder, and reading the album roots
     # before the restore.
-    "ui/main_window_provision.py": 1526,
+    # **1526 -> 1589** (2026-09-24): the run-size chooser, asked before anything starts, and its plumbing into the session.
+    "ui/main_window_provision.py": 1589,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -1950,8 +1955,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # headline picture was a hidden dialog at every step).
     # **4121 -> 4125**: the headline screenshot is chosen by the runner's own window
     # (identity), after the full suite showed a class-name match picking a leftover.
-    "uiscript/runner.py": 4125,  # +116: _do_expect_verification, the assertion section F never had,
-    "uiscript/script.py": 318,
+    # **4125 -> 4314** (2026-09-24): `run-size` (the dispatch check and its handler), `keep`, `set-drive-offset`, `expect-drive-offset` and the `(offset)` placeholder. Verb handlers live beside the other verb handlers; the pure halves are in `run_sizes.py` and `script.py`.
+    "uiscript/runner.py": 4314,  # +116: _do_expect_verification, the assertion section F never had,
+    # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
+    "uiscript/script.py": 339,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
     # so a verb declared anywhere else would defeat the file. The comment is
@@ -1964,7 +1971,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # cannot live anywhere else, and the growth is the comment explaining why
     # `expect-rip-complete` could not state this claim (cyanrip is always invoked
     # `-o flac`, so its log is identical whether our transcode ran or not).
-    "uiscript/verbs.py": 759,  # +46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,
+    # **759 -> 801** (2026-09-24): four verbs, `run-size`, `keep`, `set-drive-offset` and `expect-drive-offset`. The table is the vocabulary's security boundary, so a verb is an entry here by design.
+    "uiscript/verbs.py": 801,  # +46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,
     "update_install.py": 304,
     # **521 -> 530** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The banner and the CTDB reconciliation say what matched.
     "verdict.py": 530,

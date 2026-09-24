@@ -133,7 +133,11 @@ def test_every_scripted_cyanrip_invocation_survives_the_sanitiser(path: Path) ->
     for step in uiscript.parse(path.read_text(encoding="utf-8")):
         if step.verb != "cyanrip":
             continue
-        refusal = uiscript.sanitise_cyanrip_args(list(step.args))
+        # As the runner's preflight sees it: `(offset)` stands in as a valid value
+        # here and is range-checked on the real one when the step runs.
+        refusal = uiscript.sanitise_cyanrip_args(
+            uiscript.args_as_preflight_sees_them(list(step.args))
+        )
         marked = _refusal_is_declared(lines, step.line_no)
         argv = f"cyanrip {' '.join(step.args)}"
         if refusal is not None and not marked:
@@ -2999,6 +3003,10 @@ _DELIBERATELY_NOT_RESTORED: dict[str, str] = {
 }
 
 
+#: The rig drive's read offset, for the simulation of `set-drive-offset` only.
+_RIG_OFFSET: int = 667
+
+
 def _simulate(script_text: str) -> Config:
     """Replay every `set` in the script against a real Config.
 
@@ -3010,6 +3018,14 @@ def _simulate(script_text: str) -> Config:
     config = Config()
     for raw in script_text.splitlines():
         parts = raw.strip().split()
+        # `set-drive-offset` writes the two offset fields through the app's own
+        # writer. On the rig that is the BDR-209D's +667 with the override on;
+        # the value only has to be non-default for this simulation to see it.
+        if parts == ["set-drive-offset"]:
+            config = dataclasses.replace(
+                config, read_offset=_RIG_OFFSET, override_read_offset=True
+            )
+            continue
         if len(parts) < 3 or parts[0] != "set":
             continue
         field, value = parts[1], " ".join(parts[2:])
@@ -3096,3 +3112,93 @@ def test_the_simulation_expands_goal_presets() -> None:
     fresh = Config()
     assert fresh.secure_rerip_dynamic is True
     assert fresh.recompress_flac_after_rip is False
+
+
+# --- the baseline: every user setting set or kept --------------------------
+
+
+#: Baseline values that are deliberately NOT the shipped default, with the reason.
+_BASELINE_NOT_DEFAULT: dict[str, str] = {
+    "debug_logging": "the run logs verbosely so a 4am defect is diagnosable",
+}
+
+
+def _baseline() -> tuple[dict[str, str], list[str], list[str]]:
+    """``(set values, kept fields, lines)`` from the script's preamble.
+
+    The preamble is everything before section A: it runs in every size, so a
+    baseline anywhere else would not be a baseline for every run.
+    """
+    lines = (
+        (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8").splitlines()
+    )
+    end = next(i for i, raw in enumerate(lines) if raw.startswith("log --- A. "))
+    preamble = lines[:end]
+    sets: dict[str, str] = {}
+    kept: list[str] = []
+    for raw in preamble:
+        parts = raw.strip().split(maxsplit=2)
+        if len(parts) == 3 and parts[0] == "set":
+            sets[parts[1]] = parts[2]
+        elif len(parts) == 2 and parts[0] == "keep":
+            kept.append(parts[1])
+    return sets, kept, preamble
+
+
+def test_the_baseline_sets_or_keeps_every_user_setting() -> None:
+    """A setting added tomorrow must be decided here, not borrowed from the operator.
+
+    Derived from the dataclass through `user_setting_names`, the same list the
+    rip report and the Settings dialog use, so this cannot drift from what a
+    user can actually set.
+    """
+    from platterpus.user_settings import user_setting_names
+
+    sets, kept, _lines = _baseline()
+    names = set(user_setting_names())
+    assert len(names) >= 30, "floor: the user-setting list has collapsed"
+    both = sorted(set(sets) & set(kept))
+    assert not both, f"set AND kept, so neither is the decision: {both}"
+    missing = sorted(names - set(sets) - set(kept))
+    assert not missing, (
+        "the acceptance baseline neither sets nor keeps these user settings, so a "
+        f"run would borrow the operator's values: {missing}"
+    )
+    extra = sorted((set(sets) | set(kept)) - names)
+    assert not extra, f"the baseline names settings that are not user settings: {extra}"
+
+
+def test_every_baseline_value_is_the_shipped_default_unless_named() -> None:
+    sets, _kept, _lines = _baseline()
+    defaults = Config()
+    wrong = {}
+    for field, value in sets.items():
+        coerced, problem = _coerce_setting(getattr(defaults, field), value)
+        assert not problem, f"{field}: {problem}"
+        if coerced != getattr(defaults, field) and field not in _BASELINE_NOT_DEFAULT:
+            wrong[field] = (value, getattr(defaults, field))
+    assert not wrong, f"baseline values that are not the shipped default: {wrong}"
+    stale = sorted(
+        f
+        for f in _BASELINE_NOT_DEFAULT
+        if f not in sets
+        or _coerce_setting(getattr(defaults, f), sets[f])[0] == getattr(defaults, f)
+    )
+    assert not stale, (
+        f"_BASELINE_NOT_DEFAULT lists fields that no longer differ: {stale}"
+    )
+
+
+def test_every_kept_setting_says_why_on_the_line_above() -> None:
+    """A `keep` is a decision, and a decision nobody wrote down is a gap."""
+    _sets, kept, lines = _baseline()
+    assert kept, "floor: the baseline keeps nothing, so this test measured nothing"
+    for index, raw in enumerate(lines):
+        if not raw.strip().startswith("keep "):
+            continue
+        above = index - 1
+        while above >= 0 and lines[above].strip().startswith("keep "):
+            above -= 1
+        assert above >= 0 and lines[above].strip().startswith("#"), (
+            f"`{raw.strip()}` has no reason written above it"
+        )
