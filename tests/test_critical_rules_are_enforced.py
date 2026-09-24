@@ -1321,7 +1321,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # licenses it, the re-derived same-program flag, and the round-26 pairing line.
     # **2226 -> 2239 (2026-09-23)**: the menu stops offering a test pin the open
     # round did not nominate, with why it is the same predicate the rig uses.
-    "deps/fork_source.py": 2239,
+    # **2239 -> 2328 (2026-09-24)**: `accepted_rig_builds`, `expected_rig_build_text`,
+    # `current_test_pin` and `retired_test_pins` — the one place that answers "which
+    # builds may the rig be on?", beside the predicate they derive from. Section A,
+    # the evidence manifest, the dependency report and the ripper check each derived
+    # it themselves from the raw test-pin constant, and on 2026-09-24 section A
+    # refused the build round 26 reviews (docs/testing.md §5.bq). Four copies became
+    # one function here, so this file grew and those shrank.
+    "deps/fork_source.py": 2328,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1340,7 +1347,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # part that stops somebody "simplifying" it back to a step or to always-on.
     "deps/host_teardown.py": 392,
     "deps/ripper_manifest.py": 608,
-    "deps/ripper_offer.py": 777,
+    # **777 -> 782 (2026-09-24)**: asks `current_test_pin()` / `retired_test_pins()`
+    # instead of the raw constant, and says why in four lines (§5.bq).
+    "deps/ripper_offer.py": 782,
     # +4 on 2026-09-04: one KNOWN_CODES entry (`ripper.secure_rerip_verdict`)
     # and the three comment lines saying why it is not a fatal. The registry is
     # this module's point — a code declared anywhere else would defeat it.
@@ -1401,7 +1410,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # and exactly wrong as an answer to the question a reader was asking. The
     # helper belongs here because the manifest is this module's product; splitting
     # it out would put the sentence and the reason for the sentence in two files.
-    "evidence_bundle.py": 1023,
+    # **1023 -> 1020 (2026-09-24): it SHRANK.** The expected-build line asks
+    # `accepted_rig_builds` instead of re-deriving it.
+    "evidence_bundle.py": 1020,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
     # 2026-09-03 diagnostics header named the approved build for a session that
@@ -1471,7 +1482,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **651 -> 661 (round 25 closed, 2026-09-23)**: `APPROVED_BY_ROUND` 24 -> 25 with
     # why a round that reviewed TEXT re-approves the same pin, and the app version
     # read off their closing lap as the rule requires.
-    "handshake_approval.py": 661,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # **661 -> 674 (2026-09-24)**: the retired-pin sentence can now say "no test pin
+    # is in use now" and name the build under review, instead of naming round 21's
+    # pin as the current one (§5.bq).
+    "handshake_approval.py": 674,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect
@@ -1872,7 +1886,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # of the round's breaking changes, with this verb among the steps that passed.
     # The next reader to find "accept either" tempting needs the number, not the
     # rule.
-    "uiscript/runner.py": 4045,  # +116: _do_expect_verification, the assertion section F never had,
+    # **4045 -> 4011 (2026-09-24): it SHRANK.** Section A's accepted set is asked of
+    # `fork_source.accepted_rig_builds`; the derivation and its history moved there.
+    "uiscript/runner.py": 4011,  # +116: _do_expect_verification, the assertion section F never had,
     "uiscript/script.py": 318,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
